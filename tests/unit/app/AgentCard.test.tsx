@@ -105,14 +105,14 @@ describe('AgentCard', () => {
           id: 'review-provider',
           cliTool: undefined,
           runtimeKind: 'api',
-          provider: 'AI service needs review',
+          provider: 'Check AI service',
           model: 'Model not reported',
         }}
       />
     )
 
-    expect(screen.getByText('AI service needs review')).toBeDefined()
-    expect(screen.queryByText('AI service needs review AI service')).toBeNull()
+    expect(screen.getByText('Check AI service')).toBeDefined()
+    expect(screen.queryByText('Check AI service AI service')).toBeNull()
   })
 
   test('warns before assigning work to an offline agent', () => {

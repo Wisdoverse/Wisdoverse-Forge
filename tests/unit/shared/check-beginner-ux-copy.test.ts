@@ -434,6 +434,106 @@ export function runtimeKindShortLabel(kind) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags agent setup fallback copy that leaves beginners guessing', () => {
+    const cwd = fixture({
+      'src/app/entities/agent/model/display-labels.ts': `
+export function agentAiServiceLabel(provider) {
+  return 'AI service needs review'
+}
+`,
+      'src/app/entities/agent/model/agents.store.ts': `
+export function cliToolLabel(tool) {
+  return 'Work tool needs review'
+}
+`,
+      'src/app/entities/context/ui/InjectionPreviewModal.tsx': `
+function runtimeLabel(runtime) {
+  return runtime ? 'Work location needs review' : 'Work location not listed'
+}
+`,
+      'src/app/features/detail/HistoryTab.tsx': `
+function runSourceLabel(run) {
+  return run.provider ? 'an AI service that needs review' : 'a work tool that needs review'
+}
+`,
+      'src/app/features/settings/RuntimeSection.tsx': `
+function fallbackRuntimeLabel(runtime) {
+  return runtime ? 'Agent location needs review' : 'Agent location not listed'
+}
+function fallbackCliToolLabel(tool) {
+  return tool ? 'Work tool needs review' : 'Work tool not listed'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-setup-fallback-copy',
+          location: 'src/app/entities/agent/model/display-labels.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-setup-fallback-copy',
+          location: 'src/app/entities/agent/model/agents.store.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-setup-fallback-copy',
+          location: 'src/app/entities/context/ui/InjectionPreviewModal.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-setup-fallback-copy',
+          location: 'src/app/features/detail/HistoryTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-setup-fallback-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-setup-fallback-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:6',
+        }),
+      ])
+    )
+  })
+
+  it('accepts agent setup fallback copy that tells beginners what to check', () => {
+    const cwd = fixture({
+      'src/app/entities/agent/model/display-labels.ts': `
+export function agentAiServiceLabel(provider) {
+  return provider ? 'Check AI service' : 'Refresh AI service'
+}
+`,
+      'src/app/entities/agent/model/agents.store.ts': `
+export function cliToolLabel(tool) {
+  return tool ? 'Check work tool' : 'Refresh AI service'
+}
+`,
+      'src/app/entities/context/ui/InjectionPreviewModal.tsx': `
+function runtimeLabel(runtime) {
+  return runtime ? 'Check work location' : 'Refresh work location'
+}
+`,
+      'src/app/features/detail/HistoryTab.tsx': `
+function runSourceLabel(run) {
+  return run.provider ? 'an AI service you should check' : 'a work tool you should check'
+}
+`,
+      'src/app/features/settings/RuntimeSection.tsx': `
+function fallbackRuntimeLabel(runtime) {
+  return runtime ? 'Check agent location' : 'Refresh agent location'
+}
+function fallbackCliToolLabel(tool) {
+  return tool ? 'Check work tool setup' : 'Refresh work tool setup'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags clipboard failure copy that names browser clipboard access', () => {
     const cwd = fixture({
       'src/app/features/agents/CreateAgentModal.tsx': `

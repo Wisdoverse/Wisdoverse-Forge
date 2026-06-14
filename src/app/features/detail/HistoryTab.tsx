@@ -203,7 +203,7 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
   const runSource = runSourceLabel(run)
   const finished = run.finishedAt ? formatRelativeTime(run.finishedAt) : 'Still running'
   const status = readableRunStatus(run.status)
-  const showSupportReference = runSource.includes('needs review')
+  const showSupportReference = runSourceNeedsCheck(runSource)
 
   return (
     <div className="rounded-lg bg-apple-gray-6/70 px-3 py-2 dark:bg-white/[0.035]">
@@ -233,6 +233,10 @@ function supportRunReference(id: string): string {
   const trimmed = id.trim()
   if (!trimmed) return 'not listed'
   return trimmed.length > 8 ? trimmed.slice(0, 8) : trimmed
+}
+
+function runSourceNeedsCheck(runSource: string): boolean {
+  return runSource.includes('you should check')
 }
 
 function runSourceLabel(run: TaskRunSummary): string {
@@ -279,7 +283,7 @@ function aiServiceLabel(providerName?: string): string | null {
     case 'local':
       return 'a local AI service'
     default:
-      return looksLikeSlug(trimmed, normalized) ? 'an AI service that needs review' : trimmed
+      return looksLikeSlug(trimmed, normalized) ? 'an AI service you should check' : trimmed
   }
 }
 
@@ -301,7 +305,7 @@ function workToolLabel(tool?: string): string | null {
     case '':
       return null
     default:
-      return 'a work tool that needs review'
+      return 'a work tool you should check'
   }
 }
 

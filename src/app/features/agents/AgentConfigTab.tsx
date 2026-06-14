@@ -332,7 +332,7 @@ function cliToolLabel(tool?: AgentInfo['cliTool'] | string): string {
     case '':
       return 'Refresh work tool setup'
     default:
-      return 'Work tool needs review'
+      return 'Check work tool setup'
   }
 }
 

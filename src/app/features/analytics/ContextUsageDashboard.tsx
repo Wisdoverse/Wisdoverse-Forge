@@ -54,8 +54,8 @@ function updatedAtLabel(timestamp: string): string {
 
 function runtimeLabel(runtime: string): string {
   const normalized = runtime.trim().toLowerCase()
-  if (!normalized) return 'Work location not listed'
-  return RUNTIME_LABELS[normalized] ?? 'Work location needs review'
+  if (!normalized) return 'Refresh work location'
+  return RUNTIME_LABELS[normalized] ?? 'Check work location'
 }
 
 function taskKindLabel(taskKind: string): string {

@@ -348,7 +348,7 @@ function aiServiceLabel(provider?: string | null): string | null {
     case '':
       return null
     default:
-      return 'AI service needs review'
+      return 'Check AI service'
   }
 }
 
@@ -366,7 +366,7 @@ function cliToolLabel(cliTool?: CliTool | string | null): string | null {
     case '':
       return null
     default:
-      return 'Work tool needs review'
+      return 'Check work tool'
   }
 }
 
@@ -384,7 +384,7 @@ function cliToolToProvider(cliTool?: CliTool | string | null): string | null {
     case '':
       return null
     default:
-      return 'Work tool needs review'
+      return 'Check work tool'
   }
 }
 

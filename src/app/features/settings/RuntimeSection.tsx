@@ -867,7 +867,7 @@ function fallbackRuntimeLabel(runtime: string): string {
     case 'container':
       return 'Managed workspace'
     default:
-      return runtime.trim() ? 'Agent location needs review' : 'Agent location not listed'
+      return runtime.trim() ? 'Check agent location' : 'Refresh agent location'
   }
 }
 
@@ -882,7 +882,7 @@ function fallbackCliToolLabel(tool: string): string {
     case 'opencode':
       return 'OpenCode'
     default:
-      return tool.trim() ? 'Work tool needs review' : 'Work tool not listed'
+      return tool.trim() ? 'Check work tool setup' : 'Refresh work tool setup'
   }
 }
 

@@ -121,7 +121,7 @@ describe('ChatView', () => {
     render(<ChatView agentId="unknown-provider-agent" />)
 
     const banner = screen.getByTestId('provider-agent-chat-banner')
-    expect(within(banner).getByText(/messages use AI service needs review/i)).toBeInTheDocument()
+    expect(within(banner).getByText(/messages use Check AI service/i)).toBeInTheDocument()
     expect(banner).not.toHaveTextContent(/future_provider/i)
     expect(banner).not.toHaveTextContent(/future provider/i)
   })

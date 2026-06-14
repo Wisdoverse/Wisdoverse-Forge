@@ -48,7 +48,7 @@ describe('runtime-kind specifications', () => {
   })
 
   it('does not expose unknown runtime kind slugs', () => {
-    expect(runtimeKindLabel('future_runtime' as never)).toBe('Work location needs review')
+    expect(runtimeKindLabel('future_runtime' as never)).toBe('Check work location')
     expect(runtimeKindShortLabel('future_runtime' as never)).toBe('Review location')
     expect(runtimeKindLabel('future_runtime' as never)).not.toContain('future_runtime')
     expect(runtimeKindShortLabel('future_runtime' as never)).not.toContain('future_runtime')

@@ -101,8 +101,8 @@ describe('agents.store managedToAgentInfo backward-compat', () => {
       model: null,
     } as any)
 
-    expect(info.provider).toBe('Work tool needs review')
-    expect(info.model).toBe('Work tool needs review')
+    expect(info.provider).toBe('Check work tool')
+    expect(info.model).toBe('Check work tool')
     expect(info.provider).not.toContain('future_tool')
     expect(info.model).not.toContain('future_tool')
   })
@@ -115,7 +115,7 @@ describe('agents.store managedToAgentInfo backward-compat', () => {
       cliTool: null,
     } as any)
 
-    expect(info.provider).toBe('AI service needs review')
+    expect(info.provider).toBe('Check AI service')
     expect(info.provider).not.toContain('future_provider')
     expect(info.model).toBe('future-model')
   })

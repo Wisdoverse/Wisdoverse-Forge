@@ -37,7 +37,7 @@ export function agentAiServiceLabel(provider?: string | null): string {
       return 'OpenAI-compatible service'
   }
   if (label.toLowerCase().includes('service')) return label
-  if (/^[a-z0-9]+(?:[_-][a-z0-9]+)+$/i.test(label)) return 'AI service needs review'
+  if (/^[a-z0-9]+(?:[_-][a-z0-9]+)+$/i.test(label)) return 'Check AI service'
   return `${label} AI service`
 }
 

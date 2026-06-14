@@ -146,7 +146,7 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByText('Task story')).toBeDefined()
     expect(screen.getByText('Agent work history')).toBeDefined()
     expect(await screen.findByText('Work attempt: In progress')).toBeDefined()
-    expect(screen.getByText(/used a work tool that needs review/i)).toBeDefined()
+    expect(screen.getByText(/used a work tool you should check/i)).toBeDefined()
     expect(screen.getByText(/support reference run-1234/i)).toBeDefined()
     expect(screen.getAllByText(/waiting for account access/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/waiting for api credentials/i)).toBeNull()

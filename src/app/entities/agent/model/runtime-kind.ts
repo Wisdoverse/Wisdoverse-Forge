@@ -44,7 +44,7 @@ export function runtimeKindLabel(kind: AgentRuntimeKind | string | undefined): s
     case '':
       return 'Refresh work location'
     default:
-      return 'Work location needs review'
+      return 'Check work location'
   }
 }
 

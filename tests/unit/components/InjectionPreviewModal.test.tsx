@@ -96,9 +96,7 @@ describe('InjectionPreviewModal', () => {
     expect(
       screen.getByText(/saved notes and saved instructions the agent will see next/i)
     ).toBeDefined()
-    expect(
-      screen.getByText("2 items selected · Fits in this agent's note space (1,200 units available)")
-    ).toBeDefined()
+    expect(screen.getByText('2 items selected · Enough room for a few saved notes')).toBeDefined()
     expect(screen.getByText('Agent will use')).toBeDefined()
     expect(screen.getByText('Claude')).toBeDefined()
     expect(screen.getByText('Work location')).toBeDefined()
@@ -124,7 +122,7 @@ describe('InjectionPreviewModal', () => {
     expect(screen.getAllByText('Team space').length).toBeGreaterThan(0)
     expect(screen.queryByText('Organization')).toBeNull()
     expect(screen.getAllByText('Internal').length).toBeGreaterThan(0)
-    expect(screen.getByText('Uses about 120 units of note space')).toBeDefined()
+    expect(screen.getAllByText('Small saved item').length).toBeGreaterThan(0)
   })
 
   test('uses chat-only AI service wording for provider context reviews', () => {
@@ -164,7 +162,7 @@ describe('InjectionPreviewModal', () => {
     )
 
     expect(screen.getByText('Work location')).toBeDefined()
-    expect(screen.getByText('Work location needs review')).toBeDefined()
+    expect(screen.getByText('Check work location')).toBeDefined()
     expect(screen.queryByText(/future runtime/i)).toBeNull()
     expect(screen.queryByText('Unknown')).toBeNull()
   })
@@ -185,7 +183,7 @@ describe('InjectionPreviewModal', () => {
     )
 
     expect(screen.getByText('Work location')).toBeDefined()
-    expect(screen.getByText('Work location not listed')).toBeDefined()
+    expect(screen.getByText('Refresh work location')).toBeDefined()
     expect(screen.queryByText('Runtime')).toBeNull()
   })
 

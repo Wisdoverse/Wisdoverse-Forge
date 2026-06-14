@@ -134,7 +134,7 @@ describe('HistoryTab', () => {
     render(<HistoryTab task={makeTask()} />)
 
     expect(await screen.findByText('Agent work history')).toBeInTheDocument()
-    expect(screen.getByText(/Used a work tool that needs review/i)).toBeInTheDocument()
+    expect(screen.getByText(/Used a work tool you should check/i)).toBeInTheDocument()
     expect(screen.getByText(/Support reference run-tool/i)).toBeInTheDocument()
     expect(screen.queryByText(/future_tool/i)).toBeNull()
     expect(screen.queryByText(/future tool/i)).toBeNull()
@@ -187,7 +187,7 @@ describe('HistoryTab', () => {
 
     expect(await screen.findByText('Agent work history')).toBeInTheDocument()
     expect(screen.getByText(/Used a custom AI service/i)).toBeInTheDocument()
-    expect(screen.getByText(/Used an AI service that needs review/i)).toBeInTheDocument()
+    expect(screen.getByText(/Used an AI service you should check/i)).toBeInTheDocument()
     expect(screen.queryByText(/openai_compatible/i)).toBeNull()
     expect(screen.queryByText(/future_provider/i)).toBeNull()
     expect(screen.queryByText(/future provider/i)).toBeNull()

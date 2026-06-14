@@ -83,7 +83,7 @@ function workToolLabel(tool: string): string {
     case 'opencode':
       return 'OpenCode'
     default:
-      return 'Work tool needs review'
+      return 'Check work tool'
   }
 }
 

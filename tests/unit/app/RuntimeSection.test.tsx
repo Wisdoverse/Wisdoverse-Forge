@@ -323,8 +323,8 @@ describe('RuntimeSection', () => {
 
     render(<RuntimeSection />)
 
-    expect((await screen.findAllByText('Agent location needs review')).length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Work tool needs review').length).toBeGreaterThan(0)
+    expect((await screen.findAllByText('Check agent location')).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Check work tool setup').length).toBeGreaterThan(0)
     expect(screen.queryByText(/future_runtime/i)).toBeNull()
     expect(screen.queryByText(/future_tool/i)).toBeNull()
     expect(screen.queryByText('Unknown')).toBeNull()

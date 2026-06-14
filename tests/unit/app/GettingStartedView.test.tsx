@@ -505,7 +505,7 @@ describe('GettingStartedView', () => {
 
     render(<GettingStartedView />)
 
-    expect(await screen.findByText('AI service needs review')).toBeDefined()
+    expect(await screen.findByText('Check AI service')).toBeDefined()
     expect(screen.queryByText(/future_provider/i)).toBeNull()
     expect(screen.queryByText(/future provider/i)).toBeNull()
   })

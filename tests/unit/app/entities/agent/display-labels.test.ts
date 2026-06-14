@@ -8,8 +8,8 @@ describe('agent display labels', () => {
     expect(agentAiServiceLabel(' ')).toBe('Refresh AI service')
   })
 
-  it('keeps known and review-needed AI service values readable', () => {
+  it('keeps known and check-needed AI service values readable', () => {
     expect(agentAiServiceLabel('openai')).toBe('OpenAI AI service')
-    expect(agentAiServiceLabel('future_provider')).toBe('AI service needs review')
+    expect(agentAiServiceLabel('future_provider')).toBe('Check AI service')
   })
 })

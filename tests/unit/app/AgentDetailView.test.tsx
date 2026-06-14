@@ -139,7 +139,7 @@ describe('AgentDetailView', () => {
       />
     )
 
-    expect(screen.getAllByText('Status needs review').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Check agent status').length).toBeGreaterThan(0)
     expect(screen.queryByText(/warming_up/i)).toBeNull()
     expect(screen.queryByText(/warming up/i)).toBeNull()
   })
@@ -399,13 +399,13 @@ describe('AgentDetailView', () => {
   test('keeps review-needed AI service labels readable in agent details', () => {
     render(
       <AgentDetailView
-        agent={{ ...providerAgent, provider: 'AI service needs review' }}
+        agent={{ ...providerAgent, provider: 'Check AI service' }}
         onBack={() => {}}
       />
     )
 
-    expect(screen.getAllByText('AI service needs review').length).toBeGreaterThan(0)
-    expect(screen.queryByText(/AI service needs review AI service/i)).toBeNull()
+    expect(screen.getAllByText('Check AI service').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/Check AI service AI service/i)).toBeNull()
   })
 
   test('shows back button', () => {

@@ -58,8 +58,8 @@ describe('AgentConfigTab', () => {
         {
           id: 'future-tool',
           name: 'Future Tool Agent',
-          provider: 'Work tool needs review',
-          model: 'Work tool needs review',
+          provider: 'Check work tool',
+          model: 'Check work tool',
           status: 'idle' as const,
           tasksCompleted: 0,
           tasksInProgress: 0,
@@ -93,8 +93,8 @@ describe('AgentConfigTab', () => {
         {
           id: 'missing-tool',
           name: 'Missing Tool Agent',
-          provider: 'Work tool needs review',
-          model: 'Work tool needs review',
+          provider: 'Check work tool',
+          model: 'Check work tool',
           status: 'idle' as const,
           tasksCompleted: 0,
           tasksInProgress: 0,
@@ -153,7 +153,7 @@ describe('AgentConfigTab', () => {
   it('does not expose raw AI service slugs in instruction setup', () => {
     render(<AgentConfigTab agentId="future-provider" />)
 
-    expect(screen.getByText(/AI service needs review/i)).toBeInTheDocument()
+    expect(screen.getByText(/Check AI service/i)).toBeInTheDocument()
     expect(screen.getByText(/AI model selected/i)).toBeInTheDocument()
     expect(screen.queryByText(/future_provider/i)).toBeNull()
     expect(screen.queryByText(/future provider/i)).toBeNull()
@@ -282,7 +282,7 @@ describe('AgentConfigTab', () => {
     render(<AgentConfigTab agentId="future-tool" />)
 
     expect(screen.getByTestId('agent-cli-config-summary')).toBeInTheDocument()
-    expect(screen.getByText('Work tool needs review')).toBeInTheDocument()
+    expect(screen.getByText('Check work tool setup')).toBeInTheDocument()
     expect(screen.queryByText('future_tool')).toBeNull()
     expect(screen.queryByText('Unknown')).toBeNull()
   })

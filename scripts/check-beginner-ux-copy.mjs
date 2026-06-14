@@ -217,6 +217,18 @@ const RUNTIME_SIGN_IN_DEAD_END_PATTERNS = [/\bNo work tool sign-ins are connecte
 
 const RUNTIME_DEFAULT_LOCATION_DEAD_END_PATTERNS = [/\bNot set yet\b/i]
 
+const AGENT_SETUP_FALLBACK_DEAD_END_PATTERNS = [
+  /\bAI service needs review\b/i,
+  /\bWork tool needs review\b/i,
+  /\bWork tool not listed\b/i,
+  /\bAgent location needs review\b/i,
+  /\bAgent location not listed\b/i,
+  /\bWork location needs review\b/i,
+  /\bWork location not listed\b/i,
+  /\ban AI service that needs review\b/i,
+  /\ba work tool that needs review\b/i,
+]
+
 const LIVE_WORK_STATUS_DEAD_END_PATTERNS = [/\bStatus not reported\b/i]
 
 const TASK_DETAIL_RUN_STATUS_DEAD_END_PATTERNS = [/\bStatus not reported\b/i]
@@ -703,6 +715,24 @@ function hasRuntimeDefaultLocationDeadEndCopy(relFile, line) {
   return RUNTIME_DEFAULT_LOCATION_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAgentSetupFallbackDeadEndCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/entities/agent/model/display-labels.ts') &&
+    !relFile.endsWith('src/app/entities/agent/model/agents.store.ts') &&
+    !relFile.endsWith('src/app/entities/agent/model/runtime-kind.ts') &&
+    !relFile.endsWith('src/app/entities/context/ui/InjectionPreviewModal.tsx') &&
+    !relFile.endsWith('src/app/features/admin/AgentsPanel.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx') &&
+    !relFile.endsWith('src/app/features/analytics/ContextUsageDashboard.tsx') &&
+    !relFile.endsWith('src/app/features/detail/HistoryTab.tsx') &&
+    !relFile.endsWith('src/app/features/settings/RuntimeSection.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_SETUP_FALLBACK_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasLiveWorkStatusDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/agents/AgentTerminalTab.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -1164,6 +1194,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Default agent location copy must tell beginners to load setup before choosing a location.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentSetupFallbackDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-setup-fallback-copy',
+        location,
+        message:
+          'Agent setup fallback copy must tell beginners to refresh or check the exact setup field.',
         sample: line.trim(),
       })
     }

@@ -447,9 +447,9 @@ function runtimeLabel(runtime: string | null): string {
     case 'api':
       return 'Chat-only AI service'
     case '':
-      return 'Work location not listed'
+      return 'Refresh work location'
     default:
-      return 'Work location needs review'
+      return 'Check work location'
   }
 }
 
