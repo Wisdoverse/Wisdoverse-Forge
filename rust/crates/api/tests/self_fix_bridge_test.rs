@@ -315,3 +315,93 @@ async fn empty_change_fails_visibly_and_pushes_nothing() {
         std::env::remove_var("SELF_FIX_WORK_DIR");
     }
 }
+
+/// Regression test: a second `run_pr_bridge` call for the same task (same branch
+/// name) with a DIFFERENT workspace change must succeed (force-push) and leave the
+/// origin branch pointing at the new commit.
+///
+/// Without `--force` the second push is rejected non-fast-forward because rebuild
+/// yields a new sibling commit (different SHA, same base); the task gets stuck.
+/// With `--force` it succeeds. This test verifies the fix.
+#[tokio::test]
+async fn retry_with_different_commit_succeeds_via_force_push() {
+    if !it_enabled() {
+        eprintln!("SKIP retry_with_different_commit_succeeds_via_force_push: set SELF_FIX_IT=1 to run");
+        return;
+    }
+    if !git_available() {
+        eprintln!("SKIP: git not available");
+        return;
+    }
+    let root = TempRoot::new();
+    let (origin, base_sha) = setup_origin(&root);
+    unsafe {
+        std::env::set_var("SELF_FIX_WORK_DIR", root.join("work").to_string_lossy().to_string());
+    }
+
+    // The task_id is fixed; both runs use the same branch name (the idempotency key).
+    let task_id = Uuid::new_v4();
+    let branch = format!("agent/{task_id}");
+
+    // --- First run: workspace change C1 ---
+    let ws = root.join("workspace");
+    std::fs::create_dir_all(&ws).expect("mkdir workspace");
+    write_file(&ws.join("README.md"), "base readme\n");
+    write_file(&ws.join("rust/crates/auth/src/jwt.rs"), "// base jwt\n");
+    write_file(&ws.join("src/app/feature.ts"), "export const x = 1;\n");
+    write_file(&ws.join(".gitignore"), "ignored/\n");
+    // C1: add a new file "change_c1.txt"
+    write_file(&ws.join("change_c1.txt"), "first run change\n");
+
+    let provider = FakeGitProvider::new(origin.clone(), base_sha.clone());
+    let result1 = run_pr_bridge(
+        &provider,
+        task_id,
+        &base_sha,
+        &ws,
+        "self-fix: first run",
+        "[self-fix] first run",
+        "body",
+        &ImportLimits::default(),
+    )
+    .await
+    .expect("first run must succeed");
+
+    let (ok, sha_c1) = git_try(&origin, &["rev-parse", &branch]);
+    assert!(ok, "first run must have pushed the branch");
+    assert_ne!(sha_c1, base_sha, "C1 must advance past base");
+    assert_eq!(sha_c1, result1.pr.head_sha, "first PR head_sha must match pushed tip");
+
+    // --- Second run: a DIFFERENT workspace change C2 (simulates a retry after a
+    //     partial failure where `create_draft_pr` failed). The clone dir is
+    //     removed by `run_pr_bridge` at the start of each run. We mutate the
+    //     workspace so rebuild yields a sibling commit (same base, different tree).
+    // C2: remove "change_c1.txt", add "change_c2.txt" instead.
+    std::fs::remove_file(ws.join("change_c1.txt")).expect("remove c1 marker");
+    write_file(&ws.join("change_c2.txt"), "second run change\n");
+
+    let provider2 = FakeGitProvider::new(origin.clone(), base_sha.clone());
+    let result2 = run_pr_bridge(
+        &provider2,
+        task_id,       // same task → same branch name
+        &base_sha,
+        &ws,
+        "self-fix: second run (retry)",
+        "[self-fix] second run (retry)",
+        "body",
+        &ImportLimits::default(),
+    )
+    .await
+    .expect("second run (force-push retry) must succeed — would fail non-fast-forward without --force");
+
+    let (ok2, sha_c2) = git_try(&origin, &["rev-parse", &branch]);
+    assert!(ok2, "second run must have pushed the branch");
+    // The origin branch must now point at C2, not C1.
+    assert_ne!(sha_c2, sha_c1, "second push must have replaced C1 with a new sibling C2");
+    assert_ne!(sha_c2, base_sha, "C2 must still advance past base");
+    assert_eq!(sha_c2, result2.pr.head_sha, "second PR head_sha must match the new pushed tip");
+
+    unsafe {
+        std::env::remove_var("SELF_FIX_WORK_DIR");
+    }
+}

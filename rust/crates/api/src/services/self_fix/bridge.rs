@@ -101,8 +101,8 @@ impl GitProvider for crate::services::github_app::GithubAppClient {
     }
 }
 
-/// Deterministic per-task branch name. The PR Bridge is idempotent on this
-/// name: a re-run rebuilds and force-updates the same branch.
+/// Deterministic per-task branch name. The PR Bridge owns this branch
+/// exclusively for this task; retries force-push a new sibling commit onto it.
 #[allow(dead_code)]
 pub fn branch_name(task_id: Uuid) -> String {
     format!("agent/{task_id}")
@@ -158,12 +158,21 @@ fn rebuild_error_to_app(err: RebuildError) -> AppError {
 /// 2. `git clone` the token-bearing origin into it.
 /// 3. `rebuild_branch` the vetted `/workspace` content onto `base_sha`.
 /// 4. Sensitive-path check → choose `review_status`.
-/// 5. `git push` the rebuilt branch back to origin.
+/// 5. `git push --force` the rebuilt branch back to origin.
 /// 6. Open a draft PR.
 ///
 /// The token-bearing remote URL is fetched from `provider.authed_remote_url()`
-/// and passed straight to `git`; it is NEVER logged. Returns the opened PR and
-/// the selected review status; the caller persists them.
+/// and passed straight to `git` as a clone argument; it is NEVER logged.
+/// The token is visible in `ps` for the duration of the clone invocation and
+/// is accepted because it is a short-lived installation token and the server
+/// process is trusted. Returns the opened PR and the selected review status;
+/// the caller persists them.
+///
+/// The push uses `--force` because `agent/<task-id>` is exclusively owned and
+/// written by this bridge for this task: on a retry the re-clone yields a new
+/// sibling commit (different SHA, same base) and a plain push would be rejected
+/// non-fast-forward. Force-pushing the owned branch is the correct and intended
+/// behaviour.
 #[allow(dead_code)]
 pub async fn run_pr_bridge<G: GitProvider + ?Sized>(
     provider: &G,
@@ -226,10 +235,14 @@ pub async fn run_pr_bridge<G: GitProvider + ?Sized>(
     let review_status =
         if SensitivePathPolicy::touches_sensitive(&outcome.changed_files) { SENSITIVE_BLOCKED } else { IN_REVIEW };
 
-    // 5. Push the rebuilt branch back to origin (origin already has the token).
+    // 5. Force-push the rebuilt branch back to origin. --force is required because
+    //    each rebuild produces a new sibling commit (different SHA, same base); a
+    //    plain push after a partial-success retry would be rejected non-fast-forward.
+    //    `agent/<task-id>` is exclusively owned by this bridge for this task, so
+    //    replacing it is correct and intended.
     run_git_secret(
         Some(&clone_dir),
-        &["-c", "core.hooksPath=/dev/null", "push", "origin", &branch],
+        &["-c", "core.hooksPath=/dev/null", "push", "--force", "origin", &branch],
         "push",
     )
     .await?;

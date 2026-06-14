@@ -76,10 +76,11 @@ impl SelfFixService {
     ///
     /// Flow: require self-fix + a configured GitHub App → best-effort freeze the
     /// agent container → resolve the host workspace dir → pin `base_sha` →
-    /// clone + rebuild + push + open draft PR (in [`run_pr_bridge`]) → persist
-    /// the base SHA, PR metadata, and review status. On ANY failure after the
-    /// base SHA is pinned, the task is left with a visible error and no
-    /// half-written PR (the branch name is deterministic, so a re-run is safe).
+    /// clone + rebuild + force-push + open draft PR (in [`run_pr_bridge`]) →
+    /// persist the base SHA, PR metadata, and review status. On ANY failure after
+    /// the base SHA is pinned, the task is left with a visible error and no
+    /// half-written PR. The branch name is deterministic and the push uses
+    /// `--force`, so a retry that rebuilds a new sibling commit will succeed.
     #[allow(dead_code)]
     pub(crate) async fn open_pr(&self, scope: &TenantScope, task_id: Uuid) -> AppResult<SelfFixPrOutcome> {
         // 1. Load the task; require it is a self-fix task and GitHub is configured.
