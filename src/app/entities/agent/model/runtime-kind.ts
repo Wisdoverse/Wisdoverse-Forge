@@ -59,8 +59,8 @@ export function runtimeKindShortLabel(kind: AgentRuntimeKind | string | undefine
       return RUNTIME_KIND_SHORT_LABELS.api
     case undefined:
     case '':
-      return 'Not reported'
+      return 'Location missing'
     default:
-      return 'Needs review'
+      return 'Review location'
   }
 }

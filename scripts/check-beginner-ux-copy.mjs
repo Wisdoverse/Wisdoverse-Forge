@@ -136,6 +136,11 @@ const PROVIDER_CHECK_JARGON_PATTERNS = [
   /\bstill need Check\b/,
 ]
 
+const RUNTIME_SHORT_LABEL_JARGON_PATTERNS = [
+  /\breturn\s+['"`]Not reported['"`]/,
+  /\breturn\s+['"`]Needs review['"`]/,
+]
+
 const BEGINNER_JARGON_PATTERNS = [
   /\blocal agents?\b/i,
   /\bmanaged local agent\b/i,
@@ -211,6 +216,7 @@ function walk(dir, files) {
 
 function isUiCopyFile(relFile) {
   if (relFile === 'src/app/shared/api/legacy/AgentAPI.ts') return true
+  if (relFile === 'src/app/entities/agent/model/runtime-kind.ts') return true
   if (USER_VISIBLE_ERROR_FILE_PATTERNS.some((pattern) => pattern.test(relFile))) return true
   if (NON_UI_FILE_PATTERNS.some((pattern) => pattern.test(relFile))) return false
   if (NON_UI_PATH_PARTS.some((part) => relFile.includes(part))) return false
@@ -365,6 +371,11 @@ function hasProviderCheckJargonCopy(line) {
   return PROVIDER_CHECK_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasRuntimeShortLabelJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/entities/agent/model/runtime-kind.ts')) return false
+  return RUNTIME_SHORT_LABEL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function scanFile(file, relFile) {
   const lines = fs.readFileSync(file, 'utf8').split('\n')
   const findings = []
@@ -487,6 +498,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'AI service setup copy must describe the connection check instead of using button-label grammar.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasRuntimeShortLabelJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'runtime-short-label-copy',
+        location,
+        message:
+          'Compact work-location labels must name the missing location instead of using generic review placeholders.',
         sample: line.trim(),
       })
     }

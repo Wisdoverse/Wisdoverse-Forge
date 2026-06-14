@@ -220,6 +220,44 @@ export function providerReadinessSummary() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags generic compact work-location labels in the runtime label helper', () => {
+    const cwd = fixture({
+      'src/app/entities/agent/model/runtime-kind.ts': `
+export function runtimeKindShortLabel(kind) {
+  if (!kind) return 'Not reported'
+  return 'Needs review'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'runtime-short-label-copy',
+        location: 'src/app/entities/agent/model/runtime-kind.ts:3',
+      }),
+      expect.objectContaining({
+        type: 'runtime-short-label-copy',
+        location: 'src/app/entities/agent/model/runtime-kind.ts:4',
+      }),
+    ])
+  })
+
+  it('accepts compact work-location labels that name the missing location', () => {
+    const cwd = fixture({
+      'src/app/entities/agent/model/runtime-kind.ts': `
+export function runtimeKindShortLabel(kind) {
+  if (!kind) return 'Location missing'
+  return 'Review location'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags validation copy that does not explain the next change', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `

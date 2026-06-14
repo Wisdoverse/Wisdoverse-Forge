@@ -44,12 +44,12 @@ describe('runtime-kind specifications', () => {
 
   it('uses beginner-facing labels when runtime kind is missing', () => {
     expect(runtimeKindLabel(undefined)).toBe('Work location not reported')
-    expect(runtimeKindShortLabel(undefined)).toBe('Not reported')
+    expect(runtimeKindShortLabel(undefined)).toBe('Location missing')
   })
 
   it('does not expose unknown runtime kind slugs', () => {
     expect(runtimeKindLabel('future_runtime' as never)).toBe('Work location needs review')
-    expect(runtimeKindShortLabel('future_runtime' as never)).toBe('Needs review')
+    expect(runtimeKindShortLabel('future_runtime' as never)).toBe('Review location')
     expect(runtimeKindLabel('future_runtime' as never)).not.toContain('future_runtime')
     expect(runtimeKindShortLabel('future_runtime' as never)).not.toContain('future_runtime')
   })
