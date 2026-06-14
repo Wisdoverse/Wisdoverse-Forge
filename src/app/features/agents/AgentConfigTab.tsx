@@ -52,9 +52,17 @@ function promptProfileSaveErrorMessage(): string {
   return 'Agent instructions were not saved. Refresh this agent, confirm it is still a chat-only agent, then save again. Ask an admin to check your agent access if it keeps failing.'
 }
 
+function isMissingModelLabel(label: string): boolean {
+  const normalized = label.toLowerCase()
+  return (
+    normalized === 'unknown' ||
+    (normalized.includes('model') && normalized.includes('not reported'))
+  )
+}
+
 function modelLabel(model?: string | null): string {
   const label = model?.trim()
-  return label ? 'AI model selected' : 'Refresh agent details'
+  return label && !isMissingModelLabel(label) ? 'AI model selected' : 'Refresh AI model'
 }
 
 export function AgentConfigTab({ agentId }: AgentConfigTabProps) {

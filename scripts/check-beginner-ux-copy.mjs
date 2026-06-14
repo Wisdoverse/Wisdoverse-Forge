@@ -217,10 +217,18 @@ const TASK_SUPPORT_REFERENCE_DEAD_END_PATTERNS = [/\bSupport reference not repor
 
 const AGENT_CONFIG_DETAIL_DEAD_END_PATTERNS = [
   /\bAI model not reported\b/i,
+  /\bModel not reported\b/i,
+  /\bRefresh agent details\b/i,
   /\bWork tool not reported\b/i,
 ]
 
 const AGENT_AI_SERVICE_DEAD_END_PATTERNS = [/\bAI service not reported\b/i]
+
+const AGENT_MODEL_DEAD_END_PATTERNS = [
+  /\bAI model not reported\b/i,
+  /\bModel not reported\b/i,
+  /\bmodel:\s*[^,\n]*['"`]unknown['"`]/i,
+]
 
 const ACCESS_LEVEL_DEAD_END_PATTERNS = [/\bAccess level not reported\b/i]
 
@@ -583,6 +591,17 @@ function hasAgentAiServiceDeadEndCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return AGENT_AI_SERVICE_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentModelDeadEndCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/entities/agent/model/agents.store.ts') &&
+    !relFile.endsWith('src/app/shared/model/agents.store.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_MODEL_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAccessLevelDeadEndCopy(relFile, line) {
@@ -973,6 +992,15 @@ function scanFile(file, relFile) {
         type: 'agent-ai-service-copy',
         location,
         message: 'Agent AI service fallback copy must tell beginners to refresh service data.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentModelDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-model-copy',
+        location,
+        message: 'Agent AI model fallback copy must tell beginners to refresh model data.',
         sample: line.trim(),
       })
     }

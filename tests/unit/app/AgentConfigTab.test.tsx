@@ -163,8 +163,9 @@ describe('AgentConfigTab', () => {
   it('tells users to refresh when a chat-only agent has no model details', () => {
     render(<AgentConfigTab agentId="missing-model" />)
 
-    expect(screen.getByText(/Refresh agent details/i)).toBeInTheDocument()
+    expect(screen.getByText(/Refresh AI model/i)).toBeInTheDocument()
     expect(screen.queryByText(/AI model not reported/i)).toBeNull()
+    expect(screen.queryByText(/Model not reported/i)).toBeNull()
   })
 
   it('applies a prompt template and can reset the edit', () => {

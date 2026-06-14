@@ -860,11 +860,57 @@ function cliToolLabel() {
     const cwd = fixture({
       'src/app/features/agents/AgentConfigTab.tsx': `
 function modelLabel() {
-  return 'Refresh agent details'
+  return 'Refresh AI model'
 }
 
 function cliToolLabel() {
   return 'Refresh work tool setup'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags agent model fallback copy that does not tell users what to refresh', () => {
+    const cwd = fixture({
+      'src/app/entities/agent/model/agents.store.ts': `
+const info = {
+  model: 'Model not reported',
+}
+`,
+      'src/app/shared/model/agents.store.ts': `
+const info = {
+  model: agent.model ?? agent.cliTool ?? 'unknown',
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'agent-model-copy',
+        location: 'src/app/entities/agent/model/agents.store.ts:3',
+      }),
+      expect.objectContaining({
+        type: 'agent-model-copy',
+        location: 'src/app/shared/model/agents.store.ts:3',
+      }),
+    ])
+  })
+
+  it('accepts agent model fallback copy that tells users to refresh model data', () => {
+    const cwd = fixture({
+      'src/app/entities/agent/model/agents.store.ts': `
+const info = {
+  model: 'Refresh AI model',
+}
+`,
+      'src/app/shared/model/agents.store.ts': `
+const info = {
+  model: agent.model ?? agent.cliTool ?? 'Refresh AI model',
 }
 `,
     })

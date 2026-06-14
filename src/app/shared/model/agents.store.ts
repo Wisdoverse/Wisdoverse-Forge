@@ -123,7 +123,7 @@ function managedToAgentInfo(agent: ManagedAgent): AgentInfo {
     // Provider+prompt agents: backend carries the real provider/model keys.
     // CLI-tool agents: backend leaves them null, fall back to cliTool-derived labels.
     provider: agent.provider ?? cliToolToProvider(agent.cliTool),
-    model: agent.model ?? agent.cliTool ?? 'unknown',
+    model: agent.model ?? agent.cliTool ?? 'Refresh AI model',
     status: mapManagedAgentStatus(agent.status),
     tasksCompleted: 0,
     tasksInProgress: 0,
