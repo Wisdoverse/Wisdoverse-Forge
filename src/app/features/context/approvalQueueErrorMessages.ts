@@ -57,9 +57,9 @@ function networkRecoveryMessage(action: ApprovalQueueErrorAction): string {
 
 function serviceRecoveryMessage(action: ApprovalQueueErrorAction): string {
   if (action === 'loadQueue') {
-    return `${ACTION_FALLBACKS[action]} Forge could not load saved items right now. Refresh the list, then try again. If it still fails, ask an owner or admin to check saved item setup.`
+    return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check saved item setup.`
   }
-  return `${ACTION_FALLBACKS[action]} Forge could not save this review decision right now. Refresh the list, then try again. If it still fails, ask an owner or admin to check saved item setup.`
+  return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check saved item setup.`
 }
 
 function errorDetail(err: unknown): string {

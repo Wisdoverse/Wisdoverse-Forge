@@ -41,7 +41,12 @@ describe('boardActionErrorMessage', () => {
     expect(message).toContain('Review the saved item preview, then try again.')
     expect(message).not.toMatch(
       new RegExp(
-        ['published', 'publish', ['context', 'preview'].join('\\s+'), ['published', 'with', 'context'].join('\\s+')].join('|'),
+        [
+          'published',
+          'publish',
+          ['context', 'preview'].join('\\s+'),
+          ['published', 'with', 'context'].join('\\s+'),
+        ].join('|'),
         'i'
       )
     )
@@ -52,10 +57,17 @@ describe('boardActionErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'The task board could not load. Refresh the board, then try again. Forge could not load the board right now. Refresh the board, then try again. If it still fails, ask an owner or admin to check task board setup.'
+      'The task board could not load. Refresh the board, then try again. If it still fails, ask an owner or admin to check task board setup.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('temporarily unavailable')
+  })
+
+  test('keeps moved-back task failures actionable without repeating the refresh step', () => {
+    expectBeginnerMessage(
+      boardActionErrorMessage('moveTask', new Error('HTTP 500')),
+      'The task was moved back because the board change was not saved. Refresh the board, then try again. If it still fails, ask an owner or admin to check task board setup.'
+    )
   })
 
   test('turns validation details into a concrete field recovery step', () => {

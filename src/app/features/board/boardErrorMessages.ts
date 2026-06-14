@@ -73,9 +73,12 @@ function networkRecoveryMessage(action: BoardErrorAction): string {
 
 function serviceRecoveryMessage(action: BoardErrorAction): string {
   if (action === 'loadReadiness' || action === 'loadTasks') {
-    return `${ACTION_FALLBACKS[action]} Forge could not load the board right now. Refresh the board, then try again. If it still fails, ask an owner or admin to check task board setup.`
+    return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check task board setup.`
   }
-  return `${ACTION_FALLBACKS[action]} Forge could not finish this board action right now. Refresh the board, then try again. If it still fails, ask an owner or admin to check task board setup.`
+  if (action === 'moveTask') {
+    return `${ACTION_FALLBACKS[action]} Refresh the board, then try again. If it still fails, ask an owner or admin to check task board setup.`
+  }
+  return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check task board setup.`
 }
 
 function errorDetail(err: unknown): string {

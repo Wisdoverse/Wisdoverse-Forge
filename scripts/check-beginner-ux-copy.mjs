@@ -307,6 +307,15 @@ const GOVERNANCE_AUDIT_FALLBACK_DEAD_END_PATTERNS = [
   /\|\|\s*['"`]not listed['"`]/i,
 ]
 
+const DUPLICATE_RECOVERY_COPY_PATTERNS = [
+  /\bForge could not load the board right now\. Refresh the board, then try again\./i,
+  /\bForge could not finish this board action right now\. Refresh the board, then try again\./i,
+  /\bForge could not load task details right now\. Refresh the task, then try again\./i,
+  /\bForge could not finish this task action right now\. Refresh the task, then try again\./i,
+  /\bForge could not load saved items right now\. Refresh the list, then try again\./i,
+  /\bForge could not save this review decision right now\. Refresh the list, then try again\./i,
+]
+
 const TASK_FORM_AGENT_STATUS_DEAD_END_PATTERNS = [/\bstatus not reported\b/i]
 
 const TASK_SUPPORT_REFERENCE_DEAD_END_PATTERNS = [/\bSupport reference not reported\b/i]
@@ -932,6 +941,18 @@ function hasGovernanceAuditFallbackDeadEndCopy(relFile, line) {
   return GOVERNANCE_AUDIT_FALLBACK_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasDuplicateRecoveryDeadEndCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/board/boardErrorMessages.ts') &&
+    !relFile.endsWith('src/app/features/detail/taskDetailErrorMessages.ts') &&
+    !relFile.endsWith('src/app/features/context/approvalQueueErrorMessages.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return DUPLICATE_RECOVERY_COPY_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function scanFile(file, relFile) {
   const lines = fs.readFileSync(file, 'utf8').split('\n')
   const findings = []
@@ -1506,6 +1527,15 @@ function scanFile(file, relFile) {
         type: 'governance-audit-fallback-copy',
         location,
         message: 'Governance audit fallbacks must tell beginners which audit field to check.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasDuplicateRecoveryDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'duplicate-recovery-copy',
+        location,
+        message: 'Recovery copy must avoid repeating the same refresh or retry step.',
         sample: line.trim(),
       })
     }

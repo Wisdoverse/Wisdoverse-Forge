@@ -37,7 +37,7 @@ describe('approvalQueueErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'The saved item review list could not load. Refresh the list so you see the latest items. Forge could not load saved items right now. Refresh the list, then try again. If it still fails, ask an owner or admin to check saved item setup.'
+      'The saved item review list could not load. Refresh the list so you see the latest items. If it still fails, ask an owner or admin to check saved item setup.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('temporarily unavailable')

@@ -3336,6 +3336,68 @@ function resourceTypeLabel(value) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags recovery copy that repeats the same refresh step', () => {
+    const cwd = fixture({
+      'src/app/features/board/boardErrorMessages.ts': `
+function serviceRecoveryMessage(action) {
+  return 'The task board could not load. Refresh the board, then try again. Forge could not load the board right now. Refresh the board, then try again. If it still fails, ask an owner or admin to check task board setup.'
+}
+`,
+      'src/app/features/detail/taskDetailErrorMessages.ts': `
+function serviceRecoveryMessage(action) {
+  return 'Saved notes and run details could not load. Refresh the detail panel, then try again. Forge could not load task details right now. Refresh the task, then try again. If it still fails, ask an owner or admin to check task setup.'
+}
+`,
+      'src/app/features/context/approvalQueueErrorMessages.ts': `
+function serviceRecoveryMessage(action) {
+  return 'The saved item review list could not load. Refresh the list so you see the latest items. Forge could not load saved items right now. Refresh the list, then try again. If it still fails, ask an owner or admin to check saved item setup.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'duplicate-recovery-copy',
+          location: 'src/app/features/board/boardErrorMessages.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'duplicate-recovery-copy',
+          location: 'src/app/features/detail/taskDetailErrorMessages.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'duplicate-recovery-copy',
+          location: 'src/app/features/context/approvalQueueErrorMessages.ts:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts recovery copy that gives one clear refresh step', () => {
+    const cwd = fixture({
+      'src/app/features/board/boardErrorMessages.ts': `
+function serviceRecoveryMessage(action) {
+  return 'The task board could not load. Refresh the board, then try again. If it still fails, ask an owner or admin to check task board setup.'
+}
+`,
+      'src/app/features/detail/taskDetailErrorMessages.ts': `
+function serviceRecoveryMessage(action) {
+  return 'Saved notes and run details could not load. Refresh the detail panel, then try again. If it still fails, ask an owner or admin to check task setup.'
+}
+`,
+      'src/app/features/context/approvalQueueErrorMessages.ts': `
+function serviceRecoveryMessage(action) {
+  return 'The saved item review list could not load. Refresh the list so you see the latest items. If it still fails, ask an owner or admin to check saved item setup.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags recoverable failure copy without a next action', () => {
     const cwd = fixture({
       'src/app/features/tasks/TaskFailure.tsx': `

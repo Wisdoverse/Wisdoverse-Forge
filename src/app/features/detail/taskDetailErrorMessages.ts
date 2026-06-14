@@ -82,9 +82,9 @@ function networkRecoveryMessage(action: TaskDetailErrorAction): string {
 
 function serviceRecoveryMessage(action: TaskDetailErrorAction): string {
   if (action === 'loadAgents' || action === 'loadContext' || action === 'loadRuns') {
-    return `${ACTION_FALLBACKS[action]} Forge could not load task details right now. Refresh the task, then try again. If it still fails, ask an owner or admin to check task setup.`
+    return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check task setup.`
   }
-  return `${ACTION_FALLBACKS[action]} Forge could not finish this task action right now. Refresh the task, then try again. If it still fails, ask an owner or admin to check task setup.`
+  return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check task setup.`
 }
 
 function errorDetail(err: unknown): string {
