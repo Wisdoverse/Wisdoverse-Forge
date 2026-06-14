@@ -177,8 +177,10 @@ describe('AccountSection', () => {
       username: '',
     })
 
-    expect(screen.getByText('Username not reported yet')).toBeDefined()
-    expect(screen.getByText('Email not reported yet')).toBeDefined()
+    expect(screen.getByText('Refresh this page to load username')).toBeDefined()
+    expect(screen.getByText('Refresh this page to load email')).toBeDefined()
+    expect(screen.queryByText('Username not reported yet')).toBeNull()
+    expect(screen.queryByText('Email not reported yet')).toBeNull()
     expect(screen.queryByText('—')).toBeNull()
   })
 

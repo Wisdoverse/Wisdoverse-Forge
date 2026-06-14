@@ -1895,6 +1895,38 @@ function KeyRow() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags account profile copy that does not tell users to refresh', () => {
+    const cwd = fixture({
+      'src/app/features/settings/AccountSection.tsx': `
+function ProfileRow() {
+  return <span>Username not reported yet</span>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'account-profile-copy',
+        location: 'src/app/features/settings/AccountSection.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts account profile copy that tells users to refresh', () => {
+    const cwd = fixture({
+      'src/app/features/settings/AccountSection.tsx': `
+function ProfileRow() {
+  return <span>Refresh this page to load username</span>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags recoverable failure copy without a next action', () => {
     const cwd = fixture({
       'src/app/features/tasks/TaskFailure.tsx': `
