@@ -84,6 +84,19 @@ impl EventPublisher {
         Ok(())
     }
 
+    /// Flush the underlying NATS client, blocking until the server has
+    /// acknowledged every message published so far on this connection.
+    ///
+    /// `Client::publish()` returns `Ok` once a message is enqueued in the
+    /// client's in-memory buffer — *before* the server accepts it. The relay's
+    /// WAL-first durability path calls this after publishing so it only removes
+    /// the buffered copy once delivery to the server is confirmed, closing the
+    /// reconnect-window loss where a buffered-but-unsent event would vanish on a
+    /// sidecar restart.
+    pub async fn flush(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.client.flush().await.map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+    }
+
     /// Send a heartbeat on `sidecar.<agent_id>.heartbeat`.
     pub async fn heartbeat(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let subject = format!("sidecar.{}.heartbeat", self.agent_id);

@@ -18,19 +18,22 @@ impl Wal {
         Self { path: PathBuf::from(path.unwrap_or("/tmp/agentforge-wal")) }
     }
 
-    /// Append an event to the WAL directory.
+    /// Append an event to the WAL directory, returning the path of the written
+    /// record.
     ///
-    /// Called by the relay-socket listener when a hook event fails to publish
-    /// (NATS outage), buffering it in a replay-compatible record for the
-    /// periodic drain. Also used by tests.
-    pub async fn append(&self, data: &[u8]) -> std::io::Result<()> {
+    /// Called by the relay-socket listener *before* a publish attempt (WAL-first
+    /// durability), buffering it in a replay-compatible record. The returned path
+    /// is passed to [`acknowledge`] once the publish is confirmed (flushed) so
+    /// the durable copy is removed only after the NATS server has the event.
+    /// Also used by tests and the periodic drain.
+    pub async fn append(&self, data: &[u8]) -> std::io::Result<PathBuf> {
         fs::create_dir_all(&self.path).await?;
         let filename = format!("{}.json", chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0));
         let filepath = self.path.join(filename);
         let mut file = fs::File::create(&filepath).await?;
         file.write_all(data).await?;
         file.flush().await?;
-        Ok(())
+        Ok(filepath)
     }
 
     /// Replay all buffered events in timestamp order.

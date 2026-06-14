@@ -203,14 +203,16 @@ async fn main() -> anyhow::Result<()> {
 
     // Spawn the relay-socket listener. This binds the Unix socket the CLI relay
     // hook writes to (previously unbound, so hook events were silently dropped)
-    // and durably publishes each framed event.
-    let relay_socket = cfg.resolved_relay_socket();
+    // and durably publishes each framed event. The path is a single hardcoded
+    // const shared with the hook default, the entrypoint, and the healthcheck —
+    // no env override, so all four sides can never disagree.
+    let relay_socket = unix_socket_listener::RELAY_SOCKET_PATH;
     let listener_publisher = publisher.clone();
     let listener_wal = wal_instance.clone();
     let listener_shutdown = shutdown_rx.clone();
     let listener_task = tokio::spawn(async move {
         if let Err(err) =
-            unix_socket_listener::run(&relay_socket, listener_publisher, listener_wal, listener_shutdown).await
+            unix_socket_listener::run(relay_socket, listener_publisher, listener_wal, listener_shutdown).await
         {
             tracing::error!(error = %err, "Relay socket listener exited with error");
         }
