@@ -61,7 +61,7 @@ export function createAgentWorkLaneErrorMessage(error: unknown): string {
   const code = statusCode(error)
 
   if (code === 401 || text.includes('unauthorized') || text.includes('sign in again')) {
-    return `${base} Sign in again, reopen New Agent, and try creating the queue again.`
+    return `${base} Sign in again, reopen Create Agent, and try creating the queue again.`
   }
   if (code === 403 || text.includes('forbidden') || text.includes('permission')) {
     return `${base} Ask an owner or admin to let you create and manage task queues in this project.`

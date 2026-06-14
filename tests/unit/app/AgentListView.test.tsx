@@ -43,7 +43,8 @@ describe('AgentListView', () => {
     expect(screen.getByText(/chat-only AI service for planning and review/i)).toBeDefined()
     expect(screen.getByText(/files and commands on your machine/i)).toBeDefined()
     expect(screen.queryByText(/connected model for text-only work/i)).toBeNull()
-    expect(screen.getAllByRole('button', { name: /new agent/i }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: /create agent/i }).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: /^new agent$/i })).toBeNull()
   })
 
   test('waits for a selected project before showing a command for this computer', () => {
@@ -59,7 +60,7 @@ describe('AgentListView', () => {
       'Use this backup if your browser cannot open the setup window'
     )
     expect(enrollment.textContent).toContain('your team asks you to run a command')
-    expect(enrollment.textContent).toContain('choose New agent on this computer above')
+    expect(enrollment.textContent).toContain('choose Create agent on this computer above')
     expect(enrollment.textContent).toContain('Computer type')
     expect(
       within(enrollment).getByRole('group', { name: /choose this computer type/i })
@@ -88,7 +89,9 @@ describe('AgentListView', () => {
     expect(enrollment.textContent).not.toContain('agentforge agents enroll-local')
     expect(within(enrollment).getByRole('button', { name: /choose project first/i })).toBeDisabled()
 
-    fireEvent.click(within(enrollment).getByRole('button', { name: /new agent on this computer/i }))
+    fireEvent.click(
+      within(enrollment).getByRole('button', { name: /create agent on this computer/i })
+    )
     expect(screen.getByRole('dialog', { name: /create an agent/i })).toBeDefined()
     expect(screen.getByRole('radio', { name: /this computer/i })).toBeChecked()
     expect(screen.getByLabelText(/folder on this computer/i)).toBeDefined()
@@ -131,6 +134,9 @@ describe('AgentListView', () => {
     )
     expect(enrollment.textContent).not.toContain('paste it there')
     expect(enrollment.textContent).toContain('Leave the work tool as Codex unless')
+    expect(within(enrollment).getByTestId('host-cli-success-hint')).toHaveTextContent(
+      /come back to Forge/i
+    )
     expect(within(enrollment).getByTestId('host-cli-success-hint')).toHaveTextContent(
       /new agent named This Computer Codex appears in this list/i
     )
@@ -338,10 +344,11 @@ describe('AgentListView', () => {
     expect(screen.getByText('Build Runner')).toBeDefined()
   })
 
-  test('shows + New Agent button', () => {
+  test('shows Create Agent buttons', () => {
     render(<AgentListView />)
-    // Both the toolbar and the empty-state CTA render "New Agent"
-    expect(screen.getAllByText(/new agent/i).length).toBeGreaterThan(0)
+    // Both the toolbar and the empty-state CTA render "Create Agent"
+    expect(screen.getAllByText(/create agent/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/^New Agent$/i)).toBeNull()
   })
 
   test('creates a task queue from the selected project context', async () => {

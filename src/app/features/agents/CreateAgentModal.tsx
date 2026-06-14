@@ -8,6 +8,7 @@ import {
   Copy,
   Plus,
   Search,
+  X,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
@@ -522,7 +523,7 @@ export function CreateAgentModal() {
         aria-modal="true"
         aria-labelledby="create-agent-title"
         className={cn(
-          'relative w-[480px] max-h-[80vh] overflow-y-auto',
+          'relative mx-4 max-h-[86vh] w-full max-w-[520px] overflow-y-auto',
           'rounded-panel border border-black/[0.08] bg-white p-6 dark:border-white/[0.1] dark:bg-[#2a2a2c]'
         )}
       >
@@ -537,9 +538,9 @@ export function CreateAgentModal() {
             type="button"
             onClick={handleClose}
             aria-label="Close dialog"
-            className="text-ui-body text-secondary-light dark:text-secondary-dark"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-secondary-light transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/40 dark:text-secondary-dark dark:hover:bg-white/5"
           >
-            ✕
+            <X size={15} strokeWidth={2} aria-hidden="true" />
           </button>
         </div>
 
@@ -635,6 +636,9 @@ export function CreateAgentModal() {
                     3. Keep that window open. Success looks like: the agent changes from Not
                     connected to Ready on the Agents page.
                   </p>
+                  <p>
+                    4. Come back to Forge, open Agents, and send one small task when it is Ready.
+                  </p>
                 </div>
                 <details className="mt-3">
                   <summary className="cursor-pointer text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
@@ -690,6 +694,9 @@ export function CreateAgentModal() {
                   <p>
                     3. Keep that window open. Success looks like: the agent changes from Not
                     connected to Ready on the Agents page.
+                  </p>
+                  <p>
+                    4. Come back to Forge, open Agents, and send one small task when it is Ready.
                   </p>
                 </div>
               </div>

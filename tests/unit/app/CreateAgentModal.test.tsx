@@ -393,6 +393,7 @@ describe('CreateAgentModal', () => {
     expect(
       screen.getByText(/changes from Not connected to Ready on the Agents page/i)
     ).toBeInTheDocument()
+    expect(screen.getByText(/come back to Forge, open Agents/i)).toBeInTheDocument()
     expect(screen.queryByText(previousCliInstallCopy)).toBeNull()
     expect(screen.queryByText(previousManualConnectionCopy)).toBeNull()
     expect(screen.queryByText(new RegExp(['local', 'agent', 'join'].join('.*'), 'i'))).toBeNull()
@@ -444,6 +445,7 @@ describe('CreateAgentModal', () => {
     expect(
       screen.getByText(/changes from Not connected to Ready on the Agents page/i)
     ).toBeInTheDocument()
+    expect(screen.getByText(/come back to Forge, open Agents/i)).toBeInTheDocument()
     expect(screen.queryByText(/shows online/i)).toBeNull()
     expect(screen.queryByText(/agent fleet/i)).toBeNull()
     expect(screen.getByRole('group', { name: /computer type/i })).toBeInTheDocument()

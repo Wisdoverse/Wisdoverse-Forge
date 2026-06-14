@@ -139,7 +139,7 @@ export function AgentListView() {
                 className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-apple-blue px-4 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
               >
                 <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
-                <span>New Agent</span>
+                <span>Create Agent</span>
               </button>
             </div>
           </div>
@@ -186,7 +186,7 @@ export function AgentListView() {
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-apple-blue px-4 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
               >
                 <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
-                <span>New Agent</span>
+                <span>Create Agent</span>
               </button>
             </div>
           ) : filteredAgents.length === 0 ? (
@@ -444,7 +444,7 @@ function HostCliEnrollmentPanel({
         className="mt-3 inline-flex h-9 w-full items-center justify-center gap-2 rounded-full bg-apple-blue px-3 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95"
       >
         <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
-        New agent on this computer
+        Create agent on this computer
       </button>
 
       <details className="mt-3">
@@ -453,7 +453,7 @@ function HostCliEnrollmentPanel({
         </summary>
         <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
           Use this backup if your browser cannot open the setup window or your team asks you to run
-          a command. Most people should choose New agent on this computer above.
+          a command. Most people should choose Create agent on this computer above.
         </p>
         <div className="mt-3">
           <p className="mb-2 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
@@ -530,8 +530,8 @@ function HostCliEnrollmentPanel({
               data-testid="host-cli-success-hint"
               className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark"
             >
-              When it works, a new agent named This Computer Codex appears in this list. Keep the
-              command window open while it works.
+              When it works, come back to Forge. A new agent named This Computer Codex appears in
+              this list. Keep the command window open while it works.
             </p>
           </>
         ) : (

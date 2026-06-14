@@ -326,6 +326,30 @@ describe('ProvidersSection', () => {
     )
   })
 
+  test('points ready AI service setup toward Create Agent', async () => {
+    useSettingsStore.setState({
+      providers: [
+        {
+          id: 'provider-ready-only',
+          provider: 'openai',
+          displayName: 'OpenAI Production',
+          model: 'gpt-5.4',
+          priority: 1,
+          isEnabled: true,
+          isDefault: true,
+          lastTestStatus: 'passed',
+        },
+      ],
+    })
+
+    render(<ProvidersSection />)
+
+    const nextStep = await screen.findByTestId('provider-next-step')
+    expect(within(nextStep).getByText('Ready to create simple chat agents')).toBeDefined()
+    expect(within(nextStep).getByText(/choose Create Agent/i)).toBeDefined()
+    expect(within(nextStep).queryByText(/choose New Agent/i)).toBeNull()
+  })
+
   test('surfaces the China default placeholder and global address hint for region-switch providers', async () => {
     useSettingsStore.setState({ providers: [] })
 

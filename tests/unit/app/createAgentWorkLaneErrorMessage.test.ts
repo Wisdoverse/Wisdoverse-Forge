@@ -2,6 +2,16 @@ import { describe, expect, test } from 'vitest'
 import { createAgentWorkLaneErrorMessage } from '@app/features/agents/model/createAgentWorkLaneErrorMessage'
 
 describe('createAgentWorkLaneErrorMessage', () => {
+  test('turns sign-in failures into a Create Agent retry step', () => {
+    const message = createAgentWorkLaneErrorMessage(new Error('HTTP 401: Unauthorized'))
+
+    expect(message).toBe(
+      'Task queue was not created. Sign in again, reopen Create Agent, and try creating the queue again.'
+    )
+    expect(message).not.toContain('New Agent')
+    expect(message).not.toContain('Unauthorized')
+  })
+
   test('turns permission failures into an owner or admin next step', () => {
     expect(createAgentWorkLaneErrorMessage(new Error('HTTP 403: Forbidden'))).toBe(
       'Task queue was not created. Ask an owner or admin to let you create and manage task queues in this project.'

@@ -231,7 +231,7 @@ export const zh: TranslationKeys = {
   // =========================================================================
   agents: {
     title: 'Agent',
-    newAgent: '新建 Agent',
+    newAgent: '创建 Agent',
     createAgent: '创建 Agent',
     editAgent: '编辑 Agent',
     deleteAgent: '删除 Agent',
@@ -263,7 +263,7 @@ export const zh: TranslationKeys = {
     },
     confirmDelete: '要删除这个 Agent 吗？这会移除它的设置，并停止给它分配新任务。',
     confirmStop: '要停止这个 Agent 吗？当前工作会暂停，直到你重新启动它。',
-    // 新建 Agent 弹窗
+    // 创建 Agent 弹窗
     startNewAgent: '开始新 Agent',
     pickProject: '选择一个项目开始',
     tellClaude: '告诉 Claude 你要做什么',

@@ -238,7 +238,7 @@ export const en = {
   // =========================================================================
   agents: {
     title: 'Agents',
-    newAgent: 'New Agent',
+    newAgent: 'Create Agent',
     createAgent: 'Create Agent',
     editAgent: 'Edit Agent',
     deleteAgent: 'Delete Agent',
@@ -270,7 +270,7 @@ export const en = {
     },
     confirmDelete: 'Delete this agent? This removes its setup and stops assigning new work to it.',
     confirmStop: 'Stop this agent? Current work pauses until you start it again.',
-    // New agent modal
+    // Create Agent modal
     startNewAgent: 'Start a new agent',
     pickProject: 'Pick a project to begin',
     tellClaude: 'Tell Claude what to work on',

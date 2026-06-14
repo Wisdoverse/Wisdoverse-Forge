@@ -493,7 +493,7 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
   return {
     title: 'Ready to create simple chat agents',
     detail: `${defaultProvider?.displayName ?? readyProviders[0]?.displayName ?? 'An AI service'} is ready for agents that answer in chat.`,
-    success: 'Open Agents, choose New Agent, then select Simple chat agent.',
+    success: 'Open Agents, choose Create Agent, then select Simple chat agent.',
     ready: true,
   }
 }
