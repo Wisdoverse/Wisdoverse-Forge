@@ -106,6 +106,7 @@ describe('BillingPage', () => {
     expect(screen.getByText(/secure payment page can open/i)).toBeDefined()
     expect(screen.getByText(/ask an owner or admin/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /upgrade plan/i })).toBeDisabled()
+    expect(screen.getByText('Invoices appear after a charge')).toBeDefined()
     expect(screen.getByText(/invoices appear after you start or change a plan/i)).toBeDefined()
     expect(screen.queryByText(/checkout/i)).toBeNull()
     expect(screen.queryByText(/billing portal/i)).toBeNull()

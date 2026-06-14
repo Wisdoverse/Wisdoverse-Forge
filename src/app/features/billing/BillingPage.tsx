@@ -68,7 +68,8 @@ function BillingCheckpoint({ hasSubscription, usageCount, invoicesCount }: Billi
     },
     {
       label: 'Invoices',
-      value: invoicesCount > 0 ? `${invoicesCount} invoices shown` : 'No invoices yet',
+      value:
+        invoicesCount > 0 ? `${invoicesCount} invoices shown` : 'Invoices appear after a charge',
     },
   ]
 

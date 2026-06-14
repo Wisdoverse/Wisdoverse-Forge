@@ -143,6 +143,8 @@ const RUNTIME_SHORT_LABEL_JARGON_PATTERNS = [
 
 const CLIPBOARD_JARGON_PATTERNS = [/\bCopy is unavailable here\b/i, /\bno clipboard access\b/i]
 
+const BILLING_CHECKPOINT_DEAD_END_PATTERNS = [/\bNo invoices yet\b/i]
+
 const BEGINNER_JARGON_PATTERNS = [
   /\blocal agents?\b/i,
   /\bmanaged local agent\b/i,
@@ -383,6 +385,12 @@ function hasClipboardJargonCopy(line) {
   return CLIPBOARD_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasBillingCheckpointDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/billing/BillingPage.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return BILLING_CHECKPOINT_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function scanFile(file, relFile) {
   const lines = fs.readFileSync(file, 'utf8').split('\n')
   const findings = []
@@ -525,6 +533,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Copy failure guidance must tell beginners how to copy manually instead of naming clipboard access.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasBillingCheckpointDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'billing-checkpoint-copy',
+        location,
+        message:
+          'Billing checkpoint copy must explain when invoices appear instead of only saying none exist.',
         sample: line.trim(),
       })
     }

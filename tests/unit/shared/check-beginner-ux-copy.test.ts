@@ -288,6 +288,44 @@ const CLIPBOARD_UNAVAILABLE =
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags billing checkpoint invoice copy that does not explain when invoices appear', () => {
+    const cwd = fixture({
+      'src/app/features/billing/BillingPage.tsx': `
+function BillingCheckpoint() {
+  return {
+    label: 'Invoices',
+    value: invoicesCount > 0 ? \`\${invoicesCount} invoices shown\` : 'No invoices yet',
+  }
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'billing-checkpoint-copy',
+        location: 'src/app/features/billing/BillingPage.tsx:5',
+      }),
+    ])
+  })
+
+  it('accepts billing checkpoint invoice copy that tells people when invoices appear', () => {
+    const cwd = fixture({
+      'src/app/features/billing/BillingPage.tsx': `
+function BillingCheckpoint() {
+  return {
+    label: 'Invoices',
+    value: invoicesCount > 0 ? \`\${invoicesCount} invoices shown\` : 'Invoices appear after a charge',
+  }
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags validation copy that does not explain the next change', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `
