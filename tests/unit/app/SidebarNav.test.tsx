@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import '@app/i18n'
 import { SidebarNav } from '@app/layouts/sidebar/SidebarNav'
@@ -151,6 +151,26 @@ describe('SidebarNav', () => {
     expect(
       screen.getByRole('button', { name: /tasks: see tasks and review progress/i })
     ).toBeInTheDocument()
+  })
+
+  test('hides the Getting Started entry immediately after a skip preference update', () => {
+    useSettingsStore.setState({
+      preferences: { gettingStartedDismissed: false },
+      preferencesLoaded: true,
+    })
+
+    render(<SidebarNav expanded={true} activePath="/tasks" onNavigate={() => {}} />)
+
+    expect(screen.getByRole('button', startItem)).toBeInTheDocument()
+
+    act(() => {
+      useSettingsStore.setState({
+        preferences: { gettingStartedDismissed: true },
+        preferencesLoaded: true,
+      })
+    })
+
+    expect(screen.queryByRole('button', startItem)).not.toBeInTheDocument()
   })
 
   test('keeps showing the Getting Started entry while preferences are unknown', () => {
