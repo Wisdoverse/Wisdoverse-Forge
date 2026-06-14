@@ -27,7 +27,7 @@ export function workspaceResourceErrorMessage(
     return `You do not have permission to ${permissionAction(action)} this ${resource}. Ask an owner or admin to update your role.`
   }
   if (status === 404) {
-    return `This ${resource} could not be found. Refresh Settings, then choose an existing ${resource}.`
+    return `Refresh Settings, then choose an existing ${resource}.`
   }
   if (status === 409) {
     return `This ${resource} changed while you were editing. Refresh Settings, review the current ${resource}, then try again.`
@@ -42,31 +42,21 @@ export function workspaceResourceErrorMessage(
     return workspaceResourceUnavailableMessage(resource, action)
   }
 
-  return `${label(resource)} could not ${actionPhrase(action)}. Refresh Settings and try again.`
+  return `Refresh Settings, then ${retryPhrase(resource, action)}.`
 }
 
 function workspaceResourceConnectionMessage(
   resource: WorkspaceResourceKind,
   action: WorkspaceResourceAction
 ): string {
-  const operation = action === 'update' ? 'saving workspace settings' : `deleting this ${resource}`
-  return `${label(resource)} could not ${actionPhrase(action)}. Forge could not connect while ${operation}. Check your connection, then try again.`
+  return `Check your connection, then ${retryPhrase(resource, action)} in Settings.`
 }
 
 function workspaceResourceUnavailableMessage(
   resource: WorkspaceResourceKind,
   action: WorkspaceResourceAction
 ): string {
-  const operation = action === 'update' ? 'save workspace settings' : `delete this ${resource}`
-  return `Forge could not ${operation} right now. Refresh Settings, then ${retryPhrase(resource, action)}. If it still fails, ask an owner or admin to check workspace setup.`
-}
-
-function label(resource: WorkspaceResourceKind): string {
-  return resource === 'team' ? 'Team' : 'Project'
-}
-
-function actionPhrase(action: WorkspaceResourceAction): string {
-  return action === 'update' ? 'be saved' : 'be deleted'
+  return `Refresh Settings, then ${retryPhrase(resource, action)}. If it still fails, ask an owner or admin to check workspace setup.`
 }
 
 function permissionAction(action: WorkspaceResourceAction): string {
@@ -104,8 +94,8 @@ function validationMessage(
     return "Move or finish this project's tasks first, then delete the project again."
   }
   return resource === 'team'
-    ? 'This team could not be deleted. Check whether it still owns projects or required access, then try again.'
-    : 'This project could not be deleted. Check whether agents or tasks still depend on it, then try again.'
+    ? 'Check whether this team still owns projects or required access, then delete it again.'
+    : 'Check whether agents or tasks still depend on this project, then delete it again.'
 }
 
 function statusFromError(error: unknown): number | null {

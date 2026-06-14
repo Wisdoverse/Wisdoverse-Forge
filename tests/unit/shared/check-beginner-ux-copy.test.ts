@@ -3543,6 +3543,60 @@ function networkRecoveryMessage() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags team and project setting errors that start with the failure', () => {
+    const cwd = fixture({
+      'src/app/shared/lib/workspaceResourceErrorMessage.ts': `
+function workspaceResourceConnectionMessage() {
+  return 'Team could not be saved. Forge could not connect while saving workspace settings. Check your connection, then try again.'
+}
+function workspaceResourceUnavailableMessage() {
+  return 'Forge could not save workspace settings right now. Refresh Settings, then save the project again. If it still fails, ask an owner or admin to check workspace setup.'
+}
+function notFoundMessage() {
+  return 'This project could not be found. Refresh Settings, then choose an existing project.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'workspace-resource-copy',
+          location: 'src/app/shared/lib/workspaceResourceErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'workspace-resource-copy',
+          location: 'src/app/shared/lib/workspaceResourceErrorMessage.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'workspace-resource-copy',
+          location: 'src/app/shared/lib/workspaceResourceErrorMessage.ts:9',
+        }),
+      ])
+    )
+  })
+
+  it('accepts team and project setting errors that start with the next step', () => {
+    const cwd = fixture({
+      'src/app/shared/lib/workspaceResourceErrorMessage.ts': `
+function workspaceResourceConnectionMessage() {
+  return 'Check your connection, then save the team again in Settings.'
+}
+function workspaceResourceUnavailableMessage() {
+  return 'Refresh Settings, then save the project again. If it still fails, ask an owner or admin to check workspace setup.'
+}
+function notFoundMessage() {
+  return 'Refresh Settings, then choose an existing project.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('accepts recovery copy that gives one clear refresh step', () => {
     const cwd = fixture({
       'src/app/features/board/boardErrorMessages.ts': `

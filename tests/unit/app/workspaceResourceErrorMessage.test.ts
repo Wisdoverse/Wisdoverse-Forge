@@ -11,9 +11,7 @@ describe('workspaceResourceErrorMessage', () => {
   test('turns network failures into connection guidance', () => {
     const message = workspaceResourceErrorMessage('team', 'update', new Error('Failed to fetch'))
 
-    expect(message).toBe(
-      'Team could not be saved. Forge could not connect while saving workspace settings. Check your connection, then try again.'
-    )
+    expect(message).toBe('Check your connection, then save the team again in Settings.')
     expect(message).toContain('Check your connection')
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('service')
@@ -80,12 +78,25 @@ describe('workspaceResourceErrorMessage', () => {
     expect(message).not.toContain('Move tasks first')
   })
 
+  test('turns generic delete blockers into dependency cleanup guidance', () => {
+    const message = workspaceResourceErrorMessage('project', 'delete', {
+      status: 422,
+      reason: 'cannot delete',
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Check whether agents or tasks still depend on this project, then delete it again.'
+    )
+    expect(message).not.toContain('cannot delete')
+  })
+
   test('turns server failures into a workspace setup recovery step', () => {
     const message = workspaceResourceErrorMessage('project', 'update', new Error('HTTP 500'))
 
     expectBeginnerMessage(
       message,
-      'Forge could not save workspace settings right now. Refresh Settings, then save the project again. If it still fails, ask an owner or admin to check workspace setup.'
+      'Refresh Settings, then save the project again. If it still fails, ask an owner or admin to check workspace setup.'
     )
     expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('temporarily unavailable')
@@ -100,7 +111,7 @@ describe('workspaceResourceErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Forge could not delete this team right now. Refresh Settings, then delete the team again. If it still fails, ask an owner or admin to check workspace setup.'
+      'Refresh Settings, then delete the team again. If it still fails, ask an owner or admin to check workspace setup.'
     )
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('503')

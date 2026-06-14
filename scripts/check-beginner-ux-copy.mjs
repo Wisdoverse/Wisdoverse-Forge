@@ -338,6 +338,12 @@ const TASK_DETAIL_LOAD_FAILURE_FIRST_PATTERNS = [
   /\bForge could not connect while (?:loading|updating) this task\./i,
 ]
 
+const WORKSPACE_RESOURCE_FAILURE_FIRST_PATTERNS = [
+  /\b(?:Team|Project) could not be (?:saved|deleted)\./i,
+  /\bThis (?:team|project) could not be found\./i,
+  /\bForge could not (?:save workspace settings|delete this (?:team|project)) right now\./i,
+]
+
 const AGENT_CONFIG_DETAIL_DEAD_END_PATTERNS = [
   /\bAI model not reported\b/i,
   /\bModel not reported\b/i,
@@ -402,6 +408,7 @@ const USER_VISIBLE_ERROR_FILE_PATTERNS = [
   /\/model\/admin\.store\.ts$/,
   /\/model\/skills\.store\.ts$/,
   /\/model\/analytics\.store\.ts$/,
+  /\/shared\/lib\/workspaceResourceErrorMessage\.ts$/,
 ]
 
 const USER_VISIBLE_ERROR_FRAGMENT_FILE_PATTERNS = [
@@ -724,6 +731,12 @@ function hasTaskDetailLoadFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/detail/taskDetailErrorMessages.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return TASK_DETAIL_LOAD_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasWorkspaceResourceFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/shared/lib/workspaceResourceErrorMessage.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return WORKSPACE_RESOURCE_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentConfigDetailDeadEndCopy(relFile, line) {
@@ -1317,6 +1330,15 @@ function scanFile(file, relFile) {
         type: 'task-detail-load-copy',
         location,
         message: 'Task detail load errors must start with the next action for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasWorkspaceResourceFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'workspace-resource-copy',
+        location,
+        message: 'Team and project setting errors must start with the next action for beginners.',
         sample: line.trim(),
       })
     }
