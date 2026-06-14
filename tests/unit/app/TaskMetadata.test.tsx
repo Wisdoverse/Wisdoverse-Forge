@@ -172,8 +172,8 @@ describe('TaskMetadata', () => {
       />
     )
 
-    expect(screen.getByText('Status needs review')).toBeDefined()
-    expect(screen.getByText('Priority needs review')).toBeDefined()
+    expect(screen.getByText('Check task status')).toBeDefined()
+    expect(screen.getByText('Check task priority')).toBeDefined()
     expect(screen.queryByText(/waiting_for_agent/i)).toBeNull()
     expect(screen.queryByText(/waiting for agent/i)).toBeNull()
     expect(screen.queryByText(/future_priority/i)).toBeNull()

@@ -2290,6 +2290,92 @@ export function runStatusLabel() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags task status and priority fallbacks that leave beginners guessing', () => {
+    const cwd = fixture({
+      'src/app/entities/task/model/taskLabels.ts': `
+export function taskStateLabel(status) {
+  if (!status) return 'Status not listed'
+  return 'Status needs review'
+}
+
+export function taskPriorityLabel(priority) {
+  if (!priority) return 'Priority not listed'
+  return 'Priority needs review'
+}
+`,
+      'src/app/features/detail/HistoryTab.tsx': `
+export function readableRunStatus(status) {
+  return status ? 'Status needs review' : 'Refresh task status'
+}
+`,
+      'src/app/features/detail/ContextTab.tsx': `
+export function runStatusLabel(status) {
+  return status ? 'Status needs review' : 'Refresh task status'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-status-fallback-copy',
+          location: 'src/app/entities/task/model/taskLabels.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'task-status-fallback-copy',
+          location: 'src/app/entities/task/model/taskLabels.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'task-status-fallback-copy',
+          location: 'src/app/entities/task/model/taskLabels.ts:8',
+        }),
+        expect.objectContaining({
+          type: 'task-status-fallback-copy',
+          location: 'src/app/entities/task/model/taskLabels.ts:9',
+        }),
+        expect.objectContaining({
+          type: 'task-status-fallback-copy',
+          location: 'src/app/features/detail/HistoryTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'task-status-fallback-copy',
+          location: 'src/app/features/detail/ContextTab.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts task status and priority fallbacks that give users a next step', () => {
+    const cwd = fixture({
+      'src/app/entities/task/model/taskLabels.ts': `
+export function taskStateLabel(status) {
+  if (!status) return 'Refresh task status'
+  return 'Check task status'
+}
+
+export function taskPriorityLabel(priority) {
+  if (!priority) return 'Refresh task priority'
+  return 'Check task priority'
+}
+`,
+      'src/app/features/detail/HistoryTab.tsx': `
+export function readableRunStatus(status) {
+  return status ? 'Check task status' : 'Refresh task status'
+}
+`,
+      'src/app/features/detail/ContextTab.tsx': `
+export function runStatusLabel(status) {
+  return status ? 'Check task status' : 'Refresh task status'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags app health status copy that does not tell users to check now', () => {
     const cwd = fixture({
       'src/app/features/admin/SystemHealth.tsx': `

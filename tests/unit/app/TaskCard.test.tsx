@@ -73,8 +73,8 @@ describe('TaskCard', () => {
       />
     )
 
-    expect(screen.getByText('Priority needs review')).toBeDefined()
-    expect(screen.getByText('Status needs review')).toBeDefined()
+    expect(screen.getByText('Check task priority')).toBeDefined()
+    expect(screen.getByText('Check task status')).toBeDefined()
     expect(screen.getByTestId('task-next-step').textContent).toBe(
       'Open details to check the current status before taking action.'
     )

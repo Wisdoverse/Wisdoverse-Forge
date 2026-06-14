@@ -224,7 +224,7 @@ describe('HistoryTab', () => {
     render(<HistoryTab task={makeTask()} />)
 
     expect(await screen.findByText('Work attempt: Waiting to start')).toBeInTheDocument()
-    expect(screen.getByText('Work attempt: Status needs review')).toBeInTheDocument()
+    expect(screen.getByText('Work attempt: Check task status')).toBeInTheDocument()
     expect(screen.getByText('Work attempt: Refresh task status')).toBeInTheDocument()
     expect(screen.queryByText('Work attempt: Status not reported')).toBeNull()
     expect(screen.queryByText(/waiting_for_result/i)).toBeNull()
@@ -364,7 +364,7 @@ describe('HistoryTab', () => {
 
     render(<HistoryTab task={makeTask({ state: 'waiting_for_agent' as never })} />)
 
-    expect(await screen.findByText('Status needs review')).toBeInTheDocument()
+    expect(await screen.findByText('Check task status')).toBeInTheDocument()
     expect(screen.queryByText(/waiting_for_agent/i)).toBeNull()
     expect(screen.queryByText(/waiting for agent/i)).toBeNull()
   })

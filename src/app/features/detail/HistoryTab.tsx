@@ -392,7 +392,7 @@ function taskCheckIn(task: TaskSummary): {
       }
     default:
       return {
-        title: 'Task status needs review',
+        title: 'Check latest task updates',
         detail:
           'Open the latest updates before deciding whether to start, retry, or close this task.',
         tone: 'warn',
@@ -506,7 +506,7 @@ function readableRunStatus(status: string): string {
     case 'cancelled':
       return 'Stopped'
     default:
-      return normalized ? 'Status needs review' : 'Refresh task status'
+      return normalized ? 'Check task status' : 'Refresh task status'
   }
 }
 

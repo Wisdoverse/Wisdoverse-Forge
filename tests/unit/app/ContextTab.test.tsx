@@ -319,7 +319,7 @@ describe('ContextTab', () => {
 
     expect(await screen.findByText('Agent work checked saved notes and instructions')).toBeDefined()
     expect(screen.getByText('Waiting to start')).toBeDefined()
-    expect(screen.getByText('Status needs review')).toBeDefined()
+    expect(screen.getByText('Check task status')).toBeDefined()
     expect(screen.getByText('Refresh task status')).toBeDefined()
     expect(screen.queryByText('Status not reported')).toBeNull()
     expect(screen.queryByText(/waiting_for_context/i)).toBeNull()

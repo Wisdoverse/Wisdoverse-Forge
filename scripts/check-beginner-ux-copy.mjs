@@ -221,6 +221,13 @@ const LIVE_WORK_STATUS_DEAD_END_PATTERNS = [/\bStatus not reported\b/i]
 
 const TASK_DETAIL_RUN_STATUS_DEAD_END_PATTERNS = [/\bStatus not reported\b/i]
 
+const TASK_STATUS_FALLBACK_DEAD_END_PATTERNS = [
+  /\bStatus not listed\b/i,
+  /\bStatus needs review\b/i,
+  /\bPriority not listed\b/i,
+  /\bPriority needs review\b/i,
+]
+
 const TASK_FORM_AGENT_STATUS_DEAD_END_PATTERNS = [/\bstatus not reported\b/i]
 
 const TASK_SUPPORT_REFERENCE_DEAD_END_PATTERNS = [/\bSupport reference not reported\b/i]
@@ -320,6 +327,7 @@ function isUiCopyFile(relFile) {
   if (relFile === 'src/app/entities/agent/model/display-labels.ts') return true
   if (relFile === 'src/app/entities/agent/model/runtime-kind.ts') return true
   if (relFile === 'src/app/entities/agent/model/status-labels.ts') return true
+  if (relFile === 'src/app/entities/task/model/taskLabels.ts') return true
   if (relFile === 'src/app/entities/user/model/roleLabels.ts') return true
   if (USER_VISIBLE_ERROR_FILE_PATTERNS.some((pattern) => pattern.test(relFile))) return true
   if (NON_UI_FILE_PATTERNS.some((pattern) => pattern.test(relFile))) return false
@@ -710,6 +718,18 @@ function hasTaskDetailRunStatusDeadEndCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return TASK_DETAIL_RUN_STATUS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasTaskStatusFallbackDeadEndCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/entities/task/model/taskLabels.ts') &&
+    !relFile.endsWith('src/app/features/detail/HistoryTab.tsx') &&
+    !relFile.endsWith('src/app/features/detail/ContextTab.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_STATUS_FALLBACK_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function scanFile(file, relFile) {
@@ -1163,6 +1183,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Task detail run status copy must tell beginners to refresh task status before deciding.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskStatusFallbackDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'task-status-fallback-copy',
+        location,
+        message:
+          'Task status and priority fallback copy must tell beginners to refresh or check the task field.',
         sample: line.trim(),
       })
     }
