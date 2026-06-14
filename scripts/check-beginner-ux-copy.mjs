@@ -45,6 +45,10 @@ const BEGINNER_JARGON_PATTERNS = [
   /\bForge CLI\b/i,
 ]
 
+const PLACEHOLDER_COPY_PATTERNS = [/\bUnknown\b/, /\bunknown\b/, /\bN\/A\b/, /\bTBD\b/]
+
+const PLACEHOLDER_STRING_LITERAL_PATTERN = /(['"`])[^'"`]*(?:Unknown|unknown|N\/A|TBD)[^'"`]*\1/
+
 const NON_UI_PATH_PARTS = [
   '/api/',
   '/lib/',
@@ -169,6 +173,38 @@ function hasBeginnerJargon(line) {
   return BEGINNER_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function looksLikeUserVisibleCopyLine(line) {
+  if (/<[^>]*>[^<]*(?:Unknown|unknown|N\/A|TBD)[^<]*<\/[^>]+>/.test(line)) return true
+  if (/\b(?:aria-label|title|placeholder)\s*=/.test(line)) return true
+  if (
+    /\b[A-Za-z][A-Za-z0-9_]*(?:Label|Title|Description|Message|Detail|Tooltip|Placeholder|Help|Hint|Text|Copy)?\s*:\s*['"`]/.test(
+      line
+    )
+  ) {
+    return true
+  }
+  if (
+    /\b(?:label|title|description|message|detail|tooltip|placeholder|help|hint|text|copy)\s*=\s*['"`]/i.test(
+      line
+    )
+  ) {
+    return true
+  }
+  return false
+}
+
+function hasPlaceholderCopy(line) {
+  if (isLikelyGuardOrParserLine(line)) return false
+  if (
+    !/<[^>]*>[^<]*(?:Unknown|unknown|N\/A|TBD)[^<]*<\/[^>]+>/.test(line) &&
+    !PLACEHOLDER_STRING_LITERAL_PATTERN.test(line)
+  ) {
+    return false
+  }
+  if (!looksLikeUserVisibleCopyLine(line)) return false
+  return PLACEHOLDER_COPY_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasRecoverableErrorCopy(line) {
   if (isLikelyGuardOrParserLine(line)) return false
   return RECOVERABLE_ERROR_PATTERNS.some((pattern) => pattern.test(line))
@@ -204,6 +240,16 @@ function scanFile(file, relFile) {
         type: 'beginner-jargon-copy',
         location,
         message: 'User-visible copy must use beginner-facing agent location wording.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasPlaceholderCopy(line)) {
+      findings.push({
+        type: 'placeholder-copy',
+        location,
+        message:
+          'User-visible copy must explain missing information instead of showing placeholder labels.',
         sample: line.trim(),
       })
     }

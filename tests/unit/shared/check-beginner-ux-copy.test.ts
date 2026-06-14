@@ -289,6 +289,53 @@ export function CreateAgentModal() {
     ])
   })
 
+  it('flags placeholder copy that leaves beginners guessing', () => {
+    const cwd = fixture({
+      'src/app/features/tasks/TaskStatus.tsx': `
+export function TaskStatus() {
+  return <p>Status: Unknown</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'placeholder-copy',
+        location: 'src/app/features/tasks/TaskStatus.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts missing information when the copy explains what happens next', () => {
+    const cwd = fixture({
+      'src/app/features/tasks/TaskStatus.tsx': `
+export function TaskStatus() {
+  return <p>Status not reported yet. Refresh the task after the agent updates.</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('ignores placeholder-like internal status values', () => {
+    const cwd = fixture({
+      'src/app/features/admin/SystemHealth.tsx': `
+type ServiceStatus = 'ready' | 'unknown'
+
+export function SystemHealth(props: { status?: ServiceStatus }) {
+  const status = props.status ?? 'unknown'
+  return <p>{status === 'unknown' ? 'Not checked yet' : 'Ready'}</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags recoverable failure copy without a next action', () => {
     const cwd = fixture({
       'src/app/features/tasks/TaskFailure.tsx': `
