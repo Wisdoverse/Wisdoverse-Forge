@@ -55,7 +55,10 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
     const nextStep = screen.getByTestId('analytics-next-step')
     expect(nextStep).toHaveTextContent('Start a task to create activity data')
     expect(nextStep).toHaveTextContent('Create one simple task')
-    expect(screen.getByText('No activity data')).toBeDefined()
+    expect(screen.getByText('Run a task to fill this chart')).toBeDefined()
+    expect(screen.getByText('Tool use appears after an agent runs a task')).toBeDefined()
+    expect(screen.queryByText('No activity data')).toBeNull()
+    expect(screen.queryByText('No tool usage data')).toBeNull()
   })
 
   test('points beginners at the busiest low-success tool first', () => {

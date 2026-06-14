@@ -247,7 +247,7 @@ export function AnalyticsDashboard() {
             ) : (
               <div className="flex h-24 items-center justify-center">
                 <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-                  No activity data
+                  Run a task to fill this chart
                 </p>
               </div>
             )}
@@ -297,7 +297,7 @@ export function AnalyticsDashboard() {
             ) : (
               <div className="flex h-20 items-center justify-center">
                 <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-                  No tool usage data
+                  Tool use appears after an agent runs a task
                 </p>
               </div>
             )}

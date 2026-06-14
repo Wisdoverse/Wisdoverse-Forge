@@ -147,6 +147,8 @@ const BILLING_CHECKPOINT_DEAD_END_PATTERNS = [/\bNo invoices yet\b/i]
 
 const BILLING_RECEIPT_LINK_DEAD_END_PATTERNS = [/\bNo link\b/i]
 
+const ANALYTICS_CHART_DEAD_END_PATTERNS = [/\bNo activity data\b/i, /\bNo tool usage data\b/i]
+
 const BEGINNER_JARGON_PATTERNS = [
   /\blocal agents?\b/i,
   /\bmanaged local agent\b/i,
@@ -399,6 +401,12 @@ function hasBillingReceiptLinkDeadEndCopy(relFile, line) {
   return BILLING_RECEIPT_LINK_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAnalyticsChartDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/analytics/AnalyticsDashboard.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ANALYTICS_CHART_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function scanFile(file, relFile) {
   const lines = fs.readFileSync(file, 'utf8').split('\n')
   const findings = []
@@ -561,6 +569,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Invoice receipt copy must explain when a link will appear instead of only saying no link.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAnalyticsChartDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'analytics-chart-empty-copy',
+        location,
+        message: 'Analytics chart empty states must tell beginners what creates the first data.',
         sample: line.trim(),
       })
     }

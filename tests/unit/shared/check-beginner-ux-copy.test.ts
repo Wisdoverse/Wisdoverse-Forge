@@ -358,6 +358,52 @@ export function InvoiceList() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags analytics chart empty states that do not explain what creates data', () => {
+    const cwd = fixture({
+      'src/app/features/analytics/AnalyticsDashboard.tsx': `
+export function AnalyticsDashboard() {
+  return (
+    <div>
+      <p>No activity data</p>
+      <p>No tool usage data</p>
+    </div>
+  )
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'analytics-chart-empty-copy',
+        location: 'src/app/features/analytics/AnalyticsDashboard.tsx:5',
+      }),
+      expect.objectContaining({
+        type: 'analytics-chart-empty-copy',
+        location: 'src/app/features/analytics/AnalyticsDashboard.tsx:6',
+      }),
+    ])
+  })
+
+  it('accepts analytics chart empty states that explain how to create data', () => {
+    const cwd = fixture({
+      'src/app/features/analytics/AnalyticsDashboard.tsx': `
+export function AnalyticsDashboard() {
+  return (
+    <div>
+      <p>Run a task to fill this chart</p>
+      <p>Tool use appears after an agent runs a task</p>
+    </div>
+  )
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags validation copy that does not explain the next change', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `
