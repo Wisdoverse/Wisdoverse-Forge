@@ -268,8 +268,8 @@ export const en = {
       error: 'Error',
       connecting: 'Connecting...',
     },
-    confirmDelete: 'Are you sure you want to delete this agent?',
-    confirmStop: 'Are you sure you want to stop this agent?',
+    confirmDelete: 'Delete this agent? This removes its setup and stops assigning new work to it.',
+    confirmStop: 'Stop this agent? Current work pauses until you start it again.',
     // New agent modal
     startNewAgent: 'Start a new agent',
     pickProject: 'Pick a project to begin',
@@ -307,7 +307,7 @@ export const en = {
     removeFromGroup: 'Remove from Group',
     moveToGroup: 'Move to Group',
     ungrouped: 'Ungrouped',
-    confirmDelete: 'Are you sure you want to delete this group?',
+    confirmDelete: 'Delete this group? Agents stay available, but this grouping will be removed.',
     groupCreated: 'Group created',
     groupDeleted: 'Group deleted',
     groupUpdated: 'Group updated',
@@ -434,7 +434,7 @@ export const en = {
     emailNotifications: 'Email Notifications',
     saved: 'Settings saved',
     reset: 'Reset to defaults',
-    resetConfirm: 'Are you sure you want to reset all settings?',
+    resetConfirm: 'Reset all settings? This restores defaults and replaces your current choices.',
     runtime: {
       title: 'Agent Work Setup',
       description:
@@ -596,12 +596,12 @@ export const en = {
   // Confirmations
   // =========================================================================
   confirm: {
-    delete: 'Are you sure you want to delete this?',
-    unsavedChanges: 'You have unsaved changes. Are you sure you want to leave?',
-    logout: 'Are you sure you want to logout?',
-    reset: 'Are you sure you want to reset? This cannot be undone.',
-    stop: 'Are you sure you want to stop this operation?',
-    discard: 'Are you sure you want to discard your changes?',
+    delete: 'Delete this item? It will be removed from this workspace.',
+    unsavedChanges: 'Leave without saving? Unsaved changes will be lost.',
+    logout: 'Sign out now? Unsaved work in open forms may be lost.',
+    reset: 'Reset this? Current changes will be replaced by defaults.',
+    stop: 'Stop this operation? Current progress may pause and need to be started again.',
+    discard: 'Discard changes? Your edits will be lost.',
   },
 
   // =========================================================================
@@ -752,7 +752,7 @@ export const en = {
         inactive: 'Inactive',
         suspended: 'Suspended',
       },
-      confirmDelete: 'Are you sure you want to delete this user?',
+      confirmDelete: 'Delete this user? They will lose access to this workspace.',
     },
     health: {
       title: 'System Health',

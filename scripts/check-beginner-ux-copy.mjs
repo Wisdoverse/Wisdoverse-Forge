@@ -47,6 +47,23 @@ const DEAD_END_VALIDATION_PATTERNS = [
   /此字段无效/,
 ]
 
+const DEAD_END_CONFIRMATION_PATTERNS = [
+  /\bAre you sure you want to delete this(?: agent| group| user)?\??/i,
+  /\bAre you sure you want to reset all settings\??/i,
+  /\bYou have unsaved changes\. Are you sure you want to leave\??/i,
+  /\bAre you sure you want to logout\??/i,
+  /\bAre you sure you want to reset\??/i,
+  /\bAre you sure you want to stop this operation\??/i,
+  /\bAre you sure you want to discard your changes\??/i,
+  /确定要删除(?:此|这个)?.*吗？/,
+  /确定要恢复所有设置吗？/,
+  /您有未保存的更改，确定要离开吗？/,
+  /确定要退出登录吗？/,
+  /确定要重置吗？/,
+  /确定要停止此操作吗？/,
+  /确定要放弃更改吗？/,
+]
+
 const BEGINNER_JARGON_PATTERNS = [
   /\blocal agents?\b/i,
   /\bmanaged local agent\b/i,
@@ -228,6 +245,11 @@ function hasDeadEndValidationCopy(line) {
   return DEAD_END_VALIDATION_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasDeadEndConfirmationCopy(line) {
+  if (isLikelyGuardOrParserLine(line)) return false
+  return DEAD_END_CONFIRMATION_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function scanFile(file, relFile) {
   const lines = fs.readFileSync(file, 'utf8').split('\n')
   const findings = []
@@ -277,6 +299,15 @@ function scanFile(file, relFile) {
         type: 'validation-next-action',
         location,
         message: 'User-visible validation copy must explain what to change next.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasDeadEndConfirmationCopy(line)) {
+      findings.push({
+        type: 'confirmation-impact',
+        location,
+        message: 'User-visible confirmation copy must explain the impact before users confirm.',
         sample: line.trim(),
       })
     }

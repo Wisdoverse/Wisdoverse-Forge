@@ -261,8 +261,8 @@ export const zh: TranslationKeys = {
       error: '错误',
       connecting: '连接中...',
     },
-    confirmDelete: '确定要删除此 Agent 吗？',
-    confirmStop: '确定要停止此 Agent 吗？',
+    confirmDelete: '要删除这个 Agent 吗？这会移除它的设置，并停止给它分配新任务。',
+    confirmStop: '要停止这个 Agent 吗？当前工作会暂停，直到你重新启动它。',
     // 新建 Agent 弹窗
     startNewAgent: '开始新 Agent',
     pickProject: '选择一个项目开始',
@@ -300,7 +300,7 @@ export const zh: TranslationKeys = {
     removeFromGroup: '从分组中移除',
     moveToGroup: '移动到分组',
     ungrouped: '未分组',
-    confirmDelete: '确定要删除此分组吗？',
+    confirmDelete: '要删除这个分组吗？Agent 仍会保留，但这个分组会被移除。',
     groupCreated: '分组已创建',
     groupDeleted: '分组已删除',
     groupUpdated: '分组已更新',
@@ -427,7 +427,7 @@ export const zh: TranslationKeys = {
     emailNotifications: '邮件通知',
     saved: '设置已保存',
     reset: '恢复默认',
-    resetConfirm: '确定要恢复所有设置吗？',
+    resetConfirm: '要恢复所有设置吗？这会使用默认值替换当前选择。',
     runtime: {
       title: 'Agent 工作设置',
       description: '选择实际操作型 Agent 在哪里工作，并在分配任务前检查工具和登录状态。',
@@ -577,12 +577,12 @@ export const zh: TranslationKeys = {
   // 确认
   // =========================================================================
   confirm: {
-    delete: '确定要删除吗？',
-    unsavedChanges: '您有未保存的更改，确定要离开吗？',
-    logout: '确定要退出登录吗？',
-    reset: '确定要重置吗？此操作无法撤销。',
-    stop: '确定要停止此操作吗？',
-    discard: '确定要放弃更改吗？',
+    delete: '要删除这一项吗？它会从当前工作区移除。',
+    unsavedChanges: '不保存就离开吗？未保存的更改会丢失。',
+    logout: '现在退出登录吗？打开表单里的未保存内容可能会丢失。',
+    reset: '要重置吗？当前更改会被默认值替换。',
+    stop: '要停止此操作吗？当前进度可能会暂停，需要重新开始。',
+    discard: '要放弃更改吗？你的编辑会丢失。',
   },
 
   // =========================================================================
@@ -732,7 +732,7 @@ export const zh: TranslationKeys = {
         inactive: '未激活',
         suspended: '已暂停',
       },
-      confirmDelete: '确定要删除此用户吗？',
+      confirmDelete: '要删除这个用户吗？该用户将失去当前工作区访问权限。',
     },
     health: {
       title: '系统健康',

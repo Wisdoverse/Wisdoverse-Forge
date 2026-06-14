@@ -219,6 +219,92 @@ export const zh = {
     ])
   })
 
+  it('flags confirmation copy that hides the impact from beginners', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  agents: {
+    confirmDelete: 'Are you sure you want to delete this agent?',
+  },
+  settings: {
+    resetConfirm: 'Are you sure you want to reset all settings?',
+  },
+  confirm: {
+    unsavedChanges: 'You have unsaved changes. Are you sure you want to leave?',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'confirmation-impact',
+        location: 'src/app/shared/i18n/locales/en.ts:4',
+      }),
+      expect.objectContaining({
+        type: 'confirmation-impact',
+        location: 'src/app/shared/i18n/locales/en.ts:7',
+      }),
+      expect.objectContaining({
+        type: 'confirmation-impact',
+        location: 'src/app/shared/i18n/locales/en.ts:10',
+      }),
+    ])
+  })
+
+  it('flags Chinese confirmation copy that hides the impact from beginners', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  agents: {
+    confirmDelete: '确定要删除此 Agent 吗？',
+  },
+  settings: {
+    resetConfirm: '确定要恢复所有设置吗？',
+  },
+  confirm: {
+    unsavedChanges: '您有未保存的更改，确定要离开吗？',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'confirmation-impact',
+        location: 'src/app/shared/i18n/locales/zh.ts:4',
+      }),
+      expect.objectContaining({
+        type: 'confirmation-impact',
+        location: 'src/app/shared/i18n/locales/zh.ts:7',
+      }),
+      expect.objectContaining({
+        type: 'confirmation-impact',
+        location: 'src/app/shared/i18n/locales/zh.ts:10',
+      }),
+    ])
+  })
+
+  it('accepts confirmation copy when it names the impact', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  agents: {
+    confirmDelete: 'Delete this agent? This removes its setup and stops assigning new work to it.',
+  },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('ignores raw legacy API parser regexes', () => {
     const cwd = fixture({
       'src/app/shared/api/legacy/AgentAPI.ts': `
