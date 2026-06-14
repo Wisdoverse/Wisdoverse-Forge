@@ -104,7 +104,7 @@ describe('AuthPage beginner guidance', () => {
 
     expect(exchangeAuthCode).toHaveBeenCalledWith('callback-code')
     expect(bodyText()).toContain(
-      'Sign-in could not finish. Forge could not connect while signing you in. Check your connection, then try again.'
+      'Check your connection, then try signing in again. Forge could not reach sign-in.'
     )
     expect(bodyText()).not.toContain('Failed to fetch')
     expect(bodyText()).not.toContain('could not reach the service')
@@ -173,7 +173,7 @@ describe('AuthPage beginner guidance', () => {
     await flushAsyncWork()
 
     expect(bodyText()).toContain(
-      'Sign-in could not finish. Forge could not connect while signing you in. Check your connection, then try again.'
+      'Check your connection, then try signing in again. Forge could not reach sign-in.'
     )
     expect(bodyText()).not.toContain('Network error')
   })
@@ -327,7 +327,7 @@ describe('AuthPage beginner guidance', () => {
     await flushAsyncWork()
 
     expect(bodyText()).toContain(
-      'Reset email could not be requested. Forge could not connect while sending the reset email. Check your connection, then try again.'
+      'Check your connection, then request the reset email again. Forge could not reach email delivery.'
     )
     expect(bodyText()).not.toContain('Failed to fetch')
     expect(bodyText()).not.toContain('could not reach the service')
@@ -378,7 +378,7 @@ describe('AuthPage beginner guidance', () => {
     await flushAsyncWork()
 
     expect(bodyText()).toContain(
-      'Password could not be updated. Forge could not connect while saving your new password. Check your connection, then try again.'
+      'Check your connection, then save the new password again. Forge could not reach password reset.'
     )
     expect(bodyText()).not.toContain('Failed to fetch')
     expect(bodyText()).not.toContain('could not reach the service')
@@ -408,7 +408,7 @@ describe('AuthPage beginner guidance', () => {
     await flushAsyncWork()
 
     expect(bodyText()).toContain(
-      'Verification email could not be sent. Forge could not connect while sending it. Check your connection, then try again.'
+      'Check your connection, then send the verification email again. Forge could not reach email delivery.'
     )
     expect(bodyText()).not.toContain('Failed to fetch')
     expect(bodyText()).not.toContain('could not reach the service')

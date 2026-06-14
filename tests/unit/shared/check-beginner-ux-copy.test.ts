@@ -3666,6 +3666,95 @@ function networkRecoveryMessage() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags authentication network copy that starts with the failure instead of the next step', () => {
+    const cwd = fixture({
+      'src/app/features/auth/AuthPage.ts': `
+function authLoginErrorMessage() {
+  return 'Sign-in could not finish. Forge could not connect while signing you in. Check your connection, then try again.'
+}
+function authRegisterErrorMessage() {
+  return 'Account could not be created. Forge could not connect while creating it. Check your connection, then try again.'
+}
+function authRecoveryErrorMessage() {
+  return 'Verification email could not be sent. Forge could not connect while sending it. Check your connection, then try again.'
+}
+`,
+      'src/app/shared/auth/AuthManager.ts': `
+const AUTH_NETWORK_ERROR = 'Forge could not connect. Check your connection, then try again.'
+`,
+      'src/app/shared/api/legacy/AgentAPI.ts': `
+const LEGACY_API_NETWORK_ERROR = 'Forge could not connect. Check your connection, then try again.'
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  errors: {
+    network: 'Forge 暂时连不上。请检查网络后重试。',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'network-copy',
+          location: 'src/app/features/auth/AuthPage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'network-copy',
+          location: 'src/app/features/auth/AuthPage.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'network-copy',
+          location: 'src/app/features/auth/AuthPage.ts:9',
+        }),
+        expect.objectContaining({
+          type: 'network-copy',
+          location: 'src/app/shared/auth/AuthManager.ts:2',
+        }),
+        expect.objectContaining({
+          type: 'network-copy',
+          location: 'src/app/shared/api/legacy/AgentAPI.ts:2',
+        }),
+        expect.objectContaining({
+          type: 'network-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:4',
+        }),
+      ])
+    )
+  })
+
+  it('accepts authentication network copy that starts with the next step', () => {
+    const cwd = fixture({
+      'src/app/features/auth/AuthPage.ts': `
+function authLoginErrorMessage() {
+  return 'Check your connection, then try signing in again. Forge could not reach sign-in.'
+}
+function authRecoveryErrorMessage() {
+  return 'Check your connection, then send the verification email again. Forge could not reach email delivery.'
+}
+`,
+      'src/app/shared/auth/AuthManager.ts': `
+const AUTH_NETWORK_ERROR = 'Check your connection, then try again. Forge could not connect.'
+`,
+      'src/app/shared/api/legacy/AgentAPI.ts': `
+const LEGACY_API_NETWORK_ERROR = 'Check your connection, then try again. Forge could not connect.'
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  errors: {
+    network: '请检查网络，然后重试。Forge 暂时无法连接。',
+  },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags team and project setting errors that start with the failure', () => {
     const cwd = fixture({
       'src/app/shared/lib/workspaceResourceErrorMessage.ts': `

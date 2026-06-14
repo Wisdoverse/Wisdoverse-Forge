@@ -280,7 +280,7 @@ describe('Legacy API adapter — beginner-safe fallback errors', () => {
 
     const result = await getAgentApi().testUserLlmConfig('cfg_1')
 
-    expect(result.error).toBe('Forge could not connect. Check your connection, then try again.')
+    expect(result.error).toBe('Check your connection, then try again. Forge could not connect.')
     expect(result.error).not.toContain('Network error')
   })
 })

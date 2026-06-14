@@ -36,7 +36,7 @@ const STORAGE_KEYS = {
   legacyRefresh: 'af:auth:refresh',
 } as const
 
-const AUTH_NETWORK_ERROR = 'Forge could not connect. Check your connection, then try again.'
+const AUTH_NETWORK_ERROR = 'Check your connection, then try again. Forge could not connect.'
 
 export class AuthManager {
   private accessToken: string | null = null

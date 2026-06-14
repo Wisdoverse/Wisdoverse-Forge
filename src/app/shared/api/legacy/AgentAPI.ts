@@ -23,7 +23,7 @@ import {
   type GitProvider,
 } from '@app/shared/api/agent-api-types'
 
-const LEGACY_API_NETWORK_ERROR = 'Forge could not connect. Check your connection, then try again.'
+const LEGACY_API_NETWORK_ERROR = 'Check your connection, then try again. Forge could not connect.'
 const LEGACY_API_REQUEST_ERROR =
   'Forge could not finish this request. Wait a moment, then try again.'
 const RAW_LEGACY_ERROR_PATTERN = /^(?:Network error|Server error\s*\(\d{3}\)|HTTP\s+\d{3})$/i

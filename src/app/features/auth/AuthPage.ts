@@ -29,7 +29,7 @@ function authLoginErrorMessage(result: AuthFailure): string {
     lowerDetail.includes('load failed')
 
   if (networkFailed) {
-    return 'Sign-in could not finish. Forge could not connect while signing you in. Check your connection, then try again.'
+    return 'Check your connection, then try signing in again. Forge could not reach sign-in.'
   }
   if (
     code.includes('RATE') ||
@@ -73,7 +73,7 @@ function authRegisterErrorMessage(result: AuthFailure): string {
     lowerDetail.includes('load failed')
 
   if (networkFailed) {
-    return 'Account could not be created. Forge could not connect while creating it. Check your connection, then try again.'
+    return 'Check your connection, then create the account again. Forge could not reach account setup.'
   }
   if (
     code.includes('RATE') ||
@@ -124,7 +124,7 @@ function authSignInErrorMessage(error: unknown): string {
     lowerDetail.includes('load failed')
 
   if (networkFailed) {
-    return 'Sign-in could not finish. Forge could not connect while signing you in. Check your connection, then try again.'
+    return 'Check your connection, then try signing in again. Forge could not reach sign-in.'
   }
   if (lowerDetail.includes('access_denied') || lowerDetail.includes('cancel')) {
     return 'Sign-in was cancelled. Choose a sign-in option and try again.'
@@ -168,11 +168,11 @@ function authRecoveryErrorMessage(action: AuthRecoveryAction, error: unknown): s
   if (networkFailed) {
     switch (action) {
       case 'resend-verification':
-        return 'Verification email could not be sent. Forge could not connect while sending it. Check your connection, then try again.'
+        return 'Check your connection, then send the verification email again. Forge could not reach email delivery.'
       case 'forgot-password':
-        return 'Reset email could not be requested. Forge could not connect while sending the reset email. Check your connection, then try again.'
+        return 'Check your connection, then request the reset email again. Forge could not reach email delivery.'
       case 'reset-password':
-        return 'Password could not be updated. Forge could not connect while saving your new password. Check your connection, then try again.'
+        return 'Check your connection, then save the new password again. Forge could not reach password reset.'
     }
   }
 

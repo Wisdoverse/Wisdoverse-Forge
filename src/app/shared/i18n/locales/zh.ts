@@ -223,7 +223,7 @@ export const zh: TranslationKeys = {
     createAccount: '创建账户',
     fillAllFields: '请填完所有字段，然后重试。',
     fillRequiredFields: '请填完必填字段，然后重试。',
-    networkError: 'Forge 登录时暂时连不上。请检查网络后重试。',
+    networkError: '请检查网络，然后重新登录。Forge 暂时无法连接登录。',
   },
 
   // =========================================================================
@@ -497,7 +497,7 @@ export const zh: TranslationKeys = {
   // =========================================================================
   errors: {
     generic: '出现了问题。请重试；如果反复发生，请让管理员检查系统。',
-    network: 'Forge 暂时连不上。请检查网络后重试。',
+    network: '请检查网络，然后重试。Forge 暂时无法连接。',
     timeout: '请求超时，请重试',
     notFound: '未找到 {{resource}}。请刷新页面后重试。',
     unauthorized: '请重新登录，然后再试一次。',

@@ -350,6 +350,17 @@ const BOARD_LOAD_FAILURE_FIRST_PATTERNS = [
   /\bForge could not connect while (?:loading|updating) the board\./i,
 ]
 
+const NETWORK_FAILURE_FIRST_PATTERNS = [
+  /\bSign-in could not finish\. Forge could not connect while signing you in\./i,
+  /\bAccount could not be created\. Forge could not connect while creating it\./i,
+  /\bVerification email could not be sent\. Forge could not connect while sending it\./i,
+  /\bReset email could not be requested\. Forge could not connect while sending the reset email\./i,
+  /\bPassword could not be updated\. Forge could not connect while saving your new password\./i,
+  /\bForge could not connect(?: while signing in)?\. Check your connection, then try again\./i,
+  /Forge 登录时暂时连不上。请检查网络后重试。/,
+  /Forge 暂时连不上。请检查网络后重试。/,
+]
+
 const WORKSPACE_RESOURCE_FAILURE_FIRST_PATTERNS = [
   /\b(?:Team|Project) could not be (?:saved|deleted)\./i,
   /\bThis (?:team|project) could not be found\./i,
@@ -763,6 +774,20 @@ function hasBoardLoadFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/board/boardErrorMessages.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return BOARD_LOAD_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasNetworkFailureFirstCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/auth/AuthPage.ts') &&
+    !relFile.endsWith('src/app/shared/auth/AuthManager.ts') &&
+    !relFile.endsWith('src/app/shared/api/legacy/AgentAPI.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return NETWORK_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasWorkspaceResourceFailureFirstCopy(relFile, line) {
@@ -1380,6 +1405,15 @@ function scanFile(file, relFile) {
         type: 'board-load-copy',
         location,
         message: 'Board load errors must start with the next action for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasNetworkFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'network-copy',
+        location,
+        message: 'Network errors must start with the next action for beginners.',
         sample: line.trim(),
       })
     }

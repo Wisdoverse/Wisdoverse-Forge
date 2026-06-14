@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { AuthManager } from '@app/shared/auth/AuthManager'
 
-const NETWORK_FALLBACK = 'Forge could not connect. Check your connection, then try again.'
+const NETWORK_FALLBACK = 'Check your connection, then try again. Forge could not connect.'
 
 function makeManager(): AuthManager {
   localStorage.clear()

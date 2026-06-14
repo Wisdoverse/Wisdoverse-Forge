@@ -230,7 +230,7 @@ export const en = {
     fillAllFields: 'Fill in every field, then try again.',
     fillRequiredFields: 'Fill in the required fields, then try again.',
     networkError:
-      'Forge could not connect while signing in. Check your connection, then try again.',
+      'Check your connection, then try signing in again. Forge could not reach sign-in.',
   },
 
   // =========================================================================
@@ -510,7 +510,7 @@ export const en = {
   errors: {
     generic:
       'Something went wrong. Try again, then ask an owner to check the system if it repeats.',
-    network: 'Forge could not connect. Check your connection, then try again.',
+    network: 'Check your connection, then try again. Forge could not connect.',
     timeout: 'Request timed out. Please try again.',
     notFound: '{{resource}} was not found. Refresh the page, then try again.',
     unauthorized: 'Sign in again, then retry this action.',
