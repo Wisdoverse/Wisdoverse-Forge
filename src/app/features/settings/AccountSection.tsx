@@ -358,10 +358,10 @@ function GettingStartedGuideRow() {
 
   const dismissed = preferences?.gettingStartedDismissed === true
   const statusLine = !preferencesLoaded
-    ? 'Checking whether the guide is hidden...'
+    ? 'Checking whether Start is hidden...'
     : dismissed
-      ? 'The guide is hidden right now.'
-      : 'The guide is already visible in the sidebar.'
+      ? 'Start is hidden right now.'
+      : 'Start is already visible in the sidebar.'
 
   async function handleRestore() {
     setError(null)
@@ -381,10 +381,11 @@ function GettingStartedGuideRow() {
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-ui-body text-foreground-light dark:text-foreground-dark">
-            Getting started guide
+            Start guide
           </p>
           <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Hidden after you finish or skip it. {statusLine}
+            Skip hides Start from the sidebar. Reset it here when you want the checklist back.{' '}
+            {statusLine}
           </p>
         </div>
         <button
@@ -393,7 +394,7 @@ function GettingStartedGuideRow() {
           disabled={restoring || !preferencesLoaded || !dismissed}
           className={cn(uiStyles.secondaryButton, 'shrink-0')}
         >
-          {restoring ? 'Restoring...' : 'Show the guide again'}
+          {restoring ? 'Resetting...' : 'Reset Start guide'}
         </button>
       </div>
       {error && (
@@ -403,7 +404,7 @@ function GettingStartedGuideRow() {
       )}
       {restored && (
         <div className="rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue">
-          The guide is back. Open Start in the sidebar to continue the checklist.
+          Start is back in the sidebar. Open it to continue the checklist.
         </div>
       )}
     </div>

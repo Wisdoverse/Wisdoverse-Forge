@@ -259,16 +259,16 @@ describe('AccountSection', () => {
     renderAccountSection()
 
     expect(loadPreferencesMock).toHaveBeenCalled()
-    expect(screen.getByText(/Hidden after you finish or skip it/)).toBeDefined()
-    expect(screen.getByText(/The guide is hidden right now/)).toBeDefined()
+    expect(screen.getByText(/Skip hides Start from the sidebar. Reset it here/i)).toBeDefined()
+    expect(screen.getByText(/Start is hidden right now/)).toBeDefined()
 
-    const restoreButton = screen.getByRole('button', { name: /show the guide again/i })
+    const restoreButton = screen.getByRole('button', { name: /reset start guide/i })
     expect(restoreButton).not.toBeDisabled()
     fireEvent.click(restoreButton)
 
     await waitFor(() => expect(setGettingStartedDismissedMock).toHaveBeenCalledWith(false))
     expect(
-      screen.getByText('The guide is back. Open Start in the sidebar to continue the checklist.')
+      screen.getByText('Start is back in the sidebar. Open it to continue the checklist.')
     ).toBeDefined()
   })
 
@@ -277,8 +277,8 @@ describe('AccountSection', () => {
 
     renderAccountSection()
 
-    expect(screen.getByText(/The guide is already visible in the sidebar/)).toBeDefined()
-    expect(screen.getByRole('button', { name: /show the guide again/i })).toBeDisabled()
+    expect(screen.getByText(/Start is already visible in the sidebar/)).toBeDefined()
+    expect(screen.getByRole('button', { name: /reset start guide/i })).toBeDisabled()
   })
 
   test('reports a failed restore instead of pretending it worked', async () => {
@@ -290,7 +290,7 @@ describe('AccountSection', () => {
 
     renderAccountSection()
 
-    fireEvent.click(screen.getByRole('button', { name: /show the guide again/i }))
+    fireEvent.click(screen.getByRole('button', { name: /reset start guide/i }))
 
     expect(
       await screen.findByText(
@@ -298,7 +298,7 @@ describe('AccountSection', () => {
       )
     ).toBeDefined()
     expect(
-      screen.queryByText('The guide is back. Open Start in the sidebar to continue the checklist.')
+      screen.queryByText('Start is back in the sidebar. Open it to continue the checklist.')
     ).toBeNull()
   })
 })
