@@ -79,6 +79,30 @@ describe('AgentConfigTab', () => {
           successRate: 0,
           systemPrompt: 'plain instructions',
         },
+        {
+          id: 'missing-model',
+          name: 'Missing Model Agent',
+          provider: 'anthropic',
+          model: ' ',
+          status: 'idle' as const,
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+          systemPrompt: 'plain instructions',
+        },
+        {
+          id: 'missing-tool',
+          name: 'Missing Tool Agent',
+          provider: 'Work tool needs review',
+          model: 'Work tool needs review',
+          status: 'idle' as const,
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+          cliTool: ' ' as never,
+          runtimeId: 'af-missing-tool-container-123',
+          runtimeKind: 'container' as const,
+        },
       ],
       updateAgentSystemPrompt,
     } as never)
@@ -134,6 +158,13 @@ describe('AgentConfigTab', () => {
     expect(screen.queryByText(/future_provider/i)).toBeNull()
     expect(screen.queryByText(/future provider/i)).toBeNull()
     expect(screen.queryByText(/future-model-v1/i)).toBeNull()
+  })
+
+  it('tells users to refresh when a chat-only agent has no model details', () => {
+    render(<AgentConfigTab agentId="missing-model" />)
+
+    expect(screen.getByText(/Refresh agent details/i)).toBeInTheDocument()
+    expect(screen.queryByText(/AI model not reported/i)).toBeNull()
   })
 
   it('applies a prompt template and can reset the edit', () => {
@@ -253,6 +284,14 @@ describe('AgentConfigTab', () => {
     expect(screen.getByText('Work tool needs review')).toBeInTheDocument()
     expect(screen.queryByText('future_tool')).toBeNull()
     expect(screen.queryByText('Unknown')).toBeNull()
+  })
+
+  it('tells users to refresh work tool setup when the CLI tool is missing', () => {
+    render(<AgentConfigTab agentId="missing-tool" />)
+
+    expect(screen.getByTestId('agent-cli-config-summary')).toBeInTheDocument()
+    expect(screen.getByText('Refresh work tool setup')).toBeInTheDocument()
+    expect(screen.queryByText('Work tool not reported')).toBeNull()
   })
 
   it('shows a recovery step when the agent is no longer available', () => {

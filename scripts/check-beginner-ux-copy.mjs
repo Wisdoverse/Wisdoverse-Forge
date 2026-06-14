@@ -213,6 +213,11 @@ const TASK_FORM_AGENT_STATUS_DEAD_END_PATTERNS = [/\bstatus not reported\b/i]
 
 const TASK_SUPPORT_REFERENCE_DEAD_END_PATTERNS = [/\bSupport reference not reported\b/i]
 
+const AGENT_CONFIG_DETAIL_DEAD_END_PATTERNS = [
+  /\bAI model not reported\b/i,
+  /\bWork tool not reported\b/i,
+]
+
 const BEGINNER_JARGON_PATTERNS = [
   /\blocal agents?\b/i,
   /\bmanaged local agent\b/i,
@@ -552,6 +557,12 @@ function hasTaskSupportReferenceDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/detail/TaskDetailPanel.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return TASK_SUPPORT_REFERENCE_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentConfigDetailDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_CONFIG_DETAIL_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasTimelineEmptyDeadEndCopy(relFile, line) {
@@ -918,6 +929,15 @@ function scanFile(file, relFile) {
         type: 'task-support-reference-copy',
         location,
         message: 'Task support reference fallback must tell beginners to refresh task details.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentConfigDetailDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-config-detail-copy',
+        location,
+        message: 'Agent configuration missing-detail copy must tell beginners what to refresh.',
         sample: line.trim(),
       })
     }

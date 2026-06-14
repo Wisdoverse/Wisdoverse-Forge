@@ -816,6 +816,50 @@ function taskSupportReference() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags agent configuration detail copy that does not tell users what to refresh', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentConfigTab.tsx': `
+function modelLabel() {
+  return 'AI model not reported'
+}
+
+function cliToolLabel() {
+  return 'Work tool not reported'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'agent-config-detail-copy',
+        location: 'src/app/features/agents/AgentConfigTab.tsx:3',
+      }),
+      expect.objectContaining({
+        type: 'agent-config-detail-copy',
+        location: 'src/app/features/agents/AgentConfigTab.tsx:7',
+      }),
+    ])
+  })
+
+  it('accepts agent configuration detail copy that names what to refresh', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentConfigTab.tsx': `
+function modelLabel() {
+  return 'Refresh agent details'
+}
+
+function cliToolLabel() {
+  return 'Refresh work tool setup'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('accepts task assignment status copy that tells users to choose an agent', () => {
     const cwd = fixture({
       'src/app/features/detail/HistoryTab.tsx': `

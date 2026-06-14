@@ -54,7 +54,7 @@ function promptProfileSaveErrorMessage(): string {
 
 function modelLabel(model?: string | null): string {
   const label = model?.trim()
-  return label ? 'AI model selected' : 'AI model not reported'
+  return label ? 'AI model selected' : 'Refresh agent details'
 }
 
 export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
@@ -322,7 +322,7 @@ function cliToolLabel(tool?: AgentInfo['cliTool'] | string): string {
       return 'OpenCode'
     case undefined:
     case '':
-      return 'Work tool not reported'
+      return 'Refresh work tool setup'
     default:
       return 'Work tool needs review'
   }
