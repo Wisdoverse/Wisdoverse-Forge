@@ -79,17 +79,17 @@ function actionFromText(text: string): SshKeyAction {
 }
 
 function baseMessage(action: SshKeyAction): string {
-  if (action === 'save') return 'Repository SSH access could not be saved.'
-  if (action === 'remove') return 'Repository SSH access could not be removed.'
-  return 'Refresh Settings to load repository SSH access.'
+  if (action === 'save') return 'git@ code access could not be saved.'
+  if (action === 'remove') return 'git@ code access could not be removed.'
+  return 'Refresh Settings to load git@ code access.'
 }
 
 function connectionMessage(action: SshKeyAction): string {
   if (action === 'load') {
-    return 'Check your connection, then refresh Settings to load repository SSH access. Forge could not connect while opening repository SSH access.'
+    return 'Check your connection, then refresh Settings to load git@ code access. Forge could not connect while opening git@ code access.'
   }
   const verb = action === 'remove' ? 'remove' : 'save'
-  return `Check your connection, then ${verb} this repository SSH access again. Forge could not connect while opening repository SSH access.`
+  return `Check your connection, then ${verb} this git@ code access again. Forge could not connect while opening git@ code access.`
 }
 
 export function sshKeysErrorMessage(error: unknown): string {
@@ -100,10 +100,10 @@ export function sshKeysErrorMessage(error: unknown): string {
   const base = baseMessage(action)
 
   if (code === 401 || lower.includes('sign in again') || lower.includes('unauthorized')) {
-    return `${base} Your sign-in expired. Sign in again, then open Settings and try repository SSH access again.`
+    return `${base} Your sign-in expired. Sign in again, then open Settings and try git@ code access again.`
   }
   if (code === 403 || lower.includes('permission') || lower.includes('forbidden')) {
-    return `${base} Ask an owner or admin for access to manage repository SSH access.`
+    return `${base} Ask an owner or admin for access to manage git@ code access.`
   }
   if (isNetworkError(error)) {
     return connectionMessage(action)
@@ -123,10 +123,10 @@ export function sshKeysErrorMessage(error: unknown): string {
     lower.includes('openssh private key') ||
     lower.includes('begin private key')
   ) {
-    return `${base} Paste only the shareable one-line SSH key that starts with ssh-ed25519 or ssh-rsa, then save again. Do not paste a private key block.`
+    return `${base} Paste only the shareable one-line public key that starts with ssh-ed25519 or ssh-rsa, then save again. Do not paste a private key block.`
   }
   if (code === 409 || lower.includes('already exists') || lower.includes('duplicate')) {
-    return `${base} This public SSH key line is already saved. Choose the saved access or remove the old one first.`
+    return `${base} This public key line is already saved. Choose the saved access or remove the old one first.`
   }
   if (
     lower.includes('shareable ssh line') ||
@@ -134,20 +134,20 @@ export function sshKeysErrorMessage(error: unknown): string {
     lower.includes('public key') ||
     lower.includes('ssh key')
   ) {
-    return `${base} Paste the public SSH key line that starts with ssh-ed25519 or ssh-rsa, then save again.`
+    return `${base} Paste the public key line that starts with ssh-ed25519 or ssh-rsa, then save again.`
   }
   if (code === 422 || lower.includes('required') || lower.includes('missing')) {
-    return `${base} Check the access name and public SSH key line, then try again.`
+    return `${base} Check the access name and public key line, then try again.`
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
-    return `${base} Forge is receiving too many repository SSH access requests right now. Wait a minute, then try again.`
+    return `${base} Forge is receiving too many git@ code access requests right now. Wait a minute, then try again.`
   }
   if (code != null && code >= 500) {
     if (action === 'load') {
-      return `${base} If it still fails, ask an owner or admin to check repository SSH access settings.`
+      return `${base} If it still fails, ask an owner or admin to check git@ code access settings.`
     }
-    return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check repository SSH access settings.`
+    return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check git@ code access settings.`
   }
 
-  return `${base} Try again. If it still fails, ask an owner or admin to check repository SSH access settings.`
+  return `${base} Try again. If it still fails, ask an owner or admin to check git@ code access settings.`
 }

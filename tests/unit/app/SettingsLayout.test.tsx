@@ -32,9 +32,7 @@ describe('SettingsLayout', () => {
       within(desktopNav).getByRole('button', { name: 'Outside Tool Access' })
     ).toBeInTheDocument()
     expect(within(desktopNav).getByRole('button', { name: 'Code Access' })).toBeInTheDocument()
-    expect(
-      within(desktopNav).getByRole('button', { name: 'Repository SSH Access' })
-    ).toBeInTheDocument()
+    expect(within(desktopNav).getByRole('button', { name: 'git@ Code Access' })).toBeInTheDocument()
     expect(within(desktopNav).getByRole('button', { name: 'Agent Work Setup' })).toBeInTheDocument()
 
     expect(screen.getByRole('group', { name: 'AI Setup' })).toBeInTheDocument()
@@ -42,7 +40,7 @@ describe('SettingsLayout', () => {
     expect(screen.getByRole('option', { name: 'AI Services' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Outside Tool Access' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Code Access' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Repository SSH Access' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'git@ Code Access' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Work Capacity' })).toBeInTheDocument()
 
     fireEvent.click(within(desktopNav).getByRole('button', { name: 'Agent Work Setup' }))

@@ -50,27 +50,21 @@ afterEach(() => {
 })
 
 describe('SshKeysSection', () => {
-  test('guides first-time repository SSH access setup and saves only after required fields are filled', async () => {
+  test('guides first-time git@ code access setup and saves only after required fields are filled', async () => {
     render(<SshKeysSection />)
 
-    expect(
-      await screen.findByText('Add SSH access for repository addresses that start with git@')
-    ).toBeDefined()
+    expect(await screen.findByText('Add access for code links that start with git@')).toBeDefined()
     const emptyState = screen.getByTestId('ssh-access-empty-state')
     expect(within(emptyState).getAllByText(/starts with git@/i).length).toBeGreaterThan(0)
     expect(within(emptyState).getByText(/starts with https:\/\//i)).toBeDefined()
-    expect(within(emptyState).getByText(/Code Repository Access/i)).toBeDefined()
-    expect(
-      within(emptyState).getByRole('button', { name: /add repository ssh access/i })
-    ).toBeDefined()
+    expect(within(emptyState).getByText(/use Code Access instead/i)).toBeDefined()
+    expect(within(emptyState).getByRole('button', { name: /add git@ code access/i })).toBeDefined()
     expect(within(emptyState).queryByText('No repository SSH access yet')).toBeNull()
 
-    fireEvent.click(within(emptyState).getByRole('button', { name: /add repository ssh access/i }))
+    fireEvent.click(within(emptyState).getByRole('button', { name: /add git@ code access/i }))
 
     expect(screen.queryByTestId('ssh-access-empty-state')).toBeNull()
-    expect(
-      screen.getByText('Add access for repository addresses that start with git@')
-    ).toBeDefined()
+    expect(screen.getByText('Add access for code links that start with git@')).toBeDefined()
     expect(screen.getByText('Paste the public line')).toBeDefined()
     expect(screen.getByText(/one-line \.pub key/i)).toBeDefined()
     expect(screen.getAllByText(/starts with ssh-ed25519 or ssh-rsa/i).length).toBeGreaterThan(0)
@@ -81,11 +75,11 @@ describe('SshKeysSection', () => {
     ).toBeDefined()
 
     const nameInput = screen.getByLabelText(/^name for this access/i)
-    const shareableLineInput = screen.getByLabelText(/^public ssh key line/i)
+    const shareableLineInput = screen.getByLabelText(/^public key line/i)
     const form = nameInput.closest('form')
     expect(form).toBeTruthy()
 
-    const saveButton = screen.getByRole('button', { name: /save repository ssh access/i })
+    const saveButton = screen.getByRole('button', { name: /save git@ code access/i })
     expect(saveButton).toBeDisabled()
 
     fireEvent.submit(form!)
@@ -98,9 +92,7 @@ describe('SshKeysSection', () => {
     fireEvent.change(nameInput, { target: { value: 'Work laptop' } })
     fireEvent.submit(form!)
     expect(createSshKeyMock).not.toHaveBeenCalled()
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      /paste the public ssh key line before saving/i
-    )
+    expect(screen.getByRole('alert')).toHaveTextContent(/paste the public key line before saving/i)
     expect(shareableLineInput).toHaveFocus()
 
     fireEvent.change(shareableLineInput, {
@@ -117,7 +109,7 @@ describe('SshKeysSection', () => {
     )
   })
 
-  test('explains the impact before removing repository SSH access', async () => {
+  test('explains the impact before removing git@ code access', async () => {
     useSettingsStore.setState({ sshKeys: [sshKey()] })
 
     render(<SshKeysSection />)
@@ -125,31 +117,29 @@ describe('SshKeysSection', () => {
     await waitFor(() => expect(loadSshKeysMock).toHaveBeenCalledTimes(1))
     expect(screen.getByText('Safety check')).toBeDefined()
     expect(screen.getByText('Key type')).toBeDefined()
-    expect(screen.getByText('Modern SSH key')).toBeDefined()
+    expect(screen.getByText('Modern key type')).toBeDefined()
     expect(screen.queryByText('Saved key ID')).toBeNull()
     expect(screen.queryByText('Key kind')).toBeNull()
 
-    fireEvent.click(
-      screen.getByRole('button', { name: /remove work laptop repository ssh access/i })
-    )
+    fireEvent.click(screen.getByRole('button', { name: /remove work laptop git@ code access/i }))
 
     expect(deleteSshKeyMock).not.toHaveBeenCalled()
     expect(
       screen.getByText(
-        'Removing this access can block agents that use code repositories that are not public.'
+        'Removing this access can block agents that use private code links starting with git@.'
       )
     ).toBeDefined()
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: /confirm removing work laptop repository ssh access/i,
+        name: /confirm removing work laptop git@ code access/i,
       })
     )
 
     expect(deleteSshKeyMock).toHaveBeenCalledWith('ssh-key-1')
   })
 
-  test('explains missing repository SSH access dates instead of showing raw date failures', async () => {
+  test('explains missing git@ code access dates instead of showing raw date failures', async () => {
     useSettingsStore.setState({
       sshKeys: [
         sshKey({ createdAt: '' }),
@@ -164,7 +154,7 @@ describe('SshKeysSection', () => {
 
     render(<SshKeysSection />)
 
-    expect(await screen.findByRole('table', { name: /repository ssh access/i })).toBeDefined()
+    expect(await screen.findByRole('table', { name: /git@ code access/i })).toBeDefined()
     expect(screen.getByText('Refresh SSH access to load added date')).toBeDefined()
     expect(screen.getByText('Refresh SSH access to check added date')).toBeDefined()
     expect(screen.queryByText('Invalid Date')).toBeNull()
@@ -180,7 +170,7 @@ describe('SshKeysSection', () => {
 
     await waitFor(() => expect(loadSshKeysMock).toHaveBeenCalled())
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Repository SSH access could not be saved. Paste only the shareable one-line SSH key that starts with ssh-ed25519 or ssh-rsa, then save again. Do not paste a private key block.'
+      'git@ code access could not be saved. Paste only the shareable one-line public key that starts with ssh-ed25519 or ssh-rsa, then save again. Do not paste a private key block.'
     )
     expect(screen.queryByText(/Details: invalid public key/i)).toBeNull()
   })
@@ -194,7 +184,7 @@ describe('SshKeysSection', () => {
 
     await waitFor(() => expect(loadSshKeysMock).toHaveBeenCalled())
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Repository SSH access could not be saved. Add a name for this access, then save again.'
+      'git@ code access could not be saved. Add a name for this access, then save again.'
     )
     expect(screen.queryByText(/could not be loaded/i)).toBeNull()
   })

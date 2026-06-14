@@ -76,7 +76,7 @@ const SETTINGS_AREA_LABELS: Record<SettingsErrorArea, string> = {
   providers: 'AI service settings',
   apiKeys: 'outside tool access keys',
   gitCredentials: 'code access',
-  sshKeys: 'repository SSH access',
+  sshKeys: 'git@ code access',
   resourceProfiles: 'work capacity',
   runtime: 'agent work settings',
 }
@@ -85,7 +85,7 @@ const SETTINGS_ITEM_LABELS: Record<SettingsErrorArea, string> = {
   providers: 'AI service',
   apiKeys: 'outside tool access key',
   gitCredentials: 'code access',
-  sshKeys: 'repository SSH access',
+  sshKeys: 'git@ code access',
   resourceProfiles: 'agent size',
   runtime: 'agent work setting',
 }
@@ -182,7 +182,7 @@ function settingsPermissionMessage(area: SettingsErrorArea, actionPhrase: string
     return `You do not have permission to ${actionPhrase}. Ask an owner or admin to let you manage code access.`
   }
   if (area === 'sshKeys') {
-    return `You do not have permission to ${actionPhrase}. Ask an owner or admin to let you manage repository SSH access.`
+    return `You do not have permission to ${actionPhrase}. Ask an owner or admin to let you manage git@ code access.`
   }
   if (area === 'resourceProfiles') {
     return `You do not have permission to ${actionPhrase}. Ask an owner or admin to let you manage work capacity.`
@@ -285,19 +285,19 @@ function settingsValidationMessage(
 
   if (area === 'sshKeys') {
     if (normalized.includes('label') || normalized.includes('name')) {
-      return 'Add a name for this repository SSH access, then save again.'
+      return 'Add a name for this git@ code access, then save again.'
     }
     if (normalized.includes('private key') || normalized.includes('begin private key')) {
-      return 'Paste only the shareable one-line SSH key that starts with ssh-ed25519 or ssh-rsa, then save again. Do not paste a private key block.'
+      return 'Paste only the shareable one-line public key that starts with ssh-ed25519 or ssh-rsa, then save again. Do not paste a private key block.'
     }
     if (
       normalized.includes('public key') ||
       normalized.includes('ssh key') ||
       normalized.includes('key')
     ) {
-      return 'Paste the public SSH key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
+      return 'Paste the public key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
     }
-    return 'Add a name for this access, paste the public SSH key line, then save again.'
+    return 'Add a name for this access, paste the public key line, then save again.'
   }
 
   if (area === 'resourceProfiles') {

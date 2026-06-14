@@ -7,13 +7,13 @@ import { formatAccessDate } from './formatAccessDate'
 import { sshKeysErrorMessage } from './sshKeysErrorMessage'
 
 function describeKeyType(keyType: string): string {
-  if (keyType === 'ssh-ed25519') return 'Modern SSH key'
-  if (keyType === 'ssh-rsa') return 'RSA SSH key'
+  if (keyType === 'ssh-ed25519') return 'Modern key type'
+  if (keyType === 'ssh-rsa') return 'RSA key type'
   return keyType
 }
 
 const SSH_KEY_SETUP_STEPS = [
-  { label: 'Name where it is used', value: 'Use a device, team, or repository name.' },
+  { label: 'Name where it is used', value: 'Use a device, team, or code project name.' },
   {
     label: 'Paste the public line',
     value: 'Copy only the one-line .pub key that starts with ssh-ed25519 or ssh-rsa.',
@@ -77,8 +77,8 @@ function SshKeyRow({ sshKey, onDelete }: SshKeyRowProps) {
           onClick={handleDelete}
           aria-label={
             confirming
-              ? `Confirm removing ${sshKey.label} repository SSH access`
-              : `Remove ${sshKey.label} repository SSH access`
+              ? `Confirm removing ${sshKey.label} git@ code access`
+              : `Remove ${sshKey.label} git@ code access`
           }
           aria-describedby={confirming ? removeWarningId : undefined}
           className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
@@ -87,7 +87,7 @@ function SshKeyRow({ sshKey, onDelete }: SshKeyRowProps) {
         </button>
         {confirming && (
           <p id={removeWarningId} className="ml-auto mt-1 max-w-44 text-ui-caption text-apple-red">
-            Removing this access can block agents that use code repositories that are not public.
+            Removing this access can block agents that use private code links starting with git@.
           </p>
         )}
       </td>
@@ -123,7 +123,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
     submitAttempted && missingField === 'label'
       ? 'Add a name your team will recognize before saving.'
       : submitAttempted && missingField === 'publicKey'
-        ? 'Paste the public SSH key line before saving.'
+        ? 'Paste the public key line before saving.'
         : null
 
   async function handleSubmit(e: FormEvent) {
@@ -147,7 +147,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
     >
       <div className="mb-3 rounded-lg border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
         <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-          Add access for repository addresses that start with git@
+          Add access for code links that start with git@
         </div>
         <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
           {SSH_KEY_SETUP_STEPS.map((step) => (
@@ -175,7 +175,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
             id={labelHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Use a device, team, or repository name, for example Work laptop.
+            Use a device, team, or code project name, for example Work laptop.
           </p>
           <input
             id={labelInputId}
@@ -194,7 +194,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
 
         <div>
           <label htmlFor="ssh-public-key" className={uiStyles.label}>
-            Public SSH key line <span className="text-red-500">*</span>
+            Public key line <span className="text-red-500">*</span>
           </label>
           <p
             id={publicKeyHelpId}
@@ -243,7 +243,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
           disabled={saving || !label.trim() || !publicKey.trim()}
           className={uiStyles.primaryButton}
         >
-          {saving ? 'Saving...' : 'Save repository SSH access'}
+          {saving ? 'Saving...' : 'Save git@ code access'}
         </button>
       </div>
     </form>
@@ -288,10 +288,10 @@ export function SshKeysSection() {
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>Repository SSH access</h2>
+          <h2 className={uiStyles.sectionTitle}>git@ code access</h2>
           <p className={uiStyles.sectionDescription}>
-            Use this when a private repository gives you an address that starts with git@. Agents
-            can then read that repository during their work.
+            Use this only when a private code link starts with git@. If it starts with https://, use
+            Code Access instead.
           </p>
         </div>
         {!showForm && (
@@ -301,7 +301,7 @@ export function SshKeysSection() {
             className={uiStyles.primaryButton}
           >
             <span>+</span>
-            <span>Add repository SSH access</span>
+            <span>Add git@ code access</span>
           </button>
         )}
       </div>
@@ -317,29 +317,29 @@ export function SshKeysSection() {
       <div className={cn(uiStyles.card, 'overflow-x-auto')}>
         {sshKeysLoading && sshKeys.length === 0 ? (
           <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading repository SSH access...
+            Loading git@ code access...
           </div>
         ) : sshKeys.length === 0 && !showForm ? (
           <div className="px-4 py-6 text-center" data-testid="ssh-access-empty-state">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              Add SSH access for repository addresses that start with git@
+              Add access for code links that start with git@
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              If the repository address starts with git@, add this. If it starts with https://, use
-              Code Repository Access instead.
+              If the code link starts with git@, add this. If it starts with https://, use Code
+              Access instead.
             </p>
             <button
               type="button"
               onClick={() => setShowForm(true)}
               className={cn(uiStyles.primaryButton, 'mx-auto mt-3')}
             >
-              Add repository SSH access
+              Add git@ code access
             </button>
           </div>
         ) : (
           <>
             {sshKeys.length > 0 && (
-              <table className={uiStyles.table} aria-label="Repository SSH access">
+              <table className={uiStyles.table} aria-label="git@ code access">
                 <thead className={uiStyles.tableHead}>
                   <tr>
                     {tableHeaders.map((h) => (

@@ -144,14 +144,14 @@ describe('settingsActionErrorMessage', () => {
   test('turns git@ access label validation into a naming step', () => {
     expectBeginnerError(
       settingsActionErrorMessage('sshKeys', 'create', statusError(422, 'label is required')),
-      'Add a name for this repository SSH access, then save again.'
+      'Add a name for this git@ code access, then save again.'
     )
   })
 
-  test('turns SSH public key validation into shareable-line guidance', () => {
+  test('turns public key validation into shareable-line guidance', () => {
     expectBeginnerError(
       settingsActionErrorMessage('sshKeys', 'create', statusError(422, 'public key is invalid')),
-      'Paste the public SSH key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
+      'Paste the public key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
     )
   })
 
@@ -160,7 +160,7 @@ describe('settingsActionErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'Check your connection, then refresh Settings to load repository SSH access. Forge could not connect while loading Settings.'
+      'Check your connection, then refresh Settings to load git@ code access. Forge could not connect while loading Settings.'
     )
     expect(message).not.toContain('SSH keys')
     expect(message).not.toContain('Network error')
@@ -274,7 +274,7 @@ describe('useSettingsStore errors', () => {
 
     expectBeginnerError(
       useSettingsStore.getState().sshKeysError,
-      'Check your connection, then refresh Settings to load repository SSH access. Forge could not connect while loading Settings.'
+      'Check your connection, then refresh Settings to load git@ code access. Forge could not connect while loading Settings.'
     )
     expect(useSettingsStore.getState().sshKeysError).not.toContain('Network error')
   })
