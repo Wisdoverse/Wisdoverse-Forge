@@ -24,8 +24,8 @@ const FILTERS: { id: InboxFilter; label: string }[] = [
 ]
 
 const INBOX_TRIAGE_STEPS = [
-  'Start with Needs action to find tasks that need help and work that stopped early.',
-  'Use Account access when an agent needs a connection restored.',
+  'Start with Needs action to find tasks that need help or stopped early.',
+  'Use Account access when an agent needs you to reconnect a work account.',
   'Mark items read after the task or setting has been handled.',
 ]
 
@@ -189,7 +189,7 @@ export function InboxView() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
-                  Do This Next
+                  Do this next
                 </p>
                 <p className="mt-0.5 text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
                   {nextStepTitle(nextStepNotification)}
@@ -234,7 +234,7 @@ export function InboxView() {
               onClick={handleMarkAllRead}
               className="rounded-full px-3 py-1.5 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
             >
-              Mark All As Read
+              Mark all as read
             </button>
           )}
         </div>
@@ -390,7 +390,7 @@ function nextStepDescription(
   if (notification.type === 'blocked' || notification.type === 'failed') {
     return needsActionCount === 1
       ? 'This is the only item that needs action. Open it and decide the next owner step.'
-      : `${needsActionCount} items need action. Start with the newest item that needs help or recovery item first.`
+      : `${needsActionCount} items need action. Start with the newest item that needs help.`
   }
 
   return 'There are no urgent items that need help. Open this update only if you need to review the latest work.'
@@ -399,19 +399,19 @@ function nextStepDescription(
 function nextStepActionLabel(notification: Notification): string {
   switch (notification.type) {
     case 'credential_expired':
-      return 'Open Settings'
+      return 'Open settings'
     case 'blocked':
-      return 'Open Task'
+      return 'Open task'
     case 'failed':
-      return 'Review Recovery'
+      return 'Review recovery'
     case 'completed':
-      return 'Open Result'
+      return 'Open result'
     case 'assigned':
-      return 'Open Assignment'
+      return 'Open assignment'
     case 'mentioned':
-      return 'Open Mention'
+      return 'Open mention'
     case 'cli_image_updated':
-      return 'Open Tool Updates'
+      return 'Open tool updates'
   }
 }
 

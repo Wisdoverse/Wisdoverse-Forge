@@ -92,7 +92,7 @@ const TYPE_CONFIG: Record<
     label: 'Tool update',
     actionLabel: 'Open tool updates',
     guidance:
-      'Open Admin → Agent tool updates to see the per-tool status. New agents pick up the change automatically.',
+      'Open Admin, then Agent tool updates, to check each work tool. New agents use the update automatically.',
     template: 'task-lifecycle',
   },
 }

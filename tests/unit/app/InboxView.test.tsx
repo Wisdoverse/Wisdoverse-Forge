@@ -41,11 +41,12 @@ describe('InboxView', () => {
     expect(screen.getByText('Inbox triage path')).toBeDefined()
     expect(screen.getByText(/start with needs action/i)).toBeDefined()
     expect(screen.getByText(/tasks that need help/i)).toBeDefined()
-    expect(screen.getByText(/work that stopped early/i)).toBeDefined()
+    expect(screen.getByText(/stopped early/i)).toBeDefined()
     expect(screen.getByText(/account access notices/i)).toBeDefined()
     expect(
-      screen.getByText(/use account access when an agent needs a connection restored/i)
+      screen.getByText(/use account access when an agent needs you to reconnect a work account/i)
     ).toBeDefined()
+    expect(screen.queryByText(/needs a connection restored/i)).toBeNull()
     expect(screen.queryByText(/failures/i)).toBeNull()
     expect(screen.queryByText(/system alerts/i)).toBeNull()
   })
@@ -90,7 +91,7 @@ describe('InboxView', () => {
     const item = await screen.findByTestId('inbox-notification-task-owner:t-failed:failed')
     expect(item.getAttribute('data-template')).toBe('task-lifecycle')
     expect(screen.getByText('Recovery needed')).toBeDefined()
-    expect(screen.getByText('Review recovery')).toBeDefined()
+    expect(screen.getAllByText('Review recovery').length).toBeGreaterThan(0)
     expect(screen.queryByText('Failed task')).toBeNull()
     expect(screen.queryByText('View failure')).toBeNull()
     expect(screen.getByTestId('inbox-next-step')).toHaveTextContent(
@@ -134,11 +135,41 @@ describe('InboxView', () => {
     render(<InboxView />)
 
     const nextStep = screen.getByTestId('inbox-next-step')
-    expect(nextStep).toHaveTextContent('Do This Next')
+    expect(nextStep).toHaveTextContent('Do this next')
     expect(nextStep).toHaveTextContent('Review what is stopping work')
     expect(nextStep).toHaveTextContent('This is the only item that needs action')
     expect(screen.getByRole('button', { name: /^open task$/i })).toBeDefined()
     expect(nextStep).not.toHaveTextContent(/blocker/i)
+    expect(nextStep).not.toHaveTextContent('Do This Next')
+  })
+
+  test('keeps multiple action guidance direct and avoids recovery-item phrasing', () => {
+    const store = useFeedStore.getState()
+    store.addNotification({
+      id: 'n1',
+      type: 'blocked',
+      taskId: 't1',
+      taskTitle: 'Blocked deployment',
+      message: 'Waiting for input',
+      read: false,
+      timestamp: Date.now(),
+    })
+    store.addNotification({
+      id: 'n2',
+      type: 'failed',
+      taskId: 't2',
+      taskTitle: 'Stopped cleanup',
+      message: 'The task stopped before finishing.',
+      read: false,
+      timestamp: Date.now() - 1000,
+    })
+
+    render(<InboxView />)
+
+    const nextStep = screen.getByTestId('inbox-next-step')
+    expect(nextStep).toHaveTextContent('2 items need action')
+    expect(nextStep).toHaveTextContent('Start with the newest item that needs help.')
+    expect(nextStep).not.toHaveTextContent(/recovery item/i)
   })
 
   test('prioritizes expired account access because it can block future runs', () => {
@@ -451,8 +482,9 @@ describe('InboxView', () => {
     const item = screen.getByTestId('inbox-notification-cli-image:codex:updated')
     expect(item.getAttribute('data-template')).toBe('task-lifecycle')
     expect(screen.getByText('Tool update')).toBeDefined()
-    expect(screen.getByText('Open tool updates')).toBeDefined()
-    expect(screen.getByText(/open admin .* agent tool updates/i)).toBeDefined()
+    expect(screen.getAllByText('Open tool updates').length).toBeGreaterThan(0)
+    expect(screen.getByText(/open admin, then agent tool updates/i)).toBeDefined()
+    expect(screen.getByText(/check each work tool/i)).toBeDefined()
     expect(screen.getByTestId('inbox-next-step')).toHaveTextContent(
       'Review the latest agent tool update'
     )
@@ -460,5 +492,6 @@ describe('InboxView', () => {
     expect(screen.queryByRole('button', { name: /open cli images/i })).toBeNull()
     expect(screen.queryByText(['Work', '-tool image'].join(''))).toBeNull()
     expect(screen.queryByText(['Open work', '-tool images'].join(''))).toBeNull()
+    expect(screen.queryByText(/per-tool status/i)).toBeNull()
   })
 })
