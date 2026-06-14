@@ -784,6 +784,38 @@ function agentStatusLabel() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags task support reference copy that does not tell users to refresh task details', () => {
+    const cwd = fixture({
+      'src/app/features/detail/TaskDetailPanel.tsx': `
+function taskSupportReference() {
+  return 'Support reference not reported'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'task-support-reference-copy',
+        location: 'src/app/features/detail/TaskDetailPanel.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts task support reference copy that tells users to refresh task details', () => {
+    const cwd = fixture({
+      'src/app/features/detail/TaskDetailPanel.tsx': `
+function taskSupportReference() {
+  return 'Refresh task details'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('accepts task assignment status copy that tells users to choose an agent', () => {
     const cwd = fixture({
       'src/app/features/detail/HistoryTab.tsx': `

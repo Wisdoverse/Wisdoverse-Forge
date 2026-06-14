@@ -418,7 +418,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
 
 function taskSupportReference(id: string): string {
   const trimmed = id.trim()
-  if (!trimmed) return 'Support reference not reported'
+  if (!trimmed) return 'Refresh task details'
   return `Support reference ${trimmed.length > 8 ? trimmed.slice(0, 8) : trimmed}`
 }
 

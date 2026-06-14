@@ -84,6 +84,13 @@ describe('TaskDetailPanel', () => {
     expect(screen.queryByText(/^task-1$/)).toBeNull()
   })
 
+  test('tells users to refresh when the task support reference is missing', () => {
+    render(<TaskDetailPanel task={{ ...mockTask, id: ' ' }} onClose={() => {}} />)
+
+    expect(screen.getByText('Refresh task details')).toBeDefined()
+    expect(screen.queryByText('Support reference not reported')).toBeNull()
+  })
+
   test('calls onClose when close button clicked', async () => {
     const onClose = vi.fn()
     render(<TaskDetailPanel task={mockTask} onClose={onClose} />)
