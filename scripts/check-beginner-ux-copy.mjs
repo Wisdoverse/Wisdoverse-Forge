@@ -338,6 +338,14 @@ const TASK_DETAIL_LOAD_FAILURE_FIRST_PATTERNS = [
   /\bForge could not connect while (?:loading|updating) this task\./i,
 ]
 
+const BOARD_LOAD_FAILURE_FIRST_PATTERNS = [
+  /\bAgent status could not load\./i,
+  /\bThe task board could not load\./i,
+  /\bThe saved item preview could not load\./i,
+  /\bThis board item was not found\./i,
+  /\bForge could not connect while (?:loading|updating) the board\./i,
+]
+
 const WORKSPACE_RESOURCE_FAILURE_FIRST_PATTERNS = [
   /\b(?:Team|Project) could not be (?:saved|deleted)\./i,
   /\bThis (?:team|project) could not be found\./i,
@@ -731,6 +739,12 @@ function hasTaskDetailLoadFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/detail/taskDetailErrorMessages.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return TASK_DETAIL_LOAD_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasBoardLoadFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/board/boardErrorMessages.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return BOARD_LOAD_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasWorkspaceResourceFailureFirstCopy(relFile, line) {
@@ -1330,6 +1344,15 @@ function scanFile(file, relFile) {
         type: 'task-detail-load-copy',
         location,
         message: 'Task detail load errors must start with the next action for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasBoardLoadFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'board-load-copy',
+        location,
+        message: 'Board load errors must start with the next action for beginners.',
         sample: line.trim(),
       })
     }

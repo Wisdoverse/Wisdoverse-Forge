@@ -10,11 +10,10 @@ export type BoardErrorAction =
 const ACTION_FALLBACKS: Record<BoardErrorAction, string> = {
   createTask:
     'The task was not created. Check the project, task queue, and result, then try again.',
-  loadReadiness: 'Agent status could not load. Refresh the board before sending work.',
-  loadTasks: 'The task board could not load. Refresh the board, then try again.',
+  loadReadiness: 'Refresh the board to load agent status before sending work.',
+  loadTasks: 'Refresh the board to load tasks.',
   moveTask: 'The task was moved back because the board change was not saved.',
-  previewContext:
-    'The saved item preview could not load. Choose an available agent, then try again.',
+  previewContext: 'Choose an available agent, then open the saved item preview again.',
   publishTask:
     'The task was not sent with selected saved items. Review the saved item preview, then try again.',
   selectProject: 'The project was not selected. Choose the project again, then create the task.',
@@ -42,7 +41,7 @@ export function boardActionErrorMessage(action: BoardErrorAction, err: unknown):
   }
 
   if (status === 404) {
-    return 'This board item was not found. Refresh the board, then choose the current task again.'
+    return 'Refresh the board, then choose the current task again.'
   }
 
   if (status === 409) {
@@ -66,9 +65,9 @@ export function boardActionErrorMessage(action: BoardErrorAction, err: unknown):
 
 function networkRecoveryMessage(action: BoardErrorAction): string {
   if (action === 'loadReadiness' || action === 'loadTasks') {
-    return 'Forge could not connect while loading the board. Check your connection, then refresh the page.'
+    return 'If it still does not load, check your connection and refresh the page.'
   }
-  return 'Forge could not connect while updating the board. Check your connection, then try again.'
+  return 'If it still does not update, check your connection and try again.'
 }
 
 function serviceRecoveryMessage(action: BoardErrorAction): string {

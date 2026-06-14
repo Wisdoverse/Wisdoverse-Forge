@@ -3543,6 +3543,72 @@ function networkRecoveryMessage() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags board load copy that starts with the failure instead of the next step', () => {
+    const cwd = fixture({
+      'src/app/features/board/boardErrorMessages.ts': `
+const ACTION_FALLBACKS = {
+  loadReadiness: 'Agent status could not load. Refresh the board before sending work.',
+  loadTasks: 'The task board could not load. Refresh the board, then try again.',
+  previewContext: 'The saved item preview could not load. Choose an available agent, then try again.',
+}
+function notFoundMessage() {
+  return 'This board item was not found. Refresh the board, then choose the current task again.'
+}
+function networkRecoveryMessage() {
+  return 'Forge could not connect while loading the board. Check your connection, then refresh the page.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'board-load-copy',
+          location: 'src/app/features/board/boardErrorMessages.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'board-load-copy',
+          location: 'src/app/features/board/boardErrorMessages.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'board-load-copy',
+          location: 'src/app/features/board/boardErrorMessages.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'board-load-copy',
+          location: 'src/app/features/board/boardErrorMessages.ts:8',
+        }),
+        expect.objectContaining({
+          type: 'board-load-copy',
+          location: 'src/app/features/board/boardErrorMessages.ts:11',
+        }),
+      ])
+    )
+  })
+
+  it('accepts board load copy that starts with the next step', () => {
+    const cwd = fixture({
+      'src/app/features/board/boardErrorMessages.ts': `
+const ACTION_FALLBACKS = {
+  loadReadiness: 'Refresh the board to load agent status before sending work.',
+  loadTasks: 'Refresh the board to load tasks.',
+  previewContext: 'Choose an available agent, then open the saved item preview again.',
+}
+function notFoundMessage() {
+  return 'Refresh the board, then choose the current task again.'
+}
+function networkRecoveryMessage() {
+  return 'If it still does not load, check your connection and refresh the page.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags team and project setting errors that start with the failure', () => {
     const cwd = fixture({
       'src/app/shared/lib/workspaceResourceErrorMessage.ts': `
@@ -3601,7 +3667,7 @@ function notFoundMessage() {
     const cwd = fixture({
       'src/app/features/board/boardErrorMessages.ts': `
 function serviceRecoveryMessage(action) {
-  return 'The task board could not load. Refresh the board, then try again. If it still fails, ask an owner or admin to check task board setup.'
+  return 'Refresh the board to load tasks. If it still fails, ask an owner or admin to check task board setup.'
 }
 `,
       'src/app/features/detail/taskDetailErrorMessages.ts': `

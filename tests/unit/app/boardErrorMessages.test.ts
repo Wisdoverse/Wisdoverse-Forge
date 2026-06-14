@@ -18,9 +18,8 @@ describe('boardActionErrorMessage', () => {
   test('explains network failures without exposing only a transport error', () => {
     const message = boardActionErrorMessage('loadReadiness', new TypeError('Failed to fetch'))
 
-    expect(message).toContain('Agent status could not load')
-    expect(message).toContain('Refresh the board before sending work')
-    expect(message).toContain('Forge could not connect while loading the board')
+    expect(message).toContain('Refresh the board to load agent status before sending work.')
+    expect(message).toContain('If it still does not load, check your connection')
     const previousActionPhrase = ['assigning', 'or', 'publishing', 'work'].join(' ')
     expect(message).not.toContain(previousActionPhrase)
     expect(message).not.toContain('API')
@@ -57,10 +56,18 @@ describe('boardActionErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'The task board could not load. Refresh the board, then try again. If it still fails, ask an owner or admin to check task board setup.'
+      'Refresh the board to load tasks. If it still fails, ask an owner or admin to check task board setup.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('temporarily unavailable')
+  })
+
+  test('uses saved item preview recovery wording when preview fails', () => {
+    const message = boardActionErrorMessage('previewContext', new Error('HTTP 500'))
+
+    expect(message).toContain('Choose an available agent, then open the saved item preview again.')
+    expect(message).not.toMatch(new RegExp(['context', 'preview'].join('\\s+'), 'i'))
+    expect(message).not.toContain('HTTP 500')
   })
 
   test('keeps moved-back task failures actionable without repeating the refresh step', () => {
