@@ -119,6 +119,8 @@ describe('RuntimeSection', () => {
     const nextStep = screen.getByTestId('runtime-next-step')
     expect(nextStep).toHaveTextContent('Next step')
     expect(nextStep).toHaveTextContent('Work tools ready')
+    expect(nextStep).toHaveTextContent('What success looks like: This item changes to Ready.')
+    expect(nextStep).not.toHaveTextContent('Success:')
     expect(screen.getByText('Before assigning work')).toBeDefined()
     expect(screen.getByText('2/4 ready')).toBeDefined()
     expect(
@@ -226,6 +228,10 @@ describe('RuntimeSection', () => {
     ).toBeDefined()
     expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('Ready to give agents work')
     expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('The agent location')
+    expect(screen.getByTestId('runtime-next-step')).toHaveTextContent(
+      'What success looks like: Open Agents, create or select an agent, then assign work from Tasks.'
+    )
+    expect(screen.getByTestId('runtime-next-step')).not.toHaveTextContent('Success:')
     expect(screen.queryByRole('button', { name: /Sign in to GitHub/i })).toBeNull()
     expect(screen.getByText(/1\/1 work tools are ready/i)).toBeDefined()
     expect(screen.getByText(/1\/1 work tool sign-ins ready/i)).toBeDefined()

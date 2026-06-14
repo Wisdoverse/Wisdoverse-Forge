@@ -543,7 +543,7 @@ function RuntimeNextStepPanel({
               : item?.detail}
           </p>
           <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Success:{' '}
+            What success looks like:{' '}
             {allReady
               ? 'Open Agents, create or select an agent, then assign work from Tasks.'
               : 'This item changes to Ready.'}
