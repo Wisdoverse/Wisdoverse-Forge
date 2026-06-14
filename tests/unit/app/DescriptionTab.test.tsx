@@ -135,9 +135,14 @@ describe('DescriptionTab', () => {
 
     expect(
       screen.getByText(
-        'Saved notes, run details, and save-for-next-time ideas appear here as the task runs.'
+        'Saved notes, work history, and save-for-next-time ideas appear here as the task runs.'
       )
     ).toBeDefined()
+    expect(
+      screen.queryByText(
+        'Saved notes, run details, and save-for-next-time ideas appear here as the task runs.'
+      )
+    ).toBeNull()
     expect(screen.queryByText(new RegExp(['Saved', 'memories'].join('\\s+'), 'i'))).toBeNull()
     expect(
       screen.queryByText(new RegExp(['saved instruction', 'suggestions'].join('\\s+'), 'i'))

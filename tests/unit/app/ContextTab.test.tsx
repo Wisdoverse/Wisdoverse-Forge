@@ -96,10 +96,12 @@ describe('ContextTab', () => {
     render(<ContextTab taskId="task-1" loadContext={async () => context({ runs: [] })} />)
 
     const emptyState = await screen.findByTestId('context-empty-state')
-    expect(within(emptyState).getByText('No saved notes or run details yet')).toBeDefined()
+    expect(within(emptyState).getByText('Start the task to build work history')).toBeDefined()
     expect(
-      within(emptyState).getByText(/page fills in after an agent uses saved notes/i)
+      within(emptyState).getByText(/saved notes, saved instructions, or work history/i)
     ).toBeDefined()
+    expect(within(emptyState).queryByText('No saved notes or run details yet')).toBeNull()
+    expect(within(emptyState).queryByText('No saved notes or work history yet')).toBeNull()
     expect(
       within(emptyState).getByText(
         /Start the task first\. If it is still waiting, open Work or Updates to choose or start an agent/i
@@ -225,8 +227,10 @@ describe('ContextTab', () => {
     )
 
     expect(await screen.findByTestId('context-tab')).toBeDefined()
-    expect(screen.getByText('Agent work checked saved notes and instructions')).toBeDefined()
-    expect(screen.getByText('Work run 1')).toBeDefined()
+    expect(screen.getByText('Agent checked saved notes and instructions')).toBeDefined()
+    expect(screen.getByText('Check 1')).toBeDefined()
+    expect(screen.queryByText('Agent work checked saved notes and instructions')).toBeNull()
+    expect(screen.queryByText('Work run 1')).toBeNull()
     expect(screen.getByText('Finished')).toBeDefined()
     expect(screen.getByText('Saved notes used')).toBeDefined()
     expect(screen.queryByText('Applied memories')).toBeNull()
@@ -272,8 +276,9 @@ describe('ContextTab', () => {
     expect(screen.getByText('Where saved notes or instructions came from')).toBeDefined()
     expect(screen.queryByText('Where saved context came from')).toBeNull()
     expect(
-      screen.getByText(/came from Prod deploy memory and helped during this run/i)
+      screen.getByText(/came from Prod deploy memory and helped during this task/i)
     ).toBeDefined()
+    expect(screen.queryByText(/helped during this run/i)).toBeNull()
     expect(screen.queryByText(/was used during this agent run/i)).toBeNull()
     expect(screen.queryByText(/via claude/i)).toBeNull()
     expect(screen.queryByText(/envelope/i)).toBeNull()
@@ -317,7 +322,7 @@ describe('ContextTab', () => {
       />
     )
 
-    expect(await screen.findByText('Agent work checked saved notes and instructions')).toBeDefined()
+    expect(await screen.findByText('Agent checked saved notes and instructions')).toBeDefined()
     expect(screen.getByText('Waiting to start')).toBeDefined()
     expect(screen.getByText('Check task status')).toBeDefined()
     expect(screen.getByText('Refresh task status')).toBeDefined()

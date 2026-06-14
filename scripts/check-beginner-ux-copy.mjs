@@ -324,6 +324,15 @@ const CONTEXT_FALLBACK_DEAD_END_PATTERNS = [
   /\bTask type needs review\b/i,
 ]
 
+const CONTEXT_WORK_HISTORY_JARGON_PATTERNS = [
+  /\brun details\b/i,
+  /\bRun details\b/,
+  /\bWork run\b/,
+  /\bduring this run\b/i,
+  /\bfrom the run\b/i,
+  /\bagent run\b/i,
+]
+
 const CHAT_MESSAGE_FALLBACK_DEAD_END_PATTERNS = [
   /\bMessage needs review\b/i,
   /\bMessage sender not reported\b/i,
@@ -1083,6 +1092,21 @@ function hasContextFallbackDeadEndCopy(relFile, line) {
   return CONTEXT_FALLBACK_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasContextWorkHistoryJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/detail/ContextTab.tsx') &&
+    !relFile.endsWith('src/app/features/detail/ContextEvidenceList.tsx') &&
+    !relFile.endsWith('src/app/features/detail/ContextCandidatesList.tsx') &&
+    !relFile.endsWith('src/app/features/detail/DescriptionTab.tsx') &&
+    !relFile.endsWith('src/app/features/detail/taskDetailErrorMessages.ts') &&
+    !relFile.endsWith('src/app/features/chat/ToolCallDetail.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CONTEXT_WORK_HISTORY_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasChatMessageFallbackDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/chat/ChatView.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -1714,6 +1738,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Saved item, sharing, safety, and task-type fallbacks must tell beginners what to check or refresh.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasContextWorkHistoryJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'context-work-history-copy',
+        location,
+        message:
+          'Task saved-item details must use work history or task wording instead of run-detail jargon.',
         sample: line.trim(),
       })
     }

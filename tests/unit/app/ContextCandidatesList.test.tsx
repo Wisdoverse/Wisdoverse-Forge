@@ -51,7 +51,7 @@ describe('ContextCandidatesList', () => {
 
     expect(screen.getByText('Suggested notes to review')).toBeInTheDocument()
     expect(
-      screen.getByText(/suggested notes from the run.*saving it for future tasks/i)
+      screen.getByText(/suggested notes from this task.*saving it for future tasks/i)
     ).toBeInTheDocument()
     expect(screen.getByText('Release memory')).toBeInTheDocument()
     expect(screen.getByText('Suggested note')).toBeInTheDocument()
@@ -88,7 +88,7 @@ describe('ContextCandidatesList', () => {
 
     expect(screen.getByText('Suggested instructions to review')).toBeInTheDocument()
     expect(
-      screen.getByText(/suggested instructions from the run.*before agents can follow it/i)
+      screen.getByText(/suggested instructions from this task.*before agents can follow it/i)
     ).toBeInTheDocument()
     expect(screen.getByText('Release operator')).toBeInTheDocument()
     expect(screen.getByText('Suggested instruction')).toBeInTheDocument()

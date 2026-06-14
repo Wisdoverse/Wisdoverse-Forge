@@ -64,13 +64,15 @@ describe('ContextEvidenceList', () => {
     expect(screen.getByText('What the agent used')).toBeInTheDocument()
     expect(screen.getByText(/what the agent used or saved/i)).toBeInTheDocument()
     expect(screen.getByText('Task result')).toBeInTheDocument()
-    expect(screen.getByText(/Final answer or status saved from the agent run/i)).toBeInTheDocument()
+    expect(screen.getByText(/Final answer or status saved from the agent work/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Final answer or status saved from the agent run/i)).toBeNull()
     expect(screen.getByText('Health check completed successfully.')).toBeInTheDocument()
     expect(
       screen.getByText(
-        /Most users can rely on the summary above.*sharing run details with support/i
+        /Most users can rely on the summary above.*sharing details with support/i
       )
     ).toBeInTheDocument()
+    expect(screen.queryByText(/sharing run details with support/i)).toBeNull()
     expect(screen.getByText('Show support details')).toBeInTheDocument()
     expect(screen.queryByText('Evidence')).toBeNull()
     expect(screen.queryByText(/technical details/i)).toBeNull()
@@ -110,8 +112,9 @@ describe('ContextEvidenceList', () => {
     )
 
     expect(
-      screen.getByText('Additional run details with 2 pieces of information.')
+      screen.getByText('Additional work details with 2 pieces of information.')
     ).toBeInTheDocument()
+    expect(screen.queryByText('Additional run details with 2 pieces of information.')).toBeNull()
     expect(screen.queryByText(/Additional evidence/i)).toBeNull()
     expect(screen.queryByText(/fields/i)).toBeNull()
   })
@@ -130,7 +133,8 @@ describe('ContextEvidenceList', () => {
     )
 
     expect(screen.getByText('Saved result file')).toBeInTheDocument()
-    expect(screen.getByText('A file or result saved during the run.')).toBeInTheDocument()
+    expect(screen.getByText('A file or result saved while the task ran.')).toBeInTheDocument()
+    expect(screen.queryByText('A file or result saved during the run.')).toBeNull()
     expect(screen.queryByText(/artifact/i)).toBeNull()
   })
 
@@ -175,9 +179,10 @@ describe('ContextEvidenceList', () => {
       />
     )
 
-    expect(screen.getByText('Run details')).toBeInTheDocument()
-    expect(screen.getByText('Extra information recorded during the run.')).toBeInTheDocument()
+    expect(screen.getByText('Work details')).toBeInTheDocument()
+    expect(screen.getByText('Extra information recorded while the task ran.')).toBeInTheDocument()
     expect(screen.getByText('The recorded result needs attention.')).toBeInTheDocument()
+    expect(screen.queryByText('Run details')).toBeNull()
     expect(screen.queryByText('Run evidence')).toBeNull()
     expect(screen.queryByText('Custom Probe')).toBeNull()
   })

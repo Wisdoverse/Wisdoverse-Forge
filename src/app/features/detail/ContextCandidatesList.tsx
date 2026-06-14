@@ -75,8 +75,8 @@ export function ContextCandidatesList({ title, kind, candidates }: ContextCandid
 
 function sectionDescription(kind: ContextCandidateKind): string {
   return kind === 'skill'
-    ? 'These are suggested instructions from the run. Review one before agents can follow it.'
-    : 'These are suggested notes from the run. Review one before saving it for future tasks.'
+    ? 'These are suggested instructions from this task. Review one before agents can follow it.'
+    : 'These are suggested notes from this task. Review one before saving it for future tasks.'
 }
 
 function candidateTitle(candidate: TaskContextCandidate): string {

@@ -74,7 +74,7 @@ export function ContextEvidenceList({ evidence, revokedItems }: ContextEvidenceL
                 </p>
                 <p className="mt-1 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
                   Most users can rely on the summary above. Open support details only when checking
-                  an unexpected result or sharing run details with support.
+                  an unexpected result or sharing details with support.
                 </p>
                 <details className="mt-2 text-[10px] text-secondary-light dark:text-secondary-dark">
                   <summary className="cursor-pointer select-none font-medium text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/30 dark:text-foreground-dark">
@@ -98,23 +98,23 @@ function evidenceTitle(item: TaskContextEvidence): string {
   if (item.sourceType === 'tool_call') return 'Tool activity'
   if (item.sourceType === 'artifact') return 'Saved result file'
   if (item.sourceType === 'source_message') return 'Source message'
-  return 'Run details'
+  return 'Work details'
 }
 
 function evidenceDescription(item: TaskContextEvidence): string {
   if (item.sourceType === 'task_result') {
-    return 'Final answer or status saved from the agent run.'
+    return 'Final answer or status saved from the agent work.'
   }
   if (item.sourceType === 'tool_call') {
     return 'A recorded tool action that helped the agent complete the work.'
   }
   if (item.sourceType === 'artifact') {
-    return 'A file or result saved during the run.'
+    return 'A file or result saved while the task ran.'
   }
   if (item.sourceType === 'source_message') {
     return 'A message the agent used while preparing the result.'
   }
-  return 'Extra information recorded during the run.'
+  return 'Extra information recorded while the task ran.'
 }
 
 function payloadSummary(payload: Record<string, unknown>): string {
@@ -127,19 +127,19 @@ function payloadSummary(payload: Record<string, unknown>): string {
 
   const keys = Object.keys(payload)
   if (keys.length > 0) {
-    return `Additional run details with ${keys.length} ${
+    return `Additional work details with ${keys.length} ${
       keys.length === 1 ? 'piece' : 'pieces'
     } of information.`
   }
 
-  return 'Run details were recorded for this task.'
+  return 'Work details were recorded for this task.'
 }
 
 function formatTechnicalDetails(payload: Record<string, unknown>): string {
   try {
     return JSON.stringify(safeEvidenceValue(payload), null, 2)
   } catch {
-    return 'Support details were recorded but could not be shown safely. Review the summary above, then ask support to check the run details if needed.'
+    return 'Details for support were recorded but could not be shown safely. Review the summary above, then ask support to check this task if needed.'
   }
 }
 

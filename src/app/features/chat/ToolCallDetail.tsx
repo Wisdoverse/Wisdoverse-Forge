@@ -20,7 +20,7 @@ function formatSupportDetails(data: Record<string, unknown>): string {
     )
     return lines.length > 0 ? lines.join('\n') : 'No support details were recorded.'
   } catch {
-    return 'Support details were recorded but could not be shown safely. Review the summary above, then ask support to check the run details if needed.'
+    return 'Details for support were recorded but could not be shown safely. Review the summary above, then ask support to check this task if needed.'
   }
 }
 

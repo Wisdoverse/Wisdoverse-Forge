@@ -3705,7 +3705,7 @@ function networkRecoveryMessage() {
       'src/app/features/detail/taskDetailErrorMessages.ts': `
 const ACTION_FALLBACKS = {
   loadAgents: 'Refresh this task before assigning an agent.',
-  loadContext: 'Refresh the detail panel to load saved notes and run details.',
+  loadContext: 'Refresh the detail panel to load saved notes and work history.',
   loadRuns: 'Refresh Updates before deciding whether to retry this task.',
   previewContext: 'Choose an available agent, then open saved item review again.',
 }
@@ -4112,7 +4112,7 @@ function serviceRecoveryMessage(action) {
 `,
       'src/app/features/detail/taskDetailErrorMessages.ts': `
 function serviceRecoveryMessage(action) {
-  return 'Refresh the detail panel to load saved notes and run details. If it still fails, ask an owner or admin to check task setup.'
+  return 'Refresh the detail panel to load saved notes and work history. If it still fails, ask an owner or admin to check task setup.'
 }
 `,
       'src/app/features/context/approvalQueueErrorMessages.ts': `
@@ -4126,6 +4126,87 @@ function navigationActionErrorMessage(actionPhrase) {
 }
 function serviceRecoveryMessage() {
   return 'Refresh the sidebar to load workspace navigation. If it still fails, ask an owner or admin to check workspace navigation.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags task saved-item detail copy that exposes run-detail jargon', () => {
+    const cwd = fixture({
+      'src/app/features/detail/ContextTab.tsx': `
+function ContextEmptyState() {
+  return 'No saved notes or run details yet. Work run 1 helped during this run.'
+}
+`,
+      'src/app/features/detail/ContextEvidenceList.tsx': `
+function evidenceTitle() {
+  return 'Run details'
+}
+function payloadSummary() {
+  return 'Additional run details with 2 pieces of information.'
+}
+`,
+      'src/app/features/detail/ContextCandidatesList.tsx': `
+function sectionDescription() {
+  return 'These are suggested notes from the run.'
+}
+`,
+      'src/app/features/chat/ToolCallDetail.tsx': `
+function formatTechnicalDetails() {
+  return 'Support can check the run details if needed.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'context-work-history-copy',
+          location: 'src/app/features/detail/ContextTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'context-work-history-copy',
+          location: 'src/app/features/detail/ContextEvidenceList.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'context-work-history-copy',
+          location: 'src/app/features/detail/ContextEvidenceList.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'context-work-history-copy',
+          location: 'src/app/features/detail/ContextCandidatesList.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'context-work-history-copy',
+          location: 'src/app/features/chat/ToolCallDetail.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts task saved-item detail copy that uses work history wording', () => {
+    const cwd = fixture({
+      'src/app/features/detail/ContextTab.tsx': `
+function ContextEmptyState() {
+  return 'No saved notes or work history yet. Check 1 helped during this task.'
+}
+`,
+      'src/app/features/detail/ContextEvidenceList.tsx': `
+function evidenceTitle() {
+  return 'Work details'
+}
+function payloadSummary() {
+  return 'Additional work details with 2 pieces of information.'
+}
+`,
+      'src/app/features/detail/ContextCandidatesList.tsx': `
+function sectionDescription() {
+  return 'These are suggested notes from this task.'
 }
 `,
     })

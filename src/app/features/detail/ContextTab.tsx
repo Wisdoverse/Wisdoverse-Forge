@@ -26,7 +26,7 @@ interface ContextTabProps {
 
 const EMPTY_CONTEXT_STEPS = [
   'Start the task first. If it is still waiting, open Work or Updates to choose or start an agent.',
-  'Review ideas from a run to keep useful notes for next time.',
+  'Review ideas from this task to keep useful notes for next time.',
   'Mark which saved items helped so future runs get better.',
 ]
 
@@ -132,10 +132,10 @@ export function ContextTab({
         <section className="rounded-lg bg-apple-gray-6/70 dark:bg-white/[0.035] p-3">
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-xs font-semibold text-foreground-light dark:text-foreground-dark">
-              Agent work checked saved notes and instructions
+              Agent checked saved notes and instructions
             </h3>
             <span className="text-[10px] text-secondary-light dark:text-secondary-dark">
-              {context.runs.length} record{context.runs.length === 1 ? '' : 's'}
+              {context.runs.length} check{context.runs.length === 1 ? '' : 's'}
             </span>
           </div>
           <div className="mt-2 space-y-1.5">
@@ -145,7 +145,7 @@ export function ContextTab({
                 className="flex items-center justify-between gap-2 text-[10px] text-secondary-light dark:text-secondary-dark"
               >
                 <span className="font-medium text-foreground-light dark:text-foreground-dark">
-                  Work run {index + 1}
+                  Check {index + 1}
                 </span>
                 <span>{runStatusLabel(run.status)}</span>
                 <span>Started {formatRelativeTime(run.startedAt)}</span>
@@ -194,7 +194,7 @@ export function ContextTab({
                 <span className="font-medium text-foreground-light dark:text-foreground-dark">
                   {item.title}
                 </span>{' '}
-                came from {contextSourceLabel(item.source)} and helped during this run.
+                came from {contextSourceLabel(item.source)} and helped during this task.
               </div>
             ))}
           </div>
@@ -254,11 +254,11 @@ function ContextEmptyState() {
               id="context-empty-title"
               className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark"
             >
-              No saved notes or run details yet
+              Start the task to build work history
             </h3>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-              This page fills in after an agent uses saved notes, saved instructions, or run details
-              for this task. If nothing appears yet, make sure the task has an agent and has
+              This page fills in after an agent uses saved notes, saved instructions, or work
+              history for this task. If nothing appears yet, make sure the task has an agent and has
               started.
             </p>
           </div>

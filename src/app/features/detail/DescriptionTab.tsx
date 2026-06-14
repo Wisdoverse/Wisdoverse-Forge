@@ -185,7 +185,7 @@ export function DescriptionTab({
               ? `${contextTotal} saved ${
                   contextTotal === 1 ? 'note or instruction' : 'notes or instructions'
                 } helped this task.`
-              : 'Saved notes, run details, and save-for-next-time ideas appear here as the task runs.'}
+              : 'Saved notes, work history, and save-for-next-time ideas appear here as the task runs.'}
           </p>
           {onOpenContext && (
             <button

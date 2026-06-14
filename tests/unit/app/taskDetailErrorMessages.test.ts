@@ -50,8 +50,9 @@ describe('taskDetailErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh the detail panel to load saved notes and run details. If it still fails, ask an owner or admin to check task setup.'
+      'Refresh the detail panel to load saved notes and work history. If it still fails, ask an owner or admin to check task setup.'
     )
+    expect(message).not.toContain('run details')
     expect(message).not.toMatch(new RegExp(['task', 'context'].join('\\s+'), 'i'))
     expect(message).not.toContain('backend')
     expect(message).not.toContain('services')
