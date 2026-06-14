@@ -147,6 +147,8 @@ const CLIPBOARD_JARGON_PATTERNS = [/\bCopy is unavailable here\b/i, /\bno clipbo
 
 const BILLING_CHECKPOINT_DEAD_END_PATTERNS = [/\bNo invoices yet\b/i]
 
+const BILLING_USAGE_DEAD_END_PATTERNS = [/\bNo usage reported yet\b/i]
+
 const BILLING_RECEIPT_LINK_DEAD_END_PATTERNS = [/\bNo link\b/i]
 
 const ANALYTICS_CHART_DEAD_END_PATTERNS = [/\bNo activity data\b/i, /\bNo tool usage data\b/i]
@@ -405,6 +407,12 @@ function hasBillingCheckpointDeadEndCopy(relFile, line) {
   return BILLING_CHECKPOINT_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasBillingUsageDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/billing/BillingPage.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return BILLING_USAGE_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasBillingReceiptLinkDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/billing/InvoiceList.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -585,6 +593,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Billing checkpoint copy must explain when invoices appear instead of only saying none exist.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasBillingUsageDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'billing-usage-copy',
+        location,
+        message: 'Billing usage copy must explain what creates the first usage report.',
         sample: line.trim(),
       })
     }

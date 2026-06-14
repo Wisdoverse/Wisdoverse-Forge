@@ -64,7 +64,10 @@ function BillingCheckpoint({ hasSubscription, usageCount, invoicesCount }: Billi
     },
     {
       label: 'Usage',
-      value: usageCount > 0 ? `${usageCount} usage areas shown` : 'No usage reported yet',
+      value:
+        usageCount > 0
+          ? `${usageCount} usage areas shown`
+          : 'Usage appears after agents run billable work',
     },
     {
       label: 'Invoices',

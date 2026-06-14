@@ -358,6 +358,44 @@ function BillingCheckpoint() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags billing usage copy that does not explain what creates usage', () => {
+    const cwd = fixture({
+      'src/app/features/billing/BillingPage.tsx': `
+function BillingCheckpoint() {
+  return {
+    label: 'Usage',
+    value: usageCount > 0 ? \`\${usageCount} usage areas shown\` : 'No usage reported yet',
+  }
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'billing-usage-copy',
+        location: 'src/app/features/billing/BillingPage.tsx:5',
+      }),
+    ])
+  })
+
+  it('accepts billing usage copy that explains what creates usage', () => {
+    const cwd = fixture({
+      'src/app/features/billing/BillingPage.tsx': `
+function BillingCheckpoint() {
+  return {
+    label: 'Usage',
+    value: usageCount > 0 ? \`\${usageCount} usage areas shown\` : 'Usage appears after agents run billable work',
+  }
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags invoice receipt copy that does not explain when the link appears', () => {
     const cwd = fixture({
       'src/app/features/billing/InvoiceList.tsx': `
