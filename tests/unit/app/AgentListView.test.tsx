@@ -87,6 +87,11 @@ describe('AgentListView', () => {
     )
     expect(enrollment.textContent).not.toContain('agentforge agents enroll-local')
     expect(within(enrollment).getByRole('button', { name: /choose project first/i })).toBeDisabled()
+
+    fireEvent.click(within(enrollment).getByRole('button', { name: /new agent on this computer/i }))
+    expect(screen.getByRole('dialog', { name: /create an agent/i })).toBeDefined()
+    expect(screen.getByRole('radio', { name: /this computer/i })).toBeChecked()
+    expect(screen.getByLabelText(/folder on this computer/i)).toBeDefined()
   })
 
   test('shows beginner command steps for adding this computer to the selected project', () => {

@@ -440,7 +440,7 @@ function HostCliEnrollmentPanel({
 
       <button
         type="button"
-        onClick={() => setCreateModalOpen(true)}
+        onClick={() => setCreateModalOpen(true, 'local-cli')}
         className="mt-3 inline-flex h-9 w-full items-center justify-center gap-2 rounded-full bg-apple-blue px-3 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95"
       >
         <Plus size={14} strokeWidth={2.5} aria-hidden="true" />

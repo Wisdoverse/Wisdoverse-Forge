@@ -14,12 +14,12 @@ import { cn } from '@app/shared/lib/utils'
 import { useAgentsStore } from '@app/entities/agent'
 import { useNavigationStore } from '@app/entities/navigation'
 import { useSettingsStore } from '@app/shared/model/settings.store'
-import type { LocalAgentEnrollmentResponse } from '@app/entities/agent'
+import type { AgentCreateInitialKind, LocalAgentEnrollmentResponse } from '@app/entities/agent'
 import type { LlmProviderConfig } from '@app/shared/api/legacy/settingsApi'
 import type { CliTool } from '@shared/types'
 import { createAgentWorkLaneErrorMessage } from './model/createAgentWorkLaneErrorMessage'
 
-type AgentKind = 'cli' | 'local-cli' | 'provider'
+type AgentKind = AgentCreateInitialKind
 
 interface CreateAgentFormData {
   name: string
@@ -62,38 +62,38 @@ interface AgentCreateReviewItem {
 const AGENT_ROLE_TEMPLATES: AgentRoleTemplate[] = [
   {
     id: 'builder',
-    label: 'Builder',
-    summary: 'Builds changes and checks them',
-    name: 'Builder Agent',
+    label: 'Make a change',
+    summary: 'Updates the work and checks it',
+    name: 'Change Helper',
     systemPrompt:
-      'You turn scoped requests into working changes. Keep edits narrow, explain tradeoffs when requirements conflict, and verify with the most relevant checks before handing work back.',
+      'You help turn a clear request into a working change. Keep edits narrow, explain any tradeoffs in plain language, and run the most relevant checks before handing work back.',
     Icon: Code2,
   },
   {
     id: 'reviewer',
-    label: 'Reviewer',
-    summary: 'Finds risks before release',
-    name: 'Review Agent',
+    label: 'Review work',
+    summary: 'Looks for risks before use',
+    name: 'Review Helper',
     systemPrompt:
-      'You review changes for regressions, security issues, missing tests, and release risk. Lead with concrete findings and cite the exact files or checks that prove each point.',
+      'You review work before it is used. Point out concrete risks, missing checks, confusing behavior, and the next safest step. Use plain language and cite files or checks when you have them.',
     Icon: ClipboardCheck,
   },
   {
     id: 'investigator',
-    label: 'Investigator',
+    label: 'Find the cause',
     summary: 'Tracks down unclear failures',
-    name: 'Investigation Agent',
+    name: 'Investigation Helper',
     systemPrompt:
-      'You investigate uncertain failures by gathering evidence first, separating facts from hypotheses, and ending with the smallest next action that can disprove or confirm the cause.',
+      'You investigate unclear failures by gathering evidence first. Separate what is known from what is only a guess, then end with the smallest next action that can confirm the cause.',
     Icon: Search,
   },
   {
     id: 'fixer',
-    label: 'Fixer',
+    label: 'Fix a bug',
     summary: 'Reproduces and fixes bugs',
-    name: 'Bug Fix Agent',
+    name: 'Bug Fix Helper',
     systemPrompt:
-      'You reproduce bugs, identify the smallest responsible path, patch the defect without unrelated refactors, and verify both the failing case and the nearby regression surface.',
+      'You reproduce bugs, find the smallest cause, fix the defect without unrelated changes, and verify both the failing case and nearby behavior before handing work back.',
     Icon: Bug,
   },
 ]
@@ -188,11 +188,14 @@ function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): Run
   }
 }
 
-function buildDefaultValues(provider: LlmProviderConfig | null): CreateAgentFormData {
+function buildDefaultValues(
+  provider: LlmProviderConfig | null,
+  initialKind: AgentKind | null
+): CreateAgentFormData {
   const providerKey = provider?.provider ?? PROVIDERS[0].value
   return {
     name: '',
-    kind: provider ? 'provider' : 'cli',
+    kind: initialKind ?? (provider ? 'provider' : 'cli'),
     cliTool: 'claude',
     provider: providerKey,
     model: provider?.model || providerDefaultModel(providerKey),
@@ -251,6 +254,7 @@ function createReviewItems({
 export function CreateAgentModal() {
   const {
     createModalOpen,
+    createModalInitialKind,
     setCreateModalOpen,
     createAgent,
     enrollLocalAgent,
@@ -276,7 +280,10 @@ export function CreateAgentModal() {
       null,
     [providers]
   )
-  const defaultValues = useMemo(() => buildDefaultValues(verifiedProvider), [verifiedProvider])
+  const defaultValues = useMemo(
+    () => buildDefaultValues(verifiedProvider, createModalInitialKind),
+    [createModalInitialKind, verifiedProvider]
+  )
 
   const {
     register,

@@ -42,9 +42,15 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
   const readyActionInfo = getReadyActionInfo(agent, { hostCli })
   const ControlSummaryIcon = controlSummary.Icon
   const controlError = error ?? localActionError
+  const messageAvailability = getMessageAvailability(agent, { canStartContainer, hostCli })
+  const messageDisabled = sending || !messageAvailability.canSend
 
   async function handleSendPrompt() {
     if (sending) return
+    if (!messageAvailability.canSend) {
+      setPromptError(messageAvailability.detail)
+      return
+    }
     const trimmedPrompt = prompt.trim()
     if (!trimmedPrompt) {
       setPromptError('Write an instruction before sending it to this agent.')
@@ -148,8 +154,9 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
               id={messageHelpId}
               className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
             >
-              Use this for a quick question or one small request. For work that needs a clear
-              result, create a task instead.
+              {messageAvailability.canSend
+                ? 'Use this for a quick question or one small request. For work that needs a clear result, create a task instead.'
+                : messageAvailability.detail}
             </p>
           </div>
         </div>
@@ -161,15 +168,23 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
             if (promptError) setPromptError(null)
           }}
           rows={3}
+          disabled={!messageAvailability.canSend}
           aria-describedby={`${messageHelpId} ${promptHelpId}${
             promptError ? ` ${promptErrorId}` : ''
           }`}
-          className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-          placeholder="Example: Check the latest run and tell me the next safe step."
+          className={cn(
+            'w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark',
+            !messageAvailability.canSend && 'cursor-not-allowed opacity-60'
+          )}
+          placeholder={
+            messageAvailability.canSend
+              ? 'Example: Check the latest run and tell me the next safe step.'
+              : 'Reconnect or start this agent before sending an instruction.'
+          }
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
               e.preventDefault()
-              void handleSendPrompt()
+              if (messageAvailability.canSend) void handleSendPrompt()
             }
           }}
         />
@@ -182,16 +197,18 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
           id={promptHelpId}
           className="text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
-          Send one concrete instruction, then watch this agent&apos;s history for progress.
+          {messageAvailability.canSend
+            ? "Send one concrete instruction, then watch this agent's history for progress."
+            : 'Wait until this agent shows Ready before sending an instruction here.'}
         </p>
         <div className="flex justify-end">
           <button
             type="button"
             onClick={handleSendPrompt}
-            disabled={sending}
+            disabled={messageDisabled}
             className={cn(
               'w-full rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 sm:w-auto',
-              sending && 'opacity-50 cursor-not-allowed'
+              messageDisabled && 'opacity-50 cursor-not-allowed'
             )}
           >
             {sending ? 'Sending...' : 'Send instruction'}
@@ -350,6 +367,15 @@ function getControlSummary(
     }
   }
 
+  if (agent.status === 'offline') {
+    return {
+      title: 'Chat-only AI service is offline',
+      detail:
+        'Check the AI service in Settings, refresh Agents, then send a message after it shows Ready.',
+      Icon: AlertTriangle,
+    }
+  }
+
   return {
     title: 'Chat-only AI service controls',
     detail:
@@ -374,10 +400,63 @@ function getReadyActionInfo(
     }
   }
 
+  if (agent.status === 'offline') {
+    return {
+      title: 'Check AI service before sending',
+      detail:
+        'This chat-only agent is not connected. Check the AI service in Settings, refresh Agents, then use messages or Tasks after it shows Ready.',
+    }
+  }
+
   return {
     title: 'Ready for chat and tracked tasks',
     detail:
       'Send a quick instruction here, or create a Task when you need planning or review with a clear result.',
+  }
+}
+
+function getMessageAvailability(
+  agent: AgentInfo,
+  {
+    canStartContainer,
+    hostCli,
+  }: {
+    canStartContainer: boolean
+    hostCli: boolean
+  }
+): { canSend: boolean; detail: string } {
+  if (canStartContainer) {
+    return {
+      canSend: false,
+      detail:
+        'Start the workspace first. When this agent shows Ready, you can send an instruction or create a task.',
+    }
+  }
+
+  if (agent.status !== 'offline') {
+    return { canSend: true, detail: '' }
+  }
+
+  if (hostCli) {
+    return {
+      canSend: false,
+      detail:
+        'This computer is not connected. Run the setup command there and wait for Ready before sending an instruction.',
+    }
+  }
+
+  if (agent.cliTool) {
+    return {
+      canSend: false,
+      detail:
+        'This workspace is not connected. Refresh Agents or start the workspace before sending an instruction.',
+    }
+  }
+
+  return {
+    canSend: false,
+    detail:
+      'This chat-only agent is not connected. Check the AI service in Settings, refresh Agents, then send a message after it shows Ready.',
   }
 }
 

@@ -7,19 +7,21 @@ import { isHostCliAgent } from './runtime-kind'
 
 export type { AgentInfo, AgentRuntimeKind, AgentStatus }
 export { isHostCliAgent }
+export type AgentCreateInitialKind = 'cli' | 'local-cli' | 'provider'
 
 interface AgentsState {
   agents: AgentInfo[]
   selectedAgentId: string | null
   loading: boolean
   createModalOpen: boolean
+  createModalInitialKind: AgentCreateInitialKind | null
   error: string | null
 
   setAgents: (agents: AgentInfo[]) => void
   selectAgent: (id: string | null) => void
   updateAgentStatus: (id: string, status: AgentStatus) => void
   setLoading: (loading: boolean) => void
-  setCreateModalOpen: (open: boolean) => void
+  setCreateModalOpen: (open: boolean, initialKind?: AgentCreateInitialKind | null) => void
   setError: (error: string | null) => void
   reset: () => void
 
@@ -444,6 +446,7 @@ const initialState = {
   selectedAgentId: null as string | null,
   loading: false,
   createModalOpen: false,
+  createModalInitialKind: null as AgentCreateInitialKind | null,
   error: null as string | null,
 }
 
@@ -456,7 +459,11 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
       agents: state.agents.map((a) => (a.id === id ? { ...a, status } : a)),
     })),
   setLoading: (loading) => set({ loading }),
-  setCreateModalOpen: (createModalOpen) => set({ createModalOpen }),
+  setCreateModalOpen: (createModalOpen, createModalInitialKind = null) =>
+    set({
+      createModalOpen,
+      createModalInitialKind: createModalOpen ? createModalInitialKind : null,
+    }),
   setError: (error) => set({ error }),
   reset: () => set(initialState),
 
@@ -518,6 +525,7 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
           agents: [...state.agents, newAgent],
           loading: false,
           createModalOpen: false,
+          createModalInitialKind: null,
         }))
         return true
       } else {

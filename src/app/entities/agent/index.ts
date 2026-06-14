@@ -18,6 +18,7 @@ export {
   agentToolLabel,
 } from './model/display-labels'
 export { agentActionErrorMessage, useAgentsStore } from './model/agents.store'
+export type { AgentCreateInitialKind } from './model/agents.store'
 export { createAgentAPI, extractApiError } from './api/AgentAPI'
 export type {
   AgentAPI,

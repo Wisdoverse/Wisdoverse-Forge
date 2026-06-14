@@ -34,6 +34,12 @@ const textOnlyAgent: AgentInfo = {
   runtimeKind: 'api',
 }
 
+const offlineTextOnlyAgent: AgentInfo = {
+  ...textOnlyAgent,
+  id: 'offline-text-agent',
+  status: 'offline',
+}
+
 const hostCliAgent: AgentInfo = {
   ...containerAgent,
   id: 'host-agent',
@@ -192,6 +198,23 @@ describe('AgentControlPanel', () => {
     expect(screen.queryByText(/provider setup/i)).toBeNull()
   })
 
+  test('disables quick instructions when a chat-only agent is offline', () => {
+    render(<AgentControlPanel agent={offlineTextOnlyAgent} onDeleted={() => {}} />)
+
+    expect(screen.getByText('Chat-only AI service is offline')).toBeDefined()
+    expect(screen.getByText('Check AI service before sending')).toBeDefined()
+    expect(screen.getAllByText(/check the AI service in Settings, refresh Agents/i).length).toBe(
+      3
+    )
+    expect(screen.queryByText('Ready for chat and tracked tasks')).toBeNull()
+
+    const instructionInput = screen.getByLabelText(/send one instruction/i)
+    expect(instructionInput).toBeDisabled()
+    expect(instructionInput).toHaveAccessibleDescription(/wait until this agent shows Ready/i)
+    expect(screen.getByRole('button', { name: /send instruction/i })).toBeDisabled()
+    expect(sendPromptMock).not.toHaveBeenCalled()
+  })
+
   test('guides joined-computer agents without start or restart controls', () => {
     render(<AgentControlPanel agent={hostCliAgent} onDeleted={() => {}} />)
 
@@ -223,6 +246,8 @@ describe('AgentControlPanel', () => {
     expect(screen.queryByText(/already connected/i)).toBeNull()
     expect(screen.queryByRole('button', { name: /start agent/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /restart agent/i })).toBeNull()
+    expect(screen.getByLabelText(/send one instruction/i)).toBeDisabled()
+    expect(screen.getByRole('button', { name: /send instruction/i })).toBeDisabled()
   })
 
   test('shows start guidance for pending agent workspaces', async () => {

@@ -247,6 +247,18 @@ describe('Agents Store', () => {
     )
   })
 
+  test('stores the requested create-agent starting choice while opening the modal', () => {
+    useAgentsStore.getState().setCreateModalOpen(true, 'local-cli')
+
+    expect(useAgentsStore.getState().createModalOpen).toBe(true)
+    expect(useAgentsStore.getState().createModalInitialKind).toBe('local-cli')
+
+    useAgentsStore.getState().setCreateModalOpen(false)
+
+    expect(useAgentsStore.getState().createModalOpen).toBe(false)
+    expect(useAgentsStore.getState().createModalInitialKind).toBeNull()
+  })
+
   test('keeps created agent and modal visible when container start needs operator action', async () => {
     useAgentsStore.setState({ createModalOpen: true })
     agentApiMock.createAgent.mockResolvedValue({

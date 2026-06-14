@@ -61,7 +61,8 @@ describe('CreateAgentModal', () => {
     expect(screen.getByTestId('agent-runtime-fit')).toBeInTheDocument()
     expect(screen.getByText('Start with a role')).toBeInTheDocument()
     expect(screen.getByText('Fills in the agent name')).toBeInTheDocument()
-    expect(screen.getByText('Builds changes and checks them')).toBeInTheDocument()
+    expect(screen.getByText('Updates the work and checks it')).toBeInTheDocument()
+    expect(screen.queryByText('Builds changes and checks them')).toBeNull()
     expect(screen.getAllByText(/claude in a managed workspace/i).length).toBeGreaterThan(0)
     expect(screen.getByText('Project files included')).toBeInTheDocument()
     expect(screen.getByText('Agent location')).toBeInTheDocument()
@@ -699,12 +700,13 @@ describe('CreateAgentModal', () => {
     render(<CreateAgentModal />)
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
     const templateGroup = screen.getByRole('group', { name: /agent role templates/i })
-    fireEvent.click(within(templateGroup).getByRole('button', { name: /reviewer/i }))
+    fireEvent.click(within(templateGroup).getByRole('button', { name: /review work/i }))
 
-    expect(screen.getByLabelText(/^name$/i)).toHaveValue('Review Agent')
+    expect(screen.getByLabelText(/^name$/i)).toHaveValue('Review Helper')
     expect((screen.getByLabelText(/agent instructions/i) as HTMLTextAreaElement).value).toContain(
-      'security issues'
+      'confusing behavior'
     )
+    expect(screen.queryByText(/^Reviewer$/)).toBeNull()
     expect(screen.queryByText(/prompt work/i)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
@@ -712,10 +714,10 @@ describe('CreateAgentModal', () => {
     await waitFor(() => expect(createAgent).toHaveBeenCalledTimes(1))
     expect(createAgent.mock.calls[0][0]).toMatchObject({
       kind: 'provider',
-      name: 'Review Agent',
+      name: 'Review Helper',
       provider: 'anthropic',
       model: 'claude-sonnet-4-6',
-      systemPrompt: expect.stringContaining('security issues'),
+      systemPrompt: expect.stringContaining('confusing behavior'),
     })
   })
 })
