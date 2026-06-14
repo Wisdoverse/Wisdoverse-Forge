@@ -60,7 +60,7 @@ describe('Routing', () => {
     expect(await screen.findByTestId('page-settings')).toBeDefined()
   })
 
-  test('redirects / to the first-run start path', async () => {
+  test('redirects / to the first-run start path when the guide is still visible', async () => {
     const router = createTestRouter(createMemoryHistory({ initialEntries: ['/'] }))
     render(<RouterProvider router={router} />)
     expect(await screen.findByTestId('page-start')).toBeDefined()

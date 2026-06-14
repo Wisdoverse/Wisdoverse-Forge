@@ -92,10 +92,9 @@ async function gotoAndWaitForAppReady(page: Page, baseURL: string, path = ''): P
  * nav-loader race was resolved by the fixture, but the upstream vite
  * dev-server flake can still bite under heavy parallelism. The warning
  * is logged so the flake rate stays visible in CI output. */
-// Default to `/tasks`, not `/`: the `/` index route redirects to `/start`
-// (onboarding landing, App.tsx), so the board-centric smoke suite must navigate
-// to the board route directly. The `/` → `/start` redirect itself is covered by
-// the dedicated routing test.
+// Default to `/tasks`, not `/`: the `/` index route reads the saved Start-guide
+// preference and may land on `/start`, so board-centric smoke tests navigate to
+// the board route directly.
 async function setupAndNavigate(page: Page, baseURL: string, path = '/tasks'): Promise<void> {
   await injectAuth(page, baseURL)
   await gotoAndWaitForAppReady(page, baseURL, path)
@@ -714,7 +713,7 @@ test.describe('React App Smoke Tests', () => {
       // nav loader never auto-selects a project.
       await overrideOrgs(context, [])
 
-      // Navigate to the board route directly (`/` redirects to `/start`).
+      // Navigate to the board route directly (`/` may land on the Start guide).
       await gotoAndWaitForAppReady(page, baseURL!, '/tasks')
 
       await expect(page.locator('[data-testid="board-no-group"]')).toBeVisible({ timeout: 10000 })
@@ -1141,8 +1140,11 @@ test.describe('React App Smoke Tests', () => {
   // 28. Deep Linking / Direct URL ────────────────────────────────────────────
 
   test.describe('28. Client-Side Routing', () => {
-    test('root URL / redirects to the onboarding landing (/start)', async ({ page, baseURL }) => {
-      // The `/` index route redirects authenticated users to `/start` (App.tsx).
+    test('root URL / redirects to Start when the guide is still visible', async ({
+      page,
+      baseURL,
+    }) => {
+      // The `/` index route sends first-time users to `/start` and skipped users to `/tasks`.
       await injectAuth(page, baseURL!)
       await gotoAndWaitForAppReady(page, baseURL!, '/')
 
