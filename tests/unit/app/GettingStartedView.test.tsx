@@ -657,6 +657,8 @@ describe('GettingStartedView', () => {
   test('skip action persists the dismissal and moves to the task board', async () => {
     render(<GettingStartedView />)
 
+    expect(await screen.findByRole('button', { name: /skip and open tasks/i })).toBeDefined()
+    expect(screen.queryByRole('button', { name: /^skip the guide$/i })).toBeNull()
     fireEvent.click(await screen.findByTestId('getting-started-skip'))
 
     expect(setGettingStartedDismissedMock).toHaveBeenCalledWith(true)

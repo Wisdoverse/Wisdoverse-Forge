@@ -87,7 +87,7 @@ export const en = {
     title: 'Start with one safe path',
     description:
       'Follow one step at a time. Finish this path to create an agent, send work, and review the result.',
-    skip: 'Skip the guide',
+    skip: 'Skip and open Tasks',
     progressCount: '{{complete}} of {{total}}',
     nextTitle: 'Do this next',
     readyTitle: 'Ready to run work',

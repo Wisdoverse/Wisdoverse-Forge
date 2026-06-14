@@ -403,8 +403,17 @@ function GettingStartedGuideRow() {
         </div>
       )}
       {restored && (
-        <div className="rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue">
-          Start is back in the sidebar. Open it to continue the checklist.
+        <div className="flex flex-col gap-2 rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue sm:flex-row sm:items-center sm:justify-between">
+          <span>Start is back in the sidebar. Open it to continue the checklist.</span>
+          <a
+            href="/start"
+            className={cn(
+              uiStyles.secondaryButton,
+              'inline-flex h-9 shrink-0 items-center justify-center text-apple-blue'
+            )}
+          >
+            Open Start guide
+          </a>
         </div>
       )}
     </div>

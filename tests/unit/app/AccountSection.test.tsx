@@ -270,6 +270,10 @@ describe('AccountSection', () => {
     expect(
       screen.getByText('Start is back in the sidebar. Open it to continue the checklist.')
     ).toBeDefined()
+    expect(screen.getByRole('link', { name: /open start guide/i })).toHaveAttribute(
+      'href',
+      '/start'
+    )
   })
 
   test('keeps the restore action honest while the guide is already visible', () => {
@@ -300,5 +304,6 @@ describe('AccountSection', () => {
     expect(
       screen.queryByText('Start is back in the sidebar. Open it to continue the checklist.')
     ).toBeNull()
+    expect(screen.queryByRole('link', { name: /open start guide/i })).toBeNull()
   })
 })
