@@ -698,6 +698,28 @@ function taskCheckIn() {
     )
   })
 
+  it('flags task list agent fallback copy that does not tell users to refresh', () => {
+    const cwd = fixture({
+      'src/app/features/list/ListView.tsx': `
+function taskAgentLabel(task) {
+  return 'Agent not reported yet'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-agent-assignment-copy',
+          location: 'src/app/features/list/ListView.tsx:3',
+        }),
+      ])
+    )
+  })
+
   it('accepts task assignment status copy that tells users to choose an agent', () => {
     const cwd = fixture({
       'src/app/features/detail/HistoryTab.tsx': `

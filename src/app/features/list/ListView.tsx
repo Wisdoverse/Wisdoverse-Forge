@@ -537,7 +537,7 @@ function taskAgentLabel(task: TaskSummary): string {
   const assignedId = task.assignedTo?.trim()
   if (assignedId) return 'Assigned agent'
 
-  return task.state === 'backlog' ? 'Choose where it runs' : 'Agent not reported yet'
+  return task.state === 'backlog' ? 'Choose where it runs' : 'Refresh tasks to load agent'
 }
 
 function filterListTasks(
