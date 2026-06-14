@@ -61,9 +61,13 @@ describe('AgentPluginsTab', () => {
     expect(within(readiness).getByText('What this agent can use')).toBeDefined()
     expect(
       within(readiness).getByText(
-        'Tools are extra abilities. Turning one on or off here affects only this agent.'
+        'Tools are extra abilities. Only turn on tools this agent needs for its next tasks. If you are not sure, keep the team setting and ask an owner before changing access.'
       )
     ).toBeDefined()
+    expect(
+      within(readiness).getByText("Saved changes apply to this agent's next task.")
+    ).toBeDefined()
+    expect(screen.getByRole('group', { name: /tool filter/i })).toBeDefined()
     expect(
       within(screen.getByTestId('agent-plugin-metric-enabled')).getByText('Can use now')
     ).toBeDefined()
@@ -78,6 +82,7 @@ describe('AgentPluginsTab', () => {
     expect(screen.getByText('Changed for this agent - normally off for agents')).toBeDefined()
     expect(screen.queryByText(new RegExp(['workspace', 'default'].join(' '), 'i'))).toBeNull()
     expect(screen.queryByText(new RegExp(['workspace', 'setting'].join(' '), 'i'))).toBeNull()
+    expect(screen.queryByRole('group', { name: /plugin filter/i })).toBeNull()
   })
 
   test('explains per-agent tool settings without raw on and off jargon', () => {
@@ -165,6 +170,35 @@ describe('AgentPluginsTab', () => {
       'This agent has tools, but this filter has no results yet.'
     )
     expect(filterEmpty.textContent).not.toContain('No tools match this view')
+  })
+
+  test('guides users when a tool has no summary yet', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        plugins: [
+          {
+            pluginId: 'unknown',
+            name: 'Workspace Helper',
+            version: '1.0.0',
+            description: '',
+            pluginEnabled: false,
+            enabled: null,
+          },
+        ],
+      }),
+    })
+
+    render(<AgentPluginsTab agentId="agent-1" />)
+
+    expect(await screen.findByText('Workspace Helper')).toBeDefined()
+    expect(
+      screen.getByText(
+        'No tool summary yet. Ask an owner what this tool lets the agent do before turning it on.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByText('No description provided')).toBeNull()
   })
 
   test('toggles a plugin with an agent-level override', async () => {

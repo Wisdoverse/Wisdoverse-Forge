@@ -146,6 +146,14 @@ export function pluginSettingNote(
     : `Using team setting - ${teamSetting}`
 }
 
+function toolDescription(plugin: Pick<PluginItem, 'description'>): string {
+  const description = plugin.description.trim()
+  return (
+    description ||
+    'No tool summary yet. Ask an owner what this tool lets the agent do before turning it on.'
+  )
+}
+
 interface AgentPluginsTabProps {
   agentId: string
 }
@@ -287,7 +295,8 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
             What this agent can use
           </h3>
           <p className="mt-1 max-w-2xl text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Tools are extra abilities. Turning one on or off here affects only this agent.
+            Tools are extra abilities. Only turn on tools this agent needs for its next tasks. If
+            you are not sure, keep the team setting and ask an owner before changing access.
           </p>
         </div>
 
@@ -338,7 +347,7 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
           <div
             data-testid="agent-plugin-filter"
             role="group"
-            aria-label="Plugin filter"
+            aria-label="Tool filter"
             className="inline-flex h-9 items-center gap-1 rounded-lg border border-black/[0.08] bg-black/[0.025] p-1 dark:border-white/[0.1] dark:bg-white/[0.04]"
           >
             {(Object.keys(FILTER_LABELS) as PluginFilter[]).map((option) => (
@@ -366,6 +375,12 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
           <SlidersHorizontal size={14} strokeWidth={2} aria-hidden="true" />
           <span>
             Showing {visiblePlugins.length} of {summary.total} tools
+          </span>
+          <span className="hidden sm:inline" aria-hidden="true">
+            ·
+          </span>
+          <span className="hidden sm:inline">
+            Saved changes apply to this agent&apos;s next task.
           </span>
         </div>
       </section>
@@ -425,7 +440,7 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
                 <PluginStatusPill plugin={plugin} />
               </div>
               <span className="truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-                {plugin.description || 'No description provided'}
+                {toolDescription(plugin)}
               </span>
               <span className="text-[10px] font-mono uppercase tracking-normal text-secondary-light/80 dark:text-secondary-dark/80">
                 {pluginSettingNote(plugin)}
