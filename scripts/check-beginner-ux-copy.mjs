@@ -249,6 +249,8 @@ const LOAD_ERROR_TITLE_DEAD_END_PATTERNS = [
   /\bThis agent's work list could not be loaded\./i,
   /\bAgent Work Setup could not be loaded\./i,
   /\bMembers could not load for this\b/i,
+  /\bAgents could not be loaded\./i,
+  /\bForge could not update Agents right now\./i,
   /\bWorkspace (?:team|project)s could not be loaded\./i,
   /\bAgent sizes could not be loaded\./i,
   /\b(?:Plan and payment|Usage|Invoices) could not be loaded\./i,
@@ -839,7 +841,9 @@ function hasSettingsLoadErrorDeadEndCopy(relFile, line) {
 function hasLoadErrorTitleDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/model/chat.errors.ts') &&
+    !relFile.endsWith('src/app/shared/model/agents.store.ts') &&
     !relFile.endsWith('src/app/shared/model/billing.store.ts') &&
+    !relFile.endsWith('src/app/entities/agent/model/agents.store.ts') &&
     !relFile.endsWith('src/app/features/agents/model/pluginErrorMessage.ts') &&
     !relFile.endsWith('src/app/features/agents/model/taskErrorMessage.ts') &&
     !relFile.endsWith('src/app/features/manage-members/model/resourceMemberErrorMessages.ts') &&

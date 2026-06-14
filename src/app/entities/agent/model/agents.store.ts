@@ -188,7 +188,10 @@ function agentConnectionMessage(actionPhrase: string, action: AgentErrorAction):
   if (action === 'enrollLocal') {
     return 'Forge could not prepare the setup command for this computer. Check your connection, then choose Create Agent again.'
   }
-  const operation = action === 'load' ? 'loading Agents' : 'updating Agents'
+  if (action === 'load') {
+    return 'Check your connection, then refresh Agents to load agents.'
+  }
+  const operation = 'updating Agents'
   return `Forge could not ${actionPhrase}. It could not connect while ${operation}. Check your connection, then refresh Agents.`
 }
 
@@ -235,6 +238,10 @@ export function agentActionErrorMessage(action: AgentErrorAction, error?: unknow
 function agentValidationMessage(action: AgentErrorAction, detail: string | null): string {
   const normalized = detail?.toLowerCase() ?? ''
 
+  if (action === 'load') {
+    return 'Refresh Agents to load agents.'
+  }
+
   if (action === 'create') {
     if (normalized.includes('name')) {
       return 'Name this agent, choose where it should work, then try creating it again.'
@@ -278,10 +285,13 @@ function agentServerMessage(action: AgentErrorAction): string {
   if (action === 'enrollLocal') {
     return 'Forge could not prepare the setup command for this computer right now. Wait a moment, then choose Create Agent again. If it still fails, ask an owner or admin to check Agent Work Setup.'
   }
+  if (action === 'load') {
+    return 'Refresh Agents to load agents. If it still fails, ask an owner or admin to check Agent Work Setup.'
+  }
   if (action === 'start' || action === 'restart' || action === 'create') {
     return "Forge could not prepare this agent's workspace right now. Wait a moment, then try again. If it still fails, ask an owner or admin to check Agent Work Setup."
   }
-  return 'Forge could not update Agents right now. Refresh Agents, then try again. If it still fails, ask an owner or admin to check Agent Work Setup.'
+  return `Refresh Agents, then try to ${agentActionPhrase(action)} again. If it still fails, ask an owner or admin to check Agent Work Setup.`
 }
 
 function agentRuntimeRecoveryMessage(detail: string | null): string {

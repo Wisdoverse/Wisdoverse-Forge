@@ -524,6 +524,16 @@ function billingErrorMessage(area) {
   return 'Invoices could not be loaded.'
 }
 `,
+      'src/app/shared/model/agents.store.ts': `
+function loadAgentsError(error) {
+  return 'Agents could not be loaded.'
+}
+`,
+      'src/app/entities/agent/model/agents.store.ts': `
+function agentServerMessage(error) {
+  return 'Forge could not update Agents right now.'
+}
+`,
       'src/app/features/agents/model/pluginErrorMessage.ts': `
 function prefix(action) {
   return 'Agent tools could not be loaded.'
@@ -571,6 +581,14 @@ function ResourceProfilesError() {
         }),
         expect.objectContaining({
           type: 'load-error-title-copy',
+          location: 'src/app/shared/model/agents.store.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'load-error-title-copy',
+          location: 'src/app/entities/agent/model/agents.store.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'load-error-title-copy',
           location: 'src/app/features/agents/model/pluginErrorMessage.ts:3',
         }),
         expect.objectContaining({
@@ -607,6 +625,16 @@ function baseMessage(action) {
       'src/app/shared/model/billing.store.ts': `
 function billingErrorMessage(area) {
   return 'Refresh Billing to load invoices.'
+}
+`,
+      'src/app/shared/model/agents.store.ts': `
+function loadAgentsError(error) {
+  return 'Refresh Agents to load agents.'
+}
+`,
+      'src/app/entities/agent/model/agents.store.ts': `
+function agentServerMessage(error) {
+  return 'Refresh Agents to load agents.'
 }
 `,
       'src/app/features/agents/model/pluginErrorMessage.ts': `

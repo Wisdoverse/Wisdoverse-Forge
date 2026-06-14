@@ -156,7 +156,7 @@ const initialState = {
   error: null as string | null,
 }
 
-const AGENTS_LOAD_ERROR = 'Agents could not be loaded. Refresh Agents, then try again.'
+const AGENTS_LOAD_ERROR = 'Refresh Agents to load agents.'
 const AGENT_CREATE_ERROR = 'Agent was not created. Check the agent details, then try again.'
 const AGENT_CREATED_START_ERROR =
   'Agent was created, but its workspace was not started. Ask an owner or admin to check Agent Work Setup, then start this agent from the card.'

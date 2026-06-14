@@ -79,6 +79,14 @@ describe('Agents Store', () => {
     expect(message).not.toContain('service')
   })
 
+  test('turns agent load network failures into a refresh step', () => {
+    const message = agentActionErrorMessage('load', 'Network error')
+
+    expectBeginnerError(message, 'Check your connection, then refresh Agents to load agents.')
+    expect(message).not.toContain('Network error')
+    expect(message).not.toContain('service')
+  })
+
   test('turns status fields into a wait and retry step', () => {
     expectBeginnerError(
       agentActionErrorMessage('sendPrompt', {
@@ -200,9 +208,22 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       useAgentsStore.getState().error,
-      'Forge could not update Agents right now. Refresh Agents, then try again. If it still fails, ask an owner or admin to check Agent Work Setup.'
+      'Refresh Agents to load agents. If it still fails, ask an owner or admin to check Agent Work Setup.'
     )
     expect(useAgentsStore.getState().error).not.toContain('temporarily unavailable')
+    expect(useAgentsStore.getState().loading).toBe(false)
+  })
+
+  test('stores a refresh step when agent loading returns unclear details', async () => {
+    agentApiMock.getAgents.mockResolvedValue({
+      ok: false,
+      details: { reason: 'agent list parser detail' },
+    })
+
+    await useAgentsStore.getState().loadAgents()
+
+    expectBeginnerError(useAgentsStore.getState().error, 'Refresh Agents to load agents.')
+    expect(useAgentsStore.getState().error).not.toContain('parser')
     expect(useAgentsStore.getState().loading).toBe(false)
   })
 
