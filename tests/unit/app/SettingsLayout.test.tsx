@@ -27,23 +27,48 @@ describe('SettingsLayout', () => {
     expect(within(desktopNav).getByText('Work Setup')).toBeInTheDocument()
     expect(within(desktopNav).getByText('People')).toBeInTheDocument()
     expect(within(desktopNav).getByText('Product Info')).toBeInTheDocument()
-    expect(within(desktopNav).getByRole('button', { name: 'AI Services' })).toBeInTheDocument()
     expect(
-      within(desktopNav).getByRole('button', { name: 'Outside Tool Access' })
+      within(desktopNav).getByRole('button', {
+        name: /AI Services: Connect the AI accounts agents use to think and write/i,
+      })
     ).toBeInTheDocument()
-    expect(within(desktopNav).getByRole('button', { name: 'Code Access' })).toBeInTheDocument()
-    expect(within(desktopNav).getByRole('button', { name: 'git@ Code Access' })).toBeInTheDocument()
-    expect(within(desktopNav).getByRole('button', { name: 'Agent Work Setup' })).toBeInTheDocument()
+    expect(
+      within(desktopNav).getByRole('button', {
+        name: /Outside Tool Access: Add keys agents need for outside apps and services/i,
+      })
+    ).toBeInTheDocument()
+    expect(
+      within(desktopNav).getByRole('button', {
+        name: /Code Access: Save HTTPS access for private GitHub or GitLab code/i,
+      })
+    ).toBeInTheDocument()
+    expect(
+      within(desktopNav).getByRole('button', {
+        name: /SSH Code Access: Use this when a private code link starts with git@/i,
+      })
+    ).toBeInTheDocument()
+    expect(
+      within(desktopNav).getByRole('button', {
+        name: /Agent Work Setup: Choose where agents run and which work tool they use/i,
+      })
+    ).toBeInTheDocument()
 
     expect(screen.getByRole('group', { name: 'AI Setup' })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Work Setup' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'AI Services' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Outside Tool Access' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Code Access' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'git@ Code Access' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'SSH Code Access' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Work Capacity' })).toBeInTheDocument()
+    expect(screen.getByTestId('settings-mobile-section-hint')).toHaveTextContent(
+      'Check version and product information.'
+    )
 
-    fireEvent.click(within(desktopNav).getByRole('button', { name: 'Agent Work Setup' }))
+    fireEvent.click(
+      within(desktopNav).getByRole('button', {
+        name: /Agent Work Setup: Choose where agents run and which work tool they use/i,
+      })
+    )
 
     expect(onSectionChange).toHaveBeenCalledWith('runtime')
   })

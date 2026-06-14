@@ -79,17 +79,17 @@ function actionFromText(text: string): SshKeyAction {
 }
 
 function baseMessage(action: SshKeyAction): string {
-  if (action === 'save') return 'git@ code access could not be saved.'
-  if (action === 'remove') return 'git@ code access could not be removed.'
-  return 'Refresh Settings to load git@ code access.'
+  if (action === 'save') return 'SSH code access could not be saved.'
+  if (action === 'remove') return 'SSH code access could not be removed.'
+  return 'Refresh Settings to load SSH code access.'
 }
 
 function connectionMessage(action: SshKeyAction): string {
   if (action === 'load') {
-    return 'Check your connection, then refresh Settings to load git@ code access. Forge could not connect while opening git@ code access.'
+    return 'Check your connection, then refresh Settings to load SSH code access. Forge could not connect while opening SSH code access.'
   }
   const verb = action === 'remove' ? 'remove' : 'save'
-  return `Check your connection, then ${verb} this git@ code access again. Forge could not connect while opening git@ code access.`
+  return `Check your connection, then ${verb} this SSH code access again. Forge could not connect while opening SSH code access.`
 }
 
 export function sshKeysErrorMessage(error: unknown): string {
@@ -100,10 +100,10 @@ export function sshKeysErrorMessage(error: unknown): string {
   const base = baseMessage(action)
 
   if (code === 401 || lower.includes('sign in again') || lower.includes('unauthorized')) {
-    return `${base} Your sign-in expired. Sign in again, then open Settings and try git@ code access again.`
+    return `${base} Your sign-in expired. Sign in again, then open Settings and try SSH code access again.`
   }
   if (code === 403 || lower.includes('permission') || lower.includes('forbidden')) {
-    return `${base} Ask an owner or admin for access to manage git@ code access.`
+    return `${base} Ask an owner or admin for access to manage SSH code access.`
   }
   if (isNetworkError(error)) {
     return connectionMessage(action)
@@ -140,14 +140,14 @@ export function sshKeysErrorMessage(error: unknown): string {
     return `${base} Check the access name and public key line, then try again.`
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
-    return `${base} Forge is receiving too many git@ code access requests right now. Wait a minute, then try again.`
+    return `${base} Forge is receiving too many SSH code access requests right now. Wait a minute, then try again.`
   }
   if (code != null && code >= 500) {
     if (action === 'load') {
-      return `${base} If it still fails, ask an owner or admin to check git@ code access settings.`
+      return `${base} If it still fails, ask an owner or admin to check SSH code access settings.`
     }
-    return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check git@ code access settings.`
+    return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check SSH code access settings.`
   }
 
-  return `${base} Try again. If it still fails, ask an owner or admin to check git@ code access settings.`
+  return `${base} Try again. If it still fails, ask an owner or admin to check SSH code access settings.`
 }

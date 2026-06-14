@@ -77,8 +77,8 @@ function SshKeyRow({ sshKey, onDelete }: SshKeyRowProps) {
           onClick={handleDelete}
           aria-label={
             confirming
-              ? `Confirm removing ${sshKey.label} git@ code access`
-              : `Remove ${sshKey.label} git@ code access`
+              ? `Confirm removing ${sshKey.label} SSH code access`
+              : `Remove ${sshKey.label} SSH code access`
           }
           aria-describedby={confirming ? removeWarningId : undefined}
           className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
@@ -243,7 +243,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
           disabled={saving || !label.trim() || !publicKey.trim()}
           className={uiStyles.primaryButton}
         >
-          {saving ? 'Saving...' : 'Save git@ code access'}
+          {saving ? 'Saving...' : 'Save SSH code access'}
         </button>
       </div>
     </form>
@@ -288,7 +288,7 @@ export function SshKeysSection() {
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>git@ code access</h2>
+          <h2 className={uiStyles.sectionTitle}>SSH code access</h2>
           <p className={uiStyles.sectionDescription}>
             Use this only when a private code link starts with git@. If it starts with https://, use
             Code Access instead.
@@ -301,7 +301,7 @@ export function SshKeysSection() {
             className={uiStyles.primaryButton}
           >
             <span>+</span>
-            <span>Add git@ code access</span>
+            <span>Add SSH code access</span>
           </button>
         )}
       </div>
@@ -317,7 +317,7 @@ export function SshKeysSection() {
       <div className={cn(uiStyles.card, 'overflow-x-auto')}>
         {sshKeysLoading && sshKeys.length === 0 ? (
           <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading git@ code access...
+            Loading SSH code access...
           </div>
         ) : sshKeys.length === 0 && !showForm ? (
           <div className="px-4 py-6 text-center" data-testid="ssh-access-empty-state">
@@ -333,13 +333,13 @@ export function SshKeysSection() {
               onClick={() => setShowForm(true)}
               className={cn(uiStyles.primaryButton, 'mx-auto mt-3')}
             >
-              Add git@ code access
+              Add SSH code access
             </button>
           </div>
         ) : (
           <>
             {sshKeys.length > 0 && (
-              <table className={uiStyles.table} aria-label="git@ code access">
+              <table className={uiStyles.table} aria-label="SSH code access">
                 <thead className={uiStyles.tableHead}>
                   <tr>
                     {tableHeaders.map((h) => (
