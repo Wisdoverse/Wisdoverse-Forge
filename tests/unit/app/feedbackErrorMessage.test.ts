@@ -31,7 +31,7 @@ describe('feedbackErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Feedback could not be saved. Forge could not connect while saving it. Check your connection, then try again.'
+      'Check your connection, then save this feedback again. Forge could not connect while saving it.'
     )
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('service')

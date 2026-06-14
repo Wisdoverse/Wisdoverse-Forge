@@ -5,8 +5,9 @@ describe('feedbackErrorMessage', () => {
   test('turns network failures into connection guidance', () => {
     const message = feedbackErrorMessage(new Error('Failed to fetch'))
 
-    expect(message).toContain('Forge could not connect while saving it')
-    expect(message).toContain('Check your connection')
+    expect(message).toBe(
+      'Check your connection, then save this feedback again. Forge could not connect while saving it.'
+    )
     expect(message).not.toContain('Failed to fetch')
   })
 

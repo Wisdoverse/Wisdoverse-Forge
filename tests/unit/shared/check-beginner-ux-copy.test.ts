@@ -3702,6 +3702,11 @@ function networkRecoveryMessage(action) {
     : 'Forge could not connect while clearing this chat. Check your connection, then try again.'
 }
 `,
+      'src/app/entities/context/model/feedbackErrorMessage.ts': `
+function feedbackErrorMessage() {
+  return 'Feedback could not be saved. Forge could not connect while saving it. Check your connection, then try again.'
+}
+`,
       'src/app/shared/i18n/locales/zh.ts': `
 export const zh = {
   errors: {
@@ -3754,6 +3759,10 @@ export const zh = {
         }),
         expect.objectContaining({
           type: 'network-copy',
+          location: 'src/app/entities/context/model/feedbackErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'network-copy',
           location: 'src/app/shared/i18n/locales/zh.ts:4',
         }),
       ])
@@ -3791,6 +3800,11 @@ function networkRecoveryMessage(action) {
   return action === 'load'
     ? 'Check your connection, then choose Retry conversation again. Forge could not connect while loading this conversation.'
     : 'Check your connection, then clear chat again. Forge could not connect while clearing this chat.'
+}
+`,
+      'src/app/entities/context/model/feedbackErrorMessage.ts': `
+function feedbackErrorMessage() {
+  return 'Check your connection, then save this feedback again. Forge could not connect while saving it.'
 }
 `,
       'src/app/shared/i18n/locales/zh.ts': `

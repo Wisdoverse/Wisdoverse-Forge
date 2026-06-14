@@ -10,7 +10,7 @@ export function feedbackErrorMessage(error?: unknown): string {
     if (detail) {
       return validationMessage(detail)
     }
-    return 'Feedback could not be saved. Forge could not connect while saving it. Check your connection, then try again.'
+    return 'Check your connection, then save this feedback again. Forge could not connect while saving it.'
   }
 
   if (status === 401) {
