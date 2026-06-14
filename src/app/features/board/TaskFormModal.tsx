@@ -225,7 +225,7 @@ export function TaskFormModal({
       const ok = await onProjectChange(projectId)
       if (ok === false) {
         setSubmitError(
-          'Task queues could not load for this project. Select the project again to retry.'
+          'Select the project again to load task queues. If it still does not load, refresh the board or ask an owner to check task queue setup.'
         )
       }
     } catch (err) {

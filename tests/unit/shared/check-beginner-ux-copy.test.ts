@@ -1216,6 +1216,38 @@ function agentStatusLabel() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags task form queue load copy that starts with the failure instead of the next step', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskFormModal.tsx': `
+function handleProjectChange() {
+  return 'Task queues could not load for this project. Select the project again to retry.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'task-form-queue-load-copy',
+        location: 'src/app/features/board/TaskFormModal.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts task form queue load copy that starts with the next step', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskFormModal.tsx': `
+function handleProjectChange() {
+  return 'Select the project again to load task queues. If it still does not load, refresh the board or ask an owner to check task queue setup.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags task support reference copy that does not tell users to refresh task details', () => {
     const cwd = fixture({
       'src/app/features/detail/TaskDetailPanel.tsx': `

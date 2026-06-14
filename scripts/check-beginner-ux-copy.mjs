@@ -328,6 +328,10 @@ const DUPLICATE_RECOVERY_COPY_PATTERNS = [
 
 const TASK_FORM_AGENT_STATUS_DEAD_END_PATTERNS = [/\bstatus not reported\b/i]
 
+const TASK_FORM_QUEUE_LOAD_FAILURE_FIRST_PATTERNS = [
+  /\bTask queues could not load for this project\./i,
+]
+
 const TASK_SUPPORT_REFERENCE_DEAD_END_PATTERNS = [/\bSupport reference not reported\b/i]
 
 const TASK_DETAIL_LOAD_FAILURE_FIRST_PATTERNS = [
@@ -727,6 +731,12 @@ function hasTaskFormAgentStatusDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/board/TaskFormModal.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return TASK_FORM_AGENT_STATUS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasTaskFormQueueLoadFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/board/TaskFormModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_FORM_QUEUE_LOAD_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasTaskSupportReferenceDeadEndCopy(relFile, line) {
@@ -1326,6 +1336,15 @@ function scanFile(file, relFile) {
         type: 'task-form-agent-status-copy',
         location,
         message: 'Task creation agent status copy must tell beginners to refresh agent status.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskFormQueueLoadFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'task-form-queue-load-copy',
+        location,
+        message: 'Task creation queue load errors must start with the next action for beginners.',
         sample: line.trim(),
       })
     }

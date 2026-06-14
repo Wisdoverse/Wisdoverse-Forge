@@ -280,7 +280,7 @@ describe('TaskFormModal', () => {
     scrollSpy.mockRestore()
   })
 
-  test('a task queue load failure reported by onProjectChange shows a retry message', async () => {
+  test('a task queue load failure reported by onProjectChange starts with the next step', async () => {
     const onProjectChange = vi.fn().mockResolvedValue(false)
     renderModal(vi.fn(), {
       projects: [project, otherProject],
@@ -291,8 +291,11 @@ describe('TaskFormModal', () => {
 
     await waitFor(() => expect(onProjectChange).toHaveBeenCalledWith(otherProject.id))
     await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent(/task queues could not load/i)
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Select the project again to load task queues. If it still does not load, refresh the board or ask an owner to check task queue setup.'
+      )
     )
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/task queues could not load/i)
   })
 
   test('explains that a newly selected project is still preparing', async () => {
