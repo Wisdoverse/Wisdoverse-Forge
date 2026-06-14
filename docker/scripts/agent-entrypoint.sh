@@ -529,21 +529,29 @@ fi
 # =============================================================================
 # The harness ships a generic guideline file (CLAUDE.md) plus reusable slash
 # commands at /home/agent/.agentforge/harness/. Each Container CLI loads its
-# global instructions and custom commands from a different path, so map the
-# baked harness onto the active CLI:
+# global instructions and custom commands from a different path AND a different
+# on-disk format, so map the baked harness onto the active CLI:
 #
-#   CLI     global guideline file     custom command / prompt dir
-#   claude  ~/.claude/CLAUDE.md        ~/.claude/commands/*.md
-#   codex   ~/.codex/AGENTS.md         ~/.codex/prompts/*.md
+#   CLI       global guideline file          command dir                  format
+#   claude    ~/.claude/CLAUDE.md            ~/.claude/commands/          .md link
+#   codex     ~/.codex/AGENTS.md             ~/.codex/prompts/            .md link
+#   opencode  ~/.config/opencode/AGENTS.md   ~/.config/opencode/commands/ .md link
+#   gemini    ~/.gemini/GEMINI.md            ~/.gemini/commands/          .toml gen
 #
-# gemini/opencode guideline+command conventions are not wired yet (their files
-# differ); leaving HARNESS_GUIDELINES empty skips harness injection for them.
-# Skills above are already linked into each CLI's own skills dir.
+# Skills are already linked into each CLI's own skills dir above. An unmapped
+# CLI leaves HARNESS_GUIDELINES empty and skips harness injection entirely.
 
 HARNESS_DIR="/home/agent/.agentforge/harness"
+# Marker stamped on generated (non-symlink) command files so a later run can
+# refresh its own output without clobbering a user's same-named file.
+HARNESS_MARKER="# generated-by: agentforge-harness (edit the harness, not this file)"
 
 HARNESS_GUIDELINES=""
 HARNESS_COMMANDS=""
+# Command on-disk format: "md" = symlink the harness .md as-is (claude, codex,
+# and opencode all read a markdown body as the command/prompt). "toml" = convert
+# to a gemini TOML command (gemini loads ONLY *.toml with a required `prompt`).
+HARNESS_COMMAND_FORMAT="md"
 case "$CLI_TOOL" in
   claude)
     HARNESS_GUIDELINES="$HOME/.claude/CLAUDE.md"
@@ -556,37 +564,112 @@ case "$CLI_TOOL" in
     HARNESS_GUIDELINES="$HOME/.codex/AGENTS.md"
     HARNESS_COMMANDS="$HOME/.codex/prompts"
     ;;
+  opencode)
+    # opencode reads global instructions from ~/.config/opencode/AGENTS.md and
+    # markdown commands from ~/.config/opencode/commands/<name>.md — the whole
+    # body becomes the prompt; YAML frontmatter is optional.
+    HARNESS_GUIDELINES="$HOME/.config/opencode/AGENTS.md"
+    HARNESS_COMMANDS="$HOME/.config/opencode/commands"
+    ;;
+  gemini)
+    # Gemini reads global instructions from ~/.gemini/GEMINI.md and custom
+    # commands from ~/.gemini/commands/<name>.toml — TOML only, with a required
+    # `prompt` field, so the harness .md bodies must be converted (a symlinked
+    # .md is silently ignored by gemini's **/*.toml command loader).
+    HARNESS_GUIDELINES="$HOME/.gemini/GEMINI.md"
+    HARNESS_COMMANDS="$HOME/.gemini/commands"
+    HARNESS_COMMAND_FORMAT="toml"
+    ;;
 esac
 
 if [ -n "$HARNESS_GUIDELINES" ]; then
   # Inject the guideline file as the CLI's global-level instructions (lowest
   # precedence; a project-level file under /workspace still wins). Always
   # overwrite — the image-baked version is the source of truth, so a reused
-  # home volume cannot keep a stale copy.
+  # home volume cannot keep a stale copy. Best-effort: this script runs without
+  # `set -e`, so log (do not abort) on failure, and only claim success when the
+  # copy actually lands.
   if [ -f "$HARNESS_DIR/CLAUDE.md" ]; then
-    mkdir -p "$(dirname "$HARNESS_GUIDELINES")"
-    cp "$HARNESS_DIR/CLAUDE.md" "$HARNESS_GUIDELINES"
-    echo "agent-entrypoint: Injected agent harness guidelines → $HARNESS_GUIDELINES"
+    mkdir -p "$(dirname "$HARNESS_GUIDELINES")" 2>/dev/null
+    if cp "$HARNESS_DIR/CLAUDE.md" "$HARNESS_GUIDELINES" 2>/dev/null; then
+      echo "agent-entrypoint: Injected agent harness guidelines → $HARNESS_GUIDELINES"
+    else
+      echo "agent-entrypoint: WARNING: failed to inject harness guidelines → $HARNESS_GUIDELINES ($CLI_TOOL runs without global instructions)"
+    fi
   fi
 
-  # Inject slash commands / custom prompts as symlinks. Never clobber a real
-  # user- or project-provided file of the same name, but always (re)assert our
-  # own link — including over a stale/broken symlink left on a reused home
-  # volume. rm + ln -s is used instead of `ln -sfn` to stay correct regardless
-  # of how `ln` treats a symlink-to-directory at the target name.
+  # Inject slash commands / custom prompts. Never clobber a real user- or
+  # project-provided file of the same name, but always (re)assert our own entry
+  # — including over a stale link or our own previously-generated file left on a
+  # reused home volume. Each write is logged on failure and counted so the
+  # summary line cannot falsely claim success.
   if [ -n "$HARNESS_COMMANDS" ] && [ -d "$HARNESS_DIR/commands" ]; then
-    mkdir -p "$HARNESS_COMMANDS"
+    mkdir -p "$HARNESS_COMMANDS" 2>/dev/null
+    cmd_ok=0
+    cmd_fail=0
     for cmd_file in "$HARNESS_DIR/commands"/*.md; do
       [ -f "$cmd_file" ] || continue
-      cmd_dest="$HARNESS_COMMANDS/$(basename "$cmd_file")"
-      # Skip only a real regular file (not a symlink) — that is a user override.
-      if [ -f "$cmd_dest" ] && [ ! -L "$cmd_dest" ]; then
-        continue
+      cmd_name=$(basename "$cmd_file" .md)
+      [ -n "$cmd_name" ] || continue
+      if [ "$HARNESS_COMMAND_FORMAT" = "toml" ]; then
+        cmd_dest="$HARNESS_COMMANDS/$cmd_name.toml"
+        # Refresh our own generated file (first line carries the marker); leave
+        # any user-authored same-named file untouched. Require readability so an
+        # unreadable head|grep (no pipefail here) cannot misclassify the file as
+        # user-authored and skip refreshing our own stale output.
+        if [ -e "$cmd_dest" ] && [ -r "$cmd_dest" ] \
+          && ! head -n 1 "$cmd_dest" | grep -qF "$HARNESS_MARKER"; then
+          continue
+        fi
+        # Gemini loads only TOML commands with a required `prompt`. Sanitize +
+        # escape so ANY harness body yields valid TOML:
+        #   - strip TOML-illegal control bytes (C0 0x00-0x1F except tab/newline,
+        #     and DEL 0x7F) from both the description and the body;
+        #   - description (single-line basic string): escape \ then " then tab —
+        #     order matters, \ first so the \ inserted by the " rule is not
+        #     re-escaped;
+        #   - prompt (multi-line basic string """): escape \ then " so any """/"
+        #     cannot terminate it and a line-ending \ (-> \\) is not read as a
+        #     TOML line-continuation. TOML trims the one newline after the
+        #     opening """; the closing "\n\"\"\"" leaves the prompt = body plus a
+        #     single trailing newline (harmless for a prompt).
+        # Build in a temp file and atomically move into place so a failed or
+        # partial write never leaves an unterminated/invalid command on disk.
+        cmd_desc=$(head -n 1 "$cmd_file" | tr -d '\000-\010\013-\037\177' \
+          | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g')
+        cmd_tmp="$cmd_dest.tmp.$$"
+        if {
+            printf '%s\n' "$HARNESS_MARKER"
+            printf 'description = "%s"\n' "$cmd_desc"
+            printf 'prompt = """\n'
+            tr -d '\000-\010\013-\037\177' < "$cmd_file" | sed 's/\\/\\\\/g; s/"/\\"/g'
+            printf '\n"""\n'
+          } > "$cmd_tmp" 2>/dev/null && mv -f "$cmd_tmp" "$cmd_dest" 2>/dev/null; then
+          cmd_ok=$((cmd_ok + 1))
+        else
+          rm -f "$cmd_tmp" 2>/dev/null
+          cmd_fail=$((cmd_fail + 1))
+          echo "agent-entrypoint: WARNING: failed to generate harness command $cmd_dest — /$cmd_name unavailable in $CLI_TOOL"
+        fi
+      else
+        cmd_dest="$HARNESS_COMMANDS/$cmd_name.md"
+        # Skip only a real regular file (not a symlink) — that is a user override.
+        if [ -f "$cmd_dest" ] && [ ! -L "$cmd_dest" ]; then
+          continue
+        fi
+        # rm + ln -s (not `ln -sfn`) stays correct regardless of how `ln` treats
+        # a symlink-to-directory already at the target name.
+        rm -f "$cmd_dest"
+        if ln -s "$cmd_file" "$cmd_dest" 2>/dev/null; then
+          cmd_ok=$((cmd_ok + 1))
+        else
+          cmd_fail=$((cmd_fail + 1))
+          echo "agent-entrypoint: WARNING: failed to link harness command $cmd_dest — /$cmd_name unavailable in $CLI_TOOL"
+        fi
       fi
-      rm -f "$cmd_dest"
-      ln -s "$cmd_file" "$cmd_dest"
     done
-    echo "agent-entrypoint: Injected agent harness commands → $HARNESS_COMMANDS"
+    echo "agent-entrypoint: Injected $cmd_ok agent harness command(s) → $HARNESS_COMMANDS"
+    [ "$cmd_fail" -eq 0 ] || echo "agent-entrypoint: WARNING: $cmd_fail harness command(s) failed to inject into $HARNESS_COMMANDS"
   fi
 fi
 
