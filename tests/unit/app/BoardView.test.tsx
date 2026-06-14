@@ -47,19 +47,27 @@ afterEach(() => {
 
 describe('BoardView', () => {
   test('shows no-group placeholder when no group is selected', () => {
-    render(<BoardView />)
+    const onOpenProjectsSetup = vi.fn()
+
+    render(<BoardView onOpenProjectsSetup={onOpenProjectsSetup} />)
+
     expect(screen.getByTestId('board-no-group')).toBeDefined()
     expect(screen.getByText(/pick a project to start/i)).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: /open projects/i }))
+    expect(onOpenProjectsSetup).toHaveBeenCalledTimes(1)
   })
 
   test('explains missing task queue when a project is selected', () => {
     useNavigationStore.setState({ selectedProjectId: 'p1' })
+    const onOpenTaskQueues = vi.fn()
 
-    render(<BoardView />)
+    render(<BoardView onOpenTaskQueues={onOpenTaskQueues} />)
 
     expect(screen.getByText(/create a task queue first/i)).toBeDefined()
     expect(screen.getByText(/a task queue gives new tasks a place to wait/i)).toBeDefined()
     expect(screen.getByText(/open agents, then task queues/i)).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: /open task queues/i }))
+    expect(onOpenTaskQueues).toHaveBeenCalledTimes(1)
   })
 
   test('renders task lifecycle columns with correct headers', async () => {
@@ -91,6 +99,21 @@ describe('BoardView', () => {
     expect(error.textContent).toContain('Sign in again')
     expect(error.textContent).not.toContain('Code:')
     expect(error.textContent).not.toContain('401 Unauthorized')
+    expect(within(error).getByRole('button', { name: /try again/i })).toBeDefined()
+  })
+
+  test('lets users retry when tasks fail to load', async () => {
+    mockGetTasks.mockRejectedValueOnce(new Error('HTTP 503')).mockResolvedValueOnce([])
+    useBoardStore.getState().setSelectedGroupId('test-group')
+
+    render(<BoardView />)
+
+    const error = await screen.findByTestId('board-error')
+    fireEvent.click(within(error).getByRole('button', { name: /try again/i }))
+
+    await waitFor(() => expect(mockGetTasks).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(screen.queryByTestId('board-error')).toBeNull())
+    expect(screen.getByTestId('assignment-readiness')).toBeDefined()
   })
 
   test('shows beginner network guidance when readiness cannot load', async () => {

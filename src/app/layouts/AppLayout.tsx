@@ -46,7 +46,7 @@ export function AppLayout({
   onNavigate,
 }: AppLayoutProps) {
   const activePath = useRouterState({ select: (s) => s.location.pathname })
-  const { viewMode, groupBy, setViewMode, setGroupBy } = useBoardStore()
+  const { viewMode, setViewMode } = useBoardStore()
   const toggleSidebar = useNavigationStore((s) => s.toggleSidebar)
   const sidebarExpanded = useNavigationStore((s) => s.sidebarExpanded)
   const { toggleTheme } = useTheme()
@@ -214,9 +214,7 @@ export function AppLayout({
             isMobile ? () => useNavigationStore.setState({ sidebarExpanded: true }) : undefined
           }
           viewMode={viewMode}
-          groupBy={groupBy}
           onViewChange={setViewMode}
-          onGroupByChange={setGroupBy}
           onCreateTask={() => setTaskFormOpen(true)}
           agentGroupSelector={
             isTasksPage ? (

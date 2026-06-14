@@ -1,5 +1,6 @@
 import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { ArrowRight, FolderKanban } from 'lucide-react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useBoardStore } from '@app/shared/model/board.store'
 import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
 import { useNavigationStore } from '@app/entities/navigation'
@@ -42,7 +43,12 @@ interface BoardFilterEmptyCopy {
   nextStep: string
 }
 
-export function BoardView() {
+interface BoardViewProps {
+  onOpenProjectsSetup?: () => void
+  onOpenTaskQueues?: () => void
+}
+
+export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewProps = {}) {
   const {
     columns,
     moveTask,
@@ -94,6 +100,23 @@ export function BoardView() {
     setPriorityFilter('all')
     setAssigneeFilter('all')
   }
+  const loadTasksForGroup = useCallback(
+    async (groupId: string, showLoading: boolean, shouldApply: () => boolean = () => true) => {
+      try {
+        if (showLoading && shouldApply()) setLoading(true)
+        if (shouldApply()) setError(null)
+        const tasks = await orchestrationApi.getTasks(groupId)
+        if (shouldApply()) setTasks(tasks)
+      } catch (err) {
+        if (showLoading && shouldApply()) {
+          setError(boardActionErrorMessage('loadTasks', err))
+        }
+      } finally {
+        if (showLoading && shouldApply()) setLoading(false)
+      }
+    },
+    [setError, setLoading, setTasks]
+  )
 
   useEffect(() => {
     wsStatusRef.current = wsStatus
@@ -103,31 +126,18 @@ export function BoardView() {
     if (!selectedGroupId) return
     const groupId = selectedGroupId
     let cancelled = false
-    async function loadTasks(showLoading: boolean) {
-      try {
-        if (showLoading) setLoading(true)
-        setError(null)
-        const tasks = await orchestrationApi.getTasks(groupId)
-        if (!cancelled) setTasks(tasks)
-      } catch (err) {
-        if (!cancelled && showLoading) {
-          setError(boardActionErrorMessage('loadTasks', err))
-        }
-      } finally {
-        if (!cancelled && showLoading) setLoading(false)
-      }
-    }
-    void loadTasks(true)
+    const shouldApply = () => !cancelled
+    void loadTasksForGroup(groupId, true, shouldApply)
     const fallbackRefresh = window.setInterval(() => {
       if (document.visibilityState === 'hidden') return
       if (wsStatusRef.current === 'connected') return
-      void loadTasks(false)
+      void loadTasksForGroup(groupId, false, shouldApply)
     }, BOARD_FALLBACK_REFRESH_MS)
     return () => {
       cancelled = true
       window.clearInterval(fallbackRefresh)
     }
-  }, [selectedGroupId, setTasks, setLoading, setError])
+  }, [loadTasksForGroup, selectedGroupId])
 
   async function loadParticipants(showLoading = true) {
     try {
@@ -267,30 +277,16 @@ export function BoardView() {
   }
 
   if (!selectedGroupId) {
+    const actionLabel = selectedProjectId ? 'Open Task Queues' : 'Open Projects'
+    const action = selectedProjectId ? onOpenTaskQueues : onOpenProjectsSetup
+
     return (
       <div
         data-testid="board-no-group"
         className="mx-auto flex h-full max-w-sm flex-col items-center justify-center gap-4 px-6 text-center"
       >
         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-apple-blue/10 text-apple-blue">
-          <svg
-            width="26"
-            height="26"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.75"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M3 7V5a2 2 0 0 1 2-2h2" />
-            <path d="M17 3h2a2 2 0 0 1 2 2v2" />
-            <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
-            <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
-            <rect width="7" height="5" x="7" y="7" rx="1" />
-            <rect width="7" height="5" x="7" y="12" rx="1" />
-          </svg>
+          <FolderKanban size={26} strokeWidth={1.85} aria-hidden="true" />
         </div>
         <div className="space-y-1">
           <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
@@ -302,6 +298,16 @@ export function BoardView() {
               : 'Choose a project from the sidebar first. A project keeps tasks, agents, and task queues together.'}
           </p>
         </div>
+        {action ? (
+          <button
+            type="button"
+            onClick={action}
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-apple-blue px-4 text-ui-button font-semibold text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+          >
+            <span>{actionLabel}</span>
+            <ArrowRight size={14} strokeWidth={2.25} aria-hidden="true" />
+          </button>
+        ) : null}
       </div>
     )
   }
@@ -321,9 +327,20 @@ export function BoardView() {
     return (
       <div
         data-testid="board-error"
-        className="flex h-full items-center justify-center text-ui-body text-apple-red"
+        className="flex h-full items-center justify-center px-6 text-center"
       >
-        {error}
+        <div className="flex max-w-sm flex-col items-center gap-3">
+          <p className="text-ui-body text-apple-red">{error}</p>
+          {selectedGroupId ? (
+            <button
+              type="button"
+              onClick={() => void loadTasksForGroup(selectedGroupId, true)}
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-apple-red/20 bg-white px-3 text-ui-button font-medium text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30 dark:bg-white/[0.04]"
+            >
+              Try Again
+            </button>
+          ) : null}
+        </div>
       </div>
     )
   }

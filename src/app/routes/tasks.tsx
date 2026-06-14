@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { createRoute } from '@tanstack/react-router'
+import { createRoute, useNavigate } from '@tanstack/react-router'
 import { Route as rootRoute } from './__root'
 import { BoardView } from '@app/features/board/BoardView'
 import { ListView } from '@app/features/list/ListView'
@@ -40,6 +40,7 @@ export const Route = createRoute({
   path: '/tasks',
   component: function TasksPage() {
     const viewMode = useBoardStore((s) => s.viewMode)
+    const navigate = useNavigate()
 
     if (viewMode === 'list')
       return (
@@ -65,7 +66,14 @@ export const Route = createRoute({
       )
     return (
       <div data-testid="page-tasks" className="h-full">
-        <BoardView />
+        <BoardView
+          onOpenProjectsSetup={() => {
+            void navigate({ to: '/settings/$section', params: { section: 'projects' } })
+          }}
+          onOpenTaskQueues={() => {
+            void navigate({ to: '/agents' })
+          }}
+        />
       </div>
     )
   },

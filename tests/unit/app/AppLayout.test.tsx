@@ -131,6 +131,9 @@ describe('AppLayout', () => {
     expect(screen.getByText('List')).toBeDefined()
     expect(screen.getByText('Timeline')).toBeDefined()
     expect(screen.getByText('3D')).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Status' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Agent' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Priority' })).toBeNull()
   })
 
   test('top bar labels the command search entry for beginners', () => {

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { Menu, Moon, Search, Sun } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { useTheme } from '@app/shared/model/theme.context'
-import type { ViewMode, GroupBy } from '@app/shared/model/board.types'
+import type { ViewMode } from '@app/shared/model/board.types'
 
 interface TopBarProps {
   title: string
@@ -10,9 +10,7 @@ interface TopBarProps {
   showTaskControls?: boolean
   onMenuClick?: () => void
   viewMode: ViewMode
-  groupBy: GroupBy
   onViewChange: (view: ViewMode) => void
-  onGroupByChange: (group: GroupBy) => void
   onCreateTask: () => void
   agentGroupSelector?: ReactNode
   onCmdK?: () => void
@@ -25,21 +23,13 @@ const VIEW_OPTIONS: { id: ViewMode; label: string }[] = [
   { id: '3d', label: '3D' },
 ]
 
-const GROUP_OPTIONS: { id: GroupBy; label: string }[] = [
-  { id: 'status', label: 'Status' },
-  { id: 'agent', label: 'Agent' },
-  { id: 'priority', label: 'Priority' },
-]
-
 export function TopBar({
   title,
   subtitle,
   showTaskControls = false,
   onMenuClick,
   viewMode,
-  groupBy,
   onViewChange,
-  onGroupByChange,
   onCreateTask,
   agentGroupSelector,
   onCmdK,
@@ -98,26 +88,6 @@ export function TopBar({
 
       <div className="flex items-center gap-2 flex-shrink-0">
         {showTaskControls && agentGroupSelector}
-
-        {showTaskControls && (
-          <div className="hidden gap-0.5 rounded-full border border-black/[0.08] bg-white p-0.5 dark:border-white/[0.1] dark:bg-white/[0.06] lg:flex">
-            {GROUP_OPTIONS.map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => onGroupByChange(opt.id)}
-                className={cn(
-                  'rounded-full px-3 py-1 text-ui-caption transition-transform active:scale-95',
-                  groupBy === opt.id
-                    ? 'bg-apple-blue text-white'
-                    : 'text-secondary-light dark:text-secondary-dark'
-                )}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        )}
 
         <button
           type="button"
