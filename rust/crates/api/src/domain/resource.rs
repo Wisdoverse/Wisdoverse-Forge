@@ -159,11 +159,19 @@ impl<'a> OrganizationSlug<'a> {
 ///   - https-only + length cap (rejects `http`/`git`/`ssh`/`file`/scheme-less).
 ///   - No control chars / whitespace ANYWHERE in the URL — defeats CRLF / NUL /
 ///     space injection into a future `git clone <url>` argv (H2).
+///   - REJECTS any embedded `userinfo@` in the authority (`https://user@host`,
+///     `https://user:token@host`). This is the CRITICAL credential-leak gate:
+///     the stored `repository_url` becomes the `CLONE_URL` the M5 worker passes
+///     verbatim to `git clone "$CLONE_URL"`, so any `user:token@` embedded in it
+///     would leak the token into git's argv, the container env (`docker
+///     inspect`), `/proc/<pid>/cmdline`, and git's stderr — bypassing the entire
+///     mount-based one-shot-helper credential design. Credentials must come ONLY
+///     from the mounted secret, never the URL.
 ///   - A literal-IP / name deny-list for the host: loopback, link-local, cloud
 ///     metadata (`169.254.*`), RFC1918 private ranges, and `.local` (H1, best
 ///     effort — M4 egress filtering is the authoritative block).
-///   - Non-empty, whitespace-free host label after stripping userinfo and
-///     `:port` (rejects `https://:8080/r` and `https://@host`) (H3).
+///   - Non-empty, whitespace-free host label after isolating the authority and
+///     stripping `:port` (rejects `https://:8080/r`) (H3).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ProjectRepositoryUrl {
     host: String,
@@ -193,11 +201,21 @@ impl ProjectRepositoryUrl {
             .ok_or_else(|| AppError::from(ErrorKind::Validation("repository URL must start with https://".into())))?;
         // The authority is everything up to the first '/', '?', or '#'.
         let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
-        // Strip any `userinfo@` prefix so `https://user@host` still has a host,
-        // and reject a leading `@` with an empty host (`https://@host` parses the
-        // authority as `@host` -> userinfo empty, host `host`; `https://@`/
-        // `https://user@` -> empty host, caught below) (H3).
-        let host_port = authority.rsplit('@').next().unwrap_or(authority);
+        // CRITICAL credential-leak gate: reject ANY embedded userinfo in the
+        // authority. A `user@` or `user:token@` here would be stored verbatim and
+        // handed to `git clone "$CLONE_URL"` by the M5 worker, leaking the token
+        // into argv / `docker inspect` env / `/proc/<pid>/cmdline` / git stderr.
+        // Credentials must come ONLY from the mounted secret, so no `@` is ever
+        // permitted in the authority (this also makes the host extraction below
+        // unambiguous — `host_port` is the whole authority, no userinfo to strip).
+        if authority.contains('@') {
+            return Err(ErrorKind::Validation(
+                "repository URL must not contain embedded credentials; configure credentials in the Credentials panel"
+                    .into(),
+            )
+            .into());
+        }
+        let host_port = authority;
         // Split off an optional `:port` to isolate the bare host label. An IPv6
         // literal `[::1]:443` keeps its brackets in `host`; that is fine for the
         // deny-list match below, which checks for `[::1]`/`::1` explicitly.
@@ -717,11 +735,10 @@ mod tests {
 
     #[test]
     fn project_repository_url_requires_https_with_host() {
-        // Accepted: https with a real host (with or without a path / userinfo).
+        // Accepted: https with a real host (with or without a path), no userinfo.
         assert!(ProjectRepositoryUrl::parse("https://github.com/org/repo").is_ok());
         assert!(ProjectRepositoryUrl::parse("https://gitlab.com/org/repo.git").is_ok());
         assert!(ProjectRepositoryUrl::parse("https://host/repo").is_ok());
-        assert!(ProjectRepositoryUrl::parse("https://user@host/repo").is_ok());
         // Accepted: an explicit port on a public host.
         assert!(ProjectRepositoryUrl::parse("https://example.com:8443/org/repo").is_ok());
 
@@ -740,10 +757,30 @@ mod tests {
     }
 
     #[test]
-    fn project_repository_url_carries_parsed_host() {
-        // S5 / parse-don't-validate: the validated host is retained.
+    fn project_repository_url_rejects_embedded_credentials() {
+        // CRITICAL: any embedded userinfo must be rejected so a token can never be
+        // stored in repository_url and leaked into a future `git clone "$CLONE_URL"`
+        // argv / env / /proc / stderr. A plain `user@host` (no password) is also
+        // rejected — credentials belong in the mounted secret, never the URL.
+        assert!(ProjectRepositoryUrl::parse("https://user@host/repo").is_err());
+        assert!(ProjectRepositoryUrl::parse("https://user:tok@github.com/o/r").is_err());
+        assert!(ProjectRepositoryUrl::parse("https://x-access-token:ghp_abc123@github.com/o/r.git").is_err());
+        assert!(ProjectRepositoryUrl::parse("https://oauth2:glpat-xyz@gitlab.com/o/r.git").is_err());
+        // The userinfo gate keys off `@` in the authority only — an `@` later in
+        // the path (after the first '/') is NOT userinfo and must NOT be rejected.
+        assert!(ProjectRepositoryUrl::parse("https://github.com/o/r@v1.0").is_ok());
+
+        // Regression: the plain, credential-free host still parses and the host is
+        // extracted correctly now that no userinfo-strip is involved.
         assert_eq!(ProjectRepositoryUrl::parse("https://github.com/o/r").unwrap().host(), "github.com");
-        assert_eq!(ProjectRepositoryUrl::parse("https://user@gitlab.com/o/r").unwrap().host(), "gitlab.com");
+    }
+
+    #[test]
+    fn project_repository_url_carries_parsed_host() {
+        // S5 / parse-don't-validate: the validated host is retained. (No userinfo
+        // form here — those are rejected; see rejects_embedded_credentials.)
+        assert_eq!(ProjectRepositoryUrl::parse("https://github.com/o/r").unwrap().host(), "github.com");
+        assert_eq!(ProjectRepositoryUrl::parse("https://gitlab.com/o/r").unwrap().host(), "gitlab.com");
         assert_eq!(ProjectRepositoryUrl::parse("https://example.com:8443/o/r").unwrap().host(), "example.com");
     }
 
@@ -760,10 +797,13 @@ mod tests {
 
     #[test]
     fn project_repository_url_rejects_empty_or_port_only_authority() {
-        // H3: a port-only or userinfo-only authority has no real host.
+        // H3: a port-only authority has no real host.
         assert!(ProjectRepositoryUrl::parse("https://:8080/r").is_err());
-        assert!(ProjectRepositoryUrl::parse("https://@host/r").is_ok()); // empty userinfo, host present
-        assert!(ProjectRepositoryUrl::parse("https://user@/r").is_err()); // userinfo but empty host
+        // Any `@` in the authority is now rejected as embedded credentials BEFORE
+        // the empty-host check — so these all fail on the userinfo gate regardless
+        // of whether userinfo/host happen to be empty.
+        assert!(ProjectRepositoryUrl::parse("https://@host/r").is_err()); // empty userinfo still has `@`
+        assert!(ProjectRepositoryUrl::parse("https://user@/r").is_err()); // userinfo, empty host
         assert!(ProjectRepositoryUrl::parse("https://@/r").is_err()); // both empty
     }
 

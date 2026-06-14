@@ -26,16 +26,34 @@
 #   CLONE_PROVIDER  (optional) github | gitlab | "" — informational only in v1
 #
 # Credential (optional):
-#   /run/secrets/git-credential  read-only file (mode 0400). Contents may be:
-#     - a bare token:                "<token>"
-#     - username:token              "<user>:<token>"
-#     - x-access-token form         "x-access-token:<token>"
-#   If the file is absent, the clone proceeds unauthenticated (public repos).
+#   /run/secrets/git-credential  read-only file (mode 0400). The FIRST non-blank
+#   line is the credential. Supported forms (the helper splits on the FIRST ':'):
+#     - "x-access-token:<token>"   GitHub app/installation + PAT-over-HTTPS form
+#     - "oauth2:<token>"           GitLab OAuth2 form
+#     - "<user>:<token>"           explicit username:token
+#     - "<token>"                  bare token, NO colon -> username defaults to
+#                                  x-access-token
+#   CONTRACT for M6 (which writes the secret bytes): a bare token MUST NOT contain
+#   a ':' — a `:` in the credential is ALWAYS treated as the user:pass separator,
+#   so a token that itself contains a ':' would be mis-split into user/pass. M6
+#   must therefore emit one of the explicit colon-form indicators above
+#   (`x-access-token:<token>` / `oauth2:<token>` / `<user>:<token>`) whenever the
+#   token could contain a ':' — never a bare `<token>` with an embedded colon.
+#   If the file is ABSENT, the clone proceeds unauthenticated (public repos). If
+#   the file is PRESENT but empty/blank, the clone is REFUSED (fail 3) rather than
+#   silently downgraded to an anonymous clone (which would mask a server-side
+#   credential-injection bug for a public repo).
 #
 # Outputs:
 #   On success: writes $CLONE_DEST/.clone-result.json with branch/head_sha/bytes,
 #               exits 0.
 #   On failure: prints git's stderr (NOT the secret), exits non-zero.
+#
+# NOT this script's responsibility (the M5 worker owns these): the per-clone
+# resource limits (disk/CPU/PID), the disk-exhaustion + "too large" classification
+# of git's exit 128, and the `agentforge.project_clone=<attempt_id>` container
+# label used for reaping orphaned clone containers. This entrypoint only clones,
+# validates inputs, and reports an exit code + result file.
 # =============================================================================
 
 set -o pipefail
@@ -53,6 +71,10 @@ fail() {
 SECRET_FILE="/run/secrets/git-credential"
 # Internal helper path; written to a private, exec-permitted location at runtime.
 CRED_HELPER="/tmp/agentforge-clone-credential-helper.sh"
+# One-shot contract: the helper script must not outlive this process. Remove it on
+# EVERY exit path (success, fail, or signal). It is only ever WRITTEN inside the
+# secret-present branch, so `rm -f` is a harmless no-op when it was never created.
+trap 'rm -f "$CRED_HELPER"' EXIT
 
 # --- validate required inputs -----------------------------------------------
 [ -n "${CLONE_URL:-}" ]  || fail 2 "CLONE_URL is required"
@@ -64,6 +86,18 @@ CRED_HELPER="/tmp/agentforge-clone-credential-helper.sh"
 case "$CLONE_URL" in
   https://*) : ;;
   *) fail 2 "CLONE_URL must be an https:// URL" ;;
+esac
+
+# CRITICAL defense-in-depth: the URL must NEVER carry embedded credentials. The
+# Rust ProjectRepositoryUrl::parse gate already rejects any `userinfo@` authority,
+# but re-assert here so even a future caller that bypasses the Rust gate cannot
+# leak a `user:token@host` into git's argv / this container's env (`docker
+# inspect`) / /proc/<pid>/cmdline / git stderr. Credentials come ONLY from the
+# mounted secret. (An `@` later in the path is not credentials, but the upstream
+# gate forbids `@` in the authority anyway, so a blanket reject here is safe and
+# strictly tighter; a legitimate clone URL has no `@`.)
+case "$CLONE_URL" in
+  *@*) fail 2 "CLONE_URL must not contain embedded credentials" ;;
 esac
 
 # CLONE_DEST must exist (it is the bind-mounted staging dir). Refuse to clone on
@@ -78,12 +112,12 @@ fi
 log "cloning into $REPO_DIR (provider=${CLONE_PROVIDER:-unknown})"
 
 # --- derive the target host for host-scoped credential config ----------------
-# Strip scheme, then userinfo (anything before '@'), then path/port, leaving the
-# bare host. Used only to scope the credential helper to this host; it is not a
-# security control on its own (the restricted egress network is — see spec §10).
+# Strip scheme, then path/port, leaving the bare host. There is no userinfo to
+# strip: a CLONE_URL containing '@' was already rejected above. Used only to scope
+# the credential helper to this host; it is not a security control on its own (the
+# restricted egress network is — see spec §10).
 url_no_scheme="${CLONE_URL#https://}"
-url_no_userinfo="${url_no_scheme##*@}"
-TARGET_HOST="${url_no_userinfo%%/*}"
+TARGET_HOST="${url_no_scheme%%/*}"
 TARGET_HOST="${TARGET_HOST%%:*}"
 [ -n "$TARGET_HOST" ] || fail 2 "could not derive host from CLONE_URL"
 
@@ -96,6 +130,17 @@ if [ -f "$SECRET_FILE" ]; then
   if [ ! -r "$SECRET_FILE" ]; then
     fail 3 "credential secret present at $SECRET_FILE but not readable (check mount mode 0400 + container uid)"
   fi
+  # A PRESENT secret must yield a usable credential. If it is empty/whitespace-only
+  # the helper would emit nothing and (with GIT_TERMINAL_PROMPT=0) git would fall
+  # back to an ANONYMOUS clone — which SUCCEEDS for a public repo and silently
+  # masks a server-side credential-injection bug. Refuse loudly instead. (A truly
+  # ABSENT secret -> anonymous clone is fine and intended for public repos; only a
+  # present-but-unusable secret is an error.) Validate the first non-blank line
+  # here without echoing it. `grep` exit 1 (no match) is fine; only a non-blank
+  # match passes.
+  if ! grep -q -m1 -v '^[[:space:]]*$' "$SECRET_FILE" 2>/dev/null; then
+    fail 3 "credential secret present but empty/blank — refusing to silently clone anonymously"
+  fi
   log "credential secret detected — configuring one-shot host-scoped helper for $TARGET_HOST"
 
   # The credential helper is a tiny script that, on git's `get` request, emits
@@ -104,7 +149,9 @@ if [ -f "$SECRET_FILE" ]; then
   # erase it does nothing. The token flows helper-stdout -> git over a pipe, never
   # via argv/stderr. The helper reads the secret file path from the environment so
   # the path (not the token) is all that appears in `git -c` config.
-  cat > "$CRED_HELPER" <<'HELPER_EOF'
+  # Guard the write: a full /tmp would otherwise produce a truncated/empty helper
+  # and a confusing git exit 128 later. Fail fast (exit 3) with a clear message.
+  cat > "$CRED_HELPER" <<'HELPER_EOF' || fail 3 "failed to write credential helper (is /tmp full?)"
 #!/usr/bin/env bash
 # One-shot git credential helper for the ephemeral clone container.
 # Responds only to the `get` operation; reads the token from the mounted secret.
@@ -115,9 +162,14 @@ op="$1"
 secret_file="${AGENTFORGE_CLONE_SECRET_FILE:?secret file path not provided}"
 [ -r "$secret_file" ] || exit 1
 
-# Read the first non-empty line of the secret. Supported forms:
-#   <token>                  -> username defaults to x-access-token
-#   <username>:<token>       -> explicit username (e.g. oauth2, x-access-token)
+# Read the first non-empty line of the secret. The split is on the FIRST ':'.
+# Supported forms (see the entrypoint header CONTRACT — M6 must honor it):
+#   x-access-token:<token>   -> user=x-access-token (GitHub PAT/app form)
+#   oauth2:<token>           -> user=oauth2          (GitLab OAuth2 form)
+#   <username>:<token>       -> explicit username
+#   <token>  (NO colon)      -> username defaults to x-access-token
+# NOTE: a bare token containing a ':' would be mis-split into user:pass — M6 must
+# never emit a colon-bearing bare token; it must use a colon-form indicator.
 raw="$(grep -m1 -v '^[[:space:]]*$' "$secret_file" 2>/dev/null)"
 [ -n "$raw" ] || exit 1
 
@@ -157,6 +209,13 @@ fi
 # Full history (a dev project needs it — no --depth). No recursive submodules.
 # LFS smudge skipped by default. GIT_TERMINAL_PROMPT=0 makes a missing/bad
 # credential fail fast instead of hanging on an interactive prompt.
+#
+# Defense-in-depth: clear any inherited askpass program. GIT_TERMINAL_PROMPT=0
+# suppresses the interactive TTY prompt, but git/ssh will still invoke a
+# GIT_ASKPASS / SSH_ASKPASS helper if one is set in the environment — which could
+# bypass the no-prompt guarantee and source a credential from outside the mounted
+# secret. Unset both so the ONLY credential path is the host-scoped helper above.
+unset GIT_ASKPASS SSH_ASKPASS
 log "starting git clone (full history, no submodules, LFS smudge skipped)"
 # `-c credential.helper=` first clears any global/system helper chain (e.g. a
 # baked-in store), so ONLY the host-scoped one-shot helper in GIT_CRED_ARGS can

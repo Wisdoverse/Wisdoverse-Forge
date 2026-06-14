@@ -46,14 +46,13 @@ RUN apt-get update && apt-get -y dist-upgrade \
 RUN groupadd --non-unique --gid "$AGENT_GID" agent \
     && useradd --non-unique --uid "$AGENT_UID" --gid "$AGENT_GID" -m -s /bin/bash agent
 
-# Shared git credential / host / hardening library (same path as agent-base).
-# v1 clone-entrypoint does not source it, but shipping it keeps the credential/
-# git-config logic in one place and available for v2 (SSH / custom-host) work.
-COPY docker/scripts/lib/git-credentials.sh /usr/local/lib/agentforge/git-credentials.sh
-
-# Clone entrypoint.
+# Clone entrypoint. It is fully SELF-CONTAINED: it has its own inline one-shot
+# credential helper and does NOT source the shared git-credentials.sh library, so
+# that library is intentionally NOT copied into this image — keeping the attack
+# surface minimal for untrusted-repo network I/O. (When v2 adds SSH / custom-host
+# support that needs the shared lib, COPY it back in then.)
 COPY docker/scripts/clone-entrypoint.sh /clone-entrypoint.sh
-RUN chmod 0755 /clone-entrypoint.sh /usr/local/lib/agentforge/git-credentials.sh
+RUN chmod 0755 /clone-entrypoint.sh
 
 # Run as the unprivileged agent user. The worker mounts the staging dir owned by
 # this uid; the container needs no root, no extra capabilities, no docker socket.

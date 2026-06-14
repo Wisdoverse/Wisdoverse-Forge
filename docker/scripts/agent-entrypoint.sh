@@ -14,12 +14,32 @@
 # The GitLab token + SSH/known_hosts + git-hardening logic lives in a sourceable
 # library (also reused by the ephemeral agentforge-clone image). Sourcing only
 # DEFINES functions; nothing runs until the call sites below. This script has no
-# `set -e`, so a missing library is logged but does not abort the CLI startup —
-# the git helpers are simply skipped in that (image-misbuild) case.
+# `set -e`, so a missing OR BROKEN library must not abort the CLI startup — but it
+# MUST be loud, not silent. A syntax error mid-library returns non-zero from the
+# `source`, bash continues, and every function declared AFTER the error is left
+# UNDEFINED — at which point the per-call-site `command -v` guards below would
+# SILENTLY skip credential injection (leaving GITLAB_TOKEN in the env as a leak
+# vector, plus no SSH/known_hosts/hardening) for ALL agent images. To prevent that
+# silent downgrade we (1) capture the source failure and (2) assert each expected
+# function is defined, emitting a single loud ERROR naming any that are missing.
 GIT_CREDENTIALS_LIB="/usr/local/lib/agentforge/git-credentials.sh"
 if [ -f "$GIT_CREDENTIALS_LIB" ]; then
   # shellcheck source=lib/git-credentials.sh disable=SC1091
-  . "$GIT_CREDENTIALS_LIB"
+  . "$GIT_CREDENTIALS_LIB" \
+    || echo "agent-entrypoint: WARNING: git credential library failed to load (source returned non-zero) — git platform credentials will NOT be configured"
+
+  # The library WAS present; assert every function it must provide is defined.
+  # A missing function here means the library is broken (e.g. a syntax error
+  # truncated it mid-file). Name the gaps loudly so an operator sees that git
+  # setup is INCOMPLETE rather than silently skipped by the `command -v` guards.
+  _gitlib_missing=""
+  for _fn in configure_git_credentials configure_known_hosts configure_custom_git_hosts configure_git_hardening; do
+    command -v "$_fn" >/dev/null 2>&1 || _gitlib_missing="${_gitlib_missing} ${_fn}"
+  done
+  if [ -n "$_gitlib_missing" ]; then
+    echo "agent-entrypoint: ERROR: git credential library is broken; git setup is INCOMPLETE — missing function(s):${_gitlib_missing}"
+  fi
+  unset _gitlib_missing _fn
 else
   echo "agent-entrypoint: WARNING: git credential library not found at $GIT_CREDENTIALS_LIB — git platform setup will be skipped"
 fi
@@ -925,7 +945,7 @@ RELAY_PID_FILE="/tmp/agentforge-sidecar.pid"
 RELAY_STOP_MARKER="/tmp/agentforge-sidecar.stop"
 RELAY_WATCHER_PID=""
 SIDECAR_MAX_RESTARTS=5
-SIDECAR_RESTART_COUNT=0
+# (restart counting is a function-local `restart_count` in the watcher below.)
 
 rm -f "$RELAY_PID_FILE" "$RELAY_STOP_MARKER"
 

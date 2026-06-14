@@ -340,6 +340,27 @@ build-clone: ## Build ephemeral clone image (minimal git-only project-clone cont
 		--build-arg AGENT_UID=$(_UID) \
 		--build-arg AGENT_GID=$(_GID) .
 
+# Scripts linted by the clone shellcheck gate. Scoped to the project-git-clone
+# scripts (M3) plus agent-entrypoint.sh, which is now shellcheck-clean. The rest
+# of the repo's pre-existing scripts are intentionally OUT of scope here.
+SHELLCHECK_CLONE_SCRIPTS := \
+	docker/scripts/clone-entrypoint.sh \
+	docker/scripts/lib/git-credentials.sh \
+	docker/scripts/agent-entrypoint.sh
+
+.PHONY: shellcheck-clone
+shellcheck-clone: ## Lint the project-git-clone shell scripts with shellcheck (local binary or koalaman/shellcheck image)
+	@if command -v shellcheck >/dev/null 2>&1; then \
+		echo "shellcheck (local): $(SHELLCHECK_CLONE_SCRIPTS)"; \
+		shellcheck -x $(SHELLCHECK_CLONE_SCRIPTS); \
+	elif command -v docker >/dev/null 2>&1; then \
+		echo "shellcheck (koalaman/shellcheck:stable): $(SHELLCHECK_CLONE_SCRIPTS)"; \
+		docker run --rm -v "$$PWD:/mnt" -w /mnt koalaman/shellcheck:stable -x $(SHELLCHECK_CLONE_SCRIPTS); \
+	else \
+		echo "ERROR: neither shellcheck nor docker is available to run the clone shellcheck gate" >&2; \
+		exit 1; \
+	fi
+
 .PHONY: build-agent
 build-agent: ensure-agent-base ## Build single CLI agent image (default: claude)
 	$(eval _TOOL := $(or $(CLI_TOOL),claude))
