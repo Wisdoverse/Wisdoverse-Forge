@@ -58,7 +58,7 @@ const SERVICE_DEFINITIONS: readonly ServiceDefinition[] = [
     supportName: 'Starts file-work agents',
     description: 'Starts and manages the prepared workspaces where agents do file work.',
     impact:
-      'Starting new managed workspace agents may fail; agents already running may stop reporting.',
+      'Starting new agents in managed workspaces may fail; agents already running may stop reporting.',
     action:
       'Ask an owner or admin to check managed workspace setup before sending new file work to agents.',
   },

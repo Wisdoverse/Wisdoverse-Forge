@@ -39,9 +39,7 @@ describe('ResourcesSection', () => {
     render(<ResourcesSection />)
 
     const guide = await screen.findByTestId('resource-profile-guide')
-    expect(
-      within(guide).getByText('Pick the smallest size that can finish the work')
-    ).toBeDefined()
+    expect(within(guide).getByText('Pick the smallest size that can finish the work')).toBeDefined()
     expect(guide.textContent).toContain('Small is the smallest size')
     expect(within(guide).getByText('Before choosing a size')).toBeDefined()
     expect(within(guide).getByText('More processing power speeds work up')).toBeDefined()
@@ -87,7 +85,7 @@ describe('ResourcesSection', () => {
     ).toBeDefined()
     expect(
       within(emptyState).getByText(
-        'Return here before creating managed workspace agents; at least one row means this step is ready.'
+        'Return here before creating agents in managed workspaces; at least one row means this step is ready.'
       )
     ).toBeDefined()
   })

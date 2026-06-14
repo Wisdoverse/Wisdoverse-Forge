@@ -526,7 +526,7 @@ describe('dispatchWsMessage', () => {
       read: false,
     })
     expect(notifications[0].message).toContain('Reconnect the Codex account in Settings')
-    expect(notifications[0].message).toContain('managed workspace agents')
+    expect(notifications[0].message).toContain('new agents that work on files')
     expect(notifications[0].taskTitle).not.toContain('credential expired')
   })
 

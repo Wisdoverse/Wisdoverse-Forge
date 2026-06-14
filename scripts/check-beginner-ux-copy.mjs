@@ -40,6 +40,7 @@ const RECOVERABLE_ERROR_PATTERNS = [
 const BEGINNER_JARGON_PATTERNS = [
   /\blocal agents?\b/i,
   /\bmanaged local agent\b/i,
+  /\bmanaged workspace agents?\b/i,
   /\bHost CLI\b/i,
   /\bPlatform CLI\b/i,
   /\bForge CLI\b/i,

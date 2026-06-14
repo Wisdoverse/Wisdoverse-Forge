@@ -376,7 +376,7 @@ describe('AgentDetailView', () => {
     expect(screen.getByText(/can plan, write, and review in chat/i)).toBeDefined()
     expect(screen.getByText(/cannot open project files on its own/i)).toBeDefined()
     expect(
-      screen.getByText(/choose an agent on this computer or a managed workspace agent/i)
+      screen.getByText(/choose an agent on this computer or in a managed workspace/i)
     ).toBeDefined()
     expect(screen.getByText(/settings shows whether the AI service is ready/i)).toBeDefined()
     expect(screen.queryByText('Not needed for this agent')).toBeNull()

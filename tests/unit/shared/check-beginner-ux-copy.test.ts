@@ -289,6 +289,26 @@ export function CreateAgentModal() {
     ])
   })
 
+  it('flags managed workspace agent noun stacks in user-visible copy', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+export function CreateAgentModal() {
+  return <p>Create managed workspace agents before assigning file work.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'beginner-jargon-copy',
+        location: 'src/app/features/agents/CreateAgentModal.tsx:3',
+      }),
+    ])
+  })
+
   it('flags placeholder copy that leaves beginners guessing', () => {
     const cwd = fixture({
       'src/app/features/tasks/TaskStatus.tsx': `

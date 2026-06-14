@@ -345,7 +345,7 @@ function notifyCredentialOwner(payload: Record<string, unknown> | null) {
     type: 'credential_expired',
     taskId: `credential:${cliTool}`,
     taskTitle: `${displayName} account needs reconnecting`,
-    message: `Reconnect the ${displayName} account in Settings before starting new managed workspace agents.`,
+    message: `Reconnect the ${displayName} account in Settings before starting new agents that work on files.`,
     taskHref: '/settings',
     ownerUserId: ownerId,
     read: false,

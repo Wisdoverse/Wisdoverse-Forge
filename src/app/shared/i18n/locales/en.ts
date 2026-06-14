@@ -564,7 +564,8 @@ export const en = {
       create: {
         missing_cli_tool_for_container: {
           title: 'Choose a work tool',
-          detail: 'Managed workspace agents need a work tool: claude, codex, gemini, or opencode.',
+          detail:
+            'Agents in managed workspaces need a work tool: claude, codex, gemini, or opencode.',
         },
         api_cannot_have_cli_tool: {
           title: 'Chat-only agent cannot have a work tool',

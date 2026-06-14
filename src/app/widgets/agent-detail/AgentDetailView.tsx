@@ -87,8 +87,8 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
       ) : (
         <p>
           This chat-only AI service can plan, write, and review in chat, but it cannot open project
-          files on its own. Choose an agent on this computer or a managed workspace agent when the
-          task must inspect or edit files.
+          files on its own. Choose an agent on this computer or in a managed workspace when the task
+          must inspect or edit files.
         </p>
       )}
     </div>
