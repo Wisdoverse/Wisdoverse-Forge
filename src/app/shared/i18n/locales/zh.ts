@@ -483,7 +483,7 @@ export const zh: TranslationKeys = {
       detailsHeading: '可复用说明',
       detailsHelper: '查看这段文字，了解这条保存的说明会给 Agent 工作补充什么。',
       noContent: '还没有保存可复用说明。请先补充说明，再让 Agent 使用这条保存的说明。',
-      unknownAuthor: '暂未列出维护者',
+      unknownAuthor: '刷新保存的说明以加载维护者',
       unknownSource: '保存的说明库',
       availabilityWorkspace: '当前工作区',
       availabilityGlobal: '保存的说明库',

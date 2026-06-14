@@ -2962,6 +2962,70 @@ function ProfileRow() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags saved instruction maintainer fallback copy that does not tell users to refresh', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  skills: {
+    detail: {
+      unknownAuthor: 'Maintainer not listed yet',
+    },
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  skills: {
+    detail: {
+      unknownAuthor: '暂未列出维护者',
+    },
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'skill-maintainer-fallback-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'skill-maintainer-fallback-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:5',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved instruction maintainer fallback copy that tells users to refresh', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  skills: {
+    detail: {
+      unknownAuthor: 'Refresh saved instructions to load maintainer',
+    },
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  skills: {
+    detail: {
+      unknownAuthor: '刷新保存的说明以加载维护者',
+    },
+  },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags governance audit fallbacks that leave beginners without a field to check', () => {
     const cwd = fixture({
       'src/app/features/governance/AuditLogView.tsx': `

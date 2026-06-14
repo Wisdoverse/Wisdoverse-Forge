@@ -220,6 +220,11 @@ const ACCOUNT_PROFILE_DEAD_END_PATTERNS = [
   /\bEmail not reported yet\b/i,
 ]
 
+const SKILL_MAINTAINER_FALLBACK_DEAD_END_PATTERNS = [
+  /\bMaintainer not listed yet\b/i,
+  /暂未列出维护者/,
+]
+
 const RUNTIME_SIGN_IN_DEAD_END_PATTERNS = [/\bNo work tool sign-ins are connected yet\b/i]
 
 const RUNTIME_DEFAULT_LOCATION_DEAD_END_PATTERNS = [/\bNot set yet\b/i]
@@ -751,6 +756,17 @@ function hasAccountProfileDeadEndCopy(relFile, line) {
   return ACCOUNT_PROFILE_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasSkillMaintainerFallbackDeadEndCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SKILL_MAINTAINER_FALLBACK_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasRuntimeSignInDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/settings/RuntimeSection.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -1278,6 +1294,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Account profile fallbacks must tell beginners to refresh and reload account data.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSkillMaintainerFallbackDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'skill-maintainer-fallback-copy',
+        location,
+        message:
+          'Saved instruction maintainer fallback copy must tell beginners to refresh saved instructions.',
         sample: line.trim(),
       })
     }

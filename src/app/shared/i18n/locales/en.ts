@@ -495,7 +495,7 @@ export const en = {
         'Review this text to understand what the saved instruction adds to agent work.',
       noContent:
         'No reusable instructions have been saved yet. Add instructions before asking agents to use this saved instruction.',
-      unknownAuthor: 'Maintainer not listed yet',
+      unknownAuthor: 'Refresh saved instructions to load maintainer',
       unknownSource: 'Saved instructions library',
       availabilityWorkspace: 'This workspace',
       availabilityGlobal: 'Saved instructions library',

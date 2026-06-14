@@ -83,7 +83,7 @@ describe('SkillDetailModal', () => {
     expect(screen.getByText('Needs install before agents can use it')).toBeInTheDocument()
     expect(screen.getByText('Works with any agent')).toBeInTheDocument()
     expect(screen.getByText('Saved instructions library')).toBeInTheDocument()
-    expect(screen.getByText('Maintainer not listed yet')).toBeInTheDocument()
+    expect(screen.getByText('Refresh saved instructions to load maintainer')).toBeInTheDocument()
     expect(screen.queryByText('Unknown')).toBeNull()
     expect(screen.getByText('Latest saved copy')).toBeInTheDocument()
     expect(
