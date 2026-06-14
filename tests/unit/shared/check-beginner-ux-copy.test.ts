@@ -610,6 +610,40 @@ const EMPTY_TOP_USEFUL = {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags optional saved item empty copy that does not explain how more items appear', () => {
+    const cwd = fixture({
+      'src/app/entities/context/ui/InjectionPreviewModal.tsx': `
+export function InjectionPreviewModal() {
+  return <PreviewSection empty="No other saved items were found." />
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'saved-item-optional-empty-copy',
+          location: 'src/app/entities/context/ui/InjectionPreviewModal.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts optional saved item empty copy that explains what creates more items', () => {
+    const cwd = fixture({
+      'src/app/entities/context/ui/InjectionPreviewModal.tsx': `
+export function InjectionPreviewModal() {
+  return <PreviewSection empty="More saved items appear here after tasks save helpful notes or instructions." />
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags work setup summaries that do not tell users to sign in first', () => {
     const cwd = fixture({
       'src/app/features/settings/RuntimeSection.tsx': `

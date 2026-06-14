@@ -39,7 +39,12 @@ describe('InjectionPreviewModal', () => {
     expect(
       screen.getByText('Checked items will be shared with the agent when you send the task.')
     ).toBeDefined()
-    expect(screen.getByText('No other saved items were found.')).toBeDefined()
+    expect(
+      screen.getByText(
+        'More saved items appear here after tasks save helpful notes or instructions.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByText('No other saved items were found.')).toBeNull()
     expect(screen.getByRole('button', { name: 'Send task with selected notes' })).toBeDefined()
     expect(screen.getAllByLabelText('Close saved notes review')).toHaveLength(2)
     expect(screen.queryByText(/publish/i)).toBeNull()

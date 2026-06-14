@@ -163,6 +163,8 @@ const ANALYTICS_CHART_DEAD_END_PATTERNS = [/\bNo activity data\b/i, /\bNo tool u
 
 const ANALYTICS_USEFUL_EMPTY_DEAD_END_PATTERNS = [/\bNo useful saved items yet\b/i]
 
+const SAVED_ITEM_OPTIONAL_EMPTY_DEAD_END_PATTERNS = [/\bNo other saved items were found\b/i]
+
 const RUNTIME_SIGN_IN_DEAD_END_PATTERNS = [/\bNo work tool sign-ins are connected yet\b/i]
 
 const RUNTIME_DEFAULT_LOCATION_DEAD_END_PATTERNS = [/\bNot set yet\b/i]
@@ -467,6 +469,12 @@ function hasAnalyticsUsefulEmptyDeadEndCopy(relFile, line) {
   return ANALYTICS_USEFUL_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasSavedItemOptionalEmptyDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/entities/context/ui/InjectionPreviewModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SAVED_ITEM_OPTIONAL_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasRuntimeSignInDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/settings/RuntimeSection.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -716,6 +724,15 @@ function scanFile(file, relFile) {
         type: 'analytics-useful-empty-copy',
         location,
         message: 'Saved item reuse empty states must tell beginners to mark useful items first.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSavedItemOptionalEmptyDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'saved-item-optional-empty-copy',
+        location,
+        message: 'Saved item preview empty states must explain how more saved items appear later.',
         sample: line.trim(),
       })
     }

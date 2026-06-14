@@ -191,7 +191,7 @@ export function InjectionPreviewModal({
                 title="More saved items you can include"
                 helper="These are not shared unless you add them."
                 items={preview.suggestedItems}
-                empty="No other saved items were found."
+                empty="More saved items appear here after tasks save helpful notes or instructions."
                 selectedIds={selectedIds}
                 pinnedIds={pinnedIds}
                 onToggleSelected={toggleSelected}
