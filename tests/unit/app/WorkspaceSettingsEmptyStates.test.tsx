@@ -128,7 +128,7 @@ describe('workspace settings empty states', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain(
-      'Workspace teams could not be loaded. Ask an owner or admin to update your workspace access.'
+      'Refresh Settings to load workspace teams. Ask an owner or admin to update your workspace access.'
     )
     expect(alert.textContent).not.toContain('HTTP 403')
   })
@@ -159,7 +159,7 @@ describe('workspace settings empty states', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain(
-      'Workspace projects could not be loaded. Forge could not load workspace settings right now. Refresh Settings, then try again. If it still fails, ask an owner or admin to check workspace setup.'
+      'Refresh Settings to load workspace projects. If it still fails, ask an owner or admin to check workspace setup.'
     )
     expect(alert.textContent).not.toContain('HTTP 500')
     expect(alert.textContent).not.toContain('temporarily unavailable')
@@ -171,7 +171,7 @@ describe('workspace settings empty states', () => {
     render(<ProjectsSection />)
 
     expect(
-      await screen.findByText(/Forge could not load workspace settings right now/i)
+      await screen.findByText(/Refresh Settings to load workspace projects/i)
     ).toBeInTheDocument()
     expect(screen.getByText(/ask an owner or admin to check workspace setup/i)).toBeInTheDocument()
     expect(screen.queryByText(/database unavailable/i)).not.toBeInTheDocument()
@@ -209,7 +209,7 @@ describe('workspace settings empty states', () => {
     render(<ProjectsSection />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Workspace projects could not be loaded. Ask an owner or admin to update your workspace access.'
+      'Refresh Settings to load workspace projects. Ask an owner or admin to update your workspace access.'
     )
     expect(screen.queryByText('HTTP 403')).not.toBeInTheDocument()
   })

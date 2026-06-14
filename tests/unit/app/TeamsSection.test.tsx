@@ -77,7 +77,7 @@ describe('TeamsSection', () => {
 
     await waitFor(() => expect(getTeams).toHaveBeenCalledWith('org-1'))
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Workspace teams could not be loaded. Forge could not load workspace settings right now. Refresh Settings, then try again. If it still fails, ask an owner or admin to check workspace setup.'
+      'Refresh Settings to load workspace teams. If it still fails, ask an owner or admin to check workspace setup.'
     )
     expect(screen.queryByText('HTTP 500')).toBeNull()
     expect(screen.queryByText(/temporarily unavailable/i)).toBeNull()
@@ -90,7 +90,7 @@ describe('TeamsSection', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'Workspace teams could not be loaded. Ask an owner or admin to update your workspace access.'
+      'Refresh Settings to load workspace teams. Ask an owner or admin to update your workspace access.'
     )
     expect(alert.textContent).not.toContain('Detail:')
     expect(alert.textContent).not.toContain('owner role required')

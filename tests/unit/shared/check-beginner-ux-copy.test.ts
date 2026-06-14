@@ -512,6 +512,82 @@ function baseMessage(action) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags load error titles that do not tell users which view to retry or refresh', () => {
+    const cwd = fixture({
+      'src/app/shared/model/chat.errors.ts': `
+function baseMessage(action) {
+  return 'Conversation history could not be loaded.'
+}
+`,
+      'src/app/features/agents/model/pluginErrorMessage.ts': `
+function prefix(action) {
+  return 'Agent tools could not be loaded.'
+}
+`,
+      'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts': `
+function baseMessage(resource, action) {
+  return 'Workspace teams could not be loaded.'
+}
+`,
+      'src/app/features/settings/ResourcesSection.tsx': `
+function ResourceProfilesError() {
+  return <p>Agent sizes could not be loaded.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'load-error-title-copy',
+          location: 'src/app/shared/model/chat.errors.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'load-error-title-copy',
+          location: 'src/app/features/agents/model/pluginErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'load-error-title-copy',
+          location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'load-error-title-copy',
+          location: 'src/app/features/settings/ResourcesSection.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts load error titles that tell users which view to retry or refresh', () => {
+    const cwd = fixture({
+      'src/app/shared/model/chat.errors.ts': `
+function baseMessage(action) {
+  return 'Retry conversation to load conversation history.'
+}
+`,
+      'src/app/features/agents/model/pluginErrorMessage.ts': `
+function prefix(action) {
+  return 'Refresh this agent page to load tools.'
+}
+`,
+      'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts': `
+function baseMessage(resource, action) {
+  return 'Refresh Settings to load workspace teams.'
+}
+`,
+      'src/app/features/settings/ResourcesSection.tsx': `
+function ResourceProfilesError() {
+  return <p>Reload sizes to load agent sizes.</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags admin agent missing-field copy that does not tell users to refresh', () => {
     const cwd = fixture({
       'src/app/features/admin/AgentsPanel.tsx': `

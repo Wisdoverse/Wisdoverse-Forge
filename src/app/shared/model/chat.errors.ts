@@ -42,7 +42,9 @@ function isNetworkError(err: unknown): boolean {
 }
 
 function baseMessage(action: ChatErrorAction): string {
-  return action === 'load' ? 'Conversation history could not be loaded.' : 'Chat was not cleared.'
+  return action === 'load'
+    ? 'Retry conversation to load conversation history.'
+    : 'Chat was not cleared.'
 }
 
 function serviceRecoveryMessage(action: ChatErrorAction): string {

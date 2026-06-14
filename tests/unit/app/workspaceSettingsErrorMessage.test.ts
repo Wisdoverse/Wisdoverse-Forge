@@ -11,14 +11,14 @@ describe('workspaceSettingsErrorMessage', () => {
   test('maps permission failures to workspace access guidance', () => {
     expectBeginnerMessage(
       workspaceSettingsErrorMessage('team', 'load', new Error('HTTP 403')),
-      'Workspace teams could not be loaded. Ask an owner or admin to update your workspace access.'
+      'Refresh Settings to load workspace teams. Ask an owner or admin to update your workspace access.'
     )
   })
 
   test('maps structured auth failures to a sign-in step', () => {
     expectBeginnerMessage(
       workspaceSettingsErrorMessage('team', 'load', { statusCode: '401' }),
-      'Workspace teams could not be loaded. Sign in again, then return to Settings.'
+      'Refresh Settings to load workspace teams. Sign in again, then return to Settings.'
     )
   })
 
@@ -56,7 +56,7 @@ describe('workspaceSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Workspace teams could not be loaded. Refresh Settings; the team space, team, or project may have changed.'
+      'Refresh Settings to load workspace teams. The team space, team, or project may have changed.'
     )
     expect(message).not.toContain('organization')
   })
@@ -70,7 +70,7 @@ describe('workspaceSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Workspace teams could not be loaded. Forge could not load workspace settings right now. Refresh Settings, then try again. If it still fails, ask an owner or admin to check workspace setup.'
+      'Refresh Settings to load workspace teams. If it still fails, ask an owner or admin to check workspace setup.'
     )
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('temporarily unavailable')
@@ -85,7 +85,7 @@ describe('workspaceSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Workspace projects could not be loaded. Forge could not load workspace settings right now. Refresh Settings, then try again. If it still fails, ask an owner or admin to check workspace setup.'
+      'Refresh Settings to load workspace projects. If it still fails, ask an owner or admin to check workspace setup.'
     )
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('503')
@@ -100,7 +100,7 @@ describe('workspaceSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Workspace projects could not be loaded. Forge could not connect while loading workspace settings. Check your connection, then try again.'
+      'Refresh Settings to load workspace projects. Check your connection, then refresh Settings again.'
     )
     expect(message).not.toContain('Failed to fetch')
   })

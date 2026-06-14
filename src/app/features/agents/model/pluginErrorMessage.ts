@@ -43,7 +43,7 @@ function isNetworkError(err: unknown): boolean {
 
 function prefix(action: AgentPluginErrorAction): string {
   return action === 'load'
-    ? 'Agent tools could not be loaded.'
+    ? 'Refresh this agent page to load tools.'
     : 'Tool change was not saved. The switch was returned to its previous setting.'
 }
 
@@ -59,7 +59,9 @@ export function agentPluginErrorMessage(action: AgentPluginErrorAction, err: unk
     return `${base} Ask an owner or admin to give you access to this agent's tools.`
   }
   if (code === 404) {
-    return `${base} Refresh the page; this agent or tool may have been changed by someone else.`
+    return action === 'load'
+      ? `${base} This agent or tool may have been changed by someone else.`
+      : `${base} Refresh the page; this agent or tool may have been changed by someone else.`
   }
   if (code === 409) {
     return `${base} Another change is still being saved. Wait a moment, then try again.`
@@ -71,10 +73,14 @@ export function agentPluginErrorMessage(action: AgentPluginErrorAction, err: unk
     return `${base} Forge could not finish this tool request right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check this agent's tool setup.`
   }
   if (isNetworkError(err)) {
-    return `${base} Forge could not connect while checking this agent's tools. Check your connection, then try again.`
+    return action === 'load'
+      ? `${base} Forge could not connect while checking this agent's tools. Check your connection, then refresh this agent page again.`
+      : `${base} Forge could not connect while checking this agent's tools. Check your connection, then try again.`
   }
   if (text.includes('ok: false')) {
-    return `${base} Forge could not read this agent's tool list. Refresh the page. If it still fails, ask an owner or admin to check workspace tools.`
+    return action === 'load'
+      ? `${base} If it still fails, ask an owner or admin to check workspace tools.`
+      : `${base} Forge could not read this agent's tool list. Refresh the page. If it still fails, ask an owner or admin to check workspace tools.`
   }
 
   return `${base} Try again. If it still fails, ask an owner or admin to check this agent's tool setup.`

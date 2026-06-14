@@ -99,7 +99,7 @@ describe('ResourcesSection', () => {
     render(<ResourcesSection />)
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Agent sizes could not be loaded.')
+    expect(alert).toHaveTextContent('Reload sizes to load agent sizes.')
     expect(alert).toHaveTextContent('Agent sizes decide how much computer power and memory')
     expect(alert).not.toHaveTextContent('HTTP 500')
 

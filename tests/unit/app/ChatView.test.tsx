@@ -181,7 +181,7 @@ describe('ChatView', () => {
     useAgentsStore.setState({ agents: [cliAgent] })
     seedChatState({
       error:
-        'Conversation history could not be loaded. Forge could not connect while loading this conversation. Check your connection, then try again.',
+        'Retry conversation to load conversation history. Forge could not connect while loading this conversation. Check your connection, then try again.',
       fetchEvents,
     })
 
@@ -202,7 +202,7 @@ describe('ChatView', () => {
     seedChatState({
       messages: [message('Earlier answer')],
       error:
-        'Conversation history could not be loaded. Forge could not load this conversation right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check chat setup.',
+        'Retry conversation to load conversation history. Forge could not load this conversation right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check chat setup.',
     })
 
     render(<ChatView agentId={providerAgent.id} />)

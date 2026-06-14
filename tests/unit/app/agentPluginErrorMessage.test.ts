@@ -4,7 +4,7 @@ import { agentPluginErrorMessage } from '@app/features/agents/model/pluginErrorM
 describe('agentPluginErrorMessage', () => {
   test('turns permission errors into operator recovery guidance', () => {
     expect(agentPluginErrorMessage('load', new Error('HTTP 403'))).toBe(
-      "Agent tools could not be loaded. Ask an owner or admin to give you access to this agent's tools."
+      "Refresh this agent page to load tools. Ask an owner or admin to give you access to this agent's tools."
     )
   })
 
@@ -15,7 +15,7 @@ describe('agentPluginErrorMessage', () => {
     })
 
     expect(message).toBe(
-      "Agent tools could not be loaded. Ask an owner or admin to give you access to this agent's tools."
+      "Refresh this agent page to load tools. Ask an owner or admin to give you access to this agent's tools."
     )
     expect(message).not.toContain('missing plugin permission')
   })
@@ -59,7 +59,7 @@ describe('agentPluginErrorMessage', () => {
     const message = agentPluginErrorMessage('load', new TypeError('Failed to fetch'))
 
     expect(message).toBe(
-      "Agent tools could not be loaded. Forge could not connect while checking this agent's tools. Check your connection, then try again."
+      "Refresh this agent page to load tools. Forge could not connect while checking this agent's tools. Check your connection, then refresh this agent page again."
     )
     expect(message).not.toContain('Failed to fetch')
   })
@@ -68,7 +68,7 @@ describe('agentPluginErrorMessage', () => {
     const message = agentPluginErrorMessage('load', new Error('ok: false'))
 
     expect(message).toBe(
-      "Agent tools could not be loaded. Forge could not read this agent's tool list. Refresh the page. If it still fails, ask an owner or admin to check workspace tools."
+      'Refresh this agent page to load tools. If it still fails, ask an owner or admin to check workspace tools.'
     )
     expect(message).not.toContain('ok: false')
     expect(message).not.toContain('platform')

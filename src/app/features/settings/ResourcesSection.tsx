@@ -187,7 +187,7 @@ function ResourceProfilesError({
     <div role="alert" aria-live="polite" className={cn(uiStyles.error, 'mb-4')}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="font-semibold">Agent sizes could not be loaded.</p>
+          <p className="font-semibold">Reload sizes to load agent sizes.</p>
           <p className="mt-1">
             Agent sizes decide how much computer power and memory an agent in a managed workspace
             can use. Reload this list before creating or changing agents in managed workspaces.

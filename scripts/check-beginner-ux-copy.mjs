@@ -243,6 +243,13 @@ const SETTINGS_LOAD_ERROR_DEAD_END_PATTERNS = [
   /\bRepository SSH access could not be loaded\./i,
 ]
 
+const LOAD_ERROR_TITLE_DEAD_END_PATTERNS = [
+  /\bConversation history could not be loaded\./i,
+  /\bAgent tools could not be loaded\./i,
+  /\bWorkspace (?:team|project)s could not be loaded\./i,
+  /\bAgent sizes could not be loaded\./i,
+]
+
 const AGENT_SETUP_FALLBACK_DEAD_END_PATTERNS = [
   /\bAI service needs review\b/i,
   /\bWork tool needs review\b/i,
@@ -814,6 +821,19 @@ function hasSettingsLoadErrorDeadEndCopy(relFile, line) {
     return false
   }
   return SETTINGS_LOAD_ERROR_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasLoadErrorTitleDeadEndCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/shared/model/chat.errors.ts') &&
+    !relFile.endsWith('src/app/features/agents/model/pluginErrorMessage.ts') &&
+    !relFile.endsWith('src/app/pages/settings/model/workspaceSettingsErrorMessage.ts') &&
+    !relFile.endsWith('src/app/features/settings/ResourcesSection.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return LOAD_ERROR_TITLE_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentSetupFallbackDeadEndCopy(relFile, line) {
@@ -1388,6 +1408,15 @@ function scanFile(file, relFile) {
         type: 'settings-load-error-copy',
         location,
         message: 'Settings load error titles must tell beginners to refresh Settings.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasLoadErrorTitleDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'load-error-title-copy',
+        location,
+        message: 'Load error titles must tell beginners which view to retry or refresh.',
         sample: line.trim(),
       })
     }
