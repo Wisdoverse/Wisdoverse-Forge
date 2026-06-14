@@ -38,7 +38,7 @@ function metricCopy(metric: string): { label: string; description: string; highA
       return {
         label: 'AI message use',
         description: 'Messages and replies processed while agents work.',
-        highAction: 'Review busy agents or upgrade before more agent runs are blocked.',
+        highAction: 'Review busy agents or upgrade before more agent work is blocked.',
       }
     default:
       return {

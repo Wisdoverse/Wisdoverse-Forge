@@ -168,7 +168,7 @@ export function DescriptionTab({
               ? `${resultArtifacts.length} result file${resultArtifacts.length === 1 ? '' : 's'} ready for review.`
               : canReview
                 ? 'No result files were attached.'
-                : 'Result files appear here after the run finishes.'}
+                : 'Result files appear here after the task finishes.'}
           </p>
           {resultArtifacts.length > 0 && (
             <button
@@ -185,7 +185,7 @@ export function DescriptionTab({
               ? `${contextTotal} saved ${
                   contextTotal === 1 ? 'note or instruction' : 'notes or instructions'
                 } helped this task.`
-              : 'Saved notes, work history, and save-for-next-time ideas appear here as the task runs.'}
+              : 'Saved notes, work history, and save-for-next-time ideas appear here while the task is active.'}
           </p>
           {onOpenContext && (
             <button
@@ -293,7 +293,7 @@ function assignmentSummary(task: TaskSummary): {
   if (task.assignedAgentName) {
     return {
       label: task.assignedAgentName,
-      detail: 'This agent will handle the next run for this task.',
+      detail: 'This agent will handle the next step for this task.',
       hasAgent: true,
     }
   }
@@ -350,7 +350,7 @@ function nextActionForTask(
         title: 'Monitor progress',
         detail:
           task.progress >= 80
-            ? 'Prepare to review result files when the agent completes the run.'
+            ? 'Prepare to review result files when the agent finishes this task.'
             : 'Watch progress and use Needs help if the agent needs your input.',
         tone: 'default',
       }
@@ -383,7 +383,7 @@ function nextActionForTask(
       }
     case 'canceled':
       return {
-        title: 'No active run',
+        title: 'No current work',
         detail: 'Create a new task or reopen the brief if this work still matters.',
         tone: 'default',
       }

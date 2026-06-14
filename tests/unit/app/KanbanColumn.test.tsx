@@ -32,8 +32,9 @@ describe('KanbanColumn', () => {
     renderColumn('working')
 
     const emptyState = screen.getByTestId('kanban-empty-working')
-    expect(within(emptyState).getByText('No active runs')).toBeDefined()
+    expect(within(emptyState).getByText('No work in progress')).toBeDefined()
     expect(within(emptyState).getByText(/once an agent starts the task/i)).toBeDefined()
+    expect(within(emptyState).queryByText('No active runs')).toBeNull()
   })
 
   test('explains waiting tasks without queue or dispatch language', () => {

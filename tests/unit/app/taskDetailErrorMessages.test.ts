@@ -84,7 +84,7 @@ describe('taskDetailErrorMessage', () => {
       taskDetailErrorMessage('retryTask', {
         error: 'Task is already running',
       }),
-      'This task is already running. Wait for the current run to finish, then refresh the task.'
+      'This task is already in progress. Wait for the current work to finish, then refresh the task.'
     )
   })
 

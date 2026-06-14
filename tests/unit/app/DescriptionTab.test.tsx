@@ -93,7 +93,7 @@ describe('DescriptionTab', () => {
     )
 
     expect(screen.getByTestId('task-assignment-guidance').textContent).toBe(
-      'This agent will handle the next run for this task.'
+      'This agent will handle the next step for this task.'
     )
 
     fireEvent.click(screen.getByRole('button', { name: /open result files/i }))
@@ -135,7 +135,7 @@ describe('DescriptionTab', () => {
 
     expect(
       screen.getByText(
-        'Saved notes, work history, and save-for-next-time ideas appear here as the task runs.'
+        'Saved notes, work history, and save-for-next-time ideas appear here while the task is active.'
       )
     ).toBeDefined()
     expect(
@@ -143,6 +143,8 @@ describe('DescriptionTab', () => {
         'Saved notes, run details, and save-for-next-time ideas appear here as the task runs.'
       )
     ).toBeNull()
+    expect(screen.queryByText(/after the run finishes/i)).toBeNull()
+    expect(screen.queryByText(/next run for this task/i)).toBeNull()
     expect(screen.queryByText(new RegExp(['Saved', 'memories'].join('\\s+'), 'i'))).toBeNull()
     expect(
       screen.queryByText(new RegExp(['saved instruction', 'suggestions'].join('\\s+'), 'i'))

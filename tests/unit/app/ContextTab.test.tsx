@@ -100,6 +100,7 @@ describe('ContextTab', () => {
     expect(
       within(emptyState).getByText(/saved notes, saved instructions, or work history/i)
     ).toBeDefined()
+    expect(within(emptyState).getByText(/future tasks get better/i)).toBeDefined()
     expect(within(emptyState).queryByText('No saved notes or run details yet')).toBeNull()
     expect(within(emptyState).queryByText('No saved notes or work history yet')).toBeNull()
     expect(

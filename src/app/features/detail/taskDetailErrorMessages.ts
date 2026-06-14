@@ -143,7 +143,7 @@ function isNetworkError(normalizedDetail: string): boolean {
 function validationMessage(action: TaskDetailErrorAction, detail: string): string {
   const normalized = detail.toLowerCase()
   if (normalized.includes('already running')) {
-    return 'This task is already running. Wait for the current run to finish, then refresh the task.'
+    return 'This task is already in progress. Wait for the current work to finish, then refresh the task.'
   }
   if (normalized.includes('agent')) {
     return 'Choose an available agent, then try again.'

@@ -17,31 +17,31 @@ const FEEDBACK_OPTIONS: {
     label: 'useful',
     text: 'Useful',
     description: 'Keep showing saved items like this.',
-    confirmation: 'future runs will prefer saved items like this.',
+    confirmation: 'future tasks will prefer saved items like this.',
   },
   {
     label: 'stale',
     text: 'Outdated',
     description: 'The information is old and should be checked before reuse.',
-    confirmation: 'future runs will treat this item as needing review.',
+    confirmation: 'future tasks will treat this item as needing review.',
   },
   {
     label: 'wrong',
     text: 'Incorrect',
     description: 'The information is wrong for this task.',
-    confirmation: 'future runs will avoid trusting this item.',
+    confirmation: 'future tasks will avoid trusting this item.',
   },
   {
     label: 'too_sensitive',
     text: 'Too sensitive',
     description: 'This should not be shared broadly.',
-    confirmation: 'future runs will handle this item more carefully.',
+    confirmation: 'future tasks will handle this item more carefully.',
   },
   {
     label: 'do_not_use_again',
     text: 'Do not use again',
-    description: 'Stop selecting this item for future runs.',
-    confirmation: 'future runs will avoid this item.',
+    description: 'Stop selecting this item for future tasks.',
+    confirmation: 'future tasks will avoid this item.',
   },
 ]
 
@@ -84,7 +84,7 @@ export function FeedbackControls({ item, onRecord, onRecorded }: FeedbackControl
           Was this saved item helpful?
         </p>
         <p className="mt-0.5 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
-          Your answer helps future runs choose safer, more useful saved items.
+          Your answer helps future tasks choose safer, more useful saved items.
         </p>
       </div>
       <div className="flex flex-wrap gap-1" aria-label={`Feedback for ${item.title}`}>

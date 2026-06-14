@@ -172,7 +172,7 @@ describe('InboxView', () => {
     expect(nextStep).not.toHaveTextContent(/recovery item/i)
   })
 
-  test('prioritizes expired account access because it can block future runs', () => {
+  test('prioritizes expired account access because it can block future work', () => {
     const store = useFeedStore.getState()
     store.addNotification({
       id: 'n1',
@@ -198,7 +198,8 @@ describe('InboxView', () => {
 
     const nextStep = screen.getByTestId('inbox-next-step')
     expect(nextStep).toHaveTextContent('Reconnect account access before more agent work starts')
-    expect(nextStep).toHaveTextContent('keeps future agent runs from failing')
+    expect(nextStep).toHaveTextContent('keeps future agent work from failing')
+    expect(nextStep).not.toHaveTextContent(/agent runs/i)
     expect(screen.getByText('Reconnect agent work access')).toBeDefined()
     expect(screen.getByText('Account access needs reconnecting')).toBeDefined()
     expect(screen.queryByText(/runtime access/i)).toBeNull()

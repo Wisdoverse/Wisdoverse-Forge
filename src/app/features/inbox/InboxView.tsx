@@ -383,8 +383,8 @@ function nextStepDescription(
 ): string {
   if (notification.type === 'credential_expired') {
     return credentialCount === 1
-      ? 'One account connection needs reconnecting. Fixing it keeps future agent runs from failing.'
-      : `${credentialCount} account connections need reconnecting. Start here because access problems can block new runs.`
+      ? 'One account connection needs reconnecting. Fixing it keeps future agent work from failing.'
+      : `${credentialCount} account connections need reconnecting. Start here because access problems can block new tasks.`
   }
 
   if (notification.type === 'blocked' || notification.type === 'failed') {

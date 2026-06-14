@@ -54,7 +54,7 @@ const COLUMN_EMPTY_STATE: Record<string, { title: string; detail: string }> = {
     detail: 'Assigned tasks wait here until an available agent starts them.',
   },
   working: {
-    title: 'No active runs',
+    title: 'No work in progress',
     detail: 'Running work appears here once an agent starts the task.',
   },
   blocked: {

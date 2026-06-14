@@ -64,15 +64,16 @@ describe('ContextEvidenceList', () => {
     expect(screen.getByText('What the agent used')).toBeInTheDocument()
     expect(screen.getByText(/what the agent used or saved/i)).toBeInTheDocument()
     expect(screen.getByText('Task result')).toBeInTheDocument()
-    expect(screen.getByText(/Final answer or status saved from the agent work/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Final answer or status saved from the agent work/i)
+    ).toBeInTheDocument()
     expect(screen.queryByText(/Final answer or status saved from the agent run/i)).toBeNull()
     expect(screen.getByText('Health check completed successfully.')).toBeInTheDocument()
     expect(
-      screen.getByText(
-        /Most users can rely on the summary above.*sharing details with support/i
-      )
+      screen.getByText(/Most users can rely on the summary above.*sharing details with support/i)
     ).toBeInTheDocument()
     expect(screen.queryByText(/sharing run details with support/i)).toBeNull()
+    expect(screen.queryByText(/this run already used it/i)).toBeNull()
     expect(screen.getByText('Show support details')).toBeInTheDocument()
     expect(screen.queryByText('Evidence')).toBeNull()
     expect(screen.queryByText(/technical details/i)).toBeNull()
@@ -192,6 +193,8 @@ describe('ContextEvidenceList', () => {
 
     expect(screen.getByText('Old deployment memory')).toBeInTheDocument()
     expect(screen.getByText(/No longer used for future work/i)).toBeInTheDocument()
+    expect(screen.getByText(/because this task already used it/i)).toBeInTheDocument()
     expect(screen.getByText(/understand the past result/i)).toBeInTheDocument()
+    expect(screen.queryByText(/because this run already used it/i)).toBeNull()
   })
 })

@@ -72,7 +72,7 @@ describe('FeedbackControls', () => {
 
     expect(screen.getByText('Was this saved item helpful?')).toBeInTheDocument()
     expect(
-      screen.getByText('Your answer helps future runs choose safer, more useful saved items.')
+      screen.getByText('Your answer helps future tasks choose safer, more useful saved items.')
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Outdated' })).toHaveAttribute(
       'title',
@@ -80,11 +80,11 @@ describe('FeedbackControls', () => {
     )
     expect(screen.getByRole('button', { name: 'Do not use again' })).toHaveAttribute(
       'title',
-      'Stop selecting this item for future runs.'
+      'Stop selecting this item for future tasks.'
     )
   })
 
-  test('records feedback and confirms what future runs will do', async () => {
+  test('records feedback and confirms what future tasks will do', async () => {
     const onRecord = vi.fn(async (label: ContextFeedbackLabel) => outcome(label))
 
     render(<FeedbackControls item={contextItem()} onRecord={onRecord} />)
@@ -93,7 +93,7 @@ describe('FeedbackControls', () => {
 
     expect(onRecord).toHaveBeenCalledWith('too_sensitive')
     expect(
-      await screen.findByText('Saved: future runs will handle this item more carefully.')
+      await screen.findByText('Saved: future tasks will handle this item more carefully.')
     ).toBeInTheDocument()
   })
 

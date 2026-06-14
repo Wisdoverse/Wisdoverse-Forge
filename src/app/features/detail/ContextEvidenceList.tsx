@@ -41,8 +41,8 @@ export function ContextEvidenceList({ evidence, revokedItems }: ContextEvidenceL
                   {item.title}
                 </p>
                 <p className="mt-1 text-[11px] leading-relaxed text-apple-red">
-                  No longer used for future work. It stays here because this run already used it, so
-                  you can still understand the past result.
+                  No longer used for future work. It stays here because this task already used it,
+                  so you can still understand the past result.
                 </p>
               </div>
             </div>

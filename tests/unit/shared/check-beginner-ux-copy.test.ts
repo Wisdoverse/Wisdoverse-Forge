@@ -1053,7 +1053,7 @@ export function AnalyticsDashboard() {
   return (
     <div>
       <p>Run a task to fill this chart</p>
-      <p>Tool use appears after an agent runs a task</p>
+      <p>Tool use appears after an agent finishes a task</p>
     </div>
   )
 }
@@ -3285,16 +3285,18 @@ function skillResponseErrorMessage(action) {
 
     expect(result.ok).toBe(false)
     expect(result.findings).toHaveLength(2)
-    expect(result.findings).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        type: 'saved-instructions-load-copy',
-        location: 'src/app/features/skills/SkillsView.tsx:3',
-      }),
-      expect.objectContaining({
-        type: 'saved-instructions-load-copy',
-        location: 'src/app/shared/model/skills.store.ts:5',
-      }),
-    ]))
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'saved-instructions-load-copy',
+          location: 'src/app/features/skills/SkillsView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'saved-instructions-load-copy',
+          location: 'src/app/shared/model/skills.store.ts:5',
+        }),
+      ])
+    )
   })
 
   it('accepts saved instruction load copy that points to retry', () => {
@@ -4158,6 +4160,31 @@ function formatTechnicalDetails() {
   return 'Support can check the run details if needed.'
 }
 `,
+      'src/app/features/board/KanbanColumn.tsx': `
+function emptyState() {
+  return 'No active runs'
+}
+`,
+      'src/app/entities/context/ui/FeedbackControls.tsx': `
+function feedbackHelp() {
+  return 'Your answer helps future runs choose safer saved items.'
+}
+`,
+      'src/app/features/inbox/InboxView.tsx': `
+function nextStepDescription() {
+  return 'Fixing it keeps future agent runs from failing.'
+}
+`,
+      'src/app/features/billing/UsageMeter.tsx': `
+function highAction() {
+  return 'Review busy agents before more agent runs are blocked.'
+}
+`,
+      'src/app/features/analytics/AnalyticsDashboard.tsx': `
+function emptyChart() {
+  return 'Tool use appears after an agent runs a task.'
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
@@ -4185,11 +4212,31 @@ function formatTechnicalDetails() {
           type: 'context-work-history-copy',
           location: 'src/app/features/chat/ToolCallDetail.tsx:3',
         }),
+        expect.objectContaining({
+          type: 'context-work-history-copy',
+          location: 'src/app/features/board/KanbanColumn.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'context-work-history-copy',
+          location: 'src/app/entities/context/ui/FeedbackControls.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'context-work-history-copy',
+          location: 'src/app/features/inbox/InboxView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'context-work-history-copy',
+          location: 'src/app/features/billing/UsageMeter.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'context-work-history-copy',
+          location: 'src/app/features/analytics/AnalyticsDashboard.tsx:3',
+        }),
       ])
     )
   })
 
-  it('accepts task saved-item detail copy that uses work history wording', () => {
+  it('accepts task saved-item and work copy that uses work history wording', () => {
     const cwd = fixture({
       'src/app/features/detail/ContextTab.tsx': `
 function ContextEmptyState() {
@@ -4207,6 +4254,31 @@ function payloadSummary() {
       'src/app/features/detail/ContextCandidatesList.tsx': `
 function sectionDescription() {
   return 'These are suggested notes from this task.'
+}
+`,
+      'src/app/features/board/KanbanColumn.tsx': `
+function emptyState() {
+  return 'No work in progress'
+}
+`,
+      'src/app/entities/context/ui/FeedbackControls.tsx': `
+function feedbackHelp() {
+  return 'Your answer helps future tasks choose safer saved items.'
+}
+`,
+      'src/app/features/inbox/InboxView.tsx': `
+function nextStepDescription() {
+  return 'Fixing it keeps future agent work from failing.'
+}
+`,
+      'src/app/features/billing/UsageMeter.tsx': `
+function highAction() {
+  return 'Review busy agents before more agent work is blocked.'
+}
+`,
+      'src/app/features/analytics/AnalyticsDashboard.tsx': `
+function emptyChart() {
+  return 'Tool use appears after an agent finishes a task.'
 }
 `,
     })

@@ -331,6 +331,17 @@ const CONTEXT_WORK_HISTORY_JARGON_PATTERNS = [
   /\bduring this run\b/i,
   /\bfrom the run\b/i,
   /\bagent run\b/i,
+  /\bactive runs\b/i,
+  /\bfuture runs\b/i,
+  /\bfuture agent runs\b/i,
+  /\bcurrent run\b/i,
+  /\bnext run\b/i,
+  /\bafter the run\b/i,
+  /\brun finishes\b/i,
+  /\bcompletes the run\b/i,
+  /\btask runs\b/i,
+  /\bagent runs\b/i,
+  /\bnew runs\b/i,
 ]
 
 const CHAT_MESSAGE_FALLBACK_DEAD_END_PATTERNS = [
@@ -1099,7 +1110,12 @@ function hasContextWorkHistoryJargonCopy(relFile, line) {
     !relFile.endsWith('src/app/features/detail/ContextCandidatesList.tsx') &&
     !relFile.endsWith('src/app/features/detail/DescriptionTab.tsx') &&
     !relFile.endsWith('src/app/features/detail/taskDetailErrorMessages.ts') &&
-    !relFile.endsWith('src/app/features/chat/ToolCallDetail.tsx')
+    !relFile.endsWith('src/app/features/chat/ToolCallDetail.tsx') &&
+    !relFile.endsWith('src/app/features/board/KanbanColumn.tsx') &&
+    !relFile.endsWith('src/app/entities/context/ui/FeedbackControls.tsx') &&
+    !relFile.endsWith('src/app/features/inbox/InboxView.tsx') &&
+    !relFile.endsWith('src/app/features/billing/UsageMeter.tsx') &&
+    !relFile.endsWith('src/app/features/analytics/AnalyticsDashboard.tsx')
   ) {
     return false
   }
@@ -1747,7 +1763,7 @@ function scanFile(file, relFile) {
         type: 'context-work-history-copy',
         location,
         message:
-          'Task saved-item details must use work history or task wording instead of run-detail jargon.',
+          'Task and saved-item copy must use work or task wording instead of run-detail jargon.',
         sample: line.trim(),
       })
     }
