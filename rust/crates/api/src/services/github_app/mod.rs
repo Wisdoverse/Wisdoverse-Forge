@@ -218,6 +218,13 @@ impl GithubAppClient {
     }
 
     /// Open a draft PR for a self-fix branch.
+    ///
+    /// Retry-safe: on a partial-success retry the deterministic head branch is
+    /// force-pushed and a *new* create call returns **422** ("A pull request
+    /// already exists for {owner}:{branch}"). Rather than stranding the task we
+    /// fetch the existing open PR for that head and return it — same shape — so
+    /// the bridge is idempotent. Any other non-2xx (or a 422 with no matching
+    /// open PR) propagates as the original error.
     #[allow(dead_code)]
     pub async fn create_draft_pr(
         &self,
@@ -242,27 +249,33 @@ impl GithubAppClient {
             .await
             .map_err(|_| unavailable(endpoint))?;
 
-        if !resp.status().is_success() {
-            return Err(unavailable_status(resp.status(), endpoint));
+        let status = resp.status();
+        if status.is_success() {
+            return resp.json::<PullRequest>().await.map_err(|_| unavailable(endpoint));
         }
-        resp.json::<PullRequest>()
-            .await
-            .map_err(|_| unavailable(endpoint))
+
+        // 422 = a PR already exists for this head (retry after a partial success).
+        // Recover the existing open PR instead of failing the task.
+        if status.as_u16() == 422
+            && let Some(existing) = self.find_open_pr_for_head(head_branch).await?
+        {
+            return Ok(existing);
+        }
+        Err(unavailable_status(status, endpoint))
     }
 
-    /// True IFF the head commit has at least one check run AND every run is
-    /// `completed` with conclusion `success`. This is an *all-checks* gate
-    /// (stricter than a required-checks-only gate): a single skipped, failed,
-    /// pending, or neutral run makes this false. An empty list is false because
-    /// nothing has been verified yet.
-    #[allow(dead_code)]
-    pub async fn all_checks_green(&self, head_sha: &str) -> AppResult<bool> {
-        let endpoint = "GET /repos/{repo}/commits/{sha}/check-runs";
+    /// Find the single open PR whose head is `head_branch` in this repo, if any.
+    /// Returns `None` when GitHub reports no matching open PR.
+    async fn find_open_pr_for_head(&self, head_branch: &str) -> AppResult<Option<PullRequest>> {
+        let endpoint = "GET /repos/{repo}/pulls?head=...&state=open";
+        // `head` is `owner:branch`; the owner is the first segment of `owner/repo`.
+        let owner = self.cfg.repo.split('/').next().unwrap_or(&self.cfg.repo);
         let url = format!(
-            "{}/repos/{}/commits/{}/check-runs",
+            "{}/repos/{}/pulls?head={}:{}&state=open&per_page=1",
             Self::api_base(),
             self.cfg.repo,
-            head_sha
+            owner,
+            head_branch
         );
         let resp = self
             .authed(reqwest::Method::GET, url)
@@ -274,21 +287,77 @@ impl GithubAppClient {
         if !resp.status().is_success() {
             return Err(unavailable_status(resp.status(), endpoint));
         }
+        let prs: Vec<PullRequest> = resp.json().await.map_err(|_| unavailable(endpoint))?;
+        Ok(prs.into_iter().next())
+    }
 
-        #[derive(Deserialize)]
-        struct CheckRunsResp {
-            check_runs: Vec<CheckRun>,
+    /// True IFF the head commit has at least one check run AND every run is
+    /// `completed` with conclusion `success`. This is an *all-checks* gate
+    /// (stricter than a required-checks-only gate): a single skipped, failed,
+    /// pending, or neutral run makes this false. An empty list is false because
+    /// nothing has been verified yet.
+    ///
+    /// This is the MERGE safety gate, so it must see EVERY check run, not just
+    /// the first page. The check-runs endpoint paginates at 100/page; we request
+    /// `per_page=100` and follow the `Link: rel="next"` header until exhausted,
+    /// aggregating the per-run conclusions across all pages.
+    #[allow(dead_code)]
+    pub async fn all_checks_green(&self, head_sha: &str) -> AppResult<bool> {
+        let endpoint = "GET /repos/{repo}/commits/{sha}/check-runs";
+        let mut next_url = Some(format!(
+            "{}/repos/{}/commits/{}/check-runs?per_page=100",
+            Self::api_base(),
+            self.cfg.repo,
+            head_sha
+        ));
+
+        // Number of runs actually observed across all pages. We count the runs
+        // we see rather than trusting a `total_count` field (a partial response
+        // could omit it); one observed run clears the "something ran" bar.
+        let mut seen_runs: u64 = 0;
+        let mut all_success = true;
+
+        while let Some(url) = next_url.take() {
+            let resp = self
+                .authed(reqwest::Method::GET, url)
+                .await?
+                .send()
+                .await
+                .map_err(|_| unavailable(endpoint))?;
+
+            if !resp.status().is_success() {
+                return Err(unavailable_status(resp.status(), endpoint));
+            }
+
+            // Capture the `Link` header before consuming the body for JSON.
+            let link_next = resp
+                .headers()
+                .get(reqwest::header::LINK)
+                .and_then(|v| v.to_str().ok())
+                .and_then(parse_link_next);
+
+            #[derive(Deserialize)]
+            struct CheckRunsResp {
+                check_runs: Vec<CheckRun>,
+            }
+            #[derive(Deserialize)]
+            struct CheckRun {
+                status: String,
+                conclusion: Option<String>,
+            }
+            let parsed: CheckRunsResp = resp.json().await.map_err(|_| unavailable(endpoint))?;
+            seen_runs += parsed.check_runs.len() as u64;
+            for run in &parsed.check_runs {
+                if !(run.status == "completed" && run.conclusion.as_deref() == Some("success")) {
+                    all_success = false;
+                }
+            }
+
+            next_url = link_next;
         }
-        #[derive(Deserialize)]
-        struct CheckRun {
-            status: String,
-            conclusion: Option<String>,
-        }
-        let parsed: CheckRunsResp = resp.json().await.map_err(|_| unavailable(endpoint))?;
-        Ok(!parsed.check_runs.is_empty()
-            && parsed.check_runs.iter().all(|run| {
-                run.status == "completed" && run.conclusion.as_deref() == Some("success")
-            }))
+
+        // Green IFF at least one check ran AND every run across ALL pages passed.
+        Ok(seen_runs > 0 && all_success)
     }
 
     /// Current head SHA of a PR (re-read just before an atomic merge).
@@ -419,6 +488,29 @@ impl GithubAppClient {
         }
         Ok(())
     }
+}
+
+/// Parse a GitHub `Link` header and return the URL of the `rel="next"` page, if
+/// any. The header is a comma-separated list of `<url>; rel="name"` entries; we
+/// pick the one whose `rel` is `next`. Returns `None` when there is no next page.
+fn parse_link_next(link_header: &str) -> Option<String> {
+    for part in link_header.split(',') {
+        let part = part.trim();
+        // Each part looks like: <https://api.github.com/...?page=2>; rel="next"
+        let mut segments = part.split(';');
+        let url_seg = segments.next()?.trim();
+        let is_next = segments.any(|s| {
+            let s = s.trim();
+            s == "rel=\"next\"" || s == "rel=next"
+        });
+        if is_next {
+            let url = url_seg.trim_start_matches('<').trim_end_matches('>');
+            if !url.is_empty() {
+                return Some(url.to_string());
+            }
+        }
+    }
+    None
 }
 
 /// Map a transport failure to a typed error WITHOUT leaking any token, header,

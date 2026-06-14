@@ -75,6 +75,9 @@ async fn github_app_client_drives_pr_lifecycle() {
     assert_eq!(pr.head.sha, "abc");
     assert!(pr.draft);
     pr_mock.assert_async().await;
+    // Remove this happy-path create mock so the later 422-retry create test is
+    // unambiguous (both match `POST /repos/{REPO}/pulls`).
+    pr_mock.delete_async().await;
     token_mock.assert_async().await; // token was minted exactly once
 
     // --- checks: failure conclusion => not green -----------------------------
@@ -116,6 +119,129 @@ async fn github_app_client_drives_pr_lifecycle() {
         "all-success runs must be green"
     );
     checks_ok.assert_async().await;
+    checks_ok.delete_async().await;
+
+    // --- checks pagination: page 2 contains a failure => not green -----------
+    // Page 1 (the first check-runs request) is all-success but advertises a
+    // `next` Link; page 2 carries a `failure`. The next page is served from a
+    // DISTINCT path (`/checks-page-2-fail`) — the client follows the Link URL
+    // verbatim — so each page matches exactly one mock with no ambiguity.
+    // Without pagination the gate would wrongly read green from page 1 only.
+    let page2_fail_url = format!("{}/checks-page-2-fail", server.base_url());
+    let checks_pg1_fail = server
+        .mock_async(|when, then| {
+            when.method(GET)
+                .path(format!("/repos/{REPO}/commits/abc/check-runs"))
+                .query_param("per_page", "100");
+            then.status(200)
+                .header("content-type", "application/json")
+                .header("Link", format!("<{page2_fail_url}>; rel=\"next\""))
+                .json_body(serde_json::json!({
+                    "total_count": 2,
+                    "check_runs": [ { "status": "completed", "conclusion": "success" } ]
+                }));
+        })
+        .await;
+    let checks_pg2_fail = server
+        .mock_async(|when, then| {
+            when.method(GET).path("/checks-page-2-fail");
+            then.status(200)
+                .header("content-type", "application/json")
+                .json_body(serde_json::json!({
+                    "total_count": 2,
+                    "check_runs": [ { "status": "completed", "conclusion": "failure" } ]
+                }));
+        })
+        .await;
+    assert!(
+        !c.all_checks_green("abc").await.expect("paginated checks call"),
+        "a failure on page 2 must NOT be green"
+    );
+    checks_pg1_fail.assert_async().await;
+    checks_pg2_fail.assert_async().await;
+    checks_pg1_fail.delete_async().await;
+    checks_pg2_fail.delete_async().await;
+
+    // --- checks pagination: both pages all-success => green ------------------
+    let page2_ok_url = format!("{}/checks-page-2-ok", server.base_url());
+    let checks_pg1_ok = server
+        .mock_async(|when, then| {
+            when.method(GET)
+                .path(format!("/repos/{REPO}/commits/abc/check-runs"))
+                .query_param("per_page", "100");
+            then.status(200)
+                .header("content-type", "application/json")
+                .header("Link", format!("<{page2_ok_url}>; rel=\"next\""))
+                .json_body(serde_json::json!({
+                    "total_count": 2,
+                    "check_runs": [ { "status": "completed", "conclusion": "success" } ]
+                }));
+        })
+        .await;
+    let checks_pg2_ok = server
+        .mock_async(|when, then| {
+            when.method(GET).path("/checks-page-2-ok");
+            then.status(200)
+                .header("content-type", "application/json")
+                .json_body(serde_json::json!({
+                    "total_count": 2,
+                    "check_runs": [ { "status": "completed", "conclusion": "success" } ]
+                }));
+        })
+        .await;
+    assert!(
+        c.all_checks_green("abc").await.expect("paginated checks call"),
+        "all-success across two pages must be green"
+    );
+    checks_pg1_ok.assert_async().await;
+    checks_pg2_ok.assert_async().await;
+    checks_pg1_ok.delete_async().await;
+    checks_pg2_ok.delete_async().await;
+
+    // --- create_draft_pr: 422 (PR exists) => reuse existing open PR ----------
+    let create_422 = server
+        .mock_async(|when, then| {
+            when.method(POST)
+                .path(format!("/repos/{REPO}/pulls"))
+                .json_body_partial(r#"{ "head": "agent/retry" }"#);
+            then.status(422)
+                .header("content-type", "application/json")
+                .json_body(serde_json::json!({
+                    "message": "Validation Failed",
+                    "errors": [ { "message": "A pull request already exists for acme:agent/retry." } ]
+                }));
+        })
+        .await;
+    let list_existing = server
+        .mock_async(|when, then| {
+            when.method(GET)
+                .path(format!("/repos/{REPO}/pulls"))
+                .query_param("head", "acme:agent/retry")
+                .query_param("state", "open");
+            then.status(200)
+                .header("content-type", "application/json")
+                .json_body(serde_json::json!([
+                    {
+                        "number": 99,
+                        "html_url": "https://github.com/acme/widgets/pull/99",
+                        "node_id": "PR_existing",
+                        "head": { "sha": "deadbeef" },
+                        "draft": true,
+                    }
+                ]));
+        })
+        .await;
+    let reused = c
+        .create_draft_pr("agent/retry", "main", "title", "body")
+        .await
+        .expect("422 must recover the existing open PR");
+    assert_eq!(reused.number, 99, "must return the existing PR number");
+    assert_eq!(reused.html_url, "https://github.com/acme/widgets/pull/99");
+    assert_eq!(reused.head.sha, "deadbeef");
+    create_422.assert_async().await;
+    list_existing.assert_async().await;
+    create_422.delete_async().await;
+    list_existing.delete_async().await;
 
     // --- merge: 409 head moved => head-moved conflict ------------------------
     let merge_409 = server

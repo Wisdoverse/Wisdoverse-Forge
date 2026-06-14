@@ -26,6 +26,25 @@ use agentforge_api::testing::self_fix_bridge::{run_pr_bridge, GitProvider, Impor
 use agentforge_core::AppResult;
 use uuid::Uuid;
 
+/// `SELF_FIX_WORK_DIR` is process-global, but the default `cargo test` harness
+/// runs every `#[tokio::test]` in this file concurrently on its own thread. Each
+/// test sets that var to its own temp work dir and clears it on the way out, so
+/// without serialization one test's `remove_var`/`set_var` clobbers another's
+/// mid-run — the bridge then resolves the wrong clone dir and the run fails
+/// non-deterministically. Hold this lock for the whole body of any test that
+/// mutates `SELF_FIX_WORK_DIR` so those tests run one at a time.
+///
+/// This is a `tokio::sync::Mutex` (not `std::sync::Mutex`) on purpose: each test
+/// holds the guard across the `run_pr_bridge` `.await`s, and an async-aware mutex
+/// keeps that clippy-clean (`await_holding_lock`) and sound. The mutex is never
+/// poisoned by a panic, so there is nothing to recover.
+static SELF_FIX_ENV_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+/// Acquire the env-serialization lock for the duration of a test body.
+async fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
+    SELF_FIX_ENV_LOCK.lock().await
+}
+
 fn it_enabled() -> bool {
     std::env::var("SELF_FIX_IT").as_deref() == Ok("1")
 }
@@ -160,6 +179,9 @@ async fn happy_path_pushes_rebuilt_branch_and_selects_in_review() {
         eprintln!("SKIP: git not available");
         return;
     }
+    // Serialize against sibling tests: `SELF_FIX_WORK_DIR` is process-global.
+    let _env = env_lock().await;
+
     let root = TempRoot::new();
     let (origin, base_sha) = setup_origin(&root);
 
@@ -207,6 +229,12 @@ async fn happy_path_pushes_rebuilt_branch_and_selects_in_review() {
     assert!(raw.contains("README.md"), "expected README.md in the pushed diff:\n{raw}");
     assert!(!raw.contains("120000"), "no symlink mode may reach the tree");
 
+    // The token-bearing clone dir (${SELF_FIX_WORK_DIR}/<task_id>) must be gone
+    // after a SUCCESSFUL run: the RAII guard wipes it on the way out so the
+    // installation token in .git/config does not linger on disk.
+    let clone_dir = root.join("work").join(task_id.to_string());
+    assert!(!clone_dir.exists(), "clone dir must be removed after a successful run: {}", clone_dir.display());
+
     unsafe {
         std::env::remove_var("SELF_FIX_WORK_DIR");
     }
@@ -222,6 +250,9 @@ async fn sensitive_change_selects_sensitive_blocked() {
         eprintln!("SKIP: git not available");
         return;
     }
+    // Serialize against sibling tests: `SELF_FIX_WORK_DIR` is process-global.
+    let _env = env_lock().await;
+
     let root = TempRoot::new();
     let (origin, base_sha) = setup_origin(&root);
     unsafe {
@@ -274,6 +305,9 @@ async fn empty_change_fails_visibly_and_pushes_nothing() {
         eprintln!("SKIP: git not available");
         return;
     }
+    // Serialize against sibling tests: `SELF_FIX_WORK_DIR` is process-global.
+    let _env = env_lock().await;
+
     let root = TempRoot::new();
     let (origin, base_sha) = setup_origin(&root);
     unsafe {
@@ -311,6 +345,12 @@ async fn empty_change_fails_visibly_and_pushes_nothing() {
     assert!(!ok, "no branch must be pushed on an empty change");
     assert!(provider.pr_calls.lock().unwrap().is_empty(), "no PR must be opened on an empty change");
 
+    // The token-bearing clone dir must ALSO be gone after a FAILING run: the RAII
+    // guard fires on the early `?` return (rebuild → EmptyChange), not only on
+    // success.
+    let clone_dir = root.join("work").join(task_id.to_string());
+    assert!(!clone_dir.exists(), "clone dir must be removed after a failing run: {}", clone_dir.display());
+
     unsafe {
         std::env::remove_var("SELF_FIX_WORK_DIR");
     }
@@ -333,6 +373,9 @@ async fn retry_with_different_commit_succeeds_via_force_push() {
         eprintln!("SKIP: git not available");
         return;
     }
+    // Serialize against sibling tests: `SELF_FIX_WORK_DIR` is process-global.
+    let _env = env_lock().await;
+
     let root = TempRoot::new();
     let (origin, base_sha) = setup_origin(&root);
     unsafe {

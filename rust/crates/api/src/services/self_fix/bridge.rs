@@ -124,11 +124,33 @@ pub struct BridgeResult {
     pub review_status: &'static str,
 }
 
+/// RAII guard that wipes the ephemeral server-owned clone dir on EVERY exit path
+/// of `run_pr_bridge` — success, error, or early `?` return.
+///
+/// Why this matters: `git clone <authed_url>` stores the short-lived installation
+/// token inside the clone's `.git/config` as `remote.origin.url`. Without this
+/// guard the token-bearing config would linger on disk until the START of the
+/// next run for this task (the start-of-run wipe). Removing the whole dir in
+/// `Drop` deletes that config the moment the bridge call returns, so the token
+/// is on disk only for the duration of the call.
+struct CloneDirGuard {
+    dir: PathBuf,
+}
+
+impl Drop for CloneDirGuard {
+    fn drop(&mut self) {
+        // Best-effort: a failed cleanup must not panic out of a Drop. The
+        // start-of-next-run wipe is the backstop if this ever fails.
+        let _ = std::fs::remove_dir_all(&self.dir);
+    }
+}
+
 /// Map a per-`git` invocation rejection to a safe, attacker-independent summary.
 fn reject_reason(reject: &ImportReject) -> String {
     match reject {
         ImportReject::Symlink(p) => format!("a symlink is not allowed ({p})"),
         ImportReject::Gitlink(p) => format!("a nested git repo / submodule is not allowed ({p})"),
+        ImportReject::SpecialFile(p) => format!("a special file (pipe/socket/device) is not allowed ({p})"),
         ImportReject::EscapesRoot(p) => format!("a path escapes the project root ({p})"),
         ImportReject::DotGit(p) => format!("changes under .git are not allowed ({p})"),
         ImportReject::OversizeFile(p) => format!("a file exceeds the size limit ({p})"),
@@ -194,6 +216,12 @@ pub async fn run_pr_bridge<G: GitProvider + ?Sized>(
     if let Some(parent) = clone_dir.parent() {
         tokio::fs::create_dir_all(parent).await.map_err(|_| SelfFixPolicy::git_step_failed("prepare_clone_dir"))?;
     }
+
+    // Arm the cleanup guard BEFORE the clone so that any subsequent `?` early
+    // return (clone, rebuild, push, PR) also wipes the token-bearing clone dir.
+    // Held until the end of the function; its `Drop` removes the dir on success
+    // and on every error path.
+    let _clone_dir_guard = CloneDirGuard { dir: clone_dir.clone() };
 
     // 2. Clone the token-bearing origin into the server-owned clone dir.
     let authed_url = provider.authed_remote_url().await?;
@@ -356,6 +384,7 @@ mod tests {
         let variants = [
             ImportReject::Symlink("a".into()),
             ImportReject::Gitlink("b".into()),
+            ImportReject::SpecialFile("sp".into()),
             ImportReject::EscapesRoot("c".into()),
             ImportReject::DotGit("d".into()),
             ImportReject::OversizeFile("e".into()),

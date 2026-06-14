@@ -9,6 +9,10 @@ use std::path::{Component, Path};
 pub enum ImportReject {
     Symlink(String),
     Gitlink(String),
+    /// A non-regular, non-dir, non-symlink entry: FIFO/socket/block/char device.
+    /// Copying one (e.g. `std::fs::copy` on a FIFO) would block forever waiting
+    /// for a peer, so these are a hard reject.
+    SpecialFile(String),
     EscapesRoot(String),
     DotGit(String),
     OversizeFile(String),

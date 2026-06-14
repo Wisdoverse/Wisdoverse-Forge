@@ -230,6 +230,16 @@ fn mirror_workspace(
             let size = meta.len();
             classify_entry(&rel, is_symlink, false, size, limits)?;
 
+            // Past classify_entry, `path` is not a dir and not a symlink. It is
+            // STILL possibly a special file (FIFO / socket / block or char
+            // device): those have size 0 and aren't dirs/symlinks, so they slip
+            // through every check above, yet `std::fs::copy` on a FIFO BLOCKS
+            // FOREVER waiting for a writer — hanging the bridge. Require a plain
+            // regular file before any copy; reject everything else.
+            if !file_type.is_file() {
+                return Err(RebuildError::Rejected(ImportReject::SpecialFile(rel)));
+            }
+
             // Regular file: copy bytes onto the clone.
             let target = dst_root.join(&rel);
             if let Some(parent) = target.parent() {

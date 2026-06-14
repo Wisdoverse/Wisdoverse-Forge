@@ -280,6 +280,56 @@ async fn test_c_empty_change_returns_empty_change() {
     }
 }
 
+/// True if `mkfifo` is on PATH (used to plant a FIFO in the fake workspace).
+fn mkfifo_available() -> bool {
+    Command::new("mkfifo").arg("--version").output().map(|o| o.status.success()).unwrap_or(false)
+}
+
+#[tokio::test]
+async fn test_e_fifo_is_hard_rejected_and_does_not_hang() {
+    if !git_available() {
+        eprintln!("SKIP test_e_fifo_is_hard_rejected_and_does_not_hang: git not available");
+        return;
+    }
+    if !mkfifo_available() {
+        eprintln!("SKIP test_e_fifo_is_hard_rejected_and_does_not_hang: mkfifo not available");
+        return;
+    }
+    let root = TempRoot::new();
+    let (_origin, clone, base_sha) = setup_origin_and_clone(&root);
+
+    // Fake agent workspace: a benign edit plus a FIFO. Without the special-file
+    // gate, `std::fs::copy` on the FIFO blocks forever waiting for a writer.
+    let ws = root.join("workspace");
+    std::fs::create_dir_all(&ws).expect("mkdir workspace");
+    write_file(&ws.join("a.txt"), "changed");
+    let fifo = ws.join("pipe");
+    let status = Command::new("mkfifo").arg(&fifo).status().expect("spawn mkfifo");
+    assert!(status.success(), "mkfifo must create the FIFO");
+
+    // Bound the whole call: a regression (a hang) trips the timeout and FAILS
+    // the test loudly rather than wedging the suite forever.
+    let limits = ImportLimits::default();
+    let call = rebuild_branch(
+        &clone,
+        &base_sha,
+        &ws,
+        "agent/fifo",
+        "msg",
+        "Self-Fix Bot",
+        "bot@example.com",
+        &limits,
+    );
+    let result = tokio::time::timeout(std::time::Duration::from_secs(20), call)
+        .await
+        .expect("rebuild_branch must NOT hang on a FIFO — it must reject quickly");
+
+    match result {
+        Err(RebuildError::Rejected(ImportReject::SpecialFile(_))) => {}
+        other => panic!("expected Rejected(SpecialFile), got {other:?}"),
+    }
+}
+
 #[tokio::test]
 async fn test_d_non_ascii_filename_deletion_is_captured() {
     if !git_available() {
