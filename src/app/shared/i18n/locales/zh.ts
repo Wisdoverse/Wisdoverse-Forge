@@ -433,7 +433,8 @@ export const zh: TranslationKeys = {
       description: '选择实际操作型 Agent 在哪里工作，并在分配任务前检查工具和登录状态。',
       saving: '保存中...',
       loading: '加载工作设置...',
-      couldNotLoad: '无法加载工作设置',
+      couldNotLoad:
+        '无法加载工作设置。请刷新这个设置页。如果仍然失败，请找 owner 或 admin 检查 Agent 工作设置。',
       defaultRuntimeLabel: '默认 Agent 运行位置',
       defaultRuntimeDescription:
         '托管工作区最简单。只有要把这台电脑接入为可管理的本地 Agent 时，才选择这台电脑。',

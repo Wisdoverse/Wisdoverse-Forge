@@ -125,6 +125,11 @@ const NOTE_SPACE_JARGON_PATTERNS = [
   /\bcontext units\b/i,
 ]
 
+const WORK_SETUP_LOAD_PATTERNS = [/\bAgent Work Setup could not load\b/i, /无法加载工作设置/]
+
+const WORK_SETUP_LOAD_RECOVERY_PATTERN =
+  /\bRefresh\b|ask an owner|owner or admin|刷新|找\s*owner|找\s*admin|管理员|检查/i
+
 const BEGINNER_JARGON_PATTERNS = [
   /\blocal agents?\b/i,
   /\bmanaged local agent\b/i,
@@ -336,6 +341,19 @@ function hasNoteSpaceJargonCopy(line) {
   return NOTE_SPACE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasWorkSetupLoadDeadEndCopy(lines, index, line) {
+  if (isLikelyGuardOrParserLine(line)) return false
+  if (
+    !/\bcouldNotLoad\b/.test(line) &&
+    !WORK_SETUP_LOAD_PATTERNS.some((pattern) => pattern.test(line))
+  ) {
+    return false
+  }
+  const context = lines.slice(index, Math.min(lines.length, index + 3)).join(' ')
+  if (!WORK_SETUP_LOAD_PATTERNS.some((pattern) => pattern.test(context))) return false
+  return !WORK_SETUP_LOAD_RECOVERY_PATTERN.test(context)
+}
+
 function scanFile(file, relFile) {
   const lines = fs.readFileSync(file, 'utf8').split('\n')
   const findings = []
@@ -439,6 +457,15 @@ function scanFile(file, relFile) {
         type: 'note-space-copy',
         location,
         message: 'Saved-note capacity copy must use plain size language instead of unit counts.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasWorkSetupLoadDeadEndCopy(lines, index, line)) {
+      findings.push({
+        type: 'work-setup-load-next-action',
+        location,
+        message: 'Work setup load failure copy must tell first-time operators how to recover.',
         sample: line.trim(),
       })
     }

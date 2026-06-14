@@ -147,6 +147,47 @@ export async function saveThing() {
     ])
   })
 
+  it('flags work setup load failures that do not tell beginners how to recover', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  settings: {
+    runtime: {
+      couldNotLoad: '无法加载工作设置',
+    },
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'work-setup-load-next-action',
+        location: 'src/app/shared/i18n/locales/zh.ts:5',
+      }),
+    ])
+  })
+
+  it('accepts work setup load failures when they include a recovery step', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  settings: {
+    runtime: {
+      couldNotLoad:
+        '无法加载工作设置。请刷新这个设置页。如果仍然失败，请找 owner 或 admin 检查 Agent 工作设置。',
+    },
+  },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags validation copy that does not explain the next change', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `
