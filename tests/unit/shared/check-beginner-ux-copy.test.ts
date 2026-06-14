@@ -252,6 +252,40 @@ export function providerReadinessSummary() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags user management empty states that do not point to inviting people', () => {
+    const cwd = fixture({
+      'src/app/features/admin/UserManagement.tsx': `
+function userEmptyState() {
+  return { title: 'No one is listed yet' }
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'admin-users-empty-copy',
+          location: 'src/app/features/admin/UserManagement.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts user management empty states that tell users to invite people', () => {
+    const cwd = fixture({
+      'src/app/features/admin/UserManagement.tsx': `
+function userEmptyState() {
+  return { title: 'Invite people to list them here' }
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags generic compact work-location labels in the runtime label helper', () => {
     const cwd = fixture({
       'src/app/entities/agent/model/runtime-kind.ts': `

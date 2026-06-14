@@ -138,6 +138,8 @@ const PROVIDER_CHECK_JARGON_PATTERNS = [
 
 const PROVIDER_ZERO_READY_DEAD_END_PATTERNS = [/\bNo AI services are ready to use yet\b/i]
 
+const ADMIN_USERS_EMPTY_DEAD_END_PATTERNS = [/\bNo one is listed yet\b/i]
+
 const RUNTIME_SHORT_LABEL_JARGON_PATTERNS = [
   /\breturn\s+['"`]Not reported['"`]/,
   /\breturn\s+['"`]Needs review['"`]/,
@@ -393,6 +395,12 @@ function hasProviderZeroReadyDeadEndCopy(relFile, line) {
   return PROVIDER_ZERO_READY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAdminUsersEmptyDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/admin/UserManagement.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ADMIN_USERS_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasRuntimeShortLabelJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/entities/agent/model/runtime-kind.ts')) return false
   return RUNTIME_SHORT_LABEL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
@@ -571,6 +579,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'AI service setup summaries must tell beginners to check, enable, or add a service.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAdminUsersEmptyDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'admin-users-empty-copy',
+        location,
+        message: 'User management empty states must tell beginners to invite people first.',
         sample: line.trim(),
       })
     }

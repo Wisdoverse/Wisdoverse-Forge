@@ -297,10 +297,11 @@ describe('UserManagement', () => {
     render(<UserManagement />)
 
     await waitFor(() => expect(loadUsers).toHaveBeenCalledWith(1))
-    expect(screen.getByText('No one is listed yet')).toBeDefined()
+    expect(screen.getByText('Invite people to list them here')).toBeDefined()
     expect(
       screen.getByText(/people appear here after an owner or admin invites them/i)
     ).toBeDefined()
+    expect(screen.queryByText('No one is listed yet')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull()
     expect(screen.queryByText('No users match this view')).toBeNull()
   })

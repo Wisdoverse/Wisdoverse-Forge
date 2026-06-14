@@ -47,7 +47,7 @@ function userEmptyState(search: string): UserEmptyState {
   }
 
   return {
-    title: 'No one is listed yet',
+    title: 'Invite people to list them here',
     detail:
       'People appear here after an owner or admin invites them. Use this page to change access or remove accounts after they are added.',
   }
