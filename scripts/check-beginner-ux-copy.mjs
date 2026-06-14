@@ -608,6 +608,13 @@ function hasNoteSpaceJargonCopy(line) {
 function hasWorkSetupLoadDeadEndCopy(lines, index, line) {
   if (isLikelyGuardOrParserLine(line)) return false
   if (
+    index > 0 &&
+    /\bcouldNotLoad\b/.test(lines[index - 1]) &&
+    WORK_SETUP_LOAD_PATTERNS.some((pattern) => pattern.test(line))
+  ) {
+    return false
+  }
+  if (
     !/\bcouldNotLoad\b/.test(line) &&
     !WORK_SETUP_LOAD_PATTERNS.some((pattern) => pattern.test(line))
   ) {
@@ -615,7 +622,8 @@ function hasWorkSetupLoadDeadEndCopy(lines, index, line) {
   }
   const context = lines.slice(index, Math.min(lines.length, index + 3)).join(' ')
   if (!WORK_SETUP_LOAD_PATTERNS.some((pattern) => pattern.test(context))) return false
-  return !WORK_SETUP_LOAD_RECOVERY_PATTERN.test(context)
+  if (!WORK_SETUP_LOAD_RECOVERY_PATTERN.test(context)) return true
+  return WORK_SETUP_LOAD_PATTERNS.some((pattern) => pattern.test(context))
 }
 
 function hasProviderCheckJargonCopy(line) {

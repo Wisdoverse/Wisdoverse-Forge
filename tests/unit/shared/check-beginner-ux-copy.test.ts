@@ -178,7 +178,7 @@ export const zh = {
   settings: {
     runtime: {
       couldNotLoad:
-        '无法加载工作设置。请刷新这个设置页。如果仍然失败，请找 owner 或 admin 检查 Agent 工作设置。',
+        '请刷新这个设置页来加载 Agent 工作设置。如果仍然无法加载，请找 owner 或 admin 检查 Agent 工作设置。',
     },
   },
 }
@@ -186,6 +186,31 @@ export const zh = {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags work setup load failures that include recovery but start with the failure', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  settings: {
+    runtime: {
+      couldNotLoad:
+        'Agent Work Setup could not load. Refresh this settings page. If it still fails, ask an owner or admin to check agent setup.',
+    },
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'work-setup-load-next-action',
+        location: 'src/app/shared/i18n/locales/en.ts:5',
+      }),
+    ])
   })
 
   it('flags AI service setup summaries that reuse the Check button label as grammar', () => {

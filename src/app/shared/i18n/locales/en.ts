@@ -442,7 +442,7 @@ export const en = {
       saving: 'Saving...',
       loading: 'Loading work setup...',
       couldNotLoad:
-        'Agent Work Setup could not load. Refresh this settings page. If it still fails, ask an owner or admin to check agent setup.',
+        'Refresh this settings page to load Agent Work Setup. If it still does not load, ask an owner or admin to check agent setup.',
       defaultRuntimeLabel: 'Default agent location',
       defaultRuntimeDescription:
         'Managed workspace is the simplest choice. Choose This computer only when this machine should join the workspace as a managed agent.',
