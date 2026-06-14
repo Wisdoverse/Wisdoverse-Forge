@@ -1740,6 +1740,44 @@ const STATUS_FILTERS = [
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags shared agent status fallbacks that do not tell users what to refresh', () => {
+    const cwd = fixture({
+      'src/app/entities/agent/model/status-labels.ts': `
+export function agentStatusLabel(status) {
+  if (!status) return 'Status not reported'
+  return 'Status needs review'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'agent-shared-status-copy',
+        location: 'src/app/entities/agent/model/status-labels.ts:3',
+      }),
+      expect.objectContaining({
+        type: 'agent-shared-status-copy',
+        location: 'src/app/entities/agent/model/status-labels.ts:4',
+      }),
+    ])
+  })
+
+  it('accepts shared agent status fallbacks that give users a next step', () => {
+    const cwd = fixture({
+      'src/app/entities/agent/model/status-labels.ts': `
+export function agentStatusLabel(status) {
+  if (!status) return 'Refresh agent status'
+  return 'Check agent status'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags saved-item review copy that exposes approval workflow jargon', () => {
     const cwd = fixture({
       'src/app/features/context/ApprovalQueueView.tsx': `

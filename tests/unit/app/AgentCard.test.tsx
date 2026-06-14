@@ -25,9 +25,7 @@ describe('AgentCard', () => {
     render(<AgentCard agent={mockAgent} />)
 
     expect(screen.getByTestId('agent-status-agent-1').textContent).toContain('Ready')
-    expect(screen.getByTestId('agent-status-help-agent-1').textContent).toBe(
-      'Ready for a new task'
-    )
+    expect(screen.getByTestId('agent-status-help-agent-1').textContent).toBe('Ready for a new task')
     expect(screen.getByText('Finished')).toBeDefined()
     expect(screen.getByText('Running')).toBeDefined()
     expect(screen.getByText('Success')).toBeDefined()
@@ -37,7 +35,11 @@ describe('AgentCard', () => {
     expect(agentStatusLabel('working')).toBe('Working now')
     expect(agentStatusLabel('idle')).toBe('Ready')
     expect(agentStatusLabel('offline')).toBe('Not connected')
+    expect(agentStatusLabel(null)).toBe('Refresh agent status')
+    expect(agentStatusLabel('future_status')).toBe('Check agent status')
     expect(agentStatusLabel('offline')).not.toBe('Offline')
+    expect(agentStatusLabel(null)).not.toBe('Status not reported')
+    expect(agentStatusLabel('future_status')).not.toBe('Status needs review')
   })
 
   test('summarizes managed workspace agents without raw provider/model pairs', () => {
@@ -126,7 +128,7 @@ describe('AgentCard', () => {
 
     render(<AgentCard agent={{ ...mockAgent, status: 'warming_up' as never }} />)
 
-    expect(screen.getByTestId('agent-status-agent-1').textContent).toContain('Status needs review')
+    expect(screen.getByTestId('agent-status-agent-1').textContent).toContain('Check agent status')
     expect(screen.getByTestId('agent-status-help-agent-1').textContent).toBe(
       'Check this agent before sending work'
     )

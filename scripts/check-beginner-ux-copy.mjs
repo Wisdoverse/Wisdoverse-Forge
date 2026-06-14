@@ -106,6 +106,11 @@ const AGENT_STATUS_JARGON_PATTERNS = [
   /\berror:\s*['"`]错误['"`]/,
 ]
 
+const AGENT_SHARED_STATUS_DEAD_END_PATTERNS = [
+  /\bStatus not reported\b/i,
+  /\bStatus needs review\b/i,
+]
+
 const REVIEW_DECISION_JARGON_PATTERNS = [
   /\bvalue:\s*['"`]pending['"`]\s*,\s*label:\s*['"`]Pending['"`]/,
   /\btitleCase\(state\)/,
@@ -309,6 +314,7 @@ function isUiCopyFile(relFile) {
   if (relFile === 'src/app/shared/api/legacy/AgentAPI.ts') return true
   if (relFile === 'src/app/entities/agent/model/display-labels.ts') return true
   if (relFile === 'src/app/entities/agent/model/runtime-kind.ts') return true
+  if (relFile === 'src/app/entities/agent/model/status-labels.ts') return true
   if (relFile === 'src/app/entities/user/model/roleLabels.ts') return true
   if (USER_VISIBLE_ERROR_FILE_PATTERNS.some((pattern) => pattern.test(relFile))) return true
   if (NON_UI_FILE_PATTERNS.some((pattern) => pattern.test(relFile))) return false
@@ -434,6 +440,12 @@ function hasActivityJargonCopy(line) {
 function hasAgentStatusJargonCopy(line) {
   if (isLikelyGuardOrParserLine(line)) return false
   return AGENT_STATUS_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentSharedStatusDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/entities/agent/model/status-labels.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_SHARED_STATUS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasReviewDecisionJargonCopy(line) {
@@ -766,6 +778,15 @@ function scanFile(file, relFile) {
         type: 'agent-status-copy',
         location,
         message: 'Agent status labels must explain whether work can be assigned.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentSharedStatusDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-shared-status-copy',
+        location,
+        message: 'Shared agent status fallbacks must tell beginners to refresh or check status.',
         sample: line.trim(),
       })
     }
