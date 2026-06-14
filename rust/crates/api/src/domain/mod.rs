@@ -38,6 +38,7 @@ pub(crate) mod prompt;
 pub(crate) mod prompt_library;
 pub(crate) mod resource;
 pub(crate) mod runtime_capability;
+pub(crate) mod self_fix;
 pub(crate) mod skill;
 pub(crate) mod system;
 pub(crate) mod task_context;

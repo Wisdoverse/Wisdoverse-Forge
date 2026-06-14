@@ -1383,6 +1383,12 @@ mod tests {
             canceled_at: None,
             created_at,
             updated_at,
+            self_fix: false,
+            base_commit_sha: None,
+            pr_number: None,
+            pr_url: None,
+            pr_head_sha: None,
+            review_status: None,
         };
 
         let summary = task_summary(task, Some("Atlas".to_string()));
@@ -1445,6 +1451,12 @@ mod tests {
             canceled_at: None,
             created_at: now,
             updated_at: now,
+            self_fix: false,
+            base_commit_sha: None,
+            pr_number: None,
+            pr_url: None,
+            pr_head_sha: None,
+            review_status: None,
         };
 
         let snapshot = task_assignment_snapshot(&task);
