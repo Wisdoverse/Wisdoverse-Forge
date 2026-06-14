@@ -4,6 +4,8 @@
 //! Provides event publishing (with HMAC auth), command handling (request-reply),
 //! heartbeat emission, and a file-based WAL for offline resilience.
 
+use std::sync::Arc;
+
 use agentforge_infra::nats::connect_nats;
 use tokio::sync::watch;
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
@@ -13,7 +15,50 @@ mod config;
 mod credentials;
 mod orchestration;
 mod publisher;
+mod unix_socket_listener;
 mod wal;
+
+/// How often the periodic WAL-drain task wakes to flush events buffered during a
+/// NATS outage. The WAL is otherwise only drained once at startup, so without
+/// this a record written during the ~15-min per-agent JWT reconnect would sit
+/// until the next process restart. 20s is frequent enough to flush promptly
+/// after a reconnect without measurable overhead (an empty WAL is a no-op).
+const WAL_DRAIN_INTERVAL_SECS: u64 = 20;
+
+/// Drain the WAL through `publisher`: replay each buffered event, and on
+/// successful publish acknowledge (delete) its file. Failed publishes are left
+/// in place to retry on the next drain. Shared by the startup replay and the
+/// periodic drain task so both honour the same replay-compatible record shape.
+async fn drain_wal(wal: &wal::Wal, publisher: &publisher::EventPublisher) {
+    let entries = match wal.replay().await {
+        Ok(entries) => entries,
+        Err(err) => {
+            tracing::warn!(error = %err, "Failed to read WAL for drain");
+            return;
+        }
+    };
+    for (path, entry) in entries {
+        match serde_json::from_slice::<serde_json::Value>(&entry) {
+            Ok(msg) => {
+                let event_type = msg["payload"]["event_type"].as_str().unwrap_or("unknown");
+                let data = msg["payload"]["data"].clone();
+                match publisher.publish(event_type, data).await {
+                    Ok(()) => {
+                        if let Err(err) = wal.acknowledge(&path).await {
+                            tracing::warn!(error = %err, path = %path.display(), "Failed to acknowledge WAL entry");
+                        }
+                    }
+                    Err(err) => {
+                        tracing::warn!(error = %err, path = %path.display(), "Failed to publish WAL entry, will retry next drain");
+                    }
+                }
+            }
+            Err(err) => {
+                tracing::warn!(error = %err, path = %path.display(), "Failed to deserialize WAL entry, skipping");
+            }
+        }
+    }
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -37,44 +82,24 @@ async fn main() -> anyhow::Result<()> {
     let resolved_runtime_kind = cfg.resolved_runtime_kind();
     tracing::info!(runtime_kind = %resolved_runtime_kind, "Resolved runtime kind for event subject namespacing");
 
-    // Initialise components.
-    let publisher = publisher::EventPublisher::new(
+    // Initialise components. The publisher and WAL are shared across the
+    // heartbeat loop, startup/periodic WAL drain, and the relay-socket listener,
+    // so both are `Arc`-wrapped and cloned per consumer.
+    let publisher = Arc::new(publisher::EventPublisher::new(
         nats_client.clone(),
         cfg.agent_id.clone(),
         &cfg.hmac_secret,
         resolved_cli_tool.clone(),
         resolved_runtime_kind,
-    );
+    ));
     let cmd_handler = commands::CommandHandler::new(nats_client.clone(), cfg.agent_id.clone());
-    let wal_instance = wal::Wal::new(cfg.wal_path.as_deref());
+    let wal_instance = Arc::new(wal::Wal::new(cfg.wal_path.as_deref()));
 
     // Replay any events buffered during a previous NATS outage.
     let pending = wal_instance.pending_count().await.unwrap_or(0);
     if pending > 0 {
         tracing::info!(count = pending, "Replaying WAL entries");
-        if let Ok(entries) = wal_instance.replay().await {
-            for (path, entry) in entries {
-                match serde_json::from_slice::<serde_json::Value>(&entry) {
-                    Ok(msg) => {
-                        let event_type = msg["payload"]["event_type"].as_str().unwrap_or("unknown");
-                        let data = msg["payload"]["data"].clone();
-                        match publisher.publish(event_type, data).await {
-                            Ok(()) => {
-                                if let Err(err) = wal_instance.acknowledge(&path).await {
-                                    tracing::warn!(error = %err, path = %path.display(), "Failed to acknowledge WAL entry");
-                                }
-                            }
-                            Err(err) => {
-                                tracing::warn!(error = %err, path = %path.display(), "Failed to publish WAL entry, will retry next restart");
-                            }
-                        }
-                    }
-                    Err(err) => {
-                        tracing::warn!(error = %err, path = %path.display(), "Failed to deserialize WAL entry, skipping");
-                    }
-                }
-            }
-        }
+        drain_wal(&wal_instance, &publisher).await;
     }
 
     // Shutdown coordination.
@@ -160,6 +185,7 @@ async fn main() -> anyhow::Result<()> {
     // Spawn heartbeat loop.
     let hb_interval = std::time::Duration::from_secs(cfg.heartbeat_interval_secs);
     let mut hb_shutdown = shutdown_rx.clone();
+    let hb_publisher = publisher.clone();
     let hb_task = tokio::spawn(async move {
         loop {
             tokio::select! {
@@ -167,8 +193,53 @@ async fn main() -> anyhow::Result<()> {
                     if *hb_shutdown.borrow() { break; }
                 }
                 _ = tokio::time::sleep(hb_interval) => {
-                    if let Err(err) = publisher.heartbeat().await {
+                    if let Err(err) = hb_publisher.heartbeat().await {
                         tracing::warn!(error = %err, "Heartbeat failed");
+                    }
+                }
+            }
+        }
+    });
+
+    // Spawn the relay-socket listener. This binds the Unix socket the CLI relay
+    // hook writes to (previously unbound, so hook events were silently dropped)
+    // and durably publishes each framed event.
+    let relay_socket = cfg.resolved_relay_socket();
+    let listener_publisher = publisher.clone();
+    let listener_wal = wal_instance.clone();
+    let listener_shutdown = shutdown_rx.clone();
+    let listener_task = tokio::spawn(async move {
+        if let Err(err) =
+            unix_socket_listener::run(&relay_socket, listener_publisher, listener_wal, listener_shutdown).await
+        {
+            tracing::error!(error = %err, "Relay socket listener exited with error");
+        }
+    });
+
+    // Spawn the periodic WAL-drain task. The WAL is otherwise only drained once
+    // at startup, so an event buffered during the per-agent JWT reconnect would
+    // sit until the next restart. Each tick, when NATS is connected and the WAL
+    // is non-empty, replay the buffered events through the publisher.
+    let drain_publisher = publisher.clone();
+    let drain_wal_handle = wal_instance.clone();
+    let drain_nats = nats_client.clone();
+    let mut drain_shutdown = shutdown_rx.clone();
+    let drain_task = tokio::spawn(async move {
+        let mut ticker = tokio::time::interval(std::time::Duration::from_secs(WAL_DRAIN_INTERVAL_SECS));
+        // Skip the immediate first tick — startup already drained once.
+        ticker.tick().await;
+        loop {
+            tokio::select! {
+                _ = drain_shutdown.changed() => {
+                    if *drain_shutdown.borrow() { break; }
+                }
+                _ = ticker.tick() => {
+                    let connected =
+                        drain_nats.connection_state() == async_nats::connection::State::Connected;
+                    let pending = drain_wal_handle.pending_count().await.unwrap_or(0);
+                    if unix_socket_listener::should_drain(connected, pending) {
+                        tracing::info!(count = pending, "Draining WAL after NATS reconnect");
+                        drain_wal(&drain_wal_handle, &drain_publisher).await;
                     }
                 }
             }
@@ -180,7 +251,7 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("Shutdown signal received");
     let _ = shutdown_tx.send(true);
 
-    let _ = tokio::join!(cmd_task, hb_task);
+    let _ = tokio::join!(cmd_task, hb_task, listener_task, drain_task);
     if let Some(task) = orchestration_task {
         let _ = task.await;
     }

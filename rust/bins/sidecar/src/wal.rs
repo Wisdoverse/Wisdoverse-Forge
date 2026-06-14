@@ -19,7 +19,10 @@ impl Wal {
     }
 
     /// Append an event to the WAL directory.
-    #[allow(dead_code)] // Used by publisher (wired in main), and tests
+    ///
+    /// Called by the relay-socket listener when a hook event fails to publish
+    /// (NATS outage), buffering it in a replay-compatible record for the
+    /// periodic drain. Also used by tests.
     pub async fn append(&self, data: &[u8]) -> std::io::Result<()> {
         fs::create_dir_all(&self.path).await?;
         let filename = format!("{}.json", chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0));

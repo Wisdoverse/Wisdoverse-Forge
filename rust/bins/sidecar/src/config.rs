@@ -13,6 +13,11 @@ pub struct SidecarConfig {
     pub hmac_secret: String,
     /// Path to the WAL directory (default: `/tmp/agentforge-wal`).
     pub wal_path: Option<String>,
+    /// Unix socket the CLI relay hook (`agentforge-relay-hook.cjs`) connects to.
+    /// Mirrors the hook's `AGENTFORGE_RELAY_SOCKET` override; unset → the shared
+    /// default `/tmp/agentforge-relay.sock` so both sides agree out of the box.
+    #[serde(default)]
+    pub relay_socket: Option<String>,
     /// Heartbeat interval in seconds (default: 30).
     #[serde(default = "default_heartbeat")]
     pub heartbeat_interval_secs: u64,
@@ -91,6 +96,24 @@ impl SidecarConfig {
         raw.as_deref()
             .and_then(|v| agentforge_core::RuntimeKind::parse_legacy(v).ok())
             .unwrap_or(agentforge_core::RuntimeKind::Container)
+    }
+
+    /// Resolve the relay-hook socket path. Config field wins, then the
+    /// `AGENTFORGE_RELAY_SOCKET` env the hook itself reads, then the shared
+    /// default. Keeping both sides on the same default is what lets a freshly
+    /// spawned agent relay hook events without extra wiring.
+    pub fn resolved_relay_socket(&self) -> String {
+        if let Some(path) = &self.relay_socket {
+            let trimmed = path.trim();
+            if !trimmed.is_empty() {
+                return trimmed.to_string();
+            }
+        }
+        std::env::var("AGENTFORGE_RELAY_SOCKET")
+            .ok()
+            .map(|p| p.trim().to_string())
+            .filter(|p| !p.is_empty())
+            .unwrap_or_else(|| "/tmp/agentforge-relay.sock".to_string())
     }
 
     pub fn resolved_cli_model(&self) -> Option<String> {
@@ -200,6 +223,47 @@ mod tests {
             .try_deserialize::<SidecarConfig>()
             .unwrap();
         assert_eq!(cfg.resolved_runtime_kind(), agentforge_core::RuntimeKind::Container);
+    }
+
+    #[test]
+    fn test_relay_socket_field_wins_over_default() {
+        let cfg = config::Config::builder()
+            .set_override("nats_url", "nats://localhost:4222")
+            .unwrap()
+            .set_override("agent_id", "agent-abc")
+            .unwrap()
+            .set_override("hmac_secret", "secret123")
+            .unwrap()
+            .set_override("relay_socket", "/var/run/custom-relay.sock")
+            .unwrap()
+            .build()
+            .unwrap()
+            .try_deserialize::<SidecarConfig>()
+            .unwrap();
+        assert_eq!(cfg.resolved_relay_socket(), "/var/run/custom-relay.sock");
+    }
+
+    #[test]
+    fn test_relay_socket_defaults_when_unset() {
+        // Field unset and (in CI) env unset → the shared default. The hook reads
+        // the same default, so both sides agree.
+        let cfg = config::Config::builder()
+            .set_override("nats_url", "nats://localhost:4222")
+            .unwrap()
+            .set_override("agent_id", "agent-abc")
+            .unwrap()
+            .set_override("hmac_secret", "secret123")
+            .unwrap()
+            .build()
+            .unwrap()
+            .try_deserialize::<SidecarConfig>()
+            .unwrap();
+        assert!(cfg.relay_socket.is_none());
+        // Only assert the default when the ambient env doesn't override it, so
+        // the test stays independent of the process environment.
+        if std::env::var("AGENTFORGE_RELAY_SOCKET").is_err() {
+            assert_eq!(cfg.resolved_relay_socket(), "/tmp/agentforge-relay.sock");
+        }
     }
 
     #[test]
