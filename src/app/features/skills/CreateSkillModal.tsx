@@ -53,14 +53,14 @@ const skillTemplates = [
   },
   {
     id: 'ci-status',
-    label: 'CI status check',
-    description: 'Check builds without waiting',
+    label: 'Check PR status',
+    description: 'Check review and builds once',
     form: {
-      name: 'ci-status-check',
-      description: 'Summarize build status from one fresh check',
-      triggerPattern: 'ci status, checks, build status',
+      name: 'pr-status-check',
+      description: 'Summarize PR review and build status from one fresh check',
+      triggerPattern: 'pr status, checks, build status, ci',
       content:
-        'Check GitHub or GitLab once and summarize only the fields needed to decide the next step. If the project already has a recent PR or CI summary, reuse it instead of refreshing.\nClassify the result as ACTION, WAIT, or DONE.\nFor ACTION, inspect only the failed check or job details needed for the fix.\nFor WAIT, stop monitoring in chat. Tell the user when another single check is useful, and suggest a background monitor if the project has one.\nFor DONE, report the final status and stop.',
+        'Check GitHub or GitLab once and summarize only the review, merge, and build fields needed to decide the next step. If the project already has a recent PR or CI summary, reuse it instead of refreshing.\nClassify the result as ACTION, WAIT, or DONE.\nFor ACTION, inspect only the failed check or job details needed for the fix.\nFor WAIT, stop monitoring in chat. Tell the user when another single check is useful, and suggest a background monitor if the project has one.\nFor DONE, report the final status and stop.',
     },
   },
   {
@@ -118,7 +118,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
     const content = form.content.trim()
 
     if (!name) {
-      setError('Name this saved instruction before creating it.')
+      setError('Name this saved instruction before saving it.')
       nameInputRef.current?.focus()
       return
     }
@@ -171,7 +171,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 id="create-skill-title" className={uiStyles.sectionTitle}>
-              New saved instruction
+              Save a reusable instruction
             </h2>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
               Save instructions your agents can reuse on future tasks. Keep it general and safe
@@ -305,7 +305,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
 
           <div className="rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.04]">
             <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-              Check before creating
+              Check before saving
             </div>
             <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
               {SKILL_REVIEW_POINTS.map((point) => (
@@ -348,7 +348,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
               Cancel
             </button>
             <button type="submit" disabled={submitting} className={uiStyles.primaryButton}>
-              {submitting ? 'Creating...' : 'Create instruction'}
+              {submitting ? 'Saving...' : 'Save instruction'}
             </button>
           </div>
         </form>

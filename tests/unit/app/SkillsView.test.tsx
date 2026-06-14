@@ -43,7 +43,8 @@ describe('SkillsView', () => {
 
   test('shows a create saved instruction entry point', () => {
     render(<SkillsView />)
-    expect(screen.getAllByRole('button', { name: /new instruction/i }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: /save instruction/i }).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: /new instruction/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /new skill/i })).toBeNull()
   })
 
@@ -51,7 +52,7 @@ describe('SkillsView', () => {
     const user = userEvent.setup()
     render(<SkillsView />)
 
-    await user.click(screen.getAllByRole('button', { name: /new instruction/i })[0])
+    await user.click(screen.getAllByRole('button', { name: /save instruction/i })[0])
     const templates = screen.getByRole('group', { name: /instruction templates/i })
     await user.click(within(templates).getByRole('button', { name: /release notes/i }))
 
@@ -73,16 +74,16 @@ describe('SkillsView', () => {
     const user = userEvent.setup()
     render(<SkillsView />)
 
-    await user.click(screen.getAllByRole('button', { name: /new instruction/i })[0])
+    await user.click(screen.getAllByRole('button', { name: /save instruction/i })[0])
     const templates = screen.getByRole('group', { name: /instruction templates/i })
-    await user.click(within(templates).getByRole('button', { name: /ci status check/i }))
+    await user.click(within(templates).getByRole('button', { name: /check pr status/i }))
 
-    expect(screen.getByLabelText(/^instruction name$/i)).toHaveValue('ci-status-check')
+    expect(screen.getByLabelText(/^instruction name$/i)).toHaveValue('pr-status-check')
     expect(screen.getByLabelText(/^short description$/i)).toHaveValue(
-      'Summarize build status from one fresh check'
+      'Summarize PR review and build status from one fresh check'
     )
     expect(screen.getByLabelText(/^matching words for future tasks$/i)).toHaveValue(
-      'ci status, checks, build status'
+      'pr status, checks, build status, ci'
     )
     const instructions = screen.getByLabelText(/^agent instructions$/i) as HTMLTextAreaElement
     expect(instructions.value).toContain('Check GitHub or GitLab once')
@@ -112,7 +113,7 @@ describe('SkillsView', () => {
     })
 
     expect(screen.getByText('Clear search or create a saved instruction')).toBeDefined()
-    expect(screen.getByText(/clear search, then choose new instruction/i)).toBeDefined()
+    expect(screen.getByText(/clear search, then choose save instruction/i)).toBeDefined()
     expect(screen.queryByText('No saved instructions match your search')).toBeNull()
   })
 
@@ -226,8 +227,9 @@ describe('SkillsView', () => {
       expect(screen.getByText(/create your first saved instruction/i)).toBeDefined()
     })
 
-    await user.click(screen.getAllByRole('button', { name: /new instruction/i })[0])
-    expect(screen.getByText(/check before creating/i)).toBeDefined()
+    await user.click(screen.getAllByRole('button', { name: /save instruction/i })[0])
+    const dialog = screen.getByRole('dialog', { name: /save a reusable instruction/i })
+    expect(within(dialog).getByText(/check before saving/i)).toBeDefined()
     expect(screen.getByText('Safe to share')).toBeDefined()
     expect(screen.getByText(/leave out secret keys/i)).toBeDefined()
     expect(screen.queryByText(/tokens/i)).toBeNull()
@@ -241,7 +243,7 @@ describe('SkillsView', () => {
       screen.getByLabelText(/^agent instructions$/i),
       'Check UI states and regressions'
     )
-    await user.click(screen.getByRole('button', { name: /create instruction/i }))
+    await user.click(within(dialog).getByRole('button', { name: /save instruction/i }))
 
     await waitFor(() => {
       expect(screen.getByText('frontend-review')).toBeDefined()
@@ -274,18 +276,19 @@ describe('SkillsView', () => {
       expect(screen.getByText(/create your first saved instruction/i)).toBeDefined()
     })
 
-    await user.click(screen.getAllByRole('button', { name: /new instruction/i })[0])
-    await user.click(screen.getByRole('button', { name: /create instruction/i }))
+    await user.click(screen.getAllByRole('button', { name: /save instruction/i })[0])
+    const dialog = screen.getByRole('dialog', { name: /save a reusable instruction/i })
+    await user.click(within(dialog).getByRole('button', { name: /save instruction/i }))
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Name this saved instruction before creating it.'
+      'Name this saved instruction before saving it.'
     )
     expect(screen.getByLabelText(/^instruction name$/i)).toHaveFocus()
 
     await user.type(screen.getByLabelText(/^instruction name$/i), 'frontend-review')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /create instruction/i }))
+    await user.click(within(dialog).getByRole('button', { name: /save instruction/i }))
 
     expect(screen.getByRole('alert')).toHaveTextContent(
       'Add the steps this saved instruction should apply.'
@@ -353,13 +356,14 @@ describe('SkillsView', () => {
       expect(screen.getByText(/create your first saved instruction/i)).toBeDefined()
     })
 
-    await user.click(screen.getAllByRole('button', { name: /new instruction/i })[0])
+    await user.click(screen.getAllByRole('button', { name: /save instruction/i })[0])
+    const dialog = screen.getByRole('dialog', { name: /save a reusable instruction/i })
     await user.type(screen.getByLabelText(/^instruction name$/i), 'frontend-review')
     await user.type(
       screen.getByLabelText(/^agent instructions$/i),
       'Check UI states and regressions'
     )
-    await user.click(screen.getByRole('button', { name: /create instruction/i }))
+    await user.click(within(dialog).getByRole('button', { name: /save instruction/i }))
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('You do not have permission to create workspace instructions')

@@ -102,7 +102,7 @@ export function SkillsView() {
             className={uiStyles.primaryButton}
           >
             <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
-            <span>New Instruction</span>
+            <span>Save Instruction</span>
           </button>
         </div>
       </div>
@@ -194,7 +194,7 @@ export function SkillsView() {
               className={uiStyles.primaryButton}
             >
               <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
-              <span>New Instruction</span>
+              <span>Save Instruction</span>
             </button>
           </div>
         )}
@@ -264,7 +264,7 @@ function savedInstructionsEmptyState({
     return {
       title: 'Clear search or create a saved instruction',
       detail:
-        'There are no saved instructions yet. Clear search, then choose New Instruction to save reusable steps.',
+        'There are no saved instructions yet. Clear search, then choose Save Instruction to save reusable steps.',
     }
   }
 
@@ -321,10 +321,10 @@ function skillToolbarStatus({
   if (visibleCount > 0) {
     return `${visibleCount} saved instruction${visibleCount === 1 ? '' : 's'}`
   }
-  if (totalCount === 0) return 'Choose New Instruction to start.'
+  if (totalCount === 0) return 'Choose Save Instruction to start.'
   if (searchQuery.trim()) return 'Clear search to see saved instructions.'
   if (filter !== 'all') return 'Change filter to see saved instructions.'
-  return 'Choose New Instruction or refresh this page.'
+  return 'Choose Save Instruction or refresh this page.'
 }
 
 function SkillStat({
