@@ -53,7 +53,7 @@ const agents: AdminAgent[] = [
     ownerUsername: null,
     ownerEmail: 'dana@example.com',
     projectName: 'Ops',
-    lastActivity: 1_700_000_300_000,
+    lastActivity: Number.POSITIVE_INFINITY,
   },
   {
     id: 'agent-5',
@@ -131,7 +131,7 @@ describe('AgentsPanel', () => {
     expect(screen.queryByText(/Text-only model/i)).toBeNull()
     expect(screen.getByText('Ready')).toBeDefined()
     expect(screen.queryByText('idle')).toBeNull()
-    expect(screen.getByText('Needs review')).toBeDefined()
+    expect(screen.getByText('Check agent status')).toBeDefined()
     expect(screen.getByText('Refresh agents to confirm status')).toBeDefined()
     expect(screen.queryByText('Status not reported')).toBeNull()
     expect(screen.queryByText('paused')).toBeNull()
@@ -151,7 +151,10 @@ describe('AgentsPanel', () => {
     expect(screen.queryByText('Owner not reported yet')).toBeNull()
     expect(screen.queryByText('Project not reported yet')).toBeNull()
     expect(screen.getByText('Activity appears after work starts')).toBeDefined()
+    expect(screen.getByText('Check activity time')).toBeDefined()
     expect(screen.queryByText('No activity yet')).toBeNull()
+    expect(screen.queryByText('Activity time needs review')).toBeNull()
+    expect(screen.queryByText('Invalid Date')).toBeNull()
     expect(screen.queryByText('—')).toBeNull()
   })
 

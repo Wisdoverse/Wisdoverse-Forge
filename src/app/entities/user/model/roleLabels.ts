@@ -15,5 +15,5 @@ export function userRoleLabel(role?: string | null): string {
     return 'Refresh access level'
   }
 
-  return USER_ROLE_LABELS[normalized] ?? 'Access level needs review'
+  return USER_ROLE_LABELS[normalized] ?? 'Check access level'
 }

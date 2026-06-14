@@ -166,7 +166,7 @@ describe('AccountSection', () => {
   test('uses a friendly fallback instead of exposing an unknown account role', () => {
     renderAccountSection('billing_admin')
 
-    expect(screen.getByText('Access level needs review')).toBeDefined()
+    expect(screen.getByText('Check access level')).toBeDefined()
     expect(screen.queryByText('billing_admin')).toBeNull()
     expect(screen.queryByText('billing admin')).toBeNull()
   })

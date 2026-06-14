@@ -325,6 +325,7 @@ function OrganizationsEmptyState() {
       'src/app/features/admin/AgentsPanel.tsx': `
 function formatLastActivity(epochMs) {
   if (!epochMs) return 'No activity yet'
+  return 'Activity time needs review'
 }
 `,
     })
@@ -337,6 +338,10 @@ function formatLastActivity(epochMs) {
         type: 'admin-agent-activity-copy',
         location: 'src/app/features/admin/AgentsPanel.tsx:3',
       }),
+      expect.objectContaining({
+        type: 'admin-agent-activity-copy',
+        location: 'src/app/features/admin/AgentsPanel.tsx:4',
+      }),
     ])
   })
 
@@ -345,6 +350,39 @@ function formatLastActivity(epochMs) {
       'src/app/features/admin/AgentsPanel.tsx': `
 function formatLastActivity(epochMs) {
   if (!epochMs) return 'Activity appears after work starts'
+  return 'Check activity time'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags admin agent status fallback copy that does not name the status field', () => {
+    const cwd = fixture({
+      'src/app/features/admin/AgentsPanel.tsx': `
+function agentStatusLabel(status) {
+  return status.trim() ? 'Needs review' : 'Refresh agents to confirm status'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'admin-agent-status-fallback-copy',
+        location: 'src/app/features/admin/AgentsPanel.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts admin agent status fallback copy that tells users what to check', () => {
+    const cwd = fixture({
+      'src/app/features/admin/AgentsPanel.tsx': `
+function agentStatusLabel(status) {
+  return status.trim() ? 'Check agent status' : 'Refresh agents to confirm status'
 }
 `,
     })
@@ -1086,6 +1124,7 @@ function cliToolToProvider() {
       'src/app/entities/user/model/roleLabels.ts': `
 function userRoleLabel() {
   return 'Access level not reported'
+  return 'Access level needs review'
 }
 `,
     })
@@ -1093,12 +1132,18 @@ function userRoleLabel() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'access-level-copy',
-        location: 'src/app/entities/user/model/roleLabels.ts:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'access-level-copy',
+          location: 'src/app/entities/user/model/roleLabels.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'access-level-copy',
+          location: 'src/app/entities/user/model/roleLabels.ts:4',
+        }),
+      ])
+    )
   })
 
   it('accepts access level fallback copy that tells users to refresh role data', () => {
@@ -1106,6 +1151,7 @@ function userRoleLabel() {
       'src/app/entities/user/model/roleLabels.ts': `
 function userRoleLabel() {
   return 'Refresh access level'
+  return 'Check access level'
 }
 `,
     })

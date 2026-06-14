@@ -149,12 +149,19 @@ const ADMIN_USERS_EMPTY_DEAD_END_PATTERNS = [/\bNo one is listed yet\b/i]
 
 const ADMIN_ORGS_EMPTY_DEAD_END_PATTERNS = [/\bNo team spaces are visible yet\b/i]
 
-const ADMIN_AGENT_ACTIVITY_DEAD_END_PATTERNS = [/\bNo activity yet\b/i]
+const ADMIN_AGENT_ACTIVITY_DEAD_END_PATTERNS = [
+  /\bNo activity yet\b/i,
+  /\bActivity time needs review\b/i,
+]
 
 const ADMIN_AGENT_FIELD_DEAD_END_PATTERNS = [
   /\bStatus not reported\b/i,
   /\bOwner not reported yet\b/i,
   /\bProject not reported yet\b/i,
+]
+
+const ADMIN_AGENT_STATUS_FALLBACK_DEAD_END_PATTERNS = [
+  /\bstatus\.trim\(\)\s*\?\s*['"`]Needs review['"`]/i,
 ]
 
 const RUNTIME_SHORT_LABEL_JARGON_PATTERNS = [
@@ -269,7 +276,10 @@ const AGENT_MODEL_DEAD_END_PATTERNS = [
   /\bmodel:\s*[^,\n]*['"`]unknown['"`]/i,
 ]
 
-const ACCESS_LEVEL_DEAD_END_PATTERNS = [/\bAccess level not reported\b/i]
+const ACCESS_LEVEL_DEAD_END_PATTERNS = [
+  /\bAccess level not reported\b/i,
+  /\bAccess level needs review\b/i,
+]
 
 const BEGINNER_JARGON_PATTERNS = [
   /\blocal agents?\b/i,
@@ -545,6 +555,12 @@ function hasAdminAgentFieldDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/admin/AgentsPanel.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return ADMIN_AGENT_FIELD_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAdminAgentStatusFallbackDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/admin/AgentsPanel.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ADMIN_AGENT_STATUS_FALLBACK_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasRuntimeShortLabelJargonCopy(relFile, line) {
@@ -974,6 +990,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Admin agent missing-field copy must tell beginners to refresh agents before deciding.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAdminAgentStatusFallbackDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'admin-agent-status-fallback-copy',
+        location,
+        message: 'Admin agent status fallback copy must tell beginners which status to check.',
         sample: line.trim(),
       })
     }

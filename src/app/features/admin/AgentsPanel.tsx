@@ -35,15 +35,18 @@ const RUNTIME_KIND_FILTER_OPTIONS: FilterOption[] = [
 
 function formatLastActivity(epochMs: number): string {
   if (!epochMs) return 'Activity appears after work starts'
+  if (!Number.isFinite(epochMs)) return 'Check activity time'
+
   try {
-    return new Date(epochMs).toLocaleString(undefined, {
+    const formatted = new Date(epochMs).toLocaleString(undefined, {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
     })
+    return formatted === 'Invalid Date' ? 'Check activity time' : formatted
   } catch {
-    return 'Activity time needs review'
+    return 'Check activity time'
   }
 }
 
@@ -56,7 +59,7 @@ function agentStatusLabel(status: string): string {
     case 'offline':
       return 'Not connected'
     default:
-      return status.trim() ? 'Needs review' : 'Refresh agents to confirm status'
+      return status.trim() ? 'Check agent status' : 'Refresh agents to confirm status'
   }
 }
 
