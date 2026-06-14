@@ -87,9 +87,9 @@ function chatStreamConflictMessage(detail: string | null): string {
   return 'This conversation changed while the message was sending. Refresh the chat, review the latest message, then try again.'
 }
 
-function chatStreamRequestErrorMessage(error: unknown): string {
+export function chatStreamRequestErrorMessage(error: unknown): string {
   if (isAbortError(error)) return ''
-  return 'Forge could not connect while sending this message. Check your connection, then resend it.'
+  return 'Check your connection, then resend the message. Forge could not connect while sending this message.'
 }
 
 function chatStreamReadErrorMessage(error: unknown): string {

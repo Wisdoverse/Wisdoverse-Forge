@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   chatStreamEventErrorMessage,
   chatStreamHttpErrorMessage,
+  chatStreamRequestErrorMessage,
   parseSseFrame,
 } from '@app/features/chat/useChatStream'
 
@@ -155,5 +156,20 @@ describe('chatStreamEventErrorMessage', () => {
       'The agent could not finish this reply. Resend the message. If it still fails, ask an owner or admin to check chat setup.'
     )
     expect(message).not.toContain('stream error')
+  })
+})
+
+describe('chatStreamRequestErrorMessage', () => {
+  it('starts network failures with the resend step', () => {
+    expectBeginnerMessage(
+      chatStreamRequestErrorMessage(new TypeError('Failed to fetch')),
+      'Check your connection, then resend the message. Forge could not connect while sending this message.'
+    )
+  })
+
+  it('keeps user-canceled sends quiet', () => {
+    const error = new DOMException('The user aborted a request.', 'AbortError')
+
+    expect(chatStreamRequestErrorMessage(error)).toBe('')
   })
 })

@@ -3690,6 +3690,11 @@ function agentControlErrorMessage() {
   return 'Forge could not connect while changing this agent. Check your connection, refresh this agent, then try again.'
 }
 `,
+      'src/app/features/chat/useChatStream.ts': `
+function chatStreamRequestErrorMessage() {
+  return 'Forge could not connect while sending this message. Check your connection, then resend it.'
+}
+`,
       'src/app/shared/i18n/locales/zh.ts': `
 export const zh = {
   errors: {
@@ -3730,6 +3735,10 @@ export const zh = {
         }),
         expect.objectContaining({
           type: 'network-copy',
+          location: 'src/app/features/chat/useChatStream.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'network-copy',
           location: 'src/app/shared/i18n/locales/zh.ts:4',
         }),
       ])
@@ -3755,6 +3764,11 @@ const LEGACY_API_NETWORK_ERROR = 'Check your connection, then try again. Forge c
       'src/app/features/agents/AgentControlPanel.tsx': `
 function agentControlErrorMessage() {
   return 'Check your connection, refresh this agent, then try again. Forge could not connect while changing this agent.'
+}
+`,
+      'src/app/features/chat/useChatStream.ts': `
+function chatStreamRequestErrorMessage() {
+  return 'Check your connection, then resend the message. Forge could not connect while sending this message.'
 }
 `,
       'src/app/shared/i18n/locales/zh.ts': `
