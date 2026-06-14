@@ -7,7 +7,7 @@ import { ADMIN_PANEL_RECOVERY, adminPanelLoadErrorMessage } from './adminErrorCo
 
 function formatDate(iso: string): string {
   const date = new Date(iso)
-  if (!Number.isFinite(date.getTime())) return 'Created date needs review'
+  if (!Number.isFinite(date.getTime())) return 'Refresh team spaces to check created date'
   return date.toLocaleDateString(undefined, {
     year: 'numeric',
     month: 'short',

@@ -50,8 +50,8 @@ function KeyRow({ apiKey, onRevoke }: KeyRowProps) {
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
           {formatAccessDate(apiKey.createdAt, {
-            missing: 'Created date not reported',
-            invalid: 'Created date needs review',
+            missing: 'Refresh access keys to load created date',
+            invalid: 'Refresh access keys to check created date',
           })}
         </span>
       </td>
@@ -59,7 +59,7 @@ function KeyRow({ apiKey, onRevoke }: KeyRowProps) {
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
           {formatAccessDate(apiKey.lastUsedAt, {
             missing: 'Use this key from a trusted tool first',
-            invalid: 'Last used date needs review',
+            invalid: 'Refresh access keys to check last use',
           })}
         </span>
       </td>

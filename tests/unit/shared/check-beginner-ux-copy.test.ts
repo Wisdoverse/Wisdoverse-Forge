@@ -2360,6 +2360,96 @@ function KeyRow() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags date fallback copy that does not tell users which list to refresh', () => {
+    const cwd = fixture({
+      'src/app/features/settings/GitCredentialsSection.tsx': `
+function CredentialRow() {
+  return 'Added date not reported'
+}
+`,
+      'src/app/features/settings/SshKeysSection.tsx': `
+function SshKeyRow() {
+  return 'Added date needs review'
+}
+`,
+      'src/app/features/settings/KeysSection.tsx': `
+function KeyRow() {
+  return 'Created date needs review'
+}
+`,
+      'src/app/features/admin/UserManagement.tsx': `
+function UserRow() {
+  return 'Sign-in date needs review'
+}
+`,
+      'src/app/features/admin/OrganizationsPanel.tsx': `
+function OrgRow() {
+  return 'Created date needs review'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'date-fallback-copy',
+          location: 'src/app/features/settings/GitCredentialsSection.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'date-fallback-copy',
+          location: 'src/app/features/settings/SshKeysSection.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'date-fallback-copy',
+          location: 'src/app/features/settings/KeysSection.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'date-fallback-copy',
+          location: 'src/app/features/admin/UserManagement.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'date-fallback-copy',
+          location: 'src/app/features/admin/OrganizationsPanel.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts date fallback copy that points users to the right list', () => {
+    const cwd = fixture({
+      'src/app/features/settings/GitCredentialsSection.tsx': `
+function CredentialRow() {
+  return 'Refresh repository access to load added date'
+}
+`,
+      'src/app/features/settings/SshKeysSection.tsx': `
+function SshKeyRow() {
+  return 'Refresh SSH access to check added date'
+}
+`,
+      'src/app/features/settings/KeysSection.tsx': `
+function KeyRow() {
+  return 'Refresh access keys to check created date'
+}
+`,
+      'src/app/features/admin/UserManagement.tsx': `
+function UserRow() {
+  return 'Refresh users to check sign-in date'
+}
+`,
+      'src/app/features/admin/OrganizationsPanel.tsx': `
+function OrgRow() {
+  return 'Refresh team spaces to check created date'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags account profile copy that does not tell users to refresh', () => {
     const cwd = fixture({
       'src/app/features/settings/AccountSection.tsx': `

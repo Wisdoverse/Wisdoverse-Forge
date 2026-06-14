@@ -238,7 +238,11 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
             'text-ui-caption text-secondary-light dark:text-secondary-dark'
           )}
         >
-          {formatDate(user.createdAt, 'Added date not reported', 'Added date needs review')}
+          {formatDate(
+            user.createdAt,
+            'Refresh users to load added date',
+            'Refresh users to check added date'
+          )}
         </td>
         <td
           className={cn(
@@ -246,7 +250,7 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
             'text-ui-caption text-secondary-light dark:text-secondary-dark'
           )}
         >
-          {formatDate(user.lastLoginAt, 'Never signed in', 'Sign-in date needs review')}
+          {formatDate(user.lastLoginAt, 'Never signed in', 'Refresh users to check sign-in date')}
         </td>
         <td className={uiStyles.tableCell}>
           {isSelf ? (

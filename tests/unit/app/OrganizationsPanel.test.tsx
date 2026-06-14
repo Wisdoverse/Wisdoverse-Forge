@@ -82,7 +82,7 @@ describe('OrganizationsPanel', () => {
 
     render(<OrganizationsPanel />)
 
-    expect(await screen.findByText('Created date needs review')).toBeDefined()
+    expect(await screen.findByText('Refresh team spaces to check created date')).toBeDefined()
     expect(screen.queryByText('Invalid Date')).toBeNull()
     expect(screen.queryByText('—')).toBeNull()
   })

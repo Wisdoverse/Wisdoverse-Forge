@@ -102,10 +102,10 @@ describe('UserManagement', () => {
 
     render(<UserManagement />)
 
-    expect(screen.getByText('Added date not reported')).toBeDefined()
+    expect(screen.getByText('Refresh users to load added date')).toBeDefined()
     expect(screen.getByText('Never signed in')).toBeDefined()
-    expect(screen.getByText('Added date needs review')).toBeDefined()
-    expect(screen.getByText('Sign-in date needs review')).toBeDefined()
+    expect(screen.getByText('Refresh users to check added date')).toBeDefined()
+    expect(screen.getByText('Refresh users to check sign-in date')).toBeDefined()
     expect(screen.queryByText('—')).toBeNull()
     expect(screen.queryByText('Invalid Date')).toBeNull()
   })

@@ -58,9 +58,7 @@ describe('KeysSection', () => {
     const emptyState = screen.getByTestId('platform-key-empty-state')
 
     expect(screen.getByRole('heading', { name: 'Outside tool access' })).toBeDefined()
-    expect(
-      within(emptyState).getByText('Add a key only for a trusted outside tool')
-    ).toBeDefined()
+    expect(within(emptyState).getByText('Add a key only for a trusted outside tool')).toBeDefined()
     expect(within(emptyState).getAllByText(/trusted outside tool/i).length).toBeGreaterThan(0)
     expect(within(emptyState).getByText(/tool you trust/i)).toBeDefined()
     expect(
@@ -173,8 +171,8 @@ describe('KeysSection', () => {
     render(<KeysSection />)
 
     expect(await screen.findByRole('table', { name: /outside tool access keys/i })).toBeDefined()
-    expect(screen.getByText('Created date not reported')).toBeDefined()
-    expect(screen.getByText('Last used date needs review')).toBeDefined()
+    expect(screen.getByText('Refresh access keys to load created date')).toBeDefined()
+    expect(screen.getByText('Refresh access keys to check last use')).toBeDefined()
     expect(screen.queryByText('Invalid Date')).toBeNull()
     expect(screen.queryByText('—')).toBeNull()
   })

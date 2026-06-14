@@ -203,6 +203,11 @@ const SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS = [/\bNot checked yet\b/i]
 
 const ACCESS_KEY_LAST_USED_DEAD_END_PATTERNS = [/\bNot used yet\b/i]
 
+const DATE_FALLBACK_DEAD_END_PATTERNS = [
+  /\b(?:Added|Created|Sign-in|Last used) date not reported\b/i,
+  /\b(?:Added|Created|Sign-in|Last used) date needs review\b/i,
+]
+
 const ACCOUNT_PROFILE_DEAD_END_PATTERNS = [
   /\bUsername not reported yet\b/i,
   /\bEmail not reported yet\b/i,
@@ -658,6 +663,20 @@ function hasAccessKeyLastUsedDeadEndCopy(relFile, line) {
   return ACCESS_KEY_LAST_USED_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasDateFallbackDeadEndCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/settings/GitCredentialsSection.tsx') &&
+    !relFile.endsWith('src/app/features/settings/SshKeysSection.tsx') &&
+    !relFile.endsWith('src/app/features/settings/KeysSection.tsx') &&
+    !relFile.endsWith('src/app/features/admin/UserManagement.tsx') &&
+    !relFile.endsWith('src/app/features/admin/OrganizationsPanel.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return DATE_FALLBACK_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasAccountProfileDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/settings/AccountSection.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -1086,6 +1105,15 @@ function scanFile(file, relFile) {
         type: 'access-key-last-used-copy',
         location,
         message: 'Outside tool access copy must explain that a trusted tool uses the key first.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasDateFallbackDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'date-fallback-copy',
+        location,
+        message: 'Date fallback copy must tell beginners which list to refresh or check.',
         sample: line.trim(),
       })
     }
