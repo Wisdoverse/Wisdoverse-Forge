@@ -229,6 +229,7 @@ export function RuntimeSection() {
                 ? runtimeReadinessSummary(
                     runtimeSettings,
                     connectedCredentialCount,
+                    cliStatuses.length,
                     participants.length
                   )
                 : 'The Where agents run settings have not loaded yet.'}
@@ -836,16 +837,19 @@ function versionSourceLabel(source: string, imagePresent: boolean): string {
 function runtimeReadinessSummary(
   runtimeSettings: RuntimeSettings,
   connectedCredentialCount: number,
+  credentialStatusCount: number,
   onlineAgentCount: number
 ): string {
   const locations = countPhrase(runtimeSettings.availableRuntimes.length, 'agent location')
   const tools = countPhrase(runtimeSettings.availableCliTools.length, 'work tool')
   const signIns =
-    connectedCredentialCount === 0
-      ? 'Sign in to a work tool before starting agents that need one'
-      : `${countPhrase(connectedCredentialCount, 'work tool sign-in')} ${
-          connectedCredentialCount === 1 ? 'is' : 'are'
-        } connected`
+    credentialStatusCount === 0
+      ? 'No extra work tool sign-ins are needed'
+      : connectedCredentialCount === 0
+        ? 'Sign in to a work tool before starting agents that need one'
+        : `${countPhrase(connectedCredentialCount, 'work tool sign-in')} ${
+            connectedCredentialCount === 1 ? 'is' : 'are'
+          } connected`
   const onlineAgents =
     onlineAgentCount === 0
       ? 'no agents are online yet'

@@ -307,6 +307,10 @@ describe('RuntimeSection', () => {
 
     expect(await screen.findByText('Check setup after tools finish.')).toBeDefined()
     expect(screen.getByText('Start an agent, then check again.')).toBeDefined()
+    expect(screen.getByText(/No extra work tool sign-ins are needed/i)).toBeDefined()
+    expect(
+      screen.queryByText(/Sign in to a work tool before starting agents that need one/i)
+    ).toBeNull()
     expect(screen.queryByText('No work tool status yet')).toBeNull()
     expect(screen.queryByText('No agent seen online yet')).toBeNull()
   })
@@ -378,7 +382,9 @@ describe('RuntimeSection', () => {
     await screen.findByTestId('runtime-launch-checklist')
     fireEvent.click(screen.getByRole('button', { name: /Sign in to GitHub/i }))
 
-    expect(await screen.findByText(/do not have permission to change where agents run/i)).toBeDefined()
+    expect(
+      await screen.findByText(/do not have permission to change where agents run/i)
+    ).toBeDefined()
     expect(screen.getAllByText(/owner or admin/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/403 Forbidden/)).toBeNull()
   })
