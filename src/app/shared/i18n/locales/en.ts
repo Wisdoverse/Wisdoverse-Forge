@@ -557,7 +557,7 @@ export const en = {
           detail: 'Chat-only agents do not have live work to stop.',
         },
         not_permitted: {
-          title: 'Operation not permitted on this agent',
+          title: 'You cannot manage this agent',
           detail: 'You can manage only agents you own. Contact the agent owner if you need access.',
         },
       },

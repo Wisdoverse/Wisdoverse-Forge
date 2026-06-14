@@ -159,6 +159,21 @@ describe('beginner error translations', () => {
     expect(chineseSecure.detail).not.toContain('allow_plaintext')
   })
 
+  test('agent permission errors explain who can manage the agent', () => {
+    const english = en.errors.agent.lifecycle.not_permitted
+    const chinese = zh.errors.agent.lifecycle.not_permitted
+
+    expect(english.title).toBe('You cannot manage this agent')
+    expect(english.detail).toContain('agents you own')
+    expect(english.detail).toContain('Contact the agent owner')
+    expect(english.title).not.toContain('Operation not permitted')
+
+    expect(chinese.title).toBe('你不能管理这个 Agent')
+    expect(chinese.detail).toContain('你拥有的 Agent')
+    expect(chinese.detail).toContain('Agent 所有者')
+    expect(chinese.title).not.toContain('无权操作')
+  })
+
   test('Chinese agent-facing copy uses the current Agent vocabulary', () => {
     const previousContextNavLabel = ['Con', 'text'].join('')
     const previousChineseContextNavLabel = ['上', '下', '文'].join('')

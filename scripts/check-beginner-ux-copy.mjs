@@ -23,6 +23,7 @@ const RAW_USER_VISIBLE_PATTERNS = [
   /\bFailed to fetch\b/,
   /\bInternal Server Error\b/,
   /\bNetwork error\b/,
+  /\bOperation not permitted\b/i,
   /\bServer error\s*\(\d{3}\)/,
   /\bStack trace\b/i,
   /\bUnhandled exception\b/i,

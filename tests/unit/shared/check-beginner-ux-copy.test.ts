@@ -105,6 +105,28 @@ export const en = {
     ])
   })
 
+  it('flags system-style permission copy in user-visible text', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  agent: {
+    title: 'Operation not permitted on this agent',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'raw-error-copy',
+        location: 'src/app/shared/i18n/locales/en.ts:4',
+      }),
+    ])
+  })
+
   it('flags raw legacy API fallback errors that can reach users', () => {
     const cwd = fixture({
       'src/app/shared/api/legacy/AgentAPI.ts': `

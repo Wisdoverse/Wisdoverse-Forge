@@ -539,7 +539,7 @@ export const zh: TranslationKeys = {
           detail: '只处理文字的模型 Agent 没有可停止的命令窗口。',
         },
         not_permitted: {
-          title: '无权操作该 Agent',
+          title: '你不能管理这个 Agent',
           detail: '你只能管理你拥有的 Agent。如需访问请联系 Agent 所有者。',
         },
       },
