@@ -49,7 +49,7 @@ const TYPE_CONFIG: Record<
     color: 'text-apple-red',
     unreadBg: 'bg-apple-red/[0.05]',
     dot: 'bg-apple-red',
-    label: 'Needs review',
+    label: 'Recovery needed',
     actionLabel: 'Review recovery',
     guidance: 'Open the task, review the recovery note, then retry or choose another agent.',
     template: 'task-lifecycle',

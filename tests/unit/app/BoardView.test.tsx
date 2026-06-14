@@ -76,7 +76,7 @@ describe('BoardView', () => {
     expect(screen.getByText('Done')).toBeDefined()
     expect(screen.getByText(/check results and save repeatable steps/i)).toBeDefined()
     expect(screen.queryByText(/saved guidance/i)).toBeNull()
-    expect(screen.getByText('Needs review')).toBeDefined()
+    expect(screen.getByText('Review recovery')).toBeDefined()
     expect(screen.queryByText('Failed')).toBeNull()
     expect(screen.getByText('Canceled')).toBeDefined()
   })

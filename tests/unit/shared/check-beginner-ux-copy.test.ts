@@ -2522,6 +2522,82 @@ export function runStatusLabel(status) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags failed task status copy that does not point users to recovery', () => {
+    const cwd = fixture({
+      'src/app/entities/task/model/taskLabels.ts': `
+const TASK_STATE_LABELS = {
+  failed: 'Needs review',
+}
+`,
+      'src/app/features/board/KanbanColumn.tsx': `
+const COLUMN_COPY = {
+  failed: { label: 'Needs review' },
+}
+`,
+      'src/app/features/detail/HistoryTab.tsx': `
+export function readableRunStatus(status) {
+  return 'Needs review'
+}
+`,
+      'src/app/features/inbox/InboxItem.tsx': `
+const TYPE_CONFIG = {
+  failed: { label: 'Needs review' },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-recovery-status-copy',
+          location: 'src/app/entities/task/model/taskLabels.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'task-recovery-status-copy',
+          location: 'src/app/features/board/KanbanColumn.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'task-recovery-status-copy',
+          location: 'src/app/features/detail/HistoryTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'task-recovery-status-copy',
+          location: 'src/app/features/inbox/InboxItem.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts failed task status copy that points users to recovery', () => {
+    const cwd = fixture({
+      'src/app/entities/task/model/taskLabels.ts': `
+const TASK_STATE_LABELS = {
+  failed: 'Review recovery',
+}
+`,
+      'src/app/features/board/KanbanColumn.tsx': `
+const COLUMN_COPY = {
+  failed: { label: 'Review recovery' },
+}
+`,
+      'src/app/features/detail/HistoryTab.tsx': `
+export function readableRunStatus(status) {
+  return 'Review recovery'
+}
+`,
+      'src/app/features/inbox/InboxItem.tsx': `
+const TYPE_CONFIG = {
+  failed: { label: 'Recovery needed' },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags saved item and task type fallbacks that leave beginners guessing', () => {
     const cwd = fixture({
       'src/app/entities/context/ui/InjectionPreviewModal.tsx': `

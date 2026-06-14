@@ -247,6 +247,12 @@ const TASK_STATUS_FALLBACK_DEAD_END_PATTERNS = [
   /\bPriority needs review\b/i,
 ]
 
+const TASK_RECOVERY_STATUS_DEAD_END_PATTERNS = [
+  /\bfailed:\s*['"`]Needs review['"`]/,
+  /\blabel:\s*['"`]Needs review['"`]/,
+  /\breturn\s+['"`]Needs review['"`]/,
+]
+
 const CONTEXT_FALLBACK_DEAD_END_PATTERNS = [
   /\bSuggested item needs review\b/i,
   /\bSaved item needs review\b/i,
@@ -798,6 +804,22 @@ function hasTaskStatusFallbackDeadEndCopy(relFile, line) {
   return TASK_STATUS_FALLBACK_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTaskRecoveryStatusDeadEndCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/entities/task/model/taskLabels.ts') &&
+    !relFile.endsWith('src/app/features/agents/AgentGroupsPanel.tsx') &&
+    !relFile.endsWith('src/app/features/board/KanbanColumn.tsx') &&
+    !relFile.endsWith('src/app/features/detail/ContextTab.tsx') &&
+    !relFile.endsWith('src/app/features/detail/HistoryTab.tsx') &&
+    !relFile.endsWith('src/app/features/feed/FeedItem.tsx') &&
+    !relFile.endsWith('src/app/features/inbox/InboxItem.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_RECOVERY_STATUS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasContextFallbackDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/entities/context/ui/InjectionPreviewModal.tsx') &&
@@ -1303,6 +1325,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Task status and priority fallback copy must tell beginners to refresh or check the task field.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskRecoveryStatusDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'task-recovery-status-copy',
+        location,
+        message: 'Failed task status copy must tell beginners to review recovery.',
         sample: line.trim(),
       })
     }

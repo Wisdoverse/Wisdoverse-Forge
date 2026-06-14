@@ -40,7 +40,7 @@ const TYPE_COPY: Record<string, { label: string; description: string }> = {
     description: 'The task is waiting for someone to provide what is needed.',
   },
   'task.failed': {
-    label: 'Needs review',
+    label: 'Review recovery',
     description: 'The task stopped before finishing and needs a retry decision.',
   },
   'task.progress': {

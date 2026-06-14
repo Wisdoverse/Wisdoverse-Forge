@@ -166,7 +166,7 @@ describe('DescriptionTab', () => {
       />
     )
 
-    expect(screen.getByText('Needs review')).toBeDefined()
+    expect(screen.getByText('Review recovery')).toBeDefined()
     expect(screen.queryByText('Failed')).toBeNull()
     expect(screen.getAllByText(/AI service is busy/i).length).toBeGreaterThan(0)
     expect(

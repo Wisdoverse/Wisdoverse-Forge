@@ -243,7 +243,7 @@ describe('HistoryTab', () => {
       />
     )
 
-    expect(await screen.findByText('Needs review')).toBeInTheDocument()
+    expect(await screen.findByText('Review recovery')).toBeInTheDocument()
     expect(screen.queryByText('Failed')).toBeNull()
     expect(await screen.findAllByText(/AI service is busy/i)).toHaveLength(2)
     expect(screen.queryByText(/model service is busy/i)).toBeNull()

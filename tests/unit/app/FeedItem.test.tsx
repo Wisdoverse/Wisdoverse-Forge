@@ -38,7 +38,7 @@ describe('FeedItem', () => {
   test('shows a retry-safe next step for failed task updates', () => {
     render(<FeedItem item={{ ...baseItem, type: 'task.failed', detail: 'Command exited 1' }} />)
 
-    expect(screen.getByText('Needs review')).toBeDefined()
+    expect(screen.getByText('Review recovery')).toBeDefined()
     expect(screen.queryByText('Failed')).toBeNull()
     expect(
       screen.getByText('Open details to see the recovery note, then retry or choose another agent.')

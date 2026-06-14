@@ -126,7 +126,7 @@ describe('AgentGroupsPanel', () => {
     expect(within(routedRows[0]).getByText('Needs help')).toBeInTheDocument()
     expect(screen.getByText('Waiting to start')).toBeInTheDocument()
     expect(screen.getAllByText('Not sent yet').length).toBeGreaterThan(0)
-    expect(screen.getByText('Needs review')).toBeInTheDocument()
+    expect(screen.getByText('Review recovery')).toBeInTheDocument()
     expect(screen.queryByText(previousBlockedLabel)).not.toBeInTheDocument()
     expect(screen.queryByText('Backlog')).not.toBeInTheDocument()
     expect(screen.queryByText('Queued')).not.toBeInTheDocument()

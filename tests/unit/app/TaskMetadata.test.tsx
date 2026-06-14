@@ -148,7 +148,7 @@ describe('TaskMetadata', () => {
       />
     )
 
-    expect(screen.getByText('Needs review')).toBeDefined()
+    expect(screen.getByText('Review recovery')).toBeDefined()
     expect(screen.queryByText('Failed')).toBeNull()
     expect(screen.getByText('High')).toBeDefined()
     expect(screen.getByTestId('task-metadata-guidance').textContent).toContain('AI service is busy')

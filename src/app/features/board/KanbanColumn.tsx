@@ -33,7 +33,7 @@ const COLUMN_CONFIG: Record<string, { label: string; dot: string; surface: strin
     surface: 'bg-apple-green/[0.035] dark:bg-apple-green/[0.06]',
   },
   failed: {
-    label: 'Needs review',
+    label: 'Review recovery',
     dot: 'bg-apple-red',
     surface: 'bg-apple-red/[0.04] dark:bg-apple-red/[0.07]',
   },

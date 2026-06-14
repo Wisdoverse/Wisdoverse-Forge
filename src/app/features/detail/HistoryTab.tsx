@@ -505,7 +505,7 @@ function readableRunStatus(status: string): string {
       return 'Waiting to start'
     case 'failed':
     case 'error':
-      return 'Needs review'
+      return 'Review recovery'
     case 'canceled':
     case 'cancelled':
       return 'Stopped'
