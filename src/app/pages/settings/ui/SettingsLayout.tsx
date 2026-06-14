@@ -28,7 +28,7 @@ interface SectionItem {
 const SECTIONS: SectionItem[] = [
   { id: 'providers', label: 'AI Services', group: 'AI Setup' },
   { id: 'keys', label: 'Outside Tool Access', group: 'Work Setup' },
-  { id: 'git-credentials', label: 'Code Repository Access', group: 'Work Setup' },
+  { id: 'git-credentials', label: 'Code Access', group: 'Work Setup' },
   { id: 'ssh-keys', label: 'Repository SSH Access', group: 'Work Setup' },
   { id: 'resources', label: 'Work Capacity', group: 'Work Setup' },
   { id: 'runtime', label: 'Agent Work Setup', group: 'Work Setup' },

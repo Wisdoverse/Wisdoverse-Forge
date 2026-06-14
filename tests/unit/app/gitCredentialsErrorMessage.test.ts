@@ -9,31 +9,31 @@ describe('gitCredentialsErrorMessage', () => {
     expect(actual).not.toContain('HTTP')
   }
 
-  test('turns invalid token details into repository access key guidance', () => {
+  test('turns invalid token details into code access key guidance', () => {
     expectBeginnerMessage(
       gitCredentialsErrorMessage('Settings could not save Git credential. Details: invalid token'),
-      'Repository access could not be saved. Paste a new repository access key from GitHub or GitLab, then save again.'
+      'Code access could not be saved. Paste a new code access key from GitHub or GitLab, then save again.'
     )
   })
 
   test('turns validation failures into clear fields to check', () => {
     expectBeginnerMessage(
       gitCredentialsErrorMessage('Code: 422 Details: invalid provider'),
-      'Repository access could not be saved. Choose GitHub or GitLab, then save repository access again.'
+      'Code access could not be saved. Choose GitHub or GitLab, then save code access again.'
     )
   })
 
   test('turns invalid address failures into an address step', () => {
     expectBeginnerMessage(
       gitCredentialsErrorMessage('HTTP 422: invalid host'),
-      'Repository access could not be saved. Check the GitHub or GitLab address. Leave it blank for github.com or gitlab.com, then save again.'
+      'Code access could not be saved. Check the GitHub or GitLab address. Leave it blank for github.com or gitlab.com, then save again.'
     )
   })
 
   test('turns permission failures into an owner or admin next step', () => {
     expectBeginnerMessage(
       gitCredentialsErrorMessage('HTTP 403'),
-      'Refresh Settings to load repository access. Ask an owner or admin to let you manage repository access.'
+      'Refresh Settings to load code access. Ask an owner or admin to let you manage code access.'
     )
   })
 
@@ -42,7 +42,7 @@ describe('gitCredentialsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Repository access could not be removed. Refresh Settings, then try again. If it still fails, ask an owner or admin to check repository access settings.'
+      'Code access could not be removed. Refresh Settings, then try again. If it still fails, ask an owner or admin to check code access settings.'
     )
     expect(message).not.toContain('temporarily unavailable')
   })
@@ -52,7 +52,7 @@ describe('gitCredentialsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load repository access. If it still fails, ask an owner or admin to check repository access settings.'
+      'Refresh Settings to load code access. If it still fails, ask an owner or admin to check code access settings.'
     )
   })
 
@@ -61,18 +61,18 @@ describe('gitCredentialsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then refresh Settings to load repository access. Forge could not connect while opening repository access.'
+      'Check your connection, then refresh Settings to load code access. Forge could not connect while opening code access.'
     )
     expect(message).not.toContain('service')
     expect(message).not.toContain('Failed to fetch')
   })
 
   test('starts save network failures with the recovery step', () => {
-    const message = gitCredentialsErrorMessage('saving repository access failed: Network error')
+    const message = gitCredentialsErrorMessage('saving code access failed: Network error')
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then save repository access again. Forge could not connect while opening repository access.'
+      'Check your connection, then save code access again. Forge could not connect while opening code access.'
     )
     expect(message).not.toContain('Network error')
   })
@@ -80,7 +80,7 @@ describe('gitCredentialsErrorMessage', () => {
   test('turns structured rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       gitCredentialsErrorMessage({ statusCode: '429' }),
-      'Refresh Settings to load repository access. Forge is receiving too many repository access requests right now. Wait a minute, then try again.'
+      'Refresh Settings to load code access. Forge is receiving too many code access requests right now. Wait a minute, then try again.'
     )
   })
 
@@ -89,7 +89,7 @@ describe('gitCredentialsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load repository access. Try again. If it still fails, ask an owner or admin to check repository access settings.'
+      'Refresh Settings to load code access. Try again. If it still fails, ask an owner or admin to check code access settings.'
     )
     expect(message).not.toContain('vault')
   })

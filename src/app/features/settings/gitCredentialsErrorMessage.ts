@@ -76,27 +76,27 @@ function actionFromText(text: string): GitCredentialAction {
 }
 
 function baseMessage(action: GitCredentialAction): string {
-  if (action === 'save') return 'Repository access could not be saved.'
-  if (action === 'remove') return 'Repository access could not be removed.'
-  return 'Refresh Settings to load repository access.'
+  if (action === 'save') return 'Code access could not be saved.'
+  if (action === 'remove') return 'Code access could not be removed.'
+  return 'Refresh Settings to load code access.'
 }
 
 function connectionMessage(action: GitCredentialAction): string {
   if (action === 'load') {
-    return 'Check your connection, then refresh Settings to load repository access. Forge could not connect while opening repository access.'
+    return 'Check your connection, then refresh Settings to load code access. Forge could not connect while opening code access.'
   }
   const verb = action === 'remove' ? 'remove' : 'save'
-  return `Check your connection, then ${verb} repository access again. Forge could not connect while opening repository access.`
+  return `Check your connection, then ${verb} code access again. Forge could not connect while opening code access.`
 }
 
 function validationGuidance(lower: string): string {
   if (lower.includes('invalid provider')) {
-    return 'Choose GitHub or GitLab, then save repository access again.'
+    return 'Choose GitHub or GitLab, then save code access again.'
   }
   if (lower.includes('invalid host')) {
     return 'Check the GitHub or GitLab address. Leave it blank for github.com or gitlab.com, then save again.'
   }
-  return 'Check the selected site, repository access key, and GitHub or GitLab address, then save again.'
+  return 'Check the selected site, code access key, and GitHub or GitLab address, then save again.'
 }
 
 export function gitCredentialsErrorMessage(error: unknown): string {
@@ -107,10 +107,10 @@ export function gitCredentialsErrorMessage(error: unknown): string {
   const base = baseMessage(action)
 
   if (code === 401 || lower.includes('sign in again') || lower.includes('unauthorized')) {
-    return `${base} Your sign-in expired. Sign in again, then open Settings and try repository access again.`
+    return `${base} Your sign-in expired. Sign in again, then open Settings and try code access again.`
   }
   if (code === 403 || lower.includes('permission') || lower.includes('forbidden')) {
-    return `${base} Ask an owner or admin to let you manage repository access.`
+    return `${base} Ask an owner or admin to let you manage code access.`
   }
   if (
     lower.includes('invalid token') ||
@@ -118,10 +118,10 @@ export function gitCredentialsErrorMessage(error: unknown): string {
     lower.includes('expired token') ||
     lower.includes('token expired')
   ) {
-    return `${base} Paste a new repository access key from GitHub or GitLab, then save again.`
+    return `${base} Paste a new code access key from GitHub or GitLab, then save again.`
   }
   if (code === 409 || lower.includes('already exists')) {
-    return `${base} Repository access for this GitHub or GitLab choice already exists. Remove the old entry first or choose the other site.`
+    return `${base} Code access for this GitHub or GitLab choice already exists. Remove the old entry first or choose the other site.`
   }
   if (code === 422 || lower.includes('invalid host') || lower.includes('invalid provider')) {
     return `${base} ${validationGuidance(lower)}`
@@ -131,20 +131,20 @@ export function gitCredentialsErrorMessage(error: unknown): string {
     lower.includes('provider is not configured') ||
     lower.includes('provider not configured')
   ) {
-    return `${base} Ask an owner or admin to check repository access settings, then try again.`
+    return `${base} Ask an owner or admin to check code access settings, then try again.`
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
-    return `${base} Forge is receiving too many repository access requests right now. Wait a minute, then try again.`
+    return `${base} Forge is receiving too many code access requests right now. Wait a minute, then try again.`
   }
   if (code != null && code >= 500) {
     if (action === 'load') {
-      return `${base} If it still fails, ask an owner or admin to check repository access settings.`
+      return `${base} If it still fails, ask an owner or admin to check code access settings.`
     }
-    return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check repository access settings.`
+    return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check code access settings.`
   }
   if (isNetworkError(error)) {
     return connectionMessage(action)
   }
 
-  return `${base} Try again. If it still fails, ask an owner or admin to check repository access settings.`
+  return `${base} Try again. If it still fails, ask an owner or admin to check code access settings.`
 }

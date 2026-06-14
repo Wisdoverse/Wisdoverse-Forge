@@ -11,15 +11,14 @@ const PROVIDER_LABELS: Record<GitProvider, string> = {
 }
 
 const GIT_CREDENTIAL_SETUP_STEPS = [
-  { label: 'Choose where code lives', value: 'Pick GitHub or GitLab.' },
+  { label: 'Choose where your code lives', value: 'Pick GitHub or GitLab.' },
   {
-    label: 'Create a repository access key',
-    value:
-      'Create an access key on GitHub or GitLab and allow it to read the repositories agents need.',
+    label: 'Create a code access key',
+    value: 'Create an access key on GitHub or GitLab and allow it to read the code agents need.',
   },
   {
     label: 'Leave address blank for cloud',
-    value: 'Only enter an address when your company runs its own GitHub or GitLab.',
+    value: 'Only enter an address when your company hosts its own GitHub or GitLab.',
   },
 ]
 
@@ -41,10 +40,10 @@ function credentialFormReadiness({
   if (!token.trim()) {
     return {
       ready: false,
-      title: 'Next: Create a repository access key',
+      title: 'Next: Create a code access key',
       detail:
-        'Create the key in GitHub or GitLab, paste it here, then agents can open the repositories you allow.',
-      error: 'Paste the repository access key from GitHub or GitLab before saving.',
+        'Create the key in GitHub or GitLab, paste it here, then agents can open the code you allow.',
+      error: 'Paste the code access key from GitHub or GitLab before saving.',
       fieldId: tokenInputId,
     }
   }
@@ -52,7 +51,7 @@ function credentialFormReadiness({
   return {
     ready: true,
     title: 'Ready to save',
-    detail: 'Save repository access, then use a small agent task to confirm it works.',
+    detail: 'Save code access, then use a small agent task to confirm it works.',
     error: null,
     fieldId: null,
   }
@@ -94,8 +93,8 @@ function CredentialRow({ credential, onDelete }: CredentialRowProps) {
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
           {formatAccessDate(credential.createdAt, {
-            missing: 'Refresh repository access to load added date',
-            invalid: 'Refresh repository access to check added date',
+            missing: 'Refresh code access to load added date',
+            invalid: 'Refresh code access to check added date',
           })}
         </span>
       </td>
@@ -105,8 +104,8 @@ function CredentialRow({ credential, onDelete }: CredentialRowProps) {
           onClick={handleDelete}
           aria-label={
             confirming
-              ? `Confirm removing ${PROVIDER_LABELS[credential.provider]} repository access`
-              : `Remove ${PROVIDER_LABELS[credential.provider]} repository access`
+              ? `Confirm removing ${PROVIDER_LABELS[credential.provider]} code access`
+              : `Remove ${PROVIDER_LABELS[credential.provider]} code access`
           }
           className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
         >
@@ -183,7 +182,7 @@ function AddCredentialForm({
     >
       <div className="mb-3 rounded-lg border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
         <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-          Add repository access
+          Add code access
         </div>
         <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
           {GIT_CREDENTIAL_SETUP_STEPS.map((step) => (
@@ -236,7 +235,7 @@ function AddCredentialForm({
 
         <div>
           <label htmlFor="git-credential-token" className={uiStyles.label}>
-            Repository access key <span className="text-red-500">*</span>
+            Code access key <span className="text-red-500">*</span>
           </label>
           <p
             id={tokenIntroId}
@@ -250,7 +249,7 @@ function AddCredentialForm({
             name="token"
             value={form.token}
             onChange={(e) => setForm({ ...form, token: e.target.value })}
-            placeholder="Paste the access key from GitHub or GitLab"
+            placeholder="Paste the code access key from GitHub or GitLab"
             required
             className={uiStyles.input}
             aria-invalid={visibleError !== null}
@@ -260,7 +259,7 @@ function AddCredentialForm({
             id={tokenSafetyId}
             className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            It lets agents open only the repositories you allow. Do not paste your GitHub or GitLab
+            It lets agents open only the code projects you allow. Do not paste your GitHub or GitLab
             password. This key is hidden after saving.
           </p>
           {visibleError && (
@@ -316,7 +315,7 @@ function AddCredentialForm({
           disabled={saving || !form.token.trim()}
           className={uiStyles.primaryButton}
         >
-          {saving ? 'Saving...' : 'Save repository access'}
+          {saving ? 'Saving...' : 'Save code access'}
         </button>
       </div>
     </form>
@@ -369,10 +368,9 @@ export function GitCredentialsSection() {
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>Repository access</h2>
+          <h2 className={uiStyles.sectionTitle}>Code access</h2>
           <p className={uiStyles.sectionDescription}>
-            Connect GitHub or GitLab so agents can clone and update repositories when a task needs
-            code access.
+            Connect GitHub or GitLab so agents can open and update code when a task needs it.
           </p>
         </div>
         {!showForm && canAddMore && (
@@ -382,7 +380,7 @@ export function GitCredentialsSection() {
             className={uiStyles.primaryButton}
           >
             <span>+</span>
-            <span>Add repository access</span>
+            <span>Add code access</span>
           </button>
         )}
       </div>
@@ -398,23 +396,23 @@ export function GitCredentialsSection() {
       <div className={cn(uiStyles.card, 'overflow-x-auto')}>
         {gitCredentialsLoading && gitCredentials.length === 0 ? (
           <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading repository access...
+            Loading code access...
           </div>
         ) : gitCredentials.length === 0 && !showForm ? (
           <div className="px-4 py-6 text-center">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              Add repository access for HTTPS private repos
+              Give agents access to private code
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Add GitHub or GitLab repository access for private repositories that use HTTPS
-              addresses, such as https://github.com/team/repo.git. Use Repository SSH Access for
-              addresses that start with git@.
+              Use this for GitHub or GitLab links that start with https://, such as
+              https://github.com/team/repo.git. If the address starts with git@, use SSH access
+              instead.
             </p>
           </div>
         ) : (
           <>
             {gitCredentials.length > 0 && (
-              <table className={uiStyles.table} aria-label="Repository access">
+              <table className={uiStyles.table} aria-label="Code access">
                 <thead className={uiStyles.tableHead}>
                   <tr>
                     {tableHeaders.map((h) => (

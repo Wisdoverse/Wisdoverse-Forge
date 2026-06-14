@@ -75,7 +75,7 @@ type SettingsErrorAction = 'load' | 'save' | 'delete' | 'create' | 'revoke' | 'u
 const SETTINGS_AREA_LABELS: Record<SettingsErrorArea, string> = {
   providers: 'AI service settings',
   apiKeys: 'outside tool access keys',
-  gitCredentials: 'code repository access',
+  gitCredentials: 'code access',
   sshKeys: 'repository SSH access',
   resourceProfiles: 'work capacity',
   runtime: 'agent work settings',
@@ -84,7 +84,7 @@ const SETTINGS_AREA_LABELS: Record<SettingsErrorArea, string> = {
 const SETTINGS_ITEM_LABELS: Record<SettingsErrorArea, string> = {
   providers: 'AI service',
   apiKeys: 'outside tool access key',
-  gitCredentials: 'repository access',
+  gitCredentials: 'code access',
   sshKeys: 'repository SSH access',
   resourceProfiles: 'agent size',
   runtime: 'agent work setting',
@@ -179,7 +179,7 @@ function settingsUnavailableMessage(actionPhrase: string, action: SettingsErrorA
 
 function settingsPermissionMessage(area: SettingsErrorArea, actionPhrase: string): string {
   if (area === 'gitCredentials') {
-    return `You do not have permission to ${actionPhrase}. Ask an owner or admin to let you manage code repository access.`
+    return `You do not have permission to ${actionPhrase}. Ask an owner or admin to let you manage code access.`
   }
   if (area === 'sshKeys') {
     return `You do not have permission to ${actionPhrase}. Ask an owner or admin to let you manage repository SSH access.`
@@ -269,18 +269,18 @@ function settingsValidationMessage(
 
   if (area === 'gitCredentials') {
     if (normalized.includes('not configured')) {
-      return 'Repository access is not configured yet. Ask an owner or admin to finish GitHub or GitLab setup, then refresh repository access.'
+      return 'Code access is not configured yet. Ask an owner or admin to finish GitHub or GitLab setup, then refresh code access.'
     }
     if (normalized.includes('provider')) {
-      return 'Choose GitHub or GitLab, then save repository access again.'
+      return 'Choose GitHub or GitLab, then save code access again.'
     }
     if (normalized.includes('host')) {
       return 'Check the GitHub or GitLab address. Leave it blank for github.com or gitlab.com, then save again.'
     }
     if (normalized.includes('token') || normalized.includes('key')) {
-      return 'Paste the repository access key from GitHub or GitLab, then save again.'
+      return 'Paste the code access key from GitHub or GitLab, then save again.'
     }
-    return 'Choose GitHub or GitLab, paste the repository access key, then save again.'
+    return 'Choose GitHub or GitLab, paste the code access key, then save again.'
   }
 
   if (area === 'sshKeys') {

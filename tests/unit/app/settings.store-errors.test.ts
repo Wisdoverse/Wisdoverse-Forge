@@ -130,7 +130,7 @@ describe('settingsActionErrorMessage', () => {
   test('turns GitHub or GitLab site validation into a site choice step', () => {
     expectBeginnerError(
       settingsActionErrorMessage('gitCredentials', 'save', statusError(422, 'invalid provider')),
-      'Choose GitHub or GitLab, then save repository access again.'
+      'Choose GitHub or GitLab, then save code access again.'
     )
   })
 
@@ -203,7 +203,7 @@ describe('settingsActionErrorMessage', () => {
     expect(message).not.toContain('runtime writes')
   })
 
-  test('uses product labels for repository access permission errors', () => {
+  test('uses product labels for code access permission errors', () => {
     const message = settingsActionErrorMessage(
       'gitCredentials',
       'save',
@@ -212,7 +212,7 @@ describe('settingsActionErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'You do not have permission to save the repository access. Ask an owner or admin to let you manage code repository access.'
+      'You do not have permission to save the code access. Ask an owner or admin to let you manage code access.'
     )
     expect(message).not.toContain('Git credential')
     expect(message).not.toContain('Git credentials')
@@ -290,7 +290,7 @@ describe('useSettingsStore errors', () => {
 
     expectBeginnerError(
       useSettingsStore.getState().gitCredentialsError,
-      'Repository access is not configured yet. Ask an owner or admin to finish GitHub or GitLab setup, then refresh repository access.'
+      'Code access is not configured yet. Ask an owner or admin to finish GitHub or GitLab setup, then refresh code access.'
     )
   })
 })
