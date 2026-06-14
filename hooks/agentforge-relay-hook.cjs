@@ -9,7 +9,10 @@ const net = require('node:net')
 const fs = require('node:fs')
 const { randomUUID } = require('node:crypto')
 
-const SOCKET_PATH = process.env.AGENTFORGE_RELAY_SOCKET || '/tmp/agentforge-relay.sock'
+// Hardcoded to match the sidecar listener, the entrypoint readiness wait, and the
+// image healthcheck. No env override: a per-component override could drift these
+// four apart (sidecar binds path A while the hook writes to path B -> dropped events).
+const SOCKET_PATH = '/tmp/agentforge-relay.sock'
 const MAX_RESPONSE_CHARS = 65536 // 64K characters max response text
 
 // =============================================================================

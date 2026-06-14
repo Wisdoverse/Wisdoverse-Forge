@@ -216,3 +216,13 @@ So this fix is **one deploy**: the agent base image (A + B), then respawn agents
   re-probe) that proves KICK terminates a connection on this NATS; only then mint
   longer-lived JWTs, falling back to 15 min on any probe failure. This is the only
   safe way to cut the reconnect frequency, per the Codex finding. Tracked separately.
+
+- B exactly-once / dedup: the relay is **at-least-once** by design. `async_nats`
+  buffers a `publish()` and auto-delivers it on reconnect; the WAL is the
+  restart safety-net, and on a flush-confirm timeout the record is **kept** (favouring
+  no-loss). In the narrow window "NATS down >5s, sidecar stays up, then reconnects"
+  the buffered publish AND the WAL drain can both deliver → a **duplicate** ingest row
+  (the events repo has no idempotency). Sidecar-only exactly-once is not achievable
+  with async-nats buffering; the correct fix is **idempotent ingest — dedup by the
+  event `id`** (the hook's stable UUID) at the server's event consumer. Tracked
+  separately; until then the relay favours no-loss over no-duplicate.
