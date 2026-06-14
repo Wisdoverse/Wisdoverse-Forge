@@ -117,7 +117,7 @@ function OrganizationsEmptyState() {
         <Building2 size={18} strokeWidth={2} />
       </div>
       <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-        No team spaces are visible yet
+        Create or sync a team space first
       </p>
       <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
         Create or sync a team space before creating teams, projects, people, or agent work queues.

@@ -286,6 +286,40 @@ function userEmptyState() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags team space empty states that do not point to creating or syncing first', () => {
+    const cwd = fixture({
+      'src/app/features/admin/OrganizationsPanel.tsx': `
+function OrganizationsEmptyState() {
+  return <p>No team spaces are visible yet</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'admin-orgs-empty-copy',
+          location: 'src/app/features/admin/OrganizationsPanel.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts team space empty states that tell users to create or sync first', () => {
+    const cwd = fixture({
+      'src/app/features/admin/OrganizationsPanel.tsx': `
+function OrganizationsEmptyState() {
+  return <p>Create or sync a team space first</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags generic compact work-location labels in the runtime label helper', () => {
     const cwd = fixture({
       'src/app/entities/agent/model/runtime-kind.ts': `

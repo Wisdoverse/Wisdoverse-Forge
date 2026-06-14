@@ -140,6 +140,8 @@ const PROVIDER_ZERO_READY_DEAD_END_PATTERNS = [/\bNo AI services are ready to us
 
 const ADMIN_USERS_EMPTY_DEAD_END_PATTERNS = [/\bNo one is listed yet\b/i]
 
+const ADMIN_ORGS_EMPTY_DEAD_END_PATTERNS = [/\bNo team spaces are visible yet\b/i]
+
 const RUNTIME_SHORT_LABEL_JARGON_PATTERNS = [
   /\breturn\s+['"`]Not reported['"`]/,
   /\breturn\s+['"`]Needs review['"`]/,
@@ -401,6 +403,12 @@ function hasAdminUsersEmptyDeadEndCopy(relFile, line) {
   return ADMIN_USERS_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAdminOrgsEmptyDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/admin/OrganizationsPanel.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ADMIN_ORGS_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasRuntimeShortLabelJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/entities/agent/model/runtime-kind.ts')) return false
   return RUNTIME_SHORT_LABEL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
@@ -588,6 +596,16 @@ function scanFile(file, relFile) {
         type: 'admin-users-empty-copy',
         location,
         message: 'User management empty states must tell beginners to invite people first.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAdminOrgsEmptyDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'admin-orgs-empty-copy',
+        location,
+        message:
+          'Team space empty states must tell beginners to create or sync a team space first.',
         sample: line.trim(),
       })
     }

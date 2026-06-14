@@ -100,10 +100,11 @@ describe('OrganizationsPanel', () => {
     ).toBeDefined()
 
     const emptyState = screen.getByTestId('admin-org-empty')
-    expect(within(emptyState).getByText('No team spaces are visible yet')).toBeDefined()
+    expect(within(emptyState).getByText('Create or sync a team space first')).toBeDefined()
     expect(
       within(emptyState).getByText(/Create or sync a team space before creating teams/i)
     ).toBeDefined()
+    expect(within(emptyState).queryByText('No team spaces are visible yet')).toBeNull()
   })
 
   test('adds recovery guidance when organizations fail to load', async () => {
