@@ -1879,6 +1879,38 @@ export function TaskStatus() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags live work status copy that does not tell users to refresh', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentTerminalTab.tsx': `
+export function liveWorkStatusLabel() {
+  return 'Status not reported'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'live-work-status-copy',
+        location: 'src/app/features/agents/AgentTerminalTab.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts live work status copy that tells users to refresh', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentTerminalTab.tsx': `
+export function liveWorkStatusLabel() {
+  return 'Refresh to load status'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags app health status copy that does not tell users to check now', () => {
     const cwd = fixture({
       'src/app/features/admin/SystemHealth.tsx': `

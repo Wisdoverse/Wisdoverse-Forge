@@ -26,6 +26,7 @@ export function liveWorkToolLabel(cliTool?: CliTool): string {
 }
 
 export function liveWorkStatusLabel(status?: string): string {
+  if (!status?.trim()) return 'Refresh to load status'
   return agentStatusLabel(status)
 }
 

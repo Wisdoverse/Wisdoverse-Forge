@@ -127,7 +127,8 @@ describe('AgentTerminalTab', () => {
         'Wait until this agent shows Ready. If it still shows Not connected, open Overview, use Controls, and start or restart this agent before using Live work.'
       )
     ).toBeInTheDocument()
-    expect(screen.getByText('Status not reported')).toBeInTheDocument()
+    expect(screen.getByText('Refresh to load status')).toBeInTheDocument()
+    expect(screen.queryByText('Status not reported')).toBeNull()
     expect(screen.getByText('Agent startup')).toBeInTheDocument()
     expect(screen.getByText('Waiting for this agent')).toBeInTheDocument()
     expect(screen.queryByText(new RegExp(['restart', 'the workspace'].join(' '), 'i'))).toBeNull()
