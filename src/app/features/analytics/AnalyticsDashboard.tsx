@@ -188,8 +188,18 @@ export function AnalyticsDashboard() {
               loading={loading}
               accent="blue"
             />
-            <StatCard title="Working" value={agentStats.working} loading={loading} accent="blue" />
-            <StatCard title="Offline" value={agentStats.offline} loading={loading} accent="red" />
+            <StatCard
+              title="Working now"
+              value={agentStats.working}
+              loading={loading}
+              accent="blue"
+            />
+            <StatCard
+              title="Not connected"
+              value={agentStats.offline}
+              loading={loading}
+              accent="red"
+            />
           </div>
         </section>
 

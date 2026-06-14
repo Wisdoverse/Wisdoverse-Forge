@@ -342,7 +342,7 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
         title: 'Run the setup command on this computer again',
         detail:
           'Go to the computer where this agent was connected. Open Terminal or PowerShell in the project folder, run the setup command again, and keep that window open.',
-        success: 'The status changes from Offline to Ready or Working.',
+        success: 'The status changes from Not connected to Ready or Working now.',
         ready: false,
       }
     }
@@ -647,8 +647,8 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
         </span>
         {agent.cliTool && (
           <span className="max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Success looks like the agent status changing to Ready or Working. If it stays stuck, ask
-            an owner or admin to check this agent setup.
+            Success looks like the agent status changing to Ready or Working now. If it stays stuck,
+            ask an owner or admin to check this agent setup.
           </span>
         )}
       </div>

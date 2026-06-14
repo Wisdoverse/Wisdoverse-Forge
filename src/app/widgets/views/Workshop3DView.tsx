@@ -46,7 +46,7 @@ const STATUS_STYLE: Record<
   { label: string; color: number; emissive: number; className: string; desk: number }
 > = {
   working: {
-    label: 'Working',
+    label: 'Working now',
     color: 0x34c759,
     emissive: 0x103c20,
     className: 'bg-emerald-500',
@@ -60,7 +60,7 @@ const STATUS_STYLE: Record<
     desk: 0x4ac8e8,
   },
   offline: {
-    label: 'Offline',
+    label: 'Not connected',
     color: 0x8e8e93,
     emissive: 0x1d1d21,
     className: 'bg-zinc-500',
@@ -595,9 +595,9 @@ function countByStatus(agents: AgentInfo[]): Record<AgentStatus, number> {
 export function Workshop3DStatusSummary({ totals }: { totals: Record<AgentStatus, number> }) {
   return (
     <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-[11px] text-white/70">
-      <span>{totals.working} Working</span>
+      <span>{totals.working} Working now</span>
       <span>{totals.idle} Ready</span>
-      <span>{totals.offline} Offline</span>
+      <span>{totals.offline} Not connected</span>
     </div>
   )
 }

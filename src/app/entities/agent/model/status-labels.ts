@@ -1,9 +1,9 @@
 import type { AgentStatus } from './types'
 
 const AGENT_STATUS_LABELS: Record<string, string> = {
-  working: 'Working',
+  working: 'Working now',
   idle: 'Ready',
-  offline: 'Offline',
+  offline: 'Not connected',
 }
 
 export function agentStatusLabel(status: AgentStatus | string | null | undefined): string {

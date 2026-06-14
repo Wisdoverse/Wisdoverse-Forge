@@ -124,7 +124,7 @@ describe('AgentTerminalTab', () => {
     expect(screen.getByText('Live work is still starting')).toBeInTheDocument()
     expect(
       screen.getByText(
-        'Wait until this agent shows Ready. If it stays Offline, open Overview, use Controls, and start or restart this agent before using Live work.'
+        'Wait until this agent shows Ready. If it still shows Not connected, open Overview, use Controls, and start or restart this agent before using Live work.'
       )
     ).toBeInTheDocument()
     expect(screen.getByText('Status not reported')).toBeInTheDocument()

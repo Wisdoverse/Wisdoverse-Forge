@@ -248,7 +248,7 @@ describe('AgentListView', () => {
 
     fireEvent.click(within(workLocationFilters).getByRole('button', { name: /all agents\s*4/i }))
     const statusFilters = screen.getByRole('group', { name: /status filter/i })
-    fireEvent.click(within(statusFilters).getByRole('button', { name: /offline\s*1/i }))
+    fireEvent.click(within(statusFilters).getByRole('button', { name: /not connected\s*1/i }))
     expect(screen.getByText('Legacy Worker')).toBeDefined()
     expect(screen.queryByText('Review Analyst')).toBeNull()
   })
@@ -295,7 +295,7 @@ describe('AgentListView', () => {
     render(<AgentListView />)
 
     const statusFilters = screen.getByRole('group', { name: /status filter/i })
-    fireEvent.click(within(statusFilters).getByRole('button', { name: /offline\s*0/i }))
+    fireEvent.click(within(statusFilters).getByRole('button', { name: /not connected\s*0/i }))
     const emptyState = screen.getByTestId('agent-filter-empty')
     expect(within(emptyState).getByText('This status filter hides every agent')).toBeDefined()
     expect(within(emptyState).getByText(/another status/i)).toBeDefined()

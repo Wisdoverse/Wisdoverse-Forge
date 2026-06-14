@@ -20,9 +20,9 @@ interface AssignmentReadinessPanelProps {
 }
 
 const STATUS_LABELS: Record<ParticipantSummary['status'], string> = {
-  available: 'Available',
-  busy: 'Busy',
-  offline: 'Offline',
+  available: 'Can take work',
+  busy: 'Working now',
+  offline: 'Not connected',
 }
 
 const STATUS_STYLES: Record<ParticipantSummary['status'], string> = {
@@ -76,9 +76,9 @@ export function AssignmentReadinessPanel({
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <MetricPill label="Available" value={available.length} />
-          <MetricPill label="Busy" value={busy.length} />
-          <MetricPill label="Offline" value={offline.length} />
+          <MetricPill label="Can take work" value={available.length} />
+          <MetricPill label="Working now" value={busy.length} />
+          <MetricPill label="Not connected" value={offline.length} />
           <button
             type="button"
             onClick={onRefresh}

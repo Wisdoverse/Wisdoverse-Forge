@@ -37,9 +37,9 @@ interface AgentFilterEmptyCopy {
 
 const STATUS_FILTERS: { value: AgentStatusFilter; label: string }[] = [
   { value: 'all', label: 'All' },
-  { value: 'working', label: 'Working' },
-  { value: 'idle', label: 'Idle' },
-  { value: 'offline', label: 'Offline' },
+  { value: 'working', label: 'Working now' },
+  { value: 'idle', label: 'Ready' },
+  { value: 'offline', label: 'Not connected' },
 ]
 
 const RUNTIME_FILTERS: { value: AgentRuntimeFilter; label: string }[] = [

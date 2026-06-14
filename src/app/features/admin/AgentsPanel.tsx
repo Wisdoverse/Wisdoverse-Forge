@@ -52,9 +52,9 @@ function agentStatusLabel(status: string): string {
     case 'idle':
       return 'Ready'
     case 'working':
-      return 'Working'
+      return 'Working now'
     case 'offline':
-      return 'Offline'
+      return 'Not connected'
     default:
       return status.trim() ? 'Needs review' : 'Status not reported'
   }

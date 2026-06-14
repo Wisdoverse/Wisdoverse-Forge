@@ -129,7 +129,7 @@ describe('AssignmentReadinessPanel', () => {
 
     expect(screen.queryByTestId('assignment-readiness-empty')).toBeNull()
     expect(screen.getByText('Ready Agent')).toBeDefined()
-    expect(screen.getAllByText('Available').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Can take work').length).toBeGreaterThan(0)
   })
 
   test('summarizes tasks that need help without blocked-task wording', () => {

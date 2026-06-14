@@ -351,7 +351,7 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText('1. Copy this setup command.')).toBeInTheDocument()
     expect(screen.getByText(/paste it into the terminal app/i)).toBeInTheDocument()
     expect(
-      screen.getByText(/changes from Offline to Ready on the Agents page/i)
+      screen.getByText(/changes from Not connected to Ready on the Agents page/i)
     ).toBeInTheDocument()
     expect(screen.queryByText(previousCliInstallCopy)).toBeNull()
     expect(screen.queryByText(previousManualConnectionCopy)).toBeNull()
@@ -402,7 +402,7 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText('1. Copy this setup command.')).toBeInTheDocument()
     expect(screen.getByText(/paste it into terminal or powershell/i)).toBeInTheDocument()
     expect(
-      screen.getByText(/changes from Offline to Ready on the Agents page/i)
+      screen.getByText(/changes from Not connected to Ready on the Agents page/i)
     ).toBeInTheDocument()
     expect(screen.queryByText(/shows online/i)).toBeNull()
     expect(screen.queryByText(/agent fleet/i)).toBeNull()

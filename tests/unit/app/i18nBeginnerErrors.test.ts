@@ -79,6 +79,25 @@ describe('beginner error translations', () => {
     expect(zh.prompt.noAgentSelected).not.toBe('未选择 Agent')
   })
 
+  test('agent status copy tells beginners whether work can be assigned', () => {
+    expect(en.agents.status.idle).toBe('Ready')
+    expect(en.agents.status.working).toBe('Working now')
+    expect(en.agents.status.waiting).toBe('Needs input')
+    expect(en.agents.status.offline).toBe('Not connected')
+    expect(en.agents.status.error).toBe('Needs attention')
+    expect(JSON.stringify(en.agents.status)).not.toContain('Idle')
+    expect(JSON.stringify(en.agents.status)).not.toContain('Offline')
+    expect(JSON.stringify(en.agents.status)).not.toContain('Error')
+
+    expect(zh.agents.status.idle).toBe('可接收任务')
+    expect(zh.agents.status.waiting).toBe('需要输入')
+    expect(zh.agents.status.offline).toBe('未连接')
+    expect(zh.agents.status.error).toBe('需要处理')
+    expect(JSON.stringify(zh.agents.status)).not.toContain('空闲')
+    expect(JSON.stringify(zh.agents.status)).not.toContain('离线')
+    expect(JSON.stringify(zh.agents.status)).not.toContain('错误')
+  })
+
   test('validation errors tell beginners what to change next', () => {
     expect(en.agents.invalidProjectPath).toBe('Enter a project folder path, then try again.')
     expect(en.files.invalidType).toBe('Choose a file with one of these types: {{types}}.')

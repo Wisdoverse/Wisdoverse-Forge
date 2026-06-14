@@ -557,8 +557,8 @@ export function CreateAgentModal() {
                     2. Paste it into Terminal or PowerShell on the computer that will do the work.
                   </p>
                   <p>
-                    3. Keep that window open. Success looks like: the agent changes from Offline to
-                    Ready on the Agents page.
+                    3. Keep that window open. Success looks like: the agent changes from Not
+                    connected to Ready on the Agents page.
                   </p>
                 </div>
                 <details className="mt-3">
@@ -613,8 +613,8 @@ export function CreateAgentModal() {
                   <p>1. Copy this setup command.</p>
                   <p>2. Paste it into the terminal app on the computer that will do the work.</p>
                   <p>
-                    3. Keep that window open. Success looks like: the agent changes from Offline to
-                    Ready on the Agents page.
+                    3. Keep that window open. Success looks like: the agent changes from Not
+                    connected to Ready on the Agents page.
                   </p>
                 </div>
               </div>

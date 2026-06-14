@@ -633,9 +633,9 @@ function agentStatusLabel(status: string): string {
       return 'ready'
     case 'busy':
     case 'working':
-      return 'busy'
+      return 'working now'
     case 'offline':
-      return 'offline'
+      return 'not connected'
     default:
       return normalized ? 'not ready' : 'status not reported'
   }

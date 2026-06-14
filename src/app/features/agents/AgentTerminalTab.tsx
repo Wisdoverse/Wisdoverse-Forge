@@ -19,7 +19,7 @@ interface AgentTerminalTabProps {
 
 const KEY_GROUPS: KeyDef[][] = [NAV_KEYS, NUM_KEYS, UTIL_KEYS]
 const LIVE_WORK_CONNECTION_NOTICE =
-  'Live work notice: Connection dropped. Refresh this page first. If this agent stays Offline, open Overview, use Controls, and choose Restart agent.'
+  'Live work notice: Connection dropped. Refresh this page first. If this agent still shows Not connected, open Overview, use Controls, and choose Restart agent.'
 
 export function liveWorkToolLabel(cliTool?: CliTool): string {
   return agentToolLabel(cliTool)
@@ -195,8 +195,8 @@ export function AgentTerminalTab({
         <div>
           <h3 className="text-sm font-semibold text-white">Live work is still starting</h3>
           <p className="mt-1 text-xs leading-relaxed text-white/60">
-            Wait until this agent shows Ready. If it stays Offline, open Overview, use Controls, and
-            start or restart this agent before using Live work.
+            Wait until this agent shows Ready. If it still shows Not connected, open Overview, use
+            Controls, and start or restart this agent before using Live work.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2 text-[11px] text-white/55">

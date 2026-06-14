@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { agentCardStatusHelp, AgentCard } from '@app/features/agents/AgentCard'
-import type { AgentInfo } from '@app/entities/agent'
+import { agentStatusLabel, type AgentInfo } from '@app/entities/agent'
 
 afterEach(cleanup)
 
@@ -31,6 +31,13 @@ describe('AgentCard', () => {
     expect(screen.getByText('Finished')).toBeDefined()
     expect(screen.getByText('Running')).toBeDefined()
     expect(screen.getByText('Success')).toBeDefined()
+  })
+
+  test('uses action-oriented status labels', () => {
+    expect(agentStatusLabel('working')).toBe('Working now')
+    expect(agentStatusLabel('idle')).toBe('Ready')
+    expect(agentStatusLabel('offline')).toBe('Not connected')
+    expect(agentStatusLabel('offline')).not.toBe('Offline')
   })
 
   test('summarizes managed workspace agents without raw provider/model pairs', () => {

@@ -130,8 +130,8 @@ describe('BoardView', () => {
     expect(screen.getByText(/1 agent can take work now/i)).toBeDefined()
     expect(screen.getByText('Ready Agent')).toBeDefined()
     expect(screen.getByText('Busy Agent')).toBeDefined()
-    expect(screen.getAllByText('Available').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Busy').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Can take work').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Working now').length).toBeGreaterThan(0)
   })
 
   test('summarizes work handoff pressure from board columns', async () => {

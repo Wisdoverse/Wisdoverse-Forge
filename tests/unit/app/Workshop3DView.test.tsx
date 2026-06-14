@@ -36,9 +36,9 @@ describe('Workshop3DStatusSummary', () => {
   test('uses beginner-safe labels instead of raw agent status words', () => {
     render(<Workshop3DStatusSummary totals={{ working: 2, idle: 1, offline: 0 }} />)
 
-    expect(screen.getByText('2 Working')).toBeDefined()
+    expect(screen.getByText('2 Working now')).toBeDefined()
     expect(screen.getByText('1 Ready')).toBeDefined()
-    expect(screen.getByText('0 Offline')).toBeDefined()
+    expect(screen.getByText('0 Not connected')).toBeDefined()
     expect(screen.queryByText(/idle/i)).toBeNull()
   })
 })

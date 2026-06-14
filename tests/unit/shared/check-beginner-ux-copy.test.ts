@@ -525,6 +525,129 @@ export const en = {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags agent status labels that do not explain readiness', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  agents: {
+    status: {
+      idle: 'Idle',
+      offline: 'Offline',
+      error: 'Error',
+    },
+  },
+}
+`,
+      'src/app/features/agents/AgentListView.tsx': `
+const STATUS_FILTERS = [
+  { value: 'idle', label: 'Idle' },
+  { value: 'offline', label: 'Offline' },
+]
+`,
+      'src/app/features/admin/AgentsPanel.tsx': `
+function agentStatusLabel() {
+  return 'Offline'
+}
+`,
+      'src/app/features/analytics/StatusStats.tsx': `
+export function StatusStats() {
+  return <StatCard title="Offline" />
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-status-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'agent-status-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'agent-status-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:7',
+        }),
+        expect.objectContaining({
+          type: 'agent-status-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-status-copy',
+          location: 'src/app/features/admin/AgentsPanel.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-status-copy',
+          location: 'src/app/features/analytics/StatusStats.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('flags Chinese agent status labels that do not explain readiness', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  agents: {
+    status: {
+      idle: '空闲',
+      offline: '离线',
+      error: '错误',
+    },
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'agent-status-copy',
+        location: 'src/app/shared/i18n/locales/zh.ts:5',
+      }),
+      expect.objectContaining({
+        type: 'agent-status-copy',
+        location: 'src/app/shared/i18n/locales/zh.ts:6',
+      }),
+      expect.objectContaining({
+        type: 'agent-status-copy',
+        location: 'src/app/shared/i18n/locales/zh.ts:7',
+      }),
+    ])
+  })
+
+  it('accepts agent status labels that explain readiness', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  agents: {
+    status: {
+      idle: 'Ready',
+      working: 'Working now',
+      offline: 'Not connected',
+      error: 'Needs attention',
+    },
+  },
+}
+`,
+      'src/app/features/agents/AgentListView.tsx': `
+const STATUS_FILTERS = [
+  { value: 'idle', label: 'Ready' },
+  { value: 'offline', label: 'Not connected' },
+]
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('ignores raw legacy API parser regexes', () => {
     const cwd = fixture({
       'src/app/shared/api/legacy/AgentAPI.ts': `

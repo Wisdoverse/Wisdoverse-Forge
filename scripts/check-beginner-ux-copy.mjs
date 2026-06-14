@@ -92,6 +92,20 @@ const ACTIVITY_JARGON_PATTERNS = [
   /\bTask:\s*['"`]子任务['"`]/,
 ]
 
+const AGENT_STATUS_JARGON_PATTERNS = [
+  /\bidle:\s*['"`]Idle['"`]/,
+  /\boffline:\s*['"`]Offline['"`]/,
+  /\berror:\s*['"`]Error['"`]/,
+  /\blabel:\s*['"`]Offline['"`]/,
+  /\breturn\s+['"`]Offline['"`]/,
+  /\btitle=(?:['"`]Offline['"`]|\{\s*['"`]Offline['"`]\s*\})/,
+  /\bvalue:\s*['"`]idle['"`]\s*,\s*label:\s*['"`]Idle['"`]/,
+  /\bvalue:\s*['"`]offline['"`]\s*,\s*label:\s*['"`]Offline['"`]/,
+  /\bidle:\s*['"`]空闲['"`]/,
+  /\boffline:\s*['"`]离线['"`]/,
+  /\berror:\s*['"`]错误['"`]/,
+]
+
 const BEGINNER_JARGON_PATTERNS = [
   /\blocal agents?\b/i,
   /\bmanaged local agent\b/i,
@@ -288,6 +302,11 @@ function hasActivityJargonCopy(line) {
   return ACTIVITY_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAgentStatusJargonCopy(line) {
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_STATUS_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function scanFile(file, relFile) {
   const lines = fs.readFileSync(file, 'utf8').split('\n')
   const findings = []
@@ -364,6 +383,15 @@ function scanFile(file, relFile) {
         type: 'activity-jargon-copy',
         location,
         message: 'Activity feed labels must describe what the agent did in beginner language.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentStatusJargonCopy(line)) {
+      findings.push({
+        type: 'agent-status-copy',
+        location,
+        message: 'Agent status labels must explain whether work can be assigned.',
         sample: line.trim(),
       })
     }
