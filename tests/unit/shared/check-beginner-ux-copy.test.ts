@@ -529,6 +529,11 @@ function prefix(action) {
   return 'Agent tools could not be loaded.'
 }
 `,
+      'src/app/features/agents/model/taskErrorMessage.ts': `
+function agentTasksErrorMessage(error) {
+  return "This agent's work list could not be loaded."
+}
+`,
       'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts': `
 function baseMessage(resource, action) {
   return 'Workspace teams could not be loaded.'
@@ -560,6 +565,10 @@ function ResourceProfilesError() {
         }),
         expect.objectContaining({
           type: 'load-error-title-copy',
+          location: 'src/app/features/agents/model/taskErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'load-error-title-copy',
           location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:3',
         }),
         expect.objectContaining({
@@ -585,6 +594,11 @@ function billingErrorMessage(area) {
       'src/app/features/agents/model/pluginErrorMessage.ts': `
 function prefix(action) {
   return 'Refresh this agent page to load tools.'
+}
+`,
+      'src/app/features/agents/model/taskErrorMessage.ts': `
+function agentTasksErrorMessage(error) {
+  return "Refresh this agent to load its work list."
 }
 `,
       'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts': `

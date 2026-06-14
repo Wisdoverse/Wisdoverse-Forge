@@ -40,28 +40,27 @@ function isNetworkError(err: unknown): boolean {
 }
 
 export function agentTasksErrorMessage(err: unknown): string {
-  const base = "This agent's work list could not be loaded."
   const code = statusCode(err)
   const text = structuredErrorMessage(err).toLowerCase()
 
   if (code === 401 || text.includes('unauthorized')) {
-    return `${base} Sign in again, then reopen this agent.`
+    return 'Sign in again, then reopen this agent to load its work list.'
   }
   if (code === 403 || text.includes('forbidden')) {
-    return `${base} Ask an owner or admin to give you access to this agent or its task queue.`
+    return "Ask an owner or admin to give you access to this agent's work list."
   }
   if (code === 404) {
-    return `${base} Refresh the page; this agent may have changed or been removed.`
+    return 'Refresh this page to load the agent work list again; this agent may have changed or been removed.'
   }
   if (code === 429 || text.includes('rate limit') || text.includes('too many')) {
-    return `${base} Too many task requests are happening right now. Wait a minute, then try again.`
+    return 'Too many task requests are happening right now. Wait a minute, then refresh this agent to load its work list.'
   }
   if (code != null && code >= 500) {
-    return `${base} Forge could not load this work list right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check this agent's task setup.`
+    return "Refresh this agent to load its work list. If it still fails, ask an owner or admin to check this agent's task setup."
   }
   if (isNetworkError(err)) {
-    return `${base} Forge could not connect while loading this work list. Check your connection, then try again.`
+    return 'Check your connection, then refresh this agent to load its work list.'
   }
 
-  return `${base} Try again. If it still fails, ask an owner or admin to check this agent's task setup.`
+  return "Refresh this agent to load its work list. If it still fails, ask an owner or admin to check this agent's task setup."
 }
