@@ -165,6 +165,8 @@ const ANALYTICS_USEFUL_EMPTY_DEAD_END_PATTERNS = [/\bNo useful saved items yet\b
 
 const SAVED_ITEM_OPTIONAL_EMPTY_DEAD_END_PATTERNS = [/\bNo other saved items were found\b/i]
 
+const TASK_AGENT_ASSIGNMENT_DEAD_END_PATTERNS = [/\bNo agent assigned yet\b/i]
+
 const RUNTIME_SIGN_IN_DEAD_END_PATTERNS = [/\bNo work tool sign-ins are connected yet\b/i]
 
 const RUNTIME_DEFAULT_LOCATION_DEAD_END_PATTERNS = [/\bNot set yet\b/i]
@@ -475,6 +477,12 @@ function hasSavedItemOptionalEmptyDeadEndCopy(relFile, line) {
   return SAVED_ITEM_OPTIONAL_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTaskAgentAssignmentDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/detail/HistoryTab.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_AGENT_ASSIGNMENT_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasRuntimeSignInDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/settings/RuntimeSection.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -733,6 +741,15 @@ function scanFile(file, relFile) {
         type: 'saved-item-optional-empty-copy',
         location,
         message: 'Saved item preview empty states must explain how more saved items appear later.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskAgentAssignmentDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'task-agent-assignment-copy',
+        location,
+        message: 'Task status copy must tell beginners to choose an agent before starting.',
         sample: line.trim(),
       })
     }

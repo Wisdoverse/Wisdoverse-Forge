@@ -644,6 +644,40 @@ export function InjectionPreviewModal() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags task assignment status copy that does not tell users to choose an agent', () => {
+    const cwd = fixture({
+      'src/app/features/detail/HistoryTab.tsx': `
+function taskCheckIn() {
+  return { title: 'No agent assigned yet' }
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-agent-assignment-copy',
+          location: 'src/app/features/detail/HistoryTab.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts task assignment status copy that tells users to choose an agent', () => {
+    const cwd = fixture({
+      'src/app/features/detail/HistoryTab.tsx': `
+function taskCheckIn() {
+  return { title: 'Choose an agent to start this task' }
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags work setup summaries that do not tell users to sign in first', () => {
     const cwd = fixture({
       'src/app/features/settings/RuntimeSection.tsx': `

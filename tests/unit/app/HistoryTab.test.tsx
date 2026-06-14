@@ -50,6 +50,26 @@ describe('HistoryTab', () => {
     expect(screen.queryByText(/when ready/i)).toBeNull()
   })
 
+  test('tells users to choose an agent before starting unassigned backlog tasks', async () => {
+    getTaskRunsMock.mockResolvedValue([])
+
+    render(
+      <HistoryTab
+        task={makeTask({
+          state: 'backlog',
+          assignedAgentName: undefined,
+          assignedTo: undefined,
+          progress: 0,
+        })}
+      />
+    )
+
+    expect(await screen.findByText('Choose an agent to start this task')).toBeInTheDocument()
+    expect(screen.getByText('Choose an available agent before this task can start.')).toBeDefined()
+    expect(screen.getByText('Choose an agent first, then start the task.')).toBeDefined()
+    expect(screen.queryByText('No agent assigned yet')).toBeNull()
+  })
+
   test('shows beginner recovery guidance when work history fails to load', async () => {
     getTaskRunsMock.mockRejectedValue(new Error('HTTP 403'))
 

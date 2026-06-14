@@ -325,7 +325,7 @@ function taskCheckIn(task: TaskSummary): {
             Icon: Send,
           }
         : {
-            title: 'No agent assigned yet',
+            title: 'Choose an agent to start this task',
             detail: 'Choose an available agent before this task can start.',
             tone: 'warn',
             Icon: Bot,
