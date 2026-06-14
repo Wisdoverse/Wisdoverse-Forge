@@ -70,28 +70,30 @@ describe('SkillsView', () => {
     )
   })
 
-  test('offers a CI status skill that avoids repeated waiting', async () => {
+  test('offers a review status instruction that avoids repeated waiting', async () => {
     const user = userEvent.setup()
     render(<SkillsView />)
 
     await user.click(screen.getAllByRole('button', { name: /save instruction/i })[0])
     const templates = screen.getByRole('group', { name: /instruction templates/i })
-    await user.click(within(templates).getByRole('button', { name: /check pr status/i }))
+    await user.click(within(templates).getByRole('button', { name: /check review status/i }))
 
     expect(screen.getByLabelText(/^instruction name$/i)).toHaveValue('pr-status-check')
     expect(screen.getByLabelText(/^short description$/i)).toHaveValue(
-      'Summarize PR review and build status from one fresh check'
+      'Summarize review and build status from one fresh check'
     )
     expect(screen.getByLabelText(/^matching words for future tasks$/i)).toHaveValue(
-      'pr status, checks, build status, ci'
+      'review status, build status, checks'
     )
     const instructions = screen.getByLabelText(/^agent instructions$/i) as HTMLTextAreaElement
-    expect(instructions.value).toContain('Check GitHub or GitLab once')
+    expect(instructions.value).toContain('Check the code review page once')
     expect(instructions.value).toContain('reuse it instead of refreshing')
-    expect(instructions.value).toContain('Classify the result as ACTION, WAIT, or DONE')
-    expect(instructions.value).toContain('inspect only the failed check or job details')
-    expect(instructions.value).toContain('stop monitoring in chat')
-    expect(instructions.value).toContain('suggest a background monitor')
+    expect(instructions.value).toContain('Needs a fix, Waiting, or Done')
+    expect(instructions.value).toContain('open only the failed build or review item')
+    expect(instructions.value).toContain('stop checking in chat')
+    expect(instructions.value).toContain('project background watcher')
+    expect(instructions.value).not.toContain('ACTION')
+    expect(instructions.value).not.toContain('GitHub or GitLab')
     expect(instructions.value).not.toContain('npm run')
   })
 

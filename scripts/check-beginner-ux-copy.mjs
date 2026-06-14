@@ -261,6 +261,18 @@ const SAVED_INSTRUCTIONS_LOAD_DEAD_END_PATTERNS = [
   /\bForge could not load Saved instructions right now\./i,
 ]
 
+const SAVED_INSTRUCTION_TEMPLATE_JARGON_PATTERNS = [
+  /\bCheck GitHub or GitLab once\b/i,
+  /\bPR or CI summary\b/i,
+  /\bClassify the result as ACTION, WAIT, or DONE\b/i,
+  /\bFor ACTION\b/,
+  /\bFor WAIT\b/,
+  /\bFor DONE\b/,
+  /\bfailed check or job details\b/i,
+  /\bstop monitoring in chat\b/i,
+  /\bsuggest a background monitor\b/i,
+]
+
 const RUNTIME_SIGN_IN_DEAD_END_PATTERNS = [/\bNo work tool sign-ins are connected yet\b/i]
 
 const RUNTIME_DEFAULT_LOCATION_DEAD_END_PATTERNS = [/\bNot set yet\b/i]
@@ -984,6 +996,12 @@ function hasSavedInstructionsLoadDeadEndCopy(relFile, line) {
   return SAVED_INSTRUCTIONS_LOAD_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasSavedInstructionTemplateJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/skills/CreateSkillModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SAVED_INSTRUCTION_TEMPLATE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasRuntimeSignInDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/settings/RuntimeSection.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -1658,6 +1676,16 @@ function scanFile(file, relFile) {
         type: 'saved-instructions-load-copy',
         location,
         message: 'Saved instructions load fallback copy must point beginners to the retry action.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSavedInstructionTemplateJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'saved-instruction-template-copy',
+        location,
+        message:
+          'Saved instruction templates must use plain result language instead of PR/CI status jargon.',
         sample: line.trim(),
       })
     }
