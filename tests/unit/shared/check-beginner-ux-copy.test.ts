@@ -1911,6 +1911,54 @@ export function liveWorkStatusLabel() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags task detail run status copy that does not tell users to refresh task status', () => {
+    const cwd = fixture({
+      'src/app/features/detail/HistoryTab.tsx': `
+export function readableRunStatus() {
+  return 'Status not reported'
+}
+`,
+      'src/app/features/detail/ContextTab.tsx': `
+export function runStatusLabel() {
+  return 'Status not reported'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+      expect.objectContaining({
+        type: 'task-detail-run-status-copy',
+        location: 'src/app/features/detail/HistoryTab.tsx:3',
+      }),
+      expect.objectContaining({
+        type: 'task-detail-run-status-copy',
+        location: 'src/app/features/detail/ContextTab.tsx:3',
+      }),
+      ])
+    )
+  })
+
+  it('accepts task detail run status copy that tells users to refresh task status', () => {
+    const cwd = fixture({
+      'src/app/features/detail/HistoryTab.tsx': `
+export function readableRunStatus() {
+  return 'Refresh task status'
+}
+`,
+      'src/app/features/detail/ContextTab.tsx': `
+export function runStatusLabel() {
+  return 'Refresh task status'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags app health status copy that does not tell users to check now', () => {
     const cwd = fixture({
       'src/app/features/admin/SystemHealth.tsx': `

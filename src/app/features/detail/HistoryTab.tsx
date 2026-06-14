@@ -506,7 +506,7 @@ function readableRunStatus(status: string): string {
     case 'cancelled':
       return 'Stopped'
     default:
-      return normalized ? 'Status needs review' : 'Status not reported'
+      return normalized ? 'Status needs review' : 'Refresh task status'
   }
 }
 

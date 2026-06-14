@@ -205,6 +205,8 @@ const RUNTIME_DEFAULT_LOCATION_DEAD_END_PATTERNS = [/\bNot set yet\b/i]
 
 const LIVE_WORK_STATUS_DEAD_END_PATTERNS = [/\bStatus not reported\b/i]
 
+const TASK_DETAIL_RUN_STATUS_DEAD_END_PATTERNS = [/\bStatus not reported\b/i]
+
 const BEGINNER_JARGON_PATTERNS = [
   /\blocal agents?\b/i,
   /\bmanaged local agent\b/i,
@@ -588,6 +590,17 @@ function hasLiveWorkStatusDeadEndCopy(relFile, line) {
   return LIVE_WORK_STATUS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTaskDetailRunStatusDeadEndCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/detail/HistoryTab.tsx') &&
+    !relFile.endsWith('src/app/features/detail/ContextTab.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_DETAIL_RUN_STATUS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function scanFile(file, relFile) {
   const lines = fs.readFileSync(file, 'utf8').split('\n')
   const findings = []
@@ -948,6 +961,16 @@ function scanFile(file, relFile) {
         type: 'live-work-status-copy',
         location,
         message: 'Live work status copy must tell beginners to refresh status before deciding.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskDetailRunStatusDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'task-detail-run-status-copy',
+        location,
+        message:
+          'Task detail run status copy must tell beginners to refresh task status before deciding.',
         sample: line.trim(),
       })
     }
