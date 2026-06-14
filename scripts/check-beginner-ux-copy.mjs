@@ -167,6 +167,8 @@ const SAVED_ITEM_OPTIONAL_EMPTY_DEAD_END_PATTERNS = [/\bNo other saved items wer
 
 const TASK_AGENT_ASSIGNMENT_DEAD_END_PATTERNS = [/\bNo agent assigned yet\b/i]
 
+const TIMELINE_EMPTY_DEAD_END_PATTERNS = [/\bNo timeline events yet\b/i]
+
 const RUNTIME_SIGN_IN_DEAD_END_PATTERNS = [/\bNo work tool sign-ins are connected yet\b/i]
 
 const RUNTIME_DEFAULT_LOCATION_DEAD_END_PATTERNS = [/\bNot set yet\b/i]
@@ -483,6 +485,12 @@ function hasTaskAgentAssignmentDeadEndCopy(relFile, line) {
   return TASK_AGENT_ASSIGNMENT_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTimelineEmptyDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/widgets/views/TimelineView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TIMELINE_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasRuntimeSignInDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/settings/RuntimeSection.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -750,6 +758,16 @@ function scanFile(file, relFile) {
         type: 'task-agent-assignment-copy',
         location,
         message: 'Task status copy must tell beginners to choose an agent before starting.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTimelineEmptyDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'timeline-empty-copy',
+        location,
+        message:
+          'Timeline empty states must use an action title that tells beginners how to begin.',
         sample: line.trim(),
       })
     }

@@ -89,7 +89,7 @@ export function TimelineView() {
         className="pointer-events-none absolute inset-0 flex items-center justify-center p-4"
       >
         <div className="max-w-lg rounded-lg border border-white/10 bg-black/35 px-4 py-3 text-white shadow-lg backdrop-blur">
-          <p className="text-ui-body font-semibold">No timeline events yet</p>
+          <p className="text-ui-body font-semibold">Start a task to build the timeline</p>
           <p className="mt-1 text-ui-caption leading-relaxed text-white/68">
             Start a task or open a running task. Status changes will appear here in time order.
           </p>

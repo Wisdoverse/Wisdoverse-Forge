@@ -41,7 +41,7 @@ describe('TimelineView', () => {
     render(<TimelineView />)
 
     expect(screen.getByTestId('timeline-view')).toBeDefined()
-    expect(screen.getByText('No timeline events yet')).toBeDefined()
+    expect(screen.getByText('Start a task to build the timeline')).toBeDefined()
     expect(
       screen.getByText(
         'Start a task or open a running task. Status changes will appear here in time order.'
@@ -54,6 +54,7 @@ describe('TimelineView', () => {
     expect(
       screen.getByText('Open a task when the timeline shows something that needs attention')
     ).toBeDefined()
+    expect(screen.queryByText('No timeline events yet')).toBeNull()
     expect(screen.queryByText(/blocked and completed/i)).toBeNull()
   })
 

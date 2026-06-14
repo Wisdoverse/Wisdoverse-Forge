@@ -678,6 +678,38 @@ function taskCheckIn() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags timeline empty titles that do not tell users how to begin', () => {
+    const cwd = fixture({
+      'src/app/widgets/views/TimelineView.tsx': `
+export function TimelineView() {
+  return <p>No timeline events yet</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'timeline-empty-copy',
+        location: 'src/app/widgets/views/TimelineView.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts timeline empty titles that tell users how to begin', () => {
+    const cwd = fixture({
+      'src/app/widgets/views/TimelineView.tsx': `
+export function TimelineView() {
+  return <p>Start a task to build the timeline</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags work setup summaries that do not tell users to sign in first', () => {
     const cwd = fixture({
       'src/app/features/settings/RuntimeSection.tsx': `
