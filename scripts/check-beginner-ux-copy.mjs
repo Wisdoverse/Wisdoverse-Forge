@@ -83,6 +83,15 @@ const DEAD_END_LIMIT_CONFLICT_PATTERNS = [
   /文件过大，最大允许 \{\{size\}\}/,
 ]
 
+const ACTIVITY_JARGON_PATTERNS = [
+  /\btool_use:\s*['"`]Tool Use['"`]/,
+  /\btool_result:\s*['"`]Tool Result['"`]/,
+  /\bTask:\s*['"`]Subagent Task['"`]/,
+  /\btool_use:\s*['"`]工具调用['"`]/,
+  /\btool_result:\s*['"`]工具结果['"`]/,
+  /\bTask:\s*['"`]子任务['"`]/,
+]
+
 const BEGINNER_JARGON_PATTERNS = [
   /\blocal agents?\b/i,
   /\bmanaged local agent\b/i,
@@ -274,6 +283,11 @@ function hasDeadEndLimitConflictCopy(line) {
   return DEAD_END_LIMIT_CONFLICT_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasActivityJargonCopy(line) {
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ACTIVITY_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function scanFile(file, relFile) {
   const lines = fs.readFileSync(file, 'utf8').split('\n')
   const findings = []
@@ -341,6 +355,15 @@ function scanFile(file, relFile) {
         type: 'limit-conflict-next-action',
         location,
         message: 'User-visible limit or conflict copy must explain what to change next.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasActivityJargonCopy(line)) {
+      findings.push({
+        type: 'activity-jargon-copy',
+        location,
+        message: 'Activity feed labels must describe what the agent did in beginner language.',
         sample: line.trim(),
       })
     }

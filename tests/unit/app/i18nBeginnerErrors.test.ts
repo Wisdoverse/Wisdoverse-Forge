@@ -218,6 +218,38 @@ describe('beginner error translations', () => {
     expect(JSON.stringify(zh.workshop)).not.toContain('绘图模式')
   })
 
+  test('activity feed labels explain what happened without internal event names', () => {
+    expect(en.feed.eventTypes.tool_use).toBe('Agent used a tool')
+    expect(en.feed.eventTypes.tool_result).toBe('Tool finished')
+    expect(en.feed.eventTypes.text).toBe('Agent message')
+    expect(en.feed.eventTypes.error).toBe('Needs attention')
+    expect(en.feed.eventTypes.thinking).toBe('Planning next step')
+    expect(en.feed.eventTypes.system).toBe('System update')
+    expect(en.feed.tools.Read).toBe('Opened a file')
+    expect(en.feed.tools.Write).toBe('Created a file')
+    expect(en.feed.tools.Edit).toBe('Changed a file')
+    expect(en.feed.tools.Grep).toBe('Searched file text')
+    expect(en.feed.tools.Task).toBe('Asked another agent')
+    expect(JSON.stringify(en.feed)).not.toContain('Tool Use')
+    expect(JSON.stringify(en.feed)).not.toContain('Tool Result')
+    expect(JSON.stringify(en.feed)).not.toContain('Subagent Task')
+
+    expect(zh.feed.eventTypes.tool_use).toBe('Agent 使用了工具')
+    expect(zh.feed.eventTypes.tool_result).toBe('工具已完成')
+    expect(zh.feed.eventTypes.text).toBe('Agent 消息')
+    expect(zh.feed.eventTypes.error).toBe('需要处理')
+    expect(zh.feed.eventTypes.thinking).toBe('正在规划下一步')
+    expect(zh.feed.eventTypes.system).toBe('系统更新')
+    expect(zh.feed.tools.Read).toBe('打开文件')
+    expect(zh.feed.tools.Write).toBe('创建文件')
+    expect(zh.feed.tools.Edit).toBe('修改文件')
+    expect(zh.feed.tools.Grep).toBe('搜索文件内容')
+    expect(zh.feed.tools.Task).toBe('请另一个 Agent 协助')
+    expect(JSON.stringify(zh.feed)).not.toContain('工具调用')
+    expect(JSON.stringify(zh.feed)).not.toContain('工具结果')
+    expect(JSON.stringify(zh.feed)).not.toContain('子任务')
+  })
+
   test('this-computer agent join errors avoid request-header and connection-policy jargon', () => {
     const englishJoin = en.errors.agent.enroll.missing_idempotency_key
     const englishSecure = en.errors.agent.enroll.plaintext_nats_blocked

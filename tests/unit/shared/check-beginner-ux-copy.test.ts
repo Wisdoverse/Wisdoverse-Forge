@@ -434,6 +434,97 @@ export const en = {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags activity feed labels that expose internal event names', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  feed: {
+    eventTypes: {
+      tool_use: 'Tool Use',
+      tool_result: 'Tool Result',
+    },
+    tools: {
+      Task: 'Subagent Task',
+    },
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'activity-jargon-copy',
+        location: 'src/app/shared/i18n/locales/en.ts:5',
+      }),
+      expect.objectContaining({
+        type: 'activity-jargon-copy',
+        location: 'src/app/shared/i18n/locales/en.ts:6',
+      }),
+      expect.objectContaining({
+        type: 'activity-jargon-copy',
+        location: 'src/app/shared/i18n/locales/en.ts:9',
+      }),
+    ])
+  })
+
+  it('flags Chinese activity feed labels that expose internal event names', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  feed: {
+    eventTypes: {
+      tool_use: '工具调用',
+      tool_result: '工具结果',
+    },
+    tools: {
+      Task: '子任务',
+    },
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'activity-jargon-copy',
+        location: 'src/app/shared/i18n/locales/zh.ts:5',
+      }),
+      expect.objectContaining({
+        type: 'activity-jargon-copy',
+        location: 'src/app/shared/i18n/locales/zh.ts:6',
+      }),
+      expect.objectContaining({
+        type: 'activity-jargon-copy',
+        location: 'src/app/shared/i18n/locales/zh.ts:9',
+      }),
+    ])
+  })
+
+  it('accepts activity feed labels that describe what happened', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  feed: {
+    eventTypes: {
+      tool_use: 'Agent used a tool',
+    },
+    tools: {
+      Task: 'Asked another agent',
+    },
+  },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('ignores raw legacy API parser regexes', () => {
     const cwd = fixture({
       'src/app/shared/api/legacy/AgentAPI.ts': `
