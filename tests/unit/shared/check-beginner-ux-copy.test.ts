@@ -404,6 +404,38 @@ export function AnalyticsDashboard() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags work setup summaries that do not tell users to sign in first', () => {
+    const cwd = fixture({
+      'src/app/features/settings/RuntimeSection.tsx': `
+function runtimeReadinessSummary() {
+  return 'No work tool sign-ins are connected yet'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'runtime-sign-in-copy',
+        location: 'src/app/features/settings/RuntimeSection.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts work setup summaries that tell users to sign in before starting agents', () => {
+    const cwd = fixture({
+      'src/app/features/settings/RuntimeSection.tsx': `
+function runtimeReadinessSummary() {
+  return 'Sign in to a work tool before starting agents that need one'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags validation copy that does not explain the next change', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `

@@ -149,6 +149,8 @@ const BILLING_RECEIPT_LINK_DEAD_END_PATTERNS = [/\bNo link\b/i]
 
 const ANALYTICS_CHART_DEAD_END_PATTERNS = [/\bNo activity data\b/i, /\bNo tool usage data\b/i]
 
+const RUNTIME_SIGN_IN_DEAD_END_PATTERNS = [/\bNo work tool sign-ins are connected yet\b/i]
+
 const BEGINNER_JARGON_PATTERNS = [
   /\blocal agents?\b/i,
   /\bmanaged local agent\b/i,
@@ -407,6 +409,12 @@ function hasAnalyticsChartDeadEndCopy(relFile, line) {
   return ANALYTICS_CHART_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasRuntimeSignInDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/settings/RuntimeSection.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return RUNTIME_SIGN_IN_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function scanFile(file, relFile) {
   const lines = fs.readFileSync(file, 'utf8').split('\n')
   const findings = []
@@ -578,6 +586,16 @@ function scanFile(file, relFile) {
         type: 'analytics-chart-empty-copy',
         location,
         message: 'Analytics chart empty states must tell beginners what creates the first data.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasRuntimeSignInDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'runtime-sign-in-copy',
+        location,
+        message:
+          'Work setup summaries must tell beginners to sign in before starting affected agents.',
         sample: line.trim(),
       })
     }

@@ -838,7 +838,7 @@ function runtimeReadinessSummary(
   const tools = countPhrase(runtimeSettings.availableCliTools.length, 'work tool')
   const signIns =
     connectedCredentialCount === 0
-      ? 'No work tool sign-ins are connected yet'
+      ? 'Sign in to a work tool before starting agents that need one'
       : `${countPhrase(connectedCredentialCount, 'work tool sign-in')} ${
           connectedCredentialCount === 1 ? 'is' : 'are'
         } connected`

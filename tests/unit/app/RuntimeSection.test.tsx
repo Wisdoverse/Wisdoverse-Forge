@@ -234,6 +234,29 @@ describe('RuntimeSection', () => {
     expect(screen.queryByText(/agent check-ins/i)).toBeNull()
   })
 
+  test('tells users to sign in before starting agents when no work tool sign-ins are connected', async () => {
+    agentApiMock.getCliAuthProxyStatus.mockResolvedValueOnce({
+      ok: true,
+      statuses: [
+        {
+          provider: 'github',
+          displayName: 'GitHub',
+          cliTool: 'codex',
+          connected: false,
+        },
+      ],
+    })
+
+    render(<RuntimeSection />)
+
+    expect(await screen.findByTestId('runtime-launch-checklist')).toBeDefined()
+    expect(
+      screen.getByText(/Sign in to a work tool before starting agents that need one/i)
+    ).toBeDefined()
+    expect(screen.queryByText(/No work tool sign-ins are connected yet/i)).toBeNull()
+    expect(screen.getByRole('button', { name: /Sign in to GitHub/i })).toBeDefined()
+  })
+
   test('labels missing work setup clearly instead of Unknown', async () => {
     useSettingsStore.setState({
       runtimeSettings: null,
