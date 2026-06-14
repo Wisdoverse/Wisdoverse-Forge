@@ -126,7 +126,7 @@ describe('ProvidersSection', () => {
     expect(screen.getByText('No providers match this view')).toBeDefined()
   })
 
-  test('guides an empty provider setup into the add form', async () => {
+  test('guides an empty provider setup into the catalog and saves a built-in vendor', async () => {
     useSettingsStore.setState({ providers: [] })
 
     render(<ProvidersSection />)
@@ -137,25 +137,25 @@ describe('ProvidersSection', () => {
 
     fireEvent.click(within(nextStep).getByRole('button', { name: /add provider/i }))
 
-    expect(screen.getByText('Provider setup path')).toBeDefined()
-    expect(screen.getByText('Paste key')).toBeDefined()
-    expect(screen.getByText(/stored encrypted/i)).toBeDefined()
-    expect(screen.getByText('Save, then test')).toBeDefined()
-    expect(screen.getByLabelText(/^provider$/i)).toBeDefined()
+    // The built-in catalog is the default Add view: a grid of vendor cards.
+    const catalog = screen.getByRole('group', { name: /built-in provider catalog/i })
+    expect(within(catalog).getByRole('button', { name: /anthropic/i })).toBeDefined()
+
+    // Selecting a vendor opens the minimal inline config (model prefilled).
+    fireEvent.click(within(catalog).getByRole('button', { name: /anthropic/i }))
+
+    expect(screen.getByLabelText(/^model$/i)).toHaveValue('claude-sonnet-4-20250514')
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(/next: paste api key/i)
     const saveButton = screen.getByRole('button', { name: /save provider/i })
-    expect(saveButton).toBeEnabled()
 
-    fireEvent.click(saveButton)
-
-    expect(
-      screen.getAllByText('Add the API key before saving this provider.').length
-    ).toBeGreaterThan(0)
+    // Save stays blocked until the key is present.
+    expect(saveButton).toBeDisabled()
     expect(saveProviderMock).not.toHaveBeenCalled()
 
     fireEvent.change(screen.getByLabelText(/api key/i), { target: { value: 'sk-test' } })
 
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(/ready to save/i)
+    expect(saveButton).toBeEnabled()
     fireEvent.click(saveButton)
 
     await waitFor(() =>
@@ -167,6 +167,27 @@ describe('ProvidersSection', () => {
         })
       )
     )
+  })
+
+  test('offers a Custom / Gateway path limited to bring-your-own endpoints', async () => {
+    useSettingsStore.setState({ providers: [] })
+
+    render(<ProvidersSection />)
+
+    const nextStep = await screen.findByTestId('provider-next-step')
+    fireEvent.click(within(nextStep).getByRole('button', { name: /add provider/i }))
+    fireEvent.click(screen.getByRole('button', { name: /custom \/ gateway/i }))
+
+    // The full bring-your-own form is shown with a base URL field.
+    expect(screen.getByText('Custom / Gateway setup path')).toBeDefined()
+    const providerSelect = screen.getByLabelText(/^provider$/i)
+    expect(within(providerSelect).getByRole('option', { name: 'OpenAI-Compatible' })).toBeDefined()
+    expect(within(providerSelect).getByRole('option', { name: 'LiteLLM Gateway' })).toBeDefined()
+    expect(within(providerSelect).getByRole('option', { name: 'OpenRouter' })).toBeDefined()
+    // Curated vendors do NOT appear in the gateway dropdown.
+    expect(within(providerSelect).queryByRole('option', { name: 'Anthropic' })).toBeNull()
+    expect(within(providerSelect).queryByRole('option', { name: 'Zhipu GLM' })).toBeNull()
+    expect(screen.getByLabelText(/base url/i)).toBeDefined()
   })
 
   test('does not treat disabled-only providers as ready', async () => {
@@ -194,12 +215,13 @@ describe('ProvidersSection', () => {
 
     fireEvent.click(within(nextStep).getByRole('button', { name: /add provider/i }))
 
+    // The disabled provider still lists in the configured rows; the catalog
+    // opens for adding an active one.
     expect(screen.getByText('Local Disabled')).toBeDefined()
-    expect(screen.getByRole('button', { name: /save provider/i })).toBeEnabled()
-    expect(screen.getByTestId('provider-form-status')).toHaveTextContent(/next: paste api key/i)
+    expect(screen.getByRole('group', { name: /built-in provider catalog/i })).toBeDefined()
   })
 
-  test('surfaces the CN default placeholder and global endpoint hint for region-switch providers', async () => {
+  test('collapses coding-plan variants into one vendor with Plan and Region toggles', async () => {
     useSettingsStore.setState({ providers: [] })
 
     render(<ProvidersSection />)
@@ -207,22 +229,67 @@ describe('ProvidersSection', () => {
     const nextStep = await screen.findByTestId('provider-next-step')
     fireEvent.click(within(nextStep).getByRole('button', { name: /add provider/i }))
 
-    fireEvent.change(screen.getByLabelText(/^provider$/i), { target: { value: 'zhipu' } })
+    const catalog = screen.getByRole('group', { name: /built-in provider catalog/i })
+    // One Zhipu card — not separate base + Coding Plan entries.
+    expect(within(catalog).queryByRole('button', { name: /zhipu glm coding plan/i })).toBeNull()
+    fireEvent.click(within(catalog).getByRole('button', { name: /zhipu glm/i }))
 
-    // CN endpoint is the default (placeholder); the global endpoint is the hint.
+    // Model prefills from the API variant; Plan + Region toggles are present.
     expect(screen.getByLabelText(/^model$/i)).toHaveValue('glm-4.7')
-    expect(screen.getByLabelText(/base url/i)).toHaveAttribute(
-      'placeholder',
-      expect.stringContaining('https://open.bigmodel.cn/api/paas/v4')
-    )
-    expect(
-      screen.getByText(/global endpoint: https:\/\/api\.z\.ai\/api\/paas\/v4/i)
-    ).toBeDefined()
+    expect(screen.getByRole('group', { name: /^plan$/i })).toBeDefined()
+    expect(screen.getByRole('group', { name: /^region$/i })).toBeDefined()
 
-    // Hunyuan is CN-only — no global endpoint hint, default copy returns.
-    fireEvent.change(screen.getByLabelText(/^provider$/i), { target: { value: 'hunyuan' } })
-    expect(screen.getByText(/only change this for a local model server/i)).toBeDefined()
-    expect(screen.queryByText(/global endpoint:/i)).toBeNull()
+    fireEvent.change(screen.getByLabelText(/api key/i), { target: { value: 'sk-zhipu' } })
+
+    // CN (default) → China base URL on the API plan.
+    fireEvent.click(screen.getByRole('button', { name: /save provider/i }))
+    await waitFor(() =>
+      expect(saveProviderMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider: 'zhipu',
+          model: 'glm-4.7',
+          apiKey: 'sk-zhipu',
+          baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+        })
+      )
+    )
+  })
+
+  test('Region=Global switches a vendor to its global endpoint on save', async () => {
+    useSettingsStore.setState({ providers: [] })
+
+    render(<ProvidersSection />)
+
+    const nextStep = await screen.findByTestId('provider-next-step')
+    fireEvent.click(within(nextStep).getByRole('button', { name: /add provider/i }))
+
+    const catalog = screen.getByRole('group', { name: /built-in provider catalog/i })
+    fireEvent.click(within(catalog).getByRole('button', { name: /zhipu glm/i }))
+
+    // Switch to the Coding Plan and Global region.
+    fireEvent.click(
+      within(screen.getByRole('group', { name: /^plan$/i })).getByRole('button', {
+        name: /coding plan/i,
+      })
+    )
+    fireEvent.click(
+      within(screen.getByRole('group', { name: /^region$/i })).getByRole('button', {
+        name: /global/i,
+      })
+    )
+    fireEvent.change(screen.getByLabelText(/api key/i), { target: { value: 'sk-zhipu' } })
+    fireEvent.click(screen.getByRole('button', { name: /save provider/i }))
+
+    await waitFor(() =>
+      expect(saveProviderMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider: 'zhipu_coding',
+          model: 'glm-4.7',
+          apiKey: 'sk-zhipu',
+          baseUrl: 'https://api.z.ai/api/anthropic',
+        })
+      )
+    )
   })
 
   test('runs a provider test from the provider row', async () => {

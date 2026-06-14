@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Activity, AlertTriangle, CheckCircle2, Plus, Search } from 'lucide-react'
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  Plus,
+  Search,
+  SlidersHorizontal,
+} from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
@@ -26,6 +33,8 @@ interface AddProviderForm {
 
 type ProviderFilter = 'all' | 'ready' | 'needs-test' | 'disabled'
 type ProviderNextAction = 'add-provider' | 'show-needs-test'
+/** Which "Add" experience is visible: the curated catalog or the bring-your-own gateway form. */
+type AddBucket = 'catalog' | 'custom'
 
 interface ProviderNextStep {
   title: string
@@ -44,6 +53,20 @@ interface ProviderFormReadiness {
   fieldId: string | null
 }
 
+/**
+ * A built-in catalog vendor. The `xxx` (API) and `xxx_coding` (Coding Plan)
+ * provider keys are collapsed into one card so operators pick the vendor once,
+ * then toggle Plan / Region instead of scrolling a 25-entry dropdown.
+ */
+interface CatalogVendor {
+  /** Stable grouping key (the base provider key, e.g. `zhipu`). */
+  key: string
+  /** Vendor display name with the " Coding Plan" suffix stripped. */
+  displayName: string
+  api?: ProviderInfo
+  coding?: ProviderInfo
+}
+
 const PROVIDER_FILTERS: { id: ProviderFilter; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'ready', label: 'Ready' },
@@ -51,16 +74,23 @@ const PROVIDER_FILTERS: { id: ProviderFilter; label: string }[] = [
   { id: 'disabled', label: 'Disabled' },
 ]
 
+/** Provider keys that are bring-your-own endpoints rather than curated vendors. */
+const GATEWAY_PROVIDERS: ReadonlySet<LlmProvider> = new Set<LlmProvider>([
+  'openai_compatible',
+  'litellm',
+  'openrouter',
+])
+
 const DEFAULT_FORM: AddProviderForm = {
-  provider: 'anthropic',
+  provider: 'openai_compatible',
   displayName: '',
-  model: 'claude-sonnet-4-20250514',
+  model: '',
   apiKey: '',
   baseUrl: '',
 }
 
 const PROVIDER_SETUP_STEPS = [
-  { label: 'Choose provider', value: 'Select the service that will run model requests.' },
+  { label: 'Choose endpoint', value: 'Point at your OpenAI-compatible or gateway service.' },
   { label: 'Paste key', value: 'Use the provider key from that account. It is stored encrypted.' },
   { label: 'Save, then test', value: 'Run Test before creating Provider + Prompt agents.' },
 ]
@@ -117,7 +147,7 @@ const FALLBACK_SUPPORTED_PROVIDERS: ProviderInfo[] = [
     models: [{ model: 'deepseek-chat', displayName: 'DeepSeek Chat' }],
   },
   // Mainstream China-region vendors: the default Base URL is the China
-  // endpoint; globalBaseUrl is surfaced as the help hint for region switching.
+  // endpoint; globalBaseUrl is the Global region endpoint surfaced as a toggle.
   {
     provider: 'zhipu',
     displayName: 'Zhipu GLM',
@@ -310,6 +340,48 @@ function providerNeedsApiKey(provider: LlmProvider, info?: ProviderInfo): boolea
 
 function providerNeedsBaseUrl(provider: LlmProvider, info?: ProviderInfo): boolean {
   return provider === 'openai_compatible' && !info?.defaultBaseUrl
+}
+
+/** Strip the " Coding Plan" suffix so both variants share one vendor name. */
+function vendorDisplayName(info: ProviderInfo): string {
+  return info.displayName.replace(/\s+Coding Plan$/i, '').trim()
+}
+
+/**
+ * Collapse a flat `ProviderInfo[]` into curated catalog vendors plus the
+ * bring-your-own gateway list. `xxx` + `xxx_coding` keys fold into one vendor.
+ */
+function deriveCatalog(providers: ProviderInfo[]): {
+  vendors: CatalogVendor[]
+  gateways: ProviderInfo[]
+} {
+  const vendorMap = new Map<string, CatalogVendor>()
+  const vendors: CatalogVendor[] = []
+  const gateways: ProviderInfo[] = []
+
+  for (const info of providers) {
+    if (GATEWAY_PROVIDERS.has(info.provider)) {
+      gateways.push(info)
+      continue
+    }
+    const isCoding = info.provider.endsWith('_coding')
+    const key = isCoding ? info.provider.slice(0, -'_coding'.length) : info.provider
+    let vendor = vendorMap.get(key)
+    if (!vendor) {
+      vendor = { key, displayName: vendorDisplayName(info) }
+      vendorMap.set(key, vendor)
+      vendors.push(vendor)
+    }
+    if (isCoding) {
+      vendor.coding = info
+    } else {
+      vendor.api = info
+      // Prefer the API variant's (suffix-free) name when both exist.
+      vendor.displayName = vendorDisplayName(info)
+    }
+  }
+
+  return { vendors, gateways }
 }
 
 function providerFormReadiness({
@@ -759,27 +831,394 @@ function ProviderReadinessMetric({
 }
 
 // ============================================================================
-// Add Provider Form
+// Segmented toggle (Plan / Region)
 // ============================================================================
 
-interface AddProviderFormProps {
-  supportedProviders: ProviderInfo[]
+interface SegmentedToggleProps<T extends string> {
+  label: string
+  value: T
+  options: { value: T; label: string }[]
+  onChange: (value: T) => void
+}
+
+function SegmentedToggle<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: SegmentedToggleProps<T>) {
+  return (
+    <div>
+      <span className={uiStyles.label}>{label}</span>
+      <div className="inline-flex gap-1" role="group" aria-label={label}>
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={value === option.value}
+            onClick={() => onChange(option.value)}
+            className={cn(
+              'inline-flex h-8 items-center rounded-full px-3 text-ui-caption font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
+              value === option.value
+                ? 'bg-apple-blue text-white'
+                : 'border border-black/[0.08] bg-white text-secondary-light hover:bg-black/[0.03] hover:text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark dark:hover:bg-white/[0.08] dark:hover:text-foreground-dark'
+            )}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ============================================================================
+// Catalog: vendor grid + inline minimal config
+// ============================================================================
+
+type PlanVariant = 'api' | 'coding'
+type RegionVariant = 'cn' | 'global'
+
+interface CatalogConfigPanelProps {
+  vendor: CatalogVendor
   onSave: (input: CreateProviderInput) => Promise<void>
   onCancel: () => void
   saving: boolean
 }
 
+function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigPanelProps) {
+  const [plan, setPlan] = useState<PlanVariant>(vendor.api ? 'api' : 'coding')
+  const [region, setRegion] = useState<RegionVariant>('cn')
+  const [apiKey, setApiKey] = useState('')
+  const [model, setModel] = useState('')
+  const [submitAttempted, setSubmitAttempted] = useState(false)
+
+  const variant = plan === 'coding' ? (vendor.coding ?? vendor.api) : (vendor.api ?? vendor.coding)
+  const hasPlanToggle = Boolean(vendor.api && vendor.coding)
+  const hasRegionToggle = Boolean(variant?.globalBaseUrl)
+  const needsApiKey = variant ? providerNeedsApiKey(variant.provider, variant) : true
+  const allowCustomModels = variant?.allowCustomModels ?? true
+  const models = variant?.models ?? []
+
+  const modelListId = `catalog-models-${vendor.key}`
+  const apiKeyInputId = 'provider-form-api-key'
+  const modelInputId = 'provider-form-model'
+
+  // Reset the inline config whenever the operator picks a different variant so
+  // the prefilled model always matches the selected Plan.
+  useEffect(() => {
+    setModel(variant?.defaultModel ?? variant?.models[0]?.model ?? '')
+    setSubmitAttempted(false)
+  }, [variant])
+
+  const trimmedModel = model.trim()
+  const missingModel = !trimmedModel
+  const missingApiKey = needsApiKey && !apiKey.trim()
+  const ready = Boolean(variant) && !missingModel && !missingApiKey
+  const statusTitle = missingModel
+    ? 'Next: Add Model'
+    : missingApiKey
+      ? 'Next: Paste API Key'
+      : 'Ready to Save'
+
+  const modelError = submitAttempted && missingModel
+  const apiKeyError = submitAttempted && !missingModel && missingApiKey
+  const formStatusId = 'provider-form-status'
+
+  function resolveBaseUrl(): string | undefined {
+    if (!variant) return undefined
+    if (region === 'global' && variant.globalBaseUrl) return variant.globalBaseUrl
+    // Catalog vendors carry their endpoint as defaultBaseUrl; leaving it
+    // undefined lets the backend default apply for vendors with no override.
+    return variant.defaultBaseUrl
+  }
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    setSubmitAttempted(true)
+    if (!variant) return
+    if (missingModel) {
+      document.getElementById(modelInputId)?.focus()
+      return
+    }
+    if (missingApiKey) {
+      document.getElementById(apiKeyInputId)?.focus()
+      return
+    }
+    await onSave({
+      provider: variant.provider,
+      displayName: variant.displayName,
+      model: trimmedModel,
+      apiKey: apiKey.trim() || undefined,
+      baseUrl: resolveBaseUrl(),
+    })
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className={cn(
+        'border-t border-black/[0.06] p-4 dark:border-white/[0.08]',
+        'bg-black/[0.015] dark:bg-white/[0.025]'
+      )}
+      noValidate
+    >
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+            {vendor.displayName}
+          </p>
+          <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+            Base URL and model are derived from this vendor. Paste your key and save.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="text-ui-caption font-medium text-apple-blue hover:underline"
+        >
+          Back to catalog
+        </button>
+      </div>
+
+      {(hasPlanToggle || hasRegionToggle) && (
+        <div className="mb-3 flex flex-wrap gap-4">
+          {hasPlanToggle && (
+            <SegmentedToggle<PlanVariant>
+              label="Plan"
+              value={plan}
+              onChange={setPlan}
+              options={[
+                { value: 'api', label: 'API' },
+                { value: 'coding', label: 'Coding Plan' },
+              ]}
+            />
+          )}
+          {hasRegionToggle && (
+            <SegmentedToggle<RegionVariant>
+              label="Region"
+              value={region}
+              onChange={setRegion}
+              options={[
+                { value: 'cn', label: 'CN' },
+                { value: 'global', label: 'Global' },
+              ]}
+            />
+          )}
+        </div>
+      )}
+
+      <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {/* Model */}
+        <div>
+          <label htmlFor={modelInputId} className={uiStyles.label}>
+            Model
+          </label>
+          {allowCustomModels ? (
+            <>
+              <input
+                id={modelInputId}
+                type="text"
+                name="model"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                placeholder={variant?.defaultModel ?? 'e.g. model name…'}
+                list={models.length > 0 ? modelListId : undefined}
+                autoComplete="off"
+                aria-invalid={modelError}
+                aria-describedby={formStatusId}
+                className={uiStyles.input}
+              />
+              {models.length > 0 && (
+                <datalist id={modelListId}>
+                  {models.map((m) => (
+                    <option key={m.model} value={m.model}>
+                      {m.displayName}
+                    </option>
+                  ))}
+                </datalist>
+              )}
+            </>
+          ) : (
+            <select
+              id={modelInputId}
+              name="model"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              aria-invalid={modelError}
+              aria-describedby={formStatusId}
+              className={cn(uiStyles.select, 'w-full')}
+            >
+              {models.map((m) => (
+                <option key={m.model} value={m.model}>
+                  {m.displayName}
+                </option>
+              ))}
+            </select>
+          )}
+          {modelError && (
+            <p className="mt-1 text-ui-caption text-apple-red">
+              Add a model before saving this provider.
+            </p>
+          )}
+        </div>
+
+        {/* API Key */}
+        {needsApiKey ? (
+          <div>
+            <label htmlFor={apiKeyInputId} className={uiStyles.label}>
+              API Key <span className="text-red-500">*</span>
+            </label>
+            <input
+              id={apiKeyInputId}
+              type="password"
+              name="apiKey"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="sk-…"
+              autoComplete="off"
+              spellCheck={false}
+              aria-invalid={apiKeyError}
+              aria-describedby={formStatusId}
+              className={uiStyles.input}
+            />
+            {apiKeyError && (
+              <p className="mt-1 text-ui-caption text-apple-red">
+                Add the API key before saving this provider.
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className={uiStyles.note}>
+            This vendor runs locally and needs no API key. Save to add it.
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between gap-2">
+        <p
+          id={formStatusId}
+          data-testid="provider-form-status"
+          className="text-ui-caption text-secondary-light dark:text-secondary-dark"
+        >
+          {statusTitle}
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={saving}
+            className={uiStyles.secondaryButton}
+          >
+            Cancel
+          </button>
+          <button type="submit" disabled={saving || !ready} className={uiStyles.primaryButton}>
+            {saving ? 'Saving…' : 'Save Provider'}
+          </button>
+        </div>
+      </div>
+    </form>
+  )
+}
+
+interface CatalogGridProps {
+  vendors: CatalogVendor[]
+  configuredProviders: LlmProviderConfig[]
+  selectedVendorKey: string | null
+  onSelect: (key: string) => void
+}
+
+function CatalogGrid({
+  vendors,
+  configuredProviders,
+  selectedVendorKey,
+  onSelect,
+}: CatalogGridProps) {
+  // A vendor counts as configured when either its API or Coding Plan key exists.
+  const configuredKeys = useMemo(() => {
+    const keys = new Set<string>()
+    for (const config of configuredProviders) {
+      keys.add(config.provider.replace(/_coding$/, ''))
+    }
+    return keys
+  }, [configuredProviders])
+
+  return (
+    <div
+      role="group"
+      aria-label="Built-in provider catalog"
+      className="grid gap-2 p-4 sm:grid-cols-2 lg:grid-cols-3"
+    >
+      {vendors.map((vendor) => {
+        const selected = selectedVendorKey === vendor.key
+        const configured = configuredKeys.has(vendor.key)
+        return (
+          <button
+            key={vendor.key}
+            type="button"
+            aria-pressed={selected}
+            onClick={() => onSelect(vendor.key)}
+            className={cn(
+              'flex min-h-14 flex-col items-start gap-1 rounded-lg border px-3 py-2.5 text-left transition-colors',
+              selected
+                ? 'border-apple-blue/40 bg-apple-blue/10'
+                : 'border-black/[0.08] bg-white hover:bg-black/[0.03] dark:border-white/[0.1] dark:bg-white/[0.04] dark:hover:bg-white/[0.08]'
+            )}
+          >
+            <span className="flex w-full items-center justify-between gap-2">
+              <span className="truncate text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
+                {vendor.displayName}
+              </span>
+              {configured && (
+                <span className="shrink-0 rounded-full bg-apple-green/10 px-2 py-0.5 text-ui-caption font-medium text-apple-green">
+                  Configured
+                </span>
+              )}
+            </span>
+            <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+              {vendor.coding ? 'API · Coding Plan' : 'API'}
+              {vendor.api?.globalBaseUrl || vendor.coding?.globalBaseUrl ? ' · CN/Global' : ''}
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ============================================================================
+// Custom / Gateway form (bring-your-own endpoint)
+// ============================================================================
+
+interface AddProviderFormProps {
+  gatewayProviders: ProviderInfo[]
+  onSave: (input: CreateProviderInput) => Promise<void>
+  onCancel: () => void
+  saving: boolean
+}
+
+function buildGatewayDefaultForm(providers: ProviderInfo[]): AddProviderForm {
+  const first = providers[0]
+  if (!first) return DEFAULT_FORM
+  return {
+    provider: first.provider,
+    displayName: first.displayName,
+    model: first.defaultModel ?? first.models[0]?.model ?? '',
+    apiKey: '',
+    baseUrl: '',
+  }
+}
+
 function AddProviderFormPanel({
-  supportedProviders,
+  gatewayProviders,
   onSave,
   onCancel,
   saving,
 }: AddProviderFormProps) {
-  const [form, setForm] = useState<AddProviderForm>(DEFAULT_FORM)
+  const providerOptions = gatewayProviders
+  const [form, setForm] = useState<AddProviderForm>(() => buildGatewayDefaultForm(providerOptions))
   const [submitAttempted, setSubmitAttempted] = useState(false)
 
-  const providerOptions =
-    supportedProviders.length > 0 ? supportedProviders : FALLBACK_SUPPORTED_PROVIDERS
   const selectedProvider = providerOptions.find((p) => p.provider === form.provider)
   const models = selectedProvider?.models ?? []
   const needsApiKey = providerNeedsApiKey(form.provider, selectedProvider)
@@ -810,10 +1249,11 @@ function AddProviderFormPanel({
     const info = providerOptions.find((p) => p.provider === provider)
     setSubmitAttempted(false)
     setForm({
-      ...DEFAULT_FORM,
       provider,
       displayName: info?.displayName ?? '',
       model: info?.defaultModel ?? info?.models[0]?.model ?? '',
+      apiKey: '',
+      baseUrl: '',
     })
   }
 
@@ -844,7 +1284,7 @@ function AddProviderFormPanel({
     >
       <div className="mb-3 rounded-lg border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
         <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-          Provider setup path
+          Custom / Gateway setup path
         </div>
         <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
           {PROVIDER_SETUP_STEPS.map((step) => (
@@ -897,7 +1337,7 @@ function AddProviderFormPanel({
                 name="model"
                 value={form.model}
                 onChange={(e) => setForm({ ...form, model: e.target.value })}
-                placeholder={selectedProvider?.defaultModel ?? 'e.g. llama3…'}
+                placeholder={selectedProvider?.defaultModel ?? 'e.g. gpt-4o-mini…'}
                 list={models.length > 0 ? modelListId : undefined}
                 autoComplete="off"
                 aria-invalid={visibleError !== null && readiness.fieldId === modelInputId}
@@ -958,7 +1398,7 @@ function AddProviderFormPanel({
                 name="model"
                 value={form.model}
                 onChange={(e) => setForm({ ...form, model: e.target.value })}
-                placeholder="e.g. llama3…"
+                placeholder="e.g. gpt-4o-mini…"
                 autoComplete="off"
                 aria-invalid={visibleError !== null && readiness.fieldId === modelInputId}
                 aria-describedby={`${formStatusId}${
@@ -1029,7 +1469,7 @@ function AddProviderFormPanel({
           )}
         </div>
 
-        {/* Base URL (optional) */}
+        {/* Base URL */}
         <div className="sm:col-span-2">
           <label htmlFor={baseUrlInputId} className={uiStyles.label}>
             Base URL {needsBaseUrl && <span className="text-red-500">*</span>}
@@ -1038,9 +1478,8 @@ function AddProviderFormPanel({
             id={baseUrlHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            {selectedProvider?.globalBaseUrl
-              ? `Leave blank to use the China endpoint. Global endpoint: ${selectedProvider.globalBaseUrl}`
-              : 'Only change this for a local model server or OpenAI-compatible gateway.'}
+            Paste the HTTPS endpoint for your OpenAI-compatible service or gateway. Leave blank to
+            use the gateway default.
           </p>
           <input
             id={baseUrlInputId}
@@ -1093,6 +1532,111 @@ function AddProviderFormPanel({
 }
 
 // ============================================================================
+// Add Provider panel (catalog ⇄ custom)
+// ============================================================================
+
+interface AddProviderPanelProps {
+  vendors: CatalogVendor[]
+  gatewayProviders: ProviderInfo[]
+  configuredProviders: LlmProviderConfig[]
+  onSave: (input: CreateProviderInput) => Promise<void>
+  onClose: () => void
+  saving: boolean
+}
+
+function AddProviderPanel({
+  vendors,
+  gatewayProviders,
+  configuredProviders,
+  onSave,
+  onClose,
+  saving,
+}: AddProviderPanelProps) {
+  const [bucket, setBucket] = useState<AddBucket>('catalog')
+  const [selectedVendorKey, setSelectedVendorKey] = useState<string | null>(null)
+  const selectedVendor = vendors.find((vendor) => vendor.key === selectedVendorKey) ?? null
+
+  return (
+    <div className="border-t border-black/[0.06] dark:border-white/[0.08]">
+      <div className="flex flex-col gap-3 px-4 pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <div
+          role="group"
+          aria-label="Add provider method"
+          className="inline-flex rounded-full bg-black/[0.04] p-0.5 dark:bg-white/[0.06]"
+        >
+          <button
+            type="button"
+            aria-pressed={bucket === 'catalog'}
+            onClick={() => setBucket('catalog')}
+            className={cn(
+              'inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-ui-caption font-semibold transition-colors',
+              bucket === 'catalog'
+                ? 'bg-white text-foreground-light shadow-sm dark:bg-white/[0.12] dark:text-foreground-dark'
+                : 'text-secondary-light dark:text-secondary-dark'
+            )}
+          >
+            <Plus size={13} strokeWidth={2.25} aria-hidden="true" />
+            Built-in catalog
+          </button>
+          <button
+            type="button"
+            aria-pressed={bucket === 'custom'}
+            onClick={() => setBucket('custom')}
+            className={cn(
+              'inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-ui-caption font-semibold transition-colors',
+              bucket === 'custom'
+                ? 'bg-white text-foreground-light shadow-sm dark:bg-white/[0.12] dark:text-foreground-dark'
+                : 'text-secondary-light dark:text-secondary-dark'
+            )}
+          >
+            <SlidersHorizontal size={13} strokeWidth={2.25} aria-hidden="true" />
+            Custom / Gateway
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="self-start text-ui-caption font-medium text-secondary-light hover:text-foreground-light dark:text-secondary-dark dark:hover:text-foreground-dark"
+        >
+          Close
+        </button>
+      </div>
+
+      {bucket === 'catalog' ? (
+        selectedVendor ? (
+          <CatalogConfigPanel
+            vendor={selectedVendor}
+            onSave={onSave}
+            onCancel={() => setSelectedVendorKey(null)}
+            saving={saving}
+          />
+        ) : (
+          <>
+            <p className="px-4 pt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              Pick a vendor for a minimal setup — base URL and model are filled in for you. Need a
+              private endpoint? Switch to Custom / Gateway.
+            </p>
+            <CatalogGrid
+              vendors={vendors}
+              configuredProviders={configuredProviders}
+              selectedVendorKey={selectedVendorKey}
+              onSelect={setSelectedVendorKey}
+            />
+          </>
+        )
+      ) : (
+        <AddProviderFormPanel
+          gatewayProviders={gatewayProviders}
+          onSave={onSave}
+          onCancel={onClose}
+          saving={saving}
+        />
+      )}
+    </div>
+  )
+}
+
+// ============================================================================
 // ProvidersSection
 // ============================================================================
 
@@ -1111,6 +1655,10 @@ export function ProvidersSection() {
   const [providerSearch, setProviderSearch] = useState('')
   const [providerFilter, setProviderFilter] = useState<ProviderFilter>('all')
   const nextStep = useMemo(() => providerNextStep(providers), [providers])
+  const { vendors, gateways } = useMemo(() => {
+    const source = supportedProviders.length > 0 ? supportedProviders : FALLBACK_SUPPORTED_PROVIDERS
+    return deriveCatalog(source)
+  }, [supportedProviders])
   const filteredProviders = useMemo(
     () =>
       providers.filter((provider) => {
@@ -1123,12 +1671,13 @@ export function ProvidersSection() {
 
   useEffect(() => {
     void loadProviders()
-    // Load supported providers for the form dropdown
+    // Load supported providers for the catalog. The form falls back to the
+    // hardcoded list if the request fails.
     void getSettingsApi()
       .getSupportedProviders()
       .then(setSupportedProviders)
       .catch(() => {
-        // Non-critical: form falls back to hardcoded list
+        // Non-critical: catalog falls back to FALLBACK_SUPPORTED_PROVIDERS.
       })
   }, [loadProviders])
 
@@ -1262,12 +1811,14 @@ export function ProvidersSection() {
           ))
         )}
 
-        {/* Add form */}
+        {/* Add panel: built-in catalog ⇄ custom gateway */}
         {showForm && (
-          <AddProviderFormPanel
-            supportedProviders={supportedProviders}
+          <AddProviderPanel
+            vendors={vendors}
+            gatewayProviders={gateways}
+            configuredProviders={providers}
             onSave={handleSave}
-            onCancel={() => setShowForm(false)}
+            onClose={() => setShowForm(false)}
             saving={saving}
           />
         )}
