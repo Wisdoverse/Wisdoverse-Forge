@@ -102,7 +102,8 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
         )}
       />
       <p id={helpId} className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-        Write one visible outcome. Example: fix the login error.
+        This creates a draft with only a title. Open the card later to add details before sending it
+        to an agent.
       </p>
       {error && (
         <p id={errorId} role="alert" className="text-ui-caption font-medium text-apple-red">

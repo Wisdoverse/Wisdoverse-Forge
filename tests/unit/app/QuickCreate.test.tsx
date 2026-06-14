@@ -14,10 +14,11 @@ describe('QuickCreate', () => {
 
     expect(screen.getByRole('textbox', { name: /task result/i })).toHaveFocus()
     expect(screen.getByRole('textbox', { name: /task result/i })).toHaveAccessibleDescription(
-      /write one visible outcome/i
+      /creates a draft with only a title/i
     )
     expect(screen.getByPlaceholderText(/example: fix the login error/i)).toBeDefined()
-    expect(screen.getByText(/write one visible outcome/i)).toBeDefined()
+    expect(screen.getByText(/open the card later to add details before sending it/i)).toBeDefined()
+    expect(screen.queryByText(/quick add/i)).toBeNull()
     expect(screen.queryByRole('textbox', { name: /task title/i })).toBeNull()
     expect(screen.getByRole('button', { name: /^add draft task$/i })).toBeDisabled()
     expect(screen.getByRole('button', { name: /^cancel$/i })).toBeEnabled()
