@@ -324,7 +324,7 @@ describe('UserManagement', () => {
     await waitFor(() => expect(loadUsers).toHaveBeenCalledWith(1))
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(alert).toHaveTextContent('The admin user list could not load.')
+    expect(alert).toHaveTextContent('Refresh Admin to reload the user list.')
     expect(alert).toHaveTextContent(
       'Refresh Admin, then try again. If it still fails, ask an owner or admin to check Admin setup and your role.'
     )

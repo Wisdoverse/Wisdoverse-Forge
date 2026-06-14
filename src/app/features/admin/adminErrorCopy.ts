@@ -8,10 +8,10 @@ export const CLI_IMAGE_RECOVERY =
 
 export function adminPanelLoadErrorMessage(error: string, label: string): string {
   if (!RAW_STATUS_ERROR_PATTERN.test(error)) return error
-  return `The admin ${label} could not load.`
+  return `Refresh Admin to reload the ${label}.`
 }
 
 export function cliImageStatusErrorMessage(error: string): string {
   if (!RAW_STATUS_ERROR_PATTERN.test(error)) return error
-  return 'The agent tool update status could not load.'
+  return 'Choose Check now to load tool update status.'
 }

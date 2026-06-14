@@ -114,7 +114,9 @@ describe('CliImagesPanel', () => {
     expect(screen.queryByText('—')).toBeNull()
     // failed tool shows a safe next step instead of raw updater text
     expect(screen.getByText('Check failed')).toBeDefined()
-    expect(screen.getByText(/Tool for new agents: Check now to download first package/i)).toBeDefined()
+    expect(
+      screen.getByText(/Tool for new agents: Check now to download first package/i)
+    ).toBeDefined()
     expect(screen.getByText(/Latest tool found: Check now to find latest package/i)).toBeDefined()
     expect(screen.getByText(/What to do:/i)).toBeDefined()
     expect(screen.getByText(/could not reach the tool package source/i)).toBeDefined()
@@ -365,8 +367,8 @@ describe('CliImagesPanel', () => {
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(alert).toHaveTextContent(/The agent tool update status could not load/i)
-    expect(screen.getByText(/The agent tool update status could not load/i)).toBeDefined()
+    expect(alert).toHaveTextContent(/Choose Check now to load tool update status/i)
+    expect(screen.getByText(/Choose Check now to load tool update status/i)).toBeDefined()
     expect(screen.queryByText('HTTP 500')).toBeNull()
     expect(screen.getByText(/choose check now again/i)).toBeDefined()
     expect(screen.getByText(/ask an owner or admin to check tool update setup/i)).toBeDefined()

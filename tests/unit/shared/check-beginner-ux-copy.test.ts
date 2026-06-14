@@ -390,6 +390,52 @@ function agentStatusLabel(status) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags admin load error titles that do not tell users what to refresh or check', () => {
+    const cwd = fixture({
+      'src/app/features/admin/adminErrorCopy.ts': `
+export function adminPanelLoadErrorMessage(error, label) {
+  return 'The admin agents could not load.'
+}
+
+export function cliImageStatusErrorMessage(error) {
+  return 'The agent tool update status could not load.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'admin-load-error-copy',
+          location: 'src/app/features/admin/adminErrorCopy.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'admin-load-error-copy',
+          location: 'src/app/features/admin/adminErrorCopy.ts:7',
+        }),
+      ])
+    )
+  })
+
+  it('accepts admin load error titles that tell users the next action', () => {
+    const cwd = fixture({
+      'src/app/features/admin/adminErrorCopy.ts': `
+export function adminPanelLoadErrorMessage(error, label) {
+  return 'Refresh Admin to reload the agents.'
+}
+
+export function cliImageStatusErrorMessage(error) {
+  return 'Choose Check now to load tool update status.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags admin agent missing-field copy that does not tell users to refresh', () => {
     const cwd = fixture({
       'src/app/features/admin/AgentsPanel.tsx': `

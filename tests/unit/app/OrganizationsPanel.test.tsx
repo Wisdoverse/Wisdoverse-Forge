@@ -114,7 +114,7 @@ describe('OrganizationsPanel', () => {
 
     const error = await screen.findByTestId('admin-org-error')
     expect(error).toHaveAttribute('aria-live', 'polite')
-    expect(within(error).getByText('The admin team space list could not load.')).toBeDefined()
+    expect(within(error).getByText('Refresh Admin to reload the team space list.')).toBeDefined()
     expect(
       within(error).getByText(
         'Refresh Admin, then try again. If it still fails, ask an owner or admin to check Admin setup and your role.'
