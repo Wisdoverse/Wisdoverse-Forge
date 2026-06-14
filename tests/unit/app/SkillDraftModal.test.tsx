@@ -114,9 +114,11 @@ describe('SkillDraftModal', () => {
       'Name this instruction before publishing it.'
     )
     expect(screen.getByLabelText(/^instruction name$/i)).toHaveFocus()
+    expect(screen.getByLabelText(/^instruction name$/i)).toHaveAttribute('aria-invalid', 'true')
 
     await user.type(screen.getByLabelText(/^instruction name$/i), 'migration-review')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.getByLabelText(/^instruction name$/i)).not.toHaveAttribute('aria-invalid', 'true')
 
     await user.clear(screen.getByLabelText(/^reusable instructions$/i))
     await user.click(screen.getByRole('button', { name: /publish instruction/i }))
@@ -125,6 +127,10 @@ describe('SkillDraftModal', () => {
       'Keep or rewrite the reusable instructions before publishing.'
     )
     expect(screen.getByLabelText(/^reusable instructions$/i)).toHaveFocus()
+    expect(screen.getByLabelText(/^reusable instructions$/i)).toHaveAttribute(
+      'aria-invalid',
+      'true'
+    )
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -151,9 +157,9 @@ describe('SkillDraftModal', () => {
     expect(screen.getByLabelText(/^use when$/i)).toHaveValue(
       'check release readiness before launch'
     )
-    expect((screen.getByLabelText(/^reusable instructions$/i) as HTMLTextAreaElement).value).toContain(
-      '# Instruction: Check release readiness before launch'
-    )
+    expect(
+      (screen.getByLabelText(/^reusable instructions$/i) as HTMLTextAreaElement).value
+    ).toContain('# Instruction: Check release readiness before launch')
     expect(screen.queryByDisplayValue(/task-1234567890/i)).toBeNull()
   })
 

@@ -56,11 +56,13 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
     const content = form.content.trim()
     if (!name) {
       setError('Name this instruction before publishing it.')
+      setFieldError('name')
       nameInputRef.current?.focus()
       return
     }
     if (!content) {
       setError('Keep or rewrite the reusable instructions before publishing.')
+      setFieldError('content')
       contentInputRef.current?.focus()
       return
     }
