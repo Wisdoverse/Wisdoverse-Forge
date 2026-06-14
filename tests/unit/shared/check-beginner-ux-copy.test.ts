@@ -1626,6 +1626,15 @@ const projectTitle = 'Pick a Project to Start'
 const providerHeading = 'AI Services'
 const providerPlaceholder = 'My AI Service...'
 const providerSave = 'Save AI Service'
+const sections = [
+  { group: 'AI Setup', label: 'Outside Tool Access' },
+  { group: 'Work Setup', label: 'Code Access' },
+  { group: 'Product Info', label: 'SSH Code Access' },
+  { label: 'Work Capacity' },
+  { label: 'Agent Work Setup' },
+  { label: 'Team Members' },
+]
+const teamNextStep = 'Open Team Members after creation to invite people.'
 `,
     })
 
@@ -1669,6 +1678,34 @@ const providerSave = 'Save AI Service'
         expect.objectContaining({
           type: 'title-style-guidance-copy',
           location: 'src/app/features/agents/AgentListView.tsx:9',
+        }),
+        expect.objectContaining({
+          type: 'title-style-guidance-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:11',
+        }),
+        expect.objectContaining({
+          type: 'title-style-guidance-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:12',
+        }),
+        expect.objectContaining({
+          type: 'title-style-guidance-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:13',
+        }),
+        expect.objectContaining({
+          type: 'title-style-guidance-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:14',
+        }),
+        expect.objectContaining({
+          type: 'title-style-guidance-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:15',
+        }),
+        expect.objectContaining({
+          type: 'title-style-guidance-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:16',
+        }),
+        expect.objectContaining({
+          type: 'title-style-guidance-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:18',
         }),
       ])
     )

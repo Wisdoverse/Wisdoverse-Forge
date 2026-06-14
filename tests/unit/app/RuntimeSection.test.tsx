@@ -272,13 +272,15 @@ describe('RuntimeSection', () => {
 
     render(<RuntimeSection />)
 
-    expect(await screen.findByText('Agent Work Setup has not loaded yet.')).toBeDefined()
+    expect(
+      await screen.findByText('The Where agents run settings have not loaded yet.')
+    ).toBeDefined()
     expect(
       screen.getByText(
-        'Refresh this settings page to load Agent Work Setup. If it still does not load, ask an owner or admin to check agent setup.'
+        'Refresh this settings page to load the Where agents run settings. If they still do not load, ask an owner or admin to check agent setup.'
       )
     ).toBeDefined()
-    expect(screen.queryByText(/Agent Work Setup could not load/i)).toBeNull()
+    expect(screen.queryByText(/Where agents run could not load/i)).toBeNull()
     expect(screen.getByText('Load setup to choose a location')).toBeDefined()
     expect(screen.queryByText('Not set yet')).toBeNull()
     expect(screen.queryByText('Could not load work setup')).toBeNull()
@@ -345,7 +347,7 @@ describe('RuntimeSection', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(/work tool sign-in could not be checked/i)
-    expect(alert).toHaveTextContent(/Forge could not connect while checking Agent Work Setup/i)
+    expect(alert).toHaveTextContent(/Forge could not connect while checking where agents run/i)
     expect(screen.queryByText(/failed to fetch/i)).toBeNull()
     expect(screen.queryByText(/app could not reach/i)).toBeNull()
     expect(screen.queryByText(/service is healthy/i)).toBeNull()
@@ -376,9 +378,7 @@ describe('RuntimeSection', () => {
     await screen.findByTestId('runtime-launch-checklist')
     fireEvent.click(screen.getByRole('button', { name: /Sign in to GitHub/i }))
 
-    expect(
-      await screen.findByText(/do not have permission to manage Agent Work Setup/i)
-    ).toBeDefined()
+    expect(await screen.findByText(/do not have permission to change where agents run/i)).toBeDefined()
     expect(screen.getAllByText(/owner or admin/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/403 Forbidden/)).toBeNull()
   })
@@ -393,7 +393,7 @@ describe('RuntimeSection', () => {
 
     await screen.findByTestId('runtime-launch-checklist')
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Agent Work Setup could not be saved. Choose an available agent location and work tool, then save again.'
+      'Where agents run could not be saved. Choose an available agent location and work tool, then save again.'
     )
     expect(screen.queryByText(/Details: default CLI tool is not available/i)).toBeNull()
   })

@@ -291,7 +291,7 @@ export function SshKeysSection() {
           <h2 className={uiStyles.sectionTitle}>SSH code access</h2>
           <p className={uiStyles.sectionDescription}>
             Use this only when a private code link starts with git@. If it starts with https://, use
-            Code Access instead.
+            GitHub and GitLab access instead.
           </p>
         </div>
         {!showForm && (
@@ -325,8 +325,8 @@ export function SshKeysSection() {
               Add access for code links that start with git@
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              If the code link starts with git@, add this. If it starts with https://, use Code
-              Access instead.
+              If the code link starts with git@, add this. If it starts with https://, use GitHub
+              and GitLab access instead.
             </p>
             <button
               type="button"

@@ -113,7 +113,7 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       message,
-      "This agent's workspace is not ready. Ask an owner or admin to check Agent Work Setup, then start this agent from the agent card."
+      "This agent's workspace is not ready. Ask an owner or admin to check Where agents run, then start this agent from the agent card."
     )
     expect(message).not.toContain('worker')
     expect(message).not.toContain('Docker')
@@ -141,7 +141,7 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       message,
-      'Forge could not prepare the setup command for this computer right now. Wait a moment, then choose Create Agent again. If it still fails, ask an owner or admin to check Agent Work Setup.'
+      'Forge could not prepare the setup command for this computer right now. Wait a moment, then choose Create Agent again. If it still fails, ask an owner or admin to check Where agents run.'
     )
     expect(message).not.toContain('database')
     expect(message).not.toContain('local agent')
@@ -208,7 +208,7 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       useAgentsStore.getState().error,
-      'Refresh Agents to load agents. If it still fails, ask an owner or admin to check Agent Work Setup.'
+      'Refresh Agents to load agents. If it still fails, ask an owner or admin to check Where agents run.'
     )
     expect(useAgentsStore.getState().error).not.toContain('temporarily unavailable')
     expect(useAgentsStore.getState().loading).toBe(false)
@@ -282,7 +282,7 @@ describe('Agents Store', () => {
     expect(state.agents).toHaveLength(1)
     expectBeginnerError(
       state.error,
-      'Agent was created, but its workspace is not ready yet. It will stay in the list. Ask an owner or admin to check Agent Work Setup, then start this agent from the card.'
+      'Agent was created, but its workspace is not ready yet. It will stay in the list. Ask an owner or admin to check Where agents run, then start this agent from the card.'
     )
     expect(state.error).not.toContain('worker')
     expect(state.error).not.toContain('Docker')
@@ -340,7 +340,7 @@ describe('Agents Store', () => {
     expect(result).toBeNull()
     expectBeginnerError(
       useAgentsStore.getState().error,
-      'Forge could not prepare the setup command for this computer right now. Wait a moment, then choose Create Agent again. If it still fails, ask an owner or admin to check Agent Work Setup.'
+      'Forge could not prepare the setup command for this computer right now. Wait a moment, then choose Create Agent again. If it still fails, ask an owner or admin to check Where agents run.'
     )
     expect(useAgentsStore.getState().error).not.toContain('database')
     expect(useAgentsStore.getState().error).not.toContain('local agent')

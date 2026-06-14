@@ -45,42 +45,42 @@ const SECTIONS: SectionItem[] = [
     id: 'providers',
     label: 'AI services',
     description: 'Connect the AI accounts agents use to think and write.',
-    group: 'AI Setup',
+    group: 'AI setup',
     Icon: Bot,
   },
   {
     id: 'keys',
-    label: 'Outside Tool Access',
-    description: 'Add keys agents need for outside apps and services.',
-    group: 'Work Setup',
+    label: 'Outside apps',
+    description: 'Add keys agents need to use apps and services outside Forge.',
+    group: 'Work setup',
     Icon: Key,
   },
   {
     id: 'git-credentials',
-    label: 'Code Access',
+    label: 'GitHub and GitLab access',
     description: 'Save HTTPS access for private GitHub or GitLab code.',
-    group: 'Work Setup',
+    group: 'Work setup',
     Icon: GitBranch,
   },
   {
     id: 'ssh-keys',
-    label: 'SSH Code Access',
+    label: 'SSH keys',
     description: 'Use this when a private code link starts with git@.',
-    group: 'Work Setup',
+    group: 'Work setup',
     Icon: Terminal,
   },
   {
     id: 'resources',
-    label: 'Work Capacity',
+    label: 'Work limits',
     description: 'Choose safe small, standard, or large work limits.',
-    group: 'Work Setup',
+    group: 'Work setup',
     Icon: Gauge,
   },
   {
     id: 'runtime',
-    label: 'Agent Work Setup',
+    label: 'Where agents run',
     description: 'Choose where agents run and which work tool they use.',
-    group: 'Work Setup',
+    group: 'Work setup',
     Icon: Settings2,
   },
   {
@@ -92,7 +92,7 @@ const SECTIONS: SectionItem[] = [
   },
   {
     id: 'teams',
-    label: 'Team Members',
+    label: 'Team members',
     description: 'Invite people and manage who can change work.',
     group: 'People',
     Icon: Users,
@@ -108,12 +108,12 @@ const SECTIONS: SectionItem[] = [
     id: 'about',
     label: 'About',
     description: 'Check version and product information.',
-    group: 'Product Info',
+    group: 'Product info',
     Icon: Info,
   },
 ]
 
-const GROUPS = ['AI Setup', 'Work Setup', 'People', 'Product Info']
+const GROUPS = ['AI setup', 'Work setup', 'People', 'Product info']
 const SECTION_BY_ID = new Map(SECTIONS.map((section) => [section.id, section]))
 
 // ============================================================================
@@ -219,7 +219,7 @@ export function SettingsLayout({ routeSection, onSectionChange }: SettingsLayout
           const items = SECTIONS.filter((s) => s.group === group)
           return (
             <div key={group} className="mb-4">
-              <p className="mb-1 px-2 text-ui-caption font-semibold uppercase text-secondary-light dark:text-secondary-dark">
+              <p className="mb-1 px-2 text-ui-caption font-semibold text-secondary-light dark:text-secondary-dark">
                 {group}
               </p>
               {items.map((item) => {

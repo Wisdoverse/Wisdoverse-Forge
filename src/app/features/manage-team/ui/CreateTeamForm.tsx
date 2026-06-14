@@ -12,7 +12,7 @@ interface CreateTeamFormProps {
 const TEAM_SETUP_STEPS = [
   'Name the group people already recognize.',
   'Create the team before adding projects.',
-  'Open Team Members after creation to invite people.',
+  'Open Team members after creation to invite people.',
 ]
 
 export function CreateTeamForm({ onSave, onCancel, saving }: CreateTeamFormProps) {

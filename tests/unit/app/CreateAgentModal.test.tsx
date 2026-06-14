@@ -66,7 +66,7 @@ describe('CreateAgentModal', () => {
     expect(screen.getAllByText(/claude in a managed workspace/i).length).toBeGreaterThan(0)
     expect(screen.getByText('Project files included')).toBeInTheDocument()
     expect(screen.getByText('Agent location')).toBeInTheDocument()
-    expect(screen.getByText('Check Agent Work Setup in Settings')).toBeInTheDocument()
+    expect(screen.getByText('Check Where agents run in Settings')).toBeInTheDocument()
     expect(screen.getByText('Can edit files')).toBeInTheDocument()
     expect(screen.queryByText(/workspace must be ready/i)).toBeNull()
     expect(screen.queryByText('File work')).toBeNull()

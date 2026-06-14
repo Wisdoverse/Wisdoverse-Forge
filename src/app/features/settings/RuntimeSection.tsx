@@ -231,7 +231,7 @@ export function RuntimeSection() {
                     connectedCredentialCount,
                     participants.length
                   )
-                : 'Agent Work Setup has not loaded yet.'}
+                : 'The Where agents run settings have not loaded yet.'}
             </p>
           </div>
           <button
@@ -731,9 +731,9 @@ function runtimeLaunchChecklistItems(
     return [
       {
         id: 'runtime-api',
-        title: 'Agent work setup status',
+        title: 'Where agents run status',
         detail:
-          'Agent Work Setup has not loaded yet. Check setup. If it still does not load, ask an owner or admin to check Agent Work Setup.',
+          'The Where agents run settings have not loaded yet. Check setup. If they still do not load, ask an owner or admin to check Where agents run.',
         ready: false,
         action: 'refresh',
         actionLabel: 'Check again',
@@ -815,7 +815,7 @@ function runtimeLaunchChecklistItems(
     id: 'heartbeats',
     title: 'Agent online status',
     detail: participantsError
-      ? 'Agent online status could not be checked. Check setup. If it still cannot be checked, ask an owner or admin to check Agent Work Setup.'
+      ? 'Agent online status could not be checked. Check setup. If it still cannot be checked, ask an owner or admin to check Where agents run.'
       : latestHeartbeat
         ? `An agent was online ${formatRelativeTime(latestHeartbeat)}.`
         : 'No agent has been seen online yet. Start or wake an agent, then check again.',

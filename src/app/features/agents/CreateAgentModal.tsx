@@ -160,7 +160,7 @@ function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): Run
       items: [
         { label: 'Agent location', value: 'Managed workspace' },
         { label: 'Files', value: 'Project files included' },
-        { label: 'Before use', value: 'Check Agent Work Setup in Settings' },
+        { label: 'Before use', value: 'Check Where agents run in Settings' },
       ],
     }
   }

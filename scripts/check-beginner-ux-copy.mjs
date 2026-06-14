@@ -217,6 +217,16 @@ const TITLE_STYLE_GUIDANCE_PATTERNS = [
   /\bMy AI Service\b/,
   /\bPick a Project to Start\b/,
   /\bSave AI Service\b/,
+  /\bgroup:\s*['"`]AI Setup['"`]/,
+  /\bgroup:\s*['"`]Product Info['"`]/,
+  /\bgroup:\s*['"`]Work Setup['"`]/,
+  /\blabel:\s*['"`]Agent Work Setup['"`]/,
+  /\blabel:\s*['"`]Code Access['"`]/,
+  /\blabel:\s*['"`]Outside Tool Access['"`]/,
+  /\blabel:\s*['"`]SSH Code Access['"`]/,
+  /\blabel:\s*['"`]Team Members['"`]/,
+  /\blabel:\s*['"`]Work Capacity['"`]/,
+  /\bOpen Team Members\b/,
 ]
 
 const CLI_IMAGE_STATUS_DEAD_END_PATTERNS = [

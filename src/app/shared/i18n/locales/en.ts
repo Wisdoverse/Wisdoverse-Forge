@@ -436,13 +436,13 @@ export const en = {
     reset: 'Reset to defaults',
     resetConfirm: 'Reset all settings? This restores defaults and replaces your current choices.',
     runtime: {
-      title: 'Agent Work Setup',
+      title: 'Where agents run',
       description:
         'Choose where hands-on agents work, then check tools and sign-ins before assigning tasks.',
       saving: 'Saving...',
       loading: 'Loading work setup...',
       couldNotLoad:
-        'Refresh this settings page to load Agent Work Setup. If it still does not load, ask an owner or admin to check agent setup.',
+        'Refresh this settings page to load the Where agents run settings. If they still do not load, ask an owner or admin to check agent setup.',
       defaultRuntimeLabel: 'Default agent location',
       defaultRuntimeDescription:
         'Managed workspace is the simplest choice. Choose This computer only when this machine should join the workspace as a managed agent.',
@@ -586,7 +586,7 @@ export const en = {
         missing_idempotency_key: {
           title: 'Setup command needs to be run again',
           detail:
-            'Run the setup command on this computer again. If this repeats, ask an owner to check Agent Work Setup for this computer.',
+            'Run the setup command on this computer again. If this repeats, ask an owner to check Where agents run for this computer.',
         },
         plaintext_nats_blocked: {
           title: 'Secure connection required for this computer',

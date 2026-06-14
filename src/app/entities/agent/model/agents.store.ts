@@ -285,37 +285,37 @@ function agentConflictMessage(action: AgentErrorAction, detail: string | null): 
 
 function agentServerMessage(action: AgentErrorAction): string {
   if (action === 'enrollLocal') {
-    return 'Forge could not prepare the setup command for this computer right now. Wait a moment, then choose Create Agent again. If it still fails, ask an owner or admin to check Agent Work Setup.'
+    return 'Forge could not prepare the setup command for this computer right now. Wait a moment, then choose Create Agent again. If it still fails, ask an owner or admin to check Where agents run.'
   }
   if (action === 'load') {
-    return 'Refresh Agents to load agents. If it still fails, ask an owner or admin to check Agent Work Setup.'
+    return 'Refresh Agents to load agents. If it still fails, ask an owner or admin to check Where agents run.'
   }
   if (action === 'start' || action === 'restart' || action === 'create') {
-    return "Forge could not prepare this agent's workspace right now. Wait a moment, then try again. If it still fails, ask an owner or admin to check Agent Work Setup."
+    return "Forge could not prepare this agent's workspace right now. Wait a moment, then try again. If it still fails, ask an owner or admin to check Where agents run."
   }
-  return `Refresh Agents, then try to ${agentActionPhrase(action)} again. If it still fails, ask an owner or admin to check Agent Work Setup.`
+  return `Refresh Agents, then try to ${agentActionPhrase(action)} again. If it still fails, ask an owner or admin to check Where agents run.`
 }
 
 function agentRuntimeRecoveryMessage(detail: string | null): string {
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('docker')) {
-    return "This agent's workspace is not ready. Ask an owner or admin to check Agent Work Setup, then start this agent from the agent card."
+    return "This agent's workspace is not ready. Ask an owner or admin to check Where agents run, then start this agent from the agent card."
   }
-  return 'The agent workspace is not ready. Ask an owner or admin to check Agent Work Setup, then start this agent from the agent card.'
+  return 'The agent workspace is not ready. Ask an owner or admin to check Where agents run, then start this agent from the agent card.'
 }
 
 function agentCreatedStartFailureMessage(error?: unknown): string {
   const detail = agentErrorDetail(error)
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('docker')) {
-    return 'Agent was created, but its workspace is not ready yet. It will stay in the list. Ask an owner or admin to check Agent Work Setup, then start this agent from the card.'
+    return 'Agent was created, but its workspace is not ready yet. It will stay in the list. Ask an owner or admin to check Where agents run, then start this agent from the card.'
   }
   if (
     normalized.includes('runtime') ||
     normalized.includes('container') ||
     normalized.includes('image')
   ) {
-    return 'Agent was created, but it could not start yet. It will stay in the list. Ask an owner or admin to check Agent Work Setup, then start this agent from the card.'
+    return 'Agent was created, but it could not start yet. It will stay in the list. Ask an owner or admin to check Where agents run, then start this agent from the card.'
   }
   return 'Agent was created, but it could not start yet. It will stay in the list. Refresh the Agents page, then start this agent from the card after the workspace is ready.'
 }

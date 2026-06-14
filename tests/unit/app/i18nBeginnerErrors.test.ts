@@ -283,7 +283,7 @@ describe('beginner error translations', () => {
 
     expect(englishJoin.title).toContain('Setup command needs to be run again')
     expect(englishJoin.detail).toContain('Run the setup command on this computer again')
-    expect(englishJoin.detail).toContain('Agent Work Setup')
+    expect(englishJoin.detail).toContain('Where agents run')
     expect(englishJoin.title).not.toContain('Idempotency-Key')
     expect(englishJoin.detail).not.toContain('UUID')
     expect(englishJoin.detail).not.toContain('local agent')

@@ -15,7 +15,7 @@ describe('runtimeErrorMessage', () => {
   test('turns auth failures into a sign-in instruction', () => {
     expectBeginnerMessage(
       runtimeErrorMessage('loadAgentSignals', new Error('401 Unauthorized')),
-      'Your sign-in expired. Sign in again, then open Agent Work Setup and try again.'
+      'Your sign-in expired. Sign in again, then open Where agents run and try again.'
     )
   })
 
@@ -23,7 +23,7 @@ describe('runtimeErrorMessage', () => {
     const message = runtimeErrorMessage('loadCliSignIn', new TypeError('Failed to fetch'))
 
     expect(message).toContain('Work tool sign-in could not be checked')
-    expect(message).toContain('Forge could not connect while checking Agent Work Setup')
+    expect(message).toContain('Forge could not connect while checking where agents run')
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('app could not reach')
   })
@@ -31,7 +31,7 @@ describe('runtimeErrorMessage', () => {
   test('gives a clear permission step for local sign-in startup', () => {
     expectBeginnerMessage(
       runtimeErrorMessage('startCliSignIn', { error: '403 Forbidden' }),
-      'You do not have permission to manage Agent Work Setup. Ask an owner or admin to update your role.'
+      'You do not have permission to change where agents run. Ask an owner or admin to update your role.'
     )
   })
 
@@ -64,19 +64,19 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Work tool sign-in did not start. Check the connected AI service, then reconnect the account. Forge could not connect while checking Agent Work Setup. Check your connection, then refresh Settings.'
+      'Work tool sign-in did not start. Check the connected AI service, then reconnect the account. Forge could not connect while checking where agents run. Check your connection, then refresh Settings.'
     )
     expect(message).not.toContain('provider')
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('app could not reach')
   })
 
-  test('turns setup service failures into an Agent Work Setup recovery step', () => {
+  test('turns setup service failures into a Where agents run recovery step', () => {
     const message = runtimeErrorMessage('loadAgentSignals', new Error('HTTP 500'))
 
     expectBeginnerMessage(
       message,
-      'Forge could not check Agent Work Setup right now. Refresh this page, then try again. If it still fails, ask an owner or admin to check Agent Work Setup.'
+      'Forge could not check where agents run right now. Refresh this page, then try again. If it still fails, ask an owner or admin to check Where agents run.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('worker')
@@ -87,7 +87,7 @@ describe('runtimeErrorMessage', () => {
   test('turns setup rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       runtimeErrorMessage('loadAgentSignals', { code: '429' }),
-      'Forge is receiving too many Agent Work Setup requests right now. Wait a moment, then try again.'
+      'Forge is receiving too many setup requests right now. Wait a moment, then try again.'
     )
   })
 })
@@ -99,7 +99,7 @@ describe('runtimeSettingsErrorMessage', () => {
         'Check the required fields for runtime setting, then try again. Code: 422. Details: default CLI tool is not available'
       )
     ).toBe(
-      'Agent Work Setup could not be saved. Choose an available agent location and work tool, then save again.'
+      'Where agents run could not be saved. Choose an available agent location and work tool, then save again.'
     )
   })
 
@@ -109,7 +109,7 @@ describe('runtimeSettingsErrorMessage', () => {
         'You do not have permission to update agent work settings. Code: 403. Details: Forbidden'
       )
     ).toBe(
-      'Agent Work Setup could not be saved. Ask an owner or admin for access to manage Agent Work Setup.'
+      'Where agents run could not be saved. Ask an owner or admin for access to change where agents run.'
     )
   })
 
@@ -118,17 +118,17 @@ describe('runtimeSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then refresh Settings to load Agent Work Setup.'
+      'Check your connection, then refresh Settings to load Where agents run.'
     )
     expect(message).not.toContain('app could not reach')
   })
 
-  test('turns temporary Agent Work Setup failures into a settings recovery step', () => {
+  test('turns temporary run-setting failures into a settings recovery step', () => {
     const message = runtimeSettingsErrorMessage(new Error('HTTP 500'))
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load Agent Work Setup. If it still fails, ask an owner or admin to check Agent Work Setup.'
+      'Refresh Settings to load Where agents run. If it still fails, ask an owner or admin to check Where agents run.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('temporarily unavailable')
@@ -137,7 +137,7 @@ describe('runtimeSettingsErrorMessage', () => {
   test('turns work settings rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       runtimeSettingsErrorMessage({ statusCode: '429' }),
-      'Too many Agent Work Setup requests are happening right now. Wait a minute, then refresh Settings.'
+      'Too many setup requests are happening right now. Wait a minute, then refresh Settings.'
     )
   })
 
@@ -146,7 +146,7 @@ describe('runtimeSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load Agent Work Setup. If it still fails, ask an owner or admin to check Agent Work Setup.'
+      'Refresh Settings to load Where agents run. If it still fails, ask an owner or admin to check Where agents run.'
     )
     expect(message).not.toContain('parser')
   })

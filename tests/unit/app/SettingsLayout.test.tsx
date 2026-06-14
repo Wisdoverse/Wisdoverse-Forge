@@ -23,10 +23,10 @@ describe('SettingsLayout', () => {
     render(<SettingsLayout routeSection="about" onSectionChange={onSectionChange} />)
 
     const desktopNav = screen.getByTestId('settings-desktop-nav')
-    expect(within(desktopNav).getByText('AI Setup')).toBeInTheDocument()
-    expect(within(desktopNav).getByText('Work Setup')).toBeInTheDocument()
+    expect(within(desktopNav).getByText('AI setup')).toBeInTheDocument()
+    expect(within(desktopNav).getByText('Work setup')).toBeInTheDocument()
     expect(within(desktopNav).getByText('People')).toBeInTheDocument()
-    expect(within(desktopNav).getByText('Product Info')).toBeInTheDocument()
+    expect(within(desktopNav).getByText('Product info')).toBeInTheDocument()
     expect(
       within(desktopNav).getByRole('button', {
         name: /AI services: Connect the AI accounts agents use to think and write/i,
@@ -34,39 +34,39 @@ describe('SettingsLayout', () => {
     ).toBeInTheDocument()
     expect(
       within(desktopNav).getByRole('button', {
-        name: /Outside Tool Access: Add keys agents need for outside apps and services/i,
+        name: /Outside apps: Add keys agents need to use apps and services outside Forge/i,
       })
     ).toBeInTheDocument()
     expect(
       within(desktopNav).getByRole('button', {
-        name: /Code Access: Save HTTPS access for private GitHub or GitLab code/i,
+        name: /GitHub and GitLab access: Save HTTPS access for private GitHub or GitLab code/i,
       })
     ).toBeInTheDocument()
     expect(
       within(desktopNav).getByRole('button', {
-        name: /SSH Code Access: Use this when a private code link starts with git@/i,
+        name: /SSH keys: Use this when a private code link starts with git@/i,
       })
     ).toBeInTheDocument()
     expect(
       within(desktopNav).getByRole('button', {
-        name: /Agent Work Setup: Choose where agents run and which work tool they use/i,
+        name: /Where agents run: Choose where agents run and which work tool they use/i,
       })
     ).toBeInTheDocument()
 
-    expect(screen.getByRole('group', { name: 'AI Setup' })).toBeInTheDocument()
-    expect(screen.getByRole('group', { name: 'Work Setup' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'AI setup' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Work setup' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'AI services' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Outside Tool Access' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Code Access' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'SSH Code Access' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Work Capacity' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Outside apps' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'GitHub and GitLab access' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'SSH keys' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Work limits' })).toBeInTheDocument()
     expect(screen.getByTestId('settings-mobile-section-hint')).toHaveTextContent(
       'Check version and product information.'
     )
 
     fireEvent.click(
       within(desktopNav).getByRole('button', {
-        name: /Agent Work Setup: Choose where agents run and which work tool they use/i,
+        name: /Where agents run: Choose where agents run and which work tool they use/i,
       })
     )
 
