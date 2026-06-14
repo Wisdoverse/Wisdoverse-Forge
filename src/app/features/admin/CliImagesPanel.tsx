@@ -55,7 +55,7 @@ function packageMarker(digest: string | null, fallback: string): string {
 }
 
 function versionMarker(version: string | null): string {
-  return version ? `v${version}` : 'Version not reported yet'
+  return version ? `v${version}` : 'Choose Check now to find it'
 }
 
 /** Unix seconds → coarse "x ago" relative to now. */

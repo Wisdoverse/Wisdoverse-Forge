@@ -606,7 +606,8 @@ describe('CliImagesPanel', () => {
 
     render(<CliImagesPanel />)
 
-    expect(screen.getByText(/Current version: Version not reported yet/i)).toBeDefined()
+    expect(screen.getByText(/Current version: Choose Check now to find it/i)).toBeDefined()
+    expect(screen.queryByText(/Version not reported yet/i)).toBeNull()
     expect(screen.queryByText(/current version: unknown/i)).toBeNull()
   })
 

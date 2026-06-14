@@ -796,6 +796,26 @@ function ToolRow() {
     ])
   })
 
+  it('flags agent tool version copy that leaves beginners waiting', () => {
+    const cwd = fixture({
+      'src/app/features/admin/CliImagesPanel.tsx': `
+function ToolRow() {
+  return <p>Current version: Version not reported yet</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'cli-image-status-copy',
+        location: 'src/app/features/admin/CliImagesPanel.tsx:3',
+      }),
+    ])
+  })
+
   it('accepts agent tool update status copy that tells users to check now', () => {
     const cwd = fixture({
       'src/app/features/admin/CliImagesPanel.tsx': `

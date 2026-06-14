@@ -178,6 +178,7 @@ const CLI_IMAGE_STATUS_DEAD_END_PATTERNS = [
   /\bNot downloaded yet\b/i,
   /\bNot checked yet\b/i,
   /\bNot checked — updates off\b/i,
+  /\bVersion not reported yet\b/i,
 ]
 
 const SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS = [/\bNot checked yet\b/i]
