@@ -258,6 +258,36 @@ export function runtimeKindShortLabel(kind) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags clipboard failure copy that names browser clipboard access', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+const CLIPBOARD_UNAVAILABLE =
+  'Copy is unavailable here (no clipboard access) - select the command text and copy it manually.'
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'clipboard-copy',
+        location: 'src/app/features/agents/CreateAgentModal.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts clipboard failure copy that tells people how to copy manually', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+const CLIPBOARD_UNAVAILABLE =
+  'Forge cannot copy from this browser. Select the setup command in the box, then copy it manually.'
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags validation copy that does not explain the next change', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `

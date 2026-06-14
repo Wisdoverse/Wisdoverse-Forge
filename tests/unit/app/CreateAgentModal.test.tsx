@@ -648,8 +648,9 @@ describe('CreateAgentModal', () => {
     fireEvent.click(copyButton)
 
     await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent(/copy is unavailable here/i)
+      expect(screen.getByRole('alert')).toHaveTextContent(/select the setup command/i)
     )
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/clipboard access/i)
   })
 
   test('applies a role template to simple chat agent instructions', async () => {

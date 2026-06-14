@@ -392,7 +392,7 @@ export function CreateAgentModal() {
   }
 
   const CLIPBOARD_UNAVAILABLE =
-    'Copy is unavailable here (no clipboard access) — select the command text and copy it manually.'
+    'Forge cannot copy from this browser. Select the setup command in the box, then copy it manually.'
 
   async function handleCopyCommand() {
     const command = localEnrollment?.enrollment?.shellExports

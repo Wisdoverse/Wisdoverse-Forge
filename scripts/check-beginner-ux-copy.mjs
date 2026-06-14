@@ -141,6 +141,8 @@ const RUNTIME_SHORT_LABEL_JARGON_PATTERNS = [
   /\breturn\s+['"`]Needs review['"`]/,
 ]
 
+const CLIPBOARD_JARGON_PATTERNS = [/\bCopy is unavailable here\b/i, /\bno clipboard access\b/i]
+
 const BEGINNER_JARGON_PATTERNS = [
   /\blocal agents?\b/i,
   /\bmanaged local agent\b/i,
@@ -376,6 +378,11 @@ function hasRuntimeShortLabelJargonCopy(relFile, line) {
   return RUNTIME_SHORT_LABEL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasClipboardJargonCopy(line) {
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CLIPBOARD_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function scanFile(file, relFile) {
   const lines = fs.readFileSync(file, 'utf8').split('\n')
   const findings = []
@@ -508,6 +515,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Compact work-location labels must name the missing location instead of using generic review placeholders.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasClipboardJargonCopy(line)) {
+      findings.push({
+        type: 'clipboard-copy',
+        location,
+        message:
+          'Copy failure guidance must tell beginners how to copy manually instead of naming clipboard access.',
         sample: line.trim(),
       })
     }
