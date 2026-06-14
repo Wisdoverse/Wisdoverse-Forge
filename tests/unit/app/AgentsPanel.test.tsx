@@ -132,7 +132,8 @@ describe('AgentsPanel', () => {
     expect(screen.getByText('Ready')).toBeDefined()
     expect(screen.queryByText('idle')).toBeNull()
     expect(screen.getByText('Needs review')).toBeDefined()
-    expect(screen.getByText('Status not reported')).toBeDefined()
+    expect(screen.getByText('Refresh agents to confirm status')).toBeDefined()
+    expect(screen.queryByText('Status not reported')).toBeNull()
     expect(screen.queryByText('paused')).toBeNull()
     expect(screen.queryByText('Unknown')).toBeNull()
     expect(screen.queryByText('Work tool: codex')).toBeNull()
@@ -145,8 +146,10 @@ describe('AgentsPanel', () => {
   test('explains missing admin agent fields instead of showing placeholder symbols', async () => {
     render(<AgentsPanel />)
 
-    expect(await screen.findByText('Owner not reported yet')).toBeDefined()
-    expect(screen.getAllByText('Project not reported yet')).toHaveLength(2)
+    expect(await screen.findByText('Refresh agents to load owner')).toBeDefined()
+    expect(screen.getAllByText('Refresh agents to load project')).toHaveLength(2)
+    expect(screen.queryByText('Owner not reported yet')).toBeNull()
+    expect(screen.queryByText('Project not reported yet')).toBeNull()
     expect(screen.getByText('Activity appears after work starts')).toBeDefined()
     expect(screen.queryByText('No activity yet')).toBeNull()
     expect(screen.queryByText('—')).toBeNull()

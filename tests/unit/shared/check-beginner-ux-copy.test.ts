@@ -352,6 +352,38 @@ function formatLastActivity(epochMs) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags admin agent missing-field copy that does not tell users to refresh', () => {
+    const cwd = fixture({
+      'src/app/features/admin/AgentsPanel.tsx': `
+function agentOwnerLabel(agent) {
+  return agent.ownerEmail || 'Owner not reported yet'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'admin-agent-field-copy',
+        location: 'src/app/features/admin/AgentsPanel.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts admin agent missing-field copy that tells users to refresh', () => {
+    const cwd = fixture({
+      'src/app/features/admin/AgentsPanel.tsx': `
+function agentOwnerLabel(agent) {
+  return agent.ownerEmail || 'Refresh agents to load owner'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags generic compact work-location labels in the runtime label helper', () => {
     const cwd = fixture({
       'src/app/entities/agent/model/runtime-kind.ts': `
