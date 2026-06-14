@@ -45,6 +45,14 @@ interface TaskBriefTemplate {
   Icon: LucideIcon
 }
 
+interface TaskBriefCue {
+  id: 'goal' | 'where' | 'done'
+  label: string
+  ready: boolean
+  readyDetail: string
+  missingDetail: string
+}
+
 const TASK_BRIEF_TEMPLATES: TaskBriefTemplate[] = [
   {
     id: 'feature',
@@ -160,6 +168,12 @@ export function TaskFormModal({
   const assignableAgents = agents.filter((agent) => agentCanTakeTask(agent.status))
   const projectGroups = useMemo(() => groupProjectsByTeam(projects), [projects])
   const projectField = register('projectId')
+  const titleValue = watch('title')
+  const descriptionValue = watch('description')
+  const briefCues = useMemo(
+    () => taskBriefCues(titleValue, descriptionValue),
+    [descriptionValue, titleValue]
+  )
 
   // The error banner renders partway down a scrollable dialog (below the
   // header and project panels) while the submit button sits at the bottom, so
@@ -533,6 +547,42 @@ export function TaskFormModal({
               className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
               placeholder="Add background, files to check, what to avoid, and how you will know it is done."
             />
+            <div
+              data-testid="task-brief-checklist"
+              className="mt-2 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.04]"
+            >
+              <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                Make this task easy to pick up
+              </p>
+              <div className="mt-2 grid gap-1.5">
+                {briefCues.map((cue) => (
+                  <div
+                    key={cue.id}
+                    data-testid={`task-brief-cue-${cue.id}`}
+                    className="flex items-start gap-2 rounded-md bg-white px-2 py-1.5 dark:bg-black/20"
+                  >
+                    <span
+                      className={cn(
+                        'mt-0.5 inline-flex h-5 min-w-12 items-center justify-center rounded-full px-2 text-[10px] font-semibold',
+                        cue.ready
+                          ? 'bg-apple-blue/10 text-apple-blue'
+                          : 'bg-apple-orange/10 text-apple-orange'
+                      )}
+                    >
+                      {cue.ready ? 'Ready' : 'Add'}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
+                        {cue.label}
+                      </span>
+                      <span className="block text-ui-caption text-secondary-light dark:text-secondary-dark">
+                        {cue.ready ? cue.readyDetail : cue.missingDetail}
+                      </span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="flex flex-col gap-4 sm:flex-row">
@@ -643,6 +693,43 @@ function agentStatusLabel(status: string): string {
 
 function normalizeAgentStatus(status: string): string {
   return status.trim().toLowerCase()
+}
+
+function taskBriefCues(title: string, description: string): TaskBriefCue[] {
+  const normalizedTitle = title.trim()
+  const normalizedDescription = description.trim().toLowerCase()
+  const namesWorkArea =
+    /\b(where to work|files?|folder|screen|page|area|avoid|src\/|docs\/|tests?\/|rust\/)\b/.test(
+      normalizedDescription
+    )
+  const namesFinishCheck =
+    /\b(done when|success|verify|test|check|screenshot|output|result|passes?)\b/.test(
+      normalizedDescription
+    )
+
+  return [
+    {
+      id: 'goal',
+      label: 'Result',
+      ready: normalizedTitle.length > 0,
+      readyDetail: 'The agent has a clear result to finish.',
+      missingDetail: 'Write one sentence for the result you want.',
+    },
+    {
+      id: 'where',
+      label: 'Where to work',
+      ready: namesWorkArea,
+      readyDetail: 'The agent knows where to look or what to avoid.',
+      missingDetail: 'Name the files, screen, folder, or area to check first.',
+    },
+    {
+      id: 'done',
+      label: 'Done when',
+      ready: namesFinishCheck,
+      readyDetail: 'The agent knows how success will be checked.',
+      missingDetail: 'Add the test, screenshot, output, or result that proves it is done.',
+    },
+  ]
 }
 
 function groupProjectsByTeam(projects: TaskProjectOption[]): TaskProjectGroup[] {

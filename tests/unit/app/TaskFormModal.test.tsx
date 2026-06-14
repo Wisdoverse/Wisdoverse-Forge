@@ -68,8 +68,8 @@ describe('TaskFormModal', () => {
     expect(screen.getByText(/what to include and how to check the work/i)).toBeDefined()
     expect(screen.getByRole('group', { name: /task templates/i })).toBeDefined()
     expect(screen.getByText('What to finish')).toBeDefined()
-    expect(screen.getByText('Where to work')).toBeDefined()
-    expect(screen.getByText('Done when')).toBeDefined()
+    expect(screen.getAllByText('Where to work').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Done when').length).toBeGreaterThan(0)
     expect(screen.queryByText(/scope and proof/i)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /feature/i }))
@@ -87,6 +87,40 @@ describe('TaskFormModal', () => {
     expect(description.value).not.toContain('Scope:')
     expect(description.value).not.toContain('Constraints:')
     expect(description.value).not.toContain('Evidence:')
+  })
+
+  test('shows what a new agent still needs before the task is clear', () => {
+    renderModal()
+
+    expect(screen.getByTestId('task-brief-checklist')).toHaveTextContent(
+      'Make this task easy to pick up'
+    )
+    expect(screen.getByTestId('task-brief-cue-goal')).toHaveTextContent('Add')
+    expect(screen.getByTestId('task-brief-cue-goal')).toHaveTextContent(
+      'Write one sentence for the result you want.'
+    )
+    expect(screen.getByTestId('task-brief-cue-where')).toHaveTextContent(
+      'Name the files, screen, folder, or area to check first.'
+    )
+    expect(screen.getByTestId('task-brief-cue-done')).toHaveTextContent(
+      'Add the test, screenshot, output, or result that proves it is done.'
+    )
+
+    fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
+      target: { value: 'Fix the login error' },
+    })
+    fireEvent.change(screen.getByLabelText(/details the agent should know/i), {
+      target: {
+        value: 'Where to work:\n- src/app/features/auth\n\nDone when:\n- Login test passes',
+      },
+    })
+
+    expect(screen.getByTestId('task-brief-cue-goal')).toHaveTextContent('Ready')
+    expect(screen.getByTestId('task-brief-cue-where')).toHaveTextContent('Ready')
+    expect(screen.getByTestId('task-brief-cue-done')).toHaveTextContent('Ready')
+    expect(screen.getByTestId('task-brief-cue-done')).toHaveTextContent(
+      'The agent knows how success will be checked.'
+    )
   })
 
   test('explains the no-agent state without dispatch language', () => {
