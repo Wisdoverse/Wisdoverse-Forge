@@ -247,6 +247,7 @@ const LOAD_ERROR_TITLE_DEAD_END_PATTERNS = [
   /\bConversation history could not be loaded\./i,
   /\bAgent tools could not be loaded\./i,
   /\bThis agent's work list could not be loaded\./i,
+  /\bAgent Work Setup could not be loaded\./i,
   /\bWorkspace (?:team|project)s could not be loaded\./i,
   /\bAgent sizes could not be loaded\./i,
   /\b(?:Plan and payment|Usage|Invoices) could not be loaded\./i,
@@ -840,6 +841,7 @@ function hasLoadErrorTitleDeadEndCopy(relFile, line) {
     !relFile.endsWith('src/app/shared/model/billing.store.ts') &&
     !relFile.endsWith('src/app/features/agents/model/pluginErrorMessage.ts') &&
     !relFile.endsWith('src/app/features/agents/model/taskErrorMessage.ts') &&
+    !relFile.endsWith('src/app/features/settings/runtimeErrorMessages.ts') &&
     !relFile.endsWith('src/app/pages/settings/model/workspaceSettingsErrorMessage.ts') &&
     !relFile.endsWith('src/app/features/settings/ResourcesSection.tsx')
   ) {

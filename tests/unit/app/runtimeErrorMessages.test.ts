@@ -118,7 +118,7 @@ describe('runtimeSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Agent Work Setup could not be loaded. Forge could not connect while opening Agent Work Setup. Check your connection, then refresh Settings.'
+      'Check your connection, then refresh Settings to load Agent Work Setup.'
     )
     expect(message).not.toContain('app could not reach')
   })
@@ -128,7 +128,7 @@ describe('runtimeSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Agent Work Setup could not be loaded. Refresh Settings, then try again. If it still fails, ask an owner or admin to check Agent Work Setup.'
+      'Refresh Settings to load Agent Work Setup. If it still fails, ask an owner or admin to check Agent Work Setup.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('temporarily unavailable')
@@ -137,7 +137,7 @@ describe('runtimeSettingsErrorMessage', () => {
   test('turns work settings rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       runtimeSettingsErrorMessage({ statusCode: '429' }),
-      'Agent Work Setup could not be loaded. Forge is receiving too many Agent Work Setup requests right now. Wait a minute, then try again.'
+      'Too many Agent Work Setup requests are happening right now. Wait a minute, then refresh Settings.'
     )
   })
 
@@ -146,7 +146,7 @@ describe('runtimeSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Agent Work Setup could not be loaded. Try again. If it still fails, ask an owner or admin to check Agent Work Setup.'
+      'Refresh Settings to load Agent Work Setup. If it still fails, ask an owner or admin to check Agent Work Setup.'
     )
     expect(message).not.toContain('parser')
   })

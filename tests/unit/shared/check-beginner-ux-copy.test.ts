@@ -534,6 +534,11 @@ function agentTasksErrorMessage(error) {
   return "This agent's work list could not be loaded."
 }
 `,
+      'src/app/features/settings/runtimeErrorMessages.ts': `
+function runtimeSettingsErrorMessage(error) {
+  return 'Agent Work Setup could not be loaded.'
+}
+`,
       'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts': `
 function baseMessage(resource, action) {
   return 'Workspace teams could not be loaded.'
@@ -569,6 +574,10 @@ function ResourceProfilesError() {
         }),
         expect.objectContaining({
           type: 'load-error-title-copy',
+          location: 'src/app/features/settings/runtimeErrorMessages.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'load-error-title-copy',
           location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:3',
         }),
         expect.objectContaining({
@@ -599,6 +608,11 @@ function prefix(action) {
       'src/app/features/agents/model/taskErrorMessage.ts': `
 function agentTasksErrorMessage(error) {
   return "Refresh this agent to load its work list."
+}
+`,
+      'src/app/features/settings/runtimeErrorMessages.ts': `
+function runtimeSettingsErrorMessage(error) {
+  return 'Refresh Settings to load Agent Work Setup.'
 }
 `,
       'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts': `

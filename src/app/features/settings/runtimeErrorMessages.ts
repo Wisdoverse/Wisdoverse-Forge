@@ -53,48 +53,64 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
   const detail = errorDetail(err)
   const normalized = detail.toLowerCase()
   const status = errorStatus(err, normalized)
-  const base =
+  const isSaveAction =
     normalized.includes('update') ||
     normalized.includes('required fields for runtime setting') ||
     normalized.includes('default cli tool') ||
     normalized.includes('default runtime') ||
     normalized.includes('not available')
-      ? 'Agent Work Setup could not be saved.'
-      : 'Agent Work Setup could not be loaded.'
+  const saveBase = 'Agent Work Setup could not be saved.'
+  const loadBase = 'Refresh Settings to load Agent Work Setup.'
 
   if (isNetworkError(normalized)) {
-    return `${base} Forge could not connect while opening Agent Work Setup. Check your connection, then refresh Settings.`
+    return isSaveAction
+      ? `${saveBase} Forge could not connect while saving Agent Work Setup. Check your connection, then save again.`
+      : 'Check your connection, then refresh Settings to load Agent Work Setup.'
   }
 
   if (status === 401) {
-    return `${base} Your sign-in expired. Sign in again, then open Agent Work Setup and try again.`
+    return isSaveAction
+      ? `${saveBase} Your sign-in expired. Sign in again, then save Agent Work Setup again.`
+      : 'Your sign-in expired. Sign in again, then open Agent Work Setup.'
   }
 
   if (status === 403) {
-    return `${base} Ask an owner or admin for access to manage Agent Work Setup.`
+    return isSaveAction
+      ? `${saveBase} Ask an owner or admin for access to manage Agent Work Setup.`
+      : 'Ask an owner or admin for access to manage Agent Work Setup.'
   }
 
   if (status === 404) {
-    return `${base} Refresh after Agent Work Setup is available.`
+    return isSaveAction
+      ? `${saveBase} Refresh after Agent Work Setup is available.`
+      : 'Refresh Settings after Agent Work Setup is available.'
   }
 
   if (status === 409) {
-    return `${base} Agent Work Setup changed while you were working. Refresh Settings, review the current choices, then try again.`
+    return isSaveAction
+      ? `${saveBase} Agent Work Setup changed while you were working. Refresh Settings, review the current choices, then save again.`
+      : 'Agent Work Setup changed while you were working. Refresh Settings, review the current choices, then try again.'
   }
 
   if (status === 422) {
-    return `${base} Choose an available agent location and work tool, then save again.`
+    return `${saveBase} Choose an available agent location and work tool, then save again.`
   }
 
   if (status === 429) {
-    return `${base} Forge is receiving too many Agent Work Setup requests right now. Wait a minute, then try again.`
+    return isSaveAction
+      ? `${saveBase} Too many Agent Work Setup requests are happening right now. Wait a minute, then save again.`
+      : 'Too many Agent Work Setup requests are happening right now. Wait a minute, then refresh Settings.'
   }
 
   if (status && status >= 500) {
-    return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check Agent Work Setup.`
+    return isSaveAction
+      ? `${saveBase} Refresh Settings, then save again. If it still fails, ask an owner or admin to check Agent Work Setup.`
+      : `${loadBase} If it still fails, ask an owner or admin to check Agent Work Setup.`
   }
 
-  return `${base} Try again. If it still fails, ask an owner or admin to check Agent Work Setup.`
+  return isSaveAction
+    ? `${saveBase} Try again. If it still fails, ask an owner or admin to check Agent Work Setup.`
+    : `${loadBase} If it still fails, ask an owner or admin to check Agent Work Setup.`
 }
 
 function errorDetail(err: unknown): string {
