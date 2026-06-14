@@ -253,7 +253,11 @@ export function RuntimeSection() {
         <div className="mt-4 grid gap-3 md:grid-cols-4">
           <RuntimeReadinessMetric
             label="Default agent location"
-            value={runtimeSettings ? runtimeLabel(runtimeSettings.defaultRuntime) : 'Not set yet'}
+            value={
+              runtimeSettings
+                ? runtimeLabel(runtimeSettings.defaultRuntime)
+                : 'Load setup to choose a location'
+            }
             ready={Boolean(
               runtimeSettings?.availableRuntimes.includes(runtimeSettings.defaultRuntime)
             )}

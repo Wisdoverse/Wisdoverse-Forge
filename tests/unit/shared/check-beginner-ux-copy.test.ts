@@ -506,6 +506,38 @@ function runtimeReadinessSummary() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags default agent location copy that does not explain how to recover', () => {
+    const cwd = fixture({
+      'src/app/features/settings/RuntimeSection.tsx': `
+export function RuntimeSection() {
+  return <RuntimeReadinessMetric label="Default agent location" value="Not set yet" />
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'runtime-default-location-copy',
+        location: 'src/app/features/settings/RuntimeSection.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts default agent location copy that tells users to load setup first', () => {
+    const cwd = fixture({
+      'src/app/features/settings/RuntimeSection.tsx': `
+export function RuntimeSection() {
+  return <RuntimeReadinessMetric label="Default agent location" value="Load setup to choose a location" />
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags validation copy that does not explain the next change', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `

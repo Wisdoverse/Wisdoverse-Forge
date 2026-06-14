@@ -155,6 +155,8 @@ const ANALYTICS_CHART_DEAD_END_PATTERNS = [/\bNo activity data\b/i, /\bNo tool u
 
 const RUNTIME_SIGN_IN_DEAD_END_PATTERNS = [/\bNo work tool sign-ins are connected yet\b/i]
 
+const RUNTIME_DEFAULT_LOCATION_DEAD_END_PATTERNS = [/\bNot set yet\b/i]
+
 const BEGINNER_JARGON_PATTERNS = [
   /\blocal agents?\b/i,
   /\bmanaged local agent\b/i,
@@ -431,6 +433,12 @@ function hasRuntimeSignInDeadEndCopy(relFile, line) {
   return RUNTIME_SIGN_IN_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasRuntimeDefaultLocationDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/settings/RuntimeSection.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return RUNTIME_DEFAULT_LOCATION_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function scanFile(file, relFile) {
   const lines = fs.readFileSync(file, 'utf8').split('\n')
   const findings = []
@@ -631,6 +639,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Work setup summaries must tell beginners to sign in before starting affected agents.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasRuntimeDefaultLocationDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'runtime-default-location-copy',
+        location,
+        message:
+          'Default agent location copy must tell beginners to load setup before choosing a location.',
         sample: line.trim(),
       })
     }
