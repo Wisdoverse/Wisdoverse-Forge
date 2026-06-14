@@ -54,6 +54,11 @@ interface RuntimeFitSummary {
   items: { label: string; value: string }[]
 }
 
+interface AgentCreateReviewItem {
+  label: string
+  value: string
+}
+
 const AGENT_ROLE_TEMPLATES: AgentRoleTemplate[] = [
   {
     id: 'builder',
@@ -197,6 +202,52 @@ function buildDefaultValues(provider: LlmProviderConfig | null): CreateAgentForm
   }
 }
 
+function createReviewItems({
+  kind,
+  runtimeTitle,
+  projectName,
+  hasSelectedProject,
+  selectedGroupName,
+  hasGroups,
+}: {
+  kind: AgentKind
+  runtimeTitle: string
+  projectName: string | null
+  hasSelectedProject: boolean
+  selectedGroupName: string | null
+  hasGroups: boolean
+}): AgentCreateReviewItem[] {
+  const startState =
+    kind === 'local-cli'
+      ? 'Forge creates the agent, then shows a setup command for this computer.'
+      : kind === 'provider'
+        ? 'Ready for chat and review after the AI service is connected.'
+        : 'Ready to start from Agents after the managed workspace is prepared.'
+
+  const taskQueue = selectedGroupName
+    ? selectedGroupName
+    : hasSelectedProject
+      ? hasGroups
+        ? 'No task queue selected yet'
+        : 'Create a task queue here when you want new tasks to wait in one place.'
+      : 'Choose a project later before assigning tasks.'
+
+  const nextStep =
+    kind === 'local-cli'
+      ? 'Run the setup command on this computer and keep that window open.'
+      : kind === 'provider'
+        ? 'Ask a first question or assign review work that does not need files.'
+        : 'Start the agent, then send one small task from Tasks.'
+
+  return [
+    { label: 'Work style', value: runtimeTitle },
+    { label: 'Primary project', value: projectName ?? 'No project selected yet' },
+    { label: 'Task queue', value: taskQueue },
+    { label: 'Next step', value: nextStep },
+    { label: 'Created state', value: startState },
+  ]
+}
+
 export function CreateAgentModal() {
   const {
     createModalOpen,
@@ -242,12 +293,29 @@ export function CreateAgentModal() {
   const provider = watch('provider')
   const cliTool = watch('cliTool')
   const cwd = watch('cwd')
+  const groupId = watch('groupId')
   const runtimeFit = runtimeFitFor(kind, cliTool, provider)
   const selectedProject = selectedProjectId
     ? (Object.values(projectsByTeam)
         .flat()
         .find((project) => project.id === selectedProjectId) ?? null)
     : null
+  const selectedGroup = useMemo(
+    () => groups.find((group) => group.id === groupId) ?? null,
+    [groupId, groups]
+  )
+  const reviewItems = useMemo(
+    () =>
+      createReviewItems({
+        kind,
+        runtimeTitle: runtimeFit.title,
+        projectName: selectedProject?.name ?? null,
+        hasSelectedProject: Boolean(selectedProjectId),
+        selectedGroupName: selectedGroup?.name ?? null,
+        hasGroups: groups.length > 0,
+      }),
+    [groups.length, kind, runtimeFit.title, selectedGroup, selectedProject, selectedProjectId]
+  )
   const dialogRef = useRef<HTMLDivElement>(null)
   const errorBannerRef = useRef<HTMLDivElement>(null)
   const displayedError = formError ?? error
@@ -998,6 +1066,28 @@ export function CreateAgentModal() {
                 )}
               </div>
             )}
+
+            <section
+              data-testid="agent-create-review"
+              className="rounded-lg border border-apple-blue/20 bg-apple-blue/10 px-3 py-2.5"
+            >
+              <p className="text-ui-caption font-semibold text-apple-blue">Before you create</p>
+              <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+                {reviewItems.map((item) => (
+                  <div
+                    key={item.label}
+                    className="min-w-0 rounded-md bg-white px-2 py-1.5 dark:bg-black/20"
+                  >
+                    <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
+                      {item.label}
+                    </span>
+                    <span className="mt-0.5 block text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
+                      {item.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
 
             <div className="flex justify-end gap-2 mt-2">
               <button

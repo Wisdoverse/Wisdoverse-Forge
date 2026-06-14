@@ -62,7 +62,7 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText('Start with a role')).toBeInTheDocument()
     expect(screen.getByText('Fills in the agent name')).toBeInTheDocument()
     expect(screen.getByText('Builds changes and checks them')).toBeInTheDocument()
-    expect(screen.getByText(/claude in a managed workspace/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/claude in a managed workspace/i).length).toBeGreaterThan(0)
     expect(screen.getByText('Project files included')).toBeInTheDocument()
     expect(screen.getByText('Agent location')).toBeInTheDocument()
     expect(screen.getByText('Check Agent Work Setup in Settings')).toBeInTheDocument()
@@ -80,6 +80,16 @@ describe('CreateAgentModal', () => {
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(
       /select a project in the sidebar/i
     )
+    const review = screen.getByTestId('agent-create-review')
+    expect(within(review).getByText('Before you create')).toBeInTheDocument()
+    expect(within(review).getByText(/claude in a managed workspace/i)).toBeInTheDocument()
+    expect(within(review).getByText('No project selected yet')).toBeInTheDocument()
+    expect(
+      within(review).getByText('Choose a project later before assigning tasks.')
+    ).toBeInTheDocument()
+    expect(
+      within(review).getByText('Start the agent, then send one small task from Tasks.')
+    ).toBeInTheDocument()
     expect(screen.queryByLabelText(/^ai service$/i)).toBeNull()
     expect(screen.queryByLabelText(/^ai model$/i)).toBeNull()
     expect(screen.queryByText(/Name seeds CLI agents/i)).toBeNull()
@@ -107,9 +117,16 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
 
-    expect(screen.getByText('Platform')).toBeInTheDocument()
+    expect(screen.getAllByText('Platform').length).toBeGreaterThan(0)
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/project ready/i)
     expect(screen.getByText(/tasks default to this project/i)).toBeInTheDocument()
+    const review = screen.getByTestId('agent-create-review')
+    expect(within(review).getByText('Platform')).toBeInTheDocument()
+    expect(
+      within(review).getByText(
+        'Create a task queue here when you want new tasks to wait in one place.'
+      )
+    ).toBeInTheDocument()
   })
 
   test('submits selected project workspace as the execution boundary', async () => {
@@ -195,6 +212,9 @@ describe('CreateAgentModal', () => {
     expect(
       screen.getByText(/new tasks can wait in this queue until an available agent can take them/i)
     ).toBeInTheDocument()
+    expect(
+      within(screen.getByTestId('agent-create-review')).getByText('Default Task Queue')
+    ).toBeInTheDocument()
     expect(screen.queryByText(/work a place to wait until this agent can take it/i)).toBeNull()
     expect(screen.queryByText(new RegExp('board\\s+tasks', 'i'))).toBeNull()
 
@@ -246,7 +266,7 @@ describe('CreateAgentModal', () => {
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
 
     expect(screen.getByText('Fills in name and instructions')).toBeInTheDocument()
-    expect(screen.getByText(/anthropic simple chat agent/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/anthropic simple chat agent/i).length).toBeGreaterThan(0)
     expect(screen.getByText(/questions, planning, writing, and review/i)).toBeInTheDocument()
     expect(screen.getByText(/does not open project files/i)).toBeInTheDocument()
     expect(screen.getByText('Check AI service in Settings')).toBeInTheDocument()
@@ -256,6 +276,15 @@ describe('CreateAgentModal', () => {
     expect(screen.getByLabelText(/^ai service$/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/^ai model$/i)).toBeInTheDocument()
     expect(screen.getByText(/keep the suggested AI model/i)).toBeInTheDocument()
+    const review = screen.getByTestId('agent-create-review')
+    expect(
+      within(review).getByText(
+        'Ask a first question or assign review work that does not need files.'
+      )
+    ).toBeInTheDocument()
+    expect(
+      within(review).getByText('Ready for chat and review after the AI service is connected.')
+    ).toBeInTheDocument()
     expect(screen.queryByLabelText(/^model name$/i)).toBeNull()
     expect(screen.queryByLabelText(/^provider$/i)).toBeNull()
     expect(screen.queryByLabelText(/^model$/i)).toBeNull()
@@ -267,10 +296,10 @@ describe('CreateAgentModal', () => {
     fireEvent.change(screen.getByRole('combobox', { name: /^work tool$/i }), {
       target: { value: 'codex' },
     })
-    expect(screen.getByText(/codex in a managed workspace/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/codex in a managed workspace/i).length).toBeGreaterThan(0)
 
     fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
-    expect(screen.getByText(/codex on this computer/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/codex on this computer/i).length).toBeGreaterThan(0)
     expect(
       screen.getByText(/files and commands on your computer\. Forge still manages the agent here/i)
     ).toBeInTheDocument()
@@ -281,6 +310,17 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByText(/Forge gives it tasks/i)).toBeNull()
     expect(screen.getByText('Run setup command on this computer')).toBeInTheDocument()
     expect(screen.getByText('Uses this computer')).toBeInTheDocument()
+    const localReview = screen.getByTestId('agent-create-review')
+    expect(
+      within(localReview).getByText(
+        'Run the setup command on this computer and keep that window open.'
+      )
+    ).toBeInTheDocument()
+    expect(
+      within(localReview).getByText(
+        'Forge creates the agent, then shows a setup command for this computer.'
+      )
+    ).toBeInTheDocument()
     expect(
       screen.queryByText(new RegExp(['work tool', 'installed', 'your computer'].join('.*'), 'i'))
     ).toBeNull()
@@ -290,7 +330,7 @@ describe('CreateAgentModal', () => {
     fireEvent.change(screen.getByLabelText(/^ai service$/i), { target: { value: 'google' } })
 
     await waitFor(() => {
-      expect(screen.getByText(/google simple chat agent/i)).toBeInTheDocument()
+      expect(screen.getAllByText(/google simple chat agent/i).length).toBeGreaterThan(0)
     })
     expect(screen.getByText('Chat-only AI service')).toBeInTheDocument()
     expect(screen.getByText('Check AI service in Settings')).toBeInTheDocument()
