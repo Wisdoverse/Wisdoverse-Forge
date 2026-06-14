@@ -1161,6 +1161,10 @@ mod tests {
             project_clone_image: None,
             project_clone_secret_root: None,
             project_clone_timeout_secs: 600,
+            github_app_id: None,
+            github_app_installation_id: None,
+            github_app_private_key: None,
+            github_app_repo: None,
         };
         let client = agentforge_infra::RedisClient::new(&cfg).await;
         let store = StateStore::Redis(Arc::new(RwLock::new(client)));
