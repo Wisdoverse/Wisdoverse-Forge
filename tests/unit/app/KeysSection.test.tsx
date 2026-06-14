@@ -129,7 +129,8 @@ describe('KeysSection', () => {
 
     expect(await screen.findByRole('table', { name: /outside tool access keys/i })).toBeDefined()
     expect(screen.getByText('Key preview')).toBeDefined()
-    expect(screen.getByText('Not used yet')).toBeDefined()
+    expect(screen.getByText('Use this key from a trusted tool first')).toBeDefined()
+    expect(screen.queryByText('Not used yet')).toBeNull()
     expect(screen.queryByText('Starts with')).toBeNull()
     expect(screen.queryByText('—')).toBeNull()
 

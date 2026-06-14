@@ -1843,6 +1843,38 @@ function serviceStatusText(status: ServiceStatus): string {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags access key last-used copy that does not explain tool use', () => {
+    const cwd = fixture({
+      'src/app/features/settings/KeysSection.tsx': `
+function KeyRow() {
+  return <span>Not used yet</span>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'access-key-last-used-copy',
+        location: 'src/app/features/settings/KeysSection.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts access key last-used copy that explains trusted tool use', () => {
+    const cwd = fixture({
+      'src/app/features/settings/KeysSection.tsx': `
+function KeyRow() {
+  return <span>Use this key from a trusted tool first</span>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags recoverable failure copy without a next action', () => {
     const cwd = fixture({
       'src/app/features/tasks/TaskFailure.tsx': `

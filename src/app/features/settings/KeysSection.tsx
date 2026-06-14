@@ -58,7 +58,7 @@ function KeyRow({ apiKey, onRevoke }: KeyRowProps) {
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
           {formatAccessDate(apiKey.lastUsedAt, {
-            missing: 'Not used yet',
+            missing: 'Use this key from a trusted tool first',
             invalid: 'Last used date needs review',
           })}
         </span>

@@ -182,6 +182,8 @@ const CLI_IMAGE_STATUS_DEAD_END_PATTERNS = [
 
 const SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS = [/\bNot checked yet\b/i]
 
+const ACCESS_KEY_LAST_USED_DEAD_END_PATTERNS = [/\bNot used yet\b/i]
+
 const RUNTIME_SIGN_IN_DEAD_END_PATTERNS = [/\bNo work tool sign-ins are connected yet\b/i]
 
 const RUNTIME_DEFAULT_LOCATION_DEAD_END_PATTERNS = [/\bNot set yet\b/i]
@@ -528,6 +530,12 @@ function hasSystemHealthStatusDeadEndCopy(relFile, line) {
   return SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAccessKeyLastUsedDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/settings/KeysSection.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ACCESS_KEY_LAST_USED_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasRuntimeSignInDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/settings/RuntimeSection.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -841,6 +849,15 @@ function scanFile(file, relFile) {
         type: 'system-health-status-copy',
         location,
         message: 'App health status copy must tell beginners to choose Check now.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAccessKeyLastUsedDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'access-key-last-used-copy',
+        location,
+        message: 'Outside tool access copy must explain that a trusted tool uses the key first.',
         sample: line.trim(),
       })
     }
