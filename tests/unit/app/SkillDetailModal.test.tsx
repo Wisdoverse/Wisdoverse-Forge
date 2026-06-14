@@ -33,6 +33,12 @@ describe('SkillDetailModal', () => {
     expect(screen.getByText('Ready to use')).toBeInTheDocument()
     expect(screen.getByText('Best with Codex')).toBeInTheDocument()
     expect(screen.queryByText(/Codex C[L]I/)).toBeNull()
+    expect(screen.getByText('What to do next')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Use this saved instruction when creating a task, or rely on its matching words to suggest it for similar work.'
+      )
+    ).toBeInTheDocument()
     expect(screen.getByText('Where it came from')).toBeInTheDocument()
     expect(screen.getByText('Workspace saved instructions')).toBeInTheDocument()
     expect(screen.queryByText('Workspace skills')).toBeNull()
@@ -82,6 +88,11 @@ describe('SkillDetailModal', () => {
 
     expect(screen.getByText('Needs install before agents can use it')).toBeInTheDocument()
     expect(screen.getByText('Works with any agent')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Ask an owner or admin to install it before expecting agents to use it in tasks.'
+      )
+    ).toBeInTheDocument()
     expect(screen.getByText('Saved instructions library')).toBeInTheDocument()
     expect(screen.getByText('Refresh saved instructions to load maintainer')).toBeInTheDocument()
     expect(screen.queryByText('Unknown')).toBeNull()

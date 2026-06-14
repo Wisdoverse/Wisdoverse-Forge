@@ -481,6 +481,11 @@ export const en = {
       allAgentsFit: 'Works with any agent',
       allAgentsTooltip: 'No specific work tool is required.',
       containerCliTooltip: 'Work tool: {{tool}}',
+      nextStepHeading: 'What to do next',
+      nextStepReady:
+        'Use this saved instruction when creating a task, or rely on its matching words to suggest it for similar work.',
+      nextStepNeedsInstall:
+        'Ask an owner or admin to install it before expecting agents to use it in tasks.',
       sourceLabel: 'Where it came from',
       authorLabel: 'Maintainer',
       availabilityLabel: 'Available to',

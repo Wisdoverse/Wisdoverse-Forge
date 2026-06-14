@@ -82,6 +82,17 @@ export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
             </span>
           </div>
 
+          <section className="rounded-card border border-apple-blue/20 bg-apple-blue/[0.06] px-3 py-2">
+            <h3 className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+              {t('skills.detail.nextStepHeading')}
+            </h3>
+            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              {skill.installed
+                ? t('skills.detail.nextStepReady')
+                : t('skills.detail.nextStepNeedsInstall')}
+            </p>
+          </section>
+
           <div className="grid gap-2 sm:grid-cols-3">
             <SkillMeta label={t('skills.detail.sourceLabel')} value={source} />
             <SkillMeta label={t('skills.detail.authorLabel')} value={author} />
