@@ -147,6 +147,78 @@ export async function saveThing() {
     ])
   })
 
+  it('flags validation copy that does not explain the next change', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  agents: {
+    invalidProjectPath: 'Invalid project path',
+  },
+  groups: {
+    invalidType: 'Invalid file type. Allowed types are: {{types}}',
+  },
+  a11y: {
+    invalid: 'This field is invalid',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'validation-next-action',
+        location: 'src/app/shared/i18n/locales/en.ts:4',
+      }),
+      expect.objectContaining({
+        type: 'validation-next-action',
+        location: 'src/app/shared/i18n/locales/en.ts:7',
+      }),
+      expect.objectContaining({
+        type: 'validation-next-action',
+        location: 'src/app/shared/i18n/locales/en.ts:10',
+      }),
+    ])
+  })
+
+  it('flags Chinese validation copy that does not explain the next change', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  agents: {
+    invalidProjectPath: '无效的项目路径',
+  },
+  groups: {
+    invalidType: '无效的文件类型，允许的类型：{{types}}',
+  },
+  a11y: {
+    invalid: '此字段无效',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'validation-next-action',
+        location: 'src/app/shared/i18n/locales/zh.ts:4',
+      }),
+      expect.objectContaining({
+        type: 'validation-next-action',
+        location: 'src/app/shared/i18n/locales/zh.ts:7',
+      }),
+      expect.objectContaining({
+        type: 'validation-next-action',
+        location: 'src/app/shared/i18n/locales/zh.ts:10',
+      }),
+    ])
+  })
+
   it('ignores raw legacy API parser regexes', () => {
     const cwd = fixture({
       'src/app/shared/api/legacy/AgentAPI.ts': `

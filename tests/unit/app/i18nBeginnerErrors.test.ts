@@ -79,6 +79,22 @@ describe('beginner error translations', () => {
     expect(zh.prompt.noAgentSelected).not.toBe('未选择 Agent')
   })
 
+  test('validation errors tell beginners what to change next', () => {
+    expect(en.agents.invalidProjectPath).toBe('Enter a project folder path, then try again.')
+    expect(en.files.invalidType).toBe('Choose a file with one of these types: {{types}}.')
+    expect(en.a11y.invalid).toBe('Check this field, then try again')
+    expect(en.agents.invalidProjectPath).not.toContain('Invalid project path')
+    expect(en.files.invalidType).not.toContain('Invalid file type')
+    expect(en.a11y.invalid).not.toContain('This field is invalid')
+
+    expect(zh.agents.invalidProjectPath).toBe('请输入项目文件夹路径，然后重试。')
+    expect(zh.files.invalidType).toBe('请选择这些类型之一的文件：{{types}}。')
+    expect(zh.a11y.invalid).toBe('请检查此字段，然后重试')
+    expect(zh.agents.invalidProjectPath).not.toContain('无效的项目路径')
+    expect(zh.files.invalidType).not.toContain('无效的文件类型')
+    expect(zh.a11y.invalid).not.toContain('此字段无效')
+  })
+
   test('shared instruction input copy avoids prompt jargon', () => {
     expect(en.prompt.placeholder).toBe('Type one instruction for the agent...')
     expect(en.prompt.placeholderShort).toBe('Type an instruction...')

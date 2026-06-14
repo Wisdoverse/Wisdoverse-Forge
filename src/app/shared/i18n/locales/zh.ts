@@ -281,7 +281,7 @@ export const zh: TranslationKeys = {
     agentDeleted: 'Agent 已删除',
     agentCreated: 'Agent 已创建',
     maxAgentsReached: '已达到最大 Agent 数量',
-    invalidProjectPath: '无效的项目路径',
+    invalidProjectPath: '请输入项目文件夹路径，然后重试。',
   },
 
   // =========================================================================
@@ -620,7 +620,7 @@ export const zh: TranslationKeys = {
     uploaded: '文件上传成功',
     uploadFailed: '文件上传失败',
     tooLarge: '文件过大，最大允许 {{size}}',
-    invalidType: '无效的文件类型，允许的类型：{{types}}',
+    invalidType: '请选择这些类型之一的文件：{{types}}。',
   },
 
   // =========================================================================
@@ -661,7 +661,7 @@ export const zh: TranslationKeys = {
     error: '有内容需要处理。请查看提示信息，然后重试。',
     success: '操作成功',
     required: '此字段为必填',
-    invalid: '此字段无效',
+    invalid: '请检查此字段，然后重试',
   },
 
   // =========================================================================

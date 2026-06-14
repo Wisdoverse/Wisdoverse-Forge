@@ -38,6 +38,15 @@ const RECOVERABLE_ERROR_PATTERNS = [
   /\b(?:are|is|was|were) not (?:created|deleted|loaded|saved|started|updated)\b/i,
 ]
 
+const DEAD_END_VALIDATION_PATTERNS = [
+  /\bInvalid project path\b/,
+  /\bInvalid file type\b/,
+  /\bThis field is invalid\b/,
+  /无效的项目路径/,
+  /无效的文件类型/,
+  /此字段无效/,
+]
+
 const BEGINNER_JARGON_PATTERNS = [
   /\blocal agents?\b/i,
   /\bmanaged local agent\b/i,
@@ -214,6 +223,11 @@ function hasRecoverableErrorCopy(line) {
   return RECOVERABLE_ERROR_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasDeadEndValidationCopy(line) {
+  if (isLikelyGuardOrParserLine(line)) return false
+  return DEAD_END_VALIDATION_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function scanFile(file, relFile) {
   const lines = fs.readFileSync(file, 'utf8').split('\n')
   const findings = []
@@ -254,6 +268,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'User-visible copy must explain missing information instead of showing placeholder labels.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasDeadEndValidationCopy(line)) {
+      findings.push({
+        type: 'validation-next-action',
+        location,
+        message: 'User-visible validation copy must explain what to change next.',
         sample: line.trim(),
       })
     }

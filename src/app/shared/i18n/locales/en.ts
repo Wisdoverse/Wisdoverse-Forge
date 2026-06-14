@@ -288,7 +288,7 @@ export const en = {
     agentDeleted: 'Agent deleted',
     agentCreated: 'Agent created',
     maxAgentsReached: 'Maximum number of agents reached',
-    invalidProjectPath: 'Invalid project path',
+    invalidProjectPath: 'Enter a project folder path, then try again.',
   },
 
   // =========================================================================
@@ -639,7 +639,7 @@ export const en = {
     uploaded: 'File uploaded successfully',
     uploadFailed: 'File upload failed',
     tooLarge: 'File is too large. Maximum size is {{size}}.',
-    invalidType: 'Invalid file type. Allowed types are: {{types}}',
+    invalidType: 'Choose a file with one of these types: {{types}}.',
   },
 
   // =========================================================================
@@ -680,7 +680,7 @@ export const en = {
     error: 'Something needs attention. Review the message, then try again.',
     success: 'Operation successful',
     required: 'This field is required',
-    invalid: 'This field is invalid',
+    invalid: 'Check this field, then try again',
   },
 
   // =========================================================================
