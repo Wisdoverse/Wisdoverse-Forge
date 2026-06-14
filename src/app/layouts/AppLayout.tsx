@@ -172,6 +172,7 @@ export function AppLayout({
       handleNavigate(path)
     } else if (commandId.startsWith('view:')) {
       const view = commandId.replace('view:', '') as typeof viewMode
+      handleNavigate('/tasks')
       setViewMode(view)
     } else if (commandId === 'action:create-task') {
       handleNavigate('/tasks')

@@ -169,6 +169,20 @@ describe('AppLayout', () => {
     expect(screen.queryByPlaceholderText(/search pages or actions/i)).toBeNull()
   })
 
+  test('command palette task view actions open Tasks before switching view', () => {
+    routerState.path = '/settings'
+    const onNavigate = vi.fn()
+
+    render(<MemoryRouter onNavigate={onNavigate} />)
+
+    fireEvent.click(screen.getByTestId('top-bar-command-search'))
+    fireEvent.click(screen.getByText('Scan tasks in one sortable table.'))
+
+    expect(onNavigate).toHaveBeenCalledWith('/tasks')
+    expect(useBoardStore.getState().viewMode).toBe('list')
+    expect(screen.queryByPlaceholderText(/search pages or actions/i)).toBeNull()
+  })
+
   test('uses beginner-facing start page metadata', () => {
     routerState.path = '/start'
 
