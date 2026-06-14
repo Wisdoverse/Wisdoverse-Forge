@@ -81,6 +81,14 @@ function baseMessage(action: GitCredentialAction): string {
   return 'Refresh Settings to load repository access.'
 }
 
+function connectionMessage(action: GitCredentialAction): string {
+  if (action === 'load') {
+    return 'Check your connection, then refresh Settings to load repository access. Forge could not connect while opening repository access.'
+  }
+  const verb = action === 'remove' ? 'remove' : 'save'
+  return `Check your connection, then ${verb} repository access again. Forge could not connect while opening repository access.`
+}
+
 function validationGuidance(lower: string): string {
   if (lower.includes('invalid provider')) {
     return 'Choose GitHub or GitLab, then save repository access again.'
@@ -135,7 +143,7 @@ export function gitCredentialsErrorMessage(error: unknown): string {
     return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check repository access settings.`
   }
   if (isNetworkError(error)) {
-    return `${base} Forge could not connect while opening repository access. Check your connection, then try again.`
+    return connectionMessage(action)
   }
 
   return `${base} Try again. If it still fails, ask an owner or admin to check repository access settings.`

@@ -51,10 +51,20 @@ describe('sshKeysErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load repository SSH access. Forge could not connect while opening repository SSH access. Check your connection, then try again.'
+      'Check your connection, then refresh Settings to load repository SSH access. Forge could not connect while opening repository SSH access.'
     )
     expect(message).not.toContain('service')
     expect(message).not.toContain('Failed to fetch')
+  })
+
+  test('starts save network failures with the recovery step', () => {
+    const message = sshKeysErrorMessage('saving SSH key failed: Network error')
+
+    expectBeginnerMessage(
+      message,
+      'Check your connection, then save this repository SSH access again. Forge could not connect while opening repository SSH access.'
+    )
+    expect(message).not.toContain('Network error')
   })
 
   test('turns server failures into Settings recovery guidance', () => {

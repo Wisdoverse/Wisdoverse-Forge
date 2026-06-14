@@ -39,10 +39,20 @@ describe('platformKeyErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load outside tool access keys. Forge could not connect while opening outside tool access settings. Check your connection, then try again.'
+      'Check your connection, then refresh Settings to load outside tool access keys. Forge could not connect while opening outside tool access settings.'
     )
     expect(message).not.toContain('the service')
     expect(message).not.toContain('Failed to fetch')
+  })
+
+  test('starts create network failures with the recovery step', () => {
+    const message = platformKeyErrorMessage('creating platform key failed: Network error')
+
+    expectBeginnerMessage(
+      message,
+      'Check your connection, then create this outside tool access key again. Forge could not connect while opening outside tool access settings.'
+    )
+    expect(message).not.toContain('Network error')
   })
 
   test('turns temporary failures into an outside tool access settings recovery step', () => {

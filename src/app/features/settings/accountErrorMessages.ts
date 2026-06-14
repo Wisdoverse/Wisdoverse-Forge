@@ -12,7 +12,7 @@ export function accountErrorMessage(action: AccountErrorAction, error?: unknown)
     if (detail) {
       return validationMessage(action, detail)
     }
-    return `${actionFailureBase(action)} Forge could not connect while opening ${settingsAreaLabel(action).toLowerCase()}. Check your connection, then try again.`
+    return `Check your connection, then ${retryPhrase(action)}. Forge could not connect while opening ${settingsAreaLabel(action).toLowerCase()}.`
   }
 
   if (status === 401) {

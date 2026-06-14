@@ -61,10 +61,20 @@ describe('gitCredentialsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load repository access. Forge could not connect while opening repository access. Check your connection, then try again.'
+      'Check your connection, then refresh Settings to load repository access. Forge could not connect while opening repository access.'
     )
     expect(message).not.toContain('service')
     expect(message).not.toContain('Failed to fetch')
+  })
+
+  test('starts save network failures with the recovery step', () => {
+    const message = gitCredentialsErrorMessage('saving repository access failed: Network error')
+
+    expectBeginnerMessage(
+      message,
+      'Check your connection, then save repository access again. Forge could not connect while opening repository access.'
+    )
+    expect(message).not.toContain('Network error')
   })
 
   test('turns structured rate limits into a wait and retry step', () => {

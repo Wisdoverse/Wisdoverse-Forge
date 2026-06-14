@@ -83,6 +83,14 @@ function baseMessage(action: PlatformKeyAction): string {
   return 'Refresh Settings to load outside tool access keys.'
 }
 
+function connectionMessage(action: PlatformKeyAction): string {
+  if (action === 'load') {
+    return 'Check your connection, then refresh Settings to load outside tool access keys. Forge could not connect while opening outside tool access settings.'
+  }
+  const verb = action === 'remove' ? 'remove' : 'create'
+  return `Check your connection, then ${verb} this outside tool access key again. Forge could not connect while opening outside tool access settings.`
+}
+
 export function platformKeyErrorMessage(error: unknown): string {
   const text = errorText(error)
   const lower = text.toLowerCase()
@@ -117,7 +125,7 @@ export function platformKeyErrorMessage(error: unknown): string {
     return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check outside tool access settings.`
   }
   if (isNetworkError(error)) {
-    return `${base} Forge could not connect while opening outside tool access settings. Check your connection, then try again.`
+    return connectionMessage(action)
   }
 
   return `${base} Try again. If it still fails, ask an owner or admin to check outside tool access settings.`

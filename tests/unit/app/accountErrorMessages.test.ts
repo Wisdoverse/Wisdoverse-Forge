@@ -14,7 +14,7 @@ describe('accountErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Password could not be changed. Forge could not connect while opening password settings. Check your connection, then try again.'
+      'Check your connection, then change your password again. Forge could not connect while opening password settings.'
     )
     expect(message).toContain('Check your connection')
     expect(message).not.toContain('Failed to fetch')

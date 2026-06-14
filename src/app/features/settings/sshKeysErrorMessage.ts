@@ -84,6 +84,14 @@ function baseMessage(action: SshKeyAction): string {
   return 'Refresh Settings to load repository SSH access.'
 }
 
+function connectionMessage(action: SshKeyAction): string {
+  if (action === 'load') {
+    return 'Check your connection, then refresh Settings to load repository SSH access. Forge could not connect while opening repository SSH access.'
+  }
+  const verb = action === 'remove' ? 'remove' : 'save'
+  return `Check your connection, then ${verb} this repository SSH access again. Forge could not connect while opening repository SSH access.`
+}
+
 export function sshKeysErrorMessage(error: unknown): string {
   const text = errorText(error)
   const lower = text.toLowerCase()
@@ -96,6 +104,9 @@ export function sshKeysErrorMessage(error: unknown): string {
   }
   if (code === 403 || lower.includes('permission') || lower.includes('forbidden')) {
     return `${base} Ask an owner or admin for access to manage repository SSH access.`
+  }
+  if (isNetworkError(error)) {
+    return connectionMessage(action)
   }
   if (
     lower.includes('add a name') ||
@@ -136,9 +147,6 @@ export function sshKeysErrorMessage(error: unknown): string {
       return `${base} If it still fails, ask an owner or admin to check repository SSH access settings.`
     }
     return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check repository SSH access settings.`
-  }
-  if (isNetworkError(error)) {
-    return `${base} Forge could not connect while opening repository SSH access. Check your connection, then try again.`
   }
 
   return `${base} Try again. If it still fails, ask an owner or admin to check repository SSH access settings.`

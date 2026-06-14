@@ -3727,6 +3727,26 @@ function providerSettingsErrorMessage() {
   return 'AI service could not be saved. Forge could not connect while opening AI service settings. Check your connection, then try again.'
 }
 `,
+      'src/app/features/settings/platformKeyErrorMessage.ts': `
+function platformKeyErrorMessage() {
+  return 'Outside tool access key could not be created. Forge could not connect while opening outside tool access settings. Check your connection, then try again.'
+}
+`,
+      'src/app/features/settings/gitCredentialsErrorMessage.ts': `
+function gitCredentialsErrorMessage() {
+  return 'Repository access could not be saved. Forge could not connect while opening repository access. Check your connection, then try again.'
+}
+`,
+      'src/app/features/settings/sshKeysErrorMessage.ts': `
+function sshKeysErrorMessage() {
+  return 'Repository SSH access could not be saved. Forge could not connect while opening repository SSH access. Check your connection, then try again.'
+}
+`,
+      'src/app/features/settings/accountErrorMessages.ts': `
+function accountErrorMessage() {
+  return 'Password could not be changed. Forge could not connect while opening password settings. Check your connection, then try again.'
+}
+`,
       'src/app/shared/i18n/locales/zh.ts': `
 export const zh = {
   errors: {
@@ -3799,6 +3819,22 @@ export const zh = {
         }),
         expect.objectContaining({
           type: 'network-copy',
+          location: 'src/app/features/settings/platformKeyErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'network-copy',
+          location: 'src/app/features/settings/gitCredentialsErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'network-copy',
+          location: 'src/app/features/settings/sshKeysErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'network-copy',
+          location: 'src/app/features/settings/accountErrorMessages.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'network-copy',
           location: 'src/app/shared/i18n/locales/zh.ts:4',
         }),
       ])
@@ -3861,6 +3897,26 @@ function settingsConnectionMessage() {
       'src/app/features/settings/providerSettingsErrorMessage.ts': `
 function providerSettingsErrorMessage() {
   return 'Check your connection, then save this AI service again. Forge could not connect while opening AI service settings.'
+}
+`,
+      'src/app/features/settings/platformKeyErrorMessage.ts': `
+function platformKeyErrorMessage() {
+  return 'Check your connection, then create this outside tool access key again. Forge could not connect while opening outside tool access settings.'
+}
+`,
+      'src/app/features/settings/gitCredentialsErrorMessage.ts': `
+function gitCredentialsErrorMessage() {
+  return 'Check your connection, then save repository access again. Forge could not connect while opening repository access.'
+}
+`,
+      'src/app/features/settings/sshKeysErrorMessage.ts': `
+function sshKeysErrorMessage() {
+  return 'Check your connection, then save this repository SSH access again. Forge could not connect while opening repository SSH access.'
+}
+`,
+      'src/app/features/settings/accountErrorMessages.ts': `
+function accountErrorMessage() {
+  return 'Check your connection, then change your password again. Forge could not connect while opening password settings.'
 }
 `,
       'src/app/shared/i18n/locales/zh.ts': `
