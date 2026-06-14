@@ -487,11 +487,19 @@ fi
 SKILLS_GLOBAL="/home/agent/.agentforge/skills/global"
 SKILLS_PROJECT="/home/agent/.agentforge/skills/project"
 
-# Determine target skills directory based on CLI tool
-case "$AGENTFORGE_CLI_TOOL" in
+# Determine target skills directory based on CLI tool.
+# Each CLI discovers skills from a different path:
+#   claude   ~/.claude/skills/<name>/SKILL.md
+#   codex    ~/.agents/skills/<name>/SKILL.md   (user-scoped; codex also reads
+#            repo .agents/skills and /etc/codex/skills — NOT ~/.codex/skills)
+#   opencode ~/.config/opencode/skills
+#   gemini   ~/.gemini/skills
+# Dispatch on the normalized $CLI_TOOL (validated by the FATAL-unknown guard
+# above), not the raw env var, so this stays in lockstep with the harness map.
+case "$CLI_TOOL" in
   claude)   SKILLS_TARGET="/home/agent/.claude/skills" ;;
   opencode) SKILLS_TARGET="/home/agent/.config/opencode/skills" ;;
-  codex)    SKILLS_TARGET="/home/agent/.codex/skills" ;;
+  codex)    SKILLS_TARGET="/home/agent/.agents/skills" ;;
   gemini)   SKILLS_TARGET="/home/agent/.gemini/skills" ;;
   *)        SKILLS_TARGET="/home/agent/.claude/skills" ;;
 esac
@@ -517,37 +525,68 @@ if [ -d "$SKILLS_PROJECT" ]; then
 fi
 
 # =============================================================================
-# Agent harness: inject CLAUDE.md + slash commands into workspace
+# Agent harness: inject behavioral guidelines + reusable commands per CLI tool
 # =============================================================================
-# The harness provides behavioral guidelines and reusable commands for agents.
-# CLAUDE.md is copied to the workspace root (if no project CLAUDE.md exists).
-# Commands are symlinked into the CLI's commands directory.
+# The harness ships a generic guideline file (CLAUDE.md) plus reusable slash
+# commands at /home/agent/.agentforge/harness/. Each Container CLI loads its
+# global instructions and custom commands from a different path, so map the
+# baked harness onto the active CLI:
+#
+#   CLI     global guideline file     custom command / prompt dir
+#   claude  ~/.claude/CLAUDE.md        ~/.claude/commands/*.md
+#   codex   ~/.codex/AGENTS.md         ~/.codex/prompts/*.md
+#
+# gemini/opencode guideline+command conventions are not wired yet (their files
+# differ); leaving HARNESS_GUIDELINES empty skips harness injection for them.
+# Skills above are already linked into each CLI's own skills dir.
 
 HARNESS_DIR="/home/agent/.agentforge/harness"
 
-if [ "$CLI_TOOL" = "claude" ]; then
-  # Inject agent CLAUDE.md as a global-level CLAUDE.md (lowest precedence).
-  # Project-level CLAUDE.md in /workspace takes priority automatically.
-  # Always overwrite — the image-baked version is the source of truth.
-  # On reused home volumes the previous copy would otherwise become stale.
-  GLOBAL_CLAUDE_MD="$HOME/.claude/CLAUDE.md"
+HARNESS_GUIDELINES=""
+HARNESS_COMMANDS=""
+case "$CLI_TOOL" in
+  claude)
+    HARNESS_GUIDELINES="$HOME/.claude/CLAUDE.md"
+    HARNESS_COMMANDS="$HOME/.claude/commands"
+    ;;
+  codex)
+    # Codex loads global instructions from ~/.codex/AGENTS.md and treats each
+    # ~/.codex/prompts/<name>.md as a /<name> custom prompt (its slash-command
+    # equivalent).
+    HARNESS_GUIDELINES="$HOME/.codex/AGENTS.md"
+    HARNESS_COMMANDS="$HOME/.codex/prompts"
+    ;;
+esac
+
+if [ -n "$HARNESS_GUIDELINES" ]; then
+  # Inject the guideline file as the CLI's global-level instructions (lowest
+  # precedence; a project-level file under /workspace still wins). Always
+  # overwrite — the image-baked version is the source of truth, so a reused
+  # home volume cannot keep a stale copy.
   if [ -f "$HARNESS_DIR/CLAUDE.md" ]; then
-    cp "$HARNESS_DIR/CLAUDE.md" "$GLOBAL_CLAUDE_MD"
-    echo "agent-entrypoint: Injected agent harness CLAUDE.md → $GLOBAL_CLAUDE_MD"
+    mkdir -p "$(dirname "$HARNESS_GUIDELINES")"
+    cp "$HARNESS_DIR/CLAUDE.md" "$HARNESS_GUIDELINES"
+    echo "agent-entrypoint: Injected agent harness guidelines → $HARNESS_GUIDELINES"
   fi
 
-  # Inject slash commands
-  COMMANDS_TARGET="$HOME/.claude/commands"
-  if [ -d "$HARNESS_DIR/commands" ]; then
-    mkdir -p "$COMMANDS_TARGET"
+  # Inject slash commands / custom prompts as symlinks. Never clobber a real
+  # user- or project-provided file of the same name, but always (re)assert our
+  # own link — including over a stale/broken symlink left on a reused home
+  # volume. rm + ln -s is used instead of `ln -sfn` to stay correct regardless
+  # of how `ln` treats a symlink-to-directory at the target name.
+  if [ -n "$HARNESS_COMMANDS" ] && [ -d "$HARNESS_DIR/commands" ]; then
+    mkdir -p "$HARNESS_COMMANDS"
     for cmd_file in "$HARNESS_DIR/commands"/*.md; do
       [ -f "$cmd_file" ] || continue
-      cmd_name=$(basename "$cmd_file")
-      if [ ! -f "$COMMANDS_TARGET/$cmd_name" ]; then
-        ln -sfn "$cmd_file" "$COMMANDS_TARGET/$cmd_name"
+      cmd_dest="$HARNESS_COMMANDS/$(basename "$cmd_file")"
+      # Skip only a real regular file (not a symlink) — that is a user override.
+      if [ -f "$cmd_dest" ] && [ ! -L "$cmd_dest" ]; then
+        continue
       fi
+      rm -f "$cmd_dest"
+      ln -s "$cmd_file" "$cmd_dest"
     done
-    echo "agent-entrypoint: Injected agent harness commands → $COMMANDS_TARGET"
+    echo "agent-entrypoint: Injected agent harness commands → $HARNESS_COMMANDS"
   fi
 fi
 
