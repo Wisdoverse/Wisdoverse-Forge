@@ -331,6 +331,15 @@ ensure-agent-base: ## Ensure base image exists (pull or build)
 	@docker image inspect agentforge-agent-base:latest >/dev/null 2>&1 \
 		|| { echo "Base image not found locally, building..."; $(MAKE) build-agent-base; }
 
+.PHONY: build-clone
+build-clone: ## Build ephemeral clone image (minimal git-only project-clone container)
+	$(eval _UID := $(or $(CLAUDE_UID),$(shell grep -m1 '^CLAUDE_UID=' docker/.env 2>/dev/null | cut -d= -f2),1011))
+	$(eval _GID := $(or $(CLAUDE_GID),$(shell grep -m1 '^CLAUDE_GID=' docker/.env 2>/dev/null | cut -d= -f2),1012))
+	docker build $(DOCKER_CN_ARGS) -t agentforge-clone:latest \
+		-f docker/Dockerfile.clone \
+		--build-arg AGENT_UID=$(_UID) \
+		--build-arg AGENT_GID=$(_GID) .
+
 .PHONY: build-agent
 build-agent: ensure-agent-base ## Build single CLI agent image (default: claude)
 	$(eval _TOOL := $(or $(CLI_TOOL),claude))

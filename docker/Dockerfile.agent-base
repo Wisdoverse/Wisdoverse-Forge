@@ -254,6 +254,10 @@ RUN mkdir -p /home/agent/.agentforge/skills/global /home/agent/.agentforge/skill
 # Setup workspace directory
 RUN mkdir -p /workspace && chown agent:agent /workspace
 
+# Shared git credential / host / hardening library, sourced by the entrypoint.
+# Same path is used by the ephemeral agentforge-clone image (Dockerfile.clone).
+COPY docker/scripts/lib/git-credentials.sh /usr/local/lib/agentforge/git-credentials.sh
+
 COPY docker/scripts/agent-entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 

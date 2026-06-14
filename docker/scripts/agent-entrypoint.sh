@@ -9,6 +9,22 @@
 # AGENTFORGE_SERVER_URL is still used for other server communication.
 
 # =============================================================================
+# Shared git credential / host / hardening library
+# =============================================================================
+# The GitLab token + SSH/known_hosts + git-hardening logic lives in a sourceable
+# library (also reused by the ephemeral agentforge-clone image). Sourcing only
+# DEFINES functions; nothing runs until the call sites below. This script has no
+# `set -e`, so a missing library is logged but does not abort the CLI startup —
+# the git helpers are simply skipped in that (image-misbuild) case.
+GIT_CREDENTIALS_LIB="/usr/local/lib/agentforge/git-credentials.sh"
+if [ -f "$GIT_CREDENTIALS_LIB" ]; then
+  # shellcheck source=lib/git-credentials.sh disable=SC1091
+  . "$GIT_CREDENTIALS_LIB"
+else
+  echo "agent-entrypoint: WARNING: git credential library not found at $GIT_CREDENTIALS_LIB — git platform setup will be skipped"
+fi
+
+# =============================================================================
 # Resolve CLI tool configuration
 # =============================================================================
 # AGENTFORGE_CLI_TOOL is set by:
@@ -271,28 +287,10 @@ fi
 #   - GitLab: GITLAB_TOKEN/GITLAB_HOST. Convert these into the config file that
 #     glab expects, then clear the raw env vars below.
 
-# glab CLI: requires ~/.config/glab-cli/config.yml
-if [ -n "${GITLAB_TOKEN:-}" ]; then
-  GLAB_CONFIG_DIR="/home/agent/.config/glab-cli"
-  GLAB_HOST="${GITLAB_HOST:-gitlab.com}"
-
-  if mkdir -p "$GLAB_CONFIG_DIR"; then
-    cat > "$GLAB_CONFIG_DIR/config.yml" <<GLAB_EOF
-hosts:
-  ${GLAB_HOST}:
-    token: ${GITLAB_TOKEN}
-    api_host: ${GLAB_HOST}
-    git_protocol: ssh
-GLAB_EOF
-    chmod 600 "$GLAB_CONFIG_DIR/config.yml"
-    echo "agent-entrypoint: Configured glab CLI for host: $GLAB_HOST"
-  else
-    echo "agent-entrypoint: WARNING: Failed to create $GLAB_CONFIG_DIR — glab may prompt for auth"
-  fi
-
-  # Clear token from env to prevent leakage via printenv / /proc/*/environ
-  unset GITLAB_TOKEN
-  unset GITLAB_HOST
+# glab CLI: requires ~/.config/glab-cli/config.yml.
+# Factored into the shared git-credentials library (configure_git_credentials).
+if command -v configure_git_credentials >/dev/null 2>&1; then
+  configure_git_credentials
 fi
 
 # =============================================================================
@@ -353,131 +351,20 @@ fi
 # The host's SSH keys directory is mounted at /host-ssh-keys (read-only).
 # We copy keys to ~/.ssh/ so git can authenticate with private repositories.
 
-SSH_MOUNT="/host-ssh-keys"
-if [ -d "$SSH_MOUNT" ]; then
-  echo "agent-entrypoint: Found SSH keys mount at $SSH_MOUNT"
-
-  SSH_DIR="$HOME/.ssh"
-  if mkdir -p "$SSH_DIR" && chmod 700 "$SSH_DIR"; then
-    copied=0
-    for f in "$SSH_MOUNT"/id_*; do
-      [ -f "$f" ] || continue
-      basename_f="$(basename "$f")"
-      if cp "$f" "$SSH_DIR/$basename_f"; then
-        # Private keys get 600, public keys and config get 644
-        case "$basename_f" in
-          *.pub) chmod 644 "$SSH_DIR/$basename_f" ;;
-          *)     chmod 600 "$SSH_DIR/$basename_f" ;;
-        esac
-        copied=$((copied + 1))
-      else
-        echo "agent-entrypoint: WARNING: Failed to copy $basename_f to $SSH_DIR"
-      fi
-    done
-
-    # Copy config and known_hosts
-    for f in config known_hosts; do
-      if [ -f "$SSH_MOUNT/$f" ]; then
-        if cp "$SSH_MOUNT/$f" "$SSH_DIR/$f"; then
-          chmod 644 "$SSH_DIR/$f"
-        else
-          echo "agent-entrypoint: WARNING: Failed to copy $f to $SSH_DIR"
-        fi
-      fi
-    done
-
-    if [ "$copied" -gt 0 ]; then
-      echo "agent-entrypoint: Copied $copied SSH key file(s) to $SSH_DIR"
-      # Configure git to use SSH for common providers
-      git config --global core.sshCommand "ssh -F $SSH_DIR/config" 2>/dev/null || true
-
-      # Configure glab CLI to prefer SSH protocol for GitLab operations
-      if command -v glab &> /dev/null; then
-        if git config --global url."git@gitlab.com:".insteadOf "https://gitlab.com/" 2>/dev/null; then
-          echo "agent-entrypoint: Configured git to use SSH for GitLab (glab CLI)"
-        fi
-        # Configure additional self-hosted GitLab SSH rewrites via SELF_HOSTED_GITLAB_SSH
-        # Format: "ssh.gitlab.example.com=https://gitlab.example.com/" (comma-separated for multiple)
-        if [ -n "${SELF_HOSTED_GITLAB_SSH:-}" ]; then
-          rewrite_count=0
-          IFS=',' read -ra REWRITES <<< "$SELF_HOSTED_GITLAB_SSH"
-          for rewrite in "${REWRITES[@]}"; do
-            # Validate format: must contain exactly one '='
-            if [[ "$rewrite" != *"="* ]]; then
-              echo "agent-entrypoint: WARNING: Skipping malformed SELF_HOSTED_GITLAB_SSH entry (missing '='): $rewrite"
-              continue
-            fi
-            ssh_host="${rewrite%%=*}"
-            https_url="${rewrite##*=}"
-            if [ -z "$ssh_host" ] || [ -z "$https_url" ]; then
-              echo "agent-entrypoint: WARNING: Skipping incomplete SELF_HOSTED_GITLAB_SSH entry: $rewrite"
-              continue
-            fi
-            if git config --global url."git@${ssh_host}:".insteadOf "$https_url" 2>/dev/null; then
-              echo "agent-entrypoint: Configured SSH rewrite for $ssh_host → $https_url"
-              rewrite_count=$((rewrite_count + 1))
-            else
-              echo "agent-entrypoint: WARNING: Failed to configure SSH rewrite for $ssh_host"
-            fi
-          done
-          echo "agent-entrypoint: Configured $rewrite_count SSH rewrite(s) total"
-        fi
-      fi
-
-      # Note: we do NOT set url."git@github.com:".insteadOf for GitHub.
-      # Users' git clone URLs should be used as-is — HTTPS stays HTTPS, SSH stays SSH.
-      # The gh CLI handles its own auth via tokens and doesn't need insteadOf.
-
-      # Scan custom git hosts for known_hosts (AGENTFORGE_CUSTOM_GIT_HOSTS=host1,host2)
-      if [ -n "${AGENTFORGE_CUSTOM_GIT_HOSTS:-}" ]; then
-        IFS=',' read -ra CUSTOM_HOSTS <<< "$AGENTFORGE_CUSTOM_GIT_HOSTS"
-        for host in "${CUSTOM_HOSTS[@]}"; do
-          host=$(echo "$host" | xargs)  # trim whitespace
-          # Validate hostname: alphanumeric, dots, hyphens only (prevent command injection)
-          if [ -z "$host" ] || ! echo "$host" | grep -qE '^[a-zA-Z0-9][a-zA-Z0-9._-]+$'; then
-            echo "agent-entrypoint: WARNING: Skipping invalid custom git host: '$host'"
-            continue
-          fi
-          if ! grep -qF "$host " "$SSH_DIR/known_hosts" 2>/dev/null; then
-            if ssh-keyscan -t ed25519,ecdsa "$host" >> "$SSH_DIR/known_hosts" 2>&1; then
-              echo "agent-entrypoint: Added host keys for custom git host: $host"
-            else
-              echo "agent-entrypoint: WARNING: Failed to scan host keys for: $host"
-            fi
-          fi
-        done
-      fi
-    else
-      echo "agent-entrypoint: WARNING: SSH mount found but no key files copied"
-    fi
-  else
-    echo "agent-entrypoint: ERROR: Failed to create $SSH_DIR — skipping SSH key setup"
-  fi
-else
-  echo "agent-entrypoint: No SSH key mount found at $SSH_MOUNT"
+# Factored into the shared git-credentials library: copies host SSH keys, sets
+# the glab SSH insteadOf rewrites + SELF_HOSTED_GITLAB_SSH, and scans
+# AGENTFORGE_CUSTOM_GIT_HOSTS into known_hosts. Reads the same env vars as before.
+if command -v configure_known_hosts >/dev/null 2>&1; then
+  configure_known_hosts "/host-ssh-keys"
 fi
 
 # =============================================================================
 # Git hardening
 # =============================================================================
-# Limit diff output to prevent memory/PID exhaustion from large repos
-git config --global diff.renameLimit 200
-git config --global core.bigFileThreshold 5m
-# Docker volume mounts lose POSIX permission bits (everything becomes 755).
-# Without this, git sees every file as modified, spawning hundreds of
-# git+git-lfs processes that exhaust the container's memory/PID limits.
-git config --global core.fileMode false
-
-# Conditionally disable git-lfs filter to prevent runaway I/O.
-# LFS pointers remain as-is; agents work with source code, not large binaries.
-# Controlled by resource profile: AGENTFORGE_GIT_LFS_SKIP=true (default) or false.
-if [ "${AGENTFORGE_GIT_LFS_SKIP}" != "false" ]; then
-    git config --global filter.lfs.smudge "git-lfs smudge --skip -- %f"
-    git config --global filter.lfs.process "git-lfs filter-process --skip"
-    git config --global filter.lfs.required false
-    echo "agent-entrypoint: git-lfs disabled (skip mode)"
-else
-    echo "agent-entrypoint: git-lfs enabled"
+# Diff/rename/bigfile limits, core.fileMode false, and conditional git-lfs skip.
+# Factored into the shared git-credentials library (configure_git_hardening).
+if command -v configure_git_hardening >/dev/null 2>&1; then
+  configure_git_hardening
 fi
 
 # =========================================================================

@@ -1,0 +1,65 @@
+# syntax=docker/dockerfile:1.23
+# =============================================================================
+# Wisdoverse Forge Ephemeral Clone Image
+#
+# Minimal, single-purpose, least-privilege image that clones ONE git repository
+# into a mounted staging directory and exits. It is run by the project_clone
+# worker (M5) on a restricted egress network with the per-clone staging dir as
+# its ONLY mount and a host-matched short-lived credential delivered via a
+# read-only secret mount at /run/secrets/git-credential.
+#
+# Attack surface is deliberately tiny: git + ca-certificates + openssh-client
+# (present for v2 SSH, unused in v1) + tini, and the clone entrypoint. NO Node,
+# Python, docker CLI, gh/glab, sidecar, or harness — none of the agent-base
+# tooling that would widen the surface for untrusted-repo network I/O.
+#
+# Build: docker build -f docker/Dockerfile.clone -t agentforge-clone:latest .
+#   (or: make build-clone)
+# =============================================================================
+
+# Debian Bookworm slim — same Debian family as the agent base (node:24-slim),
+# so the cloned repo's file ownership/safe.directory semantics match what later
+# agents expect.
+FROM debian:bookworm-slim
+
+LABEL org.opencontainers.image.title="Wisdoverse Forge Clone" \
+      org.opencontainers.image.description="Ephemeral least-privilege git clone container" \
+      org.opencontainers.image.vendor="Wisdoverse Forge"
+
+# Match the agent base image's agent user UID/GID (Dockerfile.agent-base defaults
+# AGENT_UID=1011 / AGENT_GID=1012) so a repo cloned by this container is owned by
+# the same uid the agent container later runs as — keeping ownership and git
+# safe.directory correct across the one-shot hand-off.
+ARG AGENT_UID=1011
+ARG AGENT_GID=1012
+
+# Install ONLY what a clone needs. `apt-get dist-upgrade` applies Debian security
+# backports on top of the base layer (same hardening as agent-base). tini gives a
+# proper PID 1 that reaps zombies and forwards signals for the worker's timeout.
+RUN apt-get update && apt-get -y dist-upgrade \
+    && apt-get install -y --no-install-recommends \
+       git ca-certificates openssh-client tini \
+    && rm -rf /var/lib/apt/lists/*
+
+# Non-root agent user with the same UID/GID as the agent base image.
+# --non-unique allows reusing an id that already exists in debian-slim.
+RUN groupadd --non-unique --gid "$AGENT_GID" agent \
+    && useradd --non-unique --uid "$AGENT_UID" --gid "$AGENT_GID" -m -s /bin/bash agent
+
+# Shared git credential / host / hardening library (same path as agent-base).
+# v1 clone-entrypoint does not source it, but shipping it keeps the credential/
+# git-config logic in one place and available for v2 (SSH / custom-host) work.
+COPY docker/scripts/lib/git-credentials.sh /usr/local/lib/agentforge/git-credentials.sh
+
+# Clone entrypoint.
+COPY docker/scripts/clone-entrypoint.sh /clone-entrypoint.sh
+RUN chmod 0755 /clone-entrypoint.sh /usr/local/lib/agentforge/git-credentials.sh
+
+# Run as the unprivileged agent user. The worker mounts the staging dir owned by
+# this uid; the container needs no root, no extra capabilities, no docker socket.
+USER agent
+WORKDIR /home/agent
+
+# tini as PID 1 so `docker stop` / the worker timeout cleanly terminates git and
+# reaps any children.
+ENTRYPOINT ["/usr/bin/tini", "--", "/clone-entrypoint.sh"]
