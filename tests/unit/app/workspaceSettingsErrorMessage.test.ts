@@ -104,4 +104,18 @@ describe('workspaceSettingsErrorMessage', () => {
     )
     expect(message).not.toContain('Failed to fetch')
   })
+
+  test('starts create network failures with the recovery step', () => {
+    const message = workspaceSettingsErrorMessage(
+      'project',
+      'create',
+      new TypeError('Failed to fetch')
+    )
+
+    expectBeginnerMessage(
+      message,
+      'Check your connection, then create this project again. Forge could not connect while creating it.'
+    )
+    expect(message).not.toContain('Failed to fetch')
+  })
 })

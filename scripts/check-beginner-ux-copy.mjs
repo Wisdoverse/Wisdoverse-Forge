@@ -363,6 +363,7 @@ const NETWORK_FAILURE_FIRST_PATTERNS = [
   /\bForge could not connect while clearing this chat\. Check your connection, then try again\./i,
   /\bFeedback could not be saved\. Forge could not connect while saving it\. Check your connection, then try again\./i,
   /\b(?:Team|Project) name could not be saved\. Forge could not connect while saving it\. Check your connection, then save again\./i,
+  /\bThe (?:team|project) was not created\. Forge could not connect while creating this (?:team|project)\. Check your connection, then try again\./i,
   /Forge 登录时暂时连不上。请检查网络后重试。/,
   /Forge 暂时连不上。请检查网络后重试。/,
 ]
@@ -792,6 +793,7 @@ function hasNetworkFailureFirstCopy(relFile, line) {
     !relFile.endsWith('src/app/shared/model/chat.errors.ts') &&
     !relFile.endsWith('src/app/entities/context/model/feedbackErrorMessage.ts') &&
     !relFile.endsWith('src/app/layouts/sidebar/ProjectTree.tsx') &&
+    !relFile.endsWith('src/app/pages/settings/model/workspaceSettingsErrorMessage.ts') &&
     !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
     !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
   ) {

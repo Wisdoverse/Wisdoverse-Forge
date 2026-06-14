@@ -3712,6 +3712,11 @@ function renameErrorMessage() {
   return 'Team name could not be saved. Forge could not connect while saving it. Check your connection, then save again.'
 }
 `,
+      'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts': `
+function connectionMessage() {
+  return 'The project was not created. Forge could not connect while creating this project. Check your connection, then try again.'
+}
+`,
       'src/app/shared/i18n/locales/zh.ts': `
 export const zh = {
   errors: {
@@ -3772,6 +3777,10 @@ export const zh = {
         }),
         expect.objectContaining({
           type: 'network-copy',
+          location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'network-copy',
           location: 'src/app/shared/i18n/locales/zh.ts:4',
         }),
       ])
@@ -3819,6 +3828,11 @@ function feedbackErrorMessage() {
       'src/app/layouts/sidebar/ProjectTree.tsx': `
 function renameErrorMessage() {
   return 'Check your connection, then save this team name again. Forge could not connect while saving it.'
+}
+`,
+      'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts': `
+function connectionMessage() {
+  return 'Check your connection, then create this project again. Forge could not connect while creating it.'
 }
 `,
       'src/app/shared/i18n/locales/zh.ts': `

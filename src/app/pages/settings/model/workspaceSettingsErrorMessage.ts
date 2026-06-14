@@ -102,8 +102,8 @@ function connectionMessage(
     return `${baseMessage(resource, action)} Check your connection, then refresh Settings again.`
   }
 
-  const operation = `creating this ${resourceLabel(resource)}`
-  return `${baseMessage(resource, action)} Forge could not connect while ${operation}. Check your connection, then try again.`
+  const label = resourceLabel(resource)
+  return `Check your connection, then create this ${label} again. Forge could not connect while creating it.`
 }
 
 function unavailableMessage(
