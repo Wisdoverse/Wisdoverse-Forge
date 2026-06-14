@@ -507,7 +507,7 @@ export function CliImagesPanel() {
       </div>
 
       {cliImagesError && !cliImages && (
-        <div className={uiStyles.error}>
+        <div role="alert" aria-live="polite" className={uiStyles.error}>
           <p>{cliImageStatusErrorMessage(cliImagesError)}</p>
           <p className="mt-1 text-ui-caption">{CLI_IMAGE_RECOVERY}</p>
         </div>
@@ -525,7 +525,7 @@ export function CliImagesPanel() {
           screen. Surface that so the operator never reads minutes-old digests
           as current. */}
       {cliImagesError && cliImages && (
-        <div className={cn(uiStyles.error, 'mb-4')}>
+        <div role="alert" aria-live="polite" className={cn(uiStyles.error, 'mb-4')}>
           <p>
             The status below may be out of date. Do not restart agents from this table until Check
             now succeeds.
@@ -560,7 +560,7 @@ export function CliImagesPanel() {
           </div>
 
           {cliImageBuildError && (
-            <div className={cn(uiStyles.error, 'mt-4')}>
+            <div role="alert" aria-live="polite" className={cn(uiStyles.error, 'mt-4')}>
               The build could not be started. Nothing was changed — try again once the cause below
               is fixed.
               <span className="mt-1 block text-ui-caption">
@@ -592,7 +592,7 @@ function RollResultBlock({
 }) {
   if (error) {
     return (
-      <div className={cn(uiStyles.error, 'mt-4')}>
+      <div role="alert" aria-live="polite" className={cn(uiStyles.error, 'mt-4')}>
         The restart could not be started.
         <span className="mt-1 block text-ui-caption">{cliImageIssueNote(error, 'restart')}</span>
       </div>

@@ -322,6 +322,9 @@ describe('CliImagesPanel', () => {
     render(<CliImagesPanel />)
 
     // Stale data still renders, but with an explicit out-of-date warning.
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(/may be out of date/i)
     expect(screen.getByText(/may be out of date/i)).toBeDefined()
     expect(
       screen.getByText(/do not restart agents from this table until check now succeeds/i)
@@ -358,6 +361,9 @@ describe('CliImagesPanel', () => {
 
     render(<CliImagesPanel />)
 
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(/The agent tool update status could not load/i)
     expect(screen.getByText(/The agent tool update status could not load/i)).toBeDefined()
     expect(screen.queryByText('HTTP 500')).toBeNull()
     expect(screen.getByText(/choose check now again/i)).toBeDefined()
@@ -444,6 +450,10 @@ describe('CliImagesPanel', () => {
     })
 
     render(<CliImagesPanel />)
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(/The restart could not be started/i)
+    expect(alert).toHaveTextContent(/Another restart is already running/i)
     expect(screen.getByText(/The restart could not be started/i)).toBeDefined()
     expect(screen.getByText(/Another restart is already running/i)).toBeDefined()
     expect(screen.queryByText(/a roll for this tool is already in progress/i)).toBeNull()
@@ -608,6 +618,9 @@ describe('CliImagesPanel', () => {
     })
 
     render(<CliImagesPanel />)
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(/The build could not be started/i)
     expect(screen.getByText(/The build could not be started/i)).toBeDefined()
     expect(screen.getByText(/Another tool update is already running/i)).toBeDefined()
     expect(screen.queryByText(/tool update service is busy/i)).toBeNull()
