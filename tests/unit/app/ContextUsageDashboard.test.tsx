@@ -99,9 +99,7 @@ describe('ContextUsageDashboard', () => {
 
     expect(screen.getByText('Refresh analytics to update time')).toBeDefined()
     const item = screen.getByTestId('context-usage-item')
-    expect(item.textContent).toContain(
-      'Builder Agent · Refresh work location · Task type not listed'
-    )
+    expect(item.textContent).toContain('Builder Agent · Refresh work location · Refresh task type')
     expect(item.textContent).toContain('Next: keep this available for similar tasks.')
     expect(screen.queryByText('Updated time not available')).toBeNull()
     expect(screen.queryByText(/^unknown$/i)).toBeNull()
@@ -137,9 +135,7 @@ describe('ContextUsageDashboard', () => {
     const item = screen.getByTestId('context-usage-item')
     expect(item.textContent).toContain('Saved item')
     expect(item.textContent).not.toContain(['Con', 'text item needs review'].join(''))
-    expect(item.textContent).toContain(
-      'Builder Agent · Check work location · Task type needs review'
-    )
+    expect(item.textContent).toContain('Builder Agent · Check work location · Check task type')
     expect(screen.queryByText(/future context kind/i)).toBeNull()
     expect(screen.queryByText(/future runtime/i)).toBeNull()
     expect(screen.queryByText(/future task kind/i)).toBeNull()

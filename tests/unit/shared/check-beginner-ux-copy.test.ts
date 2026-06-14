@@ -2476,6 +2476,100 @@ export function runStatusLabel(status) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags saved item and task type fallbacks that leave beginners guessing', () => {
+    const cwd = fixture({
+      'src/app/entities/context/ui/InjectionPreviewModal.tsx': `
+function itemKindLabel(kind) {
+  if (kind === 'memory') return 'Saved note'
+  return 'Saved item needs review'
+}
+function scopeKindLabel(scope) {
+  return 'Sharing setting needs review'
+}
+function sensitivityLabel(sensitivity) {
+  return 'Safety label needs review'
+}
+function degradationLabel(reason) {
+  return 'Some note limits need review'
+}
+`,
+      'src/app/features/detail/ContextCandidatesList.tsx': `
+function candidateTitle(candidate) {
+  return 'Suggested item needs review'
+}
+`,
+      'src/app/features/analytics/ContextUsageDashboard.tsx': `
+function taskKindLabel(kind) {
+  return kind ? 'Task type needs review' : 'Task type not listed'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'context-fallback-copy',
+          location: 'src/app/entities/context/ui/InjectionPreviewModal.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'context-fallback-copy',
+          location: 'src/app/entities/context/ui/InjectionPreviewModal.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'context-fallback-copy',
+          location: 'src/app/entities/context/ui/InjectionPreviewModal.tsx:10',
+        }),
+        expect.objectContaining({
+          type: 'context-fallback-copy',
+          location: 'src/app/entities/context/ui/InjectionPreviewModal.tsx:13',
+        }),
+        expect.objectContaining({
+          type: 'context-fallback-copy',
+          location: 'src/app/features/detail/ContextCandidatesList.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'context-fallback-copy',
+          location: 'src/app/features/analytics/ContextUsageDashboard.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved item and task type fallbacks that tell beginners what to do', () => {
+    const cwd = fixture({
+      'src/app/entities/context/ui/InjectionPreviewModal.tsx': `
+function itemKindLabel(kind) {
+  if (kind === 'memory') return 'Saved note'
+  return 'Check saved item'
+}
+function scopeKindLabel(scope) {
+  return 'Check sharing setting'
+}
+function sensitivityLabel(sensitivity) {
+  return 'Check safety label'
+}
+function degradationLabel(reason) {
+  return 'Check note limits'
+}
+`,
+      'src/app/features/detail/ContextCandidatesList.tsx': `
+function candidateTitle(candidate) {
+  return 'Check suggested item'
+}
+`,
+      'src/app/features/analytics/ContextUsageDashboard.tsx': `
+function taskKindLabel(kind) {
+  return kind ? 'Check task type' : 'Refresh task type'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags app health status copy that does not tell users to check now', () => {
     const cwd = fixture({
       'src/app/features/admin/SystemHealth.tsx': `

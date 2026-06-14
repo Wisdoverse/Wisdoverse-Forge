@@ -467,7 +467,7 @@ function degradationLabel(reason: string): string {
     case 'no_subagents':
       return 'Notes meant only for helper agents will be skipped'
     default:
-      return 'Some note limits need review'
+      return 'Check note limits'
   }
 }
 
@@ -478,7 +478,7 @@ function itemKindLabel(kind: string): string {
     case 'skill':
       return 'Saved instruction'
     default:
-      return 'Saved item needs review'
+      return 'Check saved item'
   }
 }
 
@@ -493,7 +493,7 @@ function scopeKindLabel(scope: string): string {
     case 'project':
       return 'Project'
     default:
-      return 'Sharing setting needs review'
+      return 'Check sharing setting'
   }
 }
 
@@ -508,7 +508,7 @@ function sensitivityLabel(sensitivity: string): string {
     case 'secret_detected':
       return 'Possible secret'
     default:
-      return 'Safety label needs review'
+      return 'Check safety label'
   }
 }
 

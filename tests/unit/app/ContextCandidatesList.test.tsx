@@ -143,8 +143,7 @@ describe('ContextCandidatesList', () => {
       />
     )
 
-    expect(screen.getByText('Suggested item needs review')).toBeInTheDocument()
-    expect(screen.getByText('Review suggested item')).toBeInTheDocument()
+    expect(screen.getAllByText('Check suggested item').length).toBeGreaterThan(0)
     expect(
       screen.getByText(/review this suggestion before agents can reuse it/i)
     ).toBeInTheDocument()

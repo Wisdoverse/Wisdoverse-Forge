@@ -60,8 +60,8 @@ function runtimeLabel(runtime: string): string {
 
 function taskKindLabel(taskKind: string): string {
   const normalized = taskKind.trim().toLowerCase()
-  if (!normalized) return 'Task type not listed'
-  return TASK_KIND_LABELS[normalized] ?? 'Task type needs review'
+  if (!normalized) return 'Refresh task type'
+  return TASK_KIND_LABELS[normalized] ?? 'Check task type'
 }
 
 function contextItemKindLabel(itemKind: string): string {

@@ -240,6 +240,16 @@ const TASK_STATUS_FALLBACK_DEAD_END_PATTERNS = [
   /\bPriority needs review\b/i,
 ]
 
+const CONTEXT_FALLBACK_DEAD_END_PATTERNS = [
+  /\bSuggested item needs review\b/i,
+  /\bSaved item needs review\b/i,
+  /\bSharing setting needs review\b/i,
+  /\bSafety label needs review\b/i,
+  /\bSome note limits need review\b/i,
+  /\bTask type not listed\b/i,
+  /\bTask type needs review\b/i,
+]
+
 const TASK_FORM_AGENT_STATUS_DEAD_END_PATTERNS = [/\bstatus not reported\b/i]
 
 const TASK_SUPPORT_REFERENCE_DEAD_END_PATTERNS = [/\bSupport reference not reported\b/i]
@@ -762,6 +772,19 @@ function hasTaskStatusFallbackDeadEndCopy(relFile, line) {
   return TASK_STATUS_FALLBACK_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasContextFallbackDeadEndCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/entities/context/ui/InjectionPreviewModal.tsx') &&
+    !relFile.endsWith('src/app/features/analytics/ContextUsageDashboard.tsx') &&
+    !relFile.endsWith('src/app/features/detail/ContextAppliedList.tsx') &&
+    !relFile.endsWith('src/app/features/detail/ContextCandidatesList.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CONTEXT_FALLBACK_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function scanFile(file, relFile) {
   const lines = fs.readFileSync(file, 'utf8').split('\n')
   const findings = []
@@ -1233,6 +1256,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Task status and priority fallback copy must tell beginners to refresh or check the task field.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasContextFallbackDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'context-fallback-copy',
+        location,
+        message:
+          'Saved item, sharing, safety, and task-type fallbacks must tell beginners what to check or refresh.',
         sample: line.trim(),
       })
     }

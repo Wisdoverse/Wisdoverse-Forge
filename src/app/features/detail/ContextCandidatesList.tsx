@@ -80,7 +80,7 @@ function candidateTitle(candidate: TaskContextCandidate): string {
     case 'skill':
       return 'Untitled suggested instruction'
     default:
-      return 'Suggested item needs review'
+      return 'Check suggested item'
   }
 }
 
@@ -98,7 +98,7 @@ function candidateKindLabel(candidate: TaskContextCandidate): string {
     case 'skill':
       return 'Suggested instruction'
     default:
-      return 'Review suggested item'
+      return 'Check suggested item'
   }
 }
 

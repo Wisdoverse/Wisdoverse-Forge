@@ -181,7 +181,7 @@ describe('InjectionPreviewModal', () => {
       />
     )
 
-    expect(screen.getByText('Saved item needs review')).toBeDefined()
+    expect(screen.getByText('Check saved item')).toBeDefined()
     expect(screen.getByText('Notes meant only for helper agents will be skipped')).toBeDefined()
     expect(screen.queryByText(new RegExp(['Subagent-specific', 'context'].join('\\s+')))).toBeNull()
     expect(

@@ -178,7 +178,7 @@ function scopeKindLabel(scopeKind: string): string {
     case 'user':
       return 'Only you'
     default:
-      return 'Sharing setting needs review'
+      return 'Check sharing setting'
   }
 }
 
@@ -193,7 +193,7 @@ function sensitivityLabel(sensitivity: string): string {
     case 'secret_detected':
       return 'May contain secrets'
     default:
-      return 'Safety label needs review'
+      return 'Check safety label'
   }
 }
 

@@ -346,8 +346,8 @@ describe('ContextTab', () => {
     )
 
     expect(await screen.findByText('Unknown badge memory')).toBeDefined()
-    expect(screen.getByText('Sharing setting needs review')).toBeDefined()
-    expect(screen.getByText('Safety label needs review')).toBeDefined()
+    expect(screen.getByText('Check sharing setting')).toBeDefined()
+    expect(screen.getByText('Check safety label')).toBeDefined()
     expect(screen.queryByText('Scope needs review')).toBeNull()
     expect(screen.queryByText('Sensitivity needs review')).toBeNull()
     expect(screen.queryByText(/global workspace/i)).toBeNull()
