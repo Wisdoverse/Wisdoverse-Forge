@@ -84,18 +84,25 @@ describe('ApprovalQueueView', () => {
     expect(screen.getByText(/choose who can reuse it/i)).toBeDefined()
     expect(await screen.findByText('Use stable credentials')).toBeDefined()
     expect(screen.getByText('Saved note')).toBeDefined()
+    expect(screen.getAllByText('Waiting for review').length).toBeGreaterThan(0)
     expect(screen.queryByText(/Saved\s+memory/i)).toBeNull()
+    expect(screen.queryByText('Pending')).toBeNull()
     expect(screen.getAllByText('Only me').length).toBeGreaterThan(0)
     expect(screen.getByText('Who can reuse it: Only me')).toBeDefined()
     expect(screen.getByText('Original task preview available')).toBeDefined()
     expect(screen.queryByText(/^Workspace /)).toBeNull()
     expect(screen.queryByText(/^Owner /)).toBeNull()
     expect(screen.queryByText(/^Run /)).toBeNull()
+    expect(screen.getByRole('button', { name: /^Save$/ })).toBeDefined()
+    expect(screen.getByRole('button', { name: /^Do not save$/ })).toBeDefined()
+    expect(screen.queryByRole('button', { name: /^Approve$/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Reject$/ })).toBeNull()
 
     await userEvent.setup().click(screen.getByTestId('context-approve-candidate-1'))
 
     expect(screen.getByTestId('context-decision-checklist')).toBeDefined()
-    expect(screen.getByText('Approve only when')).toBeDefined()
+    expect(screen.getByText('Save only when')).toBeDefined()
+    expect(screen.queryByText('Approve only when')).toBeNull()
     expect(screen.getByText(/this saved item still helps/i)).toBeDefined()
     expect(screen.getByText(/only the right people can reuse it/i)).toBeDefined()
     expect(screen.getByText(/sensitive details are hidden before saving/i)).toBeDefined()
@@ -109,6 +116,22 @@ describe('ApprovalQueueView', () => {
     expect(screen.getByPlaceholderText(/Team support reference from Settings/i)).toBeDefined()
     expect(screen.getByText(/Paste the Team support reference before saving/i)).toBeDefined()
     expect(screen.queryByText(/exact I[D] from settings/i)).toBeNull()
+  })
+
+  test('labels recorded saved-item decisions without approval jargon', async () => {
+    listContextCandidates.mockResolvedValue([
+      { ...candidate, id: 'candidate-saved', state: 'approved' },
+      { ...candidate, id: 'candidate-not-saved', state: 'rejected' },
+      { ...candidate, id: 'candidate-replaced', state: 'superseded' },
+    ])
+
+    render(<ApprovalQueueView />)
+
+    expect(await screen.findByText('Saved')).toBeDefined()
+    expect(screen.getByText('Not saved')).toBeDefined()
+    expect(screen.getByText('Replaced')).toBeDefined()
+    expect(screen.queryByText('Approved')).toBeNull()
+    expect(screen.queryByText('Rejected')).toBeNull()
   })
 
   test('explains how to recover from empty approval filters', async () => {

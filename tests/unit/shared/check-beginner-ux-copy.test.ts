@@ -648,6 +648,98 @@ const STATUS_FILTERS = [
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags saved-item review copy that exposes approval workflow jargon', () => {
+    const cwd = fixture({
+      'src/app/features/context/ApprovalQueueView.tsx': `
+const STATE_FILTERS = [
+  { value: 'pending', label: 'Pending' },
+]
+
+function StatusPill({ state }) {
+  return <span>{titleCase(state)}</span>
+}
+
+export function DecisionCopy({ approving }) {
+  return (
+    <section aria-label={approving ? \`Approve item\` : \`Reject item\`}>
+      <p>{approving ? 'Approve only when' : 'Reject when'}</p>
+      <button title="Approve and save this item"><span>Approve</span></button>
+      <button><span>Reject</span></button>
+      <Field label="Reject reason" />
+      <p>Next: switch back to Pending when you only want items waiting for a decision.</p>
+    </section>
+  )
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'review-decision-copy',
+          location: 'src/app/features/context/ApprovalQueueView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'review-decision-copy',
+          location: 'src/app/features/context/ApprovalQueueView.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'review-decision-copy',
+          location: 'src/app/features/context/ApprovalQueueView.tsx:13',
+        }),
+        expect.objectContaining({
+          type: 'review-decision-copy',
+          location: 'src/app/features/context/ApprovalQueueView.tsx:14',
+        }),
+        expect.objectContaining({
+          type: 'review-decision-copy',
+          location: 'src/app/features/context/ApprovalQueueView.tsx:15',
+        }),
+        expect.objectContaining({
+          type: 'review-decision-copy',
+          location: 'src/app/features/context/ApprovalQueueView.tsx:16',
+        }),
+        expect.objectContaining({
+          type: 'review-decision-copy',
+          location: 'src/app/features/context/ApprovalQueueView.tsx:17',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved-item review copy that says what will be saved', () => {
+    const cwd = fixture({
+      'src/app/features/context/ApprovalQueueView.tsx': `
+const STATE_FILTERS = [
+  { value: 'pending', label: 'Waiting for review' },
+]
+
+const STATUS_LABELS = {
+  pending: 'Waiting for review',
+  approved: 'Saved',
+  rejected: 'Not saved',
+}
+
+export function DecisionCopy({ approving }) {
+  return (
+    <section aria-label={approving ? \`Save item\` : \`Do not save item\`}>
+      <p>{approving ? 'Save only when' : 'Do not save when'}</p>
+      <button title="Save this item for future work"><span>Save</span></button>
+      <button><span>Do not save</span></button>
+      <Field label="Why not save it?" />
+      <p>Next: switch back to Waiting for review when you only want items waiting for a decision.</p>
+    </section>
+  )
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('ignores raw legacy API parser regexes', () => {
     const cwd = fixture({
       'src/app/shared/api/legacy/AgentAPI.ts': `

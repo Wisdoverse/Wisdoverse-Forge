@@ -50,8 +50,8 @@ interface WsContextCandidateMessage {
 }
 
 const STATE_FILTERS: Array<{ value: StateFilter; label: string }> = [
-  { value: 'pending', label: 'Pending' },
-  { value: 'all', label: 'All' },
+  { value: 'pending', label: 'Waiting for review' },
+  { value: 'all', label: 'All saved items' },
 ]
 
 const KIND_FILTERS: Array<{ value: KindFilter; label: string }> = [
@@ -76,8 +76,8 @@ const SENSITIVITIES: Array<{ value: ContextSensitivity; label: string }> = [
 
 const APPROVAL_PATH_STEPS = [
   'Open the item and check what agents would save.',
-  'Approve only if it will help future work, then choose who can reuse it.',
-  'Reject it if it is outdated, unsafe, duplicated, or unclear.',
+  'Save it only if it will help future work, then choose who can reuse it.',
+  'Do not save it if it is outdated, unsafe, duplicated, or unclear.',
 ]
 
 const APPROVE_CHECKLIST = [
@@ -87,7 +87,7 @@ const APPROVE_CHECKLIST = [
 ]
 
 const REJECT_CHECKLIST = [
-  'Reject when the item is wrong, duplicated, unsafe, or too narrow to help later.',
+  'Do not save it when the item is wrong, duplicated, unsafe, or too narrow to help later.',
   'Add a short reason so the next reviewer knows what happened.',
 ]
 
@@ -120,9 +120,9 @@ function approvalQueueEmptyState({
   if (stateFilter === 'all') {
     return {
       title: 'No saved item history yet',
-      detail:
-        'Approved and rejected saved notes or instructions appear here after the first review.',
-      nextStep: 'Next: switch back to Pending when you only want items waiting for a decision.',
+      detail: 'Saved and not-saved notes or instructions appear here after the first review.',
+      nextStep:
+        'Next: switch back to Waiting for review when you only want items waiting for a decision.',
       actionLabel: 'Show pending reviews',
     }
   }
@@ -487,12 +487,12 @@ function CandidateRow({
               className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-apple-blue px-3 text-ui-button font-semibold text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:bg-black/20 disabled:text-black/45 dark:disabled:bg-white/10 dark:disabled:text-white/35"
               title={
                 candidate.source_available
-                  ? 'Approve and save this item'
+                  ? 'Save this item for future work'
                   : 'Original task preview is unavailable'
               }
             >
               <CheckCircle2 size={15} strokeWidth={2} aria-hidden="true" />
-              <span>Approve</span>
+              <span>Save</span>
             </button>
             <button
               type="button"
@@ -501,7 +501,7 @@ function CandidateRow({
               className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-semibold text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.08]"
             >
               <XCircle size={15} strokeWidth={2} aria-hidden="true" />
-              <span>Reject</span>
+              <span>Do not save</span>
             </button>
           </>
         ) : (
@@ -572,7 +572,7 @@ function DecisionPanel({
       <aside
         role="dialog"
         aria-modal="true"
-        aria-label={approving ? `Approve ${title}` : `Reject ${title}`}
+        aria-label={approving ? `Save ${title}` : `Do not save ${title}`}
         className="flex h-full w-full max-w-md flex-col border-l border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-[#111417]"
       >
         <div className="border-b border-black/[0.06] px-4 py-4 dark:border-white/[0.06]">
@@ -712,7 +712,7 @@ function DecisionPanel({
                 </div>
               </>
             ) : (
-              <Field label="Reject reason">
+              <Field label="Why not save it?">
                 <textarea
                   value={rejectReason}
                   onChange={(event) => setRejectReason(event.target.value)}
@@ -796,7 +796,7 @@ function DecisionChecklist({ approving }: { approving: boolean }) {
       className="rounded-card border border-black/[0.08] bg-white px-3 py-2.5 dark:border-white/[0.1] dark:bg-white/[0.04]"
     >
       <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
-        {approving ? 'Approve only when' : 'Reject when'}
+        {approving ? 'Save only when' : 'Do not save when'}
       </p>
       <ol className="mt-2 list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
         {items.map((item) => (
@@ -916,6 +916,12 @@ function StatusPill({ state }: { state: ContextCandidateState }) {
     superseded:
       'bg-black/[0.06] text-secondary-light dark:bg-white/[0.08] dark:text-secondary-dark',
   }
+  const labels: Record<ContextCandidateState, string> = {
+    pending: 'Waiting for review',
+    approved: 'Saved',
+    rejected: 'Not saved',
+    superseded: 'Replaced',
+  }
   return (
     <span
       className={cn(
@@ -923,7 +929,7 @@ function StatusPill({ state }: { state: ContextCandidateState }) {
         styles[state]
       )}
     >
-      {titleCase(state)}
+      {labels[state]}
     </span>
   )
 }

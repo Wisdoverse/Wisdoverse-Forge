@@ -106,6 +106,19 @@ const AGENT_STATUS_JARGON_PATTERNS = [
   /\berror:\s*['"`]错误['"`]/,
 ]
 
+const REVIEW_DECISION_JARGON_PATTERNS = [
+  /\bvalue:\s*['"`]pending['"`]\s*,\s*label:\s*['"`]Pending['"`]/,
+  /\btitleCase\(state\)/,
+  /\bApprove only when\b/,
+  /\bReject when\b/,
+  /\bApprove and save this item\b/,
+  /\baria-label=\{approving \? `Approve /,
+  /<span>Approve<\/span>/,
+  /<span>Reject<\/span>/,
+  /\bField label=["'`]Reject reason["'`]/,
+  /\bswitch back to Pending\b/,
+]
+
 const BEGINNER_JARGON_PATTERNS = [
   /\blocal agents?\b/i,
   /\bmanaged local agent\b/i,
@@ -307,6 +320,11 @@ function hasAgentStatusJargonCopy(line) {
   return AGENT_STATUS_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasReviewDecisionJargonCopy(line) {
+  if (isLikelyGuardOrParserLine(line)) return false
+  return REVIEW_DECISION_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function scanFile(file, relFile) {
   const lines = fs.readFileSync(file, 'utf8').split('\n')
   const findings = []
@@ -392,6 +410,15 @@ function scanFile(file, relFile) {
         type: 'agent-status-copy',
         location,
         message: 'Agent status labels must explain whether work can be assigned.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasReviewDecisionJargonCopy(line)) {
+      findings.push({
+        type: 'review-decision-copy',
+        location,
+        message: 'Saved-item review copy must say what will be saved instead of approval jargon.',
         sample: line.trim(),
       })
     }
