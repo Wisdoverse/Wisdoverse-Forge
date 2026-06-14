@@ -145,18 +145,21 @@ export function AgentListView() {
           </div>
 
           {hasFleetControls && (
-            <FleetControls
-              searchQuery={searchQuery}
-              onSearchQueryChange={setSearchQuery}
-              statusFilter={statusFilter}
-              onStatusFilterChange={setStatusFilter}
-              statusCounts={statusCounts}
-              runtimeFilter={runtimeFilter}
-              onRuntimeFilterChange={setRuntimeFilter}
-              runtimeCounts={runtimeCounts}
-              sortKey={sortKey}
-              onSortKeyChange={setSortKey}
-            />
+            <>
+              <AgentChoiceGuide />
+              <FleetControls
+                searchQuery={searchQuery}
+                onSearchQueryChange={setSearchQuery}
+                statusFilter={statusFilter}
+                onStatusFilterChange={setStatusFilter}
+                statusCounts={statusCounts}
+                runtimeFilter={runtimeFilter}
+                onRuntimeFilterChange={setRuntimeFilter}
+                runtimeCounts={runtimeCounts}
+                sortKey={sortKey}
+                onSortKeyChange={setSortKey}
+              />
+            </>
           )}
 
           {loading && agents.length === 0 ? (
@@ -310,6 +313,71 @@ function buildLocalEnrollCommand(
     '  --cwd "$PWD" \\',
     '  --shell-format bash',
   ].join('\n')
+}
+
+function AgentChoiceGuide() {
+  return (
+    <section
+      data-testid="agent-choice-guide"
+      className="mb-3 rounded-card border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2a2a2c]"
+    >
+      <div className="flex flex-col gap-1">
+        <h3 className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
+          Pick by where the work should happen
+        </h3>
+        <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+          Choose the simplest agent that can safely reach the files, tools, or chat needed for the
+          task.
+        </p>
+      </div>
+      <div className="mt-3 grid gap-2 md:grid-cols-3">
+        <ChoiceGuideItem
+          icon={Bot}
+          title="Chat-only AI service"
+          detail="Best for planning, writing, and review when no project files need to be opened."
+        />
+        <ChoiceGuideItem
+          icon={Laptop}
+          title="This computer"
+          detail="Best when the task needs the folder, accounts, or tools on your own machine."
+        />
+        <ChoiceGuideItem
+          icon={Terminal}
+          title="Managed workspace"
+          detail="Best for shared project files that should run inside the Forge workspace."
+        />
+      </div>
+    </section>
+  )
+}
+
+function ChoiceGuideItem({
+  icon: Icon,
+  title,
+  detail,
+}: {
+  icon: typeof Bot
+  title: string
+  detail: string
+}) {
+  return (
+    <div className="flex min-w-0 gap-2 rounded-lg bg-black/[0.025] px-3 py-2 dark:bg-white/[0.04]">
+      <Icon
+        size={15}
+        strokeWidth={2.1}
+        className="mt-0.5 shrink-0 text-apple-blue"
+        aria-hidden="true"
+      />
+      <div className="min-w-0">
+        <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+          {title}
+        </p>
+        <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {detail}
+        </p>
+      </div>
+    </div>
+  )
 }
 
 function HostCliEnrollmentPanel({

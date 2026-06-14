@@ -171,6 +171,30 @@ describe('AgentListView', () => {
     expect(screen.getByText('Draft Agent')).toBeDefined()
   })
 
+  test('shows a beginner choice guide before filtering existing agents', () => {
+    useAgentsStore.getState().setAgents([
+      makeAgent({
+        id: 'a1',
+        name: 'Review Agent',
+        provider: 'Review Model',
+        model: 'review-model',
+      }),
+    ])
+
+    render(<AgentListView />)
+
+    const guide = screen.getByTestId('agent-choice-guide')
+    expect(within(guide).getByText('Pick by where the work should happen')).toBeDefined()
+    expect(within(guide).getByText(/simplest agent/i)).toBeDefined()
+    expect(within(guide).getByText('Chat-only AI service')).toBeDefined()
+    expect(within(guide).getByText(/planning, writing, and review/i)).toBeDefined()
+    expect(within(guide).getByText('This computer')).toBeDefined()
+    expect(within(guide).getByText(/folder, accounts, or tools on your own machine/i)).toBeDefined()
+    expect(within(guide).getByText('Managed workspace')).toBeDefined()
+    expect(within(guide).getByText(/shared project files/i)).toBeDefined()
+    expect(screen.getByText('Review Agent')).toBeDefined()
+  })
+
   test('shows agent status indicators', () => {
     useAgentsStore.getState().setAgents([
       makeAgent({
