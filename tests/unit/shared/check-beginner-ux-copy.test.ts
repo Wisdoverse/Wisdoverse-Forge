@@ -539,6 +539,11 @@ function runtimeSettingsErrorMessage(error) {
   return 'Agent Work Setup could not be loaded.'
 }
 `,
+      'src/app/features/manage-members/model/resourceMemberErrorMessages.ts': `
+function resourceMemberErrorMessage(error) {
+  return 'Members could not load for this team.'
+}
+`,
       'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts': `
 function baseMessage(resource, action) {
   return 'Workspace teams could not be loaded.'
@@ -578,6 +583,10 @@ function ResourceProfilesError() {
         }),
         expect.objectContaining({
           type: 'load-error-title-copy',
+          location: 'src/app/features/manage-members/model/resourceMemberErrorMessages.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'load-error-title-copy',
           location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:3',
         }),
         expect.objectContaining({
@@ -613,6 +622,11 @@ function agentTasksErrorMessage(error) {
       'src/app/features/settings/runtimeErrorMessages.ts': `
 function runtimeSettingsErrorMessage(error) {
   return 'Refresh Settings to load Agent Work Setup.'
+}
+`,
+      'src/app/features/manage-members/model/resourceMemberErrorMessages.ts': `
+function resourceMemberErrorMessage(error) {
+  return 'Refresh members to load people for this team.'
 }
 `,
       'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts': `

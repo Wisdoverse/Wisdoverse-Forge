@@ -12,7 +12,7 @@ describe('resourceMemberErrorMessage', () => {
     const message = resourceMemberErrorMessage('load', 'Project', new Error('Failed to fetch'))
 
     expect(message).toBe(
-      'Forge could not load people for this project. It could not connect while loading the people list. Check your connection, then try again.'
+      'Check your connection, then reopen members for this project.'
     )
     expect(message).toContain('Check your connection')
     expect(message).not.toContain('Failed to fetch')
@@ -107,12 +107,22 @@ describe('resourceMemberErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Forge could not load the people list right now. Refresh members, then reopen members for this team. If it still fails, ask an owner or admin to check people access settings.'
+      'Refresh members to load people for this team. If it still fails, ask an owner or admin to check people access settings.'
     )
     expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('backend')
     expect(message).not.toContain('temporarily unavailable')
     expect(message).not.toContain('service')
+  })
+
+  test('turns load validation details into a refresh step', () => {
+    const message = resourceMemberErrorMessage('load', 'Project', {
+      status: 422,
+      detail: 'member filter is invalid',
+    })
+
+    expectBeginnerMessage(message, 'Refresh members to load people for this project.')
+    expect(message).not.toContain('member filter')
   })
 
   test('turns structured service failures into a people access settings step', () => {

@@ -47,12 +47,18 @@ export function resourceMemberErrorMessage(
 }
 
 function memberConnectionMessage(action: ResourceMemberErrorAction, resource: string): string {
-  const operation = action === 'load' ? 'loading the people list' : 'updating people access'
+  if (action === 'load') {
+    return `Check your connection, then reopen members for this ${resource}.`
+  }
+  const operation = 'updating people access'
   return `Forge could not ${actionSummary(action, resource)}. It could not connect while ${operation}. Check your connection, then try again.`
 }
 
 function memberUnavailableMessage(action: ResourceMemberErrorAction, resource: string): string {
-  const operation = action === 'load' ? 'load the people list' : 'update people access'
+  if (action === 'load') {
+    return `Refresh members to load people for this ${resource}. If it still fails, ask an owner or admin to check people access settings.`
+  }
+  const operation = 'update people access'
   return `Forge could not ${operation} right now. Refresh members, then ${retrySummary(action, resource)}. If it still fails, ask an owner or admin to check people access settings.`
 }
 
@@ -94,7 +100,7 @@ function validationMessage(
 
   switch (action) {
     case 'load':
-      return `Members could not load for this ${resource}. Refresh the page and try again.`
+      return `Refresh members to load people for this ${resource}.`
     case 'add':
       if (normalized.includes('role')) {
         return 'Choose this person and what they can do, then add them again.'
