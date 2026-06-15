@@ -1,3 +1,4 @@
+import { Plus } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { cn } from '@app/shared/lib/utils'
 
@@ -66,9 +67,10 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="w-full rounded-full px-3 py-2 text-left text-ui-caption font-medium text-secondary-light transition-colors hover:bg-black/[0.04] hover:text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
+        className="inline-flex w-full items-center gap-2 rounded-full px-3 py-2 text-left text-ui-caption font-medium text-secondary-light transition-colors hover:bg-black/[0.04] hover:text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
       >
-        + Add Task
+        <Plus className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        <span>Add task idea</span>
       </button>
     )
   }
@@ -102,7 +104,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
         )}
       />
       <p id={helpId} className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-        This saves the task in Not sent yet. Open the card later to add details before sending it to
+        This only saves the task in Not sent yet. Open the card to add details before sending it to
         an agent.
       </p>
       {error && (
@@ -122,7 +124,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
               : 'cursor-not-allowed bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
           )}
         >
-          {submitting ? 'Saving...' : 'Save Task'}
+          {submitting ? 'Saving...' : 'Save for later'}
         </button>
         <button
           type="button"

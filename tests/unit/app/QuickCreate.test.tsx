@@ -10,18 +10,19 @@ describe('QuickCreate', () => {
   test('opens an explicit save/cancel form', () => {
     render(<QuickCreate columnId="backlog" onSubmit={vi.fn()} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /\+ add task/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add task idea/i }))
 
     expect(screen.getByRole('textbox', { name: /task goal/i })).toHaveFocus()
     expect(screen.getByRole('textbox', { name: /task goal/i })).toHaveAccessibleDescription(
-      /saves the task in not sent yet/i
+      /only saves the task in not sent yet/i
     )
     expect(screen.getByPlaceholderText(/example: fix the login error/i)).toBeDefined()
-    expect(screen.getByText(/open the card later to add details before sending it/i)).toBeDefined()
+    expect(screen.getByText(/open the card to add details before sending it/i)).toBeDefined()
+    expect(screen.queryByRole('button', { name: /\+ add task/i })).toBeNull()
     expect(screen.queryByText(/quick add/i)).toBeNull()
     expect(screen.queryByRole('textbox', { name: /task title/i })).toBeNull()
-    expect(screen.queryByText(/draft task/i)).toBeNull()
-    expect(screen.getByRole('button', { name: /^save task$/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /^save for later$/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /^save task$/i })).toBeNull()
     expect(screen.getByRole('button', { name: /^cancel$/i })).toBeEnabled()
   })
 
@@ -29,7 +30,7 @@ describe('QuickCreate', () => {
     const onSubmit = vi.fn()
     render(<QuickCreate columnId="backlog" onSubmit={onSubmit} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /\+ add task/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add task idea/i }))
     const input = screen.getByRole('textbox', { name: /task goal/i })
     fireEvent.change(input, { target: { value: 'Task idea' } })
     fireEvent.blur(input)
@@ -42,7 +43,7 @@ describe('QuickCreate', () => {
     const onSubmit = vi.fn()
     render(<QuickCreate columnId="backlog" onSubmit={onSubmit} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /\+ add task/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add task idea/i }))
     const input = screen.getByRole('textbox', { name: /task goal/i })
     fireEvent.keyDown(input, { key: 'Enter' })
 
@@ -58,11 +59,11 @@ describe('QuickCreate', () => {
     const onSubmit = vi.fn()
     render(<QuickCreate columnId="backlog" onSubmit={onSubmit} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /\+ add task/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add task idea/i }))
     fireEvent.change(screen.getByRole('textbox', { name: /task goal/i }), {
       target: { value: '  Ship onboarding copy  ' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /^save task$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^save for later$/i }))
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('Ship onboarding copy', 'backlog'))
     await waitFor(() => expect(screen.queryByRole('textbox', { name: /task goal/i })).toBeNull())
@@ -72,7 +73,7 @@ describe('QuickCreate', () => {
     const onSubmit = vi.fn()
     render(<QuickCreate columnId="backlog" onSubmit={onSubmit} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /\+ add task/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add task idea/i }))
     fireEvent.change(screen.getByRole('textbox', { name: /task goal/i }), {
       target: { value: 'Keyboard task' },
     })
@@ -80,7 +81,7 @@ describe('QuickCreate', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('Keyboard task', 'backlog'))
     await waitFor(() => expect(screen.queryByRole('textbox', { name: /task goal/i })).toBeNull())
 
-    fireEvent.click(screen.getByRole('button', { name: /\+ add task/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add task idea/i }))
     fireEvent.change(screen.getByRole('textbox', { name: /task goal/i }), {
       target: { value: 'Canceled task' },
     })
@@ -94,11 +95,11 @@ describe('QuickCreate', () => {
     const onSubmit = vi.fn().mockResolvedValue(false)
     render(<QuickCreate columnId="backlog" onSubmit={onSubmit} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /\+ add task/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add task idea/i }))
     fireEvent.change(screen.getByRole('textbox', { name: /task goal/i }), {
       target: { value: 'Keep this task' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /^save task$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^save for later$/i }))
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('Keep this task', 'backlog'))
     const input = screen.getByRole('textbox', { name: /task goal/i })
@@ -107,18 +108,18 @@ describe('QuickCreate', () => {
     )
     expect(input).toHaveValue('Keep this task')
     expect(input).toHaveFocus()
-    expect(screen.getByRole('button', { name: /^save task$/i })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /^save for later$/i })).toBeEnabled()
   })
 
   test('shows a safe retry prompt when quick create throws', async () => {
     const onSubmit = vi.fn().mockRejectedValue(new Error('socket hang up'))
     render(<QuickCreate columnId="backlog" onSubmit={onSubmit} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /\+ add task/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add task idea/i }))
     fireEvent.change(screen.getByRole('textbox', { name: /task goal/i }), {
       target: { value: 'Retry this task' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /^save task$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^save for later$/i }))
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('Retry this task', 'backlog'))
     await waitFor(() =>
