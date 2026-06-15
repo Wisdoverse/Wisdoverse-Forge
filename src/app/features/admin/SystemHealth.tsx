@@ -42,7 +42,7 @@ const SERVICE_DEFINITIONS: readonly ServiceDefinition[] = [
     description: 'Helps pages respond quickly and keeps temporary app state in sync.',
     impact: 'The app can still work, but pages and realtime updates may feel slower.',
     action:
-      'Wait a minute, then choose Check now. If it still needs attention, ask an owner or admin to restart fast loading.',
+      'Wait a minute, then choose Check now. If it still shows Check soon, ask an owner or admin to restart fast loading.',
   },
   {
     key: 'nats',
@@ -88,7 +88,7 @@ function StatusBadge({ status }: { status: ServiceStatus }) {
     status === 'up'
       ? 'Ready'
       : status === 'degraded'
-        ? 'Needs attention'
+        ? 'Check soon'
         : status === 'down'
           ? 'Fix first'
           : 'Check now'
@@ -108,7 +108,7 @@ function StatusBadge({ status }: { status: ServiceStatus }) {
 
 function serviceStatusText(status: ServiceStatus): string {
   if (status === 'up') return 'Working normally'
-  if (status === 'degraded') return 'Needs attention'
+  if (status === 'degraded') return 'Check soon'
   if (status === 'down') return 'Not working'
   return 'Choose Check now to confirm'
 }
@@ -251,7 +251,7 @@ function OverallBanner({
     degraded: {
       bg: 'border-black/[0.08] bg-black/[0.03] dark:border-white/[0.08] dark:bg-white/[0.03]',
       text: 'text-secondary-light dark:text-secondary-dark',
-      label: 'Some areas need attention',
+      label: 'Some areas need a check',
       detail:
         'Users may see slow screens, delayed updates, or work waiting to start until this clears.',
     },
@@ -311,7 +311,7 @@ export function SystemHealth() {
           <h2 className={uiStyles.sectionTitle}>App health check</h2>
           <p className={uiStyles.sectionDescription}>
             Checks when opened, then every 30 seconds while this page is visible. Hidden tabs pause
-            checks. Start with anything marked Fix first, then items marked Needs attention.
+            checks. Start with anything marked Fix first, then items marked Check soon.
           </p>
         </div>
         <button

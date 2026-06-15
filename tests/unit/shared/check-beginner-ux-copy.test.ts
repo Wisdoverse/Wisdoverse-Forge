@@ -4386,6 +4386,44 @@ function serviceStatusText(status: ServiceStatus): string {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags vague app health attention copy', () => {
+    const cwd = fixture({
+      'src/app/features/admin/SystemHealth.tsx': `
+function StatusBadge({ status }) {
+  return status === 'degraded' ? 'Needs attention' : 'Ready'
+}
+
+function OverallBanner() {
+  return 'Some areas need attention'
+}
+
+function SystemHealth() {
+  return 'Start with anything marked Fix first, then items marked Needs attention.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'system-health-status-copy',
+          sample: expect.stringContaining('Needs attention'),
+        }),
+        expect.objectContaining({
+          type: 'system-health-status-copy',
+          sample: expect.stringContaining('Some areas need attention'),
+        }),
+        expect.objectContaining({
+          type: 'system-health-status-copy',
+          sample: expect.stringContaining('items marked Needs attention'),
+        }),
+      ])
+    )
+  })
+
   it('flags saved instruction load copy that hides the retry action', () => {
     const cwd = fixture({
       'src/app/features/skills/SkillsView.tsx': `

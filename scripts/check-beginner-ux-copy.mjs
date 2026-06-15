@@ -274,7 +274,13 @@ const CLI_IMAGE_ACTION_FAILURE_FIRST_PATTERNS = [
   /\bThe restart could not be started\b/i,
 ]
 
-const SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS = [/\bNot checked(?: yet)?\b/i]
+const SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS = [
+  /\bNot checked(?: yet)?\b/i,
+  /\bNeeds attention\b/i,
+  /\bSome areas need attention\b/i,
+  /\bstill needs attention\b/i,
+  /\bitems marked Needs attention\b/i,
+]
 
 const ACCESS_KEY_LAST_USED_DEAD_END_PATTERNS = [/\bNot used yet\b/i]
 
