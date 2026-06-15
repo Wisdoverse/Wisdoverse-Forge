@@ -731,6 +731,15 @@ const AUTH_FAILURE_FIRST_PATTERNS = [
   /\bVerification email could not be sent\. Check that this is the email/i,
 ]
 
+const AUTH_MANAGER_DEAD_END_PATTERNS = [
+  /\bLogin failed\b/,
+  /\bRegistration failed\b/,
+  /\bAuth code exchange failed\b/,
+  /\bFailed to resend\b/,
+  /\bFailed to send reset email\b/,
+  /\bFailed to reset password\b/,
+]
+
 const NETWORK_FAILURE_FIRST_PATTERNS = [
   /\bSign-in could not finish\. Forge could not connect while signing you in\./i,
   /\bAccount could not be created\. Forge could not connect while creating it\./i,
@@ -1330,6 +1339,12 @@ function hasAuthFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/auth/AuthPage.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return AUTH_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAuthManagerDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/shared/auth/AuthManager.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AUTH_MANAGER_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasNetworkFailureFirstCopy(relFile, line) {
@@ -2568,6 +2583,15 @@ function scanFile(file, relFile) {
         type: 'auth-error-copy',
         location,
         message: 'Authentication errors must start with the next recovery action for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAuthManagerDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'auth-manager-copy',
+        location,
+        message: 'AuthManager fallbacks must tell beginners what to do next.',
         sample: line.trim(),
       })
     }

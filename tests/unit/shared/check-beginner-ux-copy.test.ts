@@ -6961,6 +6961,66 @@ function notFoundMessage() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags AuthManager fallbacks that stop at a failure label', () => {
+    const cwd = fixture({
+      'src/app/shared/auth/AuthManager.ts': `
+const LOGIN_FALLBACK = 'Login failed'
+const REGISTER_FALLBACK = 'Registration failed'
+const SSO_FALLBACK = 'Auth code exchange failed'
+const RESEND_FALLBACK = 'Failed to resend'
+const FORGOT_FALLBACK = 'Failed to send reset email'
+const RESET_FALLBACK = 'Failed to reset password'
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'auth-manager-copy',
+          location: 'src/app/shared/auth/AuthManager.ts:2',
+        }),
+        expect.objectContaining({
+          type: 'auth-manager-copy',
+          location: 'src/app/shared/auth/AuthManager.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'auth-manager-copy',
+          location: 'src/app/shared/auth/AuthManager.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'auth-manager-copy',
+          location: 'src/app/shared/auth/AuthManager.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'auth-manager-copy',
+          location: 'src/app/shared/auth/AuthManager.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'auth-manager-copy',
+          location: 'src/app/shared/auth/AuthManager.ts:7',
+        }),
+      ])
+    )
+  })
+
+  it('accepts AuthManager fallbacks that start with recovery steps', () => {
+    const cwd = fixture({
+      'src/app/shared/auth/AuthManager.ts': `
+const LOGIN_FALLBACK = 'Check your email and password, then try signing in again. Forge could not finish sign-in.'
+const REGISTER_FALLBACK = 'Check the account details, then create the account again. Forge could not finish account setup.'
+const SSO_FALLBACK = 'Start sign-in again from this page. Forge could not finish this sign-in link.'
+const RESEND_FALLBACK = 'Check the email address, then send the verification email again. Forge could not finish sending it.'
+const FORGOT_FALLBACK = 'Check the email address, then request the reset email again. Forge could not finish sending it.'
+const RESET_FALLBACK = 'Check the password rules, then save the new password again. Forge could not finish password reset.'
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags project creation errors that start with the failure', () => {
     const cwd = fixture({
       'src/app/features/manage-project/ui/CreateProjectForm.tsx': `

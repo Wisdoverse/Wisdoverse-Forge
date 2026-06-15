@@ -19,6 +19,15 @@ describe('AuthManager beginner-safe errors', () => {
     localStorage.clear()
   })
 
+  function mockAuthFailure() {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        json: vi.fn().mockResolvedValue({ ok: false }),
+      })
+    )
+  }
+
   it('returns an actionable login message when Forge cannot connect', async () => {
     const manager = makeManager()
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
@@ -30,6 +39,19 @@ describe('AuthManager beginner-safe errors', () => {
     manager.dispose()
   })
 
+  it('returns an actionable login fallback when the server gives no message', async () => {
+    const manager = makeManager()
+    mockAuthFailure()
+
+    const result = await manager.login('dev@example.com', 'password')
+
+    expect(result.error).toBe(
+      'Check your email and password, then try signing in again. Forge could not finish sign-in.'
+    )
+    expect(result.error).not.toContain('Login failed')
+    manager.dispose()
+  })
+
   it('returns an actionable registration message when Forge cannot connect', async () => {
     const manager = makeManager()
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
@@ -38,6 +60,38 @@ describe('AuthManager beginner-safe errors', () => {
 
     expect(result.error).toBe(NETWORK_FALLBACK)
     expect(result.error).not.toContain('Network error')
+    manager.dispose()
+  })
+
+  it('returns an actionable registration fallback when the server gives no message', async () => {
+    const manager = makeManager()
+    mockAuthFailure()
+
+    const result = await manager.register('dev@example.com', 'password')
+
+    expect(result.error).toBe(
+      'Check the account details, then create the account again. Forge could not finish account setup.'
+    )
+    expect(result.error).not.toContain('Registration failed')
+    manager.dispose()
+  })
+
+  it('throws actionable account-recovery fallbacks when the server gives no message', async () => {
+    const manager = makeManager()
+    mockAuthFailure()
+
+    await expect(manager.exchangeAuthCode('code')).rejects.toThrow(
+      'Start sign-in again from this page. Forge could not finish this sign-in link.'
+    )
+    await expect(manager.resendVerification('dev@example.com')).rejects.toThrow(
+      'Check the email address, then send the verification email again. Forge could not finish sending it.'
+    )
+    await expect(manager.forgotPassword('dev@example.com')).rejects.toThrow(
+      'Check the email address, then request the reset email again. Forge could not finish sending it.'
+    )
+    await expect(manager.resetPassword('token', 'new-password')).rejects.toThrow(
+      'Check the password rules, then save the new password again. Forge could not finish password reset.'
+    )
     manager.dispose()
   })
 })
