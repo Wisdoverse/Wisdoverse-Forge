@@ -57,15 +57,24 @@ describe('SettingsLayout', () => {
         name: /Account: Update profile, password, and show the setup checklist again/i,
       })
     ).toBeInTheDocument()
+    expect(
+      within(desktopNav).getByRole('button', {
+        name: /Teams: Create teams, invite people, and manage who can change work/i,
+      })
+    ).toBeInTheDocument()
+    expect(within(desktopNav).queryByText('Team members')).not.toBeInTheDocument()
     expect(screen.queryByText(/Start guide reset/i)).toBeNull()
 
     expect(screen.getByRole('group', { name: 'AI setup' })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Work setup' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'People' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'AI services' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Outside apps' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'GitHub and GitLab access' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'SSH keys' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Work limits' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Teams' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Team members' })).not.toBeInTheDocument()
     expect(screen.getByTestId('settings-mobile-section-hint')).toHaveTextContent(
       'Check version and product information.'
     )

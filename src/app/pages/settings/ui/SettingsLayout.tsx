@@ -92,8 +92,8 @@ const SECTIONS: SectionItem[] = [
   },
   {
     id: 'teams',
-    label: 'Team members',
-    description: 'Invite people and manage who can change work.',
+    label: 'Teams',
+    description: 'Create teams, invite people, and manage who can change work.',
     group: 'People',
     Icon: Users,
   },

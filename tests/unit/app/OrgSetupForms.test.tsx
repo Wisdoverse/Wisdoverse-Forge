@@ -36,6 +36,8 @@ describe('organization setup forms', () => {
 
     expect(screen.getByText('Team setup path')).toBeDefined()
     expect(screen.getByText(/create the team before adding projects/i)).toBeDefined()
+    expect(screen.getByText(/open the team after creation to invite people/i)).toBeDefined()
+    expect(screen.queryByText(/Open Team members/i)).toBeNull()
     expect(screen.getByRole('button', { name: /create team/i })).not.toBeDisabled()
 
     fireEvent.change(screen.getByLabelText(/^team name/i), {
