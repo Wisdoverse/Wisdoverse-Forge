@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
+  ArrowRight,
   ArrowDownUp,
   Bot,
   Check,
@@ -33,6 +34,10 @@ interface AgentFilterEmptyCopy {
   title: string
   detail: string
   nextStep: string
+}
+
+interface AgentListViewProps {
+  onOpenProjectsSetup?: () => void
 }
 
 const STATUS_FILTERS: { value: AgentStatusFilter; label: string }[] = [
@@ -76,7 +81,7 @@ const HOST_CLI_PLATFORMS: {
   },
 ]
 
-export function AgentListView() {
+export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) {
   const { agents, selectAgent, setCreateModalOpen, loadAgents, loading } = useAgentsStore()
   const selectedProjectId = useNavigationStore((state) => state.selectedProjectId)
   const selectedProjectName = useNavigationStore((state) => {
@@ -235,6 +240,7 @@ export function AgentListView() {
           <HostCliEnrollmentPanel
             selectedProjectId={selectedProjectId}
             selectedProjectName={selectedProjectName}
+            onOpenProjectsSetup={onOpenProjectsSetup}
           />
         </aside>
       </div>
@@ -383,9 +389,11 @@ function ChoiceGuideItem({
 function HostCliEnrollmentPanel({
   selectedProjectId,
   selectedProjectName,
+  onOpenProjectsSetup,
 }: {
   selectedProjectId: string | null
   selectedProjectName: string | null
+  onOpenProjectsSetup?: () => void
 }) {
   const setCreateModalOpen = useAgentsStore((s) => s.setCreateModalOpen)
   const [platform, setPlatform] = useState<HostCliPlatform>('posix')
@@ -397,7 +405,7 @@ function HostCliEnrollmentPanel({
   )
   const projectLabel = selectedProjectId
     ? (selectedProjectName ?? 'Selected project')
-    : 'Choose a project from the sidebar first.'
+    : 'Open project settings first.'
   const commandReady = Boolean(selectedProjectId)
 
   async function handleCopyCommand() {
@@ -550,8 +558,20 @@ function HostCliEnrollmentPanel({
             data-testid="host-cli-command-waiting"
             className="mt-3 rounded-lg border border-dashed border-black/[0.12] px-3 py-3 text-ui-caption text-secondary-light dark:border-white/[0.12] dark:text-secondary-dark"
           >
-            Choose a project first. The project tells Forge where this computer can receive tasks;
-            then the setup command appears here.
+            <p>
+              Open project settings to create a project, or choose an existing project from the
+              project list. Then the setup command appears here.
+            </p>
+            {onOpenProjectsSetup ? (
+              <button
+                type="button"
+                onClick={onOpenProjectsSetup}
+                className="mt-3 inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-apple-blue/20 bg-apple-blue/[0.08] px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35"
+              >
+                <span>Open project settings</span>
+                <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
+              </button>
+            ) : null}
           </div>
         )}
 

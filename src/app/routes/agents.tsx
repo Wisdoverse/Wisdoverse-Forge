@@ -1,4 +1,4 @@
-import { createRoute } from '@tanstack/react-router'
+import { createRoute, useNavigate } from '@tanstack/react-router'
 import { Route as rootRoute } from './__root'
 import { useAgentsStore } from '@app/entities/agent'
 import { AgentListView } from '@app/features/agents/AgentListView'
@@ -9,6 +9,7 @@ export const Route = createRoute({
   path: '/agents',
   component: function AgentsPage() {
     const { agents, selectedAgentId, selectAgent } = useAgentsStore()
+    const navigate = useNavigate()
     const selectedAgent = selectedAgentId
       ? (agents.find((a) => a.id === selectedAgentId) ?? null)
       : null
@@ -20,7 +21,11 @@ export const Route = createRoute({
             <AgentDetailView agent={selectedAgent} onBack={() => selectAgent(null)} />
           </div>
         ) : (
-          <AgentListView />
+          <AgentListView
+            onOpenProjectsSetup={() => {
+              void navigate({ to: '/settings/$section', params: { section: 'projects' } })
+            }}
+          />
         )}
       </div>
     )

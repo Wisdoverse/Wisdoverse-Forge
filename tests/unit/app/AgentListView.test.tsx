@@ -48,7 +48,8 @@ describe('AgentListView', () => {
   })
 
   test('waits for a selected project before showing a command for this computer', () => {
-    render(<AgentListView />)
+    const onOpenProjectsSetup = vi.fn()
+    render(<AgentListView onOpenProjectsSetup={onOpenProjectsSetup} />)
 
     const enrollment = screen.getByTestId('host-cli-enrollment-panel')
     expect(within(enrollment).getByText(/connect this computer/i)).toBeDefined()
@@ -67,7 +68,7 @@ describe('AgentListView', () => {
     ).toBeDefined()
     expect(within(enrollment).getByText(/project:/i)).toBeDefined()
     expect(within(enrollment).getByTestId('host-cli-project-label')).toHaveTextContent(
-      'Project: Choose a project from the sidebar first.'
+      'Project: Open project settings first.'
     )
     expect(enrollment.textContent).not.toContain('<project-id>')
     expect(enrollment.textContent).not.toMatch(
@@ -81,13 +82,16 @@ describe('AgentListView', () => {
     expect(enrollment.textContent).not.toContain('Connect a Local Agent')
     expect(enrollment.textContent).not.toContain('Already installed the setup tool')
     expect(within(enrollment).getByTestId('host-cli-command-waiting')).toHaveTextContent(
-      /project tells Forge where this computer can receive tasks/i
+      /open project settings to create a project/i
     )
     expect(within(enrollment).getByTestId('host-cli-command-waiting')).toHaveTextContent(
       /setup command appears here/i
     )
+    expect(enrollment.textContent).not.toContain('Choose a project from the sidebar')
     expect(enrollment.textContent).not.toContain('agentforge agents enroll-local')
     expect(within(enrollment).getByRole('button', { name: /choose project first/i })).toBeDisabled()
+    fireEvent.click(within(enrollment).getByRole('button', { name: /open project settings/i }))
+    expect(onOpenProjectsSetup).toHaveBeenCalledTimes(1)
 
     fireEvent.click(
       within(enrollment).getByRole('button', { name: /create agent on this computer/i })
