@@ -23,6 +23,7 @@ touching repository content.
 ## 2. Goals / Non-goals
 
 Goals (v1):
+
 - Optional "Git repository URL" on project create; HTTPS token auth for GitHub
   and GitLab (matches existing credential injection).
 - Server-orchestrated clone into the project's workspace dir via an ephemeral
@@ -34,6 +35,7 @@ Goals (v1):
   container resource/lifecycle limits.
 
 Non-goals (deferred, recorded for v2):
+
 - Branch / ref / tag selection (v1 records the resolved branch + HEAD SHA only).
 - Re-sync / re-clone / pull from the control plane (one-shot bind by design).
 - SSH and custom-host credentials; Bitbucket/OAuth provider materialization.
@@ -92,7 +94,7 @@ container.
   filesystem boundary), independent of the existing DB `(team_id, slug)`
   uniqueness. Filesystem-safe by policy (see §6.4).
 - `clone_status TEXT NOT NULL DEFAULT 'none'` with `CHECK (clone_status IN
-  ('none','queued','cloning','ready','failed'))` — denormalized summary of the
+('none','queued','cloning','ready','failed'))` — denormalized summary of the
   latest attempt, for fast list rendering (mirrors the `runtime_kind` CHECK
   pattern). Source of truth is the attempts table.
 
@@ -110,7 +112,7 @@ One row per clone attempt; supports retry, crash recovery, and diagnosis.
 - `provider TEXT` (github|gitlab — resolved by host)
 - `credential_id UUID NULL` (which git_credential was selected; never the secret)
 - `status TEXT NOT NULL CHECK (status IN
-  ('queued','cloning','ready','failed','cancelled'))`
+('queued','cloning','ready','failed','cancelled'))`
 - `resolved_branch TEXT NULL`, `head_sha TEXT NULL` (filled on success)
 - `container_id TEXT NULL`, `worker_id TEXT NULL`, `job_id UUID NULL`
 - `lease_expires_at TIMESTAMPTZ NULL` (worker lease for crash recovery)
@@ -155,6 +157,7 @@ not yet exist.
 ### 6.3 `project_clone` worker + reconciler
 
 A dedicated worker (not the generic job handler) owns every status transition:
+
 - On dequeue: set attempt `cloning` + `projects.clone_status = cloning`, take a
   lease (`lease_expires_at`), emit event.
 - Run the container (§6.5), `docker wait`, inspect exit, enforce a hard timeout.
@@ -188,6 +191,7 @@ is correct for later agents). No Node, Python, docker CLI, sidecar, gh/glab, or
 harness — minimal attack surface for untrusted-repo network I/O.
 
 Container contract:
+
 - Inputs: `CLONE_URL`, target staging path, and a host-matched short-lived
   credential delivered via a tmpfs/secret mount (never an env var, never a
   build layer). Optionally configured as a one-shot git credential helper that
@@ -216,11 +220,29 @@ so a partial/aborted clone never becomes the live project directory.
 Resolve exactly one credential matched by the repository URL's host (not "latest
 token per provider"). Authorization derives from the creator's project-create
 permission in the workspace. The secret is materialized only at container
-start, delivered via tmpfs/secret mount, scrubbed from logs and never
+start, delivered via a read-only bind/secret mount, scrubbed from logs and never
 serialized (`#[serde(skip_serializing)]`). Whether backend decryption stays
 in-process (current behavior) or moves behind a secrets broker is recorded as an
 explicit implementation choice; v1 keeps in-process decrypt but hands the
 container the token via mount, not env.
+
+**Secret file ownership (resolved at M4).** The backend server runs UNPRIVILEGED
+(production image: `adduser -S agentforge`, uid 100 / gid 101) and has no
+`CAP_CHOWN`, while the clone container runs as `agent` (uid 1011 / gid 1012).
+Docker bind mounts preserve numeric uids, so the backend cannot `chown` the
+secret to the clone uid, and a `0400` owner-only file would be unreadable by uid
+1011 (every credentialed clone would `EACCES` — the production-breaking bug the
+M4 review caught; the original e2e only cloned a public repo). Resolution
+(mirrors the established `cli_credential::write_oauth_mount` OAuth-mount pattern):
+the secret is written **mode 0644** inside a **backend-controlled secret root
+created mode 0700**, placed OUTSIDE the projects/workspace tree that agent
+containers bind. Confidentiality is the 0700 root (no other host user and no
+agent project mount can traverse into it); the 0644 file bits exist only so the
+mismatched clone uid can read the bind-mounted secret. The file is unlinked on
+every clone exit path. A privileged-server deployment that can `chown` could
+tighten to `0400 + chown(1011,1012)`; the shipped image is non-root, so we match
+it. A real-docker test asserts uid 1011 can actually read the materialized
+secret.
 
 ### 6.8 Frontend
 
@@ -314,7 +336,7 @@ the UI. The reconciler exposes a gauge of in-flight/stuck attempts.
 6. API: create accepts repo URL; status projection; retry endpoint; immutability
    rule.
 7. Frontend: create-form field + read-only path, status badge + retry, WS event
-   + reducer + poll fallback, type/DTO sync.
+   - reducer + poll fallback, type/DTO sync.
 8. Tests: unit (policy, state machine, redaction, path assertion), integration
    (`sqlx::test` create→attempt→status, reconciler recovery), security
    (traversal, SSRF egress, tenant boundary, no-secret-in-logs), and an

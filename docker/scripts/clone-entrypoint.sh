@@ -14,7 +14,7 @@
 # SECURITY CONTRACT:
 #   - The credential NEVER appears in git's argv, in the URL, or in stderr.
 #   - The token is delivered ONLY via a read-only mounted secret file at
-#     /run/secrets/git-credential (mode 0400) and is handed to git through a
+#     /run/secrets/git-credential and is handed to git through a
 #     one-shot git credential helper scoped to the target host. git reads the
 #     token over the helper's stdout pipe — it is never on a command line and
 #     never echoed by this script.
@@ -24,9 +24,24 @@
 #   CLONE_URL       (required) HTTPS clone URL, e.g. https://github.com/org/repo.git
 #   CLONE_DEST      (required) staging mount dir; the repo is cloned to $CLONE_DEST/repo
 #   CLONE_PROVIDER  (optional) github | gitlab | "" — informational only in v1
+#   CLONE_MAX_BYTES (optional) hard cap on the cloned tree size in bytes. A
+#                   background watchdog aborts the clone (exit 5) if exceeded. The
+#                   M4 runtime always sets it (default 2 GiB); empty/unset disables
+#                   the watchdog (NOT recommended outside tests).
+#   CLONE_MIN_FREE_BYTES (optional) free-space floor for the staging filesystem
+#                   checked BEFORE the clone (exit 5 if below). Defaults to
+#                   CLONE_MAX_BYTES (need at least room for the cap) or, if that is
+#                   unset, 64 MiB.
+#
+# Exit codes (the M5 worker maps these):
+#   0  success (+ .clone-result.json)   2  bad input / SSRF-blocked host
+#   3  credential/helper error          4  post-clone metadata/result-file error
+#   5  disk guard: too large OR insufficient free space (→ TooLarge outcome)
+#   128 (git) auth/not-found/transport
 #
 # Credential (optional):
-#   /run/secrets/git-credential  read-only file (mode 0400). The FIRST non-blank
+#   /run/secrets/git-credential  read-only file (mode 0644 inside a backend-only
+#   0700 secret root; see the M4 runtime docs for why not 0400). The FIRST non-blank
 #   line is the credential. Supported forms (the helper splits on the FIRST ':'):
 #     - "x-access-token:<token>"   GitHub app/installation + PAT-over-HTTPS form
 #     - "oauth2:<token>"           GitLab OAuth2 form
@@ -49,11 +64,20 @@
 #               exits 0.
 #   On failure: prints git's stderr (NOT the secret), exits non-zero.
 #
-# NOT this script's responsibility (the M5 worker owns these): the per-clone
-# resource limits (disk/CPU/PID), the disk-exhaustion + "too large" classification
-# of git's exit 128, and the `agentforge.project_clone=<attempt_id>` container
-# label used for reaping orphaned clone containers. This entrypoint only clones,
-# validates inputs, and reports an exit code + result file.
+# Defense-in-depth, NOT the primary control (see the M4 runtime module docs):
+#   - SSRF: a best-effort host pre-resolve below refuses a CLONE_URL whose host
+#     resolves to loopback/RFC1918/link-local/metadata BEFORE git connects. This
+#     is best-effort vs DNS-rebinding (the host can re-resolve at git's connect
+#     time); the REAL control is the deploy-layer egress firewall on the clone
+#     egress network (docs/runbooks/clone-egress-firewall.md). M8 adds the
+#     fails-closed integration test.
+#   - Disk: a free-space preflight + a background size watchdog cap the cloned
+#     tree (CLONE_MAX_BYTES) so a hostile/huge repo cannot exhaust the staging
+#     volume; both abort with exit 5 → the runtime's TooLarge outcome.
+#
+# NOT this script's responsibility (the M5 worker owns these): the CPU/PID/memory
+# container limits, and the `agentforge.project_clone=<attempt_id>` container label
+# used for reaping orphaned clone containers.
 # =============================================================================
 
 set -o pipefail
@@ -121,6 +145,68 @@ TARGET_HOST="${url_no_scheme%%/*}"
 TARGET_HOST="${TARGET_HOST%%:*}"
 [ -n "$TARGET_HOST" ] || fail 2 "could not derive host from CLONE_URL"
 
+# --- SSRF defense-in-depth: refuse a host that resolves to a private range ----
+# BEST-EFFORT only. The REAL control is the deploy-layer egress firewall on the
+# clone egress network (it filters at packet time, defeating DNS-rebinding). This
+# pre-resolve catches the common case (a URL pointing straight at 127.0.0.1 / a
+# 10.x internal / 169.254.169.254 metadata) BEFORE git connects, failing closed
+# with exit 2. It does NOT defend against a host that resolves to a public IP here
+# but re-resolves to a private one at git's connect time (rebinding) — only the
+# firewall does. We resolve via getent (glibc) and reject any matching A record.
+is_blocked_ip() {
+  # $1 = an IPv4/IPv6 address string. Returns 0 (true) if it is loopback,
+  # private (RFC1918), link-local, CGNAT, metadata, or unspecified.
+  case "$1" in
+    127.*|0.*) return 0 ;;                          # loopback / "this host"
+    10.*) return 0 ;;                               # RFC1918 /8
+    192.168.*) return 0 ;;                          # RFC1918 /16
+    169.254.*) return 0 ;;                          # link-local + 169.254.169.254 metadata
+    100.6[4-9].*|100.7*.*|100.8*.*|100.9*.*|100.1[0-1].*|100.12[0-7].*) return 0 ;; # CGNAT 100.64/10
+    255.255.255.255) return 0 ;;                    # broadcast
+    ::1|::|fe80:*|fc00:*|fd*:*) return 0 ;;         # IPv6 loopback/unspecified/link-local/ULA
+  esac
+  # RFC1918 172.16.0.0/12 = 172.16.* .. 172.31.*
+  case "$1" in
+    172.1[6-9].*|172.2[0-9].*|172.3[0-1].*) return 0 ;;
+  esac
+  return 1
+}
+
+# `.local` is mDNS — never a legitimate public git host; refuse outright.
+case "$TARGET_HOST" in
+  *.local) fail 2 "CLONE_URL host '$TARGET_HOST' is a .local mDNS name — refusing (SSRF guard)" ;;
+esac
+
+# If the host is already a literal IP, check it directly; otherwise resolve every
+# A/AAAA record and reject if ANY lands in a blocked range. A resolve failure is
+# NOT fatal here (git will fail on its own with a clearer error, and the firewall
+# is the real control) — we only act on a positive private-IP match.
+resolved_addrs="$(getent ahosts "$TARGET_HOST" 2>/dev/null | awk '{print $1}' | sort -u)"
+if [ -n "$resolved_addrs" ]; then
+  while IFS= read -r addr; do
+    [ -n "$addr" ] || continue
+    if is_blocked_ip "$addr"; then
+      fail 2 "CLONE_URL host '$TARGET_HOST' resolves to a blocked private/metadata address ($addr) — refusing (SSRF guard)"
+    fi
+  done <<EOF
+$resolved_addrs
+EOF
+fi
+
+# --- disk preflight: refuse if the staging filesystem is already too full -----
+# A hostile/huge repo could otherwise fill the staging volume. `df -P -B1` reports
+# available bytes in a portable single-column form. Floor defaults to CLONE_MAX_BYTES
+# (we need at least room for the cap) or 64 MiB if no cap is set.
+default_floor=67108864 # 64 MiB
+CLONE_MIN_FREE_BYTES="${CLONE_MIN_FREE_BYTES:-${CLONE_MAX_BYTES:-$default_floor}}"
+avail_bytes="$(df -P -B1 "$CLONE_DEST" 2>/dev/null | awk 'NR==2 {print $4}')"
+case "$avail_bytes" in
+  ''|*[!0-9]*) avail_bytes="" ;; # unparseable → skip the preflight (best-effort)
+esac
+if [ -n "$avail_bytes" ] && [ "$avail_bytes" -lt "$CLONE_MIN_FREE_BYTES" ]; then
+  fail 5 "insufficient free space in $CLONE_DEST: ${avail_bytes}B available < ${CLONE_MIN_FREE_BYTES}B required"
+fi
+
 # --- assemble git -c credential args (host-scoped, one-shot helper) ----------
 # GIT_CRED_ARGS is populated ONLY when a secret file is present. When the repo is
 # public (no secret mounted) the helper is never configured and git clones
@@ -128,7 +214,7 @@ TARGET_HOST="${TARGET_HOST%%:*}"
 GIT_CRED_ARGS=()
 if [ -f "$SECRET_FILE" ]; then
   if [ ! -r "$SECRET_FILE" ]; then
-    fail 3 "credential secret present at $SECRET_FILE but not readable (check mount mode 0400 + container uid)"
+    fail 3 "credential secret present at $SECRET_FILE but not readable (check mount mode 0644 + secret-root traversal + container uid)"
   fi
   # A PRESENT secret must yield a usable credential. If it is empty/whitespace-only
   # the helper would emit nothing and (with GIT_TERMINAL_PROMPT=0) git would fall
@@ -205,6 +291,48 @@ else
   log "no credential secret at $SECRET_FILE — cloning anonymously (public repo)"
 fi
 
+# --- disk watchdog (background) ----------------------------------------------
+# A hostile/huge repo could exceed the size cap mid-clone (the preflight only
+# checks free space at the START). This watchdog samples the cloned tree size and,
+# if it crosses CLONE_MAX_BYTES, kills the clone and signals a too-large abort via
+# a sentinel file. It exits cleanly (no abort) once the clone finishes. CLONE_MAX_BYTES
+# empty/unset disables it. The watchdog runs in the SAME process group; we track
+# its PID so we can stop it on every exit path.
+WATCHDOG_PID=""
+TOO_LARGE_SENTINEL="/tmp/agentforge-clone-too-large"
+rm -f "$TOO_LARGE_SENTINEL"
+start_disk_watchdog() {
+  local clone_pid="$1"
+  [ -n "${CLONE_MAX_BYTES:-}" ] || return 0
+  case "$CLONE_MAX_BYTES" in ''|*[!0-9]*) return 0 ;; esac
+  (
+    while kill -0 "$clone_pid" 2>/dev/null; do
+      sleep 2
+      kill -0 "$clone_pid" 2>/dev/null || break
+      used="$(du -sb "$REPO_DIR" 2>/dev/null | awk '{print $1}')"
+      case "$used" in ''|*[!0-9]*) used=0 ;; esac
+      if [ "$used" -gt "$CLONE_MAX_BYTES" ]; then
+        log "ERROR: cloned tree ${used}B exceeded CLONE_MAX_BYTES=${CLONE_MAX_BYTES}B — aborting clone"
+        : > "$TOO_LARGE_SENTINEL"
+        # Kill the clone process group so git and any helpers stop promptly.
+        kill -TERM "$clone_pid" 2>/dev/null
+        sleep 2
+        kill -KILL "$clone_pid" 2>/dev/null
+        break
+      fi
+    done
+  ) &
+  WATCHDOG_PID="$!"
+}
+stop_disk_watchdog() {
+  [ -n "$WATCHDOG_PID" ] || return 0
+  kill "$WATCHDOG_PID" 2>/dev/null
+  wait "$WATCHDOG_PID" 2>/dev/null
+  WATCHDOG_PID=""
+}
+# Ensure the watchdog never outlives the script.
+trap 'rm -f "$CRED_HELPER"; stop_disk_watchdog' EXIT
+
 # --- run the clone -----------------------------------------------------------
 # Full history (a dev project needs it — no --depth). No recursive submodules.
 # LFS smudge skipped by default. GIT_TERMINAL_PROMPT=0 makes a missing/bad
@@ -220,14 +348,30 @@ log "starting git clone (full history, no submodules, LFS smudge skipped)"
 # `-c credential.helper=` first clears any global/system helper chain (e.g. a
 # baked-in store), so ONLY the host-scoped one-shot helper in GIT_CRED_ARGS can
 # fire — and only for the target host. The clearing entry must precede the
-# host-scoped helper so the host scope is not also wiped.
-if GIT_LFS_SKIP_SMUDGE=1 GIT_TERMINAL_PROMPT=0 \
-   git -c credential.helper= \
-     "${GIT_CRED_ARGS[@]}" \
-     clone --no-recurse-submodules "$CLONE_URL" "$REPO_DIR"; then
-  log "clone succeeded"
+# host-scoped helper so the host scope is not also wiped. Run git in the
+# background so the watchdog can monitor + kill it; then `wait` for its real rc.
+GIT_LFS_SKIP_SMUDGE=1 GIT_TERMINAL_PROMPT=0 \
+  git -c credential.helper= \
+    "${GIT_CRED_ARGS[@]}" \
+    clone --no-recurse-submodules "$CLONE_URL" "$REPO_DIR" &
+clone_pid="$!"
+start_disk_watchdog "$clone_pid"
+if wait "$clone_pid"; then
+  clone_rc=0
 else
   clone_rc=$?
+fi
+stop_disk_watchdog
+
+# If the watchdog tripped, the abort takes precedence over git's own (kill-induced)
+# non-zero exit — surface the distinct exit 5 so the runtime maps it to TooLarge.
+if [ -f "$TOO_LARGE_SENTINEL" ]; then
+  rm -f "$TOO_LARGE_SENTINEL"
+  fail 5 "clone aborted: cloned tree exceeded CLONE_MAX_BYTES=${CLONE_MAX_BYTES}B"
+fi
+if [ "$clone_rc" -eq 0 ]; then
+  log "clone succeeded"
+else
   # git already wrote its own error to stderr (worker redacts before storing).
   fail "$clone_rc" "git clone failed (exit $clone_rc)"
 fi

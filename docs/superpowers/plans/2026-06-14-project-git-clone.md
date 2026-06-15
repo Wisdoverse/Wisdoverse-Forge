@@ -11,6 +11,7 @@
 **Spec:** `docs/superpowers/specs/2026-06-14-project-git-clone-design.md`
 
 **Conventions for every milestone:**
+
 - TDD: narrow failing test → minimal impl → green → commit.
 - Migration numbering is NOT hardcoded: at execution time, use the next free number against current `origin/main` (068 is the next free as of writing, but rebase first — another branch may land it). Every new migration needs: the `.sql` file, a `MANIFEST.sha256` entry, and an `include_str!` entry in `rust/crates/db/src/lib.rs`/`pool.rs` (guard tests enforce this).
 - Migrations are idempotent (`IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`); never edit an already-run migration — add a corrective one.
@@ -24,6 +25,7 @@
 ## File Structure
 
 Created:
+
 - `rust/crates/db/migrations/0NN_project_clone.sql` — projects additive cols + `project_clone_attempts` + `job_queue` partial unique index.
 - `rust/crates/api/src/domain/project_clone.rs` — `CloneStatus`, `CloneErrorClass`, `WorkspaceDirName`, `CloneAttempt` projection, state-transition policy (pure).
 - `rust/crates/api/src/repositories/project/clone_attempt.rs` — attempt aggregate repo (submodule of the `project` aggregate).
@@ -37,6 +39,7 @@ Created:
 - Tests alongside each (`#[cfg(test)]` modules + `rust/crates/api/tests/*.rs` integration + `tests/` FE).
 
 Modified:
+
 - `rust/crates/db/src/entities.rs` — `Project` gains `workspace_dir_name`, `clone_status`; add `ProjectCloneAttempt` struct.
 - `rust/crates/api/src/domain/resource.rs` — harden `ProjectRepositoryUrl::parse` (https-only, host present); add `ResourceSlugPolicy` filesystem-safe guarantee used by the legacy-navigation path.
 - `rust/crates/api/src/services/project.rs` + `repositories/project.rs` + `repositories/resource/navigation.rs` — transactional create across both surfaces; workspace-ownership check.
@@ -53,6 +56,7 @@ Modified:
 ## Milestone M0 — Migrations + entities + schema-contract
 
 **Files:**
+
 - Create: `rust/crates/db/migrations/0NN_project_clone.sql`
 - Modify: `rust/crates/db/migrations/MANIFEST.sha256`, `rust/crates/db/src/lib.rs` (or `pool.rs` include_str! list), `rust/crates/db/src/entities.rs`
 - Test: `rust/crates/db/tests/schema_contract.rs` (or the existing schema-contract test module)
@@ -69,6 +73,7 @@ Modified:
 ## Milestone M1 — Domain: clone types, slug/path policy, URL hardening
 
 **Files:**
+
 - Create: `rust/crates/api/src/domain/project_clone.rs`
 - Modify: `rust/crates/api/src/domain/resource.rs`, `rust/crates/api/src/domain/mod.rs`
 - Test: inline `#[cfg(test)]` in each.
@@ -85,6 +90,7 @@ Modified:
 ## Milestone M2 — Transactional create + outbox enqueue
 
 **Files:**
+
 - Modify: `rust/crates/api/src/services/project.rs`, `repositories/project.rs`, `repositories/resource/navigation.rs`, `services/project_clone.rs` (new), `jobs/src/orchestration_outbox_publisher.rs` (route project_clone), migration for an outbox row kind if needed.
 - Test: `rust/crates/api/tests/project_create_clone_tx.rs` (`#[sqlx::test]`).
 
@@ -100,6 +106,7 @@ Modified:
 ## Milestone M3 — `agentforge-clone` image + entrypoint + shared cred lib
 
 **Files:**
+
 - Create: `docker/scripts/lib/git-credentials.sh`, `docker/scripts/clone-entrypoint.sh`, `docker/Dockerfile.clone`
 - Modify: `docker/scripts/agent-entrypoint.sh` (source the lib), `docker/Dockerfile.agent-base` (ship the lib), `Makefile` (`build-clone`)
 - Test: a `bats`/shell harness or a `docker run` smoke in M4's tests.
@@ -117,6 +124,7 @@ Modified:
 ## Milestone M4 — Platform clone runtime (restricted, reaped)
 
 **Files:**
+
 - Create: `rust/crates/platform/src/clone_runtime.rs`
 - Modify: `rust/crates/platform/src/lib.rs`, reuse `security.rs`/`container.rs`
 - Test: inline + a gated integration behind a `docker`-available guard.
@@ -133,6 +141,7 @@ Modified:
 ## Milestone M5 — `project_clone` worker + reconciler
 
 **Files:**
+
 - Create: `rust/crates/jobs/src/project_clone_worker.rs`
 - Modify: `rust/crates/jobs/src/lib.rs`, wire into the worker registry / server bin startup.
 - Test: `rust/crates/api/tests/project_clone_worker.rs` (`#[sqlx::test]` + mock runtime).
@@ -149,6 +158,7 @@ Modified:
 ## Milestone M6 — API surface (create, status, retry, credential host-match)
 
 **Files:**
+
 - Modify: `rust/crates/api/src/services/git_credential.rs`, `repositories/credential/git.rs`, `routes/projects.rs` (+ teams projects route), `services/project.rs` (immutability), domain projection.
 - Test: `rust/crates/api/tests/project_clone_api.rs`.
 
@@ -164,6 +174,7 @@ Modified:
 ## Milestone M7 — Frontend (create field, status badge, realtime)
 
 **Files:**
+
 - Modify: `src/app/entities/project/model/types.ts`, `api/projectApi.ts`, `features/manage-project/ui/CreateProjectForm.tsx`, `pages/settings/ui/ProjectsSection.tsx`, `layouts/sidebar/ProjectTree.tsx`, the WS dispatch hook under `src/app/hooks`, `shared/types/`.
 - Create: `src/app/features/manage-project/ui/CloneStatusBadge.tsx`
 - Test: `tests/` Vitest for the reducer + the form validation.
@@ -181,10 +192,12 @@ Modified:
 ## Milestone M8 — Security + integration + e2e + docs
 
 **Files:**
+
 - Create: `rust/crates/api/tests/project_clone_security.rs`, docs under `docs/guides/` + `docs/architecture/glossary.md` entries.
 - Modify: `Makefile`/CI to build `agentforge-clone` where agent images are built; `docs/guides/configuration.md` (new env: restricted network name, clone timeout, concurrency).
 
-- [ ] **Step 1 — Security tests.** Path traversal (`WorkspaceDirName` rejects + `resolve_under` blocks); SSRF (a repo URL resolving to 169.254.169.254 / 127.0.0.1 / RFC1918 is blocked by the restricted network — assert the network config, and an integration test that the clone fails closed); tenant boundary (clone never lands outside the creator's workspace root; staging mount excludes siblings); no-secret-in-logs (capture worker logs on a failed auth clone → assert no token/URL-with-creds).
+- [ ] **Step 1 — Security tests.** Path traversal (`WorkspaceDirName` rejects + `resolve_under` blocks); SSRF (a repo URL resolving to 169.254.169.254 / 127.0.0.1 / RFC1918 is blocked by the restricted network — assert the network config, and an integration test that the clone **fails closed**: this is the deferred test the M4 review flagged — the entrypoint's best-effort host pre-resolve + the deploy-layer firewall must be exercised end-to-end); tenant boundary (clone never lands outside the creator's workspace root; staging mount excludes siblings); no-secret-in-logs (capture worker logs on a failed auth clone → assert no token/URL-with-creds); credential-redaction-before-persist (M5's `RedactedError` over the M4 `RawStderr` — assert a glued token in git stderr never reaches the DB).
+  - [ ] **Egress firewall runbook (carried from M4).** Confirm `docs/runbooks/clone-egress-firewall.md` is linked from the deployment docs and the clone guide; the runbook documents the **REQUIRED** operator nftables/DOCKER-USER (or egress-proxy) policy on the `agentforge-clone-egress` subnet. The M4 in-app network separation + in-container pre-resolve are defense-in-depth; the firewall is the real RFC1918/metadata control and is verified by the runbook's curl checks.
 - [ ] **Step 2 — Integration.** `#[sqlx::test]` end-to-end: create-with-repo → outbox → (mock runtime) worker → `ready` + dir present; failure → `failed` + retry; reconciler recovery. One real-docker e2e (gated) cloning a controlled public repo.
 - [ ] **Step 3 — Docs.** Beginner-first guide: how to create a project from a git repo, what statuses mean, what to do on failure, the manual escape hatch for oversized repos; glossary terms (`clone attempt`, `workspace dir`, `agentforge-clone`); configuration vars; security note (egress isolation, credential scoping). Follow the Product/Doc standard + the `## Beginner UX / Operator Path` PR gate fields.
 - [ ] **Step 4 — Gate.** Full `cd rust && make ci`; FE checks; build `agentforge-clone`; `git diff --check`.

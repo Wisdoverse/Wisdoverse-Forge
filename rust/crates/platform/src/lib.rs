@@ -18,8 +18,9 @@ pub mod security;
 pub mod types;
 
 pub use clone_runtime::{
-    CLONE_EGRESS_NETWORK, CLONE_LABEL_KEY, CloneContainerConfig, CloneContainerSummary, CloneDockerBackend,
-    CloneRunOutcome, CloneRunSpec, CloneRuntime, LiveCloneDockerBackend, SecretBytes,
+    CLONE_EGRESS_NETWORK, CLONE_LABEL_KEY, CLONE_MAX_BYTES_ENV, CloneContainerConfig, CloneContainerState,
+    CloneContainerSummary, CloneDockerBackend, CloneRunOutcome, CloneRunSpec, CloneRuntime, CloneSecretRoot,
+    DEFAULT_CLONE_MAX_BYTES, LiveCloneDockerBackend, NetworkInspectInfo, RawStderr, SecretBytes,
 };
 pub use container::PlatformError;
 pub use docker::DockerClient;

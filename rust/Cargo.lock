@@ -357,6 +357,7 @@ dependencies = [
  "tonic-build 0.12.3",
  "tracing",
  "uuid",
+ "zeroize",
 ]
 
 [[package]]
