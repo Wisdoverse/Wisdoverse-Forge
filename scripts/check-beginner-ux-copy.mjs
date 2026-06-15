@@ -454,6 +454,12 @@ const COMMON_ERROR_FAILURE_FIRST_PATTERNS = [
   /\{\{resource\}\} 配额已用完。请让所有者/,
 ]
 
+const LOCALE_VAGUE_ERROR_LABEL_PATTERNS = [
+  /\berror:\s*['"`]Needs attention['"`]/i,
+  /\berror:\s*['"`]需要处理['"`]/,
+  /\berror:\s*['"`]有内容需要处理。请查看提示信息，然后重试。['"`]/,
+]
+
 const WORKSPACE_SETTINGS_FAILURE_FIRST_PATTERNS = [
   /\bThe (?:team|project) was not created\./i,
   /\bRefresh Settings to load workspace (?:teams|projects)\. Sign in again/i,
@@ -1539,6 +1545,17 @@ function hasCommonErrorFailureFirstCopy(relFile, line) {
   return COMMON_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasLocaleVagueErrorLabelCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return LOCALE_VAGUE_ERROR_LABEL_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasWorkspaceSettingsFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/pages/settings/model/workspaceSettingsErrorMessage.ts')) {
     return false
@@ -1957,6 +1974,16 @@ function scanFile(file, relFile) {
         type: 'common-error-copy',
         location,
         message: 'Common error translations must start with the recovery action for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasLocaleVagueErrorLabelCopy(relFile, line)) {
+      findings.push({
+        type: 'locale-vague-error-label-copy',
+        location,
+        message:
+          'Localized error and status labels must tell beginners what to check, not say needs attention.',
         sample: line.trim(),
       })
     }

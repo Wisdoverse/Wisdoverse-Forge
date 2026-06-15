@@ -1101,6 +1101,65 @@ export const zh = {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags vague localized error and status labels', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  common: {
+    error: 'Needs attention',
+  },
+  agents: {
+    status: {
+      error: 'Needs attention',
+    },
+  },
+  feed: {
+    eventTypes: {
+      error: 'Needs attention',
+    },
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  common: {
+    error: '有内容需要处理。请查看提示信息，然后重试。',
+  },
+  agents: {
+    status: {
+      error: '需要处理',
+    },
+  },
+  feed: {
+    eventTypes: {
+      error: '需要处理',
+    },
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'locale-vague-error-label-copy',
+          sample: expect.stringContaining('Needs attention'),
+        }),
+        expect.objectContaining({
+          type: 'locale-vague-error-label-copy',
+          sample: expect.stringContaining('有内容需要处理'),
+        }),
+        expect.objectContaining({
+          type: 'locale-vague-error-label-copy',
+          sample: expect.stringContaining('需要处理'),
+        }),
+      ])
+    )
+  })
+
   it('flags workspace settings errors that start with the failure instead of the next step', () => {
     const cwd = fixture({
       'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts': `
@@ -2991,6 +3050,7 @@ export const en = {
   feed: {
     eventTypes: {
       tool_use: 'Agent used a tool',
+      error: 'Check update',
     },
     tools: {
       Task: 'Asked another agent',
@@ -3110,7 +3170,7 @@ export const en = {
       idle: 'Ready',
       working: 'Working now',
       offline: 'Not connected',
-      error: 'Needs attention',
+      error: 'Check agent status',
     },
   },
 }
