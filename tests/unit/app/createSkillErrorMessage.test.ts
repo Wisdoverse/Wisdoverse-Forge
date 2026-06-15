@@ -31,8 +31,9 @@ describe('createSkillErrorMessage', () => {
 
     expectBeginnerMessage(
       createSkillErrorMessage(new Error(message)),
-      'Ask an owner or admin to let you create saved instructions. Your account cannot create workspace instructions yet.'
+      'Ask an owner or admin to let you create saved instructions for this team space.'
     )
+    expect(createSkillErrorMessage(new Error(message))).not.toContain('workspace instructions')
   })
 
   test('turns raw network failures into recovery guidance', () => {
@@ -49,7 +50,8 @@ describe('createSkillErrorMessage', () => {
     const message = createSkillErrorMessage(new Error('API 403: Forbidden'))
 
     expect(message).toContain('Ask an owner or admin')
-    expect(message).toContain('cannot create workspace instructions yet')
+    expect(message).toContain('create saved instructions for this team space')
+    expect(message).not.toContain('workspace instructions')
     expect(message).not.toContain('Code:')
     expect(message).not.toContain('API 403')
     expect(message).not.toContain('Forbidden')

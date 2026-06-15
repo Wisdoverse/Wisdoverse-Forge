@@ -4,7 +4,7 @@ const GENERIC_BODY_TEXT = /^(Unauthorized|Forbidden|Not Found|Internal Server Er
 const CREATE_NETWORK_MESSAGE =
   'Check your connection, then create the instruction again. Forge could not connect while creating it.'
 const CREATE_PERMISSION_MESSAGE =
-  'Ask an owner or admin to let you create saved instructions. Your account cannot create workspace instructions yet.'
+  'Ask an owner or admin to let you create saved instructions for this team space.'
 const CREATE_NOT_FOUND_MESSAGE = 'Open Saved instructions again, then create the instruction.'
 const CREATE_CONFLICT_MESSAGE =
   'Review the existing instructions, then change the name or matching words and try again.'

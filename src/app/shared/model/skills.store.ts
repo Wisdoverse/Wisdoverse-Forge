@@ -158,7 +158,7 @@ export function skillHttpErrorMessage(
   const detail = errorDetail(data)
   const actionText = action === 'create' ? 'create the instruction' : 'refresh Saved instructions'
   const createPermissionMessage =
-    'Ask an owner or admin to let you create saved instructions. Your account cannot create workspace instructions yet.'
+    'Ask an owner or admin to let you create saved instructions for this team space.'
   const createConflictMessage =
     'Review the existing instructions, then change the name or matching words and try again.'
   const createRateLimitMessage =
@@ -173,7 +173,7 @@ export function skillHttpErrorMessage(
   if (status === 403) {
     return action === 'create'
       ? createPermissionMessage
-      : 'You do not have permission to view workspace instructions. Ask an owner or admin to update your workspace access.'
+      : 'You do not have access to saved instructions for this team space. Ask an owner or admin to update your team space access.'
   }
   if (status === 404) {
     return action === 'create'

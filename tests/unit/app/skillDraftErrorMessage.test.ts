@@ -12,12 +12,25 @@ describe('skillDraftErrorMessage', () => {
     expect(
       skillDraftErrorMessage(
         new Error(
-          'Ask an owner or admin to let you create saved instructions. Your account cannot create workspace instructions yet.'
+          'Ask an owner or admin to let you create saved instructions for this team space.'
         )
       )
     ).toBe(
       'Instruction was not published. Ask an owner or admin to let you create saved instructions.'
     )
+  })
+
+  test('normalizes older workspace-instruction permission guidance', () => {
+    const message = skillDraftErrorMessage(
+      new Error(
+        'Ask an owner or admin to let you create saved instructions. Your account cannot create workspace instructions yet.'
+      )
+    )
+
+    expect(message).toBe(
+      'Instruction was not published. Ask an owner or admin to let you create saved instructions.'
+    )
+    expect(message).not.toContain('workspace instructions')
   })
 
   test('explains duplicate names without leaking raw API text', () => {

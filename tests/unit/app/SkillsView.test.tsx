@@ -395,8 +395,10 @@ describe('SkillsView', () => {
     await user.click(within(dialog).getByRole('button', { name: /save instruction/i }))
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Ask an owner or admin to let you create saved instructions.')
-    expect(alert).toHaveTextContent('Your account cannot create workspace instructions yet.')
+    expect(alert).toHaveTextContent(
+      'Ask an owner or admin to let you create saved instructions for this team space.'
+    )
+    expect(alert.textContent).not.toContain('workspace instructions')
     expect(alert.textContent).not.toContain('Code:')
     expect(alert.textContent).not.toContain('API 403')
     expect(alert.textContent).not.toContain('Forbidden')

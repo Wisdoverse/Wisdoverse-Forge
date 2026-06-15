@@ -36,11 +36,20 @@ describe('skillHttpErrorMessage', () => {
     )
   })
 
-  test('turns create permission failures into an admin role step', () => {
+  test('turns create permission failures into team space access guidance', () => {
     expectBeginnerMessage(
       skillHttpErrorMessage('create', 403),
-      'Ask an owner or admin to let you create saved instructions. Your account cannot create workspace instructions yet.'
+      'Ask an owner or admin to let you create saved instructions for this team space.'
     )
+    expect(skillHttpErrorMessage('create', 403)).not.toContain('workspace instructions')
+  })
+
+  test('turns catalog permission failures into team space access guidance', () => {
+    expectBeginnerMessage(
+      skillHttpErrorMessage('load', 403),
+      'You do not have access to saved instructions for this team space. Ask an owner or admin to update your team space access.'
+    )
+    expect(skillHttpErrorMessage('load', 403)).not.toContain('workspace instructions')
   })
 
   test('turns validation details into a field-specific next step', () => {
