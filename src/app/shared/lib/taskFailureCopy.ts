@@ -60,7 +60,16 @@ function beginnerBlockedHint(hint: string): string {
   if (/\b(api\s*)?(credential|credentials|key|keys|token|tokens|secret|secrets)\b/i.test(hint)) {
     return 'Waiting for account access. Add or reconnect the required service access, then retry.'
   }
+  if (containsTechnicalBlockedHint(hint)) {
+    return 'This task needs help before it can continue. Open details, review the latest update, then retry or ask an owner for help.'
+  }
   return hint
+}
+
+function containsTechnicalBlockedHint(hint: string): boolean {
+  return /\b(panic|stack trace|traceback|exception|stdout|stderr|raw command output|docker socket|internal error|database)\b/i.test(
+    hint
+  )
 }
 
 function blockedErrorPreview(error?: string | null): string {
