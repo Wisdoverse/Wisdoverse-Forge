@@ -61,11 +61,14 @@ describe('Agents Store', () => {
     )
   })
 
-  test('turns permission failures into workspace role guidance', () => {
+  test('turns permission failures into team space access guidance', () => {
+    const message = agentActionErrorMessage('delete', apiError(403, { message: 'owner role required' }))
+
     expectBeginnerError(
-      agentActionErrorMessage('delete', apiError(403, { message: 'owner role required' })),
-      'You do not have permission to delete the agent. Ask an owner or admin to update your workspace role.'
+      message,
+      'You do not have permission to delete the agent. Ask an owner or admin to update your team space access.'
     )
+    expect(message).not.toContain('workspace role')
   })
 
   test('turns raw network failures into connection guidance', () => {
@@ -113,10 +116,24 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       message,
-      "This agent's workspace is not ready. Ask an owner or admin to check Where agents run, then start this agent from the agent card."
+      'The place where this agent runs is not ready. Ask an owner or admin to check Where agents run, then start this agent from the agent card.'
     )
     expect(message).not.toContain('worker')
     expect(message).not.toContain('Docker')
+    expect(message).not.toContain('workspace is not ready')
+  })
+
+  test('uses team space language for create access validation', () => {
+    const message = agentActionErrorMessage(
+      'create',
+      apiError(422, { message: 'workspace project access is required' })
+    )
+
+    expectBeginnerError(
+      message,
+      'Choose a team space and project you can access, then try creating this agent again.'
+    )
+    expect(message).not.toContain('Choose a workspace')
   })
 
   test('explains this-computer agent validation without CLI jargon', () => {
@@ -282,10 +299,11 @@ describe('Agents Store', () => {
     expect(state.agents).toHaveLength(1)
     expectBeginnerError(
       state.error,
-      'Agent was created, but its workspace is not ready yet. It will stay in the list. Ask an owner or admin to check Where agents run, then start this agent from the card.'
+      'Agent was created, but the place where it runs is not ready yet. It will stay in the list. Ask an owner or admin to check Where agents run, then start this agent from the card.'
     )
     expect(state.error).not.toContain('worker')
     expect(state.error).not.toContain('Docker')
+    expect(state.error).not.toContain('workspace is not ready')
   })
 
   test('closes the create modal when the managed workspace starts', async () => {

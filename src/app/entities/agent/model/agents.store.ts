@@ -216,7 +216,7 @@ export function agentActionErrorMessage(action: AgentErrorAction, error?: unknow
     return `Sign in again, then open Agents and try to ${actionPhrase} again.`
   }
   if (status === 403) {
-    return `You do not have permission to ${actionPhrase}. Ask an owner or admin to update your workspace role.`
+    return `You do not have permission to ${actionPhrase}. Ask an owner or admin to update your team space access.`
   }
   if (status === 404) {
     return 'This agent could not be found. Refresh the Agents page, choose the current agent, then try again.'
@@ -252,7 +252,7 @@ function agentValidationMessage(action: AgentErrorAction, detail: string | null)
       return 'Choose a tested AI service and model, then try creating this agent again.'
     }
     if (normalized.includes('workspace') || normalized.includes('project')) {
-      return 'Choose a workspace and project you can access, then try creating this agent again.'
+      return 'Choose a team space and project you can access, then try creating this agent again.'
     }
   }
 
@@ -291,7 +291,7 @@ function agentServerMessage(action: AgentErrorAction): string {
     return 'Refresh Agents to load agents. If it still fails, ask an owner or admin to check Where agents run.'
   }
   if (action === 'start' || action === 'restart' || action === 'create') {
-    return "Forge could not prepare this agent's workspace right now. Wait a moment, then try again. If it still fails, ask an owner or admin to check Where agents run."
+    return 'Forge could not prepare where this agent runs right now. Wait a moment, then try again. If it still fails, ask an owner or admin to check Where agents run.'
   }
   return `Refresh Agents, then try to ${agentActionPhrase(action)} again. If it still fails, ask an owner or admin to check Where agents run.`
 }
@@ -299,16 +299,16 @@ function agentServerMessage(action: AgentErrorAction): string {
 function agentRuntimeRecoveryMessage(detail: string | null): string {
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('docker')) {
-    return "This agent's workspace is not ready. Ask an owner or admin to check Where agents run, then start this agent from the agent card."
+    return 'The place where this agent runs is not ready. Ask an owner or admin to check Where agents run, then start this agent from the agent card.'
   }
-  return 'The agent workspace is not ready. Ask an owner or admin to check Where agents run, then start this agent from the agent card.'
+  return 'The place where this agent runs is not ready. Ask an owner or admin to check Where agents run, then start this agent from the agent card.'
 }
 
 function agentCreatedStartFailureMessage(error?: unknown): string {
   const detail = agentErrorDetail(error)
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('docker')) {
-    return 'Agent was created, but its workspace is not ready yet. It will stay in the list. Ask an owner or admin to check Where agents run, then start this agent from the card.'
+    return 'Agent was created, but the place where it runs is not ready yet. It will stay in the list. Ask an owner or admin to check Where agents run, then start this agent from the card.'
   }
   if (
     normalized.includes('runtime') ||
@@ -317,7 +317,7 @@ function agentCreatedStartFailureMessage(error?: unknown): string {
   ) {
     return 'Agent was created, but it could not start yet. It will stay in the list. Ask an owner or admin to check Where agents run, then start this agent from the card.'
   }
-  return 'Agent was created, but it could not start yet. It will stay in the list. Refresh the Agents page, then start this agent from the card after the workspace is ready.'
+  return 'Agent was created, but it could not start yet. It will stay in the list. Refresh the Agents page, then start this agent from the card after the place where it runs is ready.'
 }
 
 function mapManagedAgentStatus(status: string): AgentStatus {
