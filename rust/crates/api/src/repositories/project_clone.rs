@@ -827,6 +827,61 @@ impl ProjectCloneRepository {
         Ok(exists)
     }
 
+    /// Load the authoritative attempt row by its primary key, for the reconciler's
+    /// event emission (it has only the candidate id, not `(project_id, attempt)`).
+    /// `None` when the attempt no longer exists. The caller already owns the row
+    /// (it claimed it), so this is a plain identity read.
+    pub async fn find_attempt_by_id(&self, attempt_id: Uuid) -> AppResult<Option<ProjectCloneAttempt>> {
+        let row = sqlx::query_as::<_, ProjectCloneAttempt>(r#"SELECT * FROM project_clone_attempts WHERE id = $1"#)
+            .bind(attempt_id)
+            .fetch_optional(&self.pool)
+            .await?;
+        Ok(row)
+    }
+
+    /// Read the project's stored `workspace_dir_name` (the on-disk directory name),
+    /// constrained to a live (non-soft-deleted) project. The worker validates the
+    /// raw value through `WorkspaceDirName::parse` itself (path policy is domain),
+    /// so this returns the raw column. `None` when the project is gone/soft-deleted.
+    pub async fn project_dir_name(&self, project_id: ProjectId) -> AppResult<Option<String>> {
+        let raw: Option<String> =
+            sqlx::query_scalar(r#"SELECT workspace_dir_name FROM projects WHERE id = $1 AND deleted_at IS NULL"#)
+                .bind(project_id.as_uuid())
+                .fetch_optional(&self.pool)
+                .await?;
+        Ok(raw)
+    }
+
+    /// Every in-flight (`queued`/`cloning`) attempt's `(id, organization_id,
+    /// workspace_id)` — the orphan-staging sweep's KEEP set (a staging dir for one
+    /// of these MUST NOT be reaped, its worker may be mid-clone) plus the tenant
+    /// roots those attempts live under.
+    pub async fn in_flight_attempt_tenants(&self) -> AppResult<Vec<(Uuid, Uuid, Uuid)>> {
+        let rows = sqlx::query_as::<_, (Uuid, Uuid, Uuid)>(
+            r#"SELECT id, organization_id, workspace_id
+                 FROM project_clone_attempts
+                WHERE status IN ($1, $2)"#,
+        )
+        .bind(CloneAttemptStatus::Queued.as_str())
+        .bind(CloneAttemptStatus::Cloning.as_str())
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
+    }
+
+    /// Every distinct `(organization_id, workspace_id)` that has EVER had a clone
+    /// attempt — the set of tenant projects roots the orphan-staging sweep scans
+    /// (so a just-crashed clone's root is swept even when nothing is in flight
+    /// there now).
+    pub async fn distinct_attempt_tenants(&self) -> AppResult<Vec<(Uuid, Uuid)>> {
+        let rows = sqlx::query_as::<_, (Uuid, Uuid)>(
+            r#"SELECT DISTINCT organization_id, workspace_id FROM project_clone_attempts"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
+    }
+
     /// Set the denormalized `projects.clone_status` within a caller transaction.
     async fn set_project_clone_status_tx(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,

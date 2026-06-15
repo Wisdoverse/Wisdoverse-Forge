@@ -896,6 +896,151 @@ impl CloneApiPolicy {
 }
 
 // ---------------------------------------------------------------------------
+// Clone worker error contracts (M5) — the worker owns no ErrorKind directly
+// ---------------------------------------------------------------------------
+
+/// Internal, worker-facing error contracts for the clone worker + reconciler.
+///
+/// The clone worker is a system actor (no request scope), but it still must not
+/// construct `agentforge_core::ErrorKind` itself — the DDD boundary test forbids
+/// services from owning error policy. These helpers centralize the two
+/// worker-side error contracts (an invalid stored `workspace_dir_name`, and a
+/// catch-all internal failure carrying an `anyhow` cause) so the mapping lives in
+/// one reviewed place, exactly as [`CloneApiPolicy`] does for the API surface.
+pub struct CloneWorkerError;
+
+impl CloneWorkerError {
+    /// The project's stored `workspace_dir_name` failed [`WorkspaceDirName::parse`]
+    /// (it drifted into an unsafe shape). A `Validation` error carrying the parse
+    /// reason; the worker fails the attempt closed rather than cloning into an
+    /// unsafe path.
+    pub fn invalid_workspace_dir_name(reason: impl fmt::Display) -> agentforge_core::AppError {
+        agentforge_core::ErrorKind::Validation(reason.to_string()).into()
+    }
+
+    /// A catch-all internal worker failure (filesystem/staging/path resolution),
+    /// carrying the underlying cause as an `anyhow` chain. Maps to a 500-class
+    /// `Internal` error; the message originates from the worker's own code (never
+    /// git stderr), so it carries no secret.
+    pub fn internal(message: impl Into<String>) -> agentforge_core::AppError {
+        agentforge_core::ErrorKind::Internal(anyhow::anyhow!(message.into())).into()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Clone lifecycle event payloads (M5) — the worker owns no json! / serde directly
+// ---------------------------------------------------------------------------
+
+/// Audit-log + WebSocket payload construction for the clone lifecycle events the
+/// M5 worker + reconciler emit (`clone.started`/`ready`/`failed`/`cancelled`/
+/// `retry`). The worker must not build protocol JSON inline (the DDD boundary
+/// test forbids services from owning `json!`/serde payload construction), so every
+/// audit `details` object and every WebSocket frame is constructed here and the
+/// worker only calls these constructors + hands the result to the audit/realtime
+/// I/O it owns.
+pub struct CloneEvent;
+
+impl CloneEvent {
+    /// The WebSocket message `type` for a clone status update (mirrors the
+    /// frontend realtime contract).
+    pub const WS_MESSAGE_TYPE: &'static str = "project_clone:status_update";
+
+    /// Build the audit-log `details` object for a clone lifecycle event: the base
+    /// identity (`project_id`, `attempt`, `clone_status`) merged with the optional
+    /// event-specific `extra` fields (e.g. the resolved branch/sha on `ready`, the
+    /// redacted error on `failed`). `clone_status` is the denormalized project
+    /// summary string for the action (the worker passes `clone_status_for_action`).
+    ///
+    /// The merge order matches the M5 worker exactly: the base keys are written
+    /// first, then each `extra` key is inserted (so an `extra` key would override a
+    /// base key of the same name; in practice the keys are disjoint). `None` extra
+    /// (events with no payload, e.g. `clone.started`) leaves only the base keys.
+    pub fn audit_details(
+        project_id: uuid::Uuid,
+        attempt: i32,
+        clone_status: &str,
+        extra: Option<serde_json::Value>,
+    ) -> serde_json::Value {
+        let mut details = serde_json::json!({
+            "project_id": project_id,
+            "attempt": attempt,
+            "clone_status": clone_status,
+        });
+        if let (Some(obj), Some(extra_obj)) = (details.as_object_mut(), extra.as_ref().and_then(|e| e.as_object())) {
+            for (k, v) in extra_obj {
+                obj.insert(k.clone(), v.clone());
+            }
+        }
+        details
+    }
+
+    /// The `extra` fields for a `clone.ready` event (success payload).
+    pub fn ready_extra(branch: Option<&str>, head_sha: &str, bytes: u64, duration_ms: i64) -> serde_json::Value {
+        serde_json::json!({
+            "branch": branch,
+            "head_sha": head_sha,
+            "bytes": bytes,
+            "duration_ms": duration_ms,
+        })
+    }
+
+    /// The `extra` fields for a `clone.cancelled` event (the cancel reason).
+    pub fn cancelled_extra(reason: &str) -> serde_json::Value {
+        serde_json::json!({ "reason": reason })
+    }
+
+    /// The `extra` fields for a `clone.failed` event (class + ALREADY-redacted
+    /// message — the worker scrubs the raw stderr before this is ever built).
+    pub fn failed_extra(error_class: &str, error_message: &str) -> serde_json::Value {
+        serde_json::json!({ "error_class": error_class, "error_message": error_message })
+    }
+
+    /// The `extra` fields for a `clone.retry` event (the scheduled next attempt +
+    /// its backoff deadline).
+    pub fn retry_extra(next_attempt: i32, run_after: chrono::DateTime<chrono::Utc>) -> serde_json::Value {
+        serde_json::json!({ "next_attempt": next_attempt, "run_after": run_after })
+    }
+
+    /// Build the project-scoped WebSocket frame for a clone status update, wrapping
+    /// the audit `details` the worker just emitted. The serialized bytes are what
+    /// the worker publishes on the realtime subject. `event_id` is a fresh
+    /// per-frame id (the worker mints a `Uuid::now_v7()`).
+    pub fn ws_frame(
+        action: &str,
+        clone_status: &str,
+        event_id: uuid::Uuid,
+        project_id: uuid::Uuid,
+        details: &serde_json::Value,
+    ) -> serde_json::Value {
+        serde_json::json!({
+            "type": Self::WS_MESSAGE_TYPE,
+            "payload": {
+                "action": action,
+                "eventId": event_id,
+                "projectId": project_id,
+                "cloneStatus": clone_status,
+                "details": details,
+            }
+        })
+    }
+
+    /// Serialize a frame built by [`ws_frame`](Self::ws_frame) into the bytes the
+    /// realtime client publishes. The serde conversion lives here (in the domain)
+    /// rather than in the worker so the service layer owns no serde adapter.
+    pub fn ws_frame_bytes(frame: &serde_json::Value) -> Result<Vec<u8>, serde_json::Error> {
+        serde_json::to_vec(frame)
+    }
+}
+
+/// Decode an identifier-only `project_clone` outbox payload from the job's stored
+/// JSON. The serde adapter lives in the domain (the DDD boundary test forbids the
+/// service layer from owning serde conversions); the worker calls this on dequeue
+/// and treats a decode error as an undecodable job to drop.
+pub fn decode_outbox_payload(payload: &serde_json::Value) -> Result<CloneOutboxPayload, serde_json::Error> {
+    serde_json::from_value(payload.clone())
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -1551,5 +1696,91 @@ mod tests {
         // The not-failed conflict names the current status so the operator sees why.
         let msg = format!("{}", CloneApiPolicy::retry_only_from_failed("cloning"));
         assert!(msg.contains("cloning"), "status must appear in the message: {msg}");
+    }
+
+    // -- Clone worker error contracts (M5) ----------------------------------
+
+    #[test]
+    fn clone_worker_error_maps_each_case() {
+        use agentforge_core::ErrorKind;
+        // An invalid stored dir name -> Validation, carrying the parse reason.
+        let parse_err = WorkspaceDirName::parse("a/b").expect_err("a/b must be unsafe");
+        let err = CloneWorkerError::invalid_workspace_dir_name(parse_err);
+        assert!(matches!(err.kind, ErrorKind::Validation(_)));
+        assert!(format!("{err}").contains("escapes"), "parse reason should surface: {err}");
+        // A catch-all internal failure -> Internal, carrying the message.
+        let internal = CloneWorkerError::internal("staging preparation failed");
+        assert!(matches!(internal.kind, ErrorKind::Internal(_)));
+        assert!(format!("{internal}").contains("staging preparation failed"));
+    }
+
+    // -- Clone lifecycle event payloads (M5) --------------------------------
+
+    #[test]
+    fn audit_details_merges_base_with_extra() {
+        let project_id = uuid::Uuid::now_v7();
+        // With extra: base keys + the event-specific extra keys, all present.
+        let details =
+            CloneEvent::audit_details(project_id, 2, "ready", Some(CloneEvent::ready_extra(Some("main"), "abc", 5, 9)));
+        assert_eq!(details["project_id"], serde_json::json!(project_id));
+        assert_eq!(details["attempt"], 2);
+        assert_eq!(details["clone_status"], "ready");
+        assert_eq!(details["branch"], "main");
+        assert_eq!(details["head_sha"], "abc");
+        assert_eq!(details["bytes"], 5);
+        assert_eq!(details["duration_ms"], 9);
+    }
+
+    #[test]
+    fn audit_details_without_extra_is_base_only() {
+        let project_id = uuid::Uuid::now_v7();
+        let details = CloneEvent::audit_details(project_id, 1, "cloning", None);
+        let obj = details.as_object().expect("object");
+        // Exactly the three base keys, nothing else (the `clone.started` shape).
+        assert_eq!(obj.len(), 3);
+        assert_eq!(details["clone_status"], "cloning");
+    }
+
+    #[test]
+    fn event_extras_carry_their_fields() {
+        assert_eq!(CloneEvent::cancelled_extra("gone")["reason"], "gone");
+        let failed = CloneEvent::failed_extra("auth", "denied [REDACTED]");
+        assert_eq!(failed["error_class"], "auth");
+        assert_eq!(failed["error_message"], "denied [REDACTED]");
+        let when = chrono::Utc::now();
+        let retry = CloneEvent::retry_extra(3, when);
+        assert_eq!(retry["next_attempt"], 3);
+        assert_eq!(retry["run_after"], serde_json::json!(when));
+        // A `ready` with no resolved branch serializes branch as JSON null.
+        let ready = CloneEvent::ready_extra(None, "sha", 0, 0);
+        assert!(ready["branch"].is_null());
+    }
+
+    #[test]
+    fn ws_frame_wraps_details_and_serializes() {
+        let project_id = uuid::Uuid::now_v7();
+        let event_id = uuid::Uuid::now_v7();
+        let details = CloneEvent::audit_details(project_id, 1, "ready", None);
+        let frame = CloneEvent::ws_frame("clone.ready", "ready", event_id, project_id, &details);
+        assert_eq!(frame["type"], CloneEvent::WS_MESSAGE_TYPE);
+        assert_eq!(frame["payload"]["action"], "clone.ready");
+        assert_eq!(frame["payload"]["eventId"], serde_json::json!(event_id));
+        assert_eq!(frame["payload"]["projectId"], serde_json::json!(project_id));
+        assert_eq!(frame["payload"]["cloneStatus"], "ready");
+        assert_eq!(frame["payload"]["details"], details);
+        // The serde adapter lives in the domain; the bytes round-trip to the frame.
+        let bytes = CloneEvent::ws_frame_bytes(&frame).expect("serialize frame");
+        let back: serde_json::Value = serde_json::from_slice(&bytes).expect("round-trip");
+        assert_eq!(back, frame);
+    }
+
+    #[test]
+    fn decode_outbox_payload_round_trips_and_rejects_garbage() {
+        let payload = CloneOutboxPayload::now(uuid::Uuid::now_v7(), 4);
+        let value = serde_json::to_value(&payload).expect("serialize");
+        let decoded = decode_outbox_payload(&value).expect("decode");
+        assert_eq!(decoded.attempt, 4);
+        // A structurally-broken payload is a decode error (the worker drops the job).
+        assert!(decode_outbox_payload(&serde_json::json!({ "nope": true })).is_err());
     }
 }

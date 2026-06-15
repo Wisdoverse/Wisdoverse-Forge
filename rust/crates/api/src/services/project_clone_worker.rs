@@ -65,7 +65,10 @@ use tokio::sync::watch;
 use uuid::Uuid;
 
 use crate::domain::agent_workspace::{WorkspaceMountScope, resolve_agent_workspace_paths};
-use crate::domain::project_clone::{CloneAttemptStatus, CloneErrorClass, CloneOutboxPayload, WorkspaceDirName, redact};
+use crate::domain::project_clone::{
+    CloneAttemptStatus, CloneErrorClass, CloneEvent, CloneOutboxPayload, CloneWorkerError, WorkspaceDirName,
+    decode_outbox_payload, redact,
+};
 use crate::repositories::project_clone::{
     CloneFailure, CloneSuccess, ProjectCloneRepository, PublishOutcome, ReconcileCandidate,
 };
@@ -312,7 +315,7 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
         // Decode the identifier-only payload. A structurally-broken payload can
         // never process; complete the job (drop it) and move on rather than
         // re-locking it forever.
-        let payload: CloneOutboxPayload = match serde_json::from_value(job.payload.clone()) {
+        let payload: CloneOutboxPayload = match decode_outbox_payload(&job.payload) {
             Ok(payload) => payload,
             Err(err) => {
                 tracing::error!(job_id = %job.id, error = %err, "project_clone job payload undecodable; dropping");
@@ -691,12 +694,7 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
         self.emit_event(
             attempt,
             "clone.ready",
-            Some(serde_json::json!({
-                "branch": branch,
-                "head_sha": head_sha,
-                "bytes": bytes,
-                "duration_ms": duration_ms,
-            })),
+            Some(CloneEvent::ready_extra(branch.as_deref(), &head_sha, bytes, duration_ms)),
         )
         .await;
         metrics::counter!("agentforge_project_clone_completed_total", "status" => "ready").increment(1);
@@ -721,7 +719,7 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
             tracing::warn!(project_id = %attempt.project_id, error = %err, "failed to cancel clone attempt");
             return;
         }
-        self.emit_event(attempt, "clone.cancelled", Some(serde_json::json!({ "reason": reason }))).await;
+        self.emit_event(attempt, "clone.cancelled", Some(CloneEvent::cancelled_extra(reason))).await;
         metrics::counter!("agentforge_project_clone_completed_total", "status" => "cancelled").increment(1);
         tracing::info!(
             project_id = %attempt.project_id,
@@ -810,12 +808,8 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
             )
             .await?;
 
-        self.emit_event(
-            attempt,
-            "clone.failed",
-            Some(serde_json::json!({ "error_class": error_class.as_str(), "error_message": error_message })),
-        )
-        .await;
+        self.emit_event(attempt, "clone.failed", Some(CloneEvent::failed_extra(error_class.as_str(), &error_message)))
+            .await;
         metrics::counter!("agentforge_project_clone_completed_total", "status" => "failed").increment(1);
         metrics::counter!(
             "agentforge_project_clone_failures_total",
@@ -907,12 +901,7 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
             Ok(Some(scheduled)) => {
                 metrics::counter!("agentforge_project_clone_retries_total").increment(1);
                 if let Some(source) = event_source {
-                    self.emit_event(
-                        source,
-                        "clone.retry",
-                        Some(serde_json::json!({ "next_attempt": scheduled, "run_after": run_after })),
-                    )
-                    .await;
+                    self.emit_event(source, "clone.retry", Some(CloneEvent::retry_extra(scheduled, run_after))).await;
                 }
                 tracing::info!(
                     project_id = %ctx.project_id,
@@ -1089,10 +1078,7 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
         self.emit_event(
             &attempt,
             "clone.failed",
-            Some(serde_json::json!({
-                "error_class": failure.error_class,
-                "error_message": failure.error_message,
-            })),
+            Some(CloneEvent::failed_extra(&failure.error_class, &failure.error_message)),
         )
         .await;
         metrics::counter!("agentforge_project_clone_completed_total", "status" => "failed").increment(1);
@@ -1167,11 +1153,7 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
 
     /// Load the full attempt row by id (for the reconciler's event emission).
     async fn load_attempt(&self, attempt_id: Uuid) -> Option<ProjectCloneAttempt> {
-        match sqlx::query_as::<_, ProjectCloneAttempt>(r#"SELECT * FROM project_clone_attempts WHERE id = $1"#)
-            .bind(attempt_id)
-            .fetch_optional(&self.pool)
-            .await
-        {
+        match self.repo.find_attempt_by_id(attempt_id).await {
             Ok(row) => row,
             Err(err) => {
                 tracing::warn!(%attempt_id, error = %err, "reconciler: failed to load attempt row");
@@ -1194,14 +1176,18 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
 
     // -- helpers -------------------------------------------------------------
 
-    /// Resolve + validate the project's on-disk directory name.
+    /// Resolve + validate the project's on-disk directory name. The repository
+    /// reads the raw stored name (tenant-scoped to a live project); the path policy
+    /// (`WorkspaceDirName::parse`) and the user-visible error contract both live in
+    /// the domain. A missing/soft-deleted project (`None`) is an error, matching the
+    /// previous `fetch_one` "no row" failure, so both callers behave unchanged.
     async fn project_dir_name(&self, project_id: Uuid) -> AppResult<WorkspaceDirName> {
-        let raw: String =
-            sqlx::query_scalar(r#"SELECT workspace_dir_name FROM projects WHERE id = $1 AND deleted_at IS NULL"#)
-                .bind(project_id)
-                .fetch_one(&self.pool)
-                .await?;
-        WorkspaceDirName::parse(&raw).map_err(|e| agentforge_core::ErrorKind::Validation(e.to_string()).into())
+        let raw = self
+            .repo
+            .project_dir_name(ProjectId::from(project_id))
+            .await?
+            .ok_or_else(|| CloneWorkerError::invalid_workspace_dir_name("project not found or soft-deleted"))?;
+        WorkspaceDirName::parse(&raw).map_err(CloneWorkerError::invalid_workspace_dir_name)
     }
 
     /// Create the per-clone staging dir and ASSERT it is on the same filesystem
@@ -1284,16 +1270,7 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
         // The set of staging dirs that MUST be kept: one per non-terminal attempt
         // (its worker may be mid-clone). Anything else under `.clone-staging/` is a
         // crashed-worker leftover.
-        let in_flight: Vec<(Uuid, Uuid, Uuid)> = match sqlx::query_as(
-            r#"SELECT id, organization_id, workspace_id
-                 FROM project_clone_attempts
-                WHERE status IN ($1, $2)"#,
-        )
-        .bind(CloneAttemptStatus::Queued.as_str())
-        .bind(CloneAttemptStatus::Cloning.as_str())
-        .fetch_all(&self.pool)
-        .await
-        {
+        let in_flight: Vec<(Uuid, Uuid, Uuid)> = match self.repo.in_flight_attempt_tenants().await {
             Ok(rows) => rows,
             Err(err) => {
                 tracing::warn!(error = %err, "orphan-staging sweep: failed to load in-flight attempts");
@@ -1304,17 +1281,13 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
         // Distinct (org, workspace) roots to scan — derive from the in-flight set
         // PLUS recently-terminal attempts so a just-crashed clone's root is swept
         // even when nothing is currently in flight there.
-        let roots: Vec<(Uuid, Uuid)> =
-            match sqlx::query_as(r#"SELECT DISTINCT organization_id, workspace_id FROM project_clone_attempts"#)
-                .fetch_all(&self.pool)
-                .await
-            {
-                Ok(rows) => rows,
-                Err(err) => {
-                    tracing::warn!(error = %err, "orphan-staging sweep: failed to enumerate tenant roots");
-                    return;
-                }
-            };
+        let roots: Vec<(Uuid, Uuid)> = match self.repo.distinct_attempt_tenants().await {
+            Ok(rows) => rows,
+            Err(err) => {
+                tracing::warn!(error = %err, "orphan-staging sweep: failed to enumerate tenant roots");
+                return;
+            }
+        };
 
         let mut reaped = 0usize;
         for (org_id, workspace_id) in roots {
@@ -1373,21 +1346,13 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
     }
 
     /// Record a clone lifecycle event: an audit-log row (spec §12) plus, when
-    /// realtime is wired, a project-scoped WS broadcast.
+    /// realtime is wired, a project-scoped WS broadcast. The `details` object and
+    /// the WS frame are both built by the domain `CloneEvent` constructors; the
+    /// worker owns only the audit/realtime I/O.
     async fn emit_event(&self, attempt: &ProjectCloneAttempt, action: &str, extra: Option<serde_json::Value>) {
         let project_id = attempt.project_id.as_uuid();
-        let mut details = serde_json::json!({
-            "project_id": project_id,
-            "attempt": attempt.attempt,
-            "clone_status": clone_status_for_action(action),
-        });
-        if let (Some(obj), Some(extra)) = (details.as_object_mut(), extra.clone())
-            && let Some(extra_obj) = extra.as_object()
-        {
-            for (k, v) in extra_obj {
-                obj.insert(k.clone(), v.clone());
-            }
-        }
+        let clone_status = clone_status_for_action(action);
+        let details = CloneEvent::audit_details(project_id, attempt.attempt, clone_status, extra);
 
         // Audit log (DB-backed, always written when possible).
         if let Err(err) = self
@@ -1399,25 +1364,23 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
         }
 
         // WS broadcast (project-scoped subject) when realtime is configured.
-        self.broadcast_status(attempt.organization_id, project_id, action, &details).await;
+        self.broadcast_status(attempt.organization_id, project_id, action, clone_status, &details).await;
     }
 
     /// Broadcast a project-scoped status frame over the realtime channel.
-    async fn broadcast_status(&self, org_id: OrgId, project_id: Uuid, action: &str, details: &serde_json::Value) {
+    async fn broadcast_status(
+        &self,
+        org_id: OrgId,
+        project_id: Uuid,
+        action: &str,
+        clone_status: &str,
+        details: &serde_json::Value,
+    ) {
         let Some(client) = self.realtime.as_ref() else {
             return;
         };
-        let frame = serde_json::json!({
-            "type": "project_clone:status_update",
-            "payload": {
-                "action": action,
-                "eventId": Uuid::now_v7(),
-                "projectId": project_id,
-                "cloneStatus": clone_status_for_action(action),
-                "details": details,
-            }
-        });
-        let payload = match serde_json::to_vec(&frame) {
+        let frame = CloneEvent::ws_frame(action, clone_status, Uuid::now_v7(), project_id, details);
+        let payload = match CloneEvent::ws_frame_bytes(&frame) {
             Ok(payload) => payload,
             Err(err) => {
                 tracing::warn!(error = %err, "failed to serialize clone status broadcast");
@@ -1476,7 +1439,7 @@ fn provider_label(provider: Option<&str>) -> Option<String> {
 }
 
 fn internal(message: String) -> agentforge_core::AppError {
-    agentforge_core::ErrorKind::Internal(anyhow::anyhow!(message)).into()
+    CloneWorkerError::internal(message)
 }
 
 /// Register the worker's metric descriptions so dashboards have series present
