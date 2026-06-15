@@ -52,8 +52,10 @@ describe('BoardView', () => {
     render(<BoardView onOpenProjectsSetup={onOpenProjectsSetup} />)
 
     expect(screen.getByTestId('board-no-group')).toBeDefined()
-    expect(screen.getByText(/choose a project before creating tasks/i)).toBeDefined()
-    fireEvent.click(screen.getByRole('button', { name: /choose a project/i }))
+    expect(screen.getByText(/create or choose a project before creating tasks/i)).toBeDefined()
+    expect(screen.getByText(/open project settings to create a project/i)).toBeDefined()
+    expect(screen.queryByText(/choose a project from the sidebar/i)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /open project settings/i }))
     expect(onOpenProjectsSetup).toHaveBeenCalledTimes(1)
   })
 
