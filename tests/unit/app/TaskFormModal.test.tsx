@@ -131,8 +131,9 @@ describe('TaskFormModal', () => {
     const onOpenAgentSetup = vi.fn()
     renderModal(vi.fn(), { agents: [], onOpenAgentSetup })
 
-    expect(screen.getByText('No agents are online')).toBeDefined()
+    expect(screen.getByText('Connect an agent before this task can start')).toBeDefined()
     expect(screen.getByText(/create the task now/i)).toBeDefined()
+    expect(screen.queryByText('No agents are online')).toBeNull()
     expect(screen.queryByText(/dispatched?/i)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /open agent setup/i }))
@@ -169,8 +170,9 @@ describe('TaskFormModal', () => {
       onOpenAgentSetup,
     })
 
-    expect(screen.getByText('No agents are available right now')).toBeDefined()
+    expect(screen.getByText('Start or connect an agent before this task can start')).toBeDefined()
     expect(screen.getByText(/open agent setup to start or connect an agent/i)).toBeDefined()
+    expect(screen.queryByText('No agents are available right now')).toBeNull()
     expect(
       screen.getByRole('option', { name: /let the next available agent pick it up/i })
     ).toBeDefined()

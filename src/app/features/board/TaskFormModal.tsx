@@ -401,7 +401,7 @@ export function TaskFormModal({
                 aria-hidden="true"
               />
               <div className="min-w-0 flex-1">
-                <p className="font-semibold">No agents are online</p>
+                <p className="font-semibold">Connect an agent before this task can start</p>
                 <p className="mt-0.5">
                   Create the task now, or open agent setup to connect an agent first.
                 </p>
@@ -429,7 +429,9 @@ export function TaskFormModal({
                 aria-hidden="true"
               />
               <div className="min-w-0 flex-1">
-                <p className="font-semibold">No agents are available right now</p>
+                <p className="font-semibold">
+                  Start or connect an agent before this task can start
+                </p>
                 <p className="mt-0.5">
                   Create the task now, or open agent setup to start or connect an agent first.
                 </p>

@@ -390,7 +390,8 @@ describe('AppLayout', () => {
     fireEvent.click(screen.getByRole('button', { name: /new task/i }))
 
     await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
-    expect(screen.getByText('No agents are online')).toBeDefined()
+    expect(screen.getByText('Connect an agent before this task can start')).toBeDefined()
+    expect(screen.queryByText('No agents are online')).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /open agent setup/i }))
 
@@ -410,7 +411,8 @@ describe('AppLayout', () => {
     fireEvent.click(screen.getByRole('button', { name: /new task/i }))
 
     await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
-    expect(screen.getByText('No agents are available right now')).toBeDefined()
+    expect(screen.getByText('Start or connect an agent before this task can start')).toBeDefined()
+    expect(screen.queryByText('No agents are available right now')).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /open agent setup/i }))
 
