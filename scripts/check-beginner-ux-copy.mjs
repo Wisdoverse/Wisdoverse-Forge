@@ -344,6 +344,17 @@ const SKILL_MAINTAINER_FALLBACK_DEAD_END_PATTERNS = [
   /暂未列出维护者/,
 ]
 
+const SAVED_INSTRUCTION_SUMMARY_FALLBACK_PATTERNS = [
+  /\bNo summary yet\. Open details before using this saved instruction\./i,
+  /\bNo summary yet\. Review the instructions below before using this saved instruction\./i,
+  /还没有简介。/,
+]
+
+const SAVED_INSTRUCTION_TOOL_TOOLTIP_PATTERNS = [
+  /\bWork tool setup needs review\./i,
+  /工作工具设置需要检查。/,
+]
+
 const SAVED_INSTRUCTIONS_LOAD_DEAD_END_PATTERNS = [
   /\bSaved instructions could not load\./i,
   /\bForge could not load Saved instructions right now\./i,
@@ -1407,6 +1418,29 @@ function hasSkillMaintainerFallbackDeadEndCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return SKILL_MAINTAINER_FALLBACK_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasSavedInstructionSummaryFallbackCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/skills/SkillCard.tsx') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SAVED_INSTRUCTION_SUMMARY_FALLBACK_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasSavedInstructionToolTooltipFallbackCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SAVED_INSTRUCTION_TOOL_TOOLTIP_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasSavedInstructionsLoadDeadEndCopy(relFile, line) {
@@ -2505,6 +2539,26 @@ function scanFile(file, relFile) {
         location,
         message:
           'Saved instruction maintainer fallback copy must tell beginners to refresh saved instructions.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSavedInstructionSummaryFallbackCopy(relFile, line)) {
+      findings.push({
+        type: 'saved-instruction-summary-fallback-copy',
+        location,
+        message:
+          'Saved instruction summary fallback copy must tell beginners to check details before using it.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSavedInstructionToolTooltipFallbackCopy(relFile, line)) {
+      findings.push({
+        type: 'saved-instruction-tool-tooltip-copy',
+        location,
+        message:
+          'Saved instruction work-tool tooltip copy must tell beginners where to check setup.',
         sample: line.trim(),
       })
     }

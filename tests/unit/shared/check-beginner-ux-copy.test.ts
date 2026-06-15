@@ -5114,6 +5114,128 @@ export const zh = {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags saved instruction summary fallbacks that only say a summary is missing', () => {
+    const cwd = fixture({
+      'src/app/features/skills/SkillCard.tsx': `
+export function SkillCard() {
+  return 'No summary yet. Open details before using this saved instruction.'
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  skills: {
+    detail: {
+      noDescription:
+        'No summary yet. Review the instructions below before using this saved instruction.',
+    },
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  skills: {
+    detail: {
+      noDescription: '还没有简介。使用这条保存的说明前，请先查看下面的说明。',
+    },
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'saved-instruction-summary-fallback-copy',
+          location: 'src/app/features/skills/SkillCard.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-summary-fallback-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-summary-fallback-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:5',
+        }),
+      ])
+    )
+  })
+
+  it('flags saved instruction work-tool tooltips that do not say where to check setup', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  skills: {
+    detail: {
+      unknownToolTooltip: 'Work tool setup needs review.',
+    },
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  skills: {
+    detail: {
+      unknownToolTooltip: '工作工具设置需要检查。',
+    },
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'saved-instruction-tool-tooltip-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-tool-tooltip-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:5',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved instruction fallback copy that starts with the check action', () => {
+    const cwd = fixture({
+      'src/app/features/skills/SkillCard.tsx': `
+export function SkillCard() {
+  return 'Open details to check the reusable instructions before using this saved instruction.'
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  skills: {
+    detail: {
+      noDescription:
+        'Check the reusable instructions below before using this saved instruction.',
+      unknownToolTooltip:
+        'Open Settings and check the work tool before using this saved instruction.',
+    },
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  skills: {
+    detail: {
+      noDescription: '使用这条保存的说明前，请先查看下面的可复用说明。',
+      unknownToolTooltip: '打开设置检查工作工具，再使用这条保存的说明。',
+    },
+  },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags governance audit fallbacks that leave beginners without a field to check', () => {
     const cwd = fixture({
       'src/app/features/governance/AuditLogView.tsx': `

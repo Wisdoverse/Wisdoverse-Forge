@@ -485,7 +485,8 @@ export const en = {
       allAgentsFit: 'Works with any agent',
       allAgentsTooltip: 'No specific work tool is required.',
       containerCliTooltip: 'Work tool: {{tool}}',
-      unknownToolTooltip: 'Work tool setup needs review.',
+      unknownToolTooltip:
+        'Open Settings and check the work tool before using this saved instruction.',
       nextStepHeading: 'What to do next',
       nextStepReady:
         'Use this saved instruction when creating a task, or rely on its matching words to suggest it for similar work.',
@@ -495,8 +496,7 @@ export const en = {
       authorLabel: 'Maintainer',
       availabilityLabel: 'Available to',
       descriptionHeading: 'What this helps with',
-      noDescription:
-        'No summary yet. Review the instructions below before using this saved instruction.',
+      noDescription: 'Check the reusable instructions below before using this saved instruction.',
       triggerHeading: 'When this helps',
       triggerHelper:
         'When a task uses words like these, agents know this saved instruction may help.',

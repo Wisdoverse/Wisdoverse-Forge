@@ -99,7 +99,7 @@ describe('SkillDetailModal', () => {
     expect(screen.getByText('Latest saved copy')).toBeInTheDocument()
     expect(
       screen.getByText(
-        'No summary yet. Review the instructions below before using this saved instruction.'
+        'Check the reusable instructions below before using this saved instruction.'
       )
     ).toBeInTheDocument()
     expect(
@@ -125,6 +125,10 @@ describe('SkillDetailModal', () => {
     expect(screen.getByText('Saved instructions library')).toBeInTheDocument()
     expect(screen.getByText('Check saved instruction access')).toBeInTheDocument()
     expect(screen.getByText('Check this work tool before using')).toBeInTheDocument()
+    expect(screen.getByText('Check this work tool before using')).toHaveAttribute(
+      'title',
+      'Open Settings and check the work tool before using this saved instruction.'
+    )
     expect(screen.queryByText('@example/team_skill_pack')).toBeNull()
     expect(screen.queryByText('private_beta_scope')).toBeNull()
     expect(screen.queryByText('Private Beta Scope')).toBeNull()

@@ -11,7 +11,8 @@ interface SkillCardProps {
 export function SkillCard({ skill, onClick }: SkillCardProps) {
   const statusLabel = skill.installed ? 'Ready to reuse' : 'Install to use'
   const summary =
-    skill.description || 'No summary yet. Open details before using this saved instruction.'
+    skill.description ||
+    'Open details to check the reusable instructions before using this saved instruction.'
   const source = savedInstructionSourceLabel(skill.plugin, 'saved instructions library')
   const author = skill.pluginAuthor.trim()
   const savedInLabel = author ? `Saved in ${source} by ${author}` : `Saved in ${source}`
