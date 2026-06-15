@@ -157,6 +157,16 @@ export function TeamsSection() {
                 ? 'Teams group projects and decide who can manage work. Start with one team, then add projects inside it.'
                 : 'Only owners and admins can create teams. You can work here after someone adds a team for you.'}
             </p>
+            {canCreateTeam && (
+              <button
+                type="button"
+                onClick={() => setShowForm(true)}
+                className={cn(uiStyles.primaryButton, 'mt-4')}
+              >
+                <Plus size={14} strokeWidth={2} aria-hidden="true" />
+                <span>Create first team</span>
+              </button>
+            )}
           </div>
         ) : (
           teams.map((team) => (

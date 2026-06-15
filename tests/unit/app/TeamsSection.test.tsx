@@ -57,6 +57,7 @@ describe('TeamsSection', () => {
     expect(screen.getByRole('button', { name: 'New Team' })).toBeDefined()
     expect(screen.getByText('Create a team first')).toBeDefined()
     expect(screen.getByText(/Teams group projects and decide who can manage work/i)).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Create first team' })).toBeDefined()
   })
 
   test('guides users to choose a team space before creating teams', () => {
@@ -107,5 +108,17 @@ describe('TeamsSection', () => {
 
     expect(await screen.findByText(/Enter a team name, then try again/i)).toBeDefined()
     expect(screen.queryByText(/team name is required/i)).toBeNull()
+  })
+
+  test('opens team creation from the empty state action', async () => {
+    getTeams.mockResolvedValue([])
+
+    render(<TeamsSection />)
+
+    await waitFor(() => expect(getTeams).toHaveBeenCalledWith('org-1'))
+    fireEvent.click(screen.getByRole('button', { name: 'Create first team' }))
+
+    expect(screen.getByText('Team setup path')).toBeDefined()
+    expect(screen.getByLabelText(/team name/i)).toHaveFocus()
   })
 })

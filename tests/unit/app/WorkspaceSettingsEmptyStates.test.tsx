@@ -108,6 +108,7 @@ describe('workspace settings empty states', () => {
       screen.getByText(/Teams group projects and decide who can manage work/i)
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /new team/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /create first team/i })).toBeInTheDocument()
   })
 
   it('tells non-admin users who can create the first team', async () => {
