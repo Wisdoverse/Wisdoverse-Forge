@@ -64,16 +64,18 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
 
   test('points beginners at the busiest low-success tool first', () => {
     useAnalyticsStore.setState({
-      tools: [{ tool: 'Bash', count: 12, successRate: 0.42 }],
+      tools: [{ tool: 'shell_command', count: 12, successRate: 0.42 }],
       agentStats: { total: 2, online: 2, offline: 0, working: 0 },
     })
 
     render(<AnalyticsDashboard />)
 
     const nextStep = screen.getByTestId('analytics-next-step')
-    expect(nextStep).toHaveTextContent('Review Bash failures first')
+    expect(nextStep).toHaveTextContent('Review Command line failures first')
     expect(nextStep).toHaveTextContent('completed cleanly only 42%')
     expect(screen.getByText('Busiest tool')).toBeDefined()
+    expect(screen.getAllByText('Command line').length).toBeGreaterThan(0)
+    expect(screen.queryByText('shell_command')).toBeNull()
   })
 
   test('shows a retry action when analytics cannot load', () => {

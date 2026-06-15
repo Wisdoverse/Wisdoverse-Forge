@@ -11,6 +11,29 @@ const DATE_RANGE_OPTIONS: { value: DateRange; label: string }[] = [
   { value: '30d', label: 'Last 30 days' },
 ]
 
+const TOOL_DISPLAY_NAMES: Record<string, string> = {
+  apply_patch: 'File editing',
+  bash: 'Command line',
+  browser: 'Browser',
+  codebase_search: 'File search',
+  edit_file: 'File editing',
+  execute_command: 'Command line',
+  find: 'File search',
+  grep: 'File search',
+  list_files: 'File browsing',
+  read_file: 'File reading',
+  rg: 'File search',
+  search_file: 'File search',
+  search_files: 'File search',
+  shell: 'Command line',
+  shell_command: 'Command line',
+  str_replace_editor: 'File editing',
+  terminal: 'Command line',
+  todo_write: 'Task checklist',
+  web_search: 'Web search',
+  write_file: 'File editing',
+}
+
 function hourlyToBars(hourly: { hour: number; count: number }[]): BarPoint[] {
   // Take up to 24 hours, group by hour slot
   return hourly.slice(-24).map((h) => ({
@@ -21,9 +44,32 @@ function hourlyToBars(hourly: { hour: number; count: number }[]): BarPoint[] {
 
 function toolsToBars(tools: { tool: string; count: number }[]): BarPoint[] {
   return tools.slice(0, 8).map((t) => ({
-    label: t.tool,
+    label: analyticsToolDisplayName(t.tool),
     value: t.count,
   }))
+}
+
+function analyticsToolDisplayName(tool: string): string {
+  const trimmed = tool.trim()
+  if (!trimmed) return 'Work step'
+
+  const tail = trimmed.includes('__') ? trimmed.split('__').filter(Boolean).at(-1) : trimmed
+  const key = (tail ?? trimmed)
+    .replace(/([a-z])([A-Z])/g, '$1_$2')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+
+  if (TOOL_DISPLAY_NAMES[key]) return TOOL_DISPLAY_NAMES[key]
+
+  const words = key
+    .split('_')
+    .filter(Boolean)
+    .filter((part) => part !== 'mcp' && part !== 'tool' && part !== 'call')
+
+  if (words.length === 0) return 'Work step'
+
+  return words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
 }
 
 interface AnalyticsGuidance {
@@ -129,6 +175,7 @@ export function AnalyticsDashboard() {
 
   const topTool = tools[0]
   const topToolRate = topTool ? Math.round(topTool.successRate * 100) : 0
+  const topToolDisplayName = topTool ? analyticsToolDisplayName(topTool.tool) : undefined
   const totalEvents = summary?.totalEvents ?? 0
   const guidance = buildAnalyticsGuidance({
     totalAgents: agentStats.total,
@@ -136,7 +183,7 @@ export function AnalyticsDashboard() {
     workingAgents: agentStats.working,
     offlineAgents: agentStats.offline,
     totalEvents,
-    topToolName: topTool?.tool,
+    topToolName: topToolDisplayName,
     topToolSuccessRate: topTool ? topToolRate : undefined,
   })
 
@@ -266,10 +313,11 @@ export function AnalyticsDashboard() {
                   const maxCount = tools[0]?.count ?? 1
                   const pct = Math.max(2, Math.round((t.count / maxCount) * 100))
                   const rate = Math.round(t.successRate * 100)
+                  const toolName = analyticsToolDisplayName(t.tool)
                   return (
                     <div key={t.tool} className="flex items-center gap-2">
                       <span className="w-24 shrink-0 truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-                        {t.tool}
+                        {toolName}
                       </span>
                       <div className="h-2 flex-1 overflow-hidden rounded-full bg-black/[0.04] dark:bg-white/[0.05]">
                         <div
@@ -309,7 +357,7 @@ export function AnalyticsDashboard() {
           <div className="mt-4">
             <StatCard
               title="Busiest tool"
-              value={topTool.tool}
+              value={topToolDisplayName ?? 'Work step'}
               subtitle={`${topTool.count} uses, ${topToolRate}% completed cleanly`}
               accent="blue"
             />
