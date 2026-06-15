@@ -67,7 +67,7 @@ describe('BoardView', () => {
 
     expect(screen.getByText(/create a task queue before sending work/i)).toBeDefined()
     expect(screen.getByText(/a task queue gives new tasks a place to wait/i)).toBeDefined()
-    expect(screen.getByText(/use agents > task queues/i)).toBeDefined()
+    expect(screen.getByText(/open task queues to create one/i)).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: /set up task queues/i }))
     expect(onOpenTaskQueues).toHaveBeenCalledTimes(1)
   })

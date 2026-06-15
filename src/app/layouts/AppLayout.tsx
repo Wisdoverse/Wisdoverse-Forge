@@ -310,7 +310,7 @@ export function AppLayout({
           }
           if (!groupId) {
             throw new Error(
-              'Create a task queue before creating a task. A task queue gives new work a place to wait. Use Agents > Task Queues to create one, then come back here.'
+              'Create a task queue before creating a task. A task queue gives new work a place to wait. Open task queues to create one, then come back here.'
             )
           }
           const response = await orchestrationApi.createTask({
