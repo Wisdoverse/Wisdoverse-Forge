@@ -28,11 +28,14 @@ describe('runtimeErrorMessage', () => {
     expect(message).not.toContain('app could not reach')
   })
 
-  test('gives a clear permission step for local sign-in startup', () => {
+  test('gives team space access guidance for local sign-in startup permissions', () => {
+    const message = runtimeErrorMessage('startCliSignIn', { error: '403 Forbidden' })
+
     expectBeginnerMessage(
-      runtimeErrorMessage('startCliSignIn', { error: '403 Forbidden' }),
-      'You do not have permission to change where agents run. Ask an owner or admin to update your role.'
+      message,
+      'You do not have permission to change where agents run. Ask an owner or admin to update your team space access.'
     )
+    expect(message).not.toContain('role')
   })
 
   test('turns AI service details into a connect step', () => {

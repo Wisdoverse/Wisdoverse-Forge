@@ -23,7 +23,7 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   }
 
   if (status === 403) {
-    return 'You do not have permission to change where agents run. Ask an owner or admin to update your role.'
+    return 'You do not have permission to change where agents run. Ask an owner or admin to update your team space access.'
   }
 
   if (status === 404) {
