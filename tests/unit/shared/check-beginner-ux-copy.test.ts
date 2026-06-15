@@ -874,6 +874,123 @@ function accountErrorMessage(action) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags common English error translations that start with the failure', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  errors: {
+    generic: 'Something went wrong. Try again, then ask an owner to check the system if it repeats.',
+    notFound: '{{resource}} was not found. Refresh the page, then try again.',
+    serverError: 'Forge could not finish this right now. Wait a moment, then try again.',
+    uploadError: 'The upload did not finish. Check the file and connection, then try again.',
+    uploadFailed: 'Upload did not finish. Check the file, then try again.',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'common-error-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'common-error-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'common-error-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'common-error-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:7',
+        }),
+        expect.objectContaining({
+          type: 'common-error-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:8',
+        }),
+      ])
+    )
+  })
+
+  it('flags common Chinese error translations that start with the failure', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  errors: {
+    generic: '出现了问题。请重试；如果反复发生，请让管理员检查系统。',
+    notFound: '未找到 {{resource}}。请刷新页面后重试。',
+    serverError: 'Forge 暂时无法完成这个操作。请稍等片刻后重试。',
+    uploadError: '上传没有完成。请检查文件和网络后重试。',
+    uploadFailed: '上传没有完成。请检查文件，然后重试。',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'common-error-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'common-error-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'common-error-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'common-error-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:7',
+        }),
+        expect.objectContaining({
+          type: 'common-error-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:8',
+        }),
+      ])
+    )
+  })
+
+  it('accepts common error translations that start with recovery actions', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  errors: {
+    generic: 'Try again. If it repeats, ask an owner to check the system.',
+    notFound: 'Refresh the page, then try again. {{resource}} was not found.',
+    serverError: 'Wait a moment, then try again. Forge could not finish this right now.',
+    uploadError: 'Check the file and connection, then upload again. The upload did not finish.',
+    uploadFailed: 'Check the file, then upload again. The upload did not finish.',
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  errors: {
+    generic: '请重试；如果反复发生，请让管理员检查系统。',
+    notFound: '请刷新页面后重试。未找到 {{resource}}。',
+    serverError: '请稍等片刻后重试。Forge 暂时无法完成这个操作。',
+    uploadError: '请检查文件和网络后重新上传。上传没有完成。',
+    uploadFailed: '请检查文件后重新上传。上传没有完成。',
+  },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags workspace settings errors that start with the failure instead of the next step', () => {
     const cwd = fixture({
       'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts': `

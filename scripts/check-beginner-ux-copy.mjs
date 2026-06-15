@@ -385,6 +385,30 @@ const ACCOUNT_SETTINGS_FAILURE_FIRST_PATTERNS = [
   /\breturn\s+['"`]Account settings could not/i,
 ]
 
+const COMMON_ERROR_FAILURE_FIRST_PATTERNS = [
+  /\bSomething went wrong\. Try again/i,
+  /\bRequest timed out\. Please try again\b/i,
+  /\{\{resource\}\} was not found\. Refresh the page/i,
+  /\bForge could not finish this right now\. Wait a moment/i,
+  /\bThe agent could not finish this step\. Try again/i,
+  /\bThe file could not be handled\. Check the file/i,
+  /\bThe upload did not finish\. Check the file/i,
+  /\bUpload did not finish\. Check the file/i,
+  /\bThe download did not start\. Refresh the page/i,
+  /\bToo many requests\. Please wait/i,
+  /\{\{resource\}\} quota is used up\. Ask an owner/i,
+  /出现了问题。请重试/,
+  /请求超时，请重试/,
+  /未找到 \{\{resource\}\}。请刷新页面/,
+  /Forge 暂时无法完成这个操作。请稍等片刻/,
+  /Agent 没有完成这一步。请重试/,
+  /文件无法处理。请检查文件/,
+  /上传没有完成。请检查文件/,
+  /下载没有开始。请刷新页面/,
+  /请求过于频繁，请等待/,
+  /\{\{resource\}\} 配额已用完。请让所有者/,
+]
+
 const WORKSPACE_SETTINGS_FAILURE_FIRST_PATTERNS = [
   /\bThe (?:team|project) was not created\./i,
   /\bRefresh Settings to load workspace (?:teams|projects)\. Sign in again/i,
@@ -1301,6 +1325,17 @@ function hasAccountSettingsFailureFirstCopy(relFile, line) {
   return ACCOUNT_SETTINGS_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasCommonErrorFailureFirstCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return COMMON_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasWorkspaceSettingsFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/pages/settings/model/workspaceSettingsErrorMessage.ts')) {
     return false
@@ -1663,6 +1698,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Account settings errors must start with the next action, not the failure summary.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCommonErrorFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'common-error-copy',
+        location,
+        message: 'Common error translations must start with the recovery action for beginners.',
         sample: line.trim(),
       })
     }

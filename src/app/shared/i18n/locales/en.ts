@@ -513,26 +513,26 @@ export const en = {
   // Errors
   // =========================================================================
   errors: {
-    generic:
-      'Something went wrong. Try again, then ask an owner to check the system if it repeats.',
+    generic: 'Try again. If it repeats, ask an owner to check the system.',
     network: 'Check your connection, then try again. Forge could not connect.',
-    timeout: 'Request timed out. Please try again.',
-    notFound: '{{resource}} was not found. Refresh the page, then try again.',
+    timeout: 'Wait a moment, then try again. The request took too long.',
+    notFound: 'Refresh the page, then try again. {{resource}} was not found.',
     unauthorized: 'Sign in again, then retry this action.',
     forbidden: 'You do not have access for this action. Ask an owner or admin to update your role.',
     validation: 'Check the highlighted fields, then try again.',
-    serverError: 'Forge could not finish this right now. Wait a moment, then try again.',
+    serverError: 'Wait a moment, then try again. Forge could not finish this right now.',
     connectionLost: 'Connection lost. Reconnecting...',
     reconnecting: 'Reconnecting...',
     reconnected: 'Connection restored',
     agentError:
-      'The agent could not finish this step. Try again, then check the agent status if it repeats.',
-    fileError: 'The file could not be handled. Check the file, then try again.',
-    uploadError: 'The upload did not finish. Check the file and connection, then try again.',
-    downloadError: 'The download did not start. Refresh the page, then try again.',
-    rateLimited: 'Too many requests. Please wait {{seconds}} seconds.',
+      'Try this step again, then check the agent status if it repeats. The agent could not finish this step.',
+    fileError: 'Check the file, then try again. Forge could not handle it.',
+    uploadError: 'Check the file and connection, then upload again. The upload did not finish.',
+    downloadError: 'Refresh the page, then download again. The download did not start.',
+    rateLimited:
+      'Wait {{seconds}} seconds, then try again. Too many requests are happening right now.',
     quotaExceeded:
-      '{{resource}} quota is used up. Ask an owner to raise the limit or free capacity.',
+      'Ask an owner to raise the limit or free capacity. {{resource}} quota is used up.',
     agent: {
       lifecycle: {
         restart_host_cli: {
@@ -642,7 +642,7 @@ export const en = {
     allowedTypes: 'Allowed types: {{types}}',
     uploading: 'Uploading...',
     uploaded: 'File uploaded successfully',
-    uploadFailed: 'Upload did not finish. Check the file, then try again.',
+    uploadFailed: 'Check the file, then upload again. The upload did not finish.',
     tooLarge: 'Choose a file under {{size}}, then upload it again.',
     invalidType: 'Choose a file with one of these types: {{types}}.',
   },

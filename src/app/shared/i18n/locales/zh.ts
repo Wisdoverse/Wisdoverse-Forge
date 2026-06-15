@@ -499,23 +499,23 @@ export const zh: TranslationKeys = {
   // 错误
   // =========================================================================
   errors: {
-    generic: '出现了问题。请重试；如果反复发生，请让管理员检查系统。',
+    generic: '请重试；如果反复发生，请让管理员检查系统。',
     network: '请检查网络，然后重试。Forge 暂时无法连接。',
-    timeout: '请求超时，请重试',
-    notFound: '未找到 {{resource}}。请刷新页面后重试。',
+    timeout: '请稍等片刻后重试。请求时间太长。',
+    notFound: '请刷新页面后重试。未找到 {{resource}}。',
     unauthorized: '请重新登录，然后再试一次。',
     forbidden: '你当前没有权限执行这个操作。请让所有者或管理员更新你的角色。',
     validation: '请检查高亮字段，然后重试。',
-    serverError: 'Forge 暂时无法完成这个操作。请稍等片刻后重试。',
+    serverError: '请稍等片刻后重试。Forge 暂时无法完成这个操作。',
     connectionLost: '连接断开，正在重连...',
     reconnecting: '重新连接中...',
     reconnected: '连接已恢复',
-    agentError: 'Agent 没有完成这一步。请重试；如果反复出现，请检查 Agent 状态。',
-    fileError: '文件无法处理。请检查文件后重试。',
-    uploadError: '上传没有完成。请检查文件和网络后重试。',
-    downloadError: '下载没有开始。请刷新页面后重试。',
-    rateLimited: '请求过于频繁，请等待 {{seconds}} 秒',
-    quotaExceeded: '{{resource}} 配额已用完。请让所有者提高额度，或释放一些容量。',
+    agentError: '请重试这一步；如果反复出现，请检查 Agent 状态。Agent 没有完成这一步。',
+    fileError: '请检查文件后重试。Forge 暂时无法处理这个文件。',
+    uploadError: '请检查文件和网络后重新上传。上传没有完成。',
+    downloadError: '请刷新页面后重新下载。下载没有开始。',
+    rateLimited: '请等待 {{seconds}} 秒后重试。请求过于频繁。',
+    quotaExceeded: '请让所有者提高额度，或释放一些容量。{{resource}} 配额已用完。',
     agent: {
       lifecycle: {
         restart_host_cli: {
@@ -622,7 +622,7 @@ export const zh: TranslationKeys = {
     allowedTypes: '允许的类型：{{types}}',
     uploading: '上传中...',
     uploaded: '文件上传成功',
-    uploadFailed: '上传没有完成。请检查文件，然后重试。',
+    uploadFailed: '请检查文件后重新上传。上传没有完成。',
     tooLarge: '请选择小于 {{size}} 的文件，然后重新上传。',
     invalidType: '请选择这些类型之一的文件：{{types}}。',
   },
