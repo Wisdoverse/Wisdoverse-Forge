@@ -563,6 +563,11 @@ const TASK_RECOVERY_STATUS_DEAD_END_PATTERNS = [
   /\bTriage failure\b/,
 ]
 
+const TASK_DETAIL_EMPTY_DEAD_END_PATTERNS = [
+  /\bNo description provided\./i,
+  /\bNo result files were attached\./i,
+]
+
 const CONTEXT_FALLBACK_DEAD_END_PATTERNS = [
   /\bSuggested item needs review\b/i,
   /\bSaved item needs review\b/i,
@@ -1890,6 +1895,12 @@ function hasTaskRecoveryStatusDeadEndCopy(relFile, line) {
   return TASK_RECOVERY_STATUS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTaskDetailEmptyDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/detail/DescriptionTab.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_DETAIL_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasContextFallbackDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/entities/context/ui/InjectionPreviewModal.tsx') &&
@@ -3129,6 +3140,15 @@ function scanFile(file, relFile) {
         type: 'task-recovery-status-copy',
         location,
         message: 'Failed task status copy must tell beginners to review recovery.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskDetailEmptyDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'task-detail-empty-copy',
+        location,
+        message: 'Task detail empty states must tell beginners where to check or what to do next.',
         sample: line.trim(),
       })
     }

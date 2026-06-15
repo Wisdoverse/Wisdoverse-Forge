@@ -162,6 +162,31 @@ describe('DescriptionTab', () => {
     ).toBeNull()
   })
 
+  test('turns missing brief and result files into next steps', () => {
+    render(
+      <DescriptionTab
+        task={{
+          ...mockTask,
+          state: 'completed',
+          params: { ...mockTask.params, message: '' },
+        }}
+      />
+    )
+
+    expect(
+      screen.getByText(
+        'No brief was saved. Open Updates to see what was asked before accepting, retrying, or closing this task.'
+      )
+    ).toBeDefined()
+    expect(
+      screen.getByText(
+        'No result files were saved. Use Next action above, then retry or create a follow-up task if files are still needed.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByText('No description provided.')).toBeNull()
+    expect(screen.queryByText('No result files were attached.')).toBeNull()
+  })
+
   test('summarizes failed task errors without raw service details', () => {
     render(
       <DescriptionTab

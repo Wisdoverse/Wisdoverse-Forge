@@ -7532,6 +7532,54 @@ function nextActionForTask() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags task detail empty copy that leaves beginners without a next step', () => {
+    const cwd = fixture({
+      'src/app/features/detail/DescriptionTab.tsx': `
+function Work() {
+  return (
+    <>
+      <p>No description provided.</p>
+      <p>No result files were attached.</p>
+    </>
+  )
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-detail-empty-copy',
+          location: 'src/app/features/detail/DescriptionTab.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-empty-copy',
+          location: 'src/app/features/detail/DescriptionTab.tsx:6',
+        }),
+      ])
+    )
+  })
+
+  it('accepts task detail empty copy that points beginners to the next step', () => {
+    const cwd = fixture({
+      'src/app/features/detail/DescriptionTab.tsx': `
+function Work() {
+  return (
+    <>
+      <p>No brief was saved. Open Updates to see what was asked before accepting, retrying, or closing this task.</p>
+      <p>No result files were saved. Use Next action above, then retry or create a follow-up task if files are still needed.</p>
+    </>
+  )
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('ignores parser regexes and cleanup regexes inside error message helpers', () => {
     const cwd = fixture({
       'src/app/features/chat/chatErrorMessage.ts': `

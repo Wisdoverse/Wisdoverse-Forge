@@ -60,7 +60,8 @@ export function DescriptionTab({
           </p>
         ) : (
           <p className="text-xs italic text-secondary-light dark:text-secondary-dark">
-            No description provided.
+            No brief was saved. Open Updates to see what was asked before accepting, retrying, or
+            closing this task.
           </p>
         )}
       </ReviewSection>
@@ -167,7 +168,7 @@ export function DescriptionTab({
             {resultArtifacts.length > 0
               ? `${resultArtifacts.length} result file${resultArtifacts.length === 1 ? '' : 's'} ready for review.`
               : canReview
-                ? 'No result files were attached.'
+                ? 'No result files were saved. Use Next action above, then retry or create a follow-up task if files are still needed.'
                 : 'Result files appear here after the task finishes.'}
           </p>
           {resultArtifacts.length > 0 && (
