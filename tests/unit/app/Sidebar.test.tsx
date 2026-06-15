@@ -362,6 +362,26 @@ describe('Sidebar', () => {
     )
   })
 
+  it('shows a manual project reference when browser copy fails', async () => {
+    seedProjectTree()
+    const writeText = vi.fn().mockRejectedValue(new Error('denied'))
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /copy support reference/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Select this project support reference, then copy it manually: p1'
+    )
+    expect(alert).not.toHaveTextContent(/clipboard access/i)
+    expect(alert).not.toHaveTextContent(/open project settings and copy it from there/i)
+  })
+
   it('edits team name from context menu', async () => {
     seedProjectTree()
     vi.mocked(teamApi.updateTeam).mockResolvedValue({

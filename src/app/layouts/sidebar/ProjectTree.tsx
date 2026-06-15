@@ -64,6 +64,11 @@ interface ProjectEditorState {
   error: string | null
 }
 
+interface CopyFeedback {
+  message: string
+  tone: 'success' | 'error'
+}
+
 interface ProjectMenuItemProps {
   Icon: LucideIcon
   label: string
@@ -326,7 +331,7 @@ export function ProjectTree({
   const [teamEditor, setTeamEditor] = useState<TeamEditorState | null>(null)
   const [projectEditor, setProjectEditor] = useState<ProjectEditorState | null>(null)
   const [membersProject, setMembersProject] = useState<NavProject | null>(null)
-  const [copyMessage, setCopyMessage] = useState<string | null>(null)
+  const [copyFeedback, setCopyFeedback] = useState<CopyFeedback | null>(null)
 
   const loadOrgUsers = useCallback(() => userApi.getUsers(), [])
 
@@ -376,10 +381,10 @@ export function ProjectTree({
   }, [teamMenu, projectMenu, teamEditor, projectEditor])
 
   useEffect(() => {
-    if (!copyMessage) return
-    const timeout = window.setTimeout(() => setCopyMessage(null), 1800)
+    if (copyFeedback?.tone !== 'success') return
+    const timeout = window.setTimeout(() => setCopyFeedback(null), 1800)
     return () => window.clearTimeout(timeout)
-  }, [copyMessage])
+  }, [copyFeedback])
 
   if (teams.length === 0) {
     return (
@@ -451,13 +456,16 @@ export function ProjectTree({
     setMembersProject(project)
   }
 
-  async function handleCopyProjectValue(value: string, successMessage: string) {
+  async function handleCopyProjectValue(value: string, successMessage: string, valueLabel: string) {
     setProjectMenu(null)
     try {
       await copyToClipboard(value)
-      setCopyMessage(successMessage)
+      setCopyFeedback({ message: successMessage, tone: 'success' })
     } catch {
-      setCopyMessage('Could not copy. Open project settings and copy it from there.')
+      setCopyFeedback({
+        message: `Forge cannot copy from this browser. Select this ${valueLabel}, then copy it manually: ${value}`,
+        tone: 'error',
+      })
     }
   }
 
@@ -711,7 +719,8 @@ export function ProjectTree({
               onClick={() =>
                 void handleCopyProjectValue(
                   projectMenu.project.id,
-                  'Project support reference copied'
+                  'Project support reference copied',
+                  'project support reference'
                 )
               }
             />
@@ -720,7 +729,11 @@ export function ProjectTree({
               label="Copy link name"
               detail={`${projectMenu.project.slug} · appears in project links`}
               onClick={() =>
-                void handleCopyProjectValue(projectMenu.project.slug, 'Project link name copied')
+                void handleCopyProjectValue(
+                  projectMenu.project.slug,
+                  'Project link name copied',
+                  'project link name'
+                )
               }
             />
             {canDeleteProject(projectMenu.project) && (
@@ -876,17 +889,19 @@ export function ProjectTree({
         />
       )}
 
-      {copyMessage && (
+      {copyFeedback && (
         <div
-          role="status"
+          role={copyFeedback.tone === 'error' ? 'alert' : 'status'}
           aria-live="polite"
           data-testid="project-copy-status"
           className={cn(
-            'fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-full px-4 py-2 text-ui-caption font-medium shadow-lg',
-            'bg-foreground-light text-white dark:bg-foreground-dark dark:text-black'
+            'fixed bottom-4 left-1/2 z-50 max-w-[min(34rem,calc(100vw-2rem))] -translate-x-1/2 break-words px-4 py-2 text-ui-caption font-medium shadow-lg',
+            copyFeedback.tone === 'error'
+              ? 'rounded-card border border-apple-red/25 bg-white text-apple-red dark:bg-[#2c2c2e]'
+              : 'rounded-full bg-foreground-light text-white dark:bg-foreground-dark dark:text-black'
           )}
         >
-          {copyMessage}
+          {copyFeedback.message}
         </div>
       )}
     </div>
@@ -906,6 +921,11 @@ async function copyToClipboard(value: string) {
   textarea.style.opacity = '0'
   document.body.appendChild(textarea)
   textarea.select()
-  document.execCommand('copy')
-  textarea.remove()
+  try {
+    if (!document.execCommand('copy')) {
+      throw new Error('copy command rejected')
+    }
+  } finally {
+    textarea.remove()
+  }
 }
