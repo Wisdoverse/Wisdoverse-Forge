@@ -36,14 +36,14 @@ const EMPTY_TOP_USEFUL = {
 }
 
 const EMPTY_NEEDS_REVIEW = {
-  title: 'Nothing to check right now',
+  title: 'No saved items need checking',
   detail: 'Items appear here when people report they may be outdated, incorrect, or too sensitive.',
   nextStep:
     'Next: no action is needed now; keep using task feedback so risky saved items appear here.',
 }
 
 const EMPTY_STALE = {
-  title: 'Nothing looks outdated',
+  title: 'No saved items look outdated',
   detail: 'Saved notes and saved instructions appear here when they are old enough to check again.',
   nextStep:
     'Next: no action is needed now; update saved items when team guidance changes so old advice is easier to spot.',

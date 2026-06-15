@@ -114,9 +114,15 @@ describe('InjectionPreviewModal', () => {
     expect(screen.getByText('Kept easy to reuse')).toBeDefined()
     expect(
       screen.getByText(
-        'Nothing is kept yet. Choose the pin button on a saved item to keep it easy to reuse.'
+        'No saved items are pinned yet. Choose the pin button on a saved item to keep it easy to reuse.'
       )
     ).toBeDefined()
+    expect(screen.queryByText('Nothing will be shared yet.')).toBeNull()
+    expect(
+      screen.queryByText(
+        'Nothing is kept yet. Choose the pin button on a saved item to keep it easy to reuse.'
+      )
+    ).toBeNull()
     expect(screen.getAllByText('Saved note').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Project').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Team space').length).toBeGreaterThan(0)

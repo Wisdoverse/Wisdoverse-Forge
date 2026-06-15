@@ -94,6 +94,8 @@
   },
   "overrides": {
     "flatted": ">=3.4.0",
+    "js-yaml": "4.2.0",
+    "protobufjs": "7.6.4",
     "undici": "7.25.0"
   },
   "devDependencies": {

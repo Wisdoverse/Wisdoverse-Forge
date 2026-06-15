@@ -181,7 +181,7 @@ export function InjectionPreviewModal({
                 title="Will be included"
                 helper="Checked items will be shared with the agent when you send the task."
                 items={preview.items}
-                empty="Nothing will be shared yet."
+                empty="No saved items are selected yet."
                 selectedIds={selectedIds}
                 pinnedIds={pinnedIds}
                 onToggleSelected={toggleSelected}
@@ -201,7 +201,7 @@ export function InjectionPreviewModal({
                 title="Kept easy to reuse"
                 helper="These saved items stay easy to reuse for this task."
                 items={preview.previouslyPinned}
-                empty="Nothing is kept yet. Choose the pin button on a saved item to keep it easy to reuse."
+                empty="No saved items are pinned yet. Choose the pin button on a saved item to keep it easy to reuse."
                 selectedIds={selectedIds}
                 pinnedIds={pinnedIds}
                 onToggleSelected={toggleSelected}

@@ -213,6 +213,11 @@ const ANALYTICS_CHART_DEAD_END_PATTERNS = [/\bNo activity data\b/i, /\bNo tool u
 
 const ANALYTICS_USEFUL_EMPTY_DEAD_END_PATTERNS = [/\bNo useful saved items yet\b/i]
 
+const ANALYTICS_REVIEW_EMPTY_DEAD_END_PATTERNS = [
+  /\bNothing to check right now\b/i,
+  /\bNothing looks outdated\b/i,
+]
+
 const ANALYTICS_UPDATED_TIME_DEAD_END_PATTERNS = [/\btime not available\b/i]
 
 const ANALYTICS_GUIDANCE_JARGON_PATTERNS = [/\bfailed tool steps\b/i]
@@ -220,6 +225,13 @@ const ANALYTICS_GUIDANCE_JARGON_PATTERNS = [/\bfailed tool steps\b/i]
 const ACTIVITY_FEED_EMPTY_DEAD_END_PATTERNS = [/\bNo work has reported progress yet\b/i]
 
 const SAVED_ITEM_OPTIONAL_EMPTY_DEAD_END_PATTERNS = [/\bNo other saved items were found\b/i]
+
+const SAVED_ITEM_SELECTION_EMPTY_DEAD_END_PATTERNS = [
+  /\bNothing will be shared yet\b/i,
+  /\bNothing is kept yet\b/i,
+]
+
+const INBOX_NEEDS_ACTION_EMPTY_DEAD_END_PATTERNS = [/\bNothing needs action right now\b/i]
 
 const TASK_AGENT_ASSIGNMENT_DEAD_END_PATTERNS = [
   /\bNo agent assigned yet\b/i,
@@ -1119,6 +1131,12 @@ function hasAnalyticsUsefulEmptyDeadEndCopy(relFile, line) {
   return ANALYTICS_USEFUL_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAnalyticsReviewEmptyDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/analytics/ContextUsageDashboard.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ANALYTICS_REVIEW_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasAnalyticsUpdatedTimeDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/analytics/ContextUsageDashboard.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -1141,6 +1159,18 @@ function hasSavedItemOptionalEmptyDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/entities/context/ui/InjectionPreviewModal.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return SAVED_ITEM_OPTIONAL_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasSavedItemSelectionEmptyDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/entities/context/ui/InjectionPreviewModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SAVED_ITEM_SELECTION_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasInboxNeedsActionEmptyDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/inbox/InboxView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return INBOX_NEEDS_ACTION_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasTaskAgentAssignmentDeadEndCopy(relFile, line) {
@@ -2231,6 +2261,16 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasAnalyticsReviewEmptyDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'analytics-review-empty-copy',
+        location,
+        message:
+          'Saved item review empty states must name what is clear instead of using vague nothing-copy.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasAnalyticsUpdatedTimeDeadEndCopy(relFile, line)) {
       findings.push({
         type: 'analytics-updated-time-copy',
@@ -2264,6 +2304,26 @@ function scanFile(file, relFile) {
         type: 'saved-item-optional-empty-copy',
         location,
         message: 'Saved item preview empty states must explain how more saved items appear later.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSavedItemSelectionEmptyDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'saved-item-selection-empty-copy',
+        location,
+        message:
+          'Saved item selection empty states must name selected or pinned saved items instead of using vague nothing-copy.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasInboxNeedsActionEmptyDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'inbox-needs-action-empty-copy',
+        location,
+        message:
+          'Inbox action-item empty states must say the user is caught up instead of using vague nothing-copy.',
         sample: line.trim(),
       })
     }

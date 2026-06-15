@@ -1859,6 +1859,52 @@ const EMPTY_TOP_USEFUL = {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags saved item review empty copy that says nothing instead of what is clear', () => {
+    const cwd = fixture({
+      'src/app/features/analytics/ContextUsageDashboard.tsx': `
+const EMPTY_NEEDS_REVIEW = {
+  title: 'Nothing to check right now',
+}
+
+const EMPTY_STALE = {
+  title: 'Nothing looks outdated',
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'analytics-review-empty-copy',
+          location: 'src/app/features/analytics/ContextUsageDashboard.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'analytics-review-empty-copy',
+          location: 'src/app/features/analytics/ContextUsageDashboard.tsx:7',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved item review empty copy that names the clear state', () => {
+    const cwd = fixture({
+      'src/app/features/analytics/ContextUsageDashboard.tsx': `
+const EMPTY_NEEDS_REVIEW = {
+  title: 'No saved items need checking',
+}
+
+const EMPTY_STALE = {
+  title: 'No saved items look outdated',
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags analytics updated-time copy that does not tell users to refresh', () => {
     const cwd = fixture({
       'src/app/features/analytics/ContextUsageDashboard.tsx': `
@@ -1918,6 +1964,54 @@ export function InjectionPreviewModal() {
       'src/app/entities/context/ui/InjectionPreviewModal.tsx': `
 export function InjectionPreviewModal() {
   return <PreviewSection empty="More saved items appear here after tasks save helpful notes or instructions." />
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags saved item selection empty copy that says nothing instead of naming the list', () => {
+    const cwd = fixture({
+      'src/app/entities/context/ui/InjectionPreviewModal.tsx': `
+export function InjectionPreviewModal() {
+  return (
+    <div>
+      <PreviewSection empty="Nothing will be shared yet." />
+      <PreviewSection empty="Nothing is kept yet. Choose the pin button on a saved item to keep it easy to reuse." />
+    </div>
+  )
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'saved-item-selection-empty-copy',
+          location: 'src/app/entities/context/ui/InjectionPreviewModal.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'saved-item-selection-empty-copy',
+          location: 'src/app/entities/context/ui/InjectionPreviewModal.tsx:6',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved item selection empty copy that names selected and pinned items', () => {
+    const cwd = fixture({
+      'src/app/entities/context/ui/InjectionPreviewModal.tsx': `
+export function InjectionPreviewModal() {
+  return (
+    <div>
+      <PreviewSection empty="No saved items are selected yet." />
+      <PreviewSection empty="No saved items are pinned yet. Choose the pin button on a saved item to keep it easy to reuse." />
+    </div>
+  )
 }
 `,
     })
@@ -6598,6 +6692,40 @@ function highAction() {
       'src/app/features/analytics/AnalyticsDashboard.tsx': `
 function emptyChart() {
   return 'Tool use appears after an agent finishes a task.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags inbox needs-action empty copy that says nothing instead of caught up', () => {
+    const cwd = fixture({
+      'src/app/features/inbox/InboxView.tsx': `
+function needsActionEmptyState() {
+  return 'Nothing needs action right now'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'inbox-needs-action-empty-copy',
+          location: 'src/app/features/inbox/InboxView.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts inbox needs-action empty copy that says the user is caught up', () => {
+    const cwd = fixture({
+      'src/app/features/inbox/InboxView.tsx': `
+function needsActionEmptyState() {
+  return 'You are caught up on action items'
 }
 `,
     })

@@ -353,10 +353,11 @@ describe('InboxView', () => {
     await userEvent.setup().click(screen.getByTestId('inbox-filter-needs-action'))
 
     const emptyState = screen.getByTestId('inbox-filter-empty')
-    expect(emptyState).toHaveTextContent('Nothing needs action right now')
+    expect(emptyState).toHaveTextContent('You are caught up on action items')
     expect(emptyState).toHaveTextContent(
-      'No task needs help and no account access needs reconnecting.'
+      'No task is asking for help and no account access needs reconnecting.'
     )
+    expect(emptyState).not.toHaveTextContent('Nothing needs action right now')
     expect(emptyState).not.toHaveTextContent(
       'No tasks that need help, stopped work, or account access issues need action right now.'
     )

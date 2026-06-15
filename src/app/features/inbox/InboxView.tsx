@@ -318,9 +318,9 @@ function inboxFilterEmptyState(filter: InboxFilter): InboxFilterEmptyState {
       }
     case 'needs-action':
       return {
-        title: 'Nothing needs action right now',
+        title: 'You are caught up on action items',
         detail:
-          'No task needs help and no account access needs reconnecting. Use All when you want to review older updates.',
+          'No task is asking for help and no account access needs reconnecting. Use All when you want to review older updates.',
       }
     case 'credentials':
       return {

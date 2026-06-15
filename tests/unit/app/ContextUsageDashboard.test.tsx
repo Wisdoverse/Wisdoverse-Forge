@@ -40,7 +40,7 @@ describe('ContextUsageDashboard', () => {
 
     render(<ContextUsageDashboard data={analytics()} />)
 
-    expect(screen.getByText('Nothing looks outdated')).toBeDefined()
+    expect(screen.getByText('No saved items look outdated')).toBeDefined()
     expect(
       screen.getByText(/saved notes and saved instructions appear here when they are old enough/i)
     ).toBeDefined()
@@ -50,7 +50,7 @@ describe('ContextUsageDashboard', () => {
       screen.getByText(/mark a helpful saved item Useful so this list can rank it/i)
     ).toBeDefined()
     expect(screen.getByText(/old enough to check again/i)).toBeDefined()
-    expect(screen.getByText('Nothing to check right now')).toBeDefined()
+    expect(screen.getByText('No saved items need checking')).toBeDefined()
     expect(screen.getByText(/people report they may be outdated/i)).toBeDefined()
     expect(
       screen.getByText(/keep using task feedback so risky saved items appear here/i)
@@ -59,6 +59,8 @@ describe('ContextUsageDashboard', () => {
     expect(screen.getByText('Check first')).toBeDefined()
     expect(screen.getByText('Items people marked for another look.')).toBeDefined()
     expect(screen.queryByText(previousSavedNotesCopy)).toBeNull()
+    expect(screen.queryByText('Nothing looks outdated')).toBeNull()
+    expect(screen.queryByText('Nothing to check right now')).toBeNull()
     expect(screen.queryByText('No useful saved items yet')).toBeNull()
     expect(screen.queryByText(/stale threshold/i)).toBeNull()
     expect(screen.queryByText(/^Stale$/)).toBeNull()
