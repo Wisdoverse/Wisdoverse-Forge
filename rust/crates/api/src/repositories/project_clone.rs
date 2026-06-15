@@ -12,7 +12,7 @@
 //! mutation is constrained by `id`/`project_id` so it can only ever touch the
 //! attempt it loaded — there is no cross-org write surface here.
 
-use agentforge_core::{AppResult, ProjectId};
+use agentforge_core::{AppResult, ProjectId, TenantScope};
 use agentforge_db::entities::ProjectCloneAttempt;
 use chrono::{DateTime, Utc};
 use sqlx::PgPool;
@@ -91,6 +91,67 @@ pub struct ProjectCloneRepository {
 impl ProjectCloneRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
+    }
+
+    /// Load the LATEST clone attempt (highest `attempt` number) for a project,
+    /// TENANT-SCOPED to `scope.org_id`. This is the API-surface read (M6): the
+    /// project's clone-status projection, the retry guard, and the repo-URL
+    /// immutability check all key off the latest attempt.
+    ///
+    /// The attempt row carries its own `organization_id` snapshot (written at
+    /// create time), so the query constrains on it directly — a caller from
+    /// another org sees `None`, never another tenant's attempt. `None` also means
+    /// the project simply has no attempt yet (`clone_status='none'`).
+    ///
+    /// "Latest" is `MAX(attempt)` (the create/retry numbering), NOT
+    /// most-recently-updated, matching `CloneStatus::from_attempt`'s denormalize
+    /// rule so the projection and the summary column agree.
+    pub async fn latest_attempt_summary(
+        &self,
+        scope: &TenantScope,
+        project_id: ProjectId,
+    ) -> AppResult<Option<ProjectCloneAttempt>> {
+        let row = sqlx::query_as::<_, ProjectCloneAttempt>(
+            r#"SELECT * FROM project_clone_attempts
+                WHERE project_id = $1 AND organization_id = $2
+                ORDER BY attempt DESC
+                LIMIT 1"#,
+        )
+        .bind(project_id.as_uuid())
+        .bind(scope.org_id().as_uuid())
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row)
+    }
+
+    /// Load the LATEST clone attempt (highest `attempt`) for EACH of several
+    /// projects in ONE query, TENANT-SCOPED to `scope.org_id` — the list-surface
+    /// read (M6) that avoids an N+1 when projecting clone status across a team's
+    /// projects. Returns a `(project_id -> latest attempt)` map; a project with no
+    /// attempt is simply absent from the map (its `clone_status` stays `none`).
+    ///
+    /// `DISTINCT ON (project_id) … ORDER BY project_id, attempt DESC` picks the
+    /// highest-numbered attempt per project (matching `latest_attempt_summary`).
+    /// An empty `project_ids` short-circuits to an empty map (no query).
+    pub async fn latest_attempt_summaries_for_projects(
+        &self,
+        scope: &TenantScope,
+        project_ids: &[Uuid],
+    ) -> AppResult<std::collections::HashMap<Uuid, ProjectCloneAttempt>> {
+        if project_ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+        let rows = sqlx::query_as::<_, ProjectCloneAttempt>(
+            r#"SELECT DISTINCT ON (project_id) *
+                 FROM project_clone_attempts
+                WHERE organization_id = $1 AND project_id = ANY($2)
+                ORDER BY project_id, attempt DESC"#,
+        )
+        .bind(scope.org_id().as_uuid())
+        .bind(project_ids)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|row| (row.project_id.as_uuid(), row)).collect())
     }
 
     /// Load the authoritative attempt row by `(project_id, attempt)`. The worker

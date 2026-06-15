@@ -41,6 +41,10 @@ pub(crate) struct LegacyProjectRow {
     pub(crate) description: String,
     pub(crate) can_manage: bool,
     pub(crate) can_delete: bool,
+    /// Denormalized `projects.clone_status` summary, so the tree pane can render a
+    /// clone badge without a per-project attempt read. The per-attempt detail
+    /// (`CloneSummary`) is attached separately by the service.
+    pub(crate) clone_status: String,
 }
 
 pub struct LegacyNavigationRepository {
@@ -279,6 +283,7 @@ impl LegacyNavigationRepository {
                    p.slug,
                    COALESCE(p.color, '#007AFF')  AS color,
                    COALESCE(p.description, '')   AS description,
+                   p.clone_status,
                    (
                        om.role IN ('owner', 'admin')
                        OR EXISTS (
@@ -430,6 +435,7 @@ impl LegacyNavigationRepository {
                   p.slug,
                   COALESCE(p.color, '#007AFF') AS color,
                   COALESCE(p.description, '')  AS description,
+                  p.clone_status,
                   TRUE AS can_manage,
                   TRUE AS can_delete"#,
         )

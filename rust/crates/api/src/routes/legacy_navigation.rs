@@ -289,6 +289,8 @@ pub mod test_only {
             description: String::new(),
             can_manage: true,
             can_delete: true,
+            clone_status: "none".to_string(),
+            clone: None,
         })
         .expect("LegacyProject serializes")
     }
@@ -321,6 +323,28 @@ pub mod test_only {
             .into_iter()
             .map(LegacyProject::from)
             .map(|row| serde_json::to_value(row).expect("LegacyProject serializes"))
+            .collect())
+    }
+
+    /// Drive the ACTIVE legacy-navigation list surface through its SERVICE (the
+    /// `/teams/:teamId/projects` GET path) so an M6 integration test can verify
+    /// the projection the frontend actually receives — including the per-project
+    /// `CloneSummary` the service attaches (the row-adapter-only helper above
+    /// does not). Resolves the team's org from the caller, so a non-member caller
+    /// errors (the tenant boundary) rather than leaking another team's projects.
+    pub async fn list_projects_via_service_for_test(
+        pool: &PgPool,
+        user_id: Uuid,
+        team_id: Uuid,
+    ) -> AppResult<Vec<serde_json::Value>> {
+        let repo = LegacyNavigationRepository::new(pool.clone());
+        let org_id = repo.resolve_team_org_for_test(user_id, team_id).await?;
+        let scope = tenant_scope_for_ids(org_id, user_id);
+        let service = crate::services::legacy_navigation::LegacyNavigationService::from_pool(pool.clone());
+        let projects = service.list_projects(&scope, team_id).await?;
+        Ok(projects
+            .into_iter()
+            .map(|project| serde_json::to_value(project).expect("LegacyProject serializes"))
             .collect())
     }
 

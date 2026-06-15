@@ -10,10 +10,12 @@ use uuid::Uuid;
 use crate::domain::navigation::{LegacyOrg, LegacyProject, LegacyTeam};
 use crate::domain::resource::NavigationResourcePolicy;
 use crate::repositories::project::{CloneRequest, ProjectCreateTx, ProjectRepository};
+use crate::repositories::project_clone::ProjectCloneRepository;
 use crate::repositories::resource::navigation::{
     LegacyNavigationRepository, LegacyOrgRow, LegacyProjectRow, LegacyTeamRow,
 };
 use crate::services::organization::{OrganizationService, UpdateOrganizationInput};
+use crate::services::project::ProjectService;
 use crate::services::resource_permission::ResourcePermissionService;
 
 pub(crate) use crate::domain::navigation::{
@@ -26,6 +28,7 @@ pub(crate) struct LegacyNavigationService {
     organizations: OrganizationService,
     permissions: ResourcePermissionService,
     projects: ProjectRepository,
+    clones: ProjectCloneRepository,
 }
 
 impl LegacyNavigationService {
@@ -34,8 +37,9 @@ impl LegacyNavigationService {
         organizations: OrganizationService,
         permissions: ResourcePermissionService,
         projects: ProjectRepository,
+        clones: ProjectCloneRepository,
     ) -> Self {
-        Self { navigation, organizations, permissions, projects }
+        Self { navigation, organizations, permissions, projects, clones }
     }
 
     pub(crate) fn from_pool(pool: PgPool) -> Self {
@@ -43,7 +47,8 @@ impl LegacyNavigationService {
             LegacyNavigationRepository::new(pool.clone()),
             OrganizationService::from_pool(pool.clone()),
             ResourcePermissionService::from_pool(pool.clone()),
-            ProjectRepository::new(pool),
+            ProjectRepository::new(pool.clone()),
+            ProjectCloneRepository::new(pool),
         )
     }
 
@@ -108,7 +113,18 @@ impl LegacyNavigationService {
     }
 
     pub(crate) async fn list_projects(&self, scope: &TenantScope, team_id: Uuid) -> AppResult<Vec<LegacyProject>> {
-        Ok(self.navigation.list_projects(scope, TeamId::from(team_id)).await?.into_iter().map(Into::into).collect())
+        let mut projects: Vec<LegacyProject> =
+            self.navigation.list_projects(scope, TeamId::from(team_id)).await?.into_iter().map(Into::into).collect();
+
+        // Attach each project's latest clone-attempt detail in ONE batched read
+        // (no N+1), so the tree pane shows branch/head_sha on success and the
+        // redacted error + class on failure alongside the `clone_status` badge.
+        let ids: Vec<Uuid> = projects.iter().map(|p| p.id).collect();
+        let mut summaries = self.clones.latest_attempt_summaries_for_projects(scope, &ids).await?;
+        for project in &mut projects {
+            project.clone = summaries.remove(&project.id).as_ref().map(ProjectService::clone_summary_of);
+        }
+        Ok(projects)
     }
 
     pub(crate) async fn create_project(
@@ -159,6 +175,11 @@ impl LegacyNavigationService {
             )
             .await?;
 
+        // The freshly-created clone attempt (queued) so the create response shows
+        // clone status immediately; `None` when no repo was supplied.
+        let clone_summary =
+            self.clones.latest_attempt_summary(scope, project.id).await?.as_ref().map(ProjectService::clone_summary_of);
+
         // Project a fresh-create `LegacyProject` response. The creator always has
         // manage/delete on the project they just created; `slug` mirrors the
         // derived `workspace_dir_name` (raw caller slugs are no longer persisted).
@@ -172,6 +193,8 @@ impl LegacyNavigationService {
             description: resolved_description,
             can_manage: true,
             can_delete: true,
+            clone_status: project.clone_status.clone(),
+            clone: clone_summary,
         })
     }
 
@@ -234,6 +257,11 @@ impl From<LegacyProjectRow> for LegacyProject {
             description: row.description,
             can_manage: row.can_manage,
             can_delete: row.can_delete,
+            clone_status: row.clone_status,
+            // The per-attempt detail is attached by the service after listing (it
+            // needs a separate, batched attempt read); the row adapter alone has
+            // only the denormalized summary column.
+            clone: None,
         }
     }
 }
@@ -272,8 +300,13 @@ mod tests {
             description: String::new(),
             can_manage: true,
             can_delete: true,
+            clone_status: "queued".to_string(),
         });
         assert_eq!(project.team_id, team_id);
         assert_eq!(project.workspace_id, workspace_id);
+        assert_eq!(project.clone_status, "queued");
+        // The row adapter alone has only the summary column; the per-attempt
+        // detail is attached by the service after listing.
+        assert!(project.clone.is_none());
     }
 }

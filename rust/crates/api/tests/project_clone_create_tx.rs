@@ -149,6 +149,9 @@ async fn create_without_repo_has_no_clone_artifacts(pool: PgPool) {
         .await
         .expect("create without repo");
 
+    // `create` now returns the project + its clone summary (M6); the project body
+    // carries the columns these assertions key off.
+    let project = project.project;
     let project_id = project.id.as_uuid();
     assert_eq!(project.clone_status, "none", "no repo -> clone_status must be 'none'");
     assert_eq!(project.repository_url, None);
@@ -188,6 +191,7 @@ async fn create_with_repo_writes_attempt_and_outbox(pool: PgPool) {
         .await
         .expect("create with repo");
 
+    let project = project.project;
     let project_id = project.id.as_uuid();
     assert_eq!(project.clone_status, "queued", "repo present -> clone_status='queued'");
     assert_eq!(project.repository_url.as_deref(), Some(REPO_URL));
@@ -329,8 +333,8 @@ async fn same_name_creates_allocate_distinct_dir_names(pool: PgPool) {
         repository_url: None,
     };
 
-    let first = service.create(&scope(&seed), input("My Repo")).await.expect("first create");
-    let second = service.create(&scope(&seed), input("My Repo")).await.expect("second create");
+    let first = service.create(&scope(&seed), input("My Repo")).await.expect("first create").project;
+    let second = service.create(&scope(&seed), input("My Repo")).await.expect("second create").project;
 
     assert_eq!(first.workspace_dir_name, "my-repo", "first takes the bare derived name");
     assert_ne!(first.workspace_dir_name, second.workspace_dir_name, "a same-name sibling must get a distinct dir name");
@@ -372,7 +376,7 @@ async fn outbox_relay_enqueues_one_job_and_is_idempotent(pool: PgPool) {
         )
         .await
         .expect("create with repo");
-    let project_id = project.id.as_uuid();
+    let project_id = project.project.id.as_uuid();
 
     // First relay: one job appears with the attempt-scoped unique key; outbox
     // is marked published.
@@ -623,7 +627,7 @@ async fn relay_marks_published_even_when_enqueue_is_a_conflict_noop(pool: PgPool
         )
         .await
         .expect("create with repo");
-    let project_id = project.id.as_uuid();
+    let project_id = project.project.id.as_uuid();
 
     // Pre-insert a job_queue row with the EXACT unique_key the relay will use,
     // so the relay's INSERT ... ON CONFLICT DO NOTHING is a no-op.
@@ -758,6 +762,7 @@ async fn self_hosted_host_persists_attempt_with_null_provider(pool: PgPool) {
         )
         .await
         .expect("create with a self-hosted repo");
+    let project = project.project;
     let project_id = project.id.as_uuid();
 
     assert_eq!(project.clone_status, "queued");
@@ -814,7 +819,7 @@ async fn relay_dead_letters_a_poison_row_and_keeps_draining(pool: PgPool) {
         )
         .await
         .expect("create the valid row behind the poison one");
-    let good_id = good.id.as_uuid();
+    let good_id = good.project.id.as_uuid();
 
     // First relay hits the POISON row: it must be dead-lettered (marked published)
     // and NO job enqueued for it.

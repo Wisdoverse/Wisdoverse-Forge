@@ -767,6 +767,135 @@ impl fmt::Display for CloneProvider {
 pub use agentforge_core::clone_protocol::{CLONE_OUTBOX_AGGREGATE_TYPE, CLONE_OUTBOX_EVENT_TYPE, CloneOutboxPayload};
 
 // ---------------------------------------------------------------------------
+// CloneSummary — the latest-attempt projection the API surfaces (M6/M7)
+// ---------------------------------------------------------------------------
+
+/// The latest clone attempt for a project, projected for the API/UI (M6).
+///
+/// This is the per-project clone-status detail the create/list/detail surfaces
+/// attach alongside the denormalized `projects.clone_status` summary column. It
+/// is built from the project's HIGHEST-numbered `project_clone_attempts` row
+/// (`MAX(attempt)`), so the UI shows the current attempt's status, the resolved
+/// branch + HEAD SHA on success, and — on failure — the ALREADY-REDACTED
+/// `error_message` + coarse `error_class` so the operator gets an actionable,
+/// secret-free reason and a retry affordance.
+///
+/// SECURITY: this projection deliberately carries NO secret-bearing field. It
+/// never includes `credential_id` (which credential was used), `worker_id`,
+/// `container_id`, `job_id`, or any raw error — `error_message` is the redacted
+/// string the M5 worker persisted (raw `git` stderr never reaches this column).
+/// The shape is the M7 frontend contract: keep it clean and additive.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CloneSummary {
+    /// The attempt's lifecycle status (`queued`/`cloning`/`ready`/`failed`/`cancelled`).
+    pub status: String,
+    /// Coarse failure class on a `failed` attempt (`auth`/`not_found`/…); `None`
+    /// otherwise.
+    pub error_class: Option<String>,
+    /// The REDACTED, safe-to-display failure reason on a `failed` attempt; `None`
+    /// otherwise. Never raw stderr — the M5 worker scrubbed credentials before
+    /// persisting this.
+    pub error_message: Option<String>,
+    /// The default branch git resolved on a successful clone; `None` until ready.
+    pub resolved_branch: Option<String>,
+    /// The cloned HEAD commit SHA on a successful clone; `None` until ready.
+    pub head_sha: Option<String>,
+    /// The 1-based attempt number this summary describes (the latest attempt).
+    pub attempt: i32,
+    /// When this attempt row was last updated, so the UI can age the status.
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl CloneSummary {
+    /// Project the latest clone attempt row into the API/UI summary.
+    ///
+    /// Only the secret-free, display-safe fields are copied; everything else on
+    /// the attempt row (credential id, worker/container/job ids, lease) is
+    /// deliberately dropped so a projection can never leak operational secrets.
+    pub fn from_attempt(attempt: &agentforge_db::entities::ProjectCloneAttempt) -> Self {
+        Self {
+            status: attempt.status.clone(),
+            error_class: attempt.error_class.clone(),
+            error_message: attempt.error_message.clone(),
+            resolved_branch: attempt.resolved_branch.clone(),
+            head_sha: attempt.head_sha.clone(),
+            attempt: attempt.attempt,
+            updated_at: attempt.updated_at,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Clone API error contracts (M6) — routes/services own no ErrorKind directly
+// ---------------------------------------------------------------------------
+
+/// User-visible error contracts for the clone API surface (retry + repo-URL
+/// immutability). Centralized here so the route + service layers never construct
+/// `ErrorKind` themselves (the DDD boundary test forbids that), and so the
+/// HTTP-status mapping for each clone-policy violation is reviewed in one place.
+pub struct CloneApiPolicy;
+
+impl CloneApiPolicy {
+    /// The project has no repository URL, so there is nothing to (re)clone. A
+    /// `Validation` (400) — the request is structurally inapplicable to this
+    /// project, not a transient state conflict.
+    pub fn no_repository_to_clone() -> agentforge_core::AppError {
+        agentforge_core::ErrorKind::Validation(
+            "this project has no git repository configured, so there is nothing to clone".into(),
+        )
+        .into()
+    }
+
+    /// Retry was requested but no clone attempt exists yet (e.g. the outbox/job
+    /// has not produced a first attempt, or the project predates clone support).
+    /// A `Conflict` (409): the project COULD clone, but there is no failed
+    /// attempt to retry from.
+    pub fn no_attempt_to_retry() -> agentforge_core::AppError {
+        agentforge_core::ErrorKind::Conflict(
+            "no clone attempt exists for this project yet; there is nothing to retry".into(),
+        )
+        .into()
+    }
+
+    /// Retry was requested while the latest attempt is NOT `failed` (it is
+    /// `queued`/`cloning`/`ready`/`cancelled`). A `Conflict` (409) — retry is
+    /// only valid from a failed clone; an in-flight or already-ready clone must
+    /// not be re-queued. The message names the current status so the operator
+    /// understands why.
+    pub fn retry_only_from_failed(current: &str) -> agentforge_core::AppError {
+        agentforge_core::ErrorKind::Conflict(format!(
+            "clone retry is only allowed after a failed attempt; the latest attempt is '{current}'"
+        ))
+        .into()
+    }
+
+    /// A retry insert raced another retry/reconciler re-enqueue for the same next
+    /// attempt and was deduped to a no-op. A `Conflict` (409): a retry is already
+    /// in flight, so the caller should observe the existing one rather than
+    /// assume a fresh attempt was created.
+    pub fn retry_already_in_flight() -> agentforge_core::AppError {
+        agentforge_core::ErrorKind::Conflict(
+            "a clone retry for this project is already queued; wait for it to run".into(),
+        )
+        .into()
+    }
+
+    /// The caller tried to change `repository_url` on a project whose clone has
+    /// already bound (`clone_status` is `queued`/`cloning`/`ready`/`failed` — any
+    /// attempt exists). The one-shot bind cannot be re-pointed by the server, so
+    /// the change is rejected. A `Validation` (400) with a clear, actionable
+    /// reason. Metadata edits are unaffected.
+    pub fn repository_url_immutable() -> agentforge_core::AppError {
+        agentforge_core::ErrorKind::Validation(
+            "the repository URL cannot be changed once a clone has started; create a new project to clone a different repository"
+                .into(),
+        )
+        .into()
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -1332,5 +1461,95 @@ mod tests {
         assert!("".parse::<CloneErrorClass>().is_err());
         // Case-sensitive: DB slugs are lowercase only.
         assert!("Auth".parse::<CloneErrorClass>().is_err());
+    }
+
+    // -- CloneSummary projection (M6) ---------------------------------------
+
+    /// Build a minimal `ProjectCloneAttempt` row for projection tests.
+    fn attempt_row(status: &str) -> agentforge_db::entities::ProjectCloneAttempt {
+        agentforge_db::entities::ProjectCloneAttempt {
+            id: uuid::Uuid::now_v7(),
+            organization_id: agentforge_core::OrgId::new(),
+            workspace_id: agentforge_core::WorkspaceId::new(),
+            project_id: agentforge_core::ProjectId::new(),
+            attempt: 1,
+            repository_url: "https://github.com/o/r".into(),
+            provider: Some("github".into()),
+            credential_id: Some(uuid::Uuid::now_v7()),
+            status: status.into(),
+            resolved_branch: None,
+            head_sha: None,
+            container_id: Some("agentforge-clone-x".into()),
+            worker_id: Some("worker-1".into()),
+            job_id: Some(uuid::Uuid::now_v7()),
+            lease_expires_at: None,
+            error_class: None,
+            error_message: None,
+            bytes_cloned: None,
+            duration_ms: None,
+            materialized_at: None,
+            started_at: None,
+            finished_at: None,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        }
+    }
+
+    #[test]
+    fn clone_summary_projects_ready_branch_and_sha() {
+        let mut row = attempt_row("ready");
+        row.attempt = 3;
+        row.resolved_branch = Some("main".into());
+        row.head_sha = Some("deadbeef".into());
+        let summary = CloneSummary::from_attempt(&row);
+        assert_eq!(summary.status, "ready");
+        assert_eq!(summary.attempt, 3);
+        assert_eq!(summary.resolved_branch.as_deref(), Some("main"));
+        assert_eq!(summary.head_sha.as_deref(), Some("deadbeef"));
+        assert_eq!(summary.error_class, None);
+        assert_eq!(summary.error_message, None);
+    }
+
+    #[test]
+    fn clone_summary_projects_failed_redacted_error() {
+        let mut row = attempt_row("failed");
+        row.error_class = Some("auth".into());
+        // The worker already redacted this; the projection copies it verbatim.
+        row.error_message = Some("Authentication failed for github.com [REDACTED]".into());
+        let summary = CloneSummary::from_attempt(&row);
+        assert_eq!(summary.status, "failed");
+        assert_eq!(summary.error_class.as_deref(), Some("auth"));
+        assert_eq!(summary.error_message.as_deref(), Some("Authentication failed for github.com [REDACTED]"));
+    }
+
+    #[test]
+    fn clone_summary_serializes_camel_case_and_omits_secrets() {
+        let row = attempt_row("ready");
+        let value = serde_json::to_value(CloneSummary::from_attempt(&row)).expect("serialize summary");
+        // camelCase keys the M7 frontend consumes.
+        assert!(value.get("errorClass").is_some());
+        assert!(value.get("errorMessage").is_some());
+        assert!(value.get("resolvedBranch").is_some());
+        assert!(value.get("headSha").is_some());
+        assert!(value.get("updatedAt").is_some());
+        // NO secret-bearing field ever serializes, even though the row carries them.
+        for forbidden in ["credentialId", "credential_id", "workerId", "containerId", "jobId", "leaseExpiresAt"] {
+            assert!(value.get(forbidden).is_none(), "summary must not expose {forbidden}");
+        }
+    }
+
+    // -- Clone API error policy (M6) ----------------------------------------
+
+    #[test]
+    fn clone_api_policy_maps_each_case_to_a_status() {
+        use agentforge_core::ErrorKind;
+        assert!(matches!(CloneApiPolicy::no_repository_to_clone().kind, ErrorKind::Validation(_)));
+        assert!(matches!(CloneApiPolicy::no_attempt_to_retry().kind, ErrorKind::Conflict(_)));
+        assert!(matches!(CloneApiPolicy::retry_only_from_failed("ready").kind, ErrorKind::Conflict(_)));
+        assert!(matches!(CloneApiPolicy::retry_already_in_flight().kind, ErrorKind::Conflict(_)));
+        assert!(matches!(CloneApiPolicy::repository_url_immutable().kind, ErrorKind::Validation(_)));
+        // The not-failed conflict names the current status so the operator sees why.
+        let msg = format!("{}", CloneApiPolicy::retry_only_from_failed("cloning"));
+        assert!(msg.contains("cloning"), "status must appear in the message: {msg}");
     }
 }
