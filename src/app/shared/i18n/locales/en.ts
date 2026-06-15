@@ -88,6 +88,8 @@ export const en = {
     description:
       'Follow one step at a time. Finish this path to create an agent, send work, and review the result.',
     skip: 'Skip and open Tasks',
+    skipSaving: 'Skipping...',
+    skipError: 'Start could not be hidden. Check your connection, then try Skip again.',
     progressCount: '{{complete}} of {{total}}',
     nextTitle: 'Do this next',
     readyTitle: 'Ready to run work',

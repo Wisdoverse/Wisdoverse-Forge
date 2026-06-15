@@ -661,8 +661,24 @@ describe('GettingStartedView', () => {
     expect(screen.queryByRole('button', { name: /^skip the guide$/i })).toBeNull()
     fireEvent.click(await screen.findByTestId('getting-started-skip'))
 
-    expect(setGettingStartedDismissedMock).toHaveBeenCalledWith(true)
-    expect(navigateMock).toHaveBeenCalledWith({ to: '/tasks' })
+    expect(screen.getByRole('button', { name: /skipping/i })).toBeDisabled()
+    await waitFor(() => expect(setGettingStartedDismissedMock).toHaveBeenCalledWith(true))
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith({ to: '/tasks' }))
+  })
+
+  test('reports skip failures before leaving the guide', async () => {
+    setGettingStartedDismissedMock.mockResolvedValue(false)
+
+    render(<GettingStartedView />)
+
+    fireEvent.click(await screen.findByTestId('getting-started-skip'))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Start could not be hidden. Check your connection, then try Skip again.'
+    )
+    expect(navigateMock).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: /skip and open tasks/i })).not.toBeDisabled()
   })
 
   test('auto-dismisses exactly once when every step is complete', async () => {

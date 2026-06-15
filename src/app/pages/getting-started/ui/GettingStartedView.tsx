@@ -72,6 +72,8 @@ export function GettingStartedView() {
   const skills = useSkillsStore((state) => state.skills)
   const loadSkills = useSkillsStore((state) => state.loadSkills)
   const [loadedTasks, setLoadedTasks] = useState<TaskSummary[]>([])
+  const [skipSaving, setSkipSaving] = useState(false)
+  const [skipError, setSkipError] = useState<string | null>(null)
 
   useEffect(() => {
     void Promise.allSettled([
@@ -335,10 +337,17 @@ export function GettingStartedView() {
     void navigate({ to: path })
   }
 
-  function skipGuide() {
+  async function skipGuide() {
     // Optimistic store update hides the sidebar entry immediately; the store
     // reverts it if the server rejects the patch.
-    void setGettingStartedDismissed(true)
+    setSkipError(null)
+    setSkipSaving(true)
+    const ok = await setGettingStartedDismissed(true)
+    setSkipSaving(false)
+    if (!ok) {
+      setSkipError(t('gettingStarted.skipError'))
+      return
+    }
     void navigate({ to: '/tasks' })
   }
 
@@ -361,10 +370,16 @@ export function GettingStartedView() {
                 type="button"
                 data-testid="getting-started-skip"
                 onClick={skipGuide}
-                className="mt-2 text-ui-caption font-medium text-secondary-light underline-offset-2 transition-colors hover:text-foreground-light hover:underline focus-visible:underline focus-visible:outline-none dark:text-secondary-dark dark:hover:text-foreground-dark"
+                disabled={skipSaving}
+                className="mt-2 text-ui-caption font-medium text-secondary-light underline-offset-2 transition-colors hover:text-foreground-light hover:underline focus-visible:underline focus-visible:outline-none disabled:cursor-wait disabled:opacity-60 dark:text-secondary-dark dark:hover:text-foreground-dark"
               >
-                {t('gettingStarted.skip')}
+                {skipSaving ? t('gettingStarted.skipSaving') : t('gettingStarted.skip')}
               </button>
+              {skipError && (
+                <p role="alert" className="mt-2 text-ui-caption font-medium text-apple-red">
+                  {skipError}
+                </p>
+              )}
             </div>
             <div className="shrink-0 rounded-lg border border-black/[0.08] px-4 py-3 text-right dark:border-white/[0.1]">
               <p className="text-ui-metric font-semibold tabular-nums text-foreground-light dark:text-foreground-dark">
