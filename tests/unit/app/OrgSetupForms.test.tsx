@@ -75,7 +75,10 @@ describe('organization setup forms', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Create project' }))
 
-    await waitFor(() => expect(onSave).toHaveBeenCalledWith('Customer Portal', 'team-ops'))
+    // Optional repo URL omitted → submits with an undefined third arg.
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith('Customer Portal', 'team-ops', undefined)
+    )
   })
 
   test('keeps project creation disabled until a team exists', () => {

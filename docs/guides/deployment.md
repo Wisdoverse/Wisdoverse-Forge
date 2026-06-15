@@ -241,6 +241,23 @@ make prod-ext-down
 make prod-ext-logs
 ```
 
+### Fast incremental redeploys (one service at a time)
+
+`make prod-ext` rebuilds and recreates the entire external-profile stack. Once
+the stack is up, a change to just the API server or just the orchestrator does
+not need a whole-stack rebuild — use the per-service targets:
+
+```bash
+make deploy-server        # rebuild + restart only the API server
+make deploy-orchestrator  # rebuild + restart only the orchestrator
+```
+
+Each rebuilds and recreates a single service against the already-running
+PostgreSQL, Redis, and NATS, which are left untouched. The Rust images use
+`cargo-chef` with BuildKit cache mounts, so an unchanged-dependency build only
+recompiles application code. The frontend is independent of these targets — it
+ships as a separate `vite build` to its web root with no backend rebuild.
+
 ## Frontend Deployment
 
 For `make prod`, Compose builds and runs the `agentforge-frontend` artifact

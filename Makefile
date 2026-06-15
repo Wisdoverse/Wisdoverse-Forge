@@ -23,6 +23,11 @@ COMPOSE_ENV_FILE ?= docker/.env
 COMPOSE := docker compose --env-file $(COMPOSE_ENV_FILE) -f docker/compose.yml
 SELFHOST_ENV := $(if $(HTTP_PORT),HTTP_PORT="$(HTTP_PORT)") $(if $(HTTPS_PORT),HTTPS_PORT="$(HTTPS_PORT)")
 
+# Parallelism for full-stack builds. Defaults to 1 (serial) so resource-
+# constrained hosts do not OOM on simultaneous Rust compiles; override with
+# e.g. `make prod-ext COMPOSE_PARALLEL_LIMIT=4` on a host with the headroom.
+COMPOSE_PARALLEL_LIMIT ?= 1
+
 # China mirror support: loads .env.local if present (create via: cp .env.example.cn .env.local)
 -include .env.local
 
@@ -106,6 +111,18 @@ dev: setup ## Start development environment with Rust backend
 dev-d: setup ## Start development environment (detached)
 	$(COMPOSE) -f docker/compose.dev.yml --profile dev up -d --build
 
+# Fast inner loop: run only the infra (PostgreSQL/Redis/NATS) in Docker and run
+# the Rust backend locally with `make backend-watch`, so a code change recompiles
+# in seconds instead of rebuilding a Docker image. The services publish to
+# localhost (db 5432, redis 6379, nats 4222).
+.PHONY: dev-infra
+dev-infra: setup ## Start only the dev infra (PostgreSQL/Redis/NATS) for a local backend
+	$(COMPOSE) -f docker/compose.dev.yml --profile dev up -d db redis nats
+
+.PHONY: backend-watch
+backend-watch: ## Auto-rebuild + rerun the API server on change (needs: cargo install cargo-watch; run `make dev-infra` first)
+	cd rust && cargo watch -x 'run --bin agentforge-server'
+
 .PHONY: dev-tools
 dev-tools: setup ## Start development with admin tools (Adminer, Redis Commander)
 	$(COMPOSE) -f docker/compose.dev.yml --profile dev --profile tools up --build
@@ -160,7 +177,21 @@ prod-logs: ## View production logs
 
 .PHONY: prod-ext
 prod-ext: setup-external ## Start production with external services
-	COMPOSE_PARALLEL_LIMIT=1 $(COMPOSE) -f docker/compose.external.yml --profile external up -d --build --remove-orphans
+	COMPOSE_PARALLEL_LIMIT=$(COMPOSE_PARALLEL_LIMIT) $(COMPOSE) -f docker/compose.external.yml --profile external up -d --build --remove-orphans
+
+# Per-service deploys for the external profile. Rebuild + recreate ONE service
+# instead of the whole stack, so a server-only change does not re-run the
+# orchestrator/frontend build stages. The Rust images use cargo-chef + cache
+# mounts, so an unchanged-dependency build only recompiles app code. Use these
+# for incremental redeploys once `make prod-ext` has stood the stack up once;
+# they reuse the running PostgreSQL/Redis/NATS untouched.
+.PHONY: deploy-server
+deploy-server: setup-external ## Rebuild + restart only the API server (fast incremental deploy)
+	$(COMPOSE) -f docker/compose.external.yml --profile external up -d --build agentforge-server
+
+.PHONY: deploy-orchestrator
+deploy-orchestrator: setup-external ## Rebuild + restart only the orchestrator (fast incremental deploy)
+	$(COMPOSE) -f docker/compose.external.yml --profile external up -d --build agentforge-orchestrator
 
 .PHONY: prod-ext-down
 prod-ext-down: ## Stop production with external services
@@ -300,6 +331,36 @@ ensure-agent-base: ## Ensure base image exists (pull or build)
 	@docker image inspect agentforge-agent-base:latest >/dev/null 2>&1 \
 		|| { echo "Base image not found locally, building..."; $(MAKE) build-agent-base; }
 
+.PHONY: build-clone
+build-clone: ## Build ephemeral clone image (minimal git-only project-clone container)
+	$(eval _UID := $(or $(CLAUDE_UID),$(shell grep -m1 '^CLAUDE_UID=' docker/.env 2>/dev/null | cut -d= -f2),1011))
+	$(eval _GID := $(or $(CLAUDE_GID),$(shell grep -m1 '^CLAUDE_GID=' docker/.env 2>/dev/null | cut -d= -f2),1012))
+	docker build $(DOCKER_CN_ARGS) -t agentforge-clone:latest \
+		-f docker/Dockerfile.clone \
+		--build-arg AGENT_UID=$(_UID) \
+		--build-arg AGENT_GID=$(_GID) .
+
+# Scripts linted by the clone shellcheck gate. Scoped to the project-git-clone
+# scripts (M3) plus agent-entrypoint.sh, which is now shellcheck-clean. The rest
+# of the repo's pre-existing scripts are intentionally OUT of scope here.
+SHELLCHECK_CLONE_SCRIPTS := \
+	docker/scripts/clone-entrypoint.sh \
+	docker/scripts/lib/git-credentials.sh \
+	docker/scripts/agent-entrypoint.sh
+
+.PHONY: shellcheck-clone
+shellcheck-clone: ## Lint the project-git-clone shell scripts with shellcheck (local binary or koalaman/shellcheck image)
+	@if command -v shellcheck >/dev/null 2>&1; then \
+		echo "shellcheck (local): $(SHELLCHECK_CLONE_SCRIPTS)"; \
+		shellcheck -x $(SHELLCHECK_CLONE_SCRIPTS); \
+	elif command -v docker >/dev/null 2>&1; then \
+		echo "shellcheck (koalaman/shellcheck:stable): $(SHELLCHECK_CLONE_SCRIPTS)"; \
+		docker run --rm -v "$$PWD:/mnt" -w /mnt koalaman/shellcheck:stable -x $(SHELLCHECK_CLONE_SCRIPTS); \
+	else \
+		echo "ERROR: neither shellcheck nor docker is available to run the clone shellcheck gate" >&2; \
+		exit 1; \
+	fi
+
 .PHONY: build-agent
 build-agent: ensure-agent-base ## Build single CLI agent image (default: claude)
 	$(eval _TOOL := $(or $(CLI_TOOL),claude))
@@ -333,6 +394,8 @@ build-agent-all: ensure-agent-base ## Build agent images for all CLI tools with 
 		docker tag agentforge-agent:$$tool agentforge-agent-$$tool:latest 2>/dev/null || true; \
 	done
 	@docker tag agentforge-agent:claude agentforge-agent:latest 2>/dev/null || true
+	@echo "=== Building agentforge-clone (project git-clone image) ==="
+	@$(MAKE) build-clone
 	@$(MAKE) sync-env
 
 # =============================================================================

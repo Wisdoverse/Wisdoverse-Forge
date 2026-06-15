@@ -1106,6 +1106,7 @@ mod tests {
             host: "0.0.0.0".to_string(),
             database_url: "postgres://localhost/test".to_string(),
             redis_url: None,
+            presence_redis_enabled: false,
             nats_url: None,
             nats_agent_url: None,
             nats_container_url: None,
@@ -1156,6 +1157,10 @@ mod tests {
             cli_image_prune_enabled: false,
             cli_image_claude_auto_build: false,
             cli_image_npm_registry: None,
+            project_clone_worker_enabled: false,
+            project_clone_image: None,
+            project_clone_secret_root: None,
+            project_clone_timeout_secs: 600,
         };
         let client = agentforge_infra::RedisClient::new(&cfg).await;
         let store = StateStore::Redis(Arc::new(RwLock::new(client)));

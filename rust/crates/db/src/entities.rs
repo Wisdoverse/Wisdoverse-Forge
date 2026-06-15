@@ -180,9 +180,68 @@ pub struct Project {
     pub workspace_id: WorkspaceId,
     pub name: String,
     pub repository_url: Option<String>,
+    /// On-disk directory name for this project under the workspace projects
+    /// root. Backfilled from `slug`; unique per `(workspace_id, …)` among live
+    /// projects.
+    pub workspace_dir_name: String,
+    /// Coarse clone lifecycle marker: `none`, `queued`, `cloning`, `ready`, or
+    /// `failed`. `none` means the project has no associated git clone.
+    pub clone_status: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
+}
+
+/// A single git-clone attempt for a project. One row per attempt; retries
+/// increment `attempt`. Holds the runtime, worker-lease, and error detail that
+/// the clone worker and reconciler own. Created in milestone M0 (schema only) —
+/// no business logic reads or writes this table yet.
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct ProjectCloneAttempt {
+    pub id: Uuid,
+    pub organization_id: OrgId,
+    pub workspace_id: WorkspaceId,
+    pub project_id: ProjectId,
+    pub attempt: i32,
+    pub repository_url: String,
+    pub provider: Option<String>,
+    /// Which `git_credentials` row the worker used (never the secret). Internal
+    /// forensic detail — `#[serde(skip_serializing)]` so a future direct
+    /// serialization of this row can never leak which credential was used. The
+    /// API/UI projection is `CloneSummary`, which omits this entirely.
+    #[serde(skip_serializing)]
+    pub credential_id: Option<Uuid>,
+    pub status: String,
+    pub resolved_branch: Option<String>,
+    pub head_sha: Option<String>,
+    /// Deterministic clone container name — operational/diagnostic only. Skipped
+    /// from serialization (defense-in-depth; the projection never carries it).
+    #[serde(skip_serializing)]
+    pub container_id: Option<String>,
+    /// The worker that claimed this attempt — internal lease bookkeeping. Skipped.
+    #[serde(skip_serializing)]
+    pub worker_id: Option<String>,
+    /// The `job_queue` row that drove this attempt — internal transport id. Skipped.
+    #[serde(skip_serializing)]
+    pub job_id: Option<Uuid>,
+    /// Worker-lease expiry — internal recovery bookkeeping. Skipped.
+    #[serde(skip_serializing)]
+    pub lease_expires_at: Option<DateTime<Utc>>,
+    pub error_class: Option<String>,
+    pub error_message: Option<String>,
+    pub bytes_cloned: Option<i64>,
+    pub duration_ms: Option<i64>,
+    /// Set the instant the cloned tree is renamed live under the projects root,
+    /// before the DB finalize-to-`ready` commits. A non-NULL value means the
+    /// on-disk publish is irreversible, so a crash/lost-race between the rename
+    /// and the finalize is recovered by forcing the attempt to `ready` (the
+    /// rename is the source of truth) rather than re-cloning into a refused
+    /// already-existing target. See the M5 worker's `finish_ready`.
+    pub materialized_at: Option<DateTime<Utc>>,
+    pub started_at: Option<DateTime<Utc>>,
+    pub finished_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 /// A team within an organization.
@@ -1091,6 +1150,8 @@ mod tests {
             workspace_id: ws_id,
             name: "Wisdoverse Forge".to_string(),
             repository_url: Some("https://github.com/Wisdoverse/Wisdoverse-Forge".to_string()),
+            workspace_dir_name: "wisdoverse-forge".to_string(),
+            clone_status: "none".to_string(),
             created_at: Utc::now(),
             updated_at: Utc::now(),
             deleted_at: None,

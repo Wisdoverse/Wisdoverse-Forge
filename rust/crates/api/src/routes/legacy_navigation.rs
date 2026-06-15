@@ -50,6 +50,10 @@ struct LegacyProjectCreateRequest {
     slug: Option<String>,
     color: Option<String>,
     description: Option<String>,
+    /// Optional git repository to clone into the new project's workspace dir.
+    /// When present, the create transaction also enqueues the first clone
+    /// attempt via the transactional outbox (M2).
+    repository_url: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -147,7 +151,7 @@ async fn create_project(
     Json(req): Json<LegacyProjectCreateRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     let project = make_service(&state)
-        .create_project(&auth.scope, team_id, req.name, req.slug, req.color, req.description)
+        .create_project(&auth.scope, team_id, req.name, req.slug, req.color, req.description, req.repository_url)
         .await?;
     Ok(Json(legacy_project_response(project)))
 }
@@ -285,6 +289,8 @@ pub mod test_only {
             description: String::new(),
             can_manage: true,
             can_delete: true,
+            clone_status: "none".to_string(),
+            clone: None,
         })
         .expect("LegacyProject serializes")
     }
@@ -318,5 +324,72 @@ pub mod test_only {
             .map(LegacyProject::from)
             .map(|row| serde_json::to_value(row).expect("LegacyProject serializes"))
             .collect())
+    }
+
+    /// Drive the ACTIVE legacy-navigation list surface through its SERVICE (the
+    /// `/teams/:teamId/projects` GET path) so an M6 integration test can verify
+    /// the projection the frontend actually receives — including the per-project
+    /// `CloneSummary` the service attaches (the row-adapter-only helper above
+    /// does not). Resolves the team's org from the caller, so a non-member caller
+    /// errors (the tenant boundary) rather than leaking another team's projects.
+    pub async fn list_projects_via_service_for_test(
+        pool: &PgPool,
+        user_id: Uuid,
+        team_id: Uuid,
+    ) -> AppResult<Vec<serde_json::Value>> {
+        let repo = LegacyNavigationRepository::new(pool.clone());
+        let org_id = repo.resolve_team_org_for_test(user_id, team_id).await?;
+        let scope = tenant_scope_for_ids(org_id, user_id);
+        let service = crate::services::legacy_navigation::LegacyNavigationService::from_pool(pool.clone());
+        let projects = service.list_projects(&scope, team_id).await?;
+        Ok(projects
+            .into_iter()
+            .map(|project| serde_json::to_value(project).expect("LegacyProject serializes"))
+            .collect())
+    }
+
+    /// Drive the active legacy-navigation create surface through its service so
+    /// integration tests can exercise the transactional create path
+    /// (`/teams/:teamId/projects`) without an HTTP client. Returns the project id.
+    pub async fn create_project_canonical_for_test(
+        pool: &PgPool,
+        user_id: Uuid,
+        team_id: Uuid,
+        name: &str,
+        repository_url: Option<&str>,
+    ) -> AppResult<Uuid> {
+        create_project_with_slug_for_test(pool, user_id, team_id, name, None, repository_url).await
+    }
+
+    /// Like [`create_project_canonical_for_test`] but lets a test pass an
+    /// explicit caller `slug`, so it can prove the legacy create path DISCARDS a
+    /// hostile caller slug (e.g. `../../etc`): the on-disk `workspace_dir_name` is
+    /// derived from the NAME alone, never from the caller's slug. Returns the new
+    /// project id; the test reads back `workspace_dir_name` to assert the slug had
+    /// no influence.
+    pub async fn create_project_with_slug_for_test(
+        pool: &PgPool,
+        user_id: Uuid,
+        team_id: Uuid,
+        name: &str,
+        slug: Option<&str>,
+        repository_url: Option<&str>,
+    ) -> AppResult<Uuid> {
+        let repo = LegacyNavigationRepository::new(pool.clone());
+        let org_id = repo.resolve_team_org_for_test(user_id, team_id).await?;
+        let scope = tenant_scope_for_ids(org_id, user_id);
+        let service = crate::services::legacy_navigation::LegacyNavigationService::from_pool(pool.clone());
+        let project = service
+            .create_project(
+                &scope,
+                team_id,
+                name.to_string(),
+                slug.map(|s| s.to_string()),
+                None,
+                None,
+                repository_url.map(|u| u.to_string()),
+            )
+            .await?;
+        Ok(project.id)
     }
 }

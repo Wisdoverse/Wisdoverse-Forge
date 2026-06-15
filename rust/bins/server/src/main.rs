@@ -7,6 +7,7 @@ mod streams;
 
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
 use agentforge_api::health::ContextFeatureFlags;
 use agentforge_api::repositories::credential::cli::CliCredentialRepository;
@@ -20,7 +21,8 @@ use agentforge_db::{create_pool, run_migrations};
 use agentforge_infra::{NatsClient, ObjectStorageClient, RedisClient};
 use agentforge_jobs::{
     DependencyReconcileWorker, EventStreamWorker, OrchestrationMetricsWorker, OrchestrationOutboxPublisher,
-    OrchestrationResultWorker, ParticipantLivenessWorker, SqlxAgentOwnerLookup, SqlxCredentialHmacSecretLookup,
+    OrchestrationResultWorker, PARTICIPANT_DEFAULT_STALE_AFTER, PARTICIPANT_DEFAULT_STALE_SWEEP_INTERVAL,
+    ParticipantLivenessWorker, PresenceBackend, SqlxAgentOwnerLookup, SqlxCredentialHmacSecretLookup,
     SqlxHmacSecretLookup, SqlxNatsConnectPasswordLookup, SqlxParticipantLookup, SqlxTaskWriter,
 };
 use anyhow::{Result, anyhow};
@@ -53,6 +55,24 @@ fn env_flag(name: &str, default: bool) -> Result<bool> {
             "0" | "false" | "no" | "off" => Ok(false),
             _ => Err(anyhow!("{name} must be boolean when set (true/false/1/0/yes/no/on/off)")),
         },
+        Err(_) => Ok(default),
+    }
+}
+
+/// Parse a positive-seconds env var, falling back to `default`. Rejects 0 and
+/// non-numeric values so a typo cannot silently disable a timer.
+fn env_secs(name: &str, default: u64) -> Result<u64> {
+    match std::env::var(name) {
+        Ok(value) => {
+            let secs: u64 = value
+                .trim()
+                .parse()
+                .map_err(|_| anyhow!("{name} must be a positive integer number of seconds when set"))?;
+            if secs == 0 {
+                return Err(anyhow!("{name} must be greater than 0"));
+            }
+            Ok(secs)
+        }
         Err(_) => Ok(default),
     }
 }
@@ -109,6 +129,7 @@ async fn main() -> Result<()> {
     agentforge_api::observability::register_http_metrics();
     agentforge_api::services::cli_auth_proxy::register_cli_auth_proxy_metrics();
     agentforge_api::services::usage_analytics::register_usage_analytics_metrics();
+    agentforge_api::services::project_clone_worker::register_metrics();
 
     // 3. Create database pool.
     let pool = create_pool(&config).await?;
@@ -297,8 +318,33 @@ async fn main() -> Result<()> {
     // participants. This closes the "running sidecar but no schedulable
     // participant" gap without silently reassigning in-flight work.
     let participant_liveness_handle = if orchestration_liveness_enabled {
+        // Tunable without a rebuild. The stale window must be a small multiple of
+        // the sidecar heartbeat interval (default 30s -> 3 missed beats = 90s);
+        // the Redis presence TTL and the offline sweep share this single value.
+        let stale_after =
+            Duration::from_secs(env_secs("PARTICIPANT_STALE_AFTER_SECS", PARTICIPANT_DEFAULT_STALE_AFTER.as_secs())?);
+        let sweep_interval = Duration::from_secs(env_secs(
+            "PARTICIPANT_SWEEP_INTERVAL_SECS",
+            PARTICIPANT_DEFAULT_STALE_SWEEP_INTERVAL.as_secs(),
+        )?);
+        // ADR 0008 Phase 2: serve liveness from Redis when PRESENCE_REDIS_ENABLED
+        // is set and Redis is connected; otherwise (and on any Redis problem) the
+        // backend degrades to the Phase 1 PostgreSQL path. The TTL is stale_after,
+        // matching the sweep, so the two backends agree on the offline window.
+        let presence = PresenceBackend::new(Some(redis.clone()), config.presence_redis_enabled, stale_after);
+        if config.presence_redis_enabled {
+            tracing::info!("ADR 0008 Phase 2: Redis-backed agent presence enabled");
+        }
+        tracing::info!(
+            stale_after_secs = stale_after.as_secs(),
+            sweep_interval_secs = sweep_interval.as_secs(),
+            "participant liveness timers resolved"
+        );
         nats.client().cloned().map(|client| {
-            let worker = ParticipantLivenessWorker::new(client, pool.clone());
+            let worker = ParticipantLivenessWorker::new(client, pool.clone())
+                .with_stale_after(stale_after)
+                .with_sweep_interval(sweep_interval)
+                .with_presence(presence);
             let worker_shutdown = shutdown_rx.clone();
             tokio::spawn(async move { worker.run(worker_shutdown).await })
         })
@@ -468,6 +514,69 @@ async fn main() -> Result<()> {
         None
     };
 
+    // Project-clone worker + reconciler (project-git-clone, M5). Dequeues
+    // `project_clone` jobs (relayed from the transactional outbox), runs the
+    // ephemeral `agentforge-clone` container, owns the attempt status machine,
+    // performs the atomic same-filesystem rename into the project directory, and
+    // reconciles crashed-worker / lost-enqueue attempts. Requires Docker; skipped
+    // (with a clear log) when no daemon is available or the flag is off.
+    let project_clone_worker_handle = if config.project_clone_worker_enabled {
+        match docker.clone() {
+            Some(client) => {
+                let backend = agentforge_platform::clone_runtime::LiveCloneDockerBackend::new(client);
+                // The sweep ceiling = clone timeout + generous slack so a healthy
+                // in-progress large clone is never reaped early.
+                let max_clone_age =
+                    std::time::Duration::from_secs(config.project_clone_timeout_secs.saturating_add(300));
+                let runtime = agentforge_platform::CloneRuntime::new(backend, max_clone_age);
+                let runner = Arc::new(agentforge_api::services::project_clone_worker::LiveCloneRunner::new(runtime));
+
+                let credentials = Arc::new(agentforge_api::services::git_credential::GitCredentialService::from_pool(
+                    pool.clone(),
+                    encryption_key,
+                ));
+
+                let worker_config = agentforge_api::services::project_clone_worker::CloneWorkerConfig {
+                    image: config.project_clone_image.clone().unwrap_or_else(|| {
+                        agentforge_api::services::project_clone_worker::DEFAULT_CLONE_IMAGE.to_string()
+                    }),
+                    workspace_root: std::env::var("AGENTFORGE_WORKSPACE_ROOT")
+                        .unwrap_or_else(|_| "/data/agentforge/workspaces".to_string()),
+                    secret_root: config
+                        .project_clone_secret_root
+                        .as_deref()
+                        .map(PathBuf::from)
+                        .unwrap_or_else(|| PathBuf::from("/tmp/agentforge/clone-secrets")),
+                    timeout: std::time::Duration::from_secs(config.project_clone_timeout_secs),
+                    lease_ttl: std::time::Duration::from_secs(config.project_clone_timeout_secs.saturating_add(300)),
+                    // Renew the lease well within its TTL (≈1/3) so a healthy long
+                    // clone is never recovered out from under a live worker.
+                    heartbeat_interval: std::time::Duration::from_secs(
+                        config.project_clone_timeout_secs.saturating_add(300).max(3) / 3,
+                    ),
+                    ..Default::default()
+                };
+
+                let worker = agentforge_api::services::project_clone_worker::ProjectCloneWorker::new(
+                    pool.clone(),
+                    credentials,
+                    runner,
+                    worker_config,
+                )
+                .with_realtime(nats.client().cloned());
+                let worker_shutdown = shutdown_rx.clone();
+                Some(tokio::spawn(async move { worker.run(worker_shutdown).await }))
+            }
+            None => {
+                tracing::warn!("project_clone worker enabled but Docker unavailable; project cloning disabled");
+                None
+            }
+        }
+    } else {
+        tracing::info!("project_clone worker disabled (flag off)");
+        None
+    };
+
     let cli_auth_memory_store = Arc::new(agentforge_api::services::cli_auth_proxy::MemoryStateStore::new());
 
     let llm_factory = Arc::new(agentforge_llm::LlmProviderFactory::new(config.ollama_base_url.clone()));
@@ -571,6 +680,12 @@ async fn main() -> Result<()> {
         match handle.await {
             Ok(()) => {}
             Err(err) => tracing::warn!(error = %err, "participant liveness worker join failed"),
+        }
+    }
+    if let Some(handle) = project_clone_worker_handle {
+        match handle.await {
+            Ok(()) => {}
+            Err(err) => tracing::warn!(error = %err, "project_clone worker join failed"),
         }
     }
     if let Some(handle) = auth_callout_handle {

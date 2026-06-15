@@ -9,6 +9,42 @@
 # AGENTFORGE_SERVER_URL is still used for other server communication.
 
 # =============================================================================
+# Shared git credential / host / hardening library
+# =============================================================================
+# The GitLab token + SSH/known_hosts + git-hardening logic lives in a sourceable
+# library (also reused by the ephemeral agentforge-clone image). Sourcing only
+# DEFINES functions; nothing runs until the call sites below. This script has no
+# `set -e`, so a missing OR BROKEN library must not abort the CLI startup — but it
+# MUST be loud, not silent. A syntax error mid-library returns non-zero from the
+# `source`, bash continues, and every function declared AFTER the error is left
+# UNDEFINED — at which point the per-call-site `command -v` guards below would
+# SILENTLY skip credential injection (leaving GITLAB_TOKEN in the env as a leak
+# vector, plus no SSH/known_hosts/hardening) for ALL agent images. To prevent that
+# silent downgrade we (1) capture the source failure and (2) assert each expected
+# function is defined, emitting a single loud ERROR naming any that are missing.
+GIT_CREDENTIALS_LIB="/usr/local/lib/agentforge/git-credentials.sh"
+if [ -f "$GIT_CREDENTIALS_LIB" ]; then
+  # shellcheck source=lib/git-credentials.sh disable=SC1091
+  . "$GIT_CREDENTIALS_LIB" \
+    || echo "agent-entrypoint: WARNING: git credential library failed to load (source returned non-zero) — git platform credentials will NOT be configured"
+
+  # The library WAS present; assert every function it must provide is defined.
+  # A missing function here means the library is broken (e.g. a syntax error
+  # truncated it mid-file). Name the gaps loudly so an operator sees that git
+  # setup is INCOMPLETE rather than silently skipped by the `command -v` guards.
+  _gitlib_missing=""
+  for _fn in configure_git_credentials configure_known_hosts configure_custom_git_hosts configure_git_hardening; do
+    command -v "$_fn" >/dev/null 2>&1 || _gitlib_missing="${_gitlib_missing} ${_fn}"
+  done
+  if [ -n "$_gitlib_missing" ]; then
+    echo "agent-entrypoint: ERROR: git credential library is broken; git setup is INCOMPLETE — missing function(s):${_gitlib_missing}"
+  fi
+  unset _gitlib_missing _fn
+else
+  echo "agent-entrypoint: WARNING: git credential library not found at $GIT_CREDENTIALS_LIB — git platform setup will be skipped"
+fi
+
+# =============================================================================
 # Resolve CLI tool configuration
 # =============================================================================
 # AGENTFORGE_CLI_TOOL is set by:
@@ -271,28 +307,10 @@ fi
 #   - GitLab: GITLAB_TOKEN/GITLAB_HOST. Convert these into the config file that
 #     glab expects, then clear the raw env vars below.
 
-# glab CLI: requires ~/.config/glab-cli/config.yml
-if [ -n "${GITLAB_TOKEN:-}" ]; then
-  GLAB_CONFIG_DIR="/home/agent/.config/glab-cli"
-  GLAB_HOST="${GITLAB_HOST:-gitlab.com}"
-
-  if mkdir -p "$GLAB_CONFIG_DIR"; then
-    cat > "$GLAB_CONFIG_DIR/config.yml" <<GLAB_EOF
-hosts:
-  ${GLAB_HOST}:
-    token: ${GITLAB_TOKEN}
-    api_host: ${GLAB_HOST}
-    git_protocol: ssh
-GLAB_EOF
-    chmod 600 "$GLAB_CONFIG_DIR/config.yml"
-    echo "agent-entrypoint: Configured glab CLI for host: $GLAB_HOST"
-  else
-    echo "agent-entrypoint: WARNING: Failed to create $GLAB_CONFIG_DIR — glab may prompt for auth"
-  fi
-
-  # Clear token from env to prevent leakage via printenv / /proc/*/environ
-  unset GITLAB_TOKEN
-  unset GITLAB_HOST
+# glab CLI: requires ~/.config/glab-cli/config.yml.
+# Factored into the shared git-credentials library (configure_git_credentials).
+if command -v configure_git_credentials >/dev/null 2>&1; then
+  configure_git_credentials
 fi
 
 # =============================================================================
@@ -353,131 +371,20 @@ fi
 # The host's SSH keys directory is mounted at /host-ssh-keys (read-only).
 # We copy keys to ~/.ssh/ so git can authenticate with private repositories.
 
-SSH_MOUNT="/host-ssh-keys"
-if [ -d "$SSH_MOUNT" ]; then
-  echo "agent-entrypoint: Found SSH keys mount at $SSH_MOUNT"
-
-  SSH_DIR="$HOME/.ssh"
-  if mkdir -p "$SSH_DIR" && chmod 700 "$SSH_DIR"; then
-    copied=0
-    for f in "$SSH_MOUNT"/id_*; do
-      [ -f "$f" ] || continue
-      basename_f="$(basename "$f")"
-      if cp "$f" "$SSH_DIR/$basename_f"; then
-        # Private keys get 600, public keys and config get 644
-        case "$basename_f" in
-          *.pub) chmod 644 "$SSH_DIR/$basename_f" ;;
-          *)     chmod 600 "$SSH_DIR/$basename_f" ;;
-        esac
-        copied=$((copied + 1))
-      else
-        echo "agent-entrypoint: WARNING: Failed to copy $basename_f to $SSH_DIR"
-      fi
-    done
-
-    # Copy config and known_hosts
-    for f in config known_hosts; do
-      if [ -f "$SSH_MOUNT/$f" ]; then
-        if cp "$SSH_MOUNT/$f" "$SSH_DIR/$f"; then
-          chmod 644 "$SSH_DIR/$f"
-        else
-          echo "agent-entrypoint: WARNING: Failed to copy $f to $SSH_DIR"
-        fi
-      fi
-    done
-
-    if [ "$copied" -gt 0 ]; then
-      echo "agent-entrypoint: Copied $copied SSH key file(s) to $SSH_DIR"
-      # Configure git to use SSH for common providers
-      git config --global core.sshCommand "ssh -F $SSH_DIR/config" 2>/dev/null || true
-
-      # Configure glab CLI to prefer SSH protocol for GitLab operations
-      if command -v glab &> /dev/null; then
-        if git config --global url."git@gitlab.com:".insteadOf "https://gitlab.com/" 2>/dev/null; then
-          echo "agent-entrypoint: Configured git to use SSH for GitLab (glab CLI)"
-        fi
-        # Configure additional self-hosted GitLab SSH rewrites via SELF_HOSTED_GITLAB_SSH
-        # Format: "ssh.gitlab.example.com=https://gitlab.example.com/" (comma-separated for multiple)
-        if [ -n "${SELF_HOSTED_GITLAB_SSH:-}" ]; then
-          rewrite_count=0
-          IFS=',' read -ra REWRITES <<< "$SELF_HOSTED_GITLAB_SSH"
-          for rewrite in "${REWRITES[@]}"; do
-            # Validate format: must contain exactly one '='
-            if [[ "$rewrite" != *"="* ]]; then
-              echo "agent-entrypoint: WARNING: Skipping malformed SELF_HOSTED_GITLAB_SSH entry (missing '='): $rewrite"
-              continue
-            fi
-            ssh_host="${rewrite%%=*}"
-            https_url="${rewrite##*=}"
-            if [ -z "$ssh_host" ] || [ -z "$https_url" ]; then
-              echo "agent-entrypoint: WARNING: Skipping incomplete SELF_HOSTED_GITLAB_SSH entry: $rewrite"
-              continue
-            fi
-            if git config --global url."git@${ssh_host}:".insteadOf "$https_url" 2>/dev/null; then
-              echo "agent-entrypoint: Configured SSH rewrite for $ssh_host → $https_url"
-              rewrite_count=$((rewrite_count + 1))
-            else
-              echo "agent-entrypoint: WARNING: Failed to configure SSH rewrite for $ssh_host"
-            fi
-          done
-          echo "agent-entrypoint: Configured $rewrite_count SSH rewrite(s) total"
-        fi
-      fi
-
-      # Note: we do NOT set url."git@github.com:".insteadOf for GitHub.
-      # Users' git clone URLs should be used as-is — HTTPS stays HTTPS, SSH stays SSH.
-      # The gh CLI handles its own auth via tokens and doesn't need insteadOf.
-
-      # Scan custom git hosts for known_hosts (AGENTFORGE_CUSTOM_GIT_HOSTS=host1,host2)
-      if [ -n "${AGENTFORGE_CUSTOM_GIT_HOSTS:-}" ]; then
-        IFS=',' read -ra CUSTOM_HOSTS <<< "$AGENTFORGE_CUSTOM_GIT_HOSTS"
-        for host in "${CUSTOM_HOSTS[@]}"; do
-          host=$(echo "$host" | xargs)  # trim whitespace
-          # Validate hostname: alphanumeric, dots, hyphens only (prevent command injection)
-          if [ -z "$host" ] || ! echo "$host" | grep -qE '^[a-zA-Z0-9][a-zA-Z0-9._-]+$'; then
-            echo "agent-entrypoint: WARNING: Skipping invalid custom git host: '$host'"
-            continue
-          fi
-          if ! grep -qF "$host " "$SSH_DIR/known_hosts" 2>/dev/null; then
-            if ssh-keyscan -t ed25519,ecdsa "$host" >> "$SSH_DIR/known_hosts" 2>&1; then
-              echo "agent-entrypoint: Added host keys for custom git host: $host"
-            else
-              echo "agent-entrypoint: WARNING: Failed to scan host keys for: $host"
-            fi
-          fi
-        done
-      fi
-    else
-      echo "agent-entrypoint: WARNING: SSH mount found but no key files copied"
-    fi
-  else
-    echo "agent-entrypoint: ERROR: Failed to create $SSH_DIR — skipping SSH key setup"
-  fi
-else
-  echo "agent-entrypoint: No SSH key mount found at $SSH_MOUNT"
+# Factored into the shared git-credentials library: copies host SSH keys, sets
+# the glab SSH insteadOf rewrites + SELF_HOSTED_GITLAB_SSH, and scans
+# AGENTFORGE_CUSTOM_GIT_HOSTS into known_hosts. Reads the same env vars as before.
+if command -v configure_known_hosts >/dev/null 2>&1; then
+  configure_known_hosts "/host-ssh-keys"
 fi
 
 # =============================================================================
 # Git hardening
 # =============================================================================
-# Limit diff output to prevent memory/PID exhaustion from large repos
-git config --global diff.renameLimit 200
-git config --global core.bigFileThreshold 5m
-# Docker volume mounts lose POSIX permission bits (everything becomes 755).
-# Without this, git sees every file as modified, spawning hundreds of
-# git+git-lfs processes that exhaust the container's memory/PID limits.
-git config --global core.fileMode false
-
-# Conditionally disable git-lfs filter to prevent runaway I/O.
-# LFS pointers remain as-is; agents work with source code, not large binaries.
-# Controlled by resource profile: AGENTFORGE_GIT_LFS_SKIP=true (default) or false.
-if [ "${AGENTFORGE_GIT_LFS_SKIP}" != "false" ]; then
-    git config --global filter.lfs.smudge "git-lfs smudge --skip -- %f"
-    git config --global filter.lfs.process "git-lfs filter-process --skip"
-    git config --global filter.lfs.required false
-    echo "agent-entrypoint: git-lfs disabled (skip mode)"
-else
-    echo "agent-entrypoint: git-lfs enabled"
+# Diff/rename/bigfile limits, core.fileMode false, and conditional git-lfs skip.
+# Factored into the shared git-credentials library (configure_git_hardening).
+if command -v configure_git_hardening >/dev/null 2>&1; then
+  configure_git_hardening
 fi
 
 # =========================================================================
@@ -487,11 +394,19 @@ fi
 SKILLS_GLOBAL="/home/agent/.agentforge/skills/global"
 SKILLS_PROJECT="/home/agent/.agentforge/skills/project"
 
-# Determine target skills directory based on CLI tool
-case "$AGENTFORGE_CLI_TOOL" in
+# Determine target skills directory based on CLI tool.
+# Each CLI discovers skills from a different path:
+#   claude   ~/.claude/skills/<name>/SKILL.md
+#   codex    ~/.agents/skills/<name>/SKILL.md   (user-scoped; codex also reads
+#            repo .agents/skills and /etc/codex/skills — NOT ~/.codex/skills)
+#   opencode ~/.config/opencode/skills
+#   gemini   ~/.gemini/skills
+# Dispatch on the normalized $CLI_TOOL (validated by the FATAL-unknown guard
+# above), not the raw env var, so this stays in lockstep with the harness map.
+case "$CLI_TOOL" in
   claude)   SKILLS_TARGET="/home/agent/.claude/skills" ;;
   opencode) SKILLS_TARGET="/home/agent/.config/opencode/skills" ;;
-  codex)    SKILLS_TARGET="/home/agent/.codex/skills" ;;
+  codex)    SKILLS_TARGET="/home/agent/.agents/skills" ;;
   gemini)   SKILLS_TARGET="/home/agent/.gemini/skills" ;;
   *)        SKILLS_TARGET="/home/agent/.claude/skills" ;;
 esac
@@ -517,37 +432,151 @@ if [ -d "$SKILLS_PROJECT" ]; then
 fi
 
 # =============================================================================
-# Agent harness: inject CLAUDE.md + slash commands into workspace
+# Agent harness: inject behavioral guidelines + reusable commands per CLI tool
 # =============================================================================
-# The harness provides behavioral guidelines and reusable commands for agents.
-# CLAUDE.md is copied to the workspace root (if no project CLAUDE.md exists).
-# Commands are symlinked into the CLI's commands directory.
+# The harness ships a generic guideline file (CLAUDE.md) plus reusable slash
+# commands at /home/agent/.agentforge/harness/. Each Container CLI loads its
+# global instructions and custom commands from a different path AND a different
+# on-disk format, so map the baked harness onto the active CLI:
+#
+#   CLI       global guideline file          command dir                  format
+#   claude    ~/.claude/CLAUDE.md            ~/.claude/commands/          .md link
+#   codex     ~/.codex/AGENTS.md             ~/.codex/prompts/            .md link
+#   opencode  ~/.config/opencode/AGENTS.md   ~/.config/opencode/commands/ .md link
+#   gemini    ~/.gemini/GEMINI.md            ~/.gemini/commands/          .toml gen
+#
+# Skills are already linked into each CLI's own skills dir above. An unmapped
+# CLI leaves HARNESS_GUIDELINES empty and skips harness injection entirely.
 
 HARNESS_DIR="/home/agent/.agentforge/harness"
+# Marker stamped on generated (non-symlink) command files so a later run can
+# refresh its own output without clobbering a user's same-named file.
+HARNESS_MARKER="# generated-by: agentforge-harness (edit the harness, not this file)"
 
-if [ "$CLI_TOOL" = "claude" ]; then
-  # Inject agent CLAUDE.md as a global-level CLAUDE.md (lowest precedence).
-  # Project-level CLAUDE.md in /workspace takes priority automatically.
-  # Always overwrite — the image-baked version is the source of truth.
-  # On reused home volumes the previous copy would otherwise become stale.
-  GLOBAL_CLAUDE_MD="$HOME/.claude/CLAUDE.md"
+HARNESS_GUIDELINES=""
+HARNESS_COMMANDS=""
+# Command on-disk format: "md" = symlink the harness .md as-is (claude, codex,
+# and opencode all read a markdown body as the command/prompt). "toml" = convert
+# to a gemini TOML command (gemini loads ONLY *.toml with a required `prompt`).
+HARNESS_COMMAND_FORMAT="md"
+case "$CLI_TOOL" in
+  claude)
+    HARNESS_GUIDELINES="$HOME/.claude/CLAUDE.md"
+    HARNESS_COMMANDS="$HOME/.claude/commands"
+    ;;
+  codex)
+    # Codex loads global instructions from ~/.codex/AGENTS.md and treats each
+    # ~/.codex/prompts/<name>.md as a /<name> custom prompt (its slash-command
+    # equivalent).
+    HARNESS_GUIDELINES="$HOME/.codex/AGENTS.md"
+    HARNESS_COMMANDS="$HOME/.codex/prompts"
+    ;;
+  opencode)
+    # opencode reads global instructions from ~/.config/opencode/AGENTS.md and
+    # markdown commands from ~/.config/opencode/commands/<name>.md — the whole
+    # body becomes the prompt; YAML frontmatter is optional.
+    HARNESS_GUIDELINES="$HOME/.config/opencode/AGENTS.md"
+    HARNESS_COMMANDS="$HOME/.config/opencode/commands"
+    ;;
+  gemini)
+    # Gemini reads global instructions from ~/.gemini/GEMINI.md and custom
+    # commands from ~/.gemini/commands/<name>.toml — TOML only, with a required
+    # `prompt` field, so the harness .md bodies must be converted (a symlinked
+    # .md is silently ignored by gemini's **/*.toml command loader).
+    HARNESS_GUIDELINES="$HOME/.gemini/GEMINI.md"
+    HARNESS_COMMANDS="$HOME/.gemini/commands"
+    HARNESS_COMMAND_FORMAT="toml"
+    ;;
+esac
+
+if [ -n "$HARNESS_GUIDELINES" ]; then
+  # Inject the guideline file as the CLI's global-level instructions (lowest
+  # precedence; a project-level file under /workspace still wins). Always
+  # overwrite — the image-baked version is the source of truth, so a reused
+  # home volume cannot keep a stale copy. Best-effort: this script runs without
+  # `set -e`, so log (do not abort) on failure, and only claim success when the
+  # copy actually lands.
   if [ -f "$HARNESS_DIR/CLAUDE.md" ]; then
-    cp "$HARNESS_DIR/CLAUDE.md" "$GLOBAL_CLAUDE_MD"
-    echo "agent-entrypoint: Injected agent harness CLAUDE.md → $GLOBAL_CLAUDE_MD"
+    mkdir -p "$(dirname "$HARNESS_GUIDELINES")" 2>/dev/null
+    if cp "$HARNESS_DIR/CLAUDE.md" "$HARNESS_GUIDELINES" 2>/dev/null; then
+      echo "agent-entrypoint: Injected agent harness guidelines → $HARNESS_GUIDELINES"
+    else
+      echo "agent-entrypoint: WARNING: failed to inject harness guidelines → $HARNESS_GUIDELINES ($CLI_TOOL runs without global instructions)"
+    fi
   fi
 
-  # Inject slash commands
-  COMMANDS_TARGET="$HOME/.claude/commands"
-  if [ -d "$HARNESS_DIR/commands" ]; then
-    mkdir -p "$COMMANDS_TARGET"
+  # Inject slash commands / custom prompts. Never clobber a real user- or
+  # project-provided file of the same name, but always (re)assert our own entry
+  # — including over a stale link or our own previously-generated file left on a
+  # reused home volume. Each write is logged on failure and counted so the
+  # summary line cannot falsely claim success.
+  if [ -n "$HARNESS_COMMANDS" ] && [ -d "$HARNESS_DIR/commands" ]; then
+    mkdir -p "$HARNESS_COMMANDS" 2>/dev/null
+    cmd_ok=0
+    cmd_fail=0
     for cmd_file in "$HARNESS_DIR/commands"/*.md; do
       [ -f "$cmd_file" ] || continue
-      cmd_name=$(basename "$cmd_file")
-      if [ ! -f "$COMMANDS_TARGET/$cmd_name" ]; then
-        ln -sfn "$cmd_file" "$COMMANDS_TARGET/$cmd_name"
+      cmd_name=$(basename "$cmd_file" .md)
+      [ -n "$cmd_name" ] || continue
+      if [ "$HARNESS_COMMAND_FORMAT" = "toml" ]; then
+        cmd_dest="$HARNESS_COMMANDS/$cmd_name.toml"
+        # Refresh our own generated file (first line carries the marker); leave
+        # any user-authored same-named file untouched. Require readability so an
+        # unreadable head|grep (no pipefail here) cannot misclassify the file as
+        # user-authored and skip refreshing our own stale output.
+        if [ -e "$cmd_dest" ] && [ -r "$cmd_dest" ] \
+          && ! head -n 1 "$cmd_dest" | grep -qF "$HARNESS_MARKER"; then
+          continue
+        fi
+        # Gemini loads only TOML commands with a required `prompt`. Sanitize +
+        # escape so ANY harness body yields valid TOML:
+        #   - strip TOML-illegal control bytes (C0 0x00-0x1F except tab/newline,
+        #     and DEL 0x7F) from both the description and the body;
+        #   - description (single-line basic string): escape \ then " then tab —
+        #     order matters, \ first so the \ inserted by the " rule is not
+        #     re-escaped;
+        #   - prompt (multi-line basic string """): escape \ then " so any """/"
+        #     cannot terminate it and a line-ending \ (-> \\) is not read as a
+        #     TOML line-continuation. TOML trims the one newline after the
+        #     opening """; the closing "\n\"\"\"" leaves the prompt = body plus a
+        #     single trailing newline (harmless for a prompt).
+        # Build in a temp file and atomically move into place so a failed or
+        # partial write never leaves an unterminated/invalid command on disk.
+        cmd_desc=$(head -n 1 "$cmd_file" | tr -d '\000-\010\013-\037\177' \
+          | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g')
+        cmd_tmp="$cmd_dest.tmp.$$"
+        if {
+            printf '%s\n' "$HARNESS_MARKER"
+            printf 'description = "%s"\n' "$cmd_desc"
+            printf 'prompt = """\n'
+            tr -d '\000-\010\013-\037\177' < "$cmd_file" | sed 's/\\/\\\\/g; s/"/\\"/g'
+            printf '\n"""\n'
+          } > "$cmd_tmp" 2>/dev/null && mv -f "$cmd_tmp" "$cmd_dest" 2>/dev/null; then
+          cmd_ok=$((cmd_ok + 1))
+        else
+          rm -f "$cmd_tmp" 2>/dev/null
+          cmd_fail=$((cmd_fail + 1))
+          echo "agent-entrypoint: WARNING: failed to generate harness command $cmd_dest — /$cmd_name unavailable in $CLI_TOOL"
+        fi
+      else
+        cmd_dest="$HARNESS_COMMANDS/$cmd_name.md"
+        # Skip only a real regular file (not a symlink) — that is a user override.
+        if [ -f "$cmd_dest" ] && [ ! -L "$cmd_dest" ]; then
+          continue
+        fi
+        # rm + ln -s (not `ln -sfn`) stays correct regardless of how `ln` treats
+        # a symlink-to-directory already at the target name.
+        rm -f "$cmd_dest"
+        if ln -s "$cmd_file" "$cmd_dest" 2>/dev/null; then
+          cmd_ok=$((cmd_ok + 1))
+        else
+          cmd_fail=$((cmd_fail + 1))
+          echo "agent-entrypoint: WARNING: failed to link harness command $cmd_dest — /$cmd_name unavailable in $CLI_TOOL"
+        fi
       fi
     done
-    echo "agent-entrypoint: Injected agent harness commands → $COMMANDS_TARGET"
+    echo "agent-entrypoint: Injected $cmd_ok agent harness command(s) → $HARNESS_COMMANDS"
+    [ "$cmd_fail" -eq 0 ] || echo "agent-entrypoint: WARNING: $cmd_fail harness command(s) failed to inject into $HARNESS_COMMANDS"
   fi
 fi
 
@@ -916,7 +945,7 @@ RELAY_PID_FILE="/tmp/agentforge-sidecar.pid"
 RELAY_STOP_MARKER="/tmp/agentforge-sidecar.stop"
 RELAY_WATCHER_PID=""
 SIDECAR_MAX_RESTARTS=5
-SIDECAR_RESTART_COUNT=0
+# (restart counting is a function-local `restart_count` in the watcher below.)
 
 rm -f "$RELAY_PID_FILE" "$RELAY_STOP_MARKER"
 

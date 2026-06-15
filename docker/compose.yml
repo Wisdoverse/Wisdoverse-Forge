@@ -160,6 +160,16 @@ services:
       - ORCHESTRATION_RESULT_CONSUMER_ENABLED=${ORCHESTRATION_RESULT_CONSUMER_ENABLED:-true}
       - ORCHESTRATION_ASSIGNMENT_OUTBOX_PUBLISHER_ENABLED=${ORCHESTRATION_ASSIGNMENT_OUTBOX_PUBLISHER_ENABLED:-true}
       - ORCHESTRATION_PARTICIPANT_LIVENESS_ENABLED=${ORCHESTRATION_PARTICIPANT_LIVENESS_ENABLED:-true}
+      # Liveness timers (tunable without a rebuild). Stale window = time with no
+      # heartbeat before an agent is marked offline (default 90s = 3 missed
+      # beats); sweep interval = how often that is checked. Keep stale ~= 3x the
+      # sidecar heartbeat interval.
+      - PARTICIPANT_STALE_AFTER_SECS=${PARTICIPANT_STALE_AFTER_SECS:-90}
+      - PARTICIPANT_SWEEP_INTERVAL_SECS=${PARTICIPANT_SWEEP_INTERVAL_SECS:-30}
+      # ADR 0008 Phase 2: serve agent liveness from a Redis TTL key instead of a
+      # per-heartbeat PostgreSQL write. Default off (dark); enable only after the
+      # Phase 1 attribution metrics show the per-beat write is a real bottleneck.
+      - PRESENCE_REDIS_ENABLED=${PRESENCE_REDIS_ENABLED:-false}
       - ORCHESTRATION_CONTROL_PLANE_METRICS_ENABLED=${ORCHESTRATION_CONTROL_PLANE_METRICS_ENABLED:-true}
       - ORCHESTRATION_WS_PROJECTOR_ENABLED=${ORCHESTRATION_WS_PROJECTOR_ENABLED:-true}
       # Governed context rollout flags. Defaults are intentionally off until
