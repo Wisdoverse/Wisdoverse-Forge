@@ -15,6 +15,19 @@ describe('governanceAuditErrorMessage', () => {
     )
   })
 
+  test('turns permission failures into team space access guidance', () => {
+    const message = governanceAuditErrorMessage('exportAudit', new Error('HTTP 403: Forbidden'))
+
+    expectBeginnerMessage(
+      message,
+      'You do not have permission to view or export audit history. Ask an owner or admin to update your team space access.'
+    )
+    expect(message).not.toContain('governance audit records')
+    expect(message).not.toContain('role')
+    expect(message).not.toContain('HTTP 403')
+    expect(message).not.toContain('Forbidden')
+  })
+
   test('explains load network failures without exposing only a transport error', () => {
     const message = governanceAuditErrorMessage('loadAudit', new TypeError('Failed to fetch'))
 

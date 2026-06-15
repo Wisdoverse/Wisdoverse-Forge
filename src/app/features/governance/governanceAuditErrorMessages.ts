@@ -22,7 +22,7 @@ export function governanceAuditErrorMessage(
   }
 
   if (status === 403) {
-    return 'You do not have permission to view or export governance audit records. Ask an owner or admin to update your role.'
+    return 'You do not have permission to view or export audit history. Ask an owner or admin to update your team space access.'
   }
 
   if (status === 404) {
