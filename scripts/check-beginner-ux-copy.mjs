@@ -376,6 +376,10 @@ const QUICK_CREATE_DRAFT_TASK_JARGON_PATTERNS = [
 ]
 
 const AGENT_TASK_QUEUE_SUBMIT_LABEL_JARGON_PATTERNS = [/\bCreate Task Queue\b/]
+const AGENT_TASK_QUEUE_EMPTY_DEAD_END_PATTERNS = [
+  /\bNo task queues yet\b/i,
+  /\bNo tasks are in this task queue yet\b/i,
+]
 
 const SKILL_MAINTAINER_FALLBACK_DEAD_END_PATTERNS = [
   /\bMaintainer not listed yet\b/i,
@@ -1558,6 +1562,12 @@ function hasAgentTaskQueueSubmitLabelJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/agents/AgentGroupsPanel.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return AGENT_TASK_QUEUE_SUBMIT_LABEL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentTaskQueueEmptyDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/agents/AgentGroupsPanel.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_TASK_QUEUE_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasSkillMaintainerFallbackDeadEndCopy(relFile, line) {
@@ -2803,6 +2813,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Task queue submit labels must use sentence case so first-time users see one consistent action style.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentTaskQueueEmptyDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-task-queue-empty-copy',
+        location,
+        message:
+          'Task queue empty states must start with the action to create the first queue or task.',
         sample: line.trim(),
       })
     }

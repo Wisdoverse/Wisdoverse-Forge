@@ -5792,6 +5792,52 @@ function AgentGroupsPanel() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags task queue empty states that start with no-results copy', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentGroupsPanel.tsx': `
+function AgentGroupsPanel() {
+  return (
+    <section>
+      <p>No task queues yet. Create one below so agents can receive tasks.</p>
+      <p>No tasks are in this task queue yet. Create a task and choose this task queue.</p>
+    </section>
+  )
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'agent-task-queue-empty-copy',
+        location: 'src/app/features/agents/AgentGroupsPanel.tsx:5',
+      }),
+      expect.objectContaining({
+        type: 'agent-task-queue-empty-copy',
+        location: 'src/app/features/agents/AgentGroupsPanel.tsx:6',
+      }),
+    ])
+  })
+
+  it('accepts task queue empty states that start with the next action', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentGroupsPanel.tsx': `
+function AgentGroupsPanel() {
+  return (
+    <section>
+      <p>Create the first task queue so agents know where to receive tasks.</p>
+      <p>Create the first task for this queue, then choose this task queue so agents know where to pick it up.</p>
+    </section>
+  )
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags saved instruction maintainer fallback copy that does not tell users to refresh', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `

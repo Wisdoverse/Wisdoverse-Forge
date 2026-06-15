@@ -264,11 +264,12 @@ describe('AgentGroupsPanel', () => {
     render(<AgentGroupsPanel />)
 
     const emptyState = screen.getByTestId('task-routing-empty')
-    expect(emptyState).toHaveTextContent('No tasks are in this task queue yet')
-    expect(emptyState).toHaveTextContent('Create a task and choose this task queue')
+    expect(emptyState).toHaveTextContent('Create the first task for this queue')
+    expect(emptyState).toHaveTextContent('then choose this task queue')
     expect(emptyState).toHaveTextContent(
       'Success looks like a task showing Waiting to start or Working here.'
     )
+    expect(emptyState).not.toHaveTextContent('No tasks are in this task queue yet')
   })
 
   test('guides blank task queue names with examples', () => {

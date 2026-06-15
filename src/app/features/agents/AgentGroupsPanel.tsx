@@ -304,7 +304,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
               })
             ) : (
               <div className="rounded-lg border border-dashed border-black/10 px-3 py-2 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark">
-                No task queues yet. Create one below so agents can receive tasks.
+                Create the first task queue so agents know where to receive tasks.
               </div>
             )}
           </div>
@@ -383,8 +383,8 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
                     data-testid="task-routing-empty"
                     className="rounded-lg border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark"
                   >
-                    No tasks are in this task queue yet. Create a task and choose this task queue so
-                    agents know where to pick it up.
+                    Create the first task for this queue, then choose this task queue so agents know
+                    where to pick it up.
                     <span className="mt-1 block">
                       Success looks like a task showing Waiting to start or Working here.
                     </span>
