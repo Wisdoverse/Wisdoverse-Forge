@@ -24,7 +24,8 @@ describe('ToolCallDetail', () => {
     expect(screen.getByText(/Work step: Command runner/i)).toBeInTheDocument()
     expect(screen.queryByText(/Step type: shell/i)).toBeNull()
     expect(screen.getByText('Completed cleanly')).toBeInTheDocument()
-    expect(screen.getByText(/This step finished without reporting a problem/i)).toBeInTheDocument()
+    expect(screen.getByText(/This step finished without a problem/i)).toBeInTheDocument()
+    expect(screen.queryByText(/without reporting a problem/i)).toBeNull()
     expect(screen.getByText('Took 1.2s')).toBeInTheDocument()
     expect(screen.queryByText(/Agent used/i)).toBeNull()
   })
@@ -75,7 +76,8 @@ describe('ToolCallDetail', () => {
 
     expect(screen.getByText('Check step')).toBeInTheDocument()
     expect(screen.queryByText('Needs review')).toBeNull()
-    expect(screen.getByText(/This step reported a problem/i)).toBeInTheDocument()
+    expect(screen.getByText(/This step found a problem/i)).toBeInTheDocument()
+    expect(screen.queryByText(/This step reported a problem/i)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /show step details for deployment/i }))
 
@@ -158,7 +160,8 @@ describe('ToolCallDetail', () => {
     )
 
     expect(screen.getByText('Waiting for result')).toBeInTheDocument()
-    expect(screen.getByText(/wait for it to report what happened/i)).toBeInTheDocument()
+    expect(screen.getByText(/wait for it to share what happened/i)).toBeInTheDocument()
+    expect(screen.queryByText(/wait for it to report what happened/i)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /show step details for search/i }))
 

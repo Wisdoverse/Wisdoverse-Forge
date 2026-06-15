@@ -200,7 +200,7 @@ function toolOutcome(call: ToolCall): {
   if (call.success === true) {
     return {
       label: 'Completed cleanly',
-      helper: 'This step finished without reporting a problem.',
+      helper: 'This step finished without a problem.',
       tone: 'success',
       Icon: CheckCircle2,
     }
@@ -209,7 +209,7 @@ function toolOutcome(call: ToolCall): {
   if (call.success === false) {
     return {
       label: 'Check step',
-      helper: 'This step reported a problem. Check it before trusting the answer.',
+      helper: 'This step found a problem. Check it before trusting the answer.',
       tone: 'danger',
       Icon: AlertTriangle,
     }
@@ -217,7 +217,7 @@ function toolOutcome(call: ToolCall): {
 
   return {
     label: 'Waiting for result',
-    helper: 'The agent started this step. Wait for it to report what happened.',
+    helper: 'The agent started this step. Wait for it to share what happened.',
     tone: 'pending',
     Icon: Clock3,
   }

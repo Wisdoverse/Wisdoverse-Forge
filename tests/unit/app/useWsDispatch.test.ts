@@ -127,6 +127,22 @@ describe('dispatchWsMessage', () => {
     expect(item.taskTitle).not.toBe('Bash')
   })
 
+  it('uses plain wording for unknown activity events', () => {
+    dispatchWsMessage({
+      type: 'event',
+      payload: {
+        type: 'future_event',
+        agentName: 'Codex',
+        timestamp: Date.now(),
+      },
+    })
+
+    const item = useFeedStore.getState().feedItems[0]
+    expect(item.taskTitle).toBe('Task update')
+    expect(item.detail).toBe('The agent shared a task update.')
+    expect(item.detail).not.toContain('reported')
+  })
+
   it('ignores unknown message types', () => {
     expect(() => dispatchWsMessage({ type: 'pong' })).not.toThrow()
     expect(() => dispatchWsMessage({ type: 'unknown_thing' })).not.toThrow()

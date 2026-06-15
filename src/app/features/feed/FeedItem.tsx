@@ -45,7 +45,7 @@ const TYPE_COPY: Record<string, { label: string; description: string }> = {
   },
   'task.progress': {
     label: 'Update',
-    description: 'The agent reported progress on this task.',
+    description: 'The agent shared progress on this task.',
   },
 }
 
@@ -77,7 +77,7 @@ export function FeedItem({ item }: { item: FeedItemType }) {
   const Icon = TYPE_ICONS[item.type] ?? Circle
   const typeCopy = TYPE_COPY[item.type] ?? {
     label: 'Update',
-    description: 'The agent reported a task update.',
+    description: 'The agent shared a task update.',
   }
   const nextAction = NEXT_ACTION_COPY[item.type]
   const detail = displayFeedDetail(item)

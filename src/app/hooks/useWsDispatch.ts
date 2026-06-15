@@ -294,7 +294,7 @@ function agentActivityDetail(eventType: string, tool?: string | null): string {
     case 'blocked':
       return 'Open the task to see what is needed before work can continue.'
     default:
-      return 'The agent reported a task update.'
+      return 'The agent shared a task update.'
   }
 }
 

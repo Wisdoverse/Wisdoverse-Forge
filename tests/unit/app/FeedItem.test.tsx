@@ -100,6 +100,14 @@ describe('FeedItem', () => {
     render(<FeedItem item={{ ...baseItem, type: 'task.custom' }} />)
 
     expect(screen.getByText('Update')).toBeDefined()
-    expect(screen.getByLabelText(/the agent reported a task update/i)).toBeDefined()
+    expect(screen.getByLabelText(/the agent shared a task update/i)).toBeDefined()
+    expect(screen.queryByLabelText(/the agent reported a task update/i)).toBeNull()
+  })
+
+  test('describes progress updates without system-log wording', () => {
+    render(<FeedItem item={baseItem} />)
+
+    expect(screen.getByLabelText(/the agent shared progress on this task/i)).toBeDefined()
+    expect(screen.queryByLabelText(/reported progress/i)).toBeNull()
   })
 })
