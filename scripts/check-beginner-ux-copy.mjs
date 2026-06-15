@@ -220,7 +220,11 @@ const ANALYTICS_REVIEW_EMPTY_DEAD_END_PATTERNS = [
 
 const ANALYTICS_UPDATED_TIME_DEAD_END_PATTERNS = [/\btime not available\b/i]
 
-const ANALYTICS_GUIDANCE_JARGON_PATTERNS = [/\bfailed tool steps\b/i]
+const ANALYTICS_GUIDANCE_JARGON_PATTERNS = [
+  /\bfailed tool steps\b/i,
+  /\bfailures first\b/i,
+  /\bended in error\b/i,
+]
 
 const ACTIVITY_FEED_EMPTY_DEAD_END_PATTERNS = [/\bNo work has reported progress yet\b/i]
 

@@ -126,10 +126,10 @@ function buildAnalyticsGuidance({
 
   if (topToolName && typeof topToolSuccessRate === 'number' && topToolSuccessRate < 70) {
     return {
-      title: `Review ${topToolName} failures first`,
+      title: `Review ${topToolName} recovery first`,
       detail: `The busiest tool completed cleanly only ${topToolSuccessRate}% of the time in this range.`,
       action:
-        'Open recent task results and check the steps that ended in error before assigning more work.',
+        'Open recent task results, review the recovery notes, then pause new work until the next step is clear.',
       tone: 'attention',
     }
   }

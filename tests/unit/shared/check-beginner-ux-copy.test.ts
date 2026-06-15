@@ -4549,7 +4549,7 @@ function emptyFeed() {
 `,
       'src/app/features/analytics/AnalyticsDashboard.tsx': `
 function nextStep() {
-  return 'Open recent task results and check the failed tool steps before assigning more work.'
+  return 'Review Command line failures first. Open recent task results and check the steps that ended in error before assigning more work.'
 }
 `,
     })
@@ -4569,6 +4569,18 @@ function nextStep() {
         }),
       ])
     )
+  })
+
+  it('accepts analytics low-success guidance that points to recovery notes', () => {
+    const cwd = fixture({
+      'src/app/features/analytics/AnalyticsDashboard.tsx': `
+function nextStep() {
+  return 'Review Command line recovery first. Open recent task results, review the recovery notes, then pause new work until the next step is clear.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
   it('flags suggested saved-item preview copy that asks users to inspect', () => {
