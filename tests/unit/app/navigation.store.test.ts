@@ -48,18 +48,18 @@ describe('navigation.store', () => {
         'load',
         apiError(401, { error: 'token expired' })
       ),
-      'Sign in again, then open the workspace sidebar and try to load team spaces again.'
+      'Sign in again, then open the left menu and try to load team spaces again.'
     )
   })
 
-  it('turns permission failures into workspace access guidance', () => {
+  it('turns permission failures into team space access guidance', () => {
     expectBeginnerError(
       navigationActionErrorMessage('teamProjects', 'load', apiError(403, { message: 'forbidden' })),
-      'You do not have permission to load teams and projects. Ask an owner or admin to update your workspace access.'
+      'You do not have permission to load teams and projects. Ask an owner or admin to update your team space access.'
     )
   })
 
-  it('turns structured permission failures into workspace access guidance', () => {
+  it('turns structured permission failures into team space access guidance', () => {
     const message = navigationActionErrorMessage('teamProjects', 'load', {
       serverError: 'owner policy denied for team list',
       status: '403',
@@ -67,9 +67,10 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       message,
-      'You do not have permission to load teams and projects. Ask an owner or admin to update your workspace access.'
+      'You do not have permission to load teams and projects. Ask an owner or admin to update your team space access.'
     )
     expect(message).not.toContain('owner policy denied')
+    expect(message).not.toContain('workspace access')
   })
 
   it('turns team and project validation failures into team-space guidance', () => {
@@ -81,9 +82,10 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       message,
-      'Choose a team space you can access, refresh the sidebar, then load its teams and projects again.'
+      'Choose a team space you can access, refresh the left menu, then load its teams and projects again.'
     )
     expect(message).not.toContain('organization')
+    expect(message).not.toContain('sidebar')
   })
 
   it('turns raw network failures into connection guidance', () => {
@@ -95,10 +97,11 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       message,
-      'Check your connection, then refresh the sidebar to load task queues.'
+      'Check your connection, then refresh the left menu to load task queues.'
     )
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('service')
+    expect(message).not.toContain('sidebar')
   })
 
   it('uses structured validation details for task queue names', () => {
@@ -322,10 +325,11 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       useNavigationStore.getState().error,
-      'Refresh the sidebar to load workspace navigation. If it still fails, ask an owner or admin to check workspace navigation.'
+      'Refresh the left menu to load teams and projects. If it still fails, ask an owner or admin to check team space setup.'
     )
     expect(useNavigationStore.getState().error).not.toContain('temporarily unavailable')
     expect(useNavigationStore.getState().error).not.toContain('organization')
+    expect(useNavigationStore.getState().error).not.toContain('workspace navigation')
     expect(useNavigationStore.getState().loading).toBe(false)
   })
 
@@ -336,7 +340,7 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       useNavigationStore.getState().error,
-      'You do not have permission to load teams and projects. Ask an owner or admin to update your workspace access.'
+      'You do not have permission to load teams and projects. Ask an owner or admin to update your team space access.'
     )
   })
 
@@ -347,7 +351,7 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       useNavigationStore.getState().error,
-      'Check your connection, then refresh the sidebar to load task queues.'
+      'Check your connection, then refresh the left menu to load task queues.'
     )
     expect(useNavigationStore.getState().error).not.toContain('Failed to fetch')
   })

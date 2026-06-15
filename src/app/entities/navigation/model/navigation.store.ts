@@ -199,32 +199,32 @@ export function navigationActionErrorMessage(
     if (!isRawNavigationFailure(detail)) {
       return navigationValidationMessage(area, action, detail)
     }
-    return `Check your connection, then refresh the sidebar to ${actionPhrase}.`
+    return `Check your connection, then refresh the left menu to ${actionPhrase}.`
   }
 
   if (status === 401) {
-    return `Sign in again, then open the workspace sidebar and try to ${actionPhrase} again.`
+    return `Sign in again, then open the left menu and try to ${actionPhrase} again.`
   }
   if (status === 403) {
-    return `You do not have permission to ${actionPhrase}. Ask an owner or admin to update your workspace access.`
+    return `You do not have permission to ${actionPhrase}. Ask an owner or admin to update your team space access.`
   }
   if (status === 404) {
-    return `Workspace navigation for ${NAVIGATION_AREA_LABELS[area]} is not ready yet. Refresh the sidebar, then try again.`
+    return `The left menu is not ready for ${NAVIGATION_AREA_LABELS[area]} yet. Refresh it, then try again.`
   }
   if (status === 409) {
-    return 'The workspace navigation changed while you were working. Refresh the sidebar, review the current teams and projects, then try again.'
+    return 'The left menu changed while you were working. Refresh it, review the current teams and projects, then try again.'
   }
   if (status === 422) {
     return navigationValidationMessage(area, action, detail)
   }
   if (status === 429) {
-    return `The sidebar is busy. Wait a moment, then try to ${actionPhrase} again.`
+    return `The left menu is busy. Wait a moment, then try to ${actionPhrase} again.`
   }
   if (status >= 500) {
-    return 'Refresh the sidebar to load workspace navigation. If it still fails, ask an owner or admin to check workspace navigation.'
+    return 'Refresh the left menu to load teams and projects. If it still fails, ask an owner or admin to check team space setup.'
   }
 
-  return `Refresh the sidebar to ${actionPhrase}.`
+  return `Refresh the left menu to ${actionPhrase}.`
 }
 
 function navigationValidationMessage(
@@ -247,10 +247,10 @@ function navigationValidationMessage(
   }
 
   if (area === 'teamProjects') {
-    return 'Choose a team space you can access, refresh the sidebar, then load its teams and projects again.'
+    return 'Choose a team space you can access, refresh the left menu, then load its teams and projects again.'
   }
 
-  return `Check the ${NAVIGATION_AREA_LABELS[area]} selection, refresh the sidebar, then try again.`
+  return `Check the ${NAVIGATION_AREA_LABELS[area]} selection, refresh the left menu, then try again.`
 }
 
 function lsGet(key: string): string | null {
