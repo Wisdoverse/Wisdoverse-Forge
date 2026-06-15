@@ -50,7 +50,7 @@ function drawTimeline(canvas: HTMLCanvasElement): void {
   ctx.fillStyle = 'rgba(226, 232, 240, 0.78)'
   ctx.font = '13px Inter, ui-sans-serif, system-ui, sans-serif'
   ctx.textAlign = 'center'
-  ctx.fillText('Waiting for run events', rect.width / 2, midY - 24)
+  ctx.fillText('Waiting for work updates', rect.width / 2, midY - 24)
 }
 
 export function TimelineView() {

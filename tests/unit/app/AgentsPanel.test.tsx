@@ -200,10 +200,12 @@ describe('AgentsPanel', () => {
     ).toBeNull()
 
     const emptyState = await screen.findByTestId('admin-agents-empty')
+    expect(within(emptyState).getByText('Create or connect an agent first')).toBeDefined()
     expect(within(emptyState).getByText(/create the first agent from agents/i)).toBeDefined()
     expect(within(emptyState).getByText(/confirm it becomes ready or working/i)).toBeDefined()
     expect(within(emptyState).getByText(/review it across team spaces/i)).toBeDefined()
     expect(within(emptyState).getByText(/refresh admin and check again/i)).toBeDefined()
+    expect(within(emptyState).queryByText('No agents to show')).toBeNull()
     expect(within(emptyState).queryByText(/organizations/i)).toBeNull()
   })
 
@@ -213,6 +215,7 @@ describe('AgentsPanel', () => {
     render(<AgentsPanel />)
 
     const emptyState = await screen.findByTestId('admin-agents-empty')
+    expect(within(emptyState).getByText('No agents match this filter')).toBeDefined()
     expect(within(emptyState).getByText(/choose "all work locations"/i)).toBeDefined()
     expect(within(emptyState).getByText(/before assuming the agent is missing/i)).toBeDefined()
   })

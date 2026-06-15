@@ -581,6 +581,40 @@ function agentStatusLabel(status) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags admin agent empty titles that do not tell users what to do next', () => {
+    const cwd = fixture({
+      'src/app/features/admin/AgentsPanel.tsx': `
+function AgentsEmptyState() {
+  return <p>No agents to show</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'admin-agent-empty-copy',
+          location: 'src/app/features/admin/AgentsPanel.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts admin agent empty titles that name the next setup action', () => {
+    const cwd = fixture({
+      'src/app/features/admin/AgentsPanel.tsx': `
+function AgentsEmptyState() {
+  return <p>Create or connect an agent first</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags admin load error titles that do not tell users what to refresh or check', () => {
     const cwd = fixture({
       'src/app/features/admin/adminErrorCopy.ts': `
@@ -2301,6 +2335,10 @@ function taskCheckIn() {
 export function TimelineView() {
   return <p>No timeline events yet</p>
 }
+
+function drawTimeline(ctx) {
+  ctx.fillText('Waiting for run events')
+}
 `,
     })
 
@@ -2311,6 +2349,10 @@ export function TimelineView() {
       expect.objectContaining({
         type: 'timeline-empty-copy',
         location: 'src/app/widgets/views/TimelineView.tsx:3',
+      }),
+      expect.objectContaining({
+        type: 'timeline-empty-copy',
+        location: 'src/app/widgets/views/TimelineView.tsx:7',
       }),
     ])
   })

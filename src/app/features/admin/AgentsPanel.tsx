@@ -198,7 +198,7 @@ function AgentsEmptyState({ filter }: { filter: AdminAgentRuntimeKindFilter }) {
         <Bot size={18} strokeWidth={2} />
       </div>
       <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-        No agents to show
+        {filter === 'all' ? 'Create or connect an agent first' : 'No agents match this filter'}
       </p>
       <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
         {filter === 'all'

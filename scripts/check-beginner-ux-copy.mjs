@@ -187,6 +187,8 @@ const ADMIN_AGENT_STATUS_FALLBACK_DEAD_END_PATTERNS = [
   /\bstatus\.trim\(\)\s*\?\s*['"`]Needs review['"`]/i,
 ]
 
+const ADMIN_AGENT_EMPTY_DEAD_END_PATTERNS = [/\bNo agents to show\b/i]
+
 const ADMIN_LOAD_ERROR_DEAD_END_PATTERNS = [
   /\bThe admin [^'"`]+ could not load\./i,
   /\bThe agent tool update status could not load\./i,
@@ -224,7 +226,10 @@ const TASK_AGENT_ASSIGNMENT_DEAD_END_PATTERNS = [
   /\bAgent not reported yet\b/i,
 ]
 
-const TIMELINE_EMPTY_DEAD_END_PATTERNS = [/\bNo timeline events yet\b/i]
+const TIMELINE_EMPTY_DEAD_END_PATTERNS = [
+  /\bNo timeline events yet\b/i,
+  /\bWaiting for run events\b/i,
+]
 
 const WORKSHOP_3D_EMPTY_DEAD_END_PATTERNS = [/\bNo agents on the visual map yet\b/i]
 
@@ -1061,6 +1066,12 @@ function hasAdminAgentStatusFallbackDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/admin/AgentsPanel.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return ADMIN_AGENT_STATUS_FALLBACK_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAdminAgentEmptyDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/admin/AgentsPanel.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ADMIN_AGENT_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAdminLoadErrorDeadEndCopy(relFile, line) {
@@ -2130,6 +2141,16 @@ function scanFile(file, relFile) {
         type: 'admin-agent-status-fallback-copy',
         location,
         message: 'Admin agent status fallback copy must tell beginners which status to check.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAdminAgentEmptyDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'admin-agent-empty-copy',
+        location,
+        message:
+          'Admin agent empty states must tell beginners to create, connect, or clear filters.',
         sample: line.trim(),
       })
     }
