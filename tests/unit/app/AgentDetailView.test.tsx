@@ -321,8 +321,10 @@ describe('AgentDetailView', () => {
     fireEvent.click(screen.getByRole('button', { name: /open live work/i }))
 
     const alert = screen.getByRole('alert')
-    expect(alert).toHaveTextContent('Start did not finish')
+    expect(alert).toHaveTextContent('Check the agent status')
+    expect(alert).toHaveTextContent('choose Start workspace again')
     expect(alert).toHaveTextContent('ask an owner or admin to check this agent setup')
+    expect(alert).not.toHaveTextContent('Start did not finish')
     expect(alert.textContent).not.toContain('Details:')
     expect(alert.textContent).not.toContain('Docker socket refused')
   })
@@ -354,9 +356,10 @@ describe('AgentDetailView', () => {
     await waitFor(() => expect(startButton).not.toBeDisabled())
 
     const alert = screen.getByRole('alert')
-    expect(alert).toHaveTextContent('Start did not finish')
-    expect(alert).toHaveTextContent('try once more')
+    expect(alert).toHaveTextContent('Check the agent status')
+    expect(alert).toHaveTextContent('choose Start workspace again')
     expect(alert).toHaveTextContent('ask an owner or admin to check this agent setup')
+    expect(alert).not.toHaveTextContent('Start did not finish')
     expect(alert.textContent).not.toContain('socket hang up')
   })
 
@@ -364,9 +367,7 @@ describe('AgentDetailView', () => {
     render(<AgentDetailView agent={{ ...hostCliAgent, status: 'offline' }} onBack={() => {}} />)
 
     expect(screen.getByText('Paste setup text on this computer again')).toBeDefined()
-    expect(screen.getAllByText('Paste setup text again on this computer').length).toBeGreaterThan(
-      0
-    )
+    expect(screen.getAllByText('Paste setup text again on this computer').length).toBeGreaterThan(0)
     expect(screen.getByText(/open Terminal or PowerShell in the project folder/i)).toBeDefined()
     expect(screen.getAllByText(/paste the setup text again/i).length).toBeGreaterThan(0)
     expect(screen.getByText(/keep that window open/i)).toBeDefined()

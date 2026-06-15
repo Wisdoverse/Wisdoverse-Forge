@@ -251,6 +251,8 @@ const AGENT_DETAIL_AVAILABILITY_DEAD_END_PATTERNS = [
   /\bUnavailable until restarted or reconnected\b/i,
 ]
 
+const AGENT_DETAIL_START_FAILURE_FIRST_PATTERNS = [/\bStart did not finish\b/i]
+
 const AGENT_API_LIFECYCLE_DEAD_END_PATTERNS = [
   /\bNo workspace to (?:restart|start|stop)\b/i,
   /没有可(?:重启|启动|停止)的工作区/,
@@ -1409,6 +1411,12 @@ function hasAgentDetailAvailabilityDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return AGENT_DETAIL_AVAILABILITY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentDetailStartFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_DETAIL_START_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentApiLifecycleDeadEndCopy(relFile, line) {
@@ -2611,6 +2619,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Agent detail availability copy must tell beginners which page or control to use next.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentDetailStartFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-detail-start-failure-copy',
+        location,
+        message:
+          'Agent detail start failure copy must start with the recovery action, not the failure result.',
         sample: line.trim(),
       })
     }

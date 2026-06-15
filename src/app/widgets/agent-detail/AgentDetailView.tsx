@@ -677,8 +677,8 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
           aria-live="polite"
           className="rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
         >
-          Start did not finish. Check the agent status, then try once more. If it keeps failing, ask
-          an owner or admin to check this agent setup.
+          Check the agent status, then choose Start workspace again. If it keeps failing, ask an
+          owner or admin to check this agent setup.
         </div>
       )}
       {agent.cliTool && (

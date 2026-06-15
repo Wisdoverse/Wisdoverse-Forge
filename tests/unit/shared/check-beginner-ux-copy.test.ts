@@ -2565,6 +2565,40 @@ function agentAvailabilityLabel() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags agent detail start failure copy that starts with the failure result', () => {
+    const cwd = fixture({
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function PendingTerminal() {
+  return 'Start did not finish. Check the agent status, then try once more.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-detail-start-failure-copy',
+          location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts agent detail start failure copy that starts with the recovery action', () => {
+    const cwd = fixture({
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function PendingTerminal() {
+  return 'Check the agent status, then choose Start workspace again.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags title-style beginner guidance that sounds like a menu label', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentTasksTab.tsx': `
