@@ -169,7 +169,7 @@ jobs:
         name: Normalize image namespace
         run: echo "name=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
       - id: meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        uses: docker/metadata-action@80c7e94dd9b9319bd5eb7a0e0fe9291e23a2a2e9 # v6.1.0
         with:
           images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}
           tags: |
@@ -189,7 +189,7 @@ jobs:
           build-args: |
             VERSION=${{ needs.validate.outputs.version }}
       - id: server-meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        uses: docker/metadata-action@80c7e94dd9b9319bd5eb7a0e0fe9291e23a2a2e9 # v6.1.0
         with:
           images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/server
           tags: |
@@ -207,7 +207,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - id: sidecar-meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        uses: docker/metadata-action@80c7e94dd9b9319bd5eb7a0e0fe9291e23a2a2e9 # v6.1.0
         with:
           images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/sidecar
           tags: |
@@ -225,7 +225,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - id: orchestrator-meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        uses: docker/metadata-action@80c7e94dd9b9319bd5eb7a0e0fe9291e23a2a2e9 # v6.1.0
         with:
           images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/orchestrator
           tags: |
