@@ -194,8 +194,10 @@ describe('TaskCard', () => {
     )
 
     expect(screen.getByTestId('task-next-step').textContent).toBe(
-      'Open details, fix the error, then retry.'
+      'Open details, review the recovery note, then retry.'
     )
+    expect(screen.getByTestId('task-next-step').textContent).not.toContain('error')
+    expect(screen.getByTestId('task-next-step').textContent).not.toContain('failure')
   })
 
   test('does not duplicate server-provided blocked guidance', () => {

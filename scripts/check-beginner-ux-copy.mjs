@@ -551,6 +551,8 @@ const TASK_RECOVERY_STATUS_DEAD_END_PATTERNS = [
   /\bfailed:\s*['"`]Needs review['"`]/,
   /\blabel:\s*['"`]Needs review['"`]/,
   /\breturn\s+['"`]Needs review['"`]/,
+  /\bfix the error\b/i,
+  /\breview the failure\b/i,
 ]
 
 const CONTEXT_FALLBACK_DEAD_END_PATTERNS = [
@@ -1864,6 +1866,7 @@ function hasTaskRecoveryStatusDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/entities/task/model/taskLabels.ts') &&
     !relFile.endsWith('src/app/features/agents/AgentGroupsPanel.tsx') &&
+    !relFile.endsWith('src/app/features/board/TaskCard.tsx') &&
     !relFile.endsWith('src/app/features/board/KanbanColumn.tsx') &&
     !relFile.endsWith('src/app/features/detail/ContextTab.tsx') &&
     !relFile.endsWith('src/app/features/detail/HistoryTab.tsx') &&

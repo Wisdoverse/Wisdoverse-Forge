@@ -7414,6 +7414,38 @@ export function TaskFailure() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags failed task card next steps that tell beginners to fix an error', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskCard.tsx': `
+function taskNextStep() {
+  return 'Open details, fix the error, then retry.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'task-recovery-status-copy',
+        location: 'src/app/features/board/TaskCard.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts failed task card next steps that point to the recovery note', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskCard.tsx': `
+function taskNextStep() {
+  return 'Open details, review the recovery note, then retry.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('ignores parser regexes and cleanup regexes inside error message helpers', () => {
     const cwd = fixture({
       'src/app/features/chat/chatErrorMessage.ts': `

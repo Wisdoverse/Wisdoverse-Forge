@@ -307,9 +307,7 @@ function taskNextStep(task: TaskSummary, options: TaskNextStepOptions): string |
       }
       return 'Open details to see what is blocking this task.'
     case 'failed':
-      return task.error
-        ? 'Open details, fix the error, then retry.'
-        : 'Open details, review the failure, then retry.'
+      return 'Open details, review the recovery note, then retry.'
     case 'completed':
       return options.resultCount > 0
         ? 'Open details to review the result files.'
