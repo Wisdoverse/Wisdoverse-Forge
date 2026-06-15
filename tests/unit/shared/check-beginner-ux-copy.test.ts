@@ -4042,6 +4042,69 @@ function toolOutcome() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags vague needs-review copy in user-visible recovery messages', () => {
+    const cwd = fixture({
+      'src/app/hooks/useWsDispatch.ts': `
+export function safeCompletionMessage() {
+  return 'Finished with a summary that needs review. Open details before using the result.'
+}
+`,
+      'src/app/features/context/ApprovalQueueView.tsx': `
+export function approvalQueueEmptyState() {
+  return 'Clear filters before assuming nothing needs review.'
+}
+`,
+      'src/app/features/settings/AccountSection.tsx': `
+export function AccountSection() {
+  return <span>The setup checklist is back in the sidebar. Open it when setup needs review.</span>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toHaveLength(3)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'vague-needs-review-copy',
+          location: 'src/app/hooks/useWsDispatch.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'vague-needs-review-copy',
+          location: 'src/app/features/context/ApprovalQueueView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'vague-needs-review-copy',
+          location: 'src/app/features/settings/AccountSection.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts needs-review replacements that tell beginners what to check', () => {
+    const cwd = fixture({
+      'src/app/hooks/useWsDispatch.ts': `
+export function safeCompletionMessage() {
+  return 'Finished with a summary you should check. Open details before using the result.'
+}
+`,
+      'src/app/features/context/ApprovalQueueView.tsx': `
+export function approvalQueueEmptyState() {
+  return 'Clear filters before assuming there is nothing to check.'
+}
+`,
+      'src/app/features/settings/AccountSection.tsx': `
+export function AccountSection() {
+  return <span>The setup checklist is back in the sidebar. Open it whenever you want to check setup again.</span>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags tool and saved-item problem copy that exposes technical-problem jargon', () => {
     const cwd = fixture({
       'src/app/features/chat/ToolCallDetail.tsx': `

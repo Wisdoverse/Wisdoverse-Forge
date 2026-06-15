@@ -430,7 +430,10 @@ function GettingStartedGuideRow() {
           aria-live="polite"
           className="flex flex-col gap-2 rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue sm:flex-row sm:items-center sm:justify-between"
         >
-          <span>The setup checklist is back in the sidebar. Open it when setup needs review.</span>
+          <span>
+            The setup checklist is back in the sidebar. Open it whenever you want to check setup
+            again.
+          </span>
           <a
             href="/start"
             className={cn(

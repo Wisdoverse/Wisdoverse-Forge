@@ -111,7 +111,7 @@ function approvalQueueEmptyState({
     return {
       title: 'Filters are hiding saved items',
       detail:
-        'This view only shows the selected item type and reuse option. Clear filters before assuming nothing needs review.',
+        'This view only shows the selected item type and reuse option. Clear filters before assuming there is nothing to check.',
       nextStep: 'Next: review everything first, then narrow the list again only if it is long.',
       actionLabel: 'Clear filters',
     }

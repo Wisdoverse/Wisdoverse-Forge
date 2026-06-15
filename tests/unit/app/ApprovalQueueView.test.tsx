@@ -168,7 +168,7 @@ describe('ApprovalQueueView', () => {
     const emptyState = await screen.findByTestId('context-approval-empty')
     expect(within(emptyState).getByText('Filters are hiding saved items')).toBeDefined()
     expect(
-      within(emptyState).getByText(/clear filters before assuming nothing needs review/i)
+      within(emptyState).getByText(/clear filters before assuming there is nothing to check/i)
     ).toBeDefined()
     expect(within(emptyState).getByText(/review everything first/i)).toBeDefined()
     expect(emptyState.textContent).not.toContain('No saved items match these filters')

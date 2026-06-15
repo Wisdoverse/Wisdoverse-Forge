@@ -283,11 +283,11 @@ describe('AccountSection', () => {
 
     await waitFor(() => expect(setGettingStartedDismissedMock).toHaveBeenCalledWith(false))
     expect(await screen.findByRole('status')).toHaveTextContent(
-      'The setup checklist is back in the sidebar. Open it when setup needs review.'
+      'The setup checklist is back in the sidebar. Open it whenever you want to check setup again.'
     )
     expect(
       screen.getByText(
-        'The setup checklist is back in the sidebar. Open it when setup needs review.'
+        'The setup checklist is back in the sidebar. Open it whenever you want to check setup again.'
       )
     ).toBeDefined()
     expect(screen.getByRole('link', { name: /open setup checklist/i })).toHaveAttribute(
@@ -327,7 +327,7 @@ describe('AccountSection', () => {
     ).toBeDefined()
     expect(
       screen.queryByText(
-        'The setup checklist is back in the sidebar. Open it when setup needs review.'
+        'The setup checklist is back in the sidebar. Open it whenever you want to check setup again.'
       )
     ).toBeNull()
     expect(screen.queryByRole('link', { name: /open setup checklist/i })).toBeNull()

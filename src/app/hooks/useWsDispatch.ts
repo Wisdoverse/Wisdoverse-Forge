@@ -464,7 +464,7 @@ function safeCompletionMessage(message: string): string {
     lower.includes('raw command output')
 
   if (looksLikeSupportDetail) {
-    return 'Finished with a summary that needs review. Open details before using the result.'
+    return 'Finished with a summary you should check. Open details before using the result.'
   }
 
   return trimmed

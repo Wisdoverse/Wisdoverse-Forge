@@ -531,6 +531,12 @@ const CHAT_TOOL_STEP_DEAD_END_PATTERNS = [
   /\blabel:\s*['"`]Needs review['"`]/i,
 ]
 
+const VAGUE_NEEDS_REVIEW_COPY_PATTERNS = [
+  /\bsummary that needs review\b/i,
+  /\bnothing needs review\b/i,
+  /\bsetup needs review\b/i,
+]
+
 const TECHNICAL_PROBLEM_JARGON_PATTERNS = [
   /\bThis step reported a technical problem\b/i,
   /\bThis record reported a technical problem\b/i,
@@ -1621,6 +1627,18 @@ function hasChatToolStepDeadEndCopy(relFile, line) {
   return CHAT_TOOL_STEP_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasVagueNeedsReviewCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/hooks/useWsDispatch.ts') &&
+    !relFile.endsWith('src/app/features/context/ApprovalQueueView.tsx') &&
+    !relFile.endsWith('src/app/features/settings/AccountSection.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return VAGUE_NEEDS_REVIEW_COPY_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasTechnicalProblemJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/chat/ToolCallDetail.tsx') &&
@@ -2627,6 +2645,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Chat tool step fallbacks must tell beginners to check the step before relying on it.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasVagueNeedsReviewCopy(relFile, line)) {
+      findings.push({
+        type: 'vague-needs-review-copy',
+        location,
+        message:
+          'User-facing review copy must tell beginners what to check instead of saying needs review.',
         sample: line.trim(),
       })
     }
