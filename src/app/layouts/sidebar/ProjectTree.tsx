@@ -446,7 +446,7 @@ export function ProjectTree({
         testId="project-tree-empty-teams"
         Icon={Users}
         title="Create a team first"
-        detail="Teams group projects and people. Add one, then create a project inside it."
+        detail="Teams keep projects and people together. Add one, then create a project inside it."
         actionLabel="Open Team Settings"
         onAction={onNavigate ? () => onNavigate('/settings/teams') : undefined}
       />

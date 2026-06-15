@@ -107,10 +107,10 @@ export function TeamsSection() {
     <div>
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>Teams and access groups</h2>
+          <h2 className={uiStyles.sectionTitle}>Teams and access</h2>
           <p className={uiStyles.sectionDescription}>
-            {teams.length} {teams.length === 1 ? 'team groups people' : 'teams group people'} and
-            projects inside this team space
+            {teams.length} {teams.length === 1 ? 'team keeps' : 'teams keep'} people and projects
+            together inside this team space
           </p>
         </div>
         {!showForm && canCreateTeam && (
@@ -154,7 +154,7 @@ export function TeamsSection() {
             </p>
             <p className="mx-auto mt-1 max-w-sm text-ui-caption text-secondary-light dark:text-secondary-dark">
               {canCreateTeam
-                ? 'Teams group projects and decide who can manage work. Start with one team, then add projects inside it.'
+                ? 'Teams keep projects and access together. Start with one team, then add projects inside it.'
                 : 'Only owners and admins can create teams. You can work here after someone adds a team for you.'}
             </p>
             {canCreateTeam && (

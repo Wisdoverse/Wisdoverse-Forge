@@ -98,6 +98,12 @@ describe('Sidebar', () => {
     expect(screen.getByTestId('sidebar-nav-tasks')).toBeInTheDocument()
     expect(screen.getByTestId('sidebar-nav-agents')).toBeInTheDocument()
     expect(screen.getByTestId('project-tree-empty-teams')).toHaveTextContent('Create a team first')
+    expect(screen.getByTestId('project-tree-empty-teams')).toHaveTextContent(
+      'Teams keep projects and people together'
+    )
+    expect(screen.getByTestId('project-tree-empty-teams')).not.toHaveTextContent(
+      'Teams group projects'
+    )
     fireEvent.click(screen.getByRole('button', { name: /open team settings/i }))
     expect(onNavigate).toHaveBeenCalledWith('/settings/teams')
   })

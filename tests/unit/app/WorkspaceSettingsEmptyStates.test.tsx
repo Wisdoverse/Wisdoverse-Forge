@@ -105,8 +105,9 @@ describe('workspace settings empty states', () => {
 
     expect(await screen.findByText('Create a team first')).toBeInTheDocument()
     expect(
-      screen.getByText(/Teams group projects and decide who can manage work/i)
+      screen.getByText(/Teams keep projects and access together/i)
     ).toBeInTheDocument()
+    expect(screen.queryByText(/Teams group projects/i)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /new team/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /create first team/i })).toBeInTheDocument()
   })
