@@ -8,18 +8,29 @@ describe('workspaceSettingsErrorMessage', () => {
     expect(actual).not.toContain('Detail:')
   }
 
-  test('maps permission failures to workspace access guidance', () => {
-    expectBeginnerMessage(
-      workspaceSettingsErrorMessage('team', 'load', new Error('HTTP 403')),
-      'Ask an owner or admin to update your workspace access.'
-    )
+  test('maps permission failures to team space access guidance', () => {
+    const message = workspaceSettingsErrorMessage('team', 'load', new Error('HTTP 403'))
+
+    expectBeginnerMessage(message, 'Ask an owner or admin to update your team space access.')
+    expect(message).not.toContain('workspace access')
   })
 
-  test('maps structured auth failures to a sign-in step', () => {
-    expectBeginnerMessage(
-      workspaceSettingsErrorMessage('team', 'load', { statusCode: '401' }),
-      'Sign in again, then refresh Settings to load workspace teams.'
-    )
+  test('maps structured permission failures to team space access guidance', () => {
+    const message = workspaceSettingsErrorMessage('team', 'load', {
+      statusCode: '403',
+      detail: 'owner role required',
+    })
+
+    expectBeginnerMessage(message, 'Ask an owner or admin to update your team space access.')
+    expect(message).not.toContain('owner role required')
+    expect(message).not.toContain('workspace access')
+  })
+
+  test('maps structured auth failures to a sign-in step without workspace wording', () => {
+    const message = workspaceSettingsErrorMessage('team', 'load', { statusCode: '401' })
+
+    expectBeginnerMessage(message, 'Sign in again, then refresh Settings to load teams.')
+    expect(message).not.toContain('workspace teams')
   })
 
   test('maps validation failures to beginner-safe create guidance', () => {
@@ -52,9 +63,10 @@ describe('workspaceSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load workspace teams. The team space, team, or project may have changed.'
+      'Refresh Settings to load teams. The team space, team, or project may have changed.'
     )
     expect(message).not.toContain('organization')
+    expect(message).not.toContain('workspace teams')
   })
 
   test('turns server details into an owner recovery step', () => {
@@ -66,11 +78,12 @@ describe('workspaceSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load workspace teams. If it still fails, ask an owner or admin to check workspace setup.'
+      'Refresh Settings to load teams. If it still fails, ask an owner or admin to check team space setup.'
     )
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('temporarily unavailable')
     expect(message).not.toContain('service')
+    expect(message).not.toContain('workspace setup')
   })
 
   test('turns structured server details into an owner recovery step', () => {
@@ -81,10 +94,11 @@ describe('workspaceSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load workspace projects. If it still fails, ask an owner or admin to check workspace setup.'
+      'Refresh Settings to load projects. If it still fails, ask an owner or admin to check team space setup.'
     )
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('503')
+    expect(message).not.toContain('workspace projects')
   })
 
   test('maps network failures to retryable setup guidance', () => {
@@ -94,11 +108,9 @@ describe('workspaceSettingsErrorMessage', () => {
       new TypeError('Failed to fetch')
     )
 
-    expectBeginnerMessage(
-      message,
-      'Check your connection, then refresh Settings to load workspace projects.'
-    )
+    expectBeginnerMessage(message, 'Check your connection, then refresh Settings to load projects.')
     expect(message).not.toContain('Failed to fetch')
+    expect(message).not.toContain('workspace projects')
   })
 
   test('starts create network failures with the recovery step', () => {

@@ -80,8 +80,10 @@ describe('TeamsSection', () => {
 
     await waitFor(() => expect(getTeams).toHaveBeenCalledWith('org-1'))
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Refresh Settings to load workspace teams. If it still fails, ask an owner or admin to check workspace setup.'
+      'Refresh Settings to load teams. If it still fails, ask an owner or admin to check team space setup.'
     )
+    expect(screen.queryByText(/workspace teams/i)).toBeNull()
+    expect(screen.queryByText(/workspace setup/i)).toBeNull()
     expect(screen.queryByText('HTTP 500')).toBeNull()
     expect(screen.queryByText(/temporarily unavailable/i)).toBeNull()
   })
@@ -92,7 +94,8 @@ describe('TeamsSection', () => {
     render(<TeamsSection />)
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Ask an owner or admin to update your workspace access.')
+    expect(alert).toHaveTextContent('Ask an owner or admin to update your team space access.')
+    expect(alert.textContent).not.toContain('workspace access')
     expect(alert.textContent).not.toContain('Detail:')
     expect(alert.textContent).not.toContain('owner role required')
   })

@@ -89,14 +89,12 @@ function resourceLabel(resource: WorkspaceSettingsResource): string {
 
 function loadMessage(resource: WorkspaceSettingsResource): string {
   const label = resourceLabel(resource)
-  return `Refresh Settings to load workspace ${label}s.`
+  return `Refresh Settings to load ${label}s.`
 }
 
 function retryPhrase(resource: WorkspaceSettingsResource, action: WorkspaceSettingsAction): string {
   const label = resourceLabel(resource)
-  return action === 'load'
-    ? `refresh Settings to load workspace ${label}s`
-    : `create this ${label} again`
+  return action === 'load' ? `refresh Settings to load ${label}s` : `create this ${label} again`
 }
 
 function connectionMessage(
@@ -115,10 +113,10 @@ function unavailableMessage(
   action: WorkspaceSettingsAction
 ): string {
   if (action === 'load') {
-    return `${loadMessage(resource)} If it still fails, ask an owner or admin to check workspace setup.`
+    return `${loadMessage(resource)} If it still fails, ask an owner or admin to check team space setup.`
   }
 
-  return `Refresh Settings, then ${retryPhrase(resource, action)}. If it still fails, ask an owner or admin to check workspace setup.`
+  return `Refresh Settings, then ${retryPhrase(resource, action)}. If it still fails, ask an owner or admin to check team space setup.`
 }
 
 export function workspaceSettingsErrorMessage(
@@ -136,7 +134,7 @@ export function workspaceSettingsErrorMessage(
     return `Sign in again, then ${retry}.`
   }
   if (code === 403 || text.includes('permission') || text.includes('forbidden')) {
-    return 'Ask an owner or admin to update your workspace access.'
+    return 'Ask an owner or admin to update your team space access.'
   }
   if (code === 404 || text.includes('endpoint is not available')) {
     return action === 'load'
@@ -167,6 +165,6 @@ export function workspaceSettingsErrorMessage(
   }
 
   return action === 'load'
-    ? `${load} If it still fails, ask an owner or admin to check the workspace setup.`
-    : `Try to ${retry}. If it still fails, ask an owner or admin to check the workspace setup.`
+    ? `${load} If it still fails, ask an owner or admin to check team space setup.`
+    : `Try to ${retry}. If it still fails, ask an owner or admin to check team space setup.`
 }

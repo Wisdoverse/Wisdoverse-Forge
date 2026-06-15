@@ -104,9 +104,7 @@ describe('workspace settings empty states', () => {
     render(<TeamsSection />)
 
     expect(await screen.findByText('Create a team first')).toBeInTheDocument()
-    expect(
-      screen.getByText(/Teams keep projects and access together/i)
-    ).toBeInTheDocument()
+    expect(screen.getByText(/Teams keep projects and access together/i)).toBeInTheDocument()
     expect(screen.queryByText(/Teams group projects/i)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /new team/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /create first team/i })).toBeInTheDocument()
@@ -129,7 +127,8 @@ describe('workspace settings empty states', () => {
     render(<TeamsSection />)
 
     const alert = await screen.findByRole('alert')
-    expect(alert.textContent).toContain('Ask an owner or admin to update your workspace access.')
+    expect(alert.textContent).toContain('Ask an owner or admin to update your team space access.')
+    expect(alert.textContent).not.toContain('workspace access')
     expect(alert.textContent).toMatch(/^Ask an owner or admin/)
     expect(alert.textContent).not.toContain('HTTP 403')
   })
@@ -162,21 +161,21 @@ describe('workspace settings empty states', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain(
-      'Refresh Settings to load workspace projects. If it still fails, ask an owner or admin to check workspace setup.'
+      'Refresh Settings to load projects. If it still fails, ask an owner or admin to check team space setup.'
     )
     expect(alert.textContent).not.toContain('HTTP 500')
     expect(alert.textContent).not.toContain('temporarily unavailable')
+    expect(alert.textContent).not.toContain('workspace projects')
   })
 
-  it('turns project loading server failures into a workspace setup step', async () => {
+  it('turns project loading server failures into a team space setup step', async () => {
     mocks.getTeams.mockRejectedValue(new Error('API 503: {"message":"database unavailable"}'))
 
     render(<ProjectsSection />)
 
-    expect(
-      await screen.findByText(/Refresh Settings to load workspace projects/i)
-    ).toBeInTheDocument()
-    expect(screen.getByText(/ask an owner or admin to check workspace setup/i)).toBeInTheDocument()
+    expect(await screen.findByText(/Refresh Settings to load projects/i)).toBeInTheDocument()
+    expect(screen.getByText(/ask an owner or admin to check team space setup/i)).toBeInTheDocument()
+    expect(screen.queryByText(/workspace setup/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/database unavailable/i)).not.toBeInTheDocument()
   })
 
@@ -212,7 +211,7 @@ describe('workspace settings empty states', () => {
     render(<ProjectsSection />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Ask an owner or admin to update your workspace access.'
+      'Ask an owner or admin to update your team space access.'
     )
     expect(screen.queryByText('HTTP 403')).not.toBeInTheDocument()
   })
