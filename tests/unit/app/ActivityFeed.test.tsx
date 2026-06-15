@@ -174,5 +174,6 @@ describe('ActivityFeed', () => {
     render(<ActivityFeed />)
     expect(screen.getByText(/quiet so far/i)).toBeDefined()
     expect(screen.getByText(/start a task or wait for an assigned agent/i)).toBeDefined()
+    expect(screen.getByText(/open Board, create or assign a task/i)).toBeDefined()
   })
 })
