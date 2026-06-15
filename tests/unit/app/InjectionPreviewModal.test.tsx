@@ -150,14 +150,15 @@ describe('InjectionPreviewModal', () => {
       <InjectionPreviewModal
         isOpen
         preview={null}
-        error="No agent is available for saved item preview. Start an agent or wait for one to finish, then try again."
+        error="No agent can prepare the saved item preview right now. Open Agents to start or connect an agent, then return to the board and refresh."
         onClose={() => {}}
         onConfirm={() => {}}
       />
     )
 
     const alert = screen.getByRole('alert')
-    expect(alert.textContent).toContain('No agent is available for saved item preview')
+    expect(alert.textContent).toContain('No agent can prepare the saved item preview right now')
+    expect(alert.textContent).toContain('Open Agents to start or connect an agent')
     expect(screen.getByText(/choose an available agent, then try sending again/i)).toBeDefined()
     expect(screen.queryByText('No saved notes review is available yet.')).toBeNull()
   })

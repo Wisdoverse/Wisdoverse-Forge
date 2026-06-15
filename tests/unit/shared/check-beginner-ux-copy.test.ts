@@ -4327,6 +4327,40 @@ function networkRecoveryMessage() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags board no-agent preview copy that does not point users to agent setup', () => {
+    const cwd = fixture({
+      'src/app/features/board/boardErrorMessages.ts': `
+function noAgentPreview() {
+  return 'No agent is available for saved item preview. Start an agent or wait for one to finish, then try again.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'board-agent-setup-copy',
+          location: 'src/app/features/board/boardErrorMessages.ts:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts board no-agent preview copy that points users to agent setup', () => {
+    const cwd = fixture({
+      'src/app/features/board/boardErrorMessages.ts': `
+function noAgentPreview() {
+  return 'No agent can prepare the saved item preview right now. Open Agents to start or connect an agent, then return to the board and refresh.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags authentication network copy that starts with the failure instead of the next step', () => {
     const cwd = fixture({
       'src/app/features/auth/AuthPage.ts': `

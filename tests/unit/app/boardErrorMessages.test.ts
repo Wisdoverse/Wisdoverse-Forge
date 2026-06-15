@@ -29,7 +29,7 @@ describe('boardActionErrorMessage', () => {
 
   test('gives a clear next step when no agent can preview context', () => {
     expect(boardActionErrorMessage('previewContext', new Error('No available agent'))).toBe(
-      'No agent is available for saved item preview. Start an agent or wait for one to finish, then try again.'
+      'No agent can prepare the saved item preview right now. Open Agents to start or connect an agent, then return to the board and refresh.'
     )
   })
 

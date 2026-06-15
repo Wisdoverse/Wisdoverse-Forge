@@ -465,6 +465,10 @@ const BOARD_LOAD_FAILURE_FIRST_PATTERNS = [
   /\bForge could not connect while (?:loading|updating) the board\./i,
 ]
 
+const BOARD_AGENT_SETUP_DEAD_END_PATTERNS = [
+  /\bNo agent is available for saved item preview\. Start an agent or wait for one to finish, then try again\./i,
+]
+
 const NETWORK_FAILURE_FIRST_PATTERNS = [
   /\bSign-in could not finish\. Forge could not connect while signing you in\./i,
   /\bAccount could not be created\. Forge could not connect while creating it\./i,
@@ -913,6 +917,12 @@ function hasBoardLoadFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/board/boardErrorMessages.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return BOARD_LOAD_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasBoardAgentSetupDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/board/boardErrorMessages.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return BOARD_AGENT_SETUP_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasNetworkFailureFirstCopy(relFile, line) {
@@ -1684,6 +1694,16 @@ function scanFile(file, relFile) {
         type: 'board-load-copy',
         location,
         message: 'Board load errors must start with the next action for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasBoardAgentSetupDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'board-agent-setup-copy',
+        location,
+        message:
+          'Board no-agent copy must tell beginners to open Agents, start or connect an agent, and refresh the board.',
         sample: line.trim(),
       })
     }
