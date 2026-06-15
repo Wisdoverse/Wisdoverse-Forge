@@ -365,6 +365,7 @@ function GettingStartedGuideRow() {
   }, [loadPreferences])
 
   const dismissed = preferences?.gettingStartedDismissed === true
+  const canOpenChecklist = preferencesLoaded && !dismissed
   const statusLine = !preferencesLoaded
     ? 'Checking whether the setup checklist is hidden...'
     : dismissed
@@ -396,14 +397,27 @@ function GettingStartedGuideRow() {
             checklist back. {statusLine}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleRestore}
-          disabled={restoring || !preferencesLoaded || !dismissed}
-          className={cn(uiStyles.secondaryButton, 'shrink-0')}
-        >
-          {restoring ? 'Showing...' : 'Show setup checklist'}
-        </button>
+        <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+          {canOpenChecklist && !restored && (
+            <a
+              href="/start"
+              className={cn(
+                uiStyles.secondaryButton,
+                'inline-flex h-9 items-center justify-center text-apple-blue'
+              )}
+            >
+              Open setup checklist
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={handleRestore}
+            disabled={restoring || !preferencesLoaded || !dismissed}
+            className={uiStyles.secondaryButton}
+          >
+            {restoring ? 'Showing...' : 'Show setup checklist'}
+          </button>
+        </div>
       </div>
       {error && (
         <div role="alert" className={cn(uiStyles.error, 'mb-0')}>

@@ -300,6 +300,10 @@ describe('AccountSection', () => {
 
     expect(screen.getByText(/The setup checklist is already visible in the sidebar/)).toBeDefined()
     expect(screen.getByRole('button', { name: /show setup checklist/i })).toBeDisabled()
+    expect(screen.getByRole('link', { name: /open setup checklist/i })).toHaveAttribute(
+      'href',
+      '/start'
+    )
   })
 
   test('reports a failed restore instead of pretending it worked', async () => {
