@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
-import { taskBlockedPreview } from '@app/shared/lib/taskFailureCopy'
+import { isRawTaskFailureDetail, taskBlockedPreview } from '@app/shared/lib/taskFailureCopy'
 import type { FeedItem as FeedItemType } from '@app/shared/model/feed.store'
 
 const TYPE_ICONS: Record<string, LucideIcon> = {
@@ -133,16 +133,7 @@ function displayFeedDetail(item: FeedItemType): string {
   }
   if (item.type !== 'task.failed') return item.detail
 
-  const raw = item.detail.toLowerCase()
-  const exposesRawFailure =
-    /\b(?:command\s+)?exited?\s+\d+\b/.test(raw) ||
-    /\b(?:http|api)\s+\d{3}\b/.test(raw) ||
-    raw.includes('unauthorized') ||
-    raw.includes('non-zero') ||
-    raw.includes('provider') ||
-    /\b(?:credential|credentials|key|keys|token|tokens|secret|secrets)\b/i.test(item.detail)
-
-  if (!exposesRawFailure) return item.detail
+  if (!isRawTaskFailureDetail(item.detail)) return item.detail
 
   return 'Open details to see the recovery note, then retry or choose another agent.'
 }

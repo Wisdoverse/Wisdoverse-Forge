@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { isRawTaskFailureDetail } from '@app/shared/lib/taskFailureCopy'
 import type { Notification } from '@app/shared/model/feed.store'
 
 const TYPE_CONFIG: Record<
@@ -185,15 +186,12 @@ function displayNotificationMessage(notification: Notification): string {
 }
 
 function failedNotificationMessage(message: string): string {
-  const raw = message.toLowerCase()
-  const exposesRawFailure =
-    raw.includes('failed to complete this task') ||
-    /\bexit\s+\d+\b/.test(raw) ||
-    /\b(?:http|api)\s+\d{3}\b/.test(raw) ||
-    raw.includes('unauthorized') ||
-    raw.includes('non-zero')
-
-  if (!exposesRawFailure) return message
+  if (
+    !message.toLowerCase().includes('failed to complete this task') &&
+    !isRawTaskFailureDetail(message)
+  ) {
+    return message
+  }
 
   return 'The task stopped before finishing. Open it, review the recovery note, then retry or choose another agent.'
 }

@@ -1,5 +1,9 @@
 import { describe, expect, test } from 'vitest'
-import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
+import {
+  isRawTaskFailureDetail,
+  taskBlockedPreview,
+  taskFailurePreview,
+} from '@app/shared/lib/taskFailureCopy'
 
 describe('taskFailureCopy', () => {
   test('turns failed task details into beginner-safe recovery copy', () => {
@@ -44,5 +48,11 @@ describe('taskFailureCopy', () => {
     expect(message).toBe('Reconnect sign-in or service access, then retry.')
     expect(message).not.toContain('needs attention')
     expect(message).not.toContain('401')
+  })
+
+  test('identifies raw failure details before they reach user-facing summaries', () => {
+    expect(isRawTaskFailureDetail('command exited 1')).toBe(true)
+    expect(isRawTaskFailureDetail('provider token rejected')).toBe(true)
+    expect(isRawTaskFailureDetail('Repository access needs reconnecting')).toBe(false)
   })
 })

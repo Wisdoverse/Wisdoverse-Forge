@@ -111,6 +111,34 @@ describe('InboxView', () => {
     expect(screen.queryByText(/exit 1/i)).toBeNull()
   })
 
+  test('hides raw details from older failed notifications', async () => {
+    orchestrationApiMock.fetchInboxNotifications.mockResolvedValue([
+      {
+        id: 'task-owner:t-raw-failed:failed',
+        type: 'failed',
+        taskId: 't-raw-failed',
+        taskTitle: 'Refresh code access',
+        message: 'git provider token rejected: HTTP 401 Unauthorized',
+        taskHref: '/tasks',
+        ownerUserId: 'owner-1',
+        read: false,
+        timestamp: Date.now(),
+      },
+    ])
+
+    render(<InboxView />)
+
+    await screen.findByTestId('inbox-notification-task-owner:t-raw-failed:failed')
+    expect(
+      screen.getByText(
+        'The task stopped before finishing. Open it, review the recovery note, then retry or choose another agent.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByText(/provider token/i)).toBeNull()
+    expect(screen.queryByText(/HTTP 401/i)).toBeNull()
+    expect(screen.queryByText(/Unauthorized/i)).toBeNull()
+  })
+
   test('summarizes the safest next action for beginner triage', () => {
     const store = useFeedStore.getState()
     store.addNotification({

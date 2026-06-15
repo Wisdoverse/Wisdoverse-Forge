@@ -23,6 +23,24 @@ export function taskFailurePreview(error?: string | null): string {
   return 'Stopped before finishing. Open details to see what happened and retry.'
 }
 
+export function isRawTaskFailureDetail(message: string): boolean {
+  const trimmed = message.trim()
+  const raw = trimmed.toLowerCase()
+
+  return (
+    /\b(?:command\s+)?exited?\s+\d+\b/.test(raw) ||
+    /\bexit\s+\d+\b/.test(raw) ||
+    /\b(?:http|api)\s+\d{3}\b/.test(raw) ||
+    /\b(?:panic|stack trace|traceback|exception|stdout|stderr|raw command output|database)\b/i.test(
+      trimmed
+    ) ||
+    raw.includes('unauthorized') ||
+    raw.includes('non-zero') ||
+    raw.includes('provider') ||
+    /\b(?:credential|credentials|key|keys|token|tokens|secret|secrets)\b/i.test(trimmed)
+  )
+}
+
 interface TaskBlockedPreviewInput {
   blockedHint?: string | null
   blockedReason?: string | null
