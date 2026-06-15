@@ -129,6 +129,7 @@ async fn main() -> Result<()> {
     agentforge_api::observability::register_http_metrics();
     agentforge_api::services::cli_auth_proxy::register_cli_auth_proxy_metrics();
     agentforge_api::services::usage_analytics::register_usage_analytics_metrics();
+    agentforge_api::services::project_clone_worker::register_metrics();
 
     // 3. Create database pool.
     let pool = create_pool(&config).await?;
@@ -513,6 +514,64 @@ async fn main() -> Result<()> {
         None
     };
 
+    // Project-clone worker + reconciler (project-git-clone, M5). Dequeues
+    // `project_clone` jobs (relayed from the transactional outbox), runs the
+    // ephemeral `agentforge-clone` container, owns the attempt status machine,
+    // performs the atomic same-filesystem rename into the project directory, and
+    // reconciles crashed-worker / lost-enqueue attempts. Requires Docker; skipped
+    // (with a clear log) when no daemon is available or the flag is off.
+    let project_clone_worker_handle = if config.project_clone_worker_enabled {
+        match docker.clone() {
+            Some(client) => {
+                let backend = agentforge_platform::clone_runtime::LiveCloneDockerBackend::new(client);
+                // The sweep ceiling = clone timeout + generous slack so a healthy
+                // in-progress large clone is never reaped early.
+                let max_clone_age =
+                    std::time::Duration::from_secs(config.project_clone_timeout_secs.saturating_add(300));
+                let runtime = agentforge_platform::CloneRuntime::new(backend, max_clone_age);
+                let runner = Arc::new(agentforge_api::services::project_clone_worker::LiveCloneRunner::new(runtime));
+
+                let credentials = Arc::new(agentforge_api::services::git_credential::GitCredentialService::from_pool(
+                    pool.clone(),
+                    encryption_key,
+                ));
+
+                let worker_config = agentforge_api::services::project_clone_worker::CloneWorkerConfig {
+                    image: config.project_clone_image.clone().unwrap_or_else(|| {
+                        agentforge_api::services::project_clone_worker::DEFAULT_CLONE_IMAGE.to_string()
+                    }),
+                    workspace_root: std::env::var("AGENTFORGE_WORKSPACE_ROOT")
+                        .unwrap_or_else(|_| "/data/agentforge/workspaces".to_string()),
+                    secret_root: config
+                        .project_clone_secret_root
+                        .as_deref()
+                        .map(PathBuf::from)
+                        .unwrap_or_else(|| PathBuf::from("/tmp/agentforge/clone-secrets")),
+                    timeout: std::time::Duration::from_secs(config.project_clone_timeout_secs),
+                    lease_ttl: std::time::Duration::from_secs(config.project_clone_timeout_secs.saturating_add(300)),
+                    ..Default::default()
+                };
+
+                let worker = agentforge_api::services::project_clone_worker::ProjectCloneWorker::new(
+                    pool.clone(),
+                    credentials,
+                    runner,
+                    worker_config,
+                )
+                .with_realtime(nats.client().cloned());
+                let worker_shutdown = shutdown_rx.clone();
+                Some(tokio::spawn(async move { worker.run(worker_shutdown).await }))
+            }
+            None => {
+                tracing::warn!("project_clone worker enabled but Docker unavailable; project cloning disabled");
+                None
+            }
+        }
+    } else {
+        tracing::info!("project_clone worker disabled (flag off)");
+        None
+    };
+
     let cli_auth_memory_store = Arc::new(agentforge_api::services::cli_auth_proxy::MemoryStateStore::new());
 
     let llm_factory = Arc::new(agentforge_llm::LlmProviderFactory::new(config.ollama_base_url.clone()));
@@ -616,6 +675,12 @@ async fn main() -> Result<()> {
         match handle.await {
             Ok(()) => {}
             Err(err) => tracing::warn!(error = %err, "participant liveness worker join failed"),
+        }
+    }
+    if let Some(handle) = project_clone_worker_handle {
+        match handle.await {
+            Ok(()) => {}
+            Err(err) => tracing::warn!(error = %err, "project_clone worker join failed"),
         }
     }
     if let Some(handle) = auth_callout_handle {

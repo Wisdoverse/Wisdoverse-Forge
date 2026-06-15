@@ -38,6 +38,10 @@ fn default_false() -> bool {
     false
 }
 
+fn default_true() -> bool {
+    true
+}
+
 fn default_storage_provider() -> String {
     "local".to_string()
 }
@@ -467,6 +471,33 @@ pub struct AppConfig {
     /// generated Dockerfile as the `NPM_REGISTRY` build-arg so the in-image
     /// `npm install` uses the same mirror.
     pub cli_image_npm_registry: Option<String>,
+
+    /// Enable the project-clone worker + reconciler (project-git-clone, M5).
+    /// `true` (default) starts the worker when a Docker daemon is available; it
+    /// dequeues `project_clone` jobs, runs the ephemeral clone container, and
+    /// owns the attempt status machine. Set `false` to disable cloning entirely
+    /// (e.g. an air-gapped deployment that never clones).
+    #[serde(default = "default_true")]
+    pub project_clone_worker_enabled: bool,
+
+    /// Clone image ref the worker launches per clone. Defaults to
+    /// `agentforge-clone:latest` at the use-site. Override with
+    /// `PROJECT_CLONE_IMAGE` to pin a digest or a registry copy.
+    pub project_clone_image: Option<String>,
+
+    /// Backend-controlled secret root (mode 0700) the per-clone credential file
+    /// is materialized under, OUTSIDE the projects/workspace tree agent
+    /// containers bind. Defaults to `/tmp/agentforge/clone-secrets`. The runtime
+    /// owns the file ownership/mode mechanics; this is just the root path.
+    pub project_clone_secret_root: Option<String>,
+
+    /// Hard wall-clock timeout per clone, seconds. Default 600 (10 min).
+    #[serde(default = "default_clone_timeout_secs")]
+    pub project_clone_timeout_secs: u64,
+}
+
+fn default_clone_timeout_secs() -> u64 {
+    600
 }
 
 fn default_cli_image_update_interval() -> u64 {
@@ -755,6 +786,10 @@ mod tests {
             cli_image_prune_enabled: false,
             cli_image_claude_auto_build: false,
             cli_image_npm_registry: None,
+            project_clone_worker_enabled: false,
+            project_clone_image: None,
+            project_clone_secret_root: None,
+            project_clone_timeout_secs: 600,
         };
         assert!(cfg.is_production());
     }
@@ -1082,6 +1117,10 @@ mod tests {
             cli_image_prune_enabled: false,
             cli_image_claude_auto_build: false,
             cli_image_npm_registry: None,
+            project_clone_worker_enabled: false,
+            project_clone_image: None,
+            project_clone_secret_root: None,
+            project_clone_timeout_secs: 600,
         };
         let dbg = format!("{cfg:?}");
         for needle in [

@@ -2,6 +2,7 @@
 
 use agentforge_core::{AppResult, TenantScope, crypto};
 use agentforge_db::entities::GitCredential;
+use agentforge_platform::SecretBytes;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -41,6 +42,38 @@ pub(crate) struct UpsertGitCredentialInput {
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct GitCliCredentialInjection {
     pub env: Vec<(String, String)>,
+}
+
+/// One host-matched git credential resolved for a project clone (M5/M6).
+///
+/// Carries the `credential_id` (so the worker records WHICH credential it used
+/// on the attempt — never the secret) and the decrypted credential bytes in a
+/// [`SecretBytes`] wrapper that NEVER serializes and NEVER `Debug`-prints the
+/// token (it `zeroize`-scrubs on drop). The bytes are already in the M3/M4
+/// clone-entrypoint secret-file form (`x-access-token:<token>` for GitHub,
+/// `oauth2:<token>` for GitLab), so the worker writes them to the mounted secret
+/// file verbatim and never has to reason about the colon-form contract again.
+///
+/// Deliberately NOT `Clone`/`Serialize`/`Debug`-revealing: the secret should
+/// have exactly one owner whose drop scrubs it, and the worker materializes it
+/// only at the instant it launches the container (see M5 worker).
+pub struct ResolvedCredential {
+    /// The selected `git_credentials.id` — recorded on the attempt row. Never
+    /// the secret.
+    pub credential_id: Uuid,
+    /// The decrypted credential bytes in the clone-entrypoint secret-file form
+    /// (`x-access-token:<token>` / `oauth2:<token>`). Never logged or serialized.
+    pub secret: SecretBytes,
+}
+
+impl std::fmt::Debug for ResolvedCredential {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Print only the credential id; the secret is intentionally redacted.
+        f.debug_struct("ResolvedCredential")
+            .field("credential_id", &self.credential_id)
+            .field("secret", &"[REDACTED]")
+            .finish()
+    }
 }
 
 impl GitCredentialService {
@@ -178,6 +211,71 @@ impl GitCredentialService {
         Ok(out)
     }
 
+    /// Resolve EXACTLY ONE org-scoped git credential whose host matches the clone
+    /// repository URL's host (M5/M6 host-matched credential selection).
+    ///
+    /// This is NOT "latest token per provider": it picks the single credential
+    /// that targets the SAME host as the repo being cloned, so a project on
+    /// `gitlab.example.com` never picks up a `gitlab.com` token (and vice versa).
+    /// Matching, in priority order:
+    ///
+    /// 1. an exact host match on the credential's `remote_url` (normalized);
+    /// 2. for a credential with no usable `remote_url`, a match on the provider's
+    ///    canonical SaaS host (`github`→`github.com`, `gitlab`→`gitlab.com`) — so
+    ///    a bare provider token still serves a `github.com` / `gitlab.com` clone.
+    ///
+    /// The candidate list is ordered newest-first, so among equally-matching
+    /// credentials the most recently updated wins.
+    ///
+    /// Returns `Ok(None)` when no credential matches the host — the worker then
+    /// clones ANONYMOUSLY (public-repo path). A private repo with no matching
+    /// credential simply fails the clone with git's auth error, which the worker
+    /// classifies + redacts; we never silently fall back to a wrong-host token.
+    ///
+    /// The decrypted bytes are returned ONLY here, in a [`SecretBytes`] wrapper,
+    /// and only the SINGLE selected credential is decrypted (the others are never
+    /// touched), minimizing the plaintext blast radius. Org-scoped: a credential
+    /// from another organization can never be selected.
+    pub async fn resolve_for_host(&self, scope: &TenantScope, host: &str) -> AppResult<Option<ResolvedCredential>> {
+        let target = host.trim().trim_end_matches('.').to_ascii_lowercase();
+        if target.is_empty() {
+            return Ok(None);
+        }
+
+        let candidates = self.repo.org_token_candidates(scope.org_id().as_uuid()).await?;
+
+        // Two passes so an EXPLICIT remote_url host match always beats a
+        // provider-canonical fallback, regardless of row order.
+        let pick = candidates
+            .iter()
+            .find(|cred| credential_remote_host(cred).as_deref() == Some(target.as_str()))
+            .or_else(|| {
+                candidates.iter().find(|cred| {
+                    credential_remote_host(cred).is_none()
+                        && provider_canonical_host(&cred.provider).as_deref() == Some(target.as_str())
+                })
+            });
+
+        let Some(cred) = pick else {
+            return Ok(None);
+        };
+
+        // Decrypt ONLY the selected credential — the moment we are about to hand
+        // it to the container. The key is required; a configured-but-keyless
+        // deployment surfaces the standard decrypt-key error rather than silently
+        // cloning anonymously for a private repo.
+        let key = self.encryption_key.ok_or_else(GitCredentialEncryptionPolicy::missing_decrypt_key)?;
+        let Some(token) = decrypt_git_token(&key, cred)? else {
+            // The selected credential had no usable token after decrypt (blank);
+            // treat as "no credential" rather than mounting an empty secret (the
+            // entrypoint REFUSES a present-but-empty secret).
+            return Ok(None);
+        };
+
+        let bytes = clone_secret_bytes(&cred.provider, &token);
+        Ok(Some(ResolvedCredential { credential_id: cred.id, secret: SecretBytes::from(bytes) }))
+    }
+
     /// Get a git credential by ID.
     pub async fn get(&self, scope: &TenantScope, id: Uuid) -> AppResult<GitCredential> {
         self.repo.find_by_id(scope, id).await
@@ -204,6 +302,46 @@ impl GitCredentialService {
 
 fn trimmed_opt(value: Option<&str>) -> Option<&str> {
     value.map(str::trim).filter(|value| !value.is_empty())
+}
+
+/// Normalized host of a credential's `remote_url`, or `None` when it has no
+/// usable `remote_url`. Reuses [`GitRemoteHost::normalize`] but with an empty
+/// default so a missing/blank `remote_url` yields `None` (not a guessed host) —
+/// that case falls through to the provider-canonical match instead.
+fn credential_remote_host(cred: &GitCredential) -> Option<String> {
+    let raw = trimmed_opt(cred.remote_url.as_deref())?;
+    let host = GitRemoteHost::normalize(Some(raw), "");
+    if host.is_empty() { None } else { Some(host) }
+}
+
+/// Canonical SaaS host for a provider slug, for credentials with no `remote_url`.
+/// Only the two v1-supported providers resolve; anything else is `None` (so a
+/// `custom`/`bitbucket` token never matches by provider alone — it must carry a
+/// `remote_url`).
+fn provider_canonical_host(provider: &str) -> Option<String> {
+    match provider.trim().to_ascii_lowercase().as_str() {
+        "github" => Some("github.com".to_string()),
+        "gitlab" => Some("gitlab.com".to_string()),
+        _ => None,
+    }
+}
+
+/// Build the clone-entrypoint secret-file bytes for a token, in the colon-form
+/// the M3 helper contract requires (see `docker/scripts/clone-entrypoint.sh`):
+///
+/// - GitHub: `x-access-token:<token>` (PAT-over-HTTPS / app-installation form);
+/// - GitLab: `oauth2:<token>` (GitLab OAuth2/PAT-over-HTTPS form);
+/// - anything else: `x-access-token:<token>` as a safe default username.
+///
+/// Always a colon-form indicator, never a bare token — so a token that itself
+/// contains a `:` can never be mis-split into user/pass by the helper.
+fn clone_secret_bytes(provider: &str, token: &str) -> Vec<u8> {
+    let line = match provider.trim().to_ascii_lowercase().as_str() {
+        "gitlab" => format!("oauth2:{token}"),
+        // github + every other provider default to the x-access-token username.
+        _ => format!("x-access-token:{token}"),
+    };
+    line.into_bytes()
 }
 
 fn decrypt_git_token(key: &[u8; 32], cred: &GitCredential) -> AppResult<Option<String>> {
@@ -331,5 +469,72 @@ mod tests {
 
         assert_eq!(decrypt_git_token(&key, &padded).unwrap().as_deref(), Some("ghp-secret"));
         assert_eq!(decrypt_git_token(&key, &blank).unwrap(), None);
+    }
+
+    fn credential_with(provider: &str, remote_url: Option<&str>) -> GitCredential {
+        GitCredential {
+            id: Uuid::now_v7(),
+            organization_id: agentforge_core::OrgId::new(),
+            user_id: agentforge_core::UserId::new(),
+            name: provider.into(),
+            provider: provider.into(),
+            credential_type: "token".into(),
+            token_encrypted: Some(b"x".to_vec()),
+            token_nonce: None,
+            remote_url: remote_url.map(str::to_string),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        }
+    }
+
+    #[test]
+    fn credential_remote_host_normalizes_known_url_shapes() {
+        // https URL, ssh URL, and host:port all reduce to the bare lowercase host.
+        assert_eq!(
+            credential_remote_host(&credential_with("github", Some("https://github.com/o/r.git"))).as_deref(),
+            Some("github.com")
+        );
+        assert_eq!(
+            credential_remote_host(&credential_with("gitlab", Some("git@gitlab.example.com:group/repo.git")))
+                .as_deref(),
+            Some("gitlab.example.com")
+        );
+        assert_eq!(
+            credential_remote_host(&credential_with("github", Some("GitHub.Enterprise.Example"))).as_deref(),
+            Some("github.enterprise.example")
+        );
+        // A blank/missing remote_url yields None (falls through to provider match).
+        assert_eq!(credential_remote_host(&credential_with("github", None)), None);
+        assert_eq!(credential_remote_host(&credential_with("github", Some("   "))), None);
+    }
+
+    #[test]
+    fn provider_canonical_host_only_resolves_supported_saas() {
+        assert_eq!(provider_canonical_host("github").as_deref(), Some("github.com"));
+        assert_eq!(provider_canonical_host("GitLab").as_deref(), Some("gitlab.com"));
+        // Unsupported providers never match by provider alone (must carry a url).
+        assert_eq!(provider_canonical_host("bitbucket"), None);
+        assert_eq!(provider_canonical_host("custom"), None);
+    }
+
+    #[test]
+    fn clone_secret_bytes_uses_provider_colon_form() {
+        // GitHub uses x-access-token; GitLab uses oauth2; both are colon-form so a
+        // token containing ':' can never be mis-split by the entrypoint helper.
+        assert_eq!(clone_secret_bytes("github", "ghp_abc:def"), b"x-access-token:ghp_abc:def".to_vec());
+        assert_eq!(clone_secret_bytes("gitlab", "glpat-xyz"), b"oauth2:glpat-xyz".to_vec());
+        // Any other provider defaults to the x-access-token username.
+        assert_eq!(clone_secret_bytes("custom", "tok"), b"x-access-token:tok".to_vec());
+    }
+
+    #[test]
+    fn resolved_credential_debug_never_leaks_the_secret() {
+        let resolved = ResolvedCredential {
+            credential_id: Uuid::now_v7(),
+            secret: SecretBytes::from(b"x-access-token:ghp_supersecret".to_vec()),
+        };
+        let debug = format!("{resolved:?}");
+        assert!(!debug.contains("ghp_supersecret"), "secret leaked through Debug: {debug}");
+        assert!(debug.contains("[REDACTED]"));
     }
 }
