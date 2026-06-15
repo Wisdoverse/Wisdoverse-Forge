@@ -339,6 +339,25 @@ describe('beginner error translations', () => {
     expect(chinese.title).not.toContain('无权操作')
   })
 
+  test('chat-only agent lifecycle errors start with the next user action', () => {
+    const english = en.errors.agent.lifecycle
+    const chinese = zh.errors.agent.lifecycle
+
+    expect(english.restart_api.title).toBe('Send the message again instead of restarting')
+    expect(english.start_api.title).toBe('Send a message to start this chat-only agent')
+    expect(english.stop_api.title).toBe('Close the chat or wait for the reply to finish')
+    expect(english.restart_api.title).not.toContain('No workspace')
+    expect(english.start_api.title).not.toContain('No workspace')
+    expect(english.stop_api.title).not.toContain('No workspace')
+
+    expect(chinese.restart_api.title).toContain('重新发送消息')
+    expect(chinese.start_api.title).toContain('发送消息')
+    expect(chinese.stop_api.title).toContain('关闭聊天')
+    expect(chinese.restart_api.title).not.toContain('没有可重启')
+    expect(chinese.start_api.title).not.toContain('没有可启动')
+    expect(chinese.stop_api.title).not.toContain('没有可停止')
+  })
+
   test('agent work tool errors use display names instead of raw ids', () => {
     const englishManaged = en.errors.agent.create.missing_cli_tool_for_container.detail
     const englishComputer = en.errors.agent.create.missing_cli_tool_for_host_cli.detail

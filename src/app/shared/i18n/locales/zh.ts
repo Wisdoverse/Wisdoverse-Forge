@@ -523,24 +523,24 @@ export const zh: TranslationKeys = {
           detail: 'Forge 不能替你重启它。请在那台电脑上重新运行设置命令。',
         },
         restart_api: {
-          title: '没有可重启的工作区',
-          detail: '该 Agent 通过 AI 服务回复消息。请重新发送一条消息再试一次。',
+          title: '请重新发送消息，而不是重启工作区',
+          detail: '该 Agent 通过 AI 服务回复消息。请重新发送消息来重新尝试。',
         },
         start_host_cli: {
           title: '请在这台电脑上启动连接助手',
           detail: '请在那台电脑上重新运行设置命令，让 Agent 上线。',
         },
         start_api: {
-          title: '没有可启动的工作区',
-          detail: '只处理文字的模型 Agent 没有可启动的命令窗口。',
+          title: '请发送消息来启动这个聊天 Agent',
+          detail: '聊天 Agent 会在你发送消息时开始工作，没有需要启动的命令窗口。',
         },
         stop_host_cli: {
           title: '请在这台电脑上停止连接助手',
           detail: 'Forge 不能替你停止它。请关闭那台电脑上的 Terminal 或 PowerShell 窗口。',
         },
         stop_api: {
-          title: '没有可停止的工作区',
-          detail: '只处理文字的模型 Agent 没有可停止的命令窗口。',
+          title: '请关闭聊天或等待回复结束',
+          detail: '聊天 Agent 没有需要停止的命令窗口。需要继续时再发送新消息。',
         },
         not_permitted: {
           title: '你不能管理这个 Agent',

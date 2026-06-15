@@ -1250,6 +1250,34 @@ function agentOwnerLabel(agent) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags chat-only lifecycle copy that sends beginners to a missing workspace', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  errors: {
+    agent: {
+      lifecycle: {
+        start_api: {
+          title: 'No workspace to start',
+        },
+      },
+    },
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'agent-api-lifecycle-copy',
+        location: 'src/app/shared/i18n/locales/en.ts:7',
+      }),
+    ])
+  })
+
   it('flags work-location labels that leave beginners without a refresh step', () => {
     const cwd = fixture({
       'src/app/entities/agent/model/runtime-kind.ts': `

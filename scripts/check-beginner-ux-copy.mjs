@@ -220,6 +220,11 @@ const AGENT_DETAIL_AVAILABILITY_DEAD_END_PATTERNS = [
   /\bUnavailable until restarted or reconnected\b/i,
 ]
 
+const AGENT_API_LIFECYCLE_DEAD_END_PATTERNS = [
+  /\bNo workspace to (?:restart|start|stop)\b/i,
+  /没有可(?:重启|启动|停止)的工作区/,
+]
+
 const TITLE_STYLE_GUIDANCE_PATTERNS = [
   /\bOpen Tasks\b/,
   /\bDo This Next\b/,
@@ -1147,6 +1152,17 @@ function hasAgentDetailAvailabilityDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return AGENT_DETAIL_AVAILABILITY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentApiLifecycleDeadEndCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_API_LIFECYCLE_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasTitleStyleGuidanceCopy(line) {
@@ -2077,6 +2093,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Agent detail availability copy must tell beginners which page or control to use next.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentApiLifecycleDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-api-lifecycle-copy',
+        location,
+        message:
+          'Chat-only agent lifecycle copy must tell beginners to send a message, wait, or close chat.',
         sample: line.trim(),
       })
     }

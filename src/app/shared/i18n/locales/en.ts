@@ -540,17 +540,18 @@ export const en = {
           detail: 'Forge cannot restart it for you. Run the setup command on that computer again.',
         },
         restart_api: {
-          title: 'No workspace to restart',
+          title: 'Send the message again instead of restarting',
           detail:
-            'This chat-only agent replies through an AI service. Send a new message to try again.',
+            'This chat-only agent replies through an AI service. Send the message again to try a fresh reply.',
         },
         start_host_cli: {
           title: 'Start the connection helper on your computer',
           detail: 'Run the setup command on that computer again to bring the agent online.',
         },
         start_api: {
-          title: 'No workspace to start',
-          detail: 'Chat-only agents do not have live work to start.',
+          title: 'Send a message to start this chat-only agent',
+          detail:
+            'Chat-only agents start work when you send a message. There is no live workspace to start.',
         },
         stop_host_cli: {
           title: 'Stop the connection helper on your computer',
@@ -558,8 +559,9 @@ export const en = {
             'Forge cannot stop it for you. Close the Terminal or PowerShell window on that computer.',
         },
         stop_api: {
-          title: 'No workspace to stop',
-          detail: 'Chat-only agents do not have live work to stop.',
+          title: 'Close the chat or wait for the reply to finish',
+          detail:
+            'Chat-only agents have no live workspace to stop. Send a new message when you need more help.',
         },
         not_permitted: {
           title: 'You cannot manage this agent',
