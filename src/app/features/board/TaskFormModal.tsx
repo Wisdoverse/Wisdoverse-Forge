@@ -171,6 +171,7 @@ export function TaskFormModal({
       ? `New tasks will wait in ${selectedTaskGroupName ?? 'this task queue'} until an available agent picks them up.`
       : 'A task queue gives new work a place to wait. Create one once, then return here.'
   const assignableAgents = agents.filter((agent) => agentCanTakeTask(agent.status))
+  const taskWillWaitForAgent = workLaneReady && assignableAgents.length === 0
   const projectGroups = useMemo(() => groupProjectsByTeam(projects), [projects])
   const projectField = register('projectId')
   const titleValue = watch('title')
@@ -403,7 +404,8 @@ export function TaskFormModal({
               <div className="min-w-0 flex-1">
                 <p className="font-semibold">Connect an agent before this task can start</p>
                 <p className="mt-0.5">
-                  Create the task now, or open agent setup to connect an agent first.
+                  Save the task now. It will wait until an agent is Ready, or you can open agent
+                  setup first.
                 </p>
               </div>
             </div>
@@ -433,7 +435,8 @@ export function TaskFormModal({
                   Start or connect an agent before this task can start
                 </p>
                 <p className="mt-0.5">
-                  Create the task now, or open agent setup to start or connect an agent first.
+                  Save the task now. It will wait until one of your agents is Ready, or you can open
+                  agent setup first.
                 </p>
               </div>
             </div>
@@ -707,7 +710,9 @@ export function TaskFormModal({
                 ))}
               </select>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Keep this choice when any available agent can do the work.
+                {taskWillWaitForAgent
+                  ? 'This task will wait here until an agent is Ready.'
+                  : 'Keep this choice when any available agent can do the work.'}
               </p>
             </div>
           </div>
@@ -735,10 +740,16 @@ export function TaskFormModal({
               {selectingProject
                 ? 'Preparing project...'
                 : isSubmitting
-                  ? 'Creating…'
+                  ? taskWillWaitForAgent
+                    ? 'Saving...'
+                    : 'Creating...'
                   : confirmIncompleteBrief && !briefReady
-                    ? 'Create task anyway'
-                    : 'Create task'}
+                    ? taskWillWaitForAgent
+                      ? 'Save task anyway'
+                      : 'Create task anyway'
+                    : taskWillWaitForAgent
+                      ? 'Save task to wait'
+                      : 'Create task'}
             </button>
           </div>
         </form>

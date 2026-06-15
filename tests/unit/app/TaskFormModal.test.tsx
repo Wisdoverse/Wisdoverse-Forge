@@ -132,8 +132,12 @@ describe('TaskFormModal', () => {
     renderModal(vi.fn(), { agents: [], onOpenAgentSetup })
 
     expect(screen.getByText('Connect an agent before this task can start')).toBeDefined()
-    expect(screen.getByText(/create the task now/i)).toBeDefined()
+    expect(screen.getByText(/save the task now/i)).toBeDefined()
+    expect(screen.getByText(/wait until an agent is Ready/i)).toBeDefined()
+    expect(screen.getByRole('button', { name: /save task to wait/i })).toBeDefined()
+    expect(screen.getByText(/This task will wait here until an agent is Ready/i)).toBeDefined()
     expect(screen.queryByText('No agents are online')).toBeNull()
+    expect(screen.queryByText(/Create the task now/i)).toBeNull()
     expect(screen.queryByText(/dispatched?/i)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /open agent setup/i }))
@@ -171,16 +175,19 @@ describe('TaskFormModal', () => {
     })
 
     expect(screen.getByText('Start or connect an agent before this task can start')).toBeDefined()
-    expect(screen.getByText(/open agent setup to start or connect an agent/i)).toBeDefined()
+    expect(screen.getByText(/wait until one of your agents is Ready/i)).toBeDefined()
+    expect(screen.getByRole('button', { name: /save task to wait/i })).toBeDefined()
+    expect(screen.getByText(/This task will wait here until an agent is Ready/i)).toBeDefined()
     expect(screen.queryByText('No agents are available right now')).toBeNull()
     expect(
       screen.getByRole('option', { name: /let the next available agent pick it up/i })
     ).toBeDefined()
-    expect(screen.getByText(/any available agent can do the work/i)).toBeDefined()
+    expect(screen.queryByText(/any available agent can do the work/i)).toBeNull()
     expect(screen.queryByText(/unassigned/i)).toBeNull()
     expect(screen.getByText(/people are waiting on it now/i)).toBeDefined()
     expect(screen.queryByText(/dispatch/i)).toBeNull()
     expect(screen.queryByText(/Keep the default choice so the next available agent/i)).toBeNull()
+    expect(screen.queryByText(/Create the task now/i)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /open agent setup/i }))
 
@@ -325,6 +332,28 @@ describe('TaskFormModal', () => {
       title: 'Ship the fix',
       projectId: project.id,
     })
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+  })
+
+  test('uses save wording when a waiting task has missing brief details', async () => {
+    const { onSubmit, onClose } = renderModal(vi.fn(), { agents: [] })
+
+    fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
+      target: { value: 'Ship the fix' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^save task to wait$/i }))
+
+    expect(onSubmit).not.toHaveBeenCalled()
+    expect(onClose).not.toHaveBeenCalled()
+    expect(await screen.findByTestId('task-brief-confirmation')).toHaveTextContent(
+      'This task may be hard for an agent to finish.'
+    )
+    expect(screen.getByRole('button', { name: /^save task anyway$/i })).toBeDefined()
+    expect(screen.queryByRole('button', { name: /^create task anyway$/i })).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /^save task anyway$/i }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
   })
 

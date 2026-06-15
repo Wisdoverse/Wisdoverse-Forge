@@ -366,6 +366,7 @@ const TASK_FORM_NO_PROJECT_DEAD_END_PATTERNS = [
 const TASK_FORM_NO_AGENT_DEAD_END_PATTERNS = [
   /\bNo agents are online\. You can create the task now; it will wait here until an agent comes online\./i,
   /\bNo agents are available right now\. Keep the default choice so the next available agent can pick it up\./i,
+  /\bCreate the task now, or open agent setup to (?:start or )?connect an agent first\./i,
 ]
 
 const QUICK_CREATE_DRAFT_TASK_JARGON_PATTERNS = [

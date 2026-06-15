@@ -5554,7 +5554,12 @@ function TaskFormModal() {
     const cwd = fixture({
       'src/app/features/board/TaskFormModal.tsx': `
 function TaskFormModal() {
-  return <span>No agents are online. You can create the task now; it will wait here until an agent comes online.</span>
+  return (
+    <div>
+      <span>No agents are online. You can create the task now; it will wait here until an agent comes online.</span>
+      <span>Create the task now, or open agent setup to connect an agent first.</span>
+    </div>
+  )
 }
 `,
     })
@@ -5562,19 +5567,30 @@ function TaskFormModal() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'task-form-no-agent-copy',
-        location: 'src/app/features/board/TaskFormModal.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-form-no-agent-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'task-form-no-agent-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:6',
+        }),
+      ])
+    )
   })
 
   it('flags task form unavailable-agent copy that leaves setup disconnected', () => {
     const cwd = fixture({
       'src/app/features/board/TaskFormModal.tsx': `
 function TaskFormModal() {
-  return <span>No agents are available right now. Keep the default choice so the next available agent can pick it up.</span>
+  return (
+    <div>
+      <span>No agents are available right now. Keep the default choice so the next available agent can pick it up.</span>
+      <span>Create the task now, or open agent setup to start or connect an agent first.</span>
+    </div>
+  )
 }
 `,
     })
@@ -5582,19 +5598,25 @@ function TaskFormModal() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'task-form-no-agent-copy',
-        location: 'src/app/features/board/TaskFormModal.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-form-no-agent-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'task-form-no-agent-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:6',
+        }),
+      ])
+    )
   })
 
   it('accepts task form no-agent copy that links to setup', () => {
     const cwd = fixture({
       'src/app/features/board/TaskFormModal.tsx': `
 function TaskFormModal() {
-  return <div><p>No agents are online</p><p>Create the task now, or open agent setup to connect an agent first.</p><button>Open agent setup</button></div>
+  return <div><p>Connect an agent before this task can start</p><p>Save the task now. It will wait until an agent is Ready, or you can open agent setup first.</p><button>Open agent setup</button></div>
 }
 `,
     })
