@@ -396,6 +396,8 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByText(/compare with the brief/i)).toBeDefined()
     expect(screen.getByText(/1 result file attached for review/i)).toBeDefined()
     expect(screen.getByText(/accept the result, save repeatable steps/i)).toBeDefined()
+    expect(screen.getByText('Text result')).toBeDefined()
+    expect(screen.queryByText('text/markdown')).toBeNull()
     const previousResultReuseCopy = new RegExp(['draft', 'saved guidance'].join('.*'), 'i')
     const previousAddContextCopy = new RegExp(['add', 'context'].join('\\s+'), 'i')
     expect(screen.queryByText(previousResultReuseCopy)).toBeNull()
@@ -423,6 +425,8 @@ describe('TaskDetailPanel', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: /^result$/i }))
 
     expect(screen.getByText('text-result.txt')).toBeDefined()
+    expect(screen.getByText('Text result')).toBeDefined()
+    expect(screen.queryByText('text/plain')).toBeNull()
     expect(screen.queryByText('stdout.txt')).toBeNull()
   })
 

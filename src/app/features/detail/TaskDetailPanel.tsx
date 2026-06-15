@@ -245,7 +245,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                     {artifact.name}
                   </span>
                   <span className="text-[10px] text-secondary-light dark:text-secondary-dark">
-                    {artifact.mimeType}
+                    {resultFileKindLabel(artifact.mimeType)}
                   </span>
                 </div>
                 <p className="mb-2 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
@@ -434,6 +434,16 @@ function taskSupportReference(id: string): string {
   const trimmed = id.trim()
   if (!trimmed) return 'Refresh task details'
   return `Support reference ${trimmed.length > 8 ? trimmed.slice(0, 8) : trimmed}`
+}
+
+function resultFileKindLabel(mimeType: string): string {
+  const normalized = mimeType.trim().toLowerCase()
+  if (!normalized) return 'Result file'
+  if (normalized.startsWith('text/') || normalized.includes('markdown')) return 'Text result'
+  if (normalized.includes('json')) return 'Data result'
+  if (normalized.startsWith('image/')) return 'Image result'
+  if (normalized === 'application/pdf') return 'PDF result'
+  return 'Result file'
 }
 
 function ResultReviewGuide({ task, artifactCount }: { task: TaskSummary; artifactCount: number }) {
