@@ -259,16 +259,23 @@ export function SshKeysSection() {
     useSettingsStore()
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [savedMessage, setSavedMessage] = useState<string | null>(null)
 
   useEffect(() => {
     void loadSshKeys()
   }, [loadSshKeys])
 
   async function handleSave(label: string, publicKey: string) {
+    setSavedMessage(null)
     setSaving(true)
     const ok = await createSshKey(label, publicKey)
     setSaving(false)
-    if (ok) setShowForm(false)
+    if (ok) {
+      setShowForm(false)
+      setSavedMessage(
+        'SSH code access saved. Create a small task with a git@ code link to confirm agents can open it. If it cannot read the repository, come back here and replace this key.'
+      )
+    }
   }
 
   async function handleDelete(id: string) {
@@ -297,7 +304,10 @@ export function SshKeysSection() {
         {!showForm && (
           <button
             type="button"
-            onClick={() => setShowForm(true)}
+            onClick={() => {
+              setSavedMessage(null)
+              setShowForm(true)
+            }}
             className={uiStyles.primaryButton}
           >
             <span>+</span>
@@ -310,6 +320,16 @@ export function SshKeysSection() {
       {sshKeysError && (
         <div role="alert" aria-live="polite" className={uiStyles.error}>
           {sshKeysErrorMessage(sshKeysError)}
+        </div>
+      )}
+
+      {savedMessage && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="mb-3 rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue"
+        >
+          {savedMessage}
         </div>
       )}
 
@@ -333,7 +353,10 @@ export function SshKeysSection() {
             </p>
             <button
               type="button"
-              onClick={() => setShowForm(true)}
+              onClick={() => {
+                setSavedMessage(null)
+                setShowForm(true)
+              }}
               className={cn(uiStyles.primaryButton, 'mx-auto mt-3')}
             >
               Add SSH code access

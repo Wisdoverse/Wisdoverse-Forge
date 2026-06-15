@@ -23,9 +23,9 @@ function sshKey(overrides: Partial<UserSshKey> = {}): UserSshKey {
 }
 
 beforeEach(() => {
-  loadSshKeysMock.mockClear()
-  createSshKeyMock.mockClear()
-  deleteSshKeyMock.mockClear()
+  loadSshKeysMock.mockResolvedValue(undefined)
+  createSshKeyMock.mockResolvedValue(true)
+  deleteSshKeyMock.mockResolvedValue(true)
   useSettingsStore.setState({
     sshKeys: [],
     sshKeysLoading: false,
@@ -108,6 +108,10 @@ describe('SshKeysSection', () => {
         'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAexample dev@example.com'
       )
     )
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'SSH code access saved. Create a small task with a git@ code link to confirm agents can open it.'
+    )
+    expect(screen.getByRole('status')).toHaveTextContent('come back here and replace this key')
   })
 
   test('explains the impact before removing SSH code access', async () => {
