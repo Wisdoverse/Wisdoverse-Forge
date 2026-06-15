@@ -60,7 +60,9 @@ function BillingCheckpoint({ hasSubscription, usageCount, invoicesCount }: Billi
   const checkpoints = [
     {
       label: 'Plan',
-      value: hasSubscription ? 'Paid plan is active' : 'No paid plan yet',
+      value: hasSubscription
+        ? 'Paid plan is active'
+        : 'Free plan is active. Ask an owner or admin to choose a paid plan when the team is ready.',
     },
     {
       label: 'Usage',
