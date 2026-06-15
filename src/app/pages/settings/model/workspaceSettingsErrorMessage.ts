@@ -87,11 +87,16 @@ function resourceLabel(resource: WorkspaceSettingsResource): string {
   return resource === 'team' ? 'team' : 'project'
 }
 
-function baseMessage(resource: WorkspaceSettingsResource, action: WorkspaceSettingsAction): string {
+function loadMessage(resource: WorkspaceSettingsResource): string {
+  const label = resourceLabel(resource)
+  return `Refresh Settings to load workspace ${label}s.`
+}
+
+function retryPhrase(resource: WorkspaceSettingsResource, action: WorkspaceSettingsAction): string {
   const label = resourceLabel(resource)
   return action === 'load'
-    ? `Refresh Settings to load workspace ${label}s.`
-    : `The ${label} was not created.`
+    ? `refresh Settings to load workspace ${label}s`
+    : `create this ${label} again`
 }
 
 function connectionMessage(
@@ -99,11 +104,10 @@ function connectionMessage(
   action: WorkspaceSettingsAction
 ): string {
   if (action === 'load') {
-    return `${baseMessage(resource, action)} Check your connection, then refresh Settings again.`
+    return `Check your connection, then ${retryPhrase(resource, action)}.`
   }
 
-  const label = resourceLabel(resource)
-  return `Check your connection, then create this ${label} again. Forge could not connect while creating it.`
+  return `Check your connection, then ${retryPhrase(resource, action)}. Forge could not connect while creating it.`
 }
 
 function unavailableMessage(
@@ -111,11 +115,10 @@ function unavailableMessage(
   action: WorkspaceSettingsAction
 ): string {
   if (action === 'load') {
-    return `${baseMessage(resource, action)} If it still fails, ask an owner or admin to check workspace setup.`
+    return `${loadMessage(resource)} If it still fails, ask an owner or admin to check workspace setup.`
   }
 
-  const operation = `create this ${resourceLabel(resource)}`
-  return `${baseMessage(resource, action)} Forge could not ${operation} right now. Refresh Settings, then try again. If it still fails, ask an owner or admin to check workspace setup.`
+  return `Refresh Settings, then ${retryPhrase(resource, action)}. If it still fails, ask an owner or admin to check workspace setup.`
 }
 
 export function workspaceSettingsErrorMessage(
@@ -123,37 +126,38 @@ export function workspaceSettingsErrorMessage(
   action: WorkspaceSettingsAction,
   err: unknown
 ): string {
-  const base = baseMessage(resource, action)
+  const load = loadMessage(resource)
+  const retry = retryPhrase(resource, action)
   const text = rawErrorMessage(err).toLowerCase()
   const detail = errorDetail(err).toLowerCase()
   const code = statusCode(err)
 
   if (code === 401 || text.includes('unauthorized')) {
-    return `${base} Sign in again, then return to Settings.`
+    return `Sign in again, then ${retry}.`
   }
   if (code === 403 || text.includes('permission') || text.includes('forbidden')) {
-    return `${base} Ask an owner or admin to update your workspace access.`
+    return 'Ask an owner or admin to update your workspace access.'
   }
   if (code === 404 || text.includes('endpoint is not available')) {
     return action === 'load'
-      ? `${base} The team space, team, or project may have changed.`
-      : `${base} Refresh Settings; the team space, team, or project may have changed.`
+      ? `${load} The team space, team, or project may have changed.`
+      : `Refresh Settings, then ${retry}. The team space, team, or project may have changed.`
   }
   if (code === 409 || text.includes('already exists')) {
     return action === 'create'
-      ? `${base} Use a different name, then try again.`
-      : `${base} Another setup change is still saving. Wait a moment, then refresh Settings again.`
+      ? 'Use a different name, then try again.'
+      : `${load} Another setup change is still saving. Wait a moment, then refresh Settings again.`
   }
   if (code === 422 || text.includes('invalid')) {
     if (detail.includes('name')) {
-      return `${base} Enter a ${resourceLabel(resource)} name, then try again.`
+      return `Enter a ${resourceLabel(resource)} name, then try again.`
     }
-    return `${base} Check the name and required fields, then try again.`
+    return 'Check the name and required fields, then try again.'
   }
   if (code === 429 || text.includes('busy') || text.includes('too many')) {
     return action === 'load'
-      ? `${base} Too many setup changes are happening right now. Wait a minute, then refresh Settings again.`
-      : `${base} Too many setup changes are happening right now. Wait a minute, then try again.`
+      ? `Wait a minute, then ${retry}. Too many setup changes are happening right now.`
+      : `Wait a minute, then ${retry}. Too many setup changes are happening right now.`
   }
   if (code != null && code >= 500) {
     return unavailableMessage(resource, action)
@@ -163,6 +167,6 @@ export function workspaceSettingsErrorMessage(
   }
 
   return action === 'load'
-    ? `${base} If it still fails, ask an owner or admin to check the workspace setup.`
-    : `${base} Try again. If it still fails, ask an owner or admin to check the workspace setup.`
+    ? `${load} If it still fails, ask an owner or admin to check the workspace setup.`
+    : `Try to ${retry}. If it still fails, ask an owner or admin to check the workspace setup.`
 }

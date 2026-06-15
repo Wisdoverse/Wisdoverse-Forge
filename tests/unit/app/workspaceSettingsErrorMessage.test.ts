@@ -11,24 +11,22 @@ describe('workspaceSettingsErrorMessage', () => {
   test('maps permission failures to workspace access guidance', () => {
     expectBeginnerMessage(
       workspaceSettingsErrorMessage('team', 'load', new Error('HTTP 403')),
-      'Refresh Settings to load workspace teams. Ask an owner or admin to update your workspace access.'
+      'Ask an owner or admin to update your workspace access.'
     )
   })
 
   test('maps structured auth failures to a sign-in step', () => {
     expectBeginnerMessage(
       workspaceSettingsErrorMessage('team', 'load', { statusCode: '401' }),
-      'Refresh Settings to load workspace teams. Sign in again, then return to Settings.'
+      'Sign in again, then refresh Settings to load workspace teams.'
     )
   })
 
   test('maps validation failures to beginner-safe create guidance', () => {
     const message = workspaceSettingsErrorMessage('project', 'create', new Error('API 422'))
 
-    expectBeginnerMessage(
-      message,
-      'The project was not created. Check the name and required fields, then try again.'
-    )
+    expectBeginnerMessage(message, 'Check the name and required fields, then try again.')
+    expect(message).not.toContain('The project was not created')
   })
 
   test('uses structured validation details to name the field to fix', () => {
@@ -37,17 +35,15 @@ describe('workspaceSettingsErrorMessage', () => {
       detail: 'name is required',
     })
 
-    expectBeginnerMessage(
-      message,
-      'The project was not created. Enter a project name, then try again.'
-    )
+    expectBeginnerMessage(message, 'Enter a project name, then try again.')
+    expect(message).not.toContain('The project was not created')
     expect(message).not.toContain('name is required')
   })
 
   test('maps duplicate create failures to a name change next step', () => {
     expectBeginnerMessage(
       workspaceSettingsErrorMessage('project', 'create', 'Code: 409 already exists'),
-      'The project was not created. Use a different name, then try again.'
+      'Use a different name, then try again.'
     )
   })
 
@@ -100,7 +96,7 @@ describe('workspaceSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load workspace projects. Check your connection, then refresh Settings again.'
+      'Check your connection, then refresh Settings to load workspace projects.'
     )
     expect(message).not.toContain('Failed to fetch')
   })

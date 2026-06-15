@@ -385,6 +385,14 @@ const ACCOUNT_SETTINGS_FAILURE_FIRST_PATTERNS = [
   /\breturn\s+['"`]Account settings could not/i,
 ]
 
+const WORKSPACE_SETTINGS_FAILURE_FIRST_PATTERNS = [
+  /\bThe (?:team|project) was not created\./i,
+  /\bRefresh Settings to load workspace (?:teams|projects)\. Sign in again/i,
+  /\bRefresh Settings to load workspace (?:teams|projects)\. Ask an owner or admin/i,
+  /\bRefresh Settings to load workspace (?:teams|projects)\. Check your connection/i,
+  /\bRefresh Settings to load workspace (?:teams|projects)\. Too many setup changes/i,
+]
+
 const LOAD_ERROR_TITLE_DEAD_END_PATTERNS = [
   /\bConversation history could not be loaded\./i,
   /\bAgent tools could not be loaded\./i,
@@ -1293,6 +1301,14 @@ function hasAccountSettingsFailureFirstCopy(relFile, line) {
   return ACCOUNT_SETTINGS_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasWorkspaceSettingsFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/pages/settings/model/workspaceSettingsErrorMessage.ts')) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return WORKSPACE_SETTINGS_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasLoadErrorTitleDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/model/chat.errors.ts') &&
@@ -1647,6 +1663,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Account settings errors must start with the next action, not the failure summary.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasWorkspaceSettingsFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'workspace-settings-error-copy',
+        location,
+        message:
+          'Workspace settings errors must start with the next action, not the failure summary.',
         sample: line.trim(),
       })
     }

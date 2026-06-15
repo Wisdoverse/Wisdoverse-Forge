@@ -874,6 +874,73 @@ function accountErrorMessage(action) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags workspace settings errors that start with the failure instead of the next step', () => {
+    const cwd = fixture({
+      'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts': `
+function createMessage() {
+  return 'The project was not created. Enter a project name, then try again.'
+}
+function authMessage() {
+  return 'Refresh Settings to load workspace teams. Sign in again, then return to Settings.'
+}
+function permissionMessage() {
+  return 'Refresh Settings to load workspace projects. Ask an owner or admin to update your workspace access.'
+}
+function networkMessage() {
+  return 'Refresh Settings to load workspace projects. Check your connection, then refresh Settings again.'
+}
+function busyMessage() {
+  return 'Refresh Settings to load workspace teams. Too many setup changes are happening right now. Wait a minute, then refresh Settings again.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'workspace-settings-error-copy',
+          location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'workspace-settings-error-copy',
+          location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'workspace-settings-error-copy',
+          location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:9',
+        }),
+        expect.objectContaining({
+          type: 'workspace-settings-error-copy',
+          location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:12',
+        }),
+        expect.objectContaining({
+          type: 'workspace-settings-error-copy',
+          location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:15',
+        }),
+      ])
+    )
+  })
+
+  it('accepts workspace settings errors that start with the next step', () => {
+    const cwd = fixture({
+      'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts': `
+function workspaceSettingsErrorMessage(action) {
+  if (action === 'auth') return 'Sign in again, then refresh Settings to load workspace teams.'
+  if (action === 'permission') return 'Ask an owner or admin to update your workspace access.'
+  if (action === 'network') return 'Check your connection, then refresh Settings to load workspace projects.'
+  if (action === 'busy') return 'Wait a minute, then refresh Settings to load workspace teams. Too many setup changes are happening right now.'
+  if (action === 'server') return 'Refresh Settings to load workspace projects. If it still fails, ask an owner or admin to check workspace setup.'
+  return 'Enter a project name, then try again.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags load error titles that do not tell users which view to retry or refresh', () => {
     const cwd = fixture({
       'src/app/shared/model/chat.errors.ts': `
