@@ -6,6 +6,8 @@ const HIDDEN_EVIDENCE_VALUE =
   'Hidden for safety. Reconnect the required account access, then retry.'
 const MISSING_ACCESS_MESSAGE =
   'Required account access is missing. Add or reconnect service access, then retry.'
+const TECHNICAL_EVIDENCE_MESSAGE =
+  'This record reported a technical problem. Ask the agent to explain it in plain language, then retry if the task still matters.'
 
 interface ContextEvidenceListProps {
   evidence: TaskContextEvidence[]
@@ -119,7 +121,7 @@ function evidenceDescription(item: TaskContextEvidence): string {
 
 function payloadSummary(payload: Record<string, unknown>): string {
   const summary = firstString(payload.summary, payload.message, payload.title, payload.description)
-  if (summary) return summary
+  if (summary) return safeEvidenceString(summary)
 
   if (typeof payload.ok === 'boolean') {
     return payload.ok ? 'The recorded result succeeded.' : 'The recorded result needs attention.'
@@ -172,7 +174,23 @@ function safeEvidenceString(value: string): string {
   ) {
     return MISSING_ACCESS_MESSAGE
   }
+  if (containsSensitiveEvidenceText(value)) {
+    return HIDDEN_EVIDENCE_VALUE
+  }
+  if (containsTechnicalEvidenceText(value)) {
+    return TECHNICAL_EVIDENCE_MESSAGE
+  }
   return value
+}
+
+function containsSensitiveEvidenceText(value: string): boolean {
+  return /\b(secret\s+token|token\s+secret|api\s*key|password|credential)\b/i.test(value)
+}
+
+function containsTechnicalEvidenceText(value: string): boolean {
+  return /\b(panic|stack trace|traceback|exception|stdout|stderr|raw command output|docker socket|internal error|database (?:unavailable|timeout|error)|connection refused)\b/i.test(
+    value
+  )
 }
 
 function firstString(...values: unknown[]): string | null {

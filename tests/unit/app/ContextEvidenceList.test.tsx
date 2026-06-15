@@ -167,6 +167,41 @@ describe('ContextEvidenceList', () => {
     expect(screen.queryByText(/Missing token/i)).toBeNull()
   })
 
+  test('hides raw technical evidence failures from summaries and support details', () => {
+    render(
+      <ContextEvidenceList
+        evidence={[
+          evidence({
+            payload: {
+              ok: false,
+              summary: 'panic: stack trace line 7 from raw command output',
+              error: 'database unavailable: connection refused at postgres.internal:5432',
+              nested: { stdout: 'secret token abc' },
+            },
+          }),
+        ]}
+        revokedItems={[]}
+      />
+    )
+
+    expect(
+      screen.getByText(
+        'This record reported a technical problem. Ask the agent to explain it in plain language, then retry if the task still matters.'
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/panic/i)).toBeNull()
+    expect(screen.queryByText(/stack trace/i)).toBeNull()
+    expect(screen.queryByText(/raw command output/i)).toBeNull()
+
+    fireEvent.click(screen.getByText('Show support details'))
+
+    expect(screen.getAllByText(/technical problem/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Hidden for safety/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/postgres\.internal/i)).toBeNull()
+    expect(screen.queryByText(/connection refused/i)).toBeNull()
+    expect(screen.queryByText(/secret token/i)).toBeNull()
+  })
+
   test('uses a plain-language fallback for unknown evidence sources', () => {
     render(
       <ContextEvidenceList
