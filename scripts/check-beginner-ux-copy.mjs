@@ -348,6 +348,12 @@ const SETTINGS_LOAD_ERROR_DEAD_END_PATTERNS = [
   /\bRepository SSH access could not be loaded\./i,
 ]
 
+const CODE_ACCESS_FAILURE_FIRST_PATTERNS = [
+  /\bCode access could not be (?:saved|removed)\./i,
+  /\bRefresh Settings to load code access\. Forge is receiving too many code access requests/i,
+  /\bRefresh Settings to load code access\. Try again\./i,
+]
+
 const LOAD_ERROR_TITLE_DEAD_END_PATTERNS = [
   /\bConversation history could not be loaded\./i,
   /\bAgent tools could not be loaded\./i,
@@ -1224,6 +1230,12 @@ function hasSettingsLoadErrorDeadEndCopy(relFile, line) {
   return SETTINGS_LOAD_ERROR_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasCodeAccessFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/settings/gitCredentialsErrorMessage.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CODE_ACCESS_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasLoadErrorTitleDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/model/chat.errors.ts') &&
@@ -1540,6 +1552,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'AI service setup summaries must tell beginners to check, enable, or add a service.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCodeAccessFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'code-access-error-copy',
+        location,
+        message: 'Code access errors must start with the next action, not the failure summary.',
         sample: line.trim(),
       })
     }

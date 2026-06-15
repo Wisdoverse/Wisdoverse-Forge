@@ -12,28 +12,28 @@ describe('gitCredentialsErrorMessage', () => {
   test('turns invalid token details into code access key guidance', () => {
     expectBeginnerMessage(
       gitCredentialsErrorMessage('Settings could not save Git credential. Details: invalid token'),
-      'Code access could not be saved. Paste a new code access key from GitHub or GitLab, then save again.'
+      'Paste a new code access key from GitHub or GitLab, then save again.'
     )
   })
 
   test('turns validation failures into clear fields to check', () => {
     expectBeginnerMessage(
       gitCredentialsErrorMessage('Code: 422 Details: invalid provider'),
-      'Code access could not be saved. Choose GitHub or GitLab, then save code access again.'
+      'Choose GitHub or GitLab, then save code access again.'
     )
   })
 
   test('turns invalid address failures into an address step', () => {
     expectBeginnerMessage(
       gitCredentialsErrorMessage('HTTP 422: invalid host'),
-      'Code access could not be saved. Check the GitHub or GitLab address. Leave it blank for github.com or gitlab.com, then save again.'
+      'Check the GitHub or GitLab address. Leave it blank for github.com or gitlab.com, then save again.'
     )
   })
 
   test('turns permission failures into an owner or admin next step', () => {
     expectBeginnerMessage(
       gitCredentialsErrorMessage('HTTP 403'),
-      'Refresh Settings to load code access. Ask an owner or admin to let you manage code access.'
+      'Ask an owner or admin to let you manage code access.'
     )
   })
 
@@ -42,9 +42,10 @@ describe('gitCredentialsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Code access could not be removed. Refresh Settings, then try again. If it still fails, ask an owner or admin to check code access settings.'
+      'Refresh Settings, then remove code access again. If it still fails, ask an owner or admin to check code access settings.'
     )
     expect(message).not.toContain('temporarily unavailable')
+    expect(message).not.toContain('Code access could not be removed')
   })
 
   test('turns load server failures into Settings recovery guidance', () => {
@@ -80,7 +81,7 @@ describe('gitCredentialsErrorMessage', () => {
   test('turns structured rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       gitCredentialsErrorMessage({ statusCode: '429' }),
-      'Refresh Settings to load code access. Forge is receiving too many code access requests right now. Wait a minute, then try again.'
+      'Wait a minute, then try again. Forge is receiving too many code access requests right now.'
     )
   })
 
@@ -89,7 +90,7 @@ describe('gitCredentialsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load code access. Try again. If it still fails, ask an owner or admin to check code access settings.'
+      'Refresh Settings to load code access. If it still fails, ask an owner or admin to check code access settings.'
     )
     expect(message).not.toContain('vault')
   })

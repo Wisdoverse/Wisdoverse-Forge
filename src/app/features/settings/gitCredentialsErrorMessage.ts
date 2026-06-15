@@ -75,10 +75,10 @@ function actionFromText(text: string): GitCredentialAction {
   return 'load'
 }
 
-function baseMessage(action: GitCredentialAction): string {
-  if (action === 'save') return 'Code access could not be saved.'
-  if (action === 'remove') return 'Code access could not be removed.'
-  return 'Refresh Settings to load code access.'
+function retryAction(action: GitCredentialAction): string {
+  if (action === 'save') return 'save code access again'
+  if (action === 'remove') return 'remove code access again'
+  return 'refresh Settings to load code access'
 }
 
 function connectionMessage(action: GitCredentialAction): string {
@@ -104,13 +104,13 @@ export function gitCredentialsErrorMessage(error: unknown): string {
   const lower = text.toLowerCase()
   const code = statusCode(error)
   const action = actionFromText(text)
-  const base = baseMessage(action)
+  const retry = retryAction(action)
 
   if (code === 401 || lower.includes('sign in again') || lower.includes('unauthorized')) {
-    return `${base} Your sign-in expired. Sign in again, then open Settings and try code access again.`
+    return `Sign in again, then ${retry}. Your sign-in expired.`
   }
   if (code === 403 || lower.includes('permission') || lower.includes('forbidden')) {
-    return `${base} Ask an owner or admin to let you manage code access.`
+    return 'Ask an owner or admin to let you manage code access.'
   }
   if (
     lower.includes('invalid token') ||
@@ -118,33 +118,36 @@ export function gitCredentialsErrorMessage(error: unknown): string {
     lower.includes('expired token') ||
     lower.includes('token expired')
   ) {
-    return `${base} Paste a new code access key from GitHub or GitLab, then save again.`
+    return 'Paste a new code access key from GitHub or GitLab, then save again.'
   }
   if (code === 409 || lower.includes('already exists')) {
-    return `${base} Code access for this GitHub or GitLab choice already exists. Remove the old entry first or choose the other site.`
+    return 'Remove the old code access entry first or choose the other site. Code access for this GitHub or GitLab choice already exists.'
   }
   if (code === 422 || lower.includes('invalid host') || lower.includes('invalid provider')) {
-    return `${base} ${validationGuidance(lower)}`
+    return validationGuidance(lower)
   }
   if (
     lower.includes('not configured') ||
     lower.includes('provider is not configured') ||
     lower.includes('provider not configured')
   ) {
-    return `${base} Ask an owner or admin to check code access settings, then try again.`
+    return 'Ask an owner or admin to check code access settings, then try again.'
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
-    return `${base} Forge is receiving too many code access requests right now. Wait a minute, then try again.`
+    return 'Wait a minute, then try again. Forge is receiving too many code access requests right now.'
   }
   if (code != null && code >= 500) {
     if (action === 'load') {
-      return `${base} If it still fails, ask an owner or admin to check code access settings.`
+      return 'Refresh Settings to load code access. If it still fails, ask an owner or admin to check code access settings.'
     }
-    return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check code access settings.`
+    return `Refresh Settings, then ${retry}. If it still fails, ask an owner or admin to check code access settings.`
   }
   if (isNetworkError(error)) {
     return connectionMessage(action)
   }
 
-  return `${base} Try again. If it still fails, ask an owner or admin to check code access settings.`
+  if (action === 'load') {
+    return 'Refresh Settings to load code access. If it still fails, ask an owner or admin to check code access settings.'
+  }
+  return `Try to ${retry}. If it still fails, ask an owner or admin to check code access settings.`
 }
