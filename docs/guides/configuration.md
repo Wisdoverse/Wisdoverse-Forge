@@ -195,6 +195,43 @@ overlays that no running or stopped container references, and never touches
 containers. See `docs/guides/cli-image-auto-update.md` for the full operator
 guide, including the operator-initiated image roll.
 
+## Project Git Clone Variables
+
+These variables control the project-git-clone feature: an optional "Git
+repository URL" on project create that the platform clones into the project's
+workspace directory using a short-lived, locked-down `agentforge-clone`
+container. See [`docs/guides/project-git-clone.md`](project-git-clone.md) for the
+operator/user guide and [`docs/runbooks/clone-egress-firewall.md`](../runbooks/clone-egress-firewall.md)
+for the required deploy-layer egress firewall.
+
+Prerequisites: Docker must be available to the Rust API service (the same
+requirement as `MCP_ENABLED=true`), and — if your host can reach an internal
+network — the egress firewall from the runbook must be applied. Build the clone
+image once with `make build-clone` (also built by `make build-agent-all`).
+
+| Variable                       | Default                         | Purpose                                                                                                                                                                                                       |
+| ------------------------------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PROJECT_CLONE_WORKER_ENABLED` | `true`                          | Enables the clone worker + reconciler. When on, the worker starts only if a Docker daemon is available. Set `false` to disable project cloning entirely (e.g. an air-gapped deployment).                      |
+| `PROJECT_CLONE_IMAGE`          | `agentforge-clone:latest`       | Image ref the worker launches per clone. Override to pin a digest or a registry copy.                                                                                                                         |
+| `PROJECT_CLONE_SECRET_ROOT`    | `/tmp/agentforge/clone-secrets` | Backend-controlled secret root (created mode `0700`) the per-clone credential file is materialized under, OUTSIDE the projects/workspace tree that agent containers bind. Confidentiality is the `0700` root. |
+| `PROJECT_CLONE_TIMEOUT_SECS`   | `600`                           | Hard wall-clock timeout per clone, in seconds (10 min). Also sizes the worker's lease TTL (`timeout + 300s`), heartbeat (≈⅓ of the lease), and the orphan-container sweep ceiling.                            |
+
+Success looks like a project created with a public `https://github.com/...` URL
+reaching the **Ready** clone status, with the repository checked out under the
+workspace directory shown on the create form. A clone whose URL points at a
+private/internal address is rejected at create with a validation error (the
+in-app SSRF deny-list), and — with the egress firewall applied — a DNS-rebinding
+URL that slips past the deny-list still fails closed at the network layer.
+
+Other clone limits (max retry attempts, retry backoff, lease/heartbeat cadence,
+reconcile interval) are derived from `PROJECT_CLONE_TIMEOUT_SECS` or fixed
+compile-time defaults (3 attempts, 30s base backoff) and are not separate
+environment variables in this version.
+
+The clone worker writes to the workspace projects root resolved from
+`AGENTFORGE_WORKSPACE_ROOT` (see the section above); the per-clone staging
+directory and the final atomic rename both live on that same filesystem.
+
 ## Compose-Level Deployment Variables
 
 | Variable                     | Typical Use                                                                                                                  |

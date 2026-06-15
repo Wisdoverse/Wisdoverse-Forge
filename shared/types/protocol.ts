@@ -120,6 +120,21 @@ export type ServerMessage =
         unix: number
       }
     }
+  // Project git-clone status update. Broadcast on the project's scope subject
+  // whenever a clone attempt changes state. Mirrors `CloneEvent::ws_frame` in
+  // `rust/crates/api/src/domain/project_clone.rs`. `details` carries the
+  // snake_case audit fields (`branch`, `head_sha`, `error_class`, `error_message`)
+  // the worker emitted; `cloneStatus` is the denormalized project summary.
+  | {
+      type: 'project_clone:status_update'
+      payload: {
+        action: string
+        eventId: string
+        projectId: string
+        cloneStatus: 'none' | 'queued' | 'cloning' | 'ready' | 'failed'
+        details: Record<string, unknown>
+      }
+    }
 
 /** Client -> Server messages */
 export type ClientMessage =

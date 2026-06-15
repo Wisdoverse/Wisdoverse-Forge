@@ -23,6 +23,7 @@ pub mod memory;
 pub mod orchestration;
 pub mod plugin;
 pub mod project;
+pub mod project_clone;
 pub mod prompt;
 pub mod quota;
 pub mod resource;

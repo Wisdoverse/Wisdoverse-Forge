@@ -30,6 +30,10 @@ pub(crate) mod memory;
 pub(crate) mod navigation;
 pub(crate) mod observability;
 pub(crate) mod orchestration;
+/// `pub` (not `pub(crate)`) so the M5 integration test can assert the
+/// redaction-before-persist boundary: `error_message == redact(raw).into_string()`.
+/// The module's `#![allow(dead_code)]` keeps unused M6/M7 items from warning.
+pub mod project_clone;
 pub(crate) mod prompt;
 pub(crate) mod prompt_library;
 pub(crate) mod resource;

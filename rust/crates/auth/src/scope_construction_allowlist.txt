@@ -1,2 +1,3 @@
 rust/crates/core/src/tenant.rs # Defines TenantScope::new and tests constructor semantics.
 rust/crates/api/src/test_support.rs # Central test-only TenantScope construction helper.
+rust/crates/api/src/services/project_clone_worker.rs # Background clone worker has no auth-middleware request; builds an org-scoped (nil-user) scope from the server-enqueued attempt's organization_id to resolve a host-matched credential (org-constrained in SQL).

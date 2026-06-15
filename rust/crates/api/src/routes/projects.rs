@@ -1,13 +1,18 @@
 //! Project CRUD endpoints (nested under `/api/v1`).
 //!
-//! - `GET    /api/v1/projects`      — list projects (paginated, optional workspace filter)
-//! - `POST   /api/v1/projects`      — create project
-//! - `GET    /api/v1/projects/{id}` — get project by ID
-//! - `PATCH  /api/v1/projects/{id}` — update project
-//! - `DELETE /api/v1/projects/{id}` — soft delete project
+//! - `GET    /api/v1/projects`            — list projects (paginated, optional workspace filter)
+//! - `POST   /api/v1/projects`            — create project (optional `repository_url` to clone)
+//! - `GET    /api/v1/projects/{id}`       — get project by ID (with clone summary)
+//! - `PATCH  /api/v1/projects/{id}`       — update project (repo URL immutable once cloned)
+//! - `DELETE /api/v1/projects/{id}`       — soft delete project
+//! - `POST   /api/v1/projects/{id}/clone/retry` — retry a FAILED clone
+//!
+//! Every handler authenticates via the `AuthUser` extractor (JWT) and operates
+//! through the tenant `scope` it derives, so a foreign-org / unauthenticated
+//! caller is rejected before any service call.
 
 use axum::extract::{Path, Query, State};
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::Deserialize;
 use uuid::Uuid;
@@ -61,6 +66,12 @@ where
 }
 
 /// Request body for updating a project.
+///
+/// `repository_url` is still accepted on the wire so a client that sends one gets
+/// a clear, actionable `400` ("the repository URL is set when the project is
+/// created and cannot be changed afterward") from the service rather than a
+/// confusing deserialize error or a silent drop. The service REJECTS any present
+/// value (§9 one-shot bind); an update never writes the column.
 #[derive(Deserialize)]
 pub struct UpdateProjectRequest {
     pub name: Option<String>,
@@ -144,11 +155,29 @@ async fn delete_project(
     Ok(Json(resource_delete_response()))
 }
 
+/// `POST /api/projects/{id}/clone/retry` — retry a failed clone.
+///
+/// Owner/manager only (enforced in the service via `require_project_manager`).
+/// Allowed ONLY when the latest attempt is `failed`; otherwise the service
+/// returns a `409 Conflict` (or `400` when the project has no repository URL).
+/// On success a new `queued` attempt is created and its summary is returned.
+async fn retry_clone(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let project_id = ProjectId::from(id);
+    let service = make_service(&state);
+    let summary = service.retry_clone(&auth.scope, project_id).await?;
+    Ok(Json(resource_data_response(summary)))
+}
+
 /// Build project routes sub-router.
 pub fn project_routes() -> Router<AppState> {
     Router::new()
         .route("/projects", get(list_projects).post(create_project))
         .route("/projects/{id}", get(get_project).patch(update_project).delete(delete_project))
+        .route("/projects/{id}/clone/retry", post(retry_clone))
 }
 
 #[cfg(test)]

@@ -5,7 +5,12 @@ import {
   type ResourceMember,
   type UpdateResourceMemberInput,
 } from '@app/entities/member'
-import type { CreateProjectInput, NavProject, UpdateProjectInput } from '../model/types'
+import type {
+  CloneSummary,
+  CreateProjectInput,
+  NavProject,
+  UpdateProjectInput,
+} from '../model/types'
 
 type MembersResponse = {
   ok: boolean
@@ -58,6 +63,20 @@ export const projectApi = {
     await apiFetch<{ ok: boolean }>(`/api/v1/teams/${teamId}/projects/${projectId}`, {
       method: 'DELETE',
     })
+  },
+
+  /**
+   * Retry a failed clone. Returns the new attempt's summary. The server returns
+   * 409 if the latest attempt is not `failed` and 403 if the caller is not the
+   * owner/manager — both surface to the caller as a thrown error with the
+   * server's message.
+   */
+  retryClone: async (projectId: string): Promise<CloneSummary> => {
+    const res = await apiFetch<{ ok: boolean; data: CloneSummary }>(
+      `/api/v1/projects/${projectId}/clone/retry`,
+      { method: 'POST' }
+    )
+    return res.data
   },
 
   getMembers: async (projectId: string): Promise<ResourceMember[]> => {

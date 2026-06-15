@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { ResourceMembersModal } from '@app/features/manage-members'
+import { CloneStatusBadge } from '@app/features/manage-project'
 import type { NavProject } from '@app/entities/project'
 import { projectApi } from '@app/entities/project'
 import type { NavTeam } from '@app/entities/team'
@@ -456,6 +457,15 @@ export function ProjectTree({
                         style={{ backgroundColor: project.color || '#007AFF' }}
                       />
                       <span className="truncate">{project.name}</span>
+                      {project.cloneStatus && project.cloneStatus !== 'none' && (
+                        <CloneStatusBadge
+                          projectId={project.id}
+                          status={project.cloneStatus}
+                          clone={project.clone}
+                          variant="compact"
+                          className="ml-auto"
+                        />
+                      )}
                     </button>
                   ))
                 )}

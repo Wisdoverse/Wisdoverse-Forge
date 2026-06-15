@@ -101,6 +101,8 @@ docs/                  Architecture, runbooks, guides, specs
 - [Runtime Validation](docs/runbooks/runtime-validation.md) — current proofed runtime boundary
 - [CLI Platform Support](docs/guides/cli-platform-support.md) — Platform CLI + sidecar multi-platform expectations
 - [CLI Agent Image Auto-Update](docs/guides/cli-image-auto-update.md) — keep agent images current, prune superseded overlays, operator-initiated roll
+- [Project Git Clone](docs/guides/project-git-clone.md) — create a project from a git repository; clone status, retry, and the layered SSRF/credential defense
+- [Clone Egress Firewall](docs/runbooks/clone-egress-firewall.md) — required deploy-layer egress policy for project git clone
 - [Versioning Policy](docs/versioning.md) — API versioning and release policy
 - [Contributing](CONTRIBUTING.md) — workflow, validation, and PR expectations
 - [Code of Conduct](CODE_OF_CONDUCT.md) — community standards

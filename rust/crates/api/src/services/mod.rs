@@ -54,6 +54,7 @@ pub mod organization;
 pub mod plugin;
 pub mod pool;
 pub mod project;
+pub mod project_clone_worker;
 pub mod prompt;
 pub mod prompt_library;
 pub mod quota;

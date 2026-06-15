@@ -5,8 +5,7 @@ use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
 use crate::domain::resource::{
-    NavigationProjectCreateDraft, NavigationProjectUpdateDraft, NavigationTeamCreateDraft, NavigationTeamUpdateDraft,
-    ResourceRepositoryPolicy,
+    NavigationProjectUpdateDraft, NavigationTeamCreateDraft, NavigationTeamUpdateDraft, ResourceRepositoryPolicy,
 };
 
 #[derive(Debug, Clone, FromRow)]
@@ -42,6 +41,10 @@ pub(crate) struct LegacyProjectRow {
     pub(crate) description: String,
     pub(crate) can_manage: bool,
     pub(crate) can_delete: bool,
+    /// Denormalized `projects.clone_status` summary, so the tree pane can render a
+    /// clone badge without a per-project attempt read. The per-attempt detail
+    /// (`CloneSummary`) is attached separately by the service.
+    pub(crate) clone_status: String,
 }
 
 pub struct LegacyNavigationRepository {
@@ -280,6 +283,7 @@ impl LegacyNavigationRepository {
                    p.slug,
                    COALESCE(p.color, '#007AFF')  AS color,
                    COALESCE(p.description, '')   AS description,
+                   p.clone_status,
                    (
                        om.role IN ('owner', 'admin')
                        OR EXISTS (
@@ -399,47 +403,6 @@ impl LegacyNavigationRepository {
         .map_err(Into::into)
     }
 
-    pub(crate) async fn insert_project(
-        &self,
-        org_id: Uuid,
-        workspace_id: Uuid,
-        team_id: TeamId,
-        draft: NavigationProjectCreateDraft,
-    ) -> AppResult<LegacyProjectRow> {
-        sqlx::query_as::<_, LegacyProjectRow>(
-            r#"INSERT INTO public.projects (
-                   organization_id,
-                   workspace_id,
-                   team_id,
-                   name,
-                   slug,
-                   color,
-                   description
-               )
-               VALUES ($1, $2, $3, $4, $5, COALESCE($6::text, '#007AFF'), COALESCE($7::text, ''))
-               RETURNING
-                 id,
-                 workspace_id,
-                 team_id,
-                 name,
-                 slug,
-                 COALESCE(color, '#007AFF') AS color,
-                 COALESCE(description, '')  AS description,
-                 TRUE AS can_manage,
-                 TRUE AS can_delete"#,
-        )
-        .bind(org_id)
-        .bind(workspace_id)
-        .bind(team_id.as_uuid())
-        .bind(draft.name)
-        .bind(draft.slug)
-        .bind(draft.color)
-        .bind(draft.description)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(Into::into)
-    }
-
     pub(crate) async fn update_project(
         &self,
         scope: &TenantScope,
@@ -472,6 +435,7 @@ impl LegacyNavigationRepository {
                   p.slug,
                   COALESCE(p.color, '#007AFF') AS color,
                   COALESCE(p.description, '')  AS description,
+                  p.clone_status,
                   TRUE AS can_manage,
                   TRUE AS can_delete"#,
         )
