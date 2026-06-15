@@ -29,30 +29,30 @@ type Visual = {
 
 const VISUALS: Record<Exclude<CloneStatus, 'none'>, Visual> = {
   queued: {
-    label: 'Clone queued',
+    label: 'Code import queued',
     tint: 'bg-apple-orange/10 text-apple-orange',
     Icon: CircleDashed,
   },
   cloning: {
-    label: 'Cloning…',
+    label: 'Copying code…',
     tint: 'bg-apple-blue/10 text-apple-blue',
     Icon: Loader2,
     spin: true,
   },
   ready: {
-    label: 'Repository ready',
+    label: 'Code ready',
     tint: 'bg-apple-green/10 text-apple-green',
     Icon: CheckCircle2,
   },
   failed: {
-    label: 'Clone failed',
+    label: 'Code import failed',
     tint: 'bg-apple-red/10 text-apple-red',
     Icon: XCircle,
   },
 }
 
 const CLONE_RETRY_DEFAULT_ERROR =
-  'Could not start a new clone. Check the repository URL and saved code access, then try again.'
+  'Could not copy code into the project. Check the code link and saved code access, then try again.'
 
 function parseStatusCode(value: unknown): number | null {
   if (typeof value === 'number' && Number.isInteger(value) && value >= 100 && value <= 599) {
@@ -88,29 +88,29 @@ function statusCodeFromError(error: unknown): number | null {
 
 function cloneRetryErrorMessage(error: unknown): string {
   const code = statusCodeFromError(error)
-  if (code === 401) return 'Sign in again, then retry this clone from the project row.'
+  if (code === 401) return 'Sign in again, then try copying code again from the project row.'
   if (code === 403) {
-    return 'You do not have permission to retry this clone. Ask an owner or admin to let you retry this project clone.'
+    return 'You do not have permission to copy code into this project. Ask an owner or admin to let you try again.'
   }
   if (code === 404) {
-    return 'This project could not be found. Refresh Projects, then retry the clone from the current project row.'
+    return 'This project could not be found. Refresh Projects, then try copying code again from the current project row.'
   }
   if (code === 409) {
-    return 'A clone is already running for this project. Wait a moment, then check the clone status again.'
+    return 'Forge is already copying code for this project. Wait a moment, then check the status again.'
   }
   if (code === 422) {
-    return 'Check the repository URL and saved code access, then retry the clone.'
+    return 'Check the code link and saved code access, then try copying code again.'
   }
   if (code === 429) {
-    return 'Too many clone retries are happening right now. Wait a minute, then retry this clone.'
+    return 'Too many code import retries are happening right now. Wait a minute, then try again.'
   }
   if (code && code >= 500) {
-    return 'Forge could not retry this clone right now. Wait a few minutes, then retry. If it still fails, ask an owner or admin to check project clone setup.'
+    return 'Forge could not copy code right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check project code setup.'
   }
 
   const message = error instanceof Error ? error.message : typeof error === 'string' ? error : ''
   if (/failed to fetch|network|load failed/i.test(message)) {
-    return 'Check your connection, then retry this clone.'
+    return 'Check your connection, then try copying code again.'
   }
 
   return CLONE_RETRY_DEFAULT_ERROR
@@ -241,7 +241,7 @@ export function CloneStatusBadge({
               aria-hidden="true"
               className={cn(retrying && 'animate-spin')}
             />
-            {retrying ? 'Retrying…' : 'Retry clone'}
+            {retrying ? 'Trying…' : 'Try again'}
           </button>
         )}
       </div>

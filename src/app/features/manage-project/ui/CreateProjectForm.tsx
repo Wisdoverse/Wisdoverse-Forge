@@ -13,8 +13,8 @@ interface CreateProjectFormProps {
 
 const PROJECT_SETUP_STEPS = [
   'Choose the team that owns the work.',
-  'Name the project after the product, repo, or work area.',
-  'Optionally paste an HTTPS git URL to clone an existing repo into the project.',
+  'Name the project after the product, app, or work area.',
+  'Optional: paste an https:// code link so Forge can copy existing code into the project.',
 ]
 
 /**
@@ -28,20 +28,23 @@ const PROJECT_SETUP_STEPS = [
 export function validateRepositoryUrl(raw: string): string | null {
   const value = raw.trim()
   if (!value) return null // optional — empty is valid
+  if (/^(?:git@|ssh:\/\/)/i.test(value)) {
+    return 'Use a code link that starts with https://. Links that start with git@ go in SSH keys.'
+  }
 
   let parsed: URL
   try {
     parsed = new URL(value)
   } catch {
-    return 'Enter a valid URL, e.g. https://github.com/org/repo.git'
+    return 'Enter a valid code link, e.g. https://github.com/org/repo.git'
   }
   if (parsed.protocol !== 'https:') {
-    return 'Use an https:// URL. SSH and other schemes are not supported here.'
+    return 'Use a code link that starts with https://. Links that start with git@ go in SSH keys.'
   }
   // No credentials embedded in the URL (user[:pass]@host) — the server rejects
   // these so a token never lands in a stored URL. `URL` also flags a bare `@`.
   if (parsed.username || parsed.password || value.includes('@')) {
-    return 'Remove credentials from the URL. Connect a git account in Settings instead.'
+    return 'Remove account details from the code link. Connect code access in Settings instead.'
   }
   return null
 }
@@ -114,7 +117,7 @@ function createProjectErrorMessage(error: unknown): string {
     lower.includes('repo url') ||
     lower.includes('https url')
   ) {
-    return 'Use an https:// repository URL without credentials, or leave the repository URL blank.'
+    return 'Use an https:// code link without account details, or leave the code link blank.'
   }
   if (
     lower.includes('credential') ||
@@ -122,10 +125,10 @@ function createProjectErrorMessage(error: unknown): string {
     lower.includes('password') ||
     lower.includes('username')
   ) {
-    return 'Remove credentials from the repository URL. Connect code access in Settings instead.'
+    return 'Remove account details from the code link. Connect code access in Settings instead.'
   }
   if (code === 422 || lower.includes('validation') || lower.includes('invalid')) {
-    return 'Check the project name, team, and repository URL, then create this project again.'
+    return 'Check the project name, team, and code link, then create this project again.'
   }
   if (code === 429 || lower.includes('rate limit') || lower.includes('too many')) {
     return 'Too many project changes are happening right now. Wait a minute, then create this project again.'
@@ -309,7 +312,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
 
       <div className="mb-3">
         <label htmlFor={repoInputId} className={uiStyles.label}>
-          Git repository URL
+          Code link
           <span className="ml-1 font-normal text-secondary-light dark:text-secondary-dark">
             (optional)
           </span>
@@ -331,12 +334,12 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
           id="project-repo-help"
           className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
-          Optional — clone an existing repo into this project. HTTPS only, no credentials in the
-          URL.
+          Optional — paste a GitHub or GitLab https:// link. Forge copies that code into this
+          project; keep passwords or tokens out of the link.
         </p>
         {workspacePath && (
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Workspace path:{' '}
+            Work folder preview:{' '}
             <span className="font-mono text-[11px] text-foreground-light dark:text-foreground-dark">
               {workspacePath}
             </span>

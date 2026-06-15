@@ -101,15 +101,20 @@ describe('workspace setup create forms', () => {
     expect(screen.getByText('/workspace/my-new-repo')).toBeInTheDocument()
   })
 
-  test('submits a valid https repository URL as the third arg', async () => {
+  test('submits a valid https code link as the third arg', async () => {
     const onSave = vi.fn().mockResolvedValue(undefined)
 
     render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
 
+    expect(screen.getByText('Code link')).toBeInTheDocument()
+    expect(screen.queryByText('Git repository URL')).toBeNull()
+    expect(screen.getByText(/Forge copies that code into this project/i)).toBeInTheDocument()
+    expect(screen.queryByText(/clone an existing repo/i)).toBeNull()
+
     fireEvent.change(screen.getByLabelText(/project name/i), {
       target: { value: 'Cloned Project' },
     })
-    fireEvent.change(screen.getByLabelText(/git repository url/i), {
+    fireEvent.change(screen.getByLabelText(/code link/i), {
       target: { value: 'https://github.com/org/repo.git' },
     })
     fireEvent.click(screen.getByRole('button', { name: /create project/i }))
@@ -123,7 +128,7 @@ describe('workspace setup create forms', () => {
     )
   })
 
-  test('blocks submit with a visible banner for a non-https repository URL', async () => {
+  test('blocks submit with a visible banner for a non-https code link', async () => {
     const onSave = vi.fn().mockResolvedValue(undefined)
 
     render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
@@ -131,13 +136,14 @@ describe('workspace setup create forms', () => {
     fireEvent.change(screen.getByLabelText(/project name/i), {
       target: { value: 'SSH Project' },
     })
-    fireEvent.change(screen.getByLabelText(/git repository url/i), {
+    fireEvent.change(screen.getByLabelText(/code link/i), {
       target: { value: 'git@github.com:org/repo.git' },
     })
     fireEvent.click(screen.getByRole('button', { name: /create project/i }))
 
     // No silent dead-click: a visible banner AND no submit.
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
+    expect(screen.getByRole('alert')).toHaveTextContent('Use a code link that starts with https://')
     expect(onSave).not.toHaveBeenCalled()
   })
 
@@ -149,16 +155,18 @@ describe('workspace setup create forms', () => {
     fireEvent.change(screen.getByLabelText(/project name/i), {
       target: { value: 'Token Project' },
     })
-    fireEvent.change(screen.getByLabelText(/git repository url/i), {
+    fireEvent.change(screen.getByLabelText(/code link/i), {
       target: { value: 'https://user:ghp_secrettoken@github.com/org/repo.git' },
     })
     fireEvent.click(screen.getByRole('button', { name: /create project/i }))
 
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/remove credentials/i))
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(/remove account details/i)
+    )
     expect(onSave).not.toHaveBeenCalled()
   })
 
-  test('surfaces a repository server rejection as a beginner-safe banner', async () => {
+  test('surfaces a code link server rejection as a beginner-safe banner', async () => {
     const onSave = vi.fn().mockRejectedValue(new Error('repository_url must be an https URL'))
 
     render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
@@ -170,7 +178,7 @@ describe('workspace setup create forms', () => {
 
     await waitFor(() => {
       const alert = screen.getByRole('alert')
-      expect(alert).toHaveTextContent('Use an https:// repository URL without credentials')
+      expect(alert).toHaveTextContent('Use an https:// code link without account details')
       expect(alert).not.toHaveTextContent('repository_url')
     })
     expect(onSave).toHaveBeenCalled()
