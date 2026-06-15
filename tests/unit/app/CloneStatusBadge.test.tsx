@@ -142,7 +142,8 @@ describe('CloneStatusBadge', () => {
 
     await waitFor(() => {
       const alert = screen.getByRole('alert')
-      expect(alert).toHaveTextContent('Ask an owner or admin to let you try again')
+      expect(alert).toHaveTextContent('Ask an owner or admin to let you copy code')
+      expect(alert).toHaveTextContent('You do not have permission right now')
       expect(alert).not.toHaveTextContent('update project access')
       expect(alert).not.toHaveTextContent('API 403')
       expect(alert).not.toHaveTextContent('Only the owner or a manager')
@@ -167,9 +168,51 @@ describe('CloneStatusBadge', () => {
 
     await waitFor(() => {
       const alert = screen.getByRole('alert')
-      expect(alert).toHaveTextContent('Forge could not copy code right now')
+      expect(alert).toHaveTextContent('Wait a few minutes, then try copying code again')
       expect(alert).not.toHaveTextContent('API 500')
       expect(alert).not.toHaveTextContent('database unavailable')
+    })
+  })
+
+  it('starts busy retry failures with the wait step', async () => {
+    vi.spyOn(projectApi, 'retryClone').mockRejectedValue(new Error('API 429: Too many requests'))
+
+    render(
+      <CloneStatusBadge
+        projectId="p1"
+        status="failed"
+        variant="detail"
+        clone={summary({ status: 'failed', errorMessage: 'boom' })}
+      />
+    )
+
+    fireEvent.click(screen.getByTestId('clone-retry-p1'))
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Wait a minute, then try copying code again'
+      )
+    })
+  })
+
+  it('starts fallback retry failures with the code access check', async () => {
+    vi.spyOn(projectApi, 'retryClone').mockRejectedValue(new Error('unexpected clone failure'))
+
+    render(
+      <CloneStatusBadge
+        projectId="p1"
+        status="failed"
+        variant="detail"
+        clone={summary({ status: 'failed', errorMessage: 'boom' })}
+      />
+    )
+
+    fireEvent.click(screen.getByTestId('clone-retry-p1'))
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Check the code link and saved code access, then try copying code again'
+      )
     })
   })
 

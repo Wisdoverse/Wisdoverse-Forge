@@ -52,7 +52,7 @@ const VISUALS: Record<Exclude<CloneStatus, 'none'>, Visual> = {
 }
 
 const CLONE_RETRY_DEFAULT_ERROR =
-  'Could not copy code into the project. Check the code link and saved code access, then try again.'
+  'Check the code link and saved code access, then try copying code again. Forge could not copy code into the project.'
 
 function parseStatusCode(value: unknown): number | null {
   if (typeof value === 'number' && Number.isInteger(value) && value >= 100 && value <= 599) {
@@ -90,22 +90,22 @@ function cloneRetryErrorMessage(error: unknown): string {
   const code = statusCodeFromError(error)
   if (code === 401) return 'Sign in again, then try copying code again from the project row.'
   if (code === 403) {
-    return 'You do not have permission to copy code into this project. Ask an owner or admin to let you try again.'
+    return 'Ask an owner or admin to let you copy code into this project, then try again. You do not have permission right now.'
   }
   if (code === 404) {
-    return 'This project could not be found. Refresh Projects, then try copying code again from the current project row.'
+    return 'Refresh Projects, then try copying code again from the current project row. This project could not be found.'
   }
   if (code === 409) {
-    return 'Forge is already copying code for this project. Wait a moment, then check the status again.'
+    return 'Wait a moment, then check the status again. Forge is already copying code for this project.'
   }
   if (code === 422) {
     return 'Check the code link and saved code access, then try copying code again.'
   }
   if (code === 429) {
-    return 'Too many code import retries are happening right now. Wait a minute, then try again.'
+    return 'Wait a minute, then try copying code again. Too many code import retries are happening right now.'
   }
   if (code && code >= 500) {
-    return 'Forge could not copy code right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check project code setup.'
+    return 'Wait a few minutes, then try copying code again. Forge could not copy code right now. If it still fails, ask an owner or admin to check project code setup.'
   }
 
   const message = error instanceof Error ? error.message : typeof error === 'string' ? error : ''

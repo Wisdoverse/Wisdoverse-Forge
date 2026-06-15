@@ -767,6 +767,15 @@ const PROJECT_CREATE_FAILURE_FIRST_PATTERNS = [
   /\bCould not create the project\. Check the project name and team, then try again\./i,
 ]
 
+const CLONE_RETRY_FAILURE_FIRST_PATTERNS = [
+  /\bYou do not have permission to copy code into this project\. Ask an owner or admin to let you try again\./i,
+  /\bThis project could not be found\. Refresh Projects, then try copying code again from the current project row\./i,
+  /\bForge is already copying code for this project\. Wait a moment, then check the status again\./i,
+  /\bToo many code import retries are happening right now\. Wait a minute, then try again\./i,
+  /\bForge could not copy code right now\. Wait a few minutes, then try again\./i,
+  /\bCould not copy code into the project\. Check the code link and saved code access, then try again\./i,
+]
+
 const AGENT_CONFIG_DETAIL_DEAD_END_PATTERNS = [
   /\bAI model not reported\b/i,
   /\bModel not reported\b/i,
@@ -1359,6 +1368,14 @@ function hasProjectCreateFailureFirstCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return PROJECT_CREATE_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasCloneRetryFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/manage-project/ui/CloneStatusBadge.tsx')) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CLONE_RETRY_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentConfigDetailDeadEndCopy(relFile, line) {
@@ -2568,6 +2585,15 @@ function scanFile(file, relFile) {
         type: 'project-create-error-copy',
         location,
         message: 'Project creation errors must start with the next action for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCloneRetryFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'clone-retry-error-copy',
+        location,
+        message: 'Code import retry errors must start with the next action for beginners.',
         sample: line.trim(),
       })
     }

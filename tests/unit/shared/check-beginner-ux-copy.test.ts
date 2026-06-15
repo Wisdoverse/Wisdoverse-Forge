@@ -7011,6 +7011,60 @@ function createProjectErrorMessage(code) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags code import retry errors that start with the failure', () => {
+    const cwd = fixture({
+      'src/app/features/manage-project/ui/CloneStatusBadge.tsx': `
+function cloneRetryErrorMessage(code) {
+  return 'Too many code import retries are happening right now. Wait a minute, then try again.'
+}
+function serverCloneErrorMessage() {
+  return 'Forge could not copy code right now. Wait a few minutes, then try again.'
+}
+function fallbackCloneErrorMessage() {
+  return 'Could not copy code into the project. Check the code link and saved code access, then try again.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'clone-retry-error-copy',
+          location: 'src/app/features/manage-project/ui/CloneStatusBadge.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'clone-retry-error-copy',
+          location: 'src/app/features/manage-project/ui/CloneStatusBadge.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'clone-retry-error-copy',
+          location: 'src/app/features/manage-project/ui/CloneStatusBadge.tsx:9',
+        }),
+      ])
+    )
+  })
+
+  it('accepts code import retry errors that start with the next step', () => {
+    const cwd = fixture({
+      'src/app/features/manage-project/ui/CloneStatusBadge.tsx': `
+function permissionCloneRetryErrorMessage() {
+  return 'Ask an owner or admin to let you copy code into this project, then try again. You do not have permission right now.'
+}
+function busyCloneRetryErrorMessage() {
+  return 'Wait a minute, then try copying code again. Too many code import retries are happening right now.'
+}
+function fallbackCloneRetryErrorMessage() {
+  return 'Check the code link and saved code access, then try copying code again. Forge could not copy code into the project.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('accepts recovery copy that gives one clear refresh step', () => {
     const cwd = fixture({
       'src/app/features/board/boardErrorMessages.ts': `
