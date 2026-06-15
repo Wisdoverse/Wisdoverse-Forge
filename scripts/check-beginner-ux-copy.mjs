@@ -152,6 +152,12 @@ const PROVIDER_TEST_FAILURE_FIRST_PATTERNS = [
   /\bconnection check needs attention\. The model or service address was not found/i,
 ]
 
+const PROVIDER_SETTINGS_FAILURE_FIRST_PATTERNS = [
+  /\bAI service could not be (?:saved|removed)\./i,
+  /\bRefresh Settings to load AI service settings\. Forge is receiving too many AI service requests/i,
+  /\bRefresh Settings to load AI service settings\. Try again\./i,
+]
+
 const ADMIN_USERS_EMPTY_DEAD_END_PATTERNS = [/\bNo one is listed yet\b/i]
 
 const ADMIN_ORGS_EMPTY_DEAD_END_PATTERNS = [/\bNo team spaces are visible yet\b/i]
@@ -823,6 +829,14 @@ function hasProviderTestFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/settings/providerTestErrorMessage.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return PROVIDER_TEST_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasProviderSettingsFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/settings/providerSettingsErrorMessage.ts')) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return PROVIDER_SETTINGS_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAdminUsersEmptyDeadEndCopy(relFile, line) {
@@ -1592,6 +1606,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'AI service connection check errors must start with the next action, not the failure summary.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasProviderSettingsFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'provider-settings-error-copy',
+        location,
+        message:
+          'AI service settings errors must start with the next action, not the failure summary.',
         sample: line.trim(),
       })
     }

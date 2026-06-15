@@ -284,15 +284,14 @@ describe('ProvidersSection', () => {
   test('announces AI service setup errors as recovery guidance', async () => {
     useSettingsStore.setState({
       providers: [],
-      providersError:
-        'AI service could not be saved. Paste the service access key from the selected AI service, then save again.',
+      providersError: 'Paste the service access key from the selected AI service, then save again.',
     })
 
     render(<ProvidersSection />)
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(alert).toHaveTextContent('AI service could not be saved.')
+    expect(alert).not.toHaveTextContent('AI service could not be saved.')
     expect(alert).toHaveTextContent('save again')
   })
 

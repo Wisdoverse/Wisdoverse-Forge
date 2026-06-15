@@ -77,10 +77,10 @@ function actionFromText(text: string): ProviderSettingsAction {
   return 'load'
 }
 
-function baseMessage(action: ProviderSettingsAction): string {
-  if (action === 'save') return 'AI service could not be saved.'
-  if (action === 'remove') return 'AI service could not be removed.'
-  return 'Refresh Settings to load AI service settings.'
+function retryAction(action: ProviderSettingsAction): string {
+  if (action === 'save') return 'save this AI service again'
+  if (action === 'remove') return 'remove this AI service again'
+  return 'refresh Settings to load AI service settings'
 }
 
 function validationGuidance(lower: string): string {
@@ -104,16 +104,16 @@ export function providerSettingsErrorMessage(error: unknown): string {
   const lower = text.toLowerCase()
   const code = statusCode(error)
   const action = actionFromText(text)
-  const base = baseMessage(action)
+  const retry = retryAction(action)
 
   if (code === 401 || lower.includes('sign in again') || lower.includes('unauthorized')) {
-    return `${base} Your sign-in expired. Sign in again, then open Settings and try AI services again.`
+    return `Sign in again, then ${retry}. Your sign-in expired.`
   }
   if (code === 403 || lower.includes('permission') || lower.includes('forbidden')) {
-    return `${base} Ask an owner or admin to let you manage AI services.`
+    return 'Ask an owner or admin to let you manage AI services.'
   }
   if (code === 409 || lower.includes('already exists') || lower.includes('duplicate')) {
-    return `${base} An AI service with this name or setup already exists. Refresh the list, then choose a different name or remove the old service first.`
+    return 'Refresh the list, then choose a different name or remove the old service first. An AI service with this name or setup already exists.'
   }
   if (
     code === 422 ||
@@ -122,16 +122,16 @@ export function providerSettingsErrorMessage(error: unknown): string {
     lower.includes('base url') ||
     lower.includes('invalid provider')
   ) {
-    return `${base} ${validationGuidance(lower)}`
+    return validationGuidance(lower)
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
-    return `${base} Forge is receiving too many AI service requests right now. Wait a minute, then try again.`
+    return 'Wait a minute, then try again. Forge is receiving too many AI service requests right now.'
   }
   if (code != null && code >= 500) {
     if (action === 'load') {
-      return `${base} If it still fails, ask an owner or admin to check AI service settings.`
+      return 'Refresh Settings to load AI service settings. If it still fails, ask an owner or admin to check AI service settings.'
     }
-    return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check AI service settings.`
+    return `Refresh Settings, then ${retry}. If it still fails, ask an owner or admin to check AI service settings.`
   }
   if (isNetworkError(error)) {
     if (action === 'load') {
@@ -140,5 +140,9 @@ export function providerSettingsErrorMessage(error: unknown): string {
     return `Check your connection, then ${action === 'remove' ? 'remove this AI service' : 'save this AI service'} again. Forge could not connect while opening AI service settings.`
   }
 
-  return `${base} Try again. If it still fails, ask an owner or admin to check AI service settings.`
+  if (action === 'load') {
+    return 'Refresh Settings to load AI service settings. If it still fails, ask an owner or admin to check AI service settings.'
+  }
+
+  return `Try to ${retry}. If it still fails, ask an owner or admin to check AI service settings.`
 }

@@ -14,21 +14,21 @@ describe('providerSettingsErrorMessage', () => {
       providerSettingsErrorMessage(
         'Check the required fields for provider, then try again. Code: 422. Details: API key is required'
       ),
-      'AI service could not be saved. Paste the service access key from the selected AI service, then save again.'
+      'Paste the service access key from the selected AI service, then save again.'
     )
   })
 
   test('turns missing model errors into a model step', () => {
     expectBeginnerMessage(
       providerSettingsErrorMessage('HTTP 422: model is required'),
-      'AI service could not be saved. Keep the suggested model or choose a supported model, then save again.'
+      'Keep the suggested model or choose a supported model, then save again.'
     )
   })
 
   test('turns missing service address errors into an address step', () => {
     expectBeginnerMessage(
       providerSettingsErrorMessage('HTTP 422: base_url is required'),
-      'AI service could not be saved. Add the service address for this AI service, then save again.'
+      'Add the service address for this AI service, then save again.'
     )
   })
 
@@ -38,11 +38,9 @@ describe('providerSettingsErrorMessage', () => {
       statusCode: 422,
     })
 
-    expectBeginnerMessage(
-      message,
-      'AI service could not be saved. Add the service address for this AI service, then save again.'
-    )
+    expectBeginnerMessage(message, 'Add the service address for this AI service, then save again.')
     expect(message).not.toContain('base url is required')
+    expect(message).not.toContain('AI service could not be saved')
   })
 
   test('turns permission errors into an owner or admin step', () => {
@@ -50,15 +48,18 @@ describe('providerSettingsErrorMessage', () => {
       providerSettingsErrorMessage(
         'You do not have permission to save the provider. Code: 403. Details: Forbidden'
       ),
-      'AI service could not be saved. Ask an owner or admin to let you manage AI services.'
+      'Ask an owner or admin to let you manage AI services.'
     )
   })
 
   test('explains duplicate providers with a safe next action', () => {
+    const message = providerSettingsErrorMessage('API 409 duplicate provider')
+
     expectBeginnerMessage(
-      providerSettingsErrorMessage('API 409 duplicate provider'),
-      'AI service could not be saved. An AI service with this name or setup already exists. Refresh the list, then choose a different name or remove the old service first.'
+      message,
+      'Refresh the list, then choose a different name or remove the old service first. An AI service with this name or setup already exists.'
     )
+    expect(message).not.toContain('AI service could not be saved')
   })
 
   test('explains network failures in user-facing terms', () => {
@@ -96,7 +97,7 @@ describe('providerSettingsErrorMessage', () => {
   test('turns structured rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       providerSettingsErrorMessage({ statusCode: '429' }),
-      'Refresh Settings to load AI service settings. Forge is receiving too many AI service requests right now. Wait a minute, then try again.'
+      'Wait a minute, then try again. Forge is receiving too many AI service requests right now.'
     )
   })
 
@@ -105,7 +106,7 @@ describe('providerSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load AI service settings. Try again. If it still fails, ask an owner or admin to check AI service settings.'
+      'Refresh Settings to load AI service settings. If it still fails, ask an owner or admin to check AI service settings.'
     )
     expect(message).not.toContain('parser')
   })
