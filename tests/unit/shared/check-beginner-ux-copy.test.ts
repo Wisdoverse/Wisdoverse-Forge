@@ -651,6 +651,56 @@ function gitCredentialsErrorMessage(action) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags SSH code access errors that start with the failure instead of the next step', () => {
+    const cwd = fixture({
+      'src/app/features/settings/sshKeysErrorMessage.ts': `
+function saveMessage() {
+  return 'SSH code access could not be saved. Add a name for this access, then save again.'
+}
+function removeMessage() {
+  return 'SSH code access could not be removed. Refresh Settings, then try again.'
+}
+function rateLimitMessage() {
+  return 'Refresh Settings to load SSH code access. Forge is receiving too many SSH code access requests right now. Wait a minute, then try again.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'ssh-code-access-error-copy',
+          location: 'src/app/features/settings/sshKeysErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-error-copy',
+          location: 'src/app/features/settings/sshKeysErrorMessage.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-error-copy',
+          location: 'src/app/features/settings/sshKeysErrorMessage.ts:9',
+        }),
+      ])
+    )
+  })
+
+  it('accepts SSH code access errors that start with the next step', () => {
+    const cwd = fixture({
+      'src/app/features/settings/sshKeysErrorMessage.ts': `
+function sshKeysErrorMessage(action) {
+  if (action === 'save') return 'Add a name for this access, then save again.'
+  if (action === 'remove') return 'Refresh Settings, then remove this SSH code access again.'
+  return 'Wait a minute, then try again. Forge is receiving too many SSH code access requests right now.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags load error titles that do not tell users which view to retry or refresh', () => {
     const cwd = fixture({
       'src/app/shared/model/chat.errors.ts': `

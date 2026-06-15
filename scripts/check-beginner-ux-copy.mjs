@@ -354,6 +354,12 @@ const CODE_ACCESS_FAILURE_FIRST_PATTERNS = [
   /\bRefresh Settings to load code access\. Try again\./i,
 ]
 
+const SSH_CODE_ACCESS_FAILURE_FIRST_PATTERNS = [
+  /\bSSH code access could not be (?:saved|removed)\./i,
+  /\bRefresh Settings to load SSH code access\. Forge is receiving too many SSH code access requests/i,
+  /\bRefresh Settings to load SSH code access\. Try again\./i,
+]
+
 const LOAD_ERROR_TITLE_DEAD_END_PATTERNS = [
   /\bConversation history could not be loaded\./i,
   /\bAgent tools could not be loaded\./i,
@@ -1236,6 +1242,12 @@ function hasCodeAccessFailureFirstCopy(relFile, line) {
   return CODE_ACCESS_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasSshCodeAccessFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/settings/sshKeysErrorMessage.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SSH_CODE_ACCESS_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasLoadErrorTitleDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/model/chat.errors.ts') &&
@@ -1561,6 +1573,15 @@ function scanFile(file, relFile) {
         type: 'code-access-error-copy',
         location,
         message: 'Code access errors must start with the next action, not the failure summary.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSshCodeAccessFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'ssh-code-access-error-copy',
+        location,
+        message: 'SSH code access errors must start with the next action, not the failure summary.',
         sample: line.trim(),
       })
     }

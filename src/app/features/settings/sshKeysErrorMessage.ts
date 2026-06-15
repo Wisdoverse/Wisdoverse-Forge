@@ -78,10 +78,10 @@ function actionFromText(text: string): SshKeyAction {
   return 'load'
 }
 
-function baseMessage(action: SshKeyAction): string {
-  if (action === 'save') return 'SSH code access could not be saved.'
-  if (action === 'remove') return 'SSH code access could not be removed.'
-  return 'Refresh Settings to load SSH code access.'
+function retryAction(action: SshKeyAction): string {
+  if (action === 'save') return 'save this SSH code access again'
+  if (action === 'remove') return 'remove this SSH code access again'
+  return 'refresh Settings to load SSH code access'
 }
 
 function connectionMessage(action: SshKeyAction): string {
@@ -97,13 +97,13 @@ export function sshKeysErrorMessage(error: unknown): string {
   const lower = text.toLowerCase()
   const code = statusCode(error)
   const action = actionFromText(text)
-  const base = baseMessage(action)
+  const retry = retryAction(action)
 
   if (code === 401 || lower.includes('sign in again') || lower.includes('unauthorized')) {
-    return `${base} Your sign-in expired. Sign in again, then open Settings and try SSH code access again.`
+    return `Sign in again, then ${retry}. Your sign-in expired.`
   }
   if (code === 403 || lower.includes('permission') || lower.includes('forbidden')) {
-    return `${base} Ask an owner or admin for access to manage SSH code access.`
+    return 'Ask an owner or admin for access to manage SSH code access.'
   }
   if (isNetworkError(error)) {
     return connectionMessage(action)
@@ -113,7 +113,7 @@ export function sshKeysErrorMessage(error: unknown): string {
     lower.includes('add a label') ||
     lower.includes('access name')
   ) {
-    return `${base} Add a name for this access, then save again.`
+    return 'Add a name for this access, then save again.'
   }
   if (
     lower.includes('invalid public key') ||
@@ -123,10 +123,10 @@ export function sshKeysErrorMessage(error: unknown): string {
     lower.includes('openssh private key') ||
     lower.includes('begin private key')
   ) {
-    return `${base} Paste only the shareable one-line public key that starts with ssh-ed25519 or ssh-rsa, then save again. Do not paste a private key block.`
+    return 'Paste only the shareable one-line public key that starts with ssh-ed25519 or ssh-rsa, then save again. Do not paste a private key block.'
   }
   if (code === 409 || lower.includes('already exists') || lower.includes('duplicate')) {
-    return `${base} This public key line is already saved. Choose the saved access or remove the old one first.`
+    return 'Choose the saved access or remove the old one first. This public key line is already saved.'
   }
   if (
     lower.includes('shareable ssh line') ||
@@ -134,20 +134,24 @@ export function sshKeysErrorMessage(error: unknown): string {
     lower.includes('public key') ||
     lower.includes('ssh key')
   ) {
-    return `${base} Paste the public key line that starts with ssh-ed25519 or ssh-rsa, then save again.`
+    return 'Paste the public key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
   }
   if (code === 422 || lower.includes('required') || lower.includes('missing')) {
-    return `${base} Check the access name and public key line, then try again.`
+    return 'Check the access name and public key line, then try again.'
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
-    return `${base} Forge is receiving too many SSH code access requests right now. Wait a minute, then try again.`
+    return 'Wait a minute, then try again. Forge is receiving too many SSH code access requests right now.'
   }
   if (code != null && code >= 500) {
     if (action === 'load') {
-      return `${base} If it still fails, ask an owner or admin to check SSH code access settings.`
+      return 'Refresh Settings to load SSH code access. If it still fails, ask an owner or admin to check SSH code access settings.'
     }
-    return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check SSH code access settings.`
+    return `Refresh Settings, then ${retry}. If it still fails, ask an owner or admin to check SSH code access settings.`
   }
 
-  return `${base} Try again. If it still fails, ask an owner or admin to check SSH code access settings.`
+  if (action === 'load') {
+    return 'Refresh Settings to load SSH code access. If it still fails, ask an owner or admin to check SSH code access settings.'
+  }
+
+  return `Try to ${retry}. If it still fails, ask an owner or admin to check SSH code access settings.`
 }

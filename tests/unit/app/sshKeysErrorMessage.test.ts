@@ -12,38 +12,41 @@ describe('sshKeysErrorMessage', () => {
   test('turns invalid public key errors into a clear recovery step', () => {
     expectBeginnerMessage(
       sshKeysErrorMessage('Settings could not save SSH key. Details: invalid public key'),
-      'SSH code access could not be saved. Paste only the shareable one-line public key that starts with ssh-ed25519 or ssh-rsa, then save again. Do not paste a private key block.'
+      'Paste only the shareable one-line public key that starts with ssh-ed25519 or ssh-rsa, then save again. Do not paste a private key block.'
     )
   })
 
   test('explains permission errors without exposing raw backend details', () => {
     expectBeginnerMessage(
       sshKeysErrorMessage('HTTP 403'),
-      'Refresh Settings to load SSH code access. Ask an owner or admin for access to manage SSH code access.'
+      'Ask an owner or admin for access to manage SSH code access.'
     )
   })
 
   test('explains duplicate keys with a safe next action', () => {
+    const message = sshKeysErrorMessage('API 409 duplicate key')
+
     expectBeginnerMessage(
-      sshKeysErrorMessage('API 409 duplicate key'),
-      'SSH code access could not be saved. This public key line is already saved. Choose the saved access or remove the old one first.'
+      message,
+      'Choose the saved access or remove the old one first. This public key line is already saved.'
     )
+    expect(message).not.toContain('SSH code access could not be saved')
   })
 
   test('explains missing fields as the next form fields to fix', () => {
     expectBeginnerMessage(
       sshKeysErrorMessage('Code: 422 Details: public key is required'),
-      'SSH code access could not be saved. Paste the public key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
+      'Paste the public key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
     )
   })
 
   test('keeps Settings store validation messages on the save path', () => {
-    expectBeginnerMessage(
-      sshKeysErrorMessage(
-        'Add a label, paste a valid public SSH key, then save the SSH key again.'
-      ),
-      'SSH code access could not be saved. Add a name for this access, then save again.'
+    const message = sshKeysErrorMessage(
+      'Add a label, paste a valid public SSH key, then save the SSH key again.'
     )
+
+    expectBeginnerMessage(message, 'Add a name for this access, then save again.')
+    expect(message).not.toContain('SSH code access could not be saved')
   })
 
   test('explains network failures in user-facing terms', () => {
@@ -80,7 +83,7 @@ describe('sshKeysErrorMessage', () => {
   test('turns structured rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       sshKeysErrorMessage({ code: '429' }),
-      'Refresh Settings to load SSH code access. Forge is receiving too many SSH code access requests right now. Wait a minute, then try again.'
+      'Wait a minute, then try again. Forge is receiving too many SSH code access requests right now.'
     )
   })
 
@@ -89,7 +92,7 @@ describe('sshKeysErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load SSH code access. Try again. If it still fails, ask an owner or admin to check SSH code access settings.'
+      'Refresh Settings to load SSH code access. If it still fails, ask an owner or admin to check SSH code access settings.'
     )
     expect(message).not.toContain('parser')
   })
