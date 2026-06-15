@@ -46,6 +46,34 @@ function readyFrame(attempt: number, updatedAt: string) {
   }
 }
 
+/**
+ * A clone frame at an explicit lifecycle status / attempt / timestamp, used to
+ * exercise the same-attempt progression and status-only branches the dedicated
+ * `readyFrame`/failure fixtures above do not reach.
+ */
+function frame(
+  cloneStatus: 'queued' | 'cloning' | 'ready' | 'failed',
+  attempt: number,
+  updatedAt: string,
+  details: Record<string, unknown> = {}
+) {
+  return {
+    type: 'project_clone:status_update' as const,
+    payload: {
+      action: `clone.${cloneStatus}`,
+      eventId: `evt-${cloneStatus}-${attempt}-${updatedAt}`,
+      projectId: 'project-1',
+      cloneStatus,
+      details: {
+        project_id: 'project-1',
+        attempt,
+        updatedAt,
+        ...details,
+      },
+    },
+  }
+}
+
 beforeEach(() => {
   useNavigationStore.getState().reset()
 })
@@ -160,5 +188,73 @@ describe('applyCloneStatusUpdate idempotency + monotonicity', () => {
       })
     ).not.toThrow()
     expect(currentProject()?.cloneStatus).toBeUndefined()
+  })
+
+  it('advances queued -> cloning -> ready on a single attempt by newer updatedAt', () => {
+    // The normal lifecycle on ONE attempt: every frame shares attempt 1, so the
+    // store must fall through to the `updatedAt >=` comparison in
+    // `isCloneUpdateNewer` (the equal-attempt branch the out-of-order test above
+    // never reaches because it differs by attempt).
+    seedProjects([
+      project({
+        cloneStatus: 'queued',
+        clone: { status: 'queued', attempt: 1, updatedAt: '2026-06-15T00:00:00.000Z' },
+      }),
+    ])
+
+    dispatchWsMessage(frame('cloning', 1, '2026-06-15T00:00:10.000Z'))
+    expect(currentProject()?.cloneStatus).toBe('cloning')
+
+    dispatchWsMessage(
+      frame('ready', 1, '2026-06-15T00:00:20.000Z', {
+        branch: 'main',
+        head_sha: 'abc1234deadbeef',
+      })
+    )
+
+    const after = currentProject()
+    expect(after?.cloneStatus).toBe('ready')
+    expect(after?.clone?.headSha).toBe('abc1234deadbeef')
+    expect(after?.clone?.resolvedBranch).toBe('main')
+
+    // A late same-attempt-1 frame with an OLDER timestamp must NOT regress
+    // ready -> cloning. Guards a `>=`/`<=` swap or an attempt-only comparison.
+    dispatchWsMessage(frame('cloning', 1, '2026-06-15T00:00:05.000Z'))
+    const afterStale = currentProject()
+    expect(afterStale?.cloneStatus).toBe('ready')
+    expect(afterStale?.clone?.headSha).toBe('abc1234deadbeef')
+  })
+
+  it('keeps the prior summary when a status-only frame carries no attempt', () => {
+    // A lean status-only broadcast (`details: {}`, so `cloneSummaryFromFrame`
+    // returns undefined) must still advance the displayed status while
+    // preserving the existing summary via `clone: clone ?? project.clone`.
+    const priorClone = {
+      status: 'ready' as const,
+      attempt: 1,
+      updatedAt: '2026-06-15T00:00:20.000Z',
+      resolvedBranch: 'main',
+      headSha: 'abc1234deadbeef',
+    }
+    seedProjects([project({ cloneStatus: 'ready', clone: priorClone })])
+    const before = useNavigationStore.getState().projects
+
+    dispatchWsMessage({
+      type: 'project_clone:status_update',
+      payload: {
+        action: 'clone.cloning',
+        eventId: 'evt-status-only',
+        projectId: 'project-1',
+        cloneStatus: 'cloning',
+        details: {},
+      },
+    })
+
+    const after = currentProject()
+    expect(after?.cloneStatus).toBe('cloning')
+    // The summary is untouched, not clobbered to undefined.
+    expect(after?.clone).toEqual(priorClone)
+    // The store actually committed the change (reducer set `changed = true`).
+    expect(useNavigationStore.getState().projects).not.toBe(before)
   })
 })

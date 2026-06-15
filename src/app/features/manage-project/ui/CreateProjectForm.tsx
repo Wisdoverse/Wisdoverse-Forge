@@ -211,14 +211,14 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
       </div>
 
       <div className="mb-3">
-        <label htmlFor="project-repo" className={uiStyles.label}>
+        <label htmlFor={repoInputId} className={uiStyles.label}>
           Git repository URL
           <span className="ml-1 font-normal text-secondary-light dark:text-secondary-dark">
             (optional)
           </span>
         </label>
         <input
-          id="project-repo"
+          id={repoInputId}
           type="url"
           inputMode="url"
           value={repositoryUrl}

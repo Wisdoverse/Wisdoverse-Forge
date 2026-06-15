@@ -102,6 +102,28 @@ describe('CloneStatusBadge', () => {
     await waitFor(() => expect(onRetried).toHaveBeenCalledWith(next))
   })
 
+  it('disables Retry while the request is in flight (no double-click)', async () => {
+    // A deferred promise that never resolves keeps the retry in flight, so the
+    // double-click guard (`disabled={retrying}`) must hold the button disabled
+    // with a `Retrying…` label until it settles.
+    vi.spyOn(projectApi, 'retryClone').mockReturnValue(new Promise<CloneSummary>(() => {}))
+
+    render(
+      <CloneStatusBadge
+        projectId="p1"
+        status="failed"
+        variant="detail"
+        clone={summary({ status: 'failed', errorMessage: 'boom' })}
+      />
+    )
+
+    const retryButton = screen.getByTestId('clone-retry-p1')
+    fireEvent.click(retryButton)
+
+    await waitFor(() => expect(retryButton).toBeDisabled())
+    expect(retryButton).toHaveTextContent('Retrying…')
+  })
+
   it('surfaces a retry failure (e.g. a 403) as an inline message', async () => {
     vi.spyOn(projectApi, 'retryClone').mockRejectedValue(
       new Error('Only the owner or a manager can retry this clone')
