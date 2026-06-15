@@ -212,7 +212,9 @@ async fn create_with_repo_writes_attempt_and_outbox(pool: PgPool) {
     assert_eq!(url, REPO_URL);
     assert_eq!(provider.as_deref(), Some("github"));
 
-    // The outbox row carries the {project_id, attempt} payload + discriminators.
+    // The outbox row carries the {organization_id, workspace_id, project_id,
+    // attempt} payload + discriminators. The tenant ids ride along (FIX 1) so the
+    // worker org-scopes its loads before trusting the payload's project_id/attempt.
     let (agg_type, event_type, payload): (String, String, serde_json::Value) =
         sqlx::query_as("SELECT aggregate_type, event_type, payload FROM orchestration_outbox WHERE aggregate_id = $1")
             .bind(project_id)
@@ -221,6 +223,8 @@ async fn create_with_repo_writes_attempt_and_outbox(pool: PgPool) {
             .expect("fetch outbox");
     assert_eq!(agg_type, "project_clone");
     assert_eq!(event_type, "clone_requested");
+    assert_eq!(payload["organization_id"], serde_json::json!(seed.org_id.to_string()));
+    assert_eq!(payload["workspace_id"], serde_json::json!(seed.workspace_id.to_string()));
     assert_eq!(payload["project_id"], serde_json::json!(project_id.to_string()));
     assert_eq!(payload["attempt"], serde_json::json!(1));
 

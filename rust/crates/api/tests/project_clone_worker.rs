@@ -429,7 +429,7 @@ async fn ready_outcome_materializes_project_and_records_event(pool: PgPool) {
     });
     let worker = worker(&pool, &seed, runner.clone());
 
-    worker.process_attempt_for_test(project_id, 1).await.expect("process attempt");
+    worker.process_attempt_for_test(seed.org_id, project_id, 1).await.expect("process attempt");
 
     // Attempt + project are ready; branch/head_sha persisted.
     let (status, _class, _msg, branch, head_sha, _cred) = attempt_row(&pool, project_id, 1).await;
@@ -473,7 +473,7 @@ async fn failed_outcome_redacts_and_schedules_bounded_retry(pool: PgPool) {
     });
     let worker = worker(&pool, &seed, runner);
 
-    worker.process_attempt_for_test(project_id, 1).await.expect("process attempt");
+    worker.process_attempt_for_test(seed.org_id, project_id, 1).await.expect("process attempt");
 
     // Attempt 1 is terminal failed; the PROJECT summary then mirrors the retry as
     // queued (asserted below) — spec §7 `failed -> bounded retry -> queued`.
@@ -531,7 +531,7 @@ async fn retry_is_bounded_at_max_attempts(pool: PgPool) {
     // Drive each attempt to failure: 1 -> 2 -> 3, then attempt 3 must NOT spawn a
     // 4th (DEFAULT_MAX_ATTEMPTS = 3).
     for attempt in 1..=DEFAULT_MAX_ATTEMPTS {
-        worker.process_attempt_for_test(project_id, attempt).await.expect("process");
+        worker.process_attempt_for_test(seed.org_id, project_id, attempt).await.expect("process");
     }
 
     assert_eq!(count_attempts(&pool, project_id).await, i64::from(DEFAULT_MAX_ATTEMPTS), "no retry past the ceiling");
@@ -551,7 +551,7 @@ async fn timeout_maps_to_timeout_class(pool: PgPool) {
 
     let runner = FakeRunner::new(|| CloneRunOutcome::Timeout);
     let worker = worker(&pool, &seed, runner);
-    worker.process_attempt_for_test(project_id, 1).await.expect("process");
+    worker.process_attempt_for_test(seed.org_id, project_id, 1).await.expect("process");
 
     let (status, class, _m, _b, _s, _cr) = attempt_row(&pool, project_id, 1).await;
     assert_eq!(status, "failed");
@@ -569,7 +569,7 @@ async fn too_large_maps_to_too_large_class(pool: PgPool) {
         stderr_tail: RawStderr::new("clone aborted: tree exceeded CLONE_MAX_BYTES".to_string()),
     });
     let worker = worker(&pool, &seed, runner);
-    worker.process_attempt_for_test(project_id, 1).await.expect("process");
+    worker.process_attempt_for_test(seed.org_id, project_id, 1).await.expect("process");
 
     let (status, class, _m, _b, _s, _cr) = attempt_row(&pool, project_id, 1).await;
     assert_eq!(status, "failed");
@@ -598,7 +598,7 @@ async fn ready_refuses_to_overwrite_an_existing_target_dir(pool: PgPool) {
         bytes: 10,
     });
     let worker = worker(&pool, &seed, runner);
-    worker.process_attempt_for_test(project_id, 1).await.expect("process");
+    worker.process_attempt_for_test(seed.org_id, project_id, 1).await.expect("process");
 
     // The attempt is FAILED (internal), NOT a false ready, and the sentinel file
     // is untouched.
@@ -633,7 +633,7 @@ async fn rename_failure_yields_failed_not_false_ready(pool: PgPool) {
         bytes: 1,
     });
     let worker = worker(&pool, &seed, runner);
-    worker.process_attempt_for_test(project_id, 1).await.expect("process");
+    worker.process_attempt_for_test(seed.org_id, project_id, 1).await.expect("process");
 
     let (status, class, _m, _b, _s, _cr) = attempt_row(&pool, project_id, 1).await;
     assert_eq!(status, "failed", "a failed rename must not become a false ready");
@@ -743,7 +743,7 @@ async fn worker_picks_the_host_matching_credential(pool: PgPool) {
         bytes: 1,
     });
     let worker = worker(&pool, &seed, runner.clone());
-    worker.process_attempt_for_test(project_id, 1).await.expect("process");
+    worker.process_attempt_for_test(seed.org_id, project_id, 1).await.expect("process");
 
     // The attempt records WHICH credential (the github.com one), never the secret.
     let (_status, _c, _m, _b, _s, cred) = attempt_row(&pool, project_id, 1).await;
@@ -768,7 +768,7 @@ async fn worker_clones_anonymously_when_no_credential_matches_the_host(pool: PgP
         bytes: 1,
     });
     let worker = worker(&pool, &seed, runner.clone());
-    worker.process_attempt_for_test(project_id, 1).await.expect("process");
+    worker.process_attempt_for_test(seed.org_id, project_id, 1).await.expect("process");
 
     // No credential recorded; the clone ran anonymously (no secret supplied).
     let (status, _c, _m, _b, _s, cred) = attempt_row(&pool, project_id, 1).await;
@@ -798,7 +798,7 @@ async fn redelivery_of_a_ready_attempt_is_a_noop(pool: PgPool) {
     let worker = worker(&pool, &seed, runner.clone());
 
     // First delivery materializes the clone to ready.
-    worker.process_attempt_for_test(project_id, 1).await.expect("first process");
+    worker.process_attempt_for_test(seed.org_id, project_id, 1).await.expect("first process");
     assert_eq!(attempt_status(&pool, project_id, 1).await, "ready");
     assert_eq!(runner.call_count(), 1, "the runner ran exactly once");
     let dir_name = project_dir_name(&pool, project_id).await;
@@ -807,7 +807,7 @@ async fn redelivery_of_a_ready_attempt_is_a_noop(pool: PgPool) {
     assert!(sentinel.exists());
 
     // Re-deliver the SAME attempt: terminal -> short-circuit, no second run.
-    worker.process_attempt_for_test(project_id, 1).await.expect("redeliver");
+    worker.process_attempt_for_test(seed.org_id, project_id, 1).await.expect("redeliver");
     assert_eq!(runner.call_count(), 1, "a re-delivered ready attempt must NOT run the clone again");
     assert_eq!(count_audit(&pool, "clone.started", project_id).await, 1, "no second clone.started");
     assert_eq!(count_attempts(&pool, project_id).await, 1, "no extra attempt");
@@ -828,14 +828,14 @@ async fn redelivery_of_a_failed_attempt_does_not_double_retry(pool: PgPool) {
     });
     let worker = worker(&pool, &seed, runner.clone());
 
-    worker.process_attempt_for_test(project_id, 1).await.expect("first process");
+    worker.process_attempt_for_test(seed.org_id, project_id, 1).await.expect("first process");
     assert_eq!(attempt_status(&pool, project_id, 1).await, "failed");
     // One retry (attempt 2) scheduled.
     assert_eq!(count_attempts(&pool, project_id).await, 2);
     assert_eq!(runner.call_count(), 1);
 
     // Re-deliver attempt 1: it is terminal -> no-op. No second run, no extra retry.
-    worker.process_attempt_for_test(project_id, 1).await.expect("redeliver");
+    worker.process_attempt_for_test(seed.org_id, project_id, 1).await.expect("redeliver");
     assert_eq!(runner.call_count(), 1, "a re-delivered failed attempt must NOT run again");
     assert_eq!(count_attempts(&pool, project_id).await, 2, "no second retry from the duplicate job");
     assert_eq!(count_audit(&pool, "clone.started", project_id).await, 1, "no second clone.started");
@@ -972,7 +972,7 @@ async fn worker_refinalizes_its_own_materialized_clone_without_recloning(pool: P
 
     let runner = FakeRunner::new(|| CloneRunOutcome::Ready { branch: None, head_sha: "sha1".to_string(), bytes: 1 });
     let worker = worker(&pool, &seed, runner.clone());
-    worker.process_attempt_for_test(project_id, 1).await.expect("re-drive");
+    worker.process_attempt_for_test(seed.org_id, project_id, 1).await.expect("re-drive");
 
     assert_eq!(attempt_status(&pool, project_id, 1).await, "ready", "re-finalized to ready");
     assert!(target.join("PROOF").exists(), "the existing materialized clone must NOT be clobbered");
@@ -1020,7 +1020,7 @@ async fn deleted_project_mid_flight_cancels_without_publishing(pool: PgPool) {
     }
 
     let worker = worker(&pool, &seed, Arc::new(DeleteMidRun { pool: pool.clone(), project_id }));
-    worker.process_attempt_for_test(project_id, 1).await.expect("process");
+    worker.process_attempt_for_test(seed.org_id, project_id, 1).await.expect("process");
 
     // The attempt is cancelled at the publish lock — NOT ready — and NO dir exists.
     assert_eq!(attempt_status(&pool, project_id, 1).await, "cancelled", "a mid-flight delete must cancel the attempt");
@@ -1045,7 +1045,7 @@ async fn runner_error_cleans_staging_and_schedules_bounded_retry(pool: PgPool) {
     let project_id = create_cloned_project(&pool, &seed, "DockerDown", REPO_URL).await;
 
     let worker = worker(&pool, &seed, Arc::new(ErrRunner));
-    worker.process_attempt_for_test(project_id, 1).await.expect("process");
+    worker.process_attempt_for_test(seed.org_id, project_id, 1).await.expect("process");
 
     let (status, class, msg, _b, _s, _cr) = attempt_row(&pool, project_id, 1).await;
     assert_eq!(status, "failed");
@@ -1082,7 +1082,7 @@ async fn concurrent_retry_schedulers_yield_exactly_one_next_attempt(pool: PgPool
     let worker = worker(&pool, &seed, runner);
 
     // Failure path schedules retry attempt 2 + one outbox row.
-    worker.process_attempt_for_test(project_id, 1).await.expect("process");
+    worker.process_attempt_for_test(seed.org_id, project_id, 1).await.expect("process");
     assert_eq!(count_attempts(&pool, project_id).await, 2);
     assert_eq!(count_unpublished_outbox_for_attempt(&pool, project_id, 2).await, 1);
 
@@ -1123,10 +1123,60 @@ async fn container_id_is_persisted_before_the_wait(pool: PgPool) {
         bytes: 1,
     });
     let worker = worker(&pool, &seed, runner);
-    worker.process_attempt_for_test(project_id, 1).await.expect("process");
+    worker.process_attempt_for_test(seed.org_id, project_id, 1).await.expect("process");
 
     let container_id = attempt_container_id(&pool, project_id, 1).await.expect("container_id persisted");
     assert!(container_id.starts_with("agentforge-clone-"), "deterministic container name persisted: {container_id}");
     // It is materialized too (the happy path stamps materialized_at on publish).
     assert!(attempt_is_materialized(&pool, project_id, 1).await, "a ready attempt is materialized");
+}
+
+/// FIX 1 (org-scope, defense-in-depth): a POISONED job payload that names the
+/// WRONG organization for an existing attempt must never read across the org
+/// boundary. The worker scopes its first load (`find_attempt`) by the payload's
+/// `organization_id`, so a payload pointing a foreign org at a real `(project_id,
+/// attempt)` resolves NO row — the attempt is never claimed, never run, and is
+/// left exactly as it was (`queued`), and the runner is never invoked.
+#[sqlx::test(migrations = "../db/migrations")]
+async fn poisoned_payload_org_mismatch_does_not_read_across_orgs(pool: PgPool) {
+    let home = seed(&pool).await;
+    let other = seed(&pool).await; // a different org entirely
+    let project_id = create_cloned_project(&pool, &home, "Home Repo", REPO_URL).await;
+
+    // A runner we can assert was NEVER called: if org-scoping leaked, the worker
+    // would claim + run the home attempt under the foreign org and call this.
+    let runner = FakeRunner::new(|| CloneRunOutcome::Ready {
+        branch: Some("main".to_string()),
+        head_sha: "leaked".to_string(),
+        bytes: 1,
+    });
+    let worker = worker(&pool, &home, runner.clone());
+
+    // Drive the attempt with the WRONG org (other.org_id) — exactly what a poisoned
+    // / misrouted payload would carry. The org-scoped `find_attempt` finds nothing.
+    worker
+        .process_attempt_for_test(other.org_id, project_id, 1)
+        .await
+        .expect("a cross-org payload is a benign skip, not an error");
+
+    // The runner was never invoked: no clone ran across the org boundary.
+    assert_eq!(runner.call_count(), 0, "a cross-org payload must NOT run the clone");
+    // The home attempt is untouched: still queued, never claimed/cloning/ready.
+    assert_eq!(attempt_status(&pool, project_id, 1).await, "queued", "the home attempt must be left untouched");
+    // No worker ever claimed it (a claim stamps worker_id).
+    let worker_id: Option<String> =
+        sqlx::query_scalar("SELECT worker_id FROM project_clone_attempts WHERE project_id = $1 AND attempt = 1")
+            .bind(project_id)
+            .fetch_one(&pool)
+            .await
+            .expect("fetch worker_id");
+    assert!(worker_id.is_none(), "no worker ever claimed the cross-org attempt");
+    // The project's denormalized status is likewise unchanged.
+    assert_eq!(project_clone_status(&pool, project_id).await, "queued", "project clone_status unchanged");
+
+    // SANITY: the SAME attempt processed under its CORRECT org DOES run — proving
+    // the skip above was the org guard biting, not an unrelated no-op.
+    worker.process_attempt_for_test(home.org_id, project_id, 1).await.expect("correct-org process");
+    assert_eq!(runner.call_count(), 1, "the correctly-scoped payload runs the clone exactly once");
+    assert_eq!(attempt_status(&pool, project_id, 1).await, "ready", "correct-org process drives the attempt ready");
 }

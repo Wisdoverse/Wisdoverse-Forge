@@ -205,13 +205,27 @@ pub struct ProjectCloneAttempt {
     pub attempt: i32,
     pub repository_url: String,
     pub provider: Option<String>,
+    /// Which `git_credentials` row the worker used (never the secret). Internal
+    /// forensic detail — `#[serde(skip_serializing)]` so a future direct
+    /// serialization of this row can never leak which credential was used. The
+    /// API/UI projection is `CloneSummary`, which omits this entirely.
+    #[serde(skip_serializing)]
     pub credential_id: Option<Uuid>,
     pub status: String,
     pub resolved_branch: Option<String>,
     pub head_sha: Option<String>,
+    /// Deterministic clone container name — operational/diagnostic only. Skipped
+    /// from serialization (defense-in-depth; the projection never carries it).
+    #[serde(skip_serializing)]
     pub container_id: Option<String>,
+    /// The worker that claimed this attempt — internal lease bookkeeping. Skipped.
+    #[serde(skip_serializing)]
     pub worker_id: Option<String>,
+    /// The `job_queue` row that drove this attempt — internal transport id. Skipped.
+    #[serde(skip_serializing)]
     pub job_id: Option<Uuid>,
+    /// Worker-lease expiry — internal recovery bookkeeping. Skipped.
+    #[serde(skip_serializing)]
     pub lease_expires_at: Option<DateTime<Utc>>,
     pub error_class: Option<String>,
     pub error_message: Option<String>,

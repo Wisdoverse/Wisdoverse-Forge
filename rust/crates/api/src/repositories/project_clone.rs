@@ -154,15 +154,26 @@ impl ProjectCloneRepository {
         Ok(rows.into_iter().map(|row| (row.project_id.as_uuid(), row)).collect())
     }
 
-    /// Load the authoritative attempt row by `(project_id, attempt)`. The worker
-    /// re-reads this rather than trusting the job payload snapshot. `None` when
-    /// the attempt no longer exists (e.g. the project was hard-deleted).
-    pub async fn find_attempt(&self, project_id: Uuid, attempt: i32) -> AppResult<Option<ProjectCloneAttempt>> {
+    /// Load the authoritative attempt row by `(project_id, attempt)`, TENANT-SCOPED
+    /// to `organization_id`. The worker re-reads this rather than trusting the job
+    /// payload's status/URL snapshot — but the payload also names the org, and this
+    /// load constrains on it so a poisoned payload pointing `project_id` at another
+    /// org's attempt yields `None` (defense-in-depth over the attempt row's own
+    /// org snapshot). `None` also means the attempt no longer exists (e.g. the
+    /// project was hard-deleted).
+    pub async fn find_attempt(
+        &self,
+        organization_id: Uuid,
+        project_id: Uuid,
+        attempt: i32,
+    ) -> AppResult<Option<ProjectCloneAttempt>> {
         let row = sqlx::query_as::<_, ProjectCloneAttempt>(
-            r#"SELECT * FROM project_clone_attempts WHERE project_id = $1 AND attempt = $2"#,
+            r#"SELECT * FROM project_clone_attempts
+                WHERE project_id = $1 AND attempt = $2 AND organization_id = $3"#,
         )
         .bind(project_id)
         .bind(attempt)
+        .bind(organization_id)
         .fetch_optional(&self.pool)
         .await?;
         Ok(row)
@@ -580,8 +591,15 @@ impl ProjectCloneRepository {
 
         // Transactional-outbox row so the publisher relays the retry into the
         // job_queue (same contract as the M2 create path). The backoff rides in the
-        // payload's `run_after`; the relay honors it as `job_queue.run_at`.
-        let payload = crate::domain::project_clone::CloneOutboxPayload { project_id, attempt: attempt_num, run_after };
+        // payload's `run_after`; the relay honors it as `job_queue.run_at`. The
+        // tenant ids ride along so the worker can scope its loads by org.
+        let payload = crate::domain::project_clone::CloneOutboxPayload {
+            organization_id,
+            workspace_id,
+            project_id,
+            attempt: attempt_num,
+            run_after,
+        };
         let payload_json =
             serde_json::to_value(&payload).map_err(|e| agentforge_core::AppError::from(anyhow::Error::from(e)))?;
         // SAME dedup guard as reenqueue_outbox: at most one unpublished outbox row
@@ -768,11 +786,19 @@ impl ProjectCloneRepository {
     /// Re-enqueue a lost `queued` attempt by writing a fresh transactional-outbox
     /// row for it (the publisher relays it into `job_queue`). Idempotent: writes
     /// at most one unpublished outbox row per `(project_id, attempt)` so a second
-    /// reconciler pass does not pile up duplicates.
-    pub async fn reenqueue_outbox(&self, organization_id: Uuid, project_id: Uuid, attempt: i32) -> AppResult<bool> {
+    /// reconciler pass does not pile up duplicates. The tenant ids ride in the
+    /// payload so the relayed job carries the org the worker scopes its loads by.
+    pub async fn reenqueue_outbox(
+        &self,
+        organization_id: Uuid,
+        workspace_id: Uuid,
+        project_id: Uuid,
+        attempt: i32,
+    ) -> AppResult<bool> {
         // A lost queued attempt re-enqueues for immediate relay (no backoff): the
         // enqueue was lost, not failed, so there is nothing to back off from.
-        let payload = crate::domain::project_clone::CloneOutboxPayload::now(project_id, attempt);
+        let payload =
+            crate::domain::project_clone::CloneOutboxPayload::now(organization_id, workspace_id, project_id, attempt);
         let payload_json =
             serde_json::to_value(&payload).map_err(|e| agentforge_core::AppError::from(anyhow::Error::from(e)))?;
         // Guard against a duplicate unpublished row for the same attempt.
@@ -827,28 +853,44 @@ impl ProjectCloneRepository {
         Ok(exists)
     }
 
-    /// Load the authoritative attempt row by its primary key, for the reconciler's
-    /// event emission (it has only the candidate id, not `(project_id, attempt)`).
-    /// `None` when the attempt no longer exists. The caller already owns the row
-    /// (it claimed it), so this is a plain identity read.
-    pub async fn find_attempt_by_id(&self, attempt_id: Uuid) -> AppResult<Option<ProjectCloneAttempt>> {
-        let row = sqlx::query_as::<_, ProjectCloneAttempt>(r#"SELECT * FROM project_clone_attempts WHERE id = $1"#)
-            .bind(attempt_id)
-            .fetch_optional(&self.pool)
-            .await?;
+    /// Load the authoritative attempt row by its primary key, TENANT-SCOPED to
+    /// `organization_id`, for the reconciler's event emission (it has only the
+    /// candidate id, not `(project_id, attempt)`). The reconciler already owns the
+    /// row (it claimed/scanned it from a tenant-bearing candidate), so the org
+    /// constraint is defense-in-depth: a row whose org does not match the caller's
+    /// expectation reads as `None` rather than crossing the boundary. `None` also
+    /// means the attempt no longer exists.
+    pub async fn find_attempt_by_id(
+        &self,
+        organization_id: Uuid,
+        attempt_id: Uuid,
+    ) -> AppResult<Option<ProjectCloneAttempt>> {
+        let row = sqlx::query_as::<_, ProjectCloneAttempt>(
+            r#"SELECT * FROM project_clone_attempts WHERE id = $1 AND organization_id = $2"#,
+        )
+        .bind(attempt_id)
+        .bind(organization_id)
+        .fetch_optional(&self.pool)
+        .await?;
         Ok(row)
     }
 
     /// Read the project's stored `workspace_dir_name` (the on-disk directory name),
-    /// constrained to a live (non-soft-deleted) project. The worker validates the
-    /// raw value through `WorkspaceDirName::parse` itself (path policy is domain),
-    /// so this returns the raw column. `None` when the project is gone/soft-deleted.
-    pub async fn project_dir_name(&self, project_id: ProjectId) -> AppResult<Option<String>> {
-        let raw: Option<String> =
-            sqlx::query_scalar(r#"SELECT workspace_dir_name FROM projects WHERE id = $1 AND deleted_at IS NULL"#)
-                .bind(project_id.as_uuid())
-                .fetch_optional(&self.pool)
-                .await?;
+    /// constrained to a live (non-soft-deleted) project AND tenant-scoped to
+    /// `organization_id`. The worker validates the raw value through
+    /// `WorkspaceDirName::parse` itself (path policy is domain), so this returns the
+    /// raw column. The org constraint means a poisoned payload pointing `project_id`
+    /// at another org's project cannot resolve a foreign directory name to clone
+    /// into. `None` when the project is gone/soft-deleted or belongs to another org.
+    pub async fn project_dir_name(&self, organization_id: Uuid, project_id: ProjectId) -> AppResult<Option<String>> {
+        let raw: Option<String> = sqlx::query_scalar(
+            r#"SELECT workspace_dir_name FROM projects
+                WHERE id = $1 AND organization_id = $2 AND deleted_at IS NULL"#,
+        )
+        .bind(project_id.as_uuid())
+        .bind(organization_id)
+        .fetch_optional(&self.pool)
+        .await?;
         Ok(raw)
     }
 

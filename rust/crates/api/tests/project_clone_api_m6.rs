@@ -198,6 +198,20 @@ async fn create_with_repo_projection_includes_clone_summary(pool: PgPool) {
     // get() returns the same projection.
     let fetched = service.get(&scope(&seed), created.project.id).await.expect("get");
     assert_eq!(fetched.clone.as_ref().expect("get summary").status, "queued");
+
+    // FIX 1: the create's outbox payload carries the tenant ids so the worker can
+    // org-scope its loads before trusting the payload's project_id/attempt.
+    let payload: serde_json::Value = sqlx::query_scalar(
+        "SELECT payload FROM orchestration_outbox
+          WHERE aggregate_type = 'project_clone' AND aggregate_id = $1",
+    )
+    .bind(created.project.id.as_uuid())
+    .fetch_one(&pool)
+    .await
+    .expect("create outbox payload");
+    assert_eq!(payload["organization_id"], seed.org_id.to_string(), "outbox payload carries the org");
+    assert_eq!(payload["workspace_id"], seed.workspace_id.to_string(), "outbox payload carries the workspace");
+    assert_eq!(payload["attempt"], 1);
 }
 
 // ---------------------------------------------------------------------------
@@ -368,12 +382,14 @@ async fn retry_requires_a_repo_and_a_prior_attempt(pool: PgPool) {
 }
 
 // ---------------------------------------------------------------------------
-// 7. Repository-URL immutability (§9): a change is rejected once an attempt
-//    exists; a same-value or name-only edit is allowed and triggers no re-clone.
+// 7. Repository-URL one-shot bind (§9, FIX 2/3): ANY repository_url in an update
+//    is rejected with an actionable error — on a bound project OR a `none`
+//    project, for a different value OR the same value. A name-only edit is
+//    allowed and enqueues no clone, and leaves the stored URL untouched.
 // ---------------------------------------------------------------------------
 
 #[sqlx::test(migrations = "../db/migrations")]
-async fn repository_url_is_immutable_once_cloned(pool: PgPool) {
+async fn repository_url_is_immutable_via_update(pool: PgPool) {
     use agentforge_api::services::project::UpdateProjectInput;
     let seed = seed(&pool).await;
     let service = ProjectService::from_pool(pool.clone());
@@ -383,7 +399,8 @@ async fn repository_url_is_immutable_once_cloned(pool: PgPool) {
     let bound_id = bound.project.id;
     set_latest_attempt(&pool, bound_id.as_uuid(), "ready", None, None, Some("main"), Some("sha1")).await;
 
-    // Changing the repo URL is REJECTED (Validation).
+    // Changing the repo URL to a DIFFERENT value is REJECTED (Validation) with an
+    // actionable message that points at the only supported path (create new).
     let err = service
         .update(
             &scope(&seed),
@@ -393,10 +410,43 @@ async fn repository_url_is_immutable_once_cloned(pool: PgPool) {
         .await
         .expect_err("repo URL change on a bound project must be rejected");
     assert!(matches!(err.kind, ErrorKind::Validation(_)), "expected Validation, got {err:?}");
+    let msg = format!("{err}");
+    assert!(
+        msg.contains("set when the project is created") && msg.contains("cannot be changed"),
+        "error must be actionable, got: {msg}"
+    );
 
-    // A name-only edit is allowed and triggers NO new attempt / outbox. (The
-    // create already wrote attempt 1 + its outbox row; assert the edit adds
-    // NOTHING on top, rather than an absolute zero.)
+    // Re-asserting the SAME repo URL is ALSO rejected (FIX 2: an update never
+    // carries a repository_url; the value is not even compared). This subsumes the
+    // old normalization-equivalent concern — there is no compare path to evade.
+    let err = service
+        .update(
+            &scope(&seed),
+            bound_id,
+            UpdateProjectInput { name: None, repository_url: Some(Some(REPO_URL.to_string())) },
+        )
+        .await
+        .expect_err("re-asserting the same repo URL via update must also be rejected");
+    assert!(matches!(err.kind, ErrorKind::Validation(_)), "same-value update: expected Validation, got {err:?}");
+
+    // Clearing the URL (Some(None)) is ALSO rejected — clearing is still a write.
+    let err = service
+        .update(&scope(&seed), bound_id, UpdateProjectInput { name: None, repository_url: Some(None) })
+        .await
+        .expect_err("clearing the repo URL via update must be rejected");
+    assert!(matches!(err.kind, ErrorKind::Validation(_)), "clear-url update: expected Validation, got {err:?}");
+
+    // The stored URL is UNCHANGED after every rejected attempt above.
+    let after_rejects = service.get(&scope(&seed), bound_id).await.expect("get after rejects");
+    assert_eq!(
+        after_rejects.project.repository_url.as_deref(),
+        Some(REPO_URL),
+        "rejected updates must not mutate the stored repository_url"
+    );
+
+    // A name-only edit is allowed and triggers NO new attempt / outbox, and leaves
+    // the repository_url + clone status untouched. (The create already wrote
+    // attempt 1 + its outbox row; assert the edit adds NOTHING on top.)
     let attempts_before = count_attempts(&pool, bound_id.as_uuid()).await;
     let outbox_before = count_unpublished_outbox(&pool, bound_id.as_uuid()).await;
     let renamed = service
@@ -408,6 +458,7 @@ async fn repository_url_is_immutable_once_cloned(pool: PgPool) {
         .await
         .expect("name-only edit on a bound project is allowed");
     assert_eq!(renamed.project.name, "Bound Renamed");
+    assert_eq!(renamed.project.repository_url.as_deref(), Some(REPO_URL), "name edit must not touch repository_url");
     assert_eq!(count_attempts(&pool, bound_id.as_uuid()).await, attempts_before, "name edit must not add an attempt");
     assert_eq!(
         count_unpublished_outbox(&pool, bound_id.as_uuid()).await,
@@ -417,21 +468,10 @@ async fn repository_url_is_immutable_once_cloned(pool: PgPool) {
     // The clone status + summary are unchanged (still ready).
     assert_eq!(renamed.project.clone_status, "ready");
     assert_eq!(renamed.clone.expect("summary").status, "ready");
-
-    // Re-asserting the SAME repo URL is a no-op, NOT a rejected change.
-    let same = service
-        .update(
-            &scope(&seed),
-            bound_id,
-            UpdateProjectInput { name: None, repository_url: Some(Some(REPO_URL.to_string())) },
-        )
-        .await
-        .expect("re-asserting the same repo URL must be allowed");
-    assert_eq!(same.project.repository_url.as_deref(), Some(REPO_URL));
 }
 
 #[sqlx::test(migrations = "../db/migrations")]
-async fn repository_url_settable_on_a_pre_clone_project(pool: PgPool) {
+async fn repository_url_update_rejected_even_on_a_pre_clone_project(pool: PgPool) {
     use agentforge_api::services::project::UpdateProjectInput;
     let seed = seed(&pool).await;
     let service = ProjectService::from_pool(pool.clone());
@@ -441,19 +481,36 @@ async fn repository_url_settable_on_a_pre_clone_project(pool: PgPool) {
     assert_eq!(plain.project.clone_status, "none");
     assert_eq!(count_attempts(&pool, plain.project.id.as_uuid()).await, 0);
 
-    // Setting the repo URL on a pre-clone project is ALLOWED (no attempt yet).
-    // NOTE: per §9 this is a metadata write only — the update path never enqueues
-    // a clone (only create does), so no attempt is created here.
-    let updated = service
+    // Setting the repo URL via UPDATE is REJECTED even on a pre-clone project
+    // (FIX 2: §9 binds the URL only at create — an update storing one with no
+    // enqueue would be a silent no-op, so it is rejected outright).
+    let err = service
         .update(
             &scope(&seed),
             plain.project.id,
             UpdateProjectInput { name: None, repository_url: Some(Some(REPO_URL.to_string())) },
         )
         .await
-        .expect("setting repo URL on a none project must be allowed");
-    assert_eq!(updated.project.repository_url.as_deref(), Some(REPO_URL));
+        .expect_err("setting repo URL via update on a none project must be rejected");
+    assert!(matches!(err.kind, ErrorKind::Validation(_)), "pre-clone update: expected Validation, got {err:?}");
+
+    // The project still has NO repo and NO attempt — nothing was stored.
+    let after = service.get(&scope(&seed), plain.project.id).await.expect("get after reject");
+    assert_eq!(after.project.repository_url, None, "rejected update must not store a repository_url");
+    assert_eq!(after.project.clone_status, "none");
     assert_eq!(count_attempts(&pool, plain.project.id.as_uuid()).await, 0, "update never enqueues a clone");
+
+    // A name-only edit on the pre-clone project still works.
+    let renamed = service
+        .update(
+            &scope(&seed),
+            plain.project.id,
+            UpdateProjectInput { name: Some("Renamed Plain".into()), repository_url: None },
+        )
+        .await
+        .expect("name-only edit on a none project is allowed");
+    assert_eq!(renamed.project.name, "Renamed Plain");
+    assert_eq!(renamed.project.repository_url, None);
 }
 
 // ---------------------------------------------------------------------------

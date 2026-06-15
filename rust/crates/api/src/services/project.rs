@@ -6,7 +6,7 @@ use sqlx::PgPool;
 
 pub(crate) use crate::domain::project_clone::CloneSummary;
 use crate::domain::project_clone::{CloneApiPolicy, CloneAttemptStatus};
-use crate::domain::resource::{ProjectRepositoryUrl, ResourceListPage, ResourceName};
+use crate::domain::resource::{ResourceListPage, ResourceName};
 pub(crate) use crate::domain::resource::{resource_data_response, resource_delete_response};
 use crate::repositories::project::{CloneRequest, ProjectCreateTx, ProjectRepository};
 use crate::repositories::project_clone::ProjectCloneRepository;
@@ -152,16 +152,17 @@ impl ProjectService {
         Ok(ProjectWithClone::new(project, summary))
     }
 
-    /// Update a project, enforcing the §9 repository-URL immutability rule.
+    /// Update a project, enforcing the §9 repository-URL one-shot-bind rule.
     ///
-    /// Metadata edits (name) are always allowed and never touch the clone. A
-    /// change to `repository_url` is REJECTED once the project has any clone
-    /// attempt (the one-shot bind cannot be re-pointed by the server) — only a
-    /// pre-clone project (`clone_status='none'`, no attempt) may set/change it.
-    /// "No-op" repo-URL writes (the same value, or clearing an already-absent
-    /// URL) are allowed so a metadata PATCH that happens to echo the current URL
-    /// does not spuriously fail. A repo-URL change never enqueues a new clone:
-    /// the only enqueue path is create.
+    /// The repository URL is bound at CREATE and is immutable thereafter, so an
+    /// update request MUST NOT carry one. Any `repository_url` in the request —
+    /// regardless of whether the project already has a clone, and regardless of
+    /// whether the value differs from the current one — is REJECTED with an
+    /// actionable error (`CloneApiPolicy::repository_url_immutable`). This makes
+    /// the silent no-op impossible: there is no path where an update stores a repo
+    /// URL without ever enqueuing the clone it implies. Metadata edits (name) are
+    /// always allowed, never touch `repository_url`, and never enqueue a clone (the
+    /// only enqueue path is create).
     pub async fn update(
         &self,
         scope: &TenantScope,
@@ -169,27 +170,18 @@ impl ProjectService {
         input: UpdateProjectInput,
     ) -> AppResult<ProjectWithClone> {
         self.permissions.require_project_manager(scope, id).await?;
-        let name = input.name.as_deref().map(ResourceName::parse).transpose()?.map(ResourceName::value);
 
-        // Repo-URL immutability gate (§9). Resolve the request's intended URL
-        // value (validated, if present) and compare it to the project's current
-        // value. Only a GENUINE change is gated; an unchanged value is a no-op.
-        let repository_url = match input.repository_url.as_ref().map(|opt| opt.as_deref()) {
-            Some(Some(url)) => {
-                ProjectRepositoryUrl::parse(url)?;
-                Some(Some(url))
-            }
-            other => other,
-        };
-        if let Some(desired) = repository_url {
-            let current = self.repo.find_by_id(scope, id).await?;
-            let changed = current.repository_url.as_deref() != desired;
-            if changed && self.clones.latest_attempt_summary(scope, id).await?.is_some() {
-                return Err(CloneApiPolicy::repository_url_immutable());
-            }
+        // §9: the repository URL is set once, at create. Reject any attempt to set
+        // it via update BEFORE doing any work — an update never writes the column.
+        if input.repository_url.is_some() {
+            return Err(CloneApiPolicy::repository_url_immutable());
         }
 
-        let project = self.repo.update(scope, id, name, repository_url).await?;
+        let name = input.name.as_deref().map(ResourceName::parse).transpose()?.map(ResourceName::value);
+
+        // The repository never accepts `repository_url` on update — it is a one-shot
+        // create-time bind (§9), so the column is structurally untouchable here.
+        let project = self.repo.update(scope, id, name).await?;
         let summary = self.latest_clone_summary(scope, id).await?;
         Ok(ProjectWithClone::new(project, summary))
     }

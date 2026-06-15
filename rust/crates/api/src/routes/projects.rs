@@ -66,6 +66,12 @@ where
 }
 
 /// Request body for updating a project.
+///
+/// `repository_url` is still accepted on the wire so a client that sends one gets
+/// a clear, actionable `400` ("the repository URL is set when the project is
+/// created and cannot be changed afterward") from the service rather than a
+/// confusing deserialize error or a silent drop. The service REJECTS any present
+/// value (§9 one-shot bind); an update never writes the column.
 #[derive(Deserialize)]
 pub struct UpdateProjectRequest {
     pub name: Option<String>,

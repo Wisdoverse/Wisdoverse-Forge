@@ -325,7 +325,12 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
             }
         };
 
-        let result = self.process_attempt(payload.project_id, payload.attempt, Some(job.id)).await;
+        // Scope every downstream load by the org NAMED IN THE PAYLOAD before we
+        // trust its project_id/attempt — a poisoned/misrouted payload pointing at
+        // another org's attempt cannot read across the boundary (the org-scoped
+        // `find_attempt` simply yields "no such attempt").
+        let result =
+            self.process_attempt(payload.organization_id, payload.project_id, payload.attempt, Some(job.id)).await;
         // Always complete (delete) the job — the attempt row is the durable state.
         self.complete_job(job.id).await;
         result.map(|_| true)
@@ -358,16 +363,33 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
     /// Drive ONE clone attempt through its full lifecycle, for tests + reconciler
     /// re-drives. Public so integration tests can run a single attempt against a
     /// real DB + a fake [`CloneRunner`] without standing up the dequeue loop.
-    pub async fn process_attempt_for_test(&self, project_id: Uuid, attempt: i32) -> AppResult<()> {
-        self.process_attempt(project_id, attempt, None).await
+    /// `organization_id` is the tenant the loads are scoped by (the payload's org
+    /// on the live path).
+    pub async fn process_attempt_for_test(
+        &self,
+        organization_id: Uuid,
+        project_id: Uuid,
+        attempt: i32,
+    ) -> AppResult<()> {
+        self.process_attempt(organization_id, project_id, attempt, None).await
     }
 
     /// Drive ONE clone attempt through its full lifecycle. Idempotent: a
-    /// terminal/already-claimed attempt short-circuits.
-    async fn process_attempt(&self, project_id: Uuid, attempt: i32, job_id: Option<Uuid>) -> AppResult<()> {
-        // Re-read the authoritative attempt row (never trust the payload snapshot).
-        let Some(attempt_row) = self.repo.find_attempt(project_id, attempt).await? else {
-            tracing::warn!(%project_id, attempt, "project_clone attempt row not found; skipping");
+    /// terminal/already-claimed attempt short-circuits. EVERY load is scoped by
+    /// `organization_id` (carried in the job payload) so a payload pointing
+    /// `project_id`/`attempt` at another org's row never resolves.
+    async fn process_attempt(
+        &self,
+        organization_id: Uuid,
+        project_id: Uuid,
+        attempt: i32,
+        job_id: Option<Uuid>,
+    ) -> AppResult<()> {
+        // Re-read the authoritative attempt row (never trust the payload's
+        // status/URL snapshot), TENANT-SCOPED to the payload's org. A poisoned
+        // payload whose project_id belongs to another org finds no row here.
+        let Some(attempt_row) = self.repo.find_attempt(organization_id, project_id, attempt).await? else {
+            tracing::warn!(%organization_id, %project_id, attempt, "project_clone attempt row not found in org; skipping");
             return Ok(());
         };
 
@@ -419,8 +441,9 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
             Err(err) => return self.fail_internal(attempt, format!("workspace path resolution failed: {err}")).await,
         };
 
-        // The on-disk directory name is the validated `workspace_dir_name`.
-        let dir_name = match self.project_dir_name(project_id).await {
+        // The on-disk directory name is the validated `workspace_dir_name`,
+        // tenant-scoped to the attempt's own org.
+        let dir_name = match self.project_dir_name(attempt.organization_id.as_uuid(), project_id).await {
             Ok(name) => name,
             Err(err) => return self.fail_internal(attempt, format!("workspace_dir_name invalid: {err}")).await,
         };
@@ -963,7 +986,12 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
                 for candidate in candidates {
                     match self
                         .repo
-                        .reenqueue_outbox(candidate.organization_id, candidate.project_id, candidate.attempt)
+                        .reenqueue_outbox(
+                            candidate.organization_id,
+                            candidate.workspace_id,
+                            candidate.project_id,
+                            candidate.attempt,
+                        )
                         .await
                     {
                         Ok(true) => {
@@ -994,7 +1022,7 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
     /// success payload and emit `clone.ready` — never a re-clone into a refused
     /// target. Idempotent: a row already `ready` is filtered out of the scan.
     async fn recover_materialized(&self, candidate: &ReconcileCandidate) {
-        let Some(attempt) = self.load_attempt(candidate.id).await else {
+        let Some(attempt) = self.load_attempt(candidate.organization_id, candidate.id).await else {
             return;
         };
         let success = match self.repo.load_clone_success(candidate.id).await {
@@ -1045,7 +1073,7 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
         // Load the full attempt row so the failure emits the SAME clone.failed
         // audit/WS event a worker failure does (#10). The row was claimed (its
         // worker_id is now ours), so it still exists + is `cloning`.
-        let Some(attempt) = self.load_attempt(candidate.id).await else {
+        let Some(attempt) = self.load_attempt(candidate.organization_id, candidate.id).await else {
             tracing::warn!(attempt_id = %candidate.id, "reconciler: recovered attempt vanished before failing");
             return;
         };
@@ -1115,8 +1143,9 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
             return false;
         };
         // The project must still be live with the SAME dir name (a deleted/renamed
-        // project's leftover dir is NOT adopted — the delete path cleans that up).
-        let Ok(dir_name) = self.project_dir_name(project_id).await else {
+        // project's leftover dir is NOT adopted — the delete path cleans that up),
+        // scoped to the attempt's own org.
+        let Ok(dir_name) = self.project_dir_name(attempt.organization_id.as_uuid(), project_id).await else {
             return false;
         };
         let Ok(target_dir) = dir_name.resolve_under(&paths.host_projects_root) else {
@@ -1151,9 +1180,11 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
         }
     }
 
-    /// Load the full attempt row by id (for the reconciler's event emission).
-    async fn load_attempt(&self, attempt_id: Uuid) -> Option<ProjectCloneAttempt> {
-        match self.repo.find_attempt_by_id(attempt_id).await {
+    /// Load the full attempt row by id (for the reconciler's event emission),
+    /// TENANT-SCOPED to `org_id` — the candidate's own org, so the load can never
+    /// resolve a row from another tenant.
+    async fn load_attempt(&self, org_id: Uuid, attempt_id: Uuid) -> Option<ProjectCloneAttempt> {
+        match self.repo.find_attempt_by_id(org_id, attempt_id).await {
             Ok(row) => row,
             Err(err) => {
                 tracing::warn!(%attempt_id, error = %err, "reconciler: failed to load attempt row");
@@ -1177,14 +1208,16 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
     // -- helpers -------------------------------------------------------------
 
     /// Resolve + validate the project's on-disk directory name. The repository
-    /// reads the raw stored name (tenant-scoped to a live project); the path policy
-    /// (`WorkspaceDirName::parse`) and the user-visible error contract both live in
-    /// the domain. A missing/soft-deleted project (`None`) is an error, matching the
-    /// previous `fetch_one` "no row" failure, so both callers behave unchanged.
-    async fn project_dir_name(&self, project_id: Uuid) -> AppResult<WorkspaceDirName> {
+    /// reads the raw stored name (tenant-scoped to a live project IN `org_id`); the
+    /// path policy (`WorkspaceDirName::parse`) and the user-visible error contract
+    /// both live in the domain. A missing/soft-deleted/foreign-org project (`None`)
+    /// is an error, matching the previous `fetch_one` "no row" failure, so both
+    /// callers behave unchanged. `org_id` is the attempt row's own org, so this is
+    /// constrained to the same tenant the attempt was loaded under.
+    async fn project_dir_name(&self, org_id: Uuid, project_id: Uuid) -> AppResult<WorkspaceDirName> {
         let raw = self
             .repo
-            .project_dir_name(ProjectId::from(project_id))
+            .project_dir_name(org_id, ProjectId::from(project_id))
             .await?
             .ok_or_else(|| CloneWorkerError::invalid_workspace_dir_name("project not found or soft-deleted"))?;
         WorkspaceDirName::parse(&raw).map_err(CloneWorkerError::invalid_workspace_dir_name)

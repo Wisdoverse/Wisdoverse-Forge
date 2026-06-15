@@ -881,14 +881,17 @@ impl CloneApiPolicy {
         .into()
     }
 
-    /// The caller tried to change `repository_url` on a project whose clone has
-    /// already bound (`clone_status` is `queued`/`cloning`/`ready`/`failed` — any
-    /// attempt exists). The one-shot bind cannot be re-pointed by the server, so
-    /// the change is rejected. A `Validation` (400) with a clear, actionable
-    /// reason. Metadata edits are unaffected.
+    /// The caller passed a `repository_url` to an UPDATE. The repository URL is a
+    /// one-shot bind set when the project is created (§9) and is immutable
+    /// thereafter, so ANY update carrying one is rejected — regardless of whether
+    /// the project already has a clone or whether the value differs from the
+    /// current one. A `Validation` (400) with a clear, actionable reason that tells
+    /// the operator the only supported path (create a new project). Metadata edits
+    /// (name, color, description) are unaffected.
     pub fn repository_url_immutable() -> agentforge_core::AppError {
         agentforge_core::ErrorKind::Validation(
-            "the repository URL cannot be changed once a clone has started; create a new project to clone a different repository"
+            "the repository URL is set when the project is created and cannot be changed afterward; \
+             create a new project to clone a different repository"
                 .into(),
         )
         .into()
@@ -1585,7 +1588,7 @@ mod tests {
         // only that the api-domain re-export still resolves to the same contract.
         assert_eq!(CLONE_OUTBOX_AGGREGATE_TYPE, "project_clone");
         assert_eq!(CLONE_OUTBOX_EVENT_TYPE, "clone_requested");
-        let payload = CloneOutboxPayload::now(uuid::Uuid::nil(), 1);
+        let payload = CloneOutboxPayload::now(uuid::Uuid::nil(), uuid::Uuid::nil(), uuid::Uuid::nil(), 1);
         assert_eq!(payload.job_unique_key(), format!("project_clone:{}:1", uuid::Uuid::nil()));
     }
 
@@ -1776,7 +1779,7 @@ mod tests {
 
     #[test]
     fn decode_outbox_payload_round_trips_and_rejects_garbage() {
-        let payload = CloneOutboxPayload::now(uuid::Uuid::now_v7(), 4);
+        let payload = CloneOutboxPayload::now(uuid::Uuid::now_v7(), uuid::Uuid::now_v7(), uuid::Uuid::now_v7(), 4);
         let value = serde_json::to_value(&payload).expect("serialize");
         let decoded = decode_outbox_payload(&value).expect("decode");
         assert_eq!(decoded.attempt, 4);

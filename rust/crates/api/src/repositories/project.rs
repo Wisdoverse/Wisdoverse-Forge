@@ -290,7 +290,7 @@ impl ProjectRepository {
             .execute(&mut **tx)
             .await?;
 
-            let payload = CloneOutboxPayload::now(project_id, 1);
+            let payload = CloneOutboxPayload::now(org_id, workspace_id, project_id, 1);
             let payload_json = serde_json::to_value(&payload).map_err(|e| AppError::from(anyhow::Error::from(e)))?;
             sqlx::query(
                 r#"INSERT INTO orchestration_outbox
@@ -365,33 +365,27 @@ impl ProjectRepository {
         Ok(can_read)
     }
 
-    /// Update a project (tenant-scoped).
-    pub async fn update(
-        &self,
-        scope: &TenantScope,
-        id: ProjectId,
-        name: Option<&str>,
-        repository_url: Option<Option<&str>>,
-    ) -> AppResult<Project> {
-        // Build update dynamically based on provided fields.
-        // For simplicity, we fetch then update only changed fields.
+    /// Update a project's mutable metadata (tenant-scoped).
+    ///
+    /// `repository_url` is DELIBERATELY not a parameter: it is a one-shot bind set
+    /// at create (§9) and immutable thereafter, so the update path can never write
+    /// it. This makes the immutability a STRUCTURAL guarantee (the column is not in
+    /// the UPDATE) rather than a caller convention — there is no path here that can
+    /// re-point the URL after an attempt exists. The service rejects any update
+    /// request carrying a `repository_url` before reaching this method.
+    pub async fn update(&self, scope: &TenantScope, id: ProjectId, name: Option<&str>) -> AppResult<Project> {
+        // Fetch first so an unchanged `name` keeps the existing value.
         let existing = self.find_by_id(scope, id).await?;
-
         let new_name = name.unwrap_or(&existing.name);
-        let new_url = match repository_url {
-            Some(url) => url,
-            None => existing.repository_url.as_deref(),
-        };
 
         sqlx::query_as::<_, Project>(
-            r#"UPDATE projects SET name = $3, repository_url = $4, updated_at = NOW()
+            r#"UPDATE projects SET name = $3, updated_at = NOW()
                WHERE id = $1 AND organization_id = $2 AND deleted_at IS NULL
                RETURNING *"#,
         )
         .bind(id.as_uuid())
         .bind(scope.org_id().as_uuid())
         .bind(new_name)
-        .bind(new_url)
         .fetch_optional(&self.pool)
         .await?
         .ok_or_else(|| ResourceRepositoryPolicy::project_not_found(id))
