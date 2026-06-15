@@ -509,7 +509,7 @@ function PluginMetric({
 
 function PluginStatusPill({ plugin }: { plugin: PluginItem }) {
   const Icon = plugin.enabled ? CheckCircle2 : Circle
-  const label = plugin.enabled ? 'Agent can use' : 'Not available'
+  const label = plugin.enabled ? 'Can use now' : 'Turned off for this agent'
   return (
     <span
       className={cn(
