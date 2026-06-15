@@ -42,7 +42,7 @@ describe('accountErrorMessage', () => {
     const message = accountErrorMessage('changePassword', error)
 
     expect(message).toBe(
-      'The current password did not match this account. Re-enter the current password, then try again.'
+      'Re-enter the current password, then try again. The current password did not match this account.'
     )
     expect(message).not.toContain('Code: 422.')
     expect(message).not.toContain('Details:')
@@ -65,8 +65,9 @@ describe('accountErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Team space name could not be saved. Refresh Settings, then try again. If it still fails, ask an owner or admin to check account settings.'
+      'Refresh Settings, then rename the team space again. If it still fails, ask an owner or admin to check account settings.'
     )
+    expect(message).not.toContain('Team space name could not be saved')
     expect(message).not.toContain('Organization')
     expect(message).not.toContain('organization')
     expect(message).not.toContain('backend')
@@ -84,7 +85,7 @@ describe('accountErrorMessage', () => {
     )
 
     expect(message).toBe(
-      'That team space name is already in use. Choose a different display name, then try again.'
+      'Choose a different display name, then try again. That team space name is already in use.'
     )
     expect(message).not.toContain('organization')
     expect(message).not.toContain('Details:')
@@ -93,14 +94,17 @@ describe('accountErrorMessage', () => {
   test('turns account rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       accountErrorMessage('changePassword', { statusCode: 429 }),
-      'Forge is receiving too many account settings requests right now. Wait a moment, then change your password again.'
+      'Wait a moment, then change your password again. Forge is receiving too many account settings requests right now.'
     )
   })
 
   test('turns unsupported account status into an owner or admin setup step', () => {
+    const message = accountErrorMessage('renameOrganization', { status: 418 })
+
     expectBeginnerMessage(
-      accountErrorMessage('renameOrganization', { status: 418 }),
-      'Account settings could not rename the team space. Refresh Settings, then try again. If it still fails, ask an owner or admin to check account settings.'
+      message,
+      'Refresh Settings, then rename the team space again. If it still fails, ask an owner or admin to check account settings.'
     )
+    expect(message).not.toContain('Account settings could not')
   })
 })

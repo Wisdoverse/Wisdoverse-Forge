@@ -201,6 +201,7 @@ describe('AccountSection', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain('Sign in again')
+    expect(alert.textContent).toMatch(/^Sign in again/)
     expect(alert.textContent).not.toContain('Code: 401.')
     expect(alert.textContent).not.toContain('HTTP 401')
     expect(alert.textContent).not.toContain('token expired')
@@ -219,6 +220,7 @@ describe('AccountSection', () => {
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain('You do not have permission to rename this team space')
     expect(alert.textContent).toContain('Ask an owner or admin')
+    expect(alert.textContent).toMatch(/^Ask an owner or admin/)
     expect(alert.textContent).not.toContain('organization')
     expect(alert.textContent).not.toContain('API 403')
     expect(alert.textContent).not.toContain('Forbidden')
@@ -246,6 +248,7 @@ describe('AccountSection', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain('The current password did not match this account')
+    expect(alert.textContent).toMatch(/^Re-enter the current password/)
     expect(alert.textContent).not.toContain('Details:')
     expect(alert.textContent).not.toContain('HTTP 422')
   })

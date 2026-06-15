@@ -801,6 +801,79 @@ function platformKeyErrorMessage(action) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags account settings errors that start with the failure instead of the next step', () => {
+    const cwd = fixture({
+      'src/app/features/settings/accountErrorMessages.ts': `
+function expiredMessage() {
+  return 'Your sign-in expired. Sign in again, then change your password again.'
+}
+function permissionMessage() {
+  return 'You do not have permission to rename this team space. Ask an owner or admin to update your role.'
+}
+function validationMessage() {
+  return 'The current password did not match this account. Re-enter the current password, then try again.'
+}
+function rateLimitMessage() {
+  return 'Forge is receiving too many account settings requests right now. Wait a moment, then change your password again.'
+}
+function serverMessage() {
+  return 'Team space name could not be saved. Refresh Settings, then try again.'
+}
+function unknownMessage() {
+  return 'Account settings could not rename the team space. Refresh Settings, then try again.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'account-settings-error-copy',
+          location: 'src/app/features/settings/accountErrorMessages.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'account-settings-error-copy',
+          location: 'src/app/features/settings/accountErrorMessages.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'account-settings-error-copy',
+          location: 'src/app/features/settings/accountErrorMessages.ts:9',
+        }),
+        expect.objectContaining({
+          type: 'account-settings-error-copy',
+          location: 'src/app/features/settings/accountErrorMessages.ts:12',
+        }),
+        expect.objectContaining({
+          type: 'account-settings-error-copy',
+          location: 'src/app/features/settings/accountErrorMessages.ts:15',
+        }),
+        expect.objectContaining({
+          type: 'account-settings-error-copy',
+          location: 'src/app/features/settings/accountErrorMessages.ts:18',
+        }),
+      ])
+    )
+  })
+
+  it('accepts account settings errors that start with the next step', () => {
+    const cwd = fixture({
+      'src/app/features/settings/accountErrorMessages.ts': `
+function accountErrorMessage(action) {
+  if (action === 'expired') return 'Sign in again, then change your password again. Your sign-in expired.'
+  if (action === 'permission') return 'Ask an owner or admin to update your role. You do not have permission to rename this team space.'
+  if (action === 'validation') return 'Re-enter the current password, then try again. The current password did not match this account.'
+  if (action === 'rateLimit') return 'Wait a moment, then change your password again. Forge is receiving too many account settings requests right now.'
+  return 'Refresh Settings, then rename the team space again. If it still fails, ask an owner or admin to check account settings.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags load error titles that do not tell users which view to retry or refresh', () => {
     const cwd = fixture({
       'src/app/shared/model/chat.errors.ts': `

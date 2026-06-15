@@ -16,13 +16,13 @@ export function accountErrorMessage(action: AccountErrorAction, error?: unknown)
   }
 
   if (status === 401) {
-    return `Your sign-in expired. Sign in again, then ${retryPhrase(action)}.`
+    return `Sign in again, then ${retryPhrase(action)}. Your sign-in expired.`
   }
   if (status === 403) {
     return permissionMessage(action)
   }
   if (status === 404) {
-    return `${settingsAreaLabel(action)} are not available. Refresh Settings, then try again.`
+    return `Refresh Settings, then ${retryPhrase(action)}. ${settingsAreaLabel(action)} are not available.`
   }
   if (status === 409) {
     return conflictMessage(action)
@@ -31,23 +31,13 @@ export function accountErrorMessage(action: AccountErrorAction, error?: unknown)
     return validationMessage(action, detail)
   }
   if (status === 429) {
-    return `Forge is receiving too many account settings requests right now. Wait a moment, then ${retryPhrase(action)}.`
+    return `Wait a moment, then ${retryPhrase(action)}. Forge is receiving too many account settings requests right now.`
   }
   if (status >= 500) {
-    return `${actionFailureBase(action)} Refresh Settings, then try again. If it still fails, ask an owner or admin to check account settings.`
+    return `Refresh Settings, then ${retryPhrase(action)}. If it still fails, ask an owner or admin to check account settings.`
   }
 
-  return `Account settings could not ${actionPhrase(action)}. Refresh Settings, then try again. If it still fails, ask an owner or admin to check account settings.`
-}
-
-function actionFailureBase(action: AccountErrorAction): string {
-  return action === 'changePassword'
-    ? 'Password could not be changed.'
-    : 'Team space name could not be saved.'
-}
-
-function actionPhrase(action: AccountErrorAction): string {
-  return action === 'changePassword' ? 'change your password' : 'rename the team space'
+  return `Refresh Settings, then ${retryPhrase(action)}. If it still fails, ask an owner or admin to check account settings.`
 }
 
 function retryPhrase(action: AccountErrorAction): string {
@@ -60,23 +50,23 @@ function settingsAreaLabel(action: AccountErrorAction): string {
 
 function permissionMessage(action: AccountErrorAction): string {
   if (action === 'changePassword') {
-    return 'You do not have permission to change this password. Ask an owner or admin to check your account.'
+    return 'Ask an owner or admin to check your account. You do not have permission to change this password.'
   }
-  return 'You do not have permission to rename this team space. Ask an owner or admin to update your role.'
+  return 'Ask an owner or admin to update your role. You do not have permission to rename this team space.'
 }
 
 function conflictMessage(action: AccountErrorAction): string {
   if (action === 'changePassword') {
-    return 'Your account changed while this form was open. Refresh the page, then try again.'
+    return 'Refresh the page, then try again. Your account changed while this form was open.'
   }
-  return 'This team space changed while you were editing. Refresh team space settings, review the current name, then try again.'
+  return 'Refresh team space settings, review the current name, then try again. This team space changed while you were editing.'
 }
 
 function validationMessage(action: AccountErrorAction, detail?: string | null): string {
   const normalizedDetail = detail?.toLowerCase() ?? ''
   if (action === 'changePassword') {
     if (normalizedDetail.includes('current password') || normalizedDetail.includes('incorrect')) {
-      return 'The current password did not match this account. Re-enter the current password, then try again.'
+      return 'Re-enter the current password, then try again. The current password did not match this account.'
     }
     if (normalizedDetail.includes('new password') || normalizedDetail.includes('password')) {
       return 'Choose a new password that meets the password rules, then try again.'
@@ -84,7 +74,7 @@ function validationMessage(action: AccountErrorAction, detail?: string | null): 
     return 'Check the current password and make sure the new password meets the requirements, then try again.'
   }
   if (normalizedDetail.includes('already exists') || normalizedDetail.includes('taken')) {
-    return 'That team space name is already in use. Choose a different display name, then try again.'
+    return 'Choose a different display name, then try again. That team space name is already in use.'
   }
   return 'Use a team space name between 1 and 100 characters, then try again.'
 }

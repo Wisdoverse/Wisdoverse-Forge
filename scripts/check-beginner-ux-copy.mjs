@@ -372,6 +372,19 @@ const PLATFORM_KEY_FAILURE_FIRST_PATTERNS = [
   /\bRefresh Settings to load outside tool access keys\. Try again\./i,
 ]
 
+const ACCOUNT_SETTINGS_FAILURE_FIRST_PATTERNS = [
+  /\breturn\s+['"`]Your sign-in expired\. Sign in again/i,
+  /\breturn\s+['"`]You do not have permission to (?:change this password|rename this team space)\./i,
+  /\breturn\s+['"`](?:Password|Team space) settings are not available\. Refresh Settings/i,
+  /\breturn\s+['"`]Your account changed while this form was open\. Refresh/i,
+  /\breturn\s+['"`]This team space changed while you were editing\. Refresh/i,
+  /\breturn\s+['"`]The current password did not match this account\. Re-enter/i,
+  /\breturn\s+['"`]That team space name is already in use\. Choose/i,
+  /\breturn\s+['"`]Forge is receiving too many account settings requests right now\. Wait/i,
+  /\breturn\s+['"`](?:Password could not be changed|Team space name could not be saved)\./i,
+  /\breturn\s+['"`]Account settings could not/i,
+]
+
 const LOAD_ERROR_TITLE_DEAD_END_PATTERNS = [
   /\bConversation history could not be loaded\./i,
   /\bAgent tools could not be loaded\./i,
@@ -1274,6 +1287,12 @@ function hasPlatformKeyFailureFirstCopy(relFile, line) {
   return PLATFORM_KEY_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAccountSettingsFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/settings/accountErrorMessages.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ACCOUNT_SETTINGS_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasLoadErrorTitleDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/model/chat.errors.ts') &&
@@ -1618,6 +1637,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Outside tool access key errors must start with the next action, not the failure summary.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAccountSettingsFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'account-settings-error-copy',
+        location,
+        message:
+          'Account settings errors must start with the next action, not the failure summary.',
         sample: line.trim(),
       })
     }
