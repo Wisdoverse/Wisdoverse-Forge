@@ -238,7 +238,7 @@ function createReviewItems({
     ? selectedGroupName
     : hasSelectedProject
       ? hasGroups
-        ? 'No task queue selected yet'
+        ? 'Choose a task queue now, or assign one later from Tasks.'
         : 'Create a task queue here when you want new tasks to wait in one place.'
       : 'Choose a project later before assigning tasks.'
 

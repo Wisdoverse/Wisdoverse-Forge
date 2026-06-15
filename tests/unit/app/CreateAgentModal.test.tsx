@@ -131,6 +131,34 @@ describe('CreateAgentModal', () => {
     ).toBeInTheDocument()
   })
 
+  test('guides users when task queues exist but none is selected yet', () => {
+    useNavigationStore.setState({
+      selectedProjectId: 'p1',
+      projects: {
+        t1: [
+          {
+            id: 'p1',
+            teamId: 't1',
+            workspaceId: 'w1',
+            name: 'Platform',
+            slug: 'platform',
+            color: '#007AFF',
+            description: '',
+          },
+        ],
+      },
+      agentGroups: [{ id: 'group-1', name: 'Review Queue', projectId: 'p1' }],
+    })
+
+    render(<CreateAgentModal />)
+
+    const review = screen.getByTestId('agent-create-review')
+    expect(
+      within(review).getByText('Choose a task queue now, or assign one later from Tasks.')
+    ).toBeInTheDocument()
+    expect(within(review).queryByText('No task queue selected yet')).toBeNull()
+  })
+
   test('submits selected project workspace as the execution boundary', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
