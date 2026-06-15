@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
+  ArrowRight,
   CheckCircle2,
   Check,
   ClipboardCheck,
@@ -99,7 +100,11 @@ const TASK_GROUP_TEMPLATES: TaskGroupTemplate[] = [
   },
 ]
 
-export function AgentGroupsPanel() {
+interface AgentGroupsPanelProps {
+  onOpenProjectsSetup?: () => void
+}
+
+export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps = {}) {
   const selectedProjectId = useNavigationStore((state) => state.selectedProjectId)
   const projectsByTeam = useNavigationStore((state) => state.projects)
   const agentGroups = useNavigationStore((state) => state.agentGroups)
@@ -171,7 +176,7 @@ export function AgentGroupsPanel() {
     event.preventDefault()
     if (!selectedProjectId) {
       setError(
-        'Select a project from the sidebar first. Task queues belong to one project so agents know where to look for tasks.'
+        'Open project settings to create a project, or choose an existing project before creating a task queue.'
       )
       return
     }
@@ -258,8 +263,20 @@ export function AgentGroupsPanel() {
 
       {!selectedProjectId ? (
         <div className="mt-3 rounded-lg border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark">
-          Select a project from the sidebar first. Each project keeps its own task queues and
-          agents.
+          <p>
+            Open project settings to create a project, or choose an existing project from the
+            project list. Each project keeps its own task queues and agents.
+          </p>
+          {onOpenProjectsSetup ? (
+            <button
+              type="button"
+              onClick={onOpenProjectsSetup}
+              className="mt-3 inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-apple-blue/20 bg-apple-blue/[0.08] px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35"
+            >
+              <span>Open project settings</span>
+              <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
+            </button>
+          ) : null}
         </div>
       ) : (
         <div className="mt-3 flex flex-col gap-3">

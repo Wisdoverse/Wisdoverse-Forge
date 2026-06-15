@@ -236,7 +236,7 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
         </section>
 
         <aside className="space-y-4 xl:sticky xl:top-0 xl:self-start">
-          <AgentGroupsPanel />
+          <AgentGroupsPanel onOpenProjectsSetup={onOpenProjectsSetup} />
           <HostCliEnrollmentPanel
             selectedProjectId={selectedProjectId}
             selectedProjectName={selectedProjectName}

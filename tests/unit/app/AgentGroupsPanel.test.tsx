@@ -54,6 +54,20 @@ describe('AgentGroupsPanel', () => {
   const previousBlockedLabel = ['Block', 'ed'].join('')
   const previousBlockingCopy = new RegExp(['what', 'is', 'blocking'].join('\\s+'), 'i')
 
+  test('routes users to project settings before creating task queues', () => {
+    const onOpenProjectsSetup = vi.fn()
+
+    render(<AgentGroupsPanel onOpenProjectsSetup={onOpenProjectsSetup} />)
+
+    const panel = screen.getByTestId('agent-groups-panel')
+    expect(panel).toHaveTextContent(/open project settings to create a project/i)
+    expect(panel).not.toHaveTextContent(/select a project from the sidebar/i)
+
+    fireEvent.click(within(panel).getByRole('button', { name: /open project settings/i }))
+
+    expect(onOpenProjectsSetup).toHaveBeenCalledTimes(1)
+  })
+
   test('summarizes the selected task queue workload', () => {
     seedRoutingState([
       makeTask({
