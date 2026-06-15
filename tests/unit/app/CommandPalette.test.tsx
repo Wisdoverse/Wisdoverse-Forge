@@ -91,8 +91,11 @@ describe('CommandPalette', () => {
       expect(screen.getByText('No page or action matches that search')).toBeDefined()
     })
     expect(
-      screen.getByText(/try tasks, inbox, saved items, agents, saved instructions, or settings/i)
+      screen.getByText(/try tasks, inbox, agents, saved instructions, or settings/i)
     ).toBeDefined()
+    expect(
+      screen.queryByText(/try tasks, inbox, saved items, agents, saved instructions, or settings/i)
+    ).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
 
     await waitFor(() => {
@@ -113,10 +116,27 @@ describe('CommandPalette', () => {
 
     expect(screen.getByText('No page or action matches that search')).toBeDefined()
     expect(
-      screen.getByText(/try tasks, inbox, saved items, agents, saved instructions, or settings/i)
+      screen.getByText(/try tasks, inbox, agents, saved instructions, or settings/i)
     ).toBeDefined()
+    expect(
+      screen.queryByText(/try tasks, inbox, saved items, agents, saved instructions, or settings/i)
+    ).toBeNull()
     expect(screen.getByRole('button', { name: 'Clear search' })).toBeDefined()
     expect(screen.queryByText(previousEmptyTitle)).toBeNull()
     expect(screen.queryByText(new RegExp(previousFullListCopy, 'i'))).toBeNull()
+  })
+
+  test('includes Saved items in empty-search help only when the page is visible', () => {
+    useContextFeaturesStore.setState({ governance: true, loaded: true, loading: false })
+
+    render(<CommandPalette isOpen={true} onClose={() => {}} />)
+
+    fireEvent.change(screen.getByPlaceholderText(/search pages or actions/i), {
+      target: { value: 'missing workflow' },
+    })
+
+    expect(
+      screen.getByText(/try tasks, inbox, saved items, agents, saved instructions, or settings/i)
+    ).toBeDefined()
   })
 })

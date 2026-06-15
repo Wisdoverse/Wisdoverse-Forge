@@ -52,6 +52,14 @@ const COMMAND_DISCOVERY_STEPS = [
   'Use Settings when setup, account access, or agent work status is blocking work.',
 ]
 
+function commonWorkflowSuggestion(commands: typeof NAV_COMMANDS): string {
+  const labels = commands.map((command) => command.label)
+  if (labels.length === 0) return 'Try a shorter search, or open Settings to browse setup.'
+  if (labels.length === 1) return `Try ${labels[0]} to jump to a common workflow.`
+  const prefix = labels.slice(0, -1).join(', ')
+  return `Try ${prefix}, or ${labels[labels.length - 1]} to jump to a common workflow.`
+}
+
 export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProps) {
   const contextGovernanceEnabled = useContextFeaturesStore((s) => s.governance)
   const [search, setSearch] = useState('')
@@ -59,6 +67,7 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
   const navCommands = NAV_COMMANDS.filter(
     (cmd) => cmd.id !== 'nav:context' || contextGovernanceEnabled
   )
+  const emptySearchSuggestion = commonWorkflowSuggestion(navCommands)
 
   function handleSelect(commandId: string) {
     onSelect?.(commandId)
@@ -107,10 +116,7 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
               <p className="font-medium text-foreground-light dark:text-foreground-dark">
                 No page or action matches that search
               </p>
-              <p className="mt-1">
-                Try Tasks, Inbox, Saved items, Agents, Saved instructions, or Settings to jump to a
-                common workflow.
-              </p>
+              <p className="mt-1">{emptySearchSuggestion}</p>
               <button
                 type="button"
                 onClick={() => setSearch('')}
