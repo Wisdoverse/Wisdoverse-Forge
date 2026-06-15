@@ -65,7 +65,7 @@ export function systemHealthErrorMessage(error: unknown): string {
     return `${base} Your sign-in expired. Sign in again, then open Admin and choose Check now.`
   }
   if (code === 403 || text.includes('permission') || text.includes('forbidden')) {
-    return `${base} You do not have access to app health checks. Ask an owner or admin to update your role, then choose Check now.`
+    return `${base} You do not have access to app health checks. Ask an owner or admin to give you Admin access, then choose Check now.`
   }
   if (code === 404 || text.includes('endpoint is not available')) {
     return `${base} App health checks are not available from this Admin view. Refresh Admin, then choose Check now. If it still fails, ask an owner or admin to check setup.`

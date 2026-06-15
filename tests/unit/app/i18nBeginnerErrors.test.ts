@@ -14,6 +14,8 @@ describe('beginner error translations', () => {
     expect(en.errors.network).not.toContain('service')
     expect(en.errors.serverError).not.toContain('service')
     expect(en.errors.forbidden).toContain('Ask an owner or admin')
+    expect(en.errors.forbidden).toContain('team space access')
+    expect(en.errors.forbidden).not.toContain('role')
     expect(en.errors.agentError).toMatch(/^Try this step again/)
     expect(en.errors.fileError).toMatch(/^Check the file/)
     expect(en.errors.uploadError).toMatch(/^Check the file and connection/)

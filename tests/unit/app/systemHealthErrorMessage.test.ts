@@ -18,10 +18,10 @@ describe('systemHealthErrorMessage', () => {
     )
   })
 
-  test('turns permission failures into a role update next step', () => {
+  test('turns permission failures into an Admin access next step', () => {
     expectBeginnerMessage(
       systemHealthErrorMessage({ status: 403, detail: 'Forbidden' }),
-      'Forge could not check app health. You do not have access to app health checks. Ask an owner or admin to update your role, then choose Check now.'
+      'Forge could not check app health. You do not have access to app health checks. Ask an owner or admin to give you Admin access, then choose Check now.'
     )
   })
 

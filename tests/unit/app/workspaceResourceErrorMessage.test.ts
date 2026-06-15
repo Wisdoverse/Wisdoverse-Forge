@@ -26,7 +26,7 @@ describe('workspaceResourceErrorMessage', () => {
     )
     expect(message).not.toContain('API 403')
     expect(message).not.toContain('Forbidden')
-    expect(message).not.toContain('update your role')
+    expect(message).not.toContain('role')
   })
 
   test('maps structured permission failures without raw API text', () => {
@@ -40,7 +40,7 @@ describe('workspaceResourceErrorMessage', () => {
       'You do not have permission to save this team. Ask an owner or admin to update your team space access.'
     )
     expect(message).not.toContain('owner role required')
-    expect(message).not.toContain('update your role')
+    expect(message).not.toContain('role')
   })
 
   test('uses structured validation details to name the field to fix', () => {

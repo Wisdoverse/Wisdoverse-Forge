@@ -17,7 +17,7 @@ export function feedbackErrorMessage(error?: unknown): string {
     return 'Sign in again, then save this feedback.'
   }
   if (status === 403) {
-    return 'You do not have permission to save feedback for this saved item. Ask an owner or admin to check your role.'
+    return 'You do not have permission to save feedback for this saved item. Ask an owner or admin to give you access to the saved item.'
   }
   if (status === 404) {
     return 'This saved item could not be found. Refresh the task, then choose it again.'

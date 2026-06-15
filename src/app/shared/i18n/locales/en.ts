@@ -524,7 +524,8 @@ export const en = {
     timeout: 'Wait a moment, then try again. The request took too long.',
     notFound: 'Refresh the page, then try again. {{resource}} was not found.',
     unauthorized: 'Sign in again, then retry this action.',
-    forbidden: 'You do not have access for this action. Ask an owner or admin to update your role.',
+    forbidden:
+      'You do not have access for this action. Ask an owner or admin to check your team space access.',
     validation: 'Check the highlighted fields, then try again.',
     serverError: 'Wait a moment, then try again. Forge could not finish this right now.',
     connectionLost: 'Connection lost. Reconnecting...',

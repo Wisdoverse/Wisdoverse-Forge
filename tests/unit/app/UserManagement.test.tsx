@@ -110,7 +110,7 @@ describe('UserManagement', () => {
     expect(screen.queryByText('Invalid Date')).toBeNull()
   })
 
-  test('saving a new access level calls the role update and closes the editor', async () => {
+  test('saving a new access level calls the access update and closes the editor', async () => {
     const updateUserRole = vi.fn(async () => {
       // Mirror the real store: the row is swapped for the saved projection.
       useAdminStore.setState((s) => ({
@@ -326,7 +326,7 @@ describe('UserManagement', () => {
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent('Refresh Admin to reload the user list.')
     expect(alert).toHaveTextContent(
-      'Refresh Admin, then try again. If it still fails, ask an owner or admin to check Admin setup and your role.'
+      'Refresh Admin, then try again. If it still fails, ask an owner or admin to check Admin setup and your Admin access.'
     )
     expect(alert).not.toHaveTextContent('HTTP 503')
   })

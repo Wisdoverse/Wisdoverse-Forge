@@ -15,6 +15,18 @@ describe('feedbackErrorMessage', () => {
     )
   })
 
+  test('turns permission failures into saved item access guidance', () => {
+    const message = feedbackErrorMessage(new Error('HTTP 403: Forbidden'))
+
+    expectBeginnerMessage(
+      message,
+      'You do not have permission to save feedback for this saved item. Ask an owner or admin to give you access to the saved item.'
+    )
+    expect(message).not.toContain('role')
+    expect(message).not.toContain('HTTP 403')
+    expect(message).not.toContain('Forbidden')
+  })
+
   test('turns validation details into a feedback choice step', () => {
     const message = feedbackErrorMessage(new Error('HTTP 422: {"message":"vote is required"}'))
 

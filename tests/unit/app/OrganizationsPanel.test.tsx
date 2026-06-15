@@ -117,7 +117,7 @@ describe('OrganizationsPanel', () => {
     expect(within(error).getByText('Refresh Admin to reload the team space list.')).toBeDefined()
     expect(
       within(error).getByText(
-        'Refresh Admin, then try again. If it still fails, ask an owner or admin to check Admin setup and your role.'
+        'Refresh Admin, then try again. If it still fails, ask an owner or admin to check Admin setup and your Admin access.'
       )
     ).toBeDefined()
     expect(within(error).queryByText('HTTP 503')).toBeNull()
