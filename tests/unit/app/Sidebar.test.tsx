@@ -263,6 +263,8 @@ describe('Sidebar', () => {
     ).toBeInTheDocument()
     expect(menuScope.queryByRole('menuitem', { name: /create task here/i })).not.toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /share project/i })).toBeInTheDocument()
+    expect(menuScope.getByText(/invite people and choose what they can do/i)).toBeInTheDocument()
+    expect(menuScope.queryByText(/choose roles/i)).not.toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /rename project/i })).toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /all project settings/i })).toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /copy support reference/i })).toBeInTheDocument()

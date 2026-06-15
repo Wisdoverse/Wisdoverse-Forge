@@ -656,6 +656,10 @@ const ACCESS_LEVEL_DEAD_END_PATTERNS = [
   /\bAccess level needs review\b/i,
 ]
 
+const AGENT_TEMPLATE_ROLE_JARGON_PATTERNS = [/\bStart with a role\b/i, /\bAgent role templates\b/i]
+
+const PROJECT_SHARE_ROLE_JARGON_PATTERNS = [/\bInvite people and choose roles\b/i]
+
 const VAGUE_ACCESS_RECOVERY_PATTERNS = [
   /\bAsk an owner or admin to update your access\b/i,
   /\bAsk an owner or admin to update what you can do\b/i,
@@ -1171,6 +1175,18 @@ function hasAccessLevelDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/entities/user/model/roleLabels.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return ACCESS_LEVEL_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentTemplateRoleJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_TEMPLATE_ROLE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasProjectShareRoleJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/layouts/sidebar/ProjectTree.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return PROJECT_SHARE_ROLE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasVagueAccessRecoveryCopy(line) {
@@ -2128,6 +2144,24 @@ function scanFile(file, relFile) {
         type: 'access-level-copy',
         location,
         message: 'Access level fallback copy must tell beginners to refresh role data.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentTemplateRoleJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-template-role-copy',
+        location,
+        message: 'Agent creation templates must say starter template instead of role template.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasProjectShareRoleJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'project-share-role-copy',
+        location,
+        message: 'Project sharing copy must say what people can do instead of choose roles.',
         sample: line.trim(),
       })
     }

@@ -763,7 +763,7 @@ export function ProjectTree({
                 <ProjectMenuItem
                   Icon={Users}
                   label="Share project"
-                  detail="Invite people and choose roles"
+                  detail="Invite people and choose what they can do"
                   onClick={() => openProjectMembers(projectMenu.project)}
                 />
                 <ProjectMenuItem

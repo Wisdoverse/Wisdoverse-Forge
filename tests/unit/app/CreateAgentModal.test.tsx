@@ -59,7 +59,8 @@ describe('CreateAgentModal', () => {
     expect(screen.getByRole('heading', { name: 'Create an agent' })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: /managed workspace/i })).toBeChecked()
     expect(screen.getByTestId('agent-runtime-fit')).toBeInTheDocument()
-    expect(screen.getByText('Start with a role')).toBeInTheDocument()
+    expect(screen.getByText('Pick a starter template')).toBeInTheDocument()
+    expect(screen.queryByText('Start with a role')).toBeNull()
     expect(screen.getByText('Fills in the agent name')).toBeInTheDocument()
     expect(screen.getByText('Updates the work and checks it')).toBeInTheDocument()
     expect(screen.queryByText('Builds changes and checks them')).toBeNull()
@@ -800,13 +801,13 @@ describe('CreateAgentModal', () => {
     expect(screen.getByRole('alert')).not.toHaveTextContent(/clipboard access/i)
   })
 
-  test('applies a role template to simple chat agent instructions', async () => {
+  test('applies a starter template to simple chat agent instructions', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
 
     render(<CreateAgentModal />)
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
-    const templateGroup = screen.getByRole('group', { name: /agent role templates/i })
+    const templateGroup = screen.getByRole('group', { name: /agent starter templates/i })
     fireEvent.click(within(templateGroup).getByRole('button', { name: /review work/i }))
 
     expect(screen.getByLabelText(/^name$/i)).toHaveValue('Review Helper')
@@ -815,6 +816,7 @@ describe('CreateAgentModal', () => {
     )
     expect(screen.queryByText(/^Reviewer$/)).toBeNull()
     expect(screen.queryByText(/prompt work/i)).toBeNull()
+    expect(screen.queryByRole('group', { name: /agent role templates/i })).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 

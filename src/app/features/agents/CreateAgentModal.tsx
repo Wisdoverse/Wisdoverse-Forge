@@ -806,7 +806,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
             <div>
               <div className="mb-2 flex items-center justify-between gap-2">
                 <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                  Start with a role
+                  Pick a starter template
                 </span>
                 <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
                   {kind === 'provider'
@@ -816,7 +816,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
               </div>
               <div
                 role="group"
-                aria-label="Agent role templates"
+                aria-label="Agent starter templates"
                 className="grid gap-2 sm:grid-cols-2"
               >
                 {AGENT_ROLE_TEMPLATES.map((template) => (
