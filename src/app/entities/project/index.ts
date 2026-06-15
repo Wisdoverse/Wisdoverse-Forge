@@ -1,2 +1,8 @@
 export { projectApi } from './api/projectApi'
-export type { CreateProjectInput, NavProject, UpdateProjectInput } from './model/types'
+export type {
+  CloneStatus,
+  CloneSummary,
+  CreateProjectInput,
+  NavProject,
+  UpdateProjectInput,
+} from './model/types'

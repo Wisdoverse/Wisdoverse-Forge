@@ -2,7 +2,8 @@ import { useState, type FormEvent } from 'react'
 import { Check, Pencil, Trash2, Users, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import type { NavProject, UpdateProjectInput } from '@app/entities/project'
+import type { CloneSummary, NavProject, UpdateProjectInput } from '@app/entities/project'
+import { CloneStatusBadge } from './CloneStatusBadge'
 
 interface EditableProjectRowProps {
   project: NavProject
@@ -10,6 +11,7 @@ interface EditableProjectRowProps {
   onUpdate: (project: NavProject, input: UpdateProjectInput) => Promise<void>
   onDelete: (project: NavProject) => Promise<void>
   onManageMembers?: (project: NavProject) => void
+  onCloneRetried?: (projectId: string, summary: CloneSummary) => void
 }
 
 export function EditableProjectRow({
@@ -18,6 +20,7 @@ export function EditableProjectRow({
   onUpdate,
   onDelete,
   onManageMembers,
+  onCloneRetried,
 }: EditableProjectRowProps) {
   const canManage = project.canManage !== false
   const canDelete = project.canDelete !== false
@@ -159,6 +162,16 @@ export function EditableProjectRow({
             {teamName}
             {project.description ? ` · ${project.description}` : ''}
           </p>
+          {project.cloneStatus && project.cloneStatus !== 'none' && (
+            <CloneStatusBadge
+              projectId={project.id}
+              status={project.cloneStatus}
+              clone={project.clone}
+              variant="detail"
+              onRetried={(summary) => onCloneRetried?.(project.id, summary)}
+              className="mt-1.5"
+            />
+          )}
           {confirmingDelete && (
             <p className="mt-1 text-ui-caption font-medium text-apple-red" aria-live="polite">
               Click Delete project to confirm. Agents assigned here will be moved out of this
