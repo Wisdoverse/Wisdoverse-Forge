@@ -157,13 +157,22 @@ export function skillHttpErrorMessage(
 ): string {
   const detail = errorDetail(data)
   const actionText = action === 'create' ? 'create the instruction' : 'refresh Saved instructions'
+  const createPermissionMessage =
+    'Ask an owner or admin to let you create saved instructions. Your account cannot create workspace instructions yet.'
+  const createConflictMessage =
+    'Review the existing instructions, then change the name or matching words and try again.'
+  const createRateLimitMessage =
+    'Wait a moment, then create the instruction again. Instruction setup is busy right now.'
+  const createServiceMessage =
+    'Refresh Saved instructions, then create the instruction again. If it still fails, ask an owner or admin to check instruction setup.'
+  const createDefaultMessage = 'Review the fields, then create the instruction again.'
 
   if (status === 401) {
     return `Sign in again, then ${actionText}.`
   }
   if (status === 403) {
     return action === 'create'
-      ? 'You do not have permission to create workspace instructions. Ask an owner or admin to let you create saved instructions.'
+      ? createPermissionMessage
       : 'You do not have permission to view workspace instructions. Ask an owner or admin to update your workspace access.'
   }
   if (status === 404) {
@@ -172,28 +181,28 @@ export function skillHttpErrorMessage(
       : 'Refresh Saved instructions to load the list.'
   }
   if (status === 409) {
-    return 'An instruction with this name or trigger may already exist. Review the existing instructions, then try again.'
+    return createConflictMessage
   }
   if (status === 422) {
     return skillValidationMessage(detail)
   }
   if (status === 429) {
-    return `Instruction setup is busy. Wait a moment, then ${actionText}.`
+    return action === 'create'
+      ? createRateLimitMessage
+      : `Wait a moment, then ${actionText}. Instruction setup is busy right now.`
   }
   if (status >= 500) {
     return action === 'create'
-      ? 'Forge could not create the instruction right now. Refresh Saved instructions, then try again. If it still fails, ask an owner or admin to check instruction setup.'
+      ? createServiceMessage
       : 'Refresh Saved instructions to load the list. If it still fails, ask an owner or admin to check instruction setup.'
   }
 
-  return action === 'create'
-    ? 'The instruction could not be created. Review the fields and try again.'
-    : 'Refresh Saved instructions to load the list.'
+  return action === 'create' ? createDefaultMessage : 'Refresh Saved instructions to load the list.'
 }
 
 function skillNetworkErrorMessage(action: SkillAction): string {
   return action === 'create'
-    ? 'Forge could not connect while creating this instruction. Check your connection, then try again.'
+    ? 'Check your connection, then create the instruction again. Forge could not connect while creating it.'
     : 'Check your connection, then refresh Saved instructions to load the list.'
 }
 
@@ -207,7 +216,7 @@ function skillResponseErrorMessage(
       ? skillValidationMessage(detail)
       : 'Refresh Saved instructions to load the list.'
   return action === 'create'
-    ? 'The instruction could not be created. Review the fields and try again.'
+    ? 'Review the fields, then create the instruction again.'
     : 'Refresh Saved instructions to load the list.'
 }
 

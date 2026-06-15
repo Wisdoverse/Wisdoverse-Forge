@@ -1,6 +1,18 @@
 const RAW_NETWORK_ERRORS = [/^Network error$/i, /^Failed to fetch$/i]
 const RAW_STATUS_ERRORS = [/^API\s+\d{3}/i, /^HTTP\s+\d{3}/i, /^Server error\s*\(\d{3}\)$/i]
 const GENERIC_BODY_TEXT = /^(Unauthorized|Forbidden|Not Found|Internal Server Error)$/i
+const CREATE_NETWORK_MESSAGE =
+  'Check your connection, then create the instruction again. Forge could not connect while creating it.'
+const CREATE_PERMISSION_MESSAGE =
+  'Ask an owner or admin to let you create saved instructions. Your account cannot create workspace instructions yet.'
+const CREATE_NOT_FOUND_MESSAGE = 'Open Saved instructions again, then create the instruction.'
+const CREATE_CONFLICT_MESSAGE =
+  'Review the existing instructions, then change the name or matching words and try again.'
+const CREATE_RATE_LIMIT_MESSAGE =
+  'Wait a moment, then create the instruction again. Instruction setup is busy right now.'
+const CREATE_SERVICE_MESSAGE =
+  'Refresh Saved instructions, then create the instruction again. If it still fails, ask an owner or admin to check instruction setup.'
+const CREATE_DEFAULT_MESSAGE = 'Review the fields, then create the instruction again.'
 
 const USER_FACING_STARTS = [
   'The instruction could not be created',
@@ -11,6 +23,13 @@ const USER_FACING_STARTS = [
   'Instruction setup',
   'An instruction with this name',
   'Check the instruction name',
+  'Check your connection',
+  'Ask an owner or admin',
+  'Open Saved instructions',
+  'Review the existing instructions',
+  'Wait a moment',
+  'Refresh Saved instructions',
+  'Review the fields',
 ]
 
 export function createSkillErrorMessage(error?: unknown): string {
@@ -25,32 +44,32 @@ export function createSkillErrorMessage(error?: unknown): string {
     if (safeDetail) {
       return validationMessage(safeDetail)
     }
-    return 'Forge could not connect while creating this instruction. Check your connection, then try again.'
+    return CREATE_NETWORK_MESSAGE
   }
 
   if (status === 401) {
     return 'Sign in again, then create the instruction.'
   }
   if (status === 403) {
-    return 'You do not have permission to create workspace instructions. Ask an owner or admin to let you create saved instructions.'
+    return CREATE_PERMISSION_MESSAGE
   }
   if (status === 404) {
-    return 'Saved instructions could not be opened from this page. Refresh Saved instructions, then try again.'
+    return CREATE_NOT_FOUND_MESSAGE
   }
   if (status === 409) {
-    return 'An instruction with this name or trigger may already exist. Review the existing instructions, then try again.'
+    return CREATE_CONFLICT_MESSAGE
   }
   if (status === 422) {
     return validationMessage(safeDetail)
   }
   if (status === 429) {
-    return 'Instruction setup is busy. Wait a moment, then create the instruction.'
+    return CREATE_RATE_LIMIT_MESSAGE
   }
   if (status >= 500) {
-    return 'Forge could not create the instruction right now. Refresh Saved instructions, then try again. If it still fails, ask an owner or admin to check instruction setup.'
+    return CREATE_SERVICE_MESSAGE
   }
 
-  return 'The instruction could not be created. Review the fields and try again.'
+  return CREATE_DEFAULT_MESSAGE
 }
 
 function rawDetail(error: unknown): string | null {
@@ -79,7 +98,7 @@ function existingSkillGuidance(detail: string): string | null {
   if (RAW_STATUS_ERRORS.some((pattern) => pattern.test(detail))) return null
   if (RAW_NETWORK_ERRORS.some((pattern) => pattern.test(detail))) return null
   if (!USER_FACING_STARTS.some((start) => detail.startsWith(start))) return null
-  return stripInternalErrorSuffix(detail)
+  return normalizeExistingSkillGuidance(stripInternalErrorSuffix(detail))
 }
 
 function statusFromDetail(detail: string | null): number | null {
@@ -161,4 +180,29 @@ function stripInternalErrorSuffix(detail: string): string {
     .replace(/\s+Details?:\s*(Unauthorized|Forbidden|Not Found|Internal Server Error)\.?$/i, '')
     .replace(/\s+Details?:\s*$/i, '')
     .trim()
+}
+
+function normalizeExistingSkillGuidance(detail: string): string {
+  if (detail.startsWith('Forge could not connect while creating this instruction.')) {
+    return CREATE_NETWORK_MESSAGE
+  }
+  if (detail.startsWith('You do not have permission to create workspace instructions.')) {
+    return CREATE_PERMISSION_MESSAGE
+  }
+  if (detail.startsWith('Saved instructions could not be opened from this page.')) {
+    return CREATE_NOT_FOUND_MESSAGE
+  }
+  if (detail.startsWith('An instruction with this name or trigger may already exist.')) {
+    return CREATE_CONFLICT_MESSAGE
+  }
+  if (detail.startsWith('Instruction setup is busy.')) {
+    return CREATE_RATE_LIMIT_MESSAGE
+  }
+  if (detail.startsWith('Forge could not create the instruction right now.')) {
+    return CREATE_SERVICE_MESSAGE
+  }
+  if (detail.startsWith('The instruction could not be created.')) {
+    return CREATE_DEFAULT_MESSAGE
+  }
+  return detail
 }

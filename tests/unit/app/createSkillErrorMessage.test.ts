@@ -10,9 +10,19 @@ describe('createSkillErrorMessage', () => {
 
   test('preserves existing beginner guidance from the skills store', () => {
     const message =
-      'Forge could not connect while creating this instruction. Check your connection, then try again.'
+      'Check your connection, then create the instruction again. Forge could not connect while creating it.'
 
     expect(createSkillErrorMessage(new Error(message))).toBe(message)
+  })
+
+  test('normalizes older failure-first beginner guidance from the skills store', () => {
+    const message =
+      'Forge could not connect while creating this instruction. Check your connection, then try again.'
+
+    expectBeginnerMessage(
+      createSkillErrorMessage(new Error(message)),
+      'Check your connection, then create the instruction again. Forge could not connect while creating it.'
+    )
   })
 
   test('removes generic details from existing permission guidance', () => {
@@ -21,33 +31,35 @@ describe('createSkillErrorMessage', () => {
 
     expectBeginnerMessage(
       createSkillErrorMessage(new Error(message)),
-      'You do not have permission to create workspace instructions. Ask an owner or admin to let you create saved instructions.'
+      'Ask an owner or admin to let you create saved instructions. Your account cannot create workspace instructions yet.'
     )
   })
 
   test('turns raw network failures into recovery guidance', () => {
     const message = createSkillErrorMessage(new Error('Failed to fetch'))
 
-    expect(message).toContain('Forge could not connect while creating this instruction')
     expect(message).toContain('Check your connection')
+    expect(message).toContain('create the instruction again')
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('app could not reach')
+    expect(message).not.toContain('Forge could not connect while creating this instruction')
   })
 
   test('maps raw permission failures without exposing API text', () => {
     const message = createSkillErrorMessage(new Error('API 403: Forbidden'))
 
-    expect(message).toContain('You do not have permission to create workspace instructions')
     expect(message).toContain('Ask an owner or admin')
+    expect(message).toContain('cannot create workspace instructions yet')
     expect(message).not.toContain('Code:')
     expect(message).not.toContain('API 403')
     expect(message).not.toContain('Forbidden')
+    expect(message).not.toContain('You do not have permission')
   })
 
   test('maps missing saved instruction routes to a page refresh step', () => {
     expectBeginnerMessage(
       createSkillErrorMessage(new Error('HTTP 404: Not Found')),
-      'Saved instructions could not be opened from this page. Refresh Saved instructions, then try again.'
+      'Open Saved instructions again, then create the instruction.'
     )
   })
 
@@ -73,9 +85,10 @@ describe('createSkillErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Forge could not create the instruction right now. Refresh Saved instructions, then try again. If it still fails, ask an owner or admin to check instruction setup.'
+      'Refresh Saved instructions, then create the instruction again. If it still fails, ask an owner or admin to check instruction setup.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('service is temporarily unavailable')
+    expect(message).not.toContain('Forge could not create')
   })
 })

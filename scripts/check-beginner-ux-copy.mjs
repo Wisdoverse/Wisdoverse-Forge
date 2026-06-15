@@ -308,6 +308,16 @@ const SAVED_INSTRUCTIONS_LOAD_DEAD_END_PATTERNS = [
   /\bForge could not load Saved instructions right now\./i,
 ]
 
+const SAVED_INSTRUCTION_CREATE_FAILURE_FIRST_PATTERNS = [
+  /\bThe instruction could not be created\./i,
+  /\bForge could not connect while creating this instruction\./i,
+  /\bYou do not have permission to create workspace instructions\./i,
+  /\bSaved instructions could not be opened from this page\./i,
+  /\bAn instruction with this name or trigger may already exist\./i,
+  /\bInstruction setup is busy\./i,
+  /\bForge could not create the instruction right now\./i,
+]
+
 const SAVED_INSTRUCTION_TEMPLATE_JARGON_PATTERNS = [
   /\bCheck GitHub or GitLab once\b/i,
   /\bPR or CI summary\b/i,
@@ -647,6 +657,7 @@ function isLikelyGuardOrParserLine(line) {
   return (
     line.includes('includes(') ||
     line.includes('match(') ||
+    line.includes('startsWith(') ||
     line.includes('.test(') ||
     line.includes('.replace(/') ||
     line.includes('= /') ||
@@ -1157,6 +1168,17 @@ function hasSavedInstructionsLoadDeadEndCopy(relFile, line) {
     return false
   }
   return SAVED_INSTRUCTIONS_LOAD_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasSavedInstructionCreateFailureFirstCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/skills/model/createSkillErrorMessage.ts') &&
+    !relFile.endsWith('src/app/shared/model/skills.store.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SAVED_INSTRUCTION_CREATE_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasSavedInstructionTemplateJargonCopy(relFile, line) {
@@ -1987,6 +2009,16 @@ function scanFile(file, relFile) {
         type: 'saved-instructions-load-copy',
         location,
         message: 'Saved instructions load fallback copy must point beginners to the retry action.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSavedInstructionCreateFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'saved-instruction-create-copy',
+        location,
+        message:
+          'Saved instruction creation errors must start with the next action, not the failure summary.',
         sample: line.trim(),
       })
     }

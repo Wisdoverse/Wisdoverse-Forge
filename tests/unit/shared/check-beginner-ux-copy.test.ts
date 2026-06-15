@@ -3405,7 +3405,7 @@ function savedInstructionsLoadErrorMessage(error) {
       'src/app/shared/model/skills.store.ts': `
 function skillResponseErrorMessage(action) {
   return action === 'create'
-    ? 'The instruction could not be created. Review the fields and try again.'
+    ? 'Review the fields, then create the instruction again.'
     : 'Forge could not load Saved instructions right now. Refresh Saved instructions, then try again.'
 }
 `,
@@ -3439,8 +3439,100 @@ function savedInstructionsLoadErrorMessage(error) {
       'src/app/shared/model/skills.store.ts': `
 function skillResponseErrorMessage(action) {
   return action === 'create'
-    ? 'The instruction could not be created. Review the fields and try again.'
+    ? 'Review the fields, then create the instruction again.'
     : 'Refresh Saved instructions to load the list.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags saved instruction creation errors that start with the failure instead of the next step', () => {
+    const cwd = fixture({
+      'src/app/features/skills/model/createSkillErrorMessage.ts': `
+function network() {
+  return 'Forge could not connect while creating this instruction. Check your connection, then try again.'
+}
+function permission() {
+  return 'You do not have permission to create workspace instructions. Ask an owner or admin to let you create saved instructions.'
+}
+function missingRoute() {
+  return 'Saved instructions could not be opened from this page. Refresh Saved instructions, then try again.'
+}
+function conflict() {
+  return 'An instruction with this name or trigger may already exist. Review the existing instructions, then try again.'
+}
+`,
+      'src/app/shared/model/skills.store.ts': `
+function busy() {
+  return 'Instruction setup is busy. Wait a moment, then create the instruction.'
+}
+function service() {
+  return 'Forge could not create the instruction right now. Refresh Saved instructions, then try again.'
+}
+function fallback() {
+  return 'The instruction could not be created. Review the fields and try again.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'saved-instruction-create-copy',
+          location: 'src/app/features/skills/model/createSkillErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-create-copy',
+          location: 'src/app/features/skills/model/createSkillErrorMessage.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-create-copy',
+          location: 'src/app/features/skills/model/createSkillErrorMessage.ts:9',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-create-copy',
+          location: 'src/app/features/skills/model/createSkillErrorMessage.ts:12',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-create-copy',
+          location: 'src/app/shared/model/skills.store.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-create-copy',
+          location: 'src/app/shared/model/skills.store.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-create-copy',
+          location: 'src/app/shared/model/skills.store.ts:9',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved instruction creation errors that start with the next step', () => {
+    const cwd = fixture({
+      'src/app/features/skills/model/createSkillErrorMessage.ts': `
+function network() {
+  return 'Check your connection, then create the instruction again. Forge could not connect while creating it.'
+}
+function permission() {
+  return 'Ask an owner or admin to let you create saved instructions. Your account cannot create workspace instructions yet.'
+}
+function service() {
+  return 'Refresh Saved instructions, then create the instruction again. If it still fails, ask an owner or admin to check instruction setup.'
+}
+`,
+      'src/app/shared/model/skills.store.ts': `
+function fallback() {
+  return 'Review the fields, then create the instruction again.'
+}
+function busy() {
+  return 'Wait a moment, then create the instruction again. Instruction setup is busy right now.'
 }
 `,
     })

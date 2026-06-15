@@ -39,7 +39,7 @@ describe('skillHttpErrorMessage', () => {
   test('turns create permission failures into an admin role step', () => {
     expectBeginnerMessage(
       skillHttpErrorMessage('create', 403),
-      'You do not have permission to create workspace instructions. Ask an owner or admin to let you create saved instructions.'
+      'Ask an owner or admin to let you create saved instructions. Your account cannot create workspace instructions yet.'
     )
   })
 
@@ -104,7 +104,7 @@ describe('useSkillsStore errors', () => {
         content: 'Review the task',
       })
     ).rejects.toThrow(
-      'Forge could not connect while creating this instruction. Check your connection, then try again.'
+      'Check your connection, then create the instruction again. Forge could not connect while creating it.'
     )
   })
 })
