@@ -152,6 +152,33 @@ describe('SkillsView', () => {
     expect(screen.getByText('1 saved instruction')).toBeDefined()
   })
 
+  test('hides raw saved-instruction source names on cards', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        data: [
+          {
+            id: 'skill-raw-source',
+            name: 'handoff-check',
+            description: 'Check handoff notes',
+            trigger_pattern: 'handoff',
+            content: 'Review the handoff before sharing.',
+            enabled: true,
+            plugin: '@example/team_skill_pack',
+          },
+        ],
+      }),
+    })
+
+    render(<SkillsView />)
+
+    await screen.findByText('handoff-check')
+    expect(screen.getByText('Saved in saved instructions library')).toBeDefined()
+    expect(screen.queryByText('@example/team_skill_pack')).toBeNull()
+    expect(screen.queryByText('team_skill_pack')).toBeNull()
+  })
+
   test('summarizes reuse readiness and filters tool-specific skills', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
@@ -368,8 +395,8 @@ describe('SkillsView', () => {
     await user.click(within(dialog).getByRole('button', { name: /save instruction/i }))
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('You do not have permission to create workspace instructions')
-    expect(alert).toHaveTextContent('Ask an owner or admin')
+    expect(alert).toHaveTextContent('Ask an owner or admin to let you create saved instructions.')
+    expect(alert).toHaveTextContent('Your account cannot create workspace instructions yet.')
     expect(alert.textContent).not.toContain('Code:')
     expect(alert.textContent).not.toContain('API 403')
     expect(alert.textContent).not.toContain('Forbidden')

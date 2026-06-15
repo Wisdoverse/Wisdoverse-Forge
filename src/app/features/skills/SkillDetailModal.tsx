@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import type { Skill } from '@app/shared/model/skills.store'
+import { knownWorkToolLabel, savedInstructionSourceLabel } from './model/savedInstructionLabels'
 
 interface SkillDetailModalProps {
   skill: Skill
@@ -16,10 +17,13 @@ export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
     : t('skills.detail.availabilityLatest')
   const author = skill.pluginAuthor || t('skills.detail.unknownAuthor')
   const source = skill.plugin
-    ? savedInstructionSource(skill.plugin)
+    ? savedInstructionSourceLabel(skill.plugin, t('skills.detail.unknownSource'))
     : t('skills.detail.unknownSource')
+  const toolLabel = skill.cliTool ? knownWorkToolLabel(skill.cliTool) : null
   const cliLabel = skill.cliTool
-    ? t('skills.detail.cliFit', { tool: cliToolLabel(skill.cliTool) })
+    ? toolLabel
+      ? t('skills.detail.cliFit', { tool: toolLabel })
+      : t('skills.detail.unknownToolFit')
     : t('skills.detail.allAgentsFit')
 
   function handleBackdropClick(e: React.MouseEvent<HTMLDivElement>) {
@@ -74,7 +78,9 @@ export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
               className={uiStyles.badge}
               title={
                 skill.cliTool
-                  ? t('skills.detail.containerCliTooltip', { tool: cliToolLabel(skill.cliTool) })
+                  ? toolLabel
+                    ? t('skills.detail.containerCliTooltip', { tool: toolLabel })
+                    : t('skills.detail.unknownToolTooltip')
                   : t('skills.detail.allAgentsTooltip')
               }
             >
@@ -168,29 +174,6 @@ function SkillMeta({ label, value }: { label: string; value: string }) {
   )
 }
 
-function cliToolLabel(tool: string): string {
-  switch (tool) {
-    case 'claude':
-      return 'Claude Code'
-    case 'codex':
-      return 'Codex'
-    case 'gemini':
-      return 'Gemini'
-    case 'opencode':
-      return 'OpenCode'
-    default:
-      return tool
-        .split(/[_-]+/)
-        .filter(Boolean)
-        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-        .join(' ')
-  }
-}
-
-function savedInstructionSource(source: string): string {
-  return source.replace(/\bskills\b/gi, 'saved instructions')
-}
-
 function skillAvailabilityLabel(value: string, translate: (key: string) => string): string {
   switch (value.trim().toLowerCase()) {
     case 'workspace':
@@ -200,10 +183,6 @@ function skillAvailabilityLabel(value: string, translate: (key: string) => strin
     case 'project':
       return translate('skills.detail.availabilityProject')
     default:
-      return value
-        .split(/[_-]+/)
-        .filter(Boolean)
-        .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-        .join(' ')
+      return translate('skills.detail.availabilityNeedsReview')
   }
 }

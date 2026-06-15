@@ -478,9 +478,11 @@ export const en = {
       statusReady: 'Ready to use',
       statusNeedsInstall: 'Needs install before agents can use it',
       cliFit: 'Best with {{tool}}',
+      unknownToolFit: 'Check this work tool before using',
       allAgentsFit: 'Works with any agent',
       allAgentsTooltip: 'No specific work tool is required.',
       containerCliTooltip: 'Work tool: {{tool}}',
+      unknownToolTooltip: 'Work tool setup needs review.',
       nextStepHeading: 'What to do next',
       nextStepReady:
         'Use this saved instruction when creating a task, or rely on its matching words to suggest it for similar work.',
@@ -506,6 +508,7 @@ export const en = {
       availabilityGlobal: 'Saved instructions library',
       availabilityProject: 'This project',
       availabilityLatest: 'Latest saved copy',
+      availabilityNeedsReview: 'Check saved instruction access',
     },
   },
 

@@ -1,6 +1,7 @@
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import type { Skill } from '@app/shared/model/skills.store'
+import { savedInstructionSourceLabel } from './model/savedInstructionLabels'
 
 interface SkillCardProps {
   skill: Skill
@@ -11,7 +12,7 @@ export function SkillCard({ skill, onClick }: SkillCardProps) {
   const statusLabel = skill.installed ? 'Ready to reuse' : 'Install to use'
   const summary =
     skill.description || 'No summary yet. Open details before using this saved instruction.'
-  const source = savedInstructionSource(skill.plugin)
+  const source = savedInstructionSourceLabel(skill.plugin, 'saved instructions library')
   const author = skill.pluginAuthor.trim()
   const savedInLabel = author ? `Saved in ${source} by ${author}` : `Saved in ${source}`
   return (
@@ -53,13 +54,4 @@ export function SkillCard({ skill, onClick }: SkillCardProps) {
       </div>
     </button>
   )
-}
-
-function savedInstructionSource(source: string): string {
-  const label = source
-    .replace(/\bskills\b/gi, 'saved instructions')
-    .replace(/\s+/g, ' ')
-    .trim()
-
-  return label || 'saved instructions library'
 }

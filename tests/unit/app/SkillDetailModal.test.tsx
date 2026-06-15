@@ -109,6 +109,29 @@ describe('SkillDetailModal', () => {
     ).toBeInTheDocument()
   })
 
+  test('hides raw source and work tool slugs in skill details', () => {
+    render(
+      <SkillDetailModal
+        skill={{
+          ...baseSkill,
+          plugin: '@example/team_skill_pack',
+          marketplace: 'private_beta_scope',
+          cliTool: 'future_tool_alpha',
+        }}
+        onClose={() => {}}
+      />
+    )
+
+    expect(screen.getByText('Saved instructions library')).toBeInTheDocument()
+    expect(screen.getByText('Check saved instruction access')).toBeInTheDocument()
+    expect(screen.getByText('Check this work tool before using')).toBeInTheDocument()
+    expect(screen.queryByText('@example/team_skill_pack')).toBeNull()
+    expect(screen.queryByText('private_beta_scope')).toBeNull()
+    expect(screen.queryByText('Private Beta Scope')).toBeNull()
+    expect(screen.queryByText('future_tool_alpha')).toBeNull()
+    expect(screen.queryByText('Future Tool Alpha')).toBeNull()
+  })
+
   test('closes from the beginner-friendly done action', () => {
     const onClose = vi.fn()
     render(<SkillDetailModal skill={baseSkill} onClose={onClose} />)
