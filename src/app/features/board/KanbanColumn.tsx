@@ -46,31 +46,31 @@ const COLUMN_CONFIG: Record<string, { label: string; dot: string; surface: strin
 
 const COLUMN_EMPTY_STATE: Record<string, { title: string; detail: string }> = {
   backlog: {
-    title: 'No tasks waiting to send',
+    title: 'Add the first task below',
     detail: 'Add a task below with the result you want the agent to finish.',
   },
   queued: {
-    title: 'Nothing waiting to start',
+    title: 'Sent tasks wait here for an agent',
     detail: 'Assigned tasks wait here until an available agent starts them.',
   },
   working: {
-    title: 'No work in progress',
+    title: 'Running work appears here',
     detail: 'Running work appears here once an agent starts the task.',
   },
   blocked: {
-    title: 'Nothing needs help',
+    title: 'Tasks needing your answer appear here',
     detail: 'Tasks waiting for your answer or missing details will collect here.',
   },
   done: {
-    title: 'Nothing ready for review',
+    title: 'Finished work appears here for review',
     detail: 'Completed tasks move here so you can check results and save repeatable steps.',
   },
   failed: {
-    title: 'No work needing recovery',
+    title: 'Retry paths appear here after a task stops',
     detail: 'If a task stops early, open its card here to review the recovery note and retry path.',
   },
   canceled: {
-    title: 'No canceled tasks',
+    title: 'Canceled tasks stay here for history',
     detail: 'Canceled work stays here so the board keeps its history visible.',
   },
 }

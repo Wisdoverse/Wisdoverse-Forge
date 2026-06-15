@@ -21,8 +21,9 @@ describe('KanbanColumn', () => {
     expect(screen.getByText('Not sent yet')).toBeDefined()
     expect(screen.queryByText('Backlog')).toBeNull()
     const emptyState = screen.getByTestId('kanban-empty-backlog')
-    expect(within(emptyState).getByText('No tasks waiting to send')).toBeDefined()
+    expect(within(emptyState).getByText('Add the first task below')).toBeDefined()
     expect(within(emptyState).getByText(/add a task below with the result you want/i)).toBeDefined()
+    expect(within(emptyState).queryByText('No tasks waiting to send')).toBeNull()
     expect(emptyState.textContent).not.toMatch(/quick add/i)
     expect(emptyState.textContent).not.toMatch(/draft task/i)
   })
@@ -31,8 +32,9 @@ describe('KanbanColumn', () => {
     renderColumn('working')
 
     const emptyState = screen.getByTestId('kanban-empty-working')
-    expect(within(emptyState).getByText('No work in progress')).toBeDefined()
+    expect(within(emptyState).getByText('Running work appears here')).toBeDefined()
     expect(within(emptyState).getByText(/once an agent starts the task/i)).toBeDefined()
+    expect(within(emptyState).queryByText('No work in progress')).toBeNull()
     expect(within(emptyState).queryByText('No active runs')).toBeNull()
   })
 
@@ -40,8 +42,9 @@ describe('KanbanColumn', () => {
     renderColumn('queued')
 
     const emptyState = screen.getByTestId('kanban-empty-queued')
-    expect(within(emptyState).getByText('Nothing waiting to start')).toBeDefined()
+    expect(within(emptyState).getByText('Sent tasks wait here for an agent')).toBeDefined()
     expect(within(emptyState).getByText(/available agent starts them/i)).toBeDefined()
+    expect(within(emptyState).queryByText('Nothing waiting to start')).toBeNull()
     expect(emptyState.textContent).not.toMatch(/queue|queued/i)
     expect(emptyState.textContent).not.toContain('dispatch')
   })
@@ -52,10 +55,32 @@ describe('KanbanColumn', () => {
     expect(screen.getByText('Needs help')).toBeDefined()
     expect(screen.queryByText('Blocked')).toBeNull()
     const emptyState = screen.getByTestId('kanban-empty-blocked')
-    expect(within(emptyState).getByText('Nothing needs help')).toBeDefined()
+    expect(within(emptyState).getByText('Tasks needing your answer appear here')).toBeDefined()
     expect(
       within(emptyState).getByText(/waiting for your answer or missing details/i)
     ).toBeDefined()
+    expect(within(emptyState).queryByText('Nothing needs help')).toBeNull()
     expect(emptyState.textContent).not.toMatch(/blocker|owner input/i)
+  })
+
+  test('explains review and recovery columns by when work appears there', () => {
+    renderColumn('done')
+
+    const reviewEmpty = screen.getByTestId('kanban-empty-done')
+    expect(within(reviewEmpty).getByText('Finished work appears here for review')).toBeDefined()
+    expect(within(reviewEmpty).getByText(/completed tasks move here/i)).toBeDefined()
+    expect(within(reviewEmpty).queryByText('Nothing ready for review')).toBeNull()
+
+    cleanup()
+    renderColumn('failed')
+
+    const recoveryEmpty = screen.getByTestId('kanban-empty-failed')
+    expect(
+      within(recoveryEmpty).getByText('Retry paths appear here after a task stops')
+    ).toBeDefined()
+    expect(
+      within(recoveryEmpty).getByText(/review the recovery note and retry path/i)
+    ).toBeDefined()
+    expect(within(recoveryEmpty).queryByText('No work needing recovery')).toBeNull()
   })
 })
