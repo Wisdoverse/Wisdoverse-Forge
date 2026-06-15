@@ -4,7 +4,8 @@ Wisdoverse Forge can create a project and clone a git repository into it for you
 so an agent starts work in a directory that already has the code. You paste an
 HTTPS git URL when you create the project; the platform clones the repository in
 the background and shows you a clone status badge. When it reaches **Ready**, the
-agent's terminal opens in a working copy of the repo.
+repository is available under the project's workspace directory
+(`/workspace/<dir>`), ready for an agent to work in.
 
 This guide is for the person creating the project. The operator setup an admin
 does once (the egress firewall) is at the end and links the runbook.
@@ -35,8 +36,11 @@ does once (the egress firewall) is at the end and links the runbook.
    ```
 
 4. The form shows the **workspace directory** the repo will be cloned into
-   (read-only — derived from the project name, e.g. `your-repo`). You cannot type
-   a host path; the platform chooses a safe directory name for you.
+   (read-only — derived from the **project name**, not the URL: a project named
+   "Web App" clones into `/workspace/web-app`). You cannot type a host path; the
+   platform chooses a safe directory name for you. If that name is already taken
+   in your workspace, the platform appends a numeric suffix (and caps the length),
+   so the actual directory may differ slightly from the preview shown here.
 5. Choose **Create**.
 
 The project is created immediately with a clone status of **Queued**; you do not
@@ -116,11 +120,13 @@ hostile or mistyped repository URL reaching your internal network (SSRF):
    that the host does not resolve to an internal address and refuses if it does.
 
 Credentials are **host-matched** (the token for the repository's host, not "the
-latest token"), **mounted** into the container as a short-lived read-only file
-(never passed as an environment variable or on the command line), **never
-logged**, and **scrubbed from error messages** before any failure reason is
-stored or shown. The raw clone output stays on the server and is never surfaced
-to you.
+latest token"), **mounted** into the container as a short-lived read-only file:
+the token itself never appears in an environment variable, in `git`'s argv, or in
+the URL — only the read-only secret-file _path_ is handed to git's credential
+helper (via `AGENTFORGE_CLONE_SECRET_FILE`), and the helper reads the token from
+that file over a pipe. Credentials are **never logged** and **scrubbed from error
+messages** before any failure reason is stored or shown. The raw clone output
+stays on the server and is never surfaced to you.
 
 Clones are **tenant-isolated**: the container mounts only a single per-clone
 staging directory inside your own workspace, never the projects root or a sibling
@@ -151,6 +157,6 @@ make build-clone
 ```
 
 `make build-agent-all` also builds it alongside the agent images. The image
-contains only `git`, CA certificates, and the clone entrypoint — no Node, Python,
-Docker CLI, sidecar, or agent harness — to keep the attack surface minimal for
-cloning untrusted repositories.
+contains only `git`, CA certificates, `openssh-client`, an init shim (`tini`),
+and the clone entrypoint — no Node, Python, Docker CLI, sidecar, or agent
+harness — to keep the attack surface minimal for cloning untrusted repositories.

@@ -20,19 +20,28 @@
 //!   * PATH TRAVERSAL — a hostile project name (`../../etc`, `..`, `.git`,
 //!     control chars, all-symbols, slashes) yields a filesystem-safe
 //!     `workspace_dir_name` (no `/`, no `..`, non-empty) AND the worker resolves
-//!     the clone target strictly inside the workspace projects root, materializing
-//!     the repo at `<projects_root>/<dir>` and nowhere else.
+//!     the clone target strictly inside the workspace projects root. The worker
+//!     proof uses a FALSIFIABLE NEGATIVE (the cloned `README.md` materializes at
+//!     exactly ONE path under root and nowhere else in the workspace tree), not a
+//!     tautological `target.starts_with(root)`, so a mutation that lets the name
+//!     escape (`WorkspaceDirName::derive`/`parse`/`resolve_under`) fails the test.
 //!   * SSRF FAILS CLOSED (the M4-deferred test) — a create whose repo URL host is
-//!     loopback / RFC1918 / `169.254.169.254` / `.local` is REJECTED at create by
-//!     the in-app deny-list (the layer the API can enforce); a normal
-//!     `https://github.com/...` create is accepted. The runtime egress firewall
-//!     (deploy-layer, the M4 runbook) and the in-container pre-resolve are the
-//!     2nd/3rd layers and are out of scope for an in-process test.
+//!     loopback / RFC1918 / `169.254.169.254` / link-local (v4 `169.254.*` + v6
+//!     `fe80:`) / `.local` is REJECTED at create by the in-app `is_blocked_clone_host`
+//!     deny-list, asserted PER-CASE on the deny-list message signature so deleting
+//!     any single branch is caught precisely; a normal `https://github.com/...`
+//!     create is accepted. A port-only / empty-host authority is rejected by a
+//!     DIFFERENT control (the empty-host branch) and is tested separately so the
+//!     SSRF battery exercises only genuine deny-list branches. The runtime egress
+//!     firewall (deploy-layer, the M4 runbook) and the in-container pre-resolve are
+//!     the 2nd/3rd layers and are out of scope for an in-process test.
 //!   * NO SECRET IN LOGS — a clone whose `Failed` stderr glues a token into a
 //!     redirected URL is driven through the worker; the persisted `error_message`
 //!     carries no token (this asserts the redaction boundary end-to-end), AND the
 //!     `CloneRunOutcome` `Debug` (what `tracing::warn!(?outcome)` would emit) is
 //!     proven to contain no token — the `RawStderr` non-printing `Debug` design.
+//!     A durable source-grep guard further pins the raw-stderr escape hatch
+//!     (`RawStderr::as_raw`/`into_raw`) to the single redaction boundary.
 //!
 //! Properties covered elsewhere (referenced, not re-proven here):
 //!   * TENANT BOUNDARY (worker): a poisoned job payload naming a foreign org
@@ -364,9 +373,38 @@ async fn worker_resolves_hostile_named_clone_inside_projects_root(pool: PgPool) 
 
     let root = projects_root(&seed);
     let target = root.join(&dir);
-    // The repo landed at exactly <projects_root>/<safe-dir>, nowhere else.
+    // POSITIVE (load-bearing): the repo landed at exactly <projects_root>/<safe-dir>.
     assert!(target.join("README.md").exists(), "the clone must materialize at the derived safe path under root");
-    assert!(target.starts_with(&root), "the materialized target must live under the projects root");
+
+    // FALSIFIABLE NEGATIVE — the traversal threat is actually defeated, not merely
+    // "starts_with(root)" (which is a TAUTOLOGY when `target` is BUILT as
+    // `root.join(dir)`, and would pass even with every path guard deleted).
+    //
+    // The create name was `../../etc/passwd`. Had `WorkspaceDirName::derive` been
+    // mutated to pass the name through (and the worker's `resolve_under` second
+    // guard along with it), the worker would have `root.join("../../etc/passwd")`
+    // and the fake runner's `README.md` would have materialized OUTSIDE the
+    // projects root — at `<root>/../../etc/passwd`, i.e. under an ancestor of root
+    // but still inside this test's throwaway workspace tree. So the load-bearing
+    // proof is: the ONE AND ONLY `README.md` anywhere under the whole throwaway
+    // workspace base is the one at the safe target path. A `derive`-passthrough
+    // (or `resolve_under`-weakening) mutation puts a second README at the escaped
+    // path and fails THIS equality.
+    //
+    // We scope the scan to the test's own `TempRoot` base (NOT the real filesystem
+    // root) so the host's genuine `/etc/passwd` is never mistaken for an escape
+    // artifact — the escape would land at `<temp-base>/orgs/<org>/etc/passwd`,
+    // comfortably inside the scanned tree.
+    let workspace_base = seed.workspace_root.path();
+    assert!(target.starts_with(workspace_base), "sanity: the safe target lives under the throwaway base");
+    let readmes = find_readmes(workspace_base);
+    assert_eq!(
+        readmes,
+        vec![target.join("README.md")],
+        "traversal escaped: the clone must materialize at the single safe path under root and \
+         NOWHERE else in the workspace tree; a stray README outside {root:?} means the derived \
+         dir name escaped the projects root. Found: {readmes:?}"
+    );
 
     // The staging dir the runner was handed is also under the projects root (the
     // container mounts only a per-clone staging dir, never a parent or sibling).
@@ -375,34 +413,70 @@ async fn worker_resolves_hostile_named_clone_inside_projects_root(pool: PgPool) 
     assert!(!staging.to_string_lossy().contains(".."), "staging path must contain no parent token, got {staging:?}");
 }
 
+/// Recursively collect every `README.md` under `root` (sorted), so the traversal
+/// test can prove the clone materialized at exactly one path. Returns an empty
+/// vec if `root` does not exist.
+fn find_readmes(root: &Path) -> Vec<PathBuf> {
+    fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                walk(&path, out);
+            } else if path.file_name().and_then(|n| n.to_str()) == Some("README.md") {
+                out.push(path);
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(root, &mut out);
+    out.sort();
+    out
+}
+
 // ===========================================================================
 // 2. SSRF FAILS CLOSED (the M4-deferred test) — an internal-address repo URL is
 //    rejected at create; a normal github URL is accepted.
 // ===========================================================================
 
 /// A create whose repo URL host is loopback / RFC1918 / link-local-metadata /
-/// `.local` / a port-only authority is REJECTED at create time by the in-app
-/// `ProjectRepositoryUrl` deny-list, and NOTHING is written (no project, no
-/// attempt, no outbox). This is the layer the API itself can enforce; the
-/// runtime egress firewall (the M4 `clone-egress-firewall.md` runbook) and the
-/// in-container pre-resolve are the 2nd/3rd SSRF layers, out of scope here.
+/// `.local` is REJECTED at create time by the in-app `is_blocked_clone_host`
+/// deny-list, and NOTHING is written (no project, no attempt, no outbox). Each
+/// case asserts the deny-list SIGNATURE in the error message (not just a coarse
+/// `Validation`), so deleting a single deny-list branch is caught PRECISELY here
+/// rather than only via the aggregate row-count. This is the layer the API itself
+/// can enforce; the runtime egress firewall (the M4 `clone-egress-firewall.md`
+/// runbook) and the in-container pre-resolve are the 2nd/3rd SSRF layers, out of
+/// scope here.
 #[sqlx::test(migrations = "../db/migrations")]
 async fn ssrf_internal_address_urls_are_rejected_at_create(pool: PgPool) {
     let seed = seed(&pool).await;
     let service = ProjectService::from_pool(pool.clone());
 
-    // Each host class git would otherwise resolve+connect to internally.
+    // The deny-list signature: the exact substring `is_blocked_clone_host` rejection
+    // emits (`resource.rs`: "repository host is not allowed (private, loopback, or
+    // metadata address)"). Asserting this — not a bare `Validation` — makes each
+    // case bite the SPECIFIC deny-list branch it exercises. (A different control,
+    // e.g. the empty-host branch tested separately below, carries a DIFFERENT
+    // message and would NOT match this signature.)
+    const DENY_SIGNATURE: &str = "private, loopback, or metadata";
+
+    // Each host class git would otherwise resolve+connect to internally. Every
+    // entry here genuinely exercises `is_blocked_clone_host`; the port-only / empty
+    // host authority is a DIFFERENT control and is split into its own test below.
     let blocked = [
         ("loopback-v4", "https://127.0.0.1/r.git"),
         ("loopback-name", "https://localhost/r.git"),
         ("loopback-v6", "https://[::1]/r.git"),
         ("metadata", "https://169.254.169.254/latest/meta-data/"),
-        ("link-local", "https://169.254.10.10/r.git"),
+        ("link-local-v4", "https://169.254.10.10/r.git"),
+        ("link-local-v6", "https://[fe80::1]/r.git"),
         ("rfc1918-10", "https://10.0.0.5/r.git"),
         ("rfc1918-172", "https://172.16.0.9/r.git"),
         ("rfc1918-192", "https://192.168.1.20/r.git"),
         ("mdns-local", "https://printer.local/r.git"),
-        ("port-only", "https://:8080/r.git"),
     ];
 
     for (label, url) in blocked {
@@ -410,9 +484,13 @@ async fn ssrf_internal_address_urls_are_rejected_at_create(pool: PgPool) {
             .create(&scope(&seed), make_input(&seed, &format!("SSRF {label}"), Some(url)))
             .await
             .expect_err(&format!("{label}: an internal-address repo URL must be rejected at create"));
+        let ErrorKind::Validation(message) = &err.kind else {
+            panic!("{label}: SSRF rejection must be a Validation (400), got {err:?}");
+        };
         assert!(
-            matches!(err.kind, ErrorKind::Validation(_)),
-            "{label}: SSRF rejection must be a Validation (400), got {err:?}"
+            message.contains(DENY_SIGNATURE),
+            "{label}: SSRF rejection must carry the deny-list signature {DENY_SIGNATURE:?} \
+             (so deleting the matching `is_blocked_clone_host` branch fails THIS case), got {message:?}"
         );
     }
 
@@ -434,6 +512,43 @@ async fn ssrf_internal_address_urls_are_rejected_at_create(pool: PgPool) {
             .await
             .expect("count outbox");
     assert_eq!(outbox, 0, "a blocked SSRF URL must enqueue no clone job");
+}
+
+/// A port-only authority (`https://:8080/r`) is rejected by a DIFFERENT control
+/// than the SSRF deny-list: the empty-host branch (`"repository URL must include a
+/// host"`), which fires BEFORE `is_blocked_clone_host` is ever consulted. It is
+/// split out of the SSRF battery above so that battery exercises ONLY genuine
+/// `is_blocked_clone_host` branches — a deletion of the deny-list must not be
+/// masked by this case coincidentally still failing on the empty-host check.
+#[sqlx::test(migrations = "../db/migrations")]
+async fn port_only_authority_is_rejected_by_empty_host_branch(pool: PgPool) {
+    let seed = seed(&pool).await;
+    let service = ProjectService::from_pool(pool.clone());
+
+    let err = service
+        .create(&scope(&seed), make_input(&seed, "PortOnly", Some("https://:8080/r.git")))
+        .await
+        .expect_err("a port-only authority must be rejected at create");
+    let ErrorKind::Validation(message) = &err.kind else {
+        panic!("port-only rejection must be a Validation (400), got {err:?}");
+    };
+    // The empty-host control, NOT the deny-list: assert its OWN signature and that
+    // it is NOT the deny-list message (proving these are distinct controls).
+    assert!(
+        message.contains("must include a host"),
+        "port-only must be rejected by the empty-host branch, got {message:?}"
+    );
+    assert!(
+        !message.contains("private, loopback, or metadata"),
+        "port-only must NOT route through the SSRF deny-list message, got {message:?}"
+    );
+
+    let projects: i64 = sqlx::query_scalar("SELECT count(*) FROM projects WHERE workspace_id = $1")
+        .bind(seed.workspace_id)
+        .fetch_one(&pool)
+        .await
+        .expect("count projects");
+    assert_eq!(projects, 0, "a port-only authority must create no project");
 }
 
 /// The positive control: a normal public `https://github.com/...` create IS
@@ -511,6 +626,52 @@ async fn failed_clone_leaks_no_token_to_persisted_message_or_logs(pool: PgPool) 
     ))
     .into_string();
     assert_eq!(stored, expected, "persisted error_message must equal redact(raw).into_string()");
+}
+
+/// DURABLE GUARD (source-grep): the raw-stderr escape hatches `RawStderr::as_raw`
+/// / `into_raw` are the only way to read unredacted clone stderr, so they must
+/// appear in the API crate ONLY at the redaction boundary in
+/// `project_clone_worker.rs` — never in a logging, persistence, or event path
+/// elsewhere. If a future change reads the raw bytes outside that boundary this
+/// test fails, flagging a potential secret-leak before review. (The token-leak
+/// behavior is proven above; this protects the boundary structurally so it cannot
+/// silently regress.)
+#[test]
+fn raw_stderr_escape_hatch_is_confined_to_the_redaction_boundary() {
+    use std::path::Path;
+
+    let src_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let allowed = src_dir.join("services").join("project_clone_worker.rs");
+
+    let mut offenders: Vec<String> = Vec::new();
+    fn walk(dir: &Path, allowed: &Path, offenders: &mut Vec<String>) {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                walk(&path, allowed, offenders);
+            } else if path.extension().and_then(|e| e.to_str()) == Some("rs") && path != *allowed {
+                let Ok(src) = std::fs::read_to_string(&path) else {
+                    continue;
+                };
+                for (i, line) in src.lines().enumerate() {
+                    if line.contains(".as_raw()") || line.contains(".into_raw()") {
+                        offenders.push(format!("{}:{}: {}", path.display(), i + 1, line.trim()));
+                    }
+                }
+            }
+        }
+    }
+    walk(&src_dir, &allowed, &mut offenders);
+
+    assert!(
+        offenders.is_empty(),
+        "RawStderr::as_raw/into_raw must be called ONLY at the redaction boundary in \
+         services/project_clone_worker.rs; found raw-stderr reads elsewhere in the API crate:\n{}",
+        offenders.join("\n")
+    );
 }
 
 // ===========================================================================
