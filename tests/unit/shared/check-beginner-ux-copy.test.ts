@@ -4075,6 +4075,97 @@ function conversationFilterEmptyCopy() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags chat filter empty copy that uses reported-work jargon', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ChatView.tsx': `
+function toolEmptyTitle() {
+  return 'No work steps have been reported yet'
+}
+
+function toolEmptyDetail() {
+  return 'Work steps appear when a workspace agent reports commands or tool runs.'
+}
+
+function toolEmptyNextStep() {
+  return 'Next: use All to see chat updates, or assign a workspace task to create work steps.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'chat-filter-empty-copy',
+          location: 'src/app/features/chat/ChatView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'chat-filter-empty-copy',
+          location: 'src/app/features/chat/ChatView.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'chat-filter-empty-copy',
+          location: 'src/app/features/chat/ChatView.tsx:11',
+        }),
+      ])
+    )
+  })
+
+  it('flags feed and analytics guidance that uses reported-work jargon', () => {
+    const cwd = fixture({
+      'src/app/features/feed/ActivityFeed.tsx': `
+function emptyFeed() {
+  return 'No work has reported progress yet. Start a task or wait for an assigned agent.'
+}
+`,
+      'src/app/features/analytics/AnalyticsDashboard.tsx': `
+function nextStep() {
+  return 'Open recent task results and check the failed tool steps before assigning more work.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'activity-feed-empty-copy',
+          location: 'src/app/features/feed/ActivityFeed.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'analytics-guidance-copy',
+          location: 'src/app/features/analytics/AnalyticsDashboard.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('flags suggested saved-item preview copy that asks users to inspect', () => {
+    const cwd = fixture({
+      'src/app/features/detail/ContextCandidatesList.tsx': `
+function candidatePreview() {
+  return 'No preview is available yet. Open saved item review to inspect the full suggestion.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'context-candidate-preview-copy',
+          location: 'src/app/features/detail/ContextCandidatesList.tsx:3',
+        }),
+      ])
+    )
+  })
+
   it('flags chat tool step fallback copy that does not tell users how to use the result', () => {
     const cwd = fixture({
       'src/app/features/chat/ToolCallDetail.tsx': `
@@ -4142,16 +4233,26 @@ export function approvalQueueEmptyState() {
 }
 `,
       'src/app/features/settings/AccountSection.tsx': `
-export function AccountSection() {
-  return <span>The setup checklist is back in the sidebar. Open it when setup needs review.</span>
-}
-`,
+	export function AccountSection() {
+	  return <span>The setup checklist is back in the sidebar. Open it when setup needs review.</span>
+	}
+	`,
+      'src/app/features/chat/ChatView.tsx': `
+	export function attentionEmptyCopy() {
+	  return 'This conversation is needing review.'
+	}
+	`,
+      'src/app/entities/context/ui/FeedbackControls.tsx': `
+	export function feedbackConfirmation() {
+	  return 'future tasks will treat this item as needing review.'
+	}
+	`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toHaveLength(3)
+    expect(result.findings).toHaveLength(5)
     expect(result.findings).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -4165,6 +4266,14 @@ export function AccountSection() {
         expect.objectContaining({
           type: 'vague-needs-review-copy',
           location: 'src/app/features/settings/AccountSection.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'vague-needs-review-copy',
+          location: 'src/app/features/chat/ChatView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'vague-needs-review-copy',
+          location: 'src/app/entities/context/ui/FeedbackControls.tsx:3',
         }),
       ])
     )

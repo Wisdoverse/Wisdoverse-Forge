@@ -86,7 +86,7 @@ function conversationFilterEmptyCopy(
   if (filter === 'attention') {
     return {
       title: 'No help requests are open',
-      detail: 'Nothing is marked blocked, failed, waiting, or needing review in this view.',
+      detail: 'No message is stuck, failed, waiting, or asking for your help in this view.',
       nextStep:
         'Next: use All to read the full conversation, or send a short follow-up if you expected a blocker.',
     }
@@ -110,10 +110,9 @@ function conversationFilterEmptyCopy(
 
   if (filter === 'tool') {
     return {
-      title: 'No work steps have been reported yet',
-      detail: 'Work steps appear when a workspace agent reports commands or tool runs.',
-      nextStep:
-        'Next: use All to see chat updates, or assign a workspace task to create work steps.',
+      title: 'No work steps are showing yet',
+      detail: 'Work steps appear when an agent shares commands or tool results.',
+      nextStep: 'Next: use All to see chat updates, or assign a task so work steps can appear.',
     }
   }
 

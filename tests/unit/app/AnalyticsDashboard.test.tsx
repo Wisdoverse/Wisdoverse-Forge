@@ -92,6 +92,8 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
     const nextStep = screen.getByTestId('analytics-next-step')
     expect(nextStep).toHaveTextContent('Review Command line failures first')
     expect(nextStep).toHaveTextContent('completed cleanly only 42%')
+    expect(nextStep).toHaveTextContent('steps that ended in error')
+    expect(nextStep).not.toHaveTextContent('failed tool steps')
     expect(screen.getByText('Busiest tool')).toBeDefined()
     expect(screen.getAllByText('Command line').length).toBeGreaterThan(0)
     expect(screen.queryByText('shell_command')).toBeNull()

@@ -129,7 +129,7 @@ function buildAnalyticsGuidance({
       title: `Review ${topToolName} failures first`,
       detail: `The busiest tool completed cleanly only ${topToolSuccessRate}% of the time in this range.`,
       action:
-        'Open recent task results and check the failed tool steps before assigning more work.',
+        'Open recent task results and check the steps that ended in error before assigning more work.',
       tone: 'attention',
     }
   }

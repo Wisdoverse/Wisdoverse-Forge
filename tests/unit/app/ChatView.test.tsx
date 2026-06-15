@@ -323,11 +323,12 @@ describe('ChatView', () => {
     expect(screen.getByText('Settings page shipped')).toBeInTheDocument()
 
     fireEvent.click(within(filters).getByRole('button', { name: /work steps\s*0/i }))
-    expect(screen.getByText('No work steps have been reported yet')).toBeInTheDocument()
+    expect(screen.getByText('No work steps are showing yet')).toBeInTheDocument()
     expect(
-      screen.getByText('Work steps appear when a workspace agent reports commands or tool runs.')
+      screen.getByText('Work steps appear when an agent shares commands or tool results.')
     ).toBeInTheDocument()
-    expect(screen.getByText(/assign a workspace task to create work steps/i)).toBeInTheDocument()
+    expect(screen.getByText(/assign a task so work steps can appear/i)).toBeInTheDocument()
+    expect(screen.queryByText('No work steps have been reported yet')).toBeNull()
   })
 
   test('explains an empty You filter without operator jargon', () => {

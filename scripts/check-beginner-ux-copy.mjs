@@ -213,6 +213,10 @@ const ANALYTICS_USEFUL_EMPTY_DEAD_END_PATTERNS = [/\bNo useful saved items yet\b
 
 const ANALYTICS_UPDATED_TIME_DEAD_END_PATTERNS = [/\btime not available\b/i]
 
+const ANALYTICS_GUIDANCE_JARGON_PATTERNS = [/\bfailed tool steps\b/i]
+
+const ACTIVITY_FEED_EMPTY_DEAD_END_PATTERNS = [/\bNo work has reported progress yet\b/i]
+
 const SAVED_ITEM_OPTIONAL_EMPTY_DEAD_END_PATTERNS = [/\bNo other saved items were found\b/i]
 
 const TASK_AGENT_ASSIGNMENT_DEAD_END_PATTERNS = [
@@ -552,6 +556,13 @@ const CHAT_OPERATOR_JARGON_PATTERNS = [
   /\bThe You filter only shows requests sent by an operator\./i,
 ]
 
+const CHAT_FILTER_EMPTY_DEAD_END_PATTERNS = [
+  /\bNothing is marked blocked, failed, waiting, or needing review in this view\./i,
+  /\bNo work steps have been reported yet\b/i,
+  /\bworkspace agent reports commands or tool runs\b/i,
+  /\bassign a workspace task to create work steps\b/i,
+]
+
 const CHAT_TOOL_STEP_DEAD_END_PATTERNS = [
   /\bThis step needs review\b/i,
   /\bThis step has not reported a result yet\b/i,
@@ -562,6 +573,7 @@ const VAGUE_NEEDS_REVIEW_COPY_PATTERNS = [
   /\bsummary that needs review\b/i,
   /\bnothing needs review\b/i,
   /\bsetup needs review\b/i,
+  /\bneeding review\b/i,
 ]
 
 const VAGUE_NEEDS_ATTENTION_COPY_PATTERNS = [
@@ -624,6 +636,11 @@ const TASK_FORM_QUEUE_LOAD_FAILURE_FIRST_PATTERNS = [
 const TASK_SUPPORT_REFERENCE_DEAD_END_PATTERNS = [
   /\bSupport reference not (?:reported|listed)\b/i,
   /\breturn\s+['"`]not listed['"`]/i,
+]
+
+const CONTEXT_CANDIDATE_PREVIEW_DEAD_END_PATTERNS = [
+  /\bNo preview is available yet\b/i,
+  /\binspect the full suggestion\b/i,
 ]
 
 const TASK_AGENT_CAPABILITY_JARGON_PATTERNS = [
@@ -1097,6 +1114,18 @@ function hasAnalyticsUpdatedTimeDeadEndCopy(relFile, line) {
   return ANALYTICS_UPDATED_TIME_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAnalyticsGuidanceJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/analytics/AnalyticsDashboard.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ANALYTICS_GUIDANCE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasActivityFeedEmptyDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/feed/ActivityFeed.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ACTIVITY_FEED_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasSavedItemOptionalEmptyDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/entities/context/ui/InjectionPreviewModal.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -1135,6 +1164,12 @@ function hasTaskSupportReferenceDeadEndCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return TASK_SUPPORT_REFERENCE_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasContextCandidatePreviewDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/detail/ContextCandidatesList.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CONTEXT_CANDIDATE_PREVIEW_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasTaskAgentCapabilityJargonCopy(relFile, line) {
@@ -1704,6 +1739,12 @@ function hasChatOperatorJargonCopy(relFile, line) {
   return CHAT_OPERATOR_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasChatFilterEmptyDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/chat/ChatView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CHAT_FILTER_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasChatToolStepDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/chat/ToolCallDetail.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -1714,7 +1755,9 @@ function hasVagueNeedsReviewCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/hooks/useWsDispatch.ts') &&
     !relFile.endsWith('src/app/features/context/ApprovalQueueView.tsx') &&
-    !relFile.endsWith('src/app/features/settings/AccountSection.tsx')
+    !relFile.endsWith('src/app/features/settings/AccountSection.tsx') &&
+    !relFile.endsWith('src/app/features/chat/ChatView.tsx') &&
+    !relFile.endsWith('src/app/entities/context/ui/FeedbackControls.tsx')
   ) {
     return false
   }
@@ -2176,6 +2219,25 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasAnalyticsGuidanceJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'analytics-guidance-copy',
+        location,
+        message: 'Analytics guidance must describe the next check without failed-tool jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasActivityFeedEmptyDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'activity-feed-empty-copy',
+        location,
+        message:
+          'Activity feed empty states must explain that progress updates have not appeared yet.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasSavedItemOptionalEmptyDeadEndCopy(relFile, line)) {
       findings.push({
         type: 'saved-item-optional-empty-copy',
@@ -2218,6 +2280,15 @@ function scanFile(file, relFile) {
         type: 'task-support-reference-copy',
         location,
         message: 'Task support reference fallback must tell beginners to refresh task details.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasContextCandidatePreviewDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'context-candidate-preview-copy',
+        location,
+        message: 'Saved item preview fallbacks must tell beginners to read the suggestion.',
         sample: line.trim(),
       })
     }
@@ -2769,6 +2840,16 @@ function scanFile(file, relFile) {
         type: 'chat-operator-copy',
         location,
         message: 'Chat filters must explain You as the current user, not an operator.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasChatFilterEmptyDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'chat-filter-empty-copy',
+        location,
+        message:
+          'Chat filter empty states must explain what users can check without reported-work jargon.',
         sample: line.trim(),
       })
     }

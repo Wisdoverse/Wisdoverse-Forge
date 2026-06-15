@@ -97,6 +97,22 @@ describe('FeedbackControls', () => {
     ).toBeInTheDocument()
   })
 
+  test('confirms outdated feedback without vague review wording', async () => {
+    const onRecord = vi.fn(async (label: ContextFeedbackLabel) => outcome(label))
+
+    render(<FeedbackControls item={contextItem()} onRecord={onRecord} />)
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Outdated' }))
+
+    expect(onRecord).toHaveBeenCalledWith('stale')
+    expect(
+      await screen.findByText(
+        'Saved: future tasks will ask you to check this item before using it.'
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/needing review/i)).toBeNull()
+  })
+
   test('shows recovery guidance when feedback cannot be saved', async () => {
     const onRecord = vi.fn(async () => {
       throw new Error('API 403: Forbidden')

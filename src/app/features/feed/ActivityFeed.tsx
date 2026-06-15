@@ -200,8 +200,8 @@ export function ActivityFeed() {
             Quiet so far
           </p>
           <p className="text-[11px] text-secondary-light dark:text-secondary-dark leading-relaxed">
-            No work has reported progress yet. Start a task or wait for an assigned agent to send
-            its first update.
+            No progress updates yet. Start a task or wait for the assigned agent to send its first
+            update.
           </p>
           <p className="max-w-[240px] text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
             Next: open Board, create or assign a task, then return here after the first agent

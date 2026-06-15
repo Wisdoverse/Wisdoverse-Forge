@@ -23,7 +23,7 @@ const FEEDBACK_OPTIONS: {
     label: 'stale',
     text: 'Outdated',
     description: 'The information is old and should be checked before reuse.',
-    confirmation: 'future tasks will treat this item as needing review.',
+    confirmation: 'future tasks will ask you to check this item before using it.',
   },
   {
     label: 'wrong',
