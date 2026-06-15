@@ -40,8 +40,9 @@ describe('providerTestErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Try checking OpenAI Production again in a few minutes. If it still needs attention, ask an owner or admin to check AI service settings. Forge could not check this AI service right now.'
+      'Try checking OpenAI Production again in a few minutes. If it still cannot be checked, ask an owner or admin to check AI service settings. Forge could not check this AI service right now.'
     )
+    expect(message).not.toContain('needs attention')
     expect(message).not.toContain('gateway')
     expect(message).not.toContain('temporarily unavailable')
   })
@@ -58,8 +59,9 @@ describe('providerTestErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Review the AI service settings, then check this AI service again. If it still needs attention, ask an owner or admin to check AI service settings.'
+      'Review the AI service settings, then check this AI service again. If it still cannot be checked, ask an owner or admin to check AI service settings.'
     )
+    expect(message).not.toContain('needs attention')
     expect(message).not.toContain('gateway')
   })
 })

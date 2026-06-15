@@ -322,7 +322,7 @@ export function RuntimeSection() {
                     {cliToolLabel(detail.cliTool)}
                   </span>
                   <span className="block truncate text-secondary-light dark:text-secondary-dark">
-                    {detail.version ?? 'Needs attention'}
+                    {detail.version ?? 'Check tool version'}
                   </span>
                 </div>
                 <span
@@ -826,8 +826,8 @@ function runtimeLaunchChecklistItems(
 
 function versionSourceLabel(source: string, imagePresent: boolean): string {
   if (source === 'docker-label') return 'ready'
-  if (source === 'image-tag') return imagePresent ? 'ready' : 'needs attention'
-  return 'needs attention'
+  if (source === 'image-tag') return imagePresent ? 'ready' : 'check setup'
+  return 'check setup'
 }
 
 function runtimeReadinessSummary(

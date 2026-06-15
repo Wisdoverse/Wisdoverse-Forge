@@ -324,7 +324,7 @@ function unknownMessage() {
     const cwd = fixture({
       'src/app/features/settings/providerTestErrorMessage.ts': `
 function providerTestErrorMessage() {
-  return 'Try checking OpenAI Production again in a few minutes. If it still needs attention, ask an owner or admin to check AI service settings.'
+  return 'Try checking OpenAI Production again in a few minutes. If it still cannot be checked, ask an owner or admin to check AI service settings.'
 }
 function networkErrorMessage() {
   return 'Check the service address and your connection, then check Local Lab again. Forge could not connect to this AI service.'
@@ -4314,6 +4314,62 @@ export function taskFailurePreview() {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags remaining needs-attention copy in setup and progress surfaces', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ToolCallDetail.tsx': `
+function toolDataSummary(issue) {
+  return \`Needs attention: \${issue}\`
+}
+`,
+      'src/app/widgets/views/TimelineView.tsx': `
+export function TimelineView() {
+  return <p>Open a task when the timeline shows something that needs attention</p>
+}
+`,
+      'src/app/features/settings/RuntimeSection.tsx': `
+function toolVersion(detail) {
+  return detail.version ?? 'Needs attention'
+}
+function versionSourceLabel(imagePresent) {
+  return imagePresent ? 'ready' : 'needs attention'
+}
+`,
+      'src/app/features/settings/providerTestErrorMessage.ts': `
+function providerTestErrorMessage() {
+  return 'Try checking OpenAI Production again in a few minutes. If it still needs attention, ask an owner or admin to check AI service settings.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'vague-needs-attention-copy',
+          location: 'src/app/features/chat/ToolCallDetail.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'vague-needs-attention-copy',
+          location: 'src/app/widgets/views/TimelineView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'vague-needs-attention-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'vague-needs-attention-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'vague-needs-attention-copy',
+          location: 'src/app/features/settings/providerTestErrorMessage.ts:3',
+        }),
+      ])
+    )
   })
 
   it('flags tool and saved-item problem copy that exposes technical-problem jargon', () => {

@@ -110,9 +110,10 @@ describe('ToolCallDetail', () => {
 
     expect(
       screen.getByText(
-        /Needs attention: This step hit a problem\. Ask the agent to explain what happened, then retry if the task still matters\./i
+        /Check this step: This step hit a problem\. Ask the agent to explain what happened, then retry if the task still matters\./i
       )
     ).toBeInTheDocument()
+    expect(screen.queryByText(/Needs attention/i)).toBeNull()
     expect(screen.queryByText(/panic/i)).toBeNull()
     expect(screen.queryByText(/stack trace/i)).toBeNull()
     expect(screen.queryByText(/secret token/i)).toBeNull()

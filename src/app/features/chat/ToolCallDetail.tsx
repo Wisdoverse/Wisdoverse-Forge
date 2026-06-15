@@ -165,7 +165,7 @@ function toolDataSummary(data: Record<string, unknown>, kind: 'request' | 'resul
 
   const issue = firstString(data.error, data.reason)
   if (issue) {
-    return `Needs attention: ${safeToolString(issue)}`
+    return `Check this step: ${safeToolString(issue)}`
   }
 
   if (typeof data.ok === 'boolean') {

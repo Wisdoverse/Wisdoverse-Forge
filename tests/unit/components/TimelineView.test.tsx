@@ -52,8 +52,9 @@ describe('TimelineView', () => {
       screen.getByText('Watch tasks move through waiting, working, help needed, and finished steps')
     ).toBeDefined()
     expect(
-      screen.getByText('Open a task when the timeline shows something that needs attention')
+      screen.getByText('Open a task marked help needed to see what to do next')
     ).toBeDefined()
+    expect(screen.queryByText(/something that needs attention/i)).toBeNull()
     expect(screen.queryByText('No timeline events yet')).toBeNull()
     expect(screen.queryByText(/blocked and completed/i)).toBeNull()
   })

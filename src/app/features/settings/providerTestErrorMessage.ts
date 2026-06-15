@@ -80,11 +80,11 @@ export function providerTestErrorMessage(error: unknown, providerName = 'AI serv
     return `Wait a minute, then check ${providerLabel} again. This AI service is receiving too many checks right now.`
   }
   if (code != null && code >= 500) {
-    return `Try checking ${providerLabel} again in a few minutes. If it still needs attention, ask an owner or admin to check AI service settings. Forge could not check this AI service right now.`
+    return `Try checking ${providerLabel} again in a few minutes. If it still cannot be checked, ask an owner or admin to check AI service settings. Forge could not check this AI service right now.`
   }
   if (isNetworkError(error)) {
     return `Check the service address and your connection, then check ${providerLabel} again. Forge could not connect to this AI service.`
   }
 
-  return `Review the AI service settings, then check ${providerLabel} again. If it still needs attention, ask an owner or admin to check AI service settings.`
+  return `Review the AI service settings, then check ${providerLabel} again. If it still cannot be checked, ask an owner or admin to check AI service settings.`
 }
