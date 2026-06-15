@@ -409,6 +409,11 @@ const CHAT_TOOL_STEP_DEAD_END_PATTERNS = [
   /\blabel:\s*['"`]Needs review['"`]/i,
 ]
 
+const CHAT_OFFLINE_DEAD_END_PATTERNS = [
+  /\bThis agent is offline\. Start it before sending a message\./i,
+  /\bStart it before sending a message\b/i,
+]
+
 const GOVERNANCE_AUDIT_FALLBACK_DEAD_END_PATTERNS = [
   /\bChange not listed\b/i,
   /\bNot checked\b/i,
@@ -1266,6 +1271,17 @@ function hasChatToolStepDeadEndCopy(relFile, line) {
   return CHAT_TOOL_STEP_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasChatOfflineDeadEndCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/chat/ChatView.tsx') &&
+    !relFile.endsWith('src/app/features/chat/ChatComposer.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CHAT_OFFLINE_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasGovernanceAuditFallbackDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/governance/AuditLogView.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -2024,6 +2040,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Chat tool step fallbacks must tell beginners to check the step before relying on it.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasChatOfflineDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'chat-offline-copy',
+        location,
+        message:
+          'Chat offline copy must route beginners to the correct setup area instead of saying to start it.',
         sample: line.trim(),
       })
     }

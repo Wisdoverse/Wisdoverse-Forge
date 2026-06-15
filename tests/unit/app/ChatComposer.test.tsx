@@ -78,14 +78,17 @@ describe('ChatComposer', () => {
         onAbort={() => {}}
         streaming={false}
         disabled={true}
-        disabledReason="This agent is offline. Start it before sending a message."
+        disabledReason="Open Settings > AI services, check this connection, then refresh Agents before sending a message."
       />
     )
     expect(screen.getByRole('textbox')).toBeDisabled()
     expect(screen.getByRole('button', { name: /send/i })).toBeDisabled()
     expect(
-      screen.getByText('This agent is offline. Start it before sending a message.')
+      screen.getByText(
+        'Open Settings > AI services, check this connection, then refresh Agents before sending a message.'
+      )
     ).toBeVisible()
+    expect(screen.queryByText(/start it before sending/i)).toBeNull()
   })
 
   it('textarea is disabled while streaming', () => {

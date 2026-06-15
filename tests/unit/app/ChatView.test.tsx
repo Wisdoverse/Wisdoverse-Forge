@@ -17,6 +17,11 @@ const providerAgent: AgentInfo = {
   cliTool: undefined,
 }
 
+const offlineProviderAgent: AgentInfo = {
+  ...providerAgent,
+  status: 'offline',
+}
+
 const cliAgent: AgentInfo = {
   ...providerAgent,
   id: 'cli-agent',
@@ -152,6 +157,28 @@ describe('ChatView', () => {
     expect(screen.getByText(/old messages are no longer useful/i)).toBeInTheDocument()
     expect(screen.queryByText(previousFindHelpCopy)).toBeNull()
     expect(screen.queryByText(/old context/i)).toBeNull()
+  })
+
+  test('guides offline chat-only agents to AI service settings before messaging', () => {
+    useAgentsStore.setState({ agents: [offlineProviderAgent] })
+    seedChatState({ messages: [] })
+
+    render(<ChatView agentId={offlineProviderAgent.id} />)
+
+    const emptyState = screen.getByTestId('conversation-empty-state')
+    expect(emptyState).toHaveTextContent(
+      'This chat-only AI service is not ready. Open Settings > AI services, check this connection, then refresh Agents.'
+    )
+    expect(emptyState).not.toHaveTextContent('Start it before sending a message')
+    expect(screen.getByRole('textbox', { name: /message this agent/i })).toBeDisabled()
+    expect(
+      screen.getByText(
+        'Open Settings > AI services, check this connection, then refresh Agents before sending a message.'
+      )
+    ).toBeVisible()
+    expect(
+      screen.queryByText('This agent is offline. Start it before sending a message.')
+    ).toBeNull()
   })
 
   test('guides empty managed workspace history toward routed work', () => {

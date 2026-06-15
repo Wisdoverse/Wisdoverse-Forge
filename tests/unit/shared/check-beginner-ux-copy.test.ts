@@ -3227,6 +3227,54 @@ function toolOutcome() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags chat offline copy that tells users to start an agent without a setup path', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ChatView.tsx': `
+function ChatView() {
+  return 'This agent is offline. Start it before sending a message.'
+}
+`,
+      'src/app/features/chat/ChatComposer.tsx': `
+function ChatComposer() {
+  return 'Start it before sending a message'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'chat-offline-copy',
+          location: 'src/app/features/chat/ChatView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'chat-offline-copy',
+          location: 'src/app/features/chat/ChatComposer.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts chat offline copy that points to the right setup area', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ChatView.tsx': `
+function ChatView() {
+  return 'Open Settings > AI services, check this connection, then refresh Agents before sending a message.'
+}
+`,
+      'src/app/features/chat/ChatComposer.tsx': `
+function ChatComposer() {
+  return 'This agent is not ready. Open Agents, start or reconnect it, then return here when it shows Ready.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags app health status copy that does not tell users to check now', () => {
     const cwd = fixture({
       'src/app/features/admin/SystemHealth.tsx': `

@@ -113,8 +113,11 @@ export function ChatView({ agentId }: ChatViewProps) {
   const agent = useAgentsStore((s) => s.agents.find((a) => a.id === agentId))
   const isProviderAgent = agent != null && !agent.cliTool
   const offline = agent?.status === 'offline'
+  const offlineRecoveryDetail = isProviderAgent
+    ? 'This chat-only AI service is not ready. Open Settings > AI services, check this connection, then refresh Agents.'
+    : 'This agent is not ready. Open Agents, start or reconnect it, then return here when it shows Ready.'
   const composerDisabledReason = offline
-    ? 'This agent is offline. Start it before sending a message.'
+    ? 'Open Settings > AI services, check this connection, then refresh Agents before sending a message.'
     : messagesLoading
       ? 'Loading earlier messages. You can send once loading finishes.'
       : undefined
@@ -360,6 +363,7 @@ export function ChatView({ agentId }: ChatViewProps) {
               <ConversationEmptyState
                 copy={PROVIDER_EMPTY_COPY}
                 offline={offline}
+                offlineDetail={offlineRecoveryDetail}
                 testId="conversation-empty-state"
               />
             ) : visibleMessages.length === 0 ? (
@@ -401,6 +405,7 @@ export function ChatView({ agentId }: ChatViewProps) {
             <ConversationEmptyState
               copy={WORKSPACE_AGENT_EMPTY_COPY}
               offline={offline}
+              offlineDetail={offlineRecoveryDetail}
               testId="conversation-empty-state"
             />
           ) : visibleTurns.length === 0 ? (
@@ -505,10 +510,12 @@ function ChatErrorNotice({
 function ConversationEmptyState({
   copy,
   offline,
+  offlineDetail,
   testId,
 }: {
   copy: typeof PROVIDER_EMPTY_COPY
   offline: boolean
+  offlineDetail: string
   testId: string
 }) {
   return (
@@ -546,7 +553,7 @@ function ConversationEmptyState({
       </div>
       {offline && (
         <p className="rounded-lg bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange">
-          This agent is offline, so new updates will appear after the agent is available.
+          {offlineDetail}
         </p>
       )}
     </div>
