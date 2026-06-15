@@ -36,6 +36,7 @@ describe('SystemHealth', () => {
 
     await waitFor(() => expect(loadHealth).toHaveBeenCalledOnce())
     expect(screen.getByText('App health check')).toBeDefined()
+    expect(screen.getByText(/Start with anything marked Fix first/i)).toBeDefined()
     expect(screen.getByText('Some areas need attention')).toBeDefined()
     expect(
       screen.getByText(/slow screens, delayed updates, or work waiting to start/i)
@@ -52,7 +53,8 @@ describe('SystemHealth', () => {
     expect(screen.getByText('responds in 12 ms')).toBeDefined()
     expect(screen.getByText('Ready')).toBeDefined()
     expect(screen.getAllByText('Needs attention').length).toBeGreaterThan(0)
-    expect(screen.getByText('Unavailable')).toBeDefined()
+    expect(screen.getByText('Fix first')).toBeDefined()
+    expect(screen.queryByText('Unavailable')).toBeNull()
     expect(screen.getByText('Choose Check now to confirm')).toBeDefined()
     expect(screen.getAllByText('Check now').length).toBeGreaterThan(1)
     expect(screen.getByText(/Forge has been running for 2h/i)).toBeDefined()

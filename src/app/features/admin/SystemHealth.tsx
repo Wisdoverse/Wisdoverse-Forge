@@ -90,7 +90,7 @@ function StatusBadge({ status }: { status: ServiceStatus }) {
       : status === 'degraded'
         ? 'Needs attention'
         : status === 'down'
-          ? 'Unavailable'
+          ? 'Fix first'
           : 'Check now'
 
   return (
@@ -259,7 +259,7 @@ function OverallBanner({
       bg: 'border-apple-red/20 bg-apple-red/10',
       text: 'text-apple-red',
       label: 'App interruption likely',
-      detail: 'Check the unavailable area first before assigning new work.',
+      detail: 'Fix the area marked Fix first before assigning new work.',
     },
   }
   const c = config[status]
@@ -311,7 +311,7 @@ export function SystemHealth() {
           <h2 className={uiStyles.sectionTitle}>App health check</h2>
           <p className={uiStyles.sectionDescription}>
             Checks when opened, then every 30 seconds while this page is visible. Hidden tabs pause
-            checks. Start with anything marked Unavailable, then items marked Needs attention.
+            checks. Start with anything marked Fix first, then items marked Needs attention.
           </p>
         </div>
         <button
