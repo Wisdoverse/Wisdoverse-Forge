@@ -251,7 +251,10 @@ function createReviewItems({
 
   return [
     { label: 'Work style', value: runtimeTitle },
-    { label: 'Primary project', value: projectName ?? 'No project selected yet' },
+    {
+      label: 'Primary project',
+      value: projectName ?? 'Choose a project before assigning tasks.',
+    },
     { label: 'Task queue', value: taskQueue },
     { label: 'Next step', value: nextStep },
     { label: 'Created state', value: startState },

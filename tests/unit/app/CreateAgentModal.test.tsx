@@ -84,7 +84,8 @@ describe('CreateAgentModal', () => {
     const review = screen.getByTestId('agent-create-review')
     expect(within(review).getByText('Before you create')).toBeInTheDocument()
     expect(within(review).getByText(/claude in a managed workspace/i)).toBeInTheDocument()
-    expect(within(review).getByText('No project selected yet')).toBeInTheDocument()
+    expect(within(review).getByText('Choose a project before assigning tasks.')).toBeInTheDocument()
+    expect(within(review).queryByText('No project selected yet')).toBeNull()
     expect(
       within(review).getByText('Choose a project later before assigning tasks.')
     ).toBeInTheDocument()
