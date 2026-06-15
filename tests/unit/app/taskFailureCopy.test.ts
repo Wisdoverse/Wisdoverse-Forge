@@ -37,4 +37,12 @@ describe('taskFailureCopy', () => {
     expect(message).not.toContain('token')
     expect(message).not.toContain('secret')
   })
+
+  test('turns sign-in failures into a direct reconnect step', () => {
+    const message = taskFailurePreview('401 Unauthorized')
+
+    expect(message).toBe('Reconnect sign-in or service access, then retry.')
+    expect(message).not.toContain('needs attention')
+    expect(message).not.toContain('401')
+  })
 })

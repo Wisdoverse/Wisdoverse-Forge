@@ -4137,12 +4137,29 @@ export function stateLabel() {
   return 'Check needs attention'
 }
 `,
+      'src/app/features/detail/ContextEvidenceList.tsx': `
+export function payloadSummary() {
+  return 'The recorded result needs attention.'
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  common: {
+    error: 'Something needs attention. Review the message, then try again.',
+  },
+}
+`,
+      'src/app/shared/lib/taskFailureCopy.ts': `
+export function taskFailurePreview() {
+  return 'Stopped because sign-in or service access needs attention.'
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toHaveLength(6)
+    expect(result.findings).toHaveLength(9)
     expect(result.findings).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -4168,6 +4185,18 @@ export function stateLabel() {
         expect.objectContaining({
           type: 'vague-needs-attention-copy',
           location: 'src/app/features/admin/CliImagesPanel.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'vague-needs-attention-copy',
+          location: 'src/app/features/detail/ContextEvidenceList.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'vague-needs-attention-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'vague-needs-attention-copy',
+          location: 'src/app/shared/lib/taskFailureCopy.ts:3',
         }),
       ])
     )
@@ -4203,6 +4232,23 @@ export function ProvidersSection() {
       'src/app/features/admin/CliImagesPanel.tsx': `
 export function stateLabel() {
   return 'Choose Check now'
+}
+`,
+      'src/app/features/detail/ContextEvidenceList.tsx': `
+export function payloadSummary() {
+  return 'Check the recorded result before reusing it.'
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  common: {
+    error: 'Check the message, then try again.',
+  },
+}
+`,
+      'src/app/shared/lib/taskFailureCopy.ts': `
+export function taskFailurePreview() {
+  return 'Reconnect sign-in or service access, then retry.'
 }
 `,
     })

@@ -218,7 +218,7 @@ describe('ContextEvidenceList', () => {
 
     expect(screen.getByText('Work details')).toBeInTheDocument()
     expect(screen.getByText('Extra information recorded while the task ran.')).toBeInTheDocument()
-    expect(screen.getByText('The recorded result needs attention.')).toBeInTheDocument()
+    expect(screen.getByText('Check the recorded result before reusing it.')).toBeInTheDocument()
     expect(screen.queryByText('Run details')).toBeNull()
     expect(screen.queryByText('Run evidence')).toBeNull()
     expect(screen.queryByText('Custom Probe')).toBeNull()

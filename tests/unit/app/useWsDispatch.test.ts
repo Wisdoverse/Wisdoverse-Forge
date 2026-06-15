@@ -311,9 +311,7 @@ describe('dispatchWsMessage', () => {
       taskHref: '/tasks',
       read: false,
     })
-    expect(notifications[0].message).toContain(
-      'Stopped because sign-in or service access needs attention.'
-    )
+    expect(notifications[0].message).toContain('Reconnect sign-in or service access, then retry.')
     expect(notifications[0].message).toContain(
       'stopped before finishing. Open the task, review the recovery note, then retry or choose another agent.'
     )

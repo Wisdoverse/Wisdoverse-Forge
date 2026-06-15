@@ -549,12 +549,15 @@ const VAGUE_NEEDS_REVIEW_COPY_PATTERNS = [
 ]
 
 const VAGUE_NEEDS_ATTENTION_COPY_PATTERNS = [
+  /\bSomething needs attention\. Review the message, then try again\./i,
   /\bAnalytics needs attention\b/i,
   /\bConversation needs attention\b/i,
   /\bThis agent's work list needs attention\b/i,
   /\bAgent work setup needs attention\b/i,
   /\bAI service setup needs attention\b/i,
   /\bCheck needs attention\b/i,
+  /\bThe recorded result needs attention\./i,
+  /\bStopped because sign-in or service access needs attention\./i,
 ]
 
 const TECHNICAL_PROBLEM_JARGON_PATTERNS = [
@@ -754,6 +757,7 @@ const USER_VISIBLE_ERROR_FILE_PATTERNS = [
   /\/model\/admin\.store\.ts$/,
   /\/model\/skills\.store\.ts$/,
   /\/model\/analytics\.store\.ts$/,
+  /\/shared\/lib\/taskFailureCopy\.ts$/,
   /\/shared\/lib\/workspaceResourceErrorMessage\.ts$/,
 ]
 
@@ -1687,9 +1691,12 @@ function hasVagueNeedsAttentionCopy(relFile, line) {
     !relFile.endsWith('src/app/features/analytics/AnalyticsDashboard.tsx') &&
     !relFile.endsWith('src/app/features/chat/ChatView.tsx') &&
     !relFile.endsWith('src/app/features/agents/AgentTasksTab.tsx') &&
+    !relFile.endsWith('src/app/features/detail/ContextEvidenceList.tsx') &&
     !relFile.endsWith('src/app/features/settings/RuntimeSection.tsx') &&
     !relFile.endsWith('src/app/features/settings/ProvidersSection.tsx') &&
-    !relFile.endsWith('src/app/features/admin/CliImagesPanel.tsx')
+    !relFile.endsWith('src/app/features/admin/CliImagesPanel.tsx') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/lib/taskFailureCopy.ts')
   ) {
     return false
   }

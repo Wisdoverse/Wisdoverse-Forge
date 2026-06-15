@@ -78,6 +78,8 @@ describe('beginner error translations', () => {
 
   test('empty states include a next step', () => {
     expect(en.common.noResults).toContain('clear the filters')
+    expect(en.common.error).toBe('Check the message, then try again.')
+    expect(en.a11y.error).toBe('Check the message, then try again.')
     expect(en.agents.noAgents).toContain('Create one agent')
     expect(en.gettingStarted.noProject).toBe('Open project settings to create or choose a project.')
     expect(en.groups.title).toBe('Task queues')
@@ -93,6 +95,7 @@ describe('beginner error translations', () => {
     expect(en.skills.detail.unknownAuthor).not.toContain('not listed yet')
     expect(en.skills.detail.noDescription).not.toContain('No summary yet')
     expect(en.skills.detail.unknownToolTooltip).not.toContain('needs review')
+    expect(en.common.error).not.toContain('Something needs attention')
     expect(zh.common.noResults).toContain('清除筛选')
     expect(zh.agents.noAgents).toContain('创建一个 Agent')
     expect(zh.gettingStarted.noProject).toBe('打开项目设置，创建或选择一个项目。')

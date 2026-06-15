@@ -124,7 +124,9 @@ function payloadSummary(payload: Record<string, unknown>): string {
   if (summary) return safeEvidenceString(summary)
 
   if (typeof payload.ok === 'boolean') {
-    return payload.ok ? 'The recorded result succeeded.' : 'The recorded result needs attention.'
+    return payload.ok
+      ? 'The recorded result succeeded.'
+      : 'Check the recorded result before reusing it.'
   }
 
   const keys = Object.keys(payload)

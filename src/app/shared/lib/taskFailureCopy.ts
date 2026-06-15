@@ -17,7 +17,7 @@ export function taskFailurePreview(error?: string | null): string {
     return 'Stopped because access is missing. Ask an owner or admin for help.'
   }
   if (lowerMessage.includes('unauthorized') || /\b401\b/.test(message)) {
-    return 'Stopped because sign-in or service access needs attention.'
+    return 'Reconnect sign-in or service access, then retry.'
   }
 
   return 'Stopped before finishing. Open details to see what happened and retry.'
