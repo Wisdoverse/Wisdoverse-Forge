@@ -377,7 +377,7 @@ function nextActionForTask(
       }
     case 'failed':
       return {
-        title: 'Triage failure',
+        title: 'Review recovery',
         detail: taskFailurePreview(task.error),
         tone: 'warn',
       }

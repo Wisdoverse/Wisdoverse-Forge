@@ -173,7 +173,8 @@ describe('DescriptionTab', () => {
       />
     )
 
-    expect(screen.getByText('Review recovery')).toBeDefined()
+    expect(screen.getAllByText('Review recovery').length).toBeGreaterThan(1)
+    expect(screen.queryByText('Triage failure')).toBeNull()
     expect(screen.queryByText('Failed')).toBeNull()
     expect(screen.getAllByText(/AI service is busy/i).length).toBeGreaterThan(0)
     expect(

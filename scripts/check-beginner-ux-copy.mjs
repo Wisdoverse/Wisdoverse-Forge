@@ -553,6 +553,8 @@ const TASK_RECOVERY_STATUS_DEAD_END_PATTERNS = [
   /\breturn\s+['"`]Needs review['"`]/,
   /\bfix the error\b/i,
   /\breview the failure\b/i,
+  /\bread the failure\b/i,
+  /\bTriage failure\b/,
 ]
 
 const CONTEXT_FALLBACK_DEAD_END_PATTERNS = [
@@ -1869,9 +1871,11 @@ function hasTaskRecoveryStatusDeadEndCopy(relFile, line) {
     !relFile.endsWith('src/app/features/board/TaskCard.tsx') &&
     !relFile.endsWith('src/app/features/board/KanbanColumn.tsx') &&
     !relFile.endsWith('src/app/features/detail/ContextTab.tsx') &&
+    !relFile.endsWith('src/app/features/detail/DescriptionTab.tsx') &&
     !relFile.endsWith('src/app/features/detail/HistoryTab.tsx') &&
     !relFile.endsWith('src/app/features/feed/FeedItem.tsx') &&
-    !relFile.endsWith('src/app/features/inbox/InboxItem.tsx')
+    !relFile.endsWith('src/app/features/inbox/InboxItem.tsx') &&
+    !relFile.endsWith('src/app/features/list/ListView.tsx')
   ) {
     return false
   }

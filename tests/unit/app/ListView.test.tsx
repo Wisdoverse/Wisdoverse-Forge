@@ -324,6 +324,33 @@ describe('ListView', () => {
     expect(screen.queryByText(/secret token/i)).toBeNull()
   })
 
+  test('shows failed task recovery guidance without failure jargon', () => {
+    useBoardStore.getState().setTasks([
+      {
+        id: 'failed-raw',
+        state: 'failed',
+        params: { task: 'Recover deploy', message: '' },
+        priority: 'urgent',
+        progress: 90,
+        error: 'HTTP 500 provider token stack trace',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as any,
+    ])
+
+    render(<ListView />)
+
+    expect(
+      screen.getByText(
+        'Open it, review the recovery note, then retry only after the next step is clear.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByText(/read the failure/i)).toBeNull()
+    expect(screen.queryByText(/fix the error/i)).toBeNull()
+    expect(screen.queryByText(/HTTP 500/i)).toBeNull()
+    expect(screen.queryByText(/provider token/i)).toBeNull()
+  })
+
   test('labels unknown row status and priority without exposing raw codes', () => {
     useBoardStore.getState().setTasks([
       {

@@ -7446,6 +7446,54 @@ function taskNextStep() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags failed task list and detail copy that still asks beginners to read failures', () => {
+    const cwd = fixture({
+      'src/app/features/list/ListView.tsx': `
+function taskNextAction() {
+  return 'Open it, read the failure, then retry only after the cause is clear.'
+}
+`,
+      'src/app/features/detail/DescriptionTab.tsx': `
+function nextActionForTask() {
+  return { title: 'Triage failure' }
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-recovery-status-copy',
+          location: 'src/app/features/list/ListView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'task-recovery-status-copy',
+          location: 'src/app/features/detail/DescriptionTab.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts task list and detail recovery copy that points to the next step', () => {
+    const cwd = fixture({
+      'src/app/features/list/ListView.tsx': `
+function taskNextAction() {
+  return 'Open it, review the recovery note, then retry only after the next step is clear.'
+}
+`,
+      'src/app/features/detail/DescriptionTab.tsx': `
+function nextActionForTask() {
+  return { title: 'Review recovery' }
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('ignores parser regexes and cleanup regexes inside error message helpers', () => {
     const cwd = fixture({
       'src/app/features/chat/chatErrorMessage.ts': `
