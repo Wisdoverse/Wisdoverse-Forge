@@ -331,6 +331,36 @@ ensure-agent-base: ## Ensure base image exists (pull or build)
 	@docker image inspect agentforge-agent-base:latest >/dev/null 2>&1 \
 		|| { echo "Base image not found locally, building..."; $(MAKE) build-agent-base; }
 
+.PHONY: build-clone
+build-clone: ## Build ephemeral clone image (minimal git-only project-clone container)
+	$(eval _UID := $(or $(CLAUDE_UID),$(shell grep -m1 '^CLAUDE_UID=' docker/.env 2>/dev/null | cut -d= -f2),1011))
+	$(eval _GID := $(or $(CLAUDE_GID),$(shell grep -m1 '^CLAUDE_GID=' docker/.env 2>/dev/null | cut -d= -f2),1012))
+	docker build $(DOCKER_CN_ARGS) -t agentforge-clone:latest \
+		-f docker/Dockerfile.clone \
+		--build-arg AGENT_UID=$(_UID) \
+		--build-arg AGENT_GID=$(_GID) .
+
+# Scripts linted by the clone shellcheck gate. Scoped to the project-git-clone
+# scripts (M3) plus agent-entrypoint.sh, which is now shellcheck-clean. The rest
+# of the repo's pre-existing scripts are intentionally OUT of scope here.
+SHELLCHECK_CLONE_SCRIPTS := \
+	docker/scripts/clone-entrypoint.sh \
+	docker/scripts/lib/git-credentials.sh \
+	docker/scripts/agent-entrypoint.sh
+
+.PHONY: shellcheck-clone
+shellcheck-clone: ## Lint the project-git-clone shell scripts with shellcheck (local binary or koalaman/shellcheck image)
+	@if command -v shellcheck >/dev/null 2>&1; then \
+		echo "shellcheck (local): $(SHELLCHECK_CLONE_SCRIPTS)"; \
+		shellcheck -x $(SHELLCHECK_CLONE_SCRIPTS); \
+	elif command -v docker >/dev/null 2>&1; then \
+		echo "shellcheck (koalaman/shellcheck:stable): $(SHELLCHECK_CLONE_SCRIPTS)"; \
+		docker run --rm -v "$$PWD:/mnt" -w /mnt koalaman/shellcheck:stable -x $(SHELLCHECK_CLONE_SCRIPTS); \
+	else \
+		echo "ERROR: neither shellcheck nor docker is available to run the clone shellcheck gate" >&2; \
+		exit 1; \
+	fi
+
 .PHONY: build-agent
 build-agent: ensure-agent-base ## Build single CLI agent image (default: claude)
 	$(eval _TOOL := $(or $(CLI_TOOL),claude))
@@ -364,6 +394,8 @@ build-agent-all: ensure-agent-base ## Build agent images for all CLI tools with 
 		docker tag agentforge-agent:$$tool agentforge-agent-$$tool:latest 2>/dev/null || true; \
 	done
 	@docker tag agentforge-agent:claude agentforge-agent:latest 2>/dev/null || true
+	@echo "=== Building agentforge-clone (project git-clone image) ==="
+	@$(MAKE) build-clone
 	@$(MAKE) sync-env
 
 # =============================================================================

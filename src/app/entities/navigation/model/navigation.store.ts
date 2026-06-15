@@ -5,9 +5,35 @@ import {
   type NavAgentGroup,
 } from '@app/entities/agent-group'
 import { organizationApi, type NavOrg } from '@app/entities/organization'
-import { projectApi, type NavProject, type UpdateProjectInput } from '@app/entities/project'
+import {
+  projectApi,
+  type CloneStatus,
+  type CloneSummary,
+  type NavProject,
+  type UpdateProjectInput,
+} from '@app/entities/project'
 import { teamApi, type NavTeam, type UpdateTeamInput } from '@app/entities/team'
 import { useBoardStore } from '@app/shared/model/board.store'
+
+/** A realtime clone-status change applied to one project in the tree. */
+export interface CloneStatusUpdate {
+  projectId: string
+  cloneStatus: CloneStatus
+  /** The latest attempt detail; absent when the frame carried no summary. */
+  clone?: CloneSummary
+}
+
+/**
+ * Whether `next` is at least as recent as `current` and should replace it.
+ * Higher attempt wins; on the same attempt, the newer `updatedAt` wins; a
+ * byte-identical resend (same attempt + timestamp) is treated as "apply" so the
+ * overwrite is a no-op rather than a regression — keeping the reducer idempotent.
+ */
+function isCloneUpdateNewer(current: CloneSummary | undefined, next: CloneSummary): boolean {
+  if (!current) return true
+  if (next.attempt !== current.attempt) return next.attempt >= current.attempt
+  return Date.parse(next.updatedAt) >= Date.parse(current.updatedAt)
+}
 
 interface NavigationState {
   orgs: NavOrg[]
@@ -28,6 +54,14 @@ interface NavigationState {
   deleteTeam: (teamId: string) => Promise<void>
   updateProject: (projectId: string, input: UpdateProjectInput) => Promise<void>
   deleteProject: (projectId: string) => Promise<void>
+  /**
+   * Apply a clone-status update from the `project_clone:status_update` realtime
+   * frame to the matching project in the tree. Idempotent and monotonic: an
+   * older or duplicate attempt never regresses the displayed status, so applying
+   * the same event twice yields a single state change. A page refresh self-heals
+   * because the project list fetch already carries `cloneStatus`/`clone`.
+   */
+  applyCloneStatusUpdate: (update: CloneStatusUpdate) => void
   /** Resolves `false` when the project was selected but its work lanes
    * failed to load — callers that need lanes (task creation) show a retry
    * message instead of wrongly telling the user to create a new lane. */
@@ -203,6 +237,31 @@ export const useNavigationStore = create<NavigationState>((set, get) => ({
     if (get().selectedProjectId === null) {
       useBoardStore.getState().setSelectedGroupId(null)
     }
+  },
+
+  applyCloneStatusUpdate: ({ projectId, cloneStatus, clone }: CloneStatusUpdate) => {
+    const projects = get().projects
+    let changed = false
+    const nextProjects = Object.fromEntries(
+      Object.entries(projects).map(([teamId, teamProjects]) => [
+        teamId,
+        teamProjects.map((project) => {
+          if (project.id !== projectId) return project
+          // Guard against out-of-order/duplicate frames: never let an older
+          // attempt (or a stale resend) overwrite a newer summary. Applying the
+          // same frame twice resolves to the identical object below → idempotent.
+          if (clone && !isCloneUpdateNewer(project.clone, clone)) return project
+          const nextProject: NavProject = {
+            ...project,
+            cloneStatus,
+            clone: clone ?? project.clone,
+          }
+          changed = true
+          return nextProject
+        }),
+      ])
+    )
+    if (changed) set({ projects: nextProjects })
   },
 
   selectProject: async (projectId: string) => {

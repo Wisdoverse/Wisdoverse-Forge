@@ -96,6 +96,7 @@ dependencies = [
  "tracing",
  "url",
  "uuid",
+ "zeroize",
 ]
 
 [[package]]
@@ -221,6 +222,7 @@ dependencies = [
  "sha2 0.10.9",
  "sqlx",
  "thiserror 2.0.18",
+ "tokio",
  "tracing",
  "uuid",
 ]
@@ -340,6 +342,8 @@ name = "agentforge-platform"
 version = "0.1.0"
 dependencies = [
  "agentforge-core",
+ "anyhow",
+ "async-trait",
  "bollard",
  "futures-util",
  "prost 0.13.5",
@@ -354,6 +358,7 @@ dependencies = [
  "tonic-build 0.12.3",
  "tracing",
  "uuid",
+ "zeroize",
 ]
 
 [[package]]

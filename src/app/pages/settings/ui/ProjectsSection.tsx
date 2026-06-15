@@ -5,7 +5,12 @@ import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useAuth } from '@app/shared/model/auth.context'
 import { ResourceMembersModal } from '@app/features/manage-members'
 import { CreateProjectForm, EditableProjectRow } from '@app/features/manage-project'
-import { projectApi, type NavProject, type UpdateProjectInput } from '@app/entities/project'
+import {
+  projectApi,
+  type CloneSummary,
+  type NavProject,
+  type UpdateProjectInput,
+} from '@app/entities/project'
 import { teamApi, type NavTeam } from '@app/entities/team'
 import { userApi } from '@app/entities/user'
 
@@ -74,19 +79,32 @@ export function ProjectsSection() {
     void loadData()
   }, [loadData])
 
-  async function handleCreate(name: string, teamId: string) {
+  async function handleCreate(name: string, teamId: string, repositoryUrl?: string) {
     setSaving(true)
     setError(null)
     try {
-      const project = await projectApi.createProject(teamId, { name })
+      const project = await projectApi.createProject(teamId, { name, repositoryUrl })
       const team = teams.find((t) => t.id === teamId)
       setProjectsWithTeam((prev) => [...prev, { project, teamName: team?.name ?? '' }])
       setShowForm(false)
     } catch (err) {
+      // Re-throw so CreateProjectForm surfaces the server's rejection (e.g. an
+      // invalid repository URL) as a banner instead of failing silently.
       setError(err instanceof Error ? err.message : 'Failed to create project')
+      throw err
     } finally {
       setSaving(false)
     }
+  }
+
+  function handleCloneRetried(projectId: string, summary: CloneSummary) {
+    setProjectsWithTeam((prev) =>
+      prev.map((item) =>
+        item.project.id === projectId
+          ? { ...item, project: { ...item.project, cloneStatus: 'queued', clone: summary } }
+          : item
+      )
+    )
   }
 
   async function handleUpdate(project: NavProject, input: UpdateProjectInput) {
@@ -203,6 +221,7 @@ export function ProjectsSection() {
               onUpdate={handleUpdate}
               onDelete={handleDelete}
               onManageMembers={setMembersProject}
+              onCloneRetried={handleCloneRetried}
             />
           ))
         )}

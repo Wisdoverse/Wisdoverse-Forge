@@ -63,7 +63,9 @@ pub use orchestration_metrics::{
     DEFAULT_CONTROL_PLANE_METRICS_INTERVAL, OrchestrationControlPlaneSnapshot, OrchestrationMetricsWorker,
     collect_control_plane_snapshot,
 };
-pub use orchestration_outbox_publisher::{OrchestrationOutboxPublisher, insert_assignment_outbox_in_tx};
+pub use orchestration_outbox_publisher::{
+    OrchestrationOutboxPublisher, insert_assignment_outbox_in_tx, relay_next_clone_outbox,
+};
 pub use orchestration_result_consumer::{
     HandleError as OrchestrationResultHandleError, HmacSecretLookup, ORCHESTRATION_RESULTS_DURABLE,
     ORCHESTRATION_RESULTS_STREAM, OrchestrationResultConsumerConfig, OrchestrationResultWorker, ParticipantLookup,

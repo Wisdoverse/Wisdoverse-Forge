@@ -91,6 +91,11 @@ data-encoding = "2.9"
 # and accidental serialisation is opt-in (explicit .expose_secret() at use sites).
 secrecy = { version = "0.10", features = ["serde"] }
 
+# Compiler-fenced memory scrub for credential byte buffers (the clone runtime's
+# `SecretBytes`). `derive` enables `#[derive(ZeroizeOnDrop)]`. 1.8 is already in
+# the tree transitively via `secrecy`, so this adds no new dependency.
+zeroize = { version = "1.8", features = ["zeroize_derive"] }
+
 # Random
 rand = "0.10"
 

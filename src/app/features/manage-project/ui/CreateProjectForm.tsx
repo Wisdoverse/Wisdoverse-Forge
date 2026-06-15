@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import type { NavTeam } from '@app/entities/team'
@@ -6,7 +6,7 @@ import { slugifyName } from '@app/shared/lib/slugify'
 
 interface CreateProjectFormProps {
   teams: NavTeam[]
-  onSave: (name: string, teamId: string) => Promise<void>
+  onSave: (name: string, teamId: string, repositoryUrl?: string) => Promise<void>
   onCancel: () => void
   saving: boolean
 }
@@ -14,17 +14,51 @@ interface CreateProjectFormProps {
 const PROJECT_SETUP_STEPS = [
   'Choose the team that owns the work.',
   'Name the project after the product, repo, or work area.',
-  'Open Project Members after creation if access differs from the team.',
+  'Optionally paste an HTTPS git URL to clone an existing repo into the project.',
 ]
+
+/**
+ * Validate the optional repository URL in the SUBMIT HANDLER (not via
+ * `register(..., { required })`, which this codebase's modals never render —
+ * the #594/#595 silent-dead-click bug class). Returns a user-facing error
+ * string, or `null` when the value is acceptable (including empty, since the
+ * field is optional). Mirrors the server's parse-time rules so the user gets a
+ * fast, local error before the round trip: HTTPS only, no embedded credentials.
+ */
+export function validateRepositoryUrl(raw: string): string | null {
+  const value = raw.trim()
+  if (!value) return null // optional — empty is valid
+
+  let parsed: URL
+  try {
+    parsed = new URL(value)
+  } catch {
+    return 'Enter a valid URL, e.g. https://github.com/org/repo.git'
+  }
+  if (parsed.protocol !== 'https:') {
+    return 'Use an https:// URL. SSH and other schemes are not supported here.'
+  }
+  // No credentials embedded in the URL (user[:pass]@host) — the server rejects
+  // these so a token never lands in a stored URL. `URL` also flags a bare `@`.
+  if (parsed.username || parsed.password || value.includes('@')) {
+    return 'Remove credentials from the URL. Connect a git account in Settings instead.'
+  }
+  return null
+}
 
 export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreateProjectFormProps) {
   const [name, setName] = useState('')
   const [teamId, setTeamId] = useState(teams[0]?.id ?? '')
+  const [repositoryUrl, setRepositoryUrl] = useState('')
   const [submitAttempted, setSubmitAttempted] = useState(false)
+  const [bannerError, setBannerError] = useState<string | null>(null)
+  const formRef = useRef<HTMLFormElement>(null)
   const nameInputId = 'create-project-name'
   const teamSelectId = 'create-project-team'
+  const repoInputId = 'create-project-repo'
   const statusId = 'create-project-status'
   const errorId = 'create-project-error'
+  const bannerId = 'create-project-banner'
   const trimmedName = name.trim()
   const hasTeams = teams.length > 0
   const missingTeam = !hasTeams || !teamId
@@ -36,6 +70,9 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
         : 'Enter a project name before creating it.'
       : null
   const errorField = visibleError === null ? null : missingTeam ? 'team' : 'name'
+  // Derive the read-only workspace path the same way the backend slugifies the
+  // name. The user never types a host path; this is a non-editable preview.
+  const workspacePath = trimmedName ? `/workspace/${slugifyName(name)}` : null
 
   useEffect(() => {
     if (!teamId && teams[0]) {
@@ -43,20 +80,49 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
     }
   }, [teamId, teams])
 
+  function focusTop() {
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setSubmitAttempted(true)
+    setBannerError(null)
+
     if (!isReady) {
       document.getElementById(missingTeam ? teamSelectId : nameInputId)?.focus()
       return
     }
-    await onSave(trimmedName, teamId)
+
+    // Validate the optional repo URL in the handler so an invalid value shows a
+    // banner + blocks submit (no silent dead-click), instead of relying on
+    // formState.errors the modal never renders.
+    const repoError = validateRepositoryUrl(repositoryUrl)
+    if (repoError) {
+      setBannerError(repoError)
+      focusTop()
+      document.getElementById(repoInputId)?.focus()
+      return
+    }
+
+    const trimmedRepo = repositoryUrl.trim()
+    try {
+      await onSave(trimmedName, teamId, trimmedRepo || undefined)
+    } catch (err) {
+      // Surface the server's rejection (e.g. invalid URL / embedded creds the
+      // local check did not catch) as a banner rather than failing silently.
+      setBannerError(
+        err instanceof Error ? err.message : 'Could not create the project. Try again.'
+      )
+      focusTop()
+    }
   }
 
   const inputClass = cn(uiStyles.input)
 
   return (
     <form
+      ref={formRef}
       onSubmit={handleSubmit}
       noValidate
       className={cn(
@@ -64,6 +130,12 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
         'bg-black/[0.015] dark:bg-white/[0.025]'
       )}
     >
+      {bannerError && (
+        <div id={bannerId} role="alert" className={uiStyles.error}>
+          {bannerError}
+        </div>
+      )}
+
       <div className="mb-4 border-l-2 border-apple-blue/40 pl-3">
         <p className="text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
           Project setup path
@@ -100,7 +172,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
           >
             Pick the name users will look for when assigning tasks.
           </p>
-          {name.trim() && (
+          {trimmedName && (
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
               Slug: {slugifyName(name)}
             </p>
@@ -136,6 +208,43 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
             </select>
           )}
         </div>
+      </div>
+
+      <div className="mb-3">
+        <label htmlFor={repoInputId} className={uiStyles.label}>
+          Git repository URL
+          <span className="ml-1 font-normal text-secondary-light dark:text-secondary-dark">
+            (optional)
+          </span>
+        </label>
+        <input
+          id={repoInputId}
+          type="url"
+          inputMode="url"
+          value={repositoryUrl}
+          onChange={(e) => {
+            setRepositoryUrl(e.target.value)
+            if (bannerError) setBannerError(null)
+          }}
+          placeholder="https://github.com/org/repo.git"
+          aria-describedby="project-repo-help"
+          className={inputClass}
+        />
+        <p
+          id="project-repo-help"
+          className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+        >
+          Optional — clone an existing repo into this project. HTTPS only, no credentials in the
+          URL.
+        </p>
+        {workspacePath && (
+          <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            Workspace path:{' '}
+            <span className="font-mono text-[11px] text-foreground-light dark:text-foreground-dark">
+              {workspacePath}
+            </span>
+          </p>
+        )}
       </div>
 
       {visibleError && errorField === 'name' && (

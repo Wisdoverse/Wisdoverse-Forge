@@ -233,6 +233,10 @@ mod tests {
             cli_image_prune_enabled: false,
             cli_image_claude_auto_build: false,
             cli_image_npm_registry: None,
+            project_clone_worker_enabled: false,
+            project_clone_image: None,
+            project_clone_secret_root: None,
+            project_clone_timeout_secs: 600,
         }
     }
 

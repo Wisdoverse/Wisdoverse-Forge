@@ -8,6 +8,11 @@ import {
   handleContextWsMessage,
   type ContextRealtimeMessage,
 } from '@app/features/context/model/contextRealtime'
+import {
+  CLONE_STATUS_WS_TYPE,
+  handleCloneStatusWsMessage,
+  type CloneStatusWsMessage,
+} from '@app/features/manage-project/model/cloneRealtime'
 
 interface WsMessage {
   type: string
@@ -138,6 +143,11 @@ export function dispatchWsMessage(msg: WsMessage) {
 
     case 'cli_image.updated': {
       handleCliImageUpdate(payloadRecord)
+      break
+    }
+
+    case CLONE_STATUS_WS_TYPE: {
+      handleCloneStatusWsMessage(msg as CloneStatusWsMessage)
       break
     }
 

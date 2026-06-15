@@ -147,25 +147,153 @@ impl<'a> OrganizationSlug<'a> {
     }
 }
 
-/// Project repository URL policy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct ProjectRepositoryUrl;
+/// Project repository URL policy (parse-don't-validate).
+///
+/// v1 clone only supports HTTPS token auth (GitHub/GitLab), so the URL must be
+/// `https://` with a non-empty host. The parsed, validated host is RETAINED on
+/// the value object so M6 can do credential-host-matching without re-parsing.
+///
+/// `parse` is best-effort defense-in-depth, NOT the primary SSRF control: the
+/// clone container's restricted egress network (design spec §10, M4) is the real
+/// control. What `parse` adds here:
+///   - https-only + length cap (rejects `http`/`git`/`ssh`/`file`/scheme-less).
+///   - No control chars / whitespace ANYWHERE in the URL — defeats CRLF / NUL /
+///     space injection into a future `git clone <url>` argv (H2).
+///   - REJECTS any embedded `userinfo@` in the authority (`https://user@host`,
+///     `https://user:token@host`). This is the CRITICAL credential-leak gate:
+///     the stored `repository_url` becomes the `CLONE_URL` the M5 worker passes
+///     verbatim to `git clone "$CLONE_URL"`, so any `user:token@` embedded in it
+///     would leak the token into git's argv, the container env (`docker
+///     inspect`), `/proc/<pid>/cmdline`, and git's stderr — bypassing the entire
+///     mount-based one-shot-helper credential design. Credentials must come ONLY
+///     from the mounted secret, never the URL.
+///   - A literal-IP / name deny-list for the host: loopback, link-local, cloud
+///     metadata (`169.254.*`), RFC1918 private ranges, and `.local` (H1, best
+///     effort — M4 egress filtering is the authoritative block).
+///   - Non-empty, whitespace-free host label after isolating the authority and
+///     stripping `:port` (rejects `https://:8080/r`) (H3).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ProjectRepositoryUrl {
+    host: String,
+}
 
 impl ProjectRepositoryUrl {
+    const HTTPS_PREFIX: &'static str = "https://";
+
     pub(crate) fn parse(value: &str) -> AppResult<Self> {
         if value.is_empty() {
             return Err(ErrorKind::Validation("repository URL must not be empty".into()).into());
         }
-        if !value.starts_with("https://") && !value.starts_with("http://") && !value.starts_with("git@") {
-            return Err(
-                ErrorKind::Validation("repository URL must start with https://, http://, or git@".into()).into()
-            );
-        }
         if value.len() > 2048 {
             return Err(ErrorKind::Validation("repository URL must be 2048 characters or less".into()).into());
         }
-        Ok(Self)
+        // Reject control chars and whitespace anywhere: a `\r`, `\n`, `\0`, or
+        // space smuggled into the URL could split a future `git clone <url>`
+        // command or inject a second argument (H2 — injection defense-in-depth).
+        if value.chars().any(|c| c.is_control() || c.is_whitespace()) {
+            return Err(ErrorKind::Validation(
+                "repository URL must not contain whitespace or control characters".into(),
+            )
+            .into());
+        }
+        let rest = value
+            .strip_prefix(Self::HTTPS_PREFIX)
+            .ok_or_else(|| AppError::from(ErrorKind::Validation("repository URL must start with https://".into())))?;
+        // The authority is everything up to the first '/', '?', or '#'.
+        let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+        // CRITICAL credential-leak gate: reject ANY embedded userinfo in the
+        // authority. A `user@` or `user:token@` here would be stored verbatim and
+        // handed to `git clone "$CLONE_URL"` by the M5 worker, leaking the token
+        // into argv / `docker inspect` env / `/proc/<pid>/cmdline` / git stderr.
+        // Credentials must come ONLY from the mounted secret, so no `@` is ever
+        // permitted in the authority (this also makes the host extraction below
+        // unambiguous — `host_port` is the whole authority, no userinfo to strip).
+        if authority.contains('@') {
+            return Err(ErrorKind::Validation(
+                "repository URL must not contain embedded credentials; configure credentials in the Credentials panel"
+                    .into(),
+            )
+            .into());
+        }
+        let host_port = authority;
+        // Split off an optional `:port` to isolate the bare host label. An IPv6
+        // literal `[::1]:443` keeps its brackets in `host`; that is fine for the
+        // deny-list match below, which checks for `[::1]`/`::1` explicitly.
+        let host = if host_port.starts_with('[') {
+            // IPv6 literal: host ends at the closing ']'.
+            match host_port.find(']') {
+                Some(end) => &host_port[..=end],
+                None => host_port, // malformed; let the empty/deny checks catch it
+            }
+        } else {
+            host_port.split(':').next().unwrap_or(host_port)
+        };
+        if host.is_empty() {
+            return Err(ErrorKind::Validation("repository URL must include a host".into()).into());
+        }
+        // Host label must not contain whitespace (already excluded globally, but
+        // assert at the host level as a forward guard).
+        if host.chars().any(|c| c.is_whitespace()) {
+            return Err(ErrorKind::Validation("repository URL host must not contain whitespace".into()).into());
+        }
+        if is_blocked_clone_host(host) {
+            return Err(ErrorKind::Validation(
+                "repository host is not allowed (private, loopback, or metadata address)".into(),
+            )
+            .into());
+        }
+        Ok(Self { host: host.to_string() })
     }
+
+    /// The validated host authority label (no userinfo, no port), as written in
+    /// the URL. M6 uses this for credential-host-matching (which must compare
+    /// case-insensitively). Wired in M6; retained now so the host is not
+    /// discarded and re-parsed later.
+    #[allow(dead_code)] // consumed by M6 credential-host-matching
+    pub(crate) fn host(&self) -> &str {
+        &self.host
+    }
+}
+
+/// Best-effort literal-IP / name deny-list for clone targets (SSRF
+/// defense-in-depth; M4 egress filtering is the authoritative control).
+///
+/// Blocks loopback, link-local + cloud metadata, RFC1918 private ranges, and the
+/// `.local` mDNS suffix. Comparison is case-insensitive. This does NOT resolve
+/// DNS (a hostname that resolves to a private IP is NOT caught here — that is M4's
+/// job at the network layer); it only stops the obvious literal-address shapes.
+fn is_blocked_clone_host(host: &str) -> bool {
+    let h = host.to_ascii_lowercase();
+    let h = h.as_str();
+
+    // Loopback (v4 + v6 literal forms, with or without brackets) and localhost.
+    if h == "localhost" || h == "::1" || h == "[::1]" || h.starts_with("127.") {
+        return true;
+    }
+    // Link-local + cloud metadata endpoint (AWS/GCP/Azure 169.254.169.254).
+    if h.starts_with("169.254.") || h.starts_with("fe80:") || h.starts_with("[fe80:") {
+        return true;
+    }
+    // RFC1918 private IPv4 ranges.
+    if h.starts_with("10.") || h.starts_with("192.168.") || is_172_private(h) {
+        return true;
+    }
+    // mDNS / local-network suffix.
+    if h.ends_with(".local") {
+        return true;
+    }
+    false
+}
+
+/// True for the RFC1918 `172.16.0.0/12` range (`172.16.` through `172.31.`).
+fn is_172_private(host: &str) -> bool {
+    let Some(rest) = host.strip_prefix("172.") else {
+        return false;
+    };
+    let Some(second) = rest.split('.').next() else {
+        return false;
+    };
+    matches!(second.parse::<u8>(), Ok(n) if (16..=31).contains(&n))
 }
 
 /// Group membership role.
@@ -267,6 +395,17 @@ impl ResourceRepositoryPolicy {
         ErrorKind::NotFound(format!("workspace {id}")).into()
     }
 
+    /// The create transaction could not allocate a unique `workspace_dir_name`
+    /// for the project after the bounded suffix retries (the workspace has an
+    /// extraordinary number of same-named projects). A `Conflict` so the client
+    /// is told to pick a different name rather than a 500.
+    pub(crate) fn workspace_dir_allocation_exhausted() -> AppError {
+        ErrorKind::Conflict(
+            "could not allocate a unique workspace directory for the project; choose a different name".into(),
+        )
+        .into()
+    }
+
     pub(crate) fn resource_profile_not_found(id: Uuid) -> AppError {
         ErrorKind::NotFound(format!("resource_profile {id}")).into()
     }
@@ -359,10 +498,16 @@ pub(crate) struct NavigationTeamUpdateDraft {
     pub(crate) description: Option<String>,
 }
 
+/// Validated legacy-navigation project-create input.
+///
+/// Note: a caller-supplied `slug` is intentionally NOT carried here. The on-disk
+/// identity (`workspace_dir_name`, mirrored to the `slug` column) is derived by
+/// the filesystem-safe policy inside the create transaction, so a raw caller
+/// slug can never become a directory name. Only the validated name + optional
+/// presentation fields survive.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct NavigationProjectCreateDraft {
     pub(crate) name: String,
-    pub(crate) slug: String,
     pub(crate) color: Option<String>,
     pub(crate) description: Option<String>,
 }
@@ -410,8 +555,11 @@ impl NavigationResourcePolicy {
         color: Option<String>,
         description: Option<String>,
     ) -> AppResult<NavigationProjectCreateDraft> {
+        // `slug` is still ACCEPTED for backward request compatibility but is
+        // discarded: `create_resource_draft` validates the name, and the on-disk
+        // identity is derived in the create transaction, not from a caller slug.
         let draft = create_resource_draft(name, slug, "project name is required")?;
-        Ok(NavigationProjectCreateDraft { name: draft.name, slug: draft.slug, color, description })
+        Ok(NavigationProjectCreateDraft { name: draft.name, color, description })
     }
 
     pub(crate) fn project_update_draft(
@@ -586,14 +734,101 @@ mod tests {
     }
 
     #[test]
-    fn project_repository_url_accepts_http_https_and_git_ssh() {
+    fn project_repository_url_requires_https_with_host() {
+        // Accepted: https with a real host (with or without a path), no userinfo.
         assert!(ProjectRepositoryUrl::parse("https://github.com/org/repo").is_ok());
-        assert!(ProjectRepositoryUrl::parse("http://gitlab.com/org/repo").is_ok());
-        assert!(ProjectRepositoryUrl::parse("git@github.com:org/repo.git").is_ok());
+        assert!(ProjectRepositoryUrl::parse("https://gitlab.com/org/repo.git").is_ok());
+        assert!(ProjectRepositoryUrl::parse("https://host/repo").is_ok());
+        // Accepted: an explicit port on a public host.
+        assert!(ProjectRepositoryUrl::parse("https://example.com:8443/org/repo").is_ok());
+
+        // Rejected: empty, non-https schemes, scheme-less, and hostless https.
         assert!(ProjectRepositoryUrl::parse("").is_err());
+        assert!(ProjectRepositoryUrl::parse("http://h/r").is_err());
+        assert!(ProjectRepositoryUrl::parse("git@github.com:org/repo.git").is_err());
+        assert!(ProjectRepositoryUrl::parse("ssh://git@host/repo").is_err());
+        assert!(ProjectRepositoryUrl::parse("file:///x").is_err());
         assert!(ProjectRepositoryUrl::parse("ftp://example.com/repo").is_err());
         assert!(ProjectRepositoryUrl::parse("not-a-url").is_err());
+        assert!(ProjectRepositoryUrl::parse("https://").is_err());
+        assert!(ProjectRepositoryUrl::parse("https:///repo").is_err());
+        // Length cap still applies (8-char prefix + 2048 host > 2048).
         assert!(ProjectRepositoryUrl::parse(&format!("https://{}", "a".repeat(2048))).is_err());
+    }
+
+    #[test]
+    fn project_repository_url_rejects_embedded_credentials() {
+        // CRITICAL: any embedded userinfo must be rejected so a token can never be
+        // stored in repository_url and leaked into a future `git clone "$CLONE_URL"`
+        // argv / env / /proc / stderr. A plain `user@host` (no password) is also
+        // rejected — credentials belong in the mounted secret, never the URL.
+        assert!(ProjectRepositoryUrl::parse("https://user@host/repo").is_err());
+        assert!(ProjectRepositoryUrl::parse("https://user:tok@github.com/o/r").is_err());
+        assert!(ProjectRepositoryUrl::parse("https://x-access-token:ghp_abc123@github.com/o/r.git").is_err());
+        assert!(ProjectRepositoryUrl::parse("https://oauth2:glpat-xyz@gitlab.com/o/r.git").is_err());
+        // The userinfo gate keys off `@` in the authority only — an `@` later in
+        // the path (after the first '/') is NOT userinfo and must NOT be rejected.
+        assert!(ProjectRepositoryUrl::parse("https://github.com/o/r@v1.0").is_ok());
+
+        // Regression: the plain, credential-free host still parses and the host is
+        // extracted correctly now that no userinfo-strip is involved.
+        assert_eq!(ProjectRepositoryUrl::parse("https://github.com/o/r").unwrap().host(), "github.com");
+    }
+
+    #[test]
+    fn project_repository_url_carries_parsed_host() {
+        // S5 / parse-don't-validate: the validated host is retained. (No userinfo
+        // form here — those are rejected; see rejects_embedded_credentials.)
+        assert_eq!(ProjectRepositoryUrl::parse("https://github.com/o/r").unwrap().host(), "github.com");
+        assert_eq!(ProjectRepositoryUrl::parse("https://gitlab.com/o/r").unwrap().host(), "gitlab.com");
+        assert_eq!(ProjectRepositoryUrl::parse("https://example.com:8443/o/r").unwrap().host(), "example.com");
+    }
+
+    #[test]
+    fn project_repository_url_rejects_injection_chars() {
+        // H2: whitespace / control chars anywhere would let a smuggled `\n`/space
+        // split a future `git clone <url>` invocation.
+        assert!(ProjectRepositoryUrl::parse("https://github.com/o/r\n--upload-pack=evil").is_err());
+        assert!(ProjectRepositoryUrl::parse("https://github.com/o/r evil").is_err());
+        assert!(ProjectRepositoryUrl::parse("https://github.com/o/r\t").is_err());
+        assert!(ProjectRepositoryUrl::parse("https://github.com/o/r\0").is_err());
+        assert!(ProjectRepositoryUrl::parse("https://git hub.com/o/r").is_err());
+    }
+
+    #[test]
+    fn project_repository_url_rejects_empty_or_port_only_authority() {
+        // H3: a port-only authority has no real host.
+        assert!(ProjectRepositoryUrl::parse("https://:8080/r").is_err());
+        // Any `@` in the authority is now rejected as embedded credentials BEFORE
+        // the empty-host check — so these all fail on the userinfo gate regardless
+        // of whether userinfo/host happen to be empty.
+        assert!(ProjectRepositoryUrl::parse("https://@host/r").is_err()); // empty userinfo still has `@`
+        assert!(ProjectRepositoryUrl::parse("https://user@/r").is_err()); // userinfo, empty host
+        assert!(ProjectRepositoryUrl::parse("https://@/r").is_err()); // both empty
+    }
+
+    #[test]
+    fn project_repository_url_blocks_ssrf_literal_hosts() {
+        // H1: loopback, link-local + metadata, RFC1918, and `.local` literals.
+        // Best-effort defense-in-depth (M4 egress is the real control).
+        let blocked = [
+            "https://localhost/r",
+            "https://127.0.0.1/r",
+            "https://127.1.2.3/r",
+            "https://[::1]/r",
+            "https://169.254.169.254/latest/meta-data/", // cloud metadata
+            "https://10.0.0.5/r",
+            "https://192.168.1.1/r",
+            "https://172.16.0.1/r",
+            "https://172.31.255.255/r",
+            "https://internal.local/r",
+        ];
+        for url in blocked {
+            assert!(ProjectRepositoryUrl::parse(url).is_err(), "{url} should be blocked");
+        }
+        // Public-looking 172.x addresses OUTSIDE 172.16-31 are not blocked here.
+        assert!(ProjectRepositoryUrl::parse("https://172.15.0.1/r").is_ok());
+        assert!(ProjectRepositoryUrl::parse("https://172.32.0.1/r").is_ok());
     }
 
     #[test]
@@ -783,7 +1018,8 @@ mod tests {
         .unwrap();
 
         assert_eq!(draft.name, "Forge");
-        assert_eq!(draft.slug, " custom-slug ");
+        // A caller-supplied slug is accepted by the request but intentionally
+        // discarded — the dir name is derived in the create transaction.
         assert_eq!(draft.color.as_deref(), Some(" #007AFF "));
         assert_eq!(draft.description.as_deref(), Some(" Control plane "));
     }

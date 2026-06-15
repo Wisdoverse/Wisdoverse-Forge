@@ -35,12 +35,12 @@ pub struct JobEntry {
 /// If `unique_key` is provided and a job with that key already exists, the insert
 /// is silently skipped (ON CONFLICT DO NOTHING). Returns `None` in that case.
 ///
-/// NOTE: The `unique_key` ON CONFLICT clause requires a partial unique index:
+/// NOTE: The `unique_key` ON CONFLICT clause requires a partial unique index,
+/// added in migration 068 (`idx_job_queue_unique_key`):
 /// ```sql
 /// CREATE UNIQUE INDEX idx_job_queue_unique_key
 ///     ON job_queue(unique_key) WHERE unique_key IS NOT NULL;
 /// ```
-/// This index should be added in a future migration.
 pub async fn enqueue(
     pool: &PgPool,
     queue: &str,

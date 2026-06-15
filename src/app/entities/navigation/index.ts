@@ -1,4 +1,4 @@
-export { useNavigationStore } from './model/navigation.store'
+export { useNavigationStore, type CloneStatusUpdate } from './model/navigation.store'
 export type { NavAgentGroup } from '@app/entities/agent-group'
 export type { NavOrg } from '@app/entities/organization'
 export type { NavProject } from '@app/entities/project'
