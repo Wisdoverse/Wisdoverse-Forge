@@ -51,6 +51,71 @@ const VISUALS: Record<Exclude<CloneStatus, 'none'>, Visual> = {
   },
 }
 
+const CLONE_RETRY_DEFAULT_ERROR =
+  'Could not start a new clone. Check the repository URL and saved code access, then try again.'
+
+function parseStatusCode(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 100 && value <= 599) {
+    return value
+  }
+
+  if (typeof value !== 'string') return null
+
+  const trimmed = value.trim()
+  if (/^\d{3}$/.test(trimmed)) {
+    const parsed = Number.parseInt(trimmed, 10)
+    return parsed >= 100 && parsed <= 599 ? parsed : null
+  }
+
+  const match = trimmed.match(/\b(?:api|http|status|code)\s*[:#]?\s*(\d{3})\b/i)
+  if (!match) return null
+
+  const parsed = Number.parseInt(match[1], 10)
+  return parsed >= 100 && parsed <= 599 ? parsed : null
+}
+
+function statusCodeFromError(error: unknown): number | null {
+  if (error && typeof error === 'object') {
+    const fields = error as Record<string, unknown>
+    for (const key of ['statusCode', 'status', 'code'] as const) {
+      const parsed = parseStatusCode(fields[key])
+      if (parsed) return parsed
+    }
+  }
+
+  return parseStatusCode(error instanceof Error ? error.message : error)
+}
+
+function cloneRetryErrorMessage(error: unknown): string {
+  const code = statusCodeFromError(error)
+  if (code === 401) return 'Sign in again, then retry this clone from the project row.'
+  if (code === 403) {
+    return 'You do not have permission to retry this clone. Ask an owner or admin to update project access.'
+  }
+  if (code === 404) {
+    return 'This project could not be found. Refresh Projects, then retry the clone from the current project row.'
+  }
+  if (code === 409) {
+    return 'A clone is already running for this project. Wait a moment, then check the clone status again.'
+  }
+  if (code === 422) {
+    return 'Check the repository URL and saved code access, then retry the clone.'
+  }
+  if (code === 429) {
+    return 'Too many clone retries are happening right now. Wait a minute, then retry this clone.'
+  }
+  if (code && code >= 500) {
+    return 'Forge could not retry this clone right now. Wait a few minutes, then retry. If it still fails, ask an owner or admin to check project clone setup.'
+  }
+
+  const message = error instanceof Error ? error.message : typeof error === 'string' ? error : ''
+  if (/failed to fetch|network|load failed/i.test(message)) {
+    return 'Check your connection, then retry this clone.'
+  }
+
+  return CLONE_RETRY_DEFAULT_ERROR
+}
+
 /** Show the badge only for projects with an actual clone lifecycle. */
 function visualFor(status: CloneStatus | undefined): Visual | null {
   if (!status || status === 'none') return null
@@ -137,7 +202,7 @@ export function CloneStatusBadge({
       const summary = await projectApi.retryClone(projectId)
       onRetried?.(summary)
     } catch (err) {
-      setRetryError(err instanceof Error ? err.message : 'Could not start a new clone. Try again.')
+      setRetryError(cloneRetryErrorMessage(err))
     } finally {
       setRetrying(false)
     }

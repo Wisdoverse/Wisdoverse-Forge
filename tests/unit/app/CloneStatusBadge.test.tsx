@@ -124,9 +124,9 @@ describe('CloneStatusBadge', () => {
     expect(retryButton).toHaveTextContent('Retrying…')
   })
 
-  it('surfaces a retry failure (e.g. a 403) as an inline message', async () => {
+  it('surfaces a retry permission failure as a beginner-safe inline message', async () => {
     vi.spyOn(projectApi, 'retryClone').mockRejectedValue(
-      new Error('Only the owner or a manager can retry this clone')
+      new Error('API 403: Only the owner or a manager can retry this clone')
     )
 
     render(
@@ -140,11 +140,36 @@ describe('CloneStatusBadge', () => {
 
     fireEvent.click(screen.getByTestId('clone-retry-p1'))
 
-    await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent(
-        'Only the owner or a manager can retry this clone'
-      )
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent('Ask an owner or admin to update project access')
+      expect(alert).not.toHaveTextContent('API 403')
+      expect(alert).not.toHaveTextContent('Only the owner or a manager')
+    })
+  })
+
+  it('does not show raw server details when retrying clone fails', async () => {
+    vi.spyOn(projectApi, 'retryClone').mockRejectedValue(
+      new Error('API 500: database unavailable while updating clone attempt')
     )
+
+    render(
+      <CloneStatusBadge
+        projectId="p1"
+        status="failed"
+        variant="detail"
+        clone={summary({ status: 'failed', errorMessage: 'boom' })}
+      />
+    )
+
+    fireEvent.click(screen.getByTestId('clone-retry-p1'))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent('Forge could not retry this clone right now')
+      expect(alert).not.toHaveTextContent('API 500')
+      expect(alert).not.toHaveTextContent('database unavailable')
+    })
   })
 
   it('renders an icon-only indicator in the compact variant', () => {
