@@ -252,11 +252,19 @@ const TITLE_STYLE_GUIDANCE_PATTERNS = [
 ]
 
 const CLI_IMAGE_STATUS_DEAD_END_PATTERNS = [
+  /\bCheck failed\b/i,
+  /\bTool for new agents:/i,
+  /\bLatest tool found:/i,
   /\bNo result yet\b/i,
   /\bNot downloaded yet\b/i,
   /\bNot checked yet\b/i,
   /\bNot checked — updates off\b/i,
   /\bVersion not reported yet\b/i,
+]
+
+const CLI_IMAGE_ACTION_FAILURE_FIRST_PATTERNS = [
+  /\bThe build could not be started\b/i,
+  /\bThe restart could not be started\b/i,
 ]
 
 const SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS = [/\bNot checked(?: yet)?\b/i]
@@ -1174,6 +1182,12 @@ function hasCliImageStatusDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/admin/CliImagesPanel.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return CLI_IMAGE_STATUS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasCliImageActionFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/admin/CliImagesPanel.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CLI_IMAGE_ACTION_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasSystemHealthStatusDeadEndCopy(relFile, line) {
@@ -2122,6 +2136,15 @@ function scanFile(file, relFile) {
         type: 'cli-image-status-copy',
         location,
         message: 'Agent tool update status copy must tell beginners to choose Check now.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCliImageActionFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'cli-image-action-copy',
+        location,
+        message: 'Agent tool update action errors must start with the next step.',
         sample: line.trim(),
       })
     }

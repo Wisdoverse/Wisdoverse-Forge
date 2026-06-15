@@ -2377,6 +2377,48 @@ function ToolRow() {
     ])
   })
 
+  it('flags agent tool update status copy that only says a check failed', () => {
+    const cwd = fixture({
+      'src/app/features/admin/CliImagesPanel.tsx': `
+function ToolRow() {
+  return <p>Check failed</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'cli-image-status-copy',
+        location: 'src/app/features/admin/CliImagesPanel.tsx:3',
+      }),
+    ])
+  })
+
+  it('flags agent tool action errors that start with the failure', () => {
+    const cwd = fixture({
+      'src/app/features/admin/CliImagesPanel.tsx': `
+function ToolUpdateError() {
+  return <p>The restart could not be started.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'cli-image-action-copy',
+          location: 'src/app/features/admin/CliImagesPanel.tsx:3',
+        }),
+      ])
+    )
+  })
+
   it('flags agent tool version copy that leaves beginners waiting', () => {
     const cwd = fixture({
       'src/app/features/admin/CliImagesPanel.tsx': `
@@ -2401,7 +2443,7 @@ function ToolRow() {
     const cwd = fixture({
       'src/app/features/admin/CliImagesPanel.tsx': `
 function ToolRow() {
-  return <p>Latest tool found: Check now to find latest package</p>
+  return <p>Latest check: Choose Check now to check for updates</p>
 }
 `,
     })

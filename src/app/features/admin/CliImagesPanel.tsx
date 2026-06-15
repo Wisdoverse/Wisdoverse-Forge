@@ -27,7 +27,7 @@ function stateLabel(state: CliImageToolState): string {
     case 'updated':
       return 'Just updated'
     case 'failed':
-      return 'Check failed'
+      return 'Check needs attention'
     case 'pending':
       return 'Run first check'
   }
@@ -47,11 +47,16 @@ function stateDot(state: CliImageToolState): string {
   return 'bg-gray-400'
 }
 
-/** `sha256:abcdef…` -> `abcdef…` truncated for support-friendly display. */
-function packageMarker(digest: string | null, fallback: string): string {
-  if (!digest) return fallback
-  const bare = digest.includes(':') ? (digest.split(':').pop() ?? digest) : digest
-  return bare.length > 12 ? `${bare.slice(0, 12)}…` : bare
+function currentToolStatus(tool: CliImageTool): string {
+  if (!tool.localDigest) return 'Choose Check now to prepare the first tool'
+  return 'Ready for new agents'
+}
+
+function latestToolStatus(tool: CliImageTool): string {
+  if (!tool.remoteDigest) return 'Choose Check now to check for updates'
+  if (tool.state === 'update_available') return 'Update ready for new agents'
+  if (tool.state === 'failed') return 'Current tool kept until a check succeeds'
+  return 'No update needed'
 }
 
 function versionMarker(version: string | null): string {
@@ -344,16 +349,8 @@ function ToolRow({
             </div>
           ) : (
             <div className="mt-1 grid gap-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              {/* The locally-pulled image the NEXT agent will start from — not
-                  necessarily what already-running agents booted from. */}
-              <span>
-                Tool for new agents:{' '}
-                {packageMarker(tool.localDigest, 'Check now to download first package')}
-              </span>
-              <span>
-                Latest tool found:{' '}
-                {packageMarker(tool.remoteDigest, 'Check now to find latest package')}
-              </span>
+              <span>New agents use: {currentToolStatus(tool)}</span>
+              <span>Latest check: {latestToolStatus(tool)}</span>
               <span>last checked {relativeTime(tool.lastCheckedUnix)}</span>
             </div>
           )}
@@ -370,8 +367,8 @@ function ToolRow({
           {tool.state === 'failed' && tool.lastError && (
             <div className="mt-2 rounded-card border border-apple-red/20 bg-apple-red/[0.04] px-3 py-2">
               <p className="text-ui-caption text-foreground-light dark:text-foreground-dark">
-                Last check failed. New agents keep the current tool package until the next check
-                succeeds.
+                Last check needs attention. New agents keep the current tool package until the next
+                check succeeds.
               </p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 What to do: {cliImageIssueNote(tool.lastError, 'check')}
@@ -495,9 +492,9 @@ export function CliImagesPanel() {
         <div>
           <h2 className={uiStyles.sectionTitle}>Agent tool updates</h2>
           <p className={uiStyles.sectionDescription}>
-            Shows whether each agent tool package is up to date. New agents use the latest checked
-            package. This page checks when opened, then about every {refreshLabel} while visible.
-            Checks pause when this browser tab is hidden.
+            Shows whether each agent tool is ready for new agents. New agents use the latest
+            successful check. This page checks when opened, then about every {refreshLabel} while
+            visible. Checks pause when this browser tab is hidden.
           </p>
         </div>
         <button
@@ -565,8 +562,7 @@ export function CliImagesPanel() {
 
           {cliImageBuildError && (
             <div role="alert" aria-live="polite" className={cn(uiStyles.error, 'mt-4')}>
-              The build could not be started. Nothing was changed — try again once the cause below
-              is fixed.
+              Check the note below, then choose Build again. Nothing was changed.
               <span className="mt-1 block text-ui-caption">
                 {cliImageIssueNote(cliImageBuildError, 'check')}
               </span>
@@ -597,8 +593,7 @@ function RollResultBlock({
   if (error) {
     return (
       <div role="alert" aria-live="polite" className={cn(uiStyles.error, 'mt-4')}>
-        The restart could not be started.
-        <span className="mt-1 block text-ui-caption">Check the note below, then try again.</span>
+        Check the note below, then restart affected agents again.
         <span className="mt-1 block text-ui-caption">{cliImageIssueNote(error, 'restart')}</span>
       </div>
     )
