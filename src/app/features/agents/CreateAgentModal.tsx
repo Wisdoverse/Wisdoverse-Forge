@@ -607,7 +607,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
               <div>
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                    Setup command
+                    Setup text
                   </span>
                   <div role="group" aria-label="Computer type" className="flex gap-1">
                     {(
@@ -639,7 +639,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 {selectedJoinCommandReady ? (
                   <textarea
                     id="local-agent-join-command"
-                    aria-label="Setup command"
+                    aria-label="Setup text"
                     readOnly
                     value={selectedJoinCommand}
                     rows={3}
@@ -718,7 +718,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                   htmlFor="local-agent-command"
                   className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                 >
-                  Setup command
+                  Setup text
                 </label>
                 <textarea
                   id="local-agent-command"

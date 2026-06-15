@@ -476,7 +476,7 @@ function getMessageAvailability(
     return {
       canSend: false,
       detail:
-        'This computer is not connected. Run the setup command there and wait for Ready before sending an instruction.',
+        'This computer is not connected. Paste the setup text there and wait for Ready before sending an instruction.',
     }
   }
 
@@ -504,7 +504,7 @@ function hostCliControlSummary(status: AgentInfo['status']): {
     return {
       title: 'This computer is offline',
       detail:
-        'Run the setup command on that computer again. Leave Terminal or PowerShell open after it connects.',
+        'Paste the setup text on that computer again. Leave Terminal or PowerShell open after it connects.',
       Icon: AlertTriangle,
     }
   }
@@ -512,7 +512,7 @@ function hostCliControlSummary(status: AgentInfo['status']): {
   return {
     title: 'This computer is connected',
     detail:
-      'The setup command is already connected. Leave Terminal or PowerShell open while it works; close that window only when you want it offline.',
+      'This computer is already connected. Leave Terminal or PowerShell open while it works; close that window only when you want it offline.',
     Icon: CheckCircle2,
   }
 }
@@ -520,9 +520,9 @@ function hostCliControlSummary(status: AgentInfo['status']): {
 function hostCliReadyActionInfo(status: AgentInfo['status']): { title: string; detail: string } {
   if (status === 'offline') {
     return {
-      title: 'Run setup command to reconnect',
+      title: 'Paste setup text to reconnect',
       detail:
-        'Open Terminal or PowerShell on that computer, run the setup command from its work folder, then come back here to send messages or tasks.',
+        'Open Terminal or PowerShell in its work folder, paste the setup text again, then come back here to send messages or tasks.',
     }
   }
 

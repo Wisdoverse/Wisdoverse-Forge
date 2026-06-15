@@ -236,8 +236,9 @@ describe('AgentControlPanel', () => {
     render(<AgentControlPanel agent={hostCliAgent} onDeleted={() => {}} />)
 
     expect(screen.getByText('This computer is connected')).toBeDefined()
-    expect(screen.getByText(/setup command is already connected/i)).toBeDefined()
+    expect(screen.getByText(/this computer is already connected/i)).toBeDefined()
     expect(screen.getByText(/close that window only when you want it offline/i)).toBeDefined()
+    expect(screen.queryByText(/setup command/i)).toBeNull()
     expect(screen.queryByText(/connection command/i)).toBeNull()
     expect(screen.queryByText(/bring it online/i)).toBeNull()
     expect(screen.getByText('Keep this computer online')).toBeDefined()
@@ -255,11 +256,12 @@ describe('AgentControlPanel', () => {
     render(<AgentControlPanel agent={offlineHostCliAgent} onDeleted={() => {}} />)
 
     expect(screen.getByText('This computer is offline')).toBeDefined()
-    expect(screen.getByText(/run the setup command on that computer again/i)).toBeDefined()
-    expect(screen.getByText('Run setup command to reconnect')).toBeDefined()
+    expect(screen.getByText(/paste the setup text on that computer again/i)).toBeDefined()
+    expect(screen.getByText('Paste setup text to reconnect')).toBeDefined()
     expect(
-      screen.getByText(/run the setup command from its work folder, then come back here/i)
+      screen.getByText(/paste the setup text again, then come back here/i)
     ).toBeDefined()
+    expect(screen.queryByText(/setup command/i)).toBeNull()
     expect(screen.queryByText(/already connected/i)).toBeNull()
     expect(screen.queryByRole('button', { name: /start agent/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /restart agent/i })).toBeNull()

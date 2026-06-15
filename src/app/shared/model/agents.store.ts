@@ -161,7 +161,7 @@ const AGENT_CREATE_ERROR = 'Agent was not created. Check the agent details, then
 const AGENT_CREATED_START_ERROR =
   'Agent was created, but its workspace was not started. Ask an owner or admin to check Where agents run, then start this agent from the card.'
 const THIS_COMPUTER_SETUP_ERROR =
-  'This computer setup command could not be prepared. Check the agent name and work tool, then choose Create Agent again.'
+  'This computer setup text could not be prepared. Check the agent name and work tool, then choose Create Agent again.'
 const AGENT_INSTRUCTIONS_ERROR =
   'Agent instructions were not saved. Review the instructions, then try again.'
 const AGENT_DELETE_ERROR = 'Agent was not removed. Refresh Agents, then try again.'

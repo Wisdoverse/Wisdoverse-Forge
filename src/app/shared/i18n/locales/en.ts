@@ -544,7 +544,7 @@ export const en = {
       lifecycle: {
         restart_host_cli: {
           title: 'Restart the connection helper on your computer',
-          detail: 'Forge cannot restart it for you. Run the setup command on that computer again.',
+          detail: 'Forge cannot restart it for you. Paste the setup text on that computer again.',
         },
         restart_api: {
           title: 'Send the message again instead of restarting',
@@ -553,7 +553,7 @@ export const en = {
         },
         start_host_cli: {
           title: 'Start the connection helper on your computer',
-          detail: 'Run the setup command on that computer again to bring the agent online.',
+          detail: 'Paste the setup text on that computer again to bring the agent online.',
         },
         start_api: {
           title: 'Send a message to start this chat-only agent',
@@ -593,9 +593,9 @@ export const en = {
       },
       enroll: {
         missing_idempotency_key: {
-          title: 'Setup command needs to be run again',
+          title: 'Setup text needs to be pasted again',
           detail:
-            'Run the setup command on this computer again. If this repeats, ask an owner to check Where agents run for this computer.',
+            'Paste the setup text on this computer again. If this repeats, ask an owner to check Where agents run for this computer.',
         },
         plaintext_nats_blocked: {
           title: 'Secure connection required for this computer',

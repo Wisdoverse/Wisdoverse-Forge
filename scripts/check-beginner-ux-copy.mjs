@@ -787,6 +787,7 @@ const BEGINNER_JARGON_PATTERNS = [
 ]
 
 const THIS_COMPUTER_SETUP_JARGON_PATTERNS = [
+  /\bsetup command\b/i,
   /\byour team asks you to run a command\b/i,
   /\bCopy this setup command\b/,
   /\bCopy setup command\b/,
@@ -940,7 +941,12 @@ function hasBeginnerJargon(line) {
 function hasThisComputerSetupJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/agents/AgentListView.tsx') &&
-    !relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx')
+    !relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentControlPanel.tsx') &&
+    !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx') &&
+    !relFile.endsWith('src/app/entities/agent/model/agents.store.ts') &&
+    !relFile.endsWith('src/app/shared/model/agents.store.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts')
   ) {
     return false
   }

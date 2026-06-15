@@ -164,7 +164,8 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('Connected from this computer')).toBeDefined()
     expect(screen.queryByText('host-aabbccdd')).toBeNull()
     expect(screen.getByText(/this computer does the work/i)).toBeDefined()
-    expect(screen.getByText(/folder where you ran the setup command/i)).toBeDefined()
+    expect(screen.getByText(/folder where you pasted the setup text/i)).toBeDefined()
+    expect(screen.queryByText(/setup command/i)).toBeNull()
     expect(screen.queryByText(/connection command/i)).toBeNull()
     expect(screen.queryByRole('button', { name: /start agent/i })).toBeNull()
   })
@@ -362,10 +363,14 @@ describe('AgentDetailView', () => {
   test('guides offline agents joined from this computer back to the local connection', () => {
     render(<AgentDetailView agent={{ ...hostCliAgent, status: 'offline' }} onBack={() => {}} />)
 
-    expect(screen.getByText('Run the setup command on this computer again')).toBeDefined()
-    expect(screen.getAllByText('Run setup again on this computer').length).toBeGreaterThan(0)
+    expect(screen.getByText('Paste setup text on this computer again')).toBeDefined()
+    expect(screen.getAllByText('Paste setup text again on this computer').length).toBeGreaterThan(
+      0
+    )
     expect(screen.getByText(/open Terminal or PowerShell in the project folder/i)).toBeDefined()
+    expect(screen.getAllByText(/paste the setup text again/i).length).toBeGreaterThan(0)
     expect(screen.getByText(/keep that window open/i)).toBeDefined()
+    expect(screen.queryByText(/setup command/i)).toBeNull()
     expect(screen.queryByText('Connected from this computer')).toBeNull()
     expect(screen.queryByText('Unavailable until restarted or reconnected')).toBeNull()
     expect(screen.queryByRole('button', { name: /open terminal/i })).toBeNull()

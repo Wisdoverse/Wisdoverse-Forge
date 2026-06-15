@@ -385,7 +385,7 @@ describe('CreateAgentModal', () => {
     ).toBeNull()
   })
 
-  test('enrolls an agent on this computer and shows the setup command', async () => {
+  test('enrolls an agent on this computer and shows the setup text', async () => {
     const enrollLocalAgent = vi.fn().mockResolvedValue({
       ok: true,
       agent: {
@@ -427,9 +427,10 @@ describe('CreateAgentModal', () => {
       cliTool: 'codex',
       cwd: '/Users/me/project',
     })
-    expect(await screen.findByLabelText(/setup command/i)).toHaveValue(
+    expect(await screen.findByLabelText(/setup text/i)).toHaveValue(
       "export AGENT_ID='a-local'\nagentforge-sidecar"
     )
+    expect(screen.queryByLabelText(/setup command/i)).toBeNull()
     expect(screen.getByText('Connect this computer')).toBeInTheDocument()
     expect(screen.getByText(/agent managed by forge/i)).toBeInTheDocument()
     expect(screen.getByText(/Keep that window open so Forge can manage this agent/i)).toBeInTheDocument()
@@ -481,8 +482,8 @@ describe('CreateAgentModal', () => {
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Laptop Worker' } })
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
-    // The setup command leads; the pasted command tracks the OS toggle.
-    const oneLiner = await screen.findByLabelText(/setup command/i)
+    // The setup text leads; the pasted text tracks the OS toggle.
+    const oneLiner = await screen.findByLabelText(/setup text/i)
     expect(oneLiner).toHaveValue(joinCommand)
     expect(screen.getByText(/lets forge assign tasks to this agent/i)).toBeInTheDocument()
     expect(screen.getByTestId('local-agent-paste-hint')).toHaveTextContent(
@@ -552,7 +553,7 @@ describe('CreateAgentModal', () => {
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Laptop Worker' } })
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
-    expect(await screen.findByLabelText(/setup command/i)).toHaveValue(joinCommand)
+    expect(await screen.findByLabelText(/setup text/i)).toHaveValue(joinCommand)
     fireEvent.click(screen.getByRole('button', { name: /windows/i }))
 
     expect(screen.queryByLabelText(/setup command/i)).toBeNull()

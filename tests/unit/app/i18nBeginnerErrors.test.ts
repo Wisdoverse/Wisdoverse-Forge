@@ -323,9 +323,11 @@ describe('beginner error translations', () => {
     const chineseJoin = zh.errors.agent.enroll.missing_idempotency_key
     const chineseSecure = zh.errors.agent.enroll.plaintext_nats_blocked
 
-    expect(englishJoin.title).toContain('Setup command needs to be run again')
-    expect(englishJoin.detail).toContain('Run the setup command on this computer again')
+    expect(englishJoin.title).toContain('Setup text needs to be pasted again')
+    expect(englishJoin.detail).toContain('Paste the setup text on this computer again')
     expect(englishJoin.detail).toContain('Where agents run')
+    expect(englishJoin.title).not.toContain('Setup command')
+    expect(englishJoin.detail).not.toContain('setup command')
     expect(englishJoin.title).not.toContain('Idempotency-Key')
     expect(englishJoin.detail).not.toContain('UUID')
     expect(englishJoin.detail).not.toContain('local agent')

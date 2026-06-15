@@ -188,7 +188,7 @@ function isAgentServiceUnavailable(detail: string | null): boolean {
 
 function agentConnectionMessage(actionPhrase: string, action: AgentErrorAction): string {
   if (action === 'enrollLocal') {
-    return 'Forge could not prepare the setup command for this computer. Check your connection, then choose Create Agent again.'
+    return 'Forge could not prepare the setup text for this computer. Check your connection, then choose Create Agent again.'
   }
   if (action === 'load') {
     return 'Check your connection, then refresh Agents to load agents.'
@@ -285,7 +285,7 @@ function agentConflictMessage(action: AgentErrorAction, detail: string | null): 
 
 function agentServerMessage(action: AgentErrorAction): string {
   if (action === 'enrollLocal') {
-    return 'Forge could not prepare the setup command for this computer right now. Wait a moment, then choose Create Agent again. If it still fails, ask an owner or admin to check Where agents run.'
+    return 'Forge could not prepare the setup text for this computer right now. Wait a moment, then choose Create Agent again. If it still fails, ask an owner or admin to check Where agents run.'
   }
   if (action === 'load') {
     return 'Refresh Agents to load agents. If it still fails, ask an owner or admin to check Where agents run.'

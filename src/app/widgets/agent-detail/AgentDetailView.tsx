@@ -77,7 +77,7 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
       {hostCli ? (
         <p>
           This computer does the work. Forge sends tasks and saves task history here; files stay in
-          the folder where you ran the setup command.
+          the folder where you pasted the setup text.
         </p>
       ) : agent.cliTool ? (
         <p>
@@ -100,7 +100,7 @@ function agentFolderLabel(agent: AgentInfo): string {
   if (!agent.cliTool) return 'No file access needed'
   if (!agent.cwd || agent.cwd === '/workspace') {
     return isHostCliAgent(agent)
-      ? 'Folder where you ran the setup command'
+      ? 'Folder where you pasted the setup text'
       : 'Workspace project folder'
   }
   return agent.cwd
@@ -119,11 +119,11 @@ export function agentDetailHeaderSubtitle(agent: AgentInfo): string {
 function agentConnectionStatus(agent: AgentInfo): string {
   if (isHostCliAgent(agent)) {
     if (agent.status === 'offline') {
-      return 'Run setup again on this computer'
+      return 'Paste setup text again on this computer'
     }
     return agent.runtimeId
       ? 'Connected from this computer'
-      : 'Run the setup command on this computer again'
+      : 'Paste setup text on this computer again'
   }
   if (agent.cliTool) return agent.containerId ? 'Ready in managed workspace' : 'Waiting to start'
   return 'Uses AI service connection'
@@ -132,7 +132,7 @@ function agentConnectionStatus(agent: AgentInfo): string {
 function agentAvailabilityLabel(agent: AgentInfo): string {
   if (agent.status === 'idle') return 'Can be assigned now'
   if (agent.status === 'working') return 'Already working'
-  if (isHostCliAgent(agent)) return 'Run setup again on this computer'
+  if (isHostCliAgent(agent)) return 'Paste setup text again on this computer'
   if (agent.cliTool) return 'Open Live work and start workspace'
   return 'Open Settings and check AI service'
 }
@@ -348,9 +348,9 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
   if (agent.status === 'offline') {
     if (hostCli) {
       return {
-        title: 'Run the setup command on this computer again',
+        title: 'Paste setup text on this computer again',
         detail:
-          'Go to the computer where this agent was connected. Open Terminal or PowerShell in the project folder, run the setup command again, and keep that window open.',
+          'Go to the computer where this agent was connected. Open Terminal or PowerShell in the project folder, paste the setup text again, and keep that window open.',
         success: 'The status changes from Not connected to Ready or Working now.',
         ready: false,
       }

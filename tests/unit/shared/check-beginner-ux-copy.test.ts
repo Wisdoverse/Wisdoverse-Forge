@@ -3895,6 +3895,94 @@ export function CreateAgentModal() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags this-computer setup command wording in agent status and error copy', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentControlPanel.tsx': `
+export function AgentControlPanel() {
+  return <p>Run the setup command on that computer again.</p>
+}
+`,
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+export function AgentDetailView() {
+  return <p>Folder where you ran the setup command</p>
+}
+`,
+      'src/app/entities/agent/model/agents.store.ts': `
+export function agentError() {
+  return 'Forge could not prepare the setup command for this computer.'
+}
+`,
+      'src/app/shared/model/agents.store.ts': `
+export const THIS_COMPUTER_SETUP_ERROR =
+  'This computer setup command could not be prepared.'
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  detail: 'Setup command needs to be run again',
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'this-computer-setup-copy',
+          location: 'src/app/features/agents/AgentControlPanel.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'this-computer-setup-copy',
+          location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'this-computer-setup-copy',
+          location: 'src/app/entities/agent/model/agents.store.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'this-computer-setup-copy',
+          location: 'src/app/shared/model/agents.store.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'this-computer-setup-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts this-computer setup text wording in agent status and error copy', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentControlPanel.tsx': `
+export function AgentControlPanel() {
+  return <p>Paste the setup text on that computer again.</p>
+}
+`,
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+export function AgentDetailView() {
+  return <p>Folder where you pasted the setup text</p>
+}
+`,
+      'src/app/entities/agent/model/agents.store.ts': `
+export function agentError() {
+  return 'Forge could not prepare the setup text for this computer. Check your connection, then choose Create Agent again.'
+}
+`,
+      'src/app/shared/model/agents.store.ts': `
+export const THIS_COMPUTER_SETUP_ERROR =
+  'This computer setup text could not be prepared. Check the agent name and work tool, then choose Create Agent again.'
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  detail: 'Setup text needs to be pasted again',
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags raw CLI tool id lists in user-visible copy', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `

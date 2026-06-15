@@ -320,7 +320,7 @@ export function createAgentAPI(
         })
         return await response.json()
       } catch (e) {
-        console.error('Error preparing this computer setup command:', e)
+        console.error('Error preparing this computer setup text:', e)
         return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
