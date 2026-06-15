@@ -277,6 +277,70 @@ export function providerReadinessSummary() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags AI service connection check errors that start with the failure', () => {
+    const cwd = fixture({
+      'src/app/features/settings/providerTestErrorMessage.ts': `
+function providerTestErrorMessage() {
+  return 'OpenAI Production connection check needs attention. Forge could not check this AI service right now. Try again in a few minutes.'
+}
+function networkErrorMessage() {
+  return 'Local Lab connection check needs attention. Forge could not connect to this AI service. Check the service address and your connection, then check again.'
+}
+function rateLimitMessage() {
+  return 'OpenAI Production connection check needs attention. This AI service is receiving too many checks right now. Wait a minute, then check again.'
+}
+function unknownMessage() {
+  return 'AI service connection check needs attention. Review the AI service settings, then check again.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'provider-test-error-copy',
+          location: 'src/app/features/settings/providerTestErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'provider-test-error-copy',
+          location: 'src/app/features/settings/providerTestErrorMessage.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'provider-test-error-copy',
+          location: 'src/app/features/settings/providerTestErrorMessage.ts:9',
+        }),
+        expect.objectContaining({
+          type: 'provider-test-error-copy',
+          location: 'src/app/features/settings/providerTestErrorMessage.ts:12',
+        }),
+      ])
+    )
+  })
+
+  it('accepts AI service connection check errors that start with the next step', () => {
+    const cwd = fixture({
+      'src/app/features/settings/providerTestErrorMessage.ts': `
+function providerTestErrorMessage() {
+  return 'Try checking OpenAI Production again in a few minutes. If it still needs attention, ask an owner or admin to check AI service settings.'
+}
+function networkErrorMessage() {
+  return 'Check the service address and your connection, then check Local Lab again. Forge could not connect to this AI service.'
+}
+function rateLimitMessage() {
+  return 'Wait a minute, then check OpenAI Production again. This AI service is receiving too many checks right now.'
+}
+function unknownMessage() {
+  return 'Review the AI service settings, then check this AI service again.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags user management empty states that do not point to inviting people', () => {
     const cwd = fixture({
       'src/app/features/admin/UserManagement.tsx': `

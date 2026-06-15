@@ -13,14 +13,14 @@ describe('providerTestErrorMessage', () => {
   test('turns invalid key details into setup guidance', () => {
     expectBeginnerMessage(
       providerTestErrorMessage('Invalid key', 'Anthropic Review'),
-      'Anthropic Review connection check needs attention. Check the service access key, model, and service address, then save and check again.'
+      'Check the service access key, model, and service address for Anthropic Review, then save and check again.'
     )
   })
 
   test('turns permission failures into access key and model guidance', () => {
     expectBeginnerMessage(
       providerTestErrorMessage(new Error('HTTP 403: Forbidden'), 'OpenAI Production'),
-      'OpenAI Production connection check needs attention. Confirm the saved service access key is active and allowed to use the selected model, then save and check again.'
+      'Confirm the saved service access key can use the selected model for OpenAI Production, then save and check again.'
     )
   })
 
@@ -29,7 +29,7 @@ describe('providerTestErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Local Lab connection check needs attention. Forge could not connect to this AI service. Check the service address and your connection, then check again.'
+      'Check the service address and your connection, then check Local Lab again. Forge could not connect to this AI service.'
     )
     expect(message).not.toContain('network access')
     expect(message).not.toContain('Failed to fetch')
@@ -40,7 +40,7 @@ describe('providerTestErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'OpenAI Production connection check needs attention. Forge could not check this AI service right now. Try again in a few minutes. If it still needs attention, ask an owner or admin to check AI service settings.'
+      'Try checking OpenAI Production again in a few minutes. If it still needs attention, ask an owner or admin to check AI service settings. Forge could not check this AI service right now.'
     )
     expect(message).not.toContain('gateway')
     expect(message).not.toContain('temporarily unavailable')
@@ -49,7 +49,7 @@ describe('providerTestErrorMessage', () => {
   test('turns structured rate limits into a wait and check step', () => {
     expectBeginnerMessage(
       providerTestErrorMessage({ status: 429 }, 'OpenAI Production'),
-      'OpenAI Production connection check needs attention. This AI service is receiving too many checks right now. Wait a minute, then check again.'
+      'Wait a minute, then check OpenAI Production again. This AI service is receiving too many checks right now.'
     )
   })
 
@@ -58,7 +58,7 @@ describe('providerTestErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'AI service connection check needs attention. Review the AI service settings, then check again. If it still needs attention, ask an owner or admin to check AI service settings.'
+      'Review the AI service settings, then check this AI service again. If it still needs attention, ask an owner or admin to check AI service settings.'
     )
     expect(message).not.toContain('gateway')
   })

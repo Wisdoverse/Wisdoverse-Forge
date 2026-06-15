@@ -145,6 +145,13 @@ const PROVIDER_CHECK_JARGON_PATTERNS = [
 
 const PROVIDER_ZERO_READY_DEAD_END_PATTERNS = [/\bNo AI services are ready to use yet\b/i]
 
+const PROVIDER_TEST_FAILURE_FIRST_PATTERNS = [
+  /\bconnection check needs attention\. Forge could not (?:check|connect to) this AI service/i,
+  /\bconnection check needs attention\. This AI service is receiving too many checks/i,
+  /\bconnection check needs attention\. Review the AI service settings/i,
+  /\bconnection check needs attention\. The model or service address was not found/i,
+]
+
 const ADMIN_USERS_EMPTY_DEAD_END_PATTERNS = [/\bNo one is listed yet\b/i]
 
 const ADMIN_ORGS_EMPTY_DEAD_END_PATTERNS = [/\bNo team spaces are visible yet\b/i]
@@ -798,6 +805,12 @@ function hasProviderZeroReadyDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/settings/ProvidersSection.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return PROVIDER_ZERO_READY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasProviderTestFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/settings/providerTestErrorMessage.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return PROVIDER_TEST_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAdminUsersEmptyDeadEndCopy(relFile, line) {
@@ -1527,6 +1540,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'AI service setup summaries must tell beginners to check, enable, or add a service.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasProviderTestFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'provider-test-error-copy',
+        location,
+        message:
+          'AI service connection check errors must start with the next action, not the failure summary.',
         sample: line.trim(),
       })
     }

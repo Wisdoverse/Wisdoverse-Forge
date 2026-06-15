@@ -57,12 +57,12 @@ function isNetworkError(error: unknown): boolean {
 }
 
 export function providerTestErrorMessage(error: unknown, providerName = 'AI service'): string {
-  const base = `${providerName} connection check needs attention.`
+  const providerLabel = providerName === 'AI service' ? 'this AI service' : providerName
   const text = errorText(error).toLowerCase()
   const code = statusCode(error)
 
   if (code === 401 || code === 403 || text.includes('unauthorized') || text.includes('forbidden')) {
-    return `${base} Confirm the saved service access key is active and allowed to use the selected model, then save and check again.`
+    return `Confirm the saved service access key can use the selected model for ${providerLabel}, then save and check again.`
   }
   if (
     code === 400 ||
@@ -71,20 +71,20 @@ export function providerTestErrorMessage(error: unknown, providerName = 'AI serv
     text.includes('api key') ||
     text.includes('authentication')
   ) {
-    return `${base} Check the service access key, model, and service address, then save and check again.`
+    return `Check the service access key, model, and service address for ${providerLabel}, then save and check again.`
   }
   if (code === 404 || text.includes('not found')) {
-    return `${base} The model or service address was not found. Check the model name and service address, then check again.`
+    return `Check the model name and service address for ${providerLabel}, then check again. The model or service address was not found.`
   }
   if (code === 408 || code === 429 || text.includes('rate limit') || text.includes('too many')) {
-    return `${base} This AI service is receiving too many checks right now. Wait a minute, then check again.`
+    return `Wait a minute, then check ${providerLabel} again. This AI service is receiving too many checks right now.`
   }
   if (code != null && code >= 500) {
-    return `${base} Forge could not check this AI service right now. Try again in a few minutes. If it still needs attention, ask an owner or admin to check AI service settings.`
+    return `Try checking ${providerLabel} again in a few minutes. If it still needs attention, ask an owner or admin to check AI service settings. Forge could not check this AI service right now.`
   }
   if (isNetworkError(error)) {
-    return `${base} Forge could not connect to this AI service. Check the service address and your connection, then check again.`
+    return `Check the service address and your connection, then check ${providerLabel} again. Forge could not connect to this AI service.`
   }
 
-  return `${base} Review the AI service settings, then check again. If it still needs attention, ask an owner or admin to check AI service settings.`
+  return `Review the AI service settings, then check ${providerLabel} again. If it still needs attention, ask an owner or admin to check AI service settings.`
 }

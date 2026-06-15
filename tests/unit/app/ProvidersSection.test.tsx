@@ -114,7 +114,7 @@ describe('ProvidersSection', () => {
     expect(screen.getAllByText('Needs check').length).toBeGreaterThan(0)
     expect(screen.queryByText('Failed')).toBeNull()
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Anthropic Review connection check needs attention.'
+      'Check the service access key, model, and service address for Anthropic Review'
     )
     expect(screen.getByRole('alert')).toHaveTextContent('service access key')
     expect(screen.queryByText('Invalid key')).toBeNull()
@@ -439,7 +439,7 @@ describe('ProvidersSection', () => {
       await screen.findByRole('button', { name: /check anthropic review AI service connection/i })
     )
 
-    const alert = await screen.findByText(/Forge could not check this AI service right now/i)
+    const alert = await screen.findByText(/Try checking Anthropic Review again in a few minutes/i)
     expect(alert).toHaveTextContent('ask an owner or admin to check AI service settings')
     expect(alert).not.toHaveTextContent('HTTP 500')
     expect(alert).not.toHaveTextContent('provider gateway stack trace')
