@@ -139,6 +139,8 @@ describe('workspace settings empty states', () => {
     expect(await screen.findByText('Create a team before adding projects')).toBeInTheDocument()
     expect(screen.getByText(/Projects live inside teams/i)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /new project/i })).not.toBeInTheDocument()
+    const openTeams = screen.getByRole('link', { name: /open teams/i })
+    expect(openTeams).toHaveAttribute('href', '/settings/teams')
   })
 
   it('guides users to choose a team space before creating projects', () => {

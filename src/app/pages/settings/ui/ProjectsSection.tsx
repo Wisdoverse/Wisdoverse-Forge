@@ -215,6 +215,11 @@ export function ProjectsSection() {
                   <FolderKanban size={14} strokeWidth={2} aria-hidden="true" />
                   <span>New Project</span>
                 </button>
+              ) : !hasTeams ? (
+                <a href="/settings/teams" className={uiStyles.primaryButton}>
+                  <Users size={14} strokeWidth={2} aria-hidden="true" />
+                  <span>Open Teams</span>
+                </a>
               ) : null
             }
           />
