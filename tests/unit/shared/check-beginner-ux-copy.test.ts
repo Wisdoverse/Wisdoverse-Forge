@@ -3719,6 +3719,38 @@ function TaskFormModal() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags task form no-project copy that leaves users in a dead end', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskFormModal.tsx': `
+function TaskFormModal() {
+  return <span>No projects available. Create a project in Settings before creating tasks.</span>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'task-form-no-project-copy',
+        location: 'src/app/features/board/TaskFormModal.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts task form no-project copy that explains the next setup action', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskFormModal.tsx': `
+function TaskFormModal() {
+  return <div><p>Create a project before sending tasks</p><p>Projects keep each task, its files, and its activity history in one place.</p><button>Open project settings</button></div>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags title-case task queue submit labels', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentGroupsPanel.tsx': `

@@ -277,6 +277,10 @@ const TASK_FORM_SUBMIT_LABEL_JARGON_PATTERNS = [
   /\bPreparing Project\.\.\./,
 ]
 
+const TASK_FORM_NO_PROJECT_DEAD_END_PATTERNS = [
+  /\bNo projects available\. Create a project in Settings before creating tasks\./i,
+]
+
 const AGENT_TASK_QUEUE_SUBMIT_LABEL_JARGON_PATTERNS = [/\bCreate Task Queue\b/]
 
 const SKILL_MAINTAINER_FALLBACK_DEAD_END_PATTERNS = [
@@ -1044,6 +1048,12 @@ function hasTaskFormSubmitLabelJargonCopy(relFile, line) {
   return TASK_FORM_SUBMIT_LABEL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTaskFormNoProjectDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/board/TaskFormModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_FORM_NO_PROJECT_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasAgentTaskQueueSubmitLabelJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/agents/AgentGroupsPanel.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -1791,6 +1801,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Task creation submit labels must use sentence case and keep the task action explicit for first-time users.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskFormNoProjectDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'task-form-no-project-copy',
+        location,
+        message:
+          'Task creation with no projects must explain why a project is needed and offer project settings.',
         sample: line.trim(),
       })
     }

@@ -480,11 +480,18 @@ describe('AppLayout', () => {
     expect(useBoardStore.getState().selectedGroupId).toBeNull()
   }, 20_000)
 
-  test('disables New Task submission when there are no projects', () => {
-    render(<MemoryRouter />)
+  test('routes missing project setup from New Task to project settings', () => {
+    const onNavigate = vi.fn()
+    render(<MemoryRouter onNavigate={onNavigate} />)
     fireEvent.click(screen.getByRole('button', { name: /new task/i }))
 
-    expect(screen.getByText(/no projects available/i)).toBeDefined()
+    expect(screen.getByText(/create a project before sending tasks/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /create task/i })).toBeDisabled()
+    expect(screen.queryByText(/no projects available/i)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /open project settings/i }))
+
+    expect(onNavigate).toHaveBeenCalledWith('/settings/projects')
+    expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
   })
 })

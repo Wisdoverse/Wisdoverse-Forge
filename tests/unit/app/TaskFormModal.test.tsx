@@ -25,6 +25,7 @@ function renderModal(
     selectedTaskGroupId: string | null
     selectedTaskGroupName: string | null
     onProjectChange: (projectId: string) => void | boolean | Promise<void | boolean>
+    onOpenProjectSettings: () => void
     onOpenTaskRouting: () => void
   }> = {}
 ) {
@@ -48,6 +49,7 @@ function renderModal(
           : 'Starter Queue'
       }
       onProjectChange={overrides.onProjectChange}
+      onOpenProjectSettings={overrides.onOpenProjectSettings}
       onOpenTaskRouting={overrides.onOpenTaskRouting}
     />
   )
@@ -132,6 +134,25 @@ describe('TaskFormModal', () => {
       )
     ).toBeDefined()
     expect(screen.queryByText(/dispatched?/i)).toBeNull()
+  })
+
+  test('guides project setup before the first task', () => {
+    const onOpenProjectSettings = vi.fn()
+    renderModal(vi.fn(), {
+      projects: [],
+      selectedProjectId: null,
+      selectedTaskGroupId: null,
+      selectedTaskGroupName: null,
+      onOpenProjectSettings,
+    })
+
+    expect(screen.getByText('Create a project before sending tasks')).toBeDefined()
+    expect(screen.getByText(/projects keep each task/i)).toBeDefined()
+    expect(screen.queryByText(/No projects available/i)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /open project settings/i }))
+
+    expect(onOpenProjectSettings).toHaveBeenCalledTimes(1)
   })
 
   test('guides busy-agent assignment without dispatch language', () => {
