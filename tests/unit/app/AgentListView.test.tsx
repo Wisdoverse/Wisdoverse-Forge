@@ -154,6 +154,42 @@ describe('AgentListView', () => {
     expect(enrollment.textContent).not.toContain('Host Codex')
   })
 
+  test('shows manual-copy guidance when the setup command cannot be copied', async () => {
+    useNavigationStore.setState({
+      selectedProjectId: 'p1',
+      projects: {
+        t1: [
+          {
+            id: 'p1',
+            teamId: 't1',
+            name: 'Platform',
+            slug: 'platform',
+            color: '#007AFF',
+            description: '',
+          },
+        ],
+      },
+    } as never)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
+    })
+
+    render(<AgentListView />)
+
+    const enrollment = screen.getByTestId('host-cli-enrollment-panel')
+    fireEvent.click(within(enrollment).getByRole('button', { name: /copy setup command/i }))
+
+    expect(await within(enrollment).findByRole('alert')).toHaveTextContent(
+      'Select the setup command in the box, then copy it manually.'
+    )
+    expect(within(enrollment).getByRole('alert')).not.toHaveTextContent(/clipboard access/i)
+
+    fireEvent.click(within(enrollment).getByRole('button', { name: /windows/i }))
+
+    expect(within(enrollment).queryByRole('alert')).toBeNull()
+  })
+
   test('renders agent cards', () => {
     useAgentsStore.getState().setAgents([
       makeAgent({

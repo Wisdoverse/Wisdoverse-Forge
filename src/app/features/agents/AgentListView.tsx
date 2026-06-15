@@ -390,6 +390,7 @@ function HostCliEnrollmentPanel({
   const setCreateModalOpen = useAgentsStore((s) => s.setCreateModalOpen)
   const [platform, setPlatform] = useState<HostCliPlatform>('posix')
   const [copied, setCopied] = useState(false)
+  const [copyError, setCopyError] = useState<string | null>(null)
   const command = useMemo(
     () => buildLocalEnrollCommand(selectedProjectId, platform),
     [platform, selectedProjectId]
@@ -400,13 +401,22 @@ function HostCliEnrollmentPanel({
   const commandReady = Boolean(selectedProjectId)
 
   async function handleCopyCommand() {
-    if (!commandReady || !navigator.clipboard?.writeText) return
+    if (!commandReady) return
+    setCopyError(null)
+    if (!navigator.clipboard?.writeText) {
+      setCopyError(
+        'Forge cannot copy from this browser. Select the setup command in the box, then copy it manually.'
+      )
+      return
+    }
     try {
       await navigator.clipboard.writeText(command)
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1800)
     } catch {
-      // Copy is a convenience action; the command remains visible when unsupported.
+      setCopyError(
+        'Forge cannot copy from this browser. Select the setup command in the box, then copy it manually.'
+      )
     }
   }
 
@@ -472,6 +482,7 @@ function HostCliEnrollmentPanel({
                 onClick={() => {
                   setPlatform(option.value)
                   setCopied(false)
+                  setCopyError(null)
                 }}
                 className={cn(
                   'flex min-w-0 items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35',
@@ -564,6 +575,11 @@ function HostCliEnrollmentPanel({
             {commandReady ? (copied ? 'Copied' : 'Copy setup command') : 'Choose project first'}
           </span>
         </button>
+        {copyError && (
+          <p role="alert" className="mt-2 text-ui-caption font-medium text-apple-red">
+            {copyError}
+          </p>
+        )}
       </details>
     </section>
   )
