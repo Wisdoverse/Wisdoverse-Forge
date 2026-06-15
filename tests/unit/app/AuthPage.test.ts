@@ -88,7 +88,7 @@ describe('AuthPage beginner guidance', () => {
     await page.show()
 
     expect(bodyText()).toContain(
-      'This sign-in link expired or could not be verified. Start sign-in again from this page.'
+      'Start sign-in again from this page. This sign-in link expired or could not be verified.'
     )
     expect(bodyText()).not.toContain('invalid_grant')
     expect(bodyText()).not.toContain('oauth token expired')
@@ -118,7 +118,7 @@ describe('AuthPage beginner guidance', () => {
     await page.show()
 
     expect(bodyText()).toContain(
-      'This sign-in option is not ready. Ask an owner or admin to check sign-in setup.'
+      'Ask an owner or admin to check sign-in setup. This sign-in option is not ready.'
     )
     expect(bodyText()).not.toContain('provider_not_configured')
     expect(bodyText()).not.toContain('Sign-in provider')
@@ -146,7 +146,7 @@ describe('AuthPage beginner guidance', () => {
     await flushAsyncWork()
 
     expect(bodyText()).toContain(
-      'We could not sign you in right now. Try again in a minute. If it still fails, ask an owner or admin to check sign-in setup.'
+      'Try signing in again in a minute. If it still fails, ask an owner or admin to check sign-in setup.'
     )
     expect(bodyText()).not.toContain('database unavailable')
     expect(bodyText()).not.toContain('HTTP 500')
@@ -238,7 +238,7 @@ describe('AuthPage beginner guidance', () => {
     await flushAsyncWork()
 
     expect(bodyText()).toContain(
-      'An account may already exist for this email. Sign in instead, or reset the password if you cannot access it.'
+      'Sign in instead, or reset the password if you cannot access it. An account may already exist for this email.'
     )
     expect(bodyText()).not.toContain('duplicate key')
     expect(bodyText()).not.toContain('users_email_key')
@@ -305,7 +305,7 @@ describe('AuthPage beginner guidance', () => {
     await flushAsyncWork()
 
     expect(bodyText()).toContain(
-      'Reset email could not be requested. Check the email address, wait a moment, then try again.'
+      'Check the email address, wait a moment, then request the reset email again.'
     )
     expect(bodyText()).not.toContain('SMTP tenant missing')
   })
@@ -353,7 +353,7 @@ describe('AuthPage beginner guidance', () => {
     await flushAsyncWork()
 
     expect(bodyText()).toContain(
-      'This reset link may have expired. Request a new reset email, then open the newest link.'
+      'Request a new reset email, then open the newest link. This reset link may have expired.'
     )
     expect(bodyText()).not.toContain('invalid or expired token')
   })

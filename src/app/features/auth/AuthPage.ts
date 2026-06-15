@@ -38,7 +38,7 @@ function authLoginErrorMessage(result: AuthFailure): string {
     lowerDetail.includes('rate limit') ||
     lowerDetail.includes('429')
   ) {
-    return 'Too many sign-in attempts. Wait a few minutes, then try again.'
+    return 'Wait a few minutes, then try signing in again. Too many sign-in attempts.'
   }
   if (
     code.includes('INVALID') ||
@@ -50,7 +50,7 @@ function authLoginErrorMessage(result: AuthFailure): string {
     lowerDetail.includes('not found') ||
     lowerDetail.includes('unauthorized')
   ) {
-    return 'We could not sign you in. Check your email and password, then try again.'
+    return 'Check your email and password, then try signing in again.'
   }
   if (
     lowerDetail.includes('disabled') ||
@@ -58,10 +58,10 @@ function authLoginErrorMessage(result: AuthFailure): string {
     lowerDetail.includes('suspended') ||
     lowerDetail.includes('forbidden')
   ) {
-    return 'This account is not allowed to sign in here. Ask an owner or admin to check your access.'
+    return 'Ask an owner or admin to check your access. This account is not allowed to sign in here.'
   }
 
-  return 'We could not sign you in right now. Try again in a minute. If it still fails, ask an owner or admin to check sign-in setup.'
+  return 'Try signing in again in a minute. If it still fails, ask an owner or admin to check sign-in setup.'
 }
 
 function authRegisterErrorMessage(result: AuthFailure): string {
@@ -82,7 +82,7 @@ function authRegisterErrorMessage(result: AuthFailure): string {
     lowerDetail.includes('rate limit') ||
     lowerDetail.includes('429')
   ) {
-    return 'Too many account creation attempts. Wait a few minutes, then try again.'
+    return 'Wait a few minutes, then create the account again. Too many account creation attempts.'
   }
   if (
     code.includes('EMAIL_ALREADY') ||
@@ -93,7 +93,7 @@ function authRegisterErrorMessage(result: AuthFailure): string {
     lowerDetail.includes('duplicate') ||
     lowerDetail.includes('conflict')
   ) {
-    return 'An account may already exist for this email. Sign in instead, or reset the password if you cannot access it.'
+    return 'Sign in instead, or reset the password if you cannot access it. An account may already exist for this email.'
   }
   if (
     code.includes('WEAK_PASSWORD') ||
@@ -110,7 +110,7 @@ function authRegisterErrorMessage(result: AuthFailure): string {
     return 'Enter a valid email address, then try creating the account again.'
   }
 
-  return 'We could not create the account right now. Check the fields, then try again. If it still fails, ask an owner or admin to check account setup.'
+  return 'Check the fields, then create the account again. If it still fails, ask an owner or admin to check account setup.'
 }
 
 function authSignInErrorMessage(error: unknown): string {
@@ -127,7 +127,7 @@ function authSignInErrorMessage(error: unknown): string {
     return 'Check your connection, then try signing in again. Forge could not reach sign-in.'
   }
   if (lowerDetail.includes('access_denied') || lowerDetail.includes('cancel')) {
-    return 'Sign-in was cancelled. Choose a sign-in option and try again.'
+    return 'Choose a sign-in option, then try again. Sign-in was cancelled.'
   }
   if (
     lowerDetail.includes('invalid_grant') ||
@@ -137,24 +137,24 @@ function authSignInErrorMessage(error: unknown): string {
     lowerDetail.includes('state mismatch') ||
     lowerDetail.includes('token')
   ) {
-    return 'This sign-in link expired or could not be verified. Start sign-in again from this page.'
+    return 'Start sign-in again from this page. This sign-in link expired or could not be verified.'
   }
   if (
     lowerDetail.includes('unauthorized') ||
     lowerDetail.includes('forbidden') ||
     lowerDetail.includes('permission')
   ) {
-    return 'This account is not allowed to sign in here. Ask an owner or admin to check your access.'
+    return 'Ask an owner or admin to check your access. This account is not allowed to sign in here.'
   }
   if (
     lowerDetail.includes('provider') ||
     lowerDetail.includes('client') ||
     lowerDetail.includes('not configured')
   ) {
-    return 'This sign-in option is not ready. Ask an owner or admin to check sign-in setup.'
+    return 'Ask an owner or admin to check sign-in setup. This sign-in option is not ready.'
   }
 
-  return 'Sign-in could not finish. Choose a sign-in option and try again. If it still fails, ask an owner or admin to check sign-in setup.'
+  return 'Choose a sign-in option and try again. If it still fails, ask an owner or admin to check sign-in setup.'
 }
 
 function authRecoveryErrorMessage(action: AuthRecoveryAction, error: unknown): string {
@@ -178,16 +178,16 @@ function authRecoveryErrorMessage(action: AuthRecoveryAction, error: unknown): s
 
   if (action === 'reset-password') {
     if (lowerDetail.includes('expired') || lowerDetail.includes('invalid')) {
-      return 'This reset link may have expired. Request a new reset email, then open the newest link.'
+      return 'Request a new reset email, then open the newest link. This reset link may have expired.'
     }
-    return 'Password could not be updated. Check the password rules, then try again.'
+    return 'Check the password rules, then try again. Password could not be updated.'
   }
 
   if (action === 'forgot-password') {
-    return 'Reset email could not be requested. Check the email address, wait a moment, then try again.'
+    return 'Check the email address, wait a moment, then request the reset email again.'
   }
 
-  return 'Verification email could not be sent. Check that this is the email you used to create the account, then try again.'
+  return 'Check that this is the email you used to create the account, then send the verification email again.'
 }
 
 /** Get SSO provider icon based on provider name */

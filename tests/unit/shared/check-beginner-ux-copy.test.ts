@@ -5054,6 +5054,90 @@ function noAgentPreview() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags authentication errors that start with the failure instead of recovery', () => {
+    const cwd = fixture({
+      'src/app/features/auth/AuthPage.ts': `
+function authLoginErrorMessage() {
+  return 'We could not sign you in right now. Try again in a minute. If it still fails, ask an owner or admin to check sign-in setup.'
+}
+function authRegisterErrorMessage() {
+  return 'An account may already exist for this email. Sign in instead, or reset the password if you cannot access it.'
+}
+function authSignInErrorMessage() {
+  return 'This sign-in link expired or could not be verified. Start sign-in again from this page.'
+}
+function authRecoveryErrorMessage(action) {
+  if (action === 'reset-password') {
+    return 'Password could not be updated. Check the password rules, then try again.'
+  }
+  if (action === 'forgot-password') {
+    return 'Reset email could not be requested. Check the email address, wait a moment, then try again.'
+  }
+  return 'Verification email could not be sent. Check that this is the email you used to create the account, then try again.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'auth-error-copy',
+          location: 'src/app/features/auth/AuthPage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'auth-error-copy',
+          location: 'src/app/features/auth/AuthPage.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'auth-error-copy',
+          location: 'src/app/features/auth/AuthPage.ts:9',
+        }),
+        expect.objectContaining({
+          type: 'auth-error-copy',
+          location: 'src/app/features/auth/AuthPage.ts:13',
+        }),
+        expect.objectContaining({
+          type: 'auth-error-copy',
+          location: 'src/app/features/auth/AuthPage.ts:16',
+        }),
+        expect.objectContaining({
+          type: 'auth-error-copy',
+          location: 'src/app/features/auth/AuthPage.ts:18',
+        }),
+      ])
+    )
+  })
+
+  it('accepts authentication errors that start with recovery', () => {
+    const cwd = fixture({
+      'src/app/features/auth/AuthPage.ts': `
+function authLoginErrorMessage() {
+  return 'Try signing in again in a minute. If it still fails, ask an owner or admin to check sign-in setup.'
+}
+function authRegisterErrorMessage() {
+  return 'Sign in instead, or reset the password if you cannot access it. An account may already exist for this email.'
+}
+function authSignInErrorMessage() {
+  return 'Start sign-in again from this page. This sign-in link expired or could not be verified.'
+}
+function authRecoveryErrorMessage(action) {
+  if (action === 'reset-password') {
+    return 'Check the password rules, then try again. Password could not be updated.'
+  }
+  if (action === 'forgot-password') {
+    return 'Check the email address, wait a moment, then request the reset email again.'
+  }
+  return 'Check that this is the email you used to create the account, then send the verification email again.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags authentication network copy that starts with the failure instead of the next step', () => {
     const cwd = fixture({
       'src/app/features/auth/AuthPage.ts': `
