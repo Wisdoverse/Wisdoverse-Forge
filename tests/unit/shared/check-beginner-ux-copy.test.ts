@@ -4357,6 +4357,11 @@ function candidateTitle(candidate) {
   return 'Suggested item needs review'
 }
 `,
+      'src/app/features/detail/ContextAppliedList.tsx': `
+function contentLoadError() {
+  return 'The full saved note could not load. Choose Show full saved note again before relying on it.'
+}
+`,
       'src/app/features/analytics/ContextUsageDashboard.tsx': `
 function taskKindLabel(kind) {
   return kind ? 'Task type needs review' : 'Task type not listed'
@@ -4388,6 +4393,10 @@ function taskKindLabel(kind) {
         expect.objectContaining({
           type: 'context-fallback-copy',
           location: 'src/app/features/detail/ContextCandidatesList.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'context-fallback-copy',
+          location: 'src/app/features/detail/ContextAppliedList.tsx:3',
         }),
         expect.objectContaining({
           type: 'context-fallback-copy',

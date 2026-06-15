@@ -423,8 +423,9 @@ describe('ContextTab', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: /show full saved note/i }))
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent(/full saved note could not load/i)
-    expect(alert).toHaveTextContent(/choose show full saved note again/i)
+    expect(alert).toHaveTextContent(
+      'Choose Show full saved note again before relying on it. The full saved note could not load.'
+    )
     expect(screen.queryByText('raw backend failure')).toBeNull()
   })
 

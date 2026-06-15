@@ -93,7 +93,7 @@ function AppliedContextCard({
       setExpandedContent(result.content)
     } catch {
       setContentError(
-        'The full saved note could not load. Choose Show full saved note again before relying on it.'
+        'Choose Show full saved note again before relying on it. The full saved note could not load.'
       )
     } finally {
       setLoadingContent(false)
