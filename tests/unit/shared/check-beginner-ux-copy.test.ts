@@ -391,6 +391,50 @@ function providerSettingsErrorMessage(action) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags AI service address copy that exposes endpoint setup mechanics', () => {
+    const cwd = fixture({
+      'src/app/features/settings/ProvidersSection.tsx': `
+function serviceAddressHelp() {
+  return 'Leave blank to use the China address. If your team uses the global address, paste this: https://api.example.com/v1'
+}
+function baseUrlPlaceholder() {
+  return 'https://api.example.com'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'provider-address-copy',
+          location: 'src/app/features/settings/ProvidersSection.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'provider-address-copy',
+          location: 'src/app/features/settings/ProvidersSection.tsx:6',
+        }),
+      ])
+    )
+  })
+
+  it('accepts AI service address copy that starts from the safe default', () => {
+    const cwd = fixture({
+      'src/app/features/settings/ProvidersSection.tsx': `
+function serviceAddressHelp(selectedProvider) {
+  return 'Leave blank to use the default regional address. Fill it only when your service guide or owner gives you a global address.'
+}
+function serviceAddressPlaceholder(needsBaseUrl) {
+  return needsBaseUrl ? 'Paste the service address from your guide' : 'Usually leave this blank'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags user management empty states that do not point to inviting people', () => {
     const cwd = fixture({
       'src/app/features/admin/UserManagement.tsx': `

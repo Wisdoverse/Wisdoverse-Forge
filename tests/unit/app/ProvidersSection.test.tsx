@@ -362,7 +362,7 @@ describe('ProvidersSection', () => {
     expect(within(nextStep).queryByText(/choose New Agent/i)).toBeNull()
   })
 
-  test('surfaces the China default placeholder and global address hint for region-switch providers', async () => {
+  test('keeps service address setup beginner-safe for region-switch providers', async () => {
     useSettingsStore.setState({ providers: [] })
 
     render(<ProvidersSection />)
@@ -372,20 +372,28 @@ describe('ProvidersSection', () => {
 
     fireEvent.change(screen.getByLabelText(/^AI service$/i), { target: { value: 'zhipu' } })
 
-    // China address is the default (placeholder); the global address is the hint.
     expect(screen.getByLabelText(/^model to use$/i)).toHaveValue('glm-4.7')
     expect(screen.getByLabelText(/service address/i)).toHaveAttribute(
       'placeholder',
-      expect.stringContaining('https://open.bigmodel.cn/api/paas/v4')
+      expect.stringContaining('Usually leave this blank')
     )
-    expect(
-      screen.getByText(/global address, paste this: https:\/\/api\.z\.ai\/api\/paas\/v4/i)
-    ).toBeDefined()
+    expect(screen.getByText(/Leave blank to use the default regional address/i)).toBeDefined()
+    expect(screen.getByText(/service guide or owner gives you a global address/i)).toBeDefined()
+    expect(screen.queryByText(/https:\/\/api\.z\.ai\/api\/paas\/v4/i)).toBeNull()
+    expect(screen.queryByText(/https:\/\/open\.bigmodel\.cn\/api\/paas\/v4/i)).toBeNull()
 
-    // Hunyuan is China-only: no global address hint, default copy returns.
+    // Hunyuan is regional-only: no global-address instruction, default copy returns.
     fireEvent.change(screen.getByLabelText(/^AI service$/i), { target: { value: 'hunyuan' } })
     expect(screen.getByText(/Most users leave this blank/i)).toBeDefined()
     expect(screen.queryByText(/global address, paste this:/i)).toBeNull()
+
+    fireEvent.change(screen.getByLabelText(/^AI service$/i), {
+      target: { value: 'openai_compatible' },
+    })
+    expect(screen.getByLabelText(/service address/i)).toHaveAttribute(
+      'placeholder',
+      expect.stringContaining('Paste the service address from your guide')
+    )
   })
 
   test('runs a provider test from the provider row', async () => {

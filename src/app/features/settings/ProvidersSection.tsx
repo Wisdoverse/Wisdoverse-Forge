@@ -128,8 +128,8 @@ const FALLBACK_SUPPORTED_PROVIDERS: ProviderInfo[] = [
     allowCustomModels: true,
     models: [{ model: 'deepseek-chat', displayName: 'DeepSeek Chat' }],
   },
-  // Mainstream China-region vendors: the default Base URL is the China
-  // endpoint; globalBaseUrl is surfaced as the help hint for region switching.
+  // Region-aware vendors use the default address unless an owner provides
+  // a different service guide address.
   {
     provider: 'zhipu',
     displayName: 'Zhipu GLM',
@@ -296,24 +296,15 @@ const FALLBACK_SUPPORTED_PROVIDERS: ProviderInfo[] = [
   },
 ]
 
-function baseUrlPlaceholder(provider: LlmProvider, info?: ProviderInfo): string {
-  if (info?.defaultBaseUrl) return info.defaultBaseUrl
-  switch (provider) {
-    case 'ollama':
-      return 'http://localhost:11434'
-    case 'groq':
-      return 'https://api.groq.com/openai'
-    case 'openrouter':
-      return 'https://openrouter.ai/api'
-    case 'together':
-      return 'https://api.together.xyz'
-    case 'fireworks':
-      return 'https://api.fireworks.ai/inference'
-    case 'openai_compatible':
-      return 'https://api.example.com'
-    default:
-      return 'https://api.example.com'
+function serviceAddressPlaceholder(needsBaseUrl: boolean): string {
+  return needsBaseUrl ? 'Paste the service address from your guide' : 'Usually leave this blank'
+}
+
+function serviceAddressHelp(selectedProvider?: ProviderInfo): string {
+  if (selectedProvider?.globalBaseUrl) {
+    return 'Leave blank to use the default regional address. Fill it only when your service guide or owner gives you a global address.'
   }
+  return 'Most users leave this blank. Fill it only when an owner gives you a custom AI service address.'
 }
 
 function providerNeedsApiKey(provider: LlmProvider, info?: ProviderInfo): boolean {
@@ -1125,9 +1116,7 @@ function AddProviderFormPanel({
             id={baseUrlHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            {selectedProvider?.globalBaseUrl
-              ? `Leave blank to use the China address. If your team uses the global address, paste this: ${selectedProvider.globalBaseUrl}`
-              : 'Most users leave this blank. Fill it only when an owner gives you a custom AI service address.'}
+            {serviceAddressHelp(selectedProvider)}
           </p>
           <input
             id={baseUrlInputId}
@@ -1135,7 +1124,7 @@ function AddProviderFormPanel({
             name="baseUrl"
             value={form.baseUrl}
             onChange={(e) => setForm({ ...form, baseUrl: e.target.value })}
-            placeholder={`${baseUrlPlaceholder(form.provider, selectedProvider)}…`}
+            placeholder={`${serviceAddressPlaceholder(needsBaseUrl)}…`}
             autoComplete="off"
             aria-invalid={visibleError !== null && readiness.fieldId === baseUrlInputId}
             aria-describedby={`${formStatusId}${

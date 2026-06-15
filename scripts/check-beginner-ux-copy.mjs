@@ -158,6 +158,13 @@ const PROVIDER_SETTINGS_FAILURE_FIRST_PATTERNS = [
   /\bRefresh Settings to load AI service settings\. Try again\./i,
 ]
 
+const PROVIDER_ADDRESS_JARGON_PATTERNS = [
+  /\bglobal address,\s*paste this:/i,
+  /\bLeave blank to use the China address\b/i,
+  /\bplaceholder=.*https?:\/\//i,
+  /\breturn\s+['"`]https?:\/\//i,
+]
+
 const ADMIN_USERS_EMPTY_DEAD_END_PATTERNS = [/\bNo one is listed yet\b/i]
 
 const ADMIN_ORGS_EMPTY_DEAD_END_PATTERNS = [/\bNo team spaces are visible yet\b/i]
@@ -923,6 +930,12 @@ function hasProviderSettingsFailureFirstCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return PROVIDER_SETTINGS_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasProviderAddressJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/settings/ProvidersSection.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return PROVIDER_ADDRESS_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAdminUsersEmptyDeadEndCopy(relFile, line) {
@@ -1806,6 +1819,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'AI service settings errors must start with the next action, not the failure summary.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasProviderAddressJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'provider-address-copy',
+        location,
+        message:
+          'AI service address copy must avoid raw endpoint URLs and start from the safe default.',
         sample: line.trim(),
       })
     }
