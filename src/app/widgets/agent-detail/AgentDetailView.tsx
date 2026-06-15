@@ -128,6 +128,14 @@ function agentConnectionStatus(agent: AgentInfo): string {
   return 'Uses AI service connection'
 }
 
+function agentAvailabilityLabel(agent: AgentInfo): string {
+  if (agent.status === 'idle') return 'Can be assigned now'
+  if (agent.status === 'working') return 'Already working'
+  if (isHostCliAgent(agent)) return 'Run setup again on this computer'
+  if (agent.cliTool) return 'Open Live work and start workspace'
+  return 'Open Settings and check AI service'
+}
+
 interface AgentDetailViewProps {
   agent: AgentInfo
   onBack: () => void
@@ -487,11 +495,7 @@ function AssignmentFitCard({
     (sum, task) => sum + (task.contextCounts?.appliedSkills ?? 0),
     0
   )
-  const availability = available
-    ? 'Can be assigned now'
-    : agent.status === 'working'
-      ? 'Already working'
-      : 'Unavailable until restarted or reconnected'
+  const availability = agentAvailabilityLabel(agent)
   const hostCli = isHostCliAgent(agent)
   const runtime = agentRuntimeLabel(agent)
   let credential = 'Settings shows whether the AI service is ready.'

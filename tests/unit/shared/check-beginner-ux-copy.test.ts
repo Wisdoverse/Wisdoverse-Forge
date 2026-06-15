@@ -1658,6 +1658,40 @@ function agentNextStep() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags agent detail availability copy that does not tell users where to recover', () => {
+    const cwd = fixture({
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function agentAvailabilityLabel() {
+  return 'Unavailable until restarted or reconnected'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-detail-availability-copy',
+          location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts agent detail availability copy that names the recovery surface', () => {
+    const cwd = fixture({
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function agentAvailabilityLabel() {
+  return 'Open Live work and start workspace'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags title-style beginner guidance that sounds like a menu label', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentTasksTab.tsx': `

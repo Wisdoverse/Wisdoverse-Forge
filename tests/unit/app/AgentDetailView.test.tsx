@@ -257,7 +257,9 @@ describe('AgentDetailView', () => {
 
     expect(await screen.findByText('Go to Tasks to review recent activity')).toBeDefined()
     expect(
-      screen.getByText("Go to Tasks to load this agent's work history and decide what to send next.")
+      screen.getByText(
+        "Go to Tasks to load this agent's work history and decide what to send next."
+      )
     ).toBeDefined()
     expect(screen.queryByText('No task activity has been loaded yet.')).toBeNull()
   })
@@ -276,6 +278,8 @@ describe('AgentDetailView', () => {
     )
 
     expect(screen.getByText('Start this workspace')).toBeDefined()
+    expect(screen.getByText('Open Live work and start workspace')).toBeDefined()
+    expect(screen.queryByText('Unavailable until restarted or reconnected')).toBeNull()
     expect(
       screen.getByText(
         'Open Live work, choose Start workspace, and wait until this agent shows Ready before sending file work.'
@@ -359,11 +363,21 @@ describe('AgentDetailView', () => {
     render(<AgentDetailView agent={{ ...hostCliAgent, status: 'offline' }} onBack={() => {}} />)
 
     expect(screen.getByText('Run the setup command on this computer again')).toBeDefined()
+    expect(screen.getAllByText('Run setup again on this computer').length).toBeGreaterThan(0)
     expect(screen.getByText(/open Terminal or PowerShell in the project folder/i)).toBeDefined()
     expect(screen.getByText(/keep that window open/i)).toBeDefined()
-    expect(screen.getByText('Run setup again on this computer')).toBeDefined()
     expect(screen.queryByText('Connected from this computer')).toBeNull()
+    expect(screen.queryByText('Unavailable until restarted or reconnected')).toBeNull()
     expect(screen.queryByRole('button', { name: /open terminal/i })).toBeNull()
+  })
+
+  test('guides offline chat-only agents to AI service settings', () => {
+    render(<AgentDetailView agent={{ ...providerAgent, status: 'offline' }} onBack={() => {}} />)
+
+    expect(screen.getByText('Fix setup before sending work')).toBeDefined()
+    expect(screen.getByText('Open Settings and check AI service')).toBeDefined()
+    expect(screen.getByText(/Open Settings and check that the AI service is ready/i)).toBeDefined()
+    expect(screen.queryByText('Unavailable until restarted or reconnected')).toBeNull()
   })
 
   test('explains workspace access and primary project context', () => {

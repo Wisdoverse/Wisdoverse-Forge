@@ -203,6 +203,10 @@ const WORKSHOP_3D_EMPTY_DEAD_END_PATTERNS = [/\bNo agents on the visual map yet\
 
 const AGENT_DETAIL_ACTIVITY_DEAD_END_PATTERNS = [/\bNo task activity has been loaded yet\b/i]
 
+const AGENT_DETAIL_AVAILABILITY_DEAD_END_PATTERNS = [
+  /\bUnavailable until restarted or reconnected\b/i,
+]
+
 const TITLE_STYLE_GUIDANCE_PATTERNS = [
   /\bOpen Tasks\b/,
   /\bDo This Next\b/,
@@ -996,6 +1000,12 @@ function hasAgentDetailActivityDeadEndCopy(relFile, line) {
   return AGENT_DETAIL_ACTIVITY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAgentDetailAvailabilityDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_DETAIL_AVAILABILITY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasTitleStyleGuidanceCopy(line) {
   if (isLikelyGuardOrParserLine(line)) return false
   return TITLE_STYLE_GUIDANCE_PATTERNS.some((pattern) => pattern.test(line))
@@ -1756,6 +1766,16 @@ function scanFile(file, relFile) {
         type: 'agent-detail-activity-copy',
         location,
         message: 'Agent detail activity copy must tell beginners to open Tasks first.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentDetailAvailabilityDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-detail-availability-copy',
+        location,
+        message:
+          'Agent detail availability copy must tell beginners which page or control to use next.',
         sample: line.trim(),
       })
     }
