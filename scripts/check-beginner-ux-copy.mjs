@@ -761,6 +761,12 @@ const WORKSPACE_RESOURCE_FAILURE_FIRST_PATTERNS = [
   /\bForge could not (?:save workspace settings|delete this (?:team|project)) right now\./i,
 ]
 
+const PROJECT_CREATE_FAILURE_FIRST_PATTERNS = [
+  /\bToo many project changes are happening right now\. Wait a minute, then create this project again\./i,
+  /\bForge could not create the project right now\. Wait a few minutes, then try again\./i,
+  /\bCould not create the project\. Check the project name and team, then try again\./i,
+]
+
 const AGENT_CONFIG_DETAIL_DEAD_END_PATTERNS = [
   /\bAI model not reported\b/i,
   /\bModel not reported\b/i,
@@ -1345,6 +1351,14 @@ function hasWorkspaceResourceFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/shared/lib/workspaceResourceErrorMessage.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return WORKSPACE_RESOURCE_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasProjectCreateFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/manage-project/ui/CreateProjectForm.tsx')) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return PROJECT_CREATE_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentConfigDetailDeadEndCopy(relFile, line) {
@@ -2545,6 +2559,15 @@ function scanFile(file, relFile) {
         type: 'workspace-resource-copy',
         location,
         message: 'Team and project setting errors must start with the next action for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasProjectCreateFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'project-create-error-copy',
+        location,
+        message: 'Project creation errors must start with the next action for beginners.',
         sample: line.trim(),
       })
     }

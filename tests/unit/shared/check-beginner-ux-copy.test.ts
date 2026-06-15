@@ -6961,6 +6961,56 @@ function notFoundMessage() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags project creation errors that start with the failure', () => {
+    const cwd = fixture({
+      'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
+function createProjectErrorMessage(code) {
+  return 'Too many project changes are happening right now. Wait a minute, then create this project again.'
+}
+function serverProjectErrorMessage() {
+  return 'Forge could not create the project right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check project setup.'
+}
+function fallbackProjectErrorMessage() {
+  return 'Could not create the project. Check the project name and team, then try again.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'project-create-error-copy',
+          location: 'src/app/features/manage-project/ui/CreateProjectForm.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'project-create-error-copy',
+          location: 'src/app/features/manage-project/ui/CreateProjectForm.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'project-create-error-copy',
+          location: 'src/app/features/manage-project/ui/CreateProjectForm.tsx:9',
+        }),
+      ])
+    )
+  })
+
+  it('accepts project creation errors that start with the next step', () => {
+    const cwd = fixture({
+      'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
+function createProjectErrorMessage(code) {
+  if (code === 429) return 'Wait a minute, then create this project again. Too many project changes are happening right now.'
+  if (code >= 500) return 'Wait a few minutes, then create this project again. Forge could not create the project right now. If it still fails, ask an owner or admin to check project setup.'
+  return 'Check the project name and team, then create this project again. Forge could not create the project.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('accepts recovery copy that gives one clear refresh step', () => {
     const cwd = fixture({
       'src/app/features/board/boardErrorMessages.ts': `

@@ -198,10 +198,49 @@ describe('workspace setup create forms', () => {
 
     await waitFor(() => {
       const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent('Wait a few minutes, then create this project again.')
       expect(alert).toHaveTextContent('Forge could not create the project right now')
       expect(alert).not.toHaveTextContent('API 500')
       expect(alert).not.toHaveTextContent('database unavailable')
     })
     expect(onSave).toHaveBeenCalled()
+  })
+
+  test('starts project rate-limit failures with the wait step', async () => {
+    const onSave = vi.fn().mockRejectedValue(new Error('HTTP 429: too many requests'))
+
+    render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Busy Project' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create project/i }))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent(
+        'Wait a minute, then create this project again. Too many project changes are happening right now.'
+      )
+      expect(alert).not.toHaveTextContent('HTTP 429')
+    })
+  })
+
+  test('starts unknown project creation failures with the recovery step', async () => {
+    const onSave = vi.fn().mockRejectedValue(new Error('unexpected create failure'))
+
+    render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Unknown Failure' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create project/i }))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent(
+        'Check the project name and team, then create this project again. Forge could not create the project.'
+      )
+      expect(alert).not.toHaveTextContent('unexpected create failure')
+    })
   })
 })

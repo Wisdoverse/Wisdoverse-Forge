@@ -131,10 +131,10 @@ function createProjectErrorMessage(error: unknown): string {
     return 'Check the project name, team, and code link, then create this project again.'
   }
   if (code === 429 || lower.includes('rate limit') || lower.includes('too many')) {
-    return 'Too many project changes are happening right now. Wait a minute, then create this project again.'
+    return 'Wait a minute, then create this project again. Too many project changes are happening right now.'
   }
   if (code != null && code >= 500) {
-    return 'Forge could not create the project right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check project setup.'
+    return 'Wait a few minutes, then create this project again. Forge could not create the project right now. If it still fails, ask an owner or admin to check project setup.'
   }
   if (
     error instanceof TypeError ||
@@ -145,7 +145,7 @@ function createProjectErrorMessage(error: unknown): string {
     return 'Check your connection, then create this project again.'
   }
 
-  return 'Could not create the project. Check the project name and team, then try again.'
+  return 'Check the project name and team, then create this project again. Forge could not create the project.'
 }
 
 export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreateProjectFormProps) {
