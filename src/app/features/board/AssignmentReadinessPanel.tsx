@@ -44,7 +44,7 @@ export function AssignmentReadinessPanel({
   const offline = participants.filter((participant) => participant.status === 'offline')
   const summary =
     participants.length === 0
-      ? 'No agents are connected to this task queue yet.'
+      ? 'Connect an agent before sending work.'
       : available.length > 0
         ? `${available.length} agent${available.length === 1 ? '' : 's'} can take work now.`
         : 'No agent can take work right now.'
