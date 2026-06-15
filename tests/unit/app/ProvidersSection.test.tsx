@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { ProvidersSection } from '@app/features/settings/ProvidersSection'
 import { useSettingsStore } from '@app/shared/model/settings.store'
+import type { LlmProviderConfig } from '@app/shared/api/legacy/settingsApi'
 
 const settingsApiMock = vi.hoisted(() => ({
   getSupportedProviders: vi.fn(),
@@ -15,9 +16,11 @@ vi.mock('@app/shared/api/legacy', () => ({
 
 const loadProvidersMock = vi.fn().mockResolvedValue(undefined)
 const saveProviderMock = vi.fn().mockResolvedValue(null)
+const setProviderEnabledMock = vi.fn()
 const deleteProviderMock = vi.fn().mockResolvedValue(true)
 const originalLoadProviders = useSettingsStore.getState().loadProviders
 const originalSaveProvider = useSettingsStore.getState().saveProvider
+const originalSetProviderEnabled = useSettingsStore.getState().setProviderEnabled
 const originalDeleteProvider = useSettingsStore.getState().deleteProvider
 
 beforeEach(() => {
@@ -25,6 +28,24 @@ beforeEach(() => {
   settingsApiMock.testProvider.mockResolvedValue({ ok: true, latencyMs: 42 })
   loadProvidersMock.mockClear()
   saveProviderMock.mockClear()
+  setProviderEnabledMock.mockReset()
+  setProviderEnabledMock.mockImplementation(async (id: string, isEnabled: boolean) => {
+    let updatedProvider: LlmProviderConfig | null = null
+    useSettingsStore.setState((state) => ({
+      providers: state.providers.map((provider) => {
+        if (provider.id !== id) return provider
+        const updated = {
+          ...provider,
+          isEnabled,
+          lastTestStatus: isEnabled ? ('untested' as const) : provider.lastTestStatus,
+          lastTestErrorMessage: isEnabled ? undefined : provider.lastTestErrorMessage,
+        }
+        updatedProvider = updated
+        return updated
+      }),
+    }))
+    return updatedProvider
+  })
   deleteProviderMock.mockClear()
   useSettingsStore.setState({
     providers: [
@@ -66,6 +87,7 @@ beforeEach(() => {
     providersError: null,
     loadProviders: loadProvidersMock,
     saveProvider: saveProviderMock,
+    setProviderEnabled: setProviderEnabledMock,
     deleteProvider: deleteProviderMock,
   })
 })
@@ -79,6 +101,7 @@ afterEach(() => {
     providersError: null,
     loadProviders: originalLoadProviders,
     saveProvider: originalSaveProvider,
+    setProviderEnabled: originalSetProviderEnabled,
     deleteProvider: originalDeleteProvider,
   })
 })
@@ -109,8 +132,12 @@ describe('ProvidersSection', () => {
     expect(
       screen.getByRole('button', { name: /check openai production AI service connection/i })
     ).toBeDefined()
+    expect(
+      screen.getByRole('button', { name: /turn off openai production AI service/i })
+    ).toBeDefined()
     expect(screen.getByText('Anthropic Review')).toBeDefined()
     expect(screen.getByText('Local Lab')).toBeDefined()
+    expect(screen.getByRole('button', { name: /turn on local lab AI service/i })).toBeDefined()
     expect(screen.getAllByText('Needs check').length).toBeGreaterThan(0)
     expect(screen.queryByText('Failed')).toBeNull()
     expect(screen.getByRole('alert')).toHaveTextContent(
@@ -334,6 +361,20 @@ describe('ProvidersSection', () => {
 
     expect(screen.getByText('Local Disabled')).toBeDefined()
     expect(screen.getByRole('button', { name: 'Disabled' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByRole('button', { name: /save AI service/i })).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /turn on local disabled AI service/i }))
+
+    await waitFor(() =>
+      expect(setProviderEnabledMock).toHaveBeenCalledWith('provider-disabled-only', true)
+    )
+    expect(screen.getByRole('button', { name: 'Needs check' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+    expect(
+      screen.getByRole('button', { name: /check local disabled AI service connection/i })
+    ).toBeEnabled()
     expect(screen.queryByRole('button', { name: /save AI service/i })).toBeNull()
   })
 

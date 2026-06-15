@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Activity, AlertTriangle, CheckCircle2, Plus, Search } from 'lucide-react'
+import { Activity, AlertTriangle, CheckCircle2, Plus, Power, Search } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
@@ -496,10 +496,11 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
 interface ProviderCardProps {
   providerConfig: LlmProviderConfig
   onTest: (id: string) => Promise<TestConnectionResult>
+  onSetEnabled: (id: string, isEnabled: boolean) => Promise<LlmProviderConfig | null>
   onDelete: (id: string) => void
 }
 
-function ProviderCard({ providerConfig, onTest, onDelete }: ProviderCardProps) {
+function ProviderCard({ providerConfig, onTest, onSetEnabled, onDelete }: ProviderCardProps) {
   const {
     id,
     displayName,
@@ -512,6 +513,7 @@ function ProviderCard({ providerConfig, onTest, onDelete }: ProviderCardProps) {
   } = providerConfig
   const [confirming, setConfirming] = useState(false)
   const [testing, setTesting] = useState(false)
+  const [changingEnabled, setChangingEnabled] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
   const persistedTestResult =
     lastTestStatus === 'passed'
@@ -548,6 +550,17 @@ function ProviderCard({ providerConfig, onTest, onDelete }: ProviderCardProps) {
       })
     } finally {
       setTesting(false)
+    }
+  }
+
+  async function handleSetEnabled() {
+    const nextEnabled = !isEnabled
+    setChangingEnabled(true)
+    setTestResult(null)
+    try {
+      await onSetEnabled(id, nextEnabled)
+    } finally {
+      setChangingEnabled(false)
     }
   }
 
@@ -607,6 +620,17 @@ function ProviderCard({ providerConfig, onTest, onDelete }: ProviderCardProps) {
       </div>
 
       <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto">
+        <button
+          type="button"
+          onClick={handleSetEnabled}
+          disabled={changingEnabled || testing}
+          className={uiStyles.secondaryButton}
+          aria-label={`${isEnabled ? 'Turn off' : 'Turn on'} ${displayName} AI service`}
+          title={isEnabled ? 'Turn off AI service' : 'Turn on AI service'}
+        >
+          <Power className="h-4 w-4" aria-hidden="true" />
+          <span>{changingEnabled ? 'Updating' : isEnabled ? 'Turn off' : 'Turn on'}</span>
+        </button>
         <button
           type="button"
           onClick={handleTest}
@@ -1182,6 +1206,7 @@ export function ProvidersSection() {
     providersError,
     loadProviders,
     saveProvider,
+    setProviderEnabled,
     deleteProvider,
   } = useSettingsStore()
   const [showForm, setShowForm] = useState(false)
@@ -1229,6 +1254,15 @@ export function ProvidersSection() {
     const result = await getSettingsApi().testProvider(id)
     await loadProviders()
     return result
+  }
+
+  async function handleSetProviderEnabled(id: string, isEnabled: boolean) {
+    const provider = await setProviderEnabled(id, isEnabled)
+    if (provider && isEnabled) {
+      setProviderSearch('')
+      setProviderFilter('needs-test')
+    }
+    return provider
   }
 
   function resetProviderFilters() {
@@ -1365,6 +1399,7 @@ export function ProvidersSection() {
               key={provider.id}
               providerConfig={provider}
               onTest={handleTest}
+              onSetEnabled={handleSetProviderEnabled}
               onDelete={handleDelete}
             />
           ))

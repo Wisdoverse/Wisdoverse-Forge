@@ -352,6 +352,7 @@ interface SettingsState {
   // Provider actions
   loadProviders: () => Promise<void>
   saveProvider: (input: CreateProviderInput) => Promise<LlmProviderConfig | null>
+  setProviderEnabled: (id: string, isEnabled: boolean) => Promise<LlmProviderConfig | null>
   deleteProvider: (id: string) => Promise<boolean>
 
   // API Key actions
@@ -443,6 +444,20 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       return provider
     } catch (err) {
       set({ providersError: settingsActionErrorMessage('providers', 'save', err) })
+      return null
+    }
+  },
+
+  setProviderEnabled: async (id, isEnabled) => {
+    set({ providersError: null })
+    try {
+      const provider = await getSettingsApi().updateProvider(id, { isEnabled })
+      set((state) => ({
+        providers: state.providers.map((current) => (current.id === id ? provider : current)),
+      }))
+      return provider
+    } catch (err) {
+      set({ providersError: settingsActionErrorMessage('providers', 'update', err) })
       return null
     }
   },
