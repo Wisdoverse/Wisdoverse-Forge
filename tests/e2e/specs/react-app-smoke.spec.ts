@@ -707,7 +707,11 @@ test.describe('React App Smoke Tests', () => {
   // 17. No Project Selected State ────────────────────────────────────────────
 
   test.describe('17. Board Empty States', () => {
-    test('no-group state shows "Pick a project" message', async ({ page, context, baseURL }) => {
+    test('no-group state explains that a project is needed before tasks', async ({
+      page,
+      context,
+      baseURL,
+    }) => {
       await injectAuth(page, baseURL!)
       // Override the default single-org mock with an empty list so the
       // nav loader never auto-selects a project.
@@ -717,7 +721,7 @@ test.describe('React App Smoke Tests', () => {
       await gotoAndWaitForAppReady(page, baseURL!, '/tasks')
 
       await expect(page.locator('[data-testid="board-no-group"]')).toBeVisible({ timeout: 10000 })
-      await expect(page.getByText('Pick a Project to Start')).toBeVisible()
+      await expect(page.getByText('Create or choose a project before creating tasks')).toBeVisible()
       await screenshot(page, '30-board-no-project')
     })
   })
