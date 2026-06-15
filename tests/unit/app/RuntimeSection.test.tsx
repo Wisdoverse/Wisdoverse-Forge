@@ -123,6 +123,7 @@ describe('RuntimeSection', () => {
     expect(nextStep).not.toHaveTextContent('Success:')
     expect(screen.getByText('Before assigning work')).toBeDefined()
     expect(screen.getByText('2/4 ready')).toBeDefined()
+    expect(within(readiness).getByText('Finish agent work setup')).toBeDefined()
     expect(
       screen.getByText(/Setup has 2 agent locations and 2 work tools like Claude or Codex/i)
     ).toBeDefined()

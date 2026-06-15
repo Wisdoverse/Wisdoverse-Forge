@@ -135,7 +135,7 @@ describe('AgentTasksTab', () => {
     render(<AgentTasksTab agentId="agent-1" />)
 
     const alert = await screen.findByRole('alert')
-    expect(within(alert).getByText("This agent's work list needs attention.")).toBeDefined()
+    expect(within(alert).getByText("Refresh this agent's work list.")).toBeDefined()
     expect(alert.textContent).toContain(
       "Ask an owner or admin to give you access to this agent's work list."
     )

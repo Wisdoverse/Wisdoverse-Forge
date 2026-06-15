@@ -167,7 +167,7 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
           'text-center text-ui-body text-apple-red'
         )}
       >
-        <p className="font-medium">This agent's work list needs attention.</p>
+        <p className="font-medium">Refresh this agent's work list.</p>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           {error}
         </p>

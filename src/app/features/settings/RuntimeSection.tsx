@@ -127,11 +127,6 @@ export function RuntimeSection() {
     t(`settings.runtime.runtimeLabels.${rt}`, { defaultValue: fallbackRuntimeLabel(rt) })
   const cliToolLabel = (tool: CliTool | string): string =>
     t(`settings.runtime.cliToolLabels.${tool}`, { defaultValue: fallbackCliToolLabel(tool) })
-  const runtimeReady = Boolean(
-    runtimeSettings &&
-    runtimeSettings.availableRuntimes.length > 0 &&
-    runtimeSettings.availableCliTools.length > 0
-  )
   const cliToolDetails = runtimeSettings?.cliToolDetails ?? []
   const reportedVersionCount = cliToolDetails.filter((detail) => detail.version).length
   const connectedCredentialCount = cliStatuses.filter((status) => status.connected).length
@@ -147,6 +142,7 @@ export function RuntimeSection() {
     cliToolLabel
   )
   const checklistReadyCount = checklistItems.filter((item) => item.ready).length
+  const setupReady = checklistItems.length > 0 && checklistReadyCount === checklistItems.length
   const nextChecklistItem = checklistItems.find((item) => !item.ready) ?? null
 
   async function connectCliProvider(provider: string) {
@@ -215,13 +211,13 @@ export function RuntimeSection() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              {runtimeReady ? (
+              {setupReady ? (
                 <CheckCircle2 size={17} strokeWidth={2.25} className="text-apple-green" />
               ) : (
                 <AlertTriangle size={17} strokeWidth={2.25} className="text-apple-orange" />
               )}
               <h3 className={uiStyles.sectionTitle}>
-                {runtimeReady ? 'Agent work setup is ready' : 'Agent work setup needs attention'}
+                {setupReady ? 'Agent work setup is ready' : 'Finish agent work setup'}
               </h3>
             </div>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">

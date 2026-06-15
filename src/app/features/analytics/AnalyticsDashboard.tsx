@@ -441,7 +441,7 @@ function AnalyticsErrorPanel({
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-ui-body font-semibold">Analytics needs attention</p>
+          <p className="text-ui-body font-semibold">Refresh analytics data</p>
           <p className="mt-1 text-ui-body">{message}</p>
         </div>
         <button

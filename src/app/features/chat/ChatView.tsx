@@ -516,7 +516,7 @@ function ChatErrorNotice({
           aria-hidden="true"
         />
         <span className="min-w-0">
-          <span className="block text-ui-caption font-semibold">Conversation needs attention</span>
+          <span className="block text-ui-caption font-semibold">Check this conversation</span>
           <span className="mt-0.5 block text-ui-caption">{message}</span>
         </span>
       </span>

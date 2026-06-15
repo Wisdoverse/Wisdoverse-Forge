@@ -703,9 +703,7 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
               />
             )}
             <h3 className={uiStyles.sectionTitle}>
-              {allReady
-                ? 'AI services ready for agent creation'
-                : 'AI service setup needs attention'}
+              {allReady ? 'AI services ready for agent creation' : 'Finish AI service setup'}
             </h3>
           </div>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">

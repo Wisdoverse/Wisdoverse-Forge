@@ -4105,6 +4105,111 @@ export function AccountSection() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags vague needs-attention titles in user-visible messages', () => {
+    const cwd = fixture({
+      'src/app/features/analytics/AnalyticsDashboard.tsx': `
+export function AnalyticsDashboard() {
+  return <p>Analytics needs attention</p>
+}
+`,
+      'src/app/features/chat/ChatView.tsx': `
+export function ChatView() {
+  return <span>Conversation needs attention</span>
+}
+`,
+      'src/app/features/agents/AgentTasksTab.tsx': `
+export function AgentTasksTab() {
+  return <p>This agent's work list needs attention.</p>
+}
+`,
+      'src/app/features/settings/RuntimeSection.tsx': `
+export function RuntimeSection() {
+  return <h3>Agent work setup needs attention</h3>
+}
+`,
+      'src/app/features/settings/ProvidersSection.tsx': `
+export function ProvidersSection() {
+  return <h3>AI service setup needs attention</h3>
+}
+`,
+      'src/app/features/admin/CliImagesPanel.tsx': `
+export function stateLabel() {
+  return 'Check needs attention'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toHaveLength(6)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'vague-needs-attention-copy',
+          location: 'src/app/features/analytics/AnalyticsDashboard.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'vague-needs-attention-copy',
+          location: 'src/app/features/chat/ChatView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'vague-needs-attention-copy',
+          location: 'src/app/features/agents/AgentTasksTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'vague-needs-attention-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'vague-needs-attention-copy',
+          location: 'src/app/features/settings/ProvidersSection.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'vague-needs-attention-copy',
+          location: 'src/app/features/admin/CliImagesPanel.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts needs-attention replacements that tell beginners the next action', () => {
+    const cwd = fixture({
+      'src/app/features/analytics/AnalyticsDashboard.tsx': `
+export function AnalyticsDashboard() {
+  return <p>Refresh analytics data</p>
+}
+`,
+      'src/app/features/chat/ChatView.tsx': `
+export function ChatView() {
+  return <span>Check this conversation</span>
+}
+`,
+      'src/app/features/agents/AgentTasksTab.tsx': `
+export function AgentTasksTab() {
+  return <p>Refresh this agent's work list.</p>
+}
+`,
+      'src/app/features/settings/RuntimeSection.tsx': `
+export function RuntimeSection() {
+  return <h3>Finish agent work setup</h3>
+}
+`,
+      'src/app/features/settings/ProvidersSection.tsx': `
+export function ProvidersSection() {
+  return <h3>Finish AI service setup</h3>
+}
+`,
+      'src/app/features/admin/CliImagesPanel.tsx': `
+export function stateLabel() {
+  return 'Choose Check now'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags tool and saved-item problem copy that exposes technical-problem jargon', () => {
     const cwd = fixture({
       'src/app/features/chat/ToolCallDetail.tsx': `

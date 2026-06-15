@@ -108,7 +108,7 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
     render(<AnalyticsDashboard />)
 
     const alert = screen.getByRole('alert')
-    expect(alert).toHaveTextContent('Analytics needs attention')
+    expect(alert).toHaveTextContent('Refresh analytics data')
     expect(alert).toHaveTextContent('Check your connection, then refresh the dashboard.')
     fireEvent.click(screen.getByRole('button', { name: /refresh dashboard/i }))
     expect(load).toHaveBeenCalled()

@@ -114,7 +114,7 @@ describe('CliImagesPanel', () => {
     expect(screen.queryByText(/package ID/i)).toBeNull()
     expect(screen.queryByText('—')).toBeNull()
     // failed tool shows a safe next step instead of raw updater text
-    expect(screen.getByText('Check needs attention')).toBeDefined()
+    expect(screen.getByText('Choose Check now')).toBeDefined()
     expect(screen.queryByText('Check failed')).toBeNull()
     expect(
       screen.getByText(/New agents use: Choose Check now to prepare the first tool/i)

@@ -217,7 +217,7 @@ describe('ChatView', () => {
     render(<ChatView agentId={cliAgent.id} />)
 
     const alert = screen.getByRole('alert')
-    expect(alert).toHaveTextContent('Conversation needs attention')
+    expect(alert).toHaveTextContent('Check this conversation')
     expect(alert).toHaveTextContent('Check your connection, then choose Retry conversation again.')
     expect(alert).not.toHaveTextContent('HTTP')
     expect(alert).not.toHaveTextContent('Failed to fetch')
@@ -237,7 +237,7 @@ describe('ChatView', () => {
     render(<ChatView agentId={providerAgent.id} />)
 
     const alert = screen.getByRole('alert')
-    expect(alert).toHaveTextContent('Conversation needs attention')
+    expect(alert).toHaveTextContent('Check this conversation')
     expect(alert).toHaveTextContent('ask an owner or admin to check chat setup')
     expect(alert).not.toHaveTextContent('HTTP 500')
     expect(alert).not.toHaveTextContent('Server error')

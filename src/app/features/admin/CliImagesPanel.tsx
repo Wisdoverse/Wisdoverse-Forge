@@ -27,7 +27,7 @@ function stateLabel(state: CliImageToolState): string {
     case 'updated':
       return 'Just updated'
     case 'failed':
-      return 'Check needs attention'
+      return 'Choose Check now'
     case 'pending':
       return 'Run first check'
   }
@@ -367,8 +367,7 @@ function ToolRow({
           {tool.state === 'failed' && tool.lastError && (
             <div className="mt-2 rounded-card border border-apple-red/20 bg-apple-red/[0.04] px-3 py-2">
               <p className="text-ui-caption text-foreground-light dark:text-foreground-dark">
-                Last check needs attention. New agents keep the current tool package until the next
-                check succeeds.
+                New agents keep the current tool package until the next check succeeds.
               </p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 What to do: {cliImageIssueNote(tool.lastError, 'check')}

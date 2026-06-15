@@ -341,7 +341,7 @@ describe('ProvidersSection', () => {
     render(<ProvidersSection />)
 
     const readiness = await screen.findByTestId('provider-readiness')
-    expect(within(readiness).getByText('AI service setup needs attention')).toBeDefined()
+    expect(within(readiness).getByText('Finish AI service setup')).toBeDefined()
     expect(
       within(readiness).getByText(/Enable or add an AI service before agents can use one/i)
     ).toBeDefined()

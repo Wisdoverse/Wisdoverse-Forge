@@ -537,6 +537,15 @@ const VAGUE_NEEDS_REVIEW_COPY_PATTERNS = [
   /\bsetup needs review\b/i,
 ]
 
+const VAGUE_NEEDS_ATTENTION_COPY_PATTERNS = [
+  /\bAnalytics needs attention\b/i,
+  /\bConversation needs attention\b/i,
+  /\bThis agent's work list needs attention\b/i,
+  /\bAgent work setup needs attention\b/i,
+  /\bAI service setup needs attention\b/i,
+  /\bCheck needs attention\b/i,
+]
+
 const TECHNICAL_PROBLEM_JARGON_PATTERNS = [
   /\bThis step reported a technical problem\b/i,
   /\bThis record reported a technical problem\b/i,
@@ -1639,6 +1648,21 @@ function hasVagueNeedsReviewCopy(relFile, line) {
   return VAGUE_NEEDS_REVIEW_COPY_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasVagueNeedsAttentionCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/analytics/AnalyticsDashboard.tsx') &&
+    !relFile.endsWith('src/app/features/chat/ChatView.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentTasksTab.tsx') &&
+    !relFile.endsWith('src/app/features/settings/RuntimeSection.tsx') &&
+    !relFile.endsWith('src/app/features/settings/ProvidersSection.tsx') &&
+    !relFile.endsWith('src/app/features/admin/CliImagesPanel.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return VAGUE_NEEDS_ATTENTION_COPY_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasTechnicalProblemJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/chat/ToolCallDetail.tsx') &&
@@ -2655,6 +2679,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'User-facing review copy must tell beginners what to check instead of saying needs review.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasVagueNeedsAttentionCopy(relFile, line)) {
+      findings.push({
+        type: 'vague-needs-attention-copy',
+        location,
+        message: 'User-facing attention copy must tell beginners what to do or what failed.',
         sample: line.trim(),
       })
     }
