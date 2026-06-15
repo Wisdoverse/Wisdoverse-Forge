@@ -807,6 +807,7 @@ const AGENT_CONFIG_DETAIL_DEAD_END_PATTERNS = [
   /\bModel not reported\b/i,
   /\bRefresh agent details\b/i,
   /\bWork tool not reported\b/i,
+  /\bNo instructions\b/i,
 ]
 
 const AGENT_AI_SERVICE_DEAD_END_PATTERNS = [/\bAI service not reported\b/i]

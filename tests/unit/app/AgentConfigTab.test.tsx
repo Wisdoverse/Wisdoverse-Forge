@@ -91,6 +91,17 @@ describe('AgentConfigTab', () => {
           systemPrompt: 'plain instructions',
         },
         {
+          id: 'no-instructions',
+          name: 'No Instructions Agent',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-6',
+          status: 'idle' as const,
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+          systemPrompt: '',
+        },
+        {
           id: 'missing-tool',
           name: 'Missing Tool Agent',
           provider: 'Check work tool',
@@ -148,6 +159,16 @@ describe('AgentConfigTab', () => {
       /this agent already has saved instructions/i
     )
     expect(screen.queryByText(/system prompt/i)).toBeNull()
+  })
+
+  it('points empty instruction setup to the next action', () => {
+    render(<AgentConfigTab agentId="no-instructions" />)
+
+    expect(screen.getByText('Add instructions')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent(
+      /choose a template or write instructions before saving/i
+    )
+    expect(screen.queryByText('No instructions')).toBeNull()
   })
 
   it('does not expose raw AI service slugs in instruction setup', () => {

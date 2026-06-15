@@ -2228,6 +2228,10 @@ function modelLabel() {
 function cliToolLabel() {
   return 'Work tool not reported'
 }
+
+function emptyInstructionBadge() {
+  return 'No instructions'
+}
 `,
     })
 
@@ -2243,6 +2247,10 @@ function cliToolLabel() {
         type: 'agent-config-detail-copy',
         location: 'src/app/features/agents/AgentConfigTab.tsx:7',
       }),
+      expect.objectContaining({
+        type: 'agent-config-detail-copy',
+        location: 'src/app/features/agents/AgentConfigTab.tsx:11',
+      }),
     ])
   })
 
@@ -2255,6 +2263,10 @@ function modelLabel() {
 
 function cliToolLabel() {
   return 'Refresh work tool setup'
+}
+
+function emptyInstructionBadge() {
+  return 'Add instructions'
 }
 `,
     })

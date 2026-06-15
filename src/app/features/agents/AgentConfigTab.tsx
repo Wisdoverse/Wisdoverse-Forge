@@ -171,7 +171,7 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
               ? 'Saved'
               : hasPrompt
                 ? 'Has instructions'
-                : 'No instructions'}
+                : 'Add instructions'}
         </span>
       </div>
 
