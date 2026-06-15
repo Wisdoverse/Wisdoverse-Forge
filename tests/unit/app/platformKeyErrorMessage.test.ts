@@ -14,7 +14,7 @@ describe('platformKeyErrorMessage', () => {
       platformKeyErrorMessage(
         'You do not have permission to create the platform API key. Code: 403. Details: Forbidden'
       ),
-      'Outside tool access key could not be created. Ask an owner or admin to let you create or remove outside tool access keys.'
+      'Ask an owner or admin to let you create or remove outside tool access keys.'
     )
   })
 
@@ -23,15 +23,18 @@ describe('platformKeyErrorMessage', () => {
       platformKeyErrorMessage(
         'Check the required fields for platform API key, then try again. Code: 422. Details: name is required'
       ),
-      'Outside tool access key could not be created. Enter the tool or job name, then try again.'
+      'Enter the tool or job name, then try again.'
     )
   })
 
   test('explains duplicate keys with a safe next action', () => {
+    const message = platformKeyErrorMessage('API 409 duplicate key')
+
     expectBeginnerMessage(
-      platformKeyErrorMessage('API 409 duplicate key'),
-      'Outside tool access key could not be created. An outside tool access key with this name already exists. Refresh the list, then choose a different name or remove the old key first.'
+      message,
+      'Refresh the list, then choose a different name or remove the old key first. An outside tool access key with this name already exists.'
     )
+    expect(message).not.toContain('Outside tool access key could not be created')
   })
 
   test('explains network failures in user-facing terms', () => {
@@ -69,7 +72,7 @@ describe('platformKeyErrorMessage', () => {
   test('turns structured rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       platformKeyErrorMessage({ statusCode: '429' }),
-      'Refresh Settings to load outside tool access keys. Forge is receiving too many outside tool access requests right now. Wait a minute, then try again.'
+      'Wait a minute, then try again. Forge is receiving too many outside tool access requests right now.'
     )
   })
 
@@ -78,7 +81,7 @@ describe('platformKeyErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load outside tool access keys. Try again. If it still fails, ask an owner or admin to check outside tool access settings.'
+      'Refresh Settings to load outside tool access keys. If it still fails, ask an owner or admin to check outside tool access settings.'
     )
     expect(message).not.toContain('parser')
   })

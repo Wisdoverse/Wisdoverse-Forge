@@ -751,6 +751,56 @@ function sshKeysErrorMessage(action) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags outside tool access key errors that start with the failure instead of the next step', () => {
+    const cwd = fixture({
+      'src/app/features/settings/platformKeyErrorMessage.ts': `
+function createMessage() {
+  return 'Outside tool access key could not be created. Enter the tool or job name, then try again.'
+}
+function removeMessage() {
+  return 'Outside tool access key could not be removed. Refresh Settings, then try again.'
+}
+function rateLimitMessage() {
+  return 'Refresh Settings to load outside tool access keys. Forge is receiving too many outside tool access requests right now. Wait a minute, then try again.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'platform-key-error-copy',
+          location: 'src/app/features/settings/platformKeyErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'platform-key-error-copy',
+          location: 'src/app/features/settings/platformKeyErrorMessage.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'platform-key-error-copy',
+          location: 'src/app/features/settings/platformKeyErrorMessage.ts:9',
+        }),
+      ])
+    )
+  })
+
+  it('accepts outside tool access key errors that start with the next step', () => {
+    const cwd = fixture({
+      'src/app/features/settings/platformKeyErrorMessage.ts': `
+function platformKeyErrorMessage(action) {
+  if (action === 'create') return 'Enter the tool or job name, then try again.'
+  if (action === 'remove') return 'Refresh Settings, then remove this outside tool access key again.'
+  return 'Wait a minute, then try again. Forge is receiving too many outside tool access requests right now.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags load error titles that do not tell users which view to retry or refresh', () => {
     const cwd = fixture({
       'src/app/shared/model/chat.errors.ts': `

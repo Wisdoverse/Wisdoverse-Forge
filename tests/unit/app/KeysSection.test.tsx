@@ -187,7 +187,10 @@ describe('KeysSection', () => {
 
     await waitFor(() => expect(loadApiKeysMock).toHaveBeenCalledTimes(1))
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Outside tool access key could not be created. Ask an owner or admin to let you create or remove outside tool access keys.'
+      'Ask an owner or admin to let you create or remove outside tool access keys.'
+    )
+    expect(screen.getByRole('alert')).not.toHaveTextContent(
+      'Outside tool access key could not be created.'
     )
     expect(screen.queryByText(/Details: Forbidden/i)).toBeNull()
   })

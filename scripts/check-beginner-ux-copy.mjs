@@ -366,6 +366,12 @@ const SSH_CODE_ACCESS_FAILURE_FIRST_PATTERNS = [
   /\bRefresh Settings to load SSH code access\. Try again\./i,
 ]
 
+const PLATFORM_KEY_FAILURE_FIRST_PATTERNS = [
+  /\bOutside tool access key could not be (?:created|removed)\./i,
+  /\bRefresh Settings to load outside tool access keys\. Forge is receiving too many outside tool access requests/i,
+  /\bRefresh Settings to load outside tool access keys\. Try again\./i,
+]
+
 const LOAD_ERROR_TITLE_DEAD_END_PATTERNS = [
   /\bConversation history could not be loaded\./i,
   /\bAgent tools could not be loaded\./i,
@@ -1262,6 +1268,12 @@ function hasSshCodeAccessFailureFirstCopy(relFile, line) {
   return SSH_CODE_ACCESS_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasPlatformKeyFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/settings/platformKeyErrorMessage.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return PLATFORM_KEY_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasLoadErrorTitleDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/model/chat.errors.ts') &&
@@ -1596,6 +1608,16 @@ function scanFile(file, relFile) {
         type: 'ssh-code-access-error-copy',
         location,
         message: 'SSH code access errors must start with the next action, not the failure summary.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasPlatformKeyFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'platform-key-error-copy',
+        location,
+        message:
+          'Outside tool access key errors must start with the next action, not the failure summary.',
         sample: line.trim(),
       })
     }

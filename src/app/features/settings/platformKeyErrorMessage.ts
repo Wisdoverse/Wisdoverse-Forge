@@ -77,10 +77,10 @@ function actionFromText(text: string): PlatformKeyAction {
   return 'load'
 }
 
-function baseMessage(action: PlatformKeyAction): string {
-  if (action === 'create') return 'Outside tool access key could not be created.'
-  if (action === 'remove') return 'Outside tool access key could not be removed.'
-  return 'Refresh Settings to load outside tool access keys.'
+function retryAction(action: PlatformKeyAction): string {
+  if (action === 'create') return 'create this outside tool access key again'
+  if (action === 'remove') return 'remove this outside tool access key again'
+  return 'refresh Settings to load outside tool access keys'
 }
 
 function connectionMessage(action: PlatformKeyAction): string {
@@ -96,16 +96,16 @@ export function platformKeyErrorMessage(error: unknown): string {
   const lower = text.toLowerCase()
   const code = statusCode(error)
   const action = actionFromText(text)
-  const base = baseMessage(action)
+  const retry = retryAction(action)
 
   if (code === 401 || lower.includes('sign in again') || lower.includes('unauthorized')) {
-    return `${base} Your sign-in expired. Sign in again, then open Settings and try outside tool access again.`
+    return `Sign in again, then ${retry}. Your sign-in expired.`
   }
   if (code === 403 || lower.includes('permission') || lower.includes('forbidden')) {
-    return `${base} Ask an owner or admin to let you create or remove outside tool access keys.`
+    return 'Ask an owner or admin to let you create or remove outside tool access keys.'
   }
   if (code === 409 || lower.includes('already exists') || lower.includes('duplicate')) {
-    return `${base} An outside tool access key with this name already exists. Refresh the list, then choose a different name or remove the old key first.`
+    return 'Refresh the list, then choose a different name or remove the old key first. An outside tool access key with this name already exists.'
   }
   if (
     code === 422 ||
@@ -113,20 +113,24 @@ export function platformKeyErrorMessage(error: unknown): string {
     lower.includes('name required') ||
     lower.includes('invalid name')
   ) {
-    return `${base} Enter the tool or job name, then try again.`
+    return 'Enter the tool or job name, then try again.'
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
-    return `${base} Forge is receiving too many outside tool access requests right now. Wait a minute, then try again.`
+    return 'Wait a minute, then try again. Forge is receiving too many outside tool access requests right now.'
   }
   if (code != null && code >= 500) {
     if (action === 'load') {
-      return `${base} If it still fails, ask an owner or admin to check outside tool access settings.`
+      return 'Refresh Settings to load outside tool access keys. If it still fails, ask an owner or admin to check outside tool access settings.'
     }
-    return `${base} Refresh Settings, then try again. If it still fails, ask an owner or admin to check outside tool access settings.`
+    return `Refresh Settings, then ${retry}. If it still fails, ask an owner or admin to check outside tool access settings.`
   }
   if (isNetworkError(error)) {
     return connectionMessage(action)
   }
 
-  return `${base} Try again. If it still fails, ask an owner or admin to check outside tool access settings.`
+  if (action === 'load') {
+    return 'Refresh Settings to load outside tool access keys. If it still fails, ask an owner or admin to check outside tool access settings.'
+  }
+
+  return `Try to ${retry}. If it still fails, ask an owner or admin to check outside tool access settings.`
 }
