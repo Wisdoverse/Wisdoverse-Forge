@@ -323,7 +323,7 @@ export function GettingStartedView() {
   // Once every step is done, hide the guide from the sidebar automatically.
   // Persist exactly once: wait for the stored preference (so an already
   // dismissed guide is not re-patched) and remember the write across renders.
-  // The page itself stays reachable at /start either way.
+  // Fresh /start visits skip the guide when the stored preference is already hidden.
   const autoDismissPersistedRef = useRef(false)
   useEffect(() => {
     if (!setupComplete || !preferencesLoaded) return
