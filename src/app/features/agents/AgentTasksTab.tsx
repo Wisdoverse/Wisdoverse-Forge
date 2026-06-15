@@ -39,7 +39,7 @@ const STATE_LABELS: Record<TaskState, string> = {
   backlog: 'Ready, not started',
   blocked: 'Needs your help',
   completed: 'Done',
-  failed: 'Stopped with an error',
+  failed: 'Review recovery',
   canceled: 'Canceled',
 }
 
@@ -49,7 +49,7 @@ const STATE_HELP: Record<TaskState, string> = {
   backlog: 'These tasks already have an agent, but work has not started yet.',
   blocked: 'These tasks need a person to help them move forward.',
   completed: 'These tasks are finished.',
-  failed: 'These tasks stopped before finishing.',
+  failed: 'Open the task, review the latest update, then retry when ready.',
   canceled: 'These tasks were stopped on purpose.',
 }
 

@@ -4266,6 +4266,15 @@ const TASK_STATE_LABELS = {
   failed: 'Needs review',
 }
 `,
+      'src/app/features/agents/AgentTasksTab.tsx': `
+const STATE_LABELS = {
+  failed: 'Stopped with an error',
+}
+
+const STATE_HELP = {
+  failed: 'These tasks stopped before finishing.',
+}
+`,
       'src/app/features/board/KanbanColumn.tsx': `
 const COLUMN_COPY = {
   failed: { label: 'Needs review' },
@@ -4294,6 +4303,14 @@ const TYPE_CONFIG = {
         }),
         expect.objectContaining({
           type: 'task-recovery-status-copy',
+          location: 'src/app/features/agents/AgentTasksTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'task-recovery-status-copy',
+          location: 'src/app/features/agents/AgentTasksTab.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'task-recovery-status-copy',
           location: 'src/app/features/board/KanbanColumn.tsx:3',
         }),
         expect.objectContaining({
@@ -4313,6 +4330,15 @@ const TYPE_CONFIG = {
       'src/app/entities/task/model/taskLabels.ts': `
 const TASK_STATE_LABELS = {
   failed: 'Review recovery',
+}
+`,
+      'src/app/features/agents/AgentTasksTab.tsx': `
+const STATE_LABELS = {
+  failed: 'Review recovery',
+}
+
+const STATE_HELP = {
+  failed: 'Open the task, review the latest update, then retry when ready.',
 }
 `,
       'src/app/features/board/KanbanColumn.tsx': `
