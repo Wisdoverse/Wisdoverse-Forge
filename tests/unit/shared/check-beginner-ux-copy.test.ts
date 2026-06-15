@@ -3685,6 +3685,72 @@ function ProjectTree() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags unclear task form submit labels', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskFormModal.tsx': `
+function TaskFormModal() {
+  return <button>{selectingProject ? 'Preparing Project...' : confirmIncompleteBrief ? 'Create Anyway' : 'Create Task'}</button>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-form-submit-label-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts task form submit labels that keep the action explicit', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskFormModal.tsx': `
+function TaskFormModal() {
+  return <button>{selectingProject ? 'Preparing project...' : confirmIncompleteBrief ? 'Create task anyway' : 'Create task'}</button>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags title-case task queue submit labels', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentGroupsPanel.tsx': `
+function AgentGroupsPanel() {
+  return <button>{saving ? 'Creating…' : 'Create Task Queue'}</button>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'agent-task-queue-submit-label-copy',
+        location: 'src/app/features/agents/AgentGroupsPanel.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts sentence-case task queue submit labels', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentGroupsPanel.tsx': `
+function AgentGroupsPanel() {
+  return <button>{saving ? 'Creating…' : 'Create task queue'}</button>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags saved instruction maintainer fallback copy that does not tell users to refresh', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `

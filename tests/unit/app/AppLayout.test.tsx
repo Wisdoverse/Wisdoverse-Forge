@@ -437,7 +437,7 @@ describe('AppLayout', () => {
     expect(screen.getByTestId('task-work-lane-readiness').textContent).toContain('Ready to Send')
     fireEvent.click(createButton)
     await screen.findByTestId('task-brief-confirmation')
-    fireEvent.click(screen.getByRole('button', { name: /create anyway/i }))
+    fireEvent.click(screen.getByRole('button', { name: /create task anyway/i }))
 
     await waitFor(() =>
       expect(mockCreateTask).toHaveBeenCalledWith({

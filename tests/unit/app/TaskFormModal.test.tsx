@@ -284,9 +284,10 @@ describe('TaskFormModal', () => {
     const confirmation = await screen.findByTestId('task-brief-confirmation')
     expect(confirmation).toHaveTextContent('This task may be hard for an agent to finish.')
     expect(confirmation).toHaveTextContent('Add where to work and done when')
-    expect(screen.getByRole('button', { name: /^create anyway$/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /^create task anyway$/i })).toBeDefined()
+    expect(screen.queryByRole('button', { name: /^create anyway$/i })).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: /^create anyway$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^create task anyway$/i }))
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
     expect(onSubmit.mock.calls[0][0]).toMatchObject({

@@ -465,7 +465,7 @@ export function TaskFormModal({
             <p className="font-semibold">This task may be hard for an agent to finish.</p>
             <p className="mt-0.5">
               Add {formatBriefCueList(missingBriefCues.map((cue) => cue.label).slice(0, 2))}, or
-              choose Create Anyway if this is enough for now.
+              choose Create task anyway if this is enough for now.
             </p>
           </div>
         )}
@@ -685,12 +685,12 @@ export function TaskFormModal({
               className="w-full rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {selectingProject
-                ? 'Preparing Project...'
+                ? 'Preparing project...'
                 : isSubmitting
                   ? 'Creating…'
                   : confirmIncompleteBrief && !briefReady
-                    ? 'Create Anyway'
-                    : 'Create Task'}
+                    ? 'Create task anyway'
+                    : 'Create task'}
             </button>
           </div>
         </form>

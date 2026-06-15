@@ -480,7 +480,7 @@ export function AgentGroupsPanel() {
                   )}
                 >
                   <Check size={14} strokeWidth={2.25} aria-hidden="true" />
-                  {saving ? 'Creating…' : 'Create Task Queue'}
+                  {saving ? 'Creating…' : 'Create task queue'}
                 </button>
                 {agentGroups.length > 0 && (
                   <button

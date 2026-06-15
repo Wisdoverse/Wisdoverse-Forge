@@ -271,6 +271,14 @@ const PROJECT_MENU_CREATE_TASK_JARGON_PATTERNS = [
   /\bStart work in this project\b/,
 ]
 
+const TASK_FORM_SUBMIT_LABEL_JARGON_PATTERNS = [
+  /\bCreate Anyway\b/,
+  /\bCreate Task\b/,
+  /\bPreparing Project\.\.\./,
+]
+
+const AGENT_TASK_QUEUE_SUBMIT_LABEL_JARGON_PATTERNS = [/\bCreate Task Queue\b/]
+
 const SKILL_MAINTAINER_FALLBACK_DEAD_END_PATTERNS = [
   /\bMaintainer not listed yet\b/i,
   /暂未列出维护者/,
@@ -1030,6 +1038,18 @@ function hasProjectMenuCreateTaskJargonCopy(relFile, line) {
   return PROJECT_MENU_CREATE_TASK_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTaskFormSubmitLabelJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/board/TaskFormModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_FORM_SUBMIT_LABEL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentTaskQueueSubmitLabelJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/agents/AgentGroupsPanel.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_TASK_QUEUE_SUBMIT_LABEL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasSkillMaintainerFallbackDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
@@ -1761,6 +1781,26 @@ function scanFile(file, relFile) {
         location,
         message:
           'Project menu task creation must say New task for this project and explain that it opens the task form with this project selected.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskFormSubmitLabelJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'task-form-submit-label-copy',
+        location,
+        message:
+          'Task creation submit labels must use sentence case and keep the task action explicit for first-time users.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentTaskQueueSubmitLabelJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-task-queue-submit-label-copy',
+        location,
+        message:
+          'Task queue submit labels must use sentence case so first-time users see one consistent action style.',
         sample: line.trim(),
       })
     }

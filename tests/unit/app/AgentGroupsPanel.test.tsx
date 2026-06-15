@@ -306,6 +306,8 @@ describe('AgentGroupsPanel', () => {
     render(<AgentGroupsPanel />)
 
     fireEvent.click(screen.getByRole('button', { name: /^create task queue$/i }))
+    expect(screen.getByRole('button', { name: 'Create task queue' })).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Create Task Queue' })).toBeNull()
     fireEvent.change(screen.getByLabelText(/task queue name/i), {
       target: { value: 'Delivery Queue' },
     })
