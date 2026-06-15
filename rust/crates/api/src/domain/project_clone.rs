@@ -1311,7 +1311,7 @@ mod tests {
         // only that the api-domain re-export still resolves to the same contract.
         assert_eq!(CLONE_OUTBOX_AGGREGATE_TYPE, "project_clone");
         assert_eq!(CLONE_OUTBOX_EVENT_TYPE, "clone_requested");
-        let payload = CloneOutboxPayload { project_id: uuid::Uuid::nil(), attempt: 1 };
+        let payload = CloneOutboxPayload::now(uuid::Uuid::nil(), 1);
         assert_eq!(payload.job_unique_key(), format!("project_clone:{}:1", uuid::Uuid::nil()));
     }
 

@@ -549,6 +549,11 @@ async fn main() -> Result<()> {
                         .unwrap_or_else(|| PathBuf::from("/tmp/agentforge/clone-secrets")),
                     timeout: std::time::Duration::from_secs(config.project_clone_timeout_secs),
                     lease_ttl: std::time::Duration::from_secs(config.project_clone_timeout_secs.saturating_add(300)),
+                    // Renew the lease well within its TTL (≈1/3) so a healthy long
+                    // clone is never recovered out from under a live worker.
+                    heartbeat_interval: std::time::Duration::from_secs(
+                        config.project_clone_timeout_secs.saturating_add(300).max(3) / 3,
+                    ),
                     ..Default::default()
                 };
 

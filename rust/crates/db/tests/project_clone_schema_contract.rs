@@ -242,6 +242,7 @@ async fn migration_068_lands_project_clone_schema(pool: PgPool) {
         "error_message",
         "bytes_cloned",
         "duration_ms",
+        "materialized_at",
         "started_at",
         "finished_at",
         "created_at",

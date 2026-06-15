@@ -8,6 +8,7 @@ use agentforge_core::orchestration_protocol::{TaskAssignment, assign_subject, as
 use agentforge_db::entities::OrchestrationOutbox;
 use anyhow::{Context, Result};
 use async_nats::{Client, jetstream};
+use chrono::Utc;
 use sqlx::{PgPool, Postgres, Transaction};
 use tokio::sync::watch;
 
@@ -262,6 +263,13 @@ pub async fn relay_next_clone_outbox(pool: &PgPool) -> Result<Option<uuid::Uuid>
         }
     };
     let unique_key = payload.job_unique_key();
+    // Honor the retry backoff: a delayed payload schedules the job for its
+    // `run_after`, so the worker's `run_at <= now()` dequeue filter holds it back
+    // until then (no fast-fail retry storm). A first-delivery payload (run_after
+    // None) enqueues for immediate pickup. `GREATEST(.., NOW())` clamps a stale
+    // past deadline to now so a clock skew can never schedule the job in the past
+    // ambiguously.
+    let run_at = payload.run_after.unwrap_or_else(Utc::now);
 
     // Enqueue inside the same tx (not the pool-based `queue::enqueue`) so the
     // insert and the mark-published commit atomically. The job carries the
@@ -270,11 +278,12 @@ pub async fn relay_next_clone_outbox(pool: &PgPool) -> Result<Option<uuid::Uuid>
     // `idx_job_queue_unique_key` (migration 068).
     sqlx::query(
         r#"INSERT INTO job_queue (queue, payload, priority, run_at, unique_key, max_attempts)
-           VALUES ($1, $2, 0, NOW(), $3, $4)
+           VALUES ($1, $2, 0, GREATEST($3, NOW()), $4, $5)
            ON CONFLICT (unique_key) WHERE unique_key IS NOT NULL DO NOTHING"#,
     )
     .bind(CLONE_JOB_QUEUE)
     .bind(&row.payload)
+    .bind(run_at)
     .bind(&unique_key)
     .bind(CLONE_JOB_MAX_ATTEMPTS)
     .execute(&mut *tx)

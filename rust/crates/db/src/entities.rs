@@ -217,6 +217,13 @@ pub struct ProjectCloneAttempt {
     pub error_message: Option<String>,
     pub bytes_cloned: Option<i64>,
     pub duration_ms: Option<i64>,
+    /// Set the instant the cloned tree is renamed live under the projects root,
+    /// before the DB finalize-to-`ready` commits. A non-NULL value means the
+    /// on-disk publish is irreversible, so a crash/lost-race between the rename
+    /// and the finalize is recovered by forcing the attempt to `ready` (the
+    /// rename is the source of truth) rather than re-cloning into a refused
+    /// already-existing target. See the M5 worker's `finish_ready`.
+    pub materialized_at: Option<DateTime<Utc>>,
     pub started_at: Option<DateTime<Utc>>,
     pub finished_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,

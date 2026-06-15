@@ -37,6 +37,7 @@ lettre.workspace = true
 redis.workspace = true
 url.workspace = true
 secrecy.workspace = true
+zeroize.workspace = true
 regex.workspace = true
 serde_urlencoded = "0.7"
 metrics.workspace = true

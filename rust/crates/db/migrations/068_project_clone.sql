@@ -166,11 +166,25 @@ CREATE TABLE IF NOT EXISTS project_clone_attempts (
     error_message TEXT,
     bytes_cloned BIGINT,
     duration_ms BIGINT,
+    -- Set the instant the cloned tree is renamed live under the projects root,
+    -- BEFORE the DB finalize-to-ready commits. It marks the publish as
+    -- irreversibly materialized on disk so a crash/lost-race between the rename
+    -- and the finalize is recoverable: the worker (or reconciler) sees
+    -- materialized_at IS NOT NULL, treats the on-disk rename as the source of
+    -- truth, and forces the attempt to `ready` instead of re-cloning into a
+    -- target that already holds the correct clone (which the overwrite guard
+    -- would otherwise refuse forever).
+    materialized_at TIMESTAMPTZ,
     started_at TIMESTAMPTZ,
     finished_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Backfill `materialized_at` for tables created before this column existed (a
+-- re-run of a pre-`materialized_at` 068 left the column absent). Adding the
+-- column to an existing table is idempotent + tolerant of production drift.
+ALTER TABLE project_clone_attempts ADD COLUMN IF NOT EXISTS materialized_at TIMESTAMPTZ;
 
 -- One attempt number per project (retry increments `attempt`).
 CREATE UNIQUE INDEX IF NOT EXISTS uq_project_clone_attempt

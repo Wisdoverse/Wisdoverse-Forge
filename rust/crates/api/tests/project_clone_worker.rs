@@ -9,7 +9,7 @@
 //!   cargo test -p agentforge-api --test project_clone_worker
 //! ```
 //!
-//! Covers (per the M5 spec, §6.3, §6.6, §6.7, §7, §8, §12):
+//! Covers (per the M5 spec, §6.3, §6.6, §6.7, §7, §8, §12, + the M5-review fixes):
 //!   * happy path: queued -> Ready -> attempt+project `ready`, branch/head_sha
 //!     persisted, target dir materialized by an ATOMIC rename, staging removed,
 //!     a `clone.ready` audit event recorded;
@@ -25,6 +25,22 @@
 //!     never the raw tail (the M4-deferred redaction boundary test);
 //!   * host-match credential: two creds for different hosts -> the matching one is
 //!     picked + recorded; an unknown host -> None (clone proceeds anonymously).
+//!
+//! M5-review failure-branch coverage (added with the review fixes):
+//!   * idempotent re-delivery: re-processing an already-`ready` or already-`failed`
+//!     attempt is a no-op (no second clone.started, no extra retry, dir untouched);
+//!   * recoverable publish (#1 regression): a materialized-but-unfinalized attempt
+//!     (rename done, finalize lost) is force-readied by the reconciler — never a
+//!     stranded `cloning` + a failing retry loop;
+//!   * worker target-exists-is-mine: an attempt whose own `materialized_at` is set
+//!     and whose target dir exists re-finalizes `ready` without re-cloning;
+//!   * delete-race (#2): a project soft-deleted before publish cancels the attempt
+//!     and creates NO directory;
+//!   * runtime error (Docker create failed): staging cleaned + redacted + bounded
+//!     retry (exercises `finish_failed_redacted` directly), clone.started emitted;
+//!   * concurrent retry schedulers (failure-path + reconciler): exactly ONE next
+//!     attempt + ONE unpublished outbox row;
+//!   * container_id (#11) persisted before the wait.
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -108,6 +124,26 @@ impl FakeRunner {
 
     fn last_call(&self) -> Option<FakeCall> {
         self.calls.lock().unwrap().last().cloned()
+    }
+
+    fn call_count(&self) -> usize {
+        self.calls.lock().unwrap().len()
+    }
+}
+
+/// A runner whose `run` always returns an Err (simulating a Docker create/start
+/// failure) — never produces a staging repo. Exercises the worker's runtime-error
+/// branch (`finish_failed_redacted` directly).
+struct ErrRunner;
+
+#[async_trait::async_trait]
+impl CloneRunner for ErrRunner {
+    async fn run(&self, _spec: CloneRunSpec) -> agentforge_core::AppResult<CloneRunOutcome> {
+        Err(agentforge_core::ErrorKind::Internal(anyhow::anyhow!("docker create failed: no such image")).into())
+    }
+
+    async fn sweep_orphans(&self) -> agentforge_core::AppResult<usize> {
+        Ok(0)
     }
 }
 
@@ -224,6 +260,7 @@ fn worker<R: CloneRunner + 'static>(pool: &PgPool, seed: &Seed, runner: Arc<R>) 
         secret_root,
         timeout: Duration::from_secs(60),
         lease_ttl: Duration::from_secs(120),
+        heartbeat_interval: Duration::from_secs(40),
         max_bytes: None,
         max_attempts: DEFAULT_MAX_ATTEMPTS,
         retry_backoff: Duration::from_millis(1),
@@ -291,6 +328,39 @@ async fn count_attempts(pool: &PgPool, project_id: Uuid) -> i64 {
         .fetch_one(pool)
         .await
         .expect("count attempts")
+}
+
+/// Just the status of an attempt (for the idempotency/recovery tests).
+async fn attempt_status(pool: &PgPool, project_id: Uuid, attempt: i32) -> String {
+    sqlx::query_scalar("SELECT status FROM project_clone_attempts WHERE project_id = $1 AND attempt = $2")
+        .bind(project_id)
+        .bind(attempt)
+        .fetch_one(pool)
+        .await
+        .expect("fetch status")
+}
+
+/// Whether an attempt carries `materialized_at` (the irreversible-publish marker).
+async fn attempt_is_materialized(pool: &PgPool, project_id: Uuid, attempt: i32) -> bool {
+    sqlx::query_scalar::<_, Option<chrono::DateTime<chrono::Utc>>>(
+        "SELECT materialized_at FROM project_clone_attempts WHERE project_id = $1 AND attempt = $2",
+    )
+    .bind(project_id)
+    .bind(attempt)
+    .fetch_one(pool)
+    .await
+    .expect("fetch materialized_at")
+    .is_some()
+}
+
+/// The persisted container_id of an attempt (for the #11 diagnostics test).
+async fn attempt_container_id(pool: &PgPool, project_id: Uuid, attempt: i32) -> Option<String> {
+    sqlx::query_scalar("SELECT container_id FROM project_clone_attempts WHERE project_id = $1 AND attempt = $2")
+        .bind(project_id)
+        .bind(attempt)
+        .fetch_one(pool)
+        .await
+        .expect("fetch container_id")
 }
 
 async fn count_unpublished_outbox(pool: &PgPool, project_id: Uuid) -> i64 {
@@ -434,7 +504,8 @@ async fn failed_outcome_redacts_and_schedules_bounded_retry(pool: PgPool) {
     // The project mirrors the retry as queued.
     assert_eq!(project_clone_status(&pool, project_id).await, "queued");
 
-    // A clone.failed + clone.retry event recorded.
+    // A clone.started (on entry) + clone.failed + clone.retry event recorded.
+    assert_eq!(count_audit(&pool, "clone.started", project_id).await, 1, "clone.started on the failure path");
     assert_eq!(count_audit(&pool, "clone.failed", project_id).await, 1);
     assert_eq!(count_audit(&pool, "clone.retry", project_id).await, 1);
 
@@ -485,6 +556,8 @@ async fn timeout_maps_to_timeout_class(pool: PgPool) {
     let (status, class, _m, _b, _s, _cr) = attempt_row(&pool, project_id, 1).await;
     assert_eq!(status, "failed");
     assert_eq!(class.as_deref(), Some("timeout"));
+    // clone.started is emitted on entry even on the timeout path.
+    assert_eq!(count_audit(&pool, "clone.started", project_id).await, 1, "clone.started on the timeout path");
 }
 
 #[sqlx::test(migrations = "../db/migrations")]
@@ -703,4 +776,357 @@ async fn worker_clones_anonymously_when_no_credential_matches_the_host(pool: PgP
     assert_eq!(cred, None, "an unmatched host must record no credential");
     let call = runner.last_call().expect("runner called");
     assert!(!call.had_credential, "no credential must be supplied when no host matches");
+}
+
+// ---------------------------------------------------------------------------
+// 7. M5-review failure-branch coverage.
+// ---------------------------------------------------------------------------
+
+/// A job re-delivered for an already-`ready` attempt is a no-op: no second clone
+/// runs (the runner is not called again), no second clone.started, and the live
+/// dir is untouched. (Idempotency: the durable dedup is the attempt row.)
+#[sqlx::test(migrations = "../db/migrations")]
+async fn redelivery_of_a_ready_attempt_is_a_noop(pool: PgPool) {
+    let seed = seed(&pool).await;
+    let project_id = create_cloned_project(&pool, &seed, "Once", REPO_URL).await;
+
+    let runner = FakeRunner::new(|| CloneRunOutcome::Ready {
+        branch: Some("main".to_string()),
+        head_sha: "abc123".to_string(),
+        bytes: 8,
+    });
+    let worker = worker(&pool, &seed, runner.clone());
+
+    // First delivery materializes the clone to ready.
+    worker.process_attempt_for_test(project_id, 1).await.expect("first process");
+    assert_eq!(attempt_status(&pool, project_id, 1).await, "ready");
+    assert_eq!(runner.call_count(), 1, "the runner ran exactly once");
+    let dir_name = project_dir_name(&pool, project_id).await;
+    let target = projects_root(&seed).join(&dir_name);
+    let sentinel = target.join("README.md");
+    assert!(sentinel.exists());
+
+    // Re-deliver the SAME attempt: terminal -> short-circuit, no second run.
+    worker.process_attempt_for_test(project_id, 1).await.expect("redeliver");
+    assert_eq!(runner.call_count(), 1, "a re-delivered ready attempt must NOT run the clone again");
+    assert_eq!(count_audit(&pool, "clone.started", project_id).await, 1, "no second clone.started");
+    assert_eq!(count_attempts(&pool, project_id).await, 1, "no extra attempt");
+    assert!(sentinel.exists(), "the live dir must be untouched by a re-delivery");
+}
+
+/// A job re-delivered for an already-`failed` attempt is a no-op: no second run,
+/// no second clone.started, and NO second retry (so the bounded budget is not
+/// double-spent by a duplicate job).
+#[sqlx::test(migrations = "../db/migrations")]
+async fn redelivery_of_a_failed_attempt_does_not_double_retry(pool: PgPool) {
+    let seed = seed(&pool).await;
+    let project_id = create_cloned_project(&pool, &seed, "FailOnce", REPO_URL).await;
+
+    let runner = FakeRunner::new(|| CloneRunOutcome::Failed {
+        exit_code: 128,
+        stderr_tail: RawStderr::new("fatal: repository not found".to_string()),
+    });
+    let worker = worker(&pool, &seed, runner.clone());
+
+    worker.process_attempt_for_test(project_id, 1).await.expect("first process");
+    assert_eq!(attempt_status(&pool, project_id, 1).await, "failed");
+    // One retry (attempt 2) scheduled.
+    assert_eq!(count_attempts(&pool, project_id).await, 2);
+    assert_eq!(runner.call_count(), 1);
+
+    // Re-deliver attempt 1: it is terminal -> no-op. No second run, no extra retry.
+    worker.process_attempt_for_test(project_id, 1).await.expect("redeliver");
+    assert_eq!(runner.call_count(), 1, "a re-delivered failed attempt must NOT run again");
+    assert_eq!(count_attempts(&pool, project_id).await, 2, "no second retry from the duplicate job");
+    assert_eq!(count_audit(&pool, "clone.started", project_id).await, 1, "no second clone.started");
+    assert_eq!(count_audit(&pool, "clone.retry", project_id).await, 1, "exactly one retry event");
+}
+
+/// #1 REGRESSION: a clone whose tree was renamed live (materialized_at set) but
+/// whose DB finalize never reached `ready` — the rename/finalize split-brain —
+/// must be RECOVERABLE to `ready`, NOT a stranded `cloning` that retries forever
+/// into a target the overwrite guard refuses.
+///
+/// We reconstruct the exact split-brain: attempt 1 `cloning` with `materialized_at`
+/// set AND the target dir live on disk (as if the worker crashed in the instant
+/// between the rename and the finalize commit). The reconciler must force `ready`.
+#[sqlx::test(migrations = "../db/migrations")]
+async fn reconciler_force_readies_a_materialized_but_unfinalized_attempt(pool: PgPool) {
+    let seed = seed(&pool).await;
+    let project_id = create_cloned_project(&pool, &seed, "SplitBrain", REPO_URL).await;
+
+    // Materialize the clone on disk (the rename "happened") without finalizing.
+    let dir_name = project_dir_name(&pool, project_id).await;
+    let target = projects_root(&seed).join(&dir_name);
+    tokio::fs::create_dir_all(&target).await.expect("materialize target dir");
+    tokio::fs::write(target.join("README.md"), b"already cloned").await.expect("write materialized file");
+
+    // Reconstruct the DB split-brain: cloning + materialized_at set + persisted
+    // success payload, but NOT ready. (An expired lease too, to prove the
+    // materialized scan wins over the expired-lease failure path.)
+    sqlx::query(
+        "UPDATE project_clone_attempts
+            SET status = 'cloning',
+                materialized_at = now(),
+                resolved_branch = 'main',
+                head_sha = 'cafebabe',
+                bytes_cloned = 14,
+                duration_ms = 5,
+                lease_expires_at = now() - interval '1 hour'
+          WHERE project_id = $1 AND attempt = 1",
+    )
+    .bind(project_id)
+    .execute(&pool)
+    .await
+    .expect("force split-brain state");
+
+    let runner = FakeRunner::new(|| CloneRunOutcome::Timeout); // must NOT be called
+    let worker = worker(&pool, &seed, runner.clone());
+    worker.run_reconciler_once().await;
+
+    // The attempt is force-readied (rename is the source of truth); NO re-clone,
+    // NO failing retry loop, and the live dir is untouched.
+    assert_eq!(attempt_status(&pool, project_id, 1).await, "ready", "split-brain must heal to ready");
+    assert_eq!(project_clone_status(&pool, project_id).await, "ready");
+    assert_eq!(count_attempts(&pool, project_id).await, 1, "NO retry attempt: the clone succeeded on disk");
+    assert_eq!(runner.call_count(), 0, "the clone must NOT be re-run for a materialized attempt");
+    assert!(target.join("README.md").exists(), "the live clone must be untouched");
+    let (_s, _c, _m, branch, head_sha, _cr) = attempt_row(&pool, project_id, 1).await;
+    assert_eq!(branch.as_deref(), Some("main"), "the persisted success payload is preserved");
+    assert_eq!(head_sha.as_deref(), Some("cafebabe"));
+    assert_eq!(count_audit(&pool, "clone.ready", project_id).await, 1, "a clone.ready event is emitted on recovery");
+}
+
+/// #1 crash-window closure: the worker crashed AFTER the on-disk rename but BEFORE
+/// the publish tx committed, so the clone is LIVE on disk yet `materialized_at` is
+/// NULL and the attempt is stuck `cloning` with an expired lease. The reconciler's
+/// expired-lease recovery must ADOPT the on-disk clone (force ready) — NOT fail +
+/// retry it into the overwrite guard forever.
+#[sqlx::test(migrations = "../db/migrations")]
+async fn reconciler_adopts_an_on_disk_clone_whose_finalize_was_lost(pool: PgPool) {
+    let seed = seed(&pool).await;
+    let project_id = create_cloned_project(&pool, &seed, "CrashWindow", REPO_URL).await;
+
+    // The clone is live on disk (rename happened) ...
+    let dir_name = project_dir_name(&pool, project_id).await;
+    let target = projects_root(&seed).join(&dir_name);
+    tokio::fs::create_dir_all(&target).await.expect("materialize target");
+    tokio::fs::write(target.join("README.md"), b"committed to disk").await.expect("write file");
+
+    // ... but the DB shows an expired-lease `cloning` attempt with NO materialized_at
+    // (the publish tx never committed). The persisted success payload survives the
+    // rename step in the real flow; seed it so the adopt has values to re-finalize.
+    sqlx::query(
+        "UPDATE project_clone_attempts
+            SET status = 'cloning', materialized_at = NULL,
+                resolved_branch = 'main', head_sha = 'd00d',
+                lease_expires_at = now() - interval '1 hour'
+          WHERE project_id = $1 AND attempt = 1",
+    )
+    .bind(project_id)
+    .execute(&pool)
+    .await
+    .expect("force crash-window state");
+
+    let runner = FakeRunner::new(|| CloneRunOutcome::Timeout); // must NOT be called
+    let worker = worker(&pool, &seed, runner.clone());
+    worker.run_reconciler_once().await;
+
+    // Adopted: the attempt is ready (not failed), materialized_at is now set, NO
+    // retry was spawned, and the live dir is untouched.
+    assert_eq!(attempt_status(&pool, project_id, 1).await, "ready", "an on-disk clone must be adopted, not failed");
+    assert!(attempt_is_materialized(&pool, project_id, 1).await, "adoption stamps materialized_at");
+    assert_eq!(count_attempts(&pool, project_id).await, 1, "NO retry: the clone is live on disk");
+    assert_eq!(runner.call_count(), 0, "the clone must NOT be re-run");
+    assert!(target.join("README.md").exists(), "the live clone must be untouched");
+    assert_eq!(count_audit(&pool, "clone.ready", project_id).await, 1, "a clone.ready event is emitted on adoption");
+    assert_eq!(project_clone_status(&pool, project_id).await, "ready");
+}
+
+/// The worker's OWN target-exists-is-mine path: a re-driven attempt whose own
+/// `materialized_at` is set and whose target dir exists re-finalizes `ready`
+/// WITHOUT re-cloning (no second runner call, no overwrite failure).
+#[sqlx::test(migrations = "../db/migrations")]
+async fn worker_refinalizes_its_own_materialized_clone_without_recloning(pool: PgPool) {
+    let seed = seed(&pool).await;
+    let project_id = create_cloned_project(&pool, &seed, "MineAlready", REPO_URL).await;
+
+    // The clone is live on disk + the attempt's OWN materialized_at is set, but it
+    // is still `queued` (a prior partial run materialized then got reset). The
+    // claim (queued -> cloning) preserves materialized_at, so when the re-driven
+    // clone returns Ready, `finish_ready` sees target-exists AND this-attempt-is-
+    // materialized and re-finalizes ready WITHOUT clobbering the live dir.
+    let dir_name = project_dir_name(&pool, project_id).await;
+    let target = projects_root(&seed).join(&dir_name);
+    tokio::fs::create_dir_all(&target).await.expect("materialize target");
+    tokio::fs::write(target.join("PROOF"), b"mine").await.expect("write proof");
+    sqlx::query(
+        "UPDATE project_clone_attempts
+            SET status = 'queued', materialized_at = now(), head_sha = 'sha1'
+          WHERE project_id = $1 AND attempt = 1",
+    )
+    .bind(project_id)
+    .execute(&pool)
+    .await
+    .expect("force materialized-but-queued");
+
+    let runner = FakeRunner::new(|| CloneRunOutcome::Ready { branch: None, head_sha: "sha1".to_string(), bytes: 1 });
+    let worker = worker(&pool, &seed, runner.clone());
+    worker.process_attempt_for_test(project_id, 1).await.expect("re-drive");
+
+    assert_eq!(attempt_status(&pool, project_id, 1).await, "ready", "re-finalized to ready");
+    assert!(target.join("PROOF").exists(), "the existing materialized clone must NOT be clobbered");
+    assert_eq!(count_attempts(&pool, project_id).await, 1, "no retry — the clone is already live");
+    assert_eq!(count_audit(&pool, "clone.ready", project_id).await, 1);
+}
+
+/// #2 (publish-lock race): a project soft-deleted DURING the clone run — after the
+/// early live-check passed, before the publish — must CANCEL the attempt at the
+/// publish-time `FOR UPDATE` guard and create NO directory in the projects root.
+///
+/// The deletion is injected by a runner that soft-deletes the project as a side
+/// effect just before returning Ready, so the worker reaches `finish_ready` with a
+/// live staging repo but a now-deleted project — exactly the mid-flight race.
+#[sqlx::test(migrations = "../db/migrations")]
+async fn deleted_project_mid_flight_cancels_without_publishing(pool: PgPool) {
+    let seed = seed(&pool).await;
+    let project_id = create_cloned_project(&pool, &seed, "Doomed2", REPO_URL).await;
+    let dir_name = project_dir_name(&pool, project_id).await;
+
+    // A runner that, on run, materializes <staging>/repo AND soft-deletes the
+    // project — simulating an M6 delete landing during the clone, after the early
+    // live-check but before the publish lock.
+    struct DeleteMidRun {
+        pool: PgPool,
+        project_id: Uuid,
+    }
+    #[async_trait::async_trait]
+    impl CloneRunner for DeleteMidRun {
+        async fn run(&self, spec: CloneRunSpec) -> agentforge_core::AppResult<CloneRunOutcome> {
+            let repo = spec.staging_host_path.join("repo");
+            tokio::fs::create_dir_all(&repo).await.expect("materialize fake repo");
+            tokio::fs::write(repo.join("README.md"), b"hi").await.expect("write fake file");
+            // The project is deleted mid-flight.
+            sqlx::query("UPDATE projects SET deleted_at = now() WHERE id = $1")
+                .bind(self.project_id)
+                .execute(&self.pool)
+                .await
+                .expect("soft-delete mid-run");
+            Ok(CloneRunOutcome::Ready { branch: Some("main".into()), head_sha: "sha".into(), bytes: 1 })
+        }
+        async fn sweep_orphans(&self) -> agentforge_core::AppResult<usize> {
+            Ok(0)
+        }
+    }
+
+    let worker = worker(&pool, &seed, Arc::new(DeleteMidRun { pool: pool.clone(), project_id }));
+    worker.process_attempt_for_test(project_id, 1).await.expect("process");
+
+    // The attempt is cancelled at the publish lock — NOT ready — and NO dir exists.
+    assert_eq!(attempt_status(&pool, project_id, 1).await, "cancelled", "a mid-flight delete must cancel the attempt");
+    let target = projects_root(&seed).join(&dir_name);
+    assert!(!target.exists(), "NO directory may be published for a project deleted mid-flight");
+    assert_eq!(count_audit(&pool, "clone.cancelled", project_id).await, 1, "a clone.cancelled event is emitted");
+    // Staging is cleaned (no orphan left behind).
+    let staging = projects_root(&seed).join(".clone-staging");
+    if staging.exists() {
+        let mut entries = tokio::fs::read_dir(&staging).await.expect("read staging");
+        assert!(entries.next_entry().await.expect("next").is_none(), "staging must be empty");
+    }
+}
+
+/// A runner that returns `Err` (Docker create/start failed) is treated as an
+/// internal failure: staging is cleaned, the stored message is redacted (it is our
+/// own text, no token), clone.started was emitted, and a bounded retry is
+/// scheduled. Exercises `finish_failed_redacted` via the runtime-error branch.
+#[sqlx::test(migrations = "../db/migrations")]
+async fn runner_error_cleans_staging_and_schedules_bounded_retry(pool: PgPool) {
+    let seed = seed(&pool).await;
+    let project_id = create_cloned_project(&pool, &seed, "DockerDown", REPO_URL).await;
+
+    let worker = worker(&pool, &seed, Arc::new(ErrRunner));
+    worker.process_attempt_for_test(project_id, 1).await.expect("process");
+
+    let (status, class, msg, _b, _s, _cr) = attempt_row(&pool, project_id, 1).await;
+    assert_eq!(status, "failed");
+    assert_eq!(class.as_deref(), Some("internal"), "a runtime error classifies as internal");
+    let stored = msg.expect("error_message set");
+    assert!(stored.contains("clone runtime error"), "the internal message is stored: {stored}");
+
+    // clone.started emitted, a bounded retry scheduled, staging cleaned.
+    assert_eq!(count_audit(&pool, "clone.started", project_id).await, 1);
+    assert_eq!(count_attempts(&pool, project_id).await, 2, "a bounded retry was scheduled");
+    assert_eq!(attempt_status(&pool, project_id, 2).await, "queued");
+    let staging = projects_root(&seed).join(".clone-staging");
+    if staging.exists() {
+        let mut entries = tokio::fs::read_dir(&staging).await.expect("read staging");
+        assert!(entries.next_entry().await.expect("next").is_none(), "staging must be empty after a runtime error");
+    }
+}
+
+/// #7: two retry schedulers racing for the SAME failed attempt (the worker failure
+/// path AND a reconciler re-drive) must produce EXACTLY ONE next attempt and ONE
+/// unpublished outbox row — never two. We drive the failure once (creating attempt
+/// 2 + its outbox row), then force attempt 1 back to an expired-lease `cloning`
+/// state and run the reconciler, which would re-schedule attempt 2 — the
+/// `uq_project_clone_attempt` + the outbox dedup guard must keep it to one each.
+#[sqlx::test(migrations = "../db/migrations")]
+async fn concurrent_retry_schedulers_yield_exactly_one_next_attempt(pool: PgPool) {
+    let seed = seed(&pool).await;
+    let project_id = create_cloned_project(&pool, &seed, "RaceRetry", REPO_URL).await;
+
+    let runner = FakeRunner::new(|| CloneRunOutcome::Failed {
+        exit_code: 128,
+        stderr_tail: RawStderr::new("fatal: repository not found".to_string()),
+    });
+    let worker = worker(&pool, &seed, runner);
+
+    // Failure path schedules retry attempt 2 + one outbox row.
+    worker.process_attempt_for_test(project_id, 1).await.expect("process");
+    assert_eq!(count_attempts(&pool, project_id).await, 2);
+    assert_eq!(count_unpublished_outbox_for_attempt(&pool, project_id, 2).await, 1);
+
+    // Now force attempt 1 back to an expired-lease cloning so the reconciler ALSO
+    // tries to recover + retry it (a second scheduler for the same next attempt).
+    sqlx::query(
+        "UPDATE project_clone_attempts
+            SET status = 'cloning', lease_expires_at = now() - interval '1 hour'
+          WHERE project_id = $1 AND attempt = 1",
+    )
+    .bind(project_id)
+    .execute(&pool)
+    .await
+    .expect("re-arm attempt 1 as expired cloning");
+
+    worker.run_reconciler_once().await;
+
+    // Exactly ONE next attempt (2) and ONE unpublished outbox row for it — the
+    // unique index + the dedup guard absorbed the concurrent schedule.
+    assert_eq!(count_attempts(&pool, project_id).await, 2, "exactly one next attempt across both schedulers");
+    assert_eq!(
+        count_unpublished_outbox_for_attempt(&pool, project_id, 2).await,
+        1,
+        "exactly one unpublished outbox row for the retry attempt"
+    );
+}
+
+/// #11: the deterministic container_id (`agentforge-clone-<attempt_id>`) is
+/// persisted on the attempt before the wait, for diagnostics + targeted reaping.
+#[sqlx::test(migrations = "../db/migrations")]
+async fn container_id_is_persisted_before_the_wait(pool: PgPool) {
+    let seed = seed(&pool).await;
+    let project_id = create_cloned_project(&pool, &seed, "WithContainer", REPO_URL).await;
+
+    let runner = FakeRunner::new(|| CloneRunOutcome::Ready {
+        branch: Some("main".to_string()),
+        head_sha: "sha".to_string(),
+        bytes: 1,
+    });
+    let worker = worker(&pool, &seed, runner);
+    worker.process_attempt_for_test(project_id, 1).await.expect("process");
+
+    let container_id = attempt_container_id(&pool, project_id, 1).await.expect("container_id persisted");
+    assert!(container_id.starts_with("agentforge-clone-"), "deterministic container name persisted: {container_id}");
+    // It is materialized too (the happy path stamps materialized_at on publish).
+    assert!(attempt_is_materialized(&pool, project_id, 1).await, "a ready attempt is materialized");
 }

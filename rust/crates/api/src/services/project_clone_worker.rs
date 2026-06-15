@@ -66,7 +66,9 @@ use uuid::Uuid;
 
 use crate::domain::agent_workspace::{WorkspaceMountScope, resolve_agent_workspace_paths};
 use crate::domain::project_clone::{CloneAttemptStatus, CloneErrorClass, CloneOutboxPayload, WorkspaceDirName, redact};
-use crate::repositories::project_clone::{CloneFailure, CloneSuccess, ProjectCloneRepository, ReconcileCandidate};
+use crate::repositories::project_clone::{
+    CloneFailure, CloneSuccess, ProjectCloneRepository, PublishOutcome, ReconcileCandidate,
+};
 use crate::services::audit::AuditService;
 use crate::services::git_credential::GitCredentialService;
 
@@ -86,6 +88,27 @@ const STAGING_REPO_SUBDIR: &str = "repo";
 /// Hard ceiling on retries: attempt 1 plus this many retries. Spec §8 "bounded
 /// retry up to N attempts."
 pub const DEFAULT_MAX_ATTEMPTS: i32 = 3;
+
+/// Deterministic clone container name for an attempt, mirroring the platform
+/// runtime's `CloneRuntime::container_name` (`agentforge-clone-<attempt_id>`). The
+/// worker knows it without a Docker round-trip, so it can persist it BEFORE the
+/// wait for diagnostics + targeted reaping (#11).
+fn clone_container_name(attempt_id: Uuid) -> String {
+    format!("agentforge-clone-{attempt_id}")
+}
+
+/// RAII guard for the lease-heartbeat task: aborts the spawned task on drop, so
+/// the heartbeat lives EXACTLY as long as the clone run (it can never outlive the
+/// run and extend a lease past the work, nor leak a task on an early return).
+struct HeartbeatGuard {
+    handle: tokio::task::JoinHandle<()>,
+}
+
+impl Drop for HeartbeatGuard {
+    fn drop(&mut self) {
+        self.handle.abort();
+    }
+}
 
 /// The clone execution dependency, abstracted so the worker is unit-testable
 /// WITHOUT a real Docker daemon. The live impl is [`LiveCloneRunner`] over
@@ -135,8 +158,13 @@ pub struct CloneWorkerConfig {
     /// Hard wall-clock timeout per clone.
     pub timeout: Duration,
     /// Worker lease TTL: how long a claimed `cloning` attempt is trusted before
-    /// the reconciler treats it as a crashed worker. Must exceed `timeout`.
+    /// the reconciler treats it as a crashed worker. Must exceed
+    /// `heartbeat_interval` (the worker renews well within the TTL).
     pub lease_ttl: Duration,
+    /// How often a live worker renews (`extend_lease`) the lease on its in-flight
+    /// clone, so a healthy long clone is never recovered. MUST be comfortably less
+    /// than `lease_ttl` (a renew every `lease_ttl/3` is the default).
+    pub heartbeat_interval: Duration,
     /// Cloned-tree size cap (`CLONE_MAX_BYTES`); `None` ⇒ runtime default.
     pub max_bytes: Option<u64>,
     /// Max attempts (attempt 1 + retries). `failed` past this stays terminal.
@@ -158,6 +186,7 @@ impl Default for CloneWorkerConfig {
             secret_root: PathBuf::from("/tmp/agentforge/clone-secrets"),
             timeout: Duration::from_secs(600),
             lease_ttl: Duration::from_secs(900),
+            heartbeat_interval: Duration::from_secs(300),
             max_bytes: None,
             max_attempts: DEFAULT_MAX_ATTEMPTS,
             retry_backoff: Duration::from_secs(30),
@@ -165,6 +194,19 @@ impl Default for CloneWorkerConfig {
             reconcile_interval: Duration::from_secs(60),
         }
     }
+}
+
+/// The identity + retry context needed to schedule a bounded retry, shared by the
+/// worker-failure path (built from the failed attempt) and the reconciler-recovery
+/// path (built from a `ReconcileCandidate`).
+struct RetryContext {
+    organization_id: Uuid,
+    workspace_id: Uuid,
+    project_id: Uuid,
+    /// The number of the FAILED attempt; the retry is `attempt + 1`.
+    attempt: i32,
+    repository_url: String,
+    provider: Option<String>,
 }
 
 /// The project-clone worker + reconciler.
@@ -286,9 +328,27 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
         result.map(|_| true)
     }
 
+    /// Complete (delete) the job. If the DELETE fails, the job row would otherwise
+    /// wedge `status='running'` forever (a leak that also makes
+    /// `find_orphaned_queued` believe a terminal attempt still has a live job). On
+    /// a `complete()` failure, FALL BACK to an explicit `fail()` which unlocks the
+    /// row (`locked_by=NULL`, back to `pending`/`dead`) so it cannot stay wedged,
+    /// and count it on an error axis. The attempt itself is already terminal, so a
+    /// re-delivered job is an idempotent no-op (`process_attempt` short-circuits).
     async fn complete_job(&self, job_id: Uuid) {
         if let Err(err) = agentforge_jobs::queue::complete(&self.pool, job_id).await {
-            tracing::warn!(job_id = %job_id, error = %err, "failed to complete project_clone job");
+            tracing::warn!(job_id = %job_id, error = %err, "failed to complete project_clone job; unlocking it instead");
+            metrics::counter!("agentforge_project_clone_job_complete_errors_total").increment(1);
+            if let Err(fail_err) =
+                agentforge_jobs::queue::fail(&self.pool, job_id, "complete failed; unlocked by clone worker").await
+            {
+                tracing::error!(
+                    job_id = %job_id,
+                    error = %fail_err,
+                    "failed to unlock a project_clone job after a failed complete; job may be wedged 'running'"
+                );
+                metrics::counter!("agentforge_project_clone_worker_errors_total").increment(1);
+            }
         }
     }
 
@@ -317,19 +377,12 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
         }
 
         // The project may have been deleted between create and dequeue. Don't
-        // recreate a directory for a dead project; fail the attempt closed.
+        // recreate a directory for a dead project; CANCEL the attempt closed (a
+        // deleted project's clone is cancelled, not failed — there is nothing to
+        // retry). The publish path re-checks under a lock for the mid-flight race.
         if !self.repo.project_is_live(ProjectId::from(project_id)).await? {
-            tracing::info!(%project_id, attempt, "project no longer live; failing the clone attempt");
-            self.repo
-                .finalize_failed(
-                    attempt_row.id,
-                    &CloneFailure {
-                        error_class: CloneErrorClass::Internal.as_str().to_string(),
-                        error_message: "project was deleted before the clone ran".to_string(),
-                        duration_ms: None,
-                    },
-                )
-                .await?;
+            tracing::info!(%project_id, attempt, "project no longer live; cancelling the clone attempt");
+            self.cancel_attempt(&attempt_row, "project was deleted before the clone ran").await;
             return Ok(());
         }
 
@@ -396,15 +449,32 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
         // Record WHICH credential we used (never the secret), then unwrap to the
         // bytes for the launch. The `ResolvedCredential` is destructured here so
         // the `SecretBytes` lives only as long as the `run` call below.
+        //
+        // FAIL CLOSED on the credential_id write: a clone must never RUN with an
+        // unrecorded credential (the "which credential did we use" forensic
+        // contract). If we cannot persist the id, abort BEFORE launching the
+        // container rather than silently cloning with a NULL `credential_id`.
         let credential = match resolved {
             Some(resolved) => {
                 if let Err(err) = self.repo.set_credential_id(attempt.id, Some(resolved.credential_id)).await {
-                    tracing::warn!(attempt_id = %attempt.id, error = %err, "failed to record credential_id on attempt");
+                    let _ = self.cleanup_staging(&staging_dir).await;
+                    return self
+                        .fail_internal(attempt, format!("failed to record credential_id before launch: {err}"))
+                        .await;
                 }
                 Some(resolved.secret)
             }
             None => None,
         };
+
+        // Persist the deterministic container name BEFORE the wait so a crashed
+        // worker's container is diagnosable + targetable by the recovery sweep
+        // without re-deriving it (#11). Best-effort: a failure here does not abort
+        // the clone (the name is derivable), it only loses the diagnostic.
+        let container_id = clone_container_name(attempt.id);
+        if let Err(err) = self.repo.set_container_id(attempt.id, &container_id).await {
+            tracing::warn!(attempt_id = %attempt.id, error = %err, "failed to record container_id on attempt");
+        }
 
         let spec = CloneRunSpec {
             image: self.config.image.clone(),
@@ -418,14 +488,25 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
             attempt_id: attempt.id,
         };
 
+        // Run the clone under a LEASE HEARTBEAT: a background task periodically
+        // extends `lease_expires_at` while the clone is in flight, so a healthy
+        // long clone is never reaped by the reconciler's expired-lease recovery.
+        // The heartbeat is tied to this clone's lifetime — it is aborted the
+        // instant `run` returns (its guard drops), so it can never outlive the run
+        // or extend a lease past the work. If the worker process crashes, the
+        // heartbeat dies with it and the lease genuinely expires (correct recovery).
+        let heartbeat = self.spawn_lease_heartbeat(attempt.id);
+
         // Run the clone. The runtime force-removes the container + scrubs the
         // host secret file on EVERY exit path; we never touch the secret again.
         let outcome = self.runner.run(spec).await;
+        drop(heartbeat); // stop renewing the lease the moment the clone returns
         let duration_ms = started.elapsed().as_millis() as i64;
 
         match outcome {
             Ok(CloneRunOutcome::Ready { branch, head_sha, bytes }) => {
-                self.finish_ready(attempt, &staging_dir, &target_dir, branch, head_sha, bytes, duration_ms).await
+                self.finish_ready(attempt, &staging_dir, &target_dir, &dir_name, branch, head_sha, bytes, duration_ms)
+                    .await
             }
             Ok(CloneRunOutcome::Failed { exit_code, stderr_tail }) => {
                 self.finish_failed(attempt, &staging_dir, &stderr_tail, None, duration_ms, Some(exit_code)).await
@@ -456,24 +537,55 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
         }
     }
 
-    /// `Ready`: atomic same-fs rename staging/repo → target, then persist.
+    /// `Ready`: publish the cloned tree under the project lock, recoverably.
+    ///
+    /// The publish is the integration heart's hard part — it must be BOTH:
+    ///   * atomic-and-recoverable (#1): the on-disk rename and the DB finalize can
+    ///     never split-brain into "correct clone on disk, attempt reported failed".
+    ///     The marker is `materialized_at`: stamped in the SAME tx as the rename,
+    ///     BEFORE the finalize, so a crash/lost-race between them is recovered to
+    ///     `ready` (the rename is the source of truth), and a retry of a
+    ///     predecessor that materialized-but-didn't-finalize re-finalizes `ready`
+    ///     instead of re-cloning into a target the overwrite guard would refuse.
+    ///   * delete-race-safe (#2): the project is re-checked + locked `FOR UPDATE`
+    ///     immediately before (and across) the rename, so a project soft-deleted
+    ///     mid-flight cancels the attempt instead of stranding an orphan dir.
     #[allow(clippy::too_many_arguments)]
     async fn finish_ready(
         &self,
         attempt: &ProjectCloneAttempt,
         staging_dir: &Path,
         target_dir: &Path,
+        dir_name: &WorkspaceDirName,
         branch: Option<String>,
         head_sha: String,
         bytes: u64,
         duration_ms: i64,
     ) -> AppResult<()> {
         let repo_src = staging_dir.join(STAGING_REPO_SUBDIR);
+        let success = CloneSuccess {
+            resolved_branch: branch.clone(),
+            head_sha: head_sha.clone(),
+            bytes_cloned: i64::try_from(bytes).unwrap_or(i64::MAX),
+            duration_ms,
+        };
 
-        // The target is a FRESH project directory; it must not already exist. If
-        // it does (a soft-deleted sibling, a prior partial), FAIL LOUDLY rather
-        // than clobber — we never destroy existing on-disk work.
+        // RECOVERY: the target already exists. Distinguish "MY OWN already-
+        // materialized clone awaiting DB finalize" (a predecessor attempt for this
+        // project renamed but crashed before finalize) from a genuine foreign
+        // collision. If THIS attempt — or any attempt for this project — already
+        // materialized into this exact target, the on-disk tree is the correct
+        // clone: re-finalize `ready`, do NOT re-clone into a refused target.
         if tokio::fs::symlink_metadata(target_dir).await.is_ok() {
+            if attempt.materialized_at.is_some() {
+                // This very attempt already published; the DB finalize is all that
+                // is left. Force ready (idempotent) and clean staging.
+                let _ = self.cleanup_staging(staging_dir).await;
+                return self.recover_force_ready(attempt, &success, bytes, branch, head_sha, duration_ms).await;
+            }
+            // The target exists but THIS attempt never materialized it. Fail loudly
+            // rather than clobber — the reconciler's materialized-unfinalized scan
+            // separately heals a predecessor that materialized-but-didn't-finalize.
             let _ = self.cleanup_staging(staging_dir).await;
             return self
                 .fail_internal(
@@ -492,29 +604,90 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
             return self.fail_internal(attempt, format!("failed to ensure projects root: {err}")).await;
         }
 
-        if let Err(err) = tokio::fs::rename(&repo_src, target_dir).await {
-            // Rename failed (cross-device, missing source, race). NO partial
-            // target is left (rename is all-or-nothing); clean staging and fail.
-            let _ = self.cleanup_staging(staging_dir).await;
-            return self
-                .fail_internal(
+        // Publish under the project lock: the repo re-checks the project is live +
+        // its dir name still matches, then runs the rename WHILE holding the lock,
+        // stamps `materialized_at`, and finalizes `ready` — all in one tx. The
+        // rename is a synchronous `std::fs::rename` (a single fast same-fs syscall)
+        // so it can be held inside the DB transaction without an await.
+        let repo_src_for_rename = repo_src.clone();
+        let target_for_rename = target_dir.to_path_buf();
+        let outcome = self
+            .repo
+            .publish_ready_locked(attempt.id, attempt.project_id.as_uuid(), dir_name.as_str(), &success, move || {
+                std::fs::rename(&repo_src_for_rename, &target_for_rename)
+            })
+            .await?;
+
+        match outcome {
+            PublishOutcome::Published { finalized } => {
+                let _ = self.cleanup_staging(staging_dir).await;
+                if !finalized {
+                    // The rename happened (materialized) but the `status='cloning'`
+                    // finalize predicate did not match (e.g. a reconciler already
+                    // failed this attempt). The disk is the source of truth: FORCE
+                    // ready so the attempt reflects the live clone, never a desync.
+                    self.repo.force_ready(attempt.id, &success).await?;
+                    tracing::warn!(
+                        project_id = %attempt.project_id,
+                        attempt = attempt.attempt,
+                        "clone materialized but the finalize predicate missed; forced ready (rename is source of truth)"
+                    );
+                }
+                self.emit_ready(attempt, branch, head_sha, bytes, duration_ms).await;
+                Ok(())
+            }
+            PublishOutcome::ProjectGone => {
+                // The project was soft-deleted / renamed mid-flight. Do NOT publish
+                // (no rename happened); cancel the attempt and remove staging.
+                let _ = self.cleanup_staging(staging_dir).await;
+                self.cancel_attempt(attempt, "project was deleted or renamed before the clone published").await;
+                Ok(())
+            }
+            PublishOutcome::RenameFailed(err) => {
+                // Rename failed (cross-device, missing source, race). Rename is
+                // all-or-nothing, so no partial target was left; clean staging+fail.
+                let _ = self.cleanup_staging(staging_dir).await;
+                self.fail_internal(
                     attempt,
                     format!("atomic rename {} -> {} failed: {err}", repo_src.display(), target_dir.display()),
                 )
-                .await;
+                .await
+            }
         }
+    }
 
-        // The repo is now live at the target; remove the (now-empty) staging dir.
-        let _ = self.cleanup_staging(staging_dir).await;
+    /// Force an already-materialized attempt to `ready` (recovery path) and emit
+    /// the `clone.ready` event/metrics. Used when the target dir already holds this
+    /// attempt's own materialized clone and only the DB finalize remains.
+    async fn recover_force_ready(
+        &self,
+        attempt: &ProjectCloneAttempt,
+        success: &CloneSuccess,
+        bytes: u64,
+        branch: Option<String>,
+        head_sha: String,
+        duration_ms: i64,
+    ) -> AppResult<()> {
+        self.repo.force_ready(attempt.id, success).await?;
+        self.emit_ready(attempt, branch, head_sha, bytes, duration_ms).await;
+        tracing::info!(
+            project_id = %attempt.project_id,
+            attempt = attempt.attempt,
+            "re-finalized an already-materialized clone to ready (recovery, no re-clone)"
+        );
+        Ok(())
+    }
 
-        let success = CloneSuccess {
-            resolved_branch: branch.clone(),
-            head_sha: head_sha.clone(),
-            bytes_cloned: i64::try_from(bytes).unwrap_or(i64::MAX),
-            duration_ms,
-        };
-        self.repo.finalize_ready(attempt.id, &success).await?;
-
+    /// Emit the `clone.ready` audit/WS event + success metrics (shared by the
+    /// normal publish + the recovery force-ready paths).
+    async fn emit_ready(
+        &self,
+        attempt: &ProjectCloneAttempt,
+        branch: Option<String>,
+        head_sha: String,
+        bytes: u64,
+        duration_ms: i64,
+    ) {
         self.emit_event(
             attempt,
             "clone.ready",
@@ -538,7 +711,54 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
             duration_ms,
             "project clone ready"
         );
-        Ok(())
+    }
+
+    /// Cancel an attempt (the delete-race outcome): emit `clone.cancelled` +
+    /// metrics and transition the attempt to `cancelled`. No retry — a cancelled
+    /// attempt is terminal and the project is gone.
+    async fn cancel_attempt(&self, attempt: &ProjectCloneAttempt, reason: &str) {
+        if let Err(err) = self.repo.cancel_attempt(attempt.id, reason).await {
+            tracing::warn!(project_id = %attempt.project_id, error = %err, "failed to cancel clone attempt");
+            return;
+        }
+        self.emit_event(attempt, "clone.cancelled", Some(serde_json::json!({ "reason": reason }))).await;
+        metrics::counter!("agentforge_project_clone_completed_total", "status" => "cancelled").increment(1);
+        tracing::info!(
+            project_id = %attempt.project_id,
+            attempt = attempt.attempt,
+            "clone attempt cancelled (project deleted/renamed mid-flight)"
+        );
+    }
+
+    /// Spawn the lease-heartbeat task for an in-flight clone. The returned guard
+    /// aborts the task on drop, so the heartbeat lives EXACTLY as long as the run.
+    fn spawn_lease_heartbeat(&self, attempt_id: Uuid) -> HeartbeatGuard {
+        let repo = self.repo.clone();
+        let worker_id = self.worker_id.clone();
+        let interval = self.config.heartbeat_interval;
+        let lease_ttl = self.config.lease_ttl;
+        let handle = tokio::spawn(async move {
+            let mut tick = tokio::time::interval(interval);
+            tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            tick.tick().await; // consume the immediate first tick
+            loop {
+                tick.tick().await;
+                let new_lease = Utc::now() + chrono::Duration::from_std(lease_ttl).unwrap_or_default();
+                match repo.extend_lease(attempt_id, &worker_id, new_lease).await {
+                    Ok(true) => {}
+                    Ok(false) => {
+                        // We no longer own this attempt (reconciler reaped us, or it
+                        // is no longer `cloning`). Stop heartbeating.
+                        tracing::debug!(%attempt_id, "lease heartbeat stopping: attempt no longer owned by this worker");
+                        break;
+                    }
+                    Err(err) => {
+                        tracing::warn!(%attempt_id, error = %err, "lease heartbeat extend failed; will retry next tick");
+                    }
+                }
+            }
+        });
+        HeartbeatGuard { handle }
     }
 
     /// Failure paths: redact RAW stderr, classify, persist `failed`, clean
@@ -622,65 +842,130 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
     }
 
     /// Bounded retry: if `attempt < max_attempts`, insert a new `queued` attempt
-    /// (attempt+1) + outbox row; otherwise leave the failure terminal.
+    /// (attempt+1) + outbox row carrying the computed backoff; otherwise leave the
+    /// failure terminal. Delegates to [`schedule_retry_for`](Self::schedule_retry_for)
+    /// so the worker-failure path and the reconciler-recovery path share ONE
+    /// retry implementation (and emit the SAME `clone.retry` event + metrics).
     async fn maybe_schedule_retry(&self, attempt: &ProjectCloneAttempt) {
-        if attempt.attempt >= self.config.max_attempts {
+        self.schedule_retry_for(
+            &RetryContext {
+                organization_id: attempt.organization_id.as_uuid(),
+                workspace_id: attempt.workspace_id.as_uuid(),
+                project_id: attempt.project_id.as_uuid(),
+                attempt: attempt.attempt,
+                repository_url: attempt.repository_url.clone(),
+                provider: attempt.provider.clone(),
+            },
+            Some(attempt),
+        )
+        .await;
+    }
+
+    /// Compute the retry backoff deadline for a NEXT attempt, so a fast-failing
+    /// clone does not retry instantly (a storm). The delay grows exponentially with
+    /// the FAILED attempt number — `retry_backoff * 2^(attempt-1)` — capped so it
+    /// never overflows or grows unbounded. `None` ⇒ the deadline computed; the
+    /// caller carries it into the outbox so the relay holds the job until then.
+    fn retry_run_after(&self, failed_attempt: i32) -> chrono::DateTime<Utc> {
+        let exp = failed_attempt.saturating_sub(1).clamp(0, 16) as u32;
+        let multiplier = 1u64.checked_shl(exp).unwrap_or(u64::MAX);
+        let base = self.config.retry_backoff.as_secs().max(1);
+        let secs = base.saturating_mul(multiplier).min(3600); // cap at 1h
+        Utc::now() + chrono::Duration::seconds(secs as i64)
+    }
+
+    /// The shared bounded-retry implementation. Schedules attempt+1 (with backoff)
+    /// when budget remains and emits `clone.retry` + metrics. `event_source`, when
+    /// `Some`, is the attempt row used to emit the WS/audit event; the reconciler
+    /// passes the recovered attempt so a reconciler-driven retry emits the SAME
+    /// event a worker-driven one does (#10).
+    async fn schedule_retry_for(&self, ctx: &RetryContext, event_source: Option<&ProjectCloneAttempt>) {
+        if ctx.attempt >= self.config.max_attempts {
             tracing::info!(
-                project_id = %attempt.project_id,
-                attempt = attempt.attempt,
+                project_id = %ctx.project_id,
+                attempt = ctx.attempt,
                 max = self.config.max_attempts,
                 "clone failed at the retry ceiling; leaving it terminal"
             );
             return;
         }
-        let next = attempt.attempt + 1;
+        let next = ctx.attempt + 1;
+        let run_after = self.retry_run_after(ctx.attempt);
         match self
             .repo
             .schedule_retry(
-                attempt.organization_id.as_uuid(),
-                attempt.workspace_id.as_uuid(),
-                attempt.project_id.as_uuid(),
+                ctx.organization_id,
+                ctx.workspace_id,
+                ctx.project_id,
                 next,
-                &attempt.repository_url,
-                attempt.provider.as_deref(),
+                &ctx.repository_url,
+                ctx.provider.as_deref(),
+                Some(run_after),
             )
             .await
         {
             Ok(Some(scheduled)) => {
                 metrics::counter!("agentforge_project_clone_retries_total").increment(1);
-                self.emit_event(attempt, "clone.retry", Some(serde_json::json!({ "next_attempt": scheduled }))).await;
+                if let Some(source) = event_source {
+                    self.emit_event(
+                        source,
+                        "clone.retry",
+                        Some(serde_json::json!({ "next_attempt": scheduled, "run_after": run_after })),
+                    )
+                    .await;
+                }
                 tracing::info!(
-                    project_id = %attempt.project_id,
+                    project_id = %ctx.project_id,
                     next_attempt = scheduled,
-                    backoff_secs = self.config.retry_backoff.as_secs(),
-                    "scheduled bounded clone retry"
+                    run_after = %run_after,
+                    "scheduled bounded clone retry with backoff"
                 );
             }
             Ok(None) => {
-                tracing::debug!(project_id = %attempt.project_id, next, "retry attempt already exists; not duplicating");
+                tracing::debug!(project_id = %ctx.project_id, next, "retry attempt already exists; not duplicating");
             }
             Err(err) => {
-                tracing::warn!(project_id = %attempt.project_id, error = %err, "failed to schedule clone retry");
+                tracing::warn!(project_id = %ctx.project_id, error = %err, "failed to schedule clone retry");
             }
         }
     }
 
     // -- reconciler ----------------------------------------------------------
 
-    /// One reconciler pass: recover expired-lease `cloning` attempts and
-    /// re-enqueue lost `queued` attempts. The polling fallback (spec §6.3, §8).
+    /// One reconciler pass: force-ready materialized-but-unfinalized attempts
+    /// (the #1 split-brain healer), recover expired-lease `cloning` attempts via an
+    /// ATOMIC claim, and re-enqueue lost `queued` attempts. The polling fallback
+    /// (spec §6.3, §8).
     pub async fn run_reconciler_once(&self) {
-        // (a) crashed-worker `cloning` attempts past their lease.
-        match self.repo.find_expired_cloning(Utc::now(), 50).await {
+        // (a) materialized-but-unfinalized attempts (#1): the rename happened but
+        // the DB finalize did not. The on-disk clone is the source of truth, so
+        // FORCE `ready` rather than re-clone into a refused target. Run this FIRST,
+        // before the expired-lease scan, so a row that both materialized AND
+        // lapsed its lease is healed to `ready` (correct) rather than failed.
+        match self.repo.find_materialized_unfinalized(50).await {
+            Ok(candidates) => {
+                for candidate in candidates {
+                    self.recover_materialized(&candidate).await;
+                }
+            }
+            Err(err) => tracing::warn!(error = %err, "reconciler: find_materialized_unfinalized failed"),
+        }
+
+        // (b) crashed-worker `cloning` attempts past their lease. The claim is
+        // ATOMIC (`UPDATE … RETURNING`) so only THIS reconciler owns each recovered
+        // row; a slow-but-live worker is protected by its lease heartbeat.
+        let now = Utc::now();
+        let recovery_grace = now + chrono::Duration::from_std(self.config.lease_ttl).unwrap_or_default();
+        match self.repo.claim_expired_cloning_for_recovery(&self.worker_id, now, recovery_grace, 50).await {
             Ok(candidates) => {
                 for candidate in candidates {
                     self.recover_expired_cloning(&candidate).await;
                 }
             }
-            Err(err) => tracing::warn!(error = %err, "reconciler: find_expired_cloning failed"),
+            Err(err) => tracing::warn!(error = %err, "reconciler: claim_expired_cloning_for_recovery failed"),
         }
 
-        // (b) `queued` attempts whose enqueue was lost. Only consider rows older
+        // (c) `queued` attempts whose enqueue was lost. Only consider rows older
         // than a grace window so a just-created attempt (whose publisher simply
         // has not run yet) is not double-enqueued.
         let grace = Utc::now() - chrono::Duration::from_std(self.config.reconcile_interval).unwrap_or_default();
@@ -715,8 +1000,48 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
         }
     }
 
-    /// Recover one crashed-worker `cloning` attempt: reap its container, fail the
-    /// attempt closed, then retry if attempts remain.
+    /// Recover a materialized-but-unfinalized attempt (#1): the clone bytes are
+    /// already live under the projects root, so FORCE `ready` from the persisted
+    /// success payload and emit `clone.ready` — never a re-clone into a refused
+    /// target. Idempotent: a row already `ready` is filtered out of the scan.
+    async fn recover_materialized(&self, candidate: &ReconcileCandidate) {
+        let Some(attempt) = self.load_attempt(candidate.id).await else {
+            return;
+        };
+        let success = match self.repo.load_clone_success(candidate.id).await {
+            Ok(Some(success)) => success,
+            Ok(None) => return,
+            Err(err) => {
+                tracing::warn!(error = %err, "reconciler: load_clone_success during materialized recovery failed");
+                return;
+            }
+        };
+        match self.repo.force_ready(candidate.id, &success).await {
+            Ok(true) => {
+                metrics::counter!("agentforge_project_clone_reconcile_force_ready_total").increment(1);
+                self.emit_ready(
+                    &attempt,
+                    success.resolved_branch.clone(),
+                    success.head_sha.clone(),
+                    success.bytes_cloned.max(0) as u64,
+                    success.duration_ms,
+                )
+                .await;
+                tracing::warn!(
+                    project_id = %candidate.project_id,
+                    attempt = candidate.attempt,
+                    "reconciler force-readied a materialized-but-unfinalized clone (split-brain healed)"
+                );
+            }
+            Ok(false) => {}
+            Err(err) => tracing::warn!(error = %err, "reconciler: force_ready during materialized recovery failed"),
+        }
+    }
+
+    /// Recover one crashed-worker `cloning` attempt (already atomically claimed by
+    /// this reconciler): reap its container, fail the attempt closed through the
+    /// SAME event/audit/metrics path the worker's failure uses (#10), then retry
+    /// if attempts remain (with backoff, via the shared retry helper).
     async fn recover_expired_cloning(&self, candidate: &ReconcileCandidate) {
         tracing::warn!(
             project_id = %candidate.project_id,
@@ -728,8 +1053,26 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
         if let Err(err) = self.runner.sweep_orphans().await {
             tracing::warn!(error = %err, "reconciler: sweep_orphans during recovery failed");
         }
-        // Best-effort staging cleanup for this attempt (path is derivable).
-        // We cannot know the projects-root here without re-resolving; do it.
+        // Load the full attempt row so the failure emits the SAME clone.failed
+        // audit/WS event a worker failure does (#10). The row was claimed (its
+        // worker_id is now ours), so it still exists + is `cloning`.
+        let Some(attempt) = self.load_attempt(candidate.id).await else {
+            tracing::warn!(attempt_id = %candidate.id, "reconciler: recovered attempt vanished before failing");
+            return;
+        };
+
+        // CRASH-WINDOW CLOSURE (#1): the worker may have crashed AFTER the on-disk
+        // rename succeeded but BEFORE the publish tx committed — leaving the clone
+        // live on disk with `materialized_at` NULL (so the materialized-unfinalized
+        // scan misses it) and the attempt stuck `cloning`. Failing + retrying such
+        // an attempt would loop forever against the overwrite guard. So BEFORE
+        // failing, check whether this attempt's published target dir already exists:
+        // if it does, the clone IS done on disk — ADOPT it (stamp materialized_at +
+        // force ready) instead of failing/retrying. Only then is the staging GC'd.
+        if self.recover_if_target_published(&attempt).await {
+            return;
+        }
+        // Not published: a genuine crashed clone. Clean staging + fail closed.
         self.cleanup_orphan_staging(candidate).await;
 
         let failure = CloneFailure {
@@ -742,36 +1085,111 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
             return;
         }
         metrics::counter!("agentforge_project_clone_reconcile_recovered_total").increment(1);
+        // Emit the clone.failed event + failure metrics like a normal failure (#10).
+        self.emit_event(
+            &attempt,
+            "clone.failed",
+            Some(serde_json::json!({
+                "error_class": failure.error_class,
+                "error_message": failure.error_message,
+            })),
+        )
+        .await;
+        metrics::counter!("agentforge_project_clone_completed_total", "status" => "failed").increment(1);
+        metrics::counter!("agentforge_project_clone_failures_total", "class" => failure.error_class.clone())
+            .increment(1);
 
-        // Retry the recovered attempt if there is budget.
-        if candidate.attempt < self.config.max_attempts {
-            let next = candidate.attempt + 1;
-            match self
-                .repo
-                .schedule_retry(
-                    candidate.organization_id,
-                    candidate.workspace_id,
-                    candidate.project_id,
-                    next,
-                    &candidate.repository_url,
-                    candidate.provider.as_deref(),
-                )
-                .await
-            {
-                Ok(Some(_)) => metrics::counter!("agentforge_project_clone_retries_total").increment(1),
-                Ok(None) => {}
-                Err(err) => tracing::warn!(error = %err, "reconciler: retry scheduling failed"),
+        // Retry the recovered attempt if there is budget, through the SHARED retry
+        // helper so it emits clone.retry + applies backoff exactly like the worker.
+        self.schedule_retry_for(
+            &RetryContext {
+                organization_id: candidate.organization_id,
+                workspace_id: candidate.workspace_id,
+                project_id: candidate.project_id,
+                attempt: candidate.attempt,
+                repository_url: candidate.repository_url.clone(),
+                provider: candidate.provider.clone(),
+            },
+            Some(&attempt),
+        )
+        .await;
+    }
+
+    /// Adopt an attempt whose clone was already published on disk but whose DB
+    /// finalize was lost (the crash-after-rename-before-commit window, #1): if the
+    /// attempt's target dir exists on a still-live project, stamp `materialized_at`,
+    /// FORCE `ready`, and emit `clone.ready`. Returns `true` when it adopted (so the
+    /// caller skips the fail/retry path). Returns `false` when there is no published
+    /// dir to adopt (a genuine crashed clone), or the project/dir is gone.
+    async fn recover_if_target_published(&self, attempt: &ProjectCloneAttempt) -> bool {
+        let project_id = attempt.project_id.as_uuid();
+        let scope =
+            WorkspaceMountScope::for_workspace(attempt.organization_id.as_uuid(), attempt.workspace_id.as_uuid());
+        let Ok(paths) = resolve_agent_workspace_paths(&self.config.workspace_root, scope, None) else {
+            return false;
+        };
+        // The project must still be live with the SAME dir name (a deleted/renamed
+        // project's leftover dir is NOT adopted — the delete path cleans that up).
+        let Ok(dir_name) = self.project_dir_name(project_id).await else {
+            return false;
+        };
+        let Ok(target_dir) = dir_name.resolve_under(&paths.host_projects_root) else {
+            return false;
+        };
+        if tokio::fs::symlink_metadata(&target_dir).await.is_err() {
+            return false; // no published dir on disk — a genuine crashed clone
+        }
+
+        // The clone IS live on disk: adopt it from the persisted success payload
+        // (the worker that ran the clone is gone). `adopt_published_ready` stamps
+        // `materialized_at` (which the crash lost) AND finalizes ready — it does NOT
+        // require the materialized marker, since the filesystem check above IS the
+        // on-disk proof.
+        let success = match self.repo.load_clone_success(attempt.id).await {
+            Ok(Some(success)) => success,
+            _ => CloneSuccess { resolved_branch: None, head_sha: String::new(), bytes_cloned: 0, duration_ms: 0 },
+        };
+        match self.repo.adopt_published_ready(attempt.id, &success).await {
+            Ok(true) => {
+                metrics::counter!("agentforge_project_clone_reconcile_force_ready_total").increment(1);
+                let bytes = success.bytes_cloned.max(0) as u64;
+                self.emit_ready(attempt, success.resolved_branch.clone(), success.head_sha.clone(), bytes, 0).await;
+                tracing::warn!(
+                    project_id = %attempt.project_id,
+                    attempt = attempt.attempt,
+                    "reconciler adopted an on-disk-published clone whose finalize was lost (crash-window healed)"
+                );
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Load the full attempt row by id (for the reconciler's event emission).
+    async fn load_attempt(&self, attempt_id: Uuid) -> Option<ProjectCloneAttempt> {
+        match sqlx::query_as::<_, ProjectCloneAttempt>(r#"SELECT * FROM project_clone_attempts WHERE id = $1"#)
+            .bind(attempt_id)
+            .fetch_optional(&self.pool)
+            .await
+        {
+            Ok(row) => row,
+            Err(err) => {
+                tracing::warn!(%attempt_id, error = %err, "reconciler: failed to load attempt row");
+                None
             }
         }
     }
 
-    /// Reap crashed-worker clone containers (startup + each reconcile pass).
+    /// Reap crashed-worker clone containers AND leaked staging dirs (startup + each
+    /// reconcile pass). The container sweep removes labelled leftovers; the staging
+    /// sweep (#9) GCs `.clone-staging/<attempt_id>` dirs with no in-flight attempt.
     pub async fn sweep_orphans_once(&self) {
         match self.runner.sweep_orphans().await {
             Ok(0) => {}
             Ok(n) => tracing::info!(reaped = n, "project_clone sweep reaped orphan clone containers"),
             Err(err) => tracing::warn!(error = %err, "project_clone orphan sweep failed"),
         }
+        self.sweep_orphan_staging().await;
     }
 
     // -- helpers -------------------------------------------------------------
@@ -838,12 +1256,92 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
     }
 
     /// Best-effort staging cleanup for a reconciler candidate (re-resolves the
-    /// projects root from its tenant snapshot).
+    /// projects root from its tenant snapshot). A path-resolution `Err` is LOGGED
+    /// (not silently swallowed) so a leaked staging dir is observable rather than
+    /// piling up unnoticed on disk (#9).
     async fn cleanup_orphan_staging(&self, candidate: &ReconcileCandidate) {
         let scope = WorkspaceMountScope::for_workspace(candidate.organization_id, candidate.workspace_id);
-        if let Ok(paths) = resolve_agent_workspace_paths(&self.config.workspace_root, scope, None) {
-            let staging = paths.host_projects_root.join(CLONE_STAGING_SUBDIR).join(candidate.id.to_string());
-            let _ = self.cleanup_staging(&staging).await;
+        match resolve_agent_workspace_paths(&self.config.workspace_root, scope, None) {
+            Ok(paths) => {
+                let staging = paths.host_projects_root.join(CLONE_STAGING_SUBDIR).join(candidate.id.to_string());
+                let _ = self.cleanup_staging(&staging).await;
+            }
+            Err(err) => tracing::warn!(
+                attempt_id = %candidate.id,
+                error = %err,
+                "reconciler: could not resolve projects root to clean orphan staging dir; it may leak on disk"
+            ),
+        }
+    }
+
+    /// GC leaked `.clone-staging/<attempt_id>` directories whose attempt is gone or
+    /// terminal (#9). A crashed worker can leave a staging dir behind even after
+    /// its container is reaped; this sweep removes any staging dir under every
+    /// known tenant's projects root that does NOT correspond to a still-in-flight
+    /// (`queued`/`cloning`) attempt. Best-effort: a non-UUID entry or an unreadable
+    /// dir is skipped, never fatal.
+    async fn sweep_orphan_staging(&self) {
+        // The set of staging dirs that MUST be kept: one per non-terminal attempt
+        // (its worker may be mid-clone). Anything else under `.clone-staging/` is a
+        // crashed-worker leftover.
+        let in_flight: Vec<(Uuid, Uuid, Uuid)> = match sqlx::query_as(
+            r#"SELECT id, organization_id, workspace_id
+                 FROM project_clone_attempts
+                WHERE status IN ($1, $2)"#,
+        )
+        .bind(CloneAttemptStatus::Queued.as_str())
+        .bind(CloneAttemptStatus::Cloning.as_str())
+        .fetch_all(&self.pool)
+        .await
+        {
+            Ok(rows) => rows,
+            Err(err) => {
+                tracing::warn!(error = %err, "orphan-staging sweep: failed to load in-flight attempts");
+                return;
+            }
+        };
+        let keep: std::collections::HashSet<Uuid> = in_flight.iter().map(|(id, _, _)| *id).collect();
+        // Distinct (org, workspace) roots to scan — derive from the in-flight set
+        // PLUS recently-terminal attempts so a just-crashed clone's root is swept
+        // even when nothing is currently in flight there.
+        let roots: Vec<(Uuid, Uuid)> =
+            match sqlx::query_as(r#"SELECT DISTINCT organization_id, workspace_id FROM project_clone_attempts"#)
+                .fetch_all(&self.pool)
+                .await
+            {
+                Ok(rows) => rows,
+                Err(err) => {
+                    tracing::warn!(error = %err, "orphan-staging sweep: failed to enumerate tenant roots");
+                    return;
+                }
+            };
+
+        let mut reaped = 0usize;
+        for (org_id, workspace_id) in roots {
+            let scope = WorkspaceMountScope::for_workspace(org_id, workspace_id);
+            let Ok(paths) = resolve_agent_workspace_paths(&self.config.workspace_root, scope, None) else {
+                continue;
+            };
+            let staging_root = paths.host_projects_root.join(CLONE_STAGING_SUBDIR);
+            let Ok(mut entries) = tokio::fs::read_dir(&staging_root).await else {
+                continue; // no staging dir for this root yet — nothing to sweep
+            };
+            while let Ok(Some(entry)) = entries.next_entry().await {
+                let name = entry.file_name();
+                let Some(name) = name.to_str() else { continue };
+                // Only touch entries that look like an attempt id; keep in-flight ones.
+                let Ok(id) = Uuid::parse_str(name) else { continue };
+                if keep.contains(&id) {
+                    continue;
+                }
+                if self.cleanup_staging(&entry.path()).await.is_ok() {
+                    reaped += 1;
+                }
+            }
+        }
+        if reaped > 0 {
+            tracing::info!(reaped, "orphan-staging sweep removed leaked clone staging dirs");
+            metrics::counter!("agentforge_project_clone_orphan_staging_reaped_total").increment(reaped as u64);
         }
     }
 
@@ -961,6 +1459,9 @@ fn clone_status_for_action(action: &str) -> &'static str {
         "clone.ready" => "ready",
         "clone.failed" => "failed",
         "clone.retry" => "queued",
+        // A cancelled attempt's project shows no active clone (mirrors
+        // `CloneStatus::from_attempt(Cancelled) -> None`).
+        "clone.cancelled" => "none",
         _ => "queued",
     }
 }
@@ -1015,6 +1516,22 @@ pub fn register_metrics() {
         "agentforge_project_clone_reconcile_reenqueued_total",
         "queued clone attempts the reconciler re-enqueued after a lost enqueue"
     );
+    metrics::describe_counter!(
+        "agentforge_project_clone_reconcile_force_ready_total",
+        "materialized-but-unfinalized clone attempts the reconciler force-readied (the #1 rename/finalize \
+         split-brain healer: the clone bytes were already live on disk, so the attempt is promoted to ready \
+         rather than re-cloned into a refused target)"
+    );
+    metrics::describe_counter!(
+        "agentforge_project_clone_job_complete_errors_total",
+        "project_clone jobs whose complete (delete) failed and were unlocked via fail() instead, so the row \
+         cannot wedge status='running' forever"
+    );
+    metrics::describe_counter!(
+        "agentforge_project_clone_orphan_staging_reaped_total",
+        "leaked .clone-staging/<attempt_id> directories the orphan sweep removed (a crashed worker left them \
+         behind with no in-flight attempt)"
+    );
     metrics::describe_gauge!(
         "agentforge_project_clone_in_flight",
         "in-flight project_clone attempts, labeled by state (queued|cloning)"
@@ -1025,6 +1542,9 @@ pub fn register_metrics() {
     metrics::counter!("agentforge_project_clone_worker_errors_total").increment(0);
     metrics::counter!("agentforge_project_clone_reconcile_recovered_total").increment(0);
     metrics::counter!("agentforge_project_clone_reconcile_reenqueued_total").increment(0);
+    metrics::counter!("agentforge_project_clone_reconcile_force_ready_total").increment(0);
+    metrics::counter!("agentforge_project_clone_job_complete_errors_total").increment(0);
+    metrics::counter!("agentforge_project_clone_orphan_staging_reaped_total").increment(0);
     metrics::gauge!("agentforge_project_clone_in_flight", "state" => "queued").set(0.0);
     metrics::gauge!("agentforge_project_clone_in_flight", "state" => "cloning").set(0.0);
 }

@@ -290,7 +290,7 @@ impl ProjectRepository {
             .execute(&mut **tx)
             .await?;
 
-            let payload = CloneOutboxPayload { project_id, attempt: 1 };
+            let payload = CloneOutboxPayload::now(project_id, 1);
             let payload_json = serde_json::to_value(&payload).map_err(|e| AppError::from(anyhow::Error::from(e)))?;
             sqlx::query(
                 r#"INSERT INTO orchestration_outbox

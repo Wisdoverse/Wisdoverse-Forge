@@ -5,6 +5,7 @@ use agentforge_db::entities::GitCredential;
 use agentforge_platform::SecretBytes;
 use sqlx::PgPool;
 use uuid::Uuid;
+use zeroize::Zeroizing;
 
 use crate::domain::credential::{
     CredentialListPage, GitCredentialDraft, GitCredentialEncryptionPolicy, GitCredentialToken, GitRemoteHost,
@@ -201,9 +202,12 @@ impl GitCredentialService {
             let Some(token) = decrypt_git_token(&key, &cred)? else {
                 continue;
             };
+            // The CLI-env path necessarily materializes the token as an env-var
+            // String value; `(*token).clone()` copies out of the Zeroizing wrapper
+            // at this boundary while the decrypted source still scrubs on drop.
             match cred.provider.as_str() {
-                "github" => append_github_cli_env(&mut out.env, cred.remote_url.as_deref(), token),
-                "gitlab" => append_gitlab_cli_env(&mut out.env, cred.remote_url.as_deref(), token),
+                "github" => append_github_cli_env(&mut out.env, cred.remote_url.as_deref(), (*token).clone()),
+                "gitlab" => append_gitlab_cli_env(&mut out.env, cred.remote_url.as_deref(), (*token).clone()),
                 _ => {}
             }
         }
@@ -272,8 +276,11 @@ impl GitCredentialService {
             return Ok(None);
         };
 
-        let bytes = clone_secret_bytes(&cred.provider, &token);
-        Ok(Some(ResolvedCredential { credential_id: cred.id, secret: SecretBytes::from(bytes) }))
+        // Build the colon-form secret bytes in a Zeroizing buffer, then MOVE them
+        // into SecretBytes (a move, not a heap copy). `mem::take` empties the
+        // intermediate Zeroizing so no non-zeroized plaintext copy survives.
+        let mut bytes = clone_secret_bytes(&cred.provider, &token);
+        Ok(Some(ResolvedCredential { credential_id: cred.id, secret: SecretBytes::new(std::mem::take(&mut *bytes)) }))
     }
 
     /// Get a git credential by ID.
@@ -335,22 +342,40 @@ fn provider_canonical_host(provider: &str) -> Option<String> {
 ///
 /// Always a colon-form indicator, never a bare token — so a token that itself
 /// contains a `:` can never be mis-split into user/pass by the helper.
-fn clone_secret_bytes(provider: &str, token: &str) -> Vec<u8> {
-    let line = match provider.trim().to_ascii_lowercase().as_str() {
-        "gitlab" => format!("oauth2:{token}"),
+///
+/// The bytes are assembled into a [`Zeroizing<Vec<u8>>`] by extending a buffer
+/// (NOT a `format!`-built plain `String`, which would leave a non-zeroized
+/// plaintext copy of the token on the heap). The final [`SecretBytes`] the caller
+/// wraps it in is itself `Zeroizing`, so both the intermediate buffer and the
+/// final secret scrub on drop.
+fn clone_secret_bytes(provider: &str, token: &str) -> Zeroizing<Vec<u8>> {
+    let username: &[u8] = match provider.trim().to_ascii_lowercase().as_str() {
+        "gitlab" => b"oauth2:",
         // github + every other provider default to the x-access-token username.
-        _ => format!("x-access-token:{token}"),
+        _ => b"x-access-token:",
     };
-    line.into_bytes()
+    let mut bytes = Zeroizing::new(Vec::with_capacity(username.len() + token.len()));
+    bytes.extend_from_slice(username);
+    bytes.extend_from_slice(token.as_bytes());
+    bytes
 }
 
-fn decrypt_git_token(key: &[u8; 32], cred: &GitCredential) -> AppResult<Option<String>> {
+/// Decrypt a stored git credential token into a [`Zeroizing<String>`] so every
+/// plaintext heap copy is scrubbed on drop.
+///
+/// The plaintext that `crypto::decrypt_base64` returns is wrapped in `Zeroizing`
+/// IMMEDIATELY (closing the upstream copy), and the trimmed result is also a
+/// `Zeroizing<String>`, so the token never lingers as a non-zeroized `String`.
+/// Returns `None` for a blank/empty token (treated as "no usable credential").
+fn decrypt_git_token(key: &[u8; 32], cred: &GitCredential) -> AppResult<Option<Zeroizing<String>>> {
     let Some(ciphertext) = cred.token_encrypted.as_deref() else {
         return Ok(None);
     };
     let ciphertext = std::str::from_utf8(ciphertext)
         .map_err(|err| GitCredentialEncryptionPolicy::ciphertext_not_utf8(&cred.provider, err))?;
-    let token = crypto::decrypt_base64(key, ciphertext).map_err(|err| {
+    // Wrap the decrypted plaintext the instant it exists so the upstream copy is
+    // zeroized on drop (not left lingering as a plain String on the heap).
+    let token = Zeroizing::new(crypto::decrypt_base64(key, ciphertext).map_err(|err| {
         tracing::error!(
             error = %err,
             credential_id = %cred.id,
@@ -358,8 +383,9 @@ fn decrypt_git_token(key: &[u8; 32], cred: &GitCredential) -> AppResult<Option<S
             "Failed to decrypt stored git credential token"
         );
         GitCredentialEncryptionPolicy::decrypt_failed(&cred.provider)
-    })?;
-    Ok(GitCredentialToken::parse(&token).map(|token| token.value().to_string()))
+    })?);
+    // The trimmed value is also Zeroizing; a blank token yields None.
+    Ok(GitCredentialToken::parse(&token).map(|token| Zeroizing::new(token.value().to_string())))
 }
 
 fn append_github_cli_env(env: &mut Vec<(String, String)>, remote_url: Option<&str>, token: String) {
@@ -452,13 +478,19 @@ mod tests {
         }
     }
 
+    /// Borrow the decrypted token as `&str` for assertions (the result is a
+    /// `Zeroizing<String>`; deref to compare).
+    fn decrypted(key: &[u8; 32], cred: &GitCredential) -> Option<String> {
+        decrypt_git_token(key, cred).unwrap().map(|t| (*t).clone())
+    }
+
     #[test]
     fn decrypt_git_token_roundtrips_saved_ciphertext() {
         let key = [9u8; 32];
         let ciphertext = crypto::encrypt_base64(&key, "ghp-secret").unwrap();
         let cred = credential_with_ciphertext(ciphertext);
 
-        assert_eq!(decrypt_git_token(&key, &cred).unwrap().as_deref(), Some("ghp-secret"));
+        assert_eq!(decrypted(&key, &cred).as_deref(), Some("ghp-secret"));
     }
 
     #[test]
@@ -467,8 +499,8 @@ mod tests {
         let padded = credential_with_ciphertext(crypto::encrypt_base64(&key, "  ghp-secret  ").unwrap());
         let blank = credential_with_ciphertext(crypto::encrypt_base64(&key, "   ").unwrap());
 
-        assert_eq!(decrypt_git_token(&key, &padded).unwrap().as_deref(), Some("ghp-secret"));
-        assert_eq!(decrypt_git_token(&key, &blank).unwrap(), None);
+        assert_eq!(decrypted(&key, &padded).as_deref(), Some("ghp-secret"));
+        assert_eq!(decrypted(&key, &blank), None);
     }
 
     fn credential_with(provider: &str, remote_url: Option<&str>) -> GitCredential {
@@ -521,10 +553,11 @@ mod tests {
     fn clone_secret_bytes_uses_provider_colon_form() {
         // GitHub uses x-access-token; GitLab uses oauth2; both are colon-form so a
         // token containing ':' can never be mis-split by the entrypoint helper.
-        assert_eq!(clone_secret_bytes("github", "ghp_abc:def"), b"x-access-token:ghp_abc:def".to_vec());
-        assert_eq!(clone_secret_bytes("gitlab", "glpat-xyz"), b"oauth2:glpat-xyz".to_vec());
+        // (The bytes live in a Zeroizing buffer; deref to compare.)
+        assert_eq!(*clone_secret_bytes("github", "ghp_abc:def"), b"x-access-token:ghp_abc:def".to_vec());
+        assert_eq!(*clone_secret_bytes("gitlab", "glpat-xyz"), b"oauth2:glpat-xyz".to_vec());
         // Any other provider defaults to the x-access-token username.
-        assert_eq!(clone_secret_bytes("custom", "tok"), b"x-access-token:tok".to_vec());
+        assert_eq!(*clone_secret_bytes("custom", "tok"), b"x-access-token:tok".to_vec());
     }
 
     #[test]
