@@ -328,6 +328,9 @@ export function SshKeysSection() {
               If the code link starts with git@, add this. If it starts with https://, use GitHub
               and GitLab access instead.
             </p>
+            <p className="mx-auto mt-2 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
+              You can skip this for public projects or normal https:// code links.
+            </p>
             <button
               type="button"
               onClick={() => setShowForm(true)}

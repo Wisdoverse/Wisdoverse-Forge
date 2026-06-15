@@ -58,6 +58,7 @@ describe('SshKeysSection', () => {
     expect(within(emptyState).getAllByText(/starts with git@/i).length).toBeGreaterThan(0)
     expect(within(emptyState).getByText(/starts with https:\/\//i)).toBeDefined()
     expect(within(emptyState).getByText(/use GitHub and GitLab access instead/i)).toBeDefined()
+    expect(within(emptyState).getByText(/skip this for public projects/i)).toBeDefined()
     expect(within(emptyState).getByRole('button', { name: /add SSH code access/i })).toBeDefined()
     expect(within(emptyState).queryByText('No repository SSH access yet')).toBeNull()
 
@@ -170,7 +171,7 @@ describe('SshKeysSection', () => {
 
     await waitFor(() => expect(loadSshKeysMock).toHaveBeenCalled())
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'SSH code access could not be saved. Paste only the shareable one-line public key that starts with ssh-ed25519 or ssh-rsa, then save again. Do not paste a private key block.'
+      'Paste only the shareable one-line public key that starts with ssh-ed25519 or ssh-rsa, then save again. Do not paste a private key block.'
     )
     expect(screen.queryByText(/Details: invalid public key/i)).toBeNull()
   })
@@ -184,7 +185,7 @@ describe('SshKeysSection', () => {
 
     await waitFor(() => expect(loadSshKeysMock).toHaveBeenCalled())
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'SSH code access could not be saved. Add a name for this access, then save again.'
+      'Add a name for this access, then save again.'
     )
     expect(screen.queryByText(/could not be loaded/i)).toBeNull()
   })
