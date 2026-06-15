@@ -135,7 +135,7 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
             <div className="flex shrink-0 items-center gap-3">
               <p className="text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark">
                 {agents.length === 0
-                  ? 'No agents'
+                  ? 'Create first agent'
                   : `${filteredAgents.length}/${agents.length} agent${agents.length === 1 ? '' : 's'}`}
               </p>
               <button

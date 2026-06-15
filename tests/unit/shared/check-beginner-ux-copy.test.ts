@@ -2727,6 +2727,38 @@ const SORT_OPTIONS = [{ value: 'success', label: 'Best finish rate' }]
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags agent list empty summaries that do not point to creating the first agent', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentListView.tsx': `
+function AgentSummary() {
+  return agents.length === 0 ? 'No agents' : '2/4 agents'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'agent-list-summary-copy',
+        location: 'src/app/features/agents/AgentListView.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts agent list empty summaries that start with the first action', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentListView.tsx': `
+function AgentSummary() {
+  return agents.length === 0 ? 'Create first agent' : '2/4 agents'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags agent tool update status copy that does not tell users to check now', () => {
     const cwd = fixture({
       'src/app/features/admin/CliImagesPanel.tsx': `

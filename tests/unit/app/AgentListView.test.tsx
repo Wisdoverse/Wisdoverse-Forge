@@ -39,6 +39,8 @@ describe('AgentListView', () => {
     render(<AgentListView />)
     expect(screen.getByText('Agents')).toBeDefined()
     expect(screen.queryByText('Agent Fleet')).toBeNull()
+    expect(screen.getByText('Create first agent')).toBeDefined()
+    expect(screen.queryByText('No agents')).toBeNull()
     expect(screen.getByText(/create your first agent/i)).toBeDefined()
     expect(screen.getByText(/chat-only AI service for planning and review/i)).toBeDefined()
     expect(screen.getByText(/files and commands on your machine/i)).toBeDefined()

@@ -391,6 +391,7 @@ const AGENT_TASK_QUEUE_EMPTY_DEAD_END_PATTERNS = [
   /\bNo task queues yet\b/i,
   /\bNo tasks are in this task queue yet\b/i,
 ]
+const AGENT_LIST_SUMMARY_DEAD_END_PATTERNS = [/\bNo agents\b/i]
 
 const SKILL_MAINTAINER_FALLBACK_DEAD_END_PATTERNS = [
   /\bMaintainer not listed yet\b/i,
@@ -1423,6 +1424,12 @@ function hasAgentConfigDetailDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return AGENT_CONFIG_DETAIL_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentListSummaryDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/agents/AgentListView.tsx')) return false
+  if (line.trim().startsWith('//') || line.trim().startsWith('*')) return false
+  return AGENT_LIST_SUMMARY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentAiServiceDeadEndCopy(relFile, line) {
@@ -2672,6 +2679,15 @@ function scanFile(file, relFile) {
         type: 'agent-config-detail-copy',
         location,
         message: 'Agent configuration missing-detail copy must tell beginners what to refresh.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentListSummaryDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-list-summary-copy',
+        location,
+        message: 'Agent list empty summaries must point beginners to creating the first agent.',
         sample: line.trim(),
       })
     }
