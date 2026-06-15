@@ -336,6 +336,10 @@ export function CreateAgentModal() {
   const dialogRef = useRef<HTMLDivElement>(null)
   const errorBannerRef = useRef<HTMLDivElement>(null)
   const displayedError = formError ?? error
+  const joinCommand = localEnrollment?.enrollment?.joinCommand ?? ''
+  const joinCommandPowershell = localEnrollment?.enrollment?.joinCommandPowershell ?? ''
+  const selectedJoinCommand = joinOs === 'posix' ? joinCommand : joinCommandPowershell
+  const selectedJoinCommandReady = selectedJoinCommand.trim().length > 0
 
   // The error banner sits above the form in a scrollable dialog while the
   // submit button sits at the bottom, so a failed submit can leave the banner
@@ -620,18 +624,24 @@ export function CreateAgentModal() {
                     ))}
                   </div>
                 </div>
-                <textarea
-                  id="local-agent-join-command"
-                  aria-label="Setup command"
-                  readOnly
-                  value={
-                    (joinOs === 'posix'
-                      ? localEnrollment.enrollment.joinCommand
-                      : localEnrollment.enrollment.joinCommandPowershell) ?? ''
-                  }
-                  rows={3}
-                  className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 font-mono text-ui-caption text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-                />
+                {selectedJoinCommandReady ? (
+                  <textarea
+                    id="local-agent-join-command"
+                    aria-label="Setup command"
+                    readOnly
+                    value={selectedJoinCommand}
+                    rows={3}
+                    className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 font-mono text-ui-caption text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                  />
+                ) : (
+                  <div
+                    role="note"
+                    className="rounded-[18px] border border-apple-orange/30 bg-apple-orange/10 px-4 py-3 text-ui-caption text-secondary-light dark:text-secondary-dark"
+                  >
+                    A one-line Windows setup command is not ready for this agent. Open the backup
+                    setup values below, copy them into PowerShell, and keep that window open.
+                  </div>
+                )}
                 <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                   The pairing code inside expires in 15 minutes. If it expires, create the agent
                   again to get a fresh command.
@@ -640,7 +650,9 @@ export function CreateAgentModal() {
                   data-testid="local-agent-paste-hint"
                   className="mt-1 text-ui-caption font-medium text-foreground-light dark:text-foreground-dark"
                 >
-                  {setupCommandPasteHint(joinOs)}
+                  {selectedJoinCommandReady
+                    ? setupCommandPasteHint(joinOs)
+                    : 'Use the backup setup values below for Windows.'}
                 </p>
                 <div className="mt-2 grid gap-1.5 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 text-ui-caption text-secondary-light dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-secondary-dark">
                   <p>1. Copy this setup command.</p>
@@ -735,20 +747,24 @@ export function CreateAgentModal() {
                 <button
                   type="button"
                   onClick={() => {
-                    const command =
-                      joinOs === 'posix'
-                        ? localEnrollment.enrollment?.joinCommand
-                        : localEnrollment.enrollment?.joinCommandPowershell
-                    if (command) void handleCopyJoinCommand(command)
+                    if (selectedJoinCommandReady) void handleCopyJoinCommand(selectedJoinCommand)
                   }}
-                  className="inline-flex items-center gap-2 rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95"
+                  disabled={!selectedJoinCommandReady}
+                  className={cn(
+                    'inline-flex items-center gap-2 rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95',
+                    !selectedJoinCommandReady && 'cursor-not-allowed opacity-60'
+                  )}
                 >
                   {copiedJoin ? (
                     <Check size={14} strokeWidth={2.25} aria-hidden="true" />
                   ) : (
                     <Copy size={14} strokeWidth={2.25} aria-hidden="true" />
                   )}
-                  {copiedJoin ? 'Copied' : 'Copy setup command'}
+                  {!selectedJoinCommandReady
+                    ? 'Use backup setup values'
+                    : copiedJoin
+                      ? 'Copied'
+                      : 'Copy setup command'}
                 </button>
               ) : (
                 <button

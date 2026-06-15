@@ -501,6 +501,57 @@ describe('CreateAgentModal', () => {
     )
   })
 
+  test('guides Windows users to backup setup values when the one-line command is missing', async () => {
+    const joinCommand =
+      'curl -fsSL https://forge.example.com/api/v1/agents/local-join/script | sh -s -- --code afj_test'
+    const enrollLocalAgent = vi.fn().mockResolvedValue({
+      ok: true,
+      agent: {
+        id: 'a-local',
+        name: 'Laptop Worker',
+        status: 'offline',
+        createdAt: Date.now(),
+        lastActivity: Date.now(),
+        cliTool: 'codex',
+        runtimeId: 'host-a-local',
+      },
+      enrollment: {
+        agentId: 'a-local',
+        runtimeId: 'host-a-local',
+        cliTool: 'codex',
+        env: { AGENT_ID: 'a-local' },
+        shellExports: "$env:AGENT_ID = 'a-local'\nagentforge-sidecar",
+        sidecarCommand: 'agentforge-sidecar',
+        serverUrl: 'https://forge.example.com',
+        joinCode: 'afj_test',
+        joinCommand,
+        joinCommandPowershell: null,
+      },
+    })
+    useAgentsStore.setState({ enrollLocalAgent } as never)
+
+    render(<CreateAgentModal />)
+
+    fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
+    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Laptop Worker' } })
+    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+
+    expect(await screen.findByLabelText(/setup command/i)).toHaveValue(joinCommand)
+    fireEvent.click(screen.getByRole('button', { name: /windows/i }))
+
+    expect(screen.queryByLabelText(/setup command/i)).toBeNull()
+    expect(
+      screen.getByText(/one-line Windows setup command is not ready for this agent/i)
+    ).toBeInTheDocument()
+    expect(screen.getByTestId('local-agent-paste-hint')).toHaveTextContent(
+      'Use the backup setup values below for Windows.'
+    )
+    expect(screen.getByRole('button', { name: /use backup setup values/i })).toBeDisabled()
+    expect(screen.getByLabelText(/backup setup values/i)).toHaveValue(
+      "$env:AGENT_ID = 'a-local'\nagentforge-sidecar"
+    )
+  })
+
   test('uses a beginner fallback name when the setup response has no agent name', async () => {
     const enrollLocalAgent = vi.fn().mockResolvedValue({
       ok: true,
