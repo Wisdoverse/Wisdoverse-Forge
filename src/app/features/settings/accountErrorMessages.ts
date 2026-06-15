@@ -52,7 +52,7 @@ function permissionMessage(action: AccountErrorAction): string {
   if (action === 'changePassword') {
     return 'Ask an owner or admin to check your account. You do not have permission to change this password.'
   }
-  return 'Ask an owner or admin to update your role. You do not have permission to rename this team space.'
+  return 'Ask an owner or admin to update your team space access. You do not have permission to rename this team space.'
 }
 
 function conflictMessage(action: AccountErrorAction): string {

@@ -225,7 +225,8 @@ describe('AccountSection', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain('You do not have permission to rename this team space')
-    expect(alert.textContent).toContain('Ask an owner or admin')
+    expect(alert.textContent).toContain('Ask an owner or admin to update your team space access')
+    expect(alert.textContent).not.toContain('role')
     expect(alert.textContent).toMatch(/^Ask an owner or admin/)
     expect(alert.textContent).not.toContain('organization')
     expect(alert.textContent).not.toContain('API 403')

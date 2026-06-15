@@ -53,7 +53,8 @@ describe('accountErrorMessage', () => {
     const message = accountErrorMessage('renameOrganization', new Error('API 403: Forbidden'))
 
     expect(message).toContain('You do not have permission to rename this team space')
-    expect(message).toContain('Ask an owner or admin')
+    expect(message).toContain('Ask an owner or admin to update your team space access')
+    expect(message).not.toContain('role')
     expect(message).not.toContain('organization')
     expect(message).not.toContain('Code: 403.')
     expect(message).not.toContain('API 403')
