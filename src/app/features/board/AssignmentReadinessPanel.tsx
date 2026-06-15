@@ -1,6 +1,7 @@
 import { RefreshCw, UserCheck } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
+import { agentCapabilitySummary } from '@app/shared/lib/agentCapabilityCopy'
 import type { ParticipantSummary } from '@app/shared/api/orchestration'
 
 export interface BoardWorkloadSnapshot {
@@ -216,7 +217,8 @@ function ParticipantChip({ participant }: { participant: ParticipantSummary }) {
         : participant.lastHeartbeatAt
           ? `Last seen ${formatRelativeTime(participant.lastHeartbeatAt)}`
           : 'No recent activity'
-  const capabilities = participant.capabilities.join(', ')
+  const capabilities =
+    participant.capabilities.length > 0 ? agentCapabilitySummary(participant.capabilities) : ''
   const detail =
     participant.status === 'available' ? capabilities || reason : joinDetails(reason, capabilities)
 

@@ -5024,6 +5024,49 @@ function networkRecoveryMessage() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags task handoff agent capability copy that exposes raw capability labels', () => {
+    const cwd = fixture({
+      'src/app/features/detail/TaskDetailPanel.tsx': `
+function AgentChoice({ participant }) {
+  return <span>{participant.capabilities.join(', ')}</span>
+}
+`,
+      'src/app/features/board/AssignmentReadinessPanel.tsx': `
+function ParticipantChip({ participant }) {
+  return <span>{participant.capabilities.join(', ')}</span>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-agent-capability-copy',
+          location: 'src/app/features/detail/TaskDetailPanel.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'task-agent-capability-copy',
+          location: 'src/app/features/board/AssignmentReadinessPanel.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts task handoff agent capability copy that explains the action', () => {
+    const cwd = fixture({
+      'src/app/features/detail/TaskDetailPanel.tsx': `
+function AgentChoice() {
+  return <span>Can build the task and review the result</span>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags board load copy that starts with the failure instead of the next step', () => {
     const cwd = fixture({
       'src/app/features/board/boardErrorMessages.ts': `

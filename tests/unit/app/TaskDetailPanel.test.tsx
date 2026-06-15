@@ -441,7 +441,7 @@ describe('TaskDetailPanel', () => {
         agentId: 'agent-2',
         name: 'Review Agent',
         status: 'available',
-        capabilities: ['review'],
+        capabilities: ['code-review'],
       },
       {
         id: 'participant-3',
@@ -468,7 +468,10 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByText('Builder Agent')).toBeDefined()
     expect(screen.getByText('Review Agent')).toBeDefined()
     expect(screen.getByText('Ready Agent')).toBeDefined()
-    expect(screen.getByText('implementation, review')).toBeDefined()
+    expect(screen.getByText('Can build the task and review the result')).toBeDefined()
+    expect(screen.getByText('Can help with code review')).toBeDefined()
+    expect(screen.queryByText('implementation, review')).toBeNull()
+    expect(screen.queryByText('code-review')).toBeNull()
     expect(screen.getByText('Ready to take this task')).toBeDefined()
     expect(screen.queryByText('Ready for assignment')).toBeNull()
     expect(screen.getByText('3 ready')).toBeDefined()

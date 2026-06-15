@@ -552,6 +552,11 @@ const TASK_FORM_QUEUE_LOAD_FAILURE_FIRST_PATTERNS = [
 
 const TASK_SUPPORT_REFERENCE_DEAD_END_PATTERNS = [/\bSupport reference not reported\b/i]
 
+const TASK_AGENT_CAPABILITY_JARGON_PATTERNS = [
+  /\bparticipant\.capabilities\.join\(/,
+  /\bimplementation,\s*review\b/i,
+]
+
 const TASK_DETAIL_AGENT_SETUP_DEAD_END_PATTERNS = [
   /\bNo available agent can take this task right now\./i,
   /\bNo agent is available for this task\. Start an agent or wait for one to finish, then try again\./i,
@@ -1034,6 +1039,17 @@ function hasTaskSupportReferenceDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/detail/TaskDetailPanel.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return TASK_SUPPORT_REFERENCE_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasTaskAgentCapabilityJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/detail/TaskDetailPanel.tsx') &&
+    !relFile.endsWith('src/app/features/board/AssignmentReadinessPanel.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_AGENT_CAPABILITY_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasTaskDetailAgentSetupDeadEndCopy(relFile, line) {
@@ -1968,6 +1984,15 @@ function scanFile(file, relFile) {
         type: 'task-support-reference-copy',
         location,
         message: 'Task support reference fallback must tell beginners to refresh task details.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskAgentCapabilityJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'task-agent-capability-copy',
+        location,
+        message: 'Task agent capability copy must use beginner-facing action wording.',
         sample: line.trim(),
       })
     }

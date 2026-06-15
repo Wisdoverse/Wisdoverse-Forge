@@ -72,6 +72,8 @@ describe('AssignmentReadinessPanel', () => {
     expect(readiness.textContent).toContain(
       '2 tasks need an agent. Choose an available agent to start them.'
     )
+    expect(screen.getByText('Can use Codex for this work')).toBeDefined()
+    expect(readiness.textContent).not.toContain('codex')
     expect(readiness.textContent).not.toContain('unassigned tasks')
     expect(readiness.textContent).not.toContain('handed off')
     expect(readiness.textContent).not.toContain('can start now')
@@ -101,7 +103,8 @@ describe('AssignmentReadinessPanel', () => {
     expect(readiness.textContent).toContain(
       '1 task needs an agent. Connect or free up an agent before it can start.'
     )
-    expect(screen.getByText('Already working · codex')).toBeDefined()
+    expect(screen.getByText('Already working · Can use Codex for this work')).toBeDefined()
+    expect(readiness.textContent).not.toContain('codex')
     expect(readiness.textContent).not.toContain('unassigned tasks')
     expect(readiness.textContent).not.toContain('handed off')
   })
@@ -130,6 +133,7 @@ describe('AssignmentReadinessPanel', () => {
     expect(screen.queryByTestId('assignment-readiness-empty')).toBeNull()
     expect(screen.getByText('Ready Agent')).toBeDefined()
     expect(screen.getAllByText('Can take work').length).toBeGreaterThan(0)
+    expect(screen.getByText('Can use Codex for this work')).toBeDefined()
   })
 
   test('summarizes tasks that need help without blocked-task wording', () => {

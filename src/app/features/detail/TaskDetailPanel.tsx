@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Bot, CheckCircle2, ListChecks, RotateCcw, Send, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
+import { agentCapabilitySummary } from '@app/shared/lib/agentCapabilityCopy'
 import {
   orchestrationApi,
   taskResultArtifacts,
@@ -545,7 +546,7 @@ function AgentChoice({
         </span>
         <span className="block truncate text-[10px] text-secondary-light dark:text-secondary-dark">
           {participant.capabilities.length > 0
-            ? participant.capabilities.join(', ')
+            ? agentCapabilitySummary(participant.capabilities)
             : 'Ready to take this task'}
         </span>
       </span>
