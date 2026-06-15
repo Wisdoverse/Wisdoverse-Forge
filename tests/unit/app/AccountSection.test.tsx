@@ -124,6 +124,9 @@ describe('AccountSection', () => {
     await waitFor(() =>
       expect(changePasswordMock).toHaveBeenCalledWith('old-password', 'new-password')
     )
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Password changed. Use the new password the next time you sign in.'
+    )
     expect(
       screen.getByText('Password changed. Use the new password the next time you sign in.')
     ).toBeDefined()
@@ -147,6 +150,9 @@ describe('AccountSection', () => {
     fireEvent.click(screen.getByRole('button', { name: /save team space name/i }))
 
     await waitFor(() => expect(updateOrg).toHaveBeenCalledWith('org-1', { name: 'Acme Support' }))
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Team space name updated. Teammates will see the new name in navigation.'
+    )
     expect(
       screen.getByText('Team space name updated. Teammates will see the new name in navigation.')
     ).toBeDefined()
@@ -273,6 +279,9 @@ describe('AccountSection', () => {
     fireEvent.click(restoreButton)
 
     await waitFor(() => expect(setGettingStartedDismissedMock).toHaveBeenCalledWith(false))
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'The setup checklist is back in the sidebar. Open it when setup needs review.'
+    )
     expect(
       screen.getByText(
         'The setup checklist is back in the sidebar. Open it when setup needs review.'
