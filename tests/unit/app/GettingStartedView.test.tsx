@@ -302,7 +302,8 @@ describe('GettingStartedView', () => {
     render(<GettingStartedView />)
 
     expect(await screen.findByText('Do this next')).toBeDefined()
-    expect(screen.getByText('Choose a project from the sidebar first.')).toBeDefined()
+    expect(screen.getByText('Open project settings to create or choose a project.')).toBeDefined()
+    expect(screen.queryByText('Choose a project from the sidebar first.')).toBeNull()
     expect(screen.queryByText('No project selected')).toBeNull()
     expect(
       screen.getByText('Create one team and project so tasks have a clear home.')

@@ -97,7 +97,7 @@ export const en = {
       'The basic path is complete. You can create more tasks or review saved instructions.',
     successLabel: 'Success looks like:',
     currentProject: 'Current project',
-    noProject: 'Choose a project from the sidebar first.',
+    noProject: 'Open project settings to create or choose a project.',
     projects: 'Projects',
     workLocations: {
       managed: 'a managed workspace',

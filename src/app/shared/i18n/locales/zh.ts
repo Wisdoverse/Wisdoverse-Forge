@@ -96,7 +96,7 @@ export const zh: TranslationKeys = {
     readyDetail: '基础路径已经跑通。现在可以继续创建任务，或整理保存好的指令。',
     successLabel: '成功的样子：',
     currentProject: '当前项目',
-    noProject: '请先在侧边栏选择一个项目。',
+    noProject: '打开项目设置，创建或选择一个项目。',
     projects: '项目',
     workLocations: {
       managed: '托管工作区',
