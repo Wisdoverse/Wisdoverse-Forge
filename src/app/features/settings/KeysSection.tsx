@@ -98,12 +98,25 @@ interface NewKeyBannerProps {
 
 function NewKeyBanner({ keyValue, onDismiss }: NewKeyBannerProps) {
   const [copied, setCopied] = useState(false)
+  const [copyError, setCopyError] = useState<string | null>(null)
 
-  function handleCopy() {
-    void navigator.clipboard.writeText(keyValue).then(() => {
+  async function handleCopy() {
+    setCopyError(null)
+    if (!navigator.clipboard?.writeText) {
+      setCopyError(
+        'Forge cannot copy from this browser. Select the key text, then copy it manually before choosing I saved it.'
+      )
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(keyValue)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    })
+    } catch {
+      setCopyError(
+        'Forge cannot copy from this browser. Select the key text, then copy it manually before choosing I saved it.'
+      )
+    }
   }
 
   return (
@@ -122,6 +135,11 @@ function NewKeyBanner({ keyValue, onDismiss }: NewKeyBannerProps) {
             choosing I saved it.
           </p>
           <code className="break-all font-mono text-ui-caption">{keyValue}</code>
+          {copyError && (
+            <p role="alert" className="mt-2 text-ui-caption font-medium text-apple-red">
+              {copyError}
+            </p>
+          )}
         </div>
         <div className="flex gap-2 sm:shrink-0">
           <button

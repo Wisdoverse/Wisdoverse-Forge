@@ -118,6 +118,34 @@ describe('KeysSection', () => {
     expect(screen.getByText('af_test_key_value')).toBeDefined()
   })
 
+  test('shows manual save guidance when copying the one-time key fails', async () => {
+    createApiKeyMock.mockResolvedValue({
+      key: 'af_test_key_value',
+      apiKey: apiKey({ name: 'Production deploy pipeline' }),
+    })
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
+    })
+
+    render(<KeysSection />)
+
+    await waitFor(() => expect(loadApiKeysMock).toHaveBeenCalledTimes(1))
+    fireEvent.click(screen.getAllByRole('button', { name: /create access key/i })[0])
+    fireEvent.change(screen.getByLabelText(/^which tool will use this key/i), {
+      target: { value: 'Production deploy pipeline' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create access key/i }))
+    await waitFor(() => expect(createApiKeyMock).toHaveBeenCalledWith('Production deploy pipeline'))
+
+    fireEvent.click(screen.getByRole('button', { name: /copy key/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Select the key text, then copy it manually before choosing I saved it.'
+    )
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/clipboard access/i)
+  })
+
   test('labels saved key rows with clear removal language', async () => {
     useSettingsStore.setState({
       apiKeys: [apiKey({ name: 'Release automation', keyPrefix: 'af_rel' })],
