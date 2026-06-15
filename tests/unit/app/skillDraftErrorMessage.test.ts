@@ -8,6 +8,18 @@ describe('skillDraftErrorMessage', () => {
     )
   })
 
+  test('keeps store permission guidance when the modal remaps publish errors', () => {
+    expect(
+      skillDraftErrorMessage(
+        new Error(
+          'Ask an owner or admin to let you create saved instructions. Your account cannot create workspace instructions yet.'
+        )
+      )
+    ).toBe(
+      'Instruction was not published. Ask an owner or admin to let you create saved instructions.'
+    )
+  })
+
   test('explains duplicate names without leaking raw API text', () => {
     expect(skillDraftErrorMessage(new Error('API 409: duplicate name'))).toBe(
       'Instruction was not published. An instruction with this name may already exist. Rename it, then publish again.'

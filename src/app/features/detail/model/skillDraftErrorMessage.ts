@@ -49,7 +49,13 @@ export function skillDraftErrorMessage(error: unknown): string {
   if (code === 401 || text.includes('unauthorized') || text.includes('sign in again')) {
     return `${base} Sign in again, reopen this task, and publish the instruction again.`
   }
-  if (code === 403 || text.includes('forbidden') || text.includes('permission')) {
+  if (
+    code === 403 ||
+    text.includes('forbidden') ||
+    text.includes('permission') ||
+    text.includes('let you create saved instructions') ||
+    text.includes('cannot create workspace instructions')
+  ) {
     return `${base} Ask an owner or admin to let you create saved instructions.`
   }
   if (code === 404) {

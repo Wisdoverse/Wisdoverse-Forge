@@ -379,11 +379,11 @@ describe('BoardView', () => {
     useBoardStore.getState().setSelectedGroupId('test-group')
     render(<BoardView />)
 
-    fireEvent.click(await screen.findByRole('button', { name: /\+ add task/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /add task idea/i }))
     fireEvent.change(screen.getByLabelText(/task goal/i), {
       target: { value: 'Task without result' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /^save task$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^save for later$/i }))
 
     const alert = await screen.findByTestId('board-action-error')
     expect(alert).toHaveTextContent(

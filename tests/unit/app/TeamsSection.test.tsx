@@ -89,9 +89,7 @@ describe('TeamsSection', () => {
     render(<TeamsSection />)
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent(
-      'Refresh Settings to load workspace teams. Ask an owner or admin to update your workspace access.'
-    )
+    expect(alert).toHaveTextContent('Ask an owner or admin to update your workspace access.')
     expect(alert.textContent).not.toContain('Detail:')
     expect(alert.textContent).not.toContain('owner role required')
   })
