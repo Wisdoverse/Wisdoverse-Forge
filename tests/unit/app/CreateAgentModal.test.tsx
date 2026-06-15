@@ -440,6 +440,9 @@ describe('CreateAgentModal', () => {
     const oneLiner = await screen.findByLabelText(/setup command/i)
     expect(oneLiner).toHaveValue(joinCommand)
     expect(screen.getByText(/lets forge assign tasks to this agent/i)).toBeInTheDocument()
+    expect(screen.getByTestId('local-agent-paste-hint')).toHaveTextContent(
+      'Open Terminal on macOS or your Linux terminal, then paste this command.'
+    )
     expect(screen.getByText('1. Copy this setup command.')).toBeInTheDocument()
     expect(screen.getByText(/paste it into terminal or powershell/i)).toBeInTheDocument()
     expect(
@@ -451,6 +454,9 @@ describe('CreateAgentModal', () => {
     expect(screen.getByRole('group', { name: /computer type/i })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /windows/i }))
     expect(oneLiner).toHaveValue(joinCommandPowershell)
+    expect(screen.getByTestId('local-agent-paste-hint')).toHaveTextContent(
+      'Open PowerShell on Windows, then paste this command.'
+    )
 
     // Backup values stay available without exposing advanced connection jargon.
     expect(screen.getByText(/if the setup command does not work/i)).toBeInTheDocument()

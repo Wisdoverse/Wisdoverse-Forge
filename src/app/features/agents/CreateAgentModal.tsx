@@ -140,6 +140,12 @@ const PROVIDERS: { value: string; label: string; defaultModel: string }[] = [
 
 const DEFAULT_AGENT_CWD = '/workspace'
 
+function setupCommandPasteHint(os: 'posix' | 'windows'): string {
+  return os === 'windows'
+    ? 'Open PowerShell on Windows, then paste this command.'
+    : 'Open Terminal on macOS or your Linux terminal, then paste this command.'
+}
+
 function providerDefaultModel(provider: string): string {
   return PROVIDERS.find((candidate) => candidate.value === provider)?.defaultModel ?? ''
 }
@@ -626,6 +632,12 @@ export function CreateAgentModal() {
                 <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                   The pairing code inside expires in 15 minutes. If it expires, create the agent
                   again to get a fresh command.
+                </p>
+                <p
+                  data-testid="local-agent-paste-hint"
+                  className="mt-1 text-ui-caption font-medium text-foreground-light dark:text-foreground-dark"
+                >
+                  {setupCommandPasteHint(joinOs)}
                 </p>
                 <div className="mt-2 grid gap-1.5 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 text-ui-caption text-secondary-light dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-secondary-dark">
                   <p>1. Copy this setup command.</p>
