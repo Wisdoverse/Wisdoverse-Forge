@@ -22,10 +22,11 @@ describe('workspaceResourceErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'You do not have permission to delete this project. Ask an owner or admin to update your role.'
+      'You do not have permission to delete this project. Ask an owner or admin to update your team space access.'
     )
     expect(message).not.toContain('API 403')
     expect(message).not.toContain('Forbidden')
+    expect(message).not.toContain('update your role')
   })
 
   test('maps structured permission failures without raw API text', () => {
@@ -36,9 +37,10 @@ describe('workspaceResourceErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'You do not have permission to save this team. Ask an owner or admin to update your role.'
+      'You do not have permission to save this team. Ask an owner or admin to update your team space access.'
     )
     expect(message).not.toContain('owner role required')
+    expect(message).not.toContain('update your role')
   })
 
   test('uses structured validation details to name the field to fix', () => {
@@ -91,19 +93,20 @@ describe('workspaceResourceErrorMessage', () => {
     expect(message).not.toContain('cannot delete')
   })
 
-  test('turns server failures into a workspace setup recovery step', () => {
+  test('turns server failures into a team space setup recovery step', () => {
     const message = workspaceResourceErrorMessage('project', 'update', new Error('HTTP 500'))
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings, then save the project again. If it still fails, ask an owner or admin to check workspace setup.'
+      'Refresh Settings, then save the project again. If it still fails, ask an owner or admin to check team space setup.'
     )
     expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('temporarily unavailable')
     expect(message).not.toContain('service')
+    expect(message).not.toContain('workspace setup')
   })
 
-  test('turns structured server failures into workspace setup recovery', () => {
+  test('turns structured server failures into team space setup recovery', () => {
     const message = workspaceResourceErrorMessage('team', 'delete', {
       statusCode: '503',
       message: 'database unavailable',
@@ -111,9 +114,10 @@ describe('workspaceResourceErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings, then delete the team again. If it still fails, ask an owner or admin to check workspace setup.'
+      'Refresh Settings, then delete the team again. If it still fails, ask an owner or admin to check team space setup.'
     )
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('503')
+    expect(message).not.toContain('workspace setup')
   })
 })

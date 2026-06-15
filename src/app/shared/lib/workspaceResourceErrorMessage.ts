@@ -24,7 +24,7 @@ export function workspaceResourceErrorMessage(
     return `Sign in again, then reopen Settings and ${retryPhrase(resource, action)}.`
   }
   if (status === 403) {
-    return `You do not have permission to ${permissionAction(action)} this ${resource}. Ask an owner or admin to update your role.`
+    return `You do not have permission to ${permissionAction(action)} this ${resource}. Ask an owner or admin to update your team space access.`
   }
   if (status === 404) {
     return `Refresh Settings, then choose an existing ${resource}.`
@@ -56,7 +56,7 @@ function workspaceResourceUnavailableMessage(
   resource: WorkspaceResourceKind,
   action: WorkspaceResourceAction
 ): string {
-  return `Refresh Settings, then ${retryPhrase(resource, action)}. If it still fails, ask an owner or admin to check workspace setup.`
+  return `Refresh Settings, then ${retryPhrase(resource, action)}. If it still fails, ask an owner or admin to check team space setup.`
 }
 
 function permissionAction(action: WorkspaceResourceAction): string {
