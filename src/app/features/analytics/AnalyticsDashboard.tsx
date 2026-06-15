@@ -99,7 +99,8 @@ function buildAnalyticsGuidance({
   if (totalAgents === 0) {
     return {
       title: 'Create or connect an agent first',
-      detail: 'No agents are reporting status yet, so this page cannot show real work patterns.',
+      detail:
+        'This page starts showing trends after at least one agent is connected and has run a task.',
       action: 'Open Agents, add one agent, then run a small task to generate the first signals.',
       tone: 'attention',
     }

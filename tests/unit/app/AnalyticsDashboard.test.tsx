@@ -62,6 +62,25 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
     expect(screen.queryByText('No tool usage data')).toBeNull()
   })
 
+  test('explains how analytics starts when no agents exist yet', () => {
+    useAnalyticsStore.setState({
+      summary: { totalEvents: 0, toolCalls: 0, prompts: 0, responses: 0 },
+      tools: [],
+      hourly: [],
+      agentStats: { total: 0, online: 0, offline: 0, working: 0 },
+    })
+
+    render(<AnalyticsDashboard />)
+
+    const nextStep = screen.getByTestId('analytics-next-step')
+    expect(nextStep).toHaveTextContent('Create or connect an agent first')
+    expect(nextStep).toHaveTextContent(
+      'This page starts showing trends after at least one agent is connected and has run a task.'
+    )
+    expect(nextStep).toHaveTextContent('Open Agents, add one agent')
+    expect(nextStep).not.toHaveTextContent('No agents are reporting status yet')
+  })
+
   test('points beginners at the busiest low-success tool first', () => {
     useAnalyticsStore.setState({
       tools: [{ tool: 'shell_command', count: 12, successRate: 0.42 }],
