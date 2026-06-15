@@ -290,6 +290,12 @@ const ACCOUNT_PROFILE_DEAD_END_PATTERNS = [
 
 const ACCOUNT_PROFILE_ROLE_JARGON_PATTERNS = [/>Role</]
 
+const LOCALE_ACCESS_ROLE_JARGON_PATTERNS = [
+  /\brole:\s*['"`]Role['"`]/,
+  /\brole:\s*['"`]角色['"`]/,
+  /更新你的角色/,
+]
+
 const START_GUIDE_RESET_JARGON_PATTERNS = [
   /\bStart guide\b/i,
   /\bReset Start guide\b/i,
@@ -1284,6 +1290,17 @@ function hasAccountProfileRoleJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/settings/AccountSection.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return ACCOUNT_PROFILE_ROLE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasLocaleAccessRoleJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return LOCALE_ACCESS_ROLE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasStartGuideResetJargonCopy(relFile, line) {
@@ -2301,6 +2318,15 @@ function scanFile(file, relFile) {
         type: 'account-profile-role-copy',
         location,
         message: 'Account profile must say access level instead of role.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasLocaleAccessRoleJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'locale-access-role-copy',
+        location,
+        message: 'Localized user access copy must say access level instead of role jargon.',
         sample: line.trim(),
       })
     }

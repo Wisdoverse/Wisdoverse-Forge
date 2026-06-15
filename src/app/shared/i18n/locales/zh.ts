@@ -509,7 +509,7 @@ export const zh: TranslationKeys = {
     timeout: '请稍等片刻后重试。请求时间太长。',
     notFound: '请刷新页面后重试。未找到 {{resource}}。',
     unauthorized: '请重新登录，然后再试一次。',
-    forbidden: '你当前没有权限执行这个操作。请让所有者或管理员更新你的角色。',
+    forbidden: '你当前无法执行这个操作。请让所有者或管理员检查你的团队空间访问权限。',
     validation: '请检查高亮字段，然后重试。',
     serverError: '请稍等片刻后重试。Forge 暂时无法完成这个操作。',
     connectionLost: '连接断开，正在重连...',
@@ -730,7 +730,7 @@ export const zh: TranslationKeys = {
       editUser: '编辑用户',
       deleteUser: '删除用户',
       noUsers: '当前视图没有匹配的用户。可以清除搜索，或先邀请用户。',
-      role: '角色',
+      role: '访问级别',
       roles: {
         admin: '管理员',
         operator: '操作员',

@@ -755,7 +755,7 @@ export const en = {
       editUser: 'Edit User',
       deleteUser: 'Delete User',
       noUsers: 'No users match this view. Clear search or invite a user first.',
-      role: 'Role',
+      role: 'Access level',
       roles: {
         admin: 'Admin',
         operator: 'Operator',

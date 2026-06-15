@@ -1035,6 +1035,72 @@ export const zh = {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags localized user access copy that exposes role jargon', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  admin: {
+    users: { role: 'Role' },
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  errors: {
+    forbidden: '你当前没有权限执行这个操作。请让所有者或管理员更新你的角色。',
+  },
+  admin: {
+    users: { role: '角色' },
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'locale-access-role-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'locale-access-role-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'locale-access-role-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:7',
+        }),
+      ])
+    )
+  })
+
+  it('accepts localized user access copy that names access level and recovery', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  admin: {
+    users: { role: 'Access level' },
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  errors: {
+    forbidden: '你当前无法执行这个操作。请让所有者或管理员检查你的团队空间访问权限。',
+  },
+  admin: {
+    users: { role: '访问级别' },
+  },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags workspace settings errors that start with the failure instead of the next step', () => {
     const cwd = fixture({
       'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts': `
