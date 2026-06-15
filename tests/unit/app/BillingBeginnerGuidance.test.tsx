@@ -162,9 +162,10 @@ describe('Billing beginner guidance', () => {
   test('keeps invoice empty and error states actionable', () => {
     const { rerender } = render(<InvoiceList invoices={[]} />)
 
-    expect(screen.getByText('No invoices have been created yet')).toBeInTheDocument()
+    expect(screen.getByText('Invoices appear after your first charge')).toBeInTheDocument()
     expect(screen.getByText(/Receipts and payment links/i)).toBeInTheDocument()
     expect(screen.getByText(/start or change a plan/i)).toBeInTheDocument()
+    expect(screen.queryByText('No invoices have been created yet')).not.toBeInTheDocument()
 
     rerender(
       <InvoiceList

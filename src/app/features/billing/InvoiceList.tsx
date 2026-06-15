@@ -103,7 +103,7 @@ export function InvoiceList({ invoices, loading, error }: InvoiceListProps) {
         {!loading && !error && invoices.length === 0 && (
           <div className="px-6 py-8 text-center">
             <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-              No invoices have been created yet
+              Invoices appear after your first charge
             </p>
             <p className="mx-auto mt-1 max-w-sm text-ui-caption text-secondary-light dark:text-secondary-dark">
               Receipts and payment links will appear here after the first billing cycle.
