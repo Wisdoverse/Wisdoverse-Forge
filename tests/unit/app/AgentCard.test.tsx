@@ -116,10 +116,12 @@ describe('AgentCard', () => {
   })
 
   test('warns before assigning work to an offline agent', () => {
+    expect(agentCardStatusHelp('offline')).toBe('Open this agent to reconnect before work')
+
     render(<AgentCard agent={{ ...mockAgent, status: 'offline' }} />)
 
     expect(screen.getByTestId('agent-status-help-agent-1').textContent).toBe(
-      'Reconnect before sending work'
+      'Open this agent to reconnect before work'
     )
   })
 

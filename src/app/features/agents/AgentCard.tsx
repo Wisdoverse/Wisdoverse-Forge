@@ -26,7 +26,7 @@ const STATUS_FALLBACK_COLOR = 'bg-[#d2d2d7]'
 const STATUS_HELP: Record<string, string> = {
   working: 'Running a task now',
   idle: 'Ready for a new task',
-  offline: 'Reconnect before sending work',
+  offline: 'Open this agent to reconnect before work',
 }
 
 export function agentCardStatusHelp(
