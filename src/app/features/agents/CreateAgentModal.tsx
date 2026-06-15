@@ -147,8 +147,8 @@ const DEFAULT_AGENT_CWD = '/workspace'
 
 function setupCommandPasteHint(os: 'posix' | 'windows'): string {
   return os === 'windows'
-    ? 'Open PowerShell on Windows, then paste this command.'
-    : 'Open Terminal on macOS or your Linux terminal, then paste this command.'
+    ? 'Open PowerShell on Windows, then paste this setup text.'
+    : 'Open Terminal on macOS or your Linux terminal, then paste this setup text.'
 }
 
 function providerDefaultModel(provider: string): string {
@@ -184,7 +184,7 @@ function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): Run
       items: [
         { label: 'Agent location', value: 'This computer' },
         { label: 'Files', value: 'Your chosen folder' },
-        { label: 'Before use', value: 'Run setup command on this computer' },
+        { label: 'Before use', value: 'Paste setup text on this computer' },
       ],
     }
   }
@@ -234,7 +234,7 @@ function createReviewItems({
 }): AgentCreateReviewItem[] {
   const startState =
     kind === 'local-cli'
-      ? 'Forge creates the agent, then shows a setup command for this computer.'
+      ? 'Forge creates the agent, then shows setup steps for this computer.'
       : kind === 'provider'
         ? 'Ready for chat and review after the AI service is connected.'
         : 'Ready to start from Agents after the managed workspace is prepared.'
@@ -249,7 +249,7 @@ function createReviewItems({
 
   const nextStep =
     kind === 'local-cli'
-      ? 'Run the setup command on this computer and keep that window open.'
+      ? 'Paste the setup text on this computer and keep that window open.'
       : kind === 'provider'
         ? 'Ask a first question or assign review work that does not need files.'
         : 'Start the agent, then send one small task from Tasks.'
@@ -493,7 +493,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
   }
 
   const CLIPBOARD_UNAVAILABLE =
-    'Forge cannot copy from this browser. Select the setup command in the box, then copy it manually.'
+    'Forge cannot copy from this browser. Select the setup text in the box, then copy it manually.'
 
   async function handleCopyCommand() {
     const command = localEnrollment?.enrollment?.shellExports
@@ -598,8 +598,8 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
               </div>
               <p className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {localEnrollment.enrollment?.joinCommand
-                  ? 'Paste the setup command into Terminal or PowerShell on the computer where this agent should work. It downloads what is missing and lets Forge assign tasks to this agent.'
-                  : 'Copy this command and run it on the computer where the work tool is installed. Keep it running so Forge can manage this agent.'}
+                  ? 'Paste the setup text into Terminal or PowerShell on the computer where this agent should work. It downloads what is missing and lets Forge assign tasks to this agent.'
+                  : 'Paste this setup text on the computer where this agent should work. Keep that window open so Forge can manage this agent.'}
               </p>
             </div>
 
@@ -650,8 +650,8 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     role="note"
                     className="rounded-[18px] border border-apple-orange/30 bg-apple-orange/10 px-4 py-3 text-ui-caption text-secondary-light dark:text-secondary-dark"
                   >
-                    A one-line Windows setup command is not ready for this agent. Open the backup
-                    setup values below, copy them into PowerShell, and keep that window open.
+                    One-line Windows setup text is not ready for this agent. Open the backup setup
+                    values below, copy them into PowerShell, and keep that window open.
                   </div>
                 )}
                 <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -667,7 +667,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     : 'Use the backup setup values below for Windows.'}
                 </p>
                 <div className="mt-2 grid gap-1.5 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 text-ui-caption text-secondary-light dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-secondary-dark">
-                  <p>1. Copy this setup command.</p>
+                  <p>1. Copy the setup text.</p>
                   <p>
                     2. Paste it into Terminal or PowerShell on the computer that will do the work.
                   </p>
@@ -681,10 +681,10 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 </div>
                 <details className="mt-3">
                   <summary className="cursor-pointer text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                    If the setup command does not work
+                    If the setup text does not work
                   </summary>
                   <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                    Use this backup only if the setup command above does not run on this computer.
+                    Use this backup only if the setup text above does not work on this computer.
                     Copy these backup setup values into the same Terminal or PowerShell window, then
                     keep that window open.
                   </p>
@@ -728,7 +728,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                   className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 font-mono text-ui-caption text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                 />
                 <div className="mt-2 grid gap-1.5 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 text-ui-caption text-secondary-light dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-secondary-dark">
-                  <p>1. Copy this setup command.</p>
+                  <p>1. Copy the setup text.</p>
                   <p>2. Paste it into the terminal app on the computer that will do the work.</p>
                   <p>
                     3. Keep that window open. Success looks like: the agent changes from Not
@@ -776,7 +776,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     ? 'Use backup setup values'
                     : copiedJoin
                       ? 'Copied'
-                      : 'Copy setup command'}
+                      : 'Copy setup text'}
                 </button>
               ) : (
                 <button
@@ -789,7 +789,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                   ) : (
                     <Copy size={14} strokeWidth={2.25} aria-hidden="true" />
                   )}
-                  {copiedCommand ? 'Copied' : 'Copy setup command'}
+                  {copiedCommand ? 'Copied' : 'Copy setup text'}
                 </button>
               )}
               <button
@@ -1075,7 +1075,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 />
                 <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                   {kind === 'local-cli'
-                    ? 'Leave blank to use the folder where you run the setup command.'
+                    ? 'Leave blank to use the folder where you paste the setup text.'
                     : 'Keep the suggested folder unless an owner gives you a different one. New tasks start from the Primary Project selected above.'}
                 </p>
               </div>

@@ -1662,7 +1662,7 @@ const CLIPBOARD_UNAVAILABLE =
     const cwd = fixture({
       'src/app/features/agents/CreateAgentModal.tsx': `
 const CLIPBOARD_UNAVAILABLE =
-  'Forge cannot copy from this browser. Select the setup command in the box, then copy it manually.'
+  'Forge cannot copy from this browser. Select the setup text in the box, then copy it manually.'
 `,
     })
 
@@ -3793,6 +3793,106 @@ export function CreateAgentModal() {
         location: 'src/app/features/agents/CreateAgentModal.tsx:3',
       }),
     ])
+  })
+
+  it('flags this-computer setup copy that uses command-window jargon', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentListView.tsx': `
+export function HostCliEnrollmentPanel() {
+  return (
+    <section>
+      <p>Use this backup if your browser cannot open the setup window or your team asks you to run a command.</p>
+      <p>Then the setup command appears here.</p>
+      <p>Keep the command window open while it works.</p>
+      <button>Copy setup command</button>
+    </section>
+  )
+}
+`,
+      'src/app/features/agents/CreateAgentModal.tsx': `
+export function CreateAgentModal() {
+  return (
+    <section>
+      <p>Run setup command on this computer</p>
+      <p>Forge creates the agent, then shows a setup command for this computer.</p>
+      <p>One-line Windows setup command is not ready for this agent.</p>
+      <p>Leave blank to use the folder where you run the setup command.</p>
+    </section>
+  )
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'this-computer-setup-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'this-computer-setup-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'this-computer-setup-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'this-computer-setup-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:8',
+        }),
+        expect.objectContaining({
+          type: 'this-computer-setup-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'this-computer-setup-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'this-computer-setup-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'this-computer-setup-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:8',
+        }),
+      ])
+    )
+  })
+
+  it('accepts this-computer setup copy that uses setup text and clear app names', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentListView.tsx': `
+export function HostCliEnrollmentPanel() {
+  return (
+    <section>
+      <p>Use this backup if the guided setup does not open.</p>
+      <p>Then the setup text appears here.</p>
+      <p>Keep Terminal or PowerShell open while it works.</p>
+      <button>Copy setup text</button>
+    </section>
+  )
+}
+`,
+      'src/app/features/agents/CreateAgentModal.tsx': `
+export function CreateAgentModal() {
+  return (
+    <section>
+      <p>Paste setup text on this computer</p>
+      <p>Forge creates the agent, then shows setup steps for this computer.</p>
+      <p>One-line Windows setup text is not ready for this agent.</p>
+      <p>Leave blank to use the folder where you paste the setup text.</p>
+    </section>
+  )
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
   it('flags raw CLI tool id lists in user-visible copy', () => {

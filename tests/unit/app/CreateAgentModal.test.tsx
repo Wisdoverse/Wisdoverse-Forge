@@ -358,18 +358,14 @@ describe('CreateAgentModal', () => {
     ).toBeInTheDocument()
     expect(screen.getAllByText(/tasks, status, and task history/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/Forge gives it tasks/i)).toBeNull()
-    expect(screen.getByText('Run setup command on this computer')).toBeInTheDocument()
+    expect(screen.getByText('Paste setup text on this computer')).toBeInTheDocument()
     expect(screen.getByText('Uses this computer')).toBeInTheDocument()
     const localReview = screen.getByTestId('agent-create-review')
     expect(
-      within(localReview).getByText(
-        'Run the setup command on this computer and keep that window open.'
-      )
+      within(localReview).getByText('Paste the setup text on this computer and keep that window open.')
     ).toBeInTheDocument()
     expect(
-      within(localReview).getByText(
-        'Forge creates the agent, then shows a setup command for this computer.'
-      )
+      within(localReview).getByText('Forge creates the agent, then shows setup steps for this computer.')
     ).toBeInTheDocument()
     expect(
       screen.queryByText(new RegExp(['work tool', 'installed', 'your computer'].join('.*'), 'i'))
@@ -436,8 +432,8 @@ describe('CreateAgentModal', () => {
     )
     expect(screen.getByText('Connect this computer')).toBeInTheDocument()
     expect(screen.getByText(/agent managed by forge/i)).toBeInTheDocument()
-    expect(screen.getByText(/keep it running so forge can manage this agent/i)).toBeInTheDocument()
-    expect(screen.getByText('1. Copy this setup command.')).toBeInTheDocument()
+    expect(screen.getByText(/Keep that window open so Forge can manage this agent/i)).toBeInTheDocument()
+    expect(screen.getByText('1. Copy the setup text.')).toBeInTheDocument()
     expect(screen.getByText(/paste it into the terminal app/i)).toBeInTheDocument()
     expect(
       screen.getByText(/changes from Not connected to Ready on the Agents page/i)
@@ -490,9 +486,9 @@ describe('CreateAgentModal', () => {
     expect(oneLiner).toHaveValue(joinCommand)
     expect(screen.getByText(/lets forge assign tasks to this agent/i)).toBeInTheDocument()
     expect(screen.getByTestId('local-agent-paste-hint')).toHaveTextContent(
-      'Open Terminal on macOS or your Linux terminal, then paste this command.'
+      'Open Terminal on macOS or your Linux terminal, then paste this setup text.'
     )
-    expect(screen.getByText('1. Copy this setup command.')).toBeInTheDocument()
+    expect(screen.getByText('1. Copy the setup text.')).toBeInTheDocument()
     expect(screen.getByText(/paste it into terminal or powershell/i)).toBeInTheDocument()
     expect(
       screen.getByText(/changes from Not connected to Ready on the Agents page/i)
@@ -504,11 +500,11 @@ describe('CreateAgentModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /windows/i }))
     expect(oneLiner).toHaveValue(joinCommandPowershell)
     expect(screen.getByTestId('local-agent-paste-hint')).toHaveTextContent(
-      'Open PowerShell on Windows, then paste this command.'
+      'Open PowerShell on Windows, then paste this setup text.'
     )
 
     // Backup values stay available without exposing advanced connection jargon.
-    expect(screen.getByText(/if the setup command does not work/i)).toBeInTheDocument()
+    expect(screen.getByText(/if the setup text does not work/i)).toBeInTheDocument()
     const backupHelp = screen.getByText(/backup setup values/i)
     expect(backupHelp).toBeInTheDocument()
     expect(backupHelp.textContent).toMatch(/same Terminal or PowerShell window/)
@@ -561,7 +557,7 @@ describe('CreateAgentModal', () => {
 
     expect(screen.queryByLabelText(/setup command/i)).toBeNull()
     expect(
-      screen.getByText(/one-line Windows setup command is not ready for this agent/i)
+      screen.getByText(/one-line Windows setup text is not ready for this agent/i)
     ).toBeInTheDocument()
     expect(screen.getByTestId('local-agent-paste-hint')).toHaveTextContent(
       'Use the backup setup values below for Windows.'
@@ -790,13 +786,13 @@ describe('CreateAgentModal', () => {
     fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
-    const copyButton = await screen.findByRole('button', { name: /copy setup command/i })
+    const copyButton = await screen.findByRole('button', { name: /copy setup text/i })
     // jsdom has no navigator.clipboard, which is exactly the non-secure-context
     // (plain HTTP) deployment case the message exists for.
     fireEvent.click(copyButton)
 
     await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent(/select the setup command/i)
+      expect(screen.getByRole('alert')).toHaveTextContent(/select the setup text/i)
     )
     expect(screen.getByRole('alert')).not.toHaveTextContent(/clipboard access/i)
   })

@@ -785,6 +785,21 @@ const BEGINNER_JARGON_PATTERNS = [
   /\bForge CLI\b/i,
 ]
 
+const THIS_COMPUTER_SETUP_JARGON_PATTERNS = [
+  /\byour team asks you to run a command\b/i,
+  /\bCopy this setup command\b/,
+  /\bCopy setup command\b/,
+  /\bsetup command appears here\b/i,
+  /\bsetup command in the box\b/i,
+  /\bcommand window\b/i,
+  /\bRun setup command on this computer\b/,
+  /\bshows a setup command\b/i,
+  /\bone-line Windows setup command\b/i,
+  /\bpaste this command\b/i,
+  /\bCopy this command and run it\b/i,
+  /\bwhere you run the setup command\b/i,
+]
+
 const PLACEHOLDER_COPY_PATTERNS = [/\bUnknown\b/, /\bunknown\b/, /\bN\/A\b/, /\bTBD\b/]
 
 const PLACEHOLDER_STRING_LITERAL_PATTERN = /(['"`])[^'"`]*(?:Unknown|unknown|N\/A|TBD)[^'"`]*\1/
@@ -919,6 +934,17 @@ function hasRawUserVisibleCopy(line) {
 function hasBeginnerJargon(line) {
   if (isLikelyGuardOrParserLine(line)) return false
   return BEGINNER_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasThisComputerSetupJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/agents/AgentListView.tsx') &&
+    !relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return THIS_COMPUTER_SETUP_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function looksLikeUserVisibleCopyLine(line) {
@@ -1919,6 +1945,16 @@ function scanFile(file, relFile) {
         type: 'beginner-jargon-copy',
         location,
         message: 'User-visible copy must use beginner-facing agent location wording.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasThisComputerSetupJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'this-computer-setup-copy',
+        location,
+        message:
+          'This-computer setup copy must use setup text/steps and plain Terminal or PowerShell guidance instead of command-window jargon.',
         sample: line.trim(),
       })
     }

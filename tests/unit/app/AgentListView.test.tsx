@@ -57,10 +57,8 @@ describe('AgentListView', () => {
     expect(enrollment.textContent).toContain('manages it with your other agents')
     expect(enrollment.textContent).toContain('This computer')
     expect(enrollment.textContent).toContain('If the button does not work')
-    expect(enrollment.textContent).toContain(
-      'Use this backup if your browser cannot open the setup window'
-    )
-    expect(enrollment.textContent).toContain('your team asks you to run a command')
+    expect(enrollment.textContent).toContain('Use this backup if the guided setup does not open')
+    expect(enrollment.textContent).not.toContain('your team asks you to run a command')
     expect(enrollment.textContent).toContain('choose Create agent on this computer above')
     expect(enrollment.textContent).toContain('Computer type')
     expect(
@@ -85,7 +83,7 @@ describe('AgentListView', () => {
       /open project settings to create a project/i
     )
     expect(within(enrollment).getByTestId('host-cli-command-waiting')).toHaveTextContent(
-      /setup command appears here/i
+      /setup text appears here/i
     )
     expect(enrollment.textContent).not.toContain('Choose a project from the sidebar')
     expect(enrollment.textContent).not.toContain('agentforge agents enroll-local')
@@ -132,8 +130,10 @@ describe('AgentListView', () => {
     expect(enrollment.textContent).toContain('--name "This Computer Codex"')
     expect(enrollment.textContent).toContain('--tool codex')
     expect(enrollment.textContent).toContain('--project p1')
-    expect(enrollment.textContent).toContain('Open Terminal on macOS/Linux or PowerShell')
-    expect(enrollment.textContent).toContain(
+    expect(enrollment.textContent).toContain('Open the app for your computer')
+    expect(enrollment.textContent).toContain('Terminal on macOS/Linux, or PowerShell on Windows')
+    expect(enrollment.textContent).toContain('Copy the setup text and paste it into that window')
+    expect(enrollment.textContent).not.toContain(
       'Copy this setup command and paste it into that Terminal or PowerShell window'
     )
     expect(enrollment.textContent).not.toContain('paste it there')
@@ -145,11 +145,14 @@ describe('AgentListView', () => {
       /new agent named This Computer Codex appears in this list/i
     )
     expect(within(enrollment).getByTestId('host-cli-success-hint')).toHaveTextContent(
-      /keep the command window open/i
+      /Keep Terminal or PowerShell open/i
+    )
+    expect(within(enrollment).getByTestId('host-cli-success-hint')).not.toHaveTextContent(
+      /command window/i
     )
     expect(enrollment.textContent).not.toContain('Run this manual command')
     expect(enrollment.textContent).not.toContain('Change codex only if')
-    expect(within(enrollment).getByRole('button', { name: /copy setup command/i })).toBeDefined()
+    expect(within(enrollment).getByRole('button', { name: /copy setup text/i })).toBeDefined()
 
     fireEvent.click(within(enrollment).getByRole('button', { name: /windows/i }))
     expect(enrollment.textContent).toContain('--shell-format powershell')
@@ -182,10 +185,10 @@ describe('AgentListView', () => {
     render(<AgentListView />)
 
     const enrollment = screen.getByTestId('host-cli-enrollment-panel')
-    fireEvent.click(within(enrollment).getByRole('button', { name: /copy setup command/i }))
+    fireEvent.click(within(enrollment).getByRole('button', { name: /copy setup text/i }))
 
     expect(await within(enrollment).findByRole('alert')).toHaveTextContent(
-      'Select the setup command in the box, then copy it manually.'
+      'Select the setup text in the box, then copy it manually.'
     )
     expect(within(enrollment).getByRole('alert')).not.toHaveTextContent(/clipboard access/i)
 

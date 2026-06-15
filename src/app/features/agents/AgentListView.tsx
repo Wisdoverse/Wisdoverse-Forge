@@ -413,7 +413,7 @@ function HostCliEnrollmentPanel({
     setCopyError(null)
     if (!navigator.clipboard?.writeText) {
       setCopyError(
-        'Forge cannot copy from this browser. Select the setup command in the box, then copy it manually.'
+        'Forge cannot copy from this browser. Select the setup text in the box, then copy it manually.'
       )
       return
     }
@@ -423,7 +423,7 @@ function HostCliEnrollmentPanel({
       window.setTimeout(() => setCopied(false), 1800)
     } catch {
       setCopyError(
-        'Forge cannot copy from this browser. Select the setup command in the box, then copy it manually.'
+        'Forge cannot copy from this browser. Select the setup text in the box, then copy it manually.'
       )
     }
   }
@@ -470,8 +470,8 @@ function HostCliEnrollmentPanel({
           If the button does not work
         </summary>
         <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Use this backup if your browser cannot open the setup window or your team asks you to run
-          a command. Most people should choose Create agent on this computer above.
+          Use this backup if the guided setup does not open. Most people should choose Create agent
+          on this computer above.
         </p>
         <div className="mt-3">
           <p className="mb-2 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
@@ -537,12 +537,10 @@ function HostCliEnrollmentPanel({
 
             <div className="mt-3 grid gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
               <p>
-                1. Open Terminal on macOS/Linux or PowerShell on Windows in the folder this agent
-                should work in.
+                1. Open the app for your computer: Terminal on macOS/Linux, or PowerShell on
+                Windows. Use the folder this agent should work in.
               </p>
-              <p>
-                2. Copy this setup command and paste it into that Terminal or PowerShell window.
-              </p>
+              <p>2. Copy the setup text and paste it into that window.</p>
               <p>3. Leave the work tool as Codex unless your team tells you otherwise.</p>
             </div>
             <p
@@ -550,7 +548,7 @@ function HostCliEnrollmentPanel({
               className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark"
             >
               When it works, come back to Forge. A new agent named This Computer Codex appears in
-              this list. Keep the command window open while it works.
+              this list. Keep Terminal or PowerShell open while it works.
             </p>
           </>
         ) : (
@@ -560,7 +558,7 @@ function HostCliEnrollmentPanel({
           >
             <p>
               Open project settings to create a project, or choose an existing project from the
-              project list. Then the setup command appears here.
+              project list. Then the setup text appears here.
             </p>
             {onOpenProjectsSetup ? (
               <button
@@ -592,7 +590,7 @@ function HostCliEnrollmentPanel({
             <Copy size={14} strokeWidth={2.25} aria-hidden="true" />
           )}
           <span>
-            {commandReady ? (copied ? 'Copied' : 'Copy setup command') : 'Choose project first'}
+            {commandReady ? (copied ? 'Copied' : 'Copy setup text') : 'Choose project first'}
           </span>
         </button>
         {copyError && (
