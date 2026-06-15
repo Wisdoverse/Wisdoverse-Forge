@@ -231,7 +231,7 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
 
 function supportRunReference(id: string): string {
   const trimmed = id.trim()
-  if (!trimmed) return 'not listed'
+  if (!trimmed) return 'refresh task details to check'
   return trimmed.length > 8 ? trimmed.slice(0, 8) : trimmed
 }
 

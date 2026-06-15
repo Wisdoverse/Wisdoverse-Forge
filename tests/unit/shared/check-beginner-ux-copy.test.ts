@@ -475,6 +475,10 @@ function userEmptyState() {
 function OrganizationsEmptyState() {
   return <p>No team spaces are visible yet</p>
 }
+
+function PeopleGuide() {
+  return 'A sudden jump can mean onboarding succeeded or access needs review.'
+}
 `,
     })
 
@@ -486,6 +490,10 @@ function OrganizationsEmptyState() {
         expect.objectContaining({
           type: 'admin-orgs-empty-copy',
           location: 'src/app/features/admin/OrganizationsPanel.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'admin-orgs-empty-copy',
+          location: 'src/app/features/admin/OrganizationsPanel.tsx:7',
         }),
       ])
     )
@@ -1998,17 +2006,28 @@ function taskSupportReference() {
   return 'Support reference not reported'
 }
 `,
+      'src/app/features/detail/HistoryTab.tsx': `
+function supportRunReference(id) {
+  return 'not listed'
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'task-support-reference-copy',
-        location: 'src/app/features/detail/TaskDetailPanel.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-support-reference-copy',
+          location: 'src/app/features/detail/TaskDetailPanel.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'task-support-reference-copy',
+          location: 'src/app/features/detail/HistoryTab.tsx:3',
+        }),
+      ])
+    )
   })
 
   it('accepts task support reference copy that tells users to refresh task details', () => {
@@ -4063,6 +4082,10 @@ function toolDataSummary(data) {
   return data.ok ? 'This step finished successfully.' : 'This step needs review.'
 }
 
+function emptyResult() {
+  return 'This step has not reported a result yet.'
+}
+
 function toolOutcome() {
   return { label: 'Needs review' }
 }
@@ -4081,6 +4104,10 @@ function toolOutcome() {
         expect.objectContaining({
           type: 'chat-tool-step-copy',
           location: 'src/app/features/chat/ToolCallDetail.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'chat-tool-step-copy',
+          location: 'src/app/features/chat/ToolCallDetail.tsx:11',
         }),
       ])
     )

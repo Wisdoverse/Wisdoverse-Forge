@@ -162,8 +162,9 @@ describe('ToolCallDetail', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /show step details for search/i }))
 
-    expect(screen.getByText(/this step has not reported a result yet/i)).toBeInTheDocument()
+    expect(screen.getByText(/this step does not have a result yet/i)).toBeInTheDocument()
     expect(screen.getByText(/wait for another update/i)).toBeInTheDocument()
+    expect(screen.queryByText(/has not reported a result yet/i)).toBeNull()
     expect(screen.queryByText(/No result has been recorded/i)).toBeNull()
   })
 

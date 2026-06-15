@@ -49,7 +49,7 @@ const ORG_GUIDANCE: { title: string; description: string; Icon: LucideIcon }[] =
   },
   {
     title: 'People show access size',
-    description: 'A sudden jump can mean onboarding succeeded or access needs review.',
+    description: 'A sudden jump can mean new people joined or access changed unexpectedly.',
     Icon: Users,
   },
   {

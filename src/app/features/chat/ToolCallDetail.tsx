@@ -391,7 +391,7 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
             </div>
           ) : (
             <div className="rounded-md border border-black/[0.06] px-3 py-2 text-[11px] text-secondary-light dark:border-white/[0.08] dark:text-secondary-dark">
-              This step has not reported a result yet. Next: wait for another update before deciding
+              This step does not have a result yet. Next: wait for another update before deciding
               whether to continue, retry, or ask the agent what is still running.
             </div>
           )}

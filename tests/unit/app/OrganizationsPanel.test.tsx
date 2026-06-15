@@ -59,6 +59,10 @@ describe('OrganizationsPanel', () => {
     expect(within(guide).getByText('Setup status shows what is missing')).toBeDefined()
     expect(within(guide).queryByText('Readiness shows setup gaps')).toBeNull()
     expect(within(guide).getByText('People show access size')).toBeDefined()
+    expect(
+      within(guide).getByText('A sudden jump can mean new people joined or access changed unexpectedly.')
+    ).toBeDefined()
+    expect(within(guide).queryByText(/access needs review/i)).toBeNull()
     expect(within(guide).getByText('Teams show work areas')).toBeDefined()
     expect(within(guide).queryByText(/routing shape/i)).toBeNull()
 

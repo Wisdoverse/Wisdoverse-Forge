@@ -229,6 +229,7 @@ describe('HistoryTab', () => {
     expect(screen.queryByText('Work attempt: Status not reported')).toBeNull()
     expect(screen.queryByText(/waiting_for_result/i)).toBeNull()
     expect(screen.queryByText('Unknown')).toBeNull()
+    expect(screen.queryByText(/Support reference not listed/i)).toBeNull()
   })
 
   test('summarizes failed task history without raw service details', async () => {

@@ -167,7 +167,10 @@ const PROVIDER_ADDRESS_JARGON_PATTERNS = [
 
 const ADMIN_USERS_EMPTY_DEAD_END_PATTERNS = [/\bNo one is listed yet\b/i]
 
-const ADMIN_ORGS_EMPTY_DEAD_END_PATTERNS = [/\bNo team spaces are visible yet\b/i]
+const ADMIN_ORGS_EMPTY_DEAD_END_PATTERNS = [
+  /\bNo team spaces are visible yet\b/i,
+  /\baccess needs review\b/i,
+]
 
 const ADMIN_AGENT_ACTIVITY_DEAD_END_PATTERNS = [
   /\bNo activity yet\b/i,
@@ -551,6 +554,7 @@ const CHAT_OPERATOR_JARGON_PATTERNS = [
 
 const CHAT_TOOL_STEP_DEAD_END_PATTERNS = [
   /\bThis step needs review\b/i,
+  /\bThis step has not reported a result yet\b/i,
   /\blabel:\s*['"`]Needs review['"`]/i,
 ]
 
@@ -617,7 +621,10 @@ const TASK_FORM_QUEUE_LOAD_FAILURE_FIRST_PATTERNS = [
   /\bTask queues could not load for this project\./i,
 ]
 
-const TASK_SUPPORT_REFERENCE_DEAD_END_PATTERNS = [/\bSupport reference not reported\b/i]
+const TASK_SUPPORT_REFERENCE_DEAD_END_PATTERNS = [
+  /\bSupport reference not (?:reported|listed)\b/i,
+  /\breturn\s+['"`]not listed['"`]/i,
+]
 
 const TASK_AGENT_CAPABILITY_JARGON_PATTERNS = [
   /\bparticipant\.capabilities\.join\(/,
@@ -1120,7 +1127,12 @@ function hasTaskFormQueueLoadFailureFirstCopy(relFile, line) {
 }
 
 function hasTaskSupportReferenceDeadEndCopy(relFile, line) {
-  if (!relFile.endsWith('src/app/features/detail/TaskDetailPanel.tsx')) return false
+  if (
+    !relFile.endsWith('src/app/features/detail/TaskDetailPanel.tsx') &&
+    !relFile.endsWith('src/app/features/detail/HistoryTab.tsx')
+  ) {
+    return false
+  }
   if (isLikelyGuardOrParserLine(line)) return false
   return TASK_SUPPORT_REFERENCE_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
