@@ -4042,6 +4042,50 @@ function toolOutcome() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags tool and saved-item problem copy that exposes technical-problem jargon', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ToolCallDetail.tsx': `
+const TECHNICAL_PROBLEM_MESSAGE =
+  'This step reported a technical problem. Ask the agent to explain it in plain language, then retry if the task still matters.'
+`,
+      'src/app/features/detail/ContextEvidenceList.tsx': `
+const TECHNICAL_EVIDENCE_MESSAGE =
+  'This record reported a technical problem. Ask the agent to explain it in plain language, then retry if the task still matters.'
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'technical-problem-copy',
+          location: 'src/app/features/chat/ToolCallDetail.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'technical-problem-copy',
+          location: 'src/app/features/detail/ContextEvidenceList.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts tool and saved-item problem copy that tells users what happened next', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ToolCallDetail.tsx': `
+const PROBLEM_MESSAGE =
+  'This step hit a problem. Ask the agent to explain what happened, then retry if the task still matters.'
+`,
+      'src/app/features/detail/ContextEvidenceList.tsx': `
+const PROBLEM_MESSAGE =
+  'This record hit a problem. Ask the agent to explain what happened, then retry if the task still matters.'
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags chat offline copy that tells users to start an agent without a setup path', () => {
     const cwd = fixture({
       'src/app/features/chat/ChatView.tsx': `

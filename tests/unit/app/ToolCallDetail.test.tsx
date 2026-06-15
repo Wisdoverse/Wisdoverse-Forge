@@ -110,7 +110,7 @@ describe('ToolCallDetail', () => {
 
     expect(
       screen.getByText(
-        /Needs attention: This step reported a technical problem\. Ask the agent to explain it in plain language, then retry if the task still matters\./i
+        /Needs attention: This step hit a problem\. Ask the agent to explain what happened, then retry if the task still matters\./i
       )
     ).toBeInTheDocument()
     expect(screen.queryByText(/panic/i)).toBeNull()
@@ -120,7 +120,8 @@ describe('ToolCallDetail', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /show support details for result/i }))
 
-    expect(screen.getByText(/Problem: This step reported a technical problem/i)).toBeInTheDocument()
+    expect(screen.getByText(/Problem: This step hit a problem/i)).toBeInTheDocument()
+    expect(screen.queryByText(/technical problem/i)).toBeNull()
     expect(screen.queryByText(/panic/i)).toBeNull()
     expect(screen.queryByText(/stack trace/i)).toBeNull()
     expect(screen.queryByText(/secret token/i)).toBeNull()

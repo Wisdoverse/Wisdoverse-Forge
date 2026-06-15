@@ -7,7 +7,7 @@ const HIDDEN_EVIDENCE_VALUE =
 const MISSING_ACCESS_MESSAGE =
   'Required account access is missing. Add or reconnect service access, then retry.'
 const TECHNICAL_EVIDENCE_MESSAGE =
-  'This record reported a technical problem. Ask the agent to explain it in plain language, then retry if the task still matters.'
+  'This record hit a problem. Ask the agent to explain what happened, then retry if the task still matters.'
 
 interface ContextEvidenceListProps {
   evidence: TaskContextEvidence[]

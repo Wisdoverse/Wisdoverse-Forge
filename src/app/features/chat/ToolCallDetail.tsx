@@ -8,7 +8,7 @@ const HIDDEN_ACCESS_VALUE = 'Hidden for safety. Reconnect the required account a
 const MISSING_ACCESS_MESSAGE =
   'Required account access is missing. Add or reconnect service access, then retry.'
 const TECHNICAL_PROBLEM_MESSAGE =
-  'This step reported a technical problem. Ask the agent to explain it in plain language, then retry if the task still matters.'
+  'This step hit a problem. Ask the agent to explain what happened, then retry if the task still matters.'
 
 function formatSupportDetails(data: Record<string, unknown>): string {
   try {

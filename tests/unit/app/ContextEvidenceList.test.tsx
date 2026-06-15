@@ -186,7 +186,7 @@ describe('ContextEvidenceList', () => {
 
     expect(
       screen.getByText(
-        'This record reported a technical problem. Ask the agent to explain it in plain language, then retry if the task still matters.'
+        'This record hit a problem. Ask the agent to explain what happened, then retry if the task still matters.'
       )
     ).toBeInTheDocument()
     expect(screen.queryByText(/panic/i)).toBeNull()
@@ -195,7 +195,8 @@ describe('ContextEvidenceList', () => {
 
     fireEvent.click(screen.getByText('Show support details'))
 
-    expect(screen.getAllByText(/technical problem/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/hit a problem/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/technical problem/i)).toBeNull()
     expect(screen.getAllByText(/Hidden for safety/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/postgres\.internal/i)).toBeNull()
     expect(screen.queryByText(/connection refused/i)).toBeNull()

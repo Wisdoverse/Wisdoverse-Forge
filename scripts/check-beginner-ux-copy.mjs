@@ -531,6 +531,12 @@ const CHAT_TOOL_STEP_DEAD_END_PATTERNS = [
   /\blabel:\s*['"`]Needs review['"`]/i,
 ]
 
+const TECHNICAL_PROBLEM_JARGON_PATTERNS = [
+  /\bThis step reported a technical problem\b/i,
+  /\bThis record reported a technical problem\b/i,
+  /\btechnical problem\b/i,
+]
+
 const CHAT_OFFLINE_DEAD_END_PATTERNS = [
   /\bThis agent is offline\. Start it before sending a message\./i,
   /\bStart it before sending a message\b/i,
@@ -1615,6 +1621,17 @@ function hasChatToolStepDeadEndCopy(relFile, line) {
   return CHAT_TOOL_STEP_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTechnicalProblemJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/chat/ToolCallDetail.tsx') &&
+    !relFile.endsWith('src/app/features/detail/ContextEvidenceList.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TECHNICAL_PROBLEM_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasChatOfflineDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/chat/ChatView.tsx') &&
@@ -2610,6 +2627,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Chat tool step fallbacks must tell beginners to check the step before relying on it.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTechnicalProblemJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'technical-problem-copy',
+        location,
+        message:
+          'Tool and saved-item problem copy must explain what to do without technical-problem jargon.',
         sample: line.trim(),
       })
     }
