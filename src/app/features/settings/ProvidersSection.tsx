@@ -26,7 +26,7 @@ interface AddProviderForm {
 }
 
 type ProviderFilter = 'all' | 'ready' | 'needs-test' | 'disabled'
-type ProviderNextAction = 'add-provider' | 'show-needs-test'
+type ProviderNextAction = 'add-provider' | 'show-needs-test' | 'show-disabled'
 
 interface ProviderNextStep {
   title: string
@@ -462,13 +462,13 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
 
   if (readyProviders.length === 0) {
     return {
-      title: 'Add a working AI service',
+      title: 'Turn on or replace an AI service',
       detail:
-        'All saved AI services are disabled. Add one working AI service so agents have an account to use.',
-      success: 'At least 1 enabled AI service is tested and marked Ready.',
+        'All saved AI services are disabled. Show the disabled list, turn on one service if this account should still be used, then click Check. Add a new service only if none of these accounts should be used.',
+      success: 'At least 1 enabled AI service is checked and marked Ready.',
       ready: false,
-      action: 'add-provider',
-      actionLabel: 'Add AI service',
+      action: 'show-disabled',
+      actionLabel: 'Show disabled services',
     }
   }
 
@@ -1244,6 +1244,11 @@ export function ProvidersSection() {
     if (action === 'show-needs-test') {
       setProviderSearch('')
       setProviderFilter('needs-test')
+      return
+    }
+    if (action === 'show-disabled') {
+      setProviderSearch('')
+      setProviderFilter('disabled')
     }
   }
 

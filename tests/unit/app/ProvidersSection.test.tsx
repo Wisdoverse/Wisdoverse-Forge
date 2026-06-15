@@ -327,15 +327,14 @@ describe('ProvidersSection', () => {
     expect(within(readiness).queryByText('Default: None')).toBeNull()
     expect(within(readiness).queryByText('Not set')).toBeNull()
     const nextStep = screen.getByTestId('provider-next-step')
-    expect(within(nextStep).getByText('Add a working AI service')).toBeDefined()
+    expect(within(nextStep).getByText('Turn on or replace an AI service')).toBeDefined()
+    expect(within(nextStep).getByText(/Show the disabled list/i)).toBeDefined()
 
-    fireEvent.click(within(nextStep).getByRole('button', { name: /add AI service/i }))
+    fireEvent.click(within(nextStep).getByRole('button', { name: /show disabled services/i }))
 
     expect(screen.getByText('Local Disabled')).toBeDefined()
-    expect(screen.getByRole('button', { name: /save AI service/i })).toBeEnabled()
-    expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
-      /next: paste the service access key/i
-    )
+    expect(screen.getByRole('button', { name: 'Disabled' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByRole('button', { name: /save AI service/i })).toBeNull()
   })
 
   test('points ready AI service setup toward Create Agent', async () => {
