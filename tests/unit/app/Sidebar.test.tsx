@@ -507,6 +507,28 @@ describe('Sidebar', () => {
     confirmSpy.mockRestore()
   })
 
+  it('shows beginner guidance when sidebar team delete is denied', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    seedProjectTree()
+    vi.mocked(teamApi.deleteTeam).mockRejectedValueOnce(
+      new Error('API 403: {"error":"owner role required"}')
+    )
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('team-t1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /delete team/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'You do not have permission to delete this team. Ask an owner or admin to update your access.'
+    )
+    expect(alert).not.toHaveTextContent(/owner role required/i)
+    expect(alert).not.toHaveTextContent(/API 403/i)
+    expect(screen.getByText('Team Alpha')).toBeInTheDocument()
+    expect(screen.getByText('Project X')).toBeInTheDocument()
+    confirmSpy.mockRestore()
+  })
+
   it('configures project name from context menu', async () => {
     seedProjectTree()
     vi.mocked(projectApi.updateProject).mockResolvedValue({
@@ -627,6 +649,27 @@ describe('Sidebar', () => {
 
     await waitFor(() => expect(projectApi.deleteProject).toHaveBeenCalledWith('t1', 'p1'))
     expect(screen.queryByText('Project X')).not.toBeInTheDocument()
+    confirmSpy.mockRestore()
+  })
+
+  it('shows beginner guidance when sidebar project delete is blocked', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    seedProjectTree()
+    vi.mocked(projectApi.deleteProject).mockRejectedValueOnce(
+      new Error('API 422: {"message":"Move agents first."}')
+    )
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /delete project/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Move agents out of this project first, then delete the project again.'
+    )
+    expect(alert).not.toHaveTextContent(/Move agents first/i)
+    expect(alert).not.toHaveTextContent(/API 422/i)
+    expect(screen.getByText('Project X')).toBeInTheDocument()
     confirmSpy.mockRestore()
   })
 })

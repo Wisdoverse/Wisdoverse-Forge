@@ -212,6 +212,59 @@ function renameValidationMessage(target: RenameTarget, detail: string | null): s
   return `${title} name could not be saved. Refresh the sidebar and try again.`
 }
 
+function deleteErrorMessage(target: RenameTarget, error: unknown): string {
+  const label = target === 'team' ? 'team' : 'project'
+
+  if (
+    error instanceof TypeError ||
+    (error instanceof Error && /^Failed to fetch$/i.test(error.message.trim()))
+  ) {
+    return `Check your connection, then delete this ${label} again from the sidebar.`
+  }
+
+  const { status, detail } = parseApiStatus(error)
+  const normalized = detail?.toLowerCase() ?? ''
+
+  if (!status) {
+    return deleteValidationMessage(target, normalized)
+  }
+  if (status === 401) {
+    return `Sign in again, then reopen the sidebar and delete this ${label} again.`
+  }
+  if (status === 403) {
+    return `You do not have permission to delete this ${label}. Ask an owner or admin to update your access.`
+  }
+  if (status === 404) {
+    return `Refresh the sidebar. This ${label} may already be gone.`
+  }
+  if (status === 409 || status === 422) {
+    return deleteValidationMessage(target, normalized)
+  }
+  if (status === 429) {
+    return `The sidebar is busy. Wait a moment, then delete this ${label} again.`
+  }
+  if (status >= 500) {
+    return `Forge could not delete this ${label} right now. Refresh the sidebar, then try again. If it still fails, ask an owner or admin to check workspace setup.`
+  }
+
+  return `Refresh the sidebar, then delete this ${label} again.`
+}
+
+function deleteValidationMessage(target: RenameTarget, normalized: string): string {
+  if (target === 'team' && normalized.includes('project')) {
+    return "Move or delete this team's projects first, then delete the team again."
+  }
+  if (target === 'project' && normalized.includes('agent')) {
+    return 'Move agents out of this project first, then delete the project again.'
+  }
+  if (target === 'project' && normalized.includes('task')) {
+    return "Move or finish this project's tasks first, then delete the project again."
+  }
+  return target === 'team'
+    ? 'Check whether this team still has projects or required access, then delete it again.'
+    : 'Check whether agents or tasks still depend on this project, then delete it again.'
+}
+
 function getMenuPosition(
   menu: ContextMenuPosition,
   size: { width: number; height: number } = TEAM_MENU_SIZE
@@ -523,7 +576,11 @@ export function ProjectTree({
       `Delete team "${team.name}"? Projects in this team will also be removed from the sidebar.`
     )
     if (!confirmed) return
-    await onDeleteTeam(team.id)
+    try {
+      await onDeleteTeam(team.id)
+    } catch (err) {
+      setCopyFeedback({ message: deleteErrorMessage('team', err), tone: 'error' })
+    }
   }
 
   async function handleDeleteProject(project: NavProject) {
@@ -532,7 +589,11 @@ export function ProjectTree({
       `Delete project "${project.name}"? The project disappears from this workspace, but agents are moved out instead of deleted.`
     )
     if (!confirmed) return
-    await onDeleteProject(project.id)
+    try {
+      await onDeleteProject(project.id)
+    } catch (err) {
+      setCopyFeedback({ message: deleteErrorMessage('project', err), tone: 'error' })
+    }
   }
 
   return (
