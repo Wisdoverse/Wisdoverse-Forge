@@ -320,6 +320,13 @@ describe('ChatView', () => {
     fireEvent.click(screen.getByRole('button', { name: /show all updates/i }))
     expect(screen.getByTestId('conversation-search')).toHaveValue('')
     expect(screen.getByText('Settings page shipped')).toBeInTheDocument()
+
+    fireEvent.click(within(filters).getByRole('button', { name: /work steps\s*0/i }))
+    expect(screen.getByText('No work steps have been reported yet')).toBeInTheDocument()
+    expect(
+      screen.getByText('Work steps appear when a workspace agent reports commands or tool runs.')
+    ).toBeInTheDocument()
+    expect(screen.getByText(/assign a workspace task to create work steps/i)).toBeInTheDocument()
   })
 
   test('summarizes CLI turns with tools and failed tool attention', async () => {
