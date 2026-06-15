@@ -5511,6 +5511,58 @@ function GettingStartedGuideRow() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags Start and setup checklist errors that start with the failure', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  gettingStarted: {
+    skipError: 'Start could not be hidden. Check your connection, then try Skip again.',
+  },
+}
+`,
+      'src/app/features/settings/AccountSection.tsx': `
+function GettingStartedGuideRow() {
+  return 'The setup checklist could not be shown. Check your connection, then try again.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'start-guide-error-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'start-guide-error-copy',
+          location: 'src/app/features/settings/AccountSection.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts Start and setup checklist errors that start with the next action', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  gettingStarted: {
+    skipError: 'Check your connection, then choose Skip again. Start could not be hidden.',
+  },
+}
+`,
+      'src/app/features/settings/AccountSection.tsx': `
+function GettingStartedGuideRow() {
+  return 'Check your connection, then choose Show setup checklist again. The setup checklist could not be shown.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags bare 3D task view labels in the top bar', () => {
     const cwd = fixture({
       'src/app/layouts/TopBar.tsx': `

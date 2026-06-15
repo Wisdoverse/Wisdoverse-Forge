@@ -381,7 +381,9 @@ function GettingStartedGuideRow() {
     if (ok) {
       setRestored(true)
     } else {
-      setError('The setup checklist could not be shown. Check your connection, then try again.')
+      setError(
+        'Check your connection, then choose Show setup checklist again. The setup checklist could not be shown.'
+      )
     }
   }
 

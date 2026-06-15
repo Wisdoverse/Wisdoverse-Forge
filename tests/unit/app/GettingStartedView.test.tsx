@@ -676,7 +676,7 @@ describe('GettingStartedView', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'Start could not be hidden. Check your connection, then try Skip again.'
+      'Check your connection, then choose Skip again. Start could not be hidden.'
     )
     expect(navigateMock).not.toHaveBeenCalled()
     expect(screen.getByRole('button', { name: /skip and open tasks/i })).not.toBeDisabled()

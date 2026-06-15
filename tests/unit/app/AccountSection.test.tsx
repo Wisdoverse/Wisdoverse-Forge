@@ -322,7 +322,7 @@ describe('AccountSection', () => {
 
     expect(
       await screen.findByText(
-        'The setup checklist could not be shown. Check your connection, then try again.'
+        'Check your connection, then choose Show setup checklist again. The setup checklist could not be shown.'
       )
     ).toBeDefined()
     expect(

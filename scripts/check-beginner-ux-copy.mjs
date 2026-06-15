@@ -341,6 +341,11 @@ const START_GUIDE_RESET_JARGON_PATTERNS = [
   /\bReset it here\b/i,
 ]
 
+const START_GUIDE_FAILURE_FIRST_PATTERNS = [
+  /\bStart could not be hidden\. Check your connection, then try Skip again\./i,
+  /\bThe setup checklist could not be shown\. Check your connection, then try again\./i,
+]
+
 const TASK_VIEW_LABEL_JARGON_PATTERNS = [/\bid:\s*['"`]3d['"`]\s*,\s*label:\s*['"`]3D['"`]/]
 
 const TOP_BAR_CREATE_TASK_JARGON_PATTERNS = [/\+\s*Task\b/]
@@ -1516,6 +1521,17 @@ function hasStartGuideResetJargonCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return START_GUIDE_RESET_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasStartGuideFailureFirstCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/settings/AccountSection.tsx') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return START_GUIDE_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasTaskViewLabelJargonCopy(relFile, line) {
@@ -2753,6 +2769,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Start guide restore copy must say it shows the setup checklist again, not that it resets the guide.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasStartGuideFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'start-guide-error-copy',
+        location,
+        message:
+          'Start and setup checklist errors must start with the next action, not the failure summary.',
         sample: line.trim(),
       })
     }
