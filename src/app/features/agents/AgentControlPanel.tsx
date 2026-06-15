@@ -22,6 +22,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
   const [prompt, setPrompt] = useState('')
   const [promptError, setPromptError] = useState<string | null>(null)
   const [localActionError, setLocalActionError] = useState<string | null>(null)
+  const [localActionStatus, setLocalActionStatus] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [starting, setStarting] = useState(false)
   const [confirmRestart, setConfirmRestart] = useState(false)
@@ -59,15 +60,21 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
     }
     setPromptError(null)
     setLocalActionError(null)
+    setLocalActionStatus(null)
     setSending(true)
     try {
       const ok = await sendPrompt(agent.id, trimmedPrompt)
       if (ok) {
         setPrompt('')
+        setLocalActionStatus(
+          "Instruction sent. Watch this agent's history for progress, or create a task next time when you need a tracked result."
+        )
       } else {
+        setLocalActionStatus(null)
         setLocalActionError('agent control action failed')
       }
     } catch {
+      setLocalActionStatus(null)
       setLocalActionError('agent control action failed')
     } finally {
       setSending(false)
@@ -77,11 +84,19 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
   async function handleStart() {
     if (starting) return
     setLocalActionError(null)
+    setLocalActionStatus(null)
     setStarting(true)
     try {
       const ok = await startAgent(agent.id)
-      if (!ok) setLocalActionError('agent control action failed')
+      if (ok) {
+        setLocalActionStatus(
+          'Workspace start requested. Refresh Agents until this agent shows Ready, then send an instruction or create a task.'
+        )
+      } else {
+        setLocalActionError('agent control action failed')
+      }
     } catch {
+      setLocalActionStatus(null)
       setLocalActionError('agent control action failed')
     } finally {
       setStarting(false)
@@ -90,10 +105,18 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
 
   async function handleRestart() {
     setLocalActionError(null)
+    setLocalActionStatus(null)
     try {
       const ok = await restartAgent(agent.id)
-      if (!ok) setLocalActionError('agent control action failed')
+      if (ok) {
+        setLocalActionStatus(
+          'Restart requested. Wait until this agent shows Ready before sending new work.'
+        )
+      } else {
+        setLocalActionError('agent control action failed')
+      }
     } catch {
+      setLocalActionStatus(null)
       setLocalActionError('agent control action failed')
     } finally {
       setConfirmRestart(false)
@@ -102,6 +125,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
 
   async function handleDelete() {
     setLocalActionError(null)
+    setLocalActionStatus(null)
     try {
       const ok = await deleteAgent(agent.id)
       if (ok) {
@@ -118,6 +142,17 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
 
   return (
     <div className="flex flex-col gap-3">
+      {localActionStatus && !controlError && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex gap-3 rounded-lg bg-apple-green/10 px-3 py-2 text-ui-caption text-apple-green"
+        >
+          <CheckCircle2 size={16} strokeWidth={2} aria-hidden="true" className="mt-0.5 shrink-0" />
+          <span>{localActionStatus}</span>
+        </div>
+      )}
+
       {controlError && (
         <div
           role="alert"

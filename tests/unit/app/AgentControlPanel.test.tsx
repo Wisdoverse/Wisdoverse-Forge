@@ -144,6 +144,12 @@ describe('AgentControlPanel', () => {
       expect(sendPromptMock).toHaveBeenCalledWith('agent-1', 'Check the latest run')
     })
     expect(screen.getByLabelText(/send one instruction/i)).toHaveValue('')
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      "Instruction sent. Watch this agent's history for progress"
+    )
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'create a task next time when you need a tracked result'
+    )
   })
 
   test('keeps the message box usable when sending fails unexpectedly', async () => {
@@ -203,9 +209,7 @@ describe('AgentControlPanel', () => {
 
     expect(screen.getByText('Chat-only AI service is offline')).toBeDefined()
     expect(screen.getByText('Check AI service before sending')).toBeDefined()
-    expect(screen.getAllByText(/check the AI service in Settings, refresh Agents/i).length).toBe(
-      3
-    )
+    expect(screen.getAllByText(/check the AI service in Settings, refresh Agents/i).length).toBe(3)
     expect(screen.queryByText('Ready for chat and tracked tasks')).toBeNull()
 
     const instructionInput = screen.getByLabelText(/send one instruction/i)
@@ -272,6 +276,10 @@ describe('AgentControlPanel', () => {
     await waitFor(() => {
       expect(startAgentMock).toHaveBeenCalledWith('pending-agent')
     })
+    expect(await screen.findByRole('status')).toHaveTextContent('Workspace start requested')
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Refresh Agents until this agent shows Ready'
+    )
   })
 
   test('recovers the start control when a pending workspace does not start', async () => {
@@ -294,6 +302,7 @@ describe('AgentControlPanel', () => {
     expect(alert).toHaveTextContent(/wait for Ready or Working/i)
     expect(alert).toHaveTextContent(/ask an owner or admin/i)
     expect(alert).not.toHaveTextContent(/agent control action failed/i)
+    expect(screen.queryByRole('status')).toBeNull()
     expect(screen.getByRole('button', { name: /start workspace/i })).toBeEnabled()
   })
 
@@ -317,6 +326,10 @@ describe('AgentControlPanel', () => {
     await waitFor(() => {
       expect(restartAgentMock).toHaveBeenCalledWith('agent-1')
     })
+    expect(await screen.findByRole('status')).toHaveTextContent('Restart requested')
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Wait until this agent shows Ready before sending new work'
+    )
   })
 
   test('returns to the restart card when restart fails unexpectedly', async () => {
