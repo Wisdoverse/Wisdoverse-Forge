@@ -380,6 +380,24 @@ describe('AppLayout', () => {
     expect(alert.textContent).not.toContain('API')
   })
 
+  test('routes no-agent setup from New Task to Agents', async () => {
+    seedProjectNavigation('p1')
+    useBoardStore.getState().setSelectedGroupId('group-1')
+    mockGetParticipants.mockResolvedValueOnce([])
+    const onNavigate = vi.fn()
+
+    render(<MemoryRouter onNavigate={onNavigate} />)
+    fireEvent.click(screen.getByRole('button', { name: /new task/i }))
+
+    await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
+    expect(screen.getByText('No agents are online')).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: /open agent setup/i }))
+
+    expect(onNavigate).toHaveBeenCalledWith('/agents')
+    expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
+  })
+
   test('applies a task template before creating a New Task', async () => {
     seedProjectNavigation('p1')
     useBoardStore.getState().setSelectedGroupId('group-1')

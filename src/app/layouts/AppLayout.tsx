@@ -281,6 +281,10 @@ export function AppLayout({
         selectedTaskGroupId={selectedGroupId}
         selectedTaskGroupName={selectedTaskGroup?.name ?? null}
         onProjectChange={selectProject}
+        onOpenAgentSetup={() => {
+          setTaskFormOpen(false)
+          handleNavigate('/agents')
+        }}
         onOpenProjectSettings={() => {
           setTaskFormOpen(false)
           handleNavigate('/settings/projects')

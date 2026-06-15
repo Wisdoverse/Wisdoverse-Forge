@@ -25,6 +25,7 @@ function renderModal(
     selectedTaskGroupId: string | null
     selectedTaskGroupName: string | null
     onProjectChange: (projectId: string) => void | boolean | Promise<void | boolean>
+    onOpenAgentSetup: () => void
     onOpenProjectSettings: () => void
     onOpenTaskRouting: () => void
   }> = {}
@@ -49,6 +50,7 @@ function renderModal(
           : 'Starter Queue'
       }
       onProjectChange={overrides.onProjectChange}
+      onOpenAgentSetup={overrides.onOpenAgentSetup}
       onOpenProjectSettings={overrides.onOpenProjectSettings}
       onOpenTaskRouting={overrides.onOpenTaskRouting}
     />
@@ -125,15 +127,17 @@ describe('TaskFormModal', () => {
     )
   })
 
-  test('explains the no-agent state without dispatch language', () => {
-    renderModal(vi.fn(), { agents: [] })
+  test('routes no-agent setup without dispatch language', () => {
+    const onOpenAgentSetup = vi.fn()
+    renderModal(vi.fn(), { agents: [], onOpenAgentSetup })
 
-    expect(
-      screen.getByText(
-        'No agents are online. You can create the task now; it will wait here until an agent comes online.'
-      )
-    ).toBeDefined()
+    expect(screen.getByText('No agents are online')).toBeDefined()
+    expect(screen.getByText(/create the task now/i)).toBeDefined()
     expect(screen.queryByText(/dispatched?/i)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /open agent setup/i }))
+
+    expect(onOpenAgentSetup).toHaveBeenCalledTimes(1)
   })
 
   test('guides project setup before the first task', () => {

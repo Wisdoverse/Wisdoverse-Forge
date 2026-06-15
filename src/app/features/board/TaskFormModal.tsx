@@ -114,6 +114,7 @@ interface TaskFormModalProps {
   /** May resolve `false` to signal the project switched but its task queues
    * failed to load (the modal shows a retry message in that case). */
   onProjectChange?: (projectId: string) => void | boolean | Promise<void | boolean>
+  onOpenAgentSetup?: () => void
   onOpenProjectSettings?: () => void
   onOpenTaskRouting?: () => void
 }
@@ -128,6 +129,7 @@ export function TaskFormModal({
   selectedTaskGroupId = null,
   selectedTaskGroupName = null,
   onProjectChange,
+  onOpenAgentSetup,
   onOpenProjectSettings,
   onOpenTaskRouting,
 }: TaskFormModalProps) {
@@ -390,17 +392,30 @@ export function TaskFormModal({
         )}
 
         {agents.length === 0 && (
-          <div className="mb-4 flex gap-2 rounded-lg bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange">
-            <AlertTriangle
-              size={14}
-              strokeWidth={2}
-              className="mt-0.5 shrink-0"
-              aria-hidden="true"
-            />
-            <span>
-              No agents are online. You can create the task now; it will wait here until an agent
-              comes online.
-            </span>
+          <div className="mb-4 rounded-lg border border-apple-orange/20 bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange">
+            <div className="flex gap-2">
+              <AlertTriangle
+                size={14}
+                strokeWidth={2}
+                className="mt-0.5 shrink-0"
+                aria-hidden="true"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold">No agents are online</p>
+                <p className="mt-0.5">
+                  Create the task now, or open agent setup to connect an agent first.
+                </p>
+              </div>
+            </div>
+            {onOpenAgentSetup && (
+              <button
+                type="button"
+                onClick={onOpenAgentSetup}
+                className="mt-3 inline-flex h-8 items-center justify-center rounded-full border border-apple-orange/30 bg-white px-3 text-ui-button font-medium text-apple-orange transition-colors hover:bg-apple-orange/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-orange/35 dark:bg-white/[0.06]"
+              >
+                Open agent setup
+              </button>
+            )}
           </div>
         )}
 

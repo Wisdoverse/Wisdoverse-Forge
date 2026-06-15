@@ -281,6 +281,10 @@ const TASK_FORM_NO_PROJECT_DEAD_END_PATTERNS = [
   /\bNo projects available\. Create a project in Settings before creating tasks\./i,
 ]
 
+const TASK_FORM_NO_AGENT_DEAD_END_PATTERNS = [
+  /\bNo agents are online\. You can create the task now; it will wait here until an agent comes online\./i,
+]
+
 const AGENT_TASK_QUEUE_SUBMIT_LABEL_JARGON_PATTERNS = [/\bCreate Task Queue\b/]
 
 const SKILL_MAINTAINER_FALLBACK_DEAD_END_PATTERNS = [
@@ -1054,6 +1058,12 @@ function hasTaskFormNoProjectDeadEndCopy(relFile, line) {
   return TASK_FORM_NO_PROJECT_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTaskFormNoAgentDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/board/TaskFormModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_FORM_NO_AGENT_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasAgentTaskQueueSubmitLabelJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/agents/AgentGroupsPanel.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -1811,6 +1821,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Task creation with no projects must explain why a project is needed and offer project settings.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskFormNoAgentDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'task-form-no-agent-copy',
+        location,
+        message:
+          'Task creation with no online agents must offer agent setup while still explaining that the task can wait.',
         sample: line.trim(),
       })
     }
