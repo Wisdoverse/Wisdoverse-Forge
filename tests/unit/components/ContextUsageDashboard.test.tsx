@@ -68,12 +68,27 @@ describe('ContextUsageDashboard', () => {
     ).toBeDefined()
     expect(
       screen.getByText(
+        'Next: after reviewing a completed task, mark a helpful saved item Useful so this list can rank it.'
+      )
+    ).toBeDefined()
+    expect(
+      screen.getByText(
         'Items appear here when people report they may be outdated, incorrect, or too sensitive.'
       )
     ).toBeDefined()
     expect(
       screen.getByText(
+        'Next: no action is needed now; keep using task feedback so risky saved items appear here.'
+      )
+    ).toBeDefined()
+    expect(
+      screen.getByText(
         'Saved notes and saved instructions appear here when they are old enough to check again.'
+      )
+    ).toBeDefined()
+    expect(
+      screen.getByText(
+        'Next: no action is needed now; update saved items when team guidance changes so old advice is easier to spot.'
       )
     ).toBeDefined()
   })

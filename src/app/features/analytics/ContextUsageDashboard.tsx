@@ -31,16 +31,22 @@ const EMPTY_TOP_USEFUL = {
   title: 'Mark useful saved items to rank them here',
   detail:
     'After a task uses a saved note or instruction, choose Useful in the task result to place it in this list.',
+  nextStep:
+    'Next: after reviewing a completed task, mark a helpful saved item Useful so this list can rank it.',
 }
 
 const EMPTY_NEEDS_REVIEW = {
   title: 'Nothing to check right now',
   detail: 'Items appear here when people report they may be outdated, incorrect, or too sensitive.',
+  nextStep:
+    'Next: no action is needed now; keep using task feedback so risky saved items appear here.',
 }
 
 const EMPTY_STALE = {
   title: 'Nothing looks outdated',
   detail: 'Saved notes and saved instructions appear here when they are old enough to check again.',
+  nextStep:
+    'Next: no action is needed now; update saved items when team guidance changes so old advice is easier to spot.',
 }
 
 function updatedAtLabel(timestamp: string): string {
@@ -192,6 +198,7 @@ function UsageList({
   empty: {
     title: string
     detail: string
+    nextStep: string
   }
 }) {
   const Icon = icon === 'useful' ? CheckCircle2 : icon === 'review' ? ShieldAlert : Clock3
@@ -234,6 +241,7 @@ function UsageList({
             {empty.title}
           </p>
           <p>{empty.detail}</p>
+          <p className="text-ui-caption">{empty.nextStep}</p>
         </div>
       ) : (
         <div className="space-y-2">

@@ -46,9 +46,16 @@ describe('ContextUsageDashboard', () => {
     ).toBeDefined()
     expect(screen.getByText('Mark useful saved items to rank them here')).toBeDefined()
     expect(screen.getByText(/choose Useful in the task result/i)).toBeDefined()
+    expect(
+      screen.getByText(/mark a helpful saved item Useful so this list can rank it/i)
+    ).toBeDefined()
     expect(screen.getByText(/old enough to check again/i)).toBeDefined()
     expect(screen.getByText('Nothing to check right now')).toBeDefined()
     expect(screen.getByText(/people report they may be outdated/i)).toBeDefined()
+    expect(
+      screen.getByText(/keep using task feedback so risky saved items appear here/i)
+    ).toBeDefined()
+    expect(screen.getByText(/update saved items when team guidance changes/i)).toBeDefined()
     expect(screen.getByText('Check first')).toBeDefined()
     expect(screen.getByText('Items people marked for another look.')).toBeDefined()
     expect(screen.queryByText(previousSavedNotesCopy)).toBeNull()
