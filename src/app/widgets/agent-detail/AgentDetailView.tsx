@@ -45,6 +45,7 @@ interface AgentNextStep {
   success: string
   ready: boolean
   targetTab?: Tab
+  targetHref?: string
   actionLabel?: string
 }
 
@@ -373,6 +374,8 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
         'This chat-only AI service is offline. Open Settings and check that the AI service is ready before sending work.',
       success: 'The agent returns to Ready and can receive tasks.',
       ready: false,
+      targetHref: '/settings/providers',
+      actionLabel: 'Open AI service settings',
     }
   }
 
@@ -420,6 +423,7 @@ function AgentNextStepCard({
   onOpenTab: (tab: Tab) => void
 }) {
   const targetTab = step.targetTab
+  const targetHref = step.targetHref
   const actionLabel = step.actionLabel
 
   return (
@@ -475,6 +479,17 @@ function AgentNextStepCard({
             <span>{actionLabel}</span>
             <ArrowRight size={13} strokeWidth={2} aria-hidden="true" />
           </button>
+        )}
+        {targetHref && actionLabel && (
+          <a
+            href={targetHref}
+            className={cn(
+              'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.08]'
+            )}
+          >
+            <span>{actionLabel}</span>
+            <ArrowRight size={13} strokeWidth={2} aria-hidden="true" />
+          </a>
         )}
       </div>
     </section>

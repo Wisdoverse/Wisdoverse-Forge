@@ -377,6 +377,10 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('Fix setup before sending work')).toBeDefined()
     expect(screen.getByText('Open Settings and check AI service')).toBeDefined()
     expect(screen.getByText(/Open Settings and check that the AI service is ready/i)).toBeDefined()
+    expect(screen.getByRole('link', { name: /open AI service settings/i })).toHaveAttribute(
+      'href',
+      '/settings/providers'
+    )
     expect(screen.queryByText('Unavailable until restarted or reconnected')).toBeNull()
   })
 
