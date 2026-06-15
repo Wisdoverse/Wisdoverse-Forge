@@ -158,7 +158,7 @@ describe('workspace setup create forms', () => {
     expect(onSave).not.toHaveBeenCalled()
   })
 
-  test('surfaces a server rejection as a banner instead of failing silently', async () => {
+  test('surfaces a repository server rejection as a beginner-safe banner', async () => {
     const onSave = vi.fn().mockRejectedValue(new Error('repository_url must be an https URL'))
 
     render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
@@ -168,9 +168,32 @@ describe('workspace setup create forms', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: /create project/i }))
 
-    await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent('repository_url must be an https URL')
-    )
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent('Use an https:// repository URL without credentials')
+      expect(alert).not.toHaveTextContent('repository_url')
+    })
+    expect(onSave).toHaveBeenCalled()
+  })
+
+  test('does not expose raw server details when project creation fails', async () => {
+    const onSave = vi
+      .fn()
+      .mockRejectedValue(new Error('API 500: database unavailable while inserting project'))
+
+    render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Server Details' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create project/i }))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent('Forge could not create the project right now')
+      expect(alert).not.toHaveTextContent('API 500')
+      expect(alert).not.toHaveTextContent('database unavailable')
+    })
     expect(onSave).toHaveBeenCalled()
   })
 })

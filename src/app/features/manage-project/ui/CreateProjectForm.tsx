@@ -46,6 +46,105 @@ export function validateRepositoryUrl(raw: string): string | null {
   return null
 }
 
+function rawProjectCreateError(error: unknown): string {
+  if (error instanceof Error) return error.message.trim()
+  if (typeof error === 'string') return error.trim()
+  if (!error || typeof error !== 'object') return ''
+
+  const value = error as {
+    serverError?: unknown
+    detail?: unknown
+    error?: unknown
+    message?: unknown
+    reason?: unknown
+  }
+
+  for (const candidate of [
+    value.serverError,
+    value.detail,
+    value.error,
+    value.message,
+    value.reason,
+  ]) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
+  }
+
+  return ''
+}
+
+function projectCreateStatusCode(error: unknown): number | null {
+  if (error && typeof error === 'object') {
+    const value = error as { status?: unknown; statusCode?: unknown; code?: unknown }
+    for (const candidate of [value.status, value.statusCode, value.code]) {
+      if (typeof candidate === 'number' && Number.isFinite(candidate)) return candidate
+      if (typeof candidate === 'string' && /^\d{3}$/.test(candidate.trim())) {
+        return Number.parseInt(candidate, 10)
+      }
+    }
+  }
+
+  const match = rawProjectCreateError(error).match(
+    /\b(?:HTTP|API|Server error|Code:)\s*\(?(\d{3})\b/i
+  )
+  if (!match) return null
+  const code = Number.parseInt(match[1] ?? '', 10)
+  return Number.isFinite(code) ? code : null
+}
+
+function createProjectErrorMessage(error: unknown): string {
+  const raw = rawProjectCreateError(error)
+  const lower = raw.toLowerCase()
+  const code = projectCreateStatusCode(error)
+
+  if (code === 401 || lower.includes('unauthorized') || lower.includes('sign in again')) {
+    return 'Sign in again, then create this project.'
+  }
+  if (code === 403 || lower.includes('forbidden') || lower.includes('permission')) {
+    return 'Ask an owner or admin to let you create projects in this team.'
+  }
+  if (code === 404) {
+    return 'Refresh Settings, choose the team again, then create this project.'
+  }
+  if (code === 409 || lower.includes('already exists') || lower.includes('duplicate')) {
+    return 'Choose a different project name, then create this project again.'
+  }
+  if (
+    lower.includes('repository_url') ||
+    lower.includes('repository url') ||
+    lower.includes('repo url') ||
+    lower.includes('https url')
+  ) {
+    return 'Use an https:// repository URL without credentials, or leave the repository URL blank.'
+  }
+  if (
+    lower.includes('credential') ||
+    lower.includes('token') ||
+    lower.includes('password') ||
+    lower.includes('username')
+  ) {
+    return 'Remove credentials from the repository URL. Connect code access in Settings instead.'
+  }
+  if (code === 422 || lower.includes('validation') || lower.includes('invalid')) {
+    return 'Check the project name, team, and repository URL, then create this project again.'
+  }
+  if (code === 429 || lower.includes('rate limit') || lower.includes('too many')) {
+    return 'Too many project changes are happening right now. Wait a minute, then create this project again.'
+  }
+  if (code != null && code >= 500) {
+    return 'Forge could not create the project right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check project setup.'
+  }
+  if (
+    error instanceof TypeError ||
+    lower.includes('failed to fetch') ||
+    lower.includes('network') ||
+    lower.includes('load failed')
+  ) {
+    return 'Check your connection, then create this project again.'
+  }
+
+  return 'Could not create the project. Check the project name and team, then try again.'
+}
+
 export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreateProjectFormProps) {
   const [name, setName] = useState('')
   const [teamId, setTeamId] = useState(teams[0]?.id ?? '')
@@ -111,9 +210,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
     } catch (err) {
       // Surface the server's rejection (e.g. invalid URL / embedded creds the
       // local check did not catch) as a banner rather than failing silently.
-      setBannerError(
-        err instanceof Error ? err.message : 'Could not create the project. Try again.'
-      )
+      setBannerError(createProjectErrorMessage(err))
       focusTop()
     }
   }
