@@ -115,10 +115,13 @@ describe('AuditLogView', () => {
     expect(screen.queryByText('Hidden detail rows')).toBeNull()
     expect(screen.getByLabelText('Refresh audit history')).toBeDefined()
     expect(screen.getByLabelText('Export audit history')).toBeDefined()
-    expect(screen.getByText('Change group')).toBeDefined()
+    expect(screen.getByText('Change category')).toBeDefined()
     expect(
-      screen.getByText('Use the default unless support gives you a specific group.')
+      screen.getByText('Use the default unless support gives you a specific category.')
     ).toBeDefined()
+    expect(screen.getByPlaceholderText(/support event category/i)).toBeDefined()
+    expect(screen.queryByText('Change group')).toBeNull()
+    expect(screen.queryByText(/support event group/i)).toBeNull()
     expect(screen.getByText('Support event name')).toBeDefined()
     expect(
       screen.getByText('Optional. Paste this only when support asks for a specific event.')

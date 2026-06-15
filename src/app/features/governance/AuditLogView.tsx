@@ -230,8 +230,8 @@ export function AuditLogView() {
         </div>
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_160px_160px_160px_auto]">
           <Field
-            label="Change group"
-            help="Use the default unless support gives you a specific group."
+            label="Change category"
+            help="Use the default unless support gives you a specific category."
           >
             <input
               data-testid="governance-audit-filter-event-prefix"
@@ -239,7 +239,7 @@ export function AuditLogView() {
               autoComplete="off"
               value={filters.eventPrefix}
               onChange={(event) => updateFilter('eventPrefix', event.target.value)}
-              placeholder="Paste a support event group when needed"
+              placeholder="Paste a support event category when needed"
               className={INPUT_CLASS}
             />
           </Field>
