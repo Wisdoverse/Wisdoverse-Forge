@@ -283,6 +283,7 @@ const TASK_FORM_NO_PROJECT_DEAD_END_PATTERNS = [
 
 const TASK_FORM_NO_AGENT_DEAD_END_PATTERNS = [
   /\bNo agents are online\. You can create the task now; it will wait here until an agent comes online\./i,
+  /\bNo agents are available right now\. Keep the default choice so the next available agent can pick it up\./i,
 ]
 
 const AGENT_TASK_QUEUE_SUBMIT_LABEL_JARGON_PATTERNS = [/\bCreate Task Queue\b/]

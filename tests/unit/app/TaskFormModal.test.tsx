@@ -159,19 +159,18 @@ describe('TaskFormModal', () => {
     expect(onOpenProjectSettings).toHaveBeenCalledTimes(1)
   })
 
-  test('guides busy-agent assignment without dispatch language', () => {
+  test('routes busy-agent setup without dispatch language', () => {
+    const onOpenAgentSetup = vi.fn()
     renderModal(vi.fn(), {
       agents: [
         { id: 'agent-1', name: 'Busy Agent', status: 'busy' },
         { id: 'agent-2', name: 'Offline Agent', status: 'offline' },
       ],
+      onOpenAgentSetup,
     })
 
-    expect(
-      screen.getByText(
-        'No agents are available right now. Keep the default choice so the next available agent can pick it up.'
-      )
-    ).toBeDefined()
+    expect(screen.getByText('No agents are available right now')).toBeDefined()
+    expect(screen.getByText(/open agent setup to start or connect an agent/i)).toBeDefined()
     expect(
       screen.getByRole('option', { name: /let the next available agent pick it up/i })
     ).toBeDefined()
@@ -179,6 +178,11 @@ describe('TaskFormModal', () => {
     expect(screen.queryByText(/unassigned/i)).toBeNull()
     expect(screen.getByText(/people are waiting on it now/i)).toBeDefined()
     expect(screen.queryByText(/dispatch/i)).toBeNull()
+    expect(screen.queryByText(/Keep the default choice so the next available agent/i)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /open agent setup/i }))
+
+    expect(onOpenAgentSetup).toHaveBeenCalledTimes(1)
   })
 
   test('explains a ready task queue without internal checking language', () => {

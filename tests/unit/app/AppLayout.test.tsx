@@ -398,6 +398,26 @@ describe('AppLayout', () => {
     expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
   })
 
+  test('routes unavailable-agent setup from New Task to Agents', async () => {
+    seedProjectNavigation('p1')
+    useBoardStore.getState().setSelectedGroupId('group-1')
+    mockGetParticipants.mockResolvedValueOnce([
+      { id: 'participant-1', agentId: 'agent-1', name: 'Busy Agent', status: 'busy' },
+    ])
+    const onNavigate = vi.fn()
+
+    render(<MemoryRouter onNavigate={onNavigate} />)
+    fireEvent.click(screen.getByRole('button', { name: /new task/i }))
+
+    await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
+    expect(screen.getByText('No agents are available right now')).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: /open agent setup/i }))
+
+    expect(onNavigate).toHaveBeenCalledWith('/agents')
+    expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
+  })
+
   test('applies a task template before creating a New Task', async () => {
     seedProjectNavigation('p1')
     useBoardStore.getState().setSelectedGroupId('group-1')

@@ -3771,6 +3771,26 @@ function TaskFormModal() {
     ])
   })
 
+  it('flags task form unavailable-agent copy that leaves setup disconnected', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskFormModal.tsx': `
+function TaskFormModal() {
+  return <span>No agents are available right now. Keep the default choice so the next available agent can pick it up.</span>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'task-form-no-agent-copy',
+        location: 'src/app/features/board/TaskFormModal.tsx:3',
+      }),
+    ])
+  })
+
   it('accepts task form no-agent copy that links to setup', () => {
     const cwd = fixture({
       'src/app/features/board/TaskFormModal.tsx': `
