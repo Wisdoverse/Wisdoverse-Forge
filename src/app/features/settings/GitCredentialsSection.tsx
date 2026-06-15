@@ -337,6 +337,7 @@ export function GitCredentialsSection() {
   } = useSettingsStore()
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [savedMessage, setSavedMessage] = useState<string | null>(null)
 
   useEffect(() => {
     void loadGitCredentials()
@@ -346,7 +347,12 @@ export function GitCredentialsSection() {
     setSaving(true)
     const ok = await saveGitCredential(provider, token, host)
     setSaving(false)
-    if (ok) setShowForm(false)
+    if (ok) {
+      setShowForm(false)
+      setSavedMessage(
+        'Code access saved. Create a small task with a private repository link to confirm agents can open it. If it cannot read the repository, come back here and replace this key.'
+      )
+    }
   }
 
   async function handleDelete(id: string) {
@@ -376,7 +382,10 @@ export function GitCredentialsSection() {
         {!showForm && canAddMore && (
           <button
             type="button"
-            onClick={() => setShowForm(true)}
+            onClick={() => {
+              setSavedMessage(null)
+              setShowForm(true)
+            }}
             className={uiStyles.primaryButton}
           >
             <span>+</span>
@@ -389,6 +398,16 @@ export function GitCredentialsSection() {
       {gitCredentialsError && (
         <div role="alert" aria-live="polite" className={uiStyles.error}>
           {gitCredentialsError}
+        </div>
+      )}
+
+      {savedMessage && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="mb-3 rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue"
+        >
+          {savedMessage}
         </div>
       )}
 

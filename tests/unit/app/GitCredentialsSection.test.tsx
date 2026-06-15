@@ -13,9 +13,9 @@ const originalSaveGitCredential = useSettingsStore.getState().saveGitCredential
 const originalDeleteGitCredential = useSettingsStore.getState().deleteGitCredential
 
 beforeEach(() => {
-  loadGitCredentialsMock.mockClear()
-  saveGitCredentialMock.mockClear()
-  deleteGitCredentialMock.mockClear()
+  loadGitCredentialsMock.mockResolvedValue(undefined)
+  saveGitCredentialMock.mockResolvedValue(true)
+  deleteGitCredentialMock.mockResolvedValue(true)
   useSettingsStore.setState({
     gitCredentials: [],
     gitCredentialsLoading: false,
@@ -41,6 +41,7 @@ afterEach(() => {
 
 describe('GitCredentialsSection', () => {
   test('guides first-time code access setup before saving a key', async () => {
+    const user = userEvent.setup()
     render(<GitCredentialsSection />)
 
     expect(await screen.findByText('Give agents access to private code')).toBeDefined()
@@ -87,15 +88,17 @@ describe('GitCredentialsSection', () => {
       'git-credential-token-intro git-credential-token-safety git-credential-token-error'
     )
 
-    fireEvent.change(tokenInput, {
-      target: { value: 'ghp_example_token' },
-    })
+    await user.type(tokenInput, 'ghp_example_token')
     expect(saveButton).toBeEnabled()
-    fireEvent.click(saveButton)
+    await user.click(saveButton)
 
     await waitFor(() =>
       expect(saveGitCredentialMock).toHaveBeenCalledWith('github', 'ghp_example_token', undefined)
     )
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Code access saved. Create a small task with a private repository link to confirm agents can open it.'
+    )
+    expect(screen.getByRole('status')).toHaveTextContent('come back here and replace this key')
   })
 
   test('uses a clear confirmation label before removing code access', async () => {
