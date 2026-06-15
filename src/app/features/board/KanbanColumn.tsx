@@ -47,7 +47,7 @@ const COLUMN_CONFIG: Record<string, { label: string; dot: string; surface: strin
 const COLUMN_EMPTY_STATE: Record<string, { title: string; detail: string }> = {
   backlog: {
     title: 'No tasks waiting to send',
-    detail: 'Add a draft task below with the result you want the agent to finish.',
+    detail: 'Add a task below with the result you want the agent to finish.',
   },
   queued: {
     title: 'Nothing waiting to start',

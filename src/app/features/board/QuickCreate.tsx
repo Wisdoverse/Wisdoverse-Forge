@@ -28,7 +28,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
   async function handleSubmit() {
     if (submittedRef.current) return
     if (!trimmedTitle) {
-      setError('Write the result you want before creating the draft task.')
+      setError('Write the task goal before saving it.')
       inputRef.current?.focus()
       return
     }
@@ -38,7 +38,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
       const result = await onSubmit(trimmedTitle, columnId)
       if (result === false) {
         submittedRef.current = false
-        setError('The draft task was not created. Check the board message, then try again.')
+        setError('The task was not saved. Check the board message, then try again.')
         inputRef.current?.focus()
         return
       }
@@ -47,7 +47,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
       setIsOpen(false)
     } catch {
       submittedRef.current = false
-      setError('The draft task was not created. Check the board message, then try again.')
+      setError('The task was not saved. Check the board message, then try again.')
       inputRef.current?.focus()
     } finally {
       setSubmitting(false)
@@ -68,7 +68,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
         onClick={() => setIsOpen(true)}
         className="w-full rounded-full px-3 py-2 text-left text-ui-caption font-medium text-secondary-light transition-colors hover:bg-black/[0.04] hover:text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
       >
-        + Add Draft Task
+        + Add Task
       </button>
     )
   }
@@ -77,7 +77,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
     <div className="space-y-2 px-1">
       <input
         ref={inputRef}
-        aria-label="Task result"
+        aria-label="Task goal"
         name={`${columnId}-quick-task-title`}
         autoComplete="off"
         value={title}
@@ -102,8 +102,8 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
         )}
       />
       <p id={helpId} className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-        This creates a draft with only a title. Open the card later to add details before sending it
-        to an agent.
+        This saves the task in Not sent yet. Open the card later to add details before sending it to
+        an agent.
       </p>
       {error && (
         <p id={errorId} role="alert" className="text-ui-caption font-medium text-apple-red">
@@ -122,7 +122,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
               : 'cursor-not-allowed bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
           )}
         >
-          {submitting ? 'Adding...' : 'Add Draft Task'}
+          {submitting ? 'Saving...' : 'Save Task'}
         </button>
         <button
           type="button"

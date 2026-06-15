@@ -286,6 +286,12 @@ const TASK_FORM_NO_AGENT_DEAD_END_PATTERNS = [
   /\bNo agents are available right now\. Keep the default choice so the next available agent can pick it up\./i,
 ]
 
+const QUICK_CREATE_DRAFT_TASK_JARGON_PATTERNS = [
+  /\bAdd Draft Task\b/i,
+  /\bdraft task\b/i,
+  /\bcreating the draft task\b/i,
+]
+
 const AGENT_TASK_QUEUE_SUBMIT_LABEL_JARGON_PATTERNS = [/\bCreate Task Queue\b/]
 
 const SKILL_MAINTAINER_FALLBACK_DEAD_END_PATTERNS = [
@@ -1065,6 +1071,17 @@ function hasTaskFormNoAgentDeadEndCopy(relFile, line) {
   return TASK_FORM_NO_AGENT_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasQuickCreateDraftTaskJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/board/QuickCreate.tsx') &&
+    !relFile.endsWith('src/app/features/board/KanbanColumn.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return QUICK_CREATE_DRAFT_TASK_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasAgentTaskQueueSubmitLabelJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/agents/AgentGroupsPanel.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -1832,6 +1849,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Task creation with no online agents must offer agent setup while still explaining that the task can wait.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasQuickCreateDraftTaskJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'quick-create-draft-task-copy',
+        location,
+        message:
+          'Quick task creation must say Add Task or Save Task and explain Not sent yet instead of draft-task jargon.',
         sample: line.trim(),
       })
     }

@@ -3803,6 +3803,54 @@ function TaskFormModal() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags quick task creation copy that uses draft-task jargon', () => {
+    const cwd = fixture({
+      'src/app/features/board/QuickCreate.tsx': `
+function QuickCreate() {
+  return <button>Add Draft Task</button>
+}
+`,
+      'src/app/features/board/KanbanColumn.tsx': `
+function KanbanColumn() {
+  return <p>Add a draft task below with the result you want.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'quick-create-draft-task-copy',
+          location: 'src/app/features/board/QuickCreate.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'quick-create-draft-task-copy',
+          location: 'src/app/features/board/KanbanColumn.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts quick task creation copy that explains the unsent state', () => {
+    const cwd = fixture({
+      'src/app/features/board/QuickCreate.tsx': `
+function QuickCreate() {
+  return <div><button>Add Task</button><button>Save Task</button><p>This saves the task in Not sent yet.</p></div>
+}
+`,
+      'src/app/features/board/KanbanColumn.tsx': `
+function KanbanColumn() {
+  return <p>Add a task below with the result you want.</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags title-case task queue submit labels', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentGroupsPanel.tsx': `

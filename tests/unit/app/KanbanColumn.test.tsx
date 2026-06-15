@@ -15,17 +15,16 @@ function renderColumn(columnId: string, tasks: TaskSummary[] = []) {
 }
 
 describe('KanbanColumn', () => {
-  test('explains empty unsent tasks as the draft task starting point', () => {
+  test('explains empty unsent tasks as the task starting point', () => {
     renderColumn('backlog')
 
     expect(screen.getByText('Not sent yet')).toBeDefined()
     expect(screen.queryByText('Backlog')).toBeNull()
     const emptyState = screen.getByTestId('kanban-empty-backlog')
     expect(within(emptyState).getByText('No tasks waiting to send')).toBeDefined()
-    expect(
-      within(emptyState).getByText(/add a draft task below with the result you want/i)
-    ).toBeDefined()
+    expect(within(emptyState).getByText(/add a task below with the result you want/i)).toBeDefined()
     expect(emptyState.textContent).not.toMatch(/quick add/i)
+    expect(emptyState.textContent).not.toMatch(/draft task/i)
   })
 
   test('explains empty lifecycle columns by their next visible state', () => {
