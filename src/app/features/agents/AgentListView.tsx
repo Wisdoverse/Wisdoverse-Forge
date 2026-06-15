@@ -245,7 +245,7 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
         </aside>
       </div>
 
-      <CreateAgentModal />
+      <CreateAgentModal onOpenProjectsSetup={onOpenProjectsSetup} />
     </div>
   )
 }

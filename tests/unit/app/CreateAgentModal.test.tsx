@@ -77,10 +77,16 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByText(/use \/workspace unless/i)).toBeNull()
     expect(screen.queryByText(/default task context/i)).toBeNull()
     expect(screen.getAllByText(/primary project/i).length).toBeGreaterThan(0)
-    expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/choose a project first/i)
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(
+      /open project settings/i
+    )
+    expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(
+      /open project settings to create or choose a project/i
+    )
+    expect(screen.getByTestId('agent-work-readiness')).not.toHaveTextContent(
       /select a project in the sidebar/i
     )
+    expect(screen.queryByRole('button', { name: /open project settings/i })).toBeNull()
     const review = screen.getByTestId('agent-create-review')
     expect(within(review).getByText('Before you create')).toBeInTheDocument()
     expect(within(review).getByText(/claude in a managed workspace/i)).toBeInTheDocument()
@@ -97,6 +103,19 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByText(/Name seeds CLI agents/i)).toBeNull()
     expect(screen.queryByLabelText(/^provider$/i)).toBeNull()
     expect(screen.queryByLabelText(/^model$/i)).toBeNull()
+  })
+
+  test('closes the modal and opens project settings when no primary project is selected', () => {
+    const onOpenProjectsSetup = vi.fn()
+
+    render(<CreateAgentModal onOpenProjectsSetup={onOpenProjectsSetup} />)
+
+    const readiness = screen.getByTestId('agent-work-readiness')
+    fireEvent.click(within(readiness).getByRole('button', { name: /open project settings/i }))
+
+    expect(onOpenProjectsSetup).toHaveBeenCalledTimes(1)
+    expect(useAgentsStore.getState().createModalOpen).toBe(false)
+    expect(screen.queryByRole('dialog', { name: /create an agent/i })).toBeNull()
   })
 
   test('shows selected project as the primary project context', () => {

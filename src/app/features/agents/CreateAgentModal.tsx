@@ -1,6 +1,7 @@
 import { useForm } from 'react-hook-form'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  ArrowRight,
   Bug,
   Check,
   ClipboardCheck,
@@ -31,6 +32,10 @@ interface CreateAgentFormData {
   cwd: string
   groupId: string
   systemPrompt: string
+}
+
+interface CreateAgentModalProps {
+  onOpenProjectsSetup?: () => void
 }
 
 const CLI_TOOLS: { value: CliTool; label: string }[] = [
@@ -261,7 +266,7 @@ function createReviewItems({
   ]
 }
 
-export function CreateAgentModal() {
+export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps = {}) {
   const {
     createModalOpen,
     createModalInitialKind,
@@ -340,6 +345,13 @@ export function CreateAgentModal() {
   const joinCommandPowershell = localEnrollment?.enrollment?.joinCommandPowershell ?? ''
   const selectedJoinCommand = joinOs === 'posix' ? joinCommand : joinCommandPowershell
   const selectedJoinCommandReady = selectedJoinCommand.trim().length > 0
+
+  function handleOpenProjectsSetup() {
+    setCreateModalOpen(false)
+    setError(null)
+    setFormError(null)
+    onOpenProjectsSetup?.()
+  }
 
   // The error banner sits above the form in a scrollable dialog while the
   // submit button sits at the bottom, so a failed submit can leave the banner
@@ -951,10 +963,18 @@ export function CreateAgentModal() {
                   ? kind === 'local-cli'
                     ? 'Project ready. Tasks default to this project. File access stays on the joined computer.'
                     : 'Project ready. Tasks default to this project. Forge prepares this project workspace for the agent.'
-                  : kind === 'local-cli'
-                    ? 'Choose a project first. Tasks can still be assigned later. Select a project in the sidebar before creating.'
-                    : 'Choose a project first. Tasks can still be assigned later. Select a project in the sidebar to choose where work belongs.'}
+                  : 'Open project settings to create or choose a project before assigning tasks. The agent can still be created first.'}
               </p>
+              {!selectedProject && onOpenProjectsSetup ? (
+                <button
+                  type="button"
+                  onClick={handleOpenProjectsSetup}
+                  className="mt-2 inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-apple-blue/20 bg-apple-blue/[0.08] px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35"
+                >
+                  <span>Open project settings</span>
+                  <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
+                </button>
+              ) : null}
             </div>
 
             {kind !== 'provider' && (
