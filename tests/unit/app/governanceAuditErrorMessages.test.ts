@@ -18,25 +18,26 @@ describe('governanceAuditErrorMessage', () => {
   test('explains load network failures without exposing only a transport error', () => {
     const message = governanceAuditErrorMessage('loadAudit', new TypeError('Failed to fetch'))
 
-    expect(message).toContain('Governance audit history could not load')
-    expect(message).toContain('Forge could not connect while loading audit history')
+    expect(message).toContain('Refresh the audit view, then apply the filters again.')
+    expect(message).toContain('If it still does not load, check your connection')
     expect(message).not.toContain('API')
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('service')
+    expect(message).not.toContain('Governance audit history could not load')
   })
 
   test('explains export network failures with the export recovery path', () => {
     const message = governanceAuditErrorMessage('exportAudit', 'Network Error')
 
-    expect(message).toContain('audit export did not finish')
     expect(message).toContain('Keep secrets hidden')
-    expect(message).toContain('Forge could not connect while exporting audit history')
+    expect(message).toContain('choose Export audit history again')
+    expect(message).not.toContain('audit export did not finish')
   })
 
   test('gives a clear export conflict recovery step', () => {
     expectBeginnerMessage(
       governanceAuditErrorMessage('exportAudit', new Error('409 conflict')),
-      'The audit data changed while export was running. Refresh the audit view, then export again.'
+      'Refresh the audit view, then export again because audit data changed while export was running.'
     )
   })
 
@@ -45,10 +46,11 @@ describe('governanceAuditErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Forge could not load governance audit history right now. Refresh the audit view, then try again. If it still fails, ask an owner or admin to check governance audit setup.'
+      'Refresh the audit view, then apply the filters again. If it still fails, ask an owner or admin to check governance audit setup.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('temporarily unavailable')
+    expect(message).not.toContain('Forge could not load')
   })
 
   test('turns missing routes into a view and access recovery step', () => {
@@ -56,7 +58,7 @@ describe('governanceAuditErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Governance audit is not available from this view. Open the Admin audit view again, then retry. If it still fails, ask an owner or admin to check workspace access.'
+      'Open the Admin audit view again, then retry. If it still fails, ask an owner or admin to check workspace access.'
     )
     expect(message).not.toContain('route')
   })
@@ -64,7 +66,7 @@ describe('governanceAuditErrorMessage', () => {
   test('turns rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       governanceAuditErrorMessage('loadAudit', { code: '429' }),
-      'Governance audit is handling too many requests right now. Wait a moment, then try again.'
+      'Wait a moment, then try again. Audit history is handling too many requests right now.'
     )
   })
 

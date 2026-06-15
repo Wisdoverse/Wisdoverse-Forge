@@ -1,10 +1,8 @@
 export type GovernanceAuditErrorAction = 'exportAudit' | 'loadAudit'
 
 const ACTION_FALLBACKS: Record<GovernanceAuditErrorAction, string> = {
-  exportAudit:
-    'The audit export did not finish. Keep secrets hidden, refresh the audit view, then try the export again.',
-  loadAudit:
-    'Governance audit history could not load. Refresh the audit view, then apply the filters again.',
+  exportAudit: 'Keep secrets hidden, refresh the audit view, then try the export again.',
+  loadAudit: 'Refresh the audit view, then apply the filters again.',
 }
 
 export function governanceAuditErrorMessage(
@@ -16,7 +14,7 @@ export function governanceAuditErrorMessage(
   const status = errorStatus(err, normalized)
 
   if (isNetworkError(normalized)) {
-    return `${ACTION_FALLBACKS[action]} Forge could not connect while ${actionLabel(action)}. Check your connection, then try again.`
+    return `${ACTION_FALLBACKS[action]} ${networkRecoveryMessage(action)}`
   }
 
   if (status === 401) {
@@ -28,11 +26,11 @@ export function governanceAuditErrorMessage(
   }
 
   if (status === 404) {
-    return 'Governance audit is not available from this view. Open the Admin audit view again, then retry. If it still fails, ask an owner or admin to check workspace access.'
+    return 'Open the Admin audit view again, then retry. If it still fails, ask an owner or admin to check workspace access.'
   }
 
   if (status === 409) {
-    return 'The audit data changed while export was running. Refresh the audit view, then export again.'
+    return 'Refresh the audit view, then export again because audit data changed while export was running.'
   }
 
   if (status === 422) {
@@ -40,11 +38,11 @@ export function governanceAuditErrorMessage(
   }
 
   if (status === 429) {
-    return 'Governance audit is handling too many requests right now. Wait a moment, then try again.'
+    return 'Wait a moment, then try again. Audit history is handling too many requests right now.'
   }
 
   if (status && status >= 500) {
-    return `Forge could not ${actionVerb(action)} governance audit history right now. Refresh the audit view, then try again. If it still fails, ask an owner or admin to check governance audit setup.`
+    return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check governance audit setup.`
   }
 
   return validationMessage(action, detail)
@@ -106,12 +104,11 @@ function isNetworkError(normalizedDetail: string): boolean {
   )
 }
 
-function actionLabel(action: GovernanceAuditErrorAction): string {
-  return action === 'exportAudit' ? 'exporting audit history' : 'loading audit history'
-}
-
-function actionVerb(action: GovernanceAuditErrorAction): string {
-  return action === 'exportAudit' ? 'export' : 'load'
+function networkRecoveryMessage(action: GovernanceAuditErrorAction): string {
+  if (action === 'exportAudit') {
+    return 'If it still does not export, check your connection and choose Export audit history again.'
+  }
+  return 'If it still does not load, check your connection and refresh the page.'
 }
 
 function validationMessage(action: GovernanceAuditErrorAction, detail: string): string {

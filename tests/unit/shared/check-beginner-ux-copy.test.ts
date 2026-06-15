@@ -4143,6 +4143,86 @@ function resourceTypeLabel(value) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags governance audit errors that start with the failure instead of the next step', () => {
+    const cwd = fixture({
+      'src/app/features/governance/governanceAuditErrorMessages.ts': `
+const ACTION_FALLBACKS = {
+  exportAudit: 'The audit export did not finish. Keep secrets hidden, refresh the audit view, then try the export again.',
+  loadAudit: 'Governance audit history could not load. Refresh the audit view, then apply the filters again.',
+}
+function notFound() {
+  return 'Governance audit is not available from this view. Open the Admin audit view again, then retry.'
+}
+function conflict() {
+  return 'The audit data changed while export was running. Refresh the audit view, then export again.'
+}
+function rateLimit() {
+  return 'Governance audit is handling too many requests right now. Wait a moment, then try again.'
+}
+function service() {
+  return 'Forge could not load governance audit history right now. Refresh the audit view, then try again.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'governance-audit-error-copy',
+          location: 'src/app/features/governance/governanceAuditErrorMessages.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-error-copy',
+          location: 'src/app/features/governance/governanceAuditErrorMessages.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-error-copy',
+          location: 'src/app/features/governance/governanceAuditErrorMessages.ts:7',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-error-copy',
+          location: 'src/app/features/governance/governanceAuditErrorMessages.ts:10',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-error-copy',
+          location: 'src/app/features/governance/governanceAuditErrorMessages.ts:13',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-error-copy',
+          location: 'src/app/features/governance/governanceAuditErrorMessages.ts:16',
+        }),
+      ])
+    )
+  })
+
+  it('accepts governance audit errors that start with the next step', () => {
+    const cwd = fixture({
+      'src/app/features/governance/governanceAuditErrorMessages.ts': `
+const ACTION_FALLBACKS = {
+  exportAudit: 'Keep secrets hidden, refresh the audit view, then try the export again.',
+  loadAudit: 'Refresh the audit view, then apply the filters again.',
+}
+function notFound() {
+  return 'Open the Admin audit view again, then retry.'
+}
+function conflict() {
+  return 'Refresh the audit view, then export again because audit data changed while export was running.'
+}
+function rateLimit() {
+  return 'Wait a moment, then try again. Audit history is handling too many requests right now.'
+}
+function service() {
+  return 'Refresh the audit view, then apply the filters again. If it still fails, ask an owner or admin to check governance audit setup.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags recovery copy that repeats the same refresh step', () => {
     const cwd = fixture({
       'src/app/features/board/boardErrorMessages.ts': `

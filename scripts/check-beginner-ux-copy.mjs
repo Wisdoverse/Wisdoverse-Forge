@@ -425,6 +425,15 @@ const GOVERNANCE_AUDIT_FALLBACK_DEAD_END_PATTERNS = [
   /\|\|\s*['"`]not listed['"`]/i,
 ]
 
+const GOVERNANCE_AUDIT_ERROR_FAILURE_FIRST_PATTERNS = [
+  /\bThe audit export did not finish\./i,
+  /\bGovernance audit history could not load\./i,
+  /\bGovernance audit is not available from this view\./i,
+  /\bThe audit data changed while export was running\./i,
+  /\bGovernance audit is handling too many requests right now\./i,
+  /\bForge could not (?:load|export) governance audit history right now\./i,
+]
+
 const DUPLICATE_RECOVERY_COPY_PATTERNS = [
   /\bForge could not load the board right now\. Refresh the board, then try again\./i,
   /\bForge could not finish this board action right now\. Refresh the board, then try again\./i,
@@ -1324,6 +1333,14 @@ function hasGovernanceAuditFallbackDeadEndCopy(relFile, line) {
   return GOVERNANCE_AUDIT_FALLBACK_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasGovernanceAuditErrorFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/governance/governanceAuditErrorMessages.ts')) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return GOVERNANCE_AUDIT_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasDuplicateRecoveryDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/board/boardErrorMessages.ts') &&
@@ -2125,6 +2142,16 @@ function scanFile(file, relFile) {
         type: 'governance-audit-fallback-copy',
         location,
         message: 'Governance audit fallbacks must tell beginners which audit field to check.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasGovernanceAuditErrorFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'governance-audit-error-copy',
+        location,
+        message:
+          'Governance audit errors must start with the next action, not the failure summary.',
         sample: line.trim(),
       })
     }
