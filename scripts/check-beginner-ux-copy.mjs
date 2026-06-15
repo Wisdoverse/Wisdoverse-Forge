@@ -298,6 +298,13 @@ const CLI_IMAGE_ACTION_FAILURE_FIRST_PATTERNS = [
   /\bThe restart could not be started\b/i,
 ]
 
+const CLI_IMAGE_RESULT_JARGON_PATTERNS = [
+  /\$\{result\.failed\}\s*failed\b/,
+  /\bskipped \(busy\)/i,
+  /\$\{prune\.errors\}\s*errors\b/,
+  /\bcleanup hit\b[^.!?\n]*\berrors?\b/i,
+]
+
 const SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS = [
   /\bNot checked(?: yet)?\b/i,
   /\bNeeds attention\b/i,
@@ -1393,6 +1400,12 @@ function hasCliImageActionFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/admin/CliImagesPanel.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return CLI_IMAGE_ACTION_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasCliImageResultJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/admin/CliImagesPanel.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CLI_IMAGE_RESULT_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasSystemHealthStatusDeadEndCopy(relFile, line) {
@@ -2583,6 +2596,16 @@ function scanFile(file, relFile) {
         type: 'cli-image-action-copy',
         location,
         message: 'Agent tool update action errors must start with the next step.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCliImageResultJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'cli-image-result-copy',
+        location,
+        message:
+          'Agent tool update result copy must explain what to retry or check instead of failed/skipped/error jargon.',
         sample: line.trim(),
       })
     }

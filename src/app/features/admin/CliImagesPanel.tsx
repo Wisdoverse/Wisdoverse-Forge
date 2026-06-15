@@ -609,13 +609,13 @@ function RollResultBlock({
       </p>
       <p className="mt-1 text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark">
         {result.succeeded} of {result.total} agents restarted
-        {result.failed > 0 ? ` · ${result.failed} failed` : ''}
-        {result.skippedBusy > 0 ? ` · ${result.skippedBusy} skipped (busy)` : ''}
+        {result.failed > 0 ? ` · ${result.failed} need a retry` : ''}
+        {result.skippedBusy > 0 ? ` · ${result.skippedBusy} still working` : ''}
       </p>
       {result.skippedBusy > 0 && (
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Busy agents were left running to avoid interrupting their work. Restart again once they
-          show Ready.
+          Agents still working were left running to avoid interrupting their work. Restart again
+          once they show Ready.
         </p>
       )}
       {(nowStopped.length > 0 || stillRunning.length > 0) && (
@@ -675,9 +675,9 @@ function PruneSummaryBlock({ prune }: { prune: CliImagePruneStatus }) {
             unused packages for these tools are removed — never a package an agent is using.
           </p>
           <p className="mt-1 text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark">
-            Last cleanup: {prune.removed} old packages removed · {prune.skippedInUse} still in use ·{' '}
-            {prune.scanned} checked
-            {prune.errors > 0 ? ` · ${prune.errors} errors` : ''} · ran{' '}
+            Last cleanup: {prune.removed} old packages removed · {prune.skippedInUse} kept because
+            agents use them · {prune.scanned} checked
+            {prune.errors > 0 ? ` · ${prune.errors} need a check` : ''} · ran{' '}
             {relativeTime(prune.lastRunUnix)}
           </p>
         </>
@@ -685,7 +685,8 @@ function PruneSummaryBlock({ prune }: { prune: CliImagePruneStatus }) {
       {hasErrors && prune.lastError && (
         <div className="mt-2 rounded-card border border-apple-red/20 bg-apple-red/[0.04] px-3 py-2">
           <p className="text-ui-caption text-foreground-light dark:text-foreground-dark">
-            The last cleanup hit {prune.errors} {prune.errors === 1 ? 'error' : 'errors'}.
+            The last cleanup needs a check for {prune.errors}{' '}
+            {prune.errors === 1 ? 'package' : 'packages'}.
           </p>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
             What to do: {cliImageIssueNote(prune.lastError, 'cleanup')}

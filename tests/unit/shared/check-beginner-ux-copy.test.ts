@@ -2775,6 +2775,66 @@ function ToolRow() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags agent tool update result copy that uses failed or skipped jargon', () => {
+    const cwd = fixture({
+      'src/app/features/admin/CliImagesPanel.tsx': `
+function RollResultBlock({ result, prune }) {
+  return (
+    <div>
+      <p>{result.failed > 0 ? \` · \${result.failed} failed\` : ''}</p>
+      <p>{result.skippedBusy > 0 ? \` · \${result.skippedBusy} skipped (busy)\` : ''}</p>
+      <p>{prune.errors > 0 ? \` · \${prune.errors} errors\` : ''}</p>
+      <p>The last cleanup hit 1 error.</p>
+    </div>
+  )
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'cli-image-result-copy',
+          location: 'src/app/features/admin/CliImagesPanel.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'cli-image-result-copy',
+          location: 'src/app/features/admin/CliImagesPanel.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'cli-image-result-copy',
+          location: 'src/app/features/admin/CliImagesPanel.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'cli-image-result-copy',
+          location: 'src/app/features/admin/CliImagesPanel.tsx:8',
+        }),
+      ])
+    )
+  })
+
+  it('accepts agent tool update result copy that explains next status', () => {
+    const cwd = fixture({
+      'src/app/features/admin/CliImagesPanel.tsx': `
+function RollResultBlock({ result, prune }) {
+  return (
+    <div>
+      <p>{result.failed > 0 ? \` · \${result.failed} need a retry\` : ''}</p>
+      <p>{result.skippedBusy > 0 ? \` · \${result.skippedBusy} still working\` : ''}</p>
+      <p>{prune.errors > 0 ? \` · \${prune.errors} need a check\` : ''}</p>
+      <p>The last cleanup needs a check for 1 package.</p>
+    </div>
+  )
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags work setup summaries that do not tell users to sign in first', () => {
     const cwd = fixture({
       'src/app/features/settings/RuntimeSection.tsx': `

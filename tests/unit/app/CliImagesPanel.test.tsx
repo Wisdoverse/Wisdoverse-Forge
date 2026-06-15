@@ -184,7 +184,8 @@ describe('CliImagesPanel', () => {
     render(<CliImagesPanel />)
     expect(screen.getByText('Old tool package cleanup')).toBeDefined()
     expect(screen.getByText(/3 old packages removed/)).toBeDefined()
-    expect(screen.getByText(/1 still in use/)).toBeDefined()
+    expect(screen.getByText(/1 kept because agents use them/)).toBeDefined()
+    expect(screen.queryByText(/1 still in use/)).toBeNull()
   })
 
   test('hides raw cleanup errors from the prune summary', () => {
@@ -209,7 +210,9 @@ describe('CliImagesPanel', () => {
 
     render(<CliImagesPanel />)
 
-    expect(screen.getByText(/The last cleanup hit 1 error/i)).toBeDefined()
+    expect(screen.getByText(/The last cleanup needs a check for 1 package/i)).toBeDefined()
+    expect(screen.getByText(/1 need a check/i)).toBeDefined()
+    expect(screen.queryByText(/hit 1 error/i)).toBeNull()
     expect(screen.getByText(/access setup problem/i)).toBeDefined()
     expect(screen.queryByText(/\/var\/lib\/docker/i)).toBeNull()
     expect(screen.queryByText(/overlay2/i)).toBeNull()
@@ -428,8 +431,12 @@ describe('CliImagesPanel', () => {
     render(<CliImagesPanel />)
     expect(screen.getByText('Last restart: Codex')).toBeDefined()
     expect(screen.getByText(/1 of 4 agents restarted/)).toBeDefined()
-    expect(screen.getByText(/1 skipped \(busy\)/)).toBeDefined()
+    expect(screen.getByText(/1 still working/)).toBeDefined()
+    expect(screen.getByText(/2 need a retry/)).toBeDefined()
     expect(screen.getByText(/Restart again once they show Ready/i)).toBeDefined()
+    expect(screen.getByText(/Agents still working were left running/i)).toBeDefined()
+    expect(screen.queryByText(/skipped \(busy\)/i)).toBeNull()
+    expect(screen.queryByText(/2 failed/i)).toBeNull()
     expect(screen.queryByText(/idle/i)).toBeNull()
     // start-fail → "now stopped"; stop-fail → unconfirmed post-condition (may be
     // running on the old image OR already down after a partial stop).
