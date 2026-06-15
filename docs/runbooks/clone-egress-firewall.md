@@ -120,7 +120,13 @@ reaches **Ready**.
 
 - The in-app and in-container halves of this control ship with the
   project-git-clone feature (M3/M4).
-- The **fails-closed SSRF integration test** (a clone whose URL resolves to a
-  private/metadata address is blocked) and this runbook section are owned by
-  **milestone M8** of the feature. Until M8 lands, treat the firewall as an
-  operator responsibility verified by the steps above.
+- The **fails-closed SSRF integration test** is part of **milestone M8**:
+  `rust/crates/api/tests/project_clone_security.rs::`
+  `ssrf_internal_address_urls_are_rejected_at_create` proves the in-app deny-list
+  rejects loopback / RFC1918 / link-local-metadata / `.local` / port-only repo
+  URLs at create time, and `ssrf_normal_https_github_url_is_accepted` is the
+  positive control. The in-app deny-list is the layer the API can enforce in
+  process; the packet-level egress firewall in this runbook is the deploy-layer
+  layer that closes DNS rebinding and stock-bridge routing, verified by the
+  `Verify the policy` steps above (no in-process test can exercise the host's
+  network rules).

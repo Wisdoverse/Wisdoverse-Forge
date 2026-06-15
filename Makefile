@@ -394,6 +394,8 @@ build-agent-all: ensure-agent-base ## Build agent images for all CLI tools with 
 		docker tag agentforge-agent:$$tool agentforge-agent-$$tool:latest 2>/dev/null || true; \
 	done
 	@docker tag agentforge-agent:claude agentforge-agent:latest 2>/dev/null || true
+	@echo "=== Building agentforge-clone (project git-clone image) ==="
+	@$(MAKE) build-clone
 	@$(MAKE) sync-env
 
 # =============================================================================
