@@ -7,6 +7,8 @@ build = "build.rs"
 
 [dependencies]
 agentforge-core.workspace = true
+anyhow.workspace = true
+async-trait.workspace = true
 bollard = { workspace = true }
 futures-util.workspace = true
 serde.workspace = true
