@@ -120,7 +120,7 @@ export function TeamsSection() {
             className={uiStyles.primaryButton}
           >
             <Plus size={14} strokeWidth={2} aria-hidden="true" />
-            <span>New Team</span>
+            <span>New team</span>
           </button>
         )}
       </div>

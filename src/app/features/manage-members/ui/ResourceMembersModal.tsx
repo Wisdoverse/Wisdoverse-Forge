@@ -41,17 +41,17 @@ const MEMBER_ROLE_GUIDANCE: {
   Icon: LucideIcon
 }[] = [
   {
-    title: 'Start with Member',
+    title: 'Start with Member access',
     description: 'Use this for people who only need normal access to this team or project.',
     Icon: Users,
   },
   {
-    title: 'Use Maintainer for everyday changes',
+    title: 'Use Maintainer access for everyday changes',
     description: 'Maintainers can help manage day-to-day work without deciding who gets access.',
     Icon: ShieldCheck,
   },
   {
-    title: 'Keep Owner and Admin limited',
+    title: 'Keep Owner and Admin access limited',
     description: 'Choose these only for people who should manage access for everyone else.',
     Icon: Info,
   },
@@ -235,7 +235,7 @@ export function ResourceMembersModal({
                   id="resource-members-title"
                   className="truncate text-ui-title font-semibold text-foreground-light dark:text-foreground-dark"
                 >
-                  {resourceLabel} Members
+                  {resourceLabel} members
                 </h2>
                 <span className={cn(uiStyles.badge, 'shrink-0 tabular-nums')}>
                   {members.length}
@@ -269,7 +269,7 @@ export function ResourceMembersModal({
           <div className="rounded-card border border-black/[0.08] bg-black/[0.015] p-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
             <div className="mb-3">
               <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-                Add People Already in Your Team Space
+                Add people already in your team space
               </p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 Search for a person, choose what they can do, then add them to this{' '}
@@ -358,7 +358,7 @@ export function ResourceMembersModal({
                   aria-hidden="true"
                 />
                 <span className="truncate text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
-                  People with Access
+                  People with access
                 </span>
               </div>
               <span className="text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark">
@@ -389,8 +389,8 @@ export function ResourceMembersModal({
                   </span>
                   <p className="max-w-md text-ui-caption">
                     Add a person from the team space above to give them access to this{' '}
-                    {resourceLabel.toLowerCase()}. Start with Member unless they need to manage who
-                    can get in.
+                    {resourceLabel.toLowerCase()}. Start with Member access unless they need to
+                    manage who can get in.
                   </p>
                 </div>
               ) : (

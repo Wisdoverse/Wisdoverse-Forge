@@ -55,7 +55,7 @@ describe('TeamsSection', () => {
       screen.getByText(/teams keep people and projects together inside this team space/i)
     ).toBeDefined()
     expect(screen.queryByText(/access groups/i)).toBeNull()
-    expect(screen.getByRole('button', { name: 'New Team' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'New team' })).toBeDefined()
     expect(screen.getByText('Create a team first')).toBeDefined()
     expect(screen.getByText(/Teams keep projects and access together/i)).toBeDefined()
     expect(screen.queryByText(/teams group projects/i)).toBeNull()
@@ -107,7 +107,7 @@ describe('TeamsSection', () => {
     render(<TeamsSection />)
 
     await waitFor(() => expect(getTeams).toHaveBeenCalledWith('org-1'))
-    fireEvent.click(screen.getByRole('button', { name: 'New Team' }))
+    fireEvent.click(screen.getByRole('button', { name: 'New team' }))
     fireEvent.change(screen.getByLabelText(/team name/i), { target: { value: 'Design' } })
     fireEvent.click(screen.getByRole('button', { name: /create team/i }))
 

@@ -99,20 +99,23 @@ describe('ResourceMembersModal', () => {
 
     const guide = await screen.findByTestId('member-role-guide')
     expect(within(guide).getByText('Add people only when they need this project')).toBeDefined()
-    expect(within(guide).getByText('Start with Member')).toBeDefined()
-    expect(within(guide).getByText('Use Maintainer for everyday changes')).toBeDefined()
-    expect(within(guide).getByText('Keep Owner and Admin limited')).toBeDefined()
+    expect(within(guide).getByText('Start with Member access')).toBeDefined()
+    expect(within(guide).getByText('Use Maintainer access for everyday changes')).toBeDefined()
+    expect(within(guide).getByText('Keep Owner and Admin access limited')).toBeDefined()
     expect(
       screen.getByText('Choose a person, pick the safest access level, then add them here.')
     ).toBeDefined()
-    expect(screen.getByText('Add People Already in Your Team Space')).toBeDefined()
+    expect(screen.getByText('Add people already in your team space')).toBeDefined()
+    expect(screen.getByText('People with access')).toBeDefined()
     expect(screen.queryByText('Add People Already in Your Organization')).toBeNull()
 
     const emptyState = screen.getByTestId('members-empty-state')
     expect(within(emptyState).getByText('Add the first direct member')).toBeDefined()
     expect(within(emptyState).queryByText('No direct members yet')).toBeNull()
     expect(
-      within(emptyState).getByText(/Start with Member unless they need to manage who can get in/i)
+      within(emptyState).getByText(
+        /Start with Member access unless they need to manage who can get in/i
+      )
     ).toBeDefined()
 
     fireEvent.change(screen.getByLabelText('Select person to add'), {
