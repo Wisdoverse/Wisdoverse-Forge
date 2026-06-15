@@ -593,7 +593,7 @@ function agentControlErrorMessage(error: string): string {
     normalized.includes('forbidden') ||
     /\b403\b/.test(error)
   ) {
-    return 'You do not have permission to change this agent. Ask an owner or admin to update what you can do, then try again.'
+    return 'You do not have permission to change this agent. Ask an owner or admin to let you manage this agent, then try again.'
   }
   if (normalized.includes('unauthorized') || /\b401\b/.test(error)) {
     return 'Sign in again, reopen this agent, then try the action once more.'

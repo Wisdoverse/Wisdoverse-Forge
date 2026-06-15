@@ -177,7 +177,7 @@ function renameErrorMessage(target: RenameTarget, error: unknown): string {
     return `Sign in again, then reopen the sidebar and save this ${label} name.`
   }
   if (status === 403) {
-    return `You do not have permission to rename this ${label}. Ask an owner or admin to update your access.`
+    return `You do not have permission to rename this ${label}. Ask an owner or admin to let you edit this ${label}.`
   }
   if (status === 404) {
     return `This ${label} could not be found. Refresh the sidebar, then choose the current ${label} again.`
@@ -233,7 +233,7 @@ function deleteErrorMessage(target: RenameTarget, error: unknown): string {
     return `Sign in again, then reopen the sidebar and delete this ${label} again.`
   }
   if (status === 403) {
-    return `You do not have permission to delete this ${label}. Ask an owner or admin to update your access.`
+    return `You do not have permission to delete this ${label}. Ask an owner or admin to let you delete this ${label}.`
   }
   if (status === 404) {
     return `Refresh the sidebar. This ${label} may already be gone.`

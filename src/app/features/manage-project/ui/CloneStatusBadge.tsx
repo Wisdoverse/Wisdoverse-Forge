@@ -90,7 +90,7 @@ function cloneRetryErrorMessage(error: unknown): string {
   const code = statusCodeFromError(error)
   if (code === 401) return 'Sign in again, then retry this clone from the project row.'
   if (code === 403) {
-    return 'You do not have permission to retry this clone. Ask an owner or admin to update project access.'
+    return 'You do not have permission to retry this clone. Ask an owner or admin to let you retry this project clone.'
   }
   if (code === 404) {
     return 'This project could not be found. Refresh Projects, then retry the clone from the current project row.'

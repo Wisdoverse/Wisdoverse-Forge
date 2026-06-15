@@ -433,7 +433,8 @@ describe('Sidebar', () => {
     expect(
       await screen.findByText(/You do not have permission to rename this team/i)
     ).toBeInTheDocument()
-    expect(screen.getByText(/Ask an owner or admin to update your access/i)).toBeInTheDocument()
+    expect(screen.getByText(/Ask an owner or admin to let you edit this team/i)).toBeInTheDocument()
+    expect(screen.queryByText(/update your access/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/API 403/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/owner role required/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/Code:/i)).not.toBeInTheDocument()
@@ -526,8 +527,9 @@ describe('Sidebar', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'You do not have permission to delete this team. Ask an owner or admin to update your access.'
+      'You do not have permission to delete this team. Ask an owner or admin to let you delete this team.'
     )
+    expect(alert).not.toHaveTextContent(/update your access/i)
     expect(alert).not.toHaveTextContent(/owner role required/i)
     expect(alert).not.toHaveTextContent(/API 403/i)
     expect(screen.getByText('Team Alpha')).toBeInTheDocument()

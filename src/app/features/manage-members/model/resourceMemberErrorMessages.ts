@@ -25,7 +25,7 @@ export function resourceMemberErrorMessage(
     return `Sign in again, then reopen members for this ${resource}.`
   }
   if (status === 403) {
-    return `You do not have permission to manage people for this ${resource}. Ask an owner or admin to update what you can do.`
+    return `You do not have permission to manage people for this ${resource}. Ask an owner or admin to give you access to manage people here.`
   }
   if (status === 404) {
     return `People for this ${resource} are not available. Refresh members or choose another ${resource}.`

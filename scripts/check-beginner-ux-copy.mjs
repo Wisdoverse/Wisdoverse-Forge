@@ -656,6 +656,12 @@ const ACCESS_LEVEL_DEAD_END_PATTERNS = [
   /\bAccess level needs review\b/i,
 ]
 
+const VAGUE_ACCESS_RECOVERY_PATTERNS = [
+  /\bAsk an owner or admin to update your access\b/i,
+  /\bAsk an owner or admin to update what you can do\b/i,
+  /\bAsk an owner or admin to update project access\b/i,
+]
+
 const BEGINNER_JARGON_PATTERNS = [
   /\blocal agents?\b/i,
   /\bmanaged local agent\b/i,
@@ -1165,6 +1171,11 @@ function hasAccessLevelDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/entities/user/model/roleLabels.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return ACCESS_LEVEL_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasVagueAccessRecoveryCopy(line) {
+  if (isLikelyGuardOrParserLine(line)) return false
+  return VAGUE_ACCESS_RECOVERY_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasTimelineEmptyDeadEndCopy(relFile, line) {
@@ -2117,6 +2128,15 @@ function scanFile(file, relFile) {
         type: 'access-level-copy',
         location,
         message: 'Access level fallback copy must tell beginners to refresh role data.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasVagueAccessRecoveryCopy(line)) {
+      findings.push({
+        type: 'vague-access-recovery-copy',
+        location,
+        message: 'Permission recovery copy must name the specific access the user needs.',
         sample: line.trim(),
       })
     }

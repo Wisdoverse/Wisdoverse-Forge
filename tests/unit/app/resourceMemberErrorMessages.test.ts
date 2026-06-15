@@ -47,9 +47,10 @@ describe('resourceMemberErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'You do not have permission to manage people for this team. Ask an owner or admin to update what you can do.'
+      'You do not have permission to manage people for this team. Ask an owner or admin to give you access to manage people here.'
     )
     expect(message).not.toContain('owner role required')
+    expect(message).not.toContain('update what you can do')
   })
 
   test('uses structured validation details to explain missing access choices', () => {

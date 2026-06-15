@@ -105,6 +105,19 @@ describe('AgentControlPanel', () => {
     expect(screen.getByRole('alert')).not.toHaveTextContent(/agent service/i)
   })
 
+  test('turns permission failures into agent management guidance', () => {
+    useAgentsStore.setState({ error: 'HTTP 403: Forbidden' } as never)
+
+    render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'You do not have permission to change this agent. Ask an owner or admin to let you manage this agent, then try again.'
+    )
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/update what you can do/i)
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/HTTP 403/i)
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/Forbidden/i)
+  })
+
   test('turns connection failures into a clear refresh step', () => {
     useAgentsStore.setState({ error: 'Failed to fetch' } as never)
 

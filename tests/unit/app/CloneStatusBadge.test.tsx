@@ -142,7 +142,8 @@ describe('CloneStatusBadge', () => {
 
     await waitFor(() => {
       const alert = screen.getByRole('alert')
-      expect(alert).toHaveTextContent('Ask an owner or admin to update project access')
+      expect(alert).toHaveTextContent('Ask an owner or admin to let you retry this project clone')
+      expect(alert).not.toHaveTextContent('update project access')
       expect(alert).not.toHaveTextContent('API 403')
       expect(alert).not.toHaveTextContent('Only the owner or a manager')
     })
