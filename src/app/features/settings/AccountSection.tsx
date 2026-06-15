@@ -484,7 +484,9 @@ export function AccountSection() {
             </span>
           </div>
           <div className="flex items-center justify-between px-4 py-3">
-            <span className="text-ui-body text-secondary-light dark:text-secondary-dark">Role</span>
+            <span className="text-ui-body text-secondary-light dark:text-secondary-dark">
+              Access level
+            </span>
             <span className={uiStyles.activeBadge}>{userRoleLabel(user?.role)}</span>
           </div>
         </div>
