@@ -776,6 +776,8 @@ const CLONE_RETRY_FAILURE_FIRST_PATTERNS = [
   /\bCould not copy code into the project\. Check the code link and saved code access, then try again\./i,
 ]
 
+const CLONE_FAILURE_RAW_MESSAGE_PATTERNS = [/\bclone\?\.errorMessage\b/, /\bclone\.errorMessage\b/]
+
 const AGENT_CONFIG_DETAIL_DEAD_END_PATTERNS = [
   /\bAI model not reported\b/i,
   /\bModel not reported\b/i,
@@ -1376,6 +1378,14 @@ function hasCloneRetryFailureFirstCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return CLONE_RETRY_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasCloneFailureRawMessageCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/manage-project/ui/CloneStatusBadge.tsx')) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CLONE_FAILURE_RAW_MESSAGE_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentConfigDetailDeadEndCopy(relFile, line) {
@@ -2594,6 +2604,15 @@ function scanFile(file, relFile) {
         type: 'clone-retry-error-copy',
         location,
         message: 'Code import retry errors must start with the next action for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCloneFailureRawMessageCopy(relFile, line)) {
+      findings.push({
+        type: 'clone-failure-message-copy',
+        location,
+        message: 'Code import failure details must use beginner-safe recovery copy.',
         sample: line.trim(),
       })
     }

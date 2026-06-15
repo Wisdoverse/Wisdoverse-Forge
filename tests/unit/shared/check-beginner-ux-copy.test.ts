@@ -7065,6 +7065,43 @@ function fallbackCloneRetryErrorMessage() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags direct rendering of code import failure details', () => {
+    const cwd = fixture({
+      'src/app/features/manage-project/ui/CloneStatusBadge.tsx': `
+export function CloneStatusBadge({ clone }) {
+  return <p>{clone.errorMessage}</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'clone-failure-message-copy',
+          location: 'src/app/features/manage-project/ui/CloneStatusBadge.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts code import failure summaries that do not expose raw details', () => {
+    const cwd = fixture({
+      'src/app/features/manage-project/ui/CloneStatusBadge.tsx': `
+function cloneFailureMessage(clone) {
+  if (clone.errorClass === 'auth') {
+    return 'Check saved code access for this repository, then try copying code again. The repository rejected Forge access.'
+  }
+  return 'Check the code link and saved code access, then try copying code again. Forge could not finish the code import.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('accepts recovery copy that gives one clear refresh step', () => {
     const cwd = fixture({
       'src/app/features/board/boardErrorMessages.ts': `

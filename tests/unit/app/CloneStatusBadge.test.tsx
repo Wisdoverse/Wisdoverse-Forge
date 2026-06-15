@@ -51,17 +51,52 @@ describe('CloneStatusBadge', () => {
     expect(screen.getByText('abc1234')).toBeInTheDocument()
   })
 
-  it('renders the failed status with the redacted error message', () => {
+  it('renders failed code access problems with beginner-safe recovery copy', () => {
     render(
       <CloneStatusBadge
         projectId="p1"
         status="failed"
         variant="detail"
-        clone={summary({ status: 'failed', errorMessage: 'authentication failed' })}
+        clone={summary({ status: 'failed', errorClass: 'auth', errorMessage: 'authentication failed' })}
       />
     )
     expect(screen.getByText('Code import failed')).toBeInTheDocument()
-    expect(screen.getByText('authentication failed')).toBeInTheDocument()
+    expect(screen.getByText(/Check saved code access for this repository/)).toBeInTheDocument()
+    expect(screen.queryByText('authentication failed')).not.toBeInTheDocument()
+  })
+
+  it('renders failed missing repositories with beginner-safe recovery copy', () => {
+    render(
+      <CloneStatusBadge
+        projectId="p1"
+        status="failed"
+        variant="detail"
+        clone={summary({
+          status: 'failed',
+          errorClass: 'not_found',
+          errorMessage: 'repository not found',
+        })}
+      />
+    )
+
+    expect(screen.getByText(/Check the code link, then try copying code again/)).toBeInTheDocument()
+    expect(screen.queryByText('repository not found')).not.toBeInTheDocument()
+  })
+
+  it('renders failed unknown imports with a safe fallback instead of raw details', () => {
+    render(
+      <CloneStatusBadge
+        projectId="p1"
+        status="failed"
+        variant="detail"
+        clone={summary({ status: 'failed', errorMessage: 'unexpected git stderr' })}
+      />
+    )
+
+    expect(
+      screen.getByText(/Check the code link and saved code access, then try copying code again/)
+    ).toBeInTheDocument()
+    expect(screen.queryByText('unexpected git stderr')).not.toBeInTheDocument()
   })
 
   it('shows the Retry button only for the failed status', () => {

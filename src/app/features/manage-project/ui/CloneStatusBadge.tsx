@@ -10,8 +10,8 @@ interface CloneStatusBadgeProps {
   /**
    * `compact` is the sidebar tree indicator (an icon-only status dot with a
    * tooltip — no label text or retry, to fit the narrow tree). `detail` is the
-   * settings/detail surface (head sha/branch on success, the redacted error +
-   * a Retry action on failure).
+   * settings/detail surface (head sha/branch on success, beginner recovery
+   * guidance + a Retry action on failure).
    */
   variant?: 'compact' | 'detail'
   /** Called after a successful retry with the new attempt summary. */
@@ -53,6 +53,25 @@ const VISUALS: Record<Exclude<CloneStatus, 'none'>, Visual> = {
 
 const CLONE_RETRY_DEFAULT_ERROR =
   'Check the code link and saved code access, then try copying code again. Forge could not copy code into the project.'
+
+function cloneFailureMessage(clone: CloneSummary | undefined): string {
+  switch (clone?.errorClass) {
+    case 'auth':
+      return 'Check saved code access for this repository, then try copying code again. The repository rejected Forge access.'
+    case 'not_found':
+      return 'Check the code link, then try copying code again. Forge could not find this repository.'
+    case 'network':
+      return 'Check your connection and repository host, then try copying code again. Forge could not reach the repository.'
+    case 'timeout':
+      return 'Wait a few minutes, then try copying code again. The repository took too long to respond.'
+    case 'too_large':
+      return 'Ask an owner or admin to check project storage before trying again. This repository is too large to copy right now.'
+    case 'internal':
+      return 'Wait a few minutes, then try copying code again. Forge could not finish the code import.'
+    default:
+      return 'Check the code link and saved code access, then try copying code again. Forge could not finish the code import.'
+  }
+}
 
 function parseStatusCode(value: unknown): number | null {
   if (typeof value === 'number' && Number.isInteger(value) && value >= 100 && value <= 599) {
@@ -126,9 +145,9 @@ function visualFor(status: CloneStatus | undefined): Visual | null {
  * Clone lifecycle badge for a project's optional git repository. Renders the
  * status as an Apple-style pill (queued / cloning with spinner / ready / failed),
  * and — in the `detail` variant — the resolved branch + short HEAD on success,
- * the server-redacted error plus a Retry action on failure. Retry is enabled only
- * for `failed`; permission is enforced server-side (a 403 surfaces as an inline
- * message rather than being pre-guarded in the client).
+ * beginner recovery guidance plus a Retry action on failure. Retry is enabled
+ * only for `failed`; permission is enforced server-side (a 403 surfaces as an
+ * inline message rather than being pre-guarded in the client).
  */
 export function CloneStatusBadge({
   projectId,
@@ -149,6 +168,7 @@ export function CloneStatusBadge({
   const isReady = status === 'ready'
   const shortSha = clone?.headSha ? clone.headSha.slice(0, 7) : null
   const branch = clone?.resolvedBranch ?? null
+  const failureMessage = isFailed ? cloneFailureMessage(clone) : null
 
   const pill = (
     <span
@@ -246,9 +266,9 @@ export function CloneStatusBadge({
         )}
       </div>
 
-      {isFailed && clone?.errorMessage && (
+      {failureMessage && (
         <p className="text-ui-caption text-apple-red" role="status">
-          {clone.errorMessage}
+          {failureMessage}
         </p>
       )}
       {retryError && (
