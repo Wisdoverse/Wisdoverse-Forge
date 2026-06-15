@@ -382,7 +382,7 @@ function CliRuntimeConfig({ agent }: { agent: AgentInfo }) {
         />
         <RuntimeRow
           label="Starting project"
-          value={agent.projectName ?? 'Choose a project from the sidebar first.'}
+          value={agent.projectName ?? 'Open project settings first.'}
         />
         <RuntimeRow
           label="Starting folder"
