@@ -7,6 +7,8 @@ const MAX_OUTPUT_LINES = 12
 const HIDDEN_ACCESS_VALUE = 'Hidden for safety. Reconnect the required account access, then retry.'
 const MISSING_ACCESS_MESSAGE =
   'Required account access is missing. Add or reconnect service access, then retry.'
+const TECHNICAL_PROBLEM_MESSAGE =
+  'This step reported a technical problem. Ask the agent to explain it in plain language, then retry if the task still matters.'
 
 function formatSupportDetails(data: Record<string, unknown>): string {
   try {
@@ -111,7 +113,16 @@ function safeToolString(value: string): string {
   ) {
     return MISSING_ACCESS_MESSAGE
   }
+  if (containsTechnicalProblemText(value)) {
+    return TECHNICAL_PROBLEM_MESSAGE
+  }
   return value
+}
+
+function containsTechnicalProblemText(value: string): boolean {
+  return /\b(panic|stack trace|traceback|exception|stdout|stderr|raw command output|docker socket|internal error|database)\b/i.test(
+    value
+  )
 }
 
 function formatDuration(duration: number): string {

@@ -93,6 +93,40 @@ describe('ToolCallDetail', () => {
     expect(screen.queryByText(/secret-token-value/i)).toBeNull()
   })
 
+  test('hides technical tool failure details from summaries and support details', () => {
+    render(
+      <ToolCallDetail
+        call={{
+          ...baseCall,
+          output: {
+            error: 'panic: stack trace line 7\nsecret token abc\nraw command output',
+          },
+          success: false,
+        }}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /show step details for command runner/i }))
+
+    expect(
+      screen.getByText(
+        /Needs attention: This step reported a technical problem\. Ask the agent to explain it in plain language, then retry if the task still matters\./i
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/panic/i)).toBeNull()
+    expect(screen.queryByText(/stack trace/i)).toBeNull()
+    expect(screen.queryByText(/secret token/i)).toBeNull()
+    expect(screen.queryByText(/raw command output/i)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /show support details for result/i }))
+
+    expect(screen.getByText(/Problem: This step reported a technical problem/i)).toBeInTheDocument()
+    expect(screen.queryByText(/panic/i)).toBeNull()
+    expect(screen.queryByText(/stack trace/i)).toBeNull()
+    expect(screen.queryByText(/secret token/i)).toBeNull()
+    expect(screen.queryByText(/raw command output/i)).toBeNull()
+  })
+
   test('turns failed boolean results into an action before users trust the answer', () => {
     render(
       <ToolCallDetail
