@@ -56,6 +56,10 @@ interface BillingCheckpointProps {
   invoicesCount: number
 }
 
+function formatCapacityCheckCount(count: number): string {
+  return `${count} capacity ${count === 1 ? 'check' : 'checks'} shown`
+}
+
 function BillingCheckpoint({ hasSubscription, usageCount, invoicesCount }: BillingCheckpointProps) {
   const checkpoints = [
     {
@@ -65,11 +69,11 @@ function BillingCheckpoint({ hasSubscription, usageCount, invoicesCount }: Billi
         : 'Free plan is active. Ask an owner or admin to choose a paid plan when the team is ready.',
     },
     {
-      label: 'Usage',
+      label: 'Capacity',
       value:
         usageCount > 0
-          ? `${usageCount} usage areas shown`
-          : 'Usage appears after agents run billable work',
+          ? formatCapacityCheckCount(usageCount)
+          : 'Capacity details appear after agents run billable work',
     },
     {
       label: 'Invoices',
@@ -86,7 +90,7 @@ function BillingCheckpoint({ hasSubscription, usageCount, invoicesCount }: Billi
       <div className="flex flex-col gap-1">
         <h2 className={uiStyles.sectionTitle}>Billing checkpoint</h2>
         <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-          Review the plan, usage, and invoices before you change a plan or payment method.
+          Review the plan, capacity, and invoices before you change a plan or payment method.
         </p>
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
@@ -219,7 +223,7 @@ export function BillingPage() {
 
       {(usageLoading || usage.length > 0 || usageError) && (
         <section>
-          <h3 className={uiStyles.groupLabel}>Usage this period</h3>
+          <h3 className={uiStyles.groupLabel}>Capacity this period</h3>
           {usageError ? (
             <div role="alert" aria-live="polite" className={uiStyles.error}>
               {usageError}

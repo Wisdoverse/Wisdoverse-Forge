@@ -1735,8 +1735,8 @@ function BillingCheckpoint() {
       'src/app/features/billing/BillingPage.tsx': `
 function BillingCheckpoint() {
   return {
-    label: 'Usage',
-    value: usageCount > 0 ? \`\${usageCount} usage areas shown\` : 'Usage appears after agents run billable work',
+    label: 'Capacity',
+    value: usageCount > 0 ? \`\${usageCount} capacity checks shown\` : 'Capacity details appear after agents run billable work',
   }
 }
 `,

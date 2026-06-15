@@ -205,7 +205,7 @@ const CLIPBOARD_JARGON_PATTERNS = [/\bCopy is unavailable here\b/i, /\bno clipbo
 
 const BILLING_CHECKPOINT_DEAD_END_PATTERNS = [/\bNo invoices yet\b/i]
 
-const BILLING_USAGE_DEAD_END_PATTERNS = [/\bNo usage reported yet\b/i]
+const BILLING_USAGE_DEAD_END_PATTERNS = [/\bNo usage reported yet\b/i, /\busage areas shown\b/i]
 
 const BILLING_RECEIPT_LINK_DEAD_END_PATTERNS = [/\bNo link\b/i]
 

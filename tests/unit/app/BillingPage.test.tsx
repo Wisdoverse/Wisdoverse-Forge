@@ -103,7 +103,7 @@ describe('BillingPage', () => {
     expect(await screen.findByText('Billing checkpoint')).toBeDefined()
     expect(screen.getByText(/Free plan is active/i)).toBeDefined()
     expect(screen.queryByText('No paid plan yet')).toBeNull()
-    expect(screen.getByText('Usage appears after agents run billable work')).toBeDefined()
+    expect(screen.getByText('Capacity details appear after agents run billable work')).toBeDefined()
     expect(screen.getByText(/no paid plan is attached yet/i)).toBeDefined()
     expect(screen.getByText(/secure payment page can open/i)).toBeDefined()
     expect(screen.getByText('Ask an owner or admin to make a plan available.')).toBeDefined()
@@ -123,8 +123,9 @@ describe('BillingPage', () => {
     render(<BillingPage />)
 
     expect(await screen.findByText('Paid plan is active')).toBeDefined()
-    expect(screen.getByText('1 usage areas shown')).toBeDefined()
+    expect(screen.getByText('1 capacity check shown')).toBeDefined()
     expect(screen.getByText('1 invoices shown')).toBeDefined()
+    expect(screen.queryByText(/usage areas shown/i)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /manage billing/i }))
 
