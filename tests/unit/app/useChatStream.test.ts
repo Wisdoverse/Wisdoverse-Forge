@@ -76,6 +76,17 @@ describe('chatStreamHttpErrorMessage', () => {
     expect(message).not.toContain('agent missing')
   })
 
+  it('explains denied agent access with team space recovery guidance', () => {
+    const message = chatStreamHttpErrorMessage(403, { message: 'forbidden token scope' })
+
+    expectBeginnerMessage(
+      message,
+      'You do not have access to this agent or team space. Ask an owner or admin to update your team space access.'
+    )
+    expect(message).not.toContain('workspace role')
+    expect(message).not.toContain('token')
+  })
+
   it('turns busy agent conflicts into a wait step', () => {
     expectBeginnerMessage(
       chatStreamHttpErrorMessage(409, { message: 'agent is busy' }),
@@ -127,13 +138,14 @@ describe('chatStreamEventErrorMessage', () => {
     expect(message).not.toContain('provider_error')
   })
 
-  it('maps streamed permission failures to role guidance', () => {
+  it('maps streamed permission failures to team space access guidance', () => {
     const message = chatStreamEventErrorMessage('Forbidden token scope')
 
     expectBeginnerMessage(
       message,
-      'You do not have access to this agent chat. Ask an owner or admin to update your workspace role.'
+      'You do not have access to this agent chat. Ask an owner or admin to update your team space access.'
     )
+    expect(message).not.toContain('workspace role')
     expect(message).not.toContain('token')
   })
 

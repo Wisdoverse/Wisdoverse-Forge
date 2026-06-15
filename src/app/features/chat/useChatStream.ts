@@ -61,7 +61,7 @@ export function chatStreamHttpErrorMessage(
     return 'Your sign-in expired. Sign in again, then open this agent chat and resend the message.'
   }
   if (status === 403) {
-    return 'You do not have access to this agent or workspace. Ask an owner or admin to update your workspace role.'
+    return 'You do not have access to this agent or team space. Ask an owner or admin to update your team space access.'
   }
   if (status === 404) {
     return 'This agent could not be found. Refresh the Agents page, choose an active agent, then open chat again.'
@@ -103,7 +103,7 @@ export function chatStreamEventErrorMessage(detail: unknown): string {
     return 'This agent is receiving too many messages right now. Wait a moment, then resend the message.'
   }
   if (text.includes('permission') || text.includes('forbidden') || text.includes('unauthorized')) {
-    return 'You do not have access to this agent chat. Ask an owner or admin to update your workspace role.'
+    return 'You do not have access to this agent chat. Ask an owner or admin to update your team space access.'
   }
   if (text.includes('context')) {
     return 'This chat has too many old messages. Clear chat only if those messages are no longer useful, then send the message again.'
