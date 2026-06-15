@@ -58,9 +58,10 @@ describe('governanceAuditErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open the Admin audit view again, then retry. If it still fails, ask an owner or admin to check workspace access.'
+      'Open the Admin audit view again, then retry. If it still fails, ask an owner or admin to check team space access.'
     )
     expect(message).not.toContain('route')
+    expect(message).not.toContain('workspace access')
   })
 
   test('turns rate limits into a wait and retry step', () => {
@@ -95,7 +96,7 @@ describe('governanceAuditErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check the selected team space, workspace, user, or task support reference, then apply the audit filters again.'
+      'Check the selected team space, project workspace, user, or task support reference, then apply the audit filters again.'
     )
     expect(message).not.toContain('selected organization')
     expect(message).not.toMatch(/task I[D]/)

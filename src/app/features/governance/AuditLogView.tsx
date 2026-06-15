@@ -99,7 +99,7 @@ const ITEM_KIND_OPTIONS: { value: ItemKindFilter; label: string }[] = [
 const SCOPE_KIND_OPTIONS: { value: ScopeKindFilter; label: string }[] = [
   { value: 'all', label: 'All areas' },
   { value: 'org', label: 'Team space' },
-  { value: 'workspace', label: 'Workspace' },
+  { value: 'workspace', label: 'Project workspace' },
   { value: 'team', label: 'Team' },
   { value: 'project', label: 'Project' },
   { value: 'user', label: 'User' },
@@ -347,7 +347,7 @@ export function AuditLogView() {
               name="scopeId"
               autoComplete="off"
               onChange={(event) => updateFilter('scopeId', event.target.value)}
-              placeholder="Paste a team space, workspace, team, or project reference"
+              placeholder="Paste a team space, project workspace, team, or project reference"
               className={INPUT_CLASS}
             />
           </Field>
@@ -452,8 +452,8 @@ export function AuditLogView() {
                       </p>
                       <p className="mt-1 text-secondary-light dark:text-secondary-dark">
                         Show all history first, then narrow by item, area, person, or time. If this
-                        is a new workspace, approve saved instructions or mark a saved note helpful,
-                        then refresh this view.
+                        is a new team space, approve saved instructions or mark a saved note
+                        helpful, then refresh this view.
                       </p>
                       <button
                         type="button"
@@ -810,7 +810,7 @@ function auditAreaLabel(kind: GovernanceAuditScopeKind | null | undefined): stri
     case 'org':
       return 'Team space'
     case 'workspace':
-      return 'Workspace'
+      return 'Project workspace'
     case 'team':
       return 'Team'
     case 'project':

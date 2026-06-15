@@ -26,7 +26,7 @@ export function governanceAuditErrorMessage(
   }
 
   if (status === 404) {
-    return 'Open the Admin audit view again, then retry. If it still fails, ask an owner or admin to check workspace access.'
+    return 'Open the Admin audit view again, then retry. If it still fails, ask an owner or admin to check team space access.'
   }
 
   if (status === 409) {
@@ -123,7 +123,7 @@ function validationMessage(action: GovernanceAuditErrorAction, detail: string): 
     return 'Choose a common audit view or paste a support event name, then apply the audit filters again.'
   }
   if (normalized.includes('id')) {
-    return 'Check the selected team space, workspace, user, or task support reference, then apply the audit filters again.'
+    return 'Check the selected team space, project workspace, user, or task support reference, then apply the audit filters again.'
   }
   return ACTION_FALLBACKS[action]
 }

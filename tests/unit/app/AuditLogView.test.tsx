@@ -128,9 +128,11 @@ describe('AuditLogView', () => {
     ).toBeDefined()
     expect(screen.getByText('Work area reference')).toBeDefined()
     expect(
-      screen.getByPlaceholderText(/team space, workspace, team, or project reference/i)
+      screen.getByPlaceholderText(/team space, project workspace, team, or project reference/i)
     ).toBeDefined()
     expect(screen.getByRole('option', { name: 'Team space' })).toBeDefined()
+    expect(screen.getByRole('option', { name: 'Project workspace' })).toBeDefined()
+    expect(screen.queryByRole('option', { name: 'Workspace' })).toBeNull()
     expect(screen.queryByRole('option', { name: 'Organization' })).toBeNull()
     expect(screen.getByText('Person reference')).toBeDefined()
     expect(screen.getByPlaceholderText(/user reference when needed/i)).toBeDefined()
@@ -282,6 +284,8 @@ describe('AuditLogView', () => {
     expect(
       screen.getByText(/approve saved instructions or mark a saved note helpful/i)
     ).toBeDefined()
+    expect(screen.getByText(/new team space/i)).toBeDefined()
+    expect(screen.queryByText(/new workspace/i)).toBeNull()
     expect(screen.queryByText(/approve a skill/i)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Show all audit history' }))
