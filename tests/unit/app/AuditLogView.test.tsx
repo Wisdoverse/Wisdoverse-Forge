@@ -215,6 +215,24 @@ describe('AuditLogView', () => {
     expect(screen.queryByText('Unknown')).toBeNull()
   })
 
+  test('names failed audit proof directly instead of using a vague review label', async () => {
+    fetchGovernanceAudit.mockResolvedValueOnce({
+      ...auditResponse,
+      entries: [
+        {
+          ...auditResponse.entries[0],
+          id: 'audit-proof-invalid',
+          tamperStatus: 'invalid',
+        },
+      ],
+    })
+
+    render(<AuditLogView />)
+
+    expect(await screen.findByText('Review proof')).toBeDefined()
+    expect(screen.queryByText('Needs review')).toBeNull()
+  })
+
   test('hides sensitive values in audit change details', async () => {
     fetchGovernanceAudit.mockResolvedValueOnce({
       ...auditResponse,
@@ -283,8 +301,8 @@ describe('AuditLogView', () => {
     render(<AuditLogView />)
 
     const error = await screen.findByRole('alert')
-    expect(error.textContent).toContain('Governance audit history could not load')
-    expect(error.textContent).toContain('Forge could not connect while loading audit history')
+    expect(error.textContent).toContain('Refresh the audit view, then apply the filters again.')
+    expect(error.textContent).toContain('check your connection and refresh the page')
     expect(error.textContent).not.toMatch(/failed to fetch/i)
     expect(error.textContent).not.toContain('service')
   })

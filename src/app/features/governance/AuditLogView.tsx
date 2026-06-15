@@ -631,7 +631,7 @@ function TamperBadge({ status }: { status: GovernanceAuditTamperStatus }) {
     invalid: {
       Icon: ShieldAlert,
       className: 'bg-apple-red/10 text-apple-red',
-      label: 'Needs review',
+      label: 'Review proof',
     },
     not_configured: {
       Icon: ShieldQuestion,
