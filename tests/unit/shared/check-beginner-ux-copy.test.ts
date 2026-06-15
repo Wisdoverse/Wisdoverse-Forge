@@ -3964,6 +3964,38 @@ function messageRoleLabel(role) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags chat filters that explain You with operator jargon', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ChatView.tsx': `
+function conversationFilterEmptyCopy() {
+  return 'The You filter only shows requests sent by an operator.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'chat-operator-copy',
+        location: 'src/app/features/chat/ChatView.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts chat filters that explain You as the current user', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ChatView.tsx': `
+function conversationFilterEmptyCopy() {
+  return 'The You filter only shows requests you sent.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags chat tool step fallback copy that does not tell users how to use the result', () => {
     const cwd = fixture({
       'src/app/features/chat/ToolCallDetail.tsx': `

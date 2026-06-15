@@ -95,7 +95,7 @@ function conversationFilterEmptyCopy(
   if (filter === 'operator') {
     return {
       title: 'No messages from you in this view yet',
-      detail: 'The You filter only shows requests sent by an operator.',
+      detail: 'The You filter only shows requests you sent.',
       nextStep: 'Next: use All to review every update, or send a message below to add a request.',
     }
   }

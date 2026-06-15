@@ -522,6 +522,10 @@ const CHAT_MESSAGE_FALLBACK_DEAD_END_PATTERNS = [
   /\bMessage sender not reported\b/i,
 ]
 
+const CHAT_OPERATOR_JARGON_PATTERNS = [
+  /\bThe You filter only shows requests sent by an operator\./i,
+]
+
 const CHAT_TOOL_STEP_DEAD_END_PATTERNS = [
   /\bThis step needs review\b/i,
   /\blabel:\s*['"`]Needs review['"`]/i,
@@ -1599,6 +1603,12 @@ function hasChatMessageFallbackDeadEndCopy(relFile, line) {
   return CHAT_MESSAGE_FALLBACK_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasChatOperatorJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/chat/ChatView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CHAT_OPERATOR_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasChatToolStepDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/chat/ToolCallDetail.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -2581,6 +2591,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Chat message sender fallbacks must tell beginners to refresh or check the sender.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasChatOperatorJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'chat-operator-copy',
+        location,
+        message: 'Chat filters must explain You as the current user, not an operator.',
         sample: line.trim(),
       })
     }

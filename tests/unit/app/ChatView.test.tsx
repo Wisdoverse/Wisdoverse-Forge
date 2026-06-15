@@ -330,6 +330,28 @@ describe('ChatView', () => {
     expect(screen.getByText(/assign a workspace task to create work steps/i)).toBeInTheDocument()
   })
 
+  test('explains an empty You filter without operator jargon', () => {
+    useAgentsStore.setState({ agents: [providerAgent] })
+    seedChatState({
+      messages: [
+        message('Settings page shipped', {
+          id: 'assistant-1',
+          content: 'Settings page shipped',
+        }),
+      ],
+    })
+
+    render(<ChatView agentId={providerAgent.id} />)
+
+    const filters = screen.getByTestId('conversation-filter-group')
+    fireEvent.click(within(filters).getByRole('button', { name: /you\s*0/i }))
+
+    const emptyState = screen.getByTestId('conversation-filter-empty')
+    expect(emptyState).toHaveTextContent('No messages from you in this view yet')
+    expect(emptyState).toHaveTextContent('The You filter only shows requests you sent.')
+    expect(emptyState).not.toHaveTextContent('operator')
+  })
+
   test('summarizes CLI turns with tools and failed tool attention', async () => {
     const fetchEvents = vi.fn().mockResolvedValue(undefined)
     useAgentsStore.setState({ agents: [cliAgent] })
