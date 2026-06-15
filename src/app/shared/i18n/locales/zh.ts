@@ -287,25 +287,25 @@ export const zh: TranslationKeys = {
   },
 
   // =========================================================================
-  // 分组
+  // 任务队列
   // =========================================================================
   groups: {
-    title: '分组',
-    newGroup: '新建分组',
-    createGroup: '创建分组',
-    editGroup: '编辑分组',
-    deleteGroup: '删除分组',
-    noGroups: '暂无分组。可以创建一个分组，用角色、项目或工作流来整理 Agent。',
-    groupName: '分组名称',
-    groupColor: '分组颜色',
-    addToGroup: '添加到分组',
-    removeFromGroup: '从分组中移除',
-    moveToGroup: '移动到分组',
-    ungrouped: '未分组',
-    confirmDelete: '要删除这个分组吗？Agent 仍会保留，但这个分组会被移除。',
-    groupCreated: '分组已创建',
-    groupDeleted: '分组已删除',
-    groupUpdated: '分组已更新',
+    title: '任务队列',
+    newGroup: '新建任务队列',
+    createGroup: '创建任务队列',
+    editGroup: '编辑任务队列',
+    deleteGroup: '删除任务队列',
+    noGroups: '暂无任务队列。先创建一个，让新任务有地方等待 Agent 接手。',
+    groupName: '任务队列名称',
+    groupColor: '任务队列颜色',
+    addToGroup: '添加到任务队列',
+    removeFromGroup: '从任务队列移除',
+    moveToGroup: '移动到任务队列',
+    ungrouped: '暂无任务队列',
+    confirmDelete: '要删除这个任务队列吗？Agent 仍会保留，但任务需要选择其他任务队列后才能发送。',
+    groupCreated: '任务队列已创建',
+    groupDeleted: '任务队列已删除',
+    groupUpdated: '任务队列已更新',
   },
 
   // =========================================================================

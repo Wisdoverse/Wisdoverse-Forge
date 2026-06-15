@@ -294,25 +294,26 @@ export const en = {
   },
 
   // =========================================================================
-  // Groups
+  // Task queues
   // =========================================================================
   groups: {
-    title: 'Groups',
-    newGroup: 'New Group',
-    createGroup: 'Create Group',
-    editGroup: 'Edit Group',
-    deleteGroup: 'Delete Group',
-    noGroups: 'No groups yet. Create a group to organize agents by role, project, or workflow.',
-    groupName: 'Group Name',
-    groupColor: 'Group Color',
-    addToGroup: 'Add to Group',
-    removeFromGroup: 'Remove from Group',
-    moveToGroup: 'Move to Group',
-    ungrouped: 'Ungrouped',
-    confirmDelete: 'Delete this group? Agents stay available, but this grouping will be removed.',
-    groupCreated: 'Group created',
-    groupDeleted: 'Group deleted',
-    groupUpdated: 'Group updated',
+    title: 'Task queues',
+    newGroup: 'New task queue',
+    createGroup: 'Create task queue',
+    editGroup: 'Edit task queue',
+    deleteGroup: 'Delete task queue',
+    noGroups: 'No task queues yet. Create one so new tasks have a place to wait for agents.',
+    groupName: 'Task queue name',
+    groupColor: 'Task queue color',
+    addToGroup: 'Add to task queue',
+    removeFromGroup: 'Remove from task queue',
+    moveToGroup: 'Move to task queue',
+    ungrouped: 'No task queue yet',
+    confirmDelete:
+      'Delete this task queue? Agents stay available, but tasks will need another task queue before they can be sent.',
+    groupCreated: 'Task queue created',
+    groupDeleted: 'Task queue deleted',
+    groupUpdated: 'Task queue updated',
   },
 
   // =========================================================================
