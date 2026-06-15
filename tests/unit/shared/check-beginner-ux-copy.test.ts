@@ -5018,6 +5018,38 @@ function ChatComposer() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags chat stream errors that start with the failure before the resend action', () => {
+    const cwd = fixture({
+      'src/app/features/chat/useChatStream.ts': `
+function chatStreamEventErrorMessage() {
+  return 'The agent could not finish this reply. Resend the message. If it still fails, ask an owner or admin to check chat setup.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'chat-stream-error-copy',
+        location: 'src/app/features/chat/useChatStream.ts:3',
+      }),
+    ])
+  })
+
+  it('accepts chat stream errors that start with the resend action', () => {
+    const cwd = fixture({
+      'src/app/features/chat/useChatStream.ts': `
+function chatStreamEventErrorMessage() {
+  return 'Resend the message. The agent could not finish this reply. If it still fails, ask an owner or admin to check chat setup.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags app health status copy that does not tell users to check now', () => {
     const cwd = fixture({
       'src/app/features/admin/SystemHealth.tsx': `

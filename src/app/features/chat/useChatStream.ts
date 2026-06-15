@@ -108,7 +108,7 @@ export function chatStreamEventErrorMessage(detail: unknown): string {
   if (text.includes('context')) {
     return 'This chat has too many old messages. Clear chat only if those messages are no longer useful, then send the message again.'
   }
-  return 'The agent could not finish this reply. Resend the message. If it still fails, ask an owner or admin to check chat setup.'
+  return 'Resend the message. The agent could not finish this reply. If it still fails, ask an owner or admin to check chat setup.'
 }
 
 /** React hook: `send(content)` streams LLM reply; `abort()` cancels it. */

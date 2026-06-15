@@ -631,6 +631,10 @@ const CHAT_OFFLINE_DEAD_END_PATTERNS = [
   /\bStart it before sending a message\b/i,
 ]
 
+const CHAT_STREAM_FAILURE_FIRST_PATTERNS = [
+  /\bThe agent could not finish this reply\. Resend the message\./i,
+]
+
 const GOVERNANCE_AUDIT_FALLBACK_DEAD_END_PATTERNS = [
   /\bChange not listed\b/i,
   /\bNot checked\b/i,
@@ -1913,6 +1917,12 @@ function hasChatOfflineDeadEndCopy(relFile, line) {
   return CHAT_OFFLINE_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasChatStreamFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/chat/useChatStream.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CHAT_STREAM_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasGovernanceAuditFallbackDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/governance/AuditLogView.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -3084,6 +3094,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Chat offline copy must route beginners to the correct setup area instead of saying to start it.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasChatStreamFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'chat-stream-error-copy',
+        location,
+        message:
+          'Chat stream errors must start with the resend action before explaining the failure.',
         sample: line.trim(),
       })
     }

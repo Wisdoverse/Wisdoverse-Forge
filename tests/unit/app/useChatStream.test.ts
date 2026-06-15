@@ -165,7 +165,7 @@ describe('chatStreamEventErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'The agent could not finish this reply. Resend the message. If it still fails, ask an owner or admin to check chat setup.'
+      'Resend the message. The agent could not finish this reply. If it still fails, ask an owner or admin to check chat setup.'
     )
     expect(message).not.toContain('stream error')
   })
