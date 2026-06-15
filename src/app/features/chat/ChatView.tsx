@@ -140,10 +140,10 @@ export function ChatView({ agentId }: ChatViewProps) {
   const isProviderAgent = agent != null && !agent.cliTool
   const offline = agent?.status === 'offline'
   const offlineRecoveryDetail = isProviderAgent
-    ? 'This chat-only AI service is not ready. Open Settings > AI services, check this connection, then refresh Agents.'
+    ? 'This chat-only AI service is not ready. Open AI service settings, check this connection, then refresh Agents.'
     : 'This agent is not ready. Open Agents, start or reconnect it, then return here when it shows Ready.'
   const composerDisabledReason = offline
-    ? 'Open Settings > AI services, check this connection, then refresh Agents before sending a message.'
+    ? 'Open AI service settings, check this connection, then refresh Agents before sending a message.'
     : messagesLoading
       ? 'Loading earlier messages. You can send once loading finishes.'
       : undefined
