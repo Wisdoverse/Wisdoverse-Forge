@@ -285,8 +285,13 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
               ))}
             </div>
           ) : (
-            <div className="rounded-lg border border-dashed border-black/[0.1] px-3 py-2 text-xs text-secondary-light dark:border-white/[0.12] dark:text-secondary-dark">
-              No available agent can take this task right now.
+            <div className="rounded-lg border border-dashed border-black/[0.1] px-3 py-2 text-xs dark:border-white/[0.12]">
+              <p className="font-medium text-foreground-light dark:text-foreground-dark">
+                No agent can take this task right now
+              </p>
+              <p className="mt-1 leading-relaxed text-secondary-light dark:text-secondary-dark">
+                Open Agents to start or connect an agent, then return here and refresh this task.
+              </p>
             </div>
           )}
           <div className="flex justify-end">
@@ -299,8 +304,16 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                 'bg-apple-blue text-white transition-colors hover:bg-apple-blue/90',
                 'disabled:cursor-not-allowed disabled:opacity-50'
               )}
-              aria-label="Preview and send task"
-              title="Preview and send task"
+              aria-label={
+                selectedAgentId
+                  ? 'Preview and send task'
+                  : 'Choose an available agent before sending'
+              }
+              title={
+                selectedAgentId
+                  ? 'Preview and send task'
+                  : 'Choose an available agent before sending'
+              }
             >
               <Send size={14} strokeWidth={2} />
               <span>Preview and send</span>

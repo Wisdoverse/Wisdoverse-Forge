@@ -34,7 +34,7 @@ describe('taskDetailErrorMessage', () => {
 
   test('gives a clear next step when no agent can take the task', () => {
     expect(taskDetailErrorMessage('loadAgents', new Error('No available agent'))).toBe(
-      'No agent is available for this task. Start an agent or wait for one to finish, then try again.'
+      'No agent can take this task right now. Open Agents to start or connect an agent, then refresh this task and try again.'
     )
   })
 

@@ -1305,6 +1305,54 @@ function taskSupportReference() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags task detail no-agent copy that does not point users to agent setup', () => {
+    const cwd = fixture({
+      'src/app/features/detail/TaskDetailPanel.tsx': `
+function emptyAgents() {
+  return 'No available agent can take this task right now.'
+}
+`,
+      'src/app/features/detail/taskDetailErrorMessages.ts': `
+function noAgentError() {
+  return 'No agent is available for this task. Start an agent or wait for one to finish, then try again.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-detail-agent-setup-copy',
+          location: 'src/app/features/detail/TaskDetailPanel.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-agent-setup-copy',
+          location: 'src/app/features/detail/taskDetailErrorMessages.ts:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts task detail no-agent copy that points users to agent setup', () => {
+    const cwd = fixture({
+      'src/app/features/detail/TaskDetailPanel.tsx': `
+function emptyAgents() {
+  return 'Open Agents to start or connect an agent, then return here and refresh this task.'
+}
+`,
+      'src/app/features/detail/taskDetailErrorMessages.ts': `
+function noAgentError() {
+  return 'No agent can take this task right now. Open Agents to start or connect an agent, then refresh this task and try again.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags agent configuration detail copy that does not tell users what to refresh', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentConfigTab.tsx': `

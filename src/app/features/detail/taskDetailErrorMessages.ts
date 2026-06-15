@@ -29,7 +29,7 @@ export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unkno
   const status = errorStatus(err, normalized)
 
   if (/no available agent|no agent.*available/.test(normalized)) {
-    return 'No agent is available for this task. Start an agent or wait for one to finish, then try again.'
+    return 'No agent can take this task right now. Open Agents to start or connect an agent, then refresh this task and try again.'
   }
 
   if (isNetworkError(normalized)) {

@@ -479,4 +479,33 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByRole('button', { name: /preview and send/i })).toBeEnabled()
     expect(screen.queryByRole('button', { name: /preview and publish/i })).toBeNull()
   })
+
+  test('guides users to agent setup when no agent can take the task', async () => {
+    useContextFeaturesStore.setState({ governance: true, preview: true, injection: true })
+    orchestrationApiMock.getParticipants.mockResolvedValue([])
+
+    render(
+      <TaskDetailPanel
+        task={{
+          ...mockTask,
+          state: 'backlog',
+          assignedTo: undefined,
+          assignedAgentName: undefined,
+        }}
+        onClose={() => {}}
+      />
+    )
+
+    expect(await screen.findByText('No agent can take this task right now')).toBeDefined()
+    expect(
+      screen.getByText(/open agents to start or connect an agent, then return here and refresh/i)
+    ).toBeDefined()
+    expect(screen.queryByText('No available agent can take this task right now.')).toBeNull()
+
+    const sendButton = screen.getByRole('button', {
+      name: /choose an available agent before sending/i,
+    })
+    expect(sendButton).toBeDisabled()
+    expect(sendButton).toHaveAttribute('title', 'Choose an available agent before sending')
+  })
 })
