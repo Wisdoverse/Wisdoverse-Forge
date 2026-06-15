@@ -138,7 +138,7 @@ const AGENT_GUIDANCE: { title: string; description: string; Icon: LucideIcon }[]
 function agentsSummary(agents: AdminAgent[], filter: AdminAgentRuntimeKindFilter): string {
   if (agents.length === 0) {
     return filter === 'all'
-      ? 'No agents have been created across any team space yet.'
+      ? 'Create the first agent from Agents, then return here to review it across team spaces.'
       : `No ${runtimeKindLabel(filter)} agents are present right now.`
   }
   const scope = filter === 'all' ? 'all work locations' : runtimeKindLabel(filter)
