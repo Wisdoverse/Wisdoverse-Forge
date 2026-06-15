@@ -324,9 +324,9 @@ export class AuthPage {
         <div class="auth-header">
           <div class="auth-logo">&#9881;</div>
           <h1 class="auth-title">Wisdoverse Forge</h1>
-          <p class="auth-subtitle">Team workspace access</p>
+          <p class="auth-subtitle">Team space access</p>
           <p class="auth-intro">
-            Sign in to manage agents, tasks, evidence, and team settings from one workspace.
+            Sign in to manage agents, tasks, evidence, and team settings from one team space.
           </p>
           <p class="auth-intro auth-intro-secondary">
             New here? Create an account first. Already invited? Sign in with your email.
@@ -424,12 +424,12 @@ export class AuthPage {
     return `
       <form class="auth-form" id="register-form" style="display:none">
         <p class="auth-form-note">
-          Create your first workspace account. You can invite teammates and connect agents after you get in.
+          Create your first team space account. You can invite teammates and connect agents after you get in.
         </p>
         <div class="auth-field">
           <label class="auth-label" for="register-email">Email address</label>
           <input class="auth-input" id="register-email" type="email" placeholder="name@example.com" autocomplete="email" required>
-          <span class="auth-hint">We use this for verification, password reset, and workspace alerts.</span>
+          <span class="auth-hint">We use this for verification, password reset, and team space alerts.</span>
         </div>
         <div class="auth-field">
           <label class="auth-label" for="register-username">Display name <span class="auth-optional">(optional)</span></label>
