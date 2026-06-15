@@ -379,6 +379,10 @@ function PlatformKeyEmptyState({ onCreate }: { onCreate: () => void }) {
               Use this only when a trusted outside tool needs to connect without a person signing
               in.
             </p>
+            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              You can skip this until a trusted outside tool or scheduled job needs unattended
+              access.
+            </p>
           </div>
         </div>
         <div className="grid gap-2 sm:grid-cols-3">

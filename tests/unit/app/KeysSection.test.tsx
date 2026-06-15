@@ -60,6 +60,7 @@ describe('KeysSection', () => {
     expect(screen.getByRole('heading', { name: 'Outside tool access' })).toBeDefined()
     expect(within(emptyState).getByText('Add a key only for a trusted outside tool')).toBeDefined()
     expect(within(emptyState).getAllByText(/trusted outside tool/i).length).toBeGreaterThan(0)
+    expect(within(emptyState).getByText(/skip this until a trusted outside tool/i)).toBeDefined()
     expect(within(emptyState).getByText(/tool you trust/i)).toBeDefined()
     expect(
       within(emptyState).getByText(/password manager before closing this message/i)
