@@ -68,9 +68,20 @@ describe('agentPluginErrorMessage', () => {
     const message = agentPluginErrorMessage('load', new Error('ok: false'))
 
     expect(message).toBe(
-      'Refresh this agent page to load tools. If it still fails, ask an owner or admin to check workspace tools.'
+      'Refresh this agent page to load tools. If it still fails, ask an owner or admin to check team space tools.'
     )
     expect(message).not.toContain('ok: false')
+    expect(message).not.toContain('workspace tools')
     expect(message).not.toContain('platform')
+  })
+
+  test('explains unusable save responses with team space tool guidance', () => {
+    const message = agentPluginErrorMessage('save', new Error('ok: false'))
+
+    expect(message).toBe(
+      "Tool change was not saved. The switch was returned to its previous setting. Forge could not read this agent's tool list. Refresh the page. If it still fails, ask an owner or admin to check team space tools."
+    )
+    expect(message).not.toContain('ok: false')
+    expect(message).not.toContain('workspace tools')
   })
 })

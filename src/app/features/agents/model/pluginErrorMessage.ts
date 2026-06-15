@@ -79,8 +79,8 @@ export function agentPluginErrorMessage(action: AgentPluginErrorAction, err: unk
   }
   if (text.includes('ok: false')) {
     return action === 'load'
-      ? `${base} If it still fails, ask an owner or admin to check workspace tools.`
-      : `${base} Forge could not read this agent's tool list. Refresh the page. If it still fails, ask an owner or admin to check workspace tools.`
+      ? `${base} If it still fails, ask an owner or admin to check team space tools.`
+      : `${base} Forge could not read this agent's tool list. Refresh the page. If it still fails, ask an owner or admin to check team space tools.`
   }
 
   return `${base} Try again. If it still fails, ask an owner or admin to check this agent's tool setup.`
