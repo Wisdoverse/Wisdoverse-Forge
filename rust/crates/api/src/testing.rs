@@ -30,9 +30,7 @@ use crate::routes::metrics as metrics_route;
 /// from production callers (the underlying module is `pub(crate)` without it).
 #[cfg(any(test, feature = "test-support"))]
 pub mod github_app {
-    pub use crate::services::github_app::{
-        GithubAppClient, GithubAppConfig, PrHead, PullRequest, build_app_jwt,
-    };
+    pub use crate::services::github_app::{GithubAppClient, GithubAppConfig, PrHead, PullRequest, build_app_jwt};
 }
 
 /// Test-only re-export of the self-fix local rebuild core so integration tests
@@ -43,7 +41,7 @@ pub mod github_app {
 #[cfg(any(test, feature = "test-support"))]
 pub mod self_fix_rebuild {
     pub use crate::services::self_fix::import::{ImportLimits, ImportReject};
-    pub use crate::services::self_fix::rebuild::{rebuild_branch, RebuildError, RebuildOutcome};
+    pub use crate::services::self_fix::rebuild::{RebuildError, RebuildOutcome, rebuild_branch};
 }
 
 /// Test-only re-export of the self-fix PR Bridge core so integration tests can
@@ -52,7 +50,7 @@ pub mod self_fix_rebuild {
 #[cfg(any(test, feature = "test-support"))]
 pub mod self_fix_bridge {
     pub use crate::services::self_fix::bridge::{
-        branch_name, clone_dir_for, run_pr_bridge, BridgeResult, GitProvider, OpenedDraftPr, SelfFixPrOutcome,
+        BridgeResult, GitProvider, OpenedDraftPr, SelfFixPrOutcome, branch_name, clone_dir_for, run_pr_bridge,
     };
     pub use crate::services::self_fix::import::ImportLimits;
 }
@@ -63,7 +61,41 @@ pub mod self_fix_bridge {
 #[cfg(any(test, feature = "test-support"))]
 pub mod self_fix_merge {
     pub use crate::services::self_fix::bridge::{GitProvider, OpenedDraftPr};
-    pub use crate::services::self_fix::merge_executor::{run_merge_executor, MergeOutcome, MergeRequest};
+    pub use crate::services::self_fix::merge_executor::{MergeOutcome, MergeRequest, run_merge_executor};
+}
+
+/// Test-only driver for the self-fix review surface (milestone 8) so integration
+/// tests can exercise `review_snapshot` / `approve_and_merge` through the REAL
+/// `AppState` service factory (a test AppState has GitHub unconfigured, so the
+/// live CI verdict fails closed to `false`). Returns primitives so the
+/// crate-internal projection types (`SelfFixReview`, `SelfFixMergeResult`) stay
+/// encapsulated. Gated behind `test-support`.
+#[cfg(any(test, feature = "test-support"))]
+pub mod self_fix_review {
+    use crate::health::AppState;
+    use agentforge_core::{AppResult, TenantScope};
+    use uuid::Uuid;
+
+    /// `(pr_number, checks_green, sensitive, review_status)` from a review snapshot.
+    pub async fn review_fields(
+        state: &AppState,
+        scope: &TenantScope,
+        task_id: Uuid,
+    ) -> AppResult<(Option<i32>, bool, bool, Option<String>)> {
+        let review = state.self_fix_service().review_snapshot(scope, task_id).await?;
+        Ok((review.pr_number, review.checks_green, review.sensitive, review.review_status))
+    }
+
+    /// Drive approve→merge; returns `(pr_number, already_merged)` on success.
+    pub async fn approve(
+        state: &AppState,
+        scope: &TenantScope,
+        task_id: Uuid,
+        approver: &str,
+    ) -> AppResult<(i32, bool)> {
+        let result = state.self_fix_service().approve_and_merge(scope, task_id, approver).await?;
+        Ok((result.pr_number, result.already_merged))
+    }
 }
 
 /// 32+ byte secret used only in tests. Fixed so the JWT that the shim creates

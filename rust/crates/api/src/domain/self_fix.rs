@@ -2,15 +2,12 @@
 
 use agentforge_core::{AppError, ErrorKind};
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
+use uuid::Uuid;
 
 /// Glob-prefix directories whose ANY descendant is sensitive.
 #[allow(dead_code)]
-const SENSITIVE_DIR_PREFIXES: &[&str] = &[
-    "rust/crates/auth/",
-    "rust/crates/db/migrations/",
-    ".github/workflows/",
-];
+const SENSITIVE_DIR_PREFIXES: &[&str] = &["rust/crates/auth/", "rust/crates/db/migrations/", ".github/workflows/"];
 
 /// Basenames sensitive wherever they appear.
 #[allow(dead_code)]
@@ -70,6 +67,70 @@ pub(crate) mod review_status {
 #[allow(dead_code)]
 pub(crate) fn self_fix_data_response<T: Serialize>(data: T) -> Value {
     json!({ "ok": true, "data": data })
+}
+
+/// Read-side projection of a self-fix task's PR review state for the in-platform
+/// review surface (milestone 8/9). Pure assembly of the persisted task columns
+/// plus a freshly-read CI-check verdict; carries no secrets and no internal URLs.
+///
+/// `checks_green` and `sensitive` are the two gates the frontend Approve button
+/// keys on: Approve is enabled only when `checks_green && !sensitive`. Both are
+/// computed server-side so a hostile or stale client cannot widen the gate.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SelfFixReview {
+    /// The self-fix task this snapshot describes.
+    pub task_id: Uuid,
+    /// Draft-PR number, once the Bridge has opened one (NULL before then).
+    pub pr_number: Option<i32>,
+    /// Canonical PR URL (the `html_url` GitHub returned).
+    pub pr_url: Option<String>,
+    /// Deep link to the PR's file diff (`<pr_url>/files`), for the reviewer.
+    pub diff_url: Option<String>,
+    /// PR head SHA recorded at open time; the merge gate re-verifies against it.
+    pub head_sha: Option<String>,
+    /// Live CI verdict on `head_sha`. Fails CLOSED: `false` whenever GitHub is
+    /// unconfigured, no head is recorded, or the check read errored.
+    pub checks_green: bool,
+    /// True when the change touched a sensitive path and was hard-blocked from
+    /// in-platform merge at open time (`review_status == sensitive_blocked`).
+    pub sensitive: bool,
+    /// Persisted review-status string (see [`review_status`]).
+    pub review_status: Option<String>,
+}
+
+impl SelfFixReview {
+    /// Pure assembly from a task's persisted PR columns plus a freshly-read CI
+    /// verdict. No I/O — every input is already in hand at the call site so this
+    /// stays unit-testable. `sensitive` is derived from the persisted review
+    /// status; `diff_url` is the PR URL's `/files` deep link when a PR exists.
+    #[allow(dead_code)]
+    pub(crate) fn from_columns(
+        task_id: Uuid,
+        pr_number: Option<i32>,
+        pr_url: Option<String>,
+        head_sha: Option<String>,
+        review_status: Option<String>,
+        checks_green: bool,
+    ) -> Self {
+        let diff_url = pr_url.as_deref().map(|u| format!("{}/files", u.trim_end_matches('/')));
+        let sensitive = review_status.as_deref() == Some(review_status::SENSITIVE_BLOCKED);
+        Self { task_id, pr_number, pr_url, diff_url, head_sha, checks_green, sensitive, review_status }
+    }
+}
+
+/// Wire result of an approve→merge call (milestone 8). Mirrors the service-layer
+/// `MergeOutcome` but is the domain-owned, `Serialize`-derived shape the route
+/// returns, keeping the merge-executor result type out of the HTTP boundary.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SelfFixMergeResult {
+    /// The PR that was merged.
+    pub pr_number: i32,
+    /// The head SHA that was actually merged (the fresh, re-verified head).
+    pub merged_head_sha: String,
+    /// `true` when the PR was already merged before this call (idempotent path).
+    pub already_merged: bool,
 }
 
 #[allow(dead_code)]
@@ -227,5 +288,63 @@ mod tests {
     #[test]
     fn bare_prefix_without_rust_is_not_the_matcher_input_form() {
         assert!(!blocked(&["crates/auth/x.rs"]));
+    }
+
+    // -- SelfFixReview::from_columns (milestone 8 read-side projection) --------
+
+    #[test]
+    fn review_passes_columns_through_and_builds_diff_url() {
+        let task_id = Uuid::new_v4();
+        let review = SelfFixReview::from_columns(
+            task_id,
+            Some(7),
+            Some("https://github.com/o/r/pull/7".to_string()),
+            Some("deadbeef".to_string()),
+            Some(review_status::IN_REVIEW.to_string()),
+            true,
+        );
+        assert_eq!(review.task_id, task_id);
+        assert_eq!(review.pr_number, Some(7));
+        assert_eq!(review.pr_url.as_deref(), Some("https://github.com/o/r/pull/7"));
+        assert_eq!(review.diff_url.as_deref(), Some("https://github.com/o/r/pull/7/files"));
+        assert_eq!(review.head_sha.as_deref(), Some("deadbeef"));
+        assert!(review.checks_green);
+        assert!(!review.sensitive, "in_review is not sensitive");
+        assert_eq!(review.review_status.as_deref(), Some("in_review"));
+    }
+
+    #[test]
+    fn review_sensitive_flag_is_derived_from_blocked_status() {
+        let review = SelfFixReview::from_columns(
+            Uuid::new_v4(),
+            Some(1),
+            Some("https://github.com/o/r/pull/1".to_string()),
+            Some("abc".to_string()),
+            Some(review_status::SENSITIVE_BLOCKED.to_string()),
+            true,
+        );
+        assert!(review.sensitive, "sensitive_blocked must set sensitive = true");
+    }
+
+    #[test]
+    fn review_without_pr_has_no_diff_url() {
+        let review = SelfFixReview::from_columns(Uuid::new_v4(), None, None, None, None, false);
+        assert_eq!(review.pr_url, None);
+        assert_eq!(review.diff_url, None);
+        assert!(!review.checks_green);
+        assert!(!review.sensitive, "absent review status is not sensitive");
+    }
+
+    #[test]
+    fn review_diff_url_does_not_double_slash() {
+        let review = SelfFixReview::from_columns(
+            Uuid::new_v4(),
+            Some(2),
+            Some("https://github.com/o/r/pull/2/".to_string()),
+            None,
+            None,
+            false,
+        );
+        assert_eq!(review.diff_url.as_deref(), Some("https://github.com/o/r/pull/2/files"));
     }
 }

@@ -31,17 +31,17 @@ use std::sync::Arc;
 use agentforge_core::{AgentId, AppResult, TenantScope};
 use uuid::Uuid;
 
-use crate::domain::agent_workspace::{host_path_for_container_cwd, WorkspaceMountScope};
+use crate::domain::agent_workspace::{WorkspaceMountScope, host_path_for_container_cwd};
 use crate::domain::self_fix::review_status::{APPROVED, IN_REVIEW, MERGED, SENSITIVE_BLOCKED};
-use crate::domain::self_fix::SelfFixPolicy;
+use crate::domain::self_fix::{SelfFixMergeResult, SelfFixPolicy, SelfFixReview};
 use crate::repositories::agent::AgentRepository;
 use crate::repositories::orchestration::OrchestrationTaskRepository;
 use crate::services::agent_container_control::AgentContainerControlService;
 use crate::services::agent_workspace::resolve_agent_workspace_paths;
 use crate::services::github_app::GithubAppClient;
-use crate::services::self_fix::bridge::{run_pr_bridge, GitProvider, SelfFixPrOutcome};
+use crate::services::self_fix::bridge::{GitProvider, SelfFixPrOutcome, run_pr_bridge};
 use crate::services::self_fix::import::ImportLimits;
-use crate::services::self_fix::merge_executor::{run_merge_executor, MergeOutcome, MergeRequest};
+use crate::services::self_fix::merge_executor::{MergeRequest, run_merge_executor};
 
 /// Server-side self-fix PR Bridge service.
 ///
@@ -69,14 +69,7 @@ impl SelfFixService {
         workspace_root: String,
         limits: ImportLimits,
     ) -> Self {
-        Self {
-            tasks,
-            agents,
-            container_control,
-            github: github.map(Arc::new),
-            workspace_root,
-            limits,
-        }
+        Self { tasks, agents, container_control, github: github.map(Arc::new), workspace_root, limits }
     }
 
     /// Open a self-fix draft PR for `task_id`.
@@ -137,7 +130,14 @@ impl SelfFixService {
 
         // 11. Persist PR metadata + the selected review status.
         self.tasks
-            .set_pr_metadata(scope, task_id, result.pr.number, &result.pr.html_url, &result.pr.head_sha, result.review_status)
+            .set_pr_metadata(
+                scope,
+                task_id,
+                result.pr.number,
+                &result.pr.html_url,
+                &result.pr.head_sha,
+                result.review_status,
+            )
             .await?;
 
         // 12. Return the outcome.
@@ -169,7 +169,7 @@ impl SelfFixService {
         scope: &TenantScope,
         task_id: Uuid,
         approver_id: &str,
-    ) -> AppResult<MergeOutcome> {
+    ) -> AppResult<SelfFixMergeResult> {
         // 1. Load the task; require self-fix + a configured GitHub App.
         let task = self.tasks.find_by_id(scope, task_id).await?;
         if !task.self_fix {
@@ -189,7 +189,7 @@ impl SelfFixService {
         //    - `in_review`        → transitionally accepted until that route lands.
         match task.review_status.as_deref() {
             Some(MERGED) => {
-                return Ok(MergeOutcome {
+                return Ok(SelfFixMergeResult {
                     pr_number,
                     merged_head_sha: recorded_head_sha.to_string(),
                     already_merged: true,
@@ -216,7 +216,54 @@ impl SelfFixService {
         // 5. Persist MERGED only after a confirmed merge (or idempotent success).
         self.tasks.set_review_status(scope, task_id, MERGED).await?;
 
-        Ok(outcome)
+        // 6. Project the merge-executor result onto the domain-owned wire shape.
+        Ok(SelfFixMergeResult {
+            pr_number: outcome.pr_number,
+            merged_head_sha: outcome.merged_head_sha,
+            already_merged: outcome.already_merged,
+        })
+    }
+
+    /// Read-side review snapshot for the in-platform review surface (milestone 8).
+    ///
+    /// Loads the task (tenant-scoped), requires it is a self-fix task, and
+    /// assembles a [`SelfFixReview`] from its persisted PR columns plus a freshly
+    /// read CI verdict. The CI read FAILS CLOSED: `checks_green` is `false`
+    /// whenever GitHub is unconfigured, no head SHA is recorded, or the check
+    /// fetch errors (logged, not propagated) — so a transient GitHub hiccup can
+    /// never widen the Approve gate, only narrow it. The reviewer can re-fetch.
+    #[allow(dead_code)]
+    pub(crate) async fn review_snapshot(&self, scope: &TenantScope, task_id: Uuid) -> AppResult<SelfFixReview> {
+        let task = self.tasks.find_by_id(scope, task_id).await?;
+        if !task.self_fix {
+            return Err(SelfFixPolicy::not_a_self_fix_task());
+        }
+
+        // Live CI verdict — only when GitHub is configured AND a head is recorded.
+        // Any error degrades to not-green (fail closed) with a warning.
+        let checks_green = match (self.github.as_ref(), task.pr_head_sha.as_deref()) {
+            (Some(github), Some(head_sha)) => match github.all_checks_green(head_sha).await {
+                Ok(green) => green,
+                Err(err) => {
+                    tracing::warn!(
+                        error = ?err,
+                        task_id = %task_id,
+                        "self-fix review: CI check fetch failed; reporting not-green (fail closed)"
+                    );
+                    false
+                }
+            },
+            _ => false,
+        };
+
+        Ok(SelfFixReview::from_columns(
+            task_id,
+            task.pr_number,
+            task.pr_url,
+            task.pr_head_sha,
+            task.review_status,
+            checks_green,
+        ))
     }
 
     /// Map the task's agent to the server-visible host project directory under
