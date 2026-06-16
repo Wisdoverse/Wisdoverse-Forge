@@ -98,7 +98,7 @@ fn test_legacy_bcrypt_hash_verifies_and_needs_upgrade() {
 fn test_legacy_sha256_hash_verifies_and_needs_upgrade() {
     use sha2::{Digest, Sha256};
 
-    let hash = format!("{:x}", Sha256::digest(b"legacy_password"));
+    let hash = hex::encode(Sha256::digest(b"legacy_password"));
     let result = agentforge_auth::password::verify_password_compat("legacy_password", &hash);
     assert!(result.valid);
     assert!(result.needs_upgrade);
