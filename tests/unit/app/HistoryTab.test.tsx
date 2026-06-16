@@ -365,7 +365,10 @@ describe('HistoryTab', () => {
       />
     )
 
-    expect(await screen.findAllByText(/Pause lower-priority work or ask an owner/i)).toHaveLength(2)
+    expect(await screen.findByText('Build Agent needs your answer')).toBeInTheDocument()
+    expect(screen.queryByText(/needs owner input/i)).toBeNull()
+    expect(screen.queryByText(/owner input/i)).toBeNull()
+    expect(screen.getAllByText(/Pause lower-priority work or ask an owner/i)).toHaveLength(2)
     expect(screen.queryByText(/Free capacity/i)).toBeNull()
     expect(screen.queryByText(/quota_exceeded/i)).toBeNull()
     expect(screen.queryByText(/docker socket/i)).toBeNull()

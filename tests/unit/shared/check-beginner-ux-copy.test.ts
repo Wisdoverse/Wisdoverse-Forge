@@ -2864,11 +2864,16 @@ function completionSummary() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags task owner notifications that expose blocked owner-input jargon', () => {
+  it('flags task owner guidance that exposes owner-input jargon', () => {
     const cwd = fixture({
       'src/app/hooks/useWsDispatch.ts': `
 function taskNotificationMessage(actor, detail) {
   return \`\${actor} is blocked and needs owner input: \${detail}\`
+}
+`,
+      'src/app/features/detail/HistoryTab.tsx': `
+function taskStatusSnapshot(agentName) {
+  return \`\${agentName} needs owner input\`
 }
 `,
     })
@@ -2876,19 +2881,30 @@ function taskNotificationMessage(actor, detail) {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'task-owner-blocked-notification-copy',
-        location: 'src/app/hooks/useWsDispatch.ts:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-owner-input-copy',
+          location: 'src/app/hooks/useWsDispatch.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'task-owner-input-copy',
+          location: 'src/app/features/detail/HistoryTab.tsx:3',
+        }),
+      ])
+    )
   })
 
-  it('accepts task owner notifications that ask for the user answer', () => {
+  it('accepts task owner guidance that asks for the user answer', () => {
     const cwd = fixture({
       'src/app/hooks/useWsDispatch.ts': `
 function taskNotificationMessage(actor, detail) {
   return \`\${actor} needs your answer before work can continue: \${detail}\`
+}
+`,
+      'src/app/features/detail/HistoryTab.tsx': `
+function taskStatusSnapshot(agentName) {
+  return \`\${agentName} needs your answer\`
 }
 `,
     })

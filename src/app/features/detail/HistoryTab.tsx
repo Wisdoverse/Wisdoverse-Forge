@@ -361,7 +361,7 @@ function taskCheckIn(task: TaskSummary): {
       }
     case 'blocked':
       return {
-        title: `${agentName} needs owner input`,
+        title: `${agentName} needs your answer`,
         detail: taskBlockedPreview({
           blockedHint: task.blockedHint,
           blockedReason: task.blockedReason,
