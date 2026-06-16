@@ -35,12 +35,10 @@ async fn github_app_client_drives_pr_lifecycle() {
                 .path("/app/installations/1/access_tokens")
                 .header("Accept", "application/vnd.github+json")
                 .header_exists("Authorization");
-            then.status(201)
-                .header("content-type", "application/json")
-                .json_body(serde_json::json!({
-                    "token": "ghs_x",
-                    "expires_at": expires_at,
-                }));
+            then.status(201).header("content-type", "application/json").json_body(serde_json::json!({
+                "token": "ghs_x",
+                "expires_at": expires_at,
+            }));
         })
         .await;
 
@@ -52,23 +50,18 @@ async fn github_app_client_drives_pr_lifecycle() {
                 .header("Accept", "application/vnd.github+json")
                 .header("Authorization", "Bearer ghs_x")
                 .json_body_partial(r#"{ "draft": true }"#);
-            then.status(201)
-                .header("content-type", "application/json")
-                .json_body(serde_json::json!({
-                    "number": 7,
-                    "html_url": "https://github.com/acme/widgets/pull/7",
-                    "node_id": "PR_kw1",
-                    "head": { "sha": "abc" },
-                    "draft": true,
-                }));
+            then.status(201).header("content-type", "application/json").json_body(serde_json::json!({
+                "number": 7,
+                "html_url": "https://github.com/acme/widgets/pull/7",
+                "node_id": "PR_kw1",
+                "head": { "sha": "abc" },
+                "draft": true,
+            }));
         })
         .await;
 
     let c = client(&server.base_url());
-    let pr = c
-        .create_draft_pr("self-fix/x", "main", "title", "body")
-        .await
-        .expect("create draft pr");
+    let pr = c.create_draft_pr("self-fix/x", "main", "title", "body").await.expect("create draft pr");
     assert_eq!(pr.number, 7);
     assert_eq!(pr.html_url, "https://github.com/acme/widgets/pull/7");
     assert_eq!(pr.node_id, "PR_kw1");
@@ -83,41 +76,29 @@ async fn github_app_client_drives_pr_lifecycle() {
     // --- checks: failure conclusion => not green -----------------------------
     let checks_fail = server
         .mock_async(|when, then| {
-            when.method(GET)
-                .path(format!("/repos/{REPO}/commits/abc/check-runs"));
-            then.status(200)
-                .header("content-type", "application/json")
-                .json_body(serde_json::json!({
-                    "check_runs": [ { "status": "completed", "conclusion": "failure" } ]
-                }));
+            when.method(GET).path(format!("/repos/{REPO}/commits/abc/check-runs"));
+            then.status(200).header("content-type", "application/json").json_body(serde_json::json!({
+                "check_runs": [ { "status": "completed", "conclusion": "failure" } ]
+            }));
         })
         .await;
-    assert!(
-        !c.all_checks_green("abc").await.expect("checks call"),
-        "a failure conclusion must not be green"
-    );
+    assert!(!c.all_checks_green("abc").await.expect("checks call"), "a failure conclusion must not be green");
     checks_fail.assert_async().await;
     checks_fail.delete_async().await;
 
     // --- checks: all success => green ----------------------------------------
     let checks_ok = server
         .mock_async(|when, then| {
-            when.method(GET)
-                .path(format!("/repos/{REPO}/commits/abc/check-runs"));
-            then.status(200)
-                .header("content-type", "application/json")
-                .json_body(serde_json::json!({
-                    "check_runs": [
-                        { "status": "completed", "conclusion": "success" },
-                        { "status": "completed", "conclusion": "success" }
-                    ]
-                }));
+            when.method(GET).path(format!("/repos/{REPO}/commits/abc/check-runs"));
+            then.status(200).header("content-type", "application/json").json_body(serde_json::json!({
+                "check_runs": [
+                    { "status": "completed", "conclusion": "success" },
+                    { "status": "completed", "conclusion": "success" }
+                ]
+            }));
         })
         .await;
-    assert!(
-        c.all_checks_green("abc").await.expect("checks call"),
-        "all-success runs must be green"
-    );
+    assert!(c.all_checks_green("abc").await.expect("checks call"), "all-success runs must be green");
     checks_ok.assert_async().await;
     checks_ok.delete_async().await;
 
@@ -130,9 +111,7 @@ async fn github_app_client_drives_pr_lifecycle() {
     let page2_fail_url = format!("{}/checks-page-2-fail", server.base_url());
     let checks_pg1_fail = server
         .mock_async(|when, then| {
-            when.method(GET)
-                .path(format!("/repos/{REPO}/commits/abc/check-runs"))
-                .query_param("per_page", "100");
+            when.method(GET).path(format!("/repos/{REPO}/commits/abc/check-runs")).query_param("per_page", "100");
             then.status(200)
                 .header("content-type", "application/json")
                 .header("Link", format!("<{page2_fail_url}>; rel=\"next\""))
@@ -145,18 +124,13 @@ async fn github_app_client_drives_pr_lifecycle() {
     let checks_pg2_fail = server
         .mock_async(|when, then| {
             when.method(GET).path("/checks-page-2-fail");
-            then.status(200)
-                .header("content-type", "application/json")
-                .json_body(serde_json::json!({
-                    "total_count": 2,
-                    "check_runs": [ { "status": "completed", "conclusion": "failure" } ]
-                }));
+            then.status(200).header("content-type", "application/json").json_body(serde_json::json!({
+                "total_count": 2,
+                "check_runs": [ { "status": "completed", "conclusion": "failure" } ]
+            }));
         })
         .await;
-    assert!(
-        !c.all_checks_green("abc").await.expect("paginated checks call"),
-        "a failure on page 2 must NOT be green"
-    );
+    assert!(!c.all_checks_green("abc").await.expect("paginated checks call"), "a failure on page 2 must NOT be green");
     checks_pg1_fail.assert_async().await;
     checks_pg2_fail.assert_async().await;
     checks_pg1_fail.delete_async().await;
@@ -166,9 +140,7 @@ async fn github_app_client_drives_pr_lifecycle() {
     let page2_ok_url = format!("{}/checks-page-2-ok", server.base_url());
     let checks_pg1_ok = server
         .mock_async(|when, then| {
-            when.method(GET)
-                .path(format!("/repos/{REPO}/commits/abc/check-runs"))
-                .query_param("per_page", "100");
+            when.method(GET).path(format!("/repos/{REPO}/commits/abc/check-runs")).query_param("per_page", "100");
             then.status(200)
                 .header("content-type", "application/json")
                 .header("Link", format!("<{page2_ok_url}>; rel=\"next\""))
@@ -181,12 +153,10 @@ async fn github_app_client_drives_pr_lifecycle() {
     let checks_pg2_ok = server
         .mock_async(|when, then| {
             when.method(GET).path("/checks-page-2-ok");
-            then.status(200)
-                .header("content-type", "application/json")
-                .json_body(serde_json::json!({
-                    "total_count": 2,
-                    "check_runs": [ { "status": "completed", "conclusion": "success" } ]
-                }));
+            then.status(200).header("content-type", "application/json").json_body(serde_json::json!({
+                "total_count": 2,
+                "check_runs": [ { "status": "completed", "conclusion": "success" } ]
+            }));
         })
         .await;
     assert!(
@@ -201,15 +171,11 @@ async fn github_app_client_drives_pr_lifecycle() {
     // --- create_draft_pr: 422 (PR exists) => reuse existing open PR ----------
     let create_422 = server
         .mock_async(|when, then| {
-            when.method(POST)
-                .path(format!("/repos/{REPO}/pulls"))
-                .json_body_partial(r#"{ "head": "agent/retry" }"#);
-            then.status(422)
-                .header("content-type", "application/json")
-                .json_body(serde_json::json!({
-                    "message": "Validation Failed",
-                    "errors": [ { "message": "A pull request already exists for acme:agent/retry." } ]
-                }));
+            when.method(POST).path(format!("/repos/{REPO}/pulls")).json_body_partial(r#"{ "head": "agent/retry" }"#);
+            then.status(422).header("content-type", "application/json").json_body(serde_json::json!({
+                "message": "Validation Failed",
+                "errors": [ { "message": "A pull request already exists for acme:agent/retry." } ]
+            }));
         })
         .await;
     let list_existing = server
@@ -218,23 +184,19 @@ async fn github_app_client_drives_pr_lifecycle() {
                 .path(format!("/repos/{REPO}/pulls"))
                 .query_param("head", "acme:agent/retry")
                 .query_param("state", "open");
-            then.status(200)
-                .header("content-type", "application/json")
-                .json_body(serde_json::json!([
-                    {
-                        "number": 99,
-                        "html_url": "https://github.com/acme/widgets/pull/99",
-                        "node_id": "PR_existing",
-                        "head": { "sha": "deadbeef" },
-                        "draft": true,
-                    }
-                ]));
+            then.status(200).header("content-type", "application/json").json_body(serde_json::json!([
+                {
+                    "number": 99,
+                    "html_url": "https://github.com/acme/widgets/pull/99",
+                    "node_id": "PR_existing",
+                    "head": { "sha": "deadbeef" },
+                    "draft": true,
+                }
+            ]));
         })
         .await;
-    let reused = c
-        .create_draft_pr("agent/retry", "main", "title", "body")
-        .await
-        .expect("422 must recover the existing open PR");
+    let reused =
+        c.create_draft_pr("agent/retry", "main", "title", "body").await.expect("422 must recover the existing open PR");
     assert_eq!(reused.number, 99, "must return the existing PR number");
     assert_eq!(reused.html_url, "https://github.com/acme/widgets/pull/99");
     assert_eq!(reused.head.sha, "deadbeef");
@@ -246,25 +208,16 @@ async fn github_app_client_drives_pr_lifecycle() {
     // --- merge: 409 head moved => head-moved conflict ------------------------
     let merge_409 = server
         .mock_async(|when, then| {
-            when.method(PUT)
-                .path(format!("/repos/{REPO}/pulls/7/merge"))
-                .json_body_partial(r#"{ "sha": "abc" }"#);
+            when.method(PUT).path(format!("/repos/{REPO}/pulls/7/merge")).json_body_partial(r#"{ "sha": "abc" }"#);
             then.status(409)
                 .header("content-type", "application/json")
                 .json_body(serde_json::json!({ "message": "Head branch was modified." }));
         })
         .await;
-    let err = c
-        .merge_with_expected_head(7, "abc")
-        .await
-        .expect_err("409 must be an error");
+    let err = c.merge_with_expected_head(7, "abc").await.expect_err("409 must be an error");
     // The head-moved guard maps to a 409 CONFLICT HTTP response.
     use axum::response::IntoResponse;
     let status = err.into_response().status();
-    assert_eq!(
-        status,
-        axum::http::StatusCode::CONFLICT,
-        "409 must map to the head-moved conflict"
-    );
+    assert_eq!(status, axum::http::StatusCode::CONFLICT, "409 must map to the head-moved conflict");
     merge_409.assert_async().await;
 }

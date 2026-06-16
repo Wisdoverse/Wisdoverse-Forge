@@ -22,7 +22,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use agentforge_api::testing::self_fix_bridge::{run_pr_bridge, GitProvider, ImportLimits, OpenedDraftPr};
+use agentforge_api::testing::self_fix_bridge::{GitProvider, ImportLimits, OpenedDraftPr, run_pr_bridge};
 use agentforge_core::AppResult;
 use uuid::Uuid;
 
@@ -450,7 +450,7 @@ async fn retry_with_different_commit_succeeds_via_force_push() {
     let provider2 = FakeGitProvider::new(origin.clone(), base_sha.clone());
     let result2 = run_pr_bridge(
         &provider2,
-        task_id,       // same task → same branch name
+        task_id, // same task → same branch name
         &base_sha,
         &ws,
         "self-fix: second run (retry)",

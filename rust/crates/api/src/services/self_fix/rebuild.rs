@@ -24,7 +24,7 @@ use std::time::Duration;
 
 use tokio::process::Command;
 
-use crate::services::self_fix::import::{check_caps, classify_entry, ImportLimits, ImportReject};
+use crate::services::self_fix::import::{ImportLimits, ImportReject, check_caps, classify_entry};
 
 /// Directory names we never descend into while mirroring the agent's workspace.
 /// These are build artifacts / dependency trees / VCS metadata that are either
@@ -133,11 +133,9 @@ pub async fn rebuild_branch(
     }
 
     // 7. Aggregate caps.
-    let deleted = run_git(
-        clone_dir,
-        &["-c", "core.hooksPath=/dev/null", "diff", "--cached", "--diff-filter=D", "--name-only"],
-    )
-    .await?;
+    let deleted =
+        run_git(clone_dir, &["-c", "core.hooksPath=/dev/null", "diff", "--cached", "--diff-filter=D", "--name-only"])
+            .await?;
     let deletions = String::from_utf8_lossy(&deleted.stdout).lines().filter(|l| !l.is_empty()).count();
     check_caps(changed_files.len(), deletions, limits)?;
 
@@ -188,7 +186,8 @@ fn mirror_workspace(
     let mut stack: Vec<PathBuf> = vec![src_root.to_path_buf()];
 
     while let Some(dir) = stack.pop() {
-        let entries = std::fs::read_dir(&dir).map_err(|e| RebuildError::Io(format!("read_dir {}: {e}", dir.display())))?;
+        let entries =
+            std::fs::read_dir(&dir).map_err(|e| RebuildError::Io(format!("read_dir {}: {e}", dir.display())))?;
 
         for entry in entries {
             let entry = entry.map_err(|e| RebuildError::Io(format!("dir entry under {}: {e}", dir.display())))?;
@@ -289,10 +288,7 @@ fn reject_unsafe_modes(raw: &str) -> Result<(), RebuildError> {
 
 /// Forward-slash a relative path for stable, platform-independent rel keys.
 fn to_forward_slashed(rel: &Path) -> String {
-    rel.components()
-        .filter_map(|c| c.as_os_str().to_str())
-        .collect::<Vec<_>>()
-        .join("/")
+    rel.components().filter_map(|c| c.as_os_str().to_str()).collect::<Vec<_>>().join("/")
 }
 
 /// Run `git` in `dir` with strict environment hardening and a wall-clock timeout.

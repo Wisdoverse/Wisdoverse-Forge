@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use agentforge_api::testing::self_fix_rebuild::{
-    rebuild_branch, ImportLimits, ImportReject, RebuildError, RebuildOutcome,
+    ImportLimits, ImportReject, RebuildError, RebuildOutcome, rebuild_branch,
 };
 use uuid::Uuid;
 
@@ -57,12 +57,7 @@ fn git(dir: &Path, args: &[&str]) -> String {
         .env("GIT_CONFIG_NOSYSTEM", "1")
         .output()
         .expect("spawn git");
-    assert!(
-        out.status.success(),
-        "git {:?} failed: {}",
-        args,
-        String::from_utf8_lossy(&out.stderr)
-    );
+    assert!(out.status.success(), "git {:?} failed: {}", args, String::from_utf8_lossy(&out.stderr));
     String::from_utf8_lossy(&out.stdout).trim().to_string()
 }
 
@@ -85,19 +80,7 @@ fn setup_origin_and_clone(root: &TempRoot) -> (PathBuf, PathBuf, String) {
     write_file(&origin.join("keep.txt"), "keep");
     write_file(&origin.join(".gitignore"), "ignored/\n");
     git(&origin, &["add", "-A"]);
-    git(
-        &origin,
-        &[
-            "-c",
-            "user.name=Origin",
-            "-c",
-            "user.email=origin@example.com",
-            "commit",
-            "-q",
-            "-m",
-            "base",
-        ],
-    );
+    git(&origin, &["-c", "user.name=Origin", "-c", "user.email=origin@example.com", "commit", "-q", "-m", "base"]);
     let base_sha = git(&origin, &["rev-parse", "HEAD"]);
 
     let clone = root.join("clone");
@@ -232,10 +215,7 @@ async fn test_b_clean_rebuild_diff_no_symlink_or_gitlink() {
 
     // The ignored file must not be tracked at HEAD at all.
     let tracked = git(&clone, &["ls-tree", "-r", "--name-only", "HEAD"]);
-    assert!(
-        !tracked.lines().any(|l| l == "ignored/junk.bin"),
-        "ignored/junk.bin must not be tracked, got:\n{tracked}"
-    );
+    assert!(!tracked.lines().any(|l| l == "ignored/junk.bin"), "ignored/junk.bin must not be tracked, got:\n{tracked}");
 
     // changed_files (from --cached --name-only) covers the three changed paths.
     let mut cf = outcome.changed_files.clone();
@@ -310,16 +290,7 @@ async fn test_e_fifo_is_hard_rejected_and_does_not_hang() {
     // Bound the whole call: a regression (a hang) trips the timeout and FAILS
     // the test loudly rather than wedging the suite forever.
     let limits = ImportLimits::default();
-    let call = rebuild_branch(
-        &clone,
-        &base_sha,
-        &ws,
-        "agent/fifo",
-        "msg",
-        "Self-Fix Bot",
-        "bot@example.com",
-        &limits,
-    );
+    let call = rebuild_branch(&clone, &base_sha, &ws, "agent/fifo", "msg", "Self-Fix Bot", "bot@example.com", &limits);
     let result = tokio::time::timeout(std::time::Duration::from_secs(20), call)
         .await
         .expect("rebuild_branch must NOT hang on a FIFO — it must reject quickly");
@@ -347,19 +318,7 @@ async fn test_d_non_ascii_filename_deletion_is_captured() {
     write_file(&origin.join(".gitignore"), "ignored/\n");
     write_file(&origin.join("café.txt"), "café content");
     git(&origin, &["add", "-A"]);
-    git(
-        &origin,
-        &[
-            "-c",
-            "user.name=Origin",
-            "-c",
-            "user.email=origin@example.com",
-            "commit",
-            "-q",
-            "-m",
-            "base",
-        ],
-    );
+    git(&origin, &["-c", "user.name=Origin", "-c", "user.email=origin@example.com", "commit", "-q", "-m", "base"]);
     let base_sha = git(&origin, &["rev-parse", "HEAD"]);
 
     let clone = root.join("clone");
@@ -403,10 +362,7 @@ async fn test_d_non_ascii_filename_deletion_is_captured() {
         }
         let status = fields[4];
         if path == "café.txt" {
-            assert!(
-                status.starts_with('D'),
-                "café.txt should be deleted but got status {status} in: {line}"
-            );
+            assert!(status.starts_with('D'), "café.txt should be deleted but got status {status} in: {line}");
             saw_cafe_deleted = true;
         }
         if path == "a.txt" {
@@ -414,10 +370,7 @@ async fn test_d_non_ascii_filename_deletion_is_captured() {
             saw_a_modified = true;
         }
     }
-    assert!(
-        saw_cafe_deleted,
-        "café.txt deletion missing from commit diff-tree output:\n{raw}"
-    );
+    assert!(saw_cafe_deleted, "café.txt deletion missing from commit diff-tree output:\n{raw}");
     assert!(saw_a_modified, "a.txt modification missing from commit diff-tree output:\n{raw}");
 
     // The outcome head must advance past base (a real commit was produced).

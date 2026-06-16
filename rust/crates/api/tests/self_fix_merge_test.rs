@@ -14,7 +14,7 @@
 
 use std::sync::Mutex;
 
-use agentforge_api::testing::self_fix_merge::{run_merge_executor, GitProvider, MergeRequest, OpenedDraftPr};
+use agentforge_api::testing::self_fix_merge::{GitProvider, MergeRequest, OpenedDraftPr, run_merge_executor};
 use agentforge_core::{AppResult, ErrorKind};
 
 /// In-memory GitHub stand-in. Models the minimum the Merge Executor reads/writes:
@@ -238,11 +238,7 @@ impl GitProvider for HeadAdvancingFake {
     }
     async fn pr_head_sha(&self, _pr_number: i32) -> AppResult<String> {
         // Before the ready-flip: the original (reviewed) head. After: advanced.
-        if *self.ready.lock().unwrap() == 0 {
-            Ok(self.first_head.clone())
-        } else {
-            Ok(self.advanced_head.clone())
-        }
+        if *self.ready.lock().unwrap() == 0 { Ok(self.first_head.clone()) } else { Ok(self.advanced_head.clone()) }
     }
     async fn pr_is_merged(&self, _pr_number: i32) -> AppResult<bool> {
         Ok(false)
@@ -281,7 +277,8 @@ async fn sensitive_pr_already_merged_still_refuses() {
     fake.set_green("headsha", true);
     let req = MergeRequest { pr_number: PR, recorded_head_sha: "headsha", sensitive: true };
 
-    let err = run_merge_executor(&fake, &req, "audit").await.expect_err("sensitive must refuse even when already-merged");
+    let err =
+        run_merge_executor(&fake, &req, "audit").await.expect_err("sensitive must refuse even when already-merged");
     assert!(
         matches!(err.kind, ErrorKind::ForbiddenWithCode { code, .. } if code == "errors.self_fix.sensitive_path_blocked"),
         "must return the sensitive_path_blocked error, not a success/already_merged outcome"

@@ -4,7 +4,7 @@
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use agentforge_core::{AppError, AppResult, ErrorKind};
+use agentforge_core::{AppError, AppResult};
 use serde::Deserialize;
 
 #[derive(Debug, Clone)]
@@ -35,11 +35,7 @@ pub fn build_app_jwt(
         iss: app_id.to_string(),
     };
     let key = jsonwebtoken::EncodingKey::from_rsa_pem(private_key_pem.as_bytes())?;
-    jsonwebtoken::encode(
-        &jsonwebtoken::Header::new(jsonwebtoken::Algorithm::RS256),
-        &claims,
-        &key,
-    )
+    jsonwebtoken::encode(&jsonwebtoken::Header::new(jsonwebtoken::Algorithm::RS256), &claims, &key)
 }
 
 #[derive(Clone)]
@@ -104,10 +100,7 @@ impl GithubAppClient {
     }
 
     fn now_unix() -> u64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs()
+        SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
     }
 
     /// Reads `GITHUB_API_BASE` so tests can point at a mock server; in
@@ -129,19 +122,12 @@ impl GithubAppClient {
         }
 
         let endpoint = "POST /app/installations/{id}/access_tokens";
-        let jwt = build_app_jwt(&self.cfg.app_id, &self.cfg.private_key_pem, Self::now_unix())
-            .map_err(|_| {
-                // The error type can carry key material context; do not surface it.
-                AppError::from(ErrorKind::Unavailable(
-                    "github: failed to sign app JWT".into(),
-                ))
-            })?;
+        let jwt = build_app_jwt(&self.cfg.app_id, &self.cfg.private_key_pem, Self::now_unix()).map_err(|_| {
+            // The error type can carry key material context; do not surface it.
+            crate::domain::github_app::sign_jwt_failed()
+        })?;
 
-        let url = format!(
-            "{}/app/installations/{}/access_tokens",
-            Self::api_base(),
-            self.cfg.installation_id
-        );
+        let url = format!("{}/app/installations/{}/access_tokens", Self::api_base(), self.cfg.installation_id);
         let resp = self
             .http
             .post(url)
@@ -163,20 +149,13 @@ impl GithubAppClient {
 
         {
             let mut guard = self.cache.lock().await;
-            *guard = Some(CachedToken {
-                token: parsed.token.clone(),
-                expires_at_unix,
-            });
+            *guard = Some(CachedToken { token: parsed.token.clone(), expires_at_unix });
         }
         Ok(parsed.token)
     }
 
     /// Build a request carrying the installation token + standard headers.
-    async fn authed(
-        &self,
-        method: reqwest::Method,
-        url: String,
-    ) -> AppResult<reqwest::RequestBuilder> {
+    async fn authed(&self, method: reqwest::Method, url: String) -> AppResult<reqwest::RequestBuilder> {
         let token = self.installation_token().await?;
         Ok(self
             .http
@@ -200,12 +179,7 @@ impl GithubAppClient {
     pub async fn default_branch_sha(&self) -> AppResult<String> {
         let endpoint = "GET /repos/{repo}/git/ref/heads/main";
         let url = format!("{}/repos/{}/git/ref/heads/main", Self::api_base(), self.cfg.repo);
-        let resp = self
-            .authed(reqwest::Method::GET, url)
-            .await?
-            .send()
-            .await
-            .map_err(|_| unavailable(endpoint))?;
+        let resp = self.authed(reqwest::Method::GET, url).await?.send().await.map_err(|_| unavailable(endpoint))?;
 
         if !resp.status().is_success() {
             return Err(unavailable_status(resp.status(), endpoint));
@@ -244,13 +218,7 @@ impl GithubAppClient {
         let resp = self
             .authed(reqwest::Method::POST, url)
             .await?
-            .json(&serde_json::json!({
-                "title": title,
-                "body": body,
-                "head": head_branch,
-                "base": base,
-                "draft": true,
-            }))
+            .json(&crate::domain::github_app::create_pull_request_body(title, body, head_branch, base))
             .send()
             .await
             .map_err(|_| unavailable(endpoint))?;
@@ -283,12 +251,7 @@ impl GithubAppClient {
             owner,
             head_branch
         );
-        let resp = self
-            .authed(reqwest::Method::GET, url)
-            .await?
-            .send()
-            .await
-            .map_err(|_| unavailable(endpoint))?;
+        let resp = self.authed(reqwest::Method::GET, url).await?.send().await.map_err(|_| unavailable(endpoint))?;
 
         if !resp.status().is_success() {
             return Err(unavailable_status(resp.status(), endpoint));
@@ -310,12 +273,8 @@ impl GithubAppClient {
     #[allow(dead_code)]
     pub async fn all_checks_green(&self, head_sha: &str) -> AppResult<bool> {
         let endpoint = "GET /repos/{repo}/commits/{sha}/check-runs";
-        let mut next_url = Some(format!(
-            "{}/repos/{}/commits/{}/check-runs?per_page=100",
-            Self::api_base(),
-            self.cfg.repo,
-            head_sha
-        ));
+        let mut next_url =
+            Some(format!("{}/repos/{}/commits/{}/check-runs?per_page=100", Self::api_base(), self.cfg.repo, head_sha));
 
         // Number of runs actually observed across all pages. We count the runs
         // we see rather than trusting a `total_count` field (a partial response
@@ -324,23 +283,15 @@ impl GithubAppClient {
         let mut all_success = true;
 
         while let Some(url) = next_url.take() {
-            let resp = self
-                .authed(reqwest::Method::GET, url)
-                .await?
-                .send()
-                .await
-                .map_err(|_| unavailable(endpoint))?;
+            let resp = self.authed(reqwest::Method::GET, url).await?.send().await.map_err(|_| unavailable(endpoint))?;
 
             if !resp.status().is_success() {
                 return Err(unavailable_status(resp.status(), endpoint));
             }
 
             // Capture the `Link` header before consuming the body for JSON.
-            let link_next = resp
-                .headers()
-                .get(reqwest::header::LINK)
-                .and_then(|v| v.to_str().ok())
-                .and_then(parse_link_next);
+            let link_next =
+                resp.headers().get(reqwest::header::LINK).and_then(|v| v.to_str().ok()).and_then(parse_link_next);
 
             #[derive(Deserialize)]
             struct CheckRunsResp {
@@ -391,25 +342,13 @@ impl GithubAppClient {
     /// Fetch a PR object (used for `head.sha` and `node_id`).
     async fn fetch_pull_request(&self, pr_number: i32) -> AppResult<PullRequest> {
         let endpoint = "GET /repos/{repo}/pulls/{number}";
-        let url = format!(
-            "{}/repos/{}/pulls/{}",
-            Self::api_base(),
-            self.cfg.repo,
-            pr_number
-        );
-        let resp = self
-            .authed(reqwest::Method::GET, url)
-            .await?
-            .send()
-            .await
-            .map_err(|_| unavailable(endpoint))?;
+        let url = format!("{}/repos/{}/pulls/{}", Self::api_base(), self.cfg.repo, pr_number);
+        let resp = self.authed(reqwest::Method::GET, url).await?.send().await.map_err(|_| unavailable(endpoint))?;
 
         if !resp.status().is_success() {
             return Err(unavailable_status(resp.status(), endpoint));
         }
-        resp.json::<PullRequest>()
-            .await
-            .map_err(|_| unavailable(endpoint))
+        resp.json::<PullRequest>().await.map_err(|_| unavailable(endpoint))
     }
 
     /// Flip a draft PR to ready-for-review. GitHub exposes no REST verb for
@@ -423,10 +362,7 @@ impl GithubAppClient {
         let resp = self
             .authed(reqwest::Method::POST, url)
             .await?
-            .json(&serde_json::json!({
-                "query": "mutation($id:ID!){markPullRequestReadyForReview(input:{pullRequestId:$id}){pullRequest{isDraft}}}",
-                "variables": { "id": node_id },
-            }))
+            .json(&crate::domain::github_app::mark_ready_mutation_body(&node_id))
             .send()
             .await
             .map_err(|_| unavailable(endpoint))?;
@@ -444,9 +380,7 @@ impl GithubAppClient {
             && !errors.is_empty()
         {
             let all_already_ready = errors.iter().all(|e| {
-                e.get("message")
-                    .and_then(|m| m.as_str())
-                    .is_some_and(|msg| msg.contains("not in the draft state"))
+                e.get("message").and_then(|m| m.as_str()).is_some_and(|msg| msg.contains("not in the draft state"))
             });
             if !all_already_ready {
                 return Err(unavailable(endpoint));
@@ -462,25 +396,13 @@ impl GithubAppClient {
     /// conflict so the caller re-reviews. 405 means not mergeable (e.g. still a
     /// draft or branch protection blocked).
     #[allow(dead_code)]
-    pub async fn merge_with_expected_head(
-        &self,
-        pr_number: i32,
-        expected_head: &str,
-    ) -> AppResult<()> {
+    pub async fn merge_with_expected_head(&self, pr_number: i32, expected_head: &str) -> AppResult<()> {
         let endpoint = "PUT /repos/{repo}/pulls/{number}/merge";
-        let url = format!(
-            "{}/repos/{}/pulls/{}/merge",
-            Self::api_base(),
-            self.cfg.repo,
-            pr_number
-        );
+        let url = format!("{}/repos/{}/pulls/{}/merge", Self::api_base(), self.cfg.repo, pr_number);
         let resp = self
             .authed(reqwest::Method::PUT, url)
             .await?
-            .json(&serde_json::json!({
-                "sha": expected_head,
-                "merge_method": "squash",
-            }))
+            .json(&crate::domain::github_app::merge_squash_body(expected_head))
             .send()
             .await
             .map_err(|_| unavailable(endpoint))?;
@@ -491,7 +413,7 @@ impl GithubAppClient {
         }
         match status.as_u16() {
             409 => Err(crate::domain::self_fix::SelfFixPolicy::head_moved()),
-            405 => Err(ErrorKind::Conflict("pull request not mergeable".into()).into()),
+            405 => Err(crate::domain::github_app::not_mergeable()),
             _ => Err(unavailable_status(status, endpoint)),
         }
     }
@@ -500,16 +422,11 @@ impl GithubAppClient {
     #[allow(dead_code)]
     pub async fn comment(&self, pr_number: i32, body: &str) -> AppResult<()> {
         let endpoint = "POST /repos/{repo}/issues/{number}/comments";
-        let url = format!(
-            "{}/repos/{}/issues/{}/comments",
-            Self::api_base(),
-            self.cfg.repo,
-            pr_number
-        );
+        let url = format!("{}/repos/{}/issues/{}/comments", Self::api_base(), self.cfg.repo, pr_number);
         let resp = self
             .authed(reqwest::Method::POST, url)
             .await?
-            .json(&serde_json::json!({ "body": body }))
+            .json(&crate::domain::github_app::comment_body(body))
             .send()
             .await
             .map_err(|_| unavailable(endpoint))?;
@@ -546,14 +463,16 @@ fn parse_link_next(link_header: &str) -> Option<String> {
 
 /// Map a transport failure to a typed error WITHOUT leaking any token, header,
 /// or response body. `endpoint_label` is a static route shape, never user data.
+/// The `ErrorKind` policy lives in `domain::github_app` (DDD boundary); this is
+/// a thin call-site convenience so the many fallible sites read cleanly.
 fn unavailable(endpoint_label: &str) -> AppError {
-    ErrorKind::Unavailable(format!("github: request failed: {endpoint_label}")).into()
+    crate::domain::github_app::request_failed(endpoint_label)
 }
 
 /// Map a non-2xx status to a typed error. Only the numeric status and the
 /// static endpoint label are included — never the response body or headers.
 fn unavailable_status(status: reqwest::StatusCode, endpoint_label: &str) -> AppError {
-    ErrorKind::Unavailable(format!("github {}: {}", status.as_u16(), endpoint_label)).into()
+    crate::domain::github_app::status_failed(status.as_u16(), endpoint_label)
 }
 
 /// Build a `GithubAppClient` from the four `github_app_*` config fields.
@@ -569,12 +488,7 @@ pub(crate) fn build_github_app_client(config: &agentforge_core::AppConfig) -> Op
     let repo = config.github_app_repo.clone()?;
     let raw = config.github_app_private_key.as_ref()?.expose_secret().to_string();
     let private_key_pem = decode_private_key_pem(&raw)?;
-    Some(GithubAppClient::new(GithubAppConfig {
-        app_id,
-        installation_id,
-        private_key_pem,
-        repo,
-    }))
+    Some(GithubAppClient::new(GithubAppConfig { app_id, installation_id, private_key_pem, repo }))
 }
 
 /// Decode the private key from config. Accepts two forms:
@@ -611,11 +525,9 @@ mod tests {
         // with signature validation disabled. Base64url-decoding the payload
         // verifies the *claim contents*, which is all this test asserts.
         let payload_b64 = token.split('.').nth(1).expect("jwt payload segment");
-        let payload_bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
-            .decode(payload_b64)
-            .expect("base64url payload");
-        let claims: serde_json::Value =
-            serde_json::from_slice(&payload_bytes).expect("claims json");
+        let payload_bytes =
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(payload_b64).expect("base64url payload");
+        let claims: serde_json::Value = serde_json::from_slice(&payload_bytes).expect("claims json");
 
         assert_eq!(claims["iss"], "12345");
         assert_eq!(claims["iat"].as_u64().unwrap(), now - 60);
@@ -637,10 +549,8 @@ mod tests {
         });
         {
             let mut guard = client.cache.lock().await;
-            *guard = Some(CachedToken {
-                token: "ghs_cached".into(),
-                expires_at_unix: GithubAppClient::now_unix() + 3600,
-            });
+            *guard =
+                Some(CachedToken { token: "ghs_cached".into(), expires_at_unix: GithubAppClient::now_unix() + 3600 });
         }
         let token = client.installation_token().await.expect("cached token");
         assert_eq!(token, "ghs_cached");

@@ -21,7 +21,7 @@ use uuid::Uuid;
 use crate::domain::self_fix::review_status::{IN_REVIEW, SENSITIVE_BLOCKED};
 use crate::domain::self_fix::{SelfFixPolicy, SensitivePathPolicy};
 use crate::services::self_fix::import::{ImportLimits, ImportReject};
-use crate::services::self_fix::rebuild::{rebuild_branch, RebuildError};
+use crate::services::self_fix::rebuild::{RebuildError, rebuild_branch};
 
 /// Default ephemeral work-dir root for server-owned clones. One subdir per task.
 const DEFAULT_WORK_DIR: &str = "/tmp/agentforge-selffix";
@@ -71,13 +71,8 @@ pub trait GitProvider: Send + Sync {
     /// NEVER logged.
     async fn authed_remote_url(&self) -> AppResult<String>;
     /// Open a draft PR from `head_branch` into `base`.
-    async fn create_draft_pr(
-        &self,
-        head_branch: &str,
-        base: &str,
-        title: &str,
-        body: &str,
-    ) -> AppResult<OpenedDraftPr>;
+    async fn create_draft_pr(&self, head_branch: &str, base: &str, title: &str, body: &str)
+    -> AppResult<OpenedDraftPr>;
 
     // --- Merge Executor (milestone 7) operations ---
 
@@ -317,12 +312,8 @@ pub async fn run_pr_bridge<G: GitProvider + ?Sized>(
     //    plain push after a partial-success retry would be rejected non-fast-forward.
     //    `agent/<task-id>` is exclusively owned by this bridge for this task, so
     //    replacing it is correct and intended.
-    run_git_secret(
-        Some(&clone_dir),
-        &["-c", "core.hooksPath=/dev/null", "push", "--force", "origin", &branch],
-        "push",
-    )
-    .await?;
+    run_git_secret(Some(&clone_dir), &["-c", "core.hooksPath=/dev/null", "push", "--force", "origin", &branch], "push")
+        .await?;
 
     // 6. Open the draft PR.
     let pr = provider.create_draft_pr(&branch, BASE_BRANCH, pr_title, pr_body).await?;

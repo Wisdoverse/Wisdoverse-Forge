@@ -175,7 +175,9 @@ mod gate_tests {
         // Order guarantee: sensitive is evaluated before checks/head, so a
         // sensitive change with red CI and a moved head still reports SENSITIVE.
         let err = MergeGate::evaluate(true, false, false).expect_err("sensitive must refuse first");
-        assert!(matches!(err.kind, ErrorKind::ForbiddenWithCode { code, .. } if code == "errors.self_fix.sensitive_path_blocked"));
+        assert!(
+            matches!(err.kind, ErrorKind::ForbiddenWithCode { code, .. } if code == "errors.self_fix.sensitive_path_blocked")
+        );
     }
 
     #[test]
@@ -190,9 +192,6 @@ mod gate_tests {
     #[test]
     fn moved_head_refuses() {
         let err = MergeGate::evaluate(false, true, false).expect_err("moved head must refuse");
-        assert!(
-            matches!(err.kind, ErrorKind::Conflict(_)),
-            "moved head must map to the head-moved conflict"
-        );
+        assert!(matches!(err.kind, ErrorKind::Conflict(_)), "moved head must map to the head-moved conflict");
     }
 }

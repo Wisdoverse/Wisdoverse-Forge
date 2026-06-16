@@ -23,6 +23,7 @@ pub(crate) mod dev_environment;
 pub(crate) mod email;
 pub(crate) mod evidence_projection;
 pub(crate) mod gateway;
+pub(crate) mod github_app;
 pub(crate) mod inbox;
 pub(crate) mod license;
 pub(crate) mod mcp;
