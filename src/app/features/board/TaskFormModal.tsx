@@ -785,6 +785,7 @@ function normalizeAgentStatus(status: string): string {
 
 function taskBriefCues(title: string, description: string): TaskBriefCue[] {
   const normalizedTitle = title.trim()
+  const hasPersonalizedTitle = normalizedTitle.length > 0 && !isTemplateTaskTitle(normalizedTitle)
   const contentText = meaningfulBriefText(description)
   const hasWorkSectionContent = hasBriefSectionContent(description, [
     'where to work',
@@ -810,9 +811,12 @@ function taskBriefCues(title: string, description: string): TaskBriefCue[] {
     {
       id: 'goal',
       label: 'Result',
-      ready: normalizedTitle.length > 0,
+      ready: hasPersonalizedTitle,
       readyDetail: 'The agent has a clear result to finish.',
-      missingDetail: 'Write one sentence for the result you want.',
+      missingDetail:
+        normalizedTitle.length > 0
+          ? 'Replace the template title with the specific result you want.'
+          : 'Write one sentence for the result you want.',
     },
     {
       id: 'where',
@@ -829,6 +833,11 @@ function taskBriefCues(title: string, description: string): TaskBriefCue[] {
       missingDetail: 'Add the test, screenshot, output, or result that proves it is done.',
     },
   ]
+}
+
+function isTemplateTaskTitle(title: string): boolean {
+  const normalizedTitle = title.trim().toLowerCase()
+  return TASK_BRIEF_TEMPLATES.some((template) => template.title.toLowerCase() === normalizedTitle)
 }
 
 function meaningfulBriefText(description: string): string {

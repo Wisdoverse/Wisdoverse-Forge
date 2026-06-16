@@ -98,7 +98,10 @@ describe('TaskFormModal', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /feature/i }))
 
-    expect(screen.getByTestId('task-brief-cue-goal')).toHaveTextContent('Ready')
+    expect(screen.getByTestId('task-brief-cue-goal')).toHaveTextContent('Add')
+    expect(screen.getByTestId('task-brief-cue-goal')).toHaveTextContent(
+      'Replace the template title with the specific result you want.'
+    )
     expect(screen.getByTestId('task-brief-cue-where')).toHaveTextContent('Add')
     expect(screen.getByTestId('task-brief-cue-where')).toHaveTextContent(
       'Name the files, screen, folder, or area to check first.'
@@ -114,6 +117,11 @@ describe('TaskFormModal', () => {
       },
     })
 
+    fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
+      target: { value: 'Add task template readiness checks' },
+    })
+
+    expect(screen.getByTestId('task-brief-cue-goal')).toHaveTextContent('Ready')
     expect(screen.getByTestId('task-brief-cue-where')).toHaveTextContent('Ready')
     expect(screen.getByTestId('task-brief-cue-done')).toHaveTextContent('Ready')
   })
