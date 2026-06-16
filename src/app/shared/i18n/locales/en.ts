@@ -94,7 +94,7 @@ export const en = {
     nextTitle: 'Do this next',
     readyTitle: 'Ready to run work',
     readyDetail:
-      'The basic path is complete. You can create more tasks or review saved instructions.',
+      'Write one small task from Tasks, or open saved instructions when you want agents to repeat what worked.',
     successLabel: 'Success looks like:',
     currentProject: 'Current project',
     noProject: 'Open project settings to create or choose a project.',
