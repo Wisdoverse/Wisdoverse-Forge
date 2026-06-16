@@ -592,6 +592,8 @@ const TASK_RECOVERY_STATUS_DEAD_END_PATTERNS = [
 const TASK_DETAIL_EMPTY_DEAD_END_PATTERNS = [
   /\bNo description provided\./i,
   /\bNo result files were attached\./i,
+  /\bNo current work\b/i,
+  /\bNo current agent work\b/i,
 ]
 
 const CONTEXT_FALLBACK_DEAD_END_PATTERNS = [
@@ -1963,7 +1965,12 @@ function hasTaskRecoveryStatusDeadEndCopy(relFile, line) {
 }
 
 function hasTaskDetailEmptyDeadEndCopy(relFile, line) {
-  if (!relFile.endsWith('src/app/features/detail/DescriptionTab.tsx')) return false
+  if (
+    !relFile.endsWith('src/app/features/detail/DescriptionTab.tsx') &&
+    !relFile.endsWith('src/app/features/detail/HistoryTab.tsx')
+  ) {
+    return false
+  }
   if (isLikelyGuardOrParserLine(line)) return false
   return TASK_DETAIL_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }

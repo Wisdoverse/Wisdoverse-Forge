@@ -389,7 +389,7 @@ function taskCheckIn(task: TaskSummary): {
       }
     case 'canceled':
       return {
-        title: 'No current agent work',
+        title: 'Decide whether to continue',
         detail: 'The task was canceled; reopen or create follow-up work if needed.',
         tone: 'default',
         Icon: XCircle,

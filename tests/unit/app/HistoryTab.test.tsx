@@ -340,6 +340,18 @@ describe('HistoryTab', () => {
     expect(screen.queryByText(/Confirm the answer matches the brief/i)).toBeNull()
   })
 
+  test('turns canceled task history into a decision step', async () => {
+    getTaskRunsMock.mockResolvedValue([])
+
+    render(<HistoryTab task={makeTask({ state: 'canceled' })} />)
+
+    expect(await screen.findByText('Decide whether to continue')).toBeInTheDocument()
+    expect(
+      screen.getByText('The task was canceled; reopen or create follow-up work if needed.')
+    ).toBeDefined()
+    expect(screen.queryByText('No current agent work')).toBeNull()
+  })
+
   test('summarizes blocked task history without raw reason codes', async () => {
     getTaskRunsMock.mockResolvedValue([])
 

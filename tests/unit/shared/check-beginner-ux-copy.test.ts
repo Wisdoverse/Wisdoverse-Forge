@@ -7828,6 +7828,37 @@ function Work() {
     )
   })
 
+  it('flags canceled task detail titles that describe a dead end', () => {
+    const cwd = fixture({
+      'src/app/features/detail/DescriptionTab.tsx': `
+function nextActionForTask() {
+  return { title: 'No current work' }
+}
+`,
+      'src/app/features/detail/HistoryTab.tsx': `
+function taskCheckIn() {
+  return { title: 'No current agent work' }
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-detail-empty-copy',
+          location: 'src/app/features/detail/DescriptionTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-empty-copy',
+          location: 'src/app/features/detail/HistoryTab.tsx:3',
+        }),
+      ])
+    )
+  })
+
   it('accepts task detail empty copy that points beginners to the next step', () => {
     const cwd = fixture({
       'src/app/features/detail/DescriptionTab.tsx': `

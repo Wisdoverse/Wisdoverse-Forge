@@ -211,6 +211,16 @@ describe('DescriptionTab', () => {
     expect(screen.queryByText(/provider/i)).toBeNull()
   })
 
+  test('turns canceled task state into a decision step', () => {
+    render(<DescriptionTab task={{ ...mockTask, state: 'canceled' }} />)
+
+    expect(screen.getByText('Decide whether to continue')).toBeDefined()
+    expect(
+      screen.getByText('Create a new task or reopen the brief if this work still matters.')
+    ).toBeDefined()
+    expect(screen.queryByText('No current work')).toBeNull()
+  })
+
   test('summarizes blocked task reasons without raw codes', () => {
     render(
       <DescriptionTab

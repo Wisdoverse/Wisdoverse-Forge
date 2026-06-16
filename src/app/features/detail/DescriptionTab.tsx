@@ -384,7 +384,7 @@ function nextActionForTask(
       }
     case 'canceled':
       return {
-        title: 'No current work',
+        title: 'Decide whether to continue',
         detail: 'Create a new task or reopen the brief if this work still matters.',
         tone: 'default',
       }
