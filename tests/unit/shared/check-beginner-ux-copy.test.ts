@@ -8225,6 +8225,38 @@ export const zh = {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags agent control permission errors that start with the failure before the next step', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentControlPanel.tsx': `
+function agentControlErrorMessage() {
+  return 'You do not have permission to change this agent. Ask an owner or admin to let you manage this agent, then try again.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'agent-control-error-copy',
+        location: 'src/app/features/agents/AgentControlPanel.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts agent control permission errors that start with the next step', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentControlPanel.tsx': `
+function agentControlErrorMessage() {
+  return 'Ask an owner or admin to let you manage this agent, then try again. You do not have permission to change this agent.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags saved item feedback errors that start with the failure before the next step', () => {
     const cwd = fixture({
       'src/app/entities/context/model/feedbackErrorMessage.ts': `

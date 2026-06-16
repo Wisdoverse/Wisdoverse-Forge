@@ -798,6 +798,10 @@ const CHAT_STREAM_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*The reply stopped before it finished\. Check that the agent is still online/i,
 ]
 
+const AGENT_CONTROL_ERROR_FAILURE_FIRST_PATTERNS = [
+  /['"`]\s*You do not have permission to change this agent\. Ask an owner/i,
+]
+
 const GOVERNANCE_AUDIT_FALLBACK_DEAD_END_PATTERNS = [
   /\bChange not listed\b/i,
   /\bNot checked\b/i,
@@ -1656,6 +1660,12 @@ function hasNetworkFailureFirstCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return NETWORK_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentControlErrorFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/agents/AgentControlPanel.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_CONTROL_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasFeedbackFailureFirstCopy(relFile, line) {
@@ -3094,6 +3104,16 @@ function scanFile(file, relFile) {
         type: 'network-copy',
         location,
         message: 'Network errors must start with the next action for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentControlErrorFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-control-error-copy',
+        location,
+        message:
+          'Agent control permission errors must start with who can help and what to try next.',
         sample: line.trim(),
       })
     }

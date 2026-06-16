@@ -111,7 +111,7 @@ describe('AgentControlPanel', () => {
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'You do not have permission to change this agent. Ask an owner or admin to let you manage this agent, then try again.'
+      'Ask an owner or admin to let you manage this agent, then try again. You do not have permission to change this agent.'
     )
     expect(screen.getByRole('alert')).not.toHaveTextContent(/update what you can do/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/HTTP 403/i)
@@ -258,9 +258,7 @@ describe('AgentControlPanel', () => {
     expect(screen.getByText('This computer is offline')).toBeDefined()
     expect(screen.getByText(/paste the setup text on that computer again/i)).toBeDefined()
     expect(screen.getByText('Paste setup text to reconnect')).toBeDefined()
-    expect(
-      screen.getByText(/paste the setup text again, then come back here/i)
-    ).toBeDefined()
+    expect(screen.getByText(/paste the setup text again, then come back here/i)).toBeDefined()
     expect(screen.queryByText(/setup command/i)).toBeNull()
     expect(screen.queryByText(/already connected/i)).toBeNull()
     expect(screen.queryByRole('button', { name: /start agent/i })).toBeNull()
