@@ -12,7 +12,7 @@
 
 # Build Arguments (configurable at build time)
 ARG NODE_VERSION=24
-ARG COMPOSE_GO_VERSION=1.26.3
+ARG COMPOSE_GO_VERSION=1.26.4
 ARG COMPOSE_VERSION=5.1.3
 
 # Stage: Plan cargo-chef recipe (isolated from source to avoid stub-source
@@ -169,14 +169,14 @@ RUN npm install -g npm@11.17.0 && npm cache clean --force
 # Supply chain integrity: all external binaries are verified against pinned sha256
 # checksums before installation (SLSA Level 2). Update checksums when bumping versions.
 ARG DOCKER_MIRROR=https://download.docker.com
-ARG DOCKER_CLI_VERSION=29.5.0
+ARG DOCKER_CLI_VERSION=29.5.3
 RUN ARCH="$(dpkg --print-architecture)" \
     && if [ "$ARCH" = "amd64" ]; then \
          DOCKER_ARCH="x86_64"; \
-         DOCKER_SHA256="ec7f44cd54edf68a06f0da8b507b9e0aa82b64347c4a5a6becde2e4dc6cb212c"; \
+         DOCKER_SHA256="34eea64e9c3435f5af1b760827a56a561cd67fc2d6e9cd1813b8bb1e3ff7930b"; \
        else \
          DOCKER_ARCH="aarch64"; \
-         DOCKER_SHA256="f31f502498577652cc36ce797bf90fdc6eb72c0520b1d780a38aa980f3a56396"; \
+         DOCKER_SHA256="02eea44490f1f39ce340fe0bc74124002d957bacaa574d66345fbb353381362d"; \
        fi \
     && curl -fsSL "${DOCKER_MIRROR}/linux/static/stable/${DOCKER_ARCH}/docker-${DOCKER_CLI_VERSION}.tgz" \
        -o /tmp/docker.tgz \
@@ -202,14 +202,14 @@ RUN chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
 # gh: deb from GitHub releases (avoids cli.github.com apt repo, mirrorable via GITHUB_PROXY)
 # glab: deb from GitLab generic package registry. Keep this pinned so agent-base
 # builds do not depend on release-list ordering or hang on the release redirect.
-ARG GH_CLI_VERSION=2.92.0
+ARG GH_CLI_VERSION=2.94.0
 ARG GLAB_CLI_VERSION=1.93.0
 RUN ARCH="$(dpkg --print-architecture)" \
     && if [ "$ARCH" = "amd64" ]; then \
-         GH_SHA256="8f8212b1a9cec261a8839e0893168f50d3fc70f095da257feef4229234cefdf8"; \
+         GH_SHA256="d4504b534417965f833a59b40a36e0138b24528658d721df15c5e8a14e51a944"; \
          GLAB_SHA256="e5df04d929fad92ed4cc6ba8762fe7325afaafe3cd861b7fef02f3b7e933a678"; \
        else \
-         GH_SHA256="34d620b7c884774ed86236541535170889fda0b99aafbdab8b69c7d458b5ca6b"; \
+         GH_SHA256="6ea8b44936bb04219de6653fc9a676995dd44ce18c93e5922a97afe06a75c42e"; \
          GLAB_SHA256="91341e72f41aa19d005cf0a0cf97029810909c0bb6381072f86c1ee8d41b327a"; \
        fi \
     && curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 15 --max-time 120 \
