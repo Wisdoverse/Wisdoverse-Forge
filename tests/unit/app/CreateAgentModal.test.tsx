@@ -527,9 +527,14 @@ describe('CreateAgentModal', () => {
     ).toBeInTheDocument()
     expect(screen.getByText(/Closing that window disconnects this agent/i)).toBeInTheDocument()
     expect(screen.getByText(/come back to Forge, open Agents/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /close and watch agents/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^done$/i })).toBeNull()
     expect(screen.queryByText(previousCliInstallCopy)).toBeNull()
     expect(screen.queryByText(previousManualConnectionCopy)).toBeNull()
     expect(screen.queryByText(new RegExp(['local', 'agent', 'join'].join('.*'), 'i'))).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /close and watch agents/i }))
+    expect(screen.queryByRole('dialog', { name: /connect this computer/i })).toBeNull()
   })
 
   test('shows the setup command with an OS toggle when the server mints a join code', async () => {

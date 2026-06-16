@@ -811,7 +811,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 onClick={handleClose}
                 className="rounded-full bg-apple-gray-5 px-4 py-2 text-ui-button font-medium text-foreground-light transition-transform active:scale-95 dark:bg-white/[0.06] dark:text-foreground-dark"
               >
-                Done
+                Close and watch Agents
               </button>
             </div>
           </div>
