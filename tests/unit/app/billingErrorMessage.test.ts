@@ -58,7 +58,7 @@ describe('billingErrorMessage', () => {
     const message = billingErrorMessage(new TypeError('Failed to fetch'), 'usage')
 
     expect(message).toBe(
-      'Refresh Billing to load usage. Forge could not connect while loading billing. Check your connection, then refresh Billing again.'
+      'Refresh Billing to load usage. Check your connection, then refresh Billing again. Forge could not connect while loading billing.'
     )
     expect(message).not.toContain('Failed to fetch')
   })

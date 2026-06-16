@@ -126,7 +126,7 @@ export function billingErrorMessage(err: unknown, area: BillingErrorArea): strin
     return `${base} If it still fails, ask an owner or admin to check billing.`
   }
   if (isNetworkError(err)) {
-    return `${base} Forge could not connect while loading billing. Check your connection, then refresh Billing again.`
+    return `${base} Check your connection, then refresh Billing again. Forge could not connect while loading billing.`
   }
 
   return `${base} If it still fails, ask an owner or admin to check billing.`

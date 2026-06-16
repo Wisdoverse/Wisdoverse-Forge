@@ -142,7 +142,7 @@ describe('BillingPage', () => {
       subscriptionError:
         'Refresh Billing to load plan and payment. Ask an owner or admin to give you billing access.',
       usageError:
-        'Refresh Billing to load usage. Forge could not connect while loading billing. Check your connection, then refresh Billing again.',
+        'Refresh Billing to load usage. Check your connection, then refresh Billing again. Forge could not connect while loading billing.',
     })
 
     render(<BillingPage />)
@@ -156,8 +156,34 @@ describe('BillingPage', () => {
     ).toBeDefined()
     expect(
       screen.getByText(
-        'Refresh Billing to load usage. Forge could not connect while loading billing. Check your connection, then refresh Billing again.'
+        'Refresh Billing to load usage. Check your connection, then refresh Billing again. Forge could not connect while loading billing.'
       )
     ).toBeDefined()
+  })
+
+  test('starts checkout recovery with the retry action', async () => {
+    setBillingState({ plan })
+
+    render(<BillingPage />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /upgrade plan/i }))
+
+    await waitFor(() => expect(createCheckoutMock).toHaveBeenCalled())
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Try opening the secure payment page again. If it still does not open, ask an owner or admin to check billing.'
+    )
+  })
+
+  test('starts billing management recovery with the retry action', async () => {
+    setBillingState({ plan, subscription })
+
+    render(<BillingPage />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /manage billing/i }))
+
+    await waitFor(() => expect(openPortalMock).toHaveBeenCalled())
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Try opening the billing management page again. If it still does not open, ask an owner or admin to check access.'
+    )
   })
 })

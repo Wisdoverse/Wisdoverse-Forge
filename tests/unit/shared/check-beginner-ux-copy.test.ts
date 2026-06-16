@@ -1925,6 +1925,60 @@ export function InvoiceList() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags billing errors that explain the failure before the next step', () => {
+    const cwd = fixture({
+      'src/app/shared/model/billing.store.ts': `
+function billingErrorMessage() {
+  return 'Refresh Billing to load usage. Forge could not connect while loading billing. Check your connection, then refresh Billing again.'
+}
+`,
+      'src/app/features/billing/BillingPage.tsx': `
+function billingActionErrors() {
+  setActionError('The secure payment page did not open. Try again or ask an owner or admin to check billing.')
+  setActionError('The billing management page did not open. Try again or ask an owner or admin to check access.')
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'billing-error-copy',
+          location: 'src/app/shared/model/billing.store.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'billing-error-copy',
+          location: 'src/app/features/billing/BillingPage.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'billing-error-copy',
+          location: 'src/app/features/billing/BillingPage.tsx:4',
+        }),
+      ])
+    )
+  })
+
+  it('accepts billing errors that start with the next step', () => {
+    const cwd = fixture({
+      'src/app/shared/model/billing.store.ts': `
+function billingErrorMessage() {
+  return 'Refresh Billing to load usage. Check your connection, then refresh Billing again. Forge could not connect while loading billing.'
+}
+`,
+      'src/app/features/billing/BillingPage.tsx': `
+function billingActionErrors() {
+  setActionError('Try opening the secure payment page again. If it still does not open, ask an owner or admin to check billing.')
+  setActionError('Try opening the billing management page again. If it still does not open, ask an owner or admin to check access.')
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags analytics chart empty states that do not explain what creates data', () => {
     const cwd = fixture({
       'src/app/features/analytics/AnalyticsDashboard.tsx': `

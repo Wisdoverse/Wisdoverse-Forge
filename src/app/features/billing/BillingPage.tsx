@@ -162,7 +162,7 @@ export function BillingPage() {
         return
       }
       setActionError(
-        'The secure payment page did not open. Try again or ask an owner or admin to check billing.'
+        'Try opening the secure payment page again. If it still does not open, ask an owner or admin to check billing.'
       )
     } finally {
       setBillingAction(null)
@@ -179,7 +179,7 @@ export function BillingPage() {
         return
       }
       setActionError(
-        'The billing management page did not open. Try again or ask an owner or admin to check access.'
+        'Try opening the billing management page again. If it still does not open, ask an owner or admin to check access.'
       )
     } finally {
       setBillingAction(null)

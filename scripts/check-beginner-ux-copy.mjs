@@ -221,6 +221,12 @@ const BILLING_USAGE_DEAD_END_PATTERNS = [/\bNo usage reported yet\b/i, /\busage 
 
 const BILLING_RECEIPT_LINK_DEAD_END_PATTERNS = [/\bNo link\b/i]
 
+const BILLING_ERROR_FAILURE_FIRST_PATTERNS = [
+  /\bForge could not connect while loading billing\. Check your connection, then refresh Billing again\./i,
+  /\bThe secure payment page did not open\. Try again\b/i,
+  /\bThe billing management page did not open\. Try again\b/i,
+]
+
 const ANALYTICS_CHART_DEAD_END_PATTERNS = [/\bNo activity data\b/i, /\bNo tool usage data\b/i]
 
 const ANALYTICS_ERROR_FAILURE_FIRST_PATTERNS = [
@@ -1343,6 +1349,17 @@ function hasBillingReceiptLinkDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/billing/InvoiceList.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return BILLING_RECEIPT_LINK_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasBillingErrorFailureFirstCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/shared/model/billing.store.ts') &&
+    !relFile.endsWith('src/app/features/billing/BillingPage.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return BILLING_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAnalyticsChartDeadEndCopy(relFile, line) {
@@ -2686,6 +2703,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Invoice receipt copy must explain when a link will appear instead of only saying no link.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasBillingErrorFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'billing-error-copy',
+        location,
+        message: 'Billing error copy must put the user action before the failure explanation.',
         sample: line.trim(),
       })
     }
