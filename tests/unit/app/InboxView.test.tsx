@@ -256,7 +256,8 @@ describe('InboxView', () => {
     expect(screen.getByText('Account access needs reconnecting')).toBeDefined()
     expect(screen.queryByText(/runtime access/i)).toBeNull()
     expect(screen.queryByText(/credential expired/i)).toBeNull()
-    expect(screen.getByRole('button', { name: /open settings/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /open agent work settings/i })).toBeDefined()
+    expect(screen.queryByRole('button', { name: /^open settings$/i })).toBeNull()
   })
 
   test('shows unread count', () => {
@@ -512,11 +513,15 @@ describe('InboxView', () => {
     expect(item.getAttribute('data-template')).toBe('credential-action')
     expect(item.className).toContain('bg-apple-blue/[0.04]')
     expect(item).toHaveTextContent('Account access')
-    expect(item).toHaveTextContent('Reconnect access')
+    expect(item).toHaveTextContent('Reconnect work access')
+    expect(item).toHaveTextContent(
+      'Open agent work settings and reconnect the account agents use for file work.'
+    )
     expect(screen.getByText('Codex account access needs reconnecting')).toBeDefined()
-    expect(screen.getByText('Codex account connection needs reconnecting')).toBeDefined()
+    expect(screen.getByText('Codex work account needs reconnecting')).toBeDefined()
     expect(screen.queryByText(/credential expired/i)).toBeNull()
     expect(screen.queryByText(/account connection expired/i)).toBeNull()
+    expect(screen.queryByText('Codex account connection needs reconnecting')).toBeNull()
 
     await userEvent.setup().click(item)
 

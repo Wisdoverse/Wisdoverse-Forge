@@ -81,8 +81,8 @@ const TYPE_CONFIG: Record<
     unreadBg: 'bg-apple-blue/[0.04]',
     dot: 'bg-apple-blue',
     label: 'Account access',
-    actionLabel: 'Reconnect access',
-    guidance: 'Reconnect access in settings so agents can keep working.',
+    actionLabel: 'Reconnect work access',
+    guidance: 'Open agent work settings and reconnect the account agents use for file work.',
     template: 'credential-action',
   },
   cli_image_updated: {
@@ -175,6 +175,7 @@ export function InboxItem({
 function displayNotificationMessage(notification: Notification): string {
   if (notification.type === 'credential_expired') {
     return notification.message
+      .replace(/\baccount connection\b/gi, 'work account')
       .replace(/\bruntime access\b/gi, 'agent work access')
       .replace(/\bcredentials?\b/gi, 'account access')
       .replace(/\bexpired\b/gi, 'needs reconnecting')

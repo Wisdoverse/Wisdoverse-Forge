@@ -420,7 +420,7 @@ function nextStepDescription(
 function nextStepActionLabel(notification: Notification): string {
   switch (notification.type) {
     case 'credential_expired':
-      return 'Open settings'
+      return 'Open agent work settings'
     case 'blocked':
       return 'Open task'
     case 'failed':
