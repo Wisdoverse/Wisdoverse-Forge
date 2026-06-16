@@ -38,7 +38,7 @@ export function boardActionErrorMessage(action: BoardErrorAction, err: unknown):
   }
 
   if (status === 403) {
-    return 'You do not have permission to change this board. Ask an owner or admin to give you access to this board.'
+    return 'Ask an owner or admin to give you access to this board, then refresh the board and try again. You do not have permission to change this board.'
   }
 
   if (status === 404) {

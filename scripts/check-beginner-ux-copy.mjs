@@ -871,6 +871,7 @@ const TASK_DETAIL_LOAD_FAILURE_FIRST_PATTERNS = [
   /\bSaved notes and run details could not load\./i,
   /\bAgent work history could not load\./i,
   /\bThe saved item review could not load\./i,
+  /\bYou do not have permission to (?:view|change) this task\. Ask an owner/i,
   /\bForge could not connect while (?:loading|updating) this task\./i,
 ]
 
@@ -878,6 +879,7 @@ const BOARD_LOAD_FAILURE_FIRST_PATTERNS = [
   /\bAgent status could not load\./i,
   /\bThe task board could not load\./i,
   /\bThe saved item preview could not load\./i,
+  /\bYou do not have permission to change this board\. Ask an owner/i,
   /\bThis board item was not found\./i,
   /\bForge could not connect while (?:loading|updating) the board\./i,
 ]

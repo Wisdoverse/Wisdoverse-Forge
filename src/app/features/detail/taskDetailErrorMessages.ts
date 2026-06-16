@@ -42,9 +42,9 @@ export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unkno
 
   if (status === 403) {
     if (action === 'loadAgents' || action === 'loadContext' || action === 'loadRuns') {
-      return 'You do not have permission to view this task. Ask an owner or admin to give you access to this task.'
+      return 'Ask an owner or admin to give you access to this task, then refresh the task detail panel. You do not have permission to view this task.'
     }
-    return 'You do not have permission to change this task. Ask an owner or admin to let you update this task.'
+    return 'Ask an owner or admin to let you update this task, then refresh the task detail panel and try again. You do not have permission to change this task.'
   }
 
   if (status === 404) {

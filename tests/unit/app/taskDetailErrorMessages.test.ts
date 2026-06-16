@@ -18,7 +18,17 @@ describe('taskDetailErrorMessage', () => {
   test('describes read permission failures as view access problems', () => {
     expectBeginnerMessage(
       taskDetailErrorMessage('loadRuns', new Error('HTTP 403')),
-      'You do not have permission to view this task. Ask an owner or admin to give you access to this task.'
+      'Ask an owner or admin to give you access to this task, then refresh the task detail panel. You do not have permission to view this task.'
+    )
+  })
+
+  test('describes update permission failures with the next step first', () => {
+    expectBeginnerMessage(
+      taskDetailErrorMessage('cancelTask', {
+        statusCode: '403',
+        serverError: 'owner role required',
+      }),
+      'Ask an owner or admin to let you update this task, then refresh the task detail panel and try again. You do not have permission to change this task.'
     )
   })
 

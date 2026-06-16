@@ -7526,6 +7526,9 @@ const ACTION_FALLBACKS = {
   loadRuns: 'Agent work history could not load. Refresh Updates before deciding whether to retry this task.',
   previewContext: 'The saved item review could not load. Choose an available agent, then try again.',
 }
+function permissionMessage() {
+  return 'You do not have permission to view this task. Ask an owner or admin to give you access to this task.'
+}
 function networkRecoveryMessage() {
   return 'Forge could not connect while loading this task. Check your connection, then refresh the page.'
 }
@@ -7557,6 +7560,10 @@ function networkRecoveryMessage() {
           type: 'task-detail-load-copy',
           location: 'src/app/features/detail/taskDetailErrorMessages.ts:9',
         }),
+        expect.objectContaining({
+          type: 'task-detail-load-copy',
+          location: 'src/app/features/detail/taskDetailErrorMessages.ts:12',
+        }),
       ])
     )
   })
@@ -7569,6 +7576,9 @@ const ACTION_FALLBACKS = {
   loadContext: 'Refresh the detail panel to load saved notes and work history.',
   loadRuns: 'Refresh Updates before deciding whether to retry this task.',
   previewContext: 'Choose an available agent, then open saved item review again.',
+}
+function permissionMessage() {
+  return 'Ask an owner or admin to give you access to this task, then refresh the task detail panel. You do not have permission to view this task.'
 }
 function networkRecoveryMessage() {
   return 'If it still does not load, check your connection and refresh the page.'
@@ -7630,6 +7640,9 @@ const ACTION_FALLBACKS = {
   loadTasks: 'The task board could not load. Refresh the board, then try again.',
   previewContext: 'The saved item preview could not load. Choose an available agent, then try again.',
 }
+function permissionMessage() {
+  return 'You do not have permission to change this board. Ask an owner or admin to give you access to this board.'
+}
 function notFoundMessage() {
   return 'This board item was not found. Refresh the board, then choose the current task again.'
 }
@@ -7664,6 +7677,10 @@ function networkRecoveryMessage() {
           type: 'board-load-copy',
           location: 'src/app/features/board/boardErrorMessages.ts:11',
         }),
+        expect.objectContaining({
+          type: 'board-load-copy',
+          location: 'src/app/features/board/boardErrorMessages.ts:14',
+        }),
       ])
     )
   })
@@ -7675,6 +7692,9 @@ const ACTION_FALLBACKS = {
   loadReadiness: 'Refresh the board to load agent status before sending work.',
   loadTasks: 'Refresh the board to load tasks.',
   previewContext: 'Choose an available agent, then open the saved item preview again.',
+}
+function permissionMessage() {
+  return 'Ask an owner or admin to give you access to this board, then refresh the board and try again. You do not have permission to change this board.'
 }
 function notFoundMessage() {
   return 'Refresh the board, then choose the current task again.'

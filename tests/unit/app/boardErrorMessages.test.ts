@@ -15,6 +15,16 @@ describe('boardActionErrorMessage', () => {
     )
   })
 
+  test('turns permission failures into board access guidance', () => {
+    expectBeginnerMessage(
+      boardActionErrorMessage('moveTask', {
+        status: '403',
+        serverError: 'missing board policy',
+      }),
+      'Ask an owner or admin to give you access to this board, then refresh the board and try again. You do not have permission to change this board.'
+    )
+  })
+
   test('explains network failures without exposing only a transport error', () => {
     const message = boardActionErrorMessage('loadReadiness', new TypeError('Failed to fetch'))
 
