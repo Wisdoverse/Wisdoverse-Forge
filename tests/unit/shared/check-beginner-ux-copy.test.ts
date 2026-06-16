@@ -8094,6 +8094,90 @@ export const zh = {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags saved item feedback errors that start with the failure before the next step', () => {
+    const cwd = fixture({
+      'src/app/entities/context/model/feedbackErrorMessage.ts': `
+function permission() {
+  return 'You do not have permission to save feedback for this saved item. Ask an owner or admin to give you access to the saved item.'
+}
+function missing() {
+  return 'This saved item could not be found. Refresh the task, then choose it again.'
+}
+function changed() {
+  return 'This saved item changed while you were giving feedback. Refresh the task, review it, then try again.'
+}
+function busy() {
+  return 'Feedback is busy. Wait a moment, then save this feedback again.'
+}
+function service() {
+  return 'Forge could not save feedback right now. Refresh the task, then try again.'
+}
+function fallback() {
+  return 'Feedback could not be saved. Refresh the task and try again.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'feedback-error-copy',
+          location: 'src/app/entities/context/model/feedbackErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'feedback-error-copy',
+          location: 'src/app/entities/context/model/feedbackErrorMessage.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'feedback-error-copy',
+          location: 'src/app/entities/context/model/feedbackErrorMessage.ts:9',
+        }),
+        expect.objectContaining({
+          type: 'feedback-error-copy',
+          location: 'src/app/entities/context/model/feedbackErrorMessage.ts:12',
+        }),
+        expect.objectContaining({
+          type: 'feedback-error-copy',
+          location: 'src/app/entities/context/model/feedbackErrorMessage.ts:15',
+        }),
+        expect.objectContaining({
+          type: 'feedback-error-copy',
+          location: 'src/app/entities/context/model/feedbackErrorMessage.ts:18',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved item feedback errors that start with the next step', () => {
+    const cwd = fixture({
+      'src/app/entities/context/model/feedbackErrorMessage.ts': `
+function permission() {
+  return 'Ask an owner or admin to give you access to this saved item, then save feedback again. You do not have permission to save feedback for this saved item.'
+}
+function missing() {
+  return 'Refresh the task, then choose this saved item again. This saved item could not be found.'
+}
+function changed() {
+  return 'Refresh the task, review this saved item, then save feedback again. This saved item changed while you were giving feedback.'
+}
+function busy() {
+  return 'Wait a moment, then save this feedback again. Feedback is busy.'
+}
+function service() {
+  return 'Refresh the task, then save feedback again. Forge could not save feedback right now.'
+}
+function fallback() {
+  return 'Refresh the task, then save feedback again. Feedback could not be saved.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags chat errors that explain failure before the next step', () => {
     const cwd = fixture({
       'src/app/shared/model/chat.errors.ts': `

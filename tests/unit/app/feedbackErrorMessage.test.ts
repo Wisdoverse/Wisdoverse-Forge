@@ -20,7 +20,7 @@ describe('feedbackErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'You do not have permission to save feedback for this saved item. Ask an owner or admin to give you access to the saved item.'
+      'Ask an owner or admin to give you access to this saved item, then save feedback again. You do not have permission to save feedback for this saved item.'
     )
     expect(message).not.toContain('role')
     expect(message).not.toContain('HTTP 403')
@@ -54,10 +54,31 @@ describe('feedbackErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Forge could not save feedback right now. Refresh the task, then try again. If it still fails, ask an owner or admin to check feedback setup.'
+      'Refresh the task, then save feedback again. Forge could not save feedback right now. If it still fails, ask an owner or admin to check feedback setup.'
     )
     expect(message).not.toContain('HTTP 503')
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('temporarily unavailable')
+  })
+
+  test('turns changed saved items into a refresh and retry step', () => {
+    expectBeginnerMessage(
+      feedbackErrorMessage({ status: 409 }),
+      'Refresh the task, review this saved item, then save feedback again. This saved item changed while you were giving feedback.'
+    )
+  })
+
+  test('turns busy feedback into a wait step', () => {
+    expectBeginnerMessage(
+      feedbackErrorMessage({ statusCode: 429 }),
+      'Wait a moment, then save this feedback again. Feedback is busy.'
+    )
+  })
+
+  test('keeps unknown save failures actionable', () => {
+    expectBeginnerMessage(
+      feedbackErrorMessage({ status: 418 }),
+      'Refresh the task, then save feedback again. Feedback could not be saved.'
+    )
   })
 })

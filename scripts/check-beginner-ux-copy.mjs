@@ -938,6 +938,15 @@ const NETWORK_FAILURE_FIRST_PATTERNS = [
   /Forge 暂时连不上。请检查网络后重试。/,
 ]
 
+const FEEDBACK_FAILURE_FIRST_PATTERNS = [
+  /['"`]\s*You do not have permission to save feedback for this saved item\. Ask an owner/i,
+  /['"`]\s*This saved item could not be found\. Refresh the task/i,
+  /['"`]\s*This saved item changed while you were giving feedback\. Refresh the task/i,
+  /['"`]\s*Feedback is busy\. Wait a moment/i,
+  /['"`]\s*Forge could not save feedback right now\. Refresh the task/i,
+  /['"`]\s*Feedback could not be saved\. Refresh the task/i,
+]
+
 const CHAT_ERROR_FAILURE_FIRST_PATTERNS = [
   /^\s*\?\s*['"`]Forge could not load this conversation right now\./,
   /^\s*:\s*['"`]Forge could not update this chat right now\./,
@@ -1631,6 +1640,12 @@ function hasNetworkFailureFirstCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return NETWORK_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasFeedbackFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/entities/context/model/feedbackErrorMessage.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return FEEDBACK_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasChatErrorFailureFirstCopy(relFile, line) {
@@ -3057,6 +3072,15 @@ function scanFile(file, relFile) {
         type: 'network-copy',
         location,
         message: 'Network errors must start with the next action for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasFeedbackFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'feedback-error-copy',
+        location,
+        message: 'Saved item feedback errors must start with the next action for beginners.',
         sample: line.trim(),
       })
     }

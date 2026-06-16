@@ -17,25 +17,25 @@ export function feedbackErrorMessage(error?: unknown): string {
     return 'Sign in again, then save this feedback.'
   }
   if (status === 403) {
-    return 'You do not have permission to save feedback for this saved item. Ask an owner or admin to give you access to the saved item.'
+    return 'Ask an owner or admin to give you access to this saved item, then save feedback again. You do not have permission to save feedback for this saved item.'
   }
   if (status === 404) {
-    return 'This saved item could not be found. Refresh the task, then choose it again.'
+    return 'Refresh the task, then choose this saved item again. This saved item could not be found.'
   }
   if (status === 409) {
-    return 'This saved item changed while you were giving feedback. Refresh the task, review it, then try again.'
+    return 'Refresh the task, review this saved item, then save feedback again. This saved item changed while you were giving feedback.'
   }
   if (status === 400 || status === 422) {
     return validationMessage(detail)
   }
   if (status === 429) {
-    return 'Feedback is busy. Wait a moment, then save this feedback again.'
+    return 'Wait a moment, then save this feedback again. Feedback is busy.'
   }
   if (status >= 500) {
-    return 'Forge could not save feedback right now. Refresh the task, then try again. If it still fails, ask an owner or admin to check feedback setup.'
+    return 'Refresh the task, then save feedback again. Forge could not save feedback right now. If it still fails, ask an owner or admin to check feedback setup.'
   }
 
-  return 'Feedback could not be saved. Refresh the task and try again.'
+  return 'Refresh the task, then save feedback again. Feedback could not be saved.'
 }
 
 function statusFromError(error: unknown): number | null {
