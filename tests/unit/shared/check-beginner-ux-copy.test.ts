@@ -1449,6 +1449,76 @@ function ResourceProfilesError() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags member access errors that start with the failure instead of the next step', () => {
+    const cwd = fixture({
+      'src/app/features/manage-members/model/resourceMemberErrorMessages.ts': `
+function resourceMemberErrorMessage() {
+  return 'You do not have permission to manage people for this team. Ask an owner or admin to give you access.'
+}
+
+function memberLoadError() {
+  return 'People access is busy. Wait a moment, then try again.'
+}
+
+function memberUnavailableMessage() {
+  return 'Forge could not update people access right now. Refresh members, then try again.'
+}
+
+function validationMessage() {
+  return 'This person could not be removed. Check whether they are the last owner.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'resource-member-error-copy',
+          location: 'src/app/features/manage-members/model/resourceMemberErrorMessages.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'resource-member-error-copy',
+          location: 'src/app/features/manage-members/model/resourceMemberErrorMessages.ts:7',
+        }),
+        expect.objectContaining({
+          type: 'resource-member-error-copy',
+          location: 'src/app/features/manage-members/model/resourceMemberErrorMessages.ts:11',
+        }),
+        expect.objectContaining({
+          type: 'resource-member-error-copy',
+          location: 'src/app/features/manage-members/model/resourceMemberErrorMessages.ts:15',
+        }),
+      ])
+    )
+  })
+
+  it('accepts member access errors that start with the next step', () => {
+    const cwd = fixture({
+      'src/app/features/manage-members/model/resourceMemberErrorMessages.ts': `
+function resourceMemberErrorMessage() {
+  return 'Ask an owner or admin to give you access, then reopen members for this team.'
+}
+
+function memberLoadError() {
+  return 'Wait a moment, then try again. People access is busy right now.'
+}
+
+function memberUnavailableMessage() {
+  return 'Refresh members, then remove the person again. Forge could not update people access right now.'
+}
+
+function validationMessage() {
+  return 'Check whether this person is the last owner, then try removing them again.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags admin agent missing-field copy that does not tell users to refresh', () => {
     const cwd = fixture({
       'src/app/features/admin/AgentsPanel.tsx': `

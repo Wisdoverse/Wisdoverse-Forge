@@ -25,10 +25,10 @@ export function resourceMemberErrorMessage(
     return `Sign in again, then reopen members for this ${resource}.`
   }
   if (status === 403) {
-    return `You do not have permission to manage people for this ${resource}. Ask an owner or admin to give you access to manage people here.`
+    return `Ask an owner or admin to give you access to manage people here, then reopen members for this ${resource}. You do not have permission right now.`
   }
   if (status === 404) {
-    return `People for this ${resource} are not available. Refresh members or choose another ${resource}.`
+    return `Refresh members or choose another ${resource}. People for this ${resource} are not available.`
   }
   if (status === 409) {
     return "This person's access changed while you were editing. Refresh the members list, review who has access, then try again."
@@ -37,13 +37,13 @@ export function resourceMemberErrorMessage(
     return validationMessage(action, resource, detail)
   }
   if (status === 429) {
-    return `People access is busy. Wait a moment, then ${retrySummary(action, resource)}.`
+    return `Wait a moment, then ${retrySummary(action, resource)}. People access is busy right now.`
   }
   if (status >= 500) {
     return memberUnavailableMessage(action, resource)
   }
 
-  return `Forge could not ${actionSummary(action, resource)}. Refresh the members list and try again.`
+  return `Refresh the members list, then ${retrySummary(action, resource)}. Forge could not ${actionSummary(action, resource)}.`
 }
 
 function memberConnectionMessage(action: ResourceMemberErrorAction, resource: string): string {
@@ -51,7 +51,7 @@ function memberConnectionMessage(action: ResourceMemberErrorAction, resource: st
     return `Check your connection, then reopen members for this ${resource}.`
   }
   const operation = 'updating people access'
-  return `Forge could not ${actionSummary(action, resource)}. It could not connect while ${operation}. Check your connection, then try again.`
+  return `Check your connection, then ${retrySummary(action, resource)}. Forge could not connect while ${operation}.`
 }
 
 function memberUnavailableMessage(action: ResourceMemberErrorAction, resource: string): string {
@@ -59,7 +59,7 @@ function memberUnavailableMessage(action: ResourceMemberErrorAction, resource: s
     return `Refresh members to load people for this ${resource}. If it still fails, ask an owner or admin to check people access settings.`
   }
   const operation = 'update people access'
-  return `Forge could not ${operation} right now. Refresh members, then ${retrySummary(action, resource)}. If it still fails, ask an owner or admin to check people access settings.`
+  return `Refresh members, then ${retrySummary(action, resource)}. Forge could not ${operation} right now. If it still fails, ask an owner or admin to check people access settings.`
 }
 
 function actionSummary(action: ResourceMemberErrorAction, resource: string): string {
@@ -115,7 +115,7 @@ function validationMessage(
       if (normalized.includes('owner')) {
         return `Choose a different owner first, then remove this person from this ${resource}.`
       }
-      return `This person could not be removed. Check whether they are the last owner or still required for this ${resource}.`
+      return `Check whether this person is the last owner or still required for this ${resource}, then try removing them again. This person could not be removed.`
   }
 }
 

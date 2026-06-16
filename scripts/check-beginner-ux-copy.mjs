@@ -571,6 +571,15 @@ const WORKSPACE_SETTINGS_FAILURE_FIRST_PATTERNS = [
   /\bRefresh Settings to load workspace (?:teams|projects)\. Too many setup changes/i,
 ]
 
+const RESOURCE_MEMBER_FAILURE_FIRST_PATTERNS = [
+  /\breturn\s+['"`]You do not have permission to manage people/i,
+  /\breturn\s+['"`]People for this\b/i,
+  /\breturn\s+['"`]People access is busy\./i,
+  /\breturn\s+['"`]Forge could not (?:update people access|load people|add this person|change what this person|remove this person)/i,
+  /\breturn\s+`Forge could not \$\{(?:actionSummary|operation)\}/i,
+  /\breturn\s+['"`]This person could not be removed\./i,
+]
+
 const LOAD_ERROR_TITLE_DEAD_END_PATTERNS = [
   /\bConversation history could not be loaded\./i,
   /\bAgent tools could not be loaded\./i,
@@ -1484,6 +1493,14 @@ function hasWorkspaceResourceFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/shared/lib/workspaceResourceErrorMessage.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return WORKSPACE_RESOURCE_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasResourceMemberFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/manage-members/model/resourceMemberErrorMessages.ts')) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return RESOURCE_MEMBER_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasProjectCreateFailureFirstCopy(relFile, line) {
@@ -2819,6 +2836,15 @@ function scanFile(file, relFile) {
         type: 'workspace-resource-copy',
         location,
         message: 'Team and project setting errors must start with the next action for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasResourceMemberFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'resource-member-error-copy',
+        location,
+        message: 'Member access errors must start with the next action for beginners.',
         sample: line.trim(),
       })
     }

@@ -11,12 +11,20 @@ describe('resourceMemberErrorMessage', () => {
   test('turns network failures into reachable next steps', () => {
     const message = resourceMemberErrorMessage('load', 'Project', new Error('Failed to fetch'))
 
-    expect(message).toBe(
-      'Check your connection, then reopen members for this project.'
-    )
+    expect(message).toBe('Check your connection, then reopen members for this project.')
     expect(message).toContain('Check your connection')
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('service')
+  })
+
+  test('turns member update network failures into a retry step first', () => {
+    const message = resourceMemberErrorMessage('add', 'Team', new Error('Network error'))
+
+    expectBeginnerMessage(
+      message,
+      'Check your connection, then add the person again. Forge could not connect while updating people access.'
+    )
+    expect(message).not.toContain('Network error')
   })
 
   test('maps auth failures without exposing raw API text', () => {
@@ -47,10 +55,21 @@ describe('resourceMemberErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'You do not have permission to manage people for this team. Ask an owner or admin to give you access to manage people here.'
+      'Ask an owner or admin to give you access to manage people here, then reopen members for this team. You do not have permission right now.'
     )
     expect(message).not.toContain('owner role required')
     expect(message).not.toContain('update what you can do')
+  })
+
+  test('turns missing member lists into a refresh step first', () => {
+    const message = resourceMemberErrorMessage('load', 'Project', new Error('HTTP 404: Not Found'))
+
+    expectBeginnerMessage(
+      message,
+      'Refresh members or choose another project. People for this project are not available.'
+    )
+    expect(message).not.toContain('HTTP 404')
+    expect(message).not.toContain('Not Found')
   })
 
   test('uses structured validation details to explain missing access choices', () => {
@@ -134,9 +153,35 @@ describe('resourceMemberErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Forge could not update people access right now. Refresh members, then remove the person again. If it still fails, ask an owner or admin to check people access settings.'
+      'Refresh members, then remove the person again. Forge could not update people access right now. If it still fails, ask an owner or admin to check people access settings.'
     )
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('503')
+  })
+
+  test('turns busy member updates into a wait step first', () => {
+    const message = resourceMemberErrorMessage('updateRole', 'Project', {
+      statusCode: '429',
+      message: 'Too many requests',
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Wait a moment, then save the access change again. People access is busy right now.'
+    )
+    expect(message).not.toContain('Too many requests')
+  })
+
+  test('turns unknown member failures into a refresh step first', () => {
+    const message = resourceMemberErrorMessage('remove', 'Project', {
+      statusCode: '418',
+      message: 'unexpected member state',
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Refresh the members list, then remove the person again. Forge could not remove this person from this project.'
+    )
+    expect(message).not.toContain('unexpected member state')
   })
 })
