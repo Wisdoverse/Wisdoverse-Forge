@@ -527,11 +527,17 @@ const RUNTIME_SETUP_STATUS_DEAD_END_PATTERNS = [
 ]
 
 const RUNTIME_ERROR_FAILURE_FIRST_PATTERNS = [
-  /\bAgent connection status could not load\. Start or wake an agent/i,
-  /\bWork tool sign-in could not be checked\. Refresh this page/i,
-  /\bWork tool sign-in did not start\. Check the connected AI service/i,
-  /\bWhere agents run is not available yet\. Refresh Settings/i,
-  /\bForge could not check where agents run right now\. Refresh this page/i,
+  /['"`]\s*Agent connection status could not load\. Start or wake an agent/i,
+  /['"`]\s*Work tool sign-in could not be checked\. Refresh this page/i,
+  /['"`]\s*Work tool sign-in did not start\. Check the connected AI service/i,
+  /['"`]\s*Where agents run is not available yet\. Refresh Settings/i,
+  /['"`]\s*Forge could not check where agents run right now\. Refresh this page/i,
+  /['"`]\s*Your sign-in expired\. Sign in again, then open Where agents run/i,
+  /['"`]\s*You do not have permission to change where agents run\. Ask an owner/i,
+  /['"`]\s*The Where agents run choices changed while you were working\. Refresh/i,
+  /['"`]\s*Forge is receiving too many setup requests right now\. Wait/i,
+  /['"`]\s*Where agents run could not be saved\./i,
+  /['"`]\s*Too many setup requests are happening right now\. Wait/i,
 ]
 
 const SETTINGS_LOAD_ERROR_DEAD_END_PATTERNS = [

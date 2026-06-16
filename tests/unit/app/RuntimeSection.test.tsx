@@ -127,9 +127,7 @@ describe('RuntimeSection', () => {
     expect(
       screen.getByText(/Setup has 2 agent locations and 2 work tools like Claude or Codex/i)
     ).toBeDefined()
-    expect(
-      screen.getByText(/1 work tool sign-in is connected\. 1 agent is online/i)
-    ).toBeDefined()
+    expect(screen.getByText(/1 work tool sign-in is connected\. 1 agent is online/i)).toBeDefined()
     expect(
       within(readiness).queryByText(new RegExp('agent locations\\s+available', 'i'))
     ).toBeNull()
@@ -231,9 +229,7 @@ describe('RuntimeSection', () => {
     expect(
       screen.getByText(/Setup has 1 agent location and 1 work tool like Claude or Codex/i)
     ).toBeDefined()
-    expect(
-      screen.getByText(/1 work tool sign-in is connected\. 1 agent is online/i)
-    ).toBeDefined()
+    expect(screen.getByText(/1 work tool sign-in is connected\. 1 agent is online/i)).toBeDefined()
     expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('Ready to give agents work')
     expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('The agent location')
     expect(screen.getByTestId('runtime-next-step')).toHaveTextContent(
@@ -418,7 +414,7 @@ describe('RuntimeSection', () => {
 
     await screen.findByTestId('runtime-launch-checklist')
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Where agents run could not be saved. Choose an available agent location and work tool, then save again.'
+      'Choose an available agent location and work tool, then save again. Where agents run could not be saved.'
     )
     expect(screen.queryByText(/Details: default CLI tool is not available/i)).toBeNull()
   })

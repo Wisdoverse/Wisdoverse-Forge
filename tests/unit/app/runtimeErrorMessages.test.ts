@@ -15,7 +15,7 @@ describe('runtimeErrorMessage', () => {
   test('turns auth failures into a sign-in instruction', () => {
     expectBeginnerMessage(
       runtimeErrorMessage('loadAgentSignals', new Error('401 Unauthorized')),
-      'Your sign-in expired. Sign in again, then open Where agents run and try again.'
+      'Sign in again, then open Where agents run and try again. Your sign-in expired.'
     )
   })
 
@@ -33,7 +33,7 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'You do not have permission to change where agents run. Ask an owner or admin to update your team space access.'
+      'Ask an owner or admin to update your team space access before changing where agents run. You do not have permission to change where agents run.'
     )
     expect(message).not.toContain('role')
   })
@@ -67,7 +67,7 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check the connected AI service, then reconnect the account. Work tool sign-in did not start. Forge could not connect while checking where agents run. Check your connection, then refresh Settings.'
+      'Check the connected AI service, then reconnect the account. Work tool sign-in did not start. Check your connection, then refresh Settings. Forge could not connect while checking where agents run.'
     )
     expect(message).not.toContain('provider')
     expect(message).not.toContain('Failed to fetch')
@@ -90,7 +90,7 @@ describe('runtimeErrorMessage', () => {
   test('turns setup rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       runtimeErrorMessage('loadAgentSignals', { code: '429' }),
-      'Forge is receiving too many setup requests right now. Wait a moment, then try again.'
+      'Wait a moment, then try again. Forge is receiving too many setup requests right now.'
     )
   })
 })
@@ -102,7 +102,7 @@ describe('runtimeSettingsErrorMessage', () => {
         'Check the required fields for runtime setting, then try again. Code: 422. Details: default CLI tool is not available'
       )
     ).toBe(
-      'Where agents run could not be saved. Choose an available agent location and work tool, then save again.'
+      'Choose an available agent location and work tool, then save again. Where agents run could not be saved.'
     )
   })
 
@@ -112,7 +112,7 @@ describe('runtimeSettingsErrorMessage', () => {
         'You do not have permission to update agent work settings. Code: 403. Details: Forbidden'
       )
     ).toBe(
-      'Where agents run could not be saved. Ask an owner or admin for access to change where agents run.'
+      'Ask an owner or admin for access to change where agents run, then save again. Where agents run could not be saved.'
     )
   })
 
@@ -140,7 +140,7 @@ describe('runtimeSettingsErrorMessage', () => {
   test('turns work settings rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       runtimeSettingsErrorMessage({ statusCode: '429' }),
-      'Too many setup requests are happening right now. Wait a minute, then refresh Settings.'
+      'Wait a minute, then refresh Settings. Too many setup requests are happening right now.'
     )
   })
 

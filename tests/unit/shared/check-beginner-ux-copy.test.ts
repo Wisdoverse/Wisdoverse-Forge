@@ -3554,6 +3554,10 @@ function runtimeErrorMessage() {
 function runtimeCliErrorMessage() {
   return 'Work tool sign-in did not start. Check the connected AI service, then reconnect the account.'
 }
+
+function runtimeSettingsErrorMessage() {
+  return 'Where agents run could not be saved. Choose an available agent location and work tool, then save again.'
+}
 `,
     })
 
@@ -3569,6 +3573,10 @@ function runtimeCliErrorMessage() {
         type: 'runtime-error-copy',
         location: 'src/app/features/settings/runtimeErrorMessages.ts:7',
       }),
+      expect.objectContaining({
+        type: 'runtime-error-copy',
+        location: 'src/app/features/settings/runtimeErrorMessages.ts:11',
+      }),
     ])
   })
 
@@ -3581,6 +3589,10 @@ function runtimeErrorMessage() {
 
 function runtimeCliErrorMessage() {
   return 'Check the connected AI service, then reconnect the account. Work tool sign-in did not start.'
+}
+
+function runtimeSettingsErrorMessage() {
+  return 'Choose an available agent location and work tool, then save again. Where agents run could not be saved.'
 }
 `,
     })

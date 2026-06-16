@@ -15,15 +15,15 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   const status = errorStatus(err, normalized)
 
   if (isNetworkError(normalized)) {
-    return `${ACTION_FALLBACKS[action]} Forge could not connect while checking where agents run. Check your connection, then refresh Settings.`
+    return `${ACTION_FALLBACKS[action]} Check your connection, then refresh Settings. Forge could not connect while checking where agents run.`
   }
 
   if (status === 401) {
-    return 'Your sign-in expired. Sign in again, then open Where agents run and try again.'
+    return 'Sign in again, then open Where agents run and try again. Your sign-in expired.'
   }
 
   if (status === 403) {
-    return 'You do not have permission to change where agents run. Ask an owner or admin to update your team space access.'
+    return 'Ask an owner or admin to update your team space access before changing where agents run. You do not have permission to change where agents run.'
   }
 
   if (status === 404) {
@@ -31,7 +31,7 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   }
 
   if (status === 409) {
-    return 'The Where agents run choices changed while you were working. Refresh this page, review the current status, then try again.'
+    return 'Refresh this page, review the current status, then try again. The Where agents run choices changed while you were working.'
   }
 
   if (status === 422) {
@@ -39,7 +39,7 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   }
 
   if (status === 429) {
-    return 'Forge is receiving too many setup requests right now. Wait a moment, then try again.'
+    return 'Wait a moment, then try again. Forge is receiving too many setup requests right now.'
   }
 
   if (status && status >= 500) {
@@ -59,57 +59,56 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
     normalized.includes('default cli tool') ||
     normalized.includes('default runtime') ||
     normalized.includes('not available')
-  const saveBase = 'Where agents run could not be saved.'
   const loadBase = 'Refresh Settings to load Where agents run.'
 
   if (isNetworkError(normalized)) {
     return isSaveAction
-      ? `${saveBase} Forge could not connect while saving where agents run. Check your connection, then save again.`
+      ? 'Check your connection, then save Where agents run again. Forge could not connect while saving where agents run.'
       : 'Check your connection, then refresh Settings to load Where agents run.'
   }
 
   if (status === 401) {
     return isSaveAction
-      ? `${saveBase} Your sign-in expired. Sign in again, then save Where agents run again.`
-      : 'Your sign-in expired. Sign in again, then open Where agents run.'
+      ? 'Sign in again, then save Where agents run again. Your sign-in expired.'
+      : 'Sign in again, then open Where agents run. Your sign-in expired.'
   }
 
   if (status === 403) {
     return isSaveAction
-      ? `${saveBase} Ask an owner or admin for access to change where agents run.`
+      ? 'Ask an owner or admin for access to change where agents run, then save again. Where agents run could not be saved.'
       : 'Ask an owner or admin for access to change where agents run.'
   }
 
   if (status === 404) {
     return isSaveAction
-      ? `${saveBase} Refresh after the Where agents run settings are available.`
+      ? 'Refresh Settings, then save after Where agents run is available. Where agents run could not be saved.'
       : 'Refresh Settings after the Where agents run settings are available.'
   }
 
   if (status === 409) {
     return isSaveAction
-      ? `${saveBase} The Where agents run choices changed while you were working. Refresh Settings, review the current choices, then save again.`
-      : 'The Where agents run choices changed while you were working. Refresh Settings, review the current choices, then try again.'
+      ? 'Refresh Settings, review the current choices, then save again. The Where agents run choices changed while you were working.'
+      : 'Refresh Settings, review the current choices, then try again. The Where agents run choices changed while you were working.'
   }
 
   if (status === 422) {
-    return `${saveBase} Choose an available agent location and work tool, then save again.`
+    return 'Choose an available agent location and work tool, then save again. Where agents run could not be saved.'
   }
 
   if (status === 429) {
     return isSaveAction
-      ? `${saveBase} Too many setup requests are happening right now. Wait a minute, then save again.`
-      : 'Too many setup requests are happening right now. Wait a minute, then refresh Settings.'
+      ? 'Wait a minute, then save Where agents run again. Too many setup requests are happening right now.'
+      : 'Wait a minute, then refresh Settings. Too many setup requests are happening right now.'
   }
 
   if (status && status >= 500) {
     return isSaveAction
-      ? `${saveBase} Refresh Settings, then save again. If it still fails, ask an owner or admin to check Where agents run.`
+      ? 'Refresh Settings, then save again. Where agents run could not be saved. If it still fails, ask an owner or admin to check Where agents run.'
       : `${loadBase} If it still fails, ask an owner or admin to check Where agents run.`
   }
 
   return isSaveAction
-    ? `${saveBase} Try again. If it still fails, ask an owner or admin to check Where agents run.`
+    ? 'Try again. Where agents run could not be saved. If it still fails, ask an owner or admin to check Where agents run.'
     : `${loadBase} If it still fails, ask an owner or admin to check Where agents run.`
 }
 
