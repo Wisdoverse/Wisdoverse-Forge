@@ -79,17 +79,17 @@ function actionFromText(text: string): SshKeyAction {
 }
 
 function retryAction(action: SshKeyAction): string {
-  if (action === 'save') return 'save this SSH code access again'
-  if (action === 'remove') return 'remove this SSH code access again'
-  return 'refresh Settings to load SSH code access'
+  if (action === 'save') return 'save this git@ Repository Access again'
+  if (action === 'remove') return 'remove this git@ Repository Access again'
+  return 'refresh Settings to load git@ Repository Access'
 }
 
 function connectionMessage(action: SshKeyAction): string {
   if (action === 'load') {
-    return 'Check your connection, then refresh Settings to load SSH code access. Forge could not connect while opening SSH code access.'
+    return 'Check your connection, then refresh Settings to load git@ Repository Access. Forge could not connect while opening git@ Repository Access.'
   }
   const verb = action === 'remove' ? 'remove' : 'save'
-  return `Check your connection, then ${verb} this SSH code access again. Forge could not connect while opening SSH code access.`
+  return `Check your connection, then ${verb} this git@ Repository Access again. Forge could not connect while opening git@ Repository Access.`
 }
 
 export function sshKeysErrorMessage(error: unknown): string {
@@ -103,7 +103,7 @@ export function sshKeysErrorMessage(error: unknown): string {
     return `Sign in again, then ${retry}. Your sign-in expired.`
   }
   if (code === 403 || lower.includes('permission') || lower.includes('forbidden')) {
-    return 'Ask an owner or admin for access to manage SSH code access.'
+    return 'Ask an owner or admin for access to manage git@ Repository Access.'
   }
   if (isNetworkError(error)) {
     return connectionMessage(action)
@@ -140,18 +140,18 @@ export function sshKeysErrorMessage(error: unknown): string {
     return 'Check the access name and public key line, then try again.'
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
-    return 'Wait a minute, then try again. Forge is receiving too many SSH code access requests right now.'
+    return 'Wait a minute, then try again. Forge is receiving too many git@ Repository Access requests right now.'
   }
   if (code != null && code >= 500) {
     if (action === 'load') {
-      return 'Refresh Settings to load SSH code access. If it still fails, ask an owner or admin to check SSH code access settings.'
+      return 'Refresh Settings to load git@ Repository Access. If it still fails, ask an owner or admin to check git@ Repository Access settings.'
     }
-    return `Refresh Settings, then ${retry}. If it still fails, ask an owner or admin to check SSH code access settings.`
+    return `Refresh Settings, then ${retry}. If it still fails, ask an owner or admin to check git@ Repository Access settings.`
   }
 
   if (action === 'load') {
-    return 'Refresh Settings to load SSH code access. If it still fails, ask an owner or admin to check SSH code access settings.'
+    return 'Refresh Settings to load git@ Repository Access. If it still fails, ask an owner or admin to check git@ Repository Access settings.'
   }
 
-  return `Try to ${retry}. If it still fails, ask an owner or admin to check SSH code access settings.`
+  return `Try to ${retry}. If it still fails, ask an owner or admin to check git@ Repository Access settings.`
 }
