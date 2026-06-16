@@ -2832,6 +2832,38 @@ function AgentSummary() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags completed task notifications that stop at a missing summary', () => {
+    const cwd = fixture({
+      'src/app/hooks/useWsDispatch.ts': `
+function completionSummary() {
+  return 'No completion summary was provided'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'task-completion-summary-copy',
+        location: 'src/app/hooks/useWsDispatch.ts:3',
+      }),
+    ])
+  })
+
+  it('accepts completed task notifications that point users to task details', () => {
+    const cwd = fixture({
+      'src/app/hooks/useWsDispatch.ts': `
+function completionSummary() {
+  return 'Open the task details to confirm what changed before using the result.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags missing tool summary copy that assumes the tool should be turned on', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentPluginsTab.tsx': `

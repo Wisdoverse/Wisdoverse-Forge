@@ -433,7 +433,7 @@ function displayCliTool(cliTool: string): string {
 
 function completionSummary(task: TaskSummary): string {
   const result = task.result
-  if (!result) return 'No completion summary was provided'
+  if (!result) return 'Open the task details to confirm what changed before using the result.'
   if (Array.isArray(result)) {
     return `${result.length} result file${result.length === 1 ? '' : 's'}`
   }

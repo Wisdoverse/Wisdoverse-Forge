@@ -585,6 +585,8 @@ const TASK_STATUS_FALLBACK_DEAD_END_PATTERNS = [
   /\bPriority needs review\b/i,
 ]
 
+const TASK_COMPLETION_SUMMARY_DEAD_END_PATTERNS = [/\bNo completion summary was provided\b/i]
+
 const TASK_RECOVERY_STATUS_DEAD_END_PATTERNS = [
   /\bfailed:\s*['"`]Needs review['"`]/,
   /\bfailed:\s*['"`]Stopped with an error['"`]/,
@@ -1964,6 +1966,12 @@ function hasTaskStatusFallbackDeadEndCopy(relFile, line) {
   return TASK_STATUS_FALLBACK_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTaskCompletionSummaryDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/hooks/useWsDispatch.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_COMPLETION_SUMMARY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasTaskRecoveryStatusDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/entities/task/model/taskLabels.ts') &&
@@ -3292,6 +3300,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Task status and priority fallback copy must tell beginners to refresh or check the task field.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskCompletionSummaryDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'task-completion-summary-copy',
+        location,
+        message: 'Completed-task notifications must tell beginners where to confirm the result.',
         sample: line.trim(),
       })
     }

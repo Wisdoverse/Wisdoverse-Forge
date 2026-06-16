@@ -438,6 +438,36 @@ describe('dispatchWsMessage', () => {
     expect(notifications[0].message).not.toContain(['result', 'artifact'].join(' '))
   })
 
+  it('turns missing completed task summaries into a clear next step', () => {
+    localStorage.setItem('af:auth:user', JSON.stringify({ id: 'user-owner' }))
+
+    dispatchWsMessage({
+      type: 'orchestration:task_update',
+      payload: {
+        task: {
+          id: 'task-owner-no-result',
+          groupId: 'g1',
+          state: 'completed',
+          method: 'code',
+          params: { task: 'Update onboarding copy', message: '' },
+          createdBy: 'user-owner',
+          assignedAgentName: 'Codex',
+          priority: 'normal',
+          progress: 100,
+          createdAt: '2026-04-03T00:00:00Z',
+          updatedAt: '2026-04-03T00:01:00Z',
+        },
+      },
+    })
+
+    const notifications = useFeedStore.getState().notifications
+    expect(notifications).toHaveLength(1)
+    expect(notifications[0].message).toContain(
+      'Open the task details to confirm what changed before using the result.'
+    )
+    expect(notifications[0].message).not.toContain('No completion summary was provided')
+  })
+
   it('hides raw completed task stdout in owner notifications', () => {
     localStorage.setItem('af:auth:user', JSON.stringify({ id: 'user-owner' }))
 
