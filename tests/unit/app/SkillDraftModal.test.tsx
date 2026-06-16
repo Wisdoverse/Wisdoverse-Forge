@@ -32,6 +32,28 @@ afterEach(() => {
 })
 
 describe('SkillDraftModal', () => {
+  test('uses explicit close wording before publishing a saved instruction', async () => {
+    const onClose = vi.fn()
+    const user = userEvent.setup()
+
+    render(
+      <SkillDraftModal
+        open
+        task={completedTask}
+        artifacts={[{ name: 'summary.md', mimeType: 'text/markdown', data: 'Done' }]}
+        onClose={onClose}
+      />
+    )
+
+    expect(screen.getByRole('button', { name: 'Close without publishing' })).toBeDefined()
+    expect(screen.queryByRole('button', { name: /^Cancel$/ })).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Close without publishing' }))
+
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   test('keeps the user in flow after publishing a saved instruction', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,

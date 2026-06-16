@@ -269,7 +269,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
 
             <div className="flex justify-end gap-2 pt-1">
               <button type="button" onClick={onClose} className={uiStyles.secondaryButton}>
-                Cancel
+                Close without publishing
               </button>
               <button type="submit" disabled={submitting} className={uiStyles.primaryButton}>
                 {submitting ? 'Publishing...' : 'Publish instruction'}
