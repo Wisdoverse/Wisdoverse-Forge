@@ -370,8 +370,14 @@ describe('CreateAgentModal', () => {
     render(<CreateAgentModal />)
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
 
-    expect(screen.getByTestId('provider-empty-hint')).toHaveTextContent(
-      /add and check an AI service in settings/i
+    const providerHint = screen.getByTestId('provider-empty-hint')
+    expect(providerHint).toHaveTextContent(/open settings > ai services/i)
+    expect(providerHint).toHaveTextContent(/paste its access key/i)
+    expect(providerHint).toHaveTextContent(/click check/i)
+    expect(providerHint).toHaveTextContent(/service says ready/i)
+    expect(screen.getByRole('link', { name: /open ai services settings/i })).toHaveAttribute(
+      'href',
+      '/settings/providers'
     )
     expect(screen.queryByLabelText(/^ai service$/i)).toBeNull()
 
@@ -379,8 +385,9 @@ describe('CreateAgentModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
     await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent(/add and check an AI service in settings/i)
+      expect(screen.getByRole('alert')).toHaveTextContent(/open settings > ai services/i)
     )
+    expect(screen.getByRole('alert')).toHaveTextContent(/click check until it says ready/i)
     expect(createAgent).not.toHaveBeenCalled()
   })
 

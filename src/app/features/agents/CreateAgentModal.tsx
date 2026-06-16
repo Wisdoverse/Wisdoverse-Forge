@@ -427,7 +427,9 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
     if (data.kind === 'provider') {
       const selected = providerOptions.find((option) => option.id === data.providerId)
       if (!selected) {
-        setFormError('Add and check an AI service in Settings first, then choose it here.')
+        setFormError(
+          'Open Settings > AI services, add a service, save it, then click Check until it says Ready.'
+        )
         return
       }
       if (!data.model.trim()) {
@@ -1066,9 +1068,16 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                       No AI service ready yet
                     </p>
                     <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                      Add and check an AI service in Settings first, then come back to create a
-                      simple chat agent.
+                      Open Settings &gt; AI services, add a service, paste its access key, save it,
+                      then click Check. Come back when the service says Ready.
                     </p>
+                    <a
+                      href="/settings/providers"
+                      className="mt-2 inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-apple-blue/20 bg-apple-blue/[0.08] px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35"
+                    >
+                      <span>Open AI services settings</span>
+                      <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
+                    </a>
                   </div>
                 )}
                 <div>
