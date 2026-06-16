@@ -65,6 +65,21 @@ interface ProjectEditorState {
   error: string | null
 }
 
+type DeleteTargetState =
+  | {
+      target: 'team'
+      team: NavTeam
+      saving: boolean
+      error: string | null
+    }
+  | {
+      target: 'project'
+      project: NavProject
+      team: NavTeam
+      saving: boolean
+      error: string | null
+    }
+
 interface CopyFeedback {
   message: string
   tone: 'success' | 'error'
@@ -85,6 +100,12 @@ interface EmptyTreeHintProps {
   Icon: LucideIcon
   onAction?: () => void
   testId: string
+}
+
+interface DeleteConfirmationDialogProps {
+  state: DeleteTargetState
+  onCancel: () => void
+  onConfirm: () => void
 }
 
 const TEAM_MENU_SIZE = { width: 190, height: 108 }
@@ -349,6 +370,81 @@ function EmptyTreeHint({ title, detail, actionLabel, Icon, onAction, testId }: E
   )
 }
 
+function DeleteConfirmationDialog({ state, onCancel, onConfirm }: DeleteConfirmationDialogProps) {
+  const titleId = `sidebar-delete-${state.target}-title`
+  const detailId = `sidebar-delete-${state.target}-detail`
+  const targetName = state.target === 'team' ? state.team.name : state.project.name
+  const title = state.target === 'team' ? 'Delete this team?' : 'Delete this project?'
+  const detail =
+    state.target === 'team'
+      ? `Check and move or finish any work you still need from "${targetName}" before deleting. Projects in this team leave the sidebar too. Agents are not deleted.`
+      : `Check and move or finish any work you still need from "${targetName}" before deleting. The project leaves this workspace, and agents are moved out instead of deleted.`
+  const confirmLabel = state.saving
+    ? 'Deleting...'
+    : state.target === 'team'
+      ? 'Delete team'
+      : 'Delete project'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+      <button
+        type="button"
+        aria-label="Close delete confirmation"
+        className="absolute inset-0 bg-black/40"
+        onClick={onCancel}
+        disabled={state.saving}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={detailId}
+        className="relative w-full max-w-[380px] rounded-lg bg-white p-5 shadow-xl dark:bg-[#2c2c2e]"
+      >
+        <h2
+          id={titleId}
+          className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark"
+        >
+          {title}
+        </h2>
+        <p
+          id={detailId}
+          className="mt-2 text-ui-body text-secondary-light dark:text-secondary-dark"
+        >
+          {detail}
+        </p>
+        {state.error && (
+          <div
+            role="alert"
+            className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-ui-caption text-red-600 dark:bg-red-900/20 dark:text-red-400"
+          >
+            {state.error}
+          </div>
+        )}
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            disabled={state.saving}
+            onClick={onCancel}
+            className="rounded-full bg-apple-gray-5 px-3 py-1.5 text-ui-button font-medium text-foreground-light disabled:opacity-50 dark:bg-white/[0.06] dark:text-foreground-dark"
+          >
+            Keep
+          </button>
+          <button
+            type="button"
+            disabled={state.saving}
+            onClick={onConfirm}
+            aria-busy={state.saving || undefined}
+            className="rounded-full bg-red-600 px-3 py-1.5 text-ui-button font-medium text-white disabled:opacity-50"
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function canManageTeam(team: NavTeam): boolean {
   return team.canManage !== false
 }
@@ -383,6 +479,7 @@ export function ProjectTree({
   const [projectMenu, setProjectMenu] = useState<ProjectMenuState | null>(null)
   const [teamEditor, setTeamEditor] = useState<TeamEditorState | null>(null)
   const [projectEditor, setProjectEditor] = useState<ProjectEditorState | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTargetState | null>(null)
   const [membersProject, setMembersProject] = useState<NavProject | null>(null)
   const [copyFeedback, setCopyFeedback] = useState<CopyFeedback | null>(null)
 
@@ -418,7 +515,7 @@ export function ProjectTree({
   )
 
   useEffect(() => {
-    if (!teamMenu && !projectMenu && !teamEditor && !projectEditor) return
+    if (!teamMenu && !projectMenu && !teamEditor && !projectEditor && !deleteTarget) return
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
@@ -426,12 +523,13 @@ export function ProjectTree({
         setProjectMenu(null)
         setTeamEditor(null)
         setProjectEditor(null)
+        setDeleteTarget(null)
       }
     }
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [teamMenu, projectMenu, teamEditor, projectEditor])
+  }, [teamMenu, projectMenu, teamEditor, projectEditor, deleteTarget])
 
   useEffect(() => {
     if (copyFeedback?.tone !== 'success') return
@@ -570,29 +668,32 @@ export function ProjectTree({
     }
   }
 
-  async function handleDeleteTeam(team: NavTeam) {
+  function handleDeleteTeam(team: NavTeam) {
     setTeamMenu(null)
-    const confirmed = window.confirm(
-      `Delete team "${team.name}"? Projects in this team will also be removed from the sidebar.`
-    )
-    if (!confirmed) return
-    try {
-      await onDeleteTeam(team.id)
-    } catch (err) {
-      setCopyFeedback({ message: deleteErrorMessage('team', err), tone: 'error' })
-    }
+    setDeleteTarget({ target: 'team', team, saving: false, error: null })
   }
 
-  async function handleDeleteProject(project: NavProject) {
+  function handleDeleteProject(team: NavTeam, project: NavProject) {
     setProjectMenu(null)
-    const confirmed = window.confirm(
-      `Delete project "${project.name}"? The project disappears from this workspace, but agents are moved out instead of deleted.`
-    )
-    if (!confirmed) return
+    setDeleteTarget({ target: 'project', team, project, saving: false, error: null })
+  }
+
+  async function confirmDeleteTarget() {
+    if (!deleteTarget) return
+    setDeleteTarget({ ...deleteTarget, saving: true, error: null })
     try {
-      await onDeleteProject(project.id)
+      if (deleteTarget.target === 'team') {
+        await onDeleteTeam(deleteTarget.team.id)
+      } else {
+        await onDeleteProject(deleteTarget.project.id)
+      }
+      setDeleteTarget(null)
     } catch (err) {
-      setCopyFeedback({ message: deleteErrorMessage('project', err), tone: 'error' })
+      setDeleteTarget({
+        ...deleteTarget,
+        saving: false,
+        error: deleteErrorMessage(deleteTarget.target, err),
+      })
     }
   }
 
@@ -700,7 +801,7 @@ export function ProjectTree({
                 type="button"
                 role="menuitem"
                 className="w-full rounded-md px-2.5 py-1.5 text-left text-ui-caption text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-                onClick={() => void handleDeleteTeam(teamMenu.team)}
+                onClick={() => handleDeleteTeam(teamMenu.team)}
               >
                 Delete Team
               </button>
@@ -814,12 +915,20 @@ export function ProjectTree({
                   label="Delete Project"
                   detail="Remove project, not the whole team"
                   tone="danger"
-                  onClick={() => void handleDeleteProject(projectMenu.project)}
+                  onClick={() => handleDeleteProject(projectMenu.team, projectMenu.project)}
                 />
               </>
             )}
           </div>
         </div>
+      )}
+
+      {deleteTarget && (
+        <DeleteConfirmationDialog
+          state={deleteTarget}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={() => void confirmDeleteTarget()}
+        />
       )}
 
       {teamEditor && (

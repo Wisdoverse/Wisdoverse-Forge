@@ -506,13 +506,39 @@ describe('Sidebar', () => {
   })
 
   it('deletes team from context menu', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const confirmSpy = vi.spyOn(window, 'confirm')
+    let resolveDelete: () => void = () => {}
+    vi.mocked(teamApi.deleteTeam).mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveDelete = resolve
+        })
+    )
     seedProjectTree()
 
     render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
     fireEvent.contextMenu(screen.getByTestId('team-t1'))
     fireEvent.click(screen.getByRole('menuitem', { name: /delete team/i }))
 
+    expect(screen.getByRole('dialog', { name: /delete this team/i })).toBeInTheDocument()
+    expect(
+      screen.getByText(/Check and move or finish any work you still need from "Team Alpha"/i)
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /keep/i })).toBeInTheDocument()
+    expect(confirmSpy).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: /keep/i }))
+    expect(screen.queryByRole('dialog', { name: /delete this team/i })).not.toBeInTheDocument()
+    expect(teamApi.deleteTeam).not.toHaveBeenCalled()
+
+    fireEvent.contextMenu(screen.getByTestId('team-t1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /delete team/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^delete team$/i }))
+
+    expect(screen.getByRole('button', { name: /deleting/i })).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByRole('button', { name: /keep/i })).toBeDisabled()
+
+    resolveDelete()
     await waitFor(() => expect(teamApi.deleteTeam).toHaveBeenCalledWith('org1', 't1'))
     expect(screen.queryByText('Team Alpha')).not.toBeInTheDocument()
     expect(screen.queryByText('Project X')).not.toBeInTheDocument()
@@ -520,7 +546,6 @@ describe('Sidebar', () => {
   })
 
   it('shows beginner guidance when sidebar team delete is denied', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     seedProjectTree()
     vi.mocked(teamApi.deleteTeam).mockRejectedValueOnce(
       new Error('API 403: {"error":"owner role required"}')
@@ -529,6 +554,7 @@ describe('Sidebar', () => {
     render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
     fireEvent.contextMenu(screen.getByTestId('team-t1'))
     fireEvent.click(screen.getByRole('menuitem', { name: /delete team/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^delete team$/i }))
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
@@ -539,7 +565,7 @@ describe('Sidebar', () => {
     expect(alert).not.toHaveTextContent(/API 403/i)
     expect(screen.getByText('Team Alpha')).toBeInTheDocument()
     expect(screen.getByText('Project X')).toBeInTheDocument()
-    confirmSpy.mockRestore()
+    expect(screen.getByRole('button', { name: /^delete team$/i })).toBeEnabled()
   })
 
   it('configures project name from context menu', async () => {
@@ -678,12 +704,20 @@ describe('Sidebar', () => {
   })
 
   it('deletes project from context menu', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const confirmSpy = vi.spyOn(window, 'confirm')
     seedProjectTree()
 
     render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
     fireEvent.contextMenu(screen.getByTestId('project-p1'))
     fireEvent.click(screen.getByRole('menuitem', { name: /delete project/i }))
+
+    expect(screen.getByRole('dialog', { name: /delete this project/i })).toBeInTheDocument()
+    expect(
+      screen.getByText(/Check and move or finish any work you still need from "Project X"/i)
+    ).toBeInTheDocument()
+    expect(confirmSpy).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: /^delete project$/i }))
 
     await waitFor(() => expect(projectApi.deleteProject).toHaveBeenCalledWith('t1', 'p1'))
     expect(screen.queryByText('Project X')).not.toBeInTheDocument()
@@ -691,7 +725,6 @@ describe('Sidebar', () => {
   })
 
   it('shows beginner guidance when sidebar project delete is blocked', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     seedProjectTree()
     vi.mocked(projectApi.deleteProject).mockRejectedValueOnce(
       new Error('API 422: {"message":"Move agents first."}')
@@ -700,6 +733,7 @@ describe('Sidebar', () => {
     render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
     fireEvent.contextMenu(screen.getByTestId('project-p1'))
     fireEvent.click(screen.getByRole('menuitem', { name: /delete project/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^delete project$/i }))
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
@@ -708,11 +742,9 @@ describe('Sidebar', () => {
     expect(alert).not.toHaveTextContent(/Move agents first/i)
     expect(alert).not.toHaveTextContent(/API 422/i)
     expect(screen.getByText('Project X')).toBeInTheDocument()
-    confirmSpy.mockRestore()
   })
 
   it('shows next-step guidance when sidebar project delete is denied', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     seedProjectTree()
     vi.mocked(projectApi.deleteProject).mockRejectedValueOnce(
       new Error('API 403: {"error":"owner role required"}')
@@ -721,6 +753,7 @@ describe('Sidebar', () => {
     render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
     fireEvent.contextMenu(screen.getByTestId('project-p1'))
     fireEvent.click(screen.getByRole('menuitem', { name: /delete project/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^delete project$/i }))
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
@@ -729,6 +762,5 @@ describe('Sidebar', () => {
     expect(alert).not.toHaveTextContent(/owner role required/i)
     expect(alert).not.toHaveTextContent(/API 403/i)
     expect(screen.getByText('Project X')).toBeInTheDocument()
-    confirmSpy.mockRestore()
   })
 })
