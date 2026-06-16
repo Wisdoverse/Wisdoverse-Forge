@@ -200,7 +200,8 @@ describe('AssignmentReadinessPanel', () => {
 
     const readiness = screen.getByTestId('assignment-readiness')
     expect(within(readiness).getByText(/Last seen/i)).toBeDefined()
-    expect(within(readiness).getByText('No recent activity')).toBeDefined()
+    expect(within(readiness).getByText('Open Agents to reconnect')).toBeDefined()
+    expect(readiness.textContent).not.toContain('No recent activity')
     const previousStatusWord = ['heart', 'beat'].join('')
     expect(readiness.textContent).not.toContain(previousStatusWord)
   })

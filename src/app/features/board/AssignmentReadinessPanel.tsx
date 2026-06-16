@@ -216,7 +216,7 @@ function ParticipantChip({ participant }: { participant: ParticipantSummary }) {
         ? 'Already working'
         : participant.lastHeartbeatAt
           ? `Last seen ${formatRelativeTime(participant.lastHeartbeatAt)}`
-          : 'No recent activity'
+          : 'Open Agents to reconnect'
   const capabilities =
     participant.capabilities.length > 0 ? agentCapabilitySummary(participant.capabilities) : ''
   const detail =

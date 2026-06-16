@@ -6773,6 +6773,9 @@ function AssignmentReadinessPanel() {
 function summarizeHandoff() {
   return '1 task needs an agent. Connect or free up an agent before it can start.'
 }
+function ParticipantChip() {
+  return 'No recent activity'
+}
 `,
     })
 
@@ -6793,6 +6796,10 @@ function summarizeHandoff() {
           type: 'board-agent-setup-copy',
           location: 'src/app/features/board/AssignmentReadinessPanel.tsx:6',
         }),
+        expect.objectContaining({
+          type: 'board-agent-setup-copy',
+          location: 'src/app/features/board/AssignmentReadinessPanel.tsx:9',
+        }),
       ])
     )
   })
@@ -6810,6 +6817,9 @@ function AssignmentReadinessPanel() {
 }
 function summarizeHandoff() {
   return '1 task needs an agent. Open Agents to start or connect an agent, or wait for one to finish.'
+}
+function ParticipantChip() {
+  return 'Open Agents to reconnect'
 }
 `,
     })

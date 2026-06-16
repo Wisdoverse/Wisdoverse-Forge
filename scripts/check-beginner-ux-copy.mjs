@@ -755,6 +755,7 @@ const BOARD_AGENT_SETUP_DEAD_END_PATTERNS = [
   /\bNo agent is available for saved item preview\. Start an agent or wait for one to finish, then try again\./i,
   /\bNo agent can take work right now\./i,
   /\bConnect or free up an agent before (?:it|them) can start\./i,
+  /\bNo recent activity\b/i,
 ]
 
 const AUTH_FAILURE_FIRST_PATTERNS = [
