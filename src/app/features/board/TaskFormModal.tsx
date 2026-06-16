@@ -785,15 +785,26 @@ function normalizeAgentStatus(status: string): string {
 
 function taskBriefCues(title: string, description: string): TaskBriefCue[] {
   const normalizedTitle = title.trim()
-  const normalizedDescription = description.trim().toLowerCase()
+  const contentText = meaningfulBriefText(description)
+  const hasWorkSectionContent = hasBriefSectionContent(description, [
+    'where to work',
+    'where to look first',
+    'what to inspect',
+    'what to avoid',
+    'change to review',
+  ])
+  const hasDoneSectionContent = hasBriefSectionContent(description, [
+    'done when',
+    'checks to run',
+    'answer format',
+    'decision needed',
+  ])
   const namesWorkArea =
-    /\b(where to work|where to look|what to inspect|files?|folder|screen|page|area|avoid|src\/|docs\/|tests?\/|rust\/)\b/.test(
-      normalizedDescription
-    )
+    hasWorkSectionContent ||
+    /\b(files?|folder|screen|page|area|src\/|docs\/|tests?\/|rust\/)\b/.test(contentText)
   const namesFinishCheck =
-    /\b(done when|success|verify|test|check|screenshot|output|result|passes?)\b/.test(
-      normalizedDescription
-    )
+    hasDoneSectionContent ||
+    /\b(success|verify|test|check|screenshot|output|result|passes?)\b/.test(contentText)
 
   return [
     {
@@ -819,6 +830,66 @@ function taskBriefCues(title: string, description: string): TaskBriefCue[] {
     },
   ]
 }
+
+function meaningfulBriefText(description: string): string {
+  return description
+    .split(/\r?\n/)
+    .map(cleanBriefLine)
+    .filter((line) => line.length > 0 && !isTemplateCueLabel(line))
+    .join('\n')
+    .toLowerCase()
+}
+
+function hasBriefSectionContent(description: string, labels: string[]): boolean {
+  const normalizedLabels = new Set(labels.map((label) => label.toLowerCase()))
+  let inSection = false
+
+  for (const rawLine of description.split(/\r?\n/)) {
+    const line = cleanBriefLine(rawLine)
+    if (!line) continue
+
+    const cueLabel = templateCueLabel(line)
+    if (cueLabel) {
+      inSection = normalizedLabels.has(cueLabel)
+      continue
+    }
+
+    if (inSection) return true
+  }
+
+  return false
+}
+
+function cleanBriefLine(line: string): string {
+  return line.replace(/^[-*]\s*/, '').trim()
+}
+
+function templateCueLabel(line: string): string | null {
+  const normalized = line.trim().replace(/:$/, '').toLowerCase()
+  return isTemplateCueLabel(normalized) ? normalized : null
+}
+
+function isTemplateCueLabel(line: string): boolean {
+  return TEMPLATE_CUE_LABELS.has(line.trim().replace(/:$/, '').toLowerCase())
+}
+
+const TEMPLATE_CUE_LABELS = new Set([
+  'what should change',
+  'where to work',
+  'what to avoid',
+  'done when',
+  'what is broken',
+  'what should happen',
+  'where to look first',
+  'question to answer',
+  'what to inspect',
+  'what is already known',
+  'decision needed',
+  'change to review',
+  'what could go wrong',
+  'checks to run',
+  'answer format',
+])
 
 function formatBriefCueList(labels: string[]): string {
   if (labels.length === 0) return 'the missing details'

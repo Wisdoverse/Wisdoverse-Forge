@@ -93,6 +93,31 @@ describe('TaskFormModal', () => {
     expect(description.value).not.toContain('Evidence:')
   })
 
+  test('does not treat blank template prompts as finished task details', () => {
+    renderModal()
+
+    fireEvent.click(screen.getByRole('button', { name: /feature/i }))
+
+    expect(screen.getByTestId('task-brief-cue-goal')).toHaveTextContent('Ready')
+    expect(screen.getByTestId('task-brief-cue-where')).toHaveTextContent('Add')
+    expect(screen.getByTestId('task-brief-cue-where')).toHaveTextContent(
+      'Name the files, screen, folder, or area to check first.'
+    )
+    expect(screen.getByTestId('task-brief-cue-done')).toHaveTextContent('Add')
+    expect(screen.getByTestId('task-brief-cue-done')).toHaveTextContent(
+      'Add the test, screenshot, output, or result that proves it is done.'
+    )
+
+    fireEvent.change(screen.getByLabelText(/details the agent should know/i), {
+      target: {
+        value: 'Where to work:\n- src/app/features/board\n\nDone when:\n- Task form test passes',
+      },
+    })
+
+    expect(screen.getByTestId('task-brief-cue-where')).toHaveTextContent('Ready')
+    expect(screen.getByTestId('task-brief-cue-done')).toHaveTextContent('Ready')
+  })
+
   test('shows what a new agent still needs before the task is clear', () => {
     renderModal()
 
