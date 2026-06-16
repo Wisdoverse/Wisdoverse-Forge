@@ -23,6 +23,16 @@ vi.mock('@app/shared/api/orchestration', () => ({
   orchestrationApi: orchestrationApiMock,
 }))
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
 afterEach(cleanup)
 beforeEach(() => {
   useFeedStore.getState().reset()
@@ -35,9 +45,9 @@ beforeEach(() => {
 })
 
 describe('InboxView', () => {
-  test('shows empty state when no notifications', () => {
+  test('shows empty state when no notifications', async () => {
     render(<InboxView />)
-    expect(screen.getByText(/all caught up/i)).toBeDefined()
+    expect(await screen.findByText(/all caught up/i)).toBeDefined()
     expect(screen.getByText('Inbox triage path')).toBeDefined()
     expect(screen.getByText(/start with needs action/i)).toBeDefined()
     expect(screen.getByText(/tasks that need help/i)).toBeDefined()
@@ -49,6 +59,20 @@ describe('InboxView', () => {
     expect(screen.queryByText(/needs a connection restored/i)).toBeNull()
     expect(screen.queryByText(/failures/i)).toBeNull()
     expect(screen.queryByText(/system alerts/i)).toBeNull()
+  })
+
+  test('shows progress while older saved updates are loading', async () => {
+    const request = deferred<never[]>()
+    orchestrationApiMock.fetchInboxNotifications.mockReturnValueOnce(request.promise)
+
+    render(<InboxView />)
+
+    expect(screen.getByRole('status')).toHaveTextContent('Checking for saved updates...')
+    expect(screen.getByText('Checking for saved updates')).toBeDefined()
+    expect(screen.getByText(/older notifications/i)).toBeDefined()
+
+    request.resolve([])
+    expect(await screen.findByText(/all caught up/i)).toBeDefined()
   })
 
   test('renders notification items', () => {
@@ -417,7 +441,10 @@ describe('InboxView', () => {
   })
 
   test('shows a recoverable message when older notifications cannot load', async () => {
-    orchestrationApiMock.fetchInboxNotifications.mockRejectedValue(new Error('offline'))
+    const retry = deferred<never[]>()
+    orchestrationApiMock.fetchInboxNotifications
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockReturnValueOnce(retry.promise)
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
 
     render(<InboxView />)
@@ -428,10 +455,14 @@ describe('InboxView', () => {
     )
     expect(alert.textContent).not.toMatch(/^Saved notifications could not be loaded/)
 
-    await userEvent.setup().click(screen.getByRole('button', { name: /reload inbox/i }))
-    await waitFor(() =>
-      expect(orchestrationApiMock.fetchInboxNotifications).toHaveBeenCalledTimes(2)
-    )
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /reload inbox/i }))
+    expect(screen.getByRole('button', { name: /reloading inbox/i })).toBeDisabled()
+    expect(orchestrationApiMock.fetchInboxNotifications).toHaveBeenCalledTimes(2)
+
+    retry.resolve([])
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+    expect(screen.getByText(/all caught up/i)).toBeDefined()
 
     warnSpy.mockRestore()
   })

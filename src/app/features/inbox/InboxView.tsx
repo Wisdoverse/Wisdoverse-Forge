@@ -29,7 +29,7 @@ const INBOX_TRIAGE_STEPS = [
   'Mark items read after the task or setting has been handled.',
 ]
 
-function InboxLoadError({ onRetry }: { onRetry: () => void }) {
+function InboxLoadError({ loading, onRetry }: { loading: boolean; onRetry: () => void }) {
   return (
     <div
       role="alert"
@@ -43,10 +43,11 @@ function InboxLoadError({ onRetry }: { onRetry: () => void }) {
       <button
         type="button"
         onClick={onRetry}
-        className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-ui-button font-semibold text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30"
+        disabled={loading}
+        className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-ui-button font-semibold text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30 disabled:cursor-not-allowed disabled:opacity-70"
       >
-        <RefreshCw size={14} aria-hidden="true" />
-        Reload inbox
+        <RefreshCw size={14} className={cn(loading && 'animate-spin')} aria-hidden="true" />
+        {loading ? 'Reloading inbox...' : 'Reload inbox'}
       </button>
     </div>
   )
@@ -58,6 +59,7 @@ export function InboxView() {
   const navigate = useNavigate()
   const [activeFilter, setActiveFilter] = useState<InboxFilter>('all')
   const [loadError, setLoadError] = useState(false)
+  const [loadingSavedNotifications, setLoadingSavedNotifications] = useState(false)
   const unreadCount = notifications.filter((n) => !n.read).length
   const orderedNotifications = useMemo(
     () => [...notifications].sort((a, b) => b.timestamp - a.timestamp),
@@ -100,17 +102,22 @@ export function InboxView() {
   )
   const loadNotifications = useCallback(() => {
     let cancelled = false
-    setLoadError(false)
+    setLoadingSavedNotifications(true)
     orchestrationApi
       .fetchInboxNotifications()
       .then((items) => {
         if (cancelled) return
+        setLoadError(false)
         items.forEach((item) => addNotification(item))
       })
       .catch((error) => {
         if (cancelled) return
         console.warn('Failed to load inbox notifications', error)
         setLoadError(true)
+      })
+      .finally(() => {
+        if (cancelled) return
+        setLoadingSavedNotifications(false)
       })
     return () => {
       cancelled = true
@@ -153,15 +160,29 @@ export function InboxView() {
         </div>
         {loadError && (
           <div className="w-full">
-            <InboxLoadError onRetry={loadNotifications} />
+            <InboxLoadError loading={loadingSavedNotifications} onRetry={loadNotifications} />
+          </div>
+        )}
+        {!loadError && loadingSavedNotifications && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] bg-white px-3 py-1.5 text-ui-caption font-medium text-secondary-light dark:border-white/[0.1] dark:bg-white/[0.06] dark:text-secondary-dark"
+          >
+            <RefreshCw size={13} className="animate-spin" aria-hidden="true" />
+            Checking for saved updates...
           </div>
         )}
         <div className="space-y-1">
           <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            You're all caught up
+            {loadingSavedNotifications && !loadError
+              ? 'Checking for saved updates'
+              : "You're all caught up"}
           </p>
           <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-            Agent updates, finished work, and account access notices will show up here.
+            {loadingSavedNotifications && !loadError
+              ? 'Forge is checking older notifications. New live updates will still appear here.'
+              : 'Agent updates, finished work, and account access notices will show up here.'}
           </p>
         </div>
         <InboxTriagePath compact />
@@ -210,7 +231,7 @@ export function InboxView() {
         )}
         {loadError && (
           <div className="mb-3">
-            <InboxLoadError onRetry={loadNotifications} />
+            <InboxLoadError loading={loadingSavedNotifications} onRetry={loadNotifications} />
           </div>
         )}
         <div className="flex items-center justify-between gap-3">
