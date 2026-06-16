@@ -150,7 +150,7 @@ function toolDescription(plugin: Pick<PluginItem, 'description'>): string {
   const description = plugin.description.trim()
   return (
     description ||
-    'No tool summary yet. Ask an owner what this tool lets the agent do before turning it on.'
+    'Tool summary is missing. Keep the team setting until an owner explains what this tool lets the agent do.'
   )
 }
 

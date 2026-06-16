@@ -2832,6 +2832,38 @@ function AgentSummary() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags missing tool summary copy that assumes the tool should be turned on', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentPluginsTab.tsx': `
+function toolDescription() {
+  return 'No tool summary yet. Ask an owner what this tool lets the agent do before turning it on.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'agent-tool-summary-copy',
+        location: 'src/app/features/agents/AgentPluginsTab.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts missing tool summary copy that tells users to keep the team setting', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentPluginsTab.tsx': `
+function toolDescription() {
+  return 'Tool summary is missing. Keep the team setting until an owner explains what this tool lets the agent do.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags agent tool update status copy that does not tell users to check now', () => {
     const cwd = fixture({
       'src/app/features/admin/CliImagesPanel.tsx': `

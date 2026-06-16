@@ -408,6 +408,9 @@ const AGENT_TASK_QUEUE_EMPTY_DEAD_END_PATTERNS = [
 ]
 const TASK_LIST_EMPTY_DEAD_END_PATTERNS = [/\bCreate one small task from the board first\b/i]
 const AGENT_LIST_SUMMARY_DEAD_END_PATTERNS = [/\bNo agents\b/i]
+const AGENT_TOOL_SUMMARY_DEAD_END_PATTERNS = [
+  /\bNo tool summary yet\. Ask an owner what this tool lets the agent do before turning it on\./i,
+]
 const CREATE_AGENT_OPTIONAL_CONTEXT_DEAD_END_PATTERNS = [
   /\bNo primary project\b/i,
   /\bNo task queue\b/i,
@@ -1484,6 +1487,12 @@ function hasAgentListSummaryDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/agents/AgentListView.tsx')) return false
   if (line.trim().startsWith('//') || line.trim().startsWith('*')) return false
   return AGENT_LIST_SUMMARY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentToolSummaryDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/agents/AgentPluginsTab.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_TOOL_SUMMARY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentAiServiceDeadEndCopy(relFile, line) {
@@ -2784,6 +2793,15 @@ function scanFile(file, relFile) {
         type: 'agent-list-summary-copy',
         location,
         message: 'Agent list empty summaries must point beginners to creating the first agent.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentToolSummaryDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-tool-summary-copy',
+        location,
+        message: 'Agent tool missing-summary copy must tell beginners to keep the team setting.',
         sample: line.trim(),
       })
     }

@@ -199,9 +199,11 @@ describe('AgentPluginsTab', () => {
     expect(await screen.findByText('Workspace Helper')).toBeDefined()
     expect(
       screen.getByText(
-        'No tool summary yet. Ask an owner what this tool lets the agent do before turning it on.'
+        'Tool summary is missing. Keep the team setting until an owner explains what this tool lets the agent do.'
       )
     ).toBeDefined()
+    expect(screen.queryByText(/before turning it on/i)).toBeNull()
+    expect(screen.queryByText(/No tool summary yet/i)).toBeNull()
     expect(screen.queryByText('No description provided')).toBeNull()
   })
 
