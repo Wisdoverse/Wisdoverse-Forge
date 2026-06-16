@@ -256,7 +256,7 @@ function taskNotificationMessage(
   const actor = assigned || 'Assigned agent'
   switch (type) {
     case 'blocked':
-      return `${actor} is blocked and needs owner input: ${detail}`
+      return `${actor} needs your answer before work can continue: ${detail}`
     case 'failed':
       return `${actor} stopped before finishing. Open the task, review the recovery note, then retry or choose another agent. ${detail}`
     case 'completed':

@@ -587,6 +587,8 @@ const TASK_STATUS_FALLBACK_DEAD_END_PATTERNS = [
 
 const TASK_COMPLETION_SUMMARY_DEAD_END_PATTERNS = [/\bNo completion summary was provided\b/i]
 
+const TASK_OWNER_BLOCKED_NOTIFICATION_JARGON_PATTERNS = [/\bis blocked and needs owner input\b/i]
+
 const TASK_RECOVERY_STATUS_DEAD_END_PATTERNS = [
   /\bfailed:\s*['"`]Needs review['"`]/,
   /\bfailed:\s*['"`]Stopped with an error['"`]/,
@@ -1972,6 +1974,12 @@ function hasTaskCompletionSummaryDeadEndCopy(relFile, line) {
   return TASK_COMPLETION_SUMMARY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTaskOwnerBlockedNotificationJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/hooks/useWsDispatch.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_OWNER_BLOCKED_NOTIFICATION_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasTaskRecoveryStatusDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/entities/task/model/taskLabels.ts') &&
@@ -3309,6 +3317,15 @@ function scanFile(file, relFile) {
         type: 'task-completion-summary-copy',
         location,
         message: 'Completed-task notifications must tell beginners where to confirm the result.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskOwnerBlockedNotificationJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'task-owner-blocked-notification-copy',
+        location,
+        message: 'Task owner notifications must ask for the user answer, not owner-input jargon.',
         sample: line.trim(),
       })
     }

@@ -221,7 +221,9 @@ describe('dispatchWsMessage', () => {
       read: false,
     })
     expect(notifications[0].message).toContain('Waiting for SSH approval')
-    expect(notifications[0].message).toContain('needs owner input')
+    expect(notifications[0].message).toContain('needs your answer before work can continue')
+    expect(notifications[0].message).not.toContain('needs owner input')
+    expect(notifications[0].message).not.toContain('is blocked')
   })
 
   it('hides raw blocked fallback details in owner notifications', () => {

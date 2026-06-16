@@ -2864,6 +2864,38 @@ function completionSummary() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags task owner notifications that expose blocked owner-input jargon', () => {
+    const cwd = fixture({
+      'src/app/hooks/useWsDispatch.ts': `
+function taskNotificationMessage(actor, detail) {
+  return \`\${actor} is blocked and needs owner input: \${detail}\`
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'task-owner-blocked-notification-copy',
+        location: 'src/app/hooks/useWsDispatch.ts:3',
+      }),
+    ])
+  })
+
+  it('accepts task owner notifications that ask for the user answer', () => {
+    const cwd = fixture({
+      'src/app/hooks/useWsDispatch.ts': `
+function taskNotificationMessage(actor, detail) {
+  return \`\${actor} needs your answer before work can continue: \${detail}\`
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags missing tool summary copy that assumes the tool should be turned on', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentPluginsTab.tsx': `
