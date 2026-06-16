@@ -380,6 +380,9 @@ export function GettingStartedView() {
               >
                 {skipSaving ? t('gettingStarted.skipSaving') : t('gettingStarted.skip')}
               </button>
+              <p className="mt-1 max-w-2xl text-ui-caption text-secondary-light dark:text-secondary-dark">
+                {t('gettingStarted.skipHint')}
+              </p>
               {skipError && (
                 <p role="alert" className="mt-2 text-ui-caption font-medium text-apple-red">
                   {skipError}

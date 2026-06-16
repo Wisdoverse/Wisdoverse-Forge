@@ -89,6 +89,8 @@ export const zh: TranslationKeys = {
     description: '一次只做一步。先完成创建 Agent、发送任务、验收结果这条最小路径。',
     skip: '跳过并打开任务',
     skipSaving: '正在跳过...',
+    skipHint:
+      '这只会隐藏侧栏里的 Start。项目、Agent 和任务都不会变化，也可以在设置里重新显示 Start。',
     skipError: '暂时无法隐藏 Start。请检查网络，然后再点一次跳过。',
     progressCount: '{{complete}} / {{total}}',
     nextTitle: '下一步先做这个',

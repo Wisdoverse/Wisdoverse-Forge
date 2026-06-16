@@ -89,6 +89,8 @@ export const en = {
       'Follow one step at a time. Finish this path to create an agent, send work, and review the result.',
     skip: 'Skip and open Tasks',
     skipSaving: 'Skipping...',
+    skipHint:
+      'This only hides Start from the sidebar. Your projects, agents, and tasks stay the same, and you can show Start again from Settings.',
     skipError: 'Check your connection, then choose Skip again. Start could not be hidden.',
     progressCount: '{{complete}} of {{total}}',
     nextTitle: 'Do this next',

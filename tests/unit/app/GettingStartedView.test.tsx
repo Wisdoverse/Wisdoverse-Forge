@@ -667,6 +667,11 @@ describe('GettingStartedView', () => {
     render(<GettingStartedView />)
 
     expect(await screen.findByRole('button', { name: /skip and open tasks/i })).toBeDefined()
+    expect(
+      screen.getByText(
+        'This only hides Start from the sidebar. Your projects, agents, and tasks stay the same, and you can show Start again from Settings.'
+      )
+    ).toBeDefined()
     expect(screen.queryByRole('button', { name: /^skip the guide$/i })).toBeNull()
     fireEvent.click(await screen.findByTestId('getting-started-skip'))
 
