@@ -58,33 +58,33 @@ export function chatStreamHttpErrorMessage(
   const detail = messageDetail(body)
 
   if (status === 401) {
-    return 'Your sign-in expired. Sign in again, then open this agent chat and resend the message.'
+    return 'Sign in again, then open this agent chat and resend the message. Your sign-in expired.'
   }
   if (status === 403) {
-    return 'You do not have access to this agent or team space. Ask an owner or admin to update your team space access.'
+    return 'Ask an owner or admin to update your team space access before using this agent chat. You do not have access to this agent or team space.'
   }
   if (status === 404) {
-    return 'This agent could not be found. Refresh the Agents page, choose an active agent, then open chat again.'
+    return 'Refresh the Agents page, choose an active agent, then open chat again. This agent could not be found.'
   }
   if (status === 409) {
     return chatStreamConflictMessage(detail)
   }
   if (status === 429) {
-    return 'This agent is receiving too many messages right now. Wait a moment, then resend the message.'
+    return 'Wait a moment, then resend the message. This agent is receiving too many messages right now.'
   }
   if (status >= 500) {
-    return 'Forge could not send this chat message right now. Wait a few minutes, then resend it. If it still fails, ask an owner or admin to check chat and agent setup.'
+    return 'Wait a few minutes, then resend the message. Forge could not send this chat message right now. If it still fails, ask an owner or admin to check chat and agent setup.'
   }
 
-  return 'This message was not sent. Refresh this agent, then resend the message.'
+  return 'Refresh this agent, then resend the message. This message was not sent.'
 }
 
 function chatStreamConflictMessage(detail: string | null): string {
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('busy') || normalized.includes('working')) {
-    return 'This agent is already working. Wait for the current reply to finish, then resend the message.'
+    return 'Wait for the current reply to finish, then resend the message. This agent is already working.'
   }
-  return 'This conversation changed while the message was sending. Refresh the chat, review the latest message, then try again.'
+  return 'Refresh the chat, review the latest message, then try again. This conversation changed while the message was sending.'
 }
 
 export function chatStreamRequestErrorMessage(error: unknown): string {
@@ -94,16 +94,16 @@ export function chatStreamRequestErrorMessage(error: unknown): string {
 
 function chatStreamReadErrorMessage(error: unknown): string {
   if (isAbortError(error)) return ''
-  return 'The reply stopped before it finished. Check that the agent is still online, then resend the message.'
+  return 'Check that the agent is still online, then resend the message. The reply stopped before it finished.'
 }
 
 export function chatStreamEventErrorMessage(detail: unknown): string {
   const text = typeof detail === 'string' ? detail.toLowerCase() : ''
   if (text.includes('rate') || text.includes('limit') || text.includes('too many')) {
-    return 'This agent is receiving too many messages right now. Wait a moment, then resend the message.'
+    return 'Wait a moment, then resend the message. This agent is receiving too many messages right now.'
   }
   if (text.includes('permission') || text.includes('forbidden') || text.includes('unauthorized')) {
-    return 'You do not have access to this agent chat. Ask an owner or admin to update your team space access.'
+    return 'Ask an owner or admin to update your team space access before using this agent chat. You do not have access to this agent chat.'
   }
   if (text.includes('context')) {
     return 'This chat has too many old messages. Clear chat only if those messages are no longer useful, then send the message again.'

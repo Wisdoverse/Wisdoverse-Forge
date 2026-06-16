@@ -769,7 +769,17 @@ const CHAT_OFFLINE_DEAD_END_PATTERNS = [
 ]
 
 const CHAT_STREAM_FAILURE_FIRST_PATTERNS = [
-  /\bThe agent could not finish this reply\. Resend the message\./i,
+  /['"`]\s*The agent could not finish this reply\. Resend the message\./i,
+  /['"`]\s*This message was not sent\. Refresh this agent, then resend the message\./i,
+  /['"`]\s*Your sign-in expired\. Sign in again,/i,
+  /['"`]\s*You do not have access to this agent or team space\. Ask an owner/i,
+  /['"`]\s*You do not have access to this agent chat\. Ask an owner/i,
+  /['"`]\s*This agent could not be found\. Refresh the Agents page/i,
+  /['"`]\s*This agent is receiving too many messages right now\. Wait a moment/i,
+  /['"`]\s*Forge could not send this chat message right now\. Wait a few minutes/i,
+  /['"`]\s*This agent is already working\. Wait for the current reply/i,
+  /['"`]\s*This conversation changed while the message was sending\. Refresh the chat/i,
+  /['"`]\s*The reply stopped before it finished\. Check that the agent is still online/i,
 ]
 
 const GOVERNANCE_AUDIT_FALLBACK_DEAD_END_PATTERNS = [

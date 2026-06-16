@@ -5838,18 +5838,41 @@ function ChatComposer() {
 function chatStreamEventErrorMessage() {
   return 'The agent could not finish this reply. Resend the message. If it still fails, ask an owner or admin to check chat setup.'
 }
+function chatStreamHttpErrorMessage() {
+  return 'This message was not sent. Refresh this agent, then resend the message.'
+}
+function chatStreamConflictMessage() {
+  return 'This agent is already working. Wait for the current reply to finish, then resend the message.'
+}
+function chatStreamReadErrorMessage() {
+  return 'The reply stopped before it finished. Check that the agent is still online, then resend the message.'
+}
 `,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'chat-stream-error-copy',
-        location: 'src/app/features/chat/useChatStream.ts:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'chat-stream-error-copy',
+          location: 'src/app/features/chat/useChatStream.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'chat-stream-error-copy',
+          location: 'src/app/features/chat/useChatStream.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'chat-stream-error-copy',
+          location: 'src/app/features/chat/useChatStream.ts:9',
+        }),
+        expect.objectContaining({
+          type: 'chat-stream-error-copy',
+          location: 'src/app/features/chat/useChatStream.ts:12',
+        }),
+      ])
+    )
   })
 
   it('accepts chat stream errors that start with the resend action', () => {
@@ -5857,6 +5880,15 @@ function chatStreamEventErrorMessage() {
       'src/app/features/chat/useChatStream.ts': `
 function chatStreamEventErrorMessage() {
   return 'Resend the message. The agent could not finish this reply. If it still fails, ask an owner or admin to check chat setup.'
+}
+function chatStreamHttpErrorMessage() {
+  return 'Refresh this agent, then resend the message. This message was not sent.'
+}
+function chatStreamConflictMessage() {
+  return 'Wait for the current reply to finish, then resend the message. This agent is already working.'
+}
+function chatStreamReadErrorMessage() {
+  return 'Check that the agent is still online, then resend the message. The reply stopped before it finished.'
 }
 `,
     })

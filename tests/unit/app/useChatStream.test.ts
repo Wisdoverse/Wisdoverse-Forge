@@ -62,7 +62,7 @@ describe('chatStreamHttpErrorMessage', () => {
   it('turns auth failures into a clear next step', () => {
     expectBeginnerMessage(
       chatStreamHttpErrorMessage(401),
-      'Your sign-in expired. Sign in again, then open this agent chat and resend the message.'
+      'Sign in again, then open this agent chat and resend the message. Your sign-in expired.'
     )
   })
 
@@ -71,7 +71,7 @@ describe('chatStreamHttpErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'This agent could not be found. Refresh the Agents page, choose an active agent, then open chat again.'
+      'Refresh the Agents page, choose an active agent, then open chat again. This agent could not be found.'
     )
     expect(message).not.toContain('agent missing')
   })
@@ -81,7 +81,7 @@ describe('chatStreamHttpErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'You do not have access to this agent or team space. Ask an owner or admin to update your team space access.'
+      'Ask an owner or admin to update your team space access before using this agent chat. You do not have access to this agent or team space.'
     )
     expect(message).not.toContain('workspace role')
     expect(message).not.toContain('token')
@@ -90,7 +90,14 @@ describe('chatStreamHttpErrorMessage', () => {
   it('turns busy agent conflicts into a wait step', () => {
     expectBeginnerMessage(
       chatStreamHttpErrorMessage(409, { message: 'agent is busy' }),
-      'This agent is already working. Wait for the current reply to finish, then resend the message.'
+      'Wait for the current reply to finish, then resend the message. This agent is already working.'
+    )
+  })
+
+  it('turns changed conversations into a refresh step', () => {
+    expectBeginnerMessage(
+      chatStreamHttpErrorMessage(409, { message: 'conversation changed' }),
+      'Refresh the chat, review the latest message, then try again. This conversation changed while the message was sending.'
     )
   })
 
@@ -99,7 +106,7 @@ describe('chatStreamHttpErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'This agent is receiving too many messages right now. Wait a moment, then resend the message.'
+      'Wait a moment, then resend the message. This agent is receiving too many messages right now.'
     )
     expect(message).not.toContain('provider')
     expect(message).not.toContain('model service')
@@ -110,7 +117,7 @@ describe('chatStreamHttpErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Forge could not send this chat message right now. Wait a few minutes, then resend it. If it still fails, ask an owner or admin to check chat and agent setup.'
+      'Wait a few minutes, then resend the message. Forge could not send this chat message right now. If it still fails, ask an owner or admin to check chat and agent setup.'
     )
     expect(message).not.toContain('service unavailable')
   })
@@ -120,7 +127,7 @@ describe('chatStreamHttpErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'This message was not sent. Refresh this agent, then resend the message.'
+      'Refresh this agent, then resend the message. This message was not sent.'
     )
     expect(message).not.toContain('chat request')
     expect(message).not.toContain('teapot route')
@@ -133,7 +140,7 @@ describe('chatStreamEventErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'This agent is receiving too many messages right now. Wait a moment, then resend the message.'
+      'Wait a moment, then resend the message. This agent is receiving too many messages right now.'
     )
     expect(message).not.toContain('provider_error')
   })
@@ -143,7 +150,7 @@ describe('chatStreamEventErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'You do not have access to this agent chat. Ask an owner or admin to update your team space access.'
+      'Ask an owner or admin to update your team space access before using this agent chat. You do not have access to this agent chat.'
     )
     expect(message).not.toContain('workspace role')
     expect(message).not.toContain('token')
