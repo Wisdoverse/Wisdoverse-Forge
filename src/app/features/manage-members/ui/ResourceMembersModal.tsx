@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  AlertTriangle,
   Info,
   Search,
   ShieldCheck,
@@ -444,27 +445,41 @@ export function ResourceMembersModal({
                         ))}
                       </select>
                       {confirmRemoveUserId === member.userId ? (
-                        <div className="flex items-center gap-1.5">
-                          <span className="hidden text-ui-caption text-apple-red sm:inline">
-                            Remove?
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => void handleRemoveMember(member)}
-                            disabled={busyKey !== null}
-                            aria-label={`Confirm remove ${member.username || member.email}`}
-                            className="inline-flex h-8 items-center justify-center rounded-lg bg-apple-red px-2 text-ui-caption font-medium text-white transition-colors hover:bg-apple-red/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {busyKey === `remove:${member.userId}` ? 'Removing…' : 'Remove'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmRemoveUserId(null)}
-                            disabled={busyKey !== null}
-                            className="inline-flex h-8 items-center justify-center rounded-lg px-2 text-ui-caption font-medium text-secondary-light transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/40 disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/5"
-                          >
-                            Cancel
-                          </button>
+                        <div className="flex max-w-full flex-col items-end gap-2 sm:max-w-xs">
+                          <div className="flex items-start gap-1.5 rounded-lg border border-apple-red/20 bg-apple-red/10 px-2 py-1.5 text-left text-ui-caption text-apple-red">
+                            <AlertTriangle
+                              size={14}
+                              strokeWidth={2}
+                              className="mt-0.5 shrink-0"
+                              aria-hidden="true"
+                            />
+                            <span>
+                              Removing access stops {member.username || member.email} from opening
+                              this {resourceLabel.toLowerCase()}.
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => void handleRemoveMember(member)}
+                              disabled={busyKey !== null}
+                              aria-label={`Remove access for ${member.username || member.email}`}
+                              className="inline-flex h-8 items-center justify-center rounded-lg bg-apple-red px-2 text-ui-caption font-medium text-white transition-colors hover:bg-apple-red/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {busyKey === `remove:${member.userId}`
+                                ? 'Removing...'
+                                : 'Remove access'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmRemoveUserId(null)}
+                              disabled={busyKey !== null}
+                              aria-label={`Keep access for ${member.username || member.email}`}
+                              className="inline-flex h-8 items-center justify-center rounded-lg px-2 text-ui-caption font-medium text-secondary-light transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/40 disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/5"
+                            >
+                              Keep access
+                            </button>
+                          </div>
                         </div>
                       ) : (
                         <button

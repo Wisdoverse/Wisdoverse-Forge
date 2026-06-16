@@ -72,7 +72,7 @@ function renderMembersModal({
       const member = members.find((item) => item.userId === userId) ?? makeMember({ userId })
       return { ...member, role: input.role }
     })
-  const removeMember = vi.fn<() => Promise<void>>().mockImplementation(async () => {
+  const removeMember = vi.fn<(userId: string) => Promise<void>>().mockImplementation(async () => {
     if (removeMemberError) throw removeMemberError
   })
   const onClose = vi.fn()
@@ -228,6 +228,39 @@ describe('ResourceMembersModal', () => {
     expect(alert.textContent).not.toContain('role already changed')
   })
 
+  test('explains access removal before removing a member', async () => {
+    const { removeMember } = renderMembersModal({
+      members: [makeMember({})],
+      users: [makeUser({})],
+    })
+
+    await screen.findByText('builder')
+    fireEvent.click(screen.getByRole('button', { name: 'Remove builder' }))
+
+    expect(
+      screen.getByText('Removing access stops builder from opening this project.')
+    ).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Keep access for builder' })).toHaveTextContent(
+      'Keep access'
+    )
+    expect(screen.getByRole('button', { name: 'Remove access for builder' })).toHaveTextContent(
+      'Remove access'
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Keep access for builder' }))
+    expect(removeMember).not.toHaveBeenCalled()
+    expect(
+      screen.queryByText('Removing access stops builder from opening this project.')
+    ).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove builder' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove access for builder' }))
+
+    await waitFor(() => {
+      expect(removeMember).toHaveBeenCalledWith('user-1')
+    })
+  })
+
   test('explains last-owner style remove failures without raw API text', async () => {
     renderMembersModal({
       members: [makeMember({ role: 'owner' })],
@@ -237,7 +270,7 @@ describe('ResourceMembersModal', () => {
 
     await screen.findByText('builder')
     fireEvent.click(screen.getByRole('button', { name: 'Remove builder' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm remove builder' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove access for builder' }))
 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain('Choose a different owner first')
