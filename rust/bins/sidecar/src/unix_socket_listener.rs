@@ -331,10 +331,9 @@ mod tests {
 
     #[test]
     fn max_frame_size_is_ten_mebibytes() {
+        // Pins the cap; a header over it is rejected by the length check in
+        // handle_connection (this constant is the single source of truth).
         assert_eq!(MAX_FRAME_SIZE, 10 * 1024 * 1024);
-        // A header just over the cap is rejected by the length check in
-        // handle_connection (the constant is the single source of truth).
-        assert!(MAX_FRAME_SIZE + 1 > MAX_FRAME_SIZE);
     }
 
     #[test]
