@@ -45,7 +45,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
       const result = await onSubmit(trimmedTitle, columnId)
       if (result === false) {
         submittedRef.current = false
-        setError('Check the board message, then save the task again. The task was not saved.')
+        setError('Check your connection, then choose Save for later again. The task was not saved.')
         inputRef.current?.focus()
         return
       }
@@ -54,7 +54,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
       setIsOpen(false)
     } catch {
       submittedRef.current = false
-      setError('Check the board message, then save the task again. The task was not saved.')
+      setError('Check your connection, then choose Save for later again. The task was not saved.')
       inputRef.current?.focus()
     } finally {
       setSubmitting(false)
@@ -116,8 +116,8 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
         )}
       />
       <p id={helpId} className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-        This only saves the task in Not sent yet. Open the card to add details before sending it to
-        an agent.
+        This only saves a draft in Not sent yet. Next: open the card, add where to work and done
+        when, then choose an agent.
       </p>
       <div className="rounded-lg bg-black/[0.025] px-3 py-2 dark:bg-white/[0.04]">
         <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">

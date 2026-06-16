@@ -14,10 +14,11 @@ describe('QuickCreate', () => {
 
     expect(screen.getByRole('textbox', { name: /task goal/i })).toHaveFocus()
     expect(screen.getByRole('textbox', { name: /task goal/i })).toHaveAccessibleDescription(
-      /only saves the task in not sent yet/i
+      /only saves a draft in not sent yet/i
     )
     expect(screen.getByPlaceholderText(/example: fix the login error/i)).toBeDefined()
-    expect(screen.getByText(/open the card to add details before sending it/i)).toBeDefined()
+    expect(screen.getByText(/open the card, add where to work and done when/i)).toBeDefined()
+    expect(screen.getByText(/then choose an agent/i)).toBeDefined()
     expect(screen.queryByRole('button', { name: /\+ add task/i })).toBeNull()
     expect(screen.queryByText(/quick add/i)).toBeNull()
     expect(screen.queryByRole('textbox', { name: /task title/i })).toBeNull()
@@ -106,6 +107,9 @@ describe('QuickCreate', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent('The task was not saved')
     )
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Check your connection, then choose Save for later again.'
+    )
     expect(input).toHaveValue('Keep this task')
     expect(input).toHaveFocus()
     expect(screen.getByRole('button', { name: /^save for later$/i })).toBeEnabled()
@@ -124,7 +128,7 @@ describe('QuickCreate', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('Retry this task', 'backlog'))
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Check the board message, then save the task again. The task was not saved.'
+        'Check your connection, then choose Save for later again. The task was not saved.'
       )
     )
     expect(screen.getByRole('alert')).not.toHaveTextContent('socket hang up')
