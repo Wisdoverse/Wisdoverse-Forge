@@ -759,9 +759,7 @@ if [ -n "$AGENTFORGE_DEVENV_POLICY" ]; then
   # NOTE: The proxy socket is created by the sidecar, which starts later.
   # We only set DOCKER_HOST here; the socket wait happens after sidecar startup.
 else
-  echo "agent-entrypoint: WARNING: AGENTFORGE_DEVENV_POLICY is not set — Docker proxy will not start"
-  echo "agent-entrypoint: WARNING: Docker commands (docker run, docker compose) will fail inside this container"
-  echo "agent-entrypoint: WARNING: This usually means the server did not inject the policy — check session.service.ts"
+  echo "agent-entrypoint: Docker-in-agent (docker proxy) is not enabled for this agent — this is normal unless the agent needs to run docker commands"
 fi
 
 # =============================================================================
