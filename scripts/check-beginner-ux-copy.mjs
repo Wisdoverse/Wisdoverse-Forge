@@ -969,6 +969,7 @@ const CHAT_ERROR_FAILURE_FIRST_PATTERNS = [
 const SETTINGS_STORE_ERROR_FAILURE_FIRST_PATTERNS = [
   /^\s*return\s+`Forge could not \$\{operation\} right now\./,
   /^\s*return\s+`Settings could not \$\{actionPhrase\}\./,
+  /^\s*return\s+`You do not have permission to \$\{actionPhrase\}\. Ask an owner/i,
 ]
 
 const WORKSPACE_RESOURCE_FAILURE_FIRST_PATTERNS = [

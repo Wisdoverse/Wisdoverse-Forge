@@ -67,7 +67,7 @@ describe('settingsActionErrorMessage', () => {
   test('turns permission failures into an admin role step', () => {
     expectBeginnerError(
       settingsActionErrorMessage('apiKeys', 'create', statusError(403, 'Forbidden')),
-      'You do not have permission to create the outside tool access key. Ask an owner or admin to give you access to outside tool access keys.'
+      'Ask an owner or admin to give you access to outside tool access keys, then try to create the outside tool access key again. You do not have permission to create the outside tool access key.'
     )
   })
 
@@ -79,7 +79,7 @@ describe('settingsActionErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'You do not have permission to create the outside tool access key. Ask an owner or admin to give you access to outside tool access keys.'
+      'Ask an owner or admin to give you access to outside tool access keys, then try to create the outside tool access key again. You do not have permission to create the outside tool access key.'
     )
     expect(message).not.toContain('policy denied')
   })
@@ -234,7 +234,7 @@ describe('settingsActionErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'You do not have permission to save the code access. Ask an owner or admin to let you manage code access.'
+      'Ask an owner or admin to let you manage code access, then try to save the code access again. You do not have permission to save the code access.'
     )
     expect(message).not.toContain('Git credential')
     expect(message).not.toContain('Git credentials')

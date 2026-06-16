@@ -8373,6 +8373,10 @@ function settingsUnavailableMessage(operation, actionPhrase) {
 function settingsDefaultMessage(actionPhrase) {
   return \`Settings could not \${actionPhrase}. Refresh Settings, then try again.\`
 }
+
+function settingsPermissionMessage(actionPhrase) {
+  return \`You do not have permission to \${actionPhrase}. Ask an owner or admin to manage Settings.\`
+}
 `,
     })
 
@@ -8389,6 +8393,10 @@ function settingsDefaultMessage(actionPhrase) {
           type: 'settings-store-error-copy',
           location: 'src/app/shared/model/settings.store.ts:7',
         }),
+        expect.objectContaining({
+          type: 'settings-store-error-copy',
+          location: 'src/app/shared/model/settings.store.ts:11',
+        }),
       ])
     )
   })
@@ -8402,6 +8410,10 @@ function settingsUnavailableMessage(operation, actionPhrase) {
 
 function settingsDefaultMessage(actionPhrase) {
   return \`Refresh Settings, then try to \${actionPhrase} again. Settings could not \${actionPhrase}.\`
+}
+
+function settingsPermissionMessage(actionPhrase) {
+  return \`Ask an owner or admin to manage Settings, then try to \${actionPhrase} again. You do not have permission to \${actionPhrase}.\`
 }
 `,
     })

@@ -179,15 +179,15 @@ function settingsUnavailableMessage(actionPhrase: string, action: SettingsErrorA
 
 function settingsPermissionMessage(area: SettingsErrorArea, actionPhrase: string): string {
   if (area === 'gitCredentials') {
-    return `You do not have permission to ${actionPhrase}. Ask an owner or admin to let you manage code access.`
+    return `Ask an owner or admin to let you manage code access, then try to ${actionPhrase} again. You do not have permission to ${actionPhrase}.`
   }
   if (area === 'sshKeys') {
-    return `You do not have permission to ${actionPhrase}. Ask an owner or admin to let you manage SSH code access.`
+    return `Ask an owner or admin to let you manage SSH code access, then try to ${actionPhrase} again. You do not have permission to ${actionPhrase}.`
   }
   if (area === 'resourceProfiles') {
-    return `You do not have permission to ${actionPhrase}. Ask an owner or admin to let you manage work capacity.`
+    return `Ask an owner or admin to let you manage work capacity, then try to ${actionPhrase} again. You do not have permission to ${actionPhrase}.`
   }
-  return `You do not have permission to ${actionPhrase}. Ask an owner or admin to give you access to ${SETTINGS_AREA_LABELS[area]}.`
+  return `Ask an owner or admin to give you access to ${SETTINGS_AREA_LABELS[area]}, then try to ${actionPhrase} again. You do not have permission to ${actionPhrase}.`
 }
 
 export function settingsActionErrorMessage(
