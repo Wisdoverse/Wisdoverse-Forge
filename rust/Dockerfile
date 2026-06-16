@@ -49,9 +49,9 @@ RUN --mount=type=cache,id=agentforge-cargo-registry,target=/usr/local/cargo/regi
 # Stage 4: Minimal alpine runtime (~8MB base, static binary = no libc required)
 FROM alpine:3.23 AS runtime
 # `apk upgrade` applies Alpine security updates on top of the upstream
-# alpine:3.23 layer (e.g. libssl3/libcrypto3, pulled in by curl/git, can lag
-# behind active OpenSSL CVEs until the base image is refreshed). The Trivy image
-# scan gates this image, so upgrade base packages before adding runtime deps.
+# alpine:3.23 layer (e.g. libssl3/libcrypto3 ship in the base and can lag behind
+# active OpenSSL CVEs until the base image is refreshed). The Trivy image scan
+# gates this image, so upgrade base packages before adding runtime deps.
 RUN apk --no-cache upgrade && apk --no-cache add ca-certificates curl git
 
 # Create non-root user

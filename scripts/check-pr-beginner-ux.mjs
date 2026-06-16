@@ -18,11 +18,12 @@ const REQUIRED_FIELDS = [
 const PLACEHOLDER_VALUES = new Set(['', 'n/a', 'na', 'none', 'todo', 'tbd'])
 
 function stripComments(value) {
-  // Remove HTML comments, including an unterminated trailing opener (the HTML
-  // spec treats an unterminated comment as running to end-of-input). Loop until
-  // the string stops changing so a removal that exposes a fresh opener is also
-  // stripped — a single pass can leave a dangling marker, which is the
-  // CodeQL js/incomplete-multi-character-sanitization concern.
+  // Match each `<!--` up to the next `-->` OR end-of-input, so an unterminated
+  // trailing opener is stripped too (the HTML spec runs it to EOF) — that
+  // `(?:-->|$)` alternation is the actual sanitization fix. The loop-until-stable
+  // wrapper is the form CodeQL accepts as complete for
+  // js/incomplete-multi-character-sanitization (a single global pass can be
+  // flagged even though, for this regex, it already removes every `<!--`).
   let previous
   do {
     previous = value
