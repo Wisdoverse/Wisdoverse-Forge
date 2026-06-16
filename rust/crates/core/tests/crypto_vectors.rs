@@ -10,9 +10,10 @@
 //! This matters because the output of these primitives is persisted and later
 //! re-verified: legacy SHA-256 password hashes (`agentforge-auth`), per-agent
 //! HMAC signatures on orchestration results (`orchestration_protocol`), the
-//! sidecar relay publisher, and Stripe webhook signatures. A silent byte change
-//! on a future RustCrypto bump would reject every stored credential and every
-//! in-flight signature; this test fails loudly instead.
+//! sidecar relay publisher, Stripe webhook signatures, and the governance
+//! audit tamper-detection signatures (`api::services::governance_audit`). A
+//! silent byte change on a future RustCrypto bump would reject every stored
+//! credential and every in-flight signature; this test fails loudly instead.
 
 use hmac::{Hmac, KeyInit, Mac};
 use sha2::{Digest, Sha256};

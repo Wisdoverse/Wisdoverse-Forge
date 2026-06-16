@@ -229,7 +229,7 @@ describe('ProvidersSection', () => {
     expect(combinedEmpty.textContent).not.toContain('No AI services match this view')
   })
 
-  test('guides an empty provider setup into the add form', async () => {
+  test('guides an empty provider setup into the catalog and saves a built-in vendor', async () => {
     useSettingsStore.setState({ providers: [] })
 
     render(<ProvidersSection />)
@@ -249,37 +249,17 @@ describe('ProvidersSection', () => {
 
     fireEvent.click(within(nextStep).getByRole('button', { name: /add AI service/i }))
 
-    expect(screen.getByText('3 steps to connect an AI account')).toBeDefined()
-    expect(screen.getByText('Paste service access key')).toBeDefined()
-    expect(screen.getAllByText(/copy its access key/i).length).toBeGreaterThan(0)
-    expect(screen.getByText('Save and check')).toBeDefined()
-    expect(screen.getAllByText(/Ready means agents can use/i).length).toBeGreaterThan(0)
-    expect(screen.getByLabelText(/^AI service$/i)).toBeDefined()
-    expect(screen.getByLabelText(/^Name in Forge$/i)).toBeDefined()
-    expect(screen.getByLabelText(/^Name in Forge$/i)).toHaveAttribute(
-      'placeholder',
-      'My AI service…'
-    )
-    expect(screen.getByText(/suggested model is safe to start with/i)).toBeDefined()
-    expect(screen.queryByText(/paste private key/i)).toBeNull()
-    expect(screen.queryByLabelText(/^private key/i)).toBeNull()
-    expect(screen.queryByLabelText(/^Display Name$/i)).toBeNull()
+    const catalog = screen.getByRole('group', { name: /built-in provider catalog/i })
+    expect(within(catalog).getByRole('button', { name: /anthropic/i })).toBeDefined()
+    fireEvent.click(within(catalog).getByRole('button', { name: /anthropic/i }))
+
+    expect(screen.getByLabelText(/^model to use$/i)).toHaveValue('claude-sonnet-4-20250514')
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
       /next: paste the service access key/i
     )
-    expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
-      /some services call this an API key/i
-    )
-    expect(screen.getByText(/Open your AI service account, copy its access key/i)).toBeDefined()
+    expect(screen.getByText(/paste the service access key and save/i)).toBeDefined()
     const saveButton = screen.getByRole('button', { name: /save AI service/i })
-    expect(saveButton).toBeEnabled()
-    expect(screen.queryByText('Save AI Service')).toBeNull()
-
-    fireEvent.click(saveButton)
-
-    expect(
-      screen.getAllByText('Paste the service access key before saving this AI service.').length
-    ).toBeGreaterThan(0)
+    expect(saveButton).toBeDisabled()
     expect(saveProviderMock).not.toHaveBeenCalled()
 
     fireEvent.change(screen.getByLabelText(/service access key/i), {
@@ -289,12 +269,7 @@ describe('ProvidersSection', () => {
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
       /ready to save this service/i
     )
-    expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
-      /Ready means agents can use it/i
-    )
-    expect(screen.getByTestId('provider-form-status').textContent).not.toMatch(
-      new RegExp(['run', 'Check'].join('\\s+'), 'i')
-    )
+    expect(saveButton).toBeEnabled()
     fireEvent.click(saveButton)
 
     await waitFor(() =>
@@ -320,6 +295,29 @@ describe('ProvidersSection', () => {
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).not.toHaveTextContent('AI service could not be saved.')
     expect(alert).toHaveTextContent('save again')
+  })
+
+  test('offers a Custom / Gateway path limited to bring-your-own endpoints', async () => {
+    useSettingsStore.setState({ providers: [] })
+
+    render(<ProvidersSection />)
+
+    const nextStep = await screen.findByTestId('provider-next-step')
+    fireEvent.click(within(nextStep).getByRole('button', { name: /add AI service/i }))
+    fireEvent.click(screen.getByRole('button', { name: /custom \/ gateway/i }))
+
+    expect(screen.getByText('3 steps to connect an AI account')).toBeDefined()
+    expect(screen.getByText('Paste service access key')).toBeDefined()
+    expect(screen.getAllByText(/copy its access key/i).length).toBeGreaterThan(0)
+    expect(screen.getByText('Save and check')).toBeDefined()
+    const providerSelect = screen.getByLabelText(/^AI service$/i)
+    expect(within(providerSelect).getByRole('option', { name: 'OpenAI-Compatible' })).toBeDefined()
+    expect(within(providerSelect).getByRole('option', { name: 'LiteLLM Gateway' })).toBeDefined()
+    expect(within(providerSelect).getByRole('option', { name: 'OpenRouter' })).toBeDefined()
+    expect(within(providerSelect).queryByRole('option', { name: 'Anthropic' })).toBeNull()
+    expect(within(providerSelect).queryByRole('option', { name: 'Zhipu GLM' })).toBeNull()
+    expect(screen.getByLabelText(/service address/i)).toBeDefined()
+    expect(screen.queryByLabelText(/^private key/i)).toBeNull()
   })
 
   test('does not treat disabled-only providers as ready', async () => {
@@ -359,6 +357,7 @@ describe('ProvidersSection', () => {
 
     fireEvent.click(within(nextStep).getByRole('button', { name: /show disabled services/i }))
 
+    // The disabled provider still lists in the configured rows.
     expect(screen.getByText('Local Disabled')).toBeDefined()
     expect(screen.getByRole('button', { name: 'Disabled' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.queryByRole('button', { name: /save AI service/i })).toBeNull()
@@ -402,7 +401,7 @@ describe('ProvidersSection', () => {
     expect(within(nextStep).queryByText(/choose New Agent/i)).toBeNull()
   })
 
-  test('keeps service address setup beginner-safe for region-switch providers', async () => {
+  test('collapses coding-plan variants into one vendor with Plan and Region toggles', async () => {
     useSettingsStore.setState({ providers: [] })
 
     render(<ProvidersSection />)
@@ -410,29 +409,67 @@ describe('ProvidersSection', () => {
     const nextStep = await screen.findByTestId('provider-next-step')
     fireEvent.click(within(nextStep).getByRole('button', { name: /add AI service/i }))
 
-    fireEvent.change(screen.getByLabelText(/^AI service$/i), { target: { value: 'zhipu' } })
+    const catalog = screen.getByRole('group', { name: /built-in provider catalog/i })
+    expect(within(catalog).queryByRole('button', { name: /zhipu glm coding plan/i })).toBeNull()
+    fireEvent.click(within(catalog).getByRole('button', { name: /zhipu glm/i }))
 
     expect(screen.getByLabelText(/^model to use$/i)).toHaveValue('glm-4.7')
-    expect(screen.getByLabelText(/service address/i)).toHaveAttribute(
-      'placeholder',
-      expect.stringContaining('Usually leave this blank')
-    )
-    expect(screen.getByText(/Leave blank to use the default regional address/i)).toBeDefined()
-    expect(screen.getByText(/service guide or owner gives you a global address/i)).toBeDefined()
-    expect(screen.queryByText(/https:\/\/api\.z\.ai\/api\/paas\/v4/i)).toBeNull()
-    expect(screen.queryByText(/https:\/\/open\.bigmodel\.cn\/api\/paas\/v4/i)).toBeNull()
+    expect(screen.getByRole('group', { name: /^plan$/i })).toBeDefined()
+    expect(screen.getByRole('group', { name: /^region$/i })).toBeDefined()
 
-    // Hunyuan is regional-only: no global-address instruction, default copy returns.
-    fireEvent.change(screen.getByLabelText(/^AI service$/i), { target: { value: 'hunyuan' } })
-    expect(screen.getByText(/Most users leave this blank/i)).toBeDefined()
-    expect(screen.queryByText(/global address, paste this:/i)).toBeNull()
-
-    fireEvent.change(screen.getByLabelText(/^AI service$/i), {
-      target: { value: 'openai_compatible' },
+    fireEvent.change(screen.getByLabelText(/service access key/i), {
+      target: { value: 'sk-zhipu' },
     })
-    expect(screen.getByLabelText(/service address/i)).toHaveAttribute(
-      'placeholder',
-      expect.stringContaining('Paste the service address from your guide')
+
+    fireEvent.click(screen.getByRole('button', { name: /save AI service/i }))
+    await waitFor(() =>
+      expect(saveProviderMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider: 'zhipu',
+          model: 'glm-4.7',
+          apiKey: 'sk-zhipu',
+          baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+        })
+      )
+    )
+  })
+
+  test('Region=Global switches a vendor to its global endpoint on save', async () => {
+    useSettingsStore.setState({ providers: [] })
+
+    render(<ProvidersSection />)
+
+    const nextStep = await screen.findByTestId('provider-next-step')
+    fireEvent.click(within(nextStep).getByRole('button', { name: /add AI service/i }))
+
+    const catalog = screen.getByRole('group', { name: /built-in provider catalog/i })
+    fireEvent.click(within(catalog).getByRole('button', { name: /zhipu glm/i }))
+
+    // Switch to the Coding Plan and Global region.
+    fireEvent.click(
+      within(screen.getByRole('group', { name: /^plan$/i })).getByRole('button', {
+        name: /coding plan/i,
+      })
+    )
+    fireEvent.click(
+      within(screen.getByRole('group', { name: /^region$/i })).getByRole('button', {
+        name: /global/i,
+      })
+    )
+    fireEvent.change(screen.getByLabelText(/service access key/i), {
+      target: { value: 'sk-zhipu' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save AI service/i }))
+
+    await waitFor(() =>
+      expect(saveProviderMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider: 'zhipu_coding',
+          model: 'glm-4.7',
+          apiKey: 'sk-zhipu',
+          baseUrl: 'https://api.z.ai/api/anthropic',
+        })
+      )
     )
   })
 

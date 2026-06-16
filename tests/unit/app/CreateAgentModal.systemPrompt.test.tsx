@@ -12,6 +12,21 @@ vi.mock('@app/entities/agent-group', () => ({
 
 afterEach(cleanup)
 
+// A configured + tested provider so Provider + Prompt has a usable gateway
+// option. Model is now derived from this configured provider, not a hardcoded list.
+const CONFIGURED_PROVIDERS = [
+  {
+    id: 'provider-anthropic',
+    provider: 'anthropic' as const,
+    displayName: 'Anthropic',
+    model: 'claude-sonnet-4-6',
+    priority: 1,
+    isEnabled: true,
+    isDefault: true,
+    lastTestStatus: 'passed' as const,
+  },
+]
+
 beforeEach(() => {
   useAgentsStore.setState({
     createModalOpen: true,
@@ -19,7 +34,7 @@ beforeEach(() => {
     error: null,
   })
   useSettingsStore.setState({
-    providers: [],
+    providers: CONFIGURED_PROVIDERS,
     providersLoading: false,
     providersError: null,
   })
@@ -29,7 +44,8 @@ beforeEach(() => {
 describe('CreateAgentModal agent instructions', () => {
   it('hides instruction textarea in CLI branch', () => {
     render(<CreateAgentModal />)
-    expect(screen.queryByLabelText(/instructions for this agent/i)).toBeNull()
+    fireEvent.click(screen.getByRole('radio', { name: /managed workspace/i }))
+    expect(screen.queryByLabelText(/agent instructions/i)).toBeNull()
   })
 
   it('defaults managed workspace work directory to /workspace', async () => {
@@ -37,6 +53,7 @@ describe('CreateAgentModal agent instructions', () => {
     useAgentsStore.setState({ createAgent } as never)
 
     render(<CreateAgentModal />)
+    fireEvent.click(screen.getByRole('radio', { name: /managed workspace/i }))
     fireEvent.change(screen.getByPlaceholderText(/Frontend Agent/i), {
       target: { value: 'Test' },
     })
