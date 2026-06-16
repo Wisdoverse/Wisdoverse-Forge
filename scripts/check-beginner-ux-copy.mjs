@@ -738,6 +738,7 @@ const TASK_SUPPORT_REFERENCE_DEAD_END_PATTERNS = [
 ]
 
 const CONTEXT_CANDIDATE_PREVIEW_DEAD_END_PATTERNS = [
+  /\bNo preview yet\b/i,
   /\bNo preview is available yet\b/i,
   /\binspect the full suggestion\b/i,
 ]

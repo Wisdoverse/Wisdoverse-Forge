@@ -94,8 +94,9 @@ describe('ContextCandidatesList', () => {
     expect(screen.getByText('Suggested instruction')).toBeInTheDocument()
     expect(screen.getByText('Approved')).toBeInTheDocument()
     expect(
-      screen.getByText(/Open saved item review to read the full suggestion/i)
+      screen.getByText(/Open saved item review and read the full suggestion before using it/i)
     ).toBeInTheDocument()
+    expect(screen.queryByText(/No preview yet/i)).toBeNull()
     expect(screen.queryByText(/inspect the full suggestion/i)).toBeNull()
     expect(
       screen.getByText(/open Saved items.*review this instruction before agents can follow it/i)

@@ -4944,11 +4944,11 @@ function nextStep() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags suggested saved-item preview copy that asks users to inspect', () => {
+  it('flags suggested saved-item preview copy that stops at no preview', () => {
     const cwd = fixture({
       'src/app/features/detail/ContextCandidatesList.tsx': `
 function candidatePreview() {
-  return 'No preview is available yet. Open saved item review to inspect the full suggestion.'
+  return 'No preview yet. Open saved item review to read the full suggestion.'
 }
 `,
     })

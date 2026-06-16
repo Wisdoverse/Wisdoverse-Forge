@@ -99,7 +99,7 @@ function candidatePreview(candidate: TaskContextCandidate): string {
   const value = candidate.proposedPreview.content_preview
   return typeof value === 'string' && value.trim().length > 0
     ? value
-    : 'No preview yet. Open saved item review to read the full suggestion.'
+    : 'The summary is not ready yet. Open saved item review and read the full suggestion before using it.'
 }
 
 function candidateKindLabel(candidate: TaskContextCandidate): string {
