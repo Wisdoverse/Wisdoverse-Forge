@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { ProvidersSection } from '@app/features/settings/ProvidersSection'
 import { useSettingsStore } from '@app/shared/model/settings.store'
 import type { LlmProviderConfig } from '@app/shared/api/legacy/settingsApi'
@@ -507,6 +507,14 @@ describe('ProvidersSection', () => {
   })
 
   test('uses clear remove labels before deleting an AI service', async () => {
+    let finishDelete: (removed: boolean) => void = () => {}
+    deleteProviderMock.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          finishDelete = resolve
+        })
+    )
+
     render(<ProvidersSection />)
 
     const removeButton = await screen.findByRole('button', {
@@ -517,14 +525,33 @@ describe('ProvidersSection', () => {
     fireEvent.click(removeButton)
 
     expect(deleteProviderMock).not.toHaveBeenCalled()
-    const confirmButton = screen.getByRole('button', {
-      name: /confirm removing anthropic review AI service/i,
-    })
-    expect(confirmButton).toHaveTextContent('Confirm remove')
+    expect(screen.getByRole('note')).toHaveTextContent(
+      'Removing this service stops agents from using Anthropic Review.'
+    )
+    expect(screen.getByRole('button', { name: /keep anthropic review AI service/i })).toHaveTextContent(
+      'Keep service'
+    )
+    expect(
+      screen.getByRole('button', { name: /remove anthropic review AI service now/i })
+    ).toHaveTextContent('Remove now')
     expect(screen.queryByRole('button', { name: /^delete$/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /^confirm\\?$/i })).toBeNull()
 
+    fireEvent.click(screen.getByRole('button', { name: /keep anthropic review AI service/i }))
+    expect(deleteProviderMock).not.toHaveBeenCalled()
+    expect(screen.queryByRole('note')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /remove anthropic review AI service/i }))
+    const confirmButton = screen.getByRole('button', {
+      name: /remove anthropic review AI service now/i,
+    })
     fireEvent.click(confirmButton)
+    expect(confirmButton).toHaveTextContent('Removing...')
+    expect(confirmButton).toBeDisabled()
+
+    await act(async () => {
+      finishDelete(true)
+    })
 
     await waitFor(() => {
       expect(deleteProviderMock).toHaveBeenCalledWith('provider-needs-test')

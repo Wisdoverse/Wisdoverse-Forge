@@ -7,6 +7,7 @@ import {
   Power,
   Search,
   SlidersHorizontal,
+  Trash2,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
@@ -571,7 +572,7 @@ interface ProviderCardProps {
   providerConfig: LlmProviderConfig
   onTest: (id: string) => Promise<TestConnectionResult>
   onSetEnabled: (id: string, isEnabled: boolean) => Promise<LlmProviderConfig | null>
-  onDelete: (id: string) => void
+  onDelete: (id: string) => Promise<boolean>
 }
 
 function ProviderCard({ providerConfig, onTest, onSetEnabled, onDelete }: ProviderCardProps) {
@@ -586,6 +587,7 @@ function ProviderCard({ providerConfig, onTest, onSetEnabled, onDelete }: Provid
     lastTestErrorMessage,
   } = providerConfig
   const [confirming, setConfirming] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [testing, setTesting] = useState(false)
   const [changingEnabled, setChangingEnabled] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
@@ -597,13 +599,20 @@ function ProviderCard({ providerConfig, onTest, onSetEnabled, onDelete }: Provid
         : null
   const visibleTestResult = testResult ?? persistedTestResult
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!confirming) {
       setConfirming(true)
       return
     }
-    onDelete(id)
-    setConfirming(false)
+    setDeleting(true)
+    try {
+      const removed = await onDelete(id)
+      if (removed) {
+        setConfirming(false)
+      }
+    } finally {
+      setDeleting(false)
+    }
   }
 
   async function handleTest() {
@@ -639,99 +648,123 @@ function ProviderCard({ providerConfig, onTest, onSetEnabled, onDelete }: Provid
   }
 
   return (
-    <div
-      className={cn(
-        'flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between',
-        uiStyles.row
-      )}
-    >
-      <div className="flex min-w-0 items-center gap-3">
-        {/* Status dot */}
-        <div
-          className={cn(
-            'h-2 w-2 shrink-0 rounded-full',
-            isEnabled ? 'bg-apple-blue' : 'bg-[#d2d2d7]'
-          )}
-        />
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="truncate text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
-              {displayName}
-            </span>
-            {isDefault && <span className={uiStyles.activeBadge}>default</span>}
-            <span
-              className={cn(
-                'rounded-full px-2 py-0.5 text-ui-caption font-semibold',
-                providerStatusTone(providerConfig)
-              )}
-            >
-              {providerStatusLabel(providerConfig)}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-              {model}
-            </span>
-            {apiKeyPrefix && (
-              <span className="font-mono text-ui-caption text-secondary-light dark:text-secondary-dark">
-                {apiKeyPrefix}••••
+    <div className={cn('px-4 py-3', uiStyles.row)}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          {/* Status dot */}
+          <div
+            className={cn(
+              'h-2 w-2 shrink-0 rounded-full',
+              isEnabled ? 'bg-apple-blue' : 'bg-[#d2d2d7]'
+            )}
+          />
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="truncate text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
+                {displayName}
               </span>
+              {isDefault && <span className={uiStyles.activeBadge}>default</span>}
+              <span
+                className={cn(
+                  'rounded-full px-2 py-0.5 text-ui-caption font-semibold',
+                  providerStatusTone(providerConfig)
+                )}
+              >
+                {providerStatusLabel(providerConfig)}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                {model}
+              </span>
+              {apiKeyPrefix && (
+                <span className="font-mono text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  {apiKeyPrefix}••••
+                </span>
+              )}
+            </div>
+            {visibleTestResult && (
+              <div
+                role={visibleTestResult.ok ? 'status' : 'alert'}
+                aria-live="polite"
+                className={cn(
+                  'mt-1 text-ui-caption',
+                  visibleTestResult.ok ? 'text-apple-green' : 'text-apple-red'
+                )}
+              >
+                {visibleTestResult.message}
+              </div>
             )}
           </div>
-          {visibleTestResult && (
-            <div
-              role={visibleTestResult.ok ? 'status' : 'alert'}
-              aria-live="polite"
-              className={cn(
-                'mt-1 text-ui-caption',
-                visibleTestResult.ok ? 'text-apple-green' : 'text-apple-red'
-              )}
+        </div>
+
+        <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto">
+          <button
+            type="button"
+            onClick={handleSetEnabled}
+            disabled={changingEnabled || testing || deleting}
+            className={uiStyles.secondaryButton}
+            aria-label={`${isEnabled ? 'Turn off' : 'Turn on'} ${displayName} AI service`}
+            title={isEnabled ? 'Turn off AI service' : 'Turn on AI service'}
+          >
+            <Power className="h-4 w-4" aria-hidden="true" />
+            <span>{changingEnabled ? 'Updating' : isEnabled ? 'Turn off' : 'Turn on'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleTest}
+            disabled={testing || !isEnabled || deleting}
+            className={uiStyles.secondaryButton}
+            aria-label={`Check ${displayName} AI service connection`}
+            title="Check AI service connection"
+          >
+            <Activity className="h-4 w-4" aria-hidden="true" />
+            <span>{testing ? 'Checking' : 'Check'}</span>
+          </button>
+          {confirming && (
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              disabled={deleting}
+              className={uiStyles.secondaryButton}
+              aria-label={`Keep ${displayName} AI service`}
             >
-              {visibleTestResult.message}
-            </div>
+              Keep service
+            </button>
           )}
+          <button
+            type="button"
+            onClick={() => void handleDelete()}
+            disabled={deleting}
+            aria-label={
+              confirming
+                ? `Remove ${displayName} AI service now`
+                : `Remove ${displayName} AI service`
+            }
+            aria-describedby={confirming ? `${id}-remove-help` : undefined}
+            className={cn(
+              'shrink-0 gap-1.5',
+              confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton
+            )}
+          >
+            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+            {deleting ? 'Removing...' : confirming ? 'Remove now' : 'Remove AI service'}
+          </button>
         </div>
       </div>
-
-      <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto">
-        <button
-          type="button"
-          onClick={handleSetEnabled}
-          disabled={changingEnabled || testing}
-          className={uiStyles.secondaryButton}
-          aria-label={`${isEnabled ? 'Turn off' : 'Turn on'} ${displayName} AI service`}
-          title={isEnabled ? 'Turn off AI service' : 'Turn on AI service'}
+      {confirming && (
+        <div
+          id={`${id}-remove-help`}
+          role="note"
+          className="mt-3 flex gap-2 rounded-lg border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
         >
-          <Power className="h-4 w-4" aria-hidden="true" />
-          <span>{changingEnabled ? 'Updating' : isEnabled ? 'Turn off' : 'Turn on'}</span>
-        </button>
-        <button
-          type="button"
-          onClick={handleTest}
-          disabled={testing || !isEnabled}
-          className={uiStyles.secondaryButton}
-          aria-label={`Check ${displayName} AI service connection`}
-          title="Check AI service connection"
-        >
-          <Activity className="h-4 w-4" aria-hidden="true" />
-          <span>{testing ? 'Checking' : 'Check'}</span>
-        </button>
-        <button
-          type="button"
-          onClick={handleDelete}
-          aria-label={
-            confirming
-              ? `Confirm removing ${displayName} AI service`
-              : `Remove ${displayName} AI service`
-          }
-          className={cn(
-            'shrink-0',
-            confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton
-          )}
-        >
-          {confirming ? 'Confirm remove' : 'Remove AI service'}
-        </button>
-      </div>
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>
+            Removing this service stops agents from using {displayName}. Keep it if any current
+            agent still depends on this AI service.
+          </span>
+        </div>
+      )}
     </div>
   )
 }
@@ -1800,7 +1833,7 @@ export function ProvidersSection() {
   }
 
   async function handleDelete(id: string) {
-    await deleteProvider(id)
+    return deleteProvider(id)
   }
 
   async function handleTest(id: string) {
