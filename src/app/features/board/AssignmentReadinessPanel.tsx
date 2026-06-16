@@ -47,7 +47,7 @@ export function AssignmentReadinessPanel({
       ? 'Connect an agent before sending work.'
       : available.length > 0
         ? `${available.length} agent${available.length === 1 ? '' : 's'} can take work now.`
-        : 'No agent can take work right now.'
+        : 'Open Agents to start or connect an agent, or wait for one to finish.'
   const handoffSummary = summarizeHandoff(workload, available.length)
 
   return (
@@ -186,7 +186,7 @@ function summarizeHandoff(workload: BoardWorkloadSnapshot, availableCount: numbe
 
     return availableCount > 0
       ? `${workload.unassigned} ${taskLabel} ${verb} an agent. Choose an available agent to start ${pronoun}.`
-      : `${workload.unassigned} ${taskLabel} ${verb} an agent. Connect or free up an agent before ${pronoun} can start.`
+      : `${workload.unassigned} ${taskLabel} ${verb} an agent. Open Agents to start or connect an agent, or wait for one to finish.`
   }
 
   if (workload.blocked > 0) {

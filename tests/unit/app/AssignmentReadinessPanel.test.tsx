@@ -103,12 +103,17 @@ describe('AssignmentReadinessPanel', () => {
 
     const readiness = screen.getByTestId('assignment-readiness')
     expect(readiness.textContent).toContain(
-      '1 task needs an agent. Connect or free up an agent before it can start.'
+      'Open Agents to start or connect an agent, or wait for one to finish.'
+    )
+    expect(readiness.textContent).toContain(
+      '1 task needs an agent. Open Agents to start or connect an agent, or wait for one to finish.'
     )
     expect(screen.getByText('Already working · Can use Codex for this work')).toBeDefined()
     expect(readiness.textContent).not.toContain('codex')
     expect(readiness.textContent).not.toContain('unassigned tasks')
     expect(readiness.textContent).not.toContain('handed off')
+    expect(readiness.textContent).not.toContain('No agent can take work right now')
+    expect(readiness.textContent).not.toContain('Connect or free up an agent before it can start')
   })
 
   test('keeps connected agent chips visible when participants are available', () => {

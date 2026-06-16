@@ -6766,6 +6766,14 @@ function noAgentPreview() {
   return 'No agent is available for saved item preview. Start an agent or wait for one to finish, then try again.'
 }
 `,
+      'src/app/features/board/AssignmentReadinessPanel.tsx': `
+function AssignmentReadinessPanel() {
+  return 'No agent can take work right now.'
+}
+function summarizeHandoff() {
+  return '1 task needs an agent. Connect or free up an agent before it can start.'
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
@@ -6777,6 +6785,14 @@ function noAgentPreview() {
           type: 'board-agent-setup-copy',
           location: 'src/app/features/board/boardErrorMessages.ts:3',
         }),
+        expect.objectContaining({
+          type: 'board-agent-setup-copy',
+          location: 'src/app/features/board/AssignmentReadinessPanel.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'board-agent-setup-copy',
+          location: 'src/app/features/board/AssignmentReadinessPanel.tsx:6',
+        }),
       ])
     )
   })
@@ -6786,6 +6802,14 @@ function noAgentPreview() {
       'src/app/features/board/boardErrorMessages.ts': `
 function noAgentPreview() {
   return 'No agent can prepare the saved item preview right now. Open Agents to start or connect an agent, then return to the board and refresh.'
+}
+`,
+      'src/app/features/board/AssignmentReadinessPanel.tsx': `
+function AssignmentReadinessPanel() {
+  return 'Open Agents to start or connect an agent, or wait for one to finish.'
+}
+function summarizeHandoff() {
+  return '1 task needs an agent. Open Agents to start or connect an agent, or wait for one to finish.'
 }
 `,
     })

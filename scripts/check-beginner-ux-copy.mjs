@@ -753,6 +753,8 @@ const BOARD_LOAD_FAILURE_FIRST_PATTERNS = [
 
 const BOARD_AGENT_SETUP_DEAD_END_PATTERNS = [
   /\bNo agent is available for saved item preview\. Start an agent or wait for one to finish, then try again\./i,
+  /\bNo agent can take work right now\./i,
+  /\bConnect or free up an agent before (?:it|them) can start\./i,
 ]
 
 const AUTH_FAILURE_FIRST_PATTERNS = [
@@ -1372,7 +1374,12 @@ function hasBoardLoadFailureFirstCopy(relFile, line) {
 }
 
 function hasBoardAgentSetupDeadEndCopy(relFile, line) {
-  if (!relFile.endsWith('src/app/features/board/boardErrorMessages.ts')) return false
+  if (
+    !relFile.endsWith('src/app/features/board/boardErrorMessages.ts') &&
+    !relFile.endsWith('src/app/features/board/AssignmentReadinessPanel.tsx')
+  ) {
+    return false
+  }
   if (isLikelyGuardOrParserLine(line)) return false
   return BOARD_AGENT_SETUP_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
