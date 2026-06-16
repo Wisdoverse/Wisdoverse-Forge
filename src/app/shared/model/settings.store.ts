@@ -174,7 +174,7 @@ function settingsConnectionMessage(actionPhrase: string, action: SettingsErrorAc
 
 function settingsUnavailableMessage(actionPhrase: string, action: SettingsErrorAction): string {
   const operation = action === 'load' ? 'load Settings' : 'update Settings'
-  return `Forge could not ${operation} right now. Refresh Settings, then try to ${actionPhrase} again. If it still fails, ask an owner or admin to check Settings.`
+  return `Refresh Settings, then try to ${actionPhrase} again. Forge could not ${operation} right now. If it still fails, ask an owner or admin to check Settings.`
 }
 
 function settingsPermissionMessage(area: SettingsErrorArea, actionPhrase: string): string {
@@ -231,7 +231,7 @@ export function settingsActionErrorMessage(
     return settingsUnavailableMessage(actionPhrase, action)
   }
 
-  return `Settings could not ${actionPhrase}. Refresh Settings, then try again.`
+  return `Refresh Settings, then try to ${actionPhrase} again. Settings could not ${actionPhrase}.`
 }
 
 function settingsValidationMessage(

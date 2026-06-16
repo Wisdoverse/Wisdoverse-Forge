@@ -882,6 +882,11 @@ const NETWORK_FAILURE_FIRST_PATTERNS = [
   /Forge 暂时连不上。请检查网络后重试。/,
 ]
 
+const SETTINGS_STORE_ERROR_FAILURE_FIRST_PATTERNS = [
+  /^\s*return\s+`Forge could not \$\{operation\} right now\./,
+  /^\s*return\s+`Settings could not \$\{actionPhrase\}\./,
+]
+
 const WORKSPACE_RESOURCE_FAILURE_FIRST_PATTERNS = [
   /\b(?:Team|Project) could not be (?:saved|deleted)\./i,
   /\bThis (?:team|project) could not be found\./i,
@@ -1524,6 +1529,12 @@ function hasNetworkFailureFirstCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return NETWORK_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasSettingsStoreErrorFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/shared/model/settings.store.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SETTINGS_STORE_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasWorkspaceResourceFailureFirstCopy(relFile, line) {
@@ -2890,6 +2901,15 @@ function scanFile(file, relFile) {
         type: 'network-copy',
         location,
         message: 'Network errors must start with the next action for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSettingsStoreErrorFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'settings-store-error-copy',
+        location,
+        message: 'Settings store errors must start with the next action for beginners.',
         sample: line.trim(),
       })
     }

@@ -7668,6 +7668,52 @@ export const zh = {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags Settings store errors that explain failure before the next step', () => {
+    const cwd = fixture({
+      'src/app/shared/model/settings.store.ts': `
+function settingsUnavailableMessage(operation, actionPhrase) {
+  return \`Forge could not \${operation} right now. Refresh Settings, then try to \${actionPhrase} again.\`
+}
+
+function settingsDefaultMessage(actionPhrase) {
+  return \`Settings could not \${actionPhrase}. Refresh Settings, then try again.\`
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'settings-store-error-copy',
+          location: 'src/app/shared/model/settings.store.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'settings-store-error-copy',
+          location: 'src/app/shared/model/settings.store.ts:7',
+        }),
+      ])
+    )
+  })
+
+  it('accepts Settings store errors that start with the recovery step', () => {
+    const cwd = fixture({
+      'src/app/shared/model/settings.store.ts': `
+function settingsUnavailableMessage(operation, actionPhrase) {
+  return \`Refresh Settings, then try to \${actionPhrase} again. Forge could not \${operation} right now.\`
+}
+
+function settingsDefaultMessage(actionPhrase) {
+  return \`Refresh Settings, then try to \${actionPhrase} again. Settings could not \${actionPhrase}.\`
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags team and project setting errors that start with the failure', () => {
     const cwd = fixture({
       'src/app/shared/lib/workspaceResourceErrorMessage.ts': `

@@ -203,6 +203,28 @@ describe('settingsActionErrorMessage', () => {
     expect(message).not.toContain('runtime writes')
   })
 
+  test('starts Settings server failures with the retry step', () => {
+    const message = settingsActionErrorMessage(
+      'providers',
+      'load',
+      statusError(503, 'HTTP 503: Service Unavailable')
+    )
+
+    expectBeginnerError(
+      message,
+      'Refresh Settings, then try to load AI service settings again. Forge could not load Settings right now. If it still fails, ask an owner or admin to check Settings.'
+    )
+    expect(message).not.toContain('HTTP 503')
+    expect(message).not.toContain('Service Unavailable')
+  })
+
+  test('starts unknown Settings failures with the retry step', () => {
+    expectBeginnerError(
+      settingsActionErrorMessage('providers', 'load', statusError(418, 'teapot')),
+      'Refresh Settings, then try to load AI service settings again. Settings could not load AI service settings.'
+    )
+  })
+
   test('uses product labels for code access permission errors', () => {
     const message = settingsActionErrorMessage(
       'gitCredentials',
@@ -243,7 +265,7 @@ describe('useSettingsStore errors', () => {
 
     expectBeginnerError(
       useSettingsStore.getState().providersError,
-      'Forge could not load Settings right now. Refresh Settings, then try to load AI service settings again. If it still fails, ask an owner or admin to check Settings.'
+      'Refresh Settings, then try to load AI service settings again. Forge could not load Settings right now. If it still fails, ask an owner or admin to check Settings.'
     )
     expect(useSettingsStore.getState().providersError).not.toContain('provider settings')
     expect(useSettingsStore.getState().providersError).not.toContain('HTTP 503')
