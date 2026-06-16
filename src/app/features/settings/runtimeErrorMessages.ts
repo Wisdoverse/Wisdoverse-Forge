@@ -2,11 +2,11 @@ export type RuntimeErrorAction = 'loadAgentSignals' | 'loadCliSignIn' | 'startCl
 
 const ACTION_FALLBACKS: Record<RuntimeErrorAction, string> = {
   loadAgentSignals:
-    'Agent connection status could not load. Start or wake an agent, then refresh this page.',
+    'Start or wake an agent, then refresh this page. Agent connection status could not load.',
   loadCliSignIn:
-    'Work tool sign-in could not be checked. Refresh this page before starting agents that use work tools.',
+    'Refresh this page before starting agents that use work tools. Work tool sign-in could not be checked.',
   startCliSignIn:
-    'Work tool sign-in did not start. Check the connected AI service, then reconnect the account.',
+    'Check the connected AI service, then reconnect the account. Work tool sign-in did not start.',
 }
 
 export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): string {
@@ -27,7 +27,7 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   }
 
   if (status === 404) {
-    return 'Where agents run is not available yet. Refresh Settings. If it still does not load, ask an owner or admin to check it.'
+    return 'Refresh Settings. Where agents run is not available yet. If it still does not load, ask an owner or admin to check it.'
   }
 
   if (status === 409) {
@@ -43,7 +43,7 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   }
 
   if (status && status >= 500) {
-    return 'Forge could not check where agents run right now. Refresh this page, then try again. If it still fails, ask an owner or admin to check Where agents run.'
+    return 'Refresh this page, then try again. Forge could not check where agents run right now. If it still fails, ask an owner or admin to check Where agents run.'
   }
 
   return runtimeValidationMessage(action, detail)
@@ -183,8 +183,8 @@ function runtimeValidationMessage(action: RuntimeErrorAction, detail: string): s
   }
 
   if (action === 'loadCliSignIn') {
-    return 'Work tool sign-in could not be checked. Refresh this page, then reconnect the work tool sign-in.'
+    return 'Refresh this page, then reconnect the work tool sign-in. Work tool sign-in could not be checked.'
   }
 
-  return 'Agent connection status could not load. Start or wake an agent, then refresh this page.'
+  return 'Start or wake an agent, then refresh this page. Agent connection status could not load.'
 }

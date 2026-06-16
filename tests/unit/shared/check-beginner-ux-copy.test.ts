@@ -3214,6 +3214,50 @@ export function RuntimeSection() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags runtime setup errors that start with the failure summary', () => {
+    const cwd = fixture({
+      'src/app/features/settings/runtimeErrorMessages.ts': `
+function runtimeErrorMessage() {
+  return 'Agent connection status could not load. Start or wake an agent, then refresh this page.'
+}
+
+function runtimeCliErrorMessage() {
+  return 'Work tool sign-in did not start. Check the connected AI service, then reconnect the account.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'runtime-error-copy',
+        location: 'src/app/features/settings/runtimeErrorMessages.ts:3',
+      }),
+      expect.objectContaining({
+        type: 'runtime-error-copy',
+        location: 'src/app/features/settings/runtimeErrorMessages.ts:7',
+      }),
+    ])
+  })
+
+  it('accepts runtime setup errors that start with the next step', () => {
+    const cwd = fixture({
+      'src/app/features/settings/runtimeErrorMessages.ts': `
+function runtimeErrorMessage() {
+  return 'Start or wake an agent, then refresh this page. Agent connection status could not load.'
+}
+
+function runtimeCliErrorMessage() {
+  return 'Check the connected AI service, then reconnect the account. Work tool sign-in did not start.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags runtime setup status copy that only says what is missing', () => {
     const cwd = fixture({
       'src/app/features/settings/RuntimeSection.tsx': `

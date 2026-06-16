@@ -476,6 +476,14 @@ const RUNTIME_SETUP_STATUS_DEAD_END_PATTERNS = [
   /\bno agents are online yet\b/i,
 ]
 
+const RUNTIME_ERROR_FAILURE_FIRST_PATTERNS = [
+  /\bAgent connection status could not load\. Start or wake an agent/i,
+  /\bWork tool sign-in could not be checked\. Refresh this page/i,
+  /\bWork tool sign-in did not start\. Check the connected AI service/i,
+  /\bWhere agents run is not available yet\. Refresh Settings/i,
+  /\bForge could not check where agents run right now\. Refresh this page/i,
+]
+
 const SETTINGS_LOAD_ERROR_DEAD_END_PATTERNS = [
   /\bAI service settings could not be loaded\./i,
   /\bOutside tool access keys could not be loaded\./i,
@@ -1925,6 +1933,12 @@ function hasLoadErrorTitleDeadEndCopy(relFile, line) {
   return LOAD_ERROR_TITLE_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasRuntimeErrorFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/settings/runtimeErrorMessages.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return RUNTIME_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasAgentSetupFallbackDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/entities/agent/model/display-labels.ts') &&
@@ -3260,6 +3274,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Runtime setup status copy must tell beginners what to start, wake, or check next.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasRuntimeErrorFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'runtime-error-copy',
+        location,
+        message: 'Runtime setup errors must start with the next action, not the failure summary.',
         sample: line.trim(),
       })
     }

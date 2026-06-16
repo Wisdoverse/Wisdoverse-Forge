@@ -67,7 +67,7 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Work tool sign-in did not start. Check the connected AI service, then reconnect the account. Forge could not connect while checking where agents run. Check your connection, then refresh Settings.'
+      'Check the connected AI service, then reconnect the account. Work tool sign-in did not start. Forge could not connect while checking where agents run. Check your connection, then refresh Settings.'
     )
     expect(message).not.toContain('provider')
     expect(message).not.toContain('Failed to fetch')
@@ -79,7 +79,7 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Forge could not check where agents run right now. Refresh this page, then try again. If it still fails, ask an owner or admin to check Where agents run.'
+      'Refresh this page, then try again. Forge could not check where agents run right now. If it still fails, ask an owner or admin to check Where agents run.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('worker')
