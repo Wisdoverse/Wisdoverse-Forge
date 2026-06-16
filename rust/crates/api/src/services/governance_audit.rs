@@ -192,3 +192,109 @@ fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
 fn is_admin_role(role: &str) -> bool {
     matches!(role, "owner" | "admin")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{constant_time_eq, hmac_hex, tamper_status};
+    use crate::domain::context_governance::AuditTamperStatus;
+    use crate::repositories::governance_audit::GovernanceAuditRow;
+    use chrono::{DateTime, Utc};
+    use serde_json::json;
+    use uuid::Uuid;
+
+    fn fixed_created_at() -> DateTime<Utc> {
+        DateTime::parse_from_rfc3339("2026-02-03T04:05:06+00:00").expect("valid rfc3339").with_timezone(&Utc)
+    }
+
+    fn audit_row(
+        event_type: &str,
+        subject: Uuid,
+        created_at: DateTime<Utc>,
+        details: serde_json::Value,
+    ) -> GovernanceAuditRow {
+        GovernanceAuditRow {
+            id: subject,
+            actor_user_id: None,
+            event_type: event_type.to_string(),
+            resource_type: "context_item".to_string(),
+            resource_id: None,
+            details,
+            ip_address: None,
+            created_at,
+            item_kind: None,
+            // subject_item_id is set so `tamper_status` resolves the subject
+            // deterministically (it falls back to `id` only when this is None).
+            subject_item_id: Some(subject),
+            subject_scope_kind: None,
+            subject_scope_id: None,
+            visible_by_scope: true,
+        }
+    }
+
+    /// The signature the service expects for a row, computed exactly the way
+    /// `tamper_status` recomputes it: `hmac_hex(key, "event|subject|rfc3339")`.
+    fn expected_signature(key: &[u8], event_type: &str, subject: Uuid, created_at: DateTime<Utc>) -> String {
+        hmac_hex(key, &format!("{}|{}|{}", event_type, subject, created_at.to_rfc3339()))
+    }
+
+    /// Golden HMAC-SHA256 vector pinned locally to the tamper-detection path's
+    /// own hashing function, so a future digest/library change that altered the
+    /// persisted-signature bytes fails here (next to the code that depends on
+    /// it) and not only in the central `crypto_vectors` test.
+    #[test]
+    fn hmac_hex_matches_known_vector() {
+        assert_eq!(
+            hmac_hex(b"key", "The quick brown fox jumps over the lazy dog"),
+            "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8",
+        );
+    }
+
+    #[test]
+    fn tamper_status_valid_for_matching_signature() {
+        let key = b"audit-hmac-key";
+        let event = "context.item.exported";
+        let subject = Uuid::from_u128(0x0123_4567_89ab_cdef_0123_4567_89ab_cdef);
+        let created_at = fixed_created_at();
+        let signature = expected_signature(key, event, subject, created_at);
+        let row = audit_row(event, subject, created_at, json!({ "hmac_signature": signature }));
+        assert!(matches!(tamper_status(&row, key), AuditTamperStatus::Valid));
+    }
+
+    #[test]
+    fn tamper_status_invalid_for_tampered_signature() {
+        let key = b"audit-hmac-key";
+        let event = "context.item.exported";
+        let subject = Uuid::from_u128(0x0123_4567_89ab_cdef_0123_4567_89ab_cdef);
+        let created_at = fixed_created_at();
+        let mut signature = expected_signature(key, event, subject, created_at);
+        // Flip the first hex nibble so length is preserved but a byte differs.
+        let first = if signature.starts_with('a') { 'b' } else { 'a' };
+        signature.replace_range(0..1, &first.to_string());
+        let row = audit_row(event, subject, created_at, json!({ "hmac_signature": signature }));
+        assert!(matches!(tamper_status(&row, key), AuditTamperStatus::Invalid));
+    }
+
+    #[test]
+    fn tamper_status_invalid_under_a_different_key() {
+        let event = "context.item.exported";
+        let subject = Uuid::from_u128(0x0123_4567_89ab_cdef_0123_4567_89ab_cdef);
+        let created_at = fixed_created_at();
+        let signature = expected_signature(b"signing-key", event, subject, created_at);
+        let row = audit_row(event, subject, created_at, json!({ "hmac_signature": signature }));
+        assert!(matches!(tamper_status(&row, b"verifying-key"), AuditTamperStatus::Invalid));
+    }
+
+    #[test]
+    fn tamper_status_not_configured_without_signature() {
+        let subject = Uuid::from_u128(1);
+        let row = audit_row("context.item.exported", subject, fixed_created_at(), json!({}));
+        assert!(matches!(tamper_status(&row, b"audit-hmac-key"), AuditTamperStatus::NotConfigured));
+    }
+
+    #[test]
+    fn constant_time_eq_rejects_length_and_content_mismatch() {
+        assert!(constant_time_eq(b"abc", b"abc"));
+        assert!(!constant_time_eq(b"abc", b"abd"));
+        assert!(!constant_time_eq(b"abc", b"abcd"));
+    }
+}
