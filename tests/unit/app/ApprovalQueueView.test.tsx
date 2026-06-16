@@ -134,6 +134,30 @@ describe('ApprovalQueueView', () => {
     expect(screen.queryByText('Rejected')).toBeNull()
   })
 
+  test('explains why saving waits for the original task details', async () => {
+    listContextCandidates.mockResolvedValue([
+      {
+        ...candidate,
+        id: 'candidate-missing-source',
+        source_available: false,
+      },
+    ])
+
+    render(<ApprovalQueueView />)
+
+    const item = await screen.findByTestId('context-candidate-candidate-missing-source')
+    expect(within(item).getByText('Task details need to load')).toBeDefined()
+    expect(within(item).getByText('Save unlocks after the original task details load.')).toBeDefined()
+    expect(within(item).queryByText('Original task preview unavailable')).toBeNull()
+
+    const saveButton = within(item).getByRole('button', { name: /^Save$/ })
+    expect(saveButton).toBeDisabled()
+    expect(saveButton).toHaveAttribute(
+      'title',
+      'Refresh saved items, then save after the original task details load.'
+    )
+  })
+
   test('explains how to recover from empty approval filters', async () => {
     listContextCandidates.mockResolvedValue([])
 

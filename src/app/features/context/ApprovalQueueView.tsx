@@ -91,6 +91,11 @@ const REJECT_CHECKLIST = [
   'Add a short reason so the next reviewer knows what happened.',
 ]
 
+const SOURCE_MISSING_LABEL = 'Task details need to load'
+const SOURCE_MISSING_DETAIL = 'Save unlocks after the original task details load.'
+const SOURCE_MISSING_NEXT_STEP =
+  'Refresh saved items, then save after the original task details load.'
+
 interface ApprovalQueueEmptyState {
   title: string
   detail: string
@@ -454,7 +459,7 @@ function CandidateRow({
               className="inline-flex h-6 items-center gap-1 rounded-full bg-apple-red/10 px-2 text-ui-caption font-semibold text-apple-red"
             >
               <AlertTriangle size={12} strokeWidth={2} aria-hidden="true" />
-              Original task preview unavailable
+              {SOURCE_MISSING_LABEL}
             </span>
           )}
         </div>
@@ -470,7 +475,7 @@ function CandidateRow({
             <span>
               {candidate.source_available
                 ? 'Original task preview available'
-                : 'Original task preview unavailable'}
+                : SOURCE_MISSING_DETAIL}
             </span>
           )}
           <span>Created {formatTimestamp(candidate.created_at)}</span>
@@ -489,7 +494,7 @@ function CandidateRow({
               title={
                 candidate.source_available
                   ? 'Save this item for future work'
-                  : 'Original task preview is unavailable'
+                  : SOURCE_MISSING_NEXT_STEP
               }
             >
               <CheckCircle2 size={15} strokeWidth={2} aria-hidden="true" />
