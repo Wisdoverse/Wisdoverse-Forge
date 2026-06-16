@@ -8,11 +8,16 @@ import { I18nContext } from '@app/shared/model/i18n.context'
 import { ThemeContext } from '@app/shared/model/theme.context'
 
 const changePasswordMock = vi.hoisted(() => vi.fn())
+const navigateMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@app/shared/api/legacy', () => ({
   getUserApi: () => ({
     changePassword: changePasswordMock,
   }),
+}))
+
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => navigateMock,
 }))
 
 const loadPreferencesMock = vi.fn().mockResolvedValue(undefined)
@@ -58,6 +63,7 @@ function renderAccountSection(
 
 beforeEach(() => {
   changePasswordMock.mockResolvedValue(undefined)
+  navigateMock.mockReset()
   loadPreferencesMock.mockClear()
   setGettingStartedDismissedMock.mockReset().mockResolvedValue(true)
   useNavigationStore.setState({
@@ -291,10 +297,8 @@ describe('AccountSection', () => {
         'The setup checklist is back in the sidebar. Open it whenever you want to check setup again. Your projects, agents, and tasks were not changed.'
       )
     ).toBeDefined()
-    expect(screen.getByRole('link', { name: /open setup checklist/i })).toHaveAttribute(
-      'href',
-      '/start'
-    )
+    fireEvent.click(screen.getByRole('button', { name: /open setup checklist/i }))
+    expect(navigateMock).toHaveBeenCalledWith({ to: '/start' })
   })
 
   test('keeps the restore action honest while the guide is already visible', () => {
@@ -304,10 +308,8 @@ describe('AccountSection', () => {
 
     expect(screen.getByText(/there is nothing to restore/)).toBeDefined()
     expect(screen.getByRole('button', { name: /show in sidebar again/i })).toBeDisabled()
-    expect(screen.getByRole('link', { name: /open setup checklist/i })).toHaveAttribute(
-      'href',
-      '/start'
-    )
+    fireEvent.click(screen.getByRole('button', { name: /open setup checklist/i }))
+    expect(navigateMock).toHaveBeenCalledWith({ to: '/start' })
   })
 
   test('reports a failed restore instead of pretending it worked', async () => {
@@ -331,6 +333,6 @@ describe('AccountSection', () => {
         'The setup checklist is back in the sidebar. Open it whenever you want to check setup again.'
       )
     ).toBeNull()
-    expect(screen.queryByRole('link', { name: /open setup checklist/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /open setup checklist/i })).toBeNull()
   })
 })

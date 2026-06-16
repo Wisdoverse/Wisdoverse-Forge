@@ -1,4 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useAuth } from '@app/shared/model/auth.context'
@@ -350,6 +351,7 @@ function OrgRenameForm() {
 // ============================================================================
 
 function GettingStartedGuideRow() {
+  const navigate = useNavigate()
   const preferences = useSettingsStore((s) => s.preferences)
   const preferencesLoaded = useSettingsStore((s) => s.preferencesLoaded)
   const loadPreferences = useSettingsStore((s) => s.loadPreferences)
@@ -387,6 +389,10 @@ function GettingStartedGuideRow() {
     }
   }
 
+  function openChecklist() {
+    void navigate({ to: '/start' })
+  }
+
   return (
     <div className="space-y-2 px-4 py-3">
       <div className="flex items-center justify-between gap-3">
@@ -401,15 +407,16 @@ function GettingStartedGuideRow() {
         </div>
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
           {canOpenChecklist && !restored && (
-            <a
-              href="/start"
+            <button
+              type="button"
+              onClick={openChecklist}
               className={cn(
                 uiStyles.secondaryButton,
                 'inline-flex h-9 items-center justify-center text-apple-blue'
               )}
             >
               Open setup checklist
-            </a>
+            </button>
           )}
           <button
             type="button"
@@ -436,15 +443,16 @@ function GettingStartedGuideRow() {
             The setup checklist is back in the sidebar. Open it whenever you want to check setup
             again. Your projects, agents, and tasks were not changed.
           </span>
-          <a
-            href="/start"
+          <button
+            type="button"
+            onClick={openChecklist}
             className={cn(
               uiStyles.secondaryButton,
               'inline-flex h-9 shrink-0 items-center justify-center text-apple-blue'
             )}
           >
             Open setup checklist
-          </a>
+          </button>
         </div>
       )}
     </div>
