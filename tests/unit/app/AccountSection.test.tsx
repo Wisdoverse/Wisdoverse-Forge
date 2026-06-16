@@ -273,21 +273,22 @@ describe('AccountSection', () => {
     expect(loadPreferencesMock).toHaveBeenCalled()
     expect(screen.getByText('Setup checklist')).toBeDefined()
     expect(screen.getByText(/Skipping Start only hides the sidebar shortcut/i)).toBeDefined()
+    expect(screen.getByText(/It does not change projects, agents, or tasks/i)).toBeDefined()
     expect(screen.getByText(/The setup checklist is hidden right now/i)).toBeDefined()
     expect(screen.queryByText(/Reset Start guide/i)).toBeNull()
     expect(screen.queryByText(/Reset it here/i)).toBeNull()
 
-    const restoreButton = screen.getByRole('button', { name: /show setup checklist/i })
+    const restoreButton = screen.getByRole('button', { name: /show in sidebar again/i })
     expect(restoreButton).not.toBeDisabled()
     fireEvent.click(restoreButton)
 
     await waitFor(() => expect(setGettingStartedDismissedMock).toHaveBeenCalledWith(false))
     expect(await screen.findByRole('status')).toHaveTextContent(
-      'The setup checklist is back in the sidebar. Open it whenever you want to check setup again.'
+      'The setup checklist is back in the sidebar. Open it whenever you want to check setup again. Your projects, agents, and tasks were not changed.'
     )
     expect(
       screen.getByText(
-        'The setup checklist is back in the sidebar. Open it whenever you want to check setup again.'
+        'The setup checklist is back in the sidebar. Open it whenever you want to check setup again. Your projects, agents, and tasks were not changed.'
       )
     ).toBeDefined()
     expect(screen.getByRole('link', { name: /open setup checklist/i })).toHaveAttribute(
@@ -301,8 +302,8 @@ describe('AccountSection', () => {
 
     renderAccountSection()
 
-    expect(screen.getByText(/The setup checklist is already visible in the sidebar/)).toBeDefined()
-    expect(screen.getByRole('button', { name: /show setup checklist/i })).toBeDisabled()
+    expect(screen.getByText(/there is nothing to restore/)).toBeDefined()
+    expect(screen.getByRole('button', { name: /show in sidebar again/i })).toBeDisabled()
     expect(screen.getByRole('link', { name: /open setup checklist/i })).toHaveAttribute(
       'href',
       '/start'
@@ -318,7 +319,7 @@ describe('AccountSection', () => {
 
     renderAccountSection()
 
-    fireEvent.click(screen.getByRole('button', { name: /show setup checklist/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show in sidebar again/i }))
 
     expect(
       await screen.findByText(

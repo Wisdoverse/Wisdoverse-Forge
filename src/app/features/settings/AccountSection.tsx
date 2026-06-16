@@ -370,7 +370,7 @@ function GettingStartedGuideRow() {
     ? 'Checking whether the setup checklist is hidden...'
     : dismissed
       ? 'The setup checklist is hidden right now.'
-      : 'The setup checklist is already visible in the sidebar.'
+      : 'The setup checklist is already visible in the sidebar, so there is nothing to restore.'
 
   async function handleRestore() {
     setError(null)
@@ -395,8 +395,8 @@ function GettingStartedGuideRow() {
             Setup checklist
           </p>
           <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Skipping Start only hides the sidebar shortcut. Show it again here when you want the
-            checklist back. {statusLine}
+            Skipping Start only hides the sidebar shortcut. It does not change projects, agents, or
+            tasks. Show it again here when you want the checklist back. {statusLine}
           </p>
         </div>
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
@@ -417,7 +417,7 @@ function GettingStartedGuideRow() {
             disabled={restoring || !preferencesLoaded || !dismissed}
             className={uiStyles.secondaryButton}
           >
-            {restoring ? 'Showing...' : 'Show setup checklist'}
+            {restoring ? 'Showing...' : 'Show in sidebar again'}
           </button>
         </div>
       </div>
@@ -434,7 +434,7 @@ function GettingStartedGuideRow() {
         >
           <span>
             The setup checklist is back in the sidebar. Open it whenever you want to check setup
-            again.
+            again. Your projects, agents, and tasks were not changed.
           </span>
           <a
             href="/start"
