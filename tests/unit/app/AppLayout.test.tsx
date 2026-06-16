@@ -420,7 +420,7 @@ describe('AppLayout', () => {
     expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
   })
 
-  test('applies a task template before creating a New Task', async () => {
+  test('asks for confirmation before creating from an unchanged task template', async () => {
     seedProjectNavigation('p1')
     useBoardStore.getState().setSelectedGroupId('group-1')
 
@@ -444,6 +444,9 @@ describe('AppLayout', () => {
     ).toContain('What is broken:')
 
     fireEvent.click(screen.getByRole('button', { name: /create task/i }))
+    await screen.findByTestId('task-brief-confirmation')
+    expect(screen.getByText(/replace the template title/i)).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: /create task anyway/i }))
 
     await waitFor(() =>
       expect(mockCreateTask).toHaveBeenCalledWith({
