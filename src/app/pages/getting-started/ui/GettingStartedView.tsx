@@ -528,61 +528,63 @@ function SetupStepItem({
   return (
     <article
       className={cn(
-        'flex min-w-0 items-center gap-4 rounded-card border bg-white p-4 dark:bg-[#2a2a2c]',
+        'flex min-w-0 flex-col gap-3 rounded-card border bg-white p-4 dark:bg-[#2a2a2c] sm:flex-row sm:items-center sm:gap-4',
         step.complete || isNext
           ? 'border-apple-blue/30'
           : 'border-black/[0.08] dark:border-white/[0.1]'
       )}
     >
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-        <Icon size={18} strokeWidth={2} aria-hidden="true" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-center gap-2">
-          <StatusIcon
-            size={16}
-            strokeWidth={2.25}
-            className={
-              step.complete ? 'text-apple-blue' : 'text-secondary-light dark:text-secondary-dark'
-            }
-            aria-hidden="true"
-          />
-          <h3 className="truncate text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            <span className="mr-1 tabular-nums text-secondary-light dark:text-secondary-dark">
-              {index + 1}.
-            </span>
-            {step.title}
-          </h3>
-          <span
-            className={cn(
-              'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',
-              step.complete || isNext
-                ? 'bg-apple-blue/10 text-apple-blue'
-                : 'bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
-            )}
-          >
-            {statusLabel}
-          </span>
+      <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center sm:gap-4">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
+          <Icon size={18} strokeWidth={2} aria-hidden="true" />
         </div>
-        <p className="mt-1 truncate text-ui-body text-secondary-light dark:text-secondary-dark">
-          {step.detail}
-        </p>
-        {isNext && (
-          <p className="mt-1 line-clamp-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            {step.why}
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <StatusIcon
+              size={16}
+              strokeWidth={2.25}
+              className={
+                step.complete ? 'text-apple-blue' : 'text-secondary-light dark:text-secondary-dark'
+              }
+              aria-hidden="true"
+            />
+            <h3 className="truncate text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+              <span className="mr-1 tabular-nums text-secondary-light dark:text-secondary-dark">
+                {index + 1}.
+              </span>
+              {step.title}
+            </h3>
+            <span
+              className={cn(
+                'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                step.complete || isNext
+                  ? 'bg-apple-blue/10 text-apple-blue'
+                  : 'bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
+              )}
+            >
+              {statusLabel}
+            </span>
+          </div>
+          <p className="mt-1 truncate text-ui-body text-secondary-light dark:text-secondary-dark">
+            {step.detail}
           </p>
-        )}
-        <p className="mt-1 line-clamp-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          <span className="font-medium text-foreground-light dark:text-foreground-dark">
-            {t('gettingStarted.successLabel')}
-          </span>{' '}
-          {step.success}
-        </p>
+          {isNext && (
+            <p className="mt-1 line-clamp-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              {step.why}
+            </p>
+          )}
+          <p className="mt-1 line-clamp-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            <span className="font-medium text-foreground-light dark:text-foreground-dark">
+              {t('gettingStarted.successLabel')}
+            </span>{' '}
+            {step.success}
+          </p>
+        </div>
       </div>
       <button
         type="button"
         onClick={() => onNavigate(step.path)}
-        className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full bg-apple-blue px-4 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+        className="inline-flex min-h-10 w-full shrink-0 items-center justify-center gap-2 rounded-full bg-apple-blue px-4 py-2 text-center text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus sm:w-auto"
       >
         <span>{step.cta}</span>
         <ArrowRight size={14} strokeWidth={2.25} aria-hidden="true" />

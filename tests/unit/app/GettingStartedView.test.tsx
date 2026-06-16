@@ -290,6 +290,11 @@ describe('GettingStartedView', () => {
     expect(
       screen.getByText('Useful instructions are saved or were used on a task.')
     ).toBeDefined()
+    const [savedInstructionsButton] = screen.getAllByRole('button', {
+      name: /show saved instructions/i,
+    })
+    expect(savedInstructionsButton).toHaveClass('w-full')
+    expect(savedInstructionsButton).toHaveClass('sm:w-auto')
     fireEvent.click(screen.getByRole('button', { name: /write one small task/i }))
     expect(navigateMock).toHaveBeenCalledWith({ to: '/tasks' })
     expect(
