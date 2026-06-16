@@ -48,7 +48,7 @@ RUN --mount=type=cache,id=agentforge-cargo-registry,target=/usr/local/cargo/regi
 
 # Stage 4: Minimal alpine runtime (~8MB base, static binary = no libc required)
 FROM alpine:3.23 AS runtime
-RUN apk --no-cache add ca-certificates curl
+RUN apk --no-cache add ca-certificates curl git
 
 # Create non-root user
 RUN addgroup -S agentforge && adduser -S agentforge -G agentforge

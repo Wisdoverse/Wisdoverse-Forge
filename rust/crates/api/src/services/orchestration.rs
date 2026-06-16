@@ -218,6 +218,7 @@ impl OrchestrationService {
                     initial_blocked_reason: initial_state.initial_blocked_reason,
                     initial_blocked_metadata: initial_state.initial_blocked_metadata,
                     requires_approval,
+                    self_fix: false,
                 },
             )
             .await?;
@@ -886,6 +887,7 @@ impl OrchestrationService {
                 initial_blocked_reason: None,
                 initial_blocked_metadata: None,
                 requires_approval: false,
+                self_fix: false,
             },
         )
         .await?;

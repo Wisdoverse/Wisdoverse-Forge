@@ -146,6 +146,10 @@ pub struct CreateTaskRow<'a> {
     pub initial_blocked_reason: Option<&'a str>,
     pub initial_blocked_metadata: Option<serde_json::Value>,
     pub requires_approval: bool,
+    /// Marks a self-fix code task against this repo. Only this column is set at
+    /// create time; the `pr_*` / `base_commit_sha` / `review_status` columns are
+    /// written later via the dedicated UPDATE methods, so they stay NULL here.
+    pub self_fix: bool,
 }
 
 /// Fields a PATCH `/tasks/:id` request can update. `None` leaves the column unchanged.
@@ -189,10 +193,10 @@ impl OrchestrationTaskRepository {
             r#"INSERT INTO orchestration_tasks
                  (organization_id, group_id, title, description, status, priority, params,
                   created_by, assigned_agent_id, parent_task_id, started_at,
-                  blocked_reason, blocked_metadata, requires_approval)
+                  blocked_reason, blocked_metadata, requires_approval, self_fix)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
                   CASE WHEN $5 = 'working' THEN NOW() ELSE NULL END,
-                  $11, $12, $13)
+                  $11, $12, $13, $14)
                RETURNING *"#,
         )
         .bind(scope.org_id().as_uuid())
@@ -208,6 +212,7 @@ impl OrchestrationTaskRepository {
         .bind(row.initial_blocked_reason)
         .bind(row.initial_blocked_metadata)
         .bind(row.requires_approval)
+        .bind(row.self_fix)
         .fetch_one(&mut **tx)
         .await
         .map_err(Into::into)
@@ -534,6 +539,57 @@ impl OrchestrationTaskRepository {
             .fetch_optional(&mut **tx)
             .await?
             .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(id))
+    }
+
+    /// Pin the base `origin/main` SHA a self-fix task's PR is rebuilt onto
+    /// (tenant-scoped). Written at dispatch by the PR Bridge.
+    pub async fn set_base_commit_sha(&self, scope: &TenantScope, id: Uuid, sha: &str) -> AppResult<()> {
+        sqlx::query("UPDATE orchestration_tasks SET base_commit_sha = $1, updated_at = NOW() WHERE id = $2 AND organization_id = $3")
+            .bind(sha)
+            .bind(id)
+            .bind(scope.org_id().as_uuid())
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    /// Record the draft-PR linkage (number, URL, head SHA) and the initial
+    /// review status on a self-fix task (tenant-scoped).
+    pub async fn set_pr_metadata(
+        &self,
+        scope: &TenantScope,
+        id: Uuid,
+        pr_number: i32,
+        pr_url: &str,
+        pr_head_sha: &str,
+        review_status: &str,
+    ) -> AppResult<()> {
+        sqlx::query(
+            r#"UPDATE orchestration_tasks
+               SET pr_number = $1, pr_url = $2, pr_head_sha = $3, review_status = $4, updated_at = NOW()
+               WHERE id = $5 AND organization_id = $6"#,
+        )
+        .bind(pr_number)
+        .bind(pr_url)
+        .bind(pr_head_sha)
+        .bind(review_status)
+        .bind(id)
+        .bind(scope.org_id().as_uuid())
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Update only the review status on a self-fix task (tenant-scoped). Mirrors
+    /// the orchestrator `ReviewState` vocabulary but is driven API-side.
+    pub async fn set_review_status(&self, scope: &TenantScope, id: Uuid, status: &str) -> AppResult<()> {
+        sqlx::query("UPDATE orchestration_tasks SET review_status = $1, updated_at = NOW() WHERE id = $2 AND organization_id = $3")
+            .bind(status)
+            .bind(id)
+            .bind(scope.org_id().as_uuid())
+            .execute(&self.pool)
+            .await?;
+        Ok(())
     }
 
     /// Cancel a task (sets status='canceled' and records timestamp). Idempotent.

@@ -13,6 +13,10 @@ agentforge-jobs.workspace = true
 agentforge-llm.workspace = true
 agentforge-platform.workspace = true
 axum.workspace = true
+# `use_pem` adds RSA PEM parsing (GitHub App private keys ship as PEM). It pulls
+# only `pem` + `simple_asn1`, NOT the RustCrypto `rsa` crate the workspace base
+# deliberately excludes (RUSTSEC-2023-0071), so the security posture is unchanged.
+jsonwebtoken = { workspace = true, features = ["use_pem"] }
 tower.workspace = true
 tower-http.workspace = true
 serde.workspace = true
@@ -53,6 +57,7 @@ test-support = ["agentforge-llm/test-support"]
 [dev-dependencies]
 bcrypt = "0.19"
 http = "1"
+httpmock = "0.7"
 metrics-util.workspace = true
 agentforge-llm = { workspace = true, features = ["test-support"] }
 agentforge-api = { path = ".", features = ["test-support"] }

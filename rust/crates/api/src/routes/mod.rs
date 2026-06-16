@@ -35,6 +35,7 @@ pub mod prompts;
 pub mod quota;
 pub mod resource_members;
 pub mod resource_profiles;
+pub mod self_fix;
 pub mod settings;
 pub mod skills;
 pub mod ssh_keys;
