@@ -480,6 +480,12 @@ const SAVED_INSTRUCTION_TOOL_TOOLTIP_PATTERNS = [
   /工作工具设置需要检查。/,
 ]
 
+const AGENT_PLUGIN_ERROR_FAILURE_FIRST_PATTERNS = [
+  /['"`]\s*Tool change was not saved\. The switch was returned to its previous setting\./i,
+  /['"`]\s*Forge could not finish this tool request right now\. Wait a few minutes, then try again\./i,
+  /['"`]\s*Forge could not read this agent's tool list\. Refresh the page\./i,
+]
+
 const SAVED_INSTRUCTIONS_LOAD_DEAD_END_PATTERNS = [
   /\bSaved instructions could not load\./i,
   /\bForge could not load Saved instructions right now\./i,
@@ -2127,6 +2133,12 @@ function hasLoadErrorTitleDeadEndCopy(relFile, line) {
   return LOAD_ERROR_TITLE_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAgentPluginErrorFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/agents/model/pluginErrorMessage.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_PLUGIN_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasRuntimeErrorFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/settings/runtimeErrorMessages.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -3612,6 +3624,15 @@ function scanFile(file, relFile) {
         type: 'load-error-title-copy',
         location,
         message: 'Load error titles must tell beginners which view to retry or refresh.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentPluginErrorFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-plugin-error-copy',
+        location,
+        message: 'Agent tool errors must start with the recovery action for beginners.',
         sample: line.trim(),
       })
     }

@@ -267,9 +267,7 @@ describe('AgentPluginsTab', () => {
     fireEvent.click(shellSwitch)
 
     const alert = await screen.findByRole('alert')
-    expect(alert.textContent).toContain(
-      'Tool change was not saved. The switch was returned to its previous setting.'
-    )
+    expect(alert.textContent).toContain('The switch was returned to its previous setting.')
     expect(alert.textContent).toContain(
       "Ask an owner or admin to give you access to this agent's tools."
     )

@@ -1557,6 +1557,60 @@ function ResourceProfilesError() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags agent tool errors that start with the failure instead of the next step', () => {
+    const cwd = fixture({
+      'src/app/features/agents/model/pluginErrorMessage.ts': `
+function prefix() {
+  return 'Tool change was not saved. The switch was returned to its previous setting.'
+}
+function serverMessage() {
+  return 'Forge could not finish this tool request right now. Wait a few minutes, then try again.'
+}
+function listMessage() {
+  return "Forge could not read this agent's tool list. Refresh the page."
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-plugin-error-copy',
+          location: 'src/app/features/agents/model/pluginErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-plugin-error-copy',
+          location: 'src/app/features/agents/model/pluginErrorMessage.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'agent-plugin-error-copy',
+          location: 'src/app/features/agents/model/pluginErrorMessage.ts:9',
+        }),
+      ])
+    )
+  })
+
+  it('accepts agent tool errors that start with the next step', () => {
+    const cwd = fixture({
+      'src/app/features/agents/model/pluginErrorMessage.ts': `
+function prefix() {
+  return 'Refresh this agent page, then try the tool change again. The switch was returned to its previous setting.'
+}
+function serverMessage() {
+  return 'Wait a few minutes, then try the tool change again. The switch was returned to its previous setting. Forge could not finish this tool request right now.'
+}
+function listMessage() {
+  return "Refresh this agent page, then try the tool change again. The switch was returned to its previous setting. Forge could not read this agent's tool list."
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags member access errors that start with the failure instead of the next step', () => {
     const cwd = fixture({
       'src/app/features/manage-members/model/resourceMemberErrorMessages.ts': `

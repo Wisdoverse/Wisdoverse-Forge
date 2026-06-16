@@ -41,47 +41,84 @@ function isNetworkError(err: unknown): boolean {
   )
 }
 
-function prefix(action: AgentPluginErrorAction): string {
-  return action === 'load'
-    ? 'Refresh this agent page to load tools.'
-    : 'Tool change was not saved. The switch was returned to its previous setting.'
+const TOOL_SWITCH_REVERTED = 'The switch was returned to its previous setting.'
+
+function loadPrefix(): string {
+  return 'Refresh this agent page to load tools.'
+}
+
+function saveMessage(firstStep: string, detail: string): string {
+  return `${firstStep} ${TOOL_SWITCH_REVERTED} ${detail}`.trim()
 }
 
 export function agentPluginErrorMessage(action: AgentPluginErrorAction, err: unknown): string {
   const code = statusCode(err)
-  const base = prefix(action)
+  const base = loadPrefix()
   const text = structuredErrorText(err).toLowerCase()
 
   if (code === 401) {
-    return `${base} Sign in again, then reopen this agent.`
+    return action === 'load'
+      ? `${base} Sign in again, then reopen this agent.`
+      : saveMessage('Sign in again, then reopen this agent and try the tool change again.', '')
   }
   if (code === 403) {
-    return `${base} Ask an owner or admin to give you access to this agent's tools.`
+    return action === 'load'
+      ? `${base} Ask an owner or admin to give you access to this agent's tools.`
+      : saveMessage("Ask an owner or admin to give you access to this agent's tools.", '')
   }
   if (code === 404) {
     return action === 'load'
       ? `${base} This agent or tool may have been changed by someone else.`
-      : `${base} Refresh the page; this agent or tool may have been changed by someone else.`
+      : saveMessage(
+          'Refresh this agent page, then choose the current tool again.',
+          'This agent or tool may have been changed by someone else.'
+        )
   }
   if (code === 409) {
-    return `${base} Another change is still being saved. Wait a moment, then try again.`
+    return action === 'load'
+      ? `${base} Another change is still being saved. Wait a moment, then try again.`
+      : saveMessage(
+          'Wait a moment, then try the tool change again.',
+          'Another change is still being saved.'
+        )
   }
   if (code === 429) {
-    return `${base} Too many requests are happening right now. Wait a minute, then try again.`
+    return action === 'load'
+      ? `${base} Too many requests are happening right now. Wait a minute, then try again.`
+      : saveMessage(
+          'Wait a minute, then try the tool change again.',
+          'Too many requests are happening right now.'
+        )
   }
   if (code != null && code >= 500) {
-    return `${base} Forge could not finish this tool request right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check this agent's tool setup.`
+    return action === 'load'
+      ? `${base} Forge could not finish this tool request right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check this agent's tool setup.`
+      : saveMessage(
+          'Wait a few minutes, then try the tool change again.',
+          "Forge could not finish this tool request right now. If it still fails, ask an owner or admin to check this agent's tool setup."
+        )
   }
   if (isNetworkError(err)) {
     return action === 'load'
       ? `${base} Forge could not connect while checking this agent's tools. Check your connection, then refresh this agent page again.`
-      : `${base} Forge could not connect while checking this agent's tools. Check your connection, then try again.`
+      : saveMessage(
+          'Check your connection, then try the tool change again.',
+          "Forge could not connect while checking this agent's tools."
+        )
   }
   if (text.includes('ok: false')) {
     return action === 'load'
       ? `${base} If it still fails, ask an owner or admin to check team space tools.`
-      : `${base} Forge could not read this agent's tool list. Refresh the page. If it still fails, ask an owner or admin to check team space tools.`
+      : saveMessage(
+          'Refresh this agent page, then try the tool change again.',
+          "Forge could not read this agent's tool list. If it still fails, ask an owner or admin to check team space tools."
+        )
   }
 
-  return `${base} Try again. If it still fails, ask an owner or admin to check this agent's tool setup.`
+  return action === 'load'
+    ? `${base} Try again. If it still fails, ask an owner or admin to check this agent's tool setup.`
+    : saveMessage(
+        'Refresh this agent page, then try the tool change again.',
+        "If it still fails, ask an owner or admin to check this agent's tool setup."
+      )
 }

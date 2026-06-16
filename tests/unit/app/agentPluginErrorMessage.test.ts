@@ -27,7 +27,7 @@ describe('agentPluginErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Tool change was not saved. The switch was returned to its previous setting. Another change is still being saved. Wait a moment, then try again.'
+      'Wait a moment, then try the tool change again. The switch was returned to its previous setting. Another change is still being saved.'
     )
     expect(message).not.toContain('plugin update already in progress')
   })
@@ -36,7 +36,7 @@ describe('agentPluginErrorMessage', () => {
     const message = agentPluginErrorMessage('save', new Error('HTTP 500'))
 
     expect(message).toBe(
-      "Tool change was not saved. The switch was returned to its previous setting. Forge could not finish this tool request right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check this agent's tool setup."
+      "Wait a few minutes, then try the tool change again. The switch was returned to its previous setting. Forge could not finish this tool request right now. If it still fails, ask an owner or admin to check this agent's tool setup."
     )
     expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('platform')
@@ -49,7 +49,7 @@ describe('agentPluginErrorMessage', () => {
     })
 
     expect(message).toBe(
-      "Tool change was not saved. The switch was returned to its previous setting. Forge could not finish this tool request right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check this agent's tool setup."
+      "Wait a few minutes, then try the tool change again. The switch was returned to its previous setting. Forge could not finish this tool request right now. If it still fails, ask an owner or admin to check this agent's tool setup."
     )
     expect(message).not.toContain('gateway stack trace')
     expect(message).not.toContain('platform')
@@ -79,7 +79,7 @@ describe('agentPluginErrorMessage', () => {
     const message = agentPluginErrorMessage('save', new Error('ok: false'))
 
     expect(message).toBe(
-      "Tool change was not saved. The switch was returned to its previous setting. Forge could not read this agent's tool list. Refresh the page. If it still fails, ask an owner or admin to check team space tools."
+      "Refresh this agent page, then try the tool change again. The switch was returned to its previous setting. Forge could not read this agent's tool list. If it still fails, ask an owner or admin to check team space tools."
     )
     expect(message).not.toContain('ok: false')
     expect(message).not.toContain('workspace tools')
