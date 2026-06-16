@@ -445,6 +445,9 @@ const AGENT_TASK_QUEUE_EMPTY_DEAD_END_PATTERNS = [
   /\bNo task queues yet\b/i,
   /\bNo tasks are in this task queue yet\b/i,
 ]
+const AGENT_TASK_QUEUE_FAILURE_FIRST_PATTERNS = [
+  /\bTask queue was not created\. (?:A|Ask|Check|Choose|Forge|Refresh|Sign in|Too many|Try|Use|Wait)\b/i,
+]
 const TASK_LIST_EMPTY_DEAD_END_PATTERNS = [/\bCreate one small task from the board first\b/i]
 const AGENT_LIST_SUMMARY_DEAD_END_PATTERNS = [/\bNo agents\b/i]
 const AGENT_TOOL_SUMMARY_DEAD_END_PATTERNS = [
@@ -1022,6 +1025,7 @@ const USER_VISIBLE_ERROR_FILE_PATTERNS = [
   /\/model\/admin\.store\.ts$/,
   /\/model\/skills\.store\.ts$/,
   /\/model\/analytics\.store\.ts$/,
+  /\/entities\/agent-group\/api\/agentGroupApi\.ts$/,
   /\/shared\/lib\/taskFailureCopy\.ts$/,
   /\/shared\/lib\/workspaceResourceErrorMessage\.ts$/,
 ]
@@ -1899,6 +1903,18 @@ function hasAgentTaskQueueEmptyDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/agents/AgentGroupsPanel.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return AGENT_TASK_QUEUE_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentTaskQueueFailureFirstCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/agents/model/agentGroupErrorMessage.ts') &&
+    !relFile.endsWith('src/app/features/agents/model/createAgentWorkLaneErrorMessage.ts') &&
+    !relFile.endsWith('src/app/entities/agent-group/api/agentGroupApi.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_TASK_QUEUE_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasSkillMaintainerFallbackDeadEndCopy(relFile, line) {
@@ -3396,6 +3412,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Task queue empty states must start with the action to create the first queue or task.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentTaskQueueFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-task-queue-error-copy',
+        location,
+        message: 'Task queue errors must start with the next action before the failure.',
         sample: line.trim(),
       })
     }

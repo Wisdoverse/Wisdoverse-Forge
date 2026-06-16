@@ -332,7 +332,7 @@ describe('AgentGroupsPanel', () => {
     fireEvent.submit(screen.getByRole('button', { name: /create task queue/i }).closest('form')!)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Task queue was not created. Ask an owner or admin to let you create and manage task queues in this project.'
+      'Ask an owner or admin to let you create and manage task queues in this project. Task queue was not created.'
     )
     expect(screen.getByLabelText(/task queue name/i)).toHaveValue('Delivery Queue')
     expect(screen.getByLabelText(/task queue description/i)).toHaveValue(

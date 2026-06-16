@@ -78,18 +78,12 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByText(/use \/workspace unless/i)).toBeNull()
     expect(screen.queryByText(/default task context/i)).toBeNull()
     expect(screen.getAllByText(/primary project/i).length).toBeGreaterThan(0)
-    expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(
-      /open project settings/i
-    )
+    expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/open project settings/i)
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(
       /open project settings to create or choose a project/i
     )
-    expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(
-      /choose a project later/i
-    )
-    expect(screen.getByTestId('agent-work-readiness')).not.toHaveTextContent(
-      /no primary project/i
-    )
+    expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/choose a project later/i)
+    expect(screen.getByTestId('agent-work-readiness')).not.toHaveTextContent(/no primary project/i)
     expect(screen.getByTestId('agent-work-readiness')).not.toHaveTextContent(
       /select a project in the sidebar/i
     )
@@ -312,7 +306,7 @@ describe('CreateAgentModal', () => {
     fireEvent.click(await screen.findByRole('button', { name: /create task queue/i }))
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Task queue was not created.')
+    expect(alert).toHaveTextContent('Wait a few minutes, then try creating the task queue again.')
     expect(alert).toHaveTextContent('ask an owner or admin to check task queue setup')
     expect(alert).not.toHaveTextContent('HTTP 500')
     expect(alert).not.toHaveTextContent('database unavailable')
@@ -370,10 +364,14 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText('Uses this computer')).toBeInTheDocument()
     const localReview = screen.getByTestId('agent-create-review')
     expect(
-      within(localReview).getByText('Paste the setup text on this computer and keep that window open.')
+      within(localReview).getByText(
+        'Paste the setup text on this computer and keep that window open.'
+      )
     ).toBeInTheDocument()
     expect(
-      within(localReview).getByText('Forge creates the agent, then shows setup steps for this computer.')
+      within(localReview).getByText(
+        'Forge creates the agent, then shows setup steps for this computer.'
+      )
     ).toBeInTheDocument()
     expect(
       screen.queryByText(new RegExp(['work tool', 'installed', 'your computer'].join('.*'), 'i'))
@@ -441,7 +439,9 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByLabelText(/setup command/i)).toBeNull()
     expect(screen.getByText('Connect this computer')).toBeInTheDocument()
     expect(screen.getByText(/agent managed by forge/i)).toBeInTheDocument()
-    expect(screen.getByText(/Keep that window open so Forge can manage this agent/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Keep that window open so Forge can manage this agent/i)
+    ).toBeInTheDocument()
     expect(screen.getByText('1. Copy the setup text.')).toBeInTheDocument()
     expect(screen.getByText(/paste it into the terminal app/i)).toBeInTheDocument()
     expect(

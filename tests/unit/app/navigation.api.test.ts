@@ -293,7 +293,7 @@ describe('navigation entity APIs', () => {
         description: 'Agents in this group can receive tasks from the board.',
       })
     ).rejects.toThrow(
-      'Task queue was not created. Check the task queue name and project, then try again.'
+      'Check the task queue name and project, then create the queue again. Task queue was not created.'
     )
   })
 

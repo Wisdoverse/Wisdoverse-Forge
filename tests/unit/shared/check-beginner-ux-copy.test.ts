@@ -6736,6 +6736,72 @@ function AgentGroupsPanel() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags task queue errors that start with the failure before the next action', () => {
+    const cwd = fixture({
+      'src/app/features/agents/model/agentGroupErrorMessage.ts': `
+export function agentGroupErrorMessage() {
+  return 'Task queue was not created. Ask an owner or admin to let you create and manage task queues in this project.'
+}
+`,
+      'src/app/features/agents/model/createAgentWorkLaneErrorMessage.ts': `
+export function createAgentWorkLaneErrorMessage() {
+  return 'Task queue was not created. Forge could not connect while creating the task queue. Check your connection, then try again.'
+}
+`,
+      'src/app/entities/agent-group/api/agentGroupApi.ts': `
+export function missingGroupMessage() {
+  throw new Error(
+    'Task queue was not created. Check the task queue name and project, then try again.'
+  )
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-task-queue-error-copy',
+          location: 'src/app/features/agents/model/agentGroupErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-task-queue-error-copy',
+          location: 'src/app/features/agents/model/createAgentWorkLaneErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-task-queue-error-copy',
+          location: 'src/app/entities/agent-group/api/agentGroupApi.ts:4',
+        }),
+      ])
+    )
+  })
+
+  it('accepts task queue errors that start with the next action', () => {
+    const cwd = fixture({
+      'src/app/features/agents/model/agentGroupErrorMessage.ts': `
+export function agentGroupErrorMessage() {
+  return 'Ask an owner or admin to let you create and manage task queues in this project. Task queue was not created.'
+}
+`,
+      'src/app/features/agents/model/createAgentWorkLaneErrorMessage.ts': `
+export function createAgentWorkLaneErrorMessage() {
+  return 'Check your connection, then try creating the task queue again. Forge could not connect while creating the task queue.'
+}
+`,
+      'src/app/entities/agent-group/api/agentGroupApi.ts': `
+export function missingGroupMessage() {
+  throw new Error(
+    'Check the task queue name and project, then create the queue again. Task queue was not created.'
+  )
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags saved instruction maintainer fallback copy that does not tell users to refresh', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `

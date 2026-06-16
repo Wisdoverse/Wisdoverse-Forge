@@ -6,7 +6,7 @@ describe('createAgentWorkLaneErrorMessage', () => {
     const message = createAgentWorkLaneErrorMessage(new Error('HTTP 401: Unauthorized'))
 
     expect(message).toBe(
-      'Task queue was not created. Sign in again, reopen Create Agent, and try creating the queue again.'
+      'Sign in again, reopen Create Agent, and try creating the queue again. Task queue was not created.'
     )
     expect(message).not.toContain('New Agent')
     expect(message).not.toContain('Unauthorized')
@@ -14,7 +14,7 @@ describe('createAgentWorkLaneErrorMessage', () => {
 
   test('turns permission failures into an owner or admin next step', () => {
     expect(createAgentWorkLaneErrorMessage(new Error('HTTP 403: Forbidden'))).toBe(
-      'Task queue was not created. Ask an owner or admin to let you create and manage task queues in this project.'
+      'Ask an owner or admin to let you create and manage task queues in this project. Task queue was not created.'
     )
   })
 
@@ -25,14 +25,14 @@ describe('createAgentWorkLaneErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Task queue was not created. Ask an owner or admin to let you create and manage task queues in this project.'
+      'Ask an owner or admin to let you create and manage task queues in this project. Task queue was not created.'
     )
     expect(message).not.toContain('owner role required')
   })
 
   test('turns duplicate queue failures into an existing queue step', () => {
     expect(createAgentWorkLaneErrorMessage(new Error('API 409: duplicate lane'))).toBe(
-      'Task queue was not created. A starter queue may already exist. Refresh the project, then choose the existing queue.'
+      'Refresh the project, then choose the existing starter queue. Task queue was not created because a starter queue may already exist.'
     )
   })
 
@@ -43,14 +43,14 @@ describe('createAgentWorkLaneErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Task queue was not created. A starter queue may already exist. Refresh the project, then choose the existing queue.'
+      'Refresh the project, then choose the existing starter queue. Task queue was not created because a starter queue may already exist.'
     )
     expect(message).not.toContain('duplicate lane')
   })
 
   test('turns invalid queue setup into a project selection step', () => {
     expect(createAgentWorkLaneErrorMessage(new Error('HTTP 422: validation failed'))).toBe(
-      'Task queue was not created. Choose a project first, then try again.'
+      'Choose a project first, then try creating the queue again. Task queue was not created.'
     )
   })
 
@@ -58,7 +58,7 @@ describe('createAgentWorkLaneErrorMessage', () => {
     const message = createAgentWorkLaneErrorMessage(new TypeError('Failed to fetch'))
 
     expect(message).toBe(
-      'Task queue was not created. Forge could not connect while creating the task queue. Check your connection, then try again.'
+      'Check your connection, then try creating the task queue again. Forge could not connect while creating the task queue.'
     )
     expect(message).not.toContain('Failed to fetch')
   })
@@ -67,7 +67,7 @@ describe('createAgentWorkLaneErrorMessage', () => {
     const message = createAgentWorkLaneErrorMessage(new Error('HTTP 500: database unavailable'))
 
     expect(message).toBe(
-      'Task queue was not created. Forge could not create the task queue right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check task queue setup.'
+      'Wait a few minutes, then try creating the task queue again. Forge could not create the task queue right now. If it still fails, ask an owner or admin to check task queue setup.'
     )
     expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('platform')
@@ -80,7 +80,7 @@ describe('createAgentWorkLaneErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Task queue was not created. Forge could not create the task queue right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check task queue setup.'
+      'Wait a few minutes, then try creating the task queue again. Forge could not create the task queue right now. If it still fails, ask an owner or admin to check task queue setup.'
     )
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('503')
