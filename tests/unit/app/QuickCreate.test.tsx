@@ -16,7 +16,9 @@ describe('QuickCreate', () => {
     expect(screen.getByRole('textbox', { name: /task goal/i })).toHaveAccessibleDescription(
       /only saves a draft in not sent yet/i
     )
-    expect(screen.getByPlaceholderText(/example: fix the login error/i)).toBeDefined()
+    expect(
+      screen.getByPlaceholderText(/example: fix the login error and show how to test it/i)
+    ).toBeDefined()
     expect(screen.getByText(/open the card, add where to work and done when/i)).toBeDefined()
     expect(screen.getByText(/then choose an agent/i)).toBeDefined()
     expect(screen.queryByRole('button', { name: /\+ add task/i })).toBeNull()
@@ -52,7 +54,9 @@ describe('QuickCreate', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Write the task goal before saving it.')
     expect(input).toHaveFocus()
 
-    fireEvent.change(input, { target: { value: 'Fix the login error' } })
+    fireEvent.change(input, {
+      target: { value: 'Fix the login error and show how to test it' },
+    })
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 

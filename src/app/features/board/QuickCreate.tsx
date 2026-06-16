@@ -8,9 +8,9 @@ interface QuickCreateProps {
 }
 
 const QUICK_TASK_EXAMPLES = [
-  'Review setup instructions',
-  'Fix the login error',
-  'Summarize the latest task result',
+  'Review setup and list the next safe step',
+  'Fix the login error and show how to test it',
+  'Summarize the latest result with next actions',
 ]
 
 export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
@@ -108,7 +108,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
           }
           if (e.key === 'Escape') handleCancel()
         }}
-        placeholder="Example: Fix the login error"
+        placeholder="Example: Fix the login error and show how to test it"
         className={cn(
           'h-10 w-full rounded-full border border-black/[0.08] px-4 text-ui-body outline-none',
           'bg-white dark:border-white/[0.1] dark:bg-[#2c2c2e]',
