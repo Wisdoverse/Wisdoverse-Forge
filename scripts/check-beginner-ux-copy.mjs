@@ -758,6 +758,8 @@ const BOARD_AGENT_SETUP_DEAD_END_PATTERNS = [
   /\bNo recent activity\b/i,
 ]
 
+const BOARD_CLEAR_DEAD_END_PATTERNS = [/\bTask queue is clear\./i]
+
 const AUTH_FAILURE_FIRST_PATTERNS = [
   /\bToo many sign-in attempts\. Wait a few minutes/i,
   /\bWe could not sign you in\b/i,
@@ -1383,6 +1385,12 @@ function hasBoardAgentSetupDeadEndCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return BOARD_AGENT_SETUP_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasBoardClearDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/board/AssignmentReadinessPanel.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return BOARD_CLEAR_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAuthFailureFirstCopy(relFile, line) {
@@ -2658,6 +2666,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Board no-agent copy must tell beginners to open Agents, start or connect an agent, and refresh the board.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasBoardClearDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'board-clear-copy',
+        location,
+        message:
+          'Board clear-state copy must tell beginners to create a task when they have work to send.',
         sample: line.trim(),
       })
     }

@@ -201,7 +201,7 @@ function summarizeHandoff(workload: BoardWorkloadSnapshot, availableCount: numbe
     return `${workload.review} completed ${pluralize(workload.review, 'task')} ready for review.`
   }
 
-  return 'Task queue is clear.'
+  return 'Create a task when you have work to send.'
 }
 
 function pluralize(count: number, singular: string): string {

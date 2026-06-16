@@ -141,6 +141,8 @@ describe('AssignmentReadinessPanel', () => {
     expect(screen.getByText('Ready Agent')).toBeDefined()
     expect(screen.getAllByText('Can take work').length).toBeGreaterThan(0)
     expect(screen.getByText('Can use Codex for this work')).toBeDefined()
+    expect(screen.getByText('Create a task when you have work to send.')).toBeDefined()
+    expect(screen.queryByText('Task queue is clear.')).toBeNull()
   })
 
   test('summarizes tasks that need help without blocked-task wording', () => {

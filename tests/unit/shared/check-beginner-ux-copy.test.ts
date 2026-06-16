@@ -6827,6 +6827,40 @@ function ParticipantChip() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags board clear-state copy that does not tell users what to do next', () => {
+    const cwd = fixture({
+      'src/app/features/board/AssignmentReadinessPanel.tsx': `
+function summarizeHandoff() {
+  return 'Task queue is clear.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'board-clear-copy',
+          location: 'src/app/features/board/AssignmentReadinessPanel.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts board clear-state copy that tells users to create a task', () => {
+    const cwd = fixture({
+      'src/app/features/board/AssignmentReadinessPanel.tsx': `
+function summarizeHandoff() {
+  return 'Create a task when you have work to send.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags authentication errors that start with the failure instead of recovery', () => {
     const cwd = fixture({
       'src/app/features/auth/AuthPage.ts': `
