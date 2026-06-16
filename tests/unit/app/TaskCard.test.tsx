@@ -353,6 +353,9 @@ describe('TaskCard', () => {
     const count = screen.getByTestId('task-result-count')
     expect(count).toBeDefined()
     expect(count.textContent).toBe('2 files')
+    expect(screen.getByTestId('task-next-step').textContent).toBe(
+      'Open details, review result files, then save repeatable steps or create a follow-up task.'
+    )
   })
 
   test('shows stdout result count for real connection-tool completions', () => {
@@ -402,6 +405,9 @@ describe('TaskCard', () => {
   test('does not show result count when completed task has no results', () => {
     render(<TaskCard task={{ ...mockTask, state: 'completed', result: [] }} />)
     expect(screen.queryByTestId('task-result-count')).toBeNull()
+    expect(screen.getByTestId('task-next-step').textContent).toBe(
+      'Open details, check the final answer, then save repeatable steps or create a follow-up task.'
+    )
   })
 
   test('activates from a short pointer tap without double firing the follow-up click', () => {
