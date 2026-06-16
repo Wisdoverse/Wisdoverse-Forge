@@ -157,6 +157,11 @@ RUN apt-get update && apt-get -y dist-upgrade \
     python3 python3-pip python3-venv libnghttp2-14 \
     && rm -rf /var/lib/apt/lists/*
 
+# Update npm to a release whose bundled tar is patched (CVE-2026-53655 → tar
+# 7.5.16; node:24-slim still ships an older npm with the vulnerable copy). Pinned
+# to keep the agent base reproducible, matching the SLSA checksum discipline below.
+RUN npm install -g npm@11.17.0 && npm cache clean --force
+
 # Docker CLI (static binary, no daemon) + Compose v2 plugin for DevEnv support.
 # Agent containers proxy docker commands through the sidecar.
 # China mirrors: pass --build-arg DOCKER_MIRROR=https://mirrors.aliyun.com/docker-ce
