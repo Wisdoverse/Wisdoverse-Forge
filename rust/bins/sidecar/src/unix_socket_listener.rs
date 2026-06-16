@@ -253,7 +253,11 @@ async fn durably_publish(publisher: &EventPublisher, wal: &Wal, event_type: &str
                 false
             }
             Err(_elapsed) => {
-                tracing::warn!(event_type, timeout_secs = FLUSH_CONFIRM_TIMEOUT.as_secs(), "Relay flush timed out (NATS unreachable) — leaving event in WAL for drain");
+                tracing::warn!(
+                    event_type,
+                    timeout_secs = FLUSH_CONFIRM_TIMEOUT.as_secs(),
+                    "Relay flush timed out (NATS unreachable) — leaving event in WAL for drain"
+                );
                 false
             }
         }
