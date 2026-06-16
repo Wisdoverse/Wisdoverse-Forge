@@ -26,7 +26,7 @@ export interface ApiErrorFields {
  */
 export function extractApiError(
   data: ApiErrorFields,
-  fallback = 'Forge did not return a clear error. Refresh, then try again.'
+  fallback = 'Refresh, then try again. Forge did not return a clear error.'
 ): string {
   const rawError = (data as Record<string, unknown>).error
   const nestedError =

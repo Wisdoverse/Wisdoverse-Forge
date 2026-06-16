@@ -167,6 +167,56 @@ export async function saveThing() {
     ])
   })
 
+  it('flags shared API fallbacks that explain the failure before recovery', () => {
+    const cwd = fixture({
+      'src/app/shared/api/legacy/AgentAPI.ts': `
+const LEGACY_API_REQUEST_ERROR =
+  'Forge could not finish this request. Wait a moment, then try again.'
+`,
+      'src/app/shared/api/agent-api-types.ts': `
+export function extractApiError(
+  fallback = 'Forge did not return a clear error. Refresh, then try again.'
+) {
+  return fallback
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'api-fallback-error-copy',
+          location: 'src/app/shared/api/legacy/AgentAPI.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'api-fallback-error-copy',
+          location: 'src/app/shared/api/agent-api-types.ts:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts shared API fallbacks that start with recovery', () => {
+    const cwd = fixture({
+      'src/app/shared/api/legacy/AgentAPI.ts': `
+const LEGACY_API_REQUEST_ERROR =
+  'Wait a moment, then try again. Forge could not finish this request.'
+`,
+      'src/app/shared/api/agent-api-types.ts': `
+export function extractApiError(
+  fallback = 'Refresh, then try again. Forge did not return a clear error.'
+) {
+  return fallback
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags work setup load failures that do not tell beginners how to recover', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/zh.ts': `

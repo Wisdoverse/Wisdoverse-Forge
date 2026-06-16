@@ -270,7 +270,7 @@ describe('Legacy API adapter — beginner-safe fallback errors', () => {
 
     const result = await getAgentApi().createUserLlmConfig({} as never)
 
-    expect(result.error).toBe('Forge could not finish this request. Wait a moment, then try again.')
+    expect(result.error).toBe('Wait a moment, then try again. Forge could not finish this request.')
     expect(result.error).not.toContain('Server error')
   })
 

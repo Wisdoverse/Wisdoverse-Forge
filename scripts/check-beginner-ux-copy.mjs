@@ -32,6 +32,11 @@ const RAW_USER_VISIBLE_PATTERNS = [
   /\bdatabase unavailable\b/i,
 ]
 
+const API_FALLBACK_FAILURE_FIRST_PATTERNS = [
+  /\bForge could not finish this request\. Wait a moment, then try again\./i,
+  /\bForge did not return a clear error\. Refresh, then try again\./i,
+]
+
 const RECOVERABLE_ERROR_PATTERNS = [
   /\b(?:could not|did not|was not|were not)\b/i,
   /\bfailed to\b/i,
@@ -1059,6 +1064,7 @@ function walk(dir, files) {
 
 function isUiCopyFile(relFile) {
   if (relFile === 'src/app/shared/api/legacy/AgentAPI.ts') return true
+  if (relFile === 'src/app/shared/api/agent-api-types.ts') return true
   if (relFile === 'src/app/entities/agent/model/display-labels.ts') return true
   if (relFile === 'src/app/entities/agent/model/runtime-kind.ts') return true
   if (relFile === 'src/app/entities/agent/model/status-labels.ts') return true
@@ -1122,6 +1128,17 @@ function isLikelyGuardOrParserLine(line) {
 function hasRawUserVisibleCopy(line) {
   if (isLikelyGuardOrParserLine(line)) return false
   return RAW_USER_VISIBLE_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasApiFallbackFailureFirstCopy(relFile, line) {
+  if (
+    relFile !== 'src/app/shared/api/legacy/AgentAPI.ts' &&
+    relFile !== 'src/app/shared/api/agent-api-types.ts'
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return API_FALLBACK_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasBeginnerJargon(line) {
@@ -2358,6 +2375,15 @@ function scanFile(file, relFile) {
         type: 'raw-error-copy',
         location,
         message: 'User-visible copy must not expose raw transport or backend failure wording.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasApiFallbackFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'api-fallback-error-copy',
+        location,
+        message: 'Shared API fallback errors must start with the recovery action.',
         sample: line.trim(),
       })
     }

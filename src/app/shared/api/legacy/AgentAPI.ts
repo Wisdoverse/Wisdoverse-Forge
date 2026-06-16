@@ -25,7 +25,7 @@ import {
 
 const LEGACY_API_NETWORK_ERROR = 'Check your connection, then try again. Forge could not connect.'
 const LEGACY_API_REQUEST_ERROR =
-  'Forge could not finish this request. Wait a moment, then try again.'
+  'Wait a moment, then try again. Forge could not finish this request.'
 const RAW_LEGACY_ERROR_PATTERN = /^(?:Network error|Server error\s*\(\d{3}\)|HTTP\s+\d{3})$/i
 
 function legacyApiError(data: ApiErrorFields): string {
