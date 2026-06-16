@@ -318,6 +318,17 @@ pub struct TaskSummary {
     pub updated_at: String,
     #[serde(rename = "completedAt", skip_serializing_if = "Option::is_none")]
     pub completed_at: Option<String>,
+    /// True when this is a self-fix task (drives the in-platform PR Review tab).
+    #[serde(rename = "selfFix")]
+    pub self_fix: bool,
+    #[serde(rename = "prNumber", skip_serializing_if = "Option::is_none")]
+    pub pr_number: Option<i32>,
+    #[serde(rename = "prUrl", skip_serializing_if = "Option::is_none")]
+    pub pr_url: Option<String>,
+    #[serde(rename = "prHeadSha", skip_serializing_if = "Option::is_none")]
+    pub pr_head_sha: Option<String>,
+    #[serde(rename = "reviewStatus", skip_serializing_if = "Option::is_none")]
+    pub review_status: Option<String>,
     #[serde(rename = "contextCounts")]
     pub context_counts: TaskContextCounts,
 }
@@ -508,6 +519,11 @@ pub fn task_summary(task: OrchestrationTask, agent_name: Option<String>) -> Task
         created_at: task.created_at.to_rfc3339(),
         updated_at: task.updated_at.to_rfc3339(),
         completed_at: if is_completed { task.completed_at.map(|t| t.to_rfc3339()) } else { None },
+        self_fix: task.self_fix,
+        pr_number: task.pr_number,
+        pr_url: task.pr_url,
+        pr_head_sha: task.pr_head_sha,
+        review_status: task.review_status,
         context_counts: TaskContextCounts::default(),
     }
 }
@@ -1144,6 +1160,11 @@ mod tests {
             created_at: "2026-04-20T12:00:00Z".to_owned(),
             updated_at: "2026-04-20T12:00:00Z".to_owned(),
             completed_at: None,
+            self_fix: false,
+            pr_number: None,
+            pr_url: None,
+            pr_head_sha: None,
+            review_status: None,
             context_counts: TaskContextCounts::default(),
         }
     }

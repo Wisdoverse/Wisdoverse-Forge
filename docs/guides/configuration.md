@@ -232,6 +232,34 @@ The clone worker writes to the workspace projects root resolved from
 `AGENTFORGE_WORKSPACE_ROOT` (see the section above); the per-clone staging
 directory and the final atomic rename both live on that same filesystem.
 
+## Self-Fix Loop Variables
+
+These variables enable the human-gated self-fix loop: an agent proposes a code
+change to this repository as a GitHub draft pull request that an operator reviews
+and merges from inside the app. See
+[`docs/guides/self-fix-loop.md`](self-fix-loop.md) for the operator guide and
+[`docs/security/self-fix-loop.md`](../security/self-fix-loop.md) for the safety
+model.
+
+The four `GITHUB_APP_*` variables are **all-or-none**: set all four to enable the
+loop, or leave all four unset to disable it. Setting only some fails startup so
+the loop can never boot half-wired. `LLM_ENCRYPTION_KEY` (see above) must be set
+— the private key is encrypted at rest.
+
+| Variable                     | Default                   | Required          | Purpose                                                                                                                                                                 |
+| ---------------------------- | ------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GITHUB_APP_ID`              | none                      | All four together | GitHub App identifier used to mint installation tokens and open/merge PRs                                                                                               |
+| `GITHUB_APP_INSTALLATION_ID` | none                      | All four together | Installation identifier (the per-account install of the App) that scopes the minted token                                                                               |
+| `GITHUB_APP_PRIVATE_KEY`     | none                      | All four together | App private key. Base64-encoded PEM (env-safe single line) is preferred; raw PEM starting with `-----BEGIN` is also accepted. Stored encrypted via `LLM_ENCRYPTION_KEY` |
+| `GITHUB_APP_REPO`            | none                      | All four together | `owner/repo` the self-fix loop targets                                                                                                                                  |
+| `SELF_FIX_WORK_DIR`          | `/tmp/agentforge-selffix` | No                | Server-owned scratch root for the per-task clone the Bridge builds the PR from. Never inside an agent `/workspace`. One ephemeral subdirectory per task                 |
+
+The GitHub App needs repository permissions **Contents: Read and write** and
+**Pull requests: Read and write**. Success looks like a self-fix task reaching a
+draft PR you can Approve from the task's **Review** tab; the server squash-merges
+the exact reviewed commit and posts an audit comment. Sensitive-path changes are
+server-side hard-refused from in-platform merge and routed to a human maintainer.
+
 ## Compose-Level Deployment Variables
 
 | Variable                     | Typical Use                                                                                                                  |
