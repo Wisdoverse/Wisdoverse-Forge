@@ -86,6 +86,40 @@ export interface TaskSummary {
   updatedAt: string
   completedAt?: string
   contextCounts?: TaskContextCounts
+  /** True when this is a self-fix task (a code-fix against this repo). Drives the Review tab. */
+  selfFix?: boolean
+  /** Draft-PR number once the self-fix Bridge has opened one. */
+  prNumber?: number
+  /** Canonical PR URL. */
+  prUrl?: string
+  /** PR head SHA recorded at open time (the merge gate re-verifies against it). */
+  prHeadSha?: string
+  /** Persisted self-fix review status (mirrors the Rust `review_status` vocabulary). */
+  reviewStatus?: SelfFixReviewStatus
+}
+
+/** Self-fix review-status vocabulary — mirrors `domain::self_fix::review_status` (Rust). */
+export type SelfFixReviewStatus =
+  | 'in_review'
+  | 'approved'
+  | 'changes_requested'
+  | 'merged'
+  | 'sensitive_blocked'
+
+/**
+ * Read-side review snapshot for a self-fix task's draft PR. Mirrors the Rust
+ * `SelfFixReview` serializer (camelCase) field-for-field. Approve is enabled in
+ * the UI only when `checksGreen && !sensitive` — both are computed server-side.
+ */
+export interface SelfFixReview {
+  taskId: string
+  prNumber?: number
+  prUrl?: string
+  diffUrl?: string
+  headSha?: string
+  checksGreen: boolean
+  sensitive: boolean
+  reviewStatus?: SelfFixReviewStatus
 }
 
 export function taskResultArtifacts(result: TaskSummary['result']): TaskResultArtifact[] {
@@ -357,6 +391,21 @@ export const orchestrationApi = {
     apiFetch<{ ok: boolean; task: TaskSummary }>(`/tasks/${taskId}/retry`, { method: 'POST' }),
   approveTask: (taskId: string) =>
     apiFetch<{ ok: boolean; task: TaskSummary }>(`/tasks/${taskId}/approve`, { method: 'POST' }),
+  /** Fetch the self-fix draft-PR review snapshot (diff link, live CI verdict, sensitive flag). */
+  getSelfFixReview: async (taskId: string): Promise<SelfFixReview> => {
+    const res = await apiV1Fetch<{ ok: boolean; data: SelfFixReview }>(
+      `/self-fix/tasks/${taskId}/review`
+    )
+    return res.data
+  },
+  /** Operator-approve a self-fix PR → server-side guarded merge. Returns the new review status. */
+  approveSelfFix: async (taskId: string): Promise<SelfFixReviewStatus> => {
+    await apiV1Fetch<{ ok: boolean; data: { prNumber: number; alreadyMerged: boolean } }>(
+      `/self-fix/tasks/${taskId}/approve`,
+      { method: 'POST' }
+    )
+    return 'merged'
+  },
   fetchContextForTask: async (taskId: string): Promise<TaskContextResponse> => {
     const res = await apiFetch<{ ok: boolean; data: TaskContextResponse }>(
       `/tasks/${taskId}/context`
