@@ -27,7 +27,11 @@ RUN --mount=type=cache,id=agentforge-cargo-registry,target=/usr/local/cargo/regi
     && cp /app/target/x86_64-unknown-linux-musl/release/agentforge-orchestrator /usr/local/bin/agentforge-orchestrator
 
 FROM alpine:3.23 AS runtime
-RUN apk --no-cache add ca-certificates curl
+# `apk upgrade` applies Alpine security updates on top of the upstream
+# alpine:3.23 layer (e.g. libssl3/libcrypto3 can lag behind active OpenSSL CVEs
+# until the base image is refreshed). The Trivy image scan gates this image, so
+# upgrade base packages before adding runtime deps.
+RUN apk --no-cache upgrade && apk --no-cache add ca-certificates curl
 RUN addgroup -S agentforge && adduser -S agentforge -G agentforge
 COPY --from=builder /usr/local/bin/agentforge-orchestrator /usr/local/bin/agentforge-orchestrator
 USER agentforge
