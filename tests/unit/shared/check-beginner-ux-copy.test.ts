@@ -3602,6 +3602,15 @@ function runtimeSettingsFallback() {
   return 'Try again. Where agents run could not be saved. If it still fails, ask an owner or admin to check Where agents run.'
 }
 `,
+      'src/app/features/settings/RuntimeSection.tsx': `
+function credentialStatusCopy() {
+  return 'Work tool sign-ins could not be checked. Check setup. If they still cannot be checked, ask an owner or admin to check work tool sign-ins.'
+}
+
+function heartbeatStatusCopy() {
+  return 'Agent online status could not be checked. Check setup. If it still cannot be checked, ask an owner or admin to check Where agents run.'
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
@@ -3625,6 +3634,14 @@ function runtimeSettingsFallback() {
           type: 'runtime-error-copy',
           location: 'src/app/features/settings/runtimeErrorMessages.ts:15',
         }),
+        expect.objectContaining({
+          type: 'runtime-error-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'runtime-error-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:7',
+        }),
       ])
     )
   })
@@ -3646,6 +3663,15 @@ function runtimeSettingsErrorMessage() {
 
 function runtimeSettingsFallback() {
   return 'Check the agent location and work tool choices, then save Where agents run again. If it still fails, ask an owner or admin to check Where agents run.'
+}
+`,
+      'src/app/features/settings/RuntimeSection.tsx': `
+function credentialStatusCopy() {
+  return 'Choose Check again to refresh work tool sign-ins. If they still cannot be checked, ask an owner or admin to check work tool sign-ins.'
+}
+
+function heartbeatStatusCopy() {
+  return 'Choose Check again to refresh agent online status. If it still cannot be checked, ask an owner or admin to check Where agents run.'
 }
 `,
     })

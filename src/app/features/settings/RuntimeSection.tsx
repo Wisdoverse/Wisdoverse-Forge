@@ -793,7 +793,7 @@ function runtimeLaunchChecklistItems(
     id: 'credentials',
     title: 'Work tool sign-ins',
     detail: cliStatusError
-      ? 'Work tool sign-ins could not be checked. Check setup. If they still cannot be checked, ask an owner or admin to check work tool sign-ins.'
+      ? 'Choose Check again to refresh work tool sign-ins. If they still cannot be checked, ask an owner or admin to check work tool sign-ins.'
       : cliStatuses.length === 0
         ? 'No work tool sign-ins are required.'
         : disconnectedCredential
@@ -813,7 +813,7 @@ function runtimeLaunchChecklistItems(
     id: 'heartbeats',
     title: 'Agent online status',
     detail: participantsError
-      ? 'Agent online status could not be checked. Check setup. If it still cannot be checked, ask an owner or admin to check Where agents run.'
+      ? 'Choose Check again to refresh agent online status. If it still cannot be checked, ask an owner or admin to check Where agents run.'
       : latestHeartbeat
         ? `An agent was online ${formatRelativeTime(latestHeartbeat)}.`
         : 'Start or wake an agent, then choose Check again.',

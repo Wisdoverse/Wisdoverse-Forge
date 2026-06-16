@@ -542,6 +542,8 @@ const RUNTIME_SETUP_STATUS_DEAD_END_PATTERNS = [
 const RUNTIME_ERROR_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*Agent connection status could not load\. Start or wake an agent/i,
   /['"`]\s*Work tool sign-in could not be checked\. Refresh this page/i,
+  /['"`]\s*Work tool sign-ins could not be checked\. Check setup/i,
+  /['"`]\s*Agent online status could not be checked\. Check setup/i,
   /['"`]\s*Work tool sign-in did not start\. Check the connected AI service/i,
   /['"`]\s*Where agents run is not available yet\. Refresh Settings/i,
   /['"`]\s*Forge could not check where agents run right now\. Refresh this page/i,
@@ -2225,7 +2227,12 @@ function hasAgentPluginErrorFailureFirstCopy(relFile, line) {
 }
 
 function hasRuntimeErrorFailureFirstCopy(relFile, line) {
-  if (!relFile.endsWith('src/app/features/settings/runtimeErrorMessages.ts')) return false
+  if (
+    !relFile.endsWith('src/app/features/settings/runtimeErrorMessages.ts') &&
+    !relFile.endsWith('src/app/features/settings/RuntimeSection.tsx')
+  ) {
+    return false
+  }
   if (isLikelyGuardOrParserLine(line)) return false
   return RUNTIME_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
