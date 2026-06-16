@@ -18,11 +18,15 @@ describe('workspaceResourceErrorMessage', () => {
   })
 
   test('maps project permission failures without raw API text', () => {
-    const message = workspaceResourceErrorMessage('project', 'delete', new Error('API 403: Forbidden'))
+    const message = workspaceResourceErrorMessage(
+      'project',
+      'delete',
+      new Error('API 403: Forbidden')
+    )
 
     expectBeginnerMessage(
       message,
-      'You do not have permission to delete this project. Ask an owner or admin to update your team space access.'
+      'Ask an owner or admin to update your team space access, then delete the project again in Settings. You do not have permission to delete this project.'
     )
     expect(message).not.toContain('API 403')
     expect(message).not.toContain('Forbidden')
@@ -37,7 +41,7 @@ describe('workspaceResourceErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'You do not have permission to save this team. Ask an owner or admin to update your team space access.'
+      'Ask an owner or admin to update your team space access, then save the team again in Settings. You do not have permission to save this team.'
     )
     expect(message).not.toContain('owner role required')
     expect(message).not.toContain('role')

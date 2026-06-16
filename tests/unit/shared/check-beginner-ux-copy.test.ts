@@ -8421,6 +8421,9 @@ function workspaceResourceUnavailableMessage() {
 function notFoundMessage() {
   return 'This project could not be found. Refresh Settings, then choose an existing project.'
 }
+function permissionMessage() {
+  return 'You do not have permission to save this team. Ask an owner or admin to update your team space access.'
+}
 `,
       'src/app/layouts/sidebar/ProjectTree.tsx': `
 function renameErrorMessage() {
@@ -8469,6 +8472,10 @@ function permissionDeleteMessage() {
         }),
         expect.objectContaining({
           type: 'workspace-resource-copy',
+          location: 'src/app/shared/lib/workspaceResourceErrorMessage.ts:12',
+        }),
+        expect.objectContaining({
+          type: 'workspace-resource-copy',
           location: 'src/app/layouts/sidebar/ProjectTree.tsx:3',
         }),
         expect.objectContaining({
@@ -8514,6 +8521,9 @@ function workspaceResourceUnavailableMessage() {
 }
 function notFoundMessage() {
   return 'Refresh Settings, then choose an existing project.'
+}
+function permissionMessage() {
+  return 'Ask an owner or admin to update your team space access, then save the team again in Settings. You do not have permission to save this team.'
 }
 `,
       'src/app/layouts/sidebar/ProjectTree.tsx': `
