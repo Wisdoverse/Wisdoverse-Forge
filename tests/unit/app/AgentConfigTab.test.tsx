@@ -56,6 +56,20 @@ describe('AgentConfigTab', () => {
           projectName: 'Platform',
         },
         {
+          id: 'host-disconnected',
+          name: 'Disconnected Local Agent',
+          provider: 'Codex',
+          model: 'codex',
+          status: 'idle' as const,
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+          cliTool: 'codex' as const,
+          runtimeId: null,
+          runtimeKind: 'cli' as const,
+          projectName: 'Platform',
+        },
+        {
           id: 'future-tool',
           name: 'Future Tool Agent',
           provider: 'Check work tool',
@@ -299,6 +313,14 @@ describe('AgentConfigTab', () => {
     expect(screen.queryByText(/ran the command/i)).toBeNull()
     expect(screen.queryByText('host-local-123')).toBeNull()
     expect(screen.queryByText(/runtime/i)).toBeNull()
+  })
+
+  it('guides disconnected this-computer agents back to setup without command jargon', () => {
+    render(<AgentConfigTab agentId="host-disconnected" />)
+
+    expect(screen.getByText('This computer')).toBeInTheDocument()
+    expect(screen.getByText('Open setup again for this computer')).toBeInTheDocument()
+    expect(screen.queryByText(/run the command/i)).toBeNull()
   })
 
   it('labels unknown work tools without exposing raw tool values', () => {

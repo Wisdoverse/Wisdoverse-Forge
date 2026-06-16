@@ -376,7 +376,7 @@ function CliRuntimeConfig({ agent }: { agent: AgentInfo }) {
             hostCli
               ? agent.runtimeId
                 ? 'Connected from this computer'
-                : 'Run the command on this computer again'
+                : 'Open setup again for this computer'
               : 'Ready in managed workspace'
           }
         />
