@@ -107,6 +107,7 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
     [runtimeFilter, searchQuery, statusFilter]
   )
   const hasFleetControls = agents.length > 0
+  const showAgentChoiceGuide = hasFleetControls || !loading
   const hasActiveFilter =
     searchQuery.trim().length > 0 || statusFilter !== 'all' || runtimeFilter !== 'all'
   const clearAgentFilters = () => {
@@ -149,22 +150,21 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
             </div>
           </div>
 
+          {showAgentChoiceGuide && <AgentChoiceGuide />}
+
           {hasFleetControls && (
-            <>
-              <AgentChoiceGuide />
-              <FleetControls
-                searchQuery={searchQuery}
-                onSearchQueryChange={setSearchQuery}
-                statusFilter={statusFilter}
-                onStatusFilterChange={setStatusFilter}
-                statusCounts={statusCounts}
-                runtimeFilter={runtimeFilter}
-                onRuntimeFilterChange={setRuntimeFilter}
-                runtimeCounts={runtimeCounts}
-                sortKey={sortKey}
-                onSortKeyChange={setSortKey}
-              />
-            </>
+            <FleetControls
+              searchQuery={searchQuery}
+              onSearchQueryChange={setSearchQuery}
+              statusFilter={statusFilter}
+              onStatusFilterChange={setStatusFilter}
+              statusCounts={statusCounts}
+              runtimeFilter={runtimeFilter}
+              onRuntimeFilterChange={setRuntimeFilter}
+              runtimeCounts={runtimeCounts}
+              sortKey={sortKey}
+              onSortKeyChange={setSortKey}
+            />
           )}
 
           {loading && agents.length === 0 ? (
