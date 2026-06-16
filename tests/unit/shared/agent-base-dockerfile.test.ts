@@ -20,6 +20,7 @@ describe('agent base Dockerfile', () => {
     )
     expect(agentBaseDockerfile).toContain('ARG COMPOSE_DOCKER_MODULE_VERSION=29.3.1')
     expect(agentBaseDockerfile).toContain('ARG COMPOSE_IN_TOTO_VERSION=0.11.0')
+    expect(agentBaseDockerfile).toContain('ARG COMPOSE_CONTAINERD_VERSION=2.2.4')
     expect(agentBaseDockerfile).toContain('ARG COMPOSE_OTEL_VERSION=1.43.0')
     expect(agentBaseDockerfile).toContain(
       'FROM golang:${COMPOSE_GO_VERSION}-bookworm AS compose-builder'
