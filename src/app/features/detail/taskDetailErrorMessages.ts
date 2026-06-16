@@ -11,16 +11,17 @@ export type TaskDetailErrorAction =
 
 const ACTION_FALLBACKS: Record<TaskDetailErrorAction, string> = {
   approveTask:
-    'The task was not approved. Check that the task is still waiting for approval, then try again.',
+    'Check that the task is still waiting for approval, then choose Approve again. The task was not approved.',
   blockTask:
-    'The task was not marked as needing help. Refresh the task, then choose Needs help again.',
-  cancelTask: 'The task was not canceled. Refresh the task, then choose Cancel again.',
+    'Refresh the task, then choose Needs help again. The task was not marked as needing help.',
+  cancelTask: 'Refresh the task, then choose Cancel again. The task was not canceled.',
   loadAgents: 'Refresh this task before assigning an agent.',
   loadContext: 'Refresh the detail panel to load saved notes and work history.',
   loadRuns: 'Refresh Updates before deciding whether to retry this task.',
   previewContext: 'Choose an available agent, then open saved item review again.',
-  publishTask: 'The task was not sent with selected notes. Review the saved notes, then try again.',
-  retryTask: 'The task was not retried. Refresh the task, then try Retry task again.',
+  publishTask:
+    'Review the selected saved notes, then send the task again. The task was not sent with selected notes.',
+  retryTask: 'Refresh the task, then choose Retry task again. The task was not retried.',
 }
 
 export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unknown): string {
@@ -48,11 +49,11 @@ export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unkno
   }
 
   if (status === 404) {
-    return 'This task was not found. Refresh the board, then open the task again.'
+    return 'Refresh the board, then open the task again. This task was not found.'
   }
 
   if (status === 409) {
-    return 'This task changed while you were working. Refresh the detail panel, then try again.'
+    return 'Refresh the detail panel, then try again. This task changed while you were working.'
   }
 
   if (status === 422) {
@@ -60,7 +61,7 @@ export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unkno
   }
 
   if (status === 429) {
-    return 'Task actions are busy. Wait a moment, then try again.'
+    return 'Wait a moment, then try again. Task actions are busy.'
   }
 
   if (status && status >= 500) {
@@ -152,7 +153,7 @@ function validationMessage(action: TaskDetailErrorAction, detail: string): strin
     return 'Review the selected saved notes, then try again.'
   }
   if (normalized.includes('approval') || normalized.includes('approve')) {
-    return 'Check that the task is still waiting for approval, then try again.'
+    return 'Check that the task is still waiting for approval, then choose Approve again.'
   }
   if (normalized.includes('publish')) {
     return 'Review the task details, then send again.'

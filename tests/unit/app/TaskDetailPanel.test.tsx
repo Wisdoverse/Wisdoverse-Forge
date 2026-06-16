@@ -217,8 +217,8 @@ describe('TaskDetailPanel', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: /^cancel$/i }))
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('The task was not canceled.')
     expect(alert).toHaveTextContent('Refresh the task, then choose Cancel again.')
+    expect(alert).toHaveTextContent('The task was not canceled.')
     expect(alert).not.toHaveTextContent('HTTP 500')
   })
 

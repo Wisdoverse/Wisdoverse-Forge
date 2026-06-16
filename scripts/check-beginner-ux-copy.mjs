@@ -882,8 +882,19 @@ const TASK_DETAIL_LOAD_FAILURE_FIRST_PATTERNS = [
   /\bSaved notes and run details could not load\./i,
   /\bAgent work history could not load\./i,
   /\bThe saved item review could not load\./i,
+  /\bThis task was not found\. Refresh the board/i,
+  /\bThis task changed while you were working\. Refresh/i,
+  /\bTask actions are busy\. Wait/i,
   /\bYou do not have permission to (?:view|change) this task\. Ask an owner/i,
   /\bForge could not connect while (?:loading|updating) this task\./i,
+]
+
+const TASK_DETAIL_ACTION_FAILURE_FIRST_PATTERNS = [
+  /['"`]\s*The task was not approved\. Check that the task is still waiting/i,
+  /['"`]\s*The task was not marked as needing help\. Refresh/i,
+  /['"`]\s*The task was not canceled\. Refresh/i,
+  /['"`]\s*The task was not sent with selected notes\. Review/i,
+  /['"`]\s*The task was not retried\. Refresh/i,
 ]
 
 const BOARD_LOAD_FAILURE_FIRST_PATTERNS = [
@@ -1595,6 +1606,12 @@ function hasTaskDetailLoadFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/detail/taskDetailErrorMessages.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return TASK_DETAIL_LOAD_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasTaskDetailActionFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/detail/taskDetailErrorMessages.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_DETAIL_ACTION_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasBoardLoadFailureFirstCopy(relFile, line) {
@@ -3055,6 +3072,15 @@ function scanFile(file, relFile) {
         type: 'task-detail-load-copy',
         location,
         message: 'Task detail load errors must start with the next action for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskDetailActionFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'task-detail-action-copy',
+        location,
+        message: 'Task detail action errors must start with the next action for beginners.',
         sample: line.trim(),
       })
     }

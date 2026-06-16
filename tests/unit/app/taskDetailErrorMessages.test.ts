@@ -73,7 +73,7 @@ describe('taskDetailErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'The task was not canceled. Refresh the task, then choose Cancel again. If it still fails, ask an owner or admin to check task setup.'
+      'Refresh the task, then choose Cancel again. The task was not canceled. If it still fails, ask an owner or admin to check task setup.'
     )
     expect(message).not.toContain('HTTP 500')
   })
@@ -83,7 +83,7 @@ describe('taskDetailErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'The task was not marked as needing help. Refresh the task, then choose Needs help again. If it still fails, ask an owner or admin to check task setup.'
+      'Refresh the task, then choose Needs help again. The task was not marked as needing help. If it still fails, ask an owner or admin to check task setup.'
     )
     expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('blocked')
@@ -101,11 +101,42 @@ describe('taskDetailErrorMessage', () => {
   test('describes context send failures without publish wording', () => {
     const message = taskDetailErrorMessage('publishTask', new Error('HTTP 500'))
 
+    expect(message).toContain('Review the selected saved notes, then send the task again.')
     expect(message).toContain('The task was not sent with selected notes.')
-    expect(message).toContain('Review the saved notes, then try again.')
     expect(message).not.toMatch(
       new RegExp(['published', 'publish', ['selected', 'context'].join('\\s+')].join('|'), 'i')
     )
     expect(message).not.toContain('HTTP 500')
+  })
+
+  test('keeps task action fallbacks next-step first', () => {
+    expect(taskDetailErrorMessage('approveTask', new Error('unexpected action issue'))).toBe(
+      'Check that the task is still waiting for approval, then choose Approve again. The task was not approved.'
+    )
+    expect(taskDetailErrorMessage('retryTask', new Error('unknown retry issue'))).toBe(
+      'Refresh the task, then choose Retry task again. The task was not retried.'
+    )
+  })
+
+  test('turns approval validation details into the Approve action', () => {
+    expectBeginnerMessage(
+      taskDetailErrorMessage('approveTask', new Error('approval state changed')),
+      'Check that the task is still waiting for approval, then choose Approve again.'
+    )
+  })
+
+  test('starts changed and missing task errors with the recovery step', () => {
+    expectBeginnerMessage(
+      taskDetailErrorMessage('retryTask', new Error('HTTP 404')),
+      'Refresh the board, then open the task again. This task was not found.'
+    )
+    expectBeginnerMessage(
+      taskDetailErrorMessage('retryTask', new Error('HTTP 409')),
+      'Refresh the detail panel, then try again. This task changed while you were working.'
+    )
+    expectBeginnerMessage(
+      taskDetailErrorMessage('retryTask', new Error('HTTP 429')),
+      'Wait a moment, then try again. Task actions are busy.'
+    )
   })
 })

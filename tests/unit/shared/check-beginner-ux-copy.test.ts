@@ -7598,6 +7598,15 @@ function permissionMessage() {
 function networkRecoveryMessage() {
   return 'Forge could not connect while loading this task. Check your connection, then refresh the page.'
 }
+function notFoundMessage() {
+  return 'This task was not found. Refresh the board, then open the task again.'
+}
+function conflictMessage() {
+  return 'This task changed while you were working. Refresh the detail panel, then try again.'
+}
+function busyMessage() {
+  return 'Task actions are busy. Wait a moment, then try again.'
+}
 `,
     })
 
@@ -7630,6 +7639,18 @@ function networkRecoveryMessage() {
           type: 'task-detail-load-copy',
           location: 'src/app/features/detail/taskDetailErrorMessages.ts:12',
         }),
+        expect.objectContaining({
+          type: 'task-detail-load-copy',
+          location: 'src/app/features/detail/taskDetailErrorMessages.ts:15',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-load-copy',
+          location: 'src/app/features/detail/taskDetailErrorMessages.ts:18',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-load-copy',
+          location: 'src/app/features/detail/taskDetailErrorMessages.ts:21',
+        }),
       ])
     )
   })
@@ -7648,6 +7669,73 @@ function permissionMessage() {
 }
 function networkRecoveryMessage() {
   return 'If it still does not load, check your connection and refresh the page.'
+}
+function notFoundMessage() {
+  return 'Refresh the board, then open the task again. This task was not found.'
+}
+function conflictMessage() {
+  return 'Refresh the detail panel, then try again. This task changed while you were working.'
+}
+function busyMessage() {
+  return 'Wait a moment, then try again. Task actions are busy.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags task detail action copy that starts with the failure instead of the next step', () => {
+    const cwd = fixture({
+      'src/app/features/detail/taskDetailErrorMessages.ts': `
+const ACTION_FALLBACKS = {
+  approveTask: 'The task was not approved. Check that the task is still waiting for approval, then try again.',
+  blockTask: 'The task was not marked as needing help. Refresh the task, then choose Needs help again.',
+  cancelTask: 'The task was not canceled. Refresh the task, then choose Cancel again.',
+  publishTask: 'The task was not sent with selected notes. Review the saved notes, then try again.',
+  retryTask: 'The task was not retried. Refresh the task, then try Retry task again.',
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-detail-action-copy',
+          location: 'src/app/features/detail/taskDetailErrorMessages.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-action-copy',
+          location: 'src/app/features/detail/taskDetailErrorMessages.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-action-copy',
+          location: 'src/app/features/detail/taskDetailErrorMessages.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-action-copy',
+          location: 'src/app/features/detail/taskDetailErrorMessages.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-action-copy',
+          location: 'src/app/features/detail/taskDetailErrorMessages.ts:7',
+        }),
+      ])
+    )
+  })
+
+  it('accepts task detail action copy that starts with the next step', () => {
+    const cwd = fixture({
+      'src/app/features/detail/taskDetailErrorMessages.ts': `
+const ACTION_FALLBACKS = {
+  approveTask: 'Check that the task is still waiting for approval, then choose Approve again. The task was not approved.',
+  blockTask: 'Refresh the task, then choose Needs help again. The task was not marked as needing help.',
+  cancelTask: 'Refresh the task, then choose Cancel again. The task was not canceled.',
+  publishTask: 'Review the selected saved notes, then send the task again. The task was not sent with selected notes.',
+  retryTask: 'Refresh the task, then choose Retry task again. The task was not retried.',
 }
 `,
     })
