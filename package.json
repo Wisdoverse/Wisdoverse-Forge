@@ -89,7 +89,8 @@
   },
   "overrides": {
     "flatted": ">=3.4.0",
-    "undici": "7.25.0"
+    "undici": "7.25.0",
+    "protobufjs": "^7.6.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
