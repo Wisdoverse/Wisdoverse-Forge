@@ -11,17 +11,23 @@ describe('workspaceSettingsErrorMessage', () => {
   test('maps permission failures to team space access guidance', () => {
     const message = workspaceSettingsErrorMessage('team', 'load', new Error('HTTP 403'))
 
-    expectBeginnerMessage(message, 'Ask an owner or admin to update your team space access.')
+    expectBeginnerMessage(
+      message,
+      'Ask an owner or admin to update your team space access, then refresh Settings to load teams. You do not have access to these team settings right now.'
+    )
     expect(message).not.toContain('workspace access')
   })
 
   test('maps structured permission failures to team space access guidance', () => {
-    const message = workspaceSettingsErrorMessage('team', 'load', {
+    const message = workspaceSettingsErrorMessage('project', 'create', {
       statusCode: '403',
       detail: 'owner role required',
     })
 
-    expectBeginnerMessage(message, 'Ask an owner or admin to update your team space access.')
+    expectBeginnerMessage(
+      message,
+      'Ask an owner or admin to update your team space access, then create this project again. You do not have access to these project settings right now.'
+    )
     expect(message).not.toContain('owner role required')
     expect(message).not.toContain('workspace access')
   })

@@ -625,6 +625,7 @@ const LOCALE_VAGUE_ERROR_LABEL_PATTERNS = [
 
 const WORKSPACE_SETTINGS_FAILURE_FIRST_PATTERNS = [
   /\bThe (?:team|project) was not created\./i,
+  /^\s*return\s+['"`]Ask an owner or admin to update your team space access\.['"`]/i,
   /\bRefresh Settings to load workspace (?:teams|projects)\. Sign in again/i,
   /\bRefresh Settings to load workspace (?:teams|projects)\. Ask an owner or admin/i,
   /\bRefresh Settings to load workspace (?:teams|projects)\. Check your connection/i,

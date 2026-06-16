@@ -1342,6 +1342,9 @@ function authMessage() {
 function permissionMessage() {
   return 'Refresh Settings to load workspace projects. Ask an owner or admin to update your workspace access.'
 }
+function permissionNoNextStepMessage() {
+  return 'Ask an owner or admin to update your team space access.'
+}
 function networkMessage() {
   return 'Refresh Settings to load workspace projects. Check your connection, then refresh Settings again.'
 }
@@ -1376,6 +1379,10 @@ function busyMessage() {
           type: 'workspace-settings-error-copy',
           location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:15',
         }),
+        expect.objectContaining({
+          type: 'workspace-settings-error-copy',
+          location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:18',
+        }),
       ])
     )
   })
@@ -1385,7 +1392,7 @@ function busyMessage() {
       'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts': `
 function workspaceSettingsErrorMessage(action) {
   if (action === 'auth') return 'Sign in again, then refresh Settings to load workspace teams.'
-  if (action === 'permission') return 'Ask an owner or admin to update your workspace access.'
+  if (action === 'permission') return 'Ask an owner or admin to update your team space access, then refresh Settings to load projects.'
   if (action === 'network') return 'Check your connection, then refresh Settings to load workspace projects.'
   if (action === 'busy') return 'Wait a minute, then refresh Settings to load workspace teams. Too many setup changes are happening right now.'
   if (action === 'server') return 'Refresh Settings to load workspace projects. If it still fails, ask an owner or admin to check workspace setup.'

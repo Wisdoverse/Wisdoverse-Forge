@@ -119,6 +119,14 @@ function unavailableMessage(
   return `Refresh Settings, then ${retryPhrase(resource, action)}. If it still fails, ask an owner or admin to check team space setup.`
 }
 
+function permissionMessage(
+  resource: WorkspaceSettingsResource,
+  action: WorkspaceSettingsAction
+): string {
+  const retry = retryPhrase(resource, action)
+  return `Ask an owner or admin to update your team space access, then ${retry}. You do not have access to these ${resourceLabel(resource)} settings right now.`
+}
+
 export function workspaceSettingsErrorMessage(
   resource: WorkspaceSettingsResource,
   action: WorkspaceSettingsAction,
@@ -134,7 +142,7 @@ export function workspaceSettingsErrorMessage(
     return `Sign in again, then ${retry}.`
   }
   if (code === 403 || text.includes('permission') || text.includes('forbidden')) {
-    return 'Ask an owner or admin to update your team space access.'
+    return permissionMessage(resource, action)
   }
   if (code === 404 || text.includes('endpoint is not available')) {
     return action === 'load'
