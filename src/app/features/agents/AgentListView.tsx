@@ -274,7 +274,8 @@ function agentFilterEmptyCopy({
   if (!hasSearch && hasStatus && !hasRuntime) {
     return {
       title: 'This status filter hides every agent',
-      detail: 'Agents may still exist in another status, such as working, idle, or offline.',
+      detail:
+        'Agents may still exist in another status, such as Working now, Ready, or Not connected.',
       nextStep: 'Next: show all agents before deciding nobody is available.',
     }
   }

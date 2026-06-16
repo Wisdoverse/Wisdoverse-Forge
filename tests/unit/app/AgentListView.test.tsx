@@ -381,9 +381,13 @@ describe('AgentListView', () => {
     fireEvent.click(within(statusFilters).getByRole('button', { name: /not connected\s*0/i }))
     const emptyState = screen.getByTestId('agent-filter-empty')
     expect(within(emptyState).getByText('This status filter hides every agent')).toBeDefined()
-    expect(within(emptyState).getByText(/another status/i)).toBeDefined()
+    expect(
+      within(emptyState).getByText(/another status, such as Working now, Ready, or Not connected/i)
+    ).toBeDefined()
     expect(within(emptyState).getByText(/before deciding nobody is available/i)).toBeDefined()
     expect(emptyState.textContent).not.toContain('No Agents Match This View')
+    expect(emptyState.textContent).not.toContain('idle')
+    expect(emptyState.textContent).not.toContain('offline')
 
     fireEvent.click(within(emptyState).getByRole('button', { name: /show all agents/i }))
     expect(screen.getByText('Build Runner')).toBeDefined()
