@@ -282,11 +282,13 @@ describe('GettingStartedView', () => {
     expect(await screen.findByText('100%')).toBeDefined()
     expect(screen.getByText('Ready to run work')).toBeDefined()
     expect(
-      screen.getByText(/Write one small task from Tasks, or open saved instructions/i)
+      screen.getByText(/Write one small task from Tasks, or review saved instructions/i)
     ).toBeDefined()
     expect(screen.queryByText(/The basic path is complete/i)).toBeNull()
     expect(screen.getAllByText('Reuse what worked').length).toBeGreaterThan(0)
     expect(screen.getByText('Saved instructions are available for future tasks.')).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: /write one small task/i }))
+    expect(navigateMock).toHaveBeenCalledWith({ to: '/tasks' })
     expect(
       screen.getAllByRole('button', { name: /show saved instructions/i }).length
     ).toBeGreaterThan(0)

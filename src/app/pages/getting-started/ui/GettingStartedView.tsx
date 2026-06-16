@@ -319,6 +319,11 @@ export function GettingStartedView() {
   const nextStep = steps.find((step) => !step.complete) ?? steps[steps.length - 1]
   const NextStepIcon = nextStep.Icon
   const setupComplete = completeCount === steps.length
+  const actionTitle = setupComplete ? t('gettingStarted.steps.task.title') : nextStep.title
+  const actionSuccess = setupComplete ? t('gettingStarted.steps.task.success') : nextStep.success
+  const actionPath = setupComplete ? '/tasks' : nextStep.path
+  const actionCta = setupComplete ? t('gettingStarted.readyCta') : nextStep.cta
+  const ActionIcon = setupComplete ? ListTodo : NextStepIcon
 
   // Once every step is done, hide the guide from the sidebar automatically.
   // Persist exactly once: wait for the stored preference (so an already
@@ -408,7 +413,7 @@ export function GettingStartedView() {
             {setupComplete ? t('gettingStarted.readyTitle') : t('gettingStarted.nextTitle')}
           </p>
           <p className="mt-1 text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-            {nextStep.title}
+            {actionTitle}
           </p>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
             {setupComplete ? t('gettingStarted.readyDetail') : nextStep.why}
@@ -417,15 +422,15 @@ export function GettingStartedView() {
             <span className="font-medium text-foreground-light dark:text-foreground-dark">
               {t('gettingStarted.successLabel')}
             </span>{' '}
-            {nextStep.success}
+            {actionSuccess}
           </div>
           <button
             type="button"
-            onClick={() => go(nextStep.path)}
+            onClick={() => go(actionPath)}
             className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-full bg-apple-blue px-4 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
           >
-            <NextStepIcon width={14} height={14} aria-hidden="true" />
-            {nextStep.cta}
+            <ActionIcon width={14} height={14} aria-hidden="true" />
+            {actionCta}
             <ArrowRight size={14} strokeWidth={2.25} aria-hidden="true" />
           </button>
           <div className="mt-4 border-t border-black/[0.06] pt-3 dark:border-white/[0.08]">

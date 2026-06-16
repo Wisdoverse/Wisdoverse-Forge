@@ -95,6 +95,7 @@ export const en = {
     readyTitle: 'Ready to run work',
     readyDetail:
       'Write one small task from Tasks, or review saved instructions when you want agents to repeat what worked.',
+    readyCta: 'Write one small task',
     successLabel: 'Success looks like:',
     currentProject: 'Current project',
     noProject: 'Open project settings to create or choose a project.',
