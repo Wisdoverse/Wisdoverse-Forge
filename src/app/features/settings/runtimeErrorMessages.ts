@@ -108,7 +108,7 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
   }
 
   return isSaveAction
-    ? 'Try again. Where agents run could not be saved. If it still fails, ask an owner or admin to check Where agents run.'
+    ? 'Check the agent location and work tool choices, then save Where agents run again. If it still fails, ask an owner or admin to check Where agents run.'
     : `${loadBase} If it still fails, ask an owner or admin to check Where agents run.`
 }
 

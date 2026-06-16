@@ -550,6 +550,7 @@ const RUNTIME_ERROR_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*The Where agents run choices changed while you were working\. Refresh/i,
   /['"`]\s*Forge is receiving too many setup requests right now\. Wait/i,
   /['"`]\s*Where agents run could not be saved\./i,
+  /['"`]\s*Try again\. Where agents run could not be saved\./i,
   /['"`]\s*Too many setup requests are happening right now\. Wait/i,
 ]
 

@@ -153,4 +153,16 @@ describe('runtimeSettingsErrorMessage', () => {
     )
     expect(message).not.toContain('parser')
   })
+
+  test('turns unknown save failures into a specific Where agents run recovery step', () => {
+    const message = runtimeSettingsErrorMessage({
+      reason: 'update runtime settings ended with an unexpected detail',
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Check the agent location and work tool choices, then save Where agents run again. If it still fails, ask an owner or admin to check Where agents run.'
+    )
+    expect(message).not.toContain('unexpected')
+  })
 })

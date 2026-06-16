@@ -3597,26 +3597,36 @@ function runtimeCliErrorMessage() {
 function runtimeSettingsErrorMessage() {
   return 'Where agents run could not be saved. Choose an available agent location and work tool, then save again.'
 }
+
+function runtimeSettingsFallback() {
+  return 'Try again. Where agents run could not be saved. If it still fails, ask an owner or admin to check Where agents run.'
+}
 `,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'runtime-error-copy',
-        location: 'src/app/features/settings/runtimeErrorMessages.ts:3',
-      }),
-      expect.objectContaining({
-        type: 'runtime-error-copy',
-        location: 'src/app/features/settings/runtimeErrorMessages.ts:7',
-      }),
-      expect.objectContaining({
-        type: 'runtime-error-copy',
-        location: 'src/app/features/settings/runtimeErrorMessages.ts:11',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'runtime-error-copy',
+          location: 'src/app/features/settings/runtimeErrorMessages.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'runtime-error-copy',
+          location: 'src/app/features/settings/runtimeErrorMessages.ts:7',
+        }),
+        expect.objectContaining({
+          type: 'runtime-error-copy',
+          location: 'src/app/features/settings/runtimeErrorMessages.ts:11',
+        }),
+        expect.objectContaining({
+          type: 'runtime-error-copy',
+          location: 'src/app/features/settings/runtimeErrorMessages.ts:15',
+        }),
+      ])
+    )
   })
 
   it('accepts runtime setup errors that start with the next step', () => {
@@ -3632,6 +3642,10 @@ function runtimeCliErrorMessage() {
 
 function runtimeSettingsErrorMessage() {
   return 'Choose an available agent location and work tool, then save again. Where agents run could not be saved.'
+}
+
+function runtimeSettingsFallback() {
+  return 'Check the agent location and work tool choices, then save Where agents run again. If it still fails, ask an owner or admin to check Where agents run.'
 }
 `,
     })
