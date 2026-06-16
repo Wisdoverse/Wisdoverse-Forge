@@ -18,7 +18,17 @@ const REQUIRED_FIELDS = [
 const PLACEHOLDER_VALUES = new Set(['', 'n/a', 'na', 'none', 'todo', 'tbd'])
 
 function stripComments(value) {
-  return value.replace(/<!--[\s\S]*?-->/g, '')
+  // Remove HTML comments, including an unterminated trailing opener (the HTML
+  // spec treats an unterminated comment as running to end-of-input). Loop until
+  // the string stops changing so a removal that exposes a fresh opener is also
+  // stripped — a single pass can leave a dangling marker, which is the
+  // CodeQL js/incomplete-multi-character-sanitization concern.
+  let previous
+  do {
+    previous = value
+    value = value.replace(/<!--[\s\S]*?(?:-->|$)/g, '')
+  } while (value !== previous)
+  return value
 }
 
 function normalize(value) {
