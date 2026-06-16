@@ -970,6 +970,7 @@ const SETTINGS_STORE_ERROR_FAILURE_FIRST_PATTERNS = [
 ]
 
 const WORKSPACE_RESOURCE_FAILURE_FIRST_PATTERNS = [
+  /['"`]\s*You do not have permission to (?:rename|delete) this (?:\$\{label\}|team|project)\. Ask an owner/i,
   /['"`]\s*(?:\$\{title\}|Team|Project) name could not be saved\./i,
   /['"`]\s*This (?:\$\{label\}|team|project) (?:could not be found|changed while you were editing)\./i,
   /['"`]\s*The sidebar is busy\. Wait a moment, then (?:save this (?:\$\{label\}|team|project) name|delete this (?:\$\{label\}|team|project)) again\./i,

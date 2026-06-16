@@ -433,9 +433,10 @@ describe('Sidebar', () => {
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
     expect(
-      await screen.findByText(/You do not have permission to rename this team/i)
+      await screen.findByText(/Ask an owner or admin to let you edit this team/i)
     ).toBeInTheDocument()
-    expect(screen.getByText(/Ask an owner or admin to let you edit this team/i)).toBeInTheDocument()
+    expect(screen.getByText(/save this team name again from the sidebar/i)).toBeInTheDocument()
+    expect(screen.getByText(/You do not have permission to rename this team/i)).toBeInTheDocument()
     expect(screen.queryByText(/update your access/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/API 403/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/owner role required/i)).not.toBeInTheDocument()
@@ -459,8 +460,10 @@ describe('Sidebar', () => {
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
     expect(
-      await screen.findByText(/You do not have permission to rename this team/i)
+      await screen.findByText(/Ask an owner or admin to let you edit this team/i)
     ).toBeInTheDocument()
+    expect(screen.getByText(/save this team name again from the sidebar/i)).toBeInTheDocument()
+    expect(screen.getByText(/You do not have permission to rename this team/i)).toBeInTheDocument()
     expect(screen.queryByText(/owner role required/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/403/i)).not.toBeInTheDocument()
   })
@@ -529,7 +532,7 @@ describe('Sidebar', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'You do not have permission to delete this team. Ask an owner or admin to let you delete this team.'
+      'Ask an owner or admin to let you delete this team, then delete it again from the sidebar. You do not have permission to delete this team.'
     )
     expect(alert).not.toHaveTextContent(/update your access/i)
     expect(alert).not.toHaveTextContent(/owner role required/i)
@@ -585,6 +588,31 @@ describe('Sidebar', () => {
     expect(screen.queryByText(/API 422/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/Code:/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/Details:/i)).not.toBeInTheDocument()
+  })
+
+  it('explains project rename permission failures with the next step first', async () => {
+    seedProjectTree()
+    vi.mocked(projectApi.updateProject).mockRejectedValueOnce(
+      new Error('API 403: {"error":"owner role required"}')
+    )
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /rename project/i }))
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Renamed Project' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(
+      await screen.findByText(/Ask an owner or admin to let you edit this project/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/save this project name again from the sidebar/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/You do not have permission to rename this project/i)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/owner role required/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/API 403/i)).not.toBeInTheDocument()
   })
 
   it('explains structured project rename duplicates without raw details', async () => {
@@ -679,6 +707,27 @@ describe('Sidebar', () => {
     )
     expect(alert).not.toHaveTextContent(/Move agents first/i)
     expect(alert).not.toHaveTextContent(/API 422/i)
+    expect(screen.getByText('Project X')).toBeInTheDocument()
+    confirmSpy.mockRestore()
+  })
+
+  it('shows next-step guidance when sidebar project delete is denied', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    seedProjectTree()
+    vi.mocked(projectApi.deleteProject).mockRejectedValueOnce(
+      new Error('API 403: {"error":"owner role required"}')
+    )
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /delete project/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Ask an owner or admin to let you delete this project, then delete it again from the sidebar. You do not have permission to delete this project.'
+    )
+    expect(alert).not.toHaveTextContent(/owner role required/i)
+    expect(alert).not.toHaveTextContent(/API 403/i)
     expect(screen.getByText('Project X')).toBeInTheDocument()
     confirmSpy.mockRestore()
   })

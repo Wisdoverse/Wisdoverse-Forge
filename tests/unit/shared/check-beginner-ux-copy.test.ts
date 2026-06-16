@@ -8421,6 +8421,12 @@ function renameServiceMessage() {
 function deleteServiceMessage() {
   return 'Forge could not delete this project right now. Refresh the sidebar, then try again.'
 }
+function permissionRenameMessage() {
+  return 'You do not have permission to rename this project. Ask an owner or admin to let you edit this project.'
+}
+function permissionDeleteMessage() {
+  return 'You do not have permission to delete this team. Ask an owner or admin to let you delete this team.'
+}
 `,
     })
 
@@ -8465,6 +8471,14 @@ function deleteServiceMessage() {
           type: 'workspace-resource-copy',
           location: 'src/app/layouts/sidebar/ProjectTree.tsx:18',
         }),
+        expect.objectContaining({
+          type: 'workspace-resource-copy',
+          location: 'src/app/layouts/sidebar/ProjectTree.tsx:21',
+        }),
+        expect.objectContaining({
+          type: 'workspace-resource-copy',
+          location: 'src/app/layouts/sidebar/ProjectTree.tsx:24',
+        }),
       ])
     )
   })
@@ -8500,6 +8514,12 @@ function renameServiceMessage() {
 }
 function deleteServiceMessage() {
   return 'Refresh the sidebar, then delete this project again. Forge could not delete it right now.'
+}
+function permissionRenameMessage() {
+  return 'Ask an owner or admin to let you edit this project, then save this project name again from the sidebar. You do not have permission to rename this project.'
+}
+function permissionDeleteMessage() {
+  return 'Ask an owner or admin to let you delete this team, then delete it again from the sidebar. You do not have permission to delete this team.'
 }
 `,
     })
