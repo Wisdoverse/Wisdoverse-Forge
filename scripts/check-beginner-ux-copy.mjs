@@ -260,6 +260,8 @@ const WORKSHOP_3D_EMPTY_DEAD_END_PATTERNS = [/\bNo agents on the visual map yet\
 
 const AGENT_DETAIL_ACTIVITY_DEAD_END_PATTERNS = [/\bNo task activity has been loaded yet\b/i]
 
+const AGENT_DETAIL_FILE_ACCESS_DEAD_END_PATTERNS = [/\bNo file access needed\b/i]
+
 const AGENT_DETAIL_AVAILABILITY_DEAD_END_PATTERNS = [
   /\bUnavailable until restarted or reconnected\b/i,
 ]
@@ -1523,6 +1525,12 @@ function hasAgentDetailActivityDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return AGENT_DETAIL_ACTIVITY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentDetailFileAccessDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_DETAIL_FILE_ACCESS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentDetailAvailabilityDeadEndCopy(relFile, line) {
@@ -2805,6 +2813,16 @@ function scanFile(file, relFile) {
         type: 'agent-detail-activity-copy',
         location,
         message: 'Agent detail activity copy must tell beginners to open Tasks first.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentDetailFileAccessDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-detail-file-access-copy',
+        location,
+        message:
+          'Chat-only agent file access copy must tell beginners to use another agent for file work.',
         sample: line.trim(),
       })
     }

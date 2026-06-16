@@ -97,7 +97,7 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
 }
 
 function agentFolderLabel(agent: AgentInfo): string {
-  if (!agent.cliTool) return 'No file access needed'
+  if (!agent.cliTool) return 'Use another agent for file work'
   if (!agent.cwd || agent.cwd === '/workspace') {
     return isHostCliAgent(agent)
       ? 'Folder where you pasted the setup text'

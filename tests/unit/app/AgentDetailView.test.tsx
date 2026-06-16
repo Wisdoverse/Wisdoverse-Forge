@@ -413,7 +413,8 @@ describe('AgentDetailView', () => {
   test('explains chat-only agents do not open workspace files', () => {
     render(<AgentDetailView agent={providerAgent} onBack={() => {}} />)
     expect(screen.getByText('Starting folder')).toBeDefined()
-    expect(screen.getAllByText('No file access needed').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Use another agent for file work').length).toBeGreaterThan(0)
+    expect(screen.queryByText('No file access needed')).toBeNull()
     expect(screen.getByText('Connection')).toBeDefined()
     expect(screen.getByText('Uses AI service connection')).toBeDefined()
     expect(screen.getAllByText('Chat-only AI service').length).toBeGreaterThan(0)

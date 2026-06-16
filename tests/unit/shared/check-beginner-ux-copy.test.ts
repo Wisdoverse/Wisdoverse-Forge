@@ -2543,6 +2543,40 @@ function agentNextStep() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags chat-only agent file access copy that sounds like nothing is needed', () => {
+    const cwd = fixture({
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function agentFolderLabel() {
+  return 'No file access needed'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-detail-file-access-copy',
+          location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts chat-only agent file access copy that points users to another agent', () => {
+    const cwd = fixture({
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function agentFolderLabel() {
+  return 'Use another agent for file work'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags agent detail availability copy that does not tell users where to recover', () => {
     const cwd = fixture({
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
