@@ -749,6 +749,16 @@ const GOVERNANCE_AUDIT_ERROR_FAILURE_FIRST_PATTERNS = [
   /\bForge could not (?:load|export) governance audit history right now\./i,
 ]
 
+const APPROVAL_QUEUE_ERROR_FAILURE_FIRST_PATTERNS = [
+  /^\s*(?:return\s+|(?:approveCandidate|rejectCandidate)\s*:\s*)['"`]The item was not (?:approved|rejected)\./i,
+  /^\s*(?:return\s+|loadQueue\s*:\s*)['"`]The saved item review list could not load\./i,
+  /^\s*return\s+['"`]You do not have permission to review saved items\./i,
+  /^\s*return\s+['"`]This item was not found\./i,
+  /^\s*return\s+['"`]This item changed while you were reviewing it\./i,
+  /^\s*return\s+['"`]The saved item review list is busy\./i,
+  /^\s*return\s+['"`]Forge could not connect while (?:loading saved items|saving this review decision)\./i,
+]
+
 const DUPLICATE_RECOVERY_COPY_PATTERNS = [
   /\bForge could not load the board right now\. Refresh the board, then try again\./i,
   /\bForge could not finish this board action right now\. Refresh the board, then try again\./i,
@@ -2220,6 +2230,14 @@ function hasGovernanceAuditErrorFailureFirstCopy(relFile, line) {
   return GOVERNANCE_AUDIT_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasApprovalQueueErrorFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/context/approvalQueueErrorMessages.ts')) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return APPROVAL_QUEUE_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasDuplicateRecoveryDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/board/boardErrorMessages.ts') &&
@@ -3591,6 +3609,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Governance audit errors must start with the next action, not the failure summary.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasApprovalQueueErrorFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'approval-queue-error-copy',
+        location,
+        message:
+          'Saved item review errors must start with the next action, not the failure summary.',
         sample: line.trim(),
       })
     }

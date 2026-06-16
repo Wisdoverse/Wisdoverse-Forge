@@ -2,10 +2,10 @@ export type ApprovalQueueErrorAction = 'approveCandidate' | 'loadQueue' | 'rejec
 
 const ACTION_FALLBACKS: Record<ApprovalQueueErrorAction, string> = {
   approveCandidate:
-    'The item was not approved. Check who can reuse it and the original task preview, then try again.',
+    'Check who can reuse it and the original task preview, then approve the item again. The item was not approved.',
   loadQueue:
-    'The saved item review list could not load. Refresh the list so you see the latest items.',
-  rejectCandidate: 'The item was not rejected. Refresh the list, then try the reject action again.',
+    'Refresh the list so you see the latest saved items. The saved item review list could not load.',
+  rejectCandidate: 'Refresh the list, then reject the item again. The item was not rejected.',
 }
 
 export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err: unknown): string {
@@ -14,7 +14,7 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
   const status = errorStatus(err, normalized)
 
   if (isNetworkError(normalized)) {
-    return `${ACTION_FALLBACKS[action]} ${networkRecoveryMessage(action)}`
+    return networkRecoveryMessage(action)
   }
 
   if (status === 401) {
@@ -22,15 +22,15 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
   }
 
   if (status === 403) {
-    return 'You do not have permission to review saved items. Ask an owner or admin to let you approve saved notes and instructions.'
+    return 'Ask an owner or admin to let you approve saved notes and instructions, then retry this review action. You do not have permission right now.'
   }
 
   if (status === 404) {
-    return 'This item was not found. Refresh the list so you see the latest items.'
+    return 'Refresh the list so you see the latest saved items. This item was not found.'
   }
 
   if (status === 409) {
-    return 'This item changed while you were reviewing it. Refresh the list, then open it again.'
+    return 'Refresh the list, then open this item again. It changed while you were reviewing it.'
   }
 
   if (status === 422) {
@@ -38,7 +38,7 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
   }
 
   if (status === 429) {
-    return 'The saved item review list is busy. Wait a moment, then try again.'
+    return 'Wait a moment, then try again. The saved item review list is busy.'
   }
 
   if (status && status >= 500) {
@@ -50,9 +50,9 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
 
 function networkRecoveryMessage(action: ApprovalQueueErrorAction): string {
   if (action === 'loadQueue') {
-    return 'Forge could not connect while loading saved items. Check your connection, then refresh the page.'
+    return 'Check your connection, then refresh the saved item review list. Forge could not connect while loading saved items.'
   }
-  return 'Forge could not connect while saving this review decision. Check your connection, then try again.'
+  return 'Check your connection, then try this review action again. Forge could not connect while saving this review decision.'
 }
 
 function serviceRecoveryMessage(action: ApprovalQueueErrorAction): string {
@@ -122,7 +122,7 @@ function validationMessage(action: ApprovalQueueErrorAction, detail: string): st
   const normalized = detail.toLowerCase()
   if (normalized.includes('scope')) {
     return action === 'loadQueue'
-      ? 'The saved item review list could not load. Refresh the list, then check who can reuse the selected items.'
+      ? 'Refresh the list, then check who can reuse the selected items. The saved item review list could not load.'
       : 'Choose who can reuse it and review the original task preview, then try again.'
   }
   if (normalized.includes('sensitivity')) {

@@ -147,7 +147,9 @@ describe('ApprovalQueueView', () => {
 
     const item = await screen.findByTestId('context-candidate-candidate-missing-source')
     expect(within(item).getByText('Task details need to load')).toBeDefined()
-    expect(within(item).getByText('Save unlocks after the original task details load.')).toBeDefined()
+    expect(
+      within(item).getByText('Save unlocks after the original task details load.')
+    ).toBeDefined()
     expect(within(item).queryByText('Original task preview unavailable')).toBeNull()
 
     const saveButton = within(item).getByRole('button', { name: /^Save$/ })
@@ -229,7 +231,9 @@ describe('ApprovalQueueView', () => {
     render(<ApprovalQueueView />)
 
     const error = await screen.findByTestId('context-approval-error')
-    expect(error.textContent).toContain('saved item review list could not load')
+    expect(error.textContent).toContain(
+      'Check your connection, then refresh the saved item review list'
+    )
     expect(error.textContent).toContain('Forge could not connect while loading saved items')
     expect(error.textContent).not.toMatch(/failed to fetch/i)
   })
@@ -244,7 +248,8 @@ describe('ApprovalQueueView', () => {
     await userEvent.setup().click(screen.getByTestId('context-approval-submit'))
 
     const error = await screen.findByTestId('context-approval-error')
-    expect(error.textContent).toContain('item changed while you were reviewing it')
+    expect(error.textContent).toContain('Refresh the list, then open this item again')
+    expect(error.textContent).toContain('It changed while you were reviewing it')
     expect(error.textContent).not.toContain('Code:')
     expect(error.textContent).not.toContain('409 conflict')
   })
@@ -259,8 +264,9 @@ describe('ApprovalQueueView', () => {
     await userEvent.setup().click(screen.getByTestId('context-reject-submit'))
 
     const error = await screen.findByTestId('context-approval-error')
-    expect(error.textContent).toContain('do not have permission')
+    expect(error.textContent).toContain('Ask an owner or admin')
     expect(error.textContent).toContain('owner or admin')
+    expect(error.textContent).toContain('do not have permission')
     expect(error.textContent).not.toContain('403 Forbidden')
   })
 })

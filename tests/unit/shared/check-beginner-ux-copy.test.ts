@@ -7879,7 +7879,7 @@ function serviceRecoveryMessage(action) {
 `,
       'src/app/features/context/approvalQueueErrorMessages.ts': `
 function serviceRecoveryMessage(action) {
-  return 'The saved item review list could not load. Refresh the list so you see the latest items. If it still fails, ask an owner or admin to check saved item setup.'
+  return 'Refresh the list so you see the latest saved items. The saved item review list could not load. If it still fails, ask an owner or admin to check saved item setup.'
 }
 `,
       'src/app/entities/navigation/model/navigation.store.ts': `
@@ -7888,6 +7888,102 @@ function navigationActionErrorMessage(actionPhrase) {
 }
 function serviceRecoveryMessage() {
   return 'Refresh the sidebar to load workspace navigation. If it still fails, ask an owner or admin to check workspace navigation.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags saved item review errors that start with the failure instead of the next step', () => {
+    const cwd = fixture({
+      'src/app/features/context/approvalQueueErrorMessages.ts': `
+const ACTION_FALLBACKS = {
+  approveCandidate: 'The item was not approved. Check who can reuse it and the original task preview, then try again.',
+  loadQueue: 'The saved item review list could not load. Refresh the list so you see the latest items.',
+  rejectCandidate: 'The item was not rejected. Refresh the list, then try the reject action again.',
+}
+function forbidden() {
+  return 'You do not have permission to review saved items. Ask an owner or admin to let you approve saved notes and instructions.'
+}
+function missing() {
+  return 'This item was not found. Refresh the list so you see the latest items.'
+}
+function conflict() {
+  return 'This item changed while you were reviewing it. Refresh the list, then open it again.'
+}
+function busy() {
+  return 'The saved item review list is busy. Wait a moment, then try again.'
+}
+function network() {
+  return 'Forge could not connect while saving this review decision. Check your connection, then try again.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'approval-queue-error-copy',
+          location: 'src/app/features/context/approvalQueueErrorMessages.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'approval-queue-error-copy',
+          location: 'src/app/features/context/approvalQueueErrorMessages.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'approval-queue-error-copy',
+          location: 'src/app/features/context/approvalQueueErrorMessages.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'approval-queue-error-copy',
+          location: 'src/app/features/context/approvalQueueErrorMessages.ts:8',
+        }),
+        expect.objectContaining({
+          type: 'approval-queue-error-copy',
+          location: 'src/app/features/context/approvalQueueErrorMessages.ts:11',
+        }),
+        expect.objectContaining({
+          type: 'approval-queue-error-copy',
+          location: 'src/app/features/context/approvalQueueErrorMessages.ts:14',
+        }),
+        expect.objectContaining({
+          type: 'approval-queue-error-copy',
+          location: 'src/app/features/context/approvalQueueErrorMessages.ts:17',
+        }),
+        expect.objectContaining({
+          type: 'approval-queue-error-copy',
+          location: 'src/app/features/context/approvalQueueErrorMessages.ts:20',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved item review errors that start with the next step', () => {
+    const cwd = fixture({
+      'src/app/features/context/approvalQueueErrorMessages.ts': `
+const ACTION_FALLBACKS = {
+  approveCandidate: 'Check who can reuse it and the original task preview, then approve the item again. The item was not approved.',
+  loadQueue: 'Refresh the list so you see the latest saved items. The saved item review list could not load.',
+  rejectCandidate: 'Refresh the list, then reject the item again. The item was not rejected.',
+}
+function forbidden() {
+  return 'Ask an owner or admin to let you approve saved notes and instructions, then retry this review action. You do not have permission right now.'
+}
+function missing() {
+  return 'Refresh the list so you see the latest saved items. This item was not found.'
+}
+function conflict() {
+  return 'Refresh the list, then open this item again. It changed while you were reviewing it.'
+}
+function busy() {
+  return 'Wait a moment, then try again. The saved item review list is busy.'
+}
+function network() {
+  return 'Check your connection, then try this review action again. Forge could not connect while saving this review decision.'
 }
 `,
     })
