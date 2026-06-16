@@ -11,6 +11,13 @@ import {
 import { cn } from '@app/shared/lib/utils'
 import { isHostCliAgent, useAgentsStore, type AgentInfo } from '@app/entities/agent'
 
+const LOCAL_AGENT_CONTROL_FAILURE = {
+  sendInstruction: 'local-send-instruction-failed',
+  startWorkspace: 'local-start-workspace-failed',
+  restartWorkspace: 'local-restart-workspace-failed',
+  removeAgent: 'local-remove-agent-failed',
+} as const
+
 interface AgentControlPanelProps {
   agent: AgentInfo
   onDeleted: () => void
@@ -71,11 +78,11 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
         )
       } else {
         setLocalActionStatus(null)
-        setLocalActionError('agent control action failed')
+        setLocalActionError(LOCAL_AGENT_CONTROL_FAILURE.sendInstruction)
       }
     } catch {
       setLocalActionStatus(null)
-      setLocalActionError('agent control action failed')
+      setLocalActionError(LOCAL_AGENT_CONTROL_FAILURE.sendInstruction)
     } finally {
       setSending(false)
     }
@@ -93,11 +100,11 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
           'Workspace start requested. Refresh Agents until this agent shows Ready, then send an instruction or create a task.'
         )
       } else {
-        setLocalActionError('agent control action failed')
+        setLocalActionError(LOCAL_AGENT_CONTROL_FAILURE.startWorkspace)
       }
     } catch {
       setLocalActionStatus(null)
-      setLocalActionError('agent control action failed')
+      setLocalActionError(LOCAL_AGENT_CONTROL_FAILURE.startWorkspace)
     } finally {
       setStarting(false)
     }
@@ -113,11 +120,11 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
           'Restart requested. Wait until this agent shows Ready before sending new work.'
         )
       } else {
-        setLocalActionError('agent control action failed')
+        setLocalActionError(LOCAL_AGENT_CONTROL_FAILURE.restartWorkspace)
       }
     } catch {
       setLocalActionStatus(null)
-      setLocalActionError('agent control action failed')
+      setLocalActionError(LOCAL_AGENT_CONTROL_FAILURE.restartWorkspace)
     } finally {
       setConfirmRestart(false)
     }
@@ -131,10 +138,10 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
       if (ok) {
         onDeleted()
       } else {
-        setLocalActionError('agent control action failed')
+        setLocalActionError(LOCAL_AGENT_CONTROL_FAILURE.removeAgent)
       }
     } catch {
-      setLocalActionError('agent control action failed')
+      setLocalActionError(LOCAL_AGENT_CONTROL_FAILURE.removeAgent)
     } finally {
       setConfirmDelete(false)
     }
@@ -586,6 +593,19 @@ function ActionInfo({ icon: Icon, title, detail }: ActionInfoProps) {
 }
 
 function agentControlErrorMessage(error: string): string {
+  if (error === LOCAL_AGENT_CONTROL_FAILURE.sendInstruction) {
+    return 'Refresh this agent, confirm it still shows Ready, then resend the instruction. If it still fails, create a task instead or ask an owner or admin to check agent messaging.'
+  }
+  if (error === LOCAL_AGENT_CONTROL_FAILURE.startWorkspace) {
+    return 'Refresh Agents, then choose Start workspace again. If it still does not show Ready, ask an owner or admin to check Where agents run.'
+  }
+  if (error === LOCAL_AGENT_CONTROL_FAILURE.restartWorkspace) {
+    return 'Refresh this agent, then choose Restart agent again only if Tasks or Live work still shows no progress. If it keeps failing, ask an owner or admin to check this agent setup.'
+  }
+  if (error === LOCAL_AGENT_CONTROL_FAILURE.removeAgent) {
+    return 'Refresh this agent, then choose Remove agent again. If it keeps failing, ask an owner or admin to check your agent access.'
+  }
+
   const normalized = error.toLowerCase()
 
   if (

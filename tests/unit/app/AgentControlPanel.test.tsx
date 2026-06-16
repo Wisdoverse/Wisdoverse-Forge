@@ -180,8 +180,9 @@ describe('AgentControlPanel', () => {
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('Action did not finish')
     expect(alert).toHaveTextContent(/Review the recovery step below/i)
-    expect(alert).toHaveTextContent(/Refresh this agent and confirm the latest status/i)
-    expect(alert).toHaveTextContent(/ask an owner or admin/i)
+    expect(alert).toHaveTextContent(/Refresh this agent, confirm it still shows Ready/i)
+    expect(alert).toHaveTextContent(/create a task instead/i)
+    expect(alert).toHaveTextContent(/ask an owner or admin to check agent messaging/i)
     expect(alert).not.toHaveTextContent(/socket hang up/i)
     expect(instructionInput).toHaveValue('Check recent work')
   })
@@ -312,8 +313,8 @@ describe('AgentControlPanel', () => {
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('Action did not finish')
-    expect(alert).toHaveTextContent(/wait for Ready or Working/i)
-    expect(alert).toHaveTextContent(/ask an owner or admin/i)
+    expect(alert).toHaveTextContent(/Refresh Agents, then choose Start workspace again/i)
+    expect(alert).toHaveTextContent(/ask an owner or admin to check Where agents run/i)
     expect(alert).not.toHaveTextContent(/agent control action failed/i)
     expect(screen.queryByRole('status')).toBeNull()
     expect(screen.getByRole('button', { name: /start workspace/i })).toBeEnabled()
@@ -360,7 +361,8 @@ describe('AgentControlPanel', () => {
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('Action did not finish')
-    expect(alert).toHaveTextContent(/Refresh this agent/i)
+    expect(alert).toHaveTextContent(/choose Restart agent again only if Tasks or Live work/i)
+    expect(alert).toHaveTextContent(/ask an owner or admin to check this agent setup/i)
     expect(alert).not.toHaveTextContent(/restart socket failed/i)
     expect(screen.queryByText('Restart this agent?')).toBeNull()
   })
@@ -401,5 +403,12 @@ describe('AgentControlPanel', () => {
     expect(screen.getByText('Remove this agent')).toBeDefined()
     expect(screen.queryByText('Remove this agent?')).toBeNull()
     expect(screen.getByRole('alert')).toHaveTextContent(/Action did not finish/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /Refresh this agent, then choose Remove agent again/i
+    )
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /ask an owner or admin to check your agent access/i
+    )
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/agent control action failed/i)
   })
 })

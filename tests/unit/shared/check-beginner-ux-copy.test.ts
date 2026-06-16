@@ -8277,11 +8277,14 @@ export const zh = {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags agent control permission errors that start with the failure before the next step', () => {
+  it('flags agent control errors that start with the failure or expose internal fallback copy', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentControlPanel.tsx': `
 function agentControlErrorMessage() {
   return 'You do not have permission to change this agent. Ask an owner or admin to let you manage this agent, then try again.'
+}
+function localActionError() {
+  return 'agent control action failed'
 }
 `,
     })
@@ -8289,12 +8292,18 @@ function agentControlErrorMessage() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'agent-control-error-copy',
-        location: 'src/app/features/agents/AgentControlPanel.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-control-error-copy',
+          location: 'src/app/features/agents/AgentControlPanel.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-control-error-copy',
+          location: 'src/app/features/agents/AgentControlPanel.tsx:6',
+        }),
+      ])
+    )
   })
 
   it('accepts agent control permission errors that start with the next step', () => {

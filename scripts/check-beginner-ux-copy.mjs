@@ -804,6 +804,7 @@ const CHAT_STREAM_FAILURE_FIRST_PATTERNS = [
 
 const AGENT_CONTROL_ERROR_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*You do not have permission to change this agent\. Ask an owner/i,
+  /['"`]\s*agent control action failed['"`]/i,
 ]
 
 const GOVERNANCE_AUDIT_FALLBACK_DEAD_END_PATTERNS = [
