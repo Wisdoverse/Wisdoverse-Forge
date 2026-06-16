@@ -6178,13 +6178,16 @@ function skillResponseErrorMessage(action) {
     ? 'Review the fields, then create the instruction again.'
     : 'Forge could not load Saved instructions right now. Refresh Saved instructions, then try again.'
 }
+function skillAccessErrorMessage() {
+  return 'You do not have access to saved instructions for this team space. Ask an owner or admin to update your team space access.'
+}
 `,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toHaveLength(2)
+    expect(result.findings).toHaveLength(3)
     expect(result.findings).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -6194,6 +6197,10 @@ function skillResponseErrorMessage(action) {
         expect.objectContaining({
           type: 'saved-instructions-load-copy',
           location: 'src/app/shared/model/skills.store.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'saved-instructions-load-copy',
+          location: 'src/app/shared/model/skills.store.ts:8',
         }),
       ])
     )
@@ -6211,6 +6218,9 @@ function skillResponseErrorMessage(action) {
   return action === 'create'
     ? 'Review the fields, then create the instruction again.'
     : 'Refresh Saved instructions to load the list.'
+}
+function skillAccessErrorMessage() {
+  return 'Ask an owner or admin to update your team space access, then refresh Saved instructions. You do not have access to saved instructions for this team space.'
 }
 `,
     })

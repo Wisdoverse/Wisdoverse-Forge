@@ -498,6 +498,7 @@ const AGENT_PLUGIN_ERROR_FAILURE_FIRST_PATTERNS = [
 const SAVED_INSTRUCTIONS_LOAD_DEAD_END_PATTERNS = [
   /\bSaved instructions could not load\./i,
   /\bForge could not load Saved instructions right now\./i,
+  /\bYou do not have access to saved instructions for this team space\. Ask an owner or admin to update your team space access\./i,
 ]
 
 const SAVED_INSTRUCTION_CREATE_FAILURE_FIRST_PATTERNS = [

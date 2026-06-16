@@ -173,7 +173,7 @@ export function skillHttpErrorMessage(
   if (status === 403) {
     return action === 'create'
       ? createPermissionMessage
-      : 'You do not have access to saved instructions for this team space. Ask an owner or admin to update your team space access.'
+      : 'Ask an owner or admin to update your team space access, then refresh Saved instructions. You do not have access to saved instructions for this team space.'
   }
   if (status === 404) {
     return action === 'create'

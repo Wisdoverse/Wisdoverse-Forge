@@ -47,7 +47,7 @@ describe('skillHttpErrorMessage', () => {
   test('turns catalog permission failures into team space access guidance', () => {
     expectBeginnerMessage(
       skillHttpErrorMessage('load', 403),
-      'You do not have access to saved instructions for this team space. Ask an owner or admin to update your team space access.'
+      'Ask an owner or admin to update your team space access, then refresh Saved instructions. You do not have access to saved instructions for this team space.'
     )
     expect(skillHttpErrorMessage('load', 403)).not.toContain('workspace instructions')
   })
