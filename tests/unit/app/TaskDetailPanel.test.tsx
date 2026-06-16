@@ -209,12 +209,36 @@ describe('TaskDetailPanel', () => {
     })
   })
 
+  test('explains canceling a task before stopping agent work', async () => {
+    render(<TaskDetailPanel task={mockTask} onClose={() => {}} />)
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /^cancel$/i }))
+
+    expect(orchestrationApiMock.cancelTask).not.toHaveBeenCalled()
+    expect(
+      screen.getByText(/canceling stops the current agent work/i)
+    ).toBeDefined()
+    expect(screen.getByRole('button', { name: /cancel task/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /keep running/i })).toBeDefined()
+
+    await user.click(screen.getByRole('button', { name: /keep running/i }))
+    expect(screen.queryByText(/canceling stops the current agent work/i)).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /^cancel$/i }))
+    await user.click(screen.getByRole('button', { name: /cancel task/i }))
+
+    await waitFor(() => expect(orchestrationApiMock.cancelTask).toHaveBeenCalledWith('task-1'))
+  })
+
   test('shows beginner guidance when cancel fails', async () => {
     orchestrationApiMock.cancelTask.mockRejectedValueOnce(new Error('HTTP 500'))
 
     render(<TaskDetailPanel task={mockTask} onClose={() => {}} />)
 
-    await userEvent.setup().click(screen.getByRole('button', { name: /^cancel$/i }))
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /^cancel$/i }))
+    await user.click(screen.getByRole('button', { name: /cancel task/i }))
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('Refresh the task, then choose Cancel again.')

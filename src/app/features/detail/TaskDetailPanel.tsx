@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Bot, CheckCircle2, ListChecks, RotateCcw, Send, X } from 'lucide-react'
+import { AlertTriangle, Bot, CheckCircle2, ListChecks, RotateCcw, Send, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import { agentCapabilitySummary } from '@app/shared/lib/agentCapabilityCopy'
@@ -62,6 +62,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
   const [recoveryError, setRecoveryError] = useState<string | null>(null)
   const [taskAction, setTaskAction] = useState<'block' | 'cancel' | null>(null)
   const [taskActionError, setTaskActionError] = useState<string | null>(null)
+  const [confirmCancelTask, setConfirmCancelTask] = useState(false)
 
   useEffect(() => {
     if (!contextVisible && activeTab === 'context') setActiveTab('description')
@@ -148,6 +149,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
   }
 
   async function handleTaskAction(action: 'block' | 'cancel') {
+    if (action === 'block') setConfirmCancelTask(false)
     setTaskAction(action)
     setTaskActionError(null)
     try {
@@ -156,6 +158,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
           ? await orchestrationApi.updateTask(task.id, { state: 'blocked' })
           : await orchestrationApi.cancelTask(task.id)
       if (response.ok && response.task) upsertTask(response.task)
+      if (action === 'cancel') setConfirmCancelTask(false)
     } catch (err) {
       setTaskActionError(
         taskDetailErrorMessage(action === 'block' ? 'blockTask' : 'cancelTask', err)
@@ -383,34 +386,72 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
               {taskActionError}
             </div>
           )}
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => void handleTaskAction('block')}
-              disabled={taskAction !== null}
-              className={cn(
-                'flex-1 text-xs font-medium py-1.5 rounded-button',
-                'bg-apple-orange/10 text-apple-orange',
-                'hover:bg-apple-orange/20 transition-colors',
-                'disabled:cursor-not-allowed disabled:opacity-50'
-              )}
-            >
-              {taskAction === 'block' ? 'Marking…' : 'Needs help'}
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleTaskAction('cancel')}
-              disabled={taskAction !== null}
-              className={cn(
-                'flex-1 text-xs font-medium py-1.5 rounded-button',
-                'bg-apple-red/10 text-apple-red',
-                'hover:bg-apple-red/20 transition-colors',
-                'disabled:cursor-not-allowed disabled:opacity-50'
-              )}
-            >
-              {taskAction === 'cancel' ? 'Canceling…' : 'Cancel'}
-            </button>
-          </div>
+          {confirmCancelTask ? (
+            <div className="space-y-2 rounded-lg border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-xs text-apple-red">
+              <div className="flex gap-2">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <p>
+                  Canceling stops the current agent work. Use Needs help instead if you only need to
+                  pause for missing input.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleTaskAction('cancel')}
+                  disabled={taskAction !== null}
+                  className={cn(
+                    'flex-1 rounded-button bg-apple-red px-2 py-1.5 font-medium text-white',
+                    'transition-colors hover:bg-apple-red/90',
+                    'disabled:cursor-not-allowed disabled:opacity-50'
+                  )}
+                >
+                  {taskAction === 'cancel' ? 'Canceling…' : 'Cancel task'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmCancelTask(false)}
+                  disabled={taskAction !== null}
+                  className={cn(
+                    'flex-1 rounded-button bg-white/70 px-2 py-1.5 font-medium text-foreground-light',
+                    'transition-colors hover:bg-white',
+                    'disabled:cursor-not-allowed disabled:opacity-50 dark:bg-black/20 dark:text-foreground-dark dark:hover:bg-black/30'
+                  )}
+                >
+                  Keep running
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => void handleTaskAction('block')}
+                disabled={taskAction !== null}
+                className={cn(
+                  'flex-1 text-xs font-medium py-1.5 rounded-button',
+                  'bg-apple-orange/10 text-apple-orange',
+                  'hover:bg-apple-orange/20 transition-colors',
+                  'disabled:cursor-not-allowed disabled:opacity-50'
+                )}
+              >
+                {taskAction === 'block' ? 'Marking…' : 'Needs help'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmCancelTask(true)}
+                disabled={taskAction !== null}
+                className={cn(
+                  'flex-1 text-xs font-medium py-1.5 rounded-button',
+                  'bg-apple-red/10 text-apple-red',
+                  'hover:bg-apple-red/20 transition-colors',
+                  'disabled:cursor-not-allowed disabled:opacity-50'
+                )}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
       )}
 
