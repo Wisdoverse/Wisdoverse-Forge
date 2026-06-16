@@ -625,7 +625,7 @@ describe('Sidebar', () => {
 
     expect(
       await screen.findByText(
-        'Forge could not save this project name right now. Refresh the sidebar, then save again. If it still fails, ask an owner or admin to check workspace setup.'
+        'Refresh the sidebar, then save this project name again. Forge could not save it right now. If it still fails, ask an owner or admin to check workspace setup.'
       )
     ).toBeInTheDocument()
     expect(screen.queryByText(/API 500/i)).not.toBeInTheDocument()

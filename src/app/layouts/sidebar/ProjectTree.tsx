@@ -158,7 +158,6 @@ function detailFromRecord(record: Record<string, unknown>): string | null {
 
 function renameErrorMessage(target: RenameTarget, error: unknown): string {
   const label = target === 'team' ? 'team' : 'project'
-  const title = target === 'team' ? 'Team' : 'Project'
 
   if (
     error instanceof TypeError ||
@@ -180,22 +179,22 @@ function renameErrorMessage(target: RenameTarget, error: unknown): string {
     return `You do not have permission to rename this ${label}. Ask an owner or admin to let you edit this ${label}.`
   }
   if (status === 404) {
-    return `This ${label} could not be found. Refresh the sidebar, then choose the current ${label} again.`
+    return `Refresh the sidebar, then choose the current ${label} again. This ${label} could not be found.`
   }
   if (status === 409) {
-    return `This ${label} changed while you were editing. Refresh the sidebar, review the current name, then try again.`
+    return `Refresh the sidebar, review the current name, then save this ${label} name again. This ${label} changed while you were editing.`
   }
   if (status === 422) {
     return renameValidationMessage(target, detail)
   }
   if (status === 429) {
-    return `The sidebar is busy. Wait a moment, then save this ${label} name again.`
+    return `Wait a moment, then save this ${label} name again. The sidebar is busy.`
   }
   if (status >= 500) {
-    return `Forge could not save this ${label} name right now. Refresh the sidebar, then save again. If it still fails, ask an owner or admin to check workspace setup.`
+    return `Refresh the sidebar, then save this ${label} name again. Forge could not save it right now. If it still fails, ask an owner or admin to check workspace setup.`
   }
 
-  return `${title} name could not be saved. Refresh the sidebar and try again.`
+  return `Refresh the sidebar, then save this ${label} name again. The ${label} name was not saved.`
 }
 
 function renameValidationMessage(target: RenameTarget, detail: string | null): string {
@@ -210,7 +209,7 @@ function renameValidationMessage(target: RenameTarget, detail: string | null): s
     return `Enter a ${label} name, then save again.`
   }
 
-  return `${title} name could not be saved. Refresh the sidebar and try again.`
+  return `Refresh the sidebar, then save this ${label} name again. The ${title.toLowerCase()} name was not saved.`
 }
 
 function deleteErrorMessage(target: RenameTarget, error: unknown): string {
@@ -242,10 +241,10 @@ function deleteErrorMessage(target: RenameTarget, error: unknown): string {
     return deleteValidationMessage(target, normalized)
   }
   if (status === 429) {
-    return `The sidebar is busy. Wait a moment, then delete this ${label} again.`
+    return `Wait a moment, then delete this ${label} again. The sidebar is busy.`
   }
   if (status >= 500) {
-    return `Forge could not delete this ${label} right now. Refresh the sidebar, then try again. If it still fails, ask an owner or admin to check workspace setup.`
+    return `Refresh the sidebar, then delete this ${label} again. Forge could not delete it right now. If it still fails, ask an owner or admin to check workspace setup.`
   }
 
   return `Refresh the sidebar, then delete this ${label} again.`

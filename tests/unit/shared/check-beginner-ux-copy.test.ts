@@ -8075,6 +8075,26 @@ function notFoundMessage() {
   return 'This project could not be found. Refresh Settings, then choose an existing project.'
 }
 `,
+      'src/app/layouts/sidebar/ProjectTree.tsx': `
+function renameErrorMessage() {
+  return 'Project name could not be saved. Refresh the sidebar and try again.'
+}
+function projectMissingMessage() {
+  return 'This project could not be found. Refresh the sidebar, then choose the current project again.'
+}
+function projectChangedMessage() {
+  return 'This project changed while you were editing. Refresh the sidebar, review the current name, then try again.'
+}
+function renameBusyMessage() {
+  return 'The sidebar is busy. Wait a moment, then save this project name again.'
+}
+function renameServiceMessage() {
+  return 'Forge could not save this project name right now. Refresh the sidebar, then save again.'
+}
+function deleteServiceMessage() {
+  return 'Forge could not delete this project right now. Refresh the sidebar, then try again.'
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
@@ -8094,6 +8114,30 @@ function notFoundMessage() {
           type: 'workspace-resource-copy',
           location: 'src/app/shared/lib/workspaceResourceErrorMessage.ts:9',
         }),
+        expect.objectContaining({
+          type: 'workspace-resource-copy',
+          location: 'src/app/layouts/sidebar/ProjectTree.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'workspace-resource-copy',
+          location: 'src/app/layouts/sidebar/ProjectTree.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'workspace-resource-copy',
+          location: 'src/app/layouts/sidebar/ProjectTree.tsx:9',
+        }),
+        expect.objectContaining({
+          type: 'workspace-resource-copy',
+          location: 'src/app/layouts/sidebar/ProjectTree.tsx:12',
+        }),
+        expect.objectContaining({
+          type: 'workspace-resource-copy',
+          location: 'src/app/layouts/sidebar/ProjectTree.tsx:15',
+        }),
+        expect.objectContaining({
+          type: 'workspace-resource-copy',
+          location: 'src/app/layouts/sidebar/ProjectTree.tsx:18',
+        }),
       ])
     )
   })
@@ -8109,6 +8153,26 @@ function workspaceResourceUnavailableMessage() {
 }
 function notFoundMessage() {
   return 'Refresh Settings, then choose an existing project.'
+}
+`,
+      'src/app/layouts/sidebar/ProjectTree.tsx': `
+function renameErrorMessage() {
+  return 'Refresh the sidebar, then save this project name again. The project name was not saved.'
+}
+function projectMissingMessage() {
+  return 'Refresh the sidebar, then choose the current project again. This project could not be found.'
+}
+function projectChangedMessage() {
+  return 'Refresh the sidebar, review the current name, then save this project name again. This project changed while you were editing.'
+}
+function renameBusyMessage() {
+  return 'Wait a moment, then save this project name again. The sidebar is busy.'
+}
+function renameServiceMessage() {
+  return 'Refresh the sidebar, then save this project name again. Forge could not save it right now.'
+}
+function deleteServiceMessage() {
+  return 'Refresh the sidebar, then delete this project again. Forge could not delete it right now.'
 }
 `,
     })

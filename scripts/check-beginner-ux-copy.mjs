@@ -925,9 +925,14 @@ const SETTINGS_STORE_ERROR_FAILURE_FIRST_PATTERNS = [
 ]
 
 const WORKSPACE_RESOURCE_FAILURE_FIRST_PATTERNS = [
-  /\b(?:Team|Project) could not be (?:saved|deleted)\./i,
-  /\bThis (?:team|project) could not be found\./i,
-  /\bForge could not (?:save workspace settings|delete this (?:team|project)) right now\./i,
+  /['"`]\s*(?:\$\{title\}|Team|Project) name could not be saved\./i,
+  /['"`]\s*This (?:\$\{label\}|team|project) (?:could not be found|changed while you were editing)\./i,
+  /['"`]\s*The sidebar is busy\. Wait a moment, then (?:save this (?:\$\{label\}|team|project) name|delete this (?:\$\{label\}|team|project)) again\./i,
+  /['"`]\s*Forge could not save this (?:\$\{label\}|team|project) name right now\./i,
+  /['"`]\s*Forge could not delete this (?:\$\{label\}|team|project) right now\./i,
+  /['"`]\s*(?:Team|Project) could not be (?:saved|deleted)\./i,
+  /['"`]\s*This (?:team|project) could not be found\./i,
+  /['"`]\s*Forge could not (?:save workspace settings|delete this (?:team|project)) right now\./i,
 ]
 
 const PROJECT_CREATE_FAILURE_FIRST_PATTERNS = [
@@ -1616,7 +1621,12 @@ function hasSettingsStoreErrorFailureFirstCopy(relFile, line) {
 }
 
 function hasWorkspaceResourceFailureFirstCopy(relFile, line) {
-  if (!relFile.endsWith('src/app/shared/lib/workspaceResourceErrorMessage.ts')) return false
+  if (
+    !relFile.endsWith('src/app/shared/lib/workspaceResourceErrorMessage.ts') &&
+    !relFile.endsWith('src/app/layouts/sidebar/ProjectTree.tsx')
+  ) {
+    return false
+  }
   if (isLikelyGuardOrParserLine(line)) return false
   return WORKSPACE_RESOURCE_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
