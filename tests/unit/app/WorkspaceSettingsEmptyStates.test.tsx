@@ -127,7 +127,9 @@ describe('workspace settings empty states', () => {
     render(<TeamsSection />)
 
     const alert = await screen.findByRole('alert')
-    expect(alert.textContent).toContain('Ask an owner or admin to update your team space access.')
+    expect(alert.textContent).toContain(
+      'Ask an owner or admin to update your team space access, then refresh Settings to load teams.'
+    )
     expect(alert.textContent).not.toContain('workspace access')
     expect(alert.textContent).toMatch(/^Ask an owner or admin/)
     expect(alert.textContent).not.toContain('HTTP 403')
@@ -211,7 +213,7 @@ describe('workspace settings empty states', () => {
     render(<ProjectsSection />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Ask an owner or admin to update your team space access.'
+      'Ask an owner or admin to update your team space access, then refresh Settings to load projects. You do not have access to these project settings right now.'
     )
     expect(screen.queryByText('HTTP 403')).not.toBeInTheDocument()
   })
