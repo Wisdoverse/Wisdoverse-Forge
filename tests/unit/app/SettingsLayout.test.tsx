@@ -39,12 +39,12 @@ describe('SettingsLayout', () => {
     ).toBeInTheDocument()
     expect(
       within(desktopNav).getByRole('button', {
-        name: /GitHub and GitLab access: Save HTTPS access for private GitHub or GitLab code/i,
+        name: /Code Repository Access: Use this when a private code link starts with https:\/\//i,
       })
     ).toBeInTheDocument()
     expect(
       within(desktopNav).getByRole('button', {
-        name: /SSH keys: Use this when a private code link starts with git@/i,
+        name: /git@ Repository Access: Use this when a private code link starts with git@/i,
       })
     ).toBeInTheDocument()
     expect(
@@ -70,8 +70,8 @@ describe('SettingsLayout', () => {
     expect(screen.getByRole('group', { name: 'People' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'AI services' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Outside apps' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'GitHub and GitLab access' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'SSH keys' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Code Repository Access' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'git@ Repository Access' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Work limits' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Teams' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Team members' })).not.toBeInTheDocument()

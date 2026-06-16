@@ -57,14 +57,14 @@ const SECTIONS: SectionItem[] = [
   },
   {
     id: 'git-credentials',
-    label: 'GitHub and GitLab access',
-    description: 'Save HTTPS access for private GitHub or GitLab code.',
+    label: 'Code Repository Access',
+    description: 'Use this when a private code link starts with https://.',
     group: 'Work setup',
     Icon: GitBranch,
   },
   {
     id: 'ssh-keys',
-    label: 'SSH keys',
+    label: 'git@ Repository Access',
     description: 'Use this when a private code link starts with git@.',
     group: 'Work setup',
     Icon: Terminal,
