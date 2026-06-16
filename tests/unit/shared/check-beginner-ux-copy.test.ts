@@ -7368,6 +7368,9 @@ function rateLimit() {
 function service() {
   return 'Forge could not load governance audit history right now. Refresh the audit view, then try again.'
 }
+function permission() {
+  return 'You do not have permission to view or export audit history. Ask an owner or admin to update your team space access.'
+}
 `,
     })
 
@@ -7400,6 +7403,10 @@ function service() {
           type: 'governance-audit-error-copy',
           location: 'src/app/features/governance/governanceAuditErrorMessages.ts:16',
         }),
+        expect.objectContaining({
+          type: 'governance-audit-error-copy',
+          location: 'src/app/features/governance/governanceAuditErrorMessages.ts:19',
+        }),
       ])
     )
   })
@@ -7422,6 +7429,9 @@ function rateLimit() {
 }
 function service() {
   return 'Refresh the audit view, then apply the filters again. If it still fails, ask an owner or admin to check governance audit setup.'
+}
+function permission() {
+  return 'Ask an owner or admin to update your team space access, then retry this audit action. You do not have permission to view or export audit history.'
 }
 `,
     })

@@ -816,6 +816,7 @@ const GOVERNANCE_AUDIT_ERROR_FAILURE_FIRST_PATTERNS = [
   /\bThe audit data changed while export was running\./i,
   /\bGovernance audit is handling too many requests right now\./i,
   /\bForge could not (?:load|export) governance audit history right now\./i,
+  /\bYou do not have permission to view or export audit history\. Ask an owner/i,
 ]
 
 const APPROVAL_QUEUE_ERROR_FAILURE_FIRST_PATTERNS = [

@@ -20,7 +20,7 @@ describe('governanceAuditErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'You do not have permission to view or export audit history. Ask an owner or admin to update your team space access.'
+      'Ask an owner or admin to update your team space access, then retry this audit action. You do not have permission to view or export audit history.'
     )
     expect(message).not.toContain('governance audit records')
     expect(message).not.toContain('role')
