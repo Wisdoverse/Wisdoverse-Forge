@@ -6123,6 +6123,17 @@ function conflict() {
   return 'An instruction with this name or trigger may already exist. Review the existing instructions, then try again.'
 }
 `,
+      'src/app/features/detail/model/skillDraftErrorMessage.ts': `
+function publish() {
+  return 'Instruction was not published. Review the draft and try again.'
+}
+function network() {
+  return 'Forge could not connect while publishing this instruction. Check your connection, then publish again.'
+}
+function service() {
+  return 'Forge could not publish this instruction right now. Wait a few minutes, then publish again.'
+}
+`,
       'src/app/shared/model/skills.store.ts': `
 function busy() {
   return 'Instruction setup is busy. Wait a moment, then create the instruction.'
@@ -6159,6 +6170,18 @@ function fallback() {
         }),
         expect.objectContaining({
           type: 'saved-instruction-create-copy',
+          location: 'src/app/features/detail/model/skillDraftErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-create-copy',
+          location: 'src/app/features/detail/model/skillDraftErrorMessage.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-create-copy',
+          location: 'src/app/features/detail/model/skillDraftErrorMessage.ts:9',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-create-copy',
           location: 'src/app/shared/model/skills.store.ts:3',
         }),
         expect.objectContaining({
@@ -6184,6 +6207,17 @@ function permission() {
 }
 function service() {
   return 'Refresh Saved instructions, then create the instruction again. If it still fails, ask an owner or admin to check instruction setup.'
+}
+`,
+      'src/app/features/detail/model/skillDraftErrorMessage.ts': `
+function publish() {
+  return 'Review the draft, then publish again. Instruction was not published.'
+}
+function network() {
+  return 'Check your connection, then publish again. Forge could not connect while publishing this instruction.'
+}
+function service() {
+  return 'Wait a few minutes, then publish again. Forge could not publish this instruction right now.'
 }
 `,
       'src/app/shared/model/skills.store.ts': `

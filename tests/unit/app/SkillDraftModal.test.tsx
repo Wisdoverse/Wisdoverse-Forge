@@ -183,7 +183,7 @@ describe('SkillDraftModal', () => {
     await user.click(screen.getByRole('button', { name: /publish instruction/i }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Instruction was not published. Ask an owner or admin to let you create saved instructions.'
+      'Ask an owner or admin to let you create saved instructions, then publish again. Instruction was not published.'
     )
     expect(screen.queryByText(/HTTP 403/i)).toBeNull()
   })

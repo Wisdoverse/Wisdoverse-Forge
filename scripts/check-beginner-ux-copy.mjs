@@ -492,13 +492,16 @@ const SAVED_INSTRUCTIONS_LOAD_DEAD_END_PATTERNS = [
 ]
 
 const SAVED_INSTRUCTION_CREATE_FAILURE_FIRST_PATTERNS = [
+  /\breturn\s+['"`]\s*Instruction was not published\./i,
   /\bThe instruction could not be created\./i,
   /\bForge could not connect while creating this instruction\./i,
+  /\breturn\s+['"`]\s*Forge could not connect while publishing this instruction\. Check your connection/i,
   /\bYou do not have permission to create workspace instructions\./i,
   /\bSaved instructions could not be opened from this page\./i,
   /\bAn instruction with this name or trigger may already exist\./i,
   /\bInstruction setup is busy\./i,
   /\bForge could not create the instruction right now\./i,
+  /\breturn\s+['"`]\s*Forge could not publish this instruction right now\. Wait a few minutes/i,
 ]
 
 const SAVED_INSTRUCTION_TEMPLATE_JARGON_PATTERNS = [
@@ -2031,6 +2034,7 @@ function hasSavedInstructionsLoadDeadEndCopy(relFile, line) {
 
 function hasSavedInstructionCreateFailureFirstCopy(relFile, line) {
   if (
+    !relFile.endsWith('src/app/features/detail/model/skillDraftErrorMessage.ts') &&
     !relFile.endsWith('src/app/features/skills/model/createSkillErrorMessage.ts') &&
     !relFile.endsWith('src/app/shared/model/skills.store.ts')
   ) {

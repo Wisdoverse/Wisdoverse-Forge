@@ -42,12 +42,12 @@ function isNetworkError(error: unknown): boolean {
 }
 
 export function skillDraftErrorMessage(error: unknown): string {
-  const base = 'Instruction was not published.'
+  const failure = 'Instruction was not published.'
   const text = structuredErrorText(error).toLowerCase()
   const code = statusCode(error)
 
   if (code === 401 || text.includes('unauthorized') || text.includes('sign in again')) {
-    return `${base} Sign in again, reopen this task, and publish the instruction again.`
+    return `Sign in again, reopen this task, and publish the instruction again. ${failure}`
   }
   if (
     code === 403 ||
@@ -56,10 +56,10 @@ export function skillDraftErrorMessage(error: unknown): string {
     text.includes('let you create saved instructions') ||
     text.includes('cannot create workspace instructions')
   ) {
-    return `${base} Ask an owner or admin to let you create saved instructions.`
+    return `Ask an owner or admin to let you create saved instructions, then publish again. ${failure}`
   }
   if (code === 404) {
-    return `${base} Refresh the task. Instruction publishing setup may have changed.`
+    return `Refresh the task, then publish the instruction again. ${failure} Instruction publishing setup may have changed.`
   }
   if (
     code === 409 ||
@@ -67,20 +67,20 @@ export function skillDraftErrorMessage(error: unknown): string {
     text.includes('already exist') ||
     text.includes('duplicate')
   ) {
-    return `${base} An instruction with this name may already exist. Rename it, then publish again.`
+    return `Rename it, then publish again. An instruction with this name may already exist. ${failure}`
   }
   if (code === 422 || text.includes('validation')) {
-    return `${base} Check the name, trigger words, and reusable instructions, then publish again.`
+    return `Check the name, trigger words, and reusable instructions, then publish again. ${failure}`
   }
   if (code === 429 || text.includes('rate limit') || text.includes('too many')) {
-    return `${base} Too many instruction changes are happening right now. Wait a minute, then publish again.`
+    return `Wait a minute, then publish again. Too many instruction changes are happening right now. ${failure}`
   }
   if (code != null && code >= 500) {
-    return `${base} Forge could not publish this instruction right now. Wait a few minutes, then publish again. If it still fails, ask an owner or admin to check instruction setup.`
+    return 'Wait a few minutes, then publish again. Forge could not publish this instruction right now. If it still fails, ask an owner or admin to check instruction setup.'
   }
   if (isNetworkError(error)) {
-    return `${base} Forge could not connect while publishing this instruction. Check your connection, then publish again.`
+    return 'Check your connection, then publish again. Forge could not connect while publishing this instruction.'
   }
 
-  return `${base} Review the draft and try again. If it still fails, ask an owner or admin to check instruction setup.`
+  return `Review the draft, then publish again. ${failure} If it still fails, ask an owner or admin to check instruction setup.`
 }

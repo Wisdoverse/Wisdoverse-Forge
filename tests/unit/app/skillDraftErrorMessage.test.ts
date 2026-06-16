@@ -4,19 +4,17 @@ import { skillDraftErrorMessage } from '@app/features/detail/model/skillDraftErr
 describe('skillDraftErrorMessage', () => {
   test('turns permission failures into an owner or admin next step', () => {
     expect(skillDraftErrorMessage(new Error('HTTP 403: Forbidden'))).toBe(
-      'Instruction was not published. Ask an owner or admin to let you create saved instructions.'
+      'Ask an owner or admin to let you create saved instructions, then publish again. Instruction was not published.'
     )
   })
 
   test('keeps store permission guidance when the modal remaps publish errors', () => {
     expect(
       skillDraftErrorMessage(
-        new Error(
-          'Ask an owner or admin to let you create saved instructions for this team space.'
-        )
+        new Error('Ask an owner or admin to let you create saved instructions for this team space.')
       )
     ).toBe(
-      'Instruction was not published. Ask an owner or admin to let you create saved instructions.'
+      'Ask an owner or admin to let you create saved instructions, then publish again. Instruction was not published.'
     )
   })
 
@@ -28,14 +26,14 @@ describe('skillDraftErrorMessage', () => {
     )
 
     expect(message).toBe(
-      'Instruction was not published. Ask an owner or admin to let you create saved instructions.'
+      'Ask an owner or admin to let you create saved instructions, then publish again. Instruction was not published.'
     )
     expect(message).not.toContain('workspace instructions')
   })
 
   test('explains duplicate names without leaking raw API text', () => {
     expect(skillDraftErrorMessage(new Error('API 409: duplicate name'))).toBe(
-      'Instruction was not published. An instruction with this name may already exist. Rename it, then publish again.'
+      'Rename it, then publish again. An instruction with this name may already exist. Instruction was not published.'
     )
   })
 
@@ -46,7 +44,7 @@ describe('skillDraftErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Instruction was not published. An instruction with this name may already exist. Rename it, then publish again.'
+      'Rename it, then publish again. An instruction with this name may already exist. Instruction was not published.'
     )
     expect(message).not.toContain('duplicate saved instruction name')
   })
@@ -58,7 +56,7 @@ describe('skillDraftErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Instruction was not published. Check the name, trigger words, and reusable instructions, then publish again.'
+      'Check the name, trigger words, and reusable instructions, then publish again. Instruction was not published.'
     )
     expect(message).not.toContain('trigger words empty')
   })
@@ -70,7 +68,7 @@ describe('skillDraftErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Instruction was not published. Too many instruction changes are happening right now. Wait a minute, then publish again.'
+      'Wait a minute, then publish again. Too many instruction changes are happening right now. Instruction was not published.'
     )
     expect(message).not.toContain('too many publish attempts')
   })
@@ -79,7 +77,7 @@ describe('skillDraftErrorMessage', () => {
     const message = skillDraftErrorMessage(new TypeError('Failed to fetch'))
 
     expect(message).toBe(
-      'Instruction was not published. Forge could not connect while publishing this instruction. Check your connection, then publish again.'
+      'Check your connection, then publish again. Forge could not connect while publishing this instruction.'
     )
     expect(message).not.toContain('Failed to fetch')
   })
@@ -88,7 +86,7 @@ describe('skillDraftErrorMessage', () => {
     const message = skillDraftErrorMessage(new Error('HTTP 500'))
 
     expect(message).toBe(
-      'Instruction was not published. Forge could not publish this instruction right now. Wait a few minutes, then publish again. If it still fails, ask an owner or admin to check instruction setup.'
+      'Wait a few minutes, then publish again. Forge could not publish this instruction right now. If it still fails, ask an owner or admin to check instruction setup.'
     )
     expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('service is temporarily unavailable')
