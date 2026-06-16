@@ -109,7 +109,7 @@ export function PlanCard({
   onUpgrade,
   onManage,
   loading,
-  actionPending: _actionPending,
+  actionPending,
   actionError,
 }: PlanCardProps) {
   if (loading) {
@@ -125,6 +125,8 @@ export function PlanCard({
   const badge = subscription ? statusBadge(subscription.status) : null
   const canUpgrade = Boolean(plan)
   const priceLabel = plan ? formatCurrency(plan.price.monthly, plan.price.currency) : '$0'
+  const openingCheckout = actionPending === 'checkout'
+  const openingPortal = actionPending === 'portal'
 
   return (
     <div className={cn(uiStyles.cardPadded, 'flex flex-col gap-4')}>
@@ -182,17 +184,22 @@ export function PlanCard({
 
         <div className="flex shrink-0 flex-col gap-2 sm:items-end">
           {subscription ? (
-            <button type="button" onClick={onManage} className={uiStyles.secondaryButton}>
-              Manage billing
+            <button
+              type="button"
+              onClick={onManage}
+              disabled={openingPortal}
+              className={uiStyles.secondaryButton}
+            >
+              {openingPortal ? 'Opening billing page...' : 'Manage billing'}
             </button>
           ) : (
             <button
               type="button"
               onClick={onUpgrade}
-              disabled={!canUpgrade}
+              disabled={!canUpgrade || openingCheckout}
               className={uiStyles.primaryButton}
             >
-              Upgrade plan
+              {openingCheckout ? 'Opening payment page...' : 'Upgrade plan'}
             </button>
           )}
         </div>

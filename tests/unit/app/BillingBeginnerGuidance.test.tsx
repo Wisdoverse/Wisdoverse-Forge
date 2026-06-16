@@ -85,6 +85,38 @@ describe('Billing beginner guidance', () => {
     expect(screen.getByRole('button', { name: /upgrade plan/i })).toHaveTextContent('Upgrade plan')
   })
 
+  test('shows when the secure payment page is opening', () => {
+    render(
+      <PlanCard
+        plan={teamPlan}
+        subscription={null}
+        actionPending="checkout"
+        onUpgrade={vi.fn()}
+        onManage={vi.fn()}
+      />
+    )
+
+    const button = screen.getByRole('button', { name: /opening payment page/i })
+    expect(button).toBeDisabled()
+    expect(button).toHaveTextContent('Opening payment page...')
+  })
+
+  test('shows when the billing management page is opening', () => {
+    render(
+      <PlanCard
+        plan={teamPlan}
+        subscription={activeSubscription}
+        actionPending="portal"
+        onUpgrade={vi.fn()}
+        onManage={vi.fn()}
+      />
+    )
+
+    const button = screen.getByRole('button', { name: /opening billing page/i })
+    expect(button).toBeDisabled()
+    expect(button).toHaveTextContent('Opening billing page...')
+  })
+
   test('translates usage metrics into plain-language capacity signals', () => {
     const metrics: UsageMetric[] = [
       { metric: 'agents', current: 9, limit: 10, percentUsed: 90 },
