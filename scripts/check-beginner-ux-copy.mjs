@@ -202,10 +202,13 @@ const ADMIN_LOAD_ERROR_DEAD_END_PATTERNS = [
 ]
 
 const ADMIN_STORE_ERROR_FAILURE_FIRST_PATTERNS = [
+  /^\s*return\s+`You do not have access to the admin \$\{label\}\. Ask an owner/i,
   /^\s*return\s+`The admin \$\{label\} is not available/,
   /^\s*return\s+`Forge could not load the admin \$\{label\}/,
   /^\s*return\s+`The admin \$\{label\} could not load/,
   /^\s*return\s+`Forge could not connect while loading the admin \$\{adminResourceLabel\(resource\)\}/,
+  /^\s*\?\s*['"`]You do not have access to change user access\. Ask an owner/i,
+  /^\s*:\s*['"`]You do not have access to remove user accounts\. Ask an owner/i,
   /^\s*return\s+`Forge could not finish \$\{adminUserActionRecovery\(action\)\}/,
   /^\s*return\s+`The \$\{label\} did not go through/,
   /^\s*return\s+`The \$\{adminUserActionLabel\(action\)\} could not reach the server\b/,

@@ -342,7 +342,7 @@ export function adminHttpErrorMessage(
     return `Your sign-in expired. Sign in again, then open Admin and reload the ${label}.`
   }
   if (status === 403) {
-    return `You do not have access to the admin ${label}. Ask an owner or admin to give you Admin access, then reload Admin.`
+    return `Ask an owner or admin to give you Admin access, then reload Admin. You do not have access to the admin ${label}.`
   }
   if (status === 404) {
     return `Refresh Admin, then try again. The admin ${label} is not available from this Admin view. If it still fails, ask an owner or admin to check setup.`
@@ -408,8 +408,8 @@ export function adminUserActionErrorMessage(
   }
   if (status === 403) {
     return action === 'change-role'
-      ? 'You do not have access to change user access. Ask an owner or admin to give you Admin access, then save again.'
-      : 'You do not have access to remove user accounts. Ask an owner or admin to give you Admin access, then try again.'
+      ? 'Ask an owner or admin to give you Admin access, then save again. You do not have access to change user access.'
+      : 'Ask an owner or admin to give you Admin access, then try again. You do not have access to remove user accounts.'
   }
   if (status === 404) {
     return 'This user is no longer in the list. Reload the user list to see the latest accounts.'

@@ -69,7 +69,7 @@ describe('adminHttpErrorMessage', () => {
   test('turns admin permission failures into an Admin access step', () => {
     expectBeginnerError(
       adminHttpErrorMessage('organizations', 403),
-      'You do not have access to the admin team space list. Ask an owner or admin to give you Admin access, then reload Admin.'
+      'Ask an owner or admin to give you Admin access, then reload Admin. You do not have access to the admin team space list.'
     )
   })
 
@@ -112,7 +112,7 @@ describe('useAdminStore loading errors', () => {
 
     expectBeginnerError(
       useAdminStore.getState().usersError,
-      'You do not have access to the admin user list. Ask an owner or admin to give you Admin access, then reload Admin.'
+      'Ask an owner or admin to give you Admin access, then reload Admin. You do not have access to the admin user list.'
     )
     expect(useAdminStore.getState().usersError).not.toContain('role')
   })
@@ -136,7 +136,7 @@ describe('useAdminStore loading errors', () => {
     expect(result).toBe(false)
     expectBeginnerError(
       useAdminStore.getState().userActionError,
-      'You do not have access to change user access. Ask an owner or admin to give you Admin access, then save again.'
+      'Ask an owner or admin to give you Admin access, then save again. You do not have access to change user access.'
     )
     expect(useAdminStore.getState().userActionError).not.toContain('role')
   })
@@ -230,7 +230,7 @@ describe('useAdminStore loading errors', () => {
 
     expectBeginnerError(
       useAdminStore.getState().cliImagesError,
-      'You do not have access to the admin agent tool updates. Ask an owner or admin to give you Admin access, then reload Admin.'
+      'Ask an owner or admin to give you Admin access, then reload Admin. You do not have access to the admin agent tool updates.'
     )
     expect(useAdminStore.getState().cliImagesError).not.toContain('role')
   })
@@ -565,7 +565,7 @@ describe('useAdminStore loading errors', () => {
       'Your sign-in expired. Sign in again, then retry the access change.'
     )
     expect(adminUserActionErrorMessage('remove', 403)).toBe(
-      'You do not have access to remove user accounts. Ask an owner or admin to give you Admin access, then try again.'
+      'Ask an owner or admin to give you Admin access, then try again. You do not have access to remove user accounts.'
     )
     expect(adminUserActionErrorMessage('remove', 404)).toBe(
       'This user is no longer in the list. Reload the user list to see the latest accounts.'

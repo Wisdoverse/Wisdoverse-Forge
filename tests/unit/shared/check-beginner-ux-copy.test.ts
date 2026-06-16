@@ -735,6 +735,10 @@ export function cliImageStatusErrorMessage(error) {
     const cwd = fixture({
       'src/app/shared/model/admin.store.ts': `
 export function adminHttpErrorMessage(label) {
+  return \`You do not have access to the admin \${label}. Ask an owner or admin to give you Admin access, then reload Admin.\`
+}
+
+export function adminLoadErrorMessage(label) {
   return \`Forge could not load the admin \${label} right now. Reload the \${label}, then try again.\`
 }
 
@@ -744,6 +748,12 @@ function adminNetworkErrorMessage(resource) {
 
 function adminUserActionNetworkMessage(action) {
   return \`The \${adminUserActionLabel(action)} could not reach the server. Check your connection and try again.\`
+}
+
+function adminUserActionErrorMessage(action) {
+  return action === 'change-role'
+    ? 'You do not have access to change user access. Ask an owner or admin to give you Admin access, then save again.'
+    : 'You do not have access to remove user accounts. Ask an owner or admin to give you Admin access, then try again.'
 }
 `,
     })
@@ -765,6 +775,18 @@ function adminUserActionNetworkMessage(action) {
           type: 'admin-store-error-copy',
           location: 'src/app/shared/model/admin.store.ts:11',
         }),
+        expect.objectContaining({
+          type: 'admin-store-error-copy',
+          location: 'src/app/shared/model/admin.store.ts:15',
+        }),
+        expect.objectContaining({
+          type: 'admin-store-error-copy',
+          location: 'src/app/shared/model/admin.store.ts:20',
+        }),
+        expect.objectContaining({
+          type: 'admin-store-error-copy',
+          location: 'src/app/shared/model/admin.store.ts:21',
+        }),
       ])
     )
   })
@@ -773,6 +795,10 @@ function adminUserActionNetworkMessage(action) {
     const cwd = fixture({
       'src/app/shared/model/admin.store.ts': `
 export function adminHttpErrorMessage(label) {
+  return \`Ask an owner or admin to give you Admin access, then reload Admin. You do not have access to the admin \${label}.\`
+}
+
+export function adminLoadErrorMessage(label) {
   return \`Reload the \${label}, then try again. Forge could not load the admin \${label} right now.\`
 }
 
@@ -782,6 +808,12 @@ function adminNetworkErrorMessage(resource) {
 
 function adminUserActionNetworkMessage(action) {
   return \`Check your connection, then try again. The \${adminUserActionLabel(action)} could not reach the server.\`
+}
+
+function adminUserActionErrorMessage(action) {
+  return action === 'change-role'
+    ? 'Ask an owner or admin to give you Admin access, then save again. You do not have access to change user access.'
+    : 'Ask an owner or admin to give you Admin access, then try again. You do not have access to remove user accounts.'
 }
 `,
     })
