@@ -18,7 +18,12 @@ const REQUIRED_FIELDS = [
 const PLACEHOLDER_VALUES = new Set(['', 'n/a', 'na', 'none', 'todo', 'tbd'])
 
 function stripComments(value) {
-  return value.replace(/<!--[\s\S]*?-->/g, '')
+  // Strip complete <!-- ... --> comments first, then any trailing unterminated
+  // <!-- opener (and everything after it). The HTML spec treats an unterminated
+  // comment as running to end-of-input, so removing it here prevents a dangling
+  // '<!--' marker from surviving sanitization
+  // (CodeQL js/incomplete-multi-character-sanitization).
+  return value.replace(/<!--[\s\S]*?-->/g, '').replace(/<!--[\s\S]*$/g, '')
 }
 
 function normalize(value) {
