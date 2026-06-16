@@ -16,6 +16,9 @@ on:
       - 'rust/crates/db/migrations/**'
       - 'rust/crates/orchestrator/migrations/**'
 
+permissions:
+  contents: read
+
 jobs:
   verify:
     name: Verify MANIFEST.sha256
