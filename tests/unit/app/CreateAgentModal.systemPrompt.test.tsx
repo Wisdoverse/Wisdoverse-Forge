@@ -12,6 +12,21 @@ vi.mock('@app/entities/agent-group', () => ({
 
 afterEach(cleanup)
 
+// A configured + tested provider so Provider + Prompt has a usable gateway
+// option. Model is now derived from this configured provider, not a hardcoded list.
+const CONFIGURED_PROVIDERS = [
+  {
+    id: 'provider-anthropic',
+    provider: 'anthropic' as const,
+    displayName: 'Anthropic',
+    model: 'claude-sonnet-4-6',
+    priority: 1,
+    isEnabled: true,
+    isDefault: true,
+    lastTestStatus: 'passed' as const,
+  },
+]
+
 beforeEach(() => {
   useAgentsStore.setState({
     createModalOpen: true,
@@ -19,7 +34,7 @@ beforeEach(() => {
     error: null,
   })
   useSettingsStore.setState({
-    providers: [],
+    providers: CONFIGURED_PROVIDERS,
     providersLoading: false,
     providersError: null,
   })
@@ -29,6 +44,9 @@ beforeEach(() => {
 describe('CreateAgentModal systemPrompt', () => {
   it('hides system prompt textarea in CLI branch', () => {
     render(<CreateAgentModal />)
+    // A verified provider exists, so the modal opens on Provider + Prompt;
+    // switch to Container CLI to assert the CLI branch hides the prompt.
+    fireEvent.click(screen.getByRole('radio', { name: /container cli/i }))
     expect(screen.queryByLabelText(/system prompt/i)).toBeNull()
   })
 
@@ -37,6 +55,7 @@ describe('CreateAgentModal systemPrompt', () => {
     useAgentsStore.setState({ createAgent } as never)
 
     render(<CreateAgentModal />)
+    fireEvent.click(screen.getByRole('radio', { name: /container cli/i }))
     fireEvent.change(screen.getByPlaceholderText(/Frontend Agent/i), {
       target: { value: 'Test' },
     })

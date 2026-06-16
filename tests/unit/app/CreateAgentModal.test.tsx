@@ -165,6 +165,21 @@ describe('CreateAgentModal', () => {
   })
 
   test('switching to Provider+Prompt hides CLI fields and shows Provider/Model', () => {
+    useSettingsStore.setState({
+      providers: [
+        {
+          id: 'provider-anthropic',
+          provider: 'anthropic',
+          displayName: 'Anthropic',
+          model: 'claude-sonnet-4-6',
+          priority: 1,
+          isEnabled: true,
+          isDefault: false,
+          lastTestStatus: 'passed',
+        },
+      ],
+    })
+
     render(<CreateAgentModal />)
 
     fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
@@ -175,23 +190,75 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByRole('combobox', { name: /container cli/i })).toBeNull()
     expect(screen.queryByLabelText(/working directory/i)).toBeNull()
     expect(screen.getByLabelText(/^provider$/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/^model$/i)).toBeInTheDocument()
+    // Model is derived from the configured provider (read-only).
+    expect(screen.getByLabelText(/^model$/i)).toHaveValue('claude-sonnet-4-6')
+  })
+
+  test('Provider+Prompt with no configured provider shows a Settings hint and blocks submit', async () => {
+    const createAgent = vi.fn().mockResolvedValue(true)
+    useAgentsStore.setState({ createAgent } as never)
+
+    render(<CreateAgentModal />)
+    fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
+
+    expect(screen.getByTestId('provider-empty-hint')).toHaveTextContent(
+      /settings .* llm providers/i
+    )
+    expect(screen.queryByLabelText(/^provider$/i)).toBeNull()
+
+    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
+    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(/add and test a provider in settings/i)
+    )
+    expect(createAgent).not.toHaveBeenCalled()
   })
 
   test('updates runtime fit when the operator changes runtime choices', async () => {
+    useSettingsStore.setState({
+      providers: [
+        {
+          id: 'provider-anthropic',
+          provider: 'anthropic',
+          displayName: 'Anthropic',
+          model: 'claude-sonnet-4-6',
+          priority: 1,
+          isEnabled: true,
+          isDefault: true,
+          lastTestStatus: 'passed',
+        },
+        {
+          id: 'provider-google',
+          provider: 'google',
+          displayName: 'Google',
+          model: 'gemini-2.5-pro',
+          priority: 2,
+          isEnabled: true,
+          isDefault: false,
+          lastTestStatus: 'passed',
+        },
+      ],
+    })
+
     render(<CreateAgentModal />)
 
+    // A verified provider exists, so the modal opens on Provider + Prompt.
+    fireEvent.click(screen.getByRole('radio', { name: /local cli/i }))
+    fireEvent.change(screen.getByRole('combobox', { name: /local cli/i }), {
+      target: { value: 'codex' },
+    })
+    expect(screen.getByText(/codex local worker/i)).toBeInTheDocument()
+    expect(screen.getByText('Run the join command')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('radio', { name: /container cli/i }))
     fireEvent.change(screen.getByRole('combobox', { name: /container cli/i }), {
       target: { value: 'codex' },
     })
     expect(screen.getByText(/codex container worker/i)).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('radio', { name: /local cli/i }))
-    expect(screen.getByText(/codex local worker/i)).toBeInTheDocument()
-    expect(screen.getByText('Run the join command')).toBeInTheDocument()
-
     fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
-    fireEvent.change(screen.getByLabelText(/^provider$/i), { target: { value: 'google' } })
+    fireEvent.change(screen.getByLabelText(/^provider$/i), { target: { value: 'provider-google' } })
 
     await waitFor(() => {
       expect(screen.getByText(/google prompt worker/i)).toBeInTheDocument()
@@ -317,7 +384,8 @@ describe('CreateAgentModal', () => {
 
     expect(screen.getByRole('radio', { name: /provider \+ prompt/i })).toBeChecked()
     expect(screen.queryByRole('combobox', { name: /container cli/i })).toBeNull()
-    expect(screen.getByLabelText(/^provider$/i)).toHaveValue('openai')
+    // The select chooses the configured provider by id; model is read-only.
+    expect(screen.getByLabelText(/^provider$/i)).toHaveValue('provider-1')
     expect(screen.getByLabelText(/^model$/i)).toHaveValue('gpt-5.5')
 
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
@@ -332,38 +400,82 @@ describe('CreateAgentModal', () => {
     })
   })
 
-  test('switching provider seeds the matching default model', async () => {
+  test('selecting a configured provider seeds its model from the gateway', async () => {
+    useSettingsStore.setState({
+      providers: [
+        {
+          id: 'provider-anthropic',
+          provider: 'anthropic',
+          displayName: 'Anthropic',
+          model: 'claude-sonnet-4-6',
+          priority: 1,
+          isEnabled: true,
+          isDefault: true,
+          lastTestStatus: 'passed',
+        },
+        {
+          id: 'provider-openai',
+          provider: 'openai',
+          displayName: 'OpenAI Prod',
+          model: 'gpt-5.4',
+          priority: 2,
+          isEnabled: true,
+          isDefault: false,
+          lastTestStatus: 'passed',
+        },
+      ],
+    })
+
     render(<CreateAgentModal />)
 
     fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
-    fireEvent.change(screen.getByLabelText(/^provider$/i), { target: { value: 'openai' } })
+    fireEvent.change(screen.getByLabelText(/^provider$/i), { target: { value: 'provider-openai' } })
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/^model$/i)).toHaveValue('gpt-4o')
+      expect(screen.getByLabelText(/^model$/i)).toHaveValue('gpt-5.4')
     })
   })
 
-  test('lists China-region providers and seeds the Zhipu GLM default model', async () => {
+  test('lists configured providers (including China-region) by display name and model', async () => {
+    useSettingsStore.setState({
+      providers: [
+        {
+          id: 'provider-anthropic',
+          provider: 'anthropic',
+          displayName: 'Anthropic',
+          model: 'claude-sonnet-4-6',
+          priority: 1,
+          isEnabled: true,
+          isDefault: true,
+          lastTestStatus: 'passed',
+        },
+        {
+          id: 'provider-zhipu',
+          provider: 'zhipu',
+          displayName: 'Zhipu GLM',
+          model: 'glm-4.7',
+          priority: 2,
+          isEnabled: true,
+          isDefault: false,
+          lastTestStatus: 'passed',
+        },
+      ],
+    })
+
     render(<CreateAgentModal />)
 
     fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
 
     const providerSelect = screen.getByLabelText(/^provider$/i)
-    expect(within(providerSelect).getByRole('option', { name: 'Zhipu GLM' })).toBeInTheDocument()
+    // Each option shows the display name and the model.
     expect(
-      within(providerSelect).getByRole('option', { name: 'Zhipu GLM Coding Plan' })
+      within(providerSelect).getByRole('option', { name: /zhipu glm · glm-4\.7/i })
     ).toBeInTheDocument()
     expect(
-      within(providerSelect).getByRole('option', { name: 'Moonshot Kimi' })
-    ).toBeInTheDocument()
-    expect(
-      within(providerSelect).getByRole('option', { name: 'Alibaba Qwen (DashScope)' })
-    ).toBeInTheDocument()
-    expect(
-      within(providerSelect).getByRole('option', { name: 'Tencent Hunyuan' })
+      within(providerSelect).getByRole('option', { name: /anthropic · claude-sonnet-4-6/i })
     ).toBeInTheDocument()
 
-    fireEvent.change(providerSelect, { target: { value: 'zhipu' } })
+    fireEvent.change(providerSelect, { target: { value: 'provider-zhipu' } })
 
     await waitFor(() => {
       expect(screen.getByLabelText(/^model$/i)).toHaveValue('glm-4.7')
@@ -393,6 +505,20 @@ describe('CreateAgentModal', () => {
   test('submits provider kind without cliTool', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
+    useSettingsStore.setState({
+      providers: [
+        {
+          id: 'provider-anthropic',
+          provider: 'anthropic',
+          displayName: 'Anthropic',
+          model: 'claude-sonnet-4-6',
+          priority: 1,
+          isEnabled: true,
+          isDefault: true,
+          lastTestStatus: 'passed',
+        },
+      ],
+    })
 
     render(<CreateAgentModal />)
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
@@ -433,14 +559,29 @@ describe('CreateAgentModal', () => {
     expect(createAgent).not.toHaveBeenCalled()
   })
 
-  test('provider kind with an empty model shows a visible error', async () => {
+  test('provider kind whose configured provider has no model shows a visible error', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
+    // A configured provider with a blank model is the only "missing model" path
+    // now that the model field is derived (read-only) from the gateway.
+    useSettingsStore.setState({
+      providers: [
+        {
+          id: 'provider-broken',
+          provider: 'anthropic',
+          displayName: 'Anthropic',
+          model: '',
+          priority: 1,
+          isEnabled: true,
+          isDefault: true,
+          lastTestStatus: 'passed',
+        },
+      ],
+    })
 
     render(<CreateAgentModal />)
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
     fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
-    fireEvent.change(screen.getByLabelText(/^model$/i), { target: { value: '' } })
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
     await waitFor(() =>
@@ -501,6 +642,20 @@ describe('CreateAgentModal', () => {
   test('applies a role template to a provider agent prompt', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
+    useSettingsStore.setState({
+      providers: [
+        {
+          id: 'provider-anthropic',
+          provider: 'anthropic',
+          displayName: 'Anthropic',
+          model: 'claude-sonnet-4-6',
+          priority: 1,
+          isEnabled: true,
+          isDefault: true,
+          lastTestStatus: 'passed',
+        },
+      ],
+    })
 
     render(<CreateAgentModal />)
     fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))

@@ -24,7 +24,8 @@ interface CreateAgentFormData {
   name: string
   kind: AgentKind
   cliTool: CliTool
-  provider: string
+  /** Selected configured-provider id (the gateway link). Empty when none exist. */
+  providerId: string
   model: string
   cwd: string
   groupId: string
@@ -92,60 +93,57 @@ const AGENT_ROLE_TEMPLATES: AgentRoleTemplate[] = [
   },
 ]
 
-/// Providers the backend LLM gateway can route to. Models are free-text so new
-/// model releases don't require a frontend redeploy.
-const PROVIDERS: { value: string; label: string; defaultModel: string }[] = [
-  { value: 'anthropic', label: 'Anthropic', defaultModel: 'claude-sonnet-4-6' },
-  { value: 'openai', label: 'OpenAI', defaultModel: 'gpt-4o' },
-  { value: 'google', label: 'Google', defaultModel: 'gemini-2.0-pro' },
-  { value: 'ollama', label: 'Ollama (local)', defaultModel: 'llama3.2' },
-  { value: 'groq', label: 'Groq', defaultModel: 'llama-3.3-70b-versatile' },
-  { value: 'deepseek', label: 'DeepSeek', defaultModel: 'deepseek-chat' },
-  // Mainstream China-region vendors. "Coding Plan" entries are the vendors'
-  // subscription products on Anthropic-compatible endpoints — separate keys
-  // from the pay-as-you-go API entries above them.
-  { value: 'zhipu', label: 'Zhipu GLM', defaultModel: 'glm-4.7' },
-  { value: 'zhipu_coding', label: 'Zhipu GLM Coding Plan', defaultModel: 'glm-4.7' },
-  { value: 'minimax', label: 'MiniMax', defaultModel: 'MiniMax-M3' },
-  { value: 'minimax_coding', label: 'MiniMax Coding Plan', defaultModel: 'MiniMax-M3' },
-  { value: 'moonshot', label: 'Moonshot Kimi', defaultModel: 'kimi-k2.5' },
-  { value: 'moonshot_coding', label: 'Moonshot Kimi Coding Plan', defaultModel: 'kimi-k2.5' },
-  { value: 'dashscope', label: 'Alibaba Qwen (DashScope)', defaultModel: 'qwen3-coder-plus' },
-  {
-    value: 'dashscope_coding',
-    label: 'Alibaba Qwen Coding Plan',
-    defaultModel: 'qwen3-coder-plus',
-  },
-  { value: 'hunyuan', label: 'Tencent Hunyuan', defaultModel: 'hunyuan-turbo-latest' },
-  { value: 'xiaomi', label: 'Xiaomi MiMo', defaultModel: 'mimo-v2.5-pro' },
-  { value: 'xiaomi_coding', label: 'Xiaomi MiMo Coding Plan', defaultModel: 'mimo-v2.5-pro' },
-  { value: 'xai', label: 'xAI', defaultModel: 'grok-3-mini' },
-  { value: 'openrouter', label: 'OpenRouter', defaultModel: 'openai/gpt-4o-mini' },
-  { value: 'together', label: 'Together AI', defaultModel: 'openai/gpt-oss-20b' },
-  {
-    value: 'fireworks',
-    label: 'Fireworks AI',
-    defaultModel: 'accounts/fireworks/models/qwen3-30b-a3b',
-  },
-  { value: 'litellm', label: 'LiteLLM Gateway', defaultModel: 'gpt-4o-mini' },
-  { value: 'openai_compatible', label: 'OpenAI-Compatible', defaultModel: '' },
-]
+/**
+ * A Provider + Prompt agent option, sourced from the configured LLM providers
+ * (the gateway) in Settings → LLM Providers. Each configured provider carries
+ * its own display name and model, so we no longer keep a hardcoded list.
+ */
+interface ProviderOption {
+  /** The configured provider's id — the stable selection value. */
+  id: string
+  /** Provider key (e.g. `anthropic`, `zhipu_coding`) sent to the gateway. */
+  provider: string
+  label: string
+  model: string
+}
 
 const DEFAULT_AGENT_CWD = '/workspace'
 
-function providerDefaultModel(provider: string): string {
-  return PROVIDERS.find((candidate) => candidate.value === provider)?.defaultModel ?? ''
+/**
+ * Build the Provider + Prompt options from configured providers. Prefer
+ * providers that passed a connection test; fall back to all enabled providers
+ * so a freshly-added (untested) provider is still usable.
+ */
+function buildProviderOptions(providers: LlmProviderConfig[]): ProviderOption[] {
+  const enabled = providers.filter((provider) => provider.isEnabled)
+  const tested = enabled.filter((provider) => provider.lastTestStatus === 'passed')
+  const source = tested.length > 0 ? tested : enabled
+  return source.map((provider) => ({
+    id: provider.id,
+    provider: provider.provider,
+    label: provider.displayName,
+    model: provider.model,
+  }))
 }
 
-function providerLabel(provider: string): string {
-  return PROVIDERS.find((candidate) => candidate.value === provider)?.label ?? provider
+function providerOptionModel(options: ProviderOption[], id: string): string {
+  return options.find((option) => option.id === id)?.model ?? ''
+}
+
+function providerOptionLabel(options: ProviderOption[], id: string): string {
+  const option = options.find((candidate) => candidate.id === id)
+  return option ? `${option.label}` : 'Provider'
 }
 
 function cliToolLabel(cliTool: CliTool): string {
   return CLI_TOOLS.find((tool) => tool.value === cliTool)?.label ?? cliTool
 }
 
-function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): RuntimeFitSummary {
+function runtimeFitFor(
+  kind: AgentKind,
+  cliTool: CliTool,
+  providerLabel: string
+): RuntimeFitSummary {
   if (kind === 'cli') {
     return {
       title: `${cliToolLabel(cliTool)} container worker`,
@@ -171,7 +169,7 @@ function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): Run
   }
 
   return {
-    title: `${providerLabel(provider)} prompt worker`,
+    title: `${providerLabel} prompt worker`,
     detail:
       'Best for planning, review, and lightweight coordination that does not need filesystem tools.',
     items: [
@@ -183,13 +181,12 @@ function runtimeFitFor(kind: AgentKind, cliTool: CliTool, provider: string): Run
 }
 
 function buildDefaultValues(provider: LlmProviderConfig | null): CreateAgentFormData {
-  const providerKey = provider?.provider ?? PROVIDERS[0].value
   return {
     name: '',
     kind: provider ? 'provider' : 'cli',
     cliTool: 'claude',
-    provider: providerKey,
-    model: provider?.model || providerDefaultModel(providerKey),
+    providerId: provider?.id ?? '',
+    model: provider?.model ?? '',
     cwd: DEFAULT_AGENT_CWD,
     groupId: '',
     systemPrompt: '',
@@ -218,6 +215,11 @@ export function CreateAgentModal() {
   const [copiedJoin, setCopiedJoin] = useState(false)
   const [copyError, setCopyError] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
+  // Provider + Prompt agents pick from the configured providers (the LLM
+  // gateway), preferring tested ones. No usable provider = a clear hint, no
+  // broken dropdown.
+  const providerOptions = useMemo(() => buildProviderOptions(providers), [providers])
+  const hasProviderOptions = providerOptions.length > 0
   const verifiedProvider = useMemo(
     () =>
       providers.find((provider) => provider.isEnabled && provider.lastTestStatus === 'passed') ??
@@ -238,10 +240,10 @@ export function CreateAgentModal() {
   })
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
   const kind = watch('kind')
-  const provider = watch('provider')
+  const providerId = watch('providerId')
   const cliTool = watch('cliTool')
   const cwd = watch('cwd')
-  const runtimeFit = runtimeFitFor(kind, cliTool, provider)
+  const runtimeFit = runtimeFitFor(kind, cliTool, providerOptionLabel(providerOptions, providerId))
   const selectedProject = selectedProjectId
     ? (Object.values(projectsByTeam)
         .flat()
@@ -288,16 +290,13 @@ export function CreateAgentModal() {
     setCopyError(null)
   }, [createModalOpen, defaultValues, reset, setError])
 
-  // When the user switches provider, seed the model box with that provider's default
-  // so the "OpenAI + claude-sonnet-4-6" mismatch doesn't happen by accident.
+  // When the user switches the configured provider, seed the model box with
+  // that provider's model so the agent never points at a mismatched model.
   useEffect(() => {
-    if (provider === verifiedProvider?.provider) {
-      setValue('model', verifiedProvider.model || providerDefaultModel(provider))
-      return
-    }
-    const defaultModel = providerDefaultModel(provider)
-    if (defaultModel) setValue('model', defaultModel)
-  }, [provider, setValue, verifiedProvider])
+    if (!providerId) return
+    const model = providerOptionModel(providerOptions, providerId)
+    if (model) setValue('model', model)
+  }, [providerId, providerOptions, setValue])
 
   useEffect(() => {
     if (kind === 'local-cli' && cwd === DEFAULT_AGENT_CWD) {
@@ -324,14 +323,21 @@ export function CreateAgentModal() {
       groupId: data.groupId || undefined,
     }
     if (data.kind === 'provider') {
-      if (!data.provider || !data.model.trim()) {
+      const selected = providerOptions.find((option) => option.id === data.providerId)
+      if (!selected) {
+        setFormError(
+          'Add and test a provider in Settings → LLM Providers first, then choose it here.'
+        )
+        return
+      }
+      if (!data.model.trim()) {
         setFormError('Provider and model are required')
         return
       }
       await createAgent({
         ...base,
         kind: 'provider',
-        provider: data.provider,
+        provider: selected.provider,
         model: data.model.trim(),
         systemPrompt: data.systemPrompt.trim() || undefined,
       })
@@ -845,39 +851,61 @@ export function CreateAgentModal() {
 
             {kind === 'provider' && (
               <>
-                <div>
-                  <label
-                    htmlFor="agent-provider"
-                    className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
+                {hasProviderOptions ? (
+                  <>
+                    <div>
+                      <label
+                        htmlFor="agent-provider"
+                        className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
+                      >
+                        Provider
+                      </label>
+                      <select
+                        id="agent-provider"
+                        {...register('providerId')}
+                        className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                      >
+                        {providerOptions.map((option) => (
+                          <option key={option.id} value={option.id}>
+                            {option.label} · {option.model}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                        Choose a configured provider from Settings → LLM Providers. Model is set by
+                        that provider.
+                      </p>
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="agent-model"
+                        className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
+                      >
+                        Model
+                      </label>
+                      <input
+                        id="agent-model"
+                        {...register('model')}
+                        readOnly
+                        className="h-10 w-full rounded-full border border-black/[0.08] bg-black/[0.025] px-4 text-ui-body text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                        placeholder="Set by the selected provider"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div
+                    data-testid="provider-empty-hint"
+                    className="rounded-lg border border-apple-orange/20 bg-apple-orange/[0.06] px-3 py-2.5"
                   >
-                    Provider
-                  </label>
-                  <select
-                    id="agent-provider"
-                    {...register('provider')}
-                    className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-                  >
-                    {PROVIDERS.map((p) => (
-                      <option key={p.value} value={p.value}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label
-                    htmlFor="agent-model"
-                    className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
-                  >
-                    Model
-                  </label>
-                  <input
-                    id="agent-model"
-                    {...register('model')}
-                    className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-                    placeholder="e.g. claude-sonnet-4-6…"
-                  />
-                </div>
+                    <p className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
+                      No usable provider yet
+                    </p>
+                    <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                      Add and test a provider in Settings → LLM Providers first, then come back to
+                      create a Provider + Prompt agent.
+                    </p>
+                  </div>
+                )}
                 <div>
                   <label
                     htmlFor="systemPrompt"
