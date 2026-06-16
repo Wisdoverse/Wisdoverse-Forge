@@ -171,6 +171,10 @@ describe('RuntimeSection', () => {
     expect(screen.getByText('Installed and ready')).toBeDefined()
     expect(screen.getAllByText(/work tool sign-ins/i).length).toBeGreaterThan(0)
     expect(screen.getByText(/1\/2 work tool sign-ins ready/i)).toBeDefined()
+    expect(
+      screen.getByText(/Sign in again before starting agents that use this tool/i)
+    ).toBeDefined()
+    expect(screen.queryByText(/No work tool sign-in saved/i)).toBeNull()
     expect(screen.getByRole('button', { name: /Sign in to GitHub/i })).toBeDefined()
     expect(screen.getByRole('button', { name: /Check setup/i })).toBeDefined()
     expect(
@@ -264,6 +268,8 @@ describe('RuntimeSection', () => {
       screen.getByText(/Sign in to a work tool before starting agents that need one/i)
     ).toBeDefined()
     expect(screen.queryByText(/No work tool sign-ins are connected yet/i)).toBeNull()
+    expect(screen.getByText(/Sign in before starting agents that use this tool/i)).toBeDefined()
+    expect(screen.queryByText(/No work tool sign-in saved/i)).toBeNull()
     expect(screen.getByRole('button', { name: /Sign in to GitHub/i })).toBeDefined()
   })
 

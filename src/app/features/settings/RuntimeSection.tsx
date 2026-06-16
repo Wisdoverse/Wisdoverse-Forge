@@ -677,7 +677,7 @@ function CredentialStatusRow({
       : 'Work tool signed in'
     : status.revokeReason || status.revokedAt
       ? 'Sign in again before starting agents that use this tool'
-      : 'No work tool sign-in saved'
+      : 'Sign in before starting agents that use this tool'
 
   return (
     <div className="flex flex-col gap-2 rounded-lg bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04] sm:flex-row sm:items-center sm:justify-between">

@@ -2953,6 +2953,10 @@ function RollResultBlock({ result, prune }) {
 function runtimeReadinessSummary() {
   return 'No work tool sign-ins are connected yet'
 }
+
+function CredentialStatusRow() {
+  return <p>No work tool sign-in saved</p>
+}
 `,
     })
 
@@ -2964,6 +2968,10 @@ function runtimeReadinessSummary() {
         type: 'runtime-sign-in-copy',
         location: 'src/app/features/settings/RuntimeSection.tsx:3',
       }),
+      expect.objectContaining({
+        type: 'runtime-sign-in-copy',
+        location: 'src/app/features/settings/RuntimeSection.tsx:7',
+      }),
     ])
   })
 
@@ -2972,6 +2980,10 @@ function runtimeReadinessSummary() {
       'src/app/features/settings/RuntimeSection.tsx': `
 function runtimeReadinessSummary() {
   return 'Sign in to a work tool before starting agents that need one'
+}
+
+function CredentialStatusRow() {
+  return <p>Sign in before starting agents that use this tool</p>
 }
 `,
     })
