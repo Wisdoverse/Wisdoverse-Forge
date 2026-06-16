@@ -746,7 +746,7 @@ function DecisionPanel({
                 onClick={onClose}
                 className="inline-flex h-9 items-center justify-center rounded-full px-3 text-ui-button font-medium text-secondary-light transition-colors hover:bg-black/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:text-secondary-dark dark:hover:bg-white/[0.08]"
               >
-                Cancel
+                Review later
               </button>
               <button
                 type="submit"

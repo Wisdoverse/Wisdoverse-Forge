@@ -109,6 +109,8 @@ describe('ApprovalQueueView', () => {
     expect(screen.getByText('Who can reuse it')).toBeDefined()
     expect(screen.getByText(/support reference from Settings/i)).toBeDefined()
     expect(screen.getByText('Team internal')).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Review later' })).toBeDefined()
+    expect(screen.queryByRole('button', { name: /^Cancel$/ })).toBeNull()
 
     await userEvent.setup().selectOptions(screen.getByTestId('context-approval-scope-kind'), 'team')
 
@@ -116,6 +118,23 @@ describe('ApprovalQueueView', () => {
     expect(screen.getByPlaceholderText(/Team support reference from Settings/i)).toBeDefined()
     expect(screen.getByText(/Paste the Team support reference before saving/i)).toBeDefined()
     expect(screen.queryByText(/exact I[D] from settings/i)).toBeNull()
+  })
+
+  test('review later closes the decision panel without saving or rejecting', async () => {
+    const user = userEvent.setup()
+    render(<ApprovalQueueView />)
+
+    expect(await screen.findByText('Use stable credentials')).toBeDefined()
+
+    await user.click(screen.getByTestId('context-approve-candidate-1'))
+    expect(screen.getByTestId('context-decision-checklist')).toBeDefined()
+
+    await user.click(screen.getByRole('button', { name: 'Review later' }))
+
+    expect(approveContextCandidate).not.toHaveBeenCalled()
+    expect(rejectContextCandidate).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('context-decision-checklist')).toBeNull()
+    expect(screen.getByText('Use stable credentials')).toBeDefined()
   })
 
   test('labels recorded saved-item decisions without approval jargon', async () => {
