@@ -200,30 +200,48 @@ function RollButton({ tool, control }: { tool: CliImageTool; control: RollContro
   // those agents individually from the Agents view instead.
   if (tool.agentsWithContainer === 0 || tool.updateMode === 'local_build') return null
 
+  const agentCountLabel =
+    tool.agentsWithContainer === 1 ? '1 agent' : `${tool.agentsWithContainer} agents`
+
   if (control.rolling) {
     return (
-      <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-        Restarting agents…
+      <span
+        role="status"
+        aria-live="polite"
+        className="text-ui-caption text-secondary-light dark:text-secondary-dark"
+      >
+        Restarting {agentCountLabel}...
       </span>
     )
   }
   if (control.confirming) {
     return (
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={control.onConfirm}
-          className="rounded-full bg-apple-red/10 px-3 py-1 text-ui-caption font-medium text-apple-red"
-        >
-          Restart {tool.agentsWithContainer} agents now
-        </button>
-        <button
-          type="button"
-          onClick={control.onCancel}
-          className="text-ui-caption text-secondary-light dark:text-secondary-dark"
-        >
-          Cancel
-        </button>
+      <div className="grid max-w-md gap-2 rounded-lg border border-apple-red/20 bg-apple-red/5 p-3">
+        <div>
+          <p className="text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
+            Restart {agentCountLabel} on the latest tool?
+          </p>
+          <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            These agents may briefly stop and reopen. Agents that are still working are left running
+            when the platform cannot restart them safely.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={control.onConfirm}
+            className="rounded-full bg-apple-red/10 px-3 py-1 text-ui-caption font-medium text-apple-red"
+          >
+            Restart {agentCountLabel} now
+          </button>
+          <button
+            type="button"
+            onClick={control.onCancel}
+            className="rounded-full border border-black/[0.1] px-3 py-1 text-ui-caption font-medium text-foreground-light dark:border-white/[0.12] dark:text-foreground-dark"
+          >
+            Keep agents running
+          </button>
+        </div>
       </div>
     )
   }

@@ -418,6 +418,10 @@ describe('CliImagesPanel', () => {
     // First click only arms a destructive confirm — it must NOT roll yet.
     fireEvent.click(rollButtons[0])
     expect(rollCliImage).not.toHaveBeenCalled()
+    expect(screen.getByText('Restart 2 agents on the latest tool?')).toBeDefined()
+    expect(screen.getByText(/These agents may briefly stop and reopen/i)).toBeDefined()
+    expect(screen.getByText(/still working are left running/i)).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Keep agents running' })).toBeDefined()
     const confirm = screen.getByRole('button', { name: /Restart 2 agents now/ })
 
     // Confirm fires the roll for the right tool.
