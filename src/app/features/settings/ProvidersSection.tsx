@@ -61,9 +61,10 @@ interface ProviderFilterEmptyState {
 }
 
 /**
- * A built-in catalog vendor. The `xxx` (API) and `xxx_coding` (Coding Plan)
+ * A built-in catalog vendor. The `xxx` (standard setup) and `xxx_coding`
  * provider keys are collapsed into one card so operators pick the vendor once,
- * then toggle Plan / Region instead of scrolling a 25-entry dropdown.
+ * then choose the service plan and address region instead of scrolling a
+ * 25-entry dropdown.
  */
 interface CatalogVendor {
   /** Stable grouping key (the base provider key, e.g. `zhipu`). */
@@ -923,7 +924,7 @@ function ProviderReadinessMetric({
 }
 
 // ============================================================================
-// Segmented toggle (Plan / Region)
+// Segmented toggle
 // ============================================================================
 
 interface SegmentedToggleProps<T extends string> {
@@ -1077,22 +1078,22 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
         <div className="mb-3 flex flex-wrap gap-4">
           {hasPlanToggle && (
             <SegmentedToggle<PlanVariant>
-              label="Plan"
+              label="Service plan"
               value={plan}
               onChange={setPlan}
               options={[
-                { value: 'api', label: 'API' },
+                { value: 'api', label: 'Standard' },
                 { value: 'coding', label: 'Coding Plan' },
               ]}
             />
           )}
           {hasRegionToggle && (
             <SegmentedToggle<RegionVariant>
-              label="Region"
+              label="Service address region"
               value={region}
               onChange={setRegion}
               options={[
-                { value: 'cn', label: 'CN' },
+                { value: 'cn', label: 'China' },
                 { value: 'global', label: 'Global' },
               ]}
             />
@@ -1226,7 +1227,7 @@ function CatalogGrid({
   selectedVendorKey,
   onSelect,
 }: CatalogGridProps) {
-  // A vendor counts as configured when either its API or Coding Plan key exists.
+  // A vendor counts as configured when either service-plan key exists.
   const configuredKeys = useMemo(() => {
     const keys = new Set<string>()
     for (const config of configuredProviders) {
@@ -1268,8 +1269,10 @@ function CatalogGrid({
               )}
             </span>
             <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-              {vendor.coding ? 'API · Coding Plan' : 'API'}
-              {vendor.api?.globalBaseUrl || vendor.coding?.globalBaseUrl ? ' · CN/Global' : ''}
+              {vendor.coding ? 'Standard setup · Coding plan' : 'Standard setup'}
+              {vendor.api?.globalBaseUrl || vendor.coding?.globalBaseUrl
+                ? ' · China/Global address'
+                : ''}
             </span>
           </button>
         )

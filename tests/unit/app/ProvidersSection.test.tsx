@@ -408,7 +408,7 @@ describe('ProvidersSection', () => {
     expect(within(nextStep).queryByText(/choose New Agent/i)).toBeNull()
   })
 
-  test('collapses coding-plan variants into one vendor with Plan and Region toggles', async () => {
+  test('collapses coding-plan variants into one vendor with beginner-friendly setup choices', async () => {
     useSettingsStore.setState({ providers: [] })
 
     render(<ProvidersSection />)
@@ -418,11 +418,22 @@ describe('ProvidersSection', () => {
 
     const serviceChoices = screen.getByRole('group', { name: /known AI services/i })
     expect(within(serviceChoices).queryByRole('button', { name: /zhipu glm coding plan/i })).toBeNull()
-    fireEvent.click(within(serviceChoices).getByRole('button', { name: /zhipu glm/i }))
+    const zhipuChoice = within(serviceChoices).getByRole('button', { name: /zhipu glm/i })
+    expect(within(zhipuChoice).getByText(/standard setup · coding plan · china\/global address/i))
+      .toBeDefined()
+    expect(within(zhipuChoice).queryByText(/api · coding plan/i)).toBeNull()
+    expect(within(zhipuChoice).queryByText(/cn\/global/i)).toBeNull()
+    fireEvent.click(zhipuChoice)
 
     expect(screen.getByLabelText(/^model to use$/i)).toHaveValue('glm-4.7')
-    expect(screen.getByRole('group', { name: /^plan$/i })).toBeDefined()
-    expect(screen.getByRole('group', { name: /^region$/i })).toBeDefined()
+    expect(screen.getByRole('group', { name: /^service plan$/i })).toBeDefined()
+    expect(screen.getByRole('group', { name: /^service address region$/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /^standard$/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /^coding plan$/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /^china$/i })).toBeDefined()
+    expect(screen.queryByRole('group', { name: /^plan$/i })).toBeNull()
+    expect(screen.queryByRole('group', { name: /^region$/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^cn$/i })).toBeNull()
 
     fireEvent.change(screen.getByLabelText(/service access key/i), {
       target: { value: 'sk-zhipu' },
@@ -452,14 +463,14 @@ describe('ProvidersSection', () => {
     const serviceChoices = screen.getByRole('group', { name: /known AI services/i })
     fireEvent.click(within(serviceChoices).getByRole('button', { name: /zhipu glm/i }))
 
-    // Switch to the Coding Plan and Global region.
+    // Switch to the coding plan and global service address.
     fireEvent.click(
-      within(screen.getByRole('group', { name: /^plan$/i })).getByRole('button', {
+      within(screen.getByRole('group', { name: /^service plan$/i })).getByRole('button', {
         name: /coding plan/i,
       })
     )
     fireEvent.click(
-      within(screen.getByRole('group', { name: /^region$/i })).getByRole('button', {
+      within(screen.getByRole('group', { name: /^service address region$/i })).getByRole('button', {
         name: /global/i,
       })
     )
