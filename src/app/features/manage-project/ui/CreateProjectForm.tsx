@@ -14,7 +14,7 @@ interface CreateProjectFormProps {
 const PROJECT_SETUP_STEPS = [
   'Choose the team that owns the work.',
   'Name the project after the product, app, or work area.',
-  'Optional: paste an https:// code link so Forge can copy existing code into the project.',
+  'Optional: paste an https:// code link. Use git@ Repository Access in Settings for links that start with git@.',
 ]
 
 /**
@@ -29,7 +29,7 @@ export function validateRepositoryUrl(raw: string): string | null {
   const value = raw.trim()
   if (!value) return null // optional — empty is valid
   if (/^(?:git@|ssh:\/\/)/i.test(value)) {
-    return 'Use a code link that starts with https://. Links that start with git@ go in SSH keys.'
+    return 'Use a code link that starts with https://. Links that start with git@ go in git@ Repository Access.'
   }
 
   let parsed: URL
@@ -39,7 +39,7 @@ export function validateRepositoryUrl(raw: string): string | null {
     return 'Enter a valid code link, e.g. https://github.com/org/repo.git'
   }
   if (parsed.protocol !== 'https:') {
-    return 'Use a code link that starts with https://. Links that start with git@ go in SSH keys.'
+    return 'Use a code link that starts with https://. Links that start with git@ go in git@ Repository Access.'
   }
   // No credentials embedded in the URL (user[:pass]@host) — the server rejects
   // these so a token never lands in a stored URL. `URL` also flags a bare `@`.
@@ -335,7 +335,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
           className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
           Optional — paste a GitHub or GitLab https:// link. Forge copies that code into this
-          project; keep passwords or tokens out of the link.
+          project. If your link starts with git@, add it in git@ Repository Access first.
         </p>
         {workspacePath && (
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">

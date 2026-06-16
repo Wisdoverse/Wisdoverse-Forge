@@ -144,6 +144,8 @@ describe('workspace setup create forms', () => {
     // No silent dead-click: a visible banner AND no submit.
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
     expect(screen.getByRole('alert')).toHaveTextContent('Use a code link that starts with https://')
+    expect(screen.getByRole('alert')).toHaveTextContent('git@ Repository Access')
+    expect(screen.getByRole('alert')).not.toHaveTextContent('SSH keys')
     expect(onSave).not.toHaveBeenCalled()
   })
 
