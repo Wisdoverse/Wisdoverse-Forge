@@ -891,6 +891,12 @@ const NETWORK_FAILURE_FIRST_PATTERNS = [
   /Forge 暂时连不上。请检查网络后重试。/,
 ]
 
+const CHAT_ERROR_FAILURE_FIRST_PATTERNS = [
+  /^\s*\?\s*['"`]Forge could not load this conversation right now\./,
+  /^\s*:\s*['"`]Forge could not update this chat right now\./,
+  /^\s*return\s+`\$\{base\} Forge could not read this conversation\./,
+]
+
 const SETTINGS_STORE_ERROR_FAILURE_FIRST_PATTERNS = [
   /^\s*return\s+`Forge could not \$\{operation\} right now\./,
   /^\s*return\s+`Settings could not \$\{actionPhrase\}\./,
@@ -1538,6 +1544,12 @@ function hasNetworkFailureFirstCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return NETWORK_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasChatErrorFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/shared/model/chat.errors.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CHAT_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasSettingsStoreErrorFailureFirstCopy(relFile, line) {
@@ -2916,6 +2928,15 @@ function scanFile(file, relFile) {
         type: 'network-copy',
         location,
         message: 'Network errors must start with the next action for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasChatErrorFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'chat-error-copy',
+        location,
+        message: 'Chat errors must start with the next action for beginners.',
         sample: line.trim(),
       })
     }

@@ -231,7 +231,7 @@ describe('ChatView', () => {
     seedChatState({
       messages: [message('Earlier answer')],
       error:
-        'Retry conversation to load conversation history. Forge could not load this conversation right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check chat setup.',
+        'Retry conversation to load conversation history. Wait a few minutes, then choose Retry conversation again. Forge could not load this conversation right now. If it still fails, ask an owner or admin to check chat setup.',
     })
 
     render(<ChatView agentId={providerAgent.id} />)

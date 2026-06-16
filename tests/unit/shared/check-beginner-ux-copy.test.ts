@@ -7726,6 +7726,60 @@ export const zh = {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags chat errors that explain failure before the next step', () => {
+    const cwd = fixture({
+      'src/app/shared/model/chat.errors.ts': `
+function serviceRecoveryMessage(action) {
+  return action === 'load'
+    ? 'Forge could not load this conversation right now. Wait a few minutes, then try again.'
+    : 'Forge could not update this chat right now. Wait a few minutes, then try again.'
+}
+
+function chatErrorMessage(base) {
+  return \`\${base} Forge could not read this conversation. Refresh the chat, then try again.\`
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'chat-error-copy',
+          location: 'src/app/shared/model/chat.errors.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'chat-error-copy',
+          location: 'src/app/shared/model/chat.errors.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'chat-error-copy',
+          location: 'src/app/shared/model/chat.errors.ts:9',
+        }),
+      ])
+    )
+  })
+
+  it('accepts chat errors that start with the next step', () => {
+    const cwd = fixture({
+      'src/app/shared/model/chat.errors.ts': `
+function serviceRecoveryMessage(action) {
+  return action === 'load'
+    ? 'Wait a few minutes, then choose Retry conversation again. Forge could not load this conversation right now.'
+    : 'Wait a few minutes, then clear chat again if you still want to remove the messages. Forge could not update this chat right now.'
+}
+
+function chatErrorMessage(base) {
+  return \`\${base} Refresh the chat, then try again. Forge could not read this conversation.\`
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags Settings store errors that explain failure before the next step', () => {
     const cwd = fixture({
       'src/app/shared/model/settings.store.ts': `
