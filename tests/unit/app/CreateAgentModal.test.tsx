@@ -103,7 +103,13 @@ describe('CreateAgentModal', () => {
       within(review).getByText('Choose a project later before assigning tasks.')
     ).toBeInTheDocument()
     expect(
-      within(review).getByText('Start the agent, then send one small task from Tasks.')
+      within(review).getByText('Wait until it shows Ready, then send one small task from Tasks.')
+    ).toBeInTheDocument()
+    expect(
+      within(review).queryByText('Start the agent, then send one small task from Tasks.')
+    ).toBeNull()
+    expect(
+      within(review).getByText('Forge starts it after the managed workspace is prepared.')
     ).toBeInTheDocument()
     expect(screen.queryByLabelText(/^ai service$/i)).toBeNull()
     expect(screen.queryByLabelText(/^ai model$/i)).toBeNull()

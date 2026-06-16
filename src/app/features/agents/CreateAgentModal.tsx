@@ -234,7 +234,7 @@ function createReviewItems({
       ? 'Forge creates the agent, then shows setup steps for this computer.'
       : kind === 'provider'
         ? 'Ready for chat and review after the AI service is connected.'
-        : 'Ready to start from Agents after the managed workspace is prepared.'
+        : 'Forge starts it after the managed workspace is prepared.'
 
   const taskQueue = selectedGroupName
     ? selectedGroupName
@@ -249,7 +249,7 @@ function createReviewItems({
       ? 'Paste the setup text on this computer and keep that window open.'
       : kind === 'provider'
         ? 'Ask a first question or assign review work that does not need files.'
-        : 'Start the agent, then send one small task from Tasks.'
+        : 'Wait until it shows Ready, then send one small task from Tasks.'
 
   return [
     { label: 'Work style', value: runtimeTitle },
