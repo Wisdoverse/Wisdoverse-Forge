@@ -1,17 +1,18 @@
 import { DndContext } from '@dnd-kit/core'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { KanbanColumn } from '@app/features/board/KanbanColumn'
 import type { TaskSummary } from '@app/shared/api/orchestration'
 
 afterEach(cleanup)
 
-function renderColumn(columnId: string, tasks: TaskSummary[] = []) {
-  return render(
+function renderColumn(columnId: string, tasks: TaskSummary[] = [], onQuickCreate = vi.fn()) {
+  const view = render(
     <DndContext>
-      <KanbanColumn columnId={columnId} tasks={tasks} onQuickCreate={vi.fn()} />
+      <KanbanColumn columnId={columnId} tasks={tasks} onQuickCreate={onQuickCreate} />
     </DndContext>
   )
+  return { ...view, onQuickCreate }
 }
 
 describe('KanbanColumn', () => {
@@ -26,6 +27,24 @@ describe('KanbanColumn', () => {
     expect(within(emptyState).queryByText('No tasks waiting to send')).toBeNull()
     expect(emptyState.textContent).not.toMatch(/quick add/i)
     expect(emptyState.textContent).not.toMatch(/draft task/i)
+  })
+
+  test('offers plain task examples in quick create', async () => {
+    const { onQuickCreate } = renderColumn('backlog')
+
+    fireEvent.click(screen.getByRole('button', { name: /add task idea/i }))
+
+    expect(screen.getByText('Need a starting point?')).toBeDefined()
+    const examples = screen.getByRole('group', { name: /task examples/i })
+    fireEvent.click(within(examples).getByRole('button', { name: /Review setup instructions/i }))
+
+    expect(screen.getByLabelText('Task goal')).toHaveValue('Review setup instructions')
+
+    fireEvent.click(screen.getByRole('button', { name: /save for later/i }))
+
+    await waitFor(() =>
+      expect(onQuickCreate).toHaveBeenCalledWith('Review setup instructions', 'backlog')
+    )
   })
 
   test('explains empty lifecycle columns by their next visible state', () => {

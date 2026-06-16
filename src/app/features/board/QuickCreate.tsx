@@ -7,6 +7,12 @@ interface QuickCreateProps {
   onSubmit: (title: string, columnId: string) => void | boolean | Promise<void | boolean>
 }
 
+const QUICK_TASK_EXAMPLES = [
+  'Review setup instructions',
+  'Fix the login error',
+  'Summarize the latest task result',
+]
+
 export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [title, setTitle] = useState('')
@@ -62,6 +68,12 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
     setIsOpen(false)
   }
 
+  function useExample(example: string) {
+    setTitle(example)
+    setError(null)
+    inputRef.current?.focus()
+  }
+
   if (!isOpen) {
     return (
       <button
@@ -107,6 +119,24 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
         This only saves the task in Not sent yet. Open the card to add details before sending it to
         an agent.
       </p>
+      <div className="rounded-lg bg-black/[0.025] px-3 py-2 dark:bg-white/[0.04]">
+        <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+          Need a starting point?
+        </p>
+        <div role="group" aria-label="Task examples" className="mt-2 flex flex-wrap gap-1.5">
+          {QUICK_TASK_EXAMPLES.map((example) => (
+            <button
+              key={example}
+              type="button"
+              onClick={() => useExample(example)}
+              disabled={submitting}
+              className="rounded-full border border-black/[0.08] bg-white px-2.5 py-1 text-ui-caption font-medium text-secondary-light transition-colors hover:border-apple-blue/30 hover:text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-wait disabled:opacity-60 dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-secondary-dark dark:hover:text-foreground-dark"
+            >
+              {example}
+            </button>
+          ))}
+        </div>
+      </div>
       {error && (
         <p id={errorId} role="alert" className="text-ui-caption font-medium text-apple-red">
           {error}
