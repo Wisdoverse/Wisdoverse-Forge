@@ -50,6 +50,7 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
   const contextCounts = normalizedContextCounts(task.contextCounts)
   const showContextBadge = contextCounts.total > 0
   const hasAssignee = Boolean(task.assignedAgentName || task.assignedTo)
+  const hasBrief = taskHasBrief(task)
   const stateKey = taskMachineKey(task.state)
   const stateLabel = taskStateLabel(task.state)
   const priorityKey = taskMachineKey(task.priority)
@@ -63,6 +64,7 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
     : taskNextStep(task, {
         canOpenPublishPreview: canPublish && Boolean(onPublish),
         hasAssignee,
+        hasBrief,
         resultCount: resultArtifacts.length,
       })
   const failurePreview =
@@ -280,12 +282,18 @@ function nonNegativeCount(value: unknown): number {
 interface TaskNextStepOptions {
   canOpenPublishPreview: boolean
   hasAssignee: boolean
+  hasBrief: boolean
   resultCount: number
 }
 
 function taskNextStep(task: TaskSummary, options: TaskNextStepOptions): string | null {
   switch (task.state) {
     case 'backlog':
+      if (!options.hasBrief) {
+        return options.hasAssignee
+          ? 'Open this card and add details before publishing.'
+          : 'Open this card, add details, then choose an agent.'
+      }
       if (!options.hasAssignee) {
         return options.canOpenPublishPreview
           ? 'Choose an agent, then preview and publish.'
@@ -317,6 +325,10 @@ function taskNextStep(task: TaskSummary, options: TaskNextStepOptions): string |
     default:
       return 'Open details to check the current status before taking action.'
   }
+}
+
+function taskHasBrief(task: TaskSummary): boolean {
+  return task.params.message?.trim().length > 0
 }
 
 function formatContextCountsLabel(counts: TaskContextCounts): string {

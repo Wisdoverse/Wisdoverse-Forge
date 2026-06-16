@@ -158,6 +158,48 @@ describe('TaskCard', () => {
     expect(screen.getByTestId('task-next-step').textContent).not.toContain('context')
   })
 
+  test('does not send title-only backlog tasks toward publish', () => {
+    const onPublish = vi.fn()
+    render(
+      <TaskCard
+        task={{
+          ...mockTask,
+          state: 'backlog',
+          params: { ...mockTask.params, message: '' },
+          progress: 0,
+        }}
+        onPublish={onPublish}
+      />
+    )
+
+    expect(screen.getByTestId('task-next-step').textContent).toBe(
+      'Open this card and add details before publishing.'
+    )
+    expect(screen.getByTestId('task-next-step').textContent).not.toContain('Review saved items')
+  })
+
+  test('asks for details before agent choice on title-only backlog tasks', () => {
+    const onPublish = vi.fn()
+    render(
+      <TaskCard
+        task={{
+          ...mockTask,
+          state: 'backlog',
+          assignedTo: undefined,
+          assignedAgentName: undefined,
+          params: { ...mockTask.params, message: '   ' },
+          progress: 0,
+        }}
+        onPublish={onPublish}
+      />
+    )
+
+    expect(screen.getByTestId('task-next-step').textContent).toBe(
+      'Open this card, add details, then choose an agent.'
+    )
+    expect(screen.getByTestId('task-next-step').textContent).not.toContain('preview and publish')
+  })
+
   test('tells operators how to finish a saved task card before sending', () => {
     render(<TaskCard task={{ ...mockTask, state: 'backlog', progress: 0 }} />)
 
