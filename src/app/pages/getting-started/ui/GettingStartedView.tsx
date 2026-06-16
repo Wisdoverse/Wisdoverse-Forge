@@ -569,6 +569,12 @@ function SetupStepItem({
             {step.why}
           </p>
         )}
+        <p className="mt-1 line-clamp-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          <span className="font-medium text-foreground-light dark:text-foreground-dark">
+            {t('gettingStarted.successLabel')}
+          </span>{' '}
+          {step.success}
+        </p>
       </div>
       <button
         type="button"
