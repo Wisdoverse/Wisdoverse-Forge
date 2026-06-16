@@ -543,9 +543,18 @@ export function CliImagesPanel() {
 
           <div className={cn(uiStyles.card)}>
             {cliImages.tools.length === 0 ? (
-              <p className="px-4 py-6 text-ui-body text-secondary-light dark:text-secondary-dark">
-                No agent tools are configured for update checks.
-              </p>
+              <div
+                data-testid="cli-images-empty-tools"
+                className="px-4 py-6 text-center text-ui-body"
+              >
+                <p className="font-medium text-foreground-light dark:text-foreground-dark">
+                  No agent tools are ready for update checks
+                </p>
+                <p className="mx-auto mt-1 max-w-xl text-secondary-light dark:text-secondary-dark">
+                  Open Agents to add or enable a work tool, then return here and choose Check now
+                  before restarting agents.
+                </p>
+              </div>
             ) : (
               cliImages.tools.map((tool) => (
                 <ToolRow

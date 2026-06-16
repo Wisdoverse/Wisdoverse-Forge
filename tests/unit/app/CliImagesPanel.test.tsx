@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { CliImagesPanel } from '@app/features/admin/CliImagesPanel'
 import {
   useAdminStore,
@@ -158,6 +158,24 @@ describe('CliImagesPanel', () => {
       await vi.advanceTimersByTimeAsync(120_000)
     })
     expect(loadCliImages).toHaveBeenCalledTimes(2)
+  })
+
+  test('explains how to recover when no agent tools can be checked', () => {
+    useAdminStore.setState({
+      ...originalAdminState,
+      cliImages: sampleStatus({ tools: [] }),
+      cliImagesLoading: false,
+      cliImagesError: null,
+      loadCliImages: vi.fn(),
+    })
+
+    render(<CliImagesPanel />)
+
+    const emptyState = screen.getByTestId('cli-images-empty-tools')
+    expect(within(emptyState).getByText('No agent tools are ready for update checks')).toBeDefined()
+    expect(within(emptyState).getByText(/open agents to add or enable a work tool/i)).toBeDefined()
+    expect(within(emptyState).getByText(/choose check now before restarting agents/i)).toBeDefined()
+    expect(screen.queryByText('No agent tools are configured for update checks.')).toBeNull()
   })
 
   test('shows the prune sweep summary when pruning is enabled', () => {

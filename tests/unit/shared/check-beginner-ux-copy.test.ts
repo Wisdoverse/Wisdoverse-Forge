@@ -3026,6 +3026,26 @@ function ToolUpdateError() {
     )
   })
 
+  it('flags agent tool update empty copy that gives no setup path', () => {
+    const cwd = fixture({
+      'src/app/features/admin/CliImagesPanel.tsx': `
+function ToolUpdateEmpty() {
+  return <p>No agent tools are configured for update checks.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'cli-image-status-copy',
+        location: 'src/app/features/admin/CliImagesPanel.tsx:3',
+      }),
+    ])
+  })
+
   it('flags agent tool version copy that leaves beginners waiting', () => {
     const cwd = fixture({
       'src/app/features/admin/CliImagesPanel.tsx': `
