@@ -110,11 +110,16 @@ describe('ListView', () => {
   })
 
   test('shows empty state when no tasks', () => {
+    useBoardStore.getState().setViewMode('list')
+
     render(<ListView />)
     expect(screen.getByTestId('list-empty-state')).toBeDefined()
     expect(screen.getByText('Create your first small task')).toBeDefined()
-    expect(screen.getByText(/create one small task/i)).toBeDefined()
+    expect(screen.getByText(/use the board to create one small task/i)).toBeDefined()
     expect(screen.getByText(/proof you expect the agent to return/i)).toBeDefined()
+    expect(screen.queryByText(/Create one small task from the board first/i)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /open board to create task/i }))
+    expect(useBoardStore.getState().viewMode).toBe('board')
     expect(screen.queryByText('No tasks yet')).toBeNull()
   })
 

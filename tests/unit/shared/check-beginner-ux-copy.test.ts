@@ -2046,6 +2046,40 @@ function taskCheckIn() {
     )
   })
 
+  it('flags task list empty copy that does not point to the board action', () => {
+    const cwd = fixture({
+      'src/app/features/list/ListView.tsx': `
+function EmptyList() {
+  return 'Create one small task from the board first'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-list-empty-copy',
+          location: 'src/app/features/list/ListView.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts task list empty copy that points to opening the board', () => {
+    const cwd = fixture({
+      'src/app/features/list/ListView.tsx': `
+function EmptyList() {
+  return 'Use the board to create one small task first. Open board to create task.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags task list agent fallback copy that does not tell users to refresh', () => {
     const cwd = fixture({
       'src/app/features/list/ListView.tsx': `

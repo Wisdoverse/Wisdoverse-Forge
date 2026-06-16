@@ -406,6 +406,7 @@ const AGENT_TASK_QUEUE_EMPTY_DEAD_END_PATTERNS = [
   /\bNo task queues yet\b/i,
   /\bNo tasks are in this task queue yet\b/i,
 ]
+const TASK_LIST_EMPTY_DEAD_END_PATTERNS = [/\bCreate one small task from the board first\b/i]
 const AGENT_LIST_SUMMARY_DEAD_END_PATTERNS = [/\bNo agents\b/i]
 const CREATE_AGENT_OPTIONAL_CONTEXT_DEAD_END_PATTERNS = [
   /\bNo primary project\b/i,
@@ -1317,6 +1318,12 @@ function hasTaskAgentAssignmentDeadEndCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return TASK_AGENT_ASSIGNMENT_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasTaskListEmptyDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/list/ListView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_LIST_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasTaskFormAgentStatusDeadEndCopy(relFile, line) {
@@ -2594,6 +2601,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Task agent copy must tell beginners to choose an agent or refresh task data before deciding.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskListEmptyDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'task-list-empty-copy',
+        location,
+        message: 'Task list empty states must point beginners to the board action.',
         sample: line.trim(),
       })
     }

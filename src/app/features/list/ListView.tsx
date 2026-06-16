@@ -1,6 +1,14 @@
 import { useRef, useMemo, useState, type ReactNode } from 'react'
 import { useVirtualizer, type VirtualizerOptions } from '@tanstack/react-virtual'
-import { AlertTriangle, CheckCircle2, Clock3, CircleDot, ListChecks, Search } from 'lucide-react'
+import {
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  Clock3,
+  CircleDot,
+  ListChecks,
+  Search,
+} from 'lucide-react'
 import { useBoardStore } from '@app/shared/model/board.store'
 import type { TaskSummary } from '@app/shared/api/orchestration'
 import { cn } from '@app/shared/lib/utils'
@@ -76,7 +84,7 @@ const observeElementRectFallback: VirtualizerOptions<
 }
 
 export function ListView() {
-  const { columns, setSelectedTask } = useBoardStore()
+  const { columns, setSelectedTask, setViewMode } = useBoardStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [filter, setFilter] = useState<ListTaskFilter>('all')
 
@@ -231,9 +239,17 @@ export function ListView() {
             Create your first small task
           </p>
           <p className="max-w-sm text-ui-caption leading-relaxed text-secondary-light dark:text-secondary-dark">
-            Create one small task from the board first. Start with the outcome you want, then add
+            Use the board to create one small task first. Start with the outcome you want, then add
             the proof you expect the agent to return.
           </p>
+          <button
+            type="button"
+            onClick={() => setViewMode('board')}
+            className="mt-1 inline-flex h-8 items-center gap-1.5 rounded-full bg-apple-blue px-3 text-ui-button font-medium text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+          >
+            <span>Open board to create task</span>
+            <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
+          </button>
         </div>
       ) : visibleTasks.length === 0 ? (
         <div
