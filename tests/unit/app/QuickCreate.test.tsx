@@ -124,7 +124,7 @@ describe('QuickCreate', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('Retry this task', 'backlog'))
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'The task was not saved. Check the board message, then try again.'
+        'Check the board message, then save the task again. The task was not saved.'
       )
     )
     expect(screen.getByRole('alert')).not.toHaveTextContent('socket hang up')

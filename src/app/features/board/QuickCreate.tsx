@@ -39,7 +39,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
       const result = await onSubmit(trimmedTitle, columnId)
       if (result === false) {
         submittedRef.current = false
-        setError('The task was not saved. Check the board message, then try again.')
+        setError('Check the board message, then save the task again. The task was not saved.')
         inputRef.current?.focus()
         return
       }
@@ -48,7 +48,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
       setIsOpen(false)
     } catch {
       submittedRef.current = false
-      setError('The task was not saved. Check the board message, then try again.')
+      setError('Check the board message, then save the task again. The task was not saved.')
       inputRef.current?.focus()
     } finally {
       setSubmitting(false)

@@ -846,6 +846,14 @@ const BOARD_LOAD_FAILURE_FIRST_PATTERNS = [
   /\bForge could not connect while (?:loading|updating) the board\./i,
 ]
 
+const BOARD_ACTION_FAILURE_FIRST_PATTERNS = [
+  /['"`]\s*The task was not created\. Check the project, task queue, and result, then try again\./i,
+  /['"`]\s*The task was moved back because the board change was not saved\./i,
+  /['"`]\s*The task was not sent with selected saved items\. Review the saved item preview, then try again\./i,
+  /['"`]\s*The project was not selected\. Choose the project again, then create the task\./i,
+  /['"`]\s*The task was not saved\. Check the board message, then try again\./i,
+]
+
 const BOARD_AGENT_SETUP_DEAD_END_PATTERNS = [
   /\bNo agent is available for saved item preview\. Start an agent or wait for one to finish, then try again\./i,
   /\bNo agent can take work right now\./i,
@@ -1527,6 +1535,17 @@ function hasBoardLoadFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/board/boardErrorMessages.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return BOARD_LOAD_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasBoardActionFailureFirstCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/board/boardErrorMessages.ts') &&
+    !relFile.endsWith('src/app/features/board/QuickCreate.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return BOARD_ACTION_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasBoardAgentSetupDeadEndCopy(relFile, line) {
@@ -3339,6 +3358,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Start and setup checklist errors must start with the next action, not the failure summary.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasBoardActionFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'board-action-error-copy',
+        location,
+        message:
+          'Board action errors must start with the recovery action before the failure summary.',
         sample: line.trim(),
       })
     }

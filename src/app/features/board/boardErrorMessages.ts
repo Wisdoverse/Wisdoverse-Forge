@@ -9,14 +9,15 @@ export type BoardErrorAction =
 
 const ACTION_FALLBACKS: Record<BoardErrorAction, string> = {
   createTask:
-    'The task was not created. Check the project, task queue, and result, then try again.',
+    'Check the project, task queue, and result, then create the task again. The task was not created.',
   loadReadiness: 'Refresh the board to load agent status before sending work.',
   loadTasks: 'Refresh the board to load tasks.',
-  moveTask: 'The task was moved back because the board change was not saved.',
+  moveTask:
+    'Refresh the board, then move the task again. The task was moved back because the board change was not saved.',
   previewContext: 'Choose an available agent, then open the saved item preview again.',
   publishTask:
-    'The task was not sent with selected saved items. Review the saved item preview, then try again.',
-  selectProject: 'The project was not selected. Choose the project again, then create the task.',
+    'Review the saved item preview, then send the task with selected saved items again. The task was not sent.',
+  selectProject: 'Choose the project again, then create the task. The project was not selected.',
 }
 
 export function boardActionErrorMessage(action: BoardErrorAction, err: unknown): string {
@@ -73,9 +74,6 @@ function networkRecoveryMessage(action: BoardErrorAction): string {
 function serviceRecoveryMessage(action: BoardErrorAction): string {
   if (action === 'loadReadiness' || action === 'loadTasks') {
     return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check task board setup.`
-  }
-  if (action === 'moveTask') {
-    return `${ACTION_FALLBACKS[action]} Refresh the board, then try again. If it still fails, ask an owner or admin to check task board setup.`
   }
   return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check task board setup.`
 }

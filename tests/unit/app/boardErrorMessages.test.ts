@@ -36,8 +36,10 @@ describe('boardActionErrorMessage', () => {
   test('uses saved item wording when board send fails', () => {
     const message = boardActionErrorMessage('publishTask', new Error('HTTP 500'))
 
-    expect(message).toContain('The task was not sent with selected saved items.')
-    expect(message).toContain('Review the saved item preview, then try again.')
+    expect(message).toContain(
+      'Review the saved item preview, then send the task with selected saved items again.'
+    )
+    expect(message).toContain('The task was not sent.')
     expect(message).not.toMatch(
       new RegExp(
         [
@@ -73,7 +75,7 @@ describe('boardActionErrorMessage', () => {
   test('keeps moved-back task failures actionable without repeating the refresh step', () => {
     expectBeginnerMessage(
       boardActionErrorMessage('moveTask', new Error('HTTP 500')),
-      'The task was moved back because the board change was not saved. Refresh the board, then try again. If it still fails, ask an owner or admin to check task board setup.'
+      'Refresh the board, then move the task again. The task was moved back because the board change was not saved. If it still fails, ask an owner or admin to check task board setup.'
     )
   })
 

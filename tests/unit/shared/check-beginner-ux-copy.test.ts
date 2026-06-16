@@ -7445,6 +7445,72 @@ function networkRecoveryMessage() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags board action copy that starts with the failure instead of the next step', () => {
+    const cwd = fixture({
+      'src/app/features/board/boardErrorMessages.ts': `
+const ACTION_FALLBACKS = {
+  createTask: 'The task was not created. Check the project, task queue, and result, then try again.',
+  moveTask: 'The task was moved back because the board change was not saved.',
+  publishTask: 'The task was not sent with selected saved items. Review the saved item preview, then try again.',
+  selectProject: 'The project was not selected. Choose the project again, then create the task.',
+}
+`,
+      'src/app/features/board/QuickCreate.tsx': `
+function QuickCreate() {
+  return 'The task was not saved. Check the board message, then try again.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'board-action-error-copy',
+          location: 'src/app/features/board/boardErrorMessages.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'board-action-error-copy',
+          location: 'src/app/features/board/boardErrorMessages.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'board-action-error-copy',
+          location: 'src/app/features/board/boardErrorMessages.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'board-action-error-copy',
+          location: 'src/app/features/board/boardErrorMessages.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'board-action-error-copy',
+          location: 'src/app/features/board/QuickCreate.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts board action copy that starts with the next step', () => {
+    const cwd = fixture({
+      'src/app/features/board/boardErrorMessages.ts': `
+const ACTION_FALLBACKS = {
+  createTask: 'Check the project, task queue, and result, then create the task again. The task was not created.',
+  moveTask: 'Refresh the board, then move the task again. The task was moved back because the board change was not saved.',
+  publishTask: 'Review the saved item preview, then send the task with selected saved items again. The task was not sent.',
+  selectProject: 'Choose the project again, then create the task. The project was not selected.',
+}
+`,
+      'src/app/features/board/QuickCreate.tsx': `
+function QuickCreate() {
+  return 'Check the board message, then save the task again. The task was not saved.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags board no-agent preview copy that does not point users to agent setup', () => {
     const cwd = fixture({
       'src/app/features/board/boardErrorMessages.ts': `
