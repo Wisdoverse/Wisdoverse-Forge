@@ -17,10 +17,11 @@ import { TaskMetadata } from './TaskMetadata'
 import { DescriptionTab } from './DescriptionTab'
 import { ContextTab } from './ContextTab'
 import { HistoryTab } from './HistoryTab'
+import { ReviewSnapshotPanel } from './ReviewSnapshotPanel'
 import { SkillDraftModal } from './SkillDraftModal'
 import { taskDetailErrorMessage } from './taskDetailErrorMessages'
 
-type TabId = 'description' | 'result' | 'context' | 'history'
+type TabId = 'description' | 'result' | 'context' | 'history' | 'review'
 
 const BASE_TABS: { id: TabId; label: string }[] = [
   { id: 'description', label: 'Work' },
@@ -42,9 +43,12 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
   const failurePreview =
     task.state === 'failed' && task.error ? taskFailurePreview(task.error) : null
   const baseTabs = contextVisible ? BASE_TABS : BASE_TABS.filter((tab) => tab.id !== 'context')
-  const tabs = hasResult
+  const coreTabs = hasResult
     ? [baseTabs[0], { id: 'result' as TabId, label: 'Result' }, ...baseTabs.slice(1)]
     : baseTabs
+  // Self-fix tasks expose a dedicated PR review/approve tab (plan D4 — NOT the
+  // pre-dispatch waiting_approval button).
+  const tabs = task.selfFix ? [...coreTabs, { id: 'review' as TabId, label: 'Review' }] : coreTabs
   const [activeTab, setActiveTab] = useState<TabId>('description')
   const [participants, setParticipants] = useState<ParticipantSummary[]>([])
   const [selectedAgentId, setSelectedAgentId] = useState('')
@@ -261,6 +265,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
           </div>
         )}
         {activeTab === 'history' && <HistoryTab task={task} />}
+        {activeTab === 'review' && task.selfFix && <ReviewSnapshotPanel task={task} />}
       </div>
 
       {/* Action buttons */}

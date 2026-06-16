@@ -52,7 +52,7 @@ pub fn verify_password_compat(password: &str, hash: &str) -> PasswordVerificatio
 
     if is_sha256_hex(hash) {
         let digest = Sha256::digest(password.as_bytes());
-        let expected = format!("{digest:x}");
+        let expected = hex::encode(digest);
         return PasswordVerification { valid: expected.eq_ignore_ascii_case(hash), needs_upgrade: true };
     }
 
@@ -139,7 +139,7 @@ mod tests {
     #[test]
     fn compat_verifies_sha256_hex_with_upgrade_flag() {
         let password = test_password();
-        let hash = format!("{:x}", Sha256::digest(password.as_bytes()));
+        let hash = hex::encode(Sha256::digest(password.as_bytes()));
         let result = verify_password_compat(&password, &hash);
         assert!(result.valid);
         assert!(result.needs_upgrade);

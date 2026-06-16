@@ -494,6 +494,28 @@ pub struct AppConfig {
     /// Hard wall-clock timeout per clone, seconds. Default 600 (10 min).
     #[serde(default = "default_clone_timeout_secs")]
     pub project_clone_timeout_secs: u64,
+
+    /// GitHub App identifier used by the self-fix loop to mint installation
+    /// tokens and open/merge PRs. Required together with the other three
+    /// `github_app_*` fields, or all four must be absent — partial config
+    /// fails startup so the loop cannot boot half-wired.
+    #[serde(default)]
+    pub github_app_id: Option<String>,
+
+    /// GitHub App installation identifier (the per-account install of the
+    /// App above) used to scope minted installation tokens.
+    #[serde(default)]
+    pub github_app_installation_id: Option<String>,
+
+    /// GitHub App private key (PEM) used to sign the JWT that exchanges for an
+    /// installation token. Wrapped in [`SecretString`] so the derived `Debug`
+    /// redacts it; reach the bytes with `.expose_secret()`.
+    #[serde(default)]
+    pub github_app_private_key: Option<SecretString>,
+
+    /// "owner/repo" the self-fix loop targets.
+    #[serde(default)]
+    pub github_app_repo: Option<String>,
 }
 
 fn default_clone_timeout_secs() -> u64 {
@@ -594,6 +616,25 @@ impl AppConfig {
         if smtp_set_count != 0 && smtp_set_count != smtp_partial.len() {
             return Err(config::ConfigError::Message(
                 "SMTP_HOST, SMTP_USER, SMTP_PASSWORD, and SMTP_FROM must be configured together".to_string(),
+            ));
+        }
+
+        // GitHub App (self-fix loop) — all four fields required together when
+        // any is set. Fail-fast: a half-wired App can't mint installation
+        // tokens, so the loop must refuse to boot rather than silently fail
+        // every PR attempt at runtime.
+        let github_app_fields = [
+            cfg.github_app_id.as_ref().map(|v| !v.trim().is_empty()).unwrap_or(false),
+            cfg.github_app_installation_id.as_ref().map(|v| !v.trim().is_empty()).unwrap_or(false),
+            cfg.github_app_private_key.as_ref().map(|v| !v.expose_secret().trim().is_empty()).unwrap_or(false),
+            cfg.github_app_repo.as_ref().map(|v| !v.trim().is_empty()).unwrap_or(false),
+        ];
+        let github_app_set = github_app_fields.iter().filter(|v| **v).count();
+        if github_app_set != 0 && github_app_set != github_app_fields.len() {
+            return Err(config::ConfigError::Message(
+                "GITHUB_APP_ID, GITHUB_APP_INSTALLATION_ID, GITHUB_APP_PRIVATE_KEY, and GITHUB_APP_REPO \
+                 must be configured together (self-fix loop)"
+                    .to_string(),
             ));
         }
 
@@ -790,6 +831,10 @@ mod tests {
             project_clone_image: None,
             project_clone_secret_root: None,
             project_clone_timeout_secs: 600,
+            github_app_id: None,
+            github_app_installation_id: None,
+            github_app_private_key: None,
+            github_app_repo: None,
         };
         assert!(cfg.is_production());
     }
@@ -940,6 +985,72 @@ mod tests {
             || {
                 let result = AppConfig::from_env();
                 assert!(result.is_ok(), "should succeed without NATS_URL; got: {:?}", result.err());
+            },
+        );
+    }
+
+    #[test]
+    fn github_app_fields_must_be_all_or_none() {
+        // 1. Only GITHUB_APP_ID set -> partial config rejected at boot.
+        temp_env::with_vars(
+            [
+                ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
+                ("NATS_URL", None),
+                ("GITHUB_APP_ID", Some("123456")),
+                ("GITHUB_APP_INSTALLATION_ID", None),
+                ("GITHUB_APP_PRIVATE_KEY", None),
+                ("GITHUB_APP_REPO", None),
+            ],
+            || {
+                let result = AppConfig::from_env();
+                assert!(result.is_err());
+                let err = result.unwrap_err().to_string();
+                assert!(err.contains("GITHUB_APP_ID"), "error was: {err}");
+                assert!(err.contains("configured together"), "error was: {err}");
+            },
+        );
+
+        // 2. All four set -> loads, fields populated.
+        temp_env::with_vars(
+            [
+                ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
+                ("NATS_URL", None),
+                ("GITHUB_APP_ID", Some("123456")),
+                ("GITHUB_APP_INSTALLATION_ID", Some("789012")),
+                ("GITHUB_APP_PRIVATE_KEY", Some("-----BEGIN PRIVATE KEY-----\nMIIB\n-----END PRIVATE KEY-----")),
+                ("GITHUB_APP_REPO", Some("acme/widgets")),
+            ],
+            || {
+                let cfg = AppConfig::from_env().expect("full GitHub App config should load");
+                assert_eq!(cfg.github_app_id.as_deref(), Some("123456"));
+                assert_eq!(cfg.github_app_installation_id.as_deref(), Some("789012"));
+                assert_eq!(
+                    cfg.github_app_private_key.as_ref().map(|v| v.expose_secret().to_string()),
+                    Some("-----BEGIN PRIVATE KEY-----\nMIIB\n-----END PRIVATE KEY-----".to_string())
+                );
+                assert_eq!(cfg.github_app_repo.as_deref(), Some("acme/widgets"));
+            },
+        );
+
+        // 3. None set -> feature simply disabled, config loads.
+        temp_env::with_vars(
+            [
+                ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
+                ("NATS_URL", None),
+                ("GITHUB_APP_ID", None),
+                ("GITHUB_APP_INSTALLATION_ID", None),
+                ("GITHUB_APP_PRIVATE_KEY", None),
+                ("GITHUB_APP_REPO", None),
+            ],
+            || {
+                let cfg = AppConfig::from_env().expect("absent GitHub App config should load");
+                assert!(cfg.github_app_id.is_none());
+                assert!(cfg.github_app_installation_id.is_none());
+                assert!(cfg.github_app_private_key.is_none());
+                assert!(cfg.github_app_repo.is_none());
             },
         );
     }
@@ -1121,6 +1232,10 @@ mod tests {
             project_clone_image: None,
             project_clone_secret_root: None,
             project_clone_timeout_secs: 600,
+            github_app_id: None,
+            github_app_installation_id: None,
+            github_app_private_key: None,
+            github_app_repo: None,
         };
         let dbg = format!("{cfg:?}");
         for needle in [

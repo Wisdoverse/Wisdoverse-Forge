@@ -473,6 +473,12 @@ pub struct OrchestrationTask {
     pub canceled_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub self_fix: bool,
+    pub base_commit_sha: Option<String>,
+    pub pr_number: Option<i32>,
+    pub pr_url: Option<String>,
+    pub pr_head_sha: Option<String>,
+    pub review_status: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]

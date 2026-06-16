@@ -336,4 +336,25 @@ impl AppState {
     pub(crate) fn workspace_service(&self) -> WorkspaceService {
         WorkspaceService::from_pool(self.pool.clone())
     }
+
+    /// Build a `GithubAppClient` from the four `github_app_*` config fields,
+    /// or `None` if the GitHub App integration is not configured.
+    #[allow(dead_code)]
+    pub(crate) fn github_app_client(&self) -> Option<crate::services::github_app::GithubAppClient> {
+        crate::services::github_app::build_github_app_client(&self.config)
+    }
+
+    /// Build the self-fix PR Bridge service. Carries the (optional) GitHub App
+    /// client; `open_pr` fails with a visible error when it is `None`.
+    #[allow(dead_code)]
+    pub(crate) fn self_fix_service(&self) -> crate::services::self_fix::SelfFixService {
+        crate::services::self_fix::SelfFixService::new(
+            crate::repositories::orchestration::OrchestrationTaskRepository::new(self.pool.clone()),
+            crate::repositories::agent::AgentRepository::new(self.pool.clone()),
+            self.agent_container_control_service(),
+            self.github_app_client(),
+            crate::services::agent_workspace::workspace_root_from_env(),
+            crate::services::self_fix::import::ImportLimits::default(),
+        )
+    }
 }
