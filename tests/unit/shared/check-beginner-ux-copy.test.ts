@@ -681,6 +681,64 @@ export function cliImageStatusErrorMessage(error) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags admin store error copy that explains failure before the next step', () => {
+    const cwd = fixture({
+      'src/app/shared/model/admin.store.ts': `
+export function adminHttpErrorMessage(label) {
+  return \`Forge could not load the admin \${label} right now. Reload the \${label}, then try again.\`
+}
+
+function adminNetworkErrorMessage(resource) {
+  return \`Forge could not connect while loading the admin \${adminResourceLabel(resource)}. Check your connection, then refresh Admin.\`
+}
+
+function adminUserActionNetworkMessage(action) {
+  return \`The \${adminUserActionLabel(action)} could not reach the server. Check your connection and try again.\`
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'admin-store-error-copy',
+          location: 'src/app/shared/model/admin.store.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'admin-store-error-copy',
+          location: 'src/app/shared/model/admin.store.ts:7',
+        }),
+        expect.objectContaining({
+          type: 'admin-store-error-copy',
+          location: 'src/app/shared/model/admin.store.ts:11',
+        }),
+      ])
+    )
+  })
+
+  it('accepts admin store error copy that starts with the recovery step', () => {
+    const cwd = fixture({
+      'src/app/shared/model/admin.store.ts': `
+export function adminHttpErrorMessage(label) {
+  return \`Reload the \${label}, then try again. Forge could not load the admin \${label} right now.\`
+}
+
+function adminNetworkErrorMessage(resource) {
+  return \`Check your connection, then refresh Admin. Forge could not connect while loading the admin \${adminResourceLabel(resource)}.\`
+}
+
+function adminUserActionNetworkMessage(action) {
+  return \`Check your connection, then try again. The \${adminUserActionLabel(action)} could not reach the server.\`
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags Settings load error titles that do not tell users to refresh Settings', () => {
     const cwd = fixture({
       'src/app/features/settings/providerSettingsErrorMessage.ts': `

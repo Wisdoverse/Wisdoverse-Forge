@@ -80,7 +80,7 @@ describe('adminHttpErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'Forge could not load the admin system health right now. Reload the system health, then try again. If it still fails, ask an owner or admin to check Admin setup.'
+      'Reload the system health, then try again. Forge could not load the admin system health right now. If it still fails, ask an owner or admin to check Admin setup.'
     )
     expect(message).not.toContain('temporarily unavailable')
     expect(message).not.toContain('admin service')
@@ -91,7 +91,7 @@ describe('adminHttpErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'The admin agent list is not available from this Admin view. Refresh Admin, then try again. If it still fails, ask an owner or admin to check setup.'
+      'Refresh Admin, then try again. The admin agent list is not available from this Admin view. If it still fails, ask an owner or admin to check setup.'
     )
     expect(message).not.toContain('service')
   })
@@ -123,7 +123,7 @@ describe('useAdminStore loading errors', () => {
     await useAdminStore.getState().loadOrgs()
 
     expect(useAdminStore.getState().orgsError).toBe(
-      'Forge could not connect while loading the admin team space list. Check your connection, then refresh Admin.'
+      'Check your connection, then refresh Admin. Forge could not connect while loading the admin team space list.'
     )
     expect(useAdminStore.getState().orgsError).not.toContain('could not reach the service')
   })
@@ -148,7 +148,7 @@ describe('useAdminStore loading errors', () => {
 
     expectBeginnerError(
       useAdminStore.getState().healthError,
-      'Forge could not load the admin system health right now. Reload the system health, then try again. If it still fails, ask an owner or admin to check Admin setup.'
+      'Reload the system health, then try again. Forge could not load the admin system health right now. If it still fails, ask an owner or admin to check Admin setup.'
     )
     expect(useAdminStore.getState().healthError).not.toContain('temporarily unavailable')
   })
@@ -549,7 +549,7 @@ describe('useAdminStore loading errors', () => {
 
     expect(ok).toBe(false)
     expect(useAdminStore.getState().userActionError).toBe(
-      'The removal could not reach the server. Check your connection and try again.'
+      'Check your connection, then try again. The removal could not reach the server.'
     )
     expect(useAdminStore.getState().users).toHaveLength(2)
   })
@@ -571,11 +571,11 @@ describe('useAdminStore loading errors', () => {
       'This user is no longer in the list. Reload the user list to see the latest accounts.'
     )
     expect(adminUserActionErrorMessage('change-role', 500, { error: 'db down' })).toBe(
-      'Forge could not finish the access change right now. Reload the user list, then try again. If it still fails, ask an owner or admin to check Admin setup.'
+      'Reload the user list, then try again. Forge could not finish the access change right now. If it still fails, ask an owner or admin to check Admin setup.'
     )
     // 422 without a usable detail falls back to the generic retry step.
     expect(adminUserActionErrorMessage('change-role', 422)).toBe(
-      'The access change did not go through. Refresh the user list, then try again.'
+      'Refresh the user list, then try again. The access change did not go through.'
     )
     expect(adminUserActionErrorMessage('change-role', 500, { error: 'db down' })).not.toContain(
       'db down'

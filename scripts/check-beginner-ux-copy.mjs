@@ -196,6 +196,16 @@ const ADMIN_LOAD_ERROR_DEAD_END_PATTERNS = [
   /\bThe agent tool update status could not load\./i,
 ]
 
+const ADMIN_STORE_ERROR_FAILURE_FIRST_PATTERNS = [
+  /^\s*return\s+`The admin \$\{label\} is not available/,
+  /^\s*return\s+`Forge could not load the admin \$\{label\}/,
+  /^\s*return\s+`The admin \$\{label\} could not load/,
+  /^\s*return\s+`Forge could not connect while loading the admin \$\{adminResourceLabel\(resource\)\}/,
+  /^\s*return\s+`Forge could not finish \$\{adminUserActionRecovery\(action\)\}/,
+  /^\s*return\s+`The \$\{label\} did not go through/,
+  /^\s*return\s+`The \$\{adminUserActionLabel\(action\)\} could not reach the server\b/,
+]
+
 const RUNTIME_SHORT_LABEL_JARGON_PATTERNS = [
   /\bWork location not reported\b/i,
   /\bLocation missing\b/i,
@@ -1280,6 +1290,11 @@ function hasAdminAgentEmptyDeadEndCopy(relFile, line) {
 function hasAdminLoadErrorDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/admin/adminErrorCopy.ts')) return false
   return ADMIN_LOAD_ERROR_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAdminStoreErrorFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/shared/model/admin.store.ts')) return false
+  return ADMIN_STORE_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasRuntimeShortLabelJargonCopy(relFile, line) {
@@ -2575,6 +2590,15 @@ function scanFile(file, relFile) {
         type: 'admin-load-error-copy',
         location,
         message: 'Admin load error titles must tell beginners what to refresh or check.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAdminStoreErrorFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'admin-store-error-copy',
+        location,
+        message: 'Admin store error copy must start with the next step for beginners.',
         sample: line.trim(),
       })
     }
