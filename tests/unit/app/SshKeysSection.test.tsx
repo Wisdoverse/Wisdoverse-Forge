@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { SshKeysSection } from '@app/features/settings/SshKeysSection'
 import { useSettingsStore } from '@app/shared/model/settings.store'
 import type { UserSshKey } from '@app/entities/agent'
@@ -119,6 +120,7 @@ describe('SshKeysSection', () => {
   })
 
   test('explains the impact before removing git@ Repository Access', async () => {
+    const user = userEvent.setup()
     useSettingsStore.setState({ sshKeys: [sshKey()] })
 
     render(<SshKeysSection />)
@@ -140,14 +142,28 @@ describe('SshKeysSection', () => {
         'Removing this access can block agents that use private code links starting with git@.'
       )
     ).toBeDefined()
+    expect(screen.getByRole('button', { name: /keep access/i })).toBeDefined()
 
-    fireEvent.click(
-      screen.getByRole('button', {
+    await user.click(screen.getByRole('button', { name: /keep access/i }))
+    expect(screen.queryByText(/removing this access can block agents/i)).toBeNull()
+    expect(deleteSshKeyMock).not.toHaveBeenCalled()
+
+    await user.click(
+      screen.getByRole('button', { name: /remove work laptop git@ Repository Access/i })
+    )
+    const removeNowButton = screen.getByRole('button', {
         name: /confirm removing work laptop git@ Repository Access/i,
-      })
+    })
+    deleteSshKeyMock.mockImplementationOnce(
+      () => new Promise((resolve) => setTimeout(() => resolve(true), 20))
     )
 
-    expect(deleteSshKeyMock).toHaveBeenCalledWith('ssh-key-1')
+    await user.click(removeNowButton)
+    expect(removeNowButton).toHaveTextContent('Removing...')
+    expect(removeNowButton).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByRole('button', { name: /keep access/i })).toBeDisabled()
+
+    await waitFor(() => expect(deleteSshKeyMock).toHaveBeenCalledWith('ssh-key-1'))
   })
 
   test('explains missing git@ Repository Access dates instead of showing raw date failures', async () => {

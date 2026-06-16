@@ -102,6 +102,7 @@ describe('GitCredentialsSection', () => {
   })
 
   test('uses a clear confirmation label before removing code access', async () => {
+    const user = userEvent.setup()
     const credential: GitCredential = {
       id: 'git-1',
       provider: 'github',
@@ -126,8 +127,27 @@ describe('GitCredentialsSection', () => {
     })
     expect(confirmButton).toHaveTextContent('Remove access now')
     expect(confirmButton).not.toHaveTextContent('Remove access?')
+    expect(screen.getByRole('button', { name: /keep access/i })).toBeDefined()
+    expect(
+      screen.getByText(/removing this access can stop agents from opening private code on GitHub/i)
+    ).toBeDefined()
 
-    fireEvent.click(confirmButton)
+    await user.click(screen.getByRole('button', { name: /keep access/i }))
+    expect(screen.queryByText(/removing this access can stop agents/i)).toBeNull()
+    expect(deleteGitCredentialMock).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: /remove github code access/i }))
+    const removeNowButton = screen.getByRole('button', {
+      name: /confirm removing github code access/i,
+    })
+    deleteGitCredentialMock.mockImplementationOnce(
+      () => new Promise((resolve) => setTimeout(() => resolve(true), 20))
+    )
+
+    await user.click(removeNowButton)
+    expect(removeNowButton).toHaveTextContent('Removing...')
+    expect(removeNowButton).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByRole('button', { name: /keep access/i })).toBeDisabled()
 
     await waitFor(() => {
       expect(deleteGitCredentialMock).toHaveBeenCalledWith('git-1')

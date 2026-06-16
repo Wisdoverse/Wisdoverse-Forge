@@ -30,20 +30,23 @@ const SSH_KEY_SETUP_STEPS = [
 
 interface SshKeyRowProps {
   sshKey: UserSshKey
-  onDelete: (id: string) => void
+  onDelete: (id: string) => Promise<boolean>
 }
 
 function SshKeyRow({ sshKey, onDelete }: SshKeyRowProps) {
   const [confirming, setConfirming] = useState(false)
+  const [removing, setRemoving] = useState(false)
   const removeWarningId = `ssh-key-remove-warning-${sshKey.id}`
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!confirming) {
       setConfirming(true)
       return
     }
-    onDelete(sshKey.id)
-    setConfirming(false)
+    setRemoving(true)
+    const removed = await onDelete(sshKey.id)
+    setRemoving(false)
+    if (removed) setConfirming(false)
   }
 
   return (
@@ -72,19 +75,33 @@ function SshKeyRow({ sshKey, onDelete }: SshKeyRowProps) {
         </span>
       </td>
       <td className={cn(uiStyles.tableCell, 'text-right')}>
-        <button
-          type="button"
-          onClick={handleDelete}
-          aria-label={
-            confirming
-              ? `Confirm removing ${sshKey.label} git@ Repository Access`
-              : `Remove ${sshKey.label} git@ Repository Access`
-          }
-          aria-describedby={confirming ? removeWarningId : undefined}
-          className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
-        >
-          {confirming ? 'Remove access now' : 'Remove'}
-        </button>
+        <div className="flex flex-wrap justify-end gap-2">
+          {confirming && (
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              disabled={removing}
+              className={uiStyles.subtleButton}
+            >
+              Keep access
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => void handleDelete()}
+            disabled={removing}
+            aria-label={
+              confirming
+                ? `Confirm removing ${sshKey.label} git@ Repository Access`
+                : `Remove ${sshKey.label} git@ Repository Access`
+            }
+            aria-describedby={confirming ? removeWarningId : undefined}
+            aria-busy={removing || undefined}
+            className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
+          >
+            {removing ? 'Removing...' : confirming ? 'Remove access now' : 'Remove'}
+          </button>
+        </div>
         {confirming && (
           <p id={removeWarningId} className="ml-auto mt-1 max-w-44 text-ui-caption text-apple-red">
             Removing this access can block agents that use private code links starting with git@.
@@ -279,7 +296,7 @@ export function SshKeysSection() {
   }
 
   async function handleDelete(id: string) {
-    await deleteSshKey(id)
+    return deleteSshKey(id)
   }
 
   const tableHeaders: { label: string; className?: string }[] = [

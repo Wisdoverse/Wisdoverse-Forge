@@ -63,19 +63,23 @@ function credentialFormReadiness({
 
 interface CredentialRowProps {
   credential: GitCredential
-  onDelete: (id: string) => void
+  onDelete: (id: string) => Promise<boolean>
 }
 
 function CredentialRow({ credential, onDelete }: CredentialRowProps) {
   const [confirming, setConfirming] = useState(false)
+  const [removing, setRemoving] = useState(false)
+  const removeWarningId = `code-access-remove-warning-${credential.id}`
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!confirming) {
       setConfirming(true)
       return
     }
-    onDelete(credential.id)
-    setConfirming(false)
+    setRemoving(true)
+    const removed = await onDelete(credential.id)
+    setRemoving(false)
+    if (removed) setConfirming(false)
   }
 
   return (
@@ -99,18 +103,39 @@ function CredentialRow({ credential, onDelete }: CredentialRowProps) {
         </span>
       </td>
       <td className={cn(uiStyles.tableCell, 'text-right')}>
-        <button
-          type="button"
-          onClick={handleDelete}
-          aria-label={
-            confirming
-              ? `Confirm removing ${PROVIDER_LABELS[credential.provider]} code access`
-              : `Remove ${PROVIDER_LABELS[credential.provider]} code access`
-          }
-          className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
-        >
-          {confirming ? 'Remove access now' : 'Remove'}
-        </button>
+        <div className="flex flex-wrap justify-end gap-2">
+          {confirming && (
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              disabled={removing}
+              className={uiStyles.subtleButton}
+            >
+              Keep access
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => void handleDelete()}
+            disabled={removing}
+            aria-label={
+              confirming
+                ? `Confirm removing ${PROVIDER_LABELS[credential.provider]} code access`
+                : `Remove ${PROVIDER_LABELS[credential.provider]} code access`
+            }
+            aria-describedby={confirming ? removeWarningId : undefined}
+            aria-busy={removing || undefined}
+            className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
+          >
+            {removing ? 'Removing...' : confirming ? 'Remove access now' : 'Remove'}
+          </button>
+        </div>
+        {confirming && (
+          <p id={removeWarningId} className="ml-auto mt-1 max-w-48 text-ui-caption text-apple-red">
+            Removing this access can stop agents from opening private code on{' '}
+            {PROVIDER_LABELS[credential.provider]}.
+          </p>
+        )}
       </td>
     </tr>
   )
@@ -356,7 +381,7 @@ export function GitCredentialsSection() {
   }
 
   async function handleDelete(id: string) {
-    await deleteGitCredential(id)
+    return deleteGitCredential(id)
   }
 
   const existingProviders = gitCredentials.map((c) => c.provider)
