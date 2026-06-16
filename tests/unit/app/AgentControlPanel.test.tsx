@@ -221,10 +221,12 @@ describe('AgentControlPanel', () => {
   test('disables quick instructions when a chat-only agent is offline', () => {
     render(<AgentControlPanel agent={offlineTextOnlyAgent} onDeleted={() => {}} />)
 
-    expect(screen.getByText('Chat-only AI service is offline')).toBeDefined()
+    expect(screen.getByText('AI service needs a check')).toBeDefined()
     expect(screen.getByText('Check AI service before sending')).toBeDefined()
-    expect(screen.getAllByText(/check the AI service in Settings, refresh Agents/i).length).toBe(3)
+    expect(screen.getAllByText(/Open Settings > AI services, click Check/i).length).toBe(3)
     expect(screen.queryByText('Ready for chat and tracked tasks')).toBeNull()
+    expect(screen.queryByText('Chat-only AI service is offline')).toBeNull()
+    expect(screen.queryByText(/This chat-only agent is not connected/i)).toBeNull()
 
     const instructionInput = screen.getByLabelText(/send one instruction/i)
     expect(instructionInput).toBeDisabled()

@@ -18,6 +18,9 @@ const LOCAL_AGENT_CONTROL_FAILURE = {
   removeAgent: 'local-remove-agent-failed',
 } as const
 
+const CHAT_ONLY_AI_SERVICE_RECOVERY_DETAIL =
+  'Open Settings > AI services, click Check on this service, refresh Agents, then send messages or Tasks after it shows Ready.'
+
 interface AgentControlPanelProps {
   agent: AgentInfo
   onDeleted: () => void
@@ -411,9 +414,8 @@ function getControlSummary(
 
   if (agent.status === 'offline') {
     return {
-      title: 'Chat-only AI service is offline',
-      detail:
-        'Check the AI service in Settings, refresh Agents, then send a message after it shows Ready.',
+      title: 'AI service needs a check',
+      detail: CHAT_ONLY_AI_SERVICE_RECOVERY_DETAIL,
       Icon: AlertTriangle,
     }
   }
@@ -445,8 +447,7 @@ function getReadyActionInfo(
   if (agent.status === 'offline') {
     return {
       title: 'Check AI service before sending',
-      detail:
-        'This chat-only agent is not connected. Check the AI service in Settings, refresh Agents, then use messages or Tasks after it shows Ready.',
+      detail: CHAT_ONLY_AI_SERVICE_RECOVERY_DETAIL,
     }
   }
 
@@ -497,8 +498,7 @@ function getMessageAvailability(
 
   return {
     canSend: false,
-    detail:
-      'This chat-only agent is not connected. Check the AI service in Settings, refresh Agents, then send a message after it shows Ready.',
+    detail: CHAT_ONLY_AI_SERVICE_RECOVERY_DETAIL,
   }
 }
 
