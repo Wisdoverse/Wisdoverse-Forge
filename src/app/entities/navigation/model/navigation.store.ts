@@ -99,6 +99,18 @@ function navigationActionPhrase(area: NavigationErrorArea, action: NavigationErr
   }
 }
 
+function navigationPermissionMessage(
+  area: NavigationErrorArea,
+  action: NavigationErrorAction
+): string {
+  const actionPhrase = navigationActionPhrase(area, action)
+  const retry =
+    action === 'create'
+      ? `choose the project and ${actionPhrase} again`
+      : `refresh the left menu to ${actionPhrase}`
+  return `Ask an owner or admin to update your team space access, then ${retry}. You do not have permission to ${actionPhrase}.`
+}
+
 function rawNavigationErrorMessage(error: unknown): string | null {
   if (typeof error === 'string' && error.trim()) return error.trim()
   if (error instanceof Error && error.message.trim()) return error.message.trim()
@@ -206,7 +218,7 @@ export function navigationActionErrorMessage(
     return `Sign in again, then open the left menu and try to ${actionPhrase} again.`
   }
   if (status === 403) {
-    return `You do not have permission to ${actionPhrase}. Ask an owner or admin to update your team space access.`
+    return navigationPermissionMessage(area, action)
   }
   if (status === 404) {
     return `The left menu is not ready for ${NAVIGATION_AREA_LABELS[area]} yet. Refresh it, then try again.`

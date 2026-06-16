@@ -7485,6 +7485,38 @@ function serviceRecoveryMessage() {
     )
   })
 
+  it('flags navigation permission errors that start with the failure', () => {
+    const cwd = fixture({
+      'src/app/entities/navigation/model/navigation.store.ts': `
+function navigationActionErrorMessage(actionPhrase) {
+  return \`You do not have permission to \${actionPhrase}. Ask an owner or admin to update your team space access.\`
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'navigation-error-copy',
+        location: 'src/app/entities/navigation/model/navigation.store.ts:3',
+      }),
+    ])
+  })
+
+  it('accepts navigation permission errors that start with the next step', () => {
+    const cwd = fixture({
+      'src/app/entities/navigation/model/navigation.store.ts': `
+function navigationActionErrorMessage(actionPhrase) {
+  return \`Ask an owner or admin to update your team space access, then refresh the left menu to \${actionPhrase}. You do not have permission to \${actionPhrase}.\`
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags task detail load copy that starts with the failure instead of the next step', () => {
     const cwd = fixture({
       'src/app/features/detail/taskDetailErrorMessages.ts': `

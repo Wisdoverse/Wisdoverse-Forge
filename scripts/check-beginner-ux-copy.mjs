@@ -835,6 +835,10 @@ const DUPLICATE_RECOVERY_COPY_PATTERNS = [
   /\bForge could not load workspace navigation right now\. Refresh the sidebar, then try again\./i,
 ]
 
+const NAVIGATION_ERROR_FAILURE_FIRST_PATTERNS = [
+  /^\s*return\s+`You do not have permission to \$\{actionPhrase\}\. Ask an owner/i,
+]
+
 const TASK_FORM_AGENT_STATUS_DEAD_END_PATTERNS = [/\bstatus not reported\b/i]
 
 const TASK_FORM_QUEUE_LOAD_FAILURE_FIRST_PATTERNS = [
@@ -2437,6 +2441,12 @@ function hasDuplicateRecoveryDeadEndCopy(relFile, line) {
   return DUPLICATE_RECOVERY_COPY_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasNavigationErrorFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/entities/navigation/model/navigation.store.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return NAVIGATION_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function scanFile(file, relFile) {
   const lines = fs.readFileSync(file, 'utf8').split('\n')
   const findings = []
@@ -3905,6 +3915,15 @@ function scanFile(file, relFile) {
         type: 'duplicate-recovery-copy',
         location,
         message: 'Recovery copy must avoid repeating the same refresh or retry step.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasNavigationErrorFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'navigation-error-copy',
+        location,
+        message: 'Navigation errors must start with the next action, not the permission failure.',
         sample: line.trim(),
       })
     }

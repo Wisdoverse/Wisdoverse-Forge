@@ -55,19 +55,19 @@ describe('navigation.store', () => {
   it('turns permission failures into team space access guidance', () => {
     expectBeginnerError(
       navigationActionErrorMessage('teamProjects', 'load', apiError(403, { message: 'forbidden' })),
-      'You do not have permission to load teams and projects. Ask an owner or admin to update your team space access.'
+      'Ask an owner or admin to update your team space access, then refresh the left menu to load teams and projects. You do not have permission to load teams and projects.'
     )
   })
 
   it('turns structured permission failures into team space access guidance', () => {
-    const message = navigationActionErrorMessage('teamProjects', 'load', {
+    const message = navigationActionErrorMessage('workLane', 'create', {
       serverError: 'owner policy denied for team list',
       status: '403',
     })
 
     expectBeginnerError(
       message,
-      'You do not have permission to load teams and projects. Ask an owner or admin to update your team space access.'
+      'Ask an owner or admin to update your team space access, then choose the project and create the task queue again. You do not have permission to create the task queue.'
     )
     expect(message).not.toContain('owner policy denied')
     expect(message).not.toContain('workspace access')
@@ -340,7 +340,7 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       useNavigationStore.getState().error,
-      'You do not have permission to load teams and projects. Ask an owner or admin to update your team space access.'
+      'Ask an owner or admin to update your team space access, then refresh the left menu to load teams and projects. You do not have permission to load teams and projects.'
     )
   })
 
