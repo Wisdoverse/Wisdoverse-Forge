@@ -87,9 +87,9 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
         </p>
       ) : (
         <p>
-          This chat-only AI service can plan, write, and review in chat, but it cannot open project
-          files on its own. Choose an agent on this computer or in a managed workspace when the task
-          must inspect or edit files.
+          This agent answers in chat through an AI service. It can plan, write, and review text, but
+          it cannot open project files on its own. For file work, use an agent on this computer or
+          in a managed workspace.
         </p>
       )}
     </div>
@@ -126,7 +126,7 @@ function agentConnectionStatus(agent: AgentInfo): string {
       : 'Paste setup text on this computer again'
   }
   if (agent.cliTool) return agent.containerId ? 'Ready in managed workspace' : 'Waiting to start'
-  return 'Uses AI service connection'
+  return 'AI service is ready for chat'
 }
 
 function agentAvailabilityLabel(agent: AgentInfo): string {
@@ -134,7 +134,7 @@ function agentAvailabilityLabel(agent: AgentInfo): string {
   if (agent.status === 'working') return 'Already working'
   if (isHostCliAgent(agent)) return 'Paste setup text again on this computer'
   if (agent.cliTool) return 'Open Live work and start workspace'
-  return 'Open Settings and check AI service'
+  return 'Open AI service settings and click Check'
 }
 
 interface AgentDetailViewProps {
@@ -369,10 +369,10 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
     }
 
     return {
-      title: 'Fix setup before sending work',
+      title: 'Check the AI service before sending work',
       detail:
-        'This chat-only AI service is offline. Open Settings and check that the AI service is ready before sending work.',
-      success: 'The agent returns to Ready and can receive tasks.',
+        'Open AI service settings, click Check for this connection, then refresh Agents before sending chat work.',
+      success: 'The agent returns to Ready and can answer in chat.',
       ready: false,
       targetHref: '/settings/providers',
       actionLabel: 'Open AI service settings',
@@ -513,7 +513,8 @@ function AssignmentFitCard({
   const availability = agentAvailabilityLabel(agent)
   const hostCli = isHostCliAgent(agent)
   const runtime = agentRuntimeLabel(agent)
-  let credential = 'Settings shows whether the AI service is ready.'
+  let credential =
+    'Open AI service settings to confirm this chat-only agent can answer. Use another agent for file work.'
   if (hostCli) {
     credential = 'Uses the tool accounts and project files available on this computer.'
   } else if (agent.cliTool === 'codex') {
@@ -586,7 +587,7 @@ function ProfileSummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0 rounded-lg bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04]">
       <span className="block text-secondary-light dark:text-secondary-dark">{label}</span>
-      <span className="mt-0.5 block truncate font-medium text-foreground-light dark:text-foreground-dark">
+      <span className="mt-0.5 block break-words font-medium text-foreground-light dark:text-foreground-dark">
         {value}
       </span>
     </div>

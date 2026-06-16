@@ -380,9 +380,11 @@ describe('AgentDetailView', () => {
   test('guides offline chat-only agents to AI service settings', () => {
     render(<AgentDetailView agent={{ ...providerAgent, status: 'offline' }} onBack={() => {}} />)
 
-    expect(screen.getByText('Fix setup before sending work')).toBeDefined()
-    expect(screen.getByText('Open Settings and check AI service')).toBeDefined()
-    expect(screen.getByText(/Open Settings and check that the AI service is ready/i)).toBeDefined()
+    expect(screen.getByText('Check the AI service before sending work')).toBeDefined()
+    expect(screen.getByText('Open AI service settings and click Check')).toBeDefined()
+    expect(screen.getByText(/click Check for this connection/i)).toBeDefined()
+    expect(screen.getByText(/refresh Agents before sending chat work/i)).toBeDefined()
+    expect(screen.getByText(/returns to Ready and can answer in chat/i)).toBeDefined()
     expect(screen.getByRole('link', { name: /open AI service settings/i })).toHaveAttribute(
       'href',
       '/settings/providers'
@@ -416,14 +418,16 @@ describe('AgentDetailView', () => {
     expect(screen.getAllByText('Use another agent for file work').length).toBeGreaterThan(0)
     expect(screen.queryByText('No file access needed')).toBeNull()
     expect(screen.getByText('Connection')).toBeDefined()
-    expect(screen.getByText('Uses AI service connection')).toBeDefined()
+    expect(screen.getByText('AI service is ready for chat')).toBeDefined()
     expect(screen.getAllByText('Chat-only AI service').length).toBeGreaterThan(0)
-    expect(screen.getByText(/can plan, write, and review in chat/i)).toBeDefined()
+    expect(screen.getByText(/answers in chat through an AI service/i)).toBeDefined()
+    expect(screen.getByText(/can plan, write, and review text/i)).toBeDefined()
     expect(screen.getByText(/cannot open project files on its own/i)).toBeDefined()
-    expect(
-      screen.getByText(/choose an agent on this computer or in a managed workspace/i)
-    ).toBeDefined()
-    expect(screen.getByText(/settings shows whether the AI service is ready/i)).toBeDefined()
+    expect(screen.getByText(/for file work, use an agent on this computer/i)).toBeDefined()
+    const accessNote = screen.getByText(/confirm this chat-only agent can answer/i)
+    expect(accessNote).toBeDefined()
+    expect(accessNote).toHaveClass('break-words')
+    expect(accessNote).not.toHaveClass('truncate')
     expect(screen.queryByText('Not needed for this agent')).toBeNull()
     expect(screen.queryByText('Not needed')).toBeNull()
     expect(screen.queryByText(/model provider/i)).toBeNull()
