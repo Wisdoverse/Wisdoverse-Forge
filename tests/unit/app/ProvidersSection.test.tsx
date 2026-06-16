@@ -249,14 +249,20 @@ describe('ProvidersSection', () => {
 
     fireEvent.click(within(nextStep).getByRole('button', { name: /add AI service/i }))
 
-    const catalog = screen.getByRole('group', { name: /built-in provider catalog/i })
-    expect(within(catalog).getByRole('button', { name: /anthropic/i })).toBeDefined()
-    fireEvent.click(within(catalog).getByRole('button', { name: /anthropic/i }))
+    expect(screen.getByRole('button', { name: /known AI services/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /custom service address/i })).toBeDefined()
+    expect(screen.queryByText(/built-in catalog/i)).toBeNull()
+    expect(screen.queryByText(/custom \/ gateway/i)).toBeNull()
+
+    const serviceChoices = screen.getByRole('group', { name: /known AI services/i })
+    expect(within(serviceChoices).getByRole('button', { name: /anthropic/i })).toBeDefined()
+    fireEvent.click(within(serviceChoices).getByRole('button', { name: /anthropic/i }))
 
     expect(screen.getByLabelText(/^model to use$/i)).toHaveValue('claude-sonnet-4-20250514')
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
       /next: paste the service access key/i
     )
+    expect(screen.getByText(/service address and model are filled in/i)).toBeDefined()
     expect(screen.getByText(/paste the service access key and save/i)).toBeDefined()
     const saveButton = screen.getByRole('button', { name: /save AI service/i })
     expect(saveButton).toBeDisabled()
@@ -304,7 +310,7 @@ describe('ProvidersSection', () => {
 
     const nextStep = await screen.findByTestId('provider-next-step')
     fireEvent.click(within(nextStep).getByRole('button', { name: /add AI service/i }))
-    fireEvent.click(screen.getByRole('button', { name: /custom \/ gateway/i }))
+    fireEvent.click(screen.getByRole('button', { name: /custom service address/i }))
 
     expect(screen.getByText('3 steps to connect an AI account')).toBeDefined()
     expect(screen.getByText('Paste service access key')).toBeDefined()
@@ -318,6 +324,7 @@ describe('ProvidersSection', () => {
     expect(within(providerSelect).queryByRole('option', { name: 'Zhipu GLM' })).toBeNull()
     expect(screen.getByLabelText(/service address/i)).toBeDefined()
     expect(screen.queryByLabelText(/^private key/i)).toBeNull()
+    expect(screen.queryByText(/gateway setup path/i)).toBeNull()
   })
 
   test('does not treat disabled-only providers as ready', async () => {
@@ -409,9 +416,9 @@ describe('ProvidersSection', () => {
     const nextStep = await screen.findByTestId('provider-next-step')
     fireEvent.click(within(nextStep).getByRole('button', { name: /add AI service/i }))
 
-    const catalog = screen.getByRole('group', { name: /built-in provider catalog/i })
-    expect(within(catalog).queryByRole('button', { name: /zhipu glm coding plan/i })).toBeNull()
-    fireEvent.click(within(catalog).getByRole('button', { name: /zhipu glm/i }))
+    const serviceChoices = screen.getByRole('group', { name: /known AI services/i })
+    expect(within(serviceChoices).queryByRole('button', { name: /zhipu glm coding plan/i })).toBeNull()
+    fireEvent.click(within(serviceChoices).getByRole('button', { name: /zhipu glm/i }))
 
     expect(screen.getByLabelText(/^model to use$/i)).toHaveValue('glm-4.7')
     expect(screen.getByRole('group', { name: /^plan$/i })).toBeDefined()
@@ -442,8 +449,8 @@ describe('ProvidersSection', () => {
     const nextStep = await screen.findByTestId('provider-next-step')
     fireEvent.click(within(nextStep).getByRole('button', { name: /add AI service/i }))
 
-    const catalog = screen.getByRole('group', { name: /built-in provider catalog/i })
-    fireEvent.click(within(catalog).getByRole('button', { name: /zhipu glm/i }))
+    const serviceChoices = screen.getByRole('group', { name: /known AI services/i })
+    fireEvent.click(within(serviceChoices).getByRole('button', { name: /zhipu glm/i }))
 
     // Switch to the Coding Plan and Global region.
     fireEvent.click(

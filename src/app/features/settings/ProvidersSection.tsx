@@ -1069,7 +1069,7 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
           onClick={onCancel}
           className="text-ui-caption font-medium text-apple-blue hover:underline"
         >
-          Back to catalog
+          Back to service list
         </button>
       </div>
 
@@ -1238,7 +1238,7 @@ function CatalogGrid({
   return (
     <div
       role="group"
-      aria-label="Built-in provider catalog"
+      aria-label="Known AI services"
       className="grid gap-2 p-4 sm:grid-cols-2 lg:grid-cols-3"
     >
       {vendors.map((vendor) => {
@@ -1279,7 +1279,7 @@ function CatalogGrid({
 }
 
 // ============================================================================
-// Custom / Gateway form (bring-your-own endpoint)
+// Custom service address form
 // ============================================================================
 
 interface AddProviderFormProps {
@@ -1664,7 +1664,7 @@ function AddProviderPanel({
       <div className="flex flex-col gap-3 px-4 pt-4 sm:flex-row sm:items-center sm:justify-between">
         <div
           role="group"
-          aria-label="Add provider method"
+          aria-label="Choose how to add an AI service"
           className="inline-flex rounded-full bg-black/[0.04] p-0.5 dark:bg-white/[0.06]"
         >
           <button
@@ -1679,7 +1679,7 @@ function AddProviderPanel({
             )}
           >
             <Plus size={13} strokeWidth={2.25} aria-hidden="true" />
-            Built-in catalog
+            Known AI services
           </button>
           <button
             type="button"
@@ -1693,7 +1693,7 @@ function AddProviderPanel({
             )}
           >
             <SlidersHorizontal size={13} strokeWidth={2.25} aria-hidden="true" />
-            Custom / Gateway
+            Custom service address
           </button>
         </div>
         <button
@@ -1716,8 +1716,8 @@ function AddProviderPanel({
         ) : (
           <>
             <p className="px-4 pt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Pick a vendor for a minimal setup — base URL and model are filled in for you. Need a
-              private endpoint? Switch to Custom / Gateway.
+              Pick a known AI service. Forge fills in the service address and model for you. If your
+              setup guide gives you a private address, choose Custom service address.
             </p>
             <CatalogGrid
               vendors={vendors}
