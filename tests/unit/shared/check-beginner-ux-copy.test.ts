@@ -7927,6 +7927,38 @@ function needsActionEmptyState() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags inbox load errors that start with the failure summary', () => {
+    const cwd = fixture({
+      'src/app/features/inbox/InboxView.tsx': `
+function InboxLoadError() {
+  return 'Saved notifications could not be loaded. New updates will still appear here. Check your connection, then reload the inbox.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'inbox-load-error-copy',
+        location: 'src/app/features/inbox/InboxView.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts inbox load errors that start with the reload action', () => {
+    const cwd = fixture({
+      'src/app/features/inbox/InboxView.tsx': `
+function InboxLoadError() {
+  return 'Check your connection, then reload the inbox. Saved notifications could not be loaded, but new updates will still appear here.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags recoverable failure copy without a next action', () => {
     const cwd = fixture({
       'src/app/features/tasks/TaskFailure.tsx': `

@@ -423,8 +423,10 @@ describe('InboxView', () => {
     render(<InboxView />)
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Saved notifications could not be loaded')
-    expect(alert).toHaveTextContent('Check your connection, then reload the inbox.')
+    expect(alert).toHaveTextContent(
+      'Check your connection, then reload the inbox. Saved notifications could not be loaded'
+    )
+    expect(alert.textContent).not.toMatch(/^Saved notifications could not be loaded/)
 
     await userEvent.setup().click(screen.getByRole('button', { name: /reload inbox/i }))
     await waitFor(() =>

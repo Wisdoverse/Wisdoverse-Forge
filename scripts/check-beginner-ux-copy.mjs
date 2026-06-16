@@ -249,6 +249,11 @@ const SAVED_ITEM_SELECTION_EMPTY_DEAD_END_PATTERNS = [
 
 const INBOX_NEEDS_ACTION_EMPTY_DEAD_END_PATTERNS = [/\bNothing needs action right now\b/i]
 
+const INBOX_LOAD_FAILURE_FIRST_PATTERNS = [
+  /^\s*(?:return\s+)?['"`]?Saved notifications could not be loaded\. New updates will still appear here\b/i,
+  /^\s*(?:return\s+)?['"`]?Saved notifications could not be loaded, but new updates will still appear here\b/i,
+]
+
 const TASK_AGENT_ASSIGNMENT_DEAD_END_PATTERNS = [
   /\bNo agent assigned yet\b/i,
   /\bAgent not reported yet\b/i,
@@ -1326,6 +1331,12 @@ function hasInboxNeedsActionEmptyDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/inbox/InboxView.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return INBOX_NEEDS_ACTION_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasInboxLoadFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/inbox/InboxView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return INBOX_LOAD_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasTaskAgentAssignmentDeadEndCopy(relFile, line) {
@@ -2639,6 +2650,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Inbox action-item empty states must say the user is caught up instead of using vague nothing-copy.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasInboxLoadFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'inbox-load-error-copy',
+        location,
+        message: 'Inbox load errors must start with the reload action, not the failure summary.',
         sample: line.trim(),
       })
     }
