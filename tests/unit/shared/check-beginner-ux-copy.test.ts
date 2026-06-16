@@ -4535,7 +4535,7 @@ export function AgentDetailView() {
 `,
       'src/app/entities/agent/model/agents.store.ts': `
 export function agentError() {
-  return 'Forge could not prepare the setup text for this computer. Check your connection, then choose Create Agent again.'
+  return 'Check your connection, then choose Create Agent again. Forge could not prepare the setup text for this computer.'
 }
 `,
       'src/app/shared/model/agents.store.ts': `
@@ -4545,6 +4545,64 @@ export const THIS_COMPUTER_SETUP_ERROR =
       'src/app/shared/i18n/locales/en.ts': `
 export const en = {
   detail: 'Setup text needs to be pasted again',
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags agent store errors that explain failure before the next step', () => {
+    const cwd = fixture({
+      'src/app/entities/agent/model/agents.store.ts': `
+function agentConnectionMessage(actionPhrase) {
+  return \`Forge could not \${actionPhrase}. It could not connect while updating Agents. Check your connection, then refresh Agents.\`
+}
+
+function agentServerMessage() {
+  return 'Forge could not prepare the setup text for this computer right now. Wait a moment, then choose Create Agent again.'
+}
+
+function agentCreatedStartFailureMessage() {
+  return 'Agent was created, but it could not start yet. It will stay in the list. Ask an owner or admin to check Where agents run.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-store-error-copy',
+          location: 'src/app/entities/agent/model/agents.store.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-store-error-copy',
+          location: 'src/app/entities/agent/model/agents.store.ts:7',
+        }),
+        expect.objectContaining({
+          type: 'agent-store-error-copy',
+          location: 'src/app/entities/agent/model/agents.store.ts:11',
+        }),
+      ])
+    )
+  })
+
+  it('accepts agent store errors that start with the next step', () => {
+    const cwd = fixture({
+      'src/app/entities/agent/model/agents.store.ts': `
+function agentConnectionMessage(actionPhrase) {
+  return \`Check your connection, then refresh Agents. Forge could not \${actionPhrase} while updating Agents.\`
+}
+
+function agentServerMessage() {
+  return 'Wait a moment, then choose Create Agent again. Forge could not prepare the setup text for this computer right now.'
+}
+
+function agentCreatedStartFailureMessage() {
+  return 'Ask an owner or admin to check Where agents run, then start this agent from the card. Agent was created, but it could not start yet.'
 }
 `,
     })

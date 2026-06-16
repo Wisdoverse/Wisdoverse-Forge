@@ -62,7 +62,10 @@ describe('Agents Store', () => {
   })
 
   test('turns permission failures into team space access guidance', () => {
-    const message = agentActionErrorMessage('delete', apiError(403, { message: 'owner role required' }))
+    const message = agentActionErrorMessage(
+      'delete',
+      apiError(403, { message: 'owner role required' })
+    )
 
     expectBeginnerError(
       message,
@@ -76,7 +79,7 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       message,
-      'Forge could not start the agent. It could not connect while updating Agents. Check your connection, then refresh Agents.'
+      'Check your connection, then refresh Agents. Forge could not start the agent while updating Agents.'
     )
     expect(message).not.toContain('Network error')
     expect(message).not.toContain('service')
@@ -158,7 +161,7 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       message,
-      'Forge could not prepare the setup text for this computer right now. Wait a moment, then choose Create Agent again. If it still fails, ask an owner or admin to check Where agents run.'
+      'Wait a moment, then choose Create Agent again. Forge could not prepare the setup text for this computer right now. If it still fails, ask an owner or admin to check Where agents run.'
     )
     expect(message).not.toContain('database')
     expect(message).not.toContain('local agent')
@@ -300,7 +303,7 @@ describe('Agents Store', () => {
     expect(state.agents).toHaveLength(1)
     expectBeginnerError(
       state.error,
-      'Agent was created, but the place where it runs is not ready yet. It will stay in the list. Ask an owner or admin to check Where agents run, then start this agent from the card.'
+      'Ask an owner or admin to check Where agents run, then start this agent from the card. Agent was created, but the place where it runs is not ready yet. It will stay in the list.'
     )
     expect(state.error).not.toContain('worker')
     expect(state.error).not.toContain('Docker')
@@ -339,7 +342,7 @@ describe('Agents Store', () => {
     expect(result).toBeNull()
     expectBeginnerError(
       useAgentsStore.getState().error,
-      'Forge could not prepare the setup text for this computer. Check your connection, then choose Create Agent again.'
+      'Check your connection, then choose Create Agent again. Forge could not prepare the setup text for this computer.'
     )
     expect(useAgentsStore.getState().error).not.toContain('Network error')
     expect(useAgentsStore.getState().error).not.toContain('local agent')
@@ -360,7 +363,7 @@ describe('Agents Store', () => {
     expect(result).toBeNull()
     expectBeginnerError(
       useAgentsStore.getState().error,
-      'Forge could not prepare the setup text for this computer right now. Wait a moment, then choose Create Agent again. If it still fails, ask an owner or admin to check Where agents run.'
+      'Wait a moment, then choose Create Agent again. Forge could not prepare the setup text for this computer right now. If it still fails, ask an owner or admin to check Where agents run.'
     )
     expect(useAgentsStore.getState().error).not.toContain('database')
     expect(useAgentsStore.getState().error).not.toContain('local agent')

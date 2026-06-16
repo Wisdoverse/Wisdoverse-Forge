@@ -188,13 +188,13 @@ function isAgentServiceUnavailable(detail: string | null): boolean {
 
 function agentConnectionMessage(actionPhrase: string, action: AgentErrorAction): string {
   if (action === 'enrollLocal') {
-    return 'Forge could not prepare the setup text for this computer. Check your connection, then choose Create Agent again.'
+    return 'Check your connection, then choose Create Agent again. Forge could not prepare the setup text for this computer.'
   }
   if (action === 'load') {
     return 'Check your connection, then refresh Agents to load agents.'
   }
   const operation = 'updating Agents'
-  return `Forge could not ${actionPhrase}. It could not connect while ${operation}. Check your connection, then refresh Agents.`
+  return `Check your connection, then refresh Agents. Forge could not ${actionPhrase} while ${operation}.`
 }
 
 export function agentActionErrorMessage(action: AgentErrorAction, error?: unknown): string {
@@ -219,7 +219,7 @@ export function agentActionErrorMessage(action: AgentErrorAction, error?: unknow
     return `You do not have permission to ${actionPhrase}. Ask an owner or admin to update your team space access.`
   }
   if (status === 404) {
-    return 'This agent could not be found. Refresh the Agents page, choose the current agent, then try again.'
+    return 'Refresh the Agents page, choose the current agent, then try again. This agent could not be found.'
   }
   if (status === 409) {
     return agentConflictMessage(action, detail)
@@ -285,13 +285,13 @@ function agentConflictMessage(action: AgentErrorAction, detail: string | null): 
 
 function agentServerMessage(action: AgentErrorAction): string {
   if (action === 'enrollLocal') {
-    return 'Forge could not prepare the setup text for this computer right now. Wait a moment, then choose Create Agent again. If it still fails, ask an owner or admin to check Where agents run.'
+    return 'Wait a moment, then choose Create Agent again. Forge could not prepare the setup text for this computer right now. If it still fails, ask an owner or admin to check Where agents run.'
   }
   if (action === 'load') {
     return 'Refresh Agents to load agents. If it still fails, ask an owner or admin to check Where agents run.'
   }
   if (action === 'start' || action === 'restart' || action === 'create') {
-    return 'Forge could not prepare where this agent runs right now. Wait a moment, then try again. If it still fails, ask an owner or admin to check Where agents run.'
+    return 'Wait a moment, then try again. Forge could not prepare where this agent runs right now. If it still fails, ask an owner or admin to check Where agents run.'
   }
   return `Refresh Agents, then try to ${agentActionPhrase(action)} again. If it still fails, ask an owner or admin to check Where agents run.`
 }
@@ -308,16 +308,16 @@ function agentCreatedStartFailureMessage(error?: unknown): string {
   const detail = agentErrorDetail(error)
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('docker')) {
-    return 'Agent was created, but the place where it runs is not ready yet. It will stay in the list. Ask an owner or admin to check Where agents run, then start this agent from the card.'
+    return 'Ask an owner or admin to check Where agents run, then start this agent from the card. Agent was created, but the place where it runs is not ready yet. It will stay in the list.'
   }
   if (
     normalized.includes('runtime') ||
     normalized.includes('container') ||
     normalized.includes('image')
   ) {
-    return 'Agent was created, but it could not start yet. It will stay in the list. Ask an owner or admin to check Where agents run, then start this agent from the card.'
+    return 'Ask an owner or admin to check Where agents run, then start this agent from the card. Agent was created, but it could not start yet. It will stay in the list.'
   }
-  return 'Agent was created, but it could not start yet. It will stay in the list. Refresh the Agents page, then start this agent from the card after the place where it runs is ready.'
+  return 'Refresh the Agents page, then start this agent from the card after the place where it runs is ready. Agent was created, but it could not start yet. It will stay in the list.'
 }
 
 function mapManagedAgentStatus(status: string): AgentStatus {

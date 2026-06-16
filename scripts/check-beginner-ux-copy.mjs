@@ -292,6 +292,15 @@ const AGENT_DETAIL_AVAILABILITY_DEAD_END_PATTERNS = [
 
 const AGENT_DETAIL_START_FAILURE_FIRST_PATTERNS = [/\bStart did not finish\b/i]
 
+const AGENT_STORE_ERROR_FAILURE_FIRST_PATTERNS = [
+  /^\s*return\s+['"`]Forge could not prepare the setup text for this computer\. Check/,
+  /^\s*return\s+`Forge could not \$\{actionPhrase\}\. It could not connect/,
+  /^\s*return\s+['"`]This agent could not be found\. Refresh/,
+  /^\s*return\s+['"`]Forge could not prepare the setup text for this computer right now\. Wait/,
+  /^\s*return\s+['"`]Forge could not prepare where this agent runs right now\. Wait/,
+  /^\s*return\s+['"`]Agent was created, but/,
+]
+
 const AGENT_API_LIFECYCLE_DEAD_END_PATTERNS = [
   /\bNo workspace to (?:restart|start|stop)\b/i,
   /没有可(?:重启|启动|停止)的工作区/,
@@ -1679,6 +1688,12 @@ function hasAgentDetailStartFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return AGENT_DETAIL_START_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentStoreErrorFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/entities/agent/model/agents.store.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_STORE_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentApiLifecycleDeadEndCopy(relFile, line) {
@@ -3094,6 +3109,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Agent detail start failure copy must start with the recovery action, not the failure result.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentStoreErrorFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-store-error-copy',
+        location,
+        message: 'Agent store errors must start with the next action for beginners.',
         sample: line.trim(),
       })
     }
