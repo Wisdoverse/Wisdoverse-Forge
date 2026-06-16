@@ -39,6 +39,7 @@ export function DescriptionTab({
   const resultArtifacts = taskResultArtifacts(task.result)
   const contextTotal = task.contextCounts?.total ?? 0
   const canReview = task.state === 'completed' || task.state === 'failed'
+  const hasBrief = taskHasBrief(task)
   const nextAction = nextActionForTask(task, resultArtifacts.length, contextTotal)
   const assignment = assignmentSummary(task)
   const failurePreview = task.error ? taskFailurePreview(task.error) : null
@@ -54,14 +55,13 @@ export function DescriptionTab({
   return (
     <div className="space-y-3 py-3" data-testid="task-work-review">
       <ReviewSection title="Brief" Icon={FileText}>
-        {task.params.message ? (
+        {hasBrief ? (
           <p className="whitespace-pre-wrap text-xs leading-relaxed text-foreground-light dark:text-foreground-dark">
             {task.params.message}
           </p>
         ) : (
           <p className="text-xs italic text-secondary-light dark:text-secondary-dark">
-            No brief was saved. Open Updates to see what was asked before accepting, retrying, or
-            closing this task.
+            {missingBriefCopy(task)}
           </p>
         )}
       </ReviewSection>
@@ -260,6 +260,17 @@ function ReviewSection({
   )
 }
 
+function taskHasBrief(task: TaskSummary): boolean {
+  return task.params.message?.trim().length > 0
+}
+
+function missingBriefCopy(task: TaskSummary): string {
+  if (task.state === 'backlog') {
+    return 'Only the task title was saved. Before sending, add what to finish, where to look, and how you will check it.'
+  }
+  return 'No brief was saved. Open Updates to see what was asked before accepting, retrying, or closing this task.'
+}
+
 function ReviewRow({
   label,
   value,
@@ -318,9 +329,27 @@ function nextActionForTask(
   artifactCount: number,
   contextTotal: number
 ): { title: string; detail: string; tone: 'default' | 'success' | 'warn' } {
+  const hasBrief = taskHasBrief(task)
+  const hasAgent = Boolean(task.assignedTo || task.assignedAgentName)
+
   switch (task.state) {
     case 'backlog':
-      return task.assignedTo || task.assignedAgentName
+      if (!hasBrief) {
+        return hasAgent
+          ? {
+              title: 'Add details before sending',
+              detail:
+                'This task only has a title. Add what to finish, where to look, and how you will check it before sending.',
+              tone: 'warn',
+            }
+          : {
+              title: 'Add details and choose an agent',
+              detail:
+                'This task only has a title. Add what to finish, where to look, and how to check it, then choose an agent.',
+              tone: 'warn',
+            }
+      }
+      return hasAgent
         ? {
             title: 'Ready to send',
             detail: 'Review the brief, then send it to this agent.',

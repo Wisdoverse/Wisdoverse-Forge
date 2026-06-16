@@ -50,6 +50,49 @@ describe('DescriptionTab', () => {
     expect(screen.queryByText(/dispatch/i)).toBeNull()
   })
 
+  test('guides title-only saved tasks before sending them to an agent', () => {
+    render(
+      <DescriptionTab
+        task={{
+          ...mockTask,
+          assignedTo: 'agent-1',
+          params: { ...mockTask.params, message: '' },
+        }}
+      />
+    )
+
+    expect(screen.getByText('Add details before sending')).toBeDefined()
+    expect(screen.getByTestId('task-next-action').textContent).toContain(
+      'This task only has a title. Add what to finish, where to look, and how you will check it before sending.'
+    )
+    expect(
+      screen.getByText(
+        'Only the task title was saved. Before sending, add what to finish, where to look, and how you will check it.'
+      )
+    ).toBeDefined()
+    expect(screen.getByTestId('task-next-action').textContent).not.toContain('Review the brief')
+    expect(screen.queryByText(/Open Updates to see what was asked/i)).toBeNull()
+  })
+
+  test('guides title-only saved tasks before choosing an agent', () => {
+    render(
+      <DescriptionTab
+        task={{
+          ...mockTask,
+          params: { ...mockTask.params, message: '   ' },
+        }}
+      />
+    )
+
+    expect(screen.getByText('Add details and choose an agent')).toBeDefined()
+    expect(screen.getByTestId('task-next-action').textContent).toContain(
+      'This task only has a title. Add what to finish, where to look, and how to check it, then choose an agent.'
+    )
+    expect(screen.getByTestId('task-next-action').textContent).not.toContain(
+      'review the suggested saved notes'
+    )
+  })
+
   test('explains waiting tasks without internal runtime language', () => {
     render(<DescriptionTab task={{ ...mockTask, state: 'queued', assignedTo: 'agent-1' }} />)
 
