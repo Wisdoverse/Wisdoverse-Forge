@@ -24,32 +24,32 @@ interface FeedFilteredEmptyCopy {
 function feedFilteredEmptyCopy(filter: FeedFilter): FeedFilteredEmptyCopy {
   if (filter === 'needs-action') {
     return {
-      title: 'No updates need action right now',
-      detail: 'No task is blocked or failed in recent activity.',
-      nextStep: 'Next: show all updates to see work that is still moving.',
+      title: 'You are caught up on urgent updates',
+      detail: 'Nothing is asking for your help. Use All to review work that is still moving.',
+      nextStep: 'Next: show all updates before starting more work.',
     }
   }
 
   if (filter === 'progress') {
     return {
-      title: 'No progress updates in this view',
-      detail: 'Recent activity may still include completed work or items that need help.',
-      nextStep: 'Next: show all updates before assuming work is idle.',
+      title: 'Progress updates will appear here',
+      detail: 'Assigned agents add updates here after work starts.',
+      nextStep: 'Next: use All to check completed work or items that need help.',
     }
   }
 
   if (filter === 'completed') {
     return {
-      title: 'No completed updates in this view',
-      detail: 'Work may still be active, waiting, or asking for help.',
+      title: 'Completed updates will appear here',
+      detail: 'Finished work shows here after an agent closes a task.',
       nextStep: 'Next: show all updates to see what happened most recently.',
     }
   }
 
   return {
-    title: 'No updates in this view',
-    detail: 'No recent activity matches this view.',
-    nextStep: 'Next: check back after an agent reports progress.',
+    title: 'Activity will appear here',
+    detail: 'Recent task updates show up here after an agent starts or finishes work.',
+    nextStep: 'Next: check back after an agent sends its first update.',
   }
 }
 
@@ -200,8 +200,7 @@ export function ActivityFeed() {
             Quiet so far
           </p>
           <p className="text-[11px] text-secondary-light dark:text-secondary-dark leading-relaxed">
-            No progress updates yet. Start a task or wait for the assigned agent to send its first
-            update.
+            Start a task or wait for the assigned agent to send its first update.
           </p>
           <p className="max-w-[240px] text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
             Next: open Board, create or assign a task, then return here after the first agent

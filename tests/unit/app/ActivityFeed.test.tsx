@@ -159,10 +159,10 @@ describe('ActivityFeed', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /completed\s*0/i }))
     const emptyState = screen.getByTestId('feed-filter-empty')
-    expect(within(emptyState).getByText('No completed updates in this view')).toBeDefined()
-    expect(within(emptyState).getByText(/work may still be active/i)).toBeDefined()
+    expect(within(emptyState).getByText('Completed updates will appear here')).toBeDefined()
+    expect(within(emptyState).getByText(/finished work shows here/i)).toBeDefined()
     expect(within(emptyState).getByText(/see what happened most recently/i)).toBeDefined()
-    expect(emptyState.textContent).not.toContain('Choose All to see every recent update')
+    expect(emptyState.textContent).not.toContain('No completed updates in this view')
     expect(screen.queryByText('Fix auth')).toBeNull()
 
     fireEvent.click(within(emptyState).getByRole('button', { name: /show all updates/i }))
@@ -175,6 +175,7 @@ describe('ActivityFeed', () => {
     expect(screen.getByText(/quiet so far/i)).toBeDefined()
     expect(screen.getByText(/start a task or wait for the assigned agent/i)).toBeDefined()
     expect(screen.getByText(/open Board, create or assign a task/i)).toBeDefined()
+    expect(screen.queryByText(/No progress updates yet/i)).toBeNull()
     expect(screen.queryByText(/No work has reported progress yet/i)).toBeNull()
   })
 })

@@ -226,7 +226,16 @@ const ANALYTICS_GUIDANCE_JARGON_PATTERNS = [
   /\bended in error\b/i,
 ]
 
-const ACTIVITY_FEED_EMPTY_DEAD_END_PATTERNS = [/\bNo work has reported progress yet\b/i]
+const ACTIVITY_FEED_EMPTY_DEAD_END_PATTERNS = [
+  /\bNo work has reported progress yet\b/i,
+  /\bNo updates need action right now\b/i,
+  /\bNo task is blocked or failed in recent activity\b/i,
+  /\bNo progress updates in this view\b/i,
+  /\bNo completed updates in this view\b/i,
+  /\bNo updates in this view\b/i,
+  /\bNo recent activity matches this view\b/i,
+  /\bNo progress updates yet\b/i,
+]
 
 const SAVED_ITEM_OPTIONAL_EMPTY_DEAD_END_PATTERNS = [/\bNo other saved items were found\b/i]
 

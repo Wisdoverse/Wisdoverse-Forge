@@ -4616,6 +4616,14 @@ function toolEmptyNextStep() {
 function emptyFeed() {
   return 'No work has reported progress yet. Start a task or wait for an assigned agent.'
 }
+
+function filteredEmpty() {
+  return 'No completed updates in this view'
+}
+
+function filteredDetail() {
+  return 'No recent activity matches this view.'
+}
 `,
       'src/app/features/analytics/AnalyticsDashboard.tsx': `
 function nextStep() {
@@ -4632,6 +4640,14 @@ function nextStep() {
         expect.objectContaining({
           type: 'activity-feed-empty-copy',
           location: 'src/app/features/feed/ActivityFeed.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'activity-feed-empty-copy',
+          location: 'src/app/features/feed/ActivityFeed.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'activity-feed-empty-copy',
+          location: 'src/app/features/feed/ActivityFeed.tsx:11',
         }),
         expect.objectContaining({
           type: 'analytics-guidance-copy',
