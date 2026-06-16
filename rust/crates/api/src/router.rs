@@ -76,6 +76,7 @@ pub fn create_router(state: AppState) -> Router {
         .merge(routes::cli_credentials::cli_credential_routes())
         .merge(routes::cli_auth_proxy::cli_auth_proxy_routes())
         .merge(routes::orchestration::orchestration_routes())
+        .merge(routes::self_fix::self_fix_routes())
         .merge(routes::llm_providers::llm_provider_routes())
         .merge(routes::settings::setting_routes())
         .merge(routes::feature_flags::feature_flag_routes())

@@ -38,6 +38,12 @@ pub mod favorite;
 pub mod feature_flag;
 pub(crate) mod gateway_terminal;
 pub mod git_credential;
+// `pub(crate)` in production; widened to `pub` under `test-support` so the
+// `crate::testing::github_app` re-export can reach it from integration tests.
+#[cfg(not(any(test, feature = "test-support")))]
+pub(crate) mod github_app;
+#[cfg(any(test, feature = "test-support"))]
+pub mod github_app;
 pub mod governance_audit;
 pub mod group;
 pub(crate) mod inbox;
@@ -62,6 +68,7 @@ pub mod resource_member;
 pub mod resource_permission;
 pub mod resource_profile;
 pub mod runtime_capability_registry;
+pub mod self_fix;
 pub mod setting;
 pub mod skill;
 pub mod ssh_key;
