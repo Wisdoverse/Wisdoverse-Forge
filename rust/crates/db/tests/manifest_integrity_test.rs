@@ -54,7 +54,7 @@ fn manifest_matches_migration_files() {
         let bytes = fs::read(&path).unwrap_or_else(|e| panic!("failed to read {}: {e}", path.display()));
         let mut h = Sha256::new();
         h.update(&bytes);
-        actual.insert(name, format!("{:x}", h.finalize()));
+        actual.insert(name, hex::encode(h.finalize()));
     }
 
     // Every file in the manifest must exist and hash correctly.
