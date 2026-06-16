@@ -602,8 +602,8 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
               </div>
               <p className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {localEnrollment.enrollment?.joinCommand
-                  ? 'Paste the setup text into Terminal or PowerShell on the computer where this agent should work. It downloads what is missing and lets Forge assign tasks to this agent.'
-                  : 'Paste this setup text on the computer where this agent should work. Keep that window open so Forge can manage this agent.'}
+                  ? 'Paste the setup text into Terminal or PowerShell on the computer where this agent should work. Forge will show it as an agent here, assign tasks to it, and keep its status and history. Files stay on that computer.'
+                  : 'Paste this setup text on the computer where this agent should work. Forge will manage its tasks, status, and history while files stay on that computer.'}
               </p>
             </div>
 
@@ -680,7 +680,11 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     connected to Ready on the Agents page.
                   </p>
                   <p>
-                    4. Come back to Forge, open Agents, and send one small task when it is Ready.
+                    4. Closing that window disconnects this agent until you paste the setup text
+                    again.
+                  </p>
+                  <p>
+                    5. Come back to Forge, open Agents, and send one small task when it is Ready.
                   </p>
                 </div>
                 <details className="mt-3">
@@ -739,7 +743,11 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     connected to Ready on the Agents page.
                   </p>
                   <p>
-                    4. Come back to Forge, open Agents, and send one small task when it is Ready.
+                    4. Closing that window disconnects this agent until you paste the setup text
+                    again.
+                  </p>
+                  <p>
+                    5. Come back to Forge, open Agents, and send one small task when it is Ready.
                   </p>
                 </div>
               </div>

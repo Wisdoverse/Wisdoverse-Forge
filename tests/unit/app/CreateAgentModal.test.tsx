@@ -510,13 +510,15 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText('Connect this computer')).toBeInTheDocument()
     expect(screen.getByText(/agent managed by forge/i)).toBeInTheDocument()
     expect(
-      screen.getByText(/Keep that window open so Forge can manage this agent/i)
+      screen.getByText(/Forge will manage its tasks, status, and history/i)
     ).toBeInTheDocument()
+    expect(screen.getByText(/files stay on that computer/i)).toBeInTheDocument()
     expect(screen.getByText('1. Copy the setup text.')).toBeInTheDocument()
     expect(screen.getByText(/paste it into the terminal app/i)).toBeInTheDocument()
     expect(
       screen.getByText(/changes from Not connected to Ready on the Agents page/i)
     ).toBeInTheDocument()
+    expect(screen.getByText(/Closing that window disconnects this agent/i)).toBeInTheDocument()
     expect(screen.getByText(/come back to Forge, open Agents/i)).toBeInTheDocument()
     expect(screen.queryByText(previousCliInstallCopy)).toBeNull()
     expect(screen.queryByText(previousManualConnectionCopy)).toBeNull()
@@ -563,7 +565,11 @@ describe('CreateAgentModal', () => {
     // The setup text leads; the pasted text tracks the OS toggle.
     const oneLiner = await screen.findByLabelText(/setup text/i)
     expect(oneLiner).toHaveValue(joinCommand)
-    expect(screen.getByText(/lets forge assign tasks to this agent/i)).toBeInTheDocument()
+    expect(screen.getByText(/Forge will show it as an agent here/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/assign tasks to it, and keep its status and history/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/Files stay on that computer/i)).toBeInTheDocument()
     expect(screen.getByTestId('local-agent-paste-hint')).toHaveTextContent(
       'Open Terminal on macOS or your Linux terminal, then paste this setup text.'
     )
@@ -572,6 +578,7 @@ describe('CreateAgentModal', () => {
     expect(
       screen.getByText(/changes from Not connected to Ready on the Agents page/i)
     ).toBeInTheDocument()
+    expect(screen.getByText(/Closing that window disconnects this agent/i)).toBeInTheDocument()
     expect(screen.getByText(/come back to Forge, open Agents/i)).toBeInTheDocument()
     expect(screen.queryByText(/shows online/i)).toBeNull()
     expect(screen.queryByText(/agent fleet/i)).toBeNull()
