@@ -956,7 +956,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 Primary Project
               </div>
               <div className="w-full rounded-[18px] border border-black/[0.08] bg-white px-4 py-2 text-ui-body text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark">
-                {selectedProject?.name ?? 'No primary project'}
+                {selectedProject?.name ?? 'Choose a project later'}
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {selectedProject
@@ -1096,7 +1096,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                       {...register('groupId')}
                       className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                     >
-                      <option value="">No task queue</option>
+                      <option value="">Choose a task queue later</option>
                       {groups.map((g) => (
                         <option key={g.id} value={g.id}>
                           {g.name}
@@ -1171,7 +1171,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                   loading && 'opacity-50 cursor-not-allowed'
                 )}
               >
-                {loading ? 'Creating…' : 'Create Agent'}
+                {loading ? 'Creating…' : 'Create agent'}
               </button>
             </div>
           </form>

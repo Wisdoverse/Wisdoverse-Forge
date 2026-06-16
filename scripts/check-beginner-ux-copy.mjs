@@ -401,6 +401,11 @@ const AGENT_TASK_QUEUE_EMPTY_DEAD_END_PATTERNS = [
   /\bNo tasks are in this task queue yet\b/i,
 ]
 const AGENT_LIST_SUMMARY_DEAD_END_PATTERNS = [/\bNo agents\b/i]
+const CREATE_AGENT_OPTIONAL_CONTEXT_DEAD_END_PATTERNS = [
+  /\bNo primary project\b/i,
+  /\bNo task queue\b/i,
+  /\bNo task queue selected yet\b/i,
+]
 
 const SKILL_MAINTAINER_FALLBACK_DEAD_END_PATTERNS = [
   /\bMaintainer not listed yet\b/i,
@@ -1474,6 +1479,12 @@ function hasAgentTemplateRoleJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return AGENT_TEMPLATE_ROLE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasCreateAgentOptionalContextDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CREATE_AGENT_OPTIONAL_CONTEXT_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasProjectShareRoleJargonCopy(relFile, line) {
@@ -3021,6 +3032,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Task queue empty states must start with the action to create the first queue or task.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCreateAgentOptionalContextDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'create-agent-optional-context-copy',
+        location,
+        message:
+          'Create Agent optional project and queue copy must say the user can choose later instead of showing no-selection labels.',
         sample: line.trim(),
       })
     }

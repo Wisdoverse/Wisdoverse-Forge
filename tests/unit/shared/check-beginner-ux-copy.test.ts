@@ -6102,6 +6102,40 @@ export const zh = {
     )
   })
 
+  it('flags create-agent optional context labels that sound like missing setup', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+export function CreateAgentModal() {
+  return (
+    <section>
+      <p>No primary project</p>
+      <option>No task queue</option>
+      <p>No task queue selected yet</p>
+    </section>
+  )
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'create-agent-optional-context-copy',
+        location: 'src/app/features/agents/CreateAgentModal.tsx:5',
+      }),
+      expect.objectContaining({
+        type: 'create-agent-optional-context-copy',
+        location: 'src/app/features/agents/CreateAgentModal.tsx:6',
+      }),
+      expect.objectContaining({
+        type: 'create-agent-optional-context-copy',
+        location: 'src/app/features/agents/CreateAgentModal.tsx:7',
+      }),
+    ])
+  })
+
   it('accepts saved instruction maintainer fallback copy that tells users to refresh', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `

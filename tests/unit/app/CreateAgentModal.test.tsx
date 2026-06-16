@@ -84,6 +84,12 @@ describe('CreateAgentModal', () => {
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(
       /open project settings to create or choose a project/i
     )
+    expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(
+      /choose a project later/i
+    )
+    expect(screen.getByTestId('agent-work-readiness')).not.toHaveTextContent(
+      /no primary project/i
+    )
     expect(screen.getByTestId('agent-work-readiness')).not.toHaveTextContent(
       /select a project in the sidebar/i
     )
@@ -176,7 +182,9 @@ describe('CreateAgentModal', () => {
     expect(
       within(review).getByText('Choose a task queue now, or assign one later from Tasks.')
     ).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /choose a task queue later/i })).toBeInTheDocument()
     expect(within(review).queryByText('No task queue selected yet')).toBeNull()
+    expect(screen.queryByRole('option', { name: /^no task queue$/i })).toBeNull()
   })
 
   test('submits selected project workspace as the execution boundary', async () => {
