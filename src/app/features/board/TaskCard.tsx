@@ -293,7 +293,7 @@ function taskNextStep(task: TaskSummary, options: TaskNextStepOptions): string |
       }
       return options.canOpenPublishPreview
         ? 'Review saved items, then publish.'
-        : 'Open details to finish preparing this task.'
+        : 'Open this card, add details, then send it to an agent.'
     case 'queued':
       return options.hasAssignee
         ? 'Waiting for the chosen agent to start. If it stays here, open details or choose another agent.'

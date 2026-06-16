@@ -158,6 +158,15 @@ describe('TaskCard', () => {
     expect(screen.getByTestId('task-next-step').textContent).not.toContain('context')
   })
 
+  test('tells operators how to finish a saved task card before sending', () => {
+    render(<TaskCard task={{ ...mockTask, state: 'backlog', progress: 0 }} />)
+
+    expect(screen.getByTestId('task-next-step').textContent).toBe(
+      'Open this card, add details, then send it to an agent.'
+    )
+    expect(screen.getByTestId('task-next-step').textContent).not.toContain('Open details')
+  })
+
   test('shows what to do when an assigned task is still waiting to start', () => {
     render(<TaskCard task={{ ...mockTask, state: 'queued', progress: 0 }} />)
 
