@@ -544,7 +544,7 @@ function DecisionPanel({
     (!requiresScopeId || (form.scopeId.trim().length > 0 && form.confirmExpansion))
   const approvalStatusId = `context-approval-status-${candidate.id}`
   const approvalStatus = !candidate.source_available
-    ? 'This cannot be saved because the original task preview is unavailable.'
+    ? SOURCE_MISSING_NEXT_STEP
     : !requiresScopeId
       ? 'Ready to save for your own account.'
       : !form.scopeId.trim()
@@ -620,9 +620,7 @@ function DecisionPanel({
                       className="mt-0.5 flex-shrink-0"
                       aria-hidden="true"
                     />
-                    <span>
-                      This cannot be saved because the original task preview is unavailable.
-                    </span>
+                    <span>{SOURCE_MISSING_NEXT_STEP}</span>
                   </div>
                 )}
 

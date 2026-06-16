@@ -122,6 +122,8 @@ const REVIEW_DECISION_JARGON_PATTERNS = [
   /<span>Reject<\/span>/,
   /\bField label=["'`]Reject reason["'`]/,
   /\bswitch back to Pending\b/,
+  /\boriginal task preview (?:is )?unavailable\b/i,
+  /\bThis cannot be saved because the original task preview is unavailable\./i,
 ]
 
 const REVIEW_HISTORY_DEAD_END_PATTERNS = [/\bNo saved item history yet\b/i]

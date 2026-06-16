@@ -127,6 +127,26 @@ export const en = {
     ])
   })
 
+  it('flags saved-item review copy that stops at unavailable preview wording', () => {
+    const cwd = fixture({
+      'src/app/features/context/ApprovalQueueView.tsx': `
+export function ApprovalQueueView() {
+  return <p>This cannot be saved because the original task preview is unavailable.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'review-decision-copy',
+        location: 'src/app/features/context/ApprovalQueueView.tsx:3',
+      }),
+    ])
+  })
+
   it('flags raw legacy API fallback errors that can reach users', () => {
     const cwd = fixture({
       'src/app/shared/api/legacy/AgentAPI.ts': `
