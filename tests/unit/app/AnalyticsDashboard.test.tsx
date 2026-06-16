@@ -117,6 +117,26 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
     expect(load).toHaveBeenCalled()
   })
 
+  test('shows range refresh progress and locks range controls', () => {
+    const setDateRange = vi.fn()
+    useAnalyticsStore.setState({
+      dateRange: '7d',
+      loading: true,
+      setDateRange,
+    })
+
+    render(<AnalyticsDashboard />)
+
+    expect(screen.getByText('Refreshing Last 7 days...')).toBeDefined()
+    const currentRange = screen.getByRole('button', { name: /last 7 days, refreshing now/i })
+    expect(currentRange).toBeDisabled()
+    expect(currentRange).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Today' })).toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Today' }))
+    expect(setDateRange).not.toHaveBeenCalled()
+  })
+
   test('labels local agent work without container jargon', () => {
     useContextFeaturesStore.setState({ analytics: true, loaded: true, loading: false })
     useAnalyticsStore.setState({

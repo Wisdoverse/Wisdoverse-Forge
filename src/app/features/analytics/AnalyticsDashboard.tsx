@@ -177,6 +177,8 @@ export function AnalyticsDashboard() {
   const topTool = tools[0]
   const topToolRate = topTool ? Math.round(topTool.successRate * 100) : 0
   const topToolDisplayName = topTool ? analyticsToolDisplayName(topTool.tool) : undefined
+  const selectedDateRangeLabel =
+    DATE_RANGE_OPTIONS.find((option) => option.value === dateRange)?.label ?? 'Selected range'
   const totalEvents = summary?.totalEvents ?? 0
   const guidance = buildAnalyticsGuidance({
     totalAgents: agentStats.total,
@@ -191,24 +193,45 @@ export function AnalyticsDashboard() {
   return (
     <div className="flex h-full flex-col">
       {/* Toolbar */}
-      <div className="flex shrink-0 items-center justify-end border-b border-black/[0.06] px-4 py-3 dark:border-white/[0.06] sm:px-6">
+      <div
+        className="flex shrink-0 flex-col gap-2 border-b border-black/[0.06] px-4 py-3 dark:border-white/[0.06] sm:flex-row sm:items-center sm:justify-between sm:px-6"
+        aria-busy={loading || undefined}
+      >
+        <p
+          className="min-h-5 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
+          aria-live="polite"
+        >
+          {loading
+            ? `Refreshing ${selectedDateRangeLabel}...`
+            : `Showing ${selectedDateRangeLabel}`}
+        </p>
+
         {/* Date range selector */}
         <div className="flex items-center gap-0.5 rounded-full border border-black/[0.08] bg-white p-0.5 dark:border-white/[0.1] dark:bg-white/[0.06]">
-          {DATE_RANGE_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setDateRange(opt.value)}
-              className={cn(
-                'rounded-full px-3 py-1 text-ui-caption font-medium transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
-                dateRange === opt.value
-                  ? 'bg-apple-blue text-white'
-                  : 'text-secondary-light dark:text-secondary-dark hover:text-foreground-light dark:hover:text-foreground-dark'
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
+          {DATE_RANGE_OPTIONS.map((opt) => {
+            const selected = dateRange === opt.value
+            const stateLabel = selected ? (loading ? ', refreshing now' : ', selected') : ''
+
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setDateRange(opt.value)}
+                disabled={loading}
+                aria-pressed={selected}
+                aria-label={`${opt.label}${stateLabel}`}
+                className={cn(
+                  'rounded-full px-3 py-1 text-ui-caption font-medium transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:active:scale-100',
+                  selected
+                    ? 'bg-apple-blue text-white'
+                    : 'text-secondary-light dark:text-secondary-dark hover:text-foreground-light dark:hover:text-foreground-dark',
+                  loading && !selected && 'opacity-60'
+                )}
+              >
+                {opt.label}
+              </button>
+            )
+          })}
         </div>
       </div>
 
