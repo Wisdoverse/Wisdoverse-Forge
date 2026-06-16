@@ -310,8 +310,8 @@ export function SystemHealth() {
         <div>
           <h2 className={uiStyles.sectionTitle}>App health check</h2>
           <p className={uiStyles.sectionDescription}>
-            Checks when opened, then every 30 seconds while this page is visible. Hidden tabs pause
-            checks. Start with anything marked Fix first, then items marked Check soon.
+            Checks when opened, then refreshes every 30 seconds while Admin is open. Start with
+            anything marked Fix first, then items marked Check soon.
           </p>
         </div>
         <button
@@ -320,7 +320,7 @@ export function SystemHealth() {
           disabled={healthLoading}
           className={uiStyles.secondaryButton}
         >
-          {healthLoading ? 'Checking...' : 'Check now'}
+          {healthLoading ? 'Checking now' : 'Check now'}
         </button>
       </div>
 
@@ -335,7 +335,7 @@ export function SystemHealth() {
       {healthLoading && !health && (
         <div className="flex items-center justify-center py-12">
           <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-            Checking app health...
+            Checking app health now
           </p>
         </div>
       )}

@@ -116,7 +116,9 @@ describe('SystemHealth', () => {
     render(<SystemHealth />)
 
     expect(loadHealth).toHaveBeenCalledOnce()
-    expect(screen.getByText(/every 30 seconds while this page is visible/i)).toBeDefined()
+    expect(screen.getByText(/refreshes every 30 seconds while Admin is open/i)).toBeDefined()
+    expect(screen.queryByText(/Hidden tabs pause checks/i)).toBeNull()
+    expect(screen.queryByText(/while this page is visible/i)).toBeNull()
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(30_000)
@@ -195,8 +197,9 @@ describe('SystemHealth', () => {
 
     render(<SystemHealth />)
 
-    expect(screen.getByText('Checking app health...')).toBeDefined()
-    expect(screen.getByRole('button', { name: 'Checking...' })).toBeDisabled()
+    expect(screen.getByText('Checking app health now')).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Checking now' })).toBeDisabled()
+    expect(screen.queryByText('Checking app health...')).toBeNull()
   })
 
   test('explains what to do when app health cannot load', () => {

@@ -326,6 +326,9 @@ const SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS = [
   /\bSome areas need attention\b/i,
   /\bstill needs attention\b/i,
   /\bitems marked Needs attention\b/i,
+  /\bwhile this page is visible\b/i,
+  /\bHidden tabs pause checks\b/i,
+  /\bChecking\.\.\./i,
 ]
 
 const ACCESS_KEY_LAST_USED_DEAD_END_PATTERNS = [/\bNot used yet\b/i]

@@ -5233,6 +5233,37 @@ function SystemHealth() {
     )
   })
 
+  it('flags app health helper text that exposes page visibility mechanics', () => {
+    const cwd = fixture({
+      'src/app/features/admin/SystemHealth.tsx': `
+function SystemHealth() {
+  return (
+    <section>
+      <p>Checks when opened, then every 30 seconds while this page is visible. Hidden tabs pause checks.</p>
+      <button>{loading ? 'Checking...' : 'Check now'}</button>
+    </section>
+  )
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'system-health-status-copy',
+          sample: expect.stringContaining('while this page is visible'),
+        }),
+        expect.objectContaining({
+          type: 'system-health-status-copy',
+          sample: expect.stringContaining('Checking...'),
+        }),
+      ])
+    )
+  })
+
   it('flags saved instruction load copy that hides the retry action', () => {
     const cwd = fixture({
       'src/app/features/skills/SkillsView.tsx': `
