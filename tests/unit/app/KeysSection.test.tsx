@@ -23,6 +23,16 @@ function apiKey(overrides: Partial<ApiKeyRecord> = {}): ApiKeyRecord {
   }
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
 beforeEach(() => {
   loadApiKeysMock.mockClear()
   createApiKeyMock.mockReset().mockResolvedValue(null)
@@ -171,11 +181,22 @@ describe('KeysSection', () => {
     expect(
       screen.getByText('Removing this key can stop Release automation from connecting to Forge.')
     ).toBeDefined()
+    expect(screen.getByRole('button', { name: /^keep key$/i })).toBeDefined()
     expect(
       screen.getByRole('button', {
         name: /confirm removing outside tool access key named release automation/i,
       })
     ).toHaveTextContent('Remove now')
+
+    fireEvent.click(screen.getByRole('button', { name: /^keep key$/i }))
+    expect(revokeApiKeyMock).not.toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: /^keep key$/i })).toBeNull()
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /remove outside tool access key named release automation/i,
+      })
+    )
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -184,6 +205,37 @@ describe('KeysSection', () => {
     )
 
     expect(revokeApiKeyMock).toHaveBeenCalledWith('key-1')
+  })
+
+  test('locks removal controls while an access key is being removed', async () => {
+    const request = deferred<boolean>()
+    revokeApiKeyMock.mockReturnValueOnce(request.promise)
+    useSettingsStore.setState({
+      apiKeys: [apiKey({ name: 'Release automation', keyPrefix: 'af_rel' })],
+    })
+
+    render(<KeysSection />)
+
+    expect(await screen.findByRole('table', { name: /outside tool access keys/i })).toBeDefined()
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /remove outside tool access key named release automation/i,
+      })
+    )
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /confirm removing outside tool access key named release automation/i,
+      })
+    )
+
+    const removingButton = await screen.findByRole('button', { name: /removing/i })
+    expect(removingButton).toBeDisabled()
+    expect(removingButton).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByRole('button', { name: /^keep key$/i })).toBeDisabled()
+    expect(revokeApiKeyMock).toHaveBeenCalledTimes(1)
+
+    request.resolve(true)
+    await waitFor(() => expect(screen.queryByRole('button', { name: /^keep key$/i })).toBeNull())
   })
 
   test('explains missing access key dates instead of showing placeholders', async () => {

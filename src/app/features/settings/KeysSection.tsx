@@ -19,20 +19,23 @@ const ACCESS_KEY_EMPTY_STEPS = [
 
 interface KeyRowProps {
   apiKey: ApiKeyRecord
-  onRevoke: (id: string) => void
+  onRevoke: (id: string) => Promise<boolean>
 }
 
 function KeyRow({ apiKey, onRevoke }: KeyRowProps) {
   const [confirming, setConfirming] = useState(false)
+  const [removing, setRemoving] = useState(false)
   const removeWarningId = `automation-key-remove-warning-${apiKey.id}`
 
-  function handleRevoke() {
+  async function handleRevoke() {
     if (!confirming) {
       setConfirming(true)
       return
     }
-    onRevoke(apiKey.id)
-    setConfirming(false)
+    setRemoving(true)
+    const removed = await onRevoke(apiKey.id)
+    setRemoving(false)
+    if (removed) setConfirming(false)
   }
 
   return (
@@ -64,19 +67,33 @@ function KeyRow({ apiKey, onRevoke }: KeyRowProps) {
         </span>
       </td>
       <td className={cn(uiStyles.tableCell, 'text-right')}>
-        <button
-          type="button"
-          onClick={handleRevoke}
-          aria-label={
-            confirming
-              ? `Confirm removing outside tool access key named ${apiKey.name}`
-              : `Remove outside tool access key named ${apiKey.name}`
-          }
-          aria-describedby={confirming ? removeWarningId : undefined}
-          className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
-        >
-          {confirming ? 'Remove now' : 'Remove'}
-        </button>
+        <div className="flex flex-wrap justify-end gap-2">
+          {confirming && (
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              disabled={removing}
+              className={uiStyles.subtleButton}
+            >
+              Keep key
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => void handleRevoke()}
+            disabled={removing}
+            aria-label={
+              confirming
+                ? `Confirm removing outside tool access key named ${apiKey.name}`
+                : `Remove outside tool access key named ${apiKey.name}`
+            }
+            aria-describedby={confirming ? removeWarningId : undefined}
+            aria-busy={removing || undefined}
+            className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
+          >
+            {removing ? 'Removing...' : confirming ? 'Remove now' : 'Remove'}
+          </button>
+        </div>
         {confirming && (
           <p id={removeWarningId} className="ml-auto mt-1 max-w-48 text-ui-caption text-apple-red">
             Removing this key can stop {apiKey.name} from connecting to Forge.
@@ -273,7 +290,7 @@ export function KeysSection() {
   }
 
   async function handleRevoke(id: string) {
-    await revokeApiKey(id)
+    return revokeApiKey(id)
   }
 
   const tableHeaders: { label: string; className?: string }[] = [
