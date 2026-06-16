@@ -242,6 +242,7 @@ const SAVED_ITEM_OPTIONAL_EMPTY_DEAD_END_PATTERNS = [/\bNo other saved items wer
 const SAVED_ITEM_SELECTION_EMPTY_DEAD_END_PATTERNS = [
   /\bNothing will be shared yet\b/i,
   /\bNothing is kept yet\b/i,
+  /\bNo saved items are selected yet\b/i,
 ]
 
 const INBOX_NEEDS_ACTION_EMPTY_DEAD_END_PATTERNS = [/\bNothing needs action right now\b/i]

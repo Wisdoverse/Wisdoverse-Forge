@@ -236,4 +236,32 @@ describe('InjectionPreviewModal', () => {
     expect(screen.queryByText(new RegExp(['Pinned', 'for', 'later'].join('\\s+')))).toBeNull()
     expect(screen.queryByLabelText(new RegExp(['Stop', 'pinning'].join('\\s+')))).toBeNull()
   })
+
+  test('explains how to recover when no saved notes are selected', () => {
+    render(
+      <InjectionPreviewModal
+        isOpen
+        preview={{
+          ...preview,
+          items: [],
+          suggestedItems: [
+            {
+              ...preview.items[0],
+              id: 'suggested-1',
+              title: 'Suggested checklist',
+            },
+          ],
+        }}
+        onClose={() => {}}
+        onConfirm={() => {}}
+      />
+    )
+
+    expect(
+      screen.getByText(
+        'No saved items will be included yet. Add one below, or send without notes if none fit.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByText('No saved items are selected yet.')).toBeNull()
+  })
 })

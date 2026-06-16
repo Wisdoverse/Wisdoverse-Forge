@@ -181,7 +181,7 @@ export function InjectionPreviewModal({
                 title="Will be included"
                 helper="Checked items will be shared with the agent when you send the task."
                 items={preview.items}
-                empty="No saved items are selected yet."
+                empty="No saved items will be included yet. Add one below, or send without notes if none fit."
                 selectedIds={selectedIds}
                 pinnedIds={pinnedIds}
                 onToggleSelected={toggleSelected}

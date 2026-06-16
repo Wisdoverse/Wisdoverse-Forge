@@ -1979,6 +1979,7 @@ export function InjectionPreviewModal() {
     <div>
       <PreviewSection empty="Nothing will be shared yet." />
       <PreviewSection empty="Nothing is kept yet. Choose the pin button on a saved item to keep it easy to reuse." />
+      <PreviewSection empty="No saved items are selected yet." />
     </div>
   )
 }
@@ -1998,6 +1999,10 @@ export function InjectionPreviewModal() {
           type: 'saved-item-selection-empty-copy',
           location: 'src/app/entities/context/ui/InjectionPreviewModal.tsx:6',
         }),
+        expect.objectContaining({
+          type: 'saved-item-selection-empty-copy',
+          location: 'src/app/entities/context/ui/InjectionPreviewModal.tsx:7',
+        }),
       ])
     )
   })
@@ -2008,7 +2013,7 @@ export function InjectionPreviewModal() {
 export function InjectionPreviewModal() {
   return (
     <div>
-      <PreviewSection empty="No saved items are selected yet." />
+      <PreviewSection empty="No saved items will be included yet. Add one below, or send without notes if none fit." />
       <PreviewSection empty="No saved items are pinned yet. Choose the pin button on a saved item to keep it easy to reuse." />
     </div>
   )
