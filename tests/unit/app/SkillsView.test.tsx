@@ -97,6 +97,26 @@ describe('SkillsView', () => {
     expect(instructions.value).not.toContain('npm run')
   })
 
+  test('closes the create instruction draft without saving', async () => {
+    const user = userEvent.setup()
+    render(<SkillsView />)
+
+    await user.click(screen.getAllByRole('button', { name: /save instruction/i })[0])
+    const dialog = screen.getByRole('dialog', { name: /save a reusable instruction/i })
+
+    expect(within(dialog).getByRole('button', { name: 'Close without saving' })).toBeDefined()
+    expect(within(dialog).queryByRole('button', { name: /^Cancel$/ })).toBeNull()
+
+    await user.click(within(dialog).getByRole('button', { name: 'Close without saving' }))
+
+    expect(screen.queryByRole('dialog', { name: /save a reusable instruction/i })).toBeNull()
+    expect(
+      fetchMock.mock.calls.some(
+        ([url, init]) => url === '/api/v1/skills' && (init as RequestInit | undefined)?.method === 'POST'
+      )
+    ).toBe(false)
+  })
+
   test('shows empty state after load with no skills', async () => {
     render(<SkillsView />)
     await waitFor(() => {
