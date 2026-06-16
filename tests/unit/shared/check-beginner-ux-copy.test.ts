@@ -5514,6 +5514,45 @@ function serviceStatusText(status: ServiceStatus): string {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags app health error copy that starts with the failure summary', () => {
+    const cwd = fixture({
+      'src/app/features/admin/systemHealthErrorMessage.ts': `
+export function systemHealthErrorMessage() {
+  const base = 'Forge could not check app health.'
+  return \`\${base} Refresh Admin, then choose Check now.\`
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'system-health-error-copy',
+          location: 'src/app/features/admin/systemHealthErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'system-health-error-copy',
+          location: 'src/app/features/admin/systemHealthErrorMessage.ts:4',
+        }),
+      ])
+    )
+  })
+
+  it('accepts app health error copy that starts with the next step', () => {
+    const cwd = fixture({
+      'src/app/features/admin/systemHealthErrorMessage.ts': `
+export function systemHealthErrorMessage() {
+  return 'Refresh Admin, then choose Check now. Forge could not check app health.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags vague app health attention copy', () => {
     const cwd = fixture({
       'src/app/features/admin/SystemHealth.tsx': `

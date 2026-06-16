@@ -551,6 +551,12 @@ const COMMON_ERROR_FAILURE_FIRST_PATTERNS = [
   /\{\{resource\}\} 配额已用完。请让所有者/,
 ]
 
+const SYSTEM_HEALTH_ERROR_FAILURE_FIRST_PATTERNS = [
+  /\bconst\s+\w+\s*=\s*['"`]Forge could not check app health\./i,
+  /^\s*return\s+['"`]Forge could not check app health\./i,
+  /^\s*return\s+`\$\{[^}]+\}\s+/,
+]
+
 const LOCALE_VAGUE_ERROR_LABEL_PATTERNS = [
   /\berror:\s*['"`]Needs attention['"`]/i,
   /\berror:\s*['"`]需要处理['"`]/,
@@ -1648,6 +1654,12 @@ function hasSystemHealthStatusDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/admin/SystemHealth.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasSystemHealthErrorFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/admin/systemHealthErrorMessage.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SYSTEM_HEALTH_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAccessKeyLastUsedDeadEndCopy(relFile, line) {
@@ -3030,6 +3042,15 @@ function scanFile(file, relFile) {
         type: 'system-health-status-copy',
         location,
         message: 'App health status copy must tell beginners to choose Check now.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSystemHealthErrorFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'system-health-error-copy',
+        location,
+        message: 'App health errors must start with the next action, not the failure summary.',
         sample: line.trim(),
       })
     }

@@ -57,28 +57,27 @@ function isNetworkError(error: unknown): boolean {
 }
 
 export function systemHealthErrorMessage(error: unknown): string {
-  const base = 'Forge could not check app health.'
   const text = errorText(error).toLowerCase()
   const code = statusCode(error)
 
   if (code === 401 || text.includes('sign in again') || text.includes('unauthorized')) {
-    return `${base} Your sign-in expired. Sign in again, then open Admin and choose Check now.`
+    return 'Sign in again, then open Admin and choose Check now. Forge could not check app health because your sign-in expired.'
   }
   if (code === 403 || text.includes('permission') || text.includes('forbidden')) {
-    return `${base} You do not have access to app health checks. Ask an owner or admin to give you Admin access, then choose Check now.`
+    return 'Ask an owner or admin to give you Admin access, then choose Check now. Forge could not check app health because you do not have access to app health checks.'
   }
   if (code === 404 || text.includes('endpoint is not available')) {
-    return `${base} App health checks are not available from this Admin view. Refresh Admin, then choose Check now. If it still fails, ask an owner or admin to check setup.`
+    return 'Refresh Admin, then choose Check now. App health checks are not available from this Admin view. If it still fails, ask an owner or admin to check setup.'
   }
   if (code === 429 || text.includes('busy') || text.includes('too many')) {
-    return `${base} Forge is receiving too many health checks right now. Wait a minute, then choose Check now.`
+    return 'Wait a minute, then choose Check now. Forge is receiving too many health checks right now.'
   }
   if (code != null && code >= 500) {
-    return `${base} Refresh Admin, then choose Check now. If it still fails, ask an owner or admin to check app health setup.`
+    return 'Refresh Admin, then choose Check now. Forge could not check app health. If it still fails, ask an owner or admin to check app health setup.'
   }
   if (isNetworkError(error)) {
-    return `${base} Forge could not connect while checking app health. Check your connection, then choose Check now.`
+    return 'Check your connection, then choose Check now. Forge could not connect while checking app health.'
   }
 
-  return `${base} Choose Check now again. If it still fails, ask an owner or admin to check app health setup.`
+  return 'Choose Check now again. Forge could not check app health. If it still fails, ask an owner or admin to check app health setup.'
 }
