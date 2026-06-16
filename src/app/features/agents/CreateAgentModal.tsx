@@ -912,6 +912,10 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     ? 'Uses files and commands on your computer. Forge still manages the agent here with tasks, status, and history.'
                     : 'Uses a connected AI service for planning, writing, and review. It does not open files or run commands.'}
               </p>
+              <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                Not sure? Use Managed workspace for project-file work, This computer when files must
+                stay local, or Simple chat agent after an AI service is ready.
+              </p>
             </div>
 
             <section

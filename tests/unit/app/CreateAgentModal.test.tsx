@@ -69,7 +69,13 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText('Agent location')).toBeInTheDocument()
     expect(screen.getByText('Check Where agents run in Settings')).toBeInTheDocument()
     expect(screen.getByText('Can edit files')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        /not sure\? use managed workspace for project-file work, this computer when files must stay local, or simple chat agent after an AI service is ready/i
+      )
+    ).toBeInTheDocument()
     expect(screen.queryByText(/workspace must be ready/i)).toBeNull()
+    expect(screen.queryByText(/choose a runtime/i)).toBeNull()
     expect(screen.queryByText('File work')).toBeNull()
     expect(screen.getByRole('combobox', { name: /^work tool$/i })).toBeInTheDocument()
     expect(screen.getByLabelText(/work folder/i)).toBeInTheDocument()
