@@ -213,6 +213,12 @@ const BILLING_RECEIPT_LINK_DEAD_END_PATTERNS = [/\bNo link\b/i]
 
 const ANALYTICS_CHART_DEAD_END_PATTERNS = [/\bNo activity data\b/i, /\bNo tool usage data\b/i]
 
+const ANALYTICS_ERROR_FAILURE_FIRST_PATTERNS = [
+  /\breturn\s+['"`]Analytics could not load live activity\./i,
+  /\breturn\s+['"`]Analytics could not reach/i,
+  /\breturn\s+['"`]Analytics could not connect/i,
+]
+
 const ANALYTICS_USEFUL_EMPTY_DEAD_END_PATTERNS = [/\bNo useful saved items yet\b/i]
 
 const ANALYTICS_REVIEW_EMPTY_DEAD_END_PATTERNS = [
@@ -1298,6 +1304,12 @@ function hasAnalyticsChartDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/analytics/AnalyticsDashboard.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return ANALYTICS_CHART_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAnalyticsErrorFailureFirstCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/shared/model/analytics.store.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ANALYTICS_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAnalyticsUsefulEmptyDeadEndCopy(relFile, line) {
@@ -2603,6 +2615,15 @@ function scanFile(file, relFile) {
         type: 'analytics-chart-empty-copy',
         location,
         message: 'Analytics chart empty states must tell beginners what creates the first data.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAnalyticsErrorFailureFirstCopy(relFile, line)) {
+      findings.push({
+        type: 'analytics-error-copy',
+        location,
+        message: 'Analytics errors must start with the next action for beginners.',
         sample: line.trim(),
       })
     }

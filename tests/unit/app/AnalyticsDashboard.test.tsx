@@ -105,8 +105,7 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
     const load = vi.fn().mockResolvedValue(undefined)
     useAnalyticsStore.setState({
       load,
-      error:
-        'Analytics could not reach the service. Check your connection, then refresh the dashboard.',
+      error: 'Check your connection, then refresh the dashboard. Analytics could not connect.',
     })
 
     render(<AnalyticsDashboard />)

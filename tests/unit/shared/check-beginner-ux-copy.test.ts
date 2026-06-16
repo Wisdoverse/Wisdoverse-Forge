@@ -1913,6 +1913,50 @@ export function AnalyticsDashboard() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags analytics errors that start with the failure instead of the next step', () => {
+    const cwd = fixture({
+      'src/app/shared/model/analytics.store.ts': `
+export function analyticsUnavailableMessage() {
+  return 'Analytics could not load live activity. Refresh the dashboard.'
+}
+
+export function analyticsNetworkErrorMessage() {
+  return 'Analytics could not reach the service. Check your connection, then refresh the dashboard.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'analytics-error-copy',
+        location: 'src/app/shared/model/analytics.store.ts:3',
+      }),
+      expect.objectContaining({
+        type: 'analytics-error-copy',
+        location: 'src/app/shared/model/analytics.store.ts:7',
+      }),
+    ])
+  })
+
+  it('accepts analytics errors that start with the next step', () => {
+    const cwd = fixture({
+      'src/app/shared/model/analytics.store.ts': `
+export function analyticsUnavailableMessage() {
+  return 'Refresh the dashboard. If this is a new workspace, run an agent task first.'
+}
+
+export function analyticsNetworkErrorMessage() {
+  return 'Check your connection, then refresh the dashboard. Analytics could not connect.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags saved item useful empty copy that does not explain how to rank items', () => {
     const cwd = fixture({
       'src/app/features/analytics/ContextUsageDashboard.tsx': `
