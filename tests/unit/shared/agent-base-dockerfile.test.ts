@@ -10,7 +10,7 @@ const agentBaseDockerfile = fs.readFileSync(
 
 describe('agent base Dockerfile', () => {
   it('builds Docker Compose from pinned source using a patched Go toolchain', () => {
-    expect(agentBaseDockerfile).toContain('ARG COMPOSE_GO_VERSION=1.26.3')
+    expect(agentBaseDockerfile).toContain('ARG COMPOSE_GO_VERSION=1.26.4')
     expect(agentBaseDockerfile).toContain('ARG COMPOSE_VERSION=5.1.3')
     expect(agentBaseDockerfile).toContain(
       'ARG COMPOSE_COMMIT=977a4310f9f6d89d4b176fee01a5b7c109c1816a'
