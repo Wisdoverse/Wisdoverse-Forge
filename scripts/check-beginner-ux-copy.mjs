@@ -457,6 +457,12 @@ const RUNTIME_SIGN_IN_DEAD_END_PATTERNS = [/\bNo work tool sign-ins are connecte
 
 const RUNTIME_DEFAULT_LOCATION_DEAD_END_PATTERNS = [/\bNot set yet\b/i]
 
+const RUNTIME_SETUP_STATUS_DEAD_END_PATTERNS = [
+  /\bNo work tool setup status yet\b/i,
+  /\bNo agent has been seen online yet\b/i,
+  /\bno agents are online yet\b/i,
+]
+
 const SETTINGS_LOAD_ERROR_DEAD_END_PATTERNS = [
   /\bAI service settings could not be loaded\./i,
   /\bOutside tool access keys could not be loaded\./i,
@@ -1772,6 +1778,12 @@ function hasRuntimeDefaultLocationDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/settings/RuntimeSection.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return RUNTIME_DEFAULT_LOCATION_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasRuntimeSetupStatusDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/settings/RuntimeSection.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return RUNTIME_SETUP_STATUS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasSettingsLoadErrorDeadEndCopy(relFile, line) {
@@ -3124,6 +3136,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Default agent location copy must tell beginners to load setup before choosing a location.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasRuntimeSetupStatusDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'runtime-setup-status-copy',
+        location,
+        message:
+          'Runtime setup status copy must tell beginners what to start, wake, or check next.',
         sample: line.trim(),
       })
     }

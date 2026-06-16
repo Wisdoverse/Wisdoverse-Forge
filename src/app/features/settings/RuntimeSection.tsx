@@ -768,7 +768,8 @@ function runtimeLaunchChecklistItems(
     imageDetail =
       'Enable at least one tool before giving agents tasks that need project files, commands, or live work access.'
   } else if (runtimeSettings.cliToolDetails.length === 0) {
-    imageDetail = 'No work tool setup status yet. Check again after the tools finish setting up.'
+    imageDetail =
+      'Check setup after tools finish. If this stays here, ask an owner to finish tool setup.'
   } else if (missingImages.length > 0) {
     imageDetail = `${missingImages.length} tool${
       missingImages.length === 1 ? '' : 's'
@@ -815,7 +816,7 @@ function runtimeLaunchChecklistItems(
       ? 'Agent online status could not be checked. Check setup. If it still cannot be checked, ask an owner or admin to check Where agents run.'
       : latestHeartbeat
         ? `An agent was online ${formatRelativeTime(latestHeartbeat)}.`
-        : 'No agent has been seen online yet. Start or wake an agent, then check again.',
+        : 'Start or wake an agent, then choose Check again.',
     ready: !participantsError && Boolean(latestHeartbeat),
     action: participantsError || !latestHeartbeat ? 'refresh' : undefined,
     actionLabel: participantsError || !latestHeartbeat ? 'Check again' : undefined,
@@ -848,10 +849,10 @@ function runtimeReadinessSummary(
           } connected`
   const onlineAgents =
     onlineAgentCount === 0
-      ? 'no agents are online yet'
+      ? 'Start or wake an agent to bring one online'
       : `${countPhrase(onlineAgentCount, 'agent')} ${onlineAgentCount === 1 ? 'is' : 'are'} online`
 
-  return `Setup has ${locations} and ${tools} like Claude or Codex. ${signIns}, and ${onlineAgents}.`
+  return `Setup has ${locations} and ${tools} like Claude or Codex. ${signIns}. ${onlineAgents}.`
 }
 
 function countPhrase(count: number, singular: string): string {

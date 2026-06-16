@@ -2977,6 +2977,44 @@ export function RuntimeSection() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags runtime setup status copy that only says what is missing', () => {
+    const cwd = fixture({
+      'src/app/features/settings/RuntimeSection.tsx': `
+function checklistCopy() {
+  return 'No work tool setup status yet. Check again after the tools finish setting up.'
+}
+
+function heartbeatCopy() {
+  return 'No agent has been seen online yet. Start or wake an agent, then check again.'
+}
+
+function runtimeReadinessSummary() {
+  return 'Setup has 1 agent location and 1 work tool like Claude or Codex. No extra work tool sign-ins are needed, and no agents are online yet.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'runtime-setup-status-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'runtime-setup-status-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'runtime-setup-status-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:11',
+        }),
+      ])
+    )
+  })
+
   it('flags validation copy that does not explain the next change', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `
