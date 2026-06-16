@@ -69,7 +69,7 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       message,
-      'You do not have permission to delete the agent. Ask an owner or admin to update your team space access.'
+      'Ask an owner or admin to update your team space access, then try to delete the agent again. You do not have permission to delete the agent.'
     )
     expect(message).not.toContain('workspace role')
   })
@@ -100,7 +100,7 @@ describe('Agents Store', () => {
         status: '429',
         error: 'rate limit exceeded',
       }),
-      'The Agents page is busy. Wait a moment, then try to send the instruction again.'
+      'Wait a moment, then try to send the instruction again. The Agents page is busy.'
     )
   })
 
@@ -119,11 +119,28 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       message,
-      'The place where this agent runs is not ready. Ask an owner or admin to check Where agents run, then start this agent from the agent card.'
+      'Ask an owner or admin to check Where agents run, then start this agent from the agent card. The place where this agent runs is not ready.'
     )
     expect(message).not.toContain('worker')
     expect(message).not.toContain('Docker')
     expect(message).not.toContain('workspace is not ready')
+  })
+
+  test('starts unknown action failures with a refresh step', () => {
+    const message = agentActionErrorMessage('restart', apiError(418, { message: 'teapot' }))
+
+    expectBeginnerError(
+      message,
+      'Refresh the Agents page, then try to restart the agent again. Forge could not restart the agent.'
+    )
+    expect(message).not.toContain('teapot')
+  })
+
+  test('starts delete conflicts with the review step', () => {
+    expectBeginnerError(
+      agentActionErrorMessage('delete', apiError(409, { message: 'version changed' })),
+      'Refresh the Agents page, review the current status, then try again. This agent changed while you were deleting it.'
+    )
   })
 
   test('uses team space language for create access validation', () => {
@@ -382,7 +399,7 @@ describe('Agents Store', () => {
     expect(result).toBe(false)
     expectBeginnerError(
       useAgentsStore.getState().error,
-      'This agent is already working. Wait for the current work to finish, refresh the Agents page, then try again.'
+      'Wait for the current work to finish, refresh the Agents page, then try again. This agent is already working.'
     )
   })
 })

@@ -216,7 +216,7 @@ export function agentActionErrorMessage(action: AgentErrorAction, error?: unknow
     return `Sign in again, then open Agents and try to ${actionPhrase} again.`
   }
   if (status === 403) {
-    return `You do not have permission to ${actionPhrase}. Ask an owner or admin to update your team space access.`
+    return `Ask an owner or admin to update your team space access, then try to ${actionPhrase} again. You do not have permission to ${actionPhrase}.`
   }
   if (status === 404) {
     return 'Refresh the Agents page, choose the current agent, then try again. This agent could not be found.'
@@ -228,13 +228,13 @@ export function agentActionErrorMessage(action: AgentErrorAction, error?: unknow
     return agentValidationMessage(action, detail)
   }
   if (status === 429) {
-    return `The Agents page is busy. Wait a moment, then try to ${actionPhrase} again.`
+    return `Wait a moment, then try to ${actionPhrase} again. The Agents page is busy.`
   }
   if (status >= 500) {
     return agentServerMessage(action)
   }
 
-  return `Forge could not ${actionPhrase}. Refresh the Agents page, then try again.`
+  return `Refresh the Agents page, then try to ${actionPhrase} again. Forge could not ${actionPhrase}.`
 }
 
 function agentValidationMessage(action: AgentErrorAction, detail: string | null): string {
@@ -275,12 +275,12 @@ function agentValidationMessage(action: AgentErrorAction, detail: string | null)
 function agentConflictMessage(action: AgentErrorAction, detail: string | null): string {
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('working') || normalized.includes('busy')) {
-    return 'This agent is already working. Wait for the current work to finish, refresh the Agents page, then try again.'
+    return 'Wait for the current work to finish, refresh the Agents page, then try again. This agent is already working.'
   }
   if (action === 'delete') {
-    return 'This agent changed while you were deleting it. Refresh the Agents page, review the current status, then try again.'
+    return 'Refresh the Agents page, review the current status, then try again. This agent changed while you were deleting it.'
   }
-  return 'This agent changed while you were working. Refresh the Agents page, review its current status, then try again.'
+  return 'Refresh the Agents page, review its current status, then try again. This agent changed while you were working.'
 }
 
 function agentServerMessage(action: AgentErrorAction): string {
@@ -299,9 +299,9 @@ function agentServerMessage(action: AgentErrorAction): string {
 function agentRuntimeRecoveryMessage(detail: string | null): string {
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('docker')) {
-    return 'The place where this agent runs is not ready. Ask an owner or admin to check Where agents run, then start this agent from the agent card.'
+    return 'Ask an owner or admin to check Where agents run, then start this agent from the agent card. The place where this agent runs is not ready.'
   }
-  return 'The place where this agent runs is not ready. Ask an owner or admin to check Where agents run, then start this agent from the agent card.'
+  return 'Ask an owner or admin to check Where agents run, then start this agent from the agent card. The place where this agent runs is not ready.'
 }
 
 function agentCreatedStartFailureMessage(error?: unknown): string {

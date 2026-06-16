@@ -4729,8 +4729,32 @@ function agentConnectionMessage(actionPhrase) {
   return \`Forge could not \${actionPhrase}. It could not connect while updating Agents. Check your connection, then refresh Agents.\`
 }
 
+function agentPermissionMessage(actionPhrase) {
+  return \`You do not have permission to \${actionPhrase}. Ask an owner or admin to update access.\`
+}
+
+function agentBusyMessage(actionPhrase) {
+  return \`The Agents page is busy. Wait a moment, then try to \${actionPhrase} again.\`
+}
+
+function agentConflictMessage() {
+  return 'This agent is already working. Wait for the current work to finish.'
+}
+
+function agentChangedMessage() {
+  return 'This agent changed while you were working. Refresh the Agents page, then try again.'
+}
+
 function agentServerMessage() {
   return 'Forge could not prepare the setup text for this computer right now. Wait a moment, then choose Create Agent again.'
+}
+
+function agentRuntimeMessage() {
+  return 'The place where this agent runs is not ready. Ask an owner or admin to check Where agents run.'
+}
+
+function agentUnknownMessage(actionPhrase) {
+  return \`Forge could not \${actionPhrase}. Refresh the Agents page, then try again.\`
 }
 
 function agentCreatedStartFailureMessage() {
@@ -4756,6 +4780,30 @@ function agentCreatedStartFailureMessage() {
           type: 'agent-store-error-copy',
           location: 'src/app/entities/agent/model/agents.store.ts:11',
         }),
+        expect.objectContaining({
+          type: 'agent-store-error-copy',
+          location: 'src/app/entities/agent/model/agents.store.ts:15',
+        }),
+        expect.objectContaining({
+          type: 'agent-store-error-copy',
+          location: 'src/app/entities/agent/model/agents.store.ts:19',
+        }),
+        expect.objectContaining({
+          type: 'agent-store-error-copy',
+          location: 'src/app/entities/agent/model/agents.store.ts:23',
+        }),
+        expect.objectContaining({
+          type: 'agent-store-error-copy',
+          location: 'src/app/entities/agent/model/agents.store.ts:27',
+        }),
+        expect.objectContaining({
+          type: 'agent-store-error-copy',
+          location: 'src/app/entities/agent/model/agents.store.ts:31',
+        }),
+        expect.objectContaining({
+          type: 'agent-store-error-copy',
+          location: 'src/app/entities/agent/model/agents.store.ts:35',
+        }),
       ])
     )
   })
@@ -4767,8 +4815,32 @@ function agentConnectionMessage(actionPhrase) {
   return \`Check your connection, then refresh Agents. Forge could not \${actionPhrase} while updating Agents.\`
 }
 
+function agentPermissionMessage(actionPhrase) {
+  return \`Ask an owner or admin to update access, then try to \${actionPhrase} again. You do not have permission to \${actionPhrase}.\`
+}
+
+function agentBusyMessage(actionPhrase) {
+  return \`Wait a moment, then try to \${actionPhrase} again. The Agents page is busy.\`
+}
+
+function agentConflictMessage() {
+  return 'Wait for the current work to finish, refresh the Agents page, then try again. This agent is already working.'
+}
+
+function agentChangedMessage() {
+  return 'Refresh the Agents page, review its current status, then try again. This agent changed while you were working.'
+}
+
 function agentServerMessage() {
   return 'Wait a moment, then choose Create Agent again. Forge could not prepare the setup text for this computer right now.'
+}
+
+function agentRuntimeMessage() {
+  return 'Ask an owner or admin to check Where agents run, then start this agent from the card. The place where this agent runs is not ready.'
+}
+
+function agentUnknownMessage(actionPhrase) {
+  return \`Refresh the Agents page, then try to \${actionPhrase} again. Forge could not \${actionPhrase}.\`
 }
 
 function agentCreatedStartFailureMessage() {

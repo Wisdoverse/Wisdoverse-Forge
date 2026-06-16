@@ -306,9 +306,15 @@ const AGENT_DETAIL_START_FAILURE_FIRST_PATTERNS = [/\bStart did not finish\b/i]
 const AGENT_STORE_ERROR_FAILURE_FIRST_PATTERNS = [
   /^\s*return\s+['"`]Forge could not prepare the setup text for this computer\. Check/,
   /^\s*return\s+`Forge could not \$\{actionPhrase\}\. It could not connect/,
+  /^\s*return\s+`You do not have permission to \$\{actionPhrase\}\. Ask an owner/,
   /^\s*return\s+['"`]This agent could not be found\. Refresh/,
+  /^\s*return\s+['"`]This agent is already working\. Wait/,
+  /^\s*return\s+['"`]This agent changed while/,
+  /^\s*return\s+`The Agents page is busy\. Wait/,
   /^\s*return\s+['"`]Forge could not prepare the setup text for this computer right now\. Wait/,
   /^\s*return\s+['"`]Forge could not prepare where this agent runs right now\. Wait/,
+  /^\s*return\s+`Forge could not \$\{actionPhrase\}\. Refresh/,
+  /^\s*return\s+['"`]The place where this agent runs is not ready\. Ask/,
   /^\s*return\s+['"`]Agent was created, but/,
 ]
 
