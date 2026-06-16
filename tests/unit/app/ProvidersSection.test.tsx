@@ -264,6 +264,8 @@ describe('ProvidersSection', () => {
     )
     expect(screen.getByText(/service address and model are filled in/i)).toBeDefined()
     expect(screen.getByText(/paste the service access key and save/i)).toBeDefined()
+    expect(screen.getByText(/After saving, click Check/i)).toBeDefined()
+    expect(screen.getByText(/Ready means simple chat agents can use this service/i)).toBeDefined()
     const saveButton = screen.getByRole('button', { name: /save AI service/i })
     expect(saveButton).toBeDisabled()
     expect(saveProviderMock).not.toHaveBeenCalled()

@@ -1063,6 +1063,7 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
           </p>
           <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
             Service address and model are filled in for you. Paste the service access key and save.
+            After saving, click Check. Ready means simple chat agents can use this service.
           </p>
         </div>
         <button
