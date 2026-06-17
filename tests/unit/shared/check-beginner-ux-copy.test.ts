@@ -4199,6 +4199,10 @@ function runtimeSettingsFallback() {
 }
 `,
       'src/app/features/settings/RuntimeSection.tsx': `
+function runtimeChecklistCopy() {
+  return 'The Where agents run settings have not loaded yet. Check setup. If they still do not load, ask an owner or admin to check Where agents run.'
+}
+
 function credentialStatusCopy() {
   return 'Work tool sign-ins could not be checked. Check setup. If they still cannot be checked, ask an owner or admin to check work tool sign-ins.'
 }
@@ -4238,6 +4242,10 @@ function heartbeatStatusCopy() {
           type: 'runtime-error-copy',
           location: 'src/app/features/settings/RuntimeSection.tsx:7',
         }),
+        expect.objectContaining({
+          type: 'runtime-error-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:11',
+        }),
       ])
     )
   })
@@ -4262,6 +4270,10 @@ function runtimeSettingsFallback() {
 }
 `,
       'src/app/features/settings/RuntimeSection.tsx': `
+function runtimeChecklistCopy() {
+  return 'Refresh this settings page to load Where agents run. If it still does not load, ask an owner or admin to check Where agents run.'
+}
+
 function credentialStatusCopy() {
   return 'Choose Check again to refresh work tool sign-ins. If they still cannot be checked, ask an owner or admin to check work tool sign-ins.'
 }

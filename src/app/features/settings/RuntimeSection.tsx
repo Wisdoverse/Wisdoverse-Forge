@@ -31,6 +31,9 @@ interface RuntimeChecklistItem {
   provider?: string
 }
 
+const RUNTIME_SETTINGS_LOAD_GUIDANCE =
+  'Refresh this settings page to load Where agents run. If it still does not load, ask an owner or admin to check Where agents run.'
+
 function SettingRow({ label, description, children }: SettingRowProps) {
   return (
     <div
@@ -228,7 +231,7 @@ export function RuntimeSection() {
                     cliStatuses.length,
                     participants.length
                   )
-                : 'The Where agents run settings have not loaded yet.'}
+                : RUNTIME_SETTINGS_LOAD_GUIDANCE}
             </p>
           </div>
           <button
@@ -729,8 +732,7 @@ function runtimeLaunchChecklistItems(
       {
         id: 'runtime-api',
         title: 'Where agents run status',
-        detail:
-          'The Where agents run settings have not loaded yet. Check setup. If they still do not load, ask an owner or admin to check Where agents run.',
+        detail: RUNTIME_SETTINGS_LOAD_GUIDANCE,
         ready: false,
         action: 'refresh',
         actionLabel: 'Check again',
