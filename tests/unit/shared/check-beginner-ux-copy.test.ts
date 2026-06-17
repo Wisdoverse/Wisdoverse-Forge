@@ -7540,6 +7540,72 @@ function KeyRow() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags outside tool access value copy that hides the one-time save action behind key jargon', () => {
+    const cwd = fixture({
+      'src/app/features/settings/KeysSection.tsx': `
+function NewKeyBanner() {
+  return (
+    <section>
+      <p>This is the only time the full key is shown. Copy it into a password manager before choosing I saved it.</p>
+      <button>Copy key</button>
+      <p>Forge cannot copy from this browser. Select the key text, then copy it manually before choosing I saved it.</p>
+      <th>Key preview</th>
+    </section>
+  )
+}
+const ACCESS_KEY_EMPTY_STEPS = ['Copy the new key into a password manager before closing this message.']
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'access-key-secret-value-copy',
+          sample: expect.stringContaining('full key'),
+        }),
+        expect.objectContaining({
+          type: 'access-key-secret-value-copy',
+          sample: expect.stringContaining('Copy key'),
+        }),
+        expect.objectContaining({
+          type: 'access-key-secret-value-copy',
+          sample: expect.stringContaining('Select the key text'),
+        }),
+        expect.objectContaining({
+          type: 'access-key-secret-value-copy',
+          sample: expect.stringContaining('Key preview'),
+        }),
+        expect.objectContaining({
+          type: 'access-key-secret-value-copy',
+          sample: expect.stringContaining('Copy the new key'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts outside tool access value copy that tells beginners what to save', () => {
+    const cwd = fixture({
+      'src/app/features/settings/KeysSection.tsx': `
+function NewKeyBanner() {
+  return (
+    <section>
+      <p>This full access value is shown only once. Save it in a password manager before choosing I saved this value.</p>
+      <button>Copy access value</button>
+      <p>Forge cannot copy from this browser. Select the access value text, then copy it manually before choosing I saved this value.</p>
+      <th>Saved key starts with</th>
+    </section>
+  )
+}
+const ACCESS_KEY_EMPTY_STEPS = ['Save the new access value in a password manager before closing this message.']
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags code access setup copy that starts with a vague key', () => {
     const cwd = fixture({
       'src/app/features/settings/GitCredentialsSection.tsx': `
@@ -7566,6 +7632,155 @@ function AddCredentialForm() {
 function AddCredentialForm() {
   return <p>Paste the code access key from GitHub or GitLab. If that page says personal access token, use that value here.</p>
 }
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags code access address copy that uses cloud or Git address jargon', () => {
+    const cwd = fixture({
+      'src/app/features/settings/GitCredentialsSection.tsx': `
+const GIT_CREDENTIAL_SETUP_STEPS = [
+  { label: 'Leave address blank for cloud', value: 'Only enter an address when your company hosts its own GitHub or GitLab.' },
+]
+function CredentialRow() {
+  return <span>Default cloud address</span>
+}
+function AddCredentialForm() {
+  return <label>GitHub or GitLab address</label>
+}
+const tableHeaders = [{ label: 'Git address' }]
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'code-access-address-copy',
+          sample: expect.stringContaining('Leave address blank for cloud'),
+        }),
+        expect.objectContaining({
+          type: 'code-access-address-copy',
+          sample: expect.stringContaining('Only enter an address'),
+        }),
+        expect.objectContaining({
+          type: 'code-access-address-copy',
+          sample: expect.stringContaining('Default cloud address'),
+        }),
+        expect.objectContaining({
+          type: 'code-access-address-copy',
+          sample: expect.stringContaining('GitHub or GitLab address'),
+        }),
+        expect.objectContaining({
+          type: 'code-access-address-copy',
+          sample: expect.stringContaining('Git address'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts code access address copy that tells beginners when to leave it empty', () => {
+    const cwd = fixture({
+      'src/app/features/settings/GitCredentialsSection.tsx': `
+const GIT_CREDENTIAL_SETUP_STEPS = [
+  { label: 'Use the normal website by default', value: 'Leave the website address empty for github.com or gitlab.com. Add one only for a company-hosted site.' },
+]
+function CredentialRow({ provider }) {
+  return <span>{provider === 'github' ? 'github.com' : 'gitlab.com'}</span>
+}
+function AddCredentialForm() {
+  return <label>Company GitHub or GitLab website</label>
+}
+const tableHeaders = [{ label: 'Website address' }]
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags SSH code access setup copy that uses public-line and key-type jargon', () => {
+    const cwd = fixture({
+      'src/app/features/settings/SshKeysSection.tsx': `
+function describeKeyType(keyType) {
+  if (keyType === 'ssh-ed25519') return 'Modern key type'
+  if (keyType === 'ssh-rsa') return 'RSA key type'
+}
+const SSH_KEY_SETUP_STEPS = [
+  { label: 'Paste the public line', value: 'Copy only the one-line .pub key that starts with ssh-ed25519 or ssh-rsa.' },
+]
+function AddSshKeyForm() {
+  return <label>Public key line</label>
+}
+function validation() {
+  return 'Paste the public key line before saving.'
+}
+const tableHeaders = [{ label: 'Safety check' }, { label: 'Key type' }]
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'ssh-code-access-jargon-copy',
+          sample: expect.stringContaining('Modern key type'),
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-jargon-copy',
+          sample: expect.stringContaining('RSA key type'),
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-jargon-copy',
+          sample: expect.stringContaining('Paste the public line'),
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-jargon-copy',
+          sample: expect.stringContaining('one-line .pub key'),
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-jargon-copy',
+          sample: expect.stringContaining('Public key line'),
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-jargon-copy',
+          sample: expect.stringContaining('Paste the public key line'),
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-jargon-copy',
+          sample: expect.stringContaining('Safety check'),
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-jargon-copy',
+          sample: expect.stringContaining('Key type'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts SSH code access setup copy that explains the shareable public key line', () => {
+    const cwd = fixture({
+      'src/app/features/settings/SshKeysSection.tsx': `
+function describeKeyType(keyType) {
+  if (keyType === 'ssh-ed25519') return 'Recommended SSH key'
+  if (keyType === 'ssh-rsa') return 'Older SSH key'
+  return 'Ask an admin to check this SSH key'
+}
+const SSH_KEY_SETUP_STEPS = [
+  { label: 'Paste the shareable public key line', value: 'Copy only the shareable one-line public key from the .pub file. It starts with ssh-ed25519 or ssh-rsa.' },
+]
+function AddSshKeyForm() {
+  return <label>Shareable public key line</label>
+}
+function validation() {
+  return 'Paste the shareable public key line before saving.'
+}
+const tableHeaders = [{ label: 'Saved key check code' }, { label: 'Accepted by Forge' }]
 `,
     })
 

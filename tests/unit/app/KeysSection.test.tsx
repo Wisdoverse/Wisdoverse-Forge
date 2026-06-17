@@ -72,9 +72,8 @@ describe('KeysSection', () => {
     expect(within(emptyState).getAllByText(/trusted outside tool/i).length).toBeGreaterThan(0)
     expect(within(emptyState).getByText(/skip this until a trusted outside tool/i)).toBeDefined()
     expect(within(emptyState).getByText(/tool you trust/i)).toBeDefined()
-    expect(
-      within(emptyState).getByText(/password manager before closing this message/i)
-    ).toBeDefined()
+    expect(within(emptyState).getByText(/access value in a password manager/i)).toBeDefined()
+    expect(within(emptyState).queryByText(/copy the new key/i)).toBeNull()
     expect(within(emptyState).queryByText('No outside tool access keys yet')).toBeNull()
     expect(within(emptyState).queryByText(/platform A[P]I keys/i)).toBeNull()
 
@@ -122,10 +121,12 @@ describe('KeysSection', () => {
     fireEvent.click(screen.getByRole('button', { name: /create access key/i }))
 
     await waitFor(() => expect(createApiKeyMock).toHaveBeenCalledWith('Production deploy pipeline'))
-    expect(screen.getByText(/Outside tool access key created - save it now/i)).toBeDefined()
-    expect(screen.getByText(/only time the full key is shown/i)).toBeDefined()
-    expect(screen.getByRole('button', { name: /copy key/i })).toBeDefined()
-    expect(screen.getByRole('button', { name: /i saved it/i })).toBeDefined()
+    expect(screen.getByText(/Outside tool access key created - save this value now/i)).toBeDefined()
+    expect(screen.getByText(/full access value is shown only once/i)).toBeDefined()
+    expect(screen.queryByText(/full key is shown/i)).toBeNull()
+    expect(screen.getByRole('button', { name: /copy access value/i })).toBeDefined()
+    expect(screen.queryByRole('button', { name: /copy key/i })).toBeNull()
+    expect(screen.getByRole('button', { name: /i saved this value/i })).toBeDefined()
     expect(screen.getByText('af_test_key_value')).toBeDefined()
   })
 
@@ -149,10 +150,10 @@ describe('KeysSection', () => {
     fireEvent.click(screen.getByRole('button', { name: /create access key/i }))
     await waitFor(() => expect(createApiKeyMock).toHaveBeenCalledWith('Production deploy pipeline'))
 
-    fireEvent.click(screen.getByRole('button', { name: /copy key/i }))
+    fireEvent.click(screen.getByRole('button', { name: /copy access value/i }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Select the key text, then copy it manually before choosing I saved it.'
+      'Select the access value text, then copy it manually before choosing I saved this value.'
     )
     expect(screen.getByRole('alert')).not.toHaveTextContent(/clipboard access/i)
   })
@@ -165,10 +166,11 @@ describe('KeysSection', () => {
     render(<KeysSection />)
 
     expect(await screen.findByRole('table', { name: /outside tool access keys/i })).toBeDefined()
-    expect(screen.getByText('Key preview')).toBeDefined()
+    expect(screen.getByText('Saved key starts with')).toBeDefined()
     expect(screen.getByText('Use this key from a trusted tool first')).toBeDefined()
     expect(screen.queryByText('Not used yet')).toBeNull()
     expect(screen.queryByText('Starts with')).toBeNull()
+    expect(screen.queryByText('Key preview')).toBeNull()
     expect(screen.queryByText('—')).toBeNull()
 
     fireEvent.click(
