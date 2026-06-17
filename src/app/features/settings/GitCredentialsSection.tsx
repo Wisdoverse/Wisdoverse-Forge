@@ -17,8 +17,9 @@ const GIT_CREDENTIAL_SETUP_STEPS = [
     value: 'Create an access key on GitHub or GitLab and allow it to read the code agents need.',
   },
   {
-    label: 'Leave address blank for cloud',
-    value: 'Only enter an address when your company hosts its own GitHub or GitLab.',
+    label: 'Use the normal website by default',
+    value:
+      'Leave the website address empty for github.com or gitlab.com. Add one only for a company-hosted site.',
   },
 ]
 
@@ -91,7 +92,7 @@ function CredentialRow({ credential, onDelete }: CredentialRowProps) {
       </td>
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {credential.host ?? 'Default cloud address'}
+          {credential.host ?? defaultCodeHostLabel(credential.provider)}
         </span>
       </td>
       <td className={uiStyles.tableCell}>
@@ -297,7 +298,7 @@ function AddCredentialForm({
 
         <div className="sm:col-span-2">
           <label htmlFor="git-credential-host" className={uiStyles.label}>
-            GitHub or GitLab address{' '}
+            Company GitHub or GitLab website{' '}
             <span className="text-secondary-light dark:text-secondary-dark font-normal">
               (optional)
             </span>
@@ -385,12 +386,17 @@ export function GitCredentialsSection() {
     return deleteGitCredential(id)
   }
 
+  function openCreateForm() {
+    setSavedMessage(null)
+    setShowForm(true)
+  }
+
   const existingProviders = gitCredentials.map((c) => c.provider)
   const canAddMore = existingProviders.length < 2
 
   const tableHeaders: { label: string; className?: string }[] = [
     { label: 'Git service' },
-    { label: 'Git address' },
+    { label: 'Website address' },
     { label: 'Added on' },
     { label: '', className: 'w-20' },
   ]
@@ -407,16 +413,9 @@ export function GitCredentialsSection() {
           </p>
         </div>
         {!showForm && canAddMore && (
-          <button
-            type="button"
-            onClick={() => {
-              setSavedMessage(null)
-              setShowForm(true)
-            }}
-            className={uiStyles.primaryButton}
-          >
+          <button type="button" onClick={openCreateForm} className={uiStyles.primaryButton}>
             <span>+</span>
-            <span>Add code access</span>
+            <span>Add HTTPS code access</span>
           </button>
         )}
       </div>
@@ -445,15 +444,25 @@ export function GitCredentialsSection() {
             Loading code access...
           </div>
         ) : gitCredentials.length === 0 && !showForm ? (
-          <div className="px-4 py-6 text-center">
+          <div className="px-4 py-6 text-center" data-testid="code-access-empty-state">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              Give agents access to private code
+              Let agents open private HTTPS code links
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
               Use this for GitHub or GitLab links that start with https://, such as
               https://github.com/team/repo.git. If the address starts with git@, use SSH code access
               instead.
             </p>
+            {canAddMore && (
+              <button
+                type="button"
+                onClick={openCreateForm}
+                className={cn(uiStyles.primaryButton, 'mt-3')}
+              >
+                <span>+</span>
+                <span>Add HTTPS code access</span>
+              </button>
+            )}
           </div>
         ) : (
           <>
@@ -490,4 +499,8 @@ export function GitCredentialsSection() {
       </div>
     </div>
   )
+}
+
+function defaultCodeHostLabel(provider: GitProvider): string {
+  return provider === 'github' ? 'github.com' : 'gitlab.com'
 }

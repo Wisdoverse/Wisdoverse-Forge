@@ -419,6 +419,14 @@ const SYSTEM_HEALTH_LIVE_UPDATE_JARGON_PATTERNS = [/\bMoves events from running 
 
 const CODE_ACCESS_KEY_JARGON_PATTERNS = [/\bPaste the key from GitHub or GitLab\b/i]
 
+const CODE_ACCESS_ADDRESS_JARGON_PATTERNS = [
+  /\bLeave address blank for cloud\b/i,
+  /\bDefault cloud address\b/i,
+  /\bGit address\b/i,
+  /\bGitHub or GitLab address\b/i,
+  /\bOnly enter an address when your company hosts its own GitHub or GitLab\b/i,
+]
+
 const ACCESS_KEY_LAST_USED_DEAD_END_PATTERNS = [/\bNot used yet\b/i]
 
 const ACCESS_KEY_SECRET_VALUE_JARGON_PATTERNS = [
@@ -2412,6 +2420,12 @@ function hasCodeAccessKeyJargonCopy(relFile, line) {
   return CODE_ACCESS_KEY_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasCodeAccessAddressJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/settings/GitCredentialsSection.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CODE_ACCESS_ADDRESS_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasDateFallbackDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/settings/GitCredentialsSection.tsx') &&
@@ -4315,6 +4329,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Code access setup must name the code access key before provider-specific token wording.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCodeAccessAddressJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'code-access-address-copy',
+        location,
+        message: 'Code access address copy must tell beginners when to leave the address empty.',
         sample: line.trim(),
       })
     }

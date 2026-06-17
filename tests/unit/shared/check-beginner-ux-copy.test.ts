@@ -7638,6 +7638,70 @@ function AddCredentialForm() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags code access address copy that uses cloud or Git address jargon', () => {
+    const cwd = fixture({
+      'src/app/features/settings/GitCredentialsSection.tsx': `
+const GIT_CREDENTIAL_SETUP_STEPS = [
+  { label: 'Leave address blank for cloud', value: 'Only enter an address when your company hosts its own GitHub or GitLab.' },
+]
+function CredentialRow() {
+  return <span>Default cloud address</span>
+}
+function AddCredentialForm() {
+  return <label>GitHub or GitLab address</label>
+}
+const tableHeaders = [{ label: 'Git address' }]
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'code-access-address-copy',
+          sample: expect.stringContaining('Leave address blank for cloud'),
+        }),
+        expect.objectContaining({
+          type: 'code-access-address-copy',
+          sample: expect.stringContaining('Only enter an address'),
+        }),
+        expect.objectContaining({
+          type: 'code-access-address-copy',
+          sample: expect.stringContaining('Default cloud address'),
+        }),
+        expect.objectContaining({
+          type: 'code-access-address-copy',
+          sample: expect.stringContaining('GitHub or GitLab address'),
+        }),
+        expect.objectContaining({
+          type: 'code-access-address-copy',
+          sample: expect.stringContaining('Git address'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts code access address copy that tells beginners when to leave it empty', () => {
+    const cwd = fixture({
+      'src/app/features/settings/GitCredentialsSection.tsx': `
+const GIT_CREDENTIAL_SETUP_STEPS = [
+  { label: 'Use the normal website by default', value: 'Leave the website address empty for github.com or gitlab.com. Add one only for a company-hosted site.' },
+]
+function CredentialRow({ provider }) {
+  return <span>{provider === 'github' ? 'github.com' : 'gitlab.com'}</span>
+}
+function AddCredentialForm() {
+  return <label>Company GitHub or GitLab website</label>
+}
+const tableHeaders = [{ label: 'Website address' }]
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags date fallback copy that does not tell users which list to refresh', () => {
     const cwd = fixture({
       'src/app/features/settings/GitCredentialsSection.tsx': `
