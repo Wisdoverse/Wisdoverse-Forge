@@ -29,7 +29,7 @@ type Visual = {
 
 const VISUALS: Record<Exclude<CloneStatus, 'none'>, Visual> = {
   queued: {
-    label: 'Code import queued',
+    label: 'Code copy waiting',
     tint: 'bg-apple-orange/10 text-apple-orange',
     Icon: CircleDashed,
   },
@@ -40,12 +40,12 @@ const VISUALS: Record<Exclude<CloneStatus, 'none'>, Visual> = {
     spin: true,
   },
   ready: {
-    label: 'Code ready',
+    label: 'Code copied',
     tint: 'bg-apple-green/10 text-apple-green',
     Icon: CheckCircle2,
   },
   failed: {
-    label: 'Code import failed',
+    label: 'Code copy needs help',
     tint: 'bg-apple-red/10 text-apple-red',
     Icon: XCircle,
   },
@@ -67,9 +67,9 @@ function cloneFailureMessage(clone: CloneSummary | undefined): string {
     case 'too_large':
       return 'Ask an owner or admin to check project storage before trying again. This repository is too large to copy right now.'
     case 'internal':
-      return 'Wait a few minutes, then try copying code again. Forge could not finish the code import.'
+      return 'Wait a few minutes, then try copying code again. Forge could not finish copying code.'
     default:
-      return 'Check the code link and saved code access, then try copying code again. Forge could not finish the code import.'
+      return 'Check the code link and saved code access, then try copying code again. Forge could not finish copying code.'
   }
 }
 
@@ -121,7 +121,7 @@ function cloneRetryErrorMessage(error: unknown): string {
     return 'Check the code link and saved code access, then try copying code again.'
   }
   if (code === 429) {
-    return 'Wait a minute, then try copying code again. Too many code import retries are happening right now.'
+    return 'Wait a minute, then try copying code again. Too many copy retries are happening right now.'
   }
   if (code && code >= 500) {
     return 'Wait a few minutes, then try copying code again. Forge could not copy code right now. If it still fails, ask an owner or admin to check project code setup.'

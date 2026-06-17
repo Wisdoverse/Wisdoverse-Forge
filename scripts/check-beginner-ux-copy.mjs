@@ -1218,6 +1218,12 @@ const CLONE_RETRY_FAILURE_FIRST_PATTERNS = [
   /\bCould not copy code into the project\. Check the code link and saved code access, then try again\./i,
 ]
 
+const CLONE_STATUS_IMPORT_LABEL_PATTERNS = [
+  /\bCode import (?:queued|failed)\b/i,
+  /\bCode ready\b/i,
+  /\bcode import\b/i,
+]
+
 const CLONE_FAILURE_RAW_MESSAGE_PATTERNS = [/\bclone\?\.errorMessage\b/, /\bclone\.errorMessage\b/]
 
 const AGENT_CONFIG_DETAIL_DEAD_END_PATTERNS = [
@@ -2109,6 +2115,14 @@ function hasCloneRetryFailureFirstCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return CLONE_RETRY_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasCloneStatusImportLabelCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/manage-project/ui/CloneStatusBadge.tsx')) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CLONE_STATUS_IMPORT_LABEL_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasCloneFailureRawMessageCopy(relFile, line) {
@@ -3928,6 +3942,16 @@ function scanFile(file, relFile) {
         type: 'clone-retry-error-copy',
         location,
         message: 'Code import retry errors must start with the next action for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCloneStatusImportLabelCopy(relFile, line)) {
+      findings.push({
+        type: 'clone-status-label-copy',
+        location,
+        message:
+          'Code copy statuses and recovery text must use copy wording instead of import labels.',
         sample: line.trim(),
       })
     }
