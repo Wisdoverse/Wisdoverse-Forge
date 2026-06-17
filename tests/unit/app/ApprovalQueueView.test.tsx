@@ -107,16 +107,18 @@ describe('ApprovalQueueView', () => {
     expect(screen.getByText(/only the right people can reuse it/i)).toBeDefined()
     expect(screen.getByText(/sensitive details are hidden before saving/i)).toBeDefined()
     expect(screen.getByText('Who can reuse it')).toBeDefined()
-    expect(screen.getByText(/support reference from Settings/i)).toBeDefined()
+    expect(screen.getByText(/team or project reference from Settings/i)).toBeDefined()
+    expect(screen.queryByText(/support reference from Settings/i)).toBeNull()
     expect(screen.getByText('Team internal')).toBeDefined()
     expect(screen.getByRole('button', { name: 'Review later' })).toBeDefined()
     expect(screen.queryByRole('button', { name: /^Cancel$/ })).toBeNull()
 
     await userEvent.setup().selectOptions(screen.getByTestId('context-approval-scope-kind'), 'team')
 
-    expect(screen.getByText('Team support reference')).toBeDefined()
-    expect(screen.getByPlaceholderText(/Team support reference from Settings/i)).toBeDefined()
-    expect(screen.getByText(/Paste the Team support reference before saving/i)).toBeDefined()
+    expect(screen.getByText('Team reference')).toBeDefined()
+    expect(screen.getByPlaceholderText(/Team reference from Settings/i)).toBeDefined()
+    expect(screen.getByText(/Paste the Team reference before saving/i)).toBeDefined()
+    expect(screen.queryByText('Team support reference')).toBeNull()
     expect(screen.queryByText(/exact I[D] from settings/i)).toBeNull()
   })
 
