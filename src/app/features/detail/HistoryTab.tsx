@@ -203,7 +203,7 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
   const runSource = runSourceLabel(run)
   const finished = run.finishedAt ? formatRelativeTime(run.finishedAt) : 'Still running'
   const status = readableRunStatus(run.status)
-  const showSupportReference = runSourceNeedsCheck(runSource)
+  const showWorkAttemptReference = runSourceNeedsCheck(runSource)
 
   return (
     <div className="rounded-lg bg-apple-gray-6/70 px-3 py-2 dark:bg-white/[0.035]">
@@ -215,9 +215,9 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
           <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
             Started {formatRelativeTime(run.startedAt)} · {finished} · Used {runSource}
           </p>
-          {showSupportReference && (
+          {showWorkAttemptReference && (
             <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
-              Support reference {supportRunReference(run.id)}
+              Work attempt reference {workAttemptReference(run.id)}
             </p>
           )}
         </div>
@@ -229,7 +229,7 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
   )
 }
 
-function supportRunReference(id: string): string {
+function workAttemptReference(id: string): string {
   const trimmed = id.trim()
   if (!trimmed) return 'refresh task details to check'
   return trimmed.length > 8 ? trimmed.slice(0, 8) : trimmed
