@@ -227,6 +227,8 @@ const BILLING_CHECKPOINT_DEAD_END_PATTERNS = [/\bNo invoices yet\b/i]
 
 const BILLING_USAGE_DEAD_END_PATTERNS = [/\bNo usage reported yet\b/i, /\busage areas shown\b/i]
 
+const BILLING_USAGE_AUDIT_JARGON_PATTERNS = [/\baudit records?\b/i]
+
 const BILLING_RECEIPT_LINK_DEAD_END_PATTERNS = [/\bNo link\b/i]
 
 const BILLING_ERROR_FAILURE_FIRST_PATTERNS = [
@@ -1527,6 +1529,12 @@ function hasBillingUsageDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/billing/BillingPage.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return BILLING_USAGE_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasBillingUsageAuditJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/billing/UsageMeter.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return BILLING_USAGE_AUDIT_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasBillingReceiptLinkDeadEndCopy(relFile, line) {
@@ -3040,6 +3048,15 @@ function scanFile(file, relFile) {
         type: 'billing-usage-copy',
         location,
         message: 'Billing usage copy must explain what creates the first usage report.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasBillingUsageAuditJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'billing-usage-audit-copy',
+        location,
+        message: 'Billing usage event copy must describe change history instead of audit records.',
         sample: line.trim(),
       })
     }

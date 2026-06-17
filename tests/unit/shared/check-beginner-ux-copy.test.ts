@@ -2050,6 +2050,38 @@ function BillingCheckpoint() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags billing event usage copy that exposes audit-record jargon', () => {
+    const cwd = fixture({
+      'src/app/features/billing/UsageMeter.tsx': `
+function metricCopy(metric) {
+  return { description: 'Run updates, audit records, and timeline messages.' }
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'billing-usage-audit-copy',
+        location: 'src/app/features/billing/UsageMeter.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts billing event usage copy that uses change-history wording', () => {
+    const cwd = fixture({
+      'src/app/features/billing/UsageMeter.tsx': `
+function metricCopy(metric) {
+  return { description: 'Work updates, change history, and timeline messages.' }
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags invoice receipt copy that does not explain when the link appears', () => {
     const cwd = fixture({
       'src/app/features/billing/InvoiceList.tsx': `

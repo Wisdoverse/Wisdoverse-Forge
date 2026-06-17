@@ -120,6 +120,7 @@ describe('Billing beginner guidance', () => {
   test('translates usage metrics into plain-language capacity signals', () => {
     const metrics: UsageMetric[] = [
       { metric: 'agents', current: 9, limit: 10, percentUsed: 90 },
+      { metric: 'events', current: 40, limit: 100, percentUsed: 40 },
       { metric: 'tokens', current: 1200, limit: 0, percentUsed: 0 },
     ]
 
@@ -128,6 +129,11 @@ describe('Billing beginner guidance', () => {
     expect(screen.getByText('Agents')).toBeInTheDocument()
     expect(screen.getByText('Almost full')).toBeInTheDocument()
     expect(screen.getByText(/Archive unused agents or upgrade/i)).toBeInTheDocument()
+    expect(screen.getByText('Activity events')).toBeInTheDocument()
+    expect(
+      screen.getByText(/Work updates, change history, and timeline messages/i)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/audit records/i)).not.toBeInTheDocument()
     expect(screen.getByText('AI message use')).toBeInTheDocument()
     expect(screen.getByText(/Messages and replies processed/i)).toBeInTheDocument()
     expect(screen.getByText('No limit set')).toBeInTheDocument()
