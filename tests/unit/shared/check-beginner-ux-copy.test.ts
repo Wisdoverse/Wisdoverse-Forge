@@ -8886,7 +8886,7 @@ function auditEventLabel(eventType) {
 }
 
 function shortEventType(eventType) {
-  return eventType.trim() || 'Check change details'
+  return eventType.trim() || 'Saved change name missing'
 }
 
 function resourceTypeLabel(value) {
@@ -8998,6 +8998,8 @@ function AuditLogView() {
     <input placeholder="Paste an event category only when needed" />
     <button aria-label="Refresh audit history">Refresh</button>
     <button>Show event details</button>
+    <button>Show change details</button>
+    <p>Check change details</p>
   </section>
 }
 `,
@@ -9035,6 +9037,14 @@ function message() {
         }),
         expect.objectContaining({
           type: 'governance-audit-jargon-copy',
+          location: 'src/app/features/governance/AuditLogView.tsx:8',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-jargon-copy',
+          location: 'src/app/features/governance/AuditLogView.tsx:9',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-jargon-copy',
           location: 'src/app/features/governance/governanceAuditErrorMessages.ts:3',
         }),
       ])
@@ -9050,7 +9060,7 @@ function AuditLogView() {
     <label>Specific change name</label>
     <input placeholder="Paste an exact change area only when needed" />
     <button aria-label="Refresh change history">Refresh</button>
-    <button>Show change details</button>
+    <button>Show saved change name</button>
   </section>
 }
 `,
