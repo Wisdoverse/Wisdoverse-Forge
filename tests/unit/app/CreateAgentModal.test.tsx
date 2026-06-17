@@ -1024,4 +1024,31 @@ describe('CreateAgentModal', () => {
       systemPrompt: expect.stringContaining('confusing behavior'),
     })
   })
+
+  test('uses plain wording in the investigation starter template', () => {
+    useSettingsStore.setState({
+      providers: [
+        {
+          id: 'provider-anthropic',
+          provider: 'anthropic',
+          displayName: 'Anthropic',
+          model: 'claude-sonnet-4-6',
+          priority: 1,
+          isEnabled: true,
+          isDefault: true,
+          lastTestStatus: 'passed',
+        },
+      ],
+    })
+
+    render(<CreateAgentModal />)
+    fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
+    const templateGroup = screen.getByRole('group', { name: /agent starter templates/i })
+    fireEvent.click(within(templateGroup).getByRole('button', { name: /find the cause/i }))
+
+    const instructions = screen.getByLabelText(/agent instructions/i) as HTMLTextAreaElement
+    expect(instructions.value).toContain('checking what is known first')
+    expect(instructions.value).toContain('confirmed facts from guesses')
+    expect(instructions.value).not.toContain('gathering evidence first')
+  })
 })

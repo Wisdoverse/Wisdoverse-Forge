@@ -234,6 +234,19 @@ describe('AgentConfigTab', () => {
     }
   })
 
+  it('uses beginner-facing wording in the triage template', () => {
+    render(<AgentConfigTab agentId="a1" />)
+    fireEvent.click(screen.getByRole('button', { name: /triage/i }))
+
+    const instructions = screen.getByLabelText(
+      /instructions for this agent/i
+    ) as HTMLTextAreaElement
+    expect(instructions.value).toContain('likely cause')
+    expect(instructions.value).toContain('more information is needed')
+    expect(instructions.value).not.toMatch(/root cause/i)
+    expect(instructions.value).not.toMatch(/more evidence/i)
+  })
+
   it('calls updateAgentSystemPrompt with trimmed value on Save', async () => {
     updateAgentSystemPrompt.mockResolvedValue(true)
     render(<AgentConfigTab agentId="a1" />)

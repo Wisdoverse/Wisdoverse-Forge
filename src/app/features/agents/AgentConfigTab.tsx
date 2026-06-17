@@ -35,7 +35,7 @@ const PROMPT_TEMPLATES = [
     id: 'triage',
     label: 'Triage',
     value:
-      'You are a triage agent. Reproduce the reported behavior, separate symptoms from root cause, identify the smallest safe fix, and leave a clear next action when more evidence is needed.',
+      'You are a triage agent. Reproduce the reported behavior, separate symptoms from likely cause, identify the smallest safe fix, and leave a clear next action when more information is needed.',
   },
 ]
 

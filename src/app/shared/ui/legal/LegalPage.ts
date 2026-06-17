@@ -592,7 +592,7 @@ export class LegalPage {
         <ul class="legal-list">
           <li>To create and manage your account</li>
           <li>To provide the core Wisdoverse Forge agent, task, context, and workspace functionality</li>
-          <li>To show live task, agent, and evidence updates in the product interface</li>
+          <li>To show live task, agent, and saved work updates in the product interface</li>
           <li>To coordinate team workflows across managed agents</li>
           <li>To authenticate your identity and authorize access to protected resources</li>
           <li>To process payments and manage subscriptions</li>

@@ -6575,6 +6575,26 @@ const skillTemplates = [{
     )
   })
 
+  it('flags saved instruction templates that tell users to link evidence', () => {
+    const cwd = fixture({
+      'src/app/features/skills/CreateSkillModal.tsx': `
+const skillTemplates = [{
+  content: 'Check what changed. Keep the answer short and link evidence when available.'
+}]
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'saved-instruction-template-copy',
+        sample: expect.stringContaining('link evidence'),
+      }),
+    ])
+  })
+
   it('accepts saved instruction templates that use plain status result language', () => {
     const cwd = fixture({
       'src/app/features/skills/CreateSkillModal.tsx': `
@@ -6585,6 +6605,37 @@ const skillTemplates = [{
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags agent instruction templates that expose evidence or root-cause jargon', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+const AGENT_ROLE_TEMPLATES = [{
+  systemPrompt: 'You investigate unclear failures by gathering evidence first.'
+}]
+`,
+      'src/app/features/agents/AgentConfigTab.tsx': `
+const PROMPT_TEMPLATES = [{
+  value: 'Separate symptoms from root cause and leave a next action when more evidence is needed.'
+}]
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-instruction-template-copy',
+          sample: expect.stringContaining('gathering evidence first'),
+        }),
+        expect.objectContaining({
+          type: 'agent-instruction-template-copy',
+          sample: expect.stringContaining('root cause'),
+        }),
+      ])
+    )
   })
 
   it('flags access key last-used copy that does not explain tool use', () => {
@@ -8356,6 +8407,38 @@ function render() {
       'src/app/features/auth/AuthPage.ts': `
 function render() {
   return 'Sign in to manage agents, tasks, saved work records, and team settings from one team space.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags legal privacy copy that exposes evidence jargon', () => {
+    const cwd = fixture({
+      'src/app/shared/ui/legal/LegalPage.ts': `
+function renderPrivacy() {
+  return '<li>To show live task, agent, and evidence updates in the product interface</li>'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'legal-privacy-copy',
+        sample: expect.stringContaining('evidence updates'),
+      }),
+    ])
+  })
+
+  it('accepts legal privacy copy that explains saved work updates plainly', () => {
+    const cwd = fixture({
+      'src/app/shared/ui/legal/LegalPage.ts': `
+function renderPrivacy() {
+  return '<li>To show live task, agent, and saved work updates in the product interface</li>'
 }
 `,
     })
