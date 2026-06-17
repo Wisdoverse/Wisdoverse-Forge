@@ -230,7 +230,12 @@ const BILLING_USAGE_DEAD_END_PATTERNS = [/\bNo usage reported yet\b/i, /\busage 
 const BILLING_USAGE_AUDIT_JARGON_PATTERNS = [/\baudit records?\b/i]
 const BILLING_USAGE_EVENT_JARGON_PATTERNS = [/\bActivity events\b/i]
 
-const BILLING_SETUP_JARGON_PATTERNS = [/\bBilling setup path\b/i]
+const BILLING_SETUP_JARGON_PATTERNS = [
+  /\bBilling setup (?:path|steps)\b/i,
+  /\bfor this workspace\b/i,
+  /\bthis workspace\b/i,
+  /\bsecret payment settings\b/i,
+]
 
 const BILLING_RECEIPT_LINK_DEAD_END_PATTERNS = [/\bNo link\b/i]
 

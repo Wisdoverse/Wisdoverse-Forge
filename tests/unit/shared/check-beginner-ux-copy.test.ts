@@ -2114,11 +2114,18 @@ function metricCopy(metric) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags billing setup copy that uses setup-path wording', () => {
+  it('flags billing setup copy that uses setup-path or workspace wording', () => {
     const cwd = fixture({
       'src/app/features/billing/BillingPage.tsx': `
 function BillingNotConfigured() {
-  return <p>Billing setup path</p>
+  return (
+    <div>
+      <p>Billing setup path</p>
+      <p>Billing setup steps</p>
+      <p>Ask an owner or admin to turn on billing for this workspace.</p>
+      <p>Do not paste secret payment settings here.</p>
+    </div>
+  )
 }
 `,
     })
@@ -2126,19 +2133,39 @@ function BillingNotConfigured() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'billing-setup-copy',
-        location: 'src/app/features/billing/BillingPage.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'billing-setup-copy',
+          location: 'src/app/features/billing/BillingPage.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'billing-setup-copy',
+          location: 'src/app/features/billing/BillingPage.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'billing-setup-copy',
+          location: 'src/app/features/billing/BillingPage.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'billing-setup-copy',
+          location: 'src/app/features/billing/BillingPage.tsx:8',
+        }),
+      ])
+    )
   })
 
-  it('accepts billing setup copy that describes setup steps', () => {
+  it('accepts billing setup copy that gives a plain next step', () => {
     const cwd = fixture({
       'src/app/features/billing/BillingPage.tsx': `
 function BillingNotConfigured() {
-  return <p>Billing setup steps</p>
+  return (
+    <div>
+      <p>What to do next</p>
+      <p>Ask an owner or admin to turn on billing for this team.</p>
+      <p>Do not enter payment account passwords or keys on this page.</p>
+    </div>
+  )
 }
 `,
     })
