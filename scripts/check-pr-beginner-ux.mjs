@@ -3,7 +3,7 @@
 import fs from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
-const SECTION_TITLE = 'Beginner UX / Operator Path'
+const SECTION_TITLE = 'Beginner UX / First-Time User Path'
 const MIN_EXPLANATION_LENGTH = 12
 
 const REQUIRED_FIELDS = [
@@ -150,8 +150,8 @@ export function checkPullRequestBody(pullRequest, options = {}) {
     skipped: false,
     message:
       errors.length === 0
-        ? 'Beginner UX / Operator Path section is complete.'
-        : 'Beginner UX / Operator Path section is incomplete.',
+        ? 'Beginner UX / First-Time User Path section is complete.'
+        : 'Beginner UX / First-Time User Path section is incomplete.',
     errors,
   }
 }
@@ -183,7 +183,7 @@ export function runBeginnerUxCheck(options = {}) {
     return 0
   }
 
-  stderr.write('[pr-beginner-ux] Beginner UX / Operator Path is required.\n')
+  stderr.write('[pr-beginner-ux] Beginner UX / First-Time User Path is required.\n')
   for (const error of result.errors) {
     stderr.write(`- ${error}\n`)
   }

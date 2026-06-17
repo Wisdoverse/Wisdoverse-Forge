@@ -66,7 +66,7 @@ operator, security, or API contract.
 - Every runtime, API, deployment, or workflow change updates the affected doc in the same PR.
 - Keep retired implementation paths out of active docs unless the running code still exposes a compatibility boundary.
 - Prefer relative links. Keep the first screen of each doc useful to its target audience.
-- Write product and CLI docs for first-time operators by default. Put expert
+- Write product and CLI docs for first-time users by default. Put expert
   internals after the basic path, and make every command copy-pasteable.
 
 ## Writing Standards

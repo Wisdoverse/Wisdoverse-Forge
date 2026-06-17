@@ -161,7 +161,7 @@ break-glass merge must leave the documented audit comment. Direct pushes to
 
 ## User Experience Standard
 
-Build and document features for first-time operators, not only professional
+Build and document features for first-time users, not only professional
 engineers.
 
 - The first path in UI and docs should be the shortest safe path.

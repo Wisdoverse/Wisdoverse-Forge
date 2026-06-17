@@ -12,9 +12,9 @@
 
 ## 1. Motivation
 
-The redesign is a **foundation investment** dressed up as a small bug fix. We are honest about that posture: only one of the four findings below is operator-visible today; the others are tech-debt closure that unlocks future product work (admin runtime filter, per-runtime telemetry, capability routing) and prevents an entire class of cross-runtime confusion incidents.
+The redesign is a **foundation investment** dressed up as a small bug fix. We are honest about that posture: only one of the four findings below is user-visible today; the others are tech-debt closure that unlocks future product work (admin runtime filter, per-runtime telemetry, capability routing) and prevents an entire class of cross-runtime confusion incidents.
 
-**Operator-visible problem (the bug):**
+**User-visible problem (the bug):**
 
 - `AgentContainerLifecyclePolicy::ensure_container_backed` checks only that `cli_tool` is set, so a Host CLI agent passes the gate and fails later when `container_id IS NULL` — surfacing a misleading "stale container reference" error to the operator. The same pattern exists across `start`, `stop`, and container control entry points.
 

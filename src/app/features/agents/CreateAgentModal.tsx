@@ -91,7 +91,7 @@ const AGENT_ROLE_TEMPLATES: AgentRoleTemplate[] = [
     summary: 'Tracks down unclear failures',
     name: 'Investigation Helper',
     systemPrompt:
-      'You investigate unclear failures by gathering evidence first. Separate what is known from what is only a guess, then end with the smallest next action that can confirm the cause.',
+      'You investigate unclear failures by checking what is known first. Separate confirmed facts from guesses, then end with the smallest next action that can confirm the cause.',
     Icon: Search,
   },
   {

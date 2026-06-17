@@ -30,11 +30,11 @@ Related to #
 -
 -
 
-## Beginner UX / Operator Path
+## Beginner UX / First-Time User Path
 
 <!--
 Required for browser UI, Platform CLI, runbooks, API-facing errors, automation,
-or any change an operator may see. If this PR is not user-facing, write
+or any change a user may see. If this PR is not user-facing, write
 "Not user-facing" and explain why.
 -->
 
@@ -84,7 +84,7 @@ or any change an operator may see. If this PR is not user-facing, write
 - [ ] I have updated the documentation accordingly
 - [ ] I have updated the CHANGELOG.md (if applicable)
 - [ ] I have added JSDoc comments for public APIs
-- [ ] User-facing copy follows the first-time operator standard in `CONTRIBUTING.md`
+- [ ] User-facing copy follows the first-time user standard in `CONTRIBUTING.md`
 
 ### Security
 

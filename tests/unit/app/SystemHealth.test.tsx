@@ -45,6 +45,9 @@ describe('SystemHealth', () => {
     ).toBeDefined()
     expect(screen.getByText('Saved Data')).toBeDefined()
     expect(screen.getByText('Keeps saved work available')).toBeDefined()
+    expect(
+      screen.getByText(/Keeps accounts, tasks, work history, saved work records, and settings/i)
+    ).toBeDefined()
     expect(screen.getByText('Helps pages load quickly')).toBeDefined()
     expect(screen.getByText('Shows new progress in the browser')).toBeDefined()
     expect(screen.getByText('Agent Work Starter')).toBeDefined()
@@ -67,6 +70,7 @@ describe('SystemHealth', () => {
     expect(screen.queryByText(/NATS/i)).toBeNull()
     expect(screen.queryByText(/Docker runtime/i)).toBeNull()
     expect(screen.queryByText(/container service/i)).toBeNull()
+    expect(screen.queryByText(/runs, evidence/i)).toBeNull()
   })
 
   test('shows every check as ready when the probe reports all dependencies up', () => {

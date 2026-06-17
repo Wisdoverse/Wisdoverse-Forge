@@ -36,7 +36,7 @@ const skillTemplates = [
       description: 'Check work before handoff',
       triggerPattern: 'review',
       content:
-        'Check what changed.\nList risks, missing tests, and the next safe action.\nKeep the answer short and link evidence when available.',
+        'Check what changed.\nList risks, missing tests, and the next safe action.\nKeep the answer short and link the file or page you checked when available.',
     },
   },
   {
