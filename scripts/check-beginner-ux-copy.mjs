@@ -853,6 +853,12 @@ const CONTEXT_EVIDENCE_SOURCE_TITLE_JARGON_PATTERNS = [
   /\breturn\s+['"`]Source message['"`]/,
 ]
 
+const CONTEXT_EVIDENCE_FULL_RECORD_JARGON_PATTERNS = [
+  /\bShow full record\b/i,
+  /\bOpen the full record\b/i,
+  /\bfull record only\b/i,
+]
+
 const CHAT_MESSAGE_FALLBACK_DEAD_END_PATTERNS = [
   /\bMessage needs review\b/i,
   /\bMessage sender not reported\b/i,
@@ -2927,6 +2933,12 @@ function hasContextEvidenceSourceTitleJargonCopy(relFile, line) {
   return CONTEXT_EVIDENCE_SOURCE_TITLE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasContextEvidenceFullRecordJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/detail/ContextEvidenceList.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CONTEXT_EVIDENCE_FULL_RECORD_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasChatMessageFallbackDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/chat/ChatView.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -4821,6 +4833,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Tool and saved-item problem copy must explain what to do without technical-problem jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasContextEvidenceFullRecordJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'context-evidence-full-record-copy',
+        location,
+        message:
+          'Saved detail copy must say saved details instead of full record for first-time users.',
         sample: line.trim(),
       })
     }

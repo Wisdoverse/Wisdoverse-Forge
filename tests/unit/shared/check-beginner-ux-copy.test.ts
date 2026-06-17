@@ -6752,6 +6752,40 @@ const PROBLEM_MESSAGE =
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags saved detail toggles that expose full-record jargon', () => {
+    const cwd = fixture({
+      'src/app/features/detail/ContextEvidenceList.tsx': `
+export function ContextEvidenceList() {
+  return <details><summary>Show full record</summary><p>Open the full record only when checking an unexpected result.</p></details>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'context-evidence-full-record-copy',
+          location: 'src/app/features/detail/ContextEvidenceList.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved detail toggles that use beginner-facing wording', () => {
+    const cwd = fixture({
+      'src/app/features/detail/ContextEvidenceList.tsx': `
+export function ContextEvidenceList() {
+  return <details><summary>Show saved details</summary><p>Open saved details only when checking an unexpected result.</p></details>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags chat offline copy that tells users to start an agent without a setup path', () => {
     const cwd = fixture({
       'src/app/features/chat/ChatView.tsx': `
