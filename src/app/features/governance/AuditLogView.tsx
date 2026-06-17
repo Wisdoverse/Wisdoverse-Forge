@@ -116,9 +116,9 @@ const COMMON_EVENT_TYPES = [
 const INPUT_CLASS =
   'h-9 w-full rounded-full border border-black/[0.08] bg-white px-3 text-ui-caption text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70'
 const HIDDEN_AUDIT_DETAIL_VALUE =
-  'Hidden for safety. Keep secrets hidden, refresh the audit view, then export again.'
+  'Hidden for safety. Keep secrets hidden, refresh change history, then export again.'
 const MISSING_AUDIT_ACCESS_MESSAGE =
-  'Required account access is missing. Add or reconnect service access, then review the audit again.'
+  'Required account access is missing. Add or reconnect service access, then review change history again.'
 const REPEATED_AUDIT_DETAIL_VALUE = 'Repeated detail omitted.'
 
 export function AuditLogView() {
@@ -213,10 +213,10 @@ export function AuditLogView() {
               Start with what you need to check
             </p>
             <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Pick a common audit view, then narrow it by item, work area, person, or time.
+              Pick a common change view, then narrow it by item, work area, person, or time.
             </p>
           </div>
-          <div role="group" aria-label="Common audit views" className="grid gap-2 sm:grid-cols-3">
+          <div role="group" aria-label="Common change views" className="grid gap-2 sm:grid-cols-3">
             {QUICK_AUDIT_VIEWS.map((view) => (
               <QuickAuditButton
                 key={view.id}
@@ -230,8 +230,8 @@ export function AuditLogView() {
         </div>
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_160px_160px_160px_auto]">
           <Field
-            label="Change category"
-            help="Use the default for normal review. Paste a category only when you need one exact change area."
+            label="Change area"
+            help="Use the default for normal review. Paste an exact change area only when an owner or admin gives you one."
           >
             <input
               data-testid="governance-audit-filter-event-prefix"
@@ -239,13 +239,13 @@ export function AuditLogView() {
               autoComplete="off"
               value={filters.eventPrefix}
               onChange={(event) => updateFilter('eventPrefix', event.target.value)}
-              placeholder="Paste an event category only when needed"
+              placeholder="Paste an exact change area only when needed"
               className={INPUT_CLASS}
             />
           </Field>
           <Field
-            label="Exact event name"
-            help="Optional. Use this only when you know the exact event name."
+            label="Specific change name"
+            help="Optional. Use this only when an owner or admin gives you the exact change name."
           >
             <input
               data-testid="governance-audit-filter-event-type"
@@ -254,7 +254,7 @@ export function AuditLogView() {
               autoComplete="off"
               value={filters.eventType}
               onChange={(event) => updateFilter('eventType', event.target.value)}
-              placeholder="Pick a view or paste an exact event name"
+              placeholder="Pick a view or paste a specific change name"
               className={INPUT_CLASS}
             />
             <datalist id="governance-audit-event-type-options">
@@ -320,9 +320,9 @@ export function AuditLogView() {
               data-testid="governance-audit-refresh"
               onClick={() => void loadAudit(filters)}
               disabled={loading}
-              aria-label="Refresh audit history"
+              aria-label="Refresh change history"
               className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white text-ui-button text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:hover:bg-white/[0.06]"
-              title="Refresh audit history"
+              title="Refresh change history"
             >
               <RefreshCw size={15} className={cn(loading && 'animate-spin')} aria-hidden="true" />
             </button>
@@ -331,9 +331,9 @@ export function AuditLogView() {
               data-testid="governance-audit-export"
               onClick={() => void exportAudit()}
               disabled={exporting}
-              aria-label="Export audit history"
+              aria-label="Export change history"
               className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white text-ui-button text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:hover:bg-white/[0.06]"
-              title="Export audit history"
+              title="Export change history"
             >
               <Download size={15} aria-hidden="true" />
             </button>
@@ -413,7 +413,7 @@ export function AuditLogView() {
         )}
 
         <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Metric label="History rows" value={entries.length} />
+          <Metric label="Changes shown" value={entries.length} />
           <Metric
             label="Selected view"
             value={auditViewMetricLabel(data?.query.eventPrefix ?? filters.eventPrefix)}
@@ -441,14 +441,14 @@ export function AuditLogView() {
                 {loading ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-12 text-center text-secondary-light">
-                      Loading audit history...
+                      Loading change history...
                     </td>
                   </tr>
                 ) : entries.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-12 text-center">
                       <p className="font-semibold text-foreground-light dark:text-foreground-dark">
-                        Your filters may be hiding audit history
+                        Your filters may be hiding changes
                       </p>
                       <p className="mt-1 text-secondary-light dark:text-secondary-dark">
                         Show all history first, then narrow by item, area, person, or time. If this
@@ -461,7 +461,7 @@ export function AuditLogView() {
                         className="mt-4 inline-flex h-9 items-center gap-2 rounded-full bg-apple-blue px-3 text-ui-button font-semibold text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
                       >
                         <Search size={15} aria-hidden="true" />
-                        Show all audit history
+                        Show all change history
                       </button>
                     </td>
                   </tr>
@@ -531,7 +531,7 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
         </div>
         <details className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           <summary className="cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/30">
-            Show event details
+            Show change details
           </summary>
           <span className="mt-1 block font-mono">{shortEventType(entry.eventType)}</span>
         </details>
@@ -774,7 +774,7 @@ function auditEventLabel(eventType: string): string {
   return (
     labels[eventType] ??
     readableCodeLabel(eventType.split('.').slice(-2).join(' '), {
-      fallback: 'Check audit change',
+      fallback: 'Check change',
     })
   )
 }
@@ -783,11 +783,11 @@ function auditViewMetricLabel(eventPrefix: string | undefined): string {
   if (!eventPrefix || eventPrefix === 'governance.context.') return 'All saved item changes'
   if (eventPrefix === 'governance.context.skill.') return 'Saved instruction changes'
   if (eventPrefix === 'governance.context.memory.') return 'Saved note changes'
-  return 'Custom audit view'
+  return 'Custom change view'
 }
 
 function shortEventType(eventType: string): string {
-  return eventType.replace(/^governance\.context\./, '').trim() || 'Check event details'
+  return eventType.replace(/^governance\.context\./, '').trim() || 'Check change details'
 }
 
 function auditItemKindLabel(kind: GovernanceAuditItemKind | null | undefined): string {

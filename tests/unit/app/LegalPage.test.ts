@@ -43,13 +43,22 @@ describe('LegalPage', () => {
     page.show('privacy')
 
     const text = document.body.textContent ?? ''
-    expect(text).toContain('Service request records, such as the action requested, status, and time')
+    expect(text).toContain(
+      'Service request records, such as the action requested, status, and time'
+    )
     expect(text).toContain('Login sessions are signed and expire automatically')
     expect(text).toContain('Saved login sessions and access keys are revoked')
     expect(text).toContain('live task, agent, and saved work updates')
+    expect(text).toContain('slow abusive requests')
+    expect(text).toContain('security history records')
+    expect(text).toContain('change history')
     expect(text).toContain('Visual workspace preferences, such as saved view settings')
     expect(text).toContain('Navigation and layout preferences')
     expect(text).toContain('Login session data that keeps you signed in')
+    expect(text).not.toContain('rate limiting')
+    expect(text).not.toContain('audit logging')
+    expect(text).not.toContain('audit logs')
+    expect(text.toLowerCase()).not.toContain('event history')
     expect(text).not.toContain('endpoint, method')
     expect(text).not.toContain('PostgreSQL')
     expect(text).not.toContain('AES-256')

@@ -2050,6 +2050,38 @@ function BillingCheckpoint() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags billing event usage copy that exposes audit-record jargon', () => {
+    const cwd = fixture({
+      'src/app/features/billing/UsageMeter.tsx': `
+function metricCopy(metric) {
+  return { description: 'Run updates, audit records, and timeline messages.' }
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'billing-usage-audit-copy',
+        location: 'src/app/features/billing/UsageMeter.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts billing event usage copy that uses change-history wording', () => {
+    const cwd = fixture({
+      'src/app/features/billing/UsageMeter.tsx': `
+function metricCopy(metric) {
+  return { description: 'Work updates, change history, and timeline messages.' }
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags invoice receipt copy that does not explain when the link appears', () => {
     const cwd = fixture({
       'src/app/features/billing/InvoiceList.tsx': `
@@ -7657,11 +7689,11 @@ function tamperStatusLabel() {
     const cwd = fixture({
       'src/app/features/governance/AuditLogView.tsx': `
 function auditEventLabel(eventType) {
-  return readableCodeLabel(eventType, { fallback: 'Check audit change' })
+  return readableCodeLabel(eventType, { fallback: 'Check change' })
 }
 
 function shortEventType(eventType) {
-  return eventType.trim() || 'Check support event'
+  return eventType.trim() || 'Check change details'
 }
 
 function resourceTypeLabel(value) {
@@ -7739,23 +7771,99 @@ function permission() {
     const cwd = fixture({
       'src/app/features/governance/governanceAuditErrorMessages.ts': `
 const ACTION_FALLBACKS = {
-  exportAudit: 'Keep secrets hidden, refresh the audit view, then try the export again.',
-  loadAudit: 'Refresh the audit view, then apply the filters again.',
+  exportAudit: 'Keep secrets hidden, refresh change history, then try the export again.',
+  loadAudit: 'Refresh change history, then apply the filters again.',
 }
 function notFound() {
-  return 'Open the Admin audit view again, then retry.'
+  return 'Open Admin change history again, then retry.'
 }
 function conflict() {
-  return 'Refresh the audit view, then export again because audit data changed while export was running.'
+  return 'Refresh change history, then export again because the change list changed while export was running.'
 }
 function rateLimit() {
-  return 'Wait a moment, then try again. Audit history is handling too many requests right now.'
+  return 'Wait a moment, then try again. Change history is handling too many requests right now.'
 }
 function service() {
-  return 'Refresh the audit view, then apply the filters again. If it still fails, ask an owner or admin to check governance audit setup.'
+  return 'Refresh change history, then apply the filters again. If it still fails, ask an owner or admin to check change history setup.'
 }
 function permission() {
-  return 'Ask an owner or admin to update your team space access, then retry this audit action. You do not have permission to view or export audit history.'
+  return 'Ask an owner or admin to update your team space access, then retry this change-history action. You do not have permission to view or export change history.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags governance history copy that exposes audit and event jargon', () => {
+    const cwd = fixture({
+      'src/app/features/governance/AuditLogView.tsx': `
+function AuditLogView() {
+  return <section aria-label="Common audit views">
+    <p>Pick a common audit view, then narrow it.</p>
+    <label>Exact event name</label>
+    <input placeholder="Paste an event category only when needed" />
+    <button aria-label="Refresh audit history">Refresh</button>
+    <button>Show event details</button>
+  </section>
+}
+`,
+      'src/app/features/governance/governanceAuditErrorMessages.ts': `
+function message() {
+  return 'Your sign-in expired. Sign in again, then retry this audit action.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'governance-audit-jargon-copy',
+          location: 'src/app/features/governance/AuditLogView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-jargon-copy',
+          location: 'src/app/features/governance/AuditLogView.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-jargon-copy',
+          location: 'src/app/features/governance/AuditLogView.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-jargon-copy',
+          location: 'src/app/features/governance/AuditLogView.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-jargon-copy',
+          location: 'src/app/features/governance/AuditLogView.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-jargon-copy',
+          location: 'src/app/features/governance/governanceAuditErrorMessages.ts:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts governance history copy that uses change-history wording', () => {
+    const cwd = fixture({
+      'src/app/features/governance/AuditLogView.tsx': `
+function AuditLogView() {
+  return <section aria-label="Common change views">
+    <p>Pick a common change view, then narrow it.</p>
+    <label>Specific change name</label>
+    <input placeholder="Paste an exact change area only when needed" />
+    <button aria-label="Refresh change history">Refresh</button>
+    <button>Show change details</button>
+  </section>
+}
+`,
+      'src/app/features/governance/governanceAuditErrorMessages.ts': `
+function message() {
+  return 'Your sign-in expired. Sign in again, then retry this change-history action.'
 }
 `,
     })
@@ -8418,7 +8526,12 @@ function render() {
     const cwd = fixture({
       'src/app/shared/ui/legal/LegalPage.ts': `
 function renderPrivacy() {
-  return '<li>To show live task, agent, and evidence updates in the product interface</li>'
+  return [
+    '<li>To show live task, agent, and evidence updates in the product interface</li>',
+    '<li>IP address used for rate limiting and audit logging</li>',
+    '<li>To maintain audit logs for security monitoring and compliance purposes</li>',
+    '<li>The export includes event history and configuration settings</li>',
+  ].join('')
 }
 `,
     })
@@ -8426,19 +8539,38 @@ function renderPrivacy() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'legal-privacy-copy',
-        sample: expect.stringContaining('evidence updates'),
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'legal-privacy-copy',
+          sample: expect.stringContaining('evidence updates'),
+        }),
+        expect.objectContaining({
+          type: 'legal-privacy-copy',
+          sample: expect.stringContaining('rate limiting'),
+        }),
+        expect.objectContaining({
+          type: 'legal-privacy-copy',
+          sample: expect.stringContaining('audit logs'),
+        }),
+        expect.objectContaining({
+          type: 'legal-privacy-copy',
+          sample: expect.stringContaining('event history'),
+        }),
+      ])
+    )
   })
 
   it('accepts legal privacy copy that explains saved work updates plainly', () => {
     const cwd = fixture({
       'src/app/shared/ui/legal/LegalPage.ts': `
 function renderPrivacy() {
-  return '<li>To show live task, agent, and saved work updates in the product interface</li>'
+  return [
+    '<li>To show live task, agent, and saved work updates in the product interface</li>',
+    '<li>IP address used to protect the Service, slow abusive requests, and record security-relevant activity</li>',
+    '<li>To keep security history records for safety reviews and legal requirements</li>',
+    '<li>The export includes change history and configuration settings</li>',
+  ].join('')
 }
 `,
     })
@@ -9760,6 +9892,53 @@ function highAction() {
       'src/app/features/analytics/AnalyticsDashboard.tsx': `
 function emptyChart() {
   return 'Tool use appears after an agent finishes a task.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags task result record titles that expose source-type jargon', () => {
+    const cwd = fixture({
+      'src/app/features/detail/ContextEvidenceList.tsx': `
+function evidenceTitle(item) {
+  if (item.sourceType === 'task_result') return 'Task result'
+  if (item.sourceType === 'tool_call') return 'Tool activity'
+  if (item.sourceType === 'source_message') return 'Source message'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'context-evidence-source-title-copy',
+          location: 'src/app/features/detail/ContextEvidenceList.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'context-evidence-source-title-copy',
+          location: 'src/app/features/detail/ContextEvidenceList.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'context-evidence-source-title-copy',
+          location: 'src/app/features/detail/ContextEvidenceList.tsx:5',
+        }),
+      ])
+    )
+  })
+
+  it('accepts task result record titles that explain what users are checking', () => {
+    const cwd = fixture({
+      'src/app/features/detail/ContextEvidenceList.tsx': `
+function evidenceTitle(item) {
+  if (item.sourceType === 'task_result') return 'Final answer'
+  if (item.sourceType === 'tool_call') return 'Step the agent took'
+  if (item.sourceType === 'source_message') return 'Message used for this work'
+  return 'Work details'
 }
 `,
     })

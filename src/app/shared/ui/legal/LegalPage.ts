@@ -568,7 +568,7 @@ export class LegalPage {
           We may collect technical information about the devices you use to access the Service:
         </p>
         <ul class="legal-list">
-          <li>IP address (used for security, rate limiting, and audit logging)</li>
+          <li>IP address (used to protect the Service, slow abusive requests, and record security-relevant activity)</li>
           <li>Browser type and version</li>
           <li>Operating system</li>
           <li>User-agent string</li>
@@ -621,7 +621,7 @@ export class LegalPage {
           <li>To detect, prevent, and respond to fraud, abuse, security incidents, and other harmful activity</li>
           <li>To enforce our Terms of Service and other applicable policies</li>
           <li>To comply with legal obligations and respond to lawful requests from public authorities</li>
-          <li>To maintain audit logs for security monitoring and compliance purposes</li>
+          <li>To keep security history records for safety reviews and legal requirements</li>
         </ul>
       </div>
 
@@ -650,7 +650,7 @@ export class LegalPage {
           <li>Sensitive data filtering in error tracking to reduce accidental exposure of passwords, access keys, and credit card numbers</li>
           <li>Safe database query practices to reduce injection risk</li>
           <li>Browser access policies that limit which sites can call the Service</li>
-          <li>Security review supported by audit logging</li>
+          <li>Security review supported by security history records</li>
         </ul>
       </div>
 
@@ -750,7 +750,7 @@ export class LegalPage {
         <h3 class="legal-subsection-title">Data Export</h3>
         <p class="legal-text">
           You can request a copy of your personal data through the account settings page or a supported export flow.
-          The export includes your profile information, agent records, event history, and configuration settings in a
+          The export includes your profile information, agent records, change history, and configuration settings in a
           file format that can be read by other tools.
         </p>
         <h3 class="legal-subsection-title">Account Deletion</h3>
@@ -761,9 +761,9 @@ export class LegalPage {
         <ul class="legal-list">
           <li>Your profile information is permanently removed</li>
           <li>Active agents are stopped</li>
-          <li>Event history and agent data are deleted</li>
+          <li>Change history and agent data are deleted</li>
           <li>Saved login sessions and access keys are revoked</li>
-          <li>Audit logs referencing your account are anonymized (the log entries are retained for compliance but your personal identifiers are removed)</li>
+          <li>Security history records referencing your account are anonymized (the records are kept for legal requirements but your personal identifiers are removed)</li>
           <li>Payment records are retained as required by applicable tax and financial regulations</li>
         </ul>
         <p class="legal-text">
@@ -809,7 +809,7 @@ export class LegalPage {
         <ul class="legal-list">
           <li><strong>Tool events and agent data:</strong> 90 days from creation, after which events are automatically purged by our cleanup workers</li>
           <li><strong>Account information:</strong> Retained until you delete your account or request data erasure</li>
-          <li><strong>Audit logs:</strong> 1 year from creation, retained for security monitoring and compliance purposes (anonymized upon account deletion)</li>
+          <li><strong>Security history records:</strong> 1 year from creation, retained for safety reviews and legal requirements (anonymized upon account deletion)</li>
           <li><strong>Image attachments (prompt images):</strong> 7 days (automatic lifecycle policy)</li>
           <li><strong>Image attachments (general):</strong> 30 days (automatic lifecycle policy)</li>
           <li><strong>Saved login sessions:</strong> Automatically expired and cleaned up according to their configured lifetime</li>
