@@ -9553,11 +9553,34 @@ function render() {
     ])
   })
 
-  it('accepts sign-in orientation that explains saved work records', () => {
+  it('flags sign-in orientation that mentions workspace-admin invitations', () => {
+    const cwd = fixture({
+      'src/app/features/auth/AuthPage.ts': `
+function renderLoginForm() {
+  return 'Use the email your workspace admin invited. After sign in, you will land on your task board.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'auth-intro-copy',
+        location: 'src/app/features/auth/AuthPage.ts:3',
+      }),
+    ])
+  })
+
+  it('accepts sign-in orientation that explains saved work records and invitation email', () => {
     const cwd = fixture({
       'src/app/features/auth/AuthPage.ts': `
 function render() {
   return 'Sign in to manage agents, tasks, saved work records, and team settings from one team space.'
+}
+function renderLoginForm() {
+  return 'Use the email address from your invitation. After sign in, you will land on your task board.'
 }
 `,
     })

@@ -51,6 +51,8 @@ describe('AuthPage beginner guidance', () => {
       'Sign in to manage agents, tasks, saved work records, and team settings'
     )
     expect(bodyText()).toContain('from one team space')
+    expect(bodyText()).toContain('Use the email address from your invitation')
+    expect(bodyText()).not.toContain('workspace admin invited')
     expect(bodyText()).toContain('New here? Create an account first.')
     expect(bodyText()).not.toContain('evidence')
     expect(bodyText()).not.toContain('Team workspace access')
@@ -78,9 +80,7 @@ describe('AuthPage beginner guidance', () => {
       'Create your first team space account.'
     )
     expect(document.querySelector('#register-form')?.textContent).toContain('team space alerts')
-    expect(document.querySelector('#register-form')?.textContent).not.toContain(
-      'workspace account'
-    )
+    expect(document.querySelector('#register-form')?.textContent).not.toContain('workspace account')
     expect(document.querySelector('#register-submit')?.textContent).toContain(
       'Create account and continue'
     )

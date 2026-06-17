@@ -1067,7 +1067,10 @@ const AUTH_FAILURE_FIRST_PATTERNS = [
   /\bVerification email could not be sent\. Check that this is the email/i,
 ]
 
-const AUTH_INTRO_JARGON_PATTERNS = [/\bSign in to manage\b.*\bevidence\b/i]
+const AUTH_INTRO_JARGON_PATTERNS = [
+  /\bSign in to manage\b.*\bevidence\b/i,
+  /\bUse the email your workspace admin invited\b/i,
+]
 
 const LEGAL_PRIVACY_EVIDENCE_JARGON_PATTERNS = [
   /\blive task,\s*agent,\s*and evidence updates\b/i,

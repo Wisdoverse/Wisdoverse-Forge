@@ -390,7 +390,7 @@ export class AuthPage {
     return `
       <form class="auth-form" id="login-form">
         <p class="auth-form-note">
-          Use the email your workspace admin invited. After sign in, you will land on your task board.
+          Use the email address from your invitation. After sign in, you will land on your task board.
         </p>
         <div class="auth-field">
           <label class="auth-label" for="login-email">Email address</label>
