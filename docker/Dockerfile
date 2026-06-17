@@ -90,6 +90,13 @@ RUN npx vite build \
 # -----------------------------------------------------------------------------
 FROM base AS production
 
+# Update npm to a release whose bundled deps are patched: tar 7.5.16
+# (CVE-2026-53655), ip-address 10.2.0 (CVE-2026-42338), brace-expansion 5.0.6
+# (CVE-2026-45149). node:*-slim still ships an older npm with the vulnerable
+# bundled copies under usr/local/lib/node_modules/npm/node_modules/. Pinned to
+# match the agent-base discipline in docker/Dockerfile.agent-base.
+RUN npm install -g npm@11.17.0 && npm cache clean --force
+
 ARG USER_UID=1011
 ARG USER_GID=1012
 ARG APP_VERSION=unknown

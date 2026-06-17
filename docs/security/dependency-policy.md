@@ -76,3 +76,50 @@ agentforge verify-image ghcr.io/wisdoverse/wisdoverse-forge/sidecar:main
 
 For the full operator verification path (binaries and images), see
 [docs/runbooks/host-cli-agent-enrollment.md](../runbooks/host-cli-agent-enrollment.md).
+
+## Container image CVE remediation
+
+The container images are scanned post-build by the `image-vuln-scan.yml` Trivy
+workflow (frontend, `server`, `orchestrator`, `sidecar`, `agent-base`, and the
+`agent-<tool>` overlays); findings publish to the Security tab as SARIF. The job
+fails CI on `CRITICAL` and surfaces `HIGH`/`MEDIUM` for tracked remediation under
+the Severity SLA above. The remediation posture has four layers, each applied at
+build time so a freshly built image is patched regardless of how old its base tag
+is:
+
+- Base-package upgrade layer. Every image runs a mandatory upgrade step before
+  installing its own packages — `apk --no-cache upgrade` on the Alpine runtimes
+  (`rust/Dockerfile`, `rust/Dockerfile.sidecar`, `rust/Dockerfile.orchestrator`)
+  and `apt-get -y dist-upgrade` on the Debian agent base
+  (`docker/Dockerfile.agent-base`). This pulls the distro's current patched
+  packages (e.g. `libssl3`/`libcrypto3`) even when the pinned base tag still ships
+  an older build.
+- Pinned npm for node images. The node-based images (the frontend image and the
+  agent base) pin a current npm (`npm install -g npm@<version>`) so npm's bundled
+  dependencies (`tar`, `ip-address`, `brace-expansion`, and similar) are patched;
+  `node:*-slim` lags its bundled npm behind active CVEs.
+- From-source docker-compose with pinned modules. The agent base builds
+  `docker-compose` from a pinned source commit with a stripped module graph and
+  raises vulnerable transitive Go modules above their advisory floor with `go get`
+  plus a post-`go mod tidy` assertion (for example `containerd/v2`,
+  `in-toto-golang`). A bumped pin that fails to resolve or build fails the image
+  build loudly.
+- Automated maintenance. Dependabot's `docker` ecosystem (`/docker`, `/rust`)
+  opens weekly base-image bump pull requests; the SLA table drives manual
+  remediation of anything the upgrade layers do not cover.
+
+### Base images are floated, not digest-pinned (recorded decision)
+
+Base images use floating minor tags (`alpine:3.23`, `debian:bookworm-slim`,
+`node:24-slim`, `rust:1.96.0-bookworm`) rather than `@sha256` digest pins. This is
+a deliberate, recorded supply-chain decision: the mandatory build-time upgrade
+layer above patches the base regardless of tag age, the Trivy gate blocks
+`CRITICAL`, and Dependabot bumps the tags weekly. Together these cover the CVE
+exposure that digest pinning is usually argued to close, while keeping security
+refreshes flowing automatically instead of requiring a manual digest bump per
+base. The supply-chain integrity that digest pinning adds (defeating a re-pushed
+tag) is covered downstream by cosign signing and SLSA provenance on the output
+images (see "Container images" above). Consequently, Scorecard
+`PinnedDependenciesID` findings on the Dockerfile `FROM` lines are dismissed as
+won't-fix with this rationale. Revisit if the threat model shifts toward
+build-time base-tag tampering.

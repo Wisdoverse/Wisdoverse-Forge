@@ -69,6 +69,12 @@ ARG COMPOSE_COMMIT=977a4310f9f6d89d4b176fee01a5b7c109c1816a
 ARG COMPOSE_SOURCE_SHA256=01a3d4c2cd44105c29dce266cb6e021381c8ed959219eb05922f958c63ea27db
 ARG COMPOSE_DOCKER_MODULE_VERSION=29.3.1
 ARG COMPOSE_IN_TOTO_VERSION=0.11.0
+# Bump transitive containerd above CVE-2026-46680 / GHSA-fqw6-gf59-qr4w (HIGH,
+# runAsNonRoot evasion). The pinned compose source requires containerd/v2 v2.2.3
+# (vulnerable < 2.2.4); v2.2.4 is the first patched 2.2.x release. (The vulnerable
+# pkg/oci user path is not linked into this registry-only compose binary, so this
+# is defense-in-depth, but bumping is cleaner than carrying a dismissed alert.)
+ARG COMPOSE_CONTAINERD_VERSION=2.2.4
 ARG COMPOSE_OTEL_VERSION=1.43.0
 ARG GITHUB_PROXY=
 WORKDIR /compose
@@ -110,6 +116,7 @@ RUN apt-get update \
     && go mod edit -require="github.com/docker/docker@v${COMPOSE_DOCKER_MODULE_VERSION}+incompatible" \
     && go mod edit -replace="github.com/docker/docker=./third_party/docker-compat" \
     && go get \
+       "github.com/containerd/containerd/v2@v${COMPOSE_CONTAINERD_VERSION}" \
        "github.com/in-toto/in-toto-golang@v${COMPOSE_IN_TOTO_VERSION}" \
        "go.opentelemetry.io/otel@v${COMPOSE_OTEL_VERSION}" \
        "go.opentelemetry.io/otel/sdk@v${COMPOSE_OTEL_VERSION}" \
@@ -117,6 +124,7 @@ RUN apt-get update \
        "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp@v${COMPOSE_OTEL_VERSION}" \
     && go mod tidy \
     && test "$(go list -m all | awk '$1 == "github.com/docker/docker" && $3 == "=>" && $4 == "./third_party/docker-compat" { print $2 }')" = "v${COMPOSE_DOCKER_MODULE_VERSION}+incompatible" \
+    && test "$(go list -m all | awk '$1 == "github.com/containerd/containerd/v2" { print $2 }')" = "v${COMPOSE_CONTAINERD_VERSION}" \
     && test "$(go list -m all | awk '$1 == "github.com/in-toto/in-toto-golang" { print $2 }')" = "v${COMPOSE_IN_TOTO_VERSION}" \
     && test "$(go list -m all | awk '$1 == "go.opentelemetry.io/otel" { print $2 }')" = "v${COMPOSE_OTEL_VERSION}" \
     && test "$(go list -m all | awk '$1 == "go.opentelemetry.io/otel/sdk" { print $2 }')" = "v${COMPOSE_OTEL_VERSION}" \

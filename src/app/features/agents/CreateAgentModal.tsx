@@ -275,6 +275,8 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
     setError,
   } = useAgentsStore()
   const providers = useSettingsStore((s) => s.providers)
+  const providersLoading = useSettingsStore((s) => s.providersLoading)
+  const loadProviders = useSettingsStore((s) => s.loadProviders)
   const selectedProjectId = useNavigationStore((s) => s.selectedProjectId)
   const projectsByTeam = useNavigationStore((s) => s.projects)
   const groups = useNavigationStore((s) => s.agentGroups)
@@ -342,6 +344,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
   )
   const dialogRef = useRef<HTMLDivElement>(null)
   const errorBannerRef = useRef<HTMLDivElement>(null)
+  const providersRequestedRef = useRef(false)
   const displayedError = formError ?? error
   const joinCommand = localEnrollment?.enrollment?.joinCommand ?? ''
   const joinCommandPowershell = localEnrollment?.enrollment?.joinCommandPowershell ?? ''
@@ -376,6 +379,25 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [createModalOpen, setCreateModalOpen, setError])
+
+  // Provider + Prompt options are sourced from the configured LLM providers in
+  // the settings store, but only the Settings and Getting Started pages load
+  // that store. Opening this modal from a deep link to /agents would otherwise
+  // show an empty provider list even when the org has providers configured.
+  // Self-load once per open so the dropdown is populated wherever the modal is
+  // opened from. The ref guards against re-fetching when a completed load
+  // legitimately returned zero providers.
+  useEffect(() => {
+    if (!createModalOpen) {
+      providersRequestedRef.current = false
+      return
+    }
+    if (providersRequestedRef.current) return
+    if (providers.length === 0 && !providersLoading) {
+      providersRequestedRef.current = true
+      void loadProviders()
+    }
+  }, [createModalOpen, providers.length, providersLoading, loadProviders])
 
   // Reset form when modal opens.
   useEffect(() => {
