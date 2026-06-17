@@ -408,6 +408,7 @@ const LOCALE_ACCESS_ROLE_JARGON_PATTERNS = [
 ]
 
 const START_GUIDE_RESET_JARGON_PATTERNS = [
+  /\bOnboarding\b/,
   /\bStart guide\b/i,
   /\bReset Start guide\b/i,
   /\bReset it here\b/i,

@@ -549,9 +549,9 @@ export function AccountSection() {
         </div>
       </div>
 
-      {/* Onboarding */}
+      {/* Setup checklist */}
       <div>
-        <h3 className={uiStyles.groupLabel}>Onboarding</h3>
+        <h3 className={uiStyles.groupLabel}>Setup checklist</h3>
         <div className={uiStyles.card}>
           <GettingStartedGuideRow />
         </div>

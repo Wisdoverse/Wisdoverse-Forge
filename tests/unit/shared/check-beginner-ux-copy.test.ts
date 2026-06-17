@@ -6582,11 +6582,11 @@ function ProfileRow() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags Start guide reset copy that sounds like data reset', () => {
+  it('flags Start guide reset and onboarding copy that hide the visible result', () => {
     const cwd = fixture({
       'src/app/features/settings/AccountSection.tsx': `
 function GettingStartedGuideRow() {
-  return <button>Reset Start guide</button>
+  return <section><h3>Onboarding</h3><button>Reset Start guide</button></section>
 }
 `,
       'src/app/pages/settings/ui/SettingsLayout.tsx': `
