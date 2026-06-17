@@ -8348,6 +8348,64 @@ export const zh = {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags task result review copy that exposes evidence jargon', () => {
+    const cwd = fixture({
+      'src/app/features/detail/DescriptionTab.tsx': `
+function DescriptionTab() {
+  return <ReviewSection title="Result files and evidence" />
+}
+`,
+      'src/app/features/detail/TaskDetailPanel.tsx': `
+function ResultReviewGuide() {
+  return [
+    'Use this result as evidence for the task outcome.',
+    'Check the evidence',
+  ]
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/DescriptionTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/TaskDetailPanel.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/TaskDetailPanel.tsx:5',
+        }),
+      ])
+    )
+  })
+
+  it('accepts task result review copy that describes result files plainly', () => {
+    const cwd = fixture({
+      'src/app/features/detail/DescriptionTab.tsx': `
+function DescriptionTab() {
+  return <ReviewSection title="Result files" />
+}
+`,
+      'src/app/features/detail/TaskDetailPanel.tsx': `
+function ResultReviewGuide() {
+  return [
+    'Use this result to decide whether the task is done.',
+    'Check result files',
+  ]
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags authentication network copy that starts with the failure instead of the next step', () => {
     const cwd = fixture({
       'src/app/features/auth/AuthPage.ts': `

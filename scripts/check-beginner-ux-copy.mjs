@@ -956,6 +956,12 @@ const GETTING_STARTED_REVIEW_EVIDENCE_JARGON_PATTERNS = [
   /输出或证据/,
 ]
 
+const TASK_DETAIL_EVIDENCE_JARGON_PATTERNS = [
+  /\bResult files and evidence\b/i,
+  /\bUse this result as evidence\b/i,
+  /\bCheck the evidence\b/i,
+]
+
 const AUTH_MANAGER_DEAD_END_PATTERNS = [
   /\bLogin failed\b/,
   /\bRegistration failed\b/,
@@ -1700,6 +1706,17 @@ function hasGettingStartedReviewEvidenceJargonCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return GETTING_STARTED_REVIEW_EVIDENCE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasTaskDetailEvidenceJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/detail/DescriptionTab.tsx') &&
+    !relFile.endsWith('src/app/features/detail/TaskDetailPanel.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_DETAIL_EVIDENCE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAuthManagerDeadEndCopy(relFile, line) {
@@ -3216,6 +3233,15 @@ function scanFile(file, relFile) {
         type: 'getting-started-review-copy',
         location,
         message: 'Getting Started review copy must describe output and result files plainly.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskDetailEvidenceJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'task-detail-result-review-copy',
+        location,
+        message: 'Task result review copy must describe result files without evidence jargon.',
         sample: line.trim(),
       })
     }
