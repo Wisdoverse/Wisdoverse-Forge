@@ -53,9 +53,21 @@ describe('platformKeyErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then create this outside tool access key again. Forge could not connect while opening outside tool access settings.'
+      'Check your connection, then create this outside tool access key again. The creation did not finish.'
     )
     expect(message).not.toContain('Network error')
+    expect(message).not.toContain('opening outside tool access settings')
+  })
+
+  test('starts remove network failures with the recovery step', () => {
+    const message = platformKeyErrorMessage('removing platform key failed: Network error')
+
+    expectBeginnerMessage(
+      message,
+      'Check your connection, then remove this outside tool access key again. The removal did not finish.'
+    )
+    expect(message).not.toContain('Network error')
+    expect(message).not.toContain('opening outside tool access settings')
   })
 
   test('turns temporary failures into an outside tool access settings recovery step', () => {
