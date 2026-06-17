@@ -24,7 +24,7 @@ describe('workspace setup create forms', () => {
     render(<CreateTeamForm onSave={onSave} onCancel={vi.fn()} saving={false} />)
 
     const status = screen.getByTestId('create-team-status')
-    expect(within(status).getByText('Next: Name the Team')).toBeInTheDocument()
+    expect(within(status).getByText('Next: name the team')).toBeInTheDocument()
     const createButton = screen.getByRole('button', { name: /create team/i })
     expect(createButton).not.toBeDisabled()
 
@@ -37,7 +37,7 @@ describe('workspace setup create forms', () => {
 
     fireEvent.change(nameInput, { target: { value: 'Support Ops' } })
 
-    expect(within(status).getByText('Ready to Create Team')).toBeInTheDocument()
+    expect(within(status).getByText('Ready to create team')).toBeInTheDocument()
     fireEvent.click(createButton)
 
     await waitFor(() => expect(onSave).toHaveBeenCalledWith('Support Ops'))
@@ -49,7 +49,7 @@ describe('workspace setup create forms', () => {
     render(<CreateProjectForm teams={[]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
 
     const status = screen.getByTestId('create-project-status')
-    expect(within(status).getByText('Next: Create a Team First')).toBeInTheDocument()
+    expect(within(status).getByText('Next: create a team first')).toBeInTheDocument()
     const createButton = screen.getByRole('button', { name: /create project/i })
     expect(createButton).not.toBeDisabled()
 
@@ -68,7 +68,7 @@ describe('workspace setup create forms', () => {
     render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
 
     const status = screen.getByTestId('create-project-status')
-    expect(within(status).getByText('Next: Name the Project')).toBeInTheDocument()
+    expect(within(status).getByText('Next: name the project')).toBeInTheDocument()
     const createButton = screen.getByRole('button', { name: /create project/i })
     expect(createButton).not.toBeDisabled()
 
@@ -81,7 +81,7 @@ describe('workspace setup create forms', () => {
 
     fireEvent.change(nameInput, { target: { value: 'Customer Portal' } })
 
-    expect(within(status).getByText('Ready to Create Project')).toBeInTheDocument()
+    expect(within(status).getByText('Ready to create project')).toBeInTheDocument()
     fireEvent.click(createButton)
 
     // Empty optional repo URL → submits WITHOUT a repositoryUrl (third arg undefined).
@@ -101,15 +101,20 @@ describe('workspace setup create forms', () => {
     expect(screen.getByText('/workspace/my-new-repo')).toBeInTheDocument()
   })
 
-  test('submits a valid https repository URL as the third arg', async () => {
+  test('submits a valid https code link as the third arg', async () => {
     const onSave = vi.fn().mockResolvedValue(undefined)
 
     render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
 
+    expect(screen.getByText('Code link')).toBeInTheDocument()
+    expect(screen.queryByText('Git repository URL')).toBeNull()
+    expect(screen.getByText(/Forge copies that code into this project/i)).toBeInTheDocument()
+    expect(screen.queryByText(/clone an existing repo/i)).toBeNull()
+
     fireEvent.change(screen.getByLabelText(/project name/i), {
       target: { value: 'Cloned Project' },
     })
-    fireEvent.change(screen.getByLabelText(/git repository url/i), {
+    fireEvent.change(screen.getByLabelText(/code link/i), {
       target: { value: 'https://github.com/org/repo.git' },
     })
     fireEvent.click(screen.getByRole('button', { name: /create project/i }))
@@ -123,7 +128,7 @@ describe('workspace setup create forms', () => {
     )
   })
 
-  test('blocks submit with a visible banner for a non-https repository URL', async () => {
+  test('blocks submit with a visible banner for a non-https code link', async () => {
     const onSave = vi.fn().mockResolvedValue(undefined)
 
     render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
@@ -131,13 +136,16 @@ describe('workspace setup create forms', () => {
     fireEvent.change(screen.getByLabelText(/project name/i), {
       target: { value: 'SSH Project' },
     })
-    fireEvent.change(screen.getByLabelText(/git repository url/i), {
+    fireEvent.change(screen.getByLabelText(/code link/i), {
       target: { value: 'git@github.com:org/repo.git' },
     })
     fireEvent.click(screen.getByRole('button', { name: /create project/i }))
 
     // No silent dead-click: a visible banner AND no submit.
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
+    expect(screen.getByRole('alert')).toHaveTextContent('Use a code link that starts with https://')
+    expect(screen.getByRole('alert')).toHaveTextContent('git@ Repository Access')
+    expect(screen.getByRole('alert')).not.toHaveTextContent('SSH keys')
     expect(onSave).not.toHaveBeenCalled()
   })
 
@@ -149,16 +157,18 @@ describe('workspace setup create forms', () => {
     fireEvent.change(screen.getByLabelText(/project name/i), {
       target: { value: 'Token Project' },
     })
-    fireEvent.change(screen.getByLabelText(/git repository url/i), {
+    fireEvent.change(screen.getByLabelText(/code link/i), {
       target: { value: 'https://user:ghp_secrettoken@github.com/org/repo.git' },
     })
     fireEvent.click(screen.getByRole('button', { name: /create project/i }))
 
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/remove credentials/i))
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(/remove account details/i)
+    )
     expect(onSave).not.toHaveBeenCalled()
   })
 
-  test('surfaces a server rejection as a banner instead of failing silently', async () => {
+  test('surfaces a code link server rejection as a beginner-safe banner', async () => {
     const onSave = vi.fn().mockRejectedValue(new Error('repository_url must be an https URL'))
 
     render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
@@ -168,9 +178,71 @@ describe('workspace setup create forms', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: /create project/i }))
 
-    await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent('repository_url must be an https URL')
-    )
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent('Use an https:// code link without account details')
+      expect(alert).not.toHaveTextContent('repository_url')
+    })
     expect(onSave).toHaveBeenCalled()
+  })
+
+  test('does not expose raw server details when project creation fails', async () => {
+    const onSave = vi
+      .fn()
+      .mockRejectedValue(new Error('API 500: database unavailable while inserting project'))
+
+    render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Server Details' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create project/i }))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent('Wait a few minutes, then create this project again.')
+      expect(alert).toHaveTextContent('Forge could not create the project right now')
+      expect(alert).not.toHaveTextContent('API 500')
+      expect(alert).not.toHaveTextContent('database unavailable')
+    })
+    expect(onSave).toHaveBeenCalled()
+  })
+
+  test('starts project rate-limit failures with the wait step', async () => {
+    const onSave = vi.fn().mockRejectedValue(new Error('HTTP 429: too many requests'))
+
+    render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Busy Project' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create project/i }))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent(
+        'Wait a minute, then create this project again. Too many project changes are happening right now.'
+      )
+      expect(alert).not.toHaveTextContent('HTTP 429')
+    })
+  })
+
+  test('starts unknown project creation failures with the recovery step', async () => {
+    const onSave = vi.fn().mockRejectedValue(new Error('unexpected create failure'))
+
+    render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Unknown Failure' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create project/i }))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent(
+        'Check the project name and team, then create this project again. Forge could not create the project.'
+      )
+      expect(alert).not.toHaveTextContent('unexpected create failure')
+    })
   })
 })

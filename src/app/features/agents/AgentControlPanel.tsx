@@ -11,6 +11,16 @@ import {
 import { cn } from '@app/shared/lib/utils'
 import { isHostCliAgent, useAgentsStore, type AgentInfo } from '@app/entities/agent'
 
+const LOCAL_AGENT_CONTROL_FAILURE = {
+  sendInstruction: 'local-send-instruction-failed',
+  startWorkspace: 'local-start-workspace-failed',
+  restartWorkspace: 'local-restart-workspace-failed',
+  removeAgent: 'local-remove-agent-failed',
+} as const
+
+const CHAT_ONLY_AI_SERVICE_RECOVERY_DETAIL =
+  'Open Settings > AI services, click Check on this service, refresh Agents, then send messages or Tasks after it shows Ready.'
+
 interface AgentControlPanelProps {
   agent: AgentInfo
   onDeleted: () => void
@@ -21,11 +31,12 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
 
   const [prompt, setPrompt] = useState('')
   const [promptError, setPromptError] = useState<string | null>(null)
+  const [localActionError, setLocalActionError] = useState<string | null>(null)
+  const [localActionStatus, setLocalActionStatus] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [starting, setStarting] = useState(false)
   const [confirmRestart, setConfirmRestart] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const promptInputId = 'agent-control-prompt'
   const promptHelpId = 'agent-control-prompt-help'
   const promptErrorId = 'agent-control-prompt-error'
 
@@ -39,52 +50,130 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
     canRestartContainer,
     hostCli,
   })
+  const readyActionInfo = getReadyActionInfo(agent, { hostCli })
   const ControlSummaryIcon = controlSummary.Icon
+  const controlError = error ?? localActionError
+  const messageAvailability = getMessageAvailability(agent, { canStartContainer, hostCli })
+  const messageDisabled = sending || !messageAvailability.canSend
 
   async function handleSendPrompt() {
     if (sending) return
+    if (!messageAvailability.canSend) {
+      setPromptError(messageAvailability.detail)
+      return
+    }
     const trimmedPrompt = prompt.trim()
     if (!trimmedPrompt) {
       setPromptError('Write an instruction before sending it to this agent.')
-      document.getElementById(promptInputId)?.focus()
+      document.getElementById(messageInputId)?.focus()
       return
     }
     setPromptError(null)
+    setLocalActionError(null)
+    setLocalActionStatus(null)
     setSending(true)
-    const ok = await sendPrompt(agent.id, trimmedPrompt)
-    setSending(false)
-    if (ok) setPrompt('')
+    try {
+      const ok = await sendPrompt(agent.id, trimmedPrompt)
+      if (ok) {
+        setPrompt('')
+        setLocalActionStatus(
+          "Instruction sent. Watch this agent's history for progress, or create a task next time when you need a tracked result."
+        )
+      } else {
+        setLocalActionStatus(null)
+        setLocalActionError(LOCAL_AGENT_CONTROL_FAILURE.sendInstruction)
+      }
+    } catch {
+      setLocalActionStatus(null)
+      setLocalActionError(LOCAL_AGENT_CONTROL_FAILURE.sendInstruction)
+    } finally {
+      setSending(false)
+    }
   }
 
   async function handleStart() {
     if (starting) return
+    setLocalActionError(null)
+    setLocalActionStatus(null)
     setStarting(true)
-    await startAgent(agent.id)
-    setStarting(false)
+    try {
+      const ok = await startAgent(agent.id)
+      if (ok) {
+        setLocalActionStatus(
+          'Workspace start requested. Refresh Agents until this agent shows Ready, then send an instruction or create a task.'
+        )
+      } else {
+        setLocalActionError(LOCAL_AGENT_CONTROL_FAILURE.startWorkspace)
+      }
+    } catch {
+      setLocalActionStatus(null)
+      setLocalActionError(LOCAL_AGENT_CONTROL_FAILURE.startWorkspace)
+    } finally {
+      setStarting(false)
+    }
   }
 
   async function handleRestart() {
-    await restartAgent(agent.id)
-    setConfirmRestart(false)
+    setLocalActionError(null)
+    setLocalActionStatus(null)
+    try {
+      const ok = await restartAgent(agent.id)
+      if (ok) {
+        setLocalActionStatus(
+          'Restart requested. Wait until this agent shows Ready before sending new work.'
+        )
+      } else {
+        setLocalActionError(LOCAL_AGENT_CONTROL_FAILURE.restartWorkspace)
+      }
+    } catch {
+      setLocalActionStatus(null)
+      setLocalActionError(LOCAL_AGENT_CONTROL_FAILURE.restartWorkspace)
+    } finally {
+      setConfirmRestart(false)
+    }
   }
 
   async function handleDelete() {
-    const ok = await deleteAgent(agent.id)
-    if (ok) onDeleted()
-    setConfirmDelete(false)
+    setLocalActionError(null)
+    setLocalActionStatus(null)
+    try {
+      const ok = await deleteAgent(agent.id)
+      if (ok) {
+        onDeleted()
+      } else {
+        setLocalActionError(LOCAL_AGENT_CONTROL_FAILURE.removeAgent)
+      }
+    } catch {
+      setLocalActionError(LOCAL_AGENT_CONTROL_FAILURE.removeAgent)
+    } finally {
+      setConfirmDelete(false)
+    }
   }
 
   return (
     <div className="flex flex-col gap-3">
-      {error && (
+      {localActionStatus && !controlError && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex gap-3 rounded-lg bg-apple-green/10 px-3 py-2 text-ui-caption text-apple-green"
+        >
+          <CheckCircle2 size={16} strokeWidth={2} aria-hidden="true" className="mt-0.5 shrink-0" />
+          <span>{localActionStatus}</span>
+        </div>
+      )}
+
+      {controlError && (
         <div
           role="alert"
+          aria-live="polite"
           className="flex gap-3 rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
         >
           <AlertTriangle size={16} strokeWidth={2} aria-hidden="true" className="mt-0.5 shrink-0" />
           <div className="flex flex-col gap-1">
             <span className="font-medium">Action did not finish</span>
-            <span>{error}. Check the agent status, then try the same action again.</span>
+            <span>Review the recovery step below, then try again.</span>
+            <span>{agentControlErrorMessage(controlError)}</span>
           </div>
         </div>
       )}
@@ -104,14 +193,15 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
               htmlFor={messageInputId}
               className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark"
             >
-              Send a Message
+              Send one instruction
             </label>
             <p
               id={messageHelpId}
               className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
             >
-              Use this for one short instruction or question. For tracked work, create a task so the
-              result and evidence are easier to review.
+              {messageAvailability.canSend
+                ? 'Use this for a quick question or one small request. For work that needs a clear result, create a task instead.'
+                : messageAvailability.detail}
             </p>
           </div>
         </div>
@@ -123,13 +213,23 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
             if (promptError) setPromptError(null)
           }}
           rows={3}
-          aria-describedby={messageHelpId}
-          className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-          placeholder="Example: Check the latest run and tell me the next safe step."
+          disabled={!messageAvailability.canSend}
+          aria-describedby={`${messageHelpId} ${promptHelpId}${
+            promptError ? ` ${promptErrorId}` : ''
+          }`}
+          className={cn(
+            'w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark',
+            !messageAvailability.canSend && 'cursor-not-allowed opacity-60'
+          )}
+          placeholder={
+            messageAvailability.canSend
+              ? 'Example: Check the latest run and tell me the next safe step.'
+              : 'Reconnect or start this agent before sending an instruction.'
+          }
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
               e.preventDefault()
-              void handleSendPrompt()
+              if (messageAvailability.canSend) void handleSendPrompt()
             }
           }}
         />
@@ -142,19 +242,21 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
           id={promptHelpId}
           className="text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
-          Send one concrete instruction, then watch this agent&apos;s task history for progress.
+          {messageAvailability.canSend
+            ? "Send one concrete instruction, then watch this agent's history for progress."
+            : 'Wait until this agent shows Ready before sending an instruction here.'}
         </p>
         <div className="flex justify-end">
           <button
             type="button"
             onClick={handleSendPrompt}
-            disabled={sending}
+            disabled={messageDisabled}
             className={cn(
-              'rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95',
-              sending && 'opacity-50 cursor-not-allowed'
+              'w-full rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 sm:w-auto',
+              messageDisabled && 'opacity-50 cursor-not-allowed'
             )}
           >
-            {sending ? 'Sending…' : 'Send Message'}
+            {sending ? 'Sending...' : 'Send instruction'}
           </button>
         </div>
       </div>
@@ -178,8 +280,8 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
           {!canStartContainer && !canRestartContainer && (
             <ActionInfo
               icon={CheckCircle2}
-              title="No recovery action needed"
-              detail="Do not restart anything unless work stops updating. Use Tasks for work that needs a clear result."
+              title={readyActionInfo.title}
+              detail={readyActionInfo.detail}
             />
           )}
 
@@ -188,20 +290,20 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
               {canStartContainer ? (
                 <ActionCard
                   icon={Play}
-                  title="Start the container"
-                  detail="Use this when the agent has no running container yet. Starting can take a short moment."
+                  title="Start the workspace"
+                  detail="Use this when no workspace is running yet. Wait for Ready before sending file work."
                 >
                   <button
                     type="button"
                     onClick={handleStart}
                     disabled={starting}
                     className={cn(
-                      'rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white',
+                      'w-full rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white sm:w-auto',
                       'transition-transform hover:bg-apple-blue-focus active:scale-95',
                       starting && 'opacity-50 cursor-not-allowed'
                     )}
                   >
-                    {starting ? 'Starting…' : 'Start Agent'}
+                    {starting ? 'Starting...' : 'Start workspace'}
                   </button>
                 </ActionCard>
               ) : confirmRestart ? (
@@ -209,17 +311,17 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
                   tone="blue"
                   icon={RotateCcw}
                   title="Restart this agent?"
-                  detail="Use restart only when the terminal or task updates are stuck. Active work may stop and need to be sent again."
-                  confirmLabel="Restart Now"
-                  cancelLabel="Keep Running"
+                  detail="Use restart only when Tasks or Live work stops showing progress. Active work may stop and need to be sent again."
+                  confirmLabel="Restart now"
+                  cancelLabel="Keep running"
                   onConfirm={handleRestart}
                   onCancel={() => setConfirmRestart(false)}
                 />
               ) : (
                 <ActionCard
                   icon={RotateCcw}
-                  title="Recover a stuck agent"
-                  detail="Restart only after checking Tasks or Terminal and seeing no new progress."
+                  title="Fix a stuck workspace"
+                  detail="Restart only after checking Tasks or Live work and seeing no new progress."
                 >
                   <button
                     type="button"
@@ -230,7 +332,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
                       'dark:border-white/[0.1]'
                     )}
                   >
-                    Restart Agent
+                    Restart agent
                   </button>
                 </ActionCard>
               )}
@@ -241,10 +343,10 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
             <ConfirmAction
               tone="red"
               icon={Trash2}
-              title="Delete this agent?"
-              detail="This removes the agent from future work. Existing task history is not a replacement plan, so delete only when you are done with this agent."
-              confirmLabel="Delete Permanently"
-              cancelLabel="Keep Agent"
+              title="Remove this agent?"
+              detail="This removes the agent from future work. Existing task history stays available, but this agent will no longer receive new work."
+              confirmLabel="Remove agent"
+              cancelLabel="Keep agent"
               onConfirm={handleDelete}
               onCancel={() => setConfirmDelete(false)}
             />
@@ -262,7 +364,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
                   'text-apple-red transition-colors hover:bg-apple-red/5 dark:border-white/[0.1]'
                 )}
               >
-                Delete Agent
+                Remove agent
               </button>
             </ActionCard>
           )}
@@ -284,42 +386,157 @@ function getControlSummary(
 ): { title: string; detail: string; Icon: LucideIcon } {
   if (canStartContainer) {
     return {
-      title: 'Container needs to be started',
-      detail: 'Start the agent before sending container-based work or opening a terminal.',
+      title: 'Workspace needs to start',
+      detail: 'Start this workspace before sending file work or opening Live work.',
       Icon: Play,
     }
   }
 
   if (canRestartContainer) {
     return {
-      title: 'Container controls',
+      title: 'Agent workspace controls',
       detail: 'Most agents do not need manual recovery. Restart only when progress has stopped.',
       Icon: RotateCcw,
     }
   }
 
   if (hostCli) {
-    return {
-      title: 'Local agent controls',
-      detail:
-        'This agent runs on an enrolled machine. Start or stop the local sidecar on that machine; use this page for messages and cleanup.',
-      Icon: CheckCircle2,
-    }
+    return hostCliControlSummary(agent.status)
   }
 
   if (agent.cliTool) {
     return {
       title: 'Agent controls',
-      detail: 'The runtime looks ready. Use messages for quick help and Tasks for tracked work.',
+      detail: 'The workspace looks ready. Use messages for quick help and Tasks for tracked work.',
       Icon: CheckCircle2,
     }
   }
 
+  if (agent.status === 'offline') {
+    return {
+      title: 'AI service needs a check',
+      detail: CHAT_ONLY_AI_SERVICE_RECOVERY_DETAIL,
+      Icon: AlertTriangle,
+    }
+  }
+
   return {
-    title: 'Provider agent controls',
+    title: 'Chat-only AI service controls',
     detail:
-      'This agent replies through its provider setup. Use messages for quick help and Tasks for tracked work.',
+      'This agent replies through its AI service. Use messages for quick help and Tasks for tracked work.',
     Icon: CheckCircle2,
+  }
+}
+
+function getReadyActionInfo(
+  agent: AgentInfo,
+  { hostCli }: { hostCli: boolean }
+): { title: string; detail: string } {
+  if (hostCli) {
+    return hostCliReadyActionInfo(agent.status)
+  }
+
+  if (agent.cliTool) {
+    return {
+      title: 'Ready for messages and tasks',
+      detail:
+        'Send a quick instruction here, or create a Task when you need file work with a clear result.',
+    }
+  }
+
+  if (agent.status === 'offline') {
+    return {
+      title: 'Check AI service before sending',
+      detail: CHAT_ONLY_AI_SERVICE_RECOVERY_DETAIL,
+    }
+  }
+
+  return {
+    title: 'Ready for chat and tracked tasks',
+    detail:
+      'Send a quick instruction here, or create a Task when you need planning or review with a clear result.',
+  }
+}
+
+function getMessageAvailability(
+  agent: AgentInfo,
+  {
+    canStartContainer,
+    hostCli,
+  }: {
+    canStartContainer: boolean
+    hostCli: boolean
+  }
+): { canSend: boolean; detail: string } {
+  if (canStartContainer) {
+    return {
+      canSend: false,
+      detail:
+        'Start the workspace first. When this agent shows Ready, you can send an instruction or create a task.',
+    }
+  }
+
+  if (agent.status !== 'offline') {
+    return { canSend: true, detail: '' }
+  }
+
+  if (hostCli) {
+    return {
+      canSend: false,
+      detail:
+        'This computer is not connected. Paste the setup text there and wait for Ready before sending an instruction.',
+    }
+  }
+
+  if (agent.cliTool) {
+    return {
+      canSend: false,
+      detail:
+        'This workspace is not connected. Refresh Agents or start the workspace before sending an instruction.',
+    }
+  }
+
+  return {
+    canSend: false,
+    detail: CHAT_ONLY_AI_SERVICE_RECOVERY_DETAIL,
+  }
+}
+
+function hostCliControlSummary(status: AgentInfo['status']): {
+  title: string
+  detail: string
+  Icon: LucideIcon
+} {
+  if (status === 'offline') {
+    return {
+      title: 'This computer is offline',
+      detail:
+        'Paste the setup text on that computer again. Leave Terminal or PowerShell open after it connects.',
+      Icon: AlertTriangle,
+    }
+  }
+
+  return {
+    title: 'This computer is connected',
+    detail:
+      'This computer is already connected. Leave Terminal or PowerShell open while it works; close that window only when you want it offline.',
+    Icon: CheckCircle2,
+  }
+}
+
+function hostCliReadyActionInfo(status: AgentInfo['status']): { title: string; detail: string } {
+  if (status === 'offline') {
+    return {
+      title: 'Paste setup text to reconnect',
+      detail:
+        'Open Terminal or PowerShell in its work folder, paste the setup text again, then come back here to send messages or tasks.',
+    }
+  }
+
+  return {
+    title: 'Keep this computer online',
+    detail:
+      'Leave Terminal or PowerShell open on that computer while it works. Use this page for quick messages, tracked tasks, or cleanup.',
   }
 }
 
@@ -346,7 +563,7 @@ function ActionCard({ icon: Icon, title, detail, children }: ActionCardProps) {
           </p>
         </div>
       </div>
-      <div className="flex flex-wrap justify-end gap-2">{children}</div>
+      <div className="flex flex-col justify-end gap-2 sm:flex-row sm:flex-wrap">{children}</div>
     </div>
   )
 }
@@ -373,6 +590,52 @@ function ActionInfo({ icon: Icon, title, detail }: ActionInfoProps) {
       </div>
     </div>
   )
+}
+
+function agentControlErrorMessage(error: string): string {
+  if (error === LOCAL_AGENT_CONTROL_FAILURE.sendInstruction) {
+    return 'Refresh this agent, confirm it still shows Ready, then resend the instruction. If it still fails, create a task instead or ask an owner or admin to check agent messaging.'
+  }
+  if (error === LOCAL_AGENT_CONTROL_FAILURE.startWorkspace) {
+    return 'Refresh Agents, then choose Start workspace again. If it still does not show Ready, ask an owner or admin to check Where agents run.'
+  }
+  if (error === LOCAL_AGENT_CONTROL_FAILURE.restartWorkspace) {
+    return 'Refresh this agent, then choose Restart agent again only if Tasks or Live work still shows no progress. If it keeps failing, ask an owner or admin to check this agent setup.'
+  }
+  if (error === LOCAL_AGENT_CONTROL_FAILURE.removeAgent) {
+    return 'Refresh this agent, then choose Remove agent again. If it keeps failing, ask an owner or admin to check your agent access.'
+  }
+
+  const normalized = error.toLowerCase()
+
+  if (
+    normalized.includes('permission') ||
+    normalized.includes('forbidden') ||
+    /\b403\b/.test(error)
+  ) {
+    return 'Ask an owner or admin to let you manage this agent, then try again. You do not have permission to change this agent.'
+  }
+  if (normalized.includes('unauthorized') || /\b401\b/.test(error)) {
+    return 'Sign in again, reopen this agent, then try the action once more.'
+  }
+  if (normalized.includes('conflict') || /\b409\b/.test(error)) {
+    return 'This agent changed while you were working. Refresh this agent, confirm the latest status, then try again.'
+  }
+  if (normalized.includes('rate limit') || /\b429\b/.test(error)) {
+    return 'The agent controls are busy. Wait a moment, refresh this agent, then try again.'
+  }
+  if (
+    normalized === 'network error' ||
+    normalized === 'failed to fetch' ||
+    normalized.includes('networkerror')
+  ) {
+    return 'Check your connection, refresh this agent, then try again. Forge could not connect while changing this agent.'
+  }
+  if (/\b5\d\d\b/.test(error)) {
+    return 'Forge could not update this agent right now. Refresh this agent and try again. If it keeps failing, ask an owner or admin to check this agent setup.'
+  }
+
+  return 'Refresh this agent and confirm the latest status before trying once more. For Start or Restart, wait for Ready or Working. If it keeps failing, ask an owner or admin to check what you can do and this agent setup.'
 }
 
 interface ConfirmActionProps {
@@ -416,11 +679,11 @@ function ConfirmAction({
           </p>
         </div>
       </div>
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className="flex flex-col justify-end gap-2 sm:flex-row sm:flex-wrap">
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-full bg-apple-gray-5 px-3 py-1.5 text-ui-button font-medium text-foreground-light dark:bg-white/[0.06] dark:text-foreground-dark"
+          className="w-full rounded-full bg-apple-gray-5 px-3 py-1.5 text-ui-button font-medium text-foreground-light dark:bg-white/[0.06] dark:text-foreground-dark sm:w-auto"
         >
           {cancelLabel}
         </button>
@@ -428,7 +691,7 @@ function ConfirmAction({
           type="button"
           onClick={() => void onConfirm()}
           className={cn(
-            'rounded-full px-3 py-1.5 text-ui-button font-medium text-white',
+            'w-full rounded-full px-3 py-1.5 text-ui-button font-medium text-white sm:w-auto',
             tone === 'red'
               ? 'bg-apple-red hover:bg-apple-red/90'
               : 'bg-apple-blue hover:bg-apple-blue-focus'

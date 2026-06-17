@@ -9,11 +9,12 @@ agent **container** startup messages surfaced by the working terminal.
 > WAL or relayed events still drop on NATS outage; (2) `sys_password`-present ≠ KICK
 > works, so Fix C must **not** raise the TTL on config-presence. A **second** Codex
 > pass added (3) WAL is drained only once at startup — no reconnect/periodic drain —
-> so append-on-failure alone doesn't survive a *reconnect*; Fix B must also add a
-> reconnect/periodic WAL drain. Net effect: B = relay listener **+ append-on-failure
-> + drain-on-reconnect** (the real durability fix); C reduces to **no change**
-> (15-min TTL kept, churn made harmless by a fully-durable B; TTL-raise deferred
-> behind a KICK self-probe). The fix is a single agent-image deploy (A + B).
+> so append-on-failure alone doesn't survive a _reconnect_; Fix B must also add a
+> reconnect/periodic WAL drain. Net effect: B = relay listener \*\*+ append-on-failure
+>
+> - drain-on-reconnect** (the real durability fix); C reduces to **no change\*\*
+>   (15-min TTL kept, churn made harmless by a fully-durable B; TTL-raise deferred
+>   behind a KICK self-probe). The fix is a single agent-image deploy (A + B).
 
 ## Problem & evidence
 
@@ -28,11 +29,11 @@ WARNING: This usually means the server did not inject the policy — check sessi
 
 Decoded against the code:
 
-| # | Symptom | Root cause | Severity |
-| - | ------- | ---------- | -------- |
-| **A** | `DEVENV_POLICY not set` + dead `session.service.ts` ref | docker-in-agent is **opt-in**; unset is the normal state. The message is alarming and cites a TypeScript file that no longer exists (legacy port artifact). | Cosmetic |
-| **B** | `relay socket not ready — events will be lost` | **Real defect.** `hooks/agentforge-relay-hook.cjs` writes CLI hook events to the unix socket `/tmp/agentforge-relay.sock`, but **no component in the Rust tree binds it** (the only `UnixListener` in `rust/` is the unrelated buildx-plugin). Hook events are silently dropped. Confirmed live: the socket file does not exist in a running agent. | Real (event loss) |
-| **C** | (sidecar log, not the box) `nats: User Authentication Expired` every ~15 min → reconnect | Per-agent NATS JWT TTL is 15 min (`DEFAULT_JWT_TTL`), deliberately short as a **revocation fallback**. A long-lived agent therefore churns its NATS connection every 15 min. | Low (churn) |
+| #     | Symptom                                                                                  | Root cause                                                                                                                                                                                                                                                                                                                                          | Severity          |
+| ----- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| **A** | `DEVENV_POLICY not set` + dead `session.service.ts` ref                                  | docker-in-agent is **opt-in**; unset is the normal state. The message is alarming and cites a TypeScript file that no longer exists (legacy port artifact).                                                                                                                                                                                         | Cosmetic          |
+| **B** | `relay socket not ready — events will be lost`                                           | **Real defect.** `hooks/agentforge-relay-hook.cjs` writes CLI hook events to the unix socket `/tmp/agentforge-relay.sock`, but **no component in the Rust tree binds it** (the only `UnixListener` in `rust/` is the unrelated buildx-plugin). Hook events are silently dropped. Confirmed live: the socket file does not exist in a running agent. | Real (event loss) |
+| **C** | (sidecar log, not the box) `nats: User Authentication Expired` every ~15 min → reconnect | Per-agent NATS JWT TTL is 15 min (`DEFAULT_JWT_TTL`), deliberately short as a **revocation fallback**. A long-lived agent therefore churns its NATS connection every 15 min.                                                                                                                                                                        | Low (churn)       |
 
 All three are agent-container/sidecar/callout concerns, **not** `agentforge-server`.
 Fixing A+B requires rebuilding the **agent base image** (`make build-agent-base`)
@@ -70,10 +71,12 @@ expects **no ack** (resolves on write completion), 2000 ms timeout, no retry
 sourceType, ... }`).
 
 **Verified publisher signature** (`rust/bins/sidecar/src/publisher.rs`):
+
 ```rust
 pub async fn publish(&self, event_type: &str, payload: serde_json::Value)
     -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 ```
+
 It applies the per-agent HMAC envelope + NATS subject, so a relayed hook event
 takes the **same** trusted path as native sidecar events for the signing/subject.
 
@@ -90,6 +93,7 @@ takes the **same** trusted path as native sidecar events for the signing/subject
 > durability is a requirement of this fix, not an assumption.**
 
 **New module:** `rust/bins/sidecar/src/unix_socket_listener.rs`
+
 - `run(socket_path, publisher: Arc<EventPublisher>, shutdown_rx) -> Result<()>`:
   remove stale socket → `UnixListener::bind` → **`chmod 0o600`** on the socket
   (owner-only; hook + sidecar both run as the agent user) → accept loop, one task
@@ -105,7 +109,7 @@ takes the **same** trusted path as native sidecar events for the signing/subject
 > **Codex correction #2 (reconnect replay):** appending to the WAL is not enough —
 > `main.rs` drains `wal.replay()` **once at process startup** and there is no
 > reconnect/periodic drain, so a record buffered during the 15-min NATS reconnect
-> sits in the WAL until the next *restart*. **Fix B must add a reconnect-triggered
+> sits in the WAL until the next _restart_. **Fix B must add a reconnect-triggered
 > (or short periodic) WAL drain** so buffered events flush when NATS returns — via
 > the NATS reconnect callback/event and/or a `tokio::time::interval` task that
 > replays the WAL whenever NATS is connected and the WAL is non-empty. Without it,
@@ -113,6 +117,7 @@ takes the **same** trusted path as native sidecar events for the signing/subject
 > the real durability fix (append-on-failure **plus** drain-on-reconnect).
 
 **`main.rs` wiring:**
+
 1. `mod unix_socket_listener;`
 2. **Arc-wrap the publisher** (`let publisher = Arc::new(EventPublisher::new(...))`)
    and update every existing consumer to `.clone()` the `Arc` (heartbeat,
@@ -139,20 +144,21 @@ active revocation mechanism and the 15-min TTL is only a fallback. The short TTL
 what forces the 15-min reconnect churn for long-lived agents.
 
 **Codex correction (do not raise TTL on config-presence):** `NATS_CALLOUT__SYS_PASSWORD`
-being *set* does NOT prove KICK works. The worker opens the SYS client **lazily**
+being _set_ does NOT prove KICK works. The worker opens the SYS client **lazily**
 inside `revoke`, and revocation also depends on an **in-memory** connection
 tracker — so invalid SYS creds, a KICK publish failure, an API restart (tracker
 empties), or a connection that was never tracked all silently fall back to natural
 JWT expiry. Minting 4 h tokens on the mere presence of the env var would widen the
-*real* revocation window to 4 h in exactly those failure modes. The gate
+_real_ revocation window to 4 h in exactly those failure modes. The gate
 "`sys_password.is_some()`" is therefore **insufficient**.
 
 **Revised decision: keep the 15-min TTL; do NOT raise it now.** Two reasons:
+
 1. Once **Fix B wires WAL durability**, the 15-min reconnect windows stop losing
    events (the relayed + native events buffer through the reconnect and replay). So
    the churn becomes **cosmetic** (reconnect log noise), not data loss — which was
    the only real harm.
-2. Raising TTL safely requires *proving* KICK is usable, not assuming it. That is a
+2. Raising TTL safely requires _proving_ KICK is usable, not assuming it. That is a
    real piece of work (an active startup KICK self-probe against this NATS, re-probed
    periodically, gating the long TTL; fall back to 15 min on any probe failure) — a
    later optimization, not worth the revocation-window risk in this fix.

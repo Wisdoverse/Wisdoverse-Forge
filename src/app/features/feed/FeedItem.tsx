@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
+import { isRawTaskFailureDetail, taskBlockedPreview } from '@app/shared/lib/taskFailureCopy'
 import type { FeedItem as FeedItemType } from '@app/shared/model/feed.store'
 
 const TYPE_ICONS: Record<string, LucideIcon> = {
@@ -28,7 +29,7 @@ const TYPE_COPY: Record<string, { label: string; description: string }> = {
   },
   'task.queued': {
     label: 'Waiting',
-    description: 'The task is waiting for an agent to start.',
+    description: 'The task is waiting for an agent to start work.',
   },
   'task.working': {
     label: 'Working now',
@@ -36,15 +37,15 @@ const TYPE_COPY: Record<string, { label: string; description: string }> = {
   },
   'task.blocked': {
     label: 'Needs help',
-    description: 'The task is waiting for someone to clear a blocker.',
+    description: 'The task is waiting for someone to provide what is needed.',
   },
   'task.failed': {
-    label: 'Failed',
-    description: 'The task hit an error and needs review.',
+    label: 'Review recovery',
+    description: 'The task stopped before finishing and needs a retry decision.',
   },
   'task.progress': {
     label: 'Update',
-    description: 'The agent reported progress on this task.',
+    description: 'The agent shared progress on this task.',
   },
 }
 
@@ -57,12 +58,29 @@ const TYPE_COLORS: Record<string, string> = {
   'task.progress': 'bg-apple-blue/12 text-apple-blue',
 }
 
+const NEXT_ACTION_COPY: Record<string, { text: string; className: string }> = {
+  'task.queued': {
+    text: 'Next step: keep this task open. If it stays waiting, start an available agent or choose another one.',
+    className: 'bg-apple-orange/[0.08] text-apple-orange',
+  },
+  'task.blocked': {
+    text: 'Next step: open the task and provide what is missing or reconnect access.',
+    className: 'bg-apple-red/[0.06] text-apple-red',
+  },
+  'task.failed': {
+    text: 'Next step: open the task, follow the recovery note, then retry or choose another agent.',
+    className: 'bg-apple-red/[0.06] text-apple-red',
+  },
+}
+
 export function FeedItem({ item }: { item: FeedItemType }) {
   const Icon = TYPE_ICONS[item.type] ?? Circle
   const typeCopy = TYPE_COPY[item.type] ?? {
     label: 'Update',
-    description: 'The agent reported a task update.',
+    description: 'The agent shared a task update.',
   }
+  const nextAction = NEXT_ACTION_COPY[item.type]
+  const detail = displayFeedDetail(item)
 
   return (
     <article
@@ -86,9 +104,19 @@ export function FeedItem({ item }: { item: FeedItemType }) {
             {typeCopy.label}
           </span>
         </div>
-        {item.detail && (
+        {detail && (
           <div className="text-[10px] text-secondary-light dark:text-secondary-dark mt-0.5">
-            {item.detail}
+            {detail}
+          </div>
+        )}
+        {nextAction && (
+          <div
+            className={cn(
+              'mt-1 rounded-md px-2 py-1 text-[10px] leading-relaxed',
+              nextAction.className
+            )}
+          >
+            {nextAction.text}
           </div>
         )}
         <div className="text-[9px] text-secondary-light dark:text-secondary-dark mt-0.5">
@@ -97,6 +125,17 @@ export function FeedItem({ item }: { item: FeedItemType }) {
       </div>
     </article>
   )
+}
+
+function displayFeedDetail(item: FeedItemType): string {
+  if (item.type === 'task.blocked') {
+    return taskBlockedPreview({ blockedHint: item.detail })
+  }
+  if (item.type !== 'task.failed') return item.detail
+
+  if (!isRawTaskFailureDetail(item.detail)) return item.detail
+
+  return 'Open details to see the recovery note, then retry or choose another agent.'
 }
 
 function formatTime(ts: number): string {

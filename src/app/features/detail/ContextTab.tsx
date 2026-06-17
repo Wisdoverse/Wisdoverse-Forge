@@ -5,6 +5,7 @@ import { formatRelativeTime } from '@app/shared/lib/time'
 import { ContextAppliedList } from './ContextAppliedList'
 import { ContextCandidatesList } from './ContextCandidatesList'
 import { ContextEvidenceList } from './ContextEvidenceList'
+import { taskDetailErrorMessage } from './taskDetailErrorMessages'
 import type {
   AppliedContextItem,
   ContextFeedbackLabel,
@@ -24,9 +25,9 @@ interface ContextTabProps {
 }
 
 const EMPTY_CONTEXT_STEPS = [
-  'Publish or run the task so Forge can choose memories and skills.',
-  'Open suggested memory updates after a run to keep useful context for next time.',
-  'Use feedback on applied items so future runs learn what helped.',
+  'Start the task first. If it is still waiting, open Work or Updates to choose or start an agent.',
+  'Review ideas from this task to keep useful notes for next time.',
+  'Mark which saved items helped so future tasks get better.',
 ]
 
 export function ContextTab({
@@ -48,7 +49,7 @@ export function ContextTab({
         if (!canceled) setContext(nextContext)
       })
       .catch((err) => {
-        if (!canceled) setError(err instanceof Error ? err.message : 'Could not load context')
+        if (!canceled) setError(taskDetailErrorMessage('loadContext', err))
       })
       .finally(() => {
         if (!canceled) setLoading(false)
@@ -104,7 +105,9 @@ export function ContextTab({
   if (loading) {
     return (
       <div className="py-8 flex items-center justify-center">
-        <p className="text-xs text-secondary-light dark:text-secondary-dark">Loading context...</p>
+        <p className="text-xs text-secondary-light dark:text-secondary-dark">
+          Loading saved notes and instructions...
+        </p>
       </div>
     )
   }
@@ -112,7 +115,9 @@ export function ContextTab({
   if (error) {
     return (
       <div className="py-8 flex items-center justify-center">
-        <p className="text-xs text-apple-red">{error}</p>
+        <p role="alert" className="text-xs text-apple-red">
+          {error}
+        </p>
       </div>
     )
   }
@@ -127,21 +132,23 @@ export function ContextTab({
         <section className="rounded-lg bg-apple-gray-6/70 dark:bg-white/[0.035] p-3">
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-xs font-semibold text-foreground-light dark:text-foreground-dark">
-              Runs
+              Agent checked saved notes and instructions
             </h3>
             <span className="text-[10px] text-secondary-light dark:text-secondary-dark">
-              {context.runs.length} run{context.runs.length === 1 ? '' : 's'}
+              {context.runs.length} check{context.runs.length === 1 ? '' : 's'}
             </span>
           </div>
           <div className="mt-2 space-y-1.5">
-            {context.runs.map((run) => (
+            {context.runs.map((run, index) => (
               <div
                 key={run.id}
                 className="flex items-center justify-between gap-2 text-[10px] text-secondary-light dark:text-secondary-dark"
               >
-                <span className="font-mono">{run.id.slice(0, 8)}</span>
-                <span>{run.status}</span>
-                <span>{formatRelativeTime(run.startedAt)}</span>
+                <span className="font-medium text-foreground-light dark:text-foreground-dark">
+                  Check {index + 1}
+                </span>
+                <span>{runStatusLabel(run.status)}</span>
+                <span>Started {formatRelativeTime(run.startedAt)}</span>
               </div>
             ))}
           </div>
@@ -149,26 +156,26 @@ export function ContextTab({
       )}
 
       <ContextAppliedList
-        title="Applied memories"
+        title="Saved notes used"
         kind="memory"
         items={grouped.memories}
         onReadMemoryContent={readMemoryContent}
         onRecordFeedback={(item, label) => recordFeedback(item, label)}
       />
       <ContextCandidatesList
-        title="Suggested memory updates"
+        title="Suggested notes to review"
         kind="memory"
         candidates={context.suggestedMemoryUpdates}
       />
       <ContextAppliedList
-        title="Applied skills"
+        title="Instructions used"
         kind="skill"
         items={grouped.skills}
         onReadMemoryContent={readMemoryContent}
         onRecordFeedback={(item, label) => recordFeedback(item, label)}
       />
       <ContextCandidatesList
-        title="Skill candidates"
+        title="Suggested instructions to review"
         kind="skill"
         candidates={context.skillCandidates}
       />
@@ -176,7 +183,7 @@ export function ContextTab({
       {context.provenance.length > 0 && (
         <section className="space-y-2" data-testid="context-provenance">
           <h3 className="text-xs font-semibold text-foreground-light dark:text-foreground-dark">
-            Provenance
+            Where saved notes or instructions came from
           </h3>
           <div className="space-y-1.5">
             {context.provenance.map((item) => (
@@ -187,8 +194,7 @@ export function ContextTab({
                 <span className="font-medium text-foreground-light dark:text-foreground-dark">
                   {item.title}
                 </span>{' '}
-                via {item.adapter} {item.envelopeVersion} from{' '}
-                {item.source?.title ?? item.source?.sourceType ?? 'context resolver'}.
+                came from {contextSourceLabel(item.source)} and helped during this task.
               </div>
             ))}
           </div>
@@ -196,6 +202,39 @@ export function ContextTab({
       )}
     </div>
   )
+}
+
+function runStatusLabel(status: string): string {
+  const normalized = normalizeRunStatus(status)
+  switch (normalized) {
+    case 'completed':
+    case 'succeeded':
+    case 'success':
+      return 'Finished'
+    case 'running':
+    case 'working':
+    case 'in_progress':
+      return 'In progress'
+    case 'queued':
+    case 'pending':
+      return 'Waiting to start'
+    case 'failed':
+    case 'error':
+      return 'Review recovery'
+    case 'canceled':
+    case 'cancelled':
+      return 'Stopped'
+    default:
+      return normalized ? 'Check task status' : 'Refresh task status'
+  }
+}
+
+function normalizeRunStatus(status: string): string {
+  return status.trim().toLowerCase()
+}
+
+function contextSourceLabel(source: TaskContextResponse['provenance'][number]['source']): string {
+  return source?.title ?? 'the saved content check'
 }
 
 function ContextEmptyState() {
@@ -215,11 +254,12 @@ function ContextEmptyState() {
               id="context-empty-title"
               className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark"
             >
-              No context has been applied yet
+              Start the task to build work history
             </h3>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-              Context appears here after an agent run uses saved memories, reusable skills, or
-              evidence for this task.
+              This page fills in after an agent uses saved notes, saved instructions, or work
+              history for this task. If nothing appears yet, make sure the task has an agent and has
+              started.
             </p>
           </div>
         </div>

@@ -12,13 +12,13 @@ interface CreateTeamFormProps {
 const TEAM_SETUP_STEPS = [
   'Name the group people already recognize.',
   'Create the team before adding projects.',
-  'Open Team Members after creation to invite people.',
+  'Open the team after creation to invite people.',
 ]
 
 export function CreateTeamForm({ onSave, onCancel, saving }: CreateTeamFormProps) {
   const [name, setName] = useState('')
   const [submitAttempted, setSubmitAttempted] = useState(false)
-  const nameInputId = 'create-team-name'
+  const nameInputId = 'team-name'
   const statusId = 'create-team-status'
   const errorId = 'create-team-name-error'
   const trimmedName = name.trim()
@@ -59,11 +59,11 @@ export function CreateTeamForm({ onSave, onCancel, saving }: CreateTeamFormProps
       </div>
 
       <div className="mb-3">
-        <label htmlFor="team-name" className={uiStyles.label}>
-          Team Name *
+        <label htmlFor={nameInputId} className={uiStyles.label}>
+          Team name *
         </label>
         <input
-          id="team-name"
+          id={nameInputId}
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -81,7 +81,7 @@ export function CreateTeamForm({ onSave, onCancel, saving }: CreateTeamFormProps
         </p>
         {name.trim() && (
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Slug: {slugifyName(name)}
+            Address preview: {slugifyName(name)}. Forge creates this automatically from the name.
           </p>
         )}
       </div>
@@ -96,7 +96,7 @@ export function CreateTeamForm({ onSave, onCancel, saving }: CreateTeamFormProps
           data-testid="create-team-status"
           className="text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
-          {isReady ? 'Ready to Create Team' : 'Next: Name the Team'}
+          {isReady ? 'Ready to create team' : 'Next: name the team'}
         </p>
         <div className="flex gap-2">
           <button
@@ -108,7 +108,7 @@ export function CreateTeamForm({ onSave, onCancel, saving }: CreateTeamFormProps
             Cancel
           </button>
           <button type="submit" disabled={saving} className={uiStyles.primaryButton}>
-            {saving ? 'Creating…' : 'Create Team'}
+            {saving ? 'Creating…' : 'Create team'}
           </button>
         </div>
       </div>

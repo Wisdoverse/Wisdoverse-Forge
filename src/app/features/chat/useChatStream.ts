@@ -56,39 +56,59 @@ export function chatStreamHttpErrorMessage(
   body: Record<string, unknown> = {}
 ): string {
   const detail = messageDetail(body)
-  const suffix = detail ? ` Details: ${detail}` : ''
-  const statusText = `Code: ${status}.`
 
   if (status === 401) {
-    return `Sign in again, then resend the message. The chat request was not authorized. ${statusText}${suffix}`
+    return 'Sign in again, then open this agent chat and resend the message. Your sign-in expired.'
   }
   if (status === 403) {
-    return `You do not have access to this agent or workspace. Ask an admin to check your role. ${statusText}${suffix}`
+    return 'Ask an owner or admin to update your team space access before using this agent chat. You do not have access to this agent or team space.'
   }
   if (status === 404) {
-    return `This agent could not be found. Refresh the Agents page and pick an active agent. ${statusText}${suffix}`
+    return 'Refresh the Agents page, choose an active agent, then open chat again. This agent could not be found.'
   }
   if (status === 409) {
-    return `The agent is busy or the conversation changed. Wait a moment, then try again. ${statusText}${suffix}`
+    return chatStreamConflictMessage(detail)
   }
   if (status === 429) {
-    return `The provider is rate limiting requests. Wait a moment, then resend the message. ${statusText}${suffix}`
+    return 'Wait a moment, then resend the message. This agent is receiving too many messages right now.'
   }
   if (status >= 500) {
-    return `The chat service had a server problem. Try again after the backend is healthy. ${statusText}${suffix}`
+    return 'Wait a few minutes, then resend the message. Forge could not send this chat message right now. If it still fails, ask an owner or admin to check chat and agent setup.'
   }
 
-  return `The chat request could not be sent. Check the selected agent and try again. ${statusText}${suffix}`
+  return 'Refresh this agent, then resend the message. This message was not sent.'
 }
 
-function chatStreamRequestErrorMessage(error: unknown): string {
+function chatStreamConflictMessage(detail: string | null): string {
+  const normalized = detail?.toLowerCase() ?? ''
+  if (normalized.includes('busy') || normalized.includes('working')) {
+    return 'Wait for the current reply to finish, then resend the message. This agent is already working.'
+  }
+  return 'Refresh the chat, review the latest message, then try again. This conversation changed while the message was sending.'
+}
+
+export function chatStreamRequestErrorMessage(error: unknown): string {
   if (isAbortError(error)) return ''
-  return 'The chat request could not reach the server. Check your connection, then resend the message.'
+  return 'Check your connection, then resend the message. Forge could not connect while sending this message.'
 }
 
 function chatStreamReadErrorMessage(error: unknown): string {
   if (isAbortError(error)) return ''
-  return 'The chat stream stopped before the reply finished. Resend the message after the agent reconnects.'
+  return 'Check that the agent is still online, then resend the message. The reply stopped before it finished.'
+}
+
+export function chatStreamEventErrorMessage(detail: unknown): string {
+  const text = typeof detail === 'string' ? detail.toLowerCase() : ''
+  if (text.includes('rate') || text.includes('limit') || text.includes('too many')) {
+    return 'Wait a moment, then resend the message. This agent is receiving too many messages right now.'
+  }
+  if (text.includes('permission') || text.includes('forbidden') || text.includes('unauthorized')) {
+    return 'Ask an owner or admin to update your team space access before using this agent chat. You do not have access to this agent chat.'
+  }
+  if (text.includes('context')) {
+    return 'This chat has too many old messages. Clear chat only if those messages are no longer useful, then send the message again.'
+  }
+  return 'Resend the message. The agent could not finish this reply. If it still fails, ask an owner or admin to check chat setup.'
 }
 
 /** React hook: `send(content)` streams LLM reply; `abort()` cancels it. */
@@ -131,7 +151,7 @@ export function useChatStream(agentId: string) {
 
       if (!resp.body) {
         onStreamError(
-          'The chat response was empty. Refresh the page and try again; if it repeats, check that the agent is online.'
+          'The agent did not send a reply. Refresh this agent and try again; if it repeats, check that the agent is online.'
         )
         return
       }
@@ -188,8 +208,7 @@ export function useChatStream(agentId: string) {
               break
             }
             case 'error': {
-              const msg = typeof payload.message === 'string' ? payload.message : 'stream error'
-              onStreamError(msg)
+              onStreamError(chatStreamEventErrorMessage(payload.message))
               currentId = null
               break
             }

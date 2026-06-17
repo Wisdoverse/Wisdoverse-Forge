@@ -2,8 +2,8 @@ import { useEffect, useRef } from 'react'
 
 const TIMELINE_STEPS = [
   'Start a task from the board',
-  'Watch queued, working, blocked, and completed updates',
-  'Open a task when the timeline shows something that needs attention',
+  'Watch tasks move through waiting, working, help needed, and finished steps',
+  'Open a task marked help needed to see what to do next',
 ]
 
 function drawTimeline(canvas: HTMLCanvasElement): void {
@@ -50,7 +50,7 @@ function drawTimeline(canvas: HTMLCanvasElement): void {
   ctx.fillStyle = 'rgba(226, 232, 240, 0.78)'
   ctx.font = '13px Inter, ui-sans-serif, system-ui, sans-serif'
   ctx.textAlign = 'center'
-  ctx.fillText('Waiting for run events', rect.width / 2, midY - 24)
+  ctx.fillText('Waiting for work updates', rect.width / 2, midY - 24)
 }
 
 export function TimelineView() {
@@ -89,7 +89,7 @@ export function TimelineView() {
         className="pointer-events-none absolute inset-0 flex items-center justify-center p-4"
       >
         <div className="max-w-lg rounded-lg border border-white/10 bg-black/35 px-4 py-3 text-white shadow-lg backdrop-blur">
-          <p className="text-ui-body font-semibold">No timeline events yet</p>
+          <p className="text-ui-body font-semibold">Start a task to build the timeline</p>
           <p className="mt-1 text-ui-caption leading-relaxed text-white/68">
             Start a task or open a running task. Status changes will appear here in time order.
           </p>

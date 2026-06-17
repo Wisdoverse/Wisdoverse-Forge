@@ -47,6 +47,12 @@ function resetAdminState() {
   })
 }
 
+function expectBeginnerError(actual: string | null, expected: string): void {
+  expect(actual).toBe(expected)
+  expect(actual).not.toContain('Code:')
+  expect(actual).not.toContain('Details:')
+}
+
 beforeEach(() => {
   resetAdminState()
   authFetchMock.mockReset()
@@ -54,20 +60,46 @@ beforeEach(() => {
 
 describe('adminHttpErrorMessage', () => {
   test('turns expired admin auth into a sign-in step', () => {
-    expect(adminHttpErrorMessage('users', 401)).toBe(
-      'Sign in again, then reload the user list. Code: 401.'
+    expectBeginnerError(
+      adminHttpErrorMessage('users', 401),
+      'Your sign-in expired. Sign in again, then open Admin and reload the user list.'
     )
   })
 
-  test('turns admin permission failures into an owner role step', () => {
-    expect(adminHttpErrorMessage('organizations', 403)).toBe(
-      'You do not have permission to view admin organization list. Ask an owner to update your admin role. Code: 403.'
+  test('turns admin permission failures into an Admin access step', () => {
+    expectBeginnerError(
+      adminHttpErrorMessage('organizations', 403),
+      'Ask an owner or admin to give you Admin access, then reload Admin. You do not have access to the admin team space list.'
     )
   })
 
-  test('keeps backend detail after the operator action', () => {
-    expect(adminHttpErrorMessage('health', 503, { error: { message: 'database down' } })).toBe(
-      'The admin service had a server problem. Try again after the backend is healthy. Code: 503. Details: database down'
+  test('turns server failures into an owner recovery step', () => {
+    const message = adminHttpErrorMessage('health', 503, {
+      error: { message: 'database down' },
+    })
+
+    expectBeginnerError(
+      message,
+      'Reload the system health, then try again. Forge could not load the admin system health right now. If it still fails, ask an owner or admin to check Admin setup.'
+    )
+    expect(message).not.toContain('temporarily unavailable')
+    expect(message).not.toContain('admin service')
+  })
+
+  test('turns missing admin resources into an Admin setup step', () => {
+    const message = adminHttpErrorMessage('agents', 404)
+
+    expectBeginnerError(
+      message,
+      'Refresh Admin, then try again. The admin agent list is not available from this Admin view. If it still fails, ask an owner or admin to check setup.'
+    )
+    expect(message).not.toContain('service')
+  })
+
+  test('turns admin rate limits into a wait and reload step', () => {
+    expectBeginnerError(
+      adminHttpErrorMessage('users', 429),
+      'Forge is receiving too many Admin requests right now. Wait a moment, then reload the user list.'
     )
   })
 })
@@ -78,9 +110,11 @@ describe('useAdminStore loading errors', () => {
 
     await useAdminStore.getState().loadUsers()
 
-    expect(useAdminStore.getState().usersError).toBe(
-      'You do not have permission to view admin user list. Ask an owner to update your admin role. Code: 403. Details: owner role required'
+    expectBeginnerError(
+      useAdminStore.getState().usersError,
+      'Ask an owner or admin to give you Admin access, then reload Admin. You do not have access to the admin user list.'
     )
+    expect(useAdminStore.getState().usersError).not.toContain('role')
   })
 
   test('stores a connection recovery step when organization loading cannot reach the server', async () => {
@@ -89,8 +123,22 @@ describe('useAdminStore loading errors', () => {
     await useAdminStore.getState().loadOrgs()
 
     expect(useAdminStore.getState().orgsError).toBe(
-      'The admin organization list could not load because the browser could not reach the server. Check your connection and refresh the page.'
+      'Check your connection, then refresh Admin. Forge could not connect while loading the admin team space list.'
     )
+    expect(useAdminStore.getState().orgsError).not.toContain('could not reach the service')
+  })
+
+  test('returns beginner guidance when user access saving is forbidden', async () => {
+    authFetchMock.mockResolvedValue(response(403, { error: 'owner role required' }))
+
+    const result = await useAdminStore.getState().updateUserRole('user-1', 'member')
+
+    expect(result).toBe(false)
+    expectBeginnerError(
+      useAdminStore.getState().userActionError,
+      'Ask an owner or admin to give you Admin access, then save again. You do not have access to change user access.'
+    )
+    expect(useAdminStore.getState().userActionError).not.toContain('role')
   })
 
   test('stores service recovery guidance when health loading fails', async () => {
@@ -98,9 +146,11 @@ describe('useAdminStore loading errors', () => {
 
     await useAdminStore.getState().loadHealth()
 
-    expect(useAdminStore.getState().healthError).toBe(
-      'The admin service had a server problem. Try again after the backend is healthy. Code: 503. Details: health database unavailable'
+    expectBeginnerError(
+      useAdminStore.getState().healthError,
+      'Reload the system health, then try again. Forge could not load the admin system health right now. If it still fails, ask an owner or admin to check Admin setup.'
     )
+    expect(useAdminStore.getState().healthError).not.toContain('temporarily unavailable')
   })
 
   test('loads the CLI image status report on success', async () => {
@@ -178,9 +228,11 @@ describe('useAdminStore loading errors', () => {
 
     await useAdminStore.getState().loadCliImages()
 
-    expect(useAdminStore.getState().cliImagesError).toBe(
-      'You do not have permission to view admin CLI agent images. Ask an owner to update your admin role. Code: 403. Details: admin only'
+    expectBeginnerError(
+      useAdminStore.getState().cliImagesError,
+      'Ask an owner or admin to give you Admin access, then reload Admin. You do not have access to the admin agent tool updates.'
     )
+    expect(useAdminStore.getState().cliImagesError).not.toContain('role')
   })
 
   test('rollCliImage stores the per-agent report and refreshes status on success', async () => {
@@ -497,7 +549,7 @@ describe('useAdminStore loading errors', () => {
 
     expect(ok).toBe(false)
     expect(useAdminStore.getState().userActionError).toBe(
-      'The removal could not reach the server. Check your connection and try again.'
+      'Check your connection, then try again. The removal could not reach the server.'
     )
     expect(useAdminStore.getState().users).toHaveLength(2)
   })
@@ -510,20 +562,23 @@ describe('useAdminStore loading errors', () => {
 
   test('adminUserActionErrorMessage maps statuses to operator steps', () => {
     expect(adminUserActionErrorMessage('change-role', 401)).toBe(
-      'Sign in again, then retry the access change. Code: 401.'
+      'Your sign-in expired. Sign in again, then retry the access change.'
     )
     expect(adminUserActionErrorMessage('remove', 403)).toBe(
-      'You do not have permission to manage users. Ask an owner to update your admin role. Code: 403.'
+      'Ask an owner or admin to give you Admin access, then try again. You do not have access to remove user accounts.'
     )
     expect(adminUserActionErrorMessage('remove', 404)).toBe(
-      'This user is no longer in the list. Reload the user list to see the latest accounts. Code: 404.'
+      'This user is no longer in the list. Reload the user list to see the latest accounts.'
     )
     expect(adminUserActionErrorMessage('change-role', 500, { error: 'db down' })).toBe(
-      'The admin service had a server problem. Retry the access change after the backend is healthy. Code: 500. Details: db down'
+      'Reload the user list, then try again. Forge could not finish the access change right now. If it still fails, ask an owner or admin to check Admin setup.'
     )
     // 422 without a usable detail falls back to the generic retry step.
     expect(adminUserActionErrorMessage('change-role', 422)).toBe(
-      'The access change did not go through. Try again. Code: 422.'
+      'Refresh the user list, then try again. The access change did not go through.'
+    )
+    expect(adminUserActionErrorMessage('change-role', 500, { error: 'db down' })).not.toContain(
+      'db down'
     )
   })
 

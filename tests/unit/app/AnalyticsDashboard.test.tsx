@@ -2,6 +2,7 @@ import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { AnalyticsDashboard } from '@app/features/analytics/AnalyticsDashboard'
 import { useAnalyticsStore } from '@app/shared/model/analytics.store'
+import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
 
 // The dashboard kicks off a `load()` on mount. Stub it so we render
 // synchronously with a curated slice of state.
@@ -18,14 +19,17 @@ beforeEach(() => {
       { hour: 13, count: 8 },
     ],
     agentStats: { total: 3, online: 2, offline: 1, working: 1 },
+    contextUsage: null,
     loading: false,
     error: null,
   })
+  useContextFeaturesStore.getState().reset()
 })
 
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  useContextFeaturesStore.getState().reset()
 })
 
 describe('AnalyticsDashboard · ActivityBarChart', () => {
@@ -51,21 +55,141 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
     const nextStep = screen.getByTestId('analytics-next-step')
     expect(nextStep).toHaveTextContent('Start a task to create activity data')
     expect(nextStep).toHaveTextContent('Create one simple task')
-    expect(screen.getByText('No activity data')).toBeDefined()
+    expect(screen.getByText('Run a task to fill this chart')).toBeDefined()
+    expect(screen.getByText('Tool use appears after an agent finishes a task')).toBeDefined()
+    expect(screen.queryByText('Tool use appears after an agent runs a task')).toBeNull()
+    expect(screen.queryByText('No activity data')).toBeNull()
+    expect(screen.queryByText('No tool usage data')).toBeNull()
+  })
+
+  test('explains how analytics starts when no agents exist yet', () => {
+    useAnalyticsStore.setState({
+      summary: { totalEvents: 0, toolCalls: 0, prompts: 0, responses: 0 },
+      tools: [],
+      hourly: [],
+      agentStats: { total: 0, online: 0, offline: 0, working: 0 },
+    })
+
+    render(<AnalyticsDashboard />)
+
+    const nextStep = screen.getByTestId('analytics-next-step')
+    expect(nextStep).toHaveTextContent('Create or connect an agent first')
+    expect(nextStep).toHaveTextContent(
+      'This page starts showing trends after at least one agent is connected and has run a task.'
+    )
+    expect(nextStep).toHaveTextContent('Open Agents, add one agent')
+    expect(nextStep).not.toHaveTextContent('No agents are reporting status yet')
   })
 
   test('points beginners at the busiest low-success tool first', () => {
     useAnalyticsStore.setState({
-      tools: [{ tool: 'Bash', count: 12, successRate: 0.42 }],
+      tools: [{ tool: 'shell_command', count: 12, successRate: 0.42 }],
       agentStats: { total: 2, online: 2, offline: 0, working: 0 },
     })
 
     render(<AnalyticsDashboard />)
 
     const nextStep = screen.getByTestId('analytics-next-step')
-    expect(nextStep).toHaveTextContent('Review Bash failures first')
+    expect(nextStep).toHaveTextContent('Review Command line recovery first')
     expect(nextStep).toHaveTextContent('completed cleanly only 42%')
+    expect(nextStep).toHaveTextContent('review the recovery notes')
+    expect(nextStep).not.toHaveTextContent('failed tool steps')
+    expect(nextStep).not.toHaveTextContent('failures first')
+    expect(nextStep).not.toHaveTextContent('ended in error')
     expect(screen.getByText('Busiest tool')).toBeDefined()
+    expect(screen.getAllByText('Command line').length).toBeGreaterThan(0)
+    expect(screen.queryByText('shell_command')).toBeNull()
+  })
+
+  test('shows a retry action when analytics cannot load', () => {
+    const load = vi.fn().mockResolvedValue(undefined)
+    useAnalyticsStore.setState({
+      load,
+      error: 'Check your connection, then refresh the dashboard. Analytics could not connect.',
+    })
+
+    render(<AnalyticsDashboard />)
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent('Refresh analytics data')
+    expect(alert).toHaveTextContent('Check your connection, then refresh the dashboard.')
+    fireEvent.click(screen.getByRole('button', { name: /refresh dashboard/i }))
+    expect(load).toHaveBeenCalled()
+  })
+
+  test('shows range refresh progress and locks range controls', () => {
+    const setDateRange = vi.fn()
+    useAnalyticsStore.setState({
+      dateRange: '7d',
+      loading: true,
+      setDateRange,
+    })
+
+    render(<AnalyticsDashboard />)
+
+    expect(screen.getByText('Refreshing Last 7 days...')).toBeDefined()
+    const currentRange = screen.getByRole('button', { name: /last 7 days, refreshing now/i })
+    expect(currentRange).toBeDisabled()
+    expect(currentRange).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Today' })).toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Today' }))
+    expect(setDateRange).not.toHaveBeenCalled()
+  })
+
+  test('labels local agent work without container jargon', () => {
+    useContextFeaturesStore.setState({ analytics: true, loaded: true, loading: false })
+    useAnalyticsStore.setState({
+      contextUsage: {
+        lastRefreshedAt: new Date().toISOString(),
+        staleAfterHours: 24,
+        isStale: false,
+        query: {
+          limit: 8,
+          minApplied: 1,
+          staleAfterDays: 30,
+          minSuccessRate: 0.5,
+          negativeRate: 0.25,
+        },
+        summary: {
+          rowCount: 1,
+          distinctItems: 1,
+          distinctAgents: 1,
+          appliedCount: 3,
+          completedCount: 3,
+          successRate: 1,
+          feedbackUsefulCount: 1,
+          feedbackNegativeCount: 0,
+        },
+        topUseful: [
+          {
+            itemId: 'memory-1',
+            itemKind: 'memory',
+            itemTitle: 'Release checklist',
+            taskKind: 'coding',
+            runtime: 'cli',
+            agentId: 'agent-1',
+            agentName: 'Local Agent',
+            appliedCount: 3,
+            completedCount: 3,
+            successRate: 1,
+            feedbackTotalCount: 1,
+            feedbackUsefulCount: 1,
+            feedbackNegativeCount: 0,
+            negativeFeedbackRate: 0,
+            lastUsedAt: new Date().toISOString(),
+          },
+        ],
+        staleItems: [],
+        needsReview: [],
+      },
+    })
+
+    render(<AnalyticsDashboard />)
+
+    const item = screen.getByTestId('context-usage-item')
+    expect(item.textContent).toContain('Local Agent · This computer · Code change')
+    expect(item.textContent).not.toContain('Container CLI')
   })
 
   test('renders the hourly activity chart with axis labels', () => {

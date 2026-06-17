@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { Bot, Power, RefreshCw } from 'lucide-react'
 import * as THREE from 'three'
-import { useAgentsStore, type AgentInfo, type AgentStatus } from '@app/entities/agent'
+import {
+  agentRuntimeLabel as agentRuntimeDisplayLabel,
+  useAgentsStore,
+  type AgentInfo,
+  type AgentStatus,
+} from '@app/entities/agent'
 
 type AgentSceneObject = {
   group: THREE.Group
@@ -41,21 +46,21 @@ const STATUS_STYLE: Record<
   { label: string; color: number; emissive: number; className: string; desk: number }
 > = {
   working: {
-    label: 'working',
+    label: 'Working now',
     color: 0x34c759,
     emissive: 0x103c20,
     className: 'bg-emerald-500',
     desk: 0xffb340,
   },
   idle: {
-    label: 'idle',
+    label: 'Ready',
     color: 0x0a84ff,
     emissive: 0x06284d,
     className: 'bg-sky-500',
     desk: 0x4ac8e8,
   },
   offline: {
-    label: 'offline',
+    label: 'Not connected',
     color: 0x8e8e93,
     emissive: 0x1d1d21,
     className: 'bg-zinc-500',
@@ -64,10 +69,14 @@ const STATUS_STYLE: Record<
 }
 
 const EMPTY_STATE_STEPS = [
-  { label: 'Create an agent from Agents', icon: Bot },
-  { label: 'Start or wake the runtime', icon: Power },
-  { label: 'Refresh after the agent checks in', icon: RefreshCw },
+  { label: 'Open Agents and create one if none exists', icon: Bot },
+  { label: 'Start or wake the agent if it is already listed', icon: Power },
+  { label: 'Refresh this view after the agent checks in', icon: RefreshCw },
 ]
+
+export function workshop3DAgentSubtitle(agent: AgentInfo): string {
+  return `${STATUS_STYLE[agent.status].label} - ${agentRuntimeDisplayLabel(agent)}`
+}
 
 export function Workshop3DEmptyState() {
   return (
@@ -76,9 +85,12 @@ export function Workshop3DEmptyState() {
       className="space-y-3 px-2 py-1 text-xs leading-5 text-white/70"
     >
       <div>
-        <p className="text-sm font-medium leading-5 text-white">No agents in the workshop yet</p>
+        <p className="text-sm font-medium leading-5 text-white">
+          Open Agents to build the visual map
+        </p>
         <p className="mt-1">
-          Create or wake an agent, then this view will show its live status and activity in 3D.
+          If this is your first agent, create it from Agents. If you already have one, start or wake
+          it there, then refresh this view.
         </p>
       </div>
       <ol className="space-y-2">
@@ -100,10 +112,6 @@ function agentPosition(index: number, total: number): THREE.Vector3 {
   const radius = Math.min(4.9, Math.max(2.7, 1.8 + total * 0.48))
   const angle = (index / total) * Math.PI * 2 - Math.PI / 2
   return new THREE.Vector3(Math.cos(angle) * radius, 0, Math.sin(angle) * radius)
-}
-
-function agentRuntimeLabel(agent: AgentInfo): string {
-  return agent.model || agent.provider || agent.cliTool || 'runtime'
 }
 
 function createArm(side: -1 | 1, material: THREE.MeshStandardMaterial): THREE.Group {
@@ -586,6 +594,16 @@ function countByStatus(agents: AgentInfo[]): Record<AgentStatus, number> {
   )
 }
 
+export function Workshop3DStatusSummary({ totals }: { totals: Record<AgentStatus, number> }) {
+  return (
+    <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-[11px] text-white/70">
+      <span>{totals.working} Working now</span>
+      <span>{totals.idle} Ready</span>
+      <span>{totals.offline} Not connected</span>
+    </div>
+  )
+}
+
 export function Workshop3DView() {
   const containerRef = useRef<HTMLDivElement>(null)
   const runtimeRef = useRef<SceneRuntime | null>(null)
@@ -626,7 +644,7 @@ export function Workshop3DView() {
     renderer.shadowMap.enabled = true
     renderer.domElement.dataset.testid = 'workshop-3d-canvas'
     renderer.domElement.className = 'block h-full w-full'
-    renderer.domElement.setAttribute('aria-label', 'Robot workshop agent activity scene')
+    renderer.domElement.setAttribute('aria-label', 'Agent activity visual map')
     container.appendChild(renderer.domElement)
 
     const ambient = new THREE.AmbientLight(0xffffff, 0.38)
@@ -845,17 +863,13 @@ export function Workshop3DView() {
       className="relative h-full min-h-[420px] w-full overflow-hidden bg-[#080a0f]"
     >
       <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-white shadow-lg backdrop-blur sm:left-4 sm:top-4">
-        <div className="text-[11px] font-semibold text-white/55">Robot Workshop</div>
+        <div className="text-[11px] font-semibold text-white/55">Agent Map</div>
         <div data-testid="workshop-3d-agent-count" className="mt-1 text-sm font-medium">
           {loading && agents.length === 0
             ? 'Syncing agents'
             : `${agents.length} agent${agents.length === 1 ? '' : 's'}`}
         </div>
-        <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-[11px] text-white/70">
-          <span>{totals.working} working</span>
-          <span>{totals.idle} idle</span>
-          <span>{totals.offline} offline</span>
-        </div>
+        <Workshop3DStatusSummary totals={totals} />
       </div>
 
       <div className="absolute inset-x-3 bottom-3 z-10 flex max-h-36 flex-col gap-2 overflow-y-auto rounded-lg border border-white/10 bg-black/35 p-2 text-white shadow-lg backdrop-blur sm:inset-x-auto sm:bottom-auto sm:right-4 sm:top-4 sm:max-h-[calc(100%-2rem)] sm:w-64">
@@ -887,7 +901,7 @@ export function Workshop3DView() {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">{agent.name}</span>
                   <span className="block truncate text-[11px] text-white/58">
-                    {status.label} - {agentRuntimeLabel(agent)}
+                    {workshop3DAgentSubtitle(agent)}
                   </span>
                 </span>
               </button>
@@ -904,7 +918,7 @@ export function Workshop3DView() {
           <div className="text-[11px] text-white/55">Selected</div>
           <div className="mt-1 truncate text-sm font-medium">{selectedAgent.name}</div>
           <div className="mt-0.5 truncate text-[11px] text-white/60">
-            {STATUS_STYLE[selectedAgent.status].label} - {agentRuntimeLabel(selectedAgent)}
+            {workshop3DAgentSubtitle(selectedAgent)}
           </div>
         </div>
       ) : null}

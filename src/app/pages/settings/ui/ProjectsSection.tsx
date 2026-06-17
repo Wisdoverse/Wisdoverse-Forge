@@ -13,6 +13,7 @@ import {
 } from '@app/entities/project'
 import { teamApi, type NavTeam } from '@app/entities/team'
 import { userApi } from '@app/entities/user'
+import { workspaceSettingsErrorMessage } from '../model/workspaceSettingsErrorMessage'
 
 interface ProjectWithTeam {
   project: NavProject
@@ -32,14 +33,14 @@ export function ProjectsSection() {
   const hasTeams = teams.length > 0
   const canCreateProject = projectCreatableTeams.length > 0
   const projectEmptyTitle = !user?.orgId
-    ? 'Choose an organization first'
+    ? 'Choose a team space first'
     : !hasTeams
       ? 'Create a team before adding projects'
       : canCreateProject
         ? 'Create your first project'
         : 'Ask a team admin to let you create projects'
   const projectEmptyDescription = !user?.orgId
-    ? 'Projects belong to teams inside an organization. Switch to one before setting up work.'
+    ? 'Projects belong to teams inside a team space. Switch to one before setting up work.'
     : !hasTeams
       ? 'Projects live inside teams. Open Teams first, create one team, then come back here.'
       : canCreateProject
@@ -69,7 +70,7 @@ export function ProjectsSection() {
       )
       setProjectsWithTeam(projectResults.flat())
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load projects')
+      setError(workspaceSettingsErrorMessage('project', 'load', err))
     } finally {
       setLoading(false)
     }
@@ -90,8 +91,9 @@ export function ProjectsSection() {
     } catch (err) {
       // Re-throw so CreateProjectForm surfaces the server's rejection (e.g. an
       // invalid repository URL) as a banner instead of failing silently.
-      setError(err instanceof Error ? err.message : 'Failed to create project')
-      throw err
+      const message = workspaceSettingsErrorMessage('project', 'create', err)
+      setError(message)
+      throw new Error(message, { cause: err })
     } finally {
       setSaving(false)
     }
@@ -175,7 +177,11 @@ export function ProjectsSection() {
         )}
       </div>
 
-      {error && <div className={uiStyles.error}>{error}</div>}
+      {error && (
+        <div role="alert" aria-live="polite" className={uiStyles.error}>
+          {error}
+        </div>
+      )}
 
       <div className={cn(uiStyles.card)}>
         {loading && projectsWithTeam.length === 0 ? (
@@ -209,6 +215,11 @@ export function ProjectsSection() {
                   <FolderKanban size={14} strokeWidth={2} aria-hidden="true" />
                   <span>New Project</span>
                 </button>
+              ) : !hasTeams ? (
+                <a href="/settings/teams" className={uiStyles.primaryButton}>
+                  <Users size={14} strokeWidth={2} aria-hidden="true" />
+                  <span>Open Teams</span>
+                </a>
               ) : null
             }
           />

@@ -10,8 +10,8 @@ interface CloneStatusBadgeProps {
   /**
    * `compact` is the sidebar tree indicator (an icon-only status dot with a
    * tooltip — no label text or retry, to fit the narrow tree). `detail` is the
-   * settings/detail surface (head sha/branch on success, the redacted error +
-   * a Retry action on failure).
+   * settings/detail surface (head sha/branch on success, beginner recovery
+   * guidance + a Retry action on failure).
    */
   variant?: 'compact' | 'detail'
   /** Called after a successful retry with the new attempt summary. */
@@ -29,26 +29,110 @@ type Visual = {
 
 const VISUALS: Record<Exclude<CloneStatus, 'none'>, Visual> = {
   queued: {
-    label: 'Clone queued',
+    label: 'Code import queued',
     tint: 'bg-apple-orange/10 text-apple-orange',
     Icon: CircleDashed,
   },
   cloning: {
-    label: 'Cloning…',
+    label: 'Copying code…',
     tint: 'bg-apple-blue/10 text-apple-blue',
     Icon: Loader2,
     spin: true,
   },
   ready: {
-    label: 'Repository ready',
+    label: 'Code ready',
     tint: 'bg-apple-green/10 text-apple-green',
     Icon: CheckCircle2,
   },
   failed: {
-    label: 'Clone failed',
+    label: 'Code import failed',
     tint: 'bg-apple-red/10 text-apple-red',
     Icon: XCircle,
   },
+}
+
+const CLONE_RETRY_DEFAULT_ERROR =
+  'Check the code link and saved code access, then try copying code again. Forge could not copy code into the project.'
+
+function cloneFailureMessage(clone: CloneSummary | undefined): string {
+  switch (clone?.errorClass) {
+    case 'auth':
+      return 'Check saved code access for this repository, then try copying code again. The repository rejected Forge access.'
+    case 'not_found':
+      return 'Check the code link, then try copying code again. Forge could not find this repository.'
+    case 'network':
+      return 'Check your connection and repository host, then try copying code again. Forge could not reach the repository.'
+    case 'timeout':
+      return 'Wait a few minutes, then try copying code again. The repository took too long to respond.'
+    case 'too_large':
+      return 'Ask an owner or admin to check project storage before trying again. This repository is too large to copy right now.'
+    case 'internal':
+      return 'Wait a few minutes, then try copying code again. Forge could not finish the code import.'
+    default:
+      return 'Check the code link and saved code access, then try copying code again. Forge could not finish the code import.'
+  }
+}
+
+function parseStatusCode(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 100 && value <= 599) {
+    return value
+  }
+
+  if (typeof value !== 'string') return null
+
+  const trimmed = value.trim()
+  if (/^\d{3}$/.test(trimmed)) {
+    const parsed = Number.parseInt(trimmed, 10)
+    return parsed >= 100 && parsed <= 599 ? parsed : null
+  }
+
+  const match = trimmed.match(/\b(?:api|http|status|code)\s*[:#]?\s*(\d{3})\b/i)
+  if (!match) return null
+
+  const parsed = Number.parseInt(match[1], 10)
+  return parsed >= 100 && parsed <= 599 ? parsed : null
+}
+
+function statusCodeFromError(error: unknown): number | null {
+  if (error && typeof error === 'object') {
+    const fields = error as Record<string, unknown>
+    for (const key of ['statusCode', 'status', 'code'] as const) {
+      const parsed = parseStatusCode(fields[key])
+      if (parsed) return parsed
+    }
+  }
+
+  return parseStatusCode(error instanceof Error ? error.message : error)
+}
+
+function cloneRetryErrorMessage(error: unknown): string {
+  const code = statusCodeFromError(error)
+  if (code === 401) return 'Sign in again, then try copying code again from the project row.'
+  if (code === 403) {
+    return 'Ask an owner or admin to let you copy code into this project, then try again. You do not have permission right now.'
+  }
+  if (code === 404) {
+    return 'Refresh Projects, then try copying code again from the current project row. This project could not be found.'
+  }
+  if (code === 409) {
+    return 'Wait a moment, then check the status again. Forge is already copying code for this project.'
+  }
+  if (code === 422) {
+    return 'Check the code link and saved code access, then try copying code again.'
+  }
+  if (code === 429) {
+    return 'Wait a minute, then try copying code again. Too many code import retries are happening right now.'
+  }
+  if (code && code >= 500) {
+    return 'Wait a few minutes, then try copying code again. Forge could not copy code right now. If it still fails, ask an owner or admin to check project code setup.'
+  }
+
+  const message = error instanceof Error ? error.message : typeof error === 'string' ? error : ''
+  if (/failed to fetch|network|load failed/i.test(message)) {
+    return 'Check your connection, then try copying code again.'
+  }
+
+  return CLONE_RETRY_DEFAULT_ERROR
 }
 
 /** Show the badge only for projects with an actual clone lifecycle. */
@@ -61,9 +145,9 @@ function visualFor(status: CloneStatus | undefined): Visual | null {
  * Clone lifecycle badge for a project's optional git repository. Renders the
  * status as an Apple-style pill (queued / cloning with spinner / ready / failed),
  * and — in the `detail` variant — the resolved branch + short HEAD on success,
- * the server-redacted error plus a Retry action on failure. Retry is enabled only
- * for `failed`; permission is enforced server-side (a 403 surfaces as an inline
- * message rather than being pre-guarded in the client).
+ * beginner recovery guidance plus a Retry action on failure. Retry is enabled
+ * only for `failed`; permission is enforced server-side (a 403 surfaces as an
+ * inline message rather than being pre-guarded in the client).
  */
 export function CloneStatusBadge({
   projectId,
@@ -84,6 +168,7 @@ export function CloneStatusBadge({
   const isReady = status === 'ready'
   const shortSha = clone?.headSha ? clone.headSha.slice(0, 7) : null
   const branch = clone?.resolvedBranch ?? null
+  const failureMessage = isFailed ? cloneFailureMessage(clone) : null
 
   const pill = (
     <span
@@ -137,7 +222,7 @@ export function CloneStatusBadge({
       const summary = await projectApi.retryClone(projectId)
       onRetried?.(summary)
     } catch (err) {
-      setRetryError(err instanceof Error ? err.message : 'Could not start a new clone. Try again.')
+      setRetryError(cloneRetryErrorMessage(err))
     } finally {
       setRetrying(false)
     }
@@ -176,14 +261,14 @@ export function CloneStatusBadge({
               aria-hidden="true"
               className={cn(retrying && 'animate-spin')}
             />
-            {retrying ? 'Retrying…' : 'Retry clone'}
+            {retrying ? 'Trying…' : 'Try again'}
           </button>
         )}
       </div>
 
-      {isFailed && clone?.errorMessage && (
+      {failureMessage && (
         <p className="text-ui-caption text-apple-red" role="status">
-          {clone.errorMessage}
+          {failureMessage}
         </p>
       )}
       {retryError && (

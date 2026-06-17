@@ -4,24 +4,13 @@ import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
 import type { ApiKeyRecord } from '@app/shared/api/legacy/settingsApi'
+import { formatAccessDate } from './formatAccessDate'
+import { platformKeyErrorMessage } from './platformKeyErrorMessage'
 
-// ============================================================================
-// Helpers
-// ============================================================================
-
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
-}
-
-const API_KEY_EMPTY_STEPS = [
-  'Create a key only for a trusted script, CI job, or integration.',
-  'Use a name that tells the team where the key will live.',
-  'Copy the new key into a password manager or CI secret before closing the banner.',
+const ACCESS_KEY_EMPTY_STEPS = [
+  'Create one only for a tool you trust.',
+  'Name it after the exact tool or job that will use it.',
+  'Copy the new key into a password manager before closing this message.',
 ]
 
 // ============================================================================
@@ -30,19 +19,23 @@ const API_KEY_EMPTY_STEPS = [
 
 interface KeyRowProps {
   apiKey: ApiKeyRecord
-  onRevoke: (id: string) => void
+  onRevoke: (id: string) => Promise<boolean>
 }
 
 function KeyRow({ apiKey, onRevoke }: KeyRowProps) {
   const [confirming, setConfirming] = useState(false)
+  const [removing, setRemoving] = useState(false)
+  const removeWarningId = `automation-key-remove-warning-${apiKey.id}`
 
-  function handleRevoke() {
+  async function handleRevoke() {
     if (!confirming) {
       setConfirming(true)
       return
     }
-    onRevoke(apiKey.id)
-    setConfirming(false)
+    setRemoving(true)
+    const removed = await onRevoke(apiKey.id)
+    setRemoving(false)
+    if (removed) setConfirming(false)
   }
 
   return (
@@ -59,22 +52,53 @@ function KeyRow({ apiKey, onRevoke }: KeyRowProps) {
       </td>
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {formatDate(apiKey.createdAt)}
+          {formatAccessDate(apiKey.createdAt, {
+            missing: 'Refresh access keys to load created date',
+            invalid: 'Refresh access keys to check created date',
+          })}
         </span>
       </td>
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {formatDate(apiKey.lastUsedAt)}
+          {formatAccessDate(apiKey.lastUsedAt, {
+            missing: 'Use this key from a trusted tool first',
+            invalid: 'Refresh access keys to check last use',
+          })}
         </span>
       </td>
       <td className={cn(uiStyles.tableCell, 'text-right')}>
-        <button
-          type="button"
-          onClick={handleRevoke}
-          className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
-        >
-          {confirming ? 'Confirm?' : 'Revoke'}
-        </button>
+        <div className="flex flex-wrap justify-end gap-2">
+          {confirming && (
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              disabled={removing}
+              className={uiStyles.subtleButton}
+            >
+              Keep key
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => void handleRevoke()}
+            disabled={removing}
+            aria-label={
+              confirming
+                ? `Confirm removing outside tool access key named ${apiKey.name}`
+                : `Remove outside tool access key named ${apiKey.name}`
+            }
+            aria-describedby={confirming ? removeWarningId : undefined}
+            aria-busy={removing || undefined}
+            className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
+          >
+            {removing ? 'Removing...' : confirming ? 'Remove now' : 'Remove'}
+          </button>
+        </div>
+        {confirming && (
+          <p id={removeWarningId} className="ml-auto mt-1 max-w-48 text-ui-caption text-apple-red">
+            Removing this key can stop {apiKey.name} from connecting to Forge.
+          </p>
+        )}
       </td>
     </tr>
   )
@@ -91,12 +115,25 @@ interface NewKeyBannerProps {
 
 function NewKeyBanner({ keyValue, onDismiss }: NewKeyBannerProps) {
   const [copied, setCopied] = useState(false)
+  const [copyError, setCopyError] = useState<string | null>(null)
 
-  function handleCopy() {
-    void navigator.clipboard.writeText(keyValue).then(() => {
+  async function handleCopy() {
+    setCopyError(null)
+    if (!navigator.clipboard?.writeText) {
+      setCopyError(
+        'Forge cannot copy from this browser. Select the key text, then copy it manually before choosing I saved it.'
+      )
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(keyValue)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    })
+    } catch {
+      setCopyError(
+        'Forge cannot copy from this browser. Select the key text, then copy it manually before choosing I saved it.'
+      )
+    }
   }
 
   return (
@@ -105,26 +142,39 @@ function NewKeyBanner({ keyValue, onDismiss }: NewKeyBannerProps) {
         'mb-4 rounded-card border border-apple-blue/20 bg-apple-blue/10 p-4 text-apple-blue'
       )}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
           <p className="mb-1 text-ui-caption font-semibold">
-            Platform API key created — copy it now, it won&apos;t be shown again
+            Outside tool access key created - save it now
           </p>
           <p className="mb-2 text-ui-caption text-apple-blue/80">
-            Save it in your password manager or CI secret store before dismissing this banner.
+            This is the only time the full key is shown. Copy it into a password manager before
+            choosing I saved it.
           </p>
           <code className="break-all font-mono text-ui-caption">{keyValue}</code>
+          {copyError && (
+            <p role="alert" className="mt-2 text-ui-caption font-medium text-apple-red">
+              {copyError}
+            </p>
+          )}
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="flex gap-2 sm:shrink-0">
           <button
             type="button"
             onClick={handleCopy}
-            className={copied ? uiStyles.primaryButton : uiStyles.secondaryButton}
+            className={cn(
+              copied ? uiStyles.primaryButton : uiStyles.secondaryButton,
+              'flex-1 sm:flex-none'
+            )}
           >
-            {copied ? 'Copied!' : 'Copy'}
+            {copied ? 'Copied' : 'Copy key'}
           </button>
-          <button type="button" onClick={onDismiss} className={uiStyles.subtleButton}>
-            Dismiss
+          <button
+            type="button"
+            onClick={onDismiss}
+            className={cn(uiStyles.subtleButton, 'flex-1 sm:flex-none')}
+          >
+            I saved it
           </button>
         </div>
       </div>
@@ -144,12 +194,18 @@ interface CreateKeyFormProps {
 
 function CreateKeyForm({ onSave, onCancel, saving }: CreateKeyFormProps) {
   const [name, setName] = useState('')
-  const nameInputId = 'platform-api-key-name'
+  const [submitAttempted, setSubmitAttempted] = useState(false)
+  const nameInputId = 'platform-key-name'
+  const nameHelpId = 'platform-key-name-help'
+  const nameErrorId = 'platform-key-name-error'
   const trimmedName = name.trim()
   const isReady = Boolean(trimmedName)
+  const visibleError =
+    submitAttempted && !isReady ? 'Name the tool that will use this access key first.' : null
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    setSubmitAttempted(true)
     if (!isReady) {
       document.getElementById(nameInputId)?.focus()
       return
@@ -162,34 +218,48 @@ function CreateKeyForm({ onSave, onCancel, saving }: CreateKeyFormProps) {
       onSubmit={handleSubmit}
       className="mt-3 rounded-card border border-black/[0.08] bg-white p-3 dark:border-white/[0.1] dark:bg-[#2c2c2e]"
     >
-      <label htmlFor="platform-key-name" className={uiStyles.label}>
-        Key name
+      <label htmlFor={nameInputId} className={uiStyles.label}>
+        Which tool will use this key?
       </label>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <input
-          id="platform-key-name"
+          id={nameInputId}
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. production deploy pipeline"
+          placeholder="e.g. release tool"
           autoFocus
+          aria-invalid={visibleError !== null}
+          aria-describedby={`${nameHelpId}${visibleError ? ` ${nameErrorId}` : ''}`}
           className={cn(uiStyles.input, 'min-w-0 flex-1')}
         />
         <button
           type="button"
           onClick={onCancel}
           disabled={saving}
-          className={uiStyles.secondaryButton}
+          className={cn(uiStyles.secondaryButton, 'w-full sm:w-auto')}
         >
           Cancel
         </button>
-        <button type="submit" disabled={saving || !name.trim()} className={uiStyles.primaryButton}>
-          {saving ? 'Creating...' : 'Create'}
+        <button
+          type="submit"
+          disabled={saving || !name.trim()}
+          className={cn(uiStyles.primaryButton, 'w-full sm:w-auto')}
+        >
+          {saving ? 'Creating...' : 'Create access key'}
         </button>
       </div>
-      <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-        Name the exact place this key will be used so it is easy to revoke later.
+      <p
+        id={nameHelpId}
+        className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark"
+      >
+        Use a clear tool or job name. This makes it easy to remove the right key later.
       </p>
+      {visibleError && (
+        <p id={nameErrorId} role="alert" className="mt-1 text-ui-caption text-apple-red">
+          {visibleError}
+        </p>
+      )}
     </form>
   )
 }
@@ -220,14 +290,14 @@ export function KeysSection() {
   }
 
   async function handleRevoke(id: string) {
-    await revokeApiKey(id)
+    return revokeApiKey(id)
   }
 
   const tableHeaders: { label: string; className?: string }[] = [
     { label: 'Name' },
-    { label: 'Key' },
+    { label: 'Key preview' },
     { label: 'Created' },
-    { label: 'Last Used' },
+    { label: 'Last used' },
     { label: '', className: 'w-20' },
   ]
 
@@ -236,9 +306,9 @@ export function KeysSection() {
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>Platform API Keys</h2>
+          <h2 className={uiStyles.sectionTitle}>Outside tool access</h2>
           <p className={uiStyles.sectionDescription}>
-            Create tokens for scripts, CI jobs, and external integrations that call Forge APIs
+            Let a trusted outside tool connect to Forge without asking a person to sign in.
           </p>
         </div>
         {!showForm && (
@@ -248,7 +318,7 @@ export function KeysSection() {
             className={uiStyles.primaryButton}
           >
             <span>+</span>
-            <span>Create Platform Key</span>
+            <span>Create access key</span>
           </button>
         )}
       </div>
@@ -259,7 +329,11 @@ export function KeysSection() {
       )}
 
       {/* Error */}
-      {keysError && <div className={uiStyles.error}>{keysError}</div>}
+      {keysError && (
+        <div role="alert" aria-live="polite" className={uiStyles.error}>
+          {platformKeyErrorMessage(keysError)}
+        </div>
+      )}
 
       {/* Create form */}
       {showForm && (
@@ -267,32 +341,34 @@ export function KeysSection() {
       )}
 
       {/* Table */}
-      <div className={cn(uiStyles.card, 'mt-3 overflow-x-auto')}>
-        {keysLoading && apiKeys.length === 0 ? (
-          <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading keys…
-          </div>
-        ) : apiKeys.length === 0 ? (
-          <PlatformKeyEmptyState onCreate={() => setShowForm(true)} />
-        ) : (
-          <table className={uiStyles.table}>
-            <thead className={uiStyles.tableHead}>
-              <tr>
-                {tableHeaders.map((h) => (
-                  <th key={h.label} className={cn(uiStyles.tableHeaderCell, h.className)}>
-                    {h.label}
-                  </th>
+      {(keysLoading || apiKeys.length > 0 || !showForm) && (
+        <div className={cn(uiStyles.card, 'mt-3 overflow-x-auto')}>
+          {keysLoading && apiKeys.length === 0 ? (
+            <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
+              Loading access keys…
+            </div>
+          ) : apiKeys.length === 0 ? (
+            <PlatformKeyEmptyState onCreate={() => setShowForm(true)} />
+          ) : (
+            <table className={uiStyles.table} aria-label="Outside tool access keys">
+              <thead className={uiStyles.tableHead}>
+                <tr>
+                  {tableHeaders.map((h) => (
+                    <th key={h.label} className={cn(uiStyles.tableHeaderCell, h.className)}>
+                      {h.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {apiKeys.map((key: ApiKeyRecord) => (
+                  <KeyRow key={key.id} apiKey={key} onRevoke={handleRevoke} />
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {apiKeys.map((key: ApiKeyRecord) => (
-                <KeyRow key={key.id} apiKey={key} onRevoke={handleRevoke} />
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -314,15 +390,20 @@ function PlatformKeyEmptyState({ onCreate }: { onCreate: () => void }) {
               id="platform-key-empty-title"
               className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark"
             >
-              No platform API keys yet
+              Add a key only for a trusted outside tool
             </h3>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-              Create one only when another tool needs to call Forge without a signed-in user.
+              Use this only when a trusted outside tool needs to connect without a person signing
+              in.
+            </p>
+            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              You can skip this until a trusted outside tool or scheduled job needs unattended
+              access.
             </p>
           </div>
         </div>
         <div className="grid gap-2 sm:grid-cols-3">
-          {API_KEY_EMPTY_STEPS.map((step) => (
+          {ACCESS_KEY_EMPTY_STEPS.map((step) => (
             <div
               key={step}
               className="flex min-h-16 items-start gap-2 rounded-lg bg-black/[0.025] px-3 py-2 dark:bg-white/[0.05]"
@@ -341,7 +422,7 @@ function PlatformKeyEmptyState({ onCreate }: { onCreate: () => void }) {
         </div>
         <button type="button" onClick={onCreate} className={cn(uiStyles.primaryButton, 'w-fit')}>
           <span>+</span>
-          <span>Create Platform Key</span>
+          <span>Create access key</span>
         </button>
       </div>
     </section>

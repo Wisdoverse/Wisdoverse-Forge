@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import { AgentGroupsPanel } from '@app/features/agents/AgentGroupsPanel'
 import { useNavigationStore } from '@app/entities/navigation'
 import { useBoardStore } from '@app/shared/model/board.store'
@@ -36,8 +36,8 @@ function seedRoutingState(tasks: TaskSummary[]) {
       ],
     },
     agentGroups: [
-      { id: 'group-delivery', projectId: 'project-1', name: 'Delivery Group' },
-      { id: 'group-review', projectId: 'project-1', name: 'Review Group' },
+      { id: 'group-delivery', projectId: 'project-1', name: 'Delivery Queue' },
+      { id: 'group-review', projectId: 'project-1', name: 'Review Queue' },
     ],
   } as never)
   useBoardStore.getState().setSelectedGroupId('group-delivery')
@@ -51,7 +51,24 @@ afterEach(() => {
 })
 
 describe('AgentGroupsPanel', () => {
-  test('summarizes the selected task group workload', () => {
+  const previousBlockedLabel = ['Block', 'ed'].join('')
+  const previousBlockingCopy = new RegExp(['what', 'is', 'blocking'].join('\\s+'), 'i')
+
+  test('routes users to project settings before creating task queues', () => {
+    const onOpenProjectsSetup = vi.fn()
+
+    render(<AgentGroupsPanel onOpenProjectsSetup={onOpenProjectsSetup} />)
+
+    const panel = screen.getByTestId('agent-groups-panel')
+    expect(panel).toHaveTextContent(/open project settings to create a project/i)
+    expect(panel).not.toHaveTextContent(/select a project from the sidebar/i)
+
+    fireEvent.click(within(panel).getByRole('button', { name: /open project settings/i }))
+
+    expect(onOpenProjectsSetup).toHaveBeenCalledTimes(1)
+  })
+
+  test('summarizes the selected task queue workload', () => {
     seedRoutingState([
       makeTask({
         id: 'backlog-1',
@@ -67,7 +84,7 @@ describe('AgentGroupsPanel', () => {
         id: 'working-1',
         state: 'working',
         params: { task: 'Wire provider health', message: '' },
-        assignedAgentName: 'Build Runner',
+        assignedAgentName: 'Build Agent',
         progress: 40,
       }),
       makeTask({
@@ -81,7 +98,7 @@ describe('AgentGroupsPanel', () => {
         id: 'failed-1',
         state: 'failed',
         params: { task: 'Retry deployment', message: '' },
-        error: 'Missing secret',
+        error: 'Rate limit exceeded: 429 from provider',
       }),
       makeTask({
         id: 'done-1',
@@ -100,19 +117,68 @@ describe('AgentGroupsPanel', () => {
     render(<AgentGroupsPanel />)
 
     expect(screen.getByTestId('task-routing-workload')).toBeInTheDocument()
+    expect(screen.getByText('6 tasks here')).toBeInTheDocument()
     expect(within(screen.getByTestId('routing-metric-active')).getByText('2')).toBeInTheDocument()
+    expect(
+      within(screen.getByTestId('routing-metric-active')).getByText('Working now')
+    ).toBeInTheDocument()
     expect(within(screen.getByTestId('routing-metric-backlog')).getByText('1')).toBeInTheDocument()
     expect(
       within(screen.getByTestId('routing-metric-needs-action')).getByText('2')
     ).toBeInTheDocument()
     expect(
+      within(screen.getByTestId('routing-metric-needs-action')).getByText('Needs help')
+    ).toBeInTheDocument()
+    expect(
       within(screen.getByTestId('routing-metric-completed')).getByText('1')
     ).toBeInTheDocument()
+    expect(
+      within(screen.getByTestId('routing-metric-completed')).getByText('Done')
+    ).toBeInTheDocument()
     expect(screen.getByText('Auth handoff blocked')).toBeInTheDocument()
-    expect(screen.getByText(/needs agent .* assign an agent before dispatch/i)).toBeInTheDocument()
-    expect(screen.getByText(/build runner .* monitor live progress/i)).toBeInTheDocument()
-    expect(screen.getByText(/needs agent .* missing secret/i)).toBeInTheDocument()
+    const routedRows = screen.getAllByTestId('task-routing-row')
+    expect(within(routedRows[0]).getByText('Needs help')).toBeInTheDocument()
+    expect(screen.getByText('Waiting to start')).toBeInTheDocument()
+    expect(screen.getAllByText('Not sent yet').length).toBeGreaterThan(0)
+    expect(screen.getByText('Review recovery')).toBeInTheDocument()
+    expect(screen.queryByText(previousBlockedLabel)).not.toBeInTheDocument()
+    expect(screen.queryByText('Backlog')).not.toBeInTheDocument()
+    expect(screen.queryByText('Queued')).not.toBeInTheDocument()
+    expect(screen.queryByText('Failed')).not.toBeInTheDocument()
+    expect(screen.queryByText(/routed/i)).toBeNull()
+    expect(screen.getByPlaceholderText('Search tasks, agents, or problems...')).toBeDefined()
+    expect(screen.queryByPlaceholderText(/blockers/i)).toBeNull()
+    expect(screen.queryByPlaceholderText(new RegExp(['assig', 'nees'].join(''), 'i'))).toBeNull()
+    expect(
+      screen.getByText(/needs agent .* choose an agent before sending it/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/build agent .* watch live progress/i)).toBeInTheDocument()
+    expect(screen.getByText(/needs agent .* AI service is busy/i)).toBeInTheDocument()
+    expect(screen.queryByText(/model service is busy/i)).toBeNull()
+    expect(screen.queryByText(/dispatch/i)).toBeNull()
+    expect(screen.queryByText(/monitor live progress/i)).toBeNull()
+    expect(screen.queryByText(/runner/i)).toBeNull()
+    expect(screen.queryByText(/429/)).toBeNull()
+    expect(screen.queryByText(/rate limit exceeded/i)).toBeNull()
+    expect(screen.queryByText(/from provider/i)).toBeNull()
     expect(screen.queryByText('Other group work')).toBeNull()
+  })
+
+  test('describes completed task review without handoff wording', () => {
+    seedRoutingState([
+      makeTask({
+        id: 'done-1',
+        state: 'completed',
+        params: { task: 'Document setup', message: '' },
+        assignedAgentName: 'Docs Agent',
+        progress: 100,
+      }),
+    ])
+
+    render(<AgentGroupsPanel />)
+
+    expect(screen.getByText(/docs agent .* review what the agent finished/i)).toBeInTheDocument()
+    expect(screen.queryByText(new RegExp(['completed', 'handoff'].join('\\s+'), 'i'))).toBeNull()
   })
 
   test('does not call routed work unassigned when only the agent id is loaded', () => {
@@ -120,16 +186,36 @@ describe('AgentGroupsPanel', () => {
       makeTask({
         id: 'queued-1',
         state: 'queued',
-        params: { task: 'Queue deployment', message: '' },
+        params: { task: 'Deploy settings', message: '' },
         assignedTo: 'agent-1',
       }),
     ])
 
     render(<AgentGroupsPanel />)
 
-    expect(screen.getByText('Queue deployment')).toBeInTheDocument()
-    expect(screen.getByText(/assigned agent .* waiting for runtime pickup/i)).toBeInTheDocument()
+    expect(screen.getByText('Deploy settings')).toBeInTheDocument()
+    expect(
+      screen.getByText(/assigned agent .* waiting for an available agent to start it/i)
+    ).toBeInTheDocument()
     expect(screen.queryByText(/unassigned/i)).toBeNull()
+  })
+
+  test('hides sensitive blocked hints in routed task next steps', () => {
+    seedRoutingState([
+      makeTask({
+        id: 'blocked-credentials',
+        state: 'blocked',
+        params: { task: 'Connect repository access', message: '' },
+        blockedHint: 'Missing token secret for git provider.',
+      }),
+    ])
+
+    render(<AgentGroupsPanel />)
+
+    expect(screen.getByText('Connect repository access')).toBeInTheDocument()
+    expect(screen.getByText(/needs agent .* waiting for account access/i)).toBeInTheDocument()
+    expect(screen.queryByText(/token secret/i)).toBeNull()
+    expect(screen.queryByText(/git provider/i)).toBeNull()
   })
 
   test('filters the routed work queue by search', () => {
@@ -160,8 +246,98 @@ describe('AgentGroupsPanel', () => {
       target: { value: 'missing' },
     })
 
-    expect(screen.getByTestId('task-routing-filter-empty')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /^clear$/i }))
+    const emptyState = screen.getByTestId('task-routing-filter-empty')
+    expect(within(emptyState).getByText('Search is hiding tasks in this queue')).toBeInTheDocument()
+    expect(within(emptyState).getByText(/this task queue still has tasks/i)).toBeInTheDocument()
+    expect(within(emptyState).getByText(/before assuming the queue is empty/i)).toBeInTheDocument()
+    expect(emptyState.textContent).not.toContain('No tasks in this task queue match this search.')
+    expect(within(emptyState).queryByRole('button', { name: /^clear$/i })).toBeNull()
+
+    fireEvent.click(within(emptyState).getByRole('button', { name: /show all queue tasks/i }))
+    expect(screen.getByTestId('task-routing-search')).toHaveValue('')
     expect(screen.getByText('Build settings page')).toBeInTheDocument()
+  })
+
+  test('explains the next step when a task queue has no routed tasks', () => {
+    seedRoutingState([])
+
+    render(<AgentGroupsPanel />)
+
+    const emptyState = screen.getByTestId('task-routing-empty')
+    expect(emptyState).toHaveTextContent('Create the first task for this queue')
+    expect(emptyState).toHaveTextContent('then choose this task queue')
+    expect(emptyState).toHaveTextContent(
+      'Success looks like a task showing Waiting to start or Working here.'
+    )
+    expect(emptyState).not.toHaveTextContent('No tasks are in this task queue yet')
+  })
+
+  test('guides blank task queue names with examples', () => {
+    seedRoutingState([])
+
+    render(<AgentGroupsPanel />)
+
+    fireEvent.click(screen.getByRole('button', { name: /^create task queue$/i }))
+    expect(screen.getByRole('group', { name: /task queue templates/i })).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Build and verify').closest('button')!)
+    expect(screen.getByLabelText(/task queue description/i)).toHaveValue(
+      'Build the requested changes, keep work moving, and run checks before sharing results.'
+    )
+    expect(screen.queryByDisplayValue(/scoped changes/i)).toBeNull()
+    expect(screen.queryByDisplayValue(/handoff/i)).toBeNull()
+    const reviewSummary = screen.getByText('Check before release')
+    const triageSummary = screen.getByText('Clarify and assign')
+    fireEvent.click(triageSummary.closest('button')!)
+    expect(screen.getByLabelText(/task queue description/i)).toHaveValue(
+      'Clarify incoming work, find what is missing, and send tasks to the right agent.'
+    )
+    expect(screen.queryByDisplayValue(previousBlockingCopy)).toBeNull()
+    fireEvent.click(reviewSummary.closest('button')!)
+    expect(reviewSummary).toBeInTheDocument()
+    expect(screen.queryByText(['Risk', 'and', 'readiness'].join(' '))).toBeNull()
+    fireEvent.click(reviewSummary.closest('button')!)
+    expect(screen.getByLabelText(/task queue description/i)).toHaveValue(
+      'Review completed work for broken behavior, missing tests, and anything that could block release.'
+    )
+    fireEvent.change(screen.getByLabelText(/task queue name/i), { target: { value: '' } })
+    fireEvent.submit(screen.getByRole('button', { name: /create task queue/i }).closest('form')!)
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Name this task queue before creating it. Examples: Intake, Review, or Delivery.'
+    )
+    expect(screen.getByLabelText(/task queue name/i)).toHaveFocus()
+
+    fireEvent.change(screen.getByLabelText(/task queue name/i), {
+      target: { value: 'Intake Queue' },
+    })
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  test('explains task queue creation permission failures with a next step', async () => {
+    seedRoutingState([])
+    const createAgentGroup = vi.fn().mockRejectedValue(new Error('HTTP 403: Forbidden'))
+    useNavigationStore.setState({ createAgentGroup } as never)
+
+    render(<AgentGroupsPanel />)
+
+    fireEvent.click(screen.getByRole('button', { name: /^create task queue$/i }))
+    expect(screen.getByRole('button', { name: 'Create task queue' })).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Create Task Queue' })).toBeNull()
+    fireEvent.change(screen.getByLabelText(/task queue name/i), {
+      target: { value: 'Delivery Queue' },
+    })
+    fireEvent.change(screen.getByLabelText(/task queue description/i), {
+      target: { value: 'Keep delivery tasks moving.' },
+    })
+    fireEvent.submit(screen.getByRole('button', { name: /create task queue/i }).closest('form')!)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Ask an owner or admin to let you create and manage task queues in this project. Task queue was not created.'
+    )
+    expect(screen.getByLabelText(/task queue name/i)).toHaveValue('Delivery Queue')
+    expect(screen.getByLabelText(/task queue description/i)).toHaveValue(
+      'Keep delivery tasks moving.'
+    )
+    expect(screen.queryByText(/HTTP 403/i)).toBeNull()
   })
 })

@@ -36,6 +36,20 @@ const STORAGE_KEYS = {
   legacyRefresh: 'af:auth:refresh',
 } as const
 
+const AUTH_NETWORK_ERROR = 'Check your connection, then try again. Forge could not connect.'
+const AUTH_LOGIN_FALLBACK =
+  'Check your email and password, then try signing in again. Forge could not finish sign-in.'
+const AUTH_REGISTER_FALLBACK =
+  'Check the account details, then create the account again. Forge could not finish account setup.'
+const AUTH_SSO_EXCHANGE_FALLBACK =
+  'Start sign-in again from this page. Forge could not finish this sign-in link.'
+const AUTH_RESEND_VERIFICATION_FALLBACK =
+  'Check the email address, then send the verification email again. Forge could not finish sending it.'
+const AUTH_FORGOT_PASSWORD_FALLBACK =
+  'Check the email address, then request the reset email again. Forge could not finish sending it.'
+const AUTH_RESET_PASSWORD_FALLBACK =
+  'Check the password rules, then save the new password again. Forge could not finish password reset.'
+
 export class AuthManager {
   private accessToken: string | null = null
   private user: AuthUser | null = null
@@ -177,7 +191,7 @@ export class AuthManager {
       if (!data.ok) {
         return {
           ok: false,
-          error: data.message || data.error || 'Login failed',
+          error: data.message || data.error || AUTH_LOGIN_FALLBACK,
           errorCode: data.details?.code,
         }
       }
@@ -198,7 +212,7 @@ export class AuthManager {
       this.notifyCallbacks()
       return { ok: true, user: this.user }
     } catch {
-      return { ok: false, error: 'Network error' }
+      return { ok: false, error: AUTH_NETWORK_ERROR }
     }
   }
 
@@ -212,7 +226,7 @@ export class AuthManager {
       })
       const data = await res.json()
       if (!data.ok) {
-        return { ok: false, error: data.message || data.error || 'Registration failed' }
+        return { ok: false, error: data.message || data.error || AUTH_REGISTER_FALLBACK }
       }
       // Check if tokens are present (dev mode) or email verification required
       if (data.tokens) {
@@ -243,7 +257,7 @@ export class AuthManager {
         }
       }
     } catch {
-      return { ok: false, error: 'Network error' }
+      return { ok: false, error: AUTH_NETWORK_ERROR }
     }
   }
 
@@ -363,7 +377,7 @@ export class AuthManager {
       body: JSON.stringify({ code }),
     })
     const data = await response.json()
-    if (!data.ok) throw new Error(data.message || 'Auth code exchange failed')
+    if (!data.ok) throw new Error(data.message || AUTH_SSO_EXCHANGE_FALLBACK)
     this.accessToken = data.tokens.accessToken
     this.user = {
       id: data.user.id,
@@ -385,7 +399,7 @@ export class AuthManager {
       body: JSON.stringify({ email }),
     })
     const data = await response.json()
-    if (!data.ok) throw new Error(data.message || 'Failed to resend')
+    if (!data.ok) throw new Error(data.message || AUTH_RESEND_VERIFICATION_FALLBACK)
   }
 
   /** Request password reset */
@@ -396,7 +410,7 @@ export class AuthManager {
       body: JSON.stringify({ email }),
     })
     const data = await response.json()
-    if (!data.ok) throw new Error(data.message || 'Failed to send reset email')
+    if (!data.ok) throw new Error(data.message || AUTH_FORGOT_PASSWORD_FALLBACK)
   }
 
   /** Reset password with token */
@@ -407,7 +421,7 @@ export class AuthManager {
       body: JSON.stringify({ token, newPassword }),
     })
     const data = await response.json()
-    if (!data.ok) throw new Error(data.message || 'Failed to reset password')
+    if (!data.ok) throw new Error(data.message || AUTH_RESET_PASSWORD_FALLBACK)
   }
 
   /** Fetch available auth providers */

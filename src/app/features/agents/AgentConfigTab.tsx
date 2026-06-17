@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { FileText, RotateCcw, Save, Scissors, ShieldCheck, Sparkles } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
-import { isHostCliAgent, useAgentsStore, type AgentInfo } from '@app/entities/agent'
+import {
+  agentAiServiceLabel,
+  isHostCliAgent,
+  useAgentsStore,
+  type AgentInfo,
+} from '@app/entities/agent'
 
 interface AgentConfigTabProps {
   agentId: string
@@ -18,7 +23,7 @@ const PROMPT_TEMPLATES = [
     id: 'delivery',
     label: 'Delivery',
     value:
-      'You are a delivery-focused implementation agent. Clarify blockers early, keep changes scoped to the assigned task, preserve existing conventions, and report validation evidence with each handoff.',
+      'You are a delivery-focused agent. Ask early for missing information, keep changes scoped to the assigned task, preserve existing conventions, and report what you checked before sharing results.',
   },
   {
     id: 'review',
@@ -43,6 +48,23 @@ function promptStats(value: string): PromptStats {
   }
 }
 
+function promptProfileSaveErrorMessage(): string {
+  return 'Agent instructions were not saved. Refresh this agent, confirm it is still a chat-only agent, then save again. Ask an admin to check your agent access if it keeps failing.'
+}
+
+function isMissingModelLabel(label: string): boolean {
+  const normalized = label.toLowerCase()
+  return (
+    normalized === 'unknown' ||
+    (normalized.includes('model') && normalized.includes('not reported'))
+  )
+}
+
+function modelLabel(model?: string | null): string {
+  const label = model?.trim()
+  return label && !isMissingModelLabel(label) ? 'AI model selected' : 'Refresh AI model'
+}
+
 export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
   const agents = useAgentsStore((s) => s.agents)
   const updateAgentSystemPrompt = useAgentsStore((s) => s.updateAgentSystemPrompt)
@@ -61,7 +83,11 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
   }, [agent?.systemPrompt])
 
   if (!agent) {
-    return <div className="text-ui-body text-secondary-light">Agent not found.</div>
+    return (
+      <div className="text-ui-body text-secondary-light">
+        This agent could not be found. Open Agents, choose a current agent, then return to settings.
+      </div>
+    )
   }
 
   if (agent.cliTool) {
@@ -84,7 +110,7 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
       if (saved) {
         setSavedAt(Date.now())
       } else {
-        setSaveError('Prompt profile was not saved. Check the details and try again.')
+        setSaveError(promptProfileSaveErrorMessage())
       }
     } finally {
       setSaving(false)
@@ -94,13 +120,13 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
   const promptStatus = saveError
     ? saveError
     : saving
-      ? 'Saving prompt profile…'
+      ? 'Saving agent instructions…'
       : dirty
-        ? 'Unsaved changes. Save to use this prompt on future work.'
+        ? 'Unsaved changes. Save to use these instructions on future work.'
         : savedAt != null
-          ? 'Prompt profile saved.'
+          ? 'Agent instructions saved.'
           : hasPrompt
-            ? 'This agent already has a prompt profile.'
+            ? 'This agent already has saved instructions.'
             : 'Choose a template or write instructions before saving.'
   const updatePromptValue = (nextValue: string) => {
     setValue(nextValue)
@@ -120,11 +146,11 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
           <div className="flex items-center gap-2">
             <Sparkles size={16} strokeWidth={2} className="text-apple-blue" aria-hidden="true" />
             <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-              Prompt profile
+              Agent instructions
             </h2>
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            {agent.provider} · {agent.model}
+            {agentAiServiceLabel(agent.provider)}. {modelLabel(agent.model)}
           </p>
         </div>
         <span
@@ -139,17 +165,23 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
                   : 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.08] dark:text-secondary-dark'
           )}
         >
-          {dirty ? 'Unsaved' : savedAt != null ? 'Saved' : hasPrompt ? 'Configured' : 'Empty'}
+          {dirty
+            ? 'Unsaved'
+            : savedAt != null
+              ? 'Saved'
+              : hasPrompt
+                ? 'Has instructions'
+                : 'Add instructions'}
         </span>
       </div>
 
       <div data-testid="agent-config-summary" className="grid grid-cols-3 gap-2">
         <ConfigMetric label="Words" value={String(stats.words)} />
         <ConfigMetric label="Lines" value={String(stats.lines)} />
-        <ConfigMetric label="Chars" value={String(stats.characters)} />
+        <ConfigMetric label="Characters" value={String(stats.characters)} />
       </div>
 
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Prompt templates">
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Instruction templates">
         {PROMPT_TEMPLATES.map((template) => {
           const selected = activeTemplateId === template.id
           return (
@@ -177,7 +209,7 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
           htmlFor="config-system-prompt"
           className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
         >
-          System Prompt
+          Instructions for this agent
         </label>
         <p
           id={promptHelpId}
@@ -221,7 +253,9 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
             onClick={() => updatePromptValue(initial)}
             disabled={!dirty}
             title={
-              dirty ? 'Reset to the last saved prompt.' : 'Make an edit before reset is available.'
+              dirty
+                ? 'Reset to the last saved instructions.'
+                : 'Make an edit before reset is available.'
             }
             className={cn(
               'inline-flex h-9 items-center gap-2 rounded-lg border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:border-apple-blue/35 hover:text-apple-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-foreground-dark',
@@ -236,7 +270,9 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
             onClick={() => updatePromptValue('')}
             disabled={!hasPrompt}
             title={
-              hasPrompt ? 'Clear the prompt text.' : 'Add prompt text before clear is available.'
+              hasPrompt
+                ? 'Clear the instruction text.'
+                : 'Add instructions before clear is available.'
             }
             className={cn(
               'inline-flex h-9 items-center gap-2 rounded-lg border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:border-apple-red/35 hover:text-apple-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-foreground-dark',
@@ -253,8 +289,8 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
           disabled={saving || !dirty}
           title={
             dirty
-              ? 'Save this prompt for future work.'
-              : 'Change the prompt before save is available.'
+              ? 'Save these instructions for future work.'
+              : 'Change the instructions before save is available.'
           }
           className={cn(
             'inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-apple-blue px-4 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus active:scale-95',
@@ -262,7 +298,7 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
           )}
         >
           <Save size={14} strokeWidth={2} aria-hidden="true" />
-          {saving ? 'Saving…' : 'Save Prompt Profile'}
+          {saving ? 'Saving…' : 'Save Instructions'}
         </button>
       </div>
     </div>
@@ -280,6 +316,24 @@ function ConfigMetric({ label, value }: { label: string; value: string }) {
       </p>
     </div>
   )
+}
+
+function cliToolLabel(tool?: AgentInfo['cliTool'] | string): string {
+  switch (tool?.trim().toLowerCase()) {
+    case 'claude':
+      return 'Claude'
+    case 'codex':
+      return 'Codex'
+    case 'gemini':
+      return 'Gemini'
+    case 'opencode':
+      return 'OpenCode'
+    case undefined:
+    case '':
+      return 'Refresh work tool setup'
+    default:
+      return 'Check work tool setup'
+  }
 }
 
 function CliRuntimeConfig({ agent }: { agent: AgentInfo }) {
@@ -301,28 +355,38 @@ function CliRuntimeConfig({ agent }: { agent: AgentInfo }) {
               aria-hidden="true"
             />
             <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-              Runtime profile
+              Where this agent works
             </h2>
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            System prompt edit is only available for provider+prompt agents.
+            This agent follows the setup for its work tool. Confirm where it can open files before
+            assigning work.
           </p>
         </div>
         <span className="inline-flex h-7 w-fit items-center rounded-full bg-apple-blue/10 px-2.5 text-ui-caption font-medium text-apple-blue">
-          {hostCli ? 'Host CLI' : 'Container CLI'}
+          {hostCli ? 'This computer' : 'Managed workspace'}
         </span>
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2">
-        <RuntimeRow label="Container CLI" value={agent.cliTool ?? 'Unknown'} />
+        <RuntimeRow label="Work tool" value={cliToolLabel(agent.cliTool)} />
         <RuntimeRow
-          label="Runtime ID"
-          value={agent.runtimeId ?? (hostCli ? 'Pending sidecar' : 'Managed container')}
+          label="Connection"
+          value={
+            hostCli
+              ? agent.runtimeId
+                ? 'Connected from this computer'
+                : 'Open setup again for this computer'
+              : 'Ready in managed workspace'
+          }
         />
-        <RuntimeRow label="Project" value={agent.projectName ?? 'No primary project'} />
         <RuntimeRow
-          label="Working directory"
-          value={agent.cwd ?? (hostCli ? 'Local sidecar directory' : '/workspace')}
+          label="Starting project"
+          value={agent.projectName ?? 'Open project settings first.'}
+        />
+        <RuntimeRow
+          label="Starting folder"
+          value={agent.cwd ?? (hostCli ? 'Folder selected during setup' : 'Default project folder')}
         />
       </div>
     </div>

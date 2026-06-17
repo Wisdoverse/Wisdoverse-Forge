@@ -10,17 +10,17 @@ const orgs = [
 afterEach(cleanup)
 
 describe('OrgSwitcher', () => {
-  it('explains organization switching before selecting another organization', () => {
+  it('explains team-space switching before selecting another team space', () => {
     const onSelect = vi.fn()
     render(<OrgSwitcher orgs={orgs} selectedOrgId="org-1" onSelect={onSelect} />)
 
     const switcher = screen.getByTestId('org-switcher')
-    expect(switcher).toHaveAccessibleName('Organization selector: Design Studio')
+    expect(switcher).toHaveAccessibleName('Team space selector: Design Studio')
 
     fireEvent.click(switcher)
 
-    const dropdown = screen.getByRole('menu', { name: 'Choose organization' })
-    expect(within(dropdown).getByText('Organization')).toBeInTheDocument()
+    const dropdown = screen.getByRole('menu', { name: 'Choose team space' })
+    expect(within(dropdown).getByText('Team space')).toBeInTheDocument()
     expect(
       within(dropdown).getByText('Switching changes which teams, projects, and Agents you can see.')
     ).toBeInTheDocument()
@@ -31,12 +31,12 @@ describe('OrgSwitcher', () => {
     expect(screen.queryByTestId('org-dropdown')).not.toBeInTheDocument()
   })
 
-  it('uses full organization wording when nothing is selected', () => {
+  it('uses full team-space wording when nothing is selected', () => {
     render(<OrgSwitcher orgs={orgs} selectedOrgId={null} onSelect={vi.fn()} />)
 
-    expect(screen.getByText('Select organization')).toBeInTheDocument()
+    expect(screen.getByText('Select team space')).toBeInTheDocument()
     expect(screen.getByTestId('org-switcher')).toHaveAccessibleName(
-      'Organization selector: Select organization'
+      'Team space selector: Select team space'
     )
   })
 })

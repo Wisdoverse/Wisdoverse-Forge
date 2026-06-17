@@ -888,7 +888,7 @@ test.describe('real orchestration task E2E', () => {
       await dialog.getByLabel('Title').fill(title)
       await dialog.getByLabel('Description').fill(details)
       await dialog.getByLabel('Assign Agent').selectOption(fixture.agentId)
-      await dialog.getByRole('button', { name: 'Create Task' }).click()
+      await dialog.getByRole('button', { name: 'Create task' }).click()
       await expect(dialog).toBeHidden()
 
       const completed = await waitForCompletedTask(fixture, title)

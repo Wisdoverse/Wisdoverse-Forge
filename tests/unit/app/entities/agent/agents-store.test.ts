@@ -15,7 +15,12 @@ const base = {
 
 describe('agents.store managedToAgentInfo backward-compat', () => {
   it('uses server-provided runtimeKind="cli" when present', () => {
-    const info = managedToAgentInfo({ ...base, cliTool: 'codex', runtimeKind: 'cli', runtimeId: 'host-x' } as any)
+    const info = managedToAgentInfo({
+      ...base,
+      cliTool: 'codex',
+      runtimeKind: 'cli',
+      runtimeId: 'host-x',
+    } as any)
     expect(info.runtimeKind).toBe('cli')
   })
 
@@ -42,5 +47,76 @@ describe('agents.store managedToAgentInfo backward-compat', () => {
   it('fallback when server omits runtimeKind: no cliTool → api', () => {
     const info = managedToAgentInfo({ ...base } as any)
     expect(info.runtimeKind).toBe('api')
+  })
+
+  it('uses beginner-facing service and model labels for known work tools', () => {
+    const info = managedToAgentInfo({
+      ...base,
+      cliTool: 'codex',
+      provider: null,
+      model: null,
+    } as any)
+
+    expect(info.provider).toBe('OpenAI')
+    expect(info.model).toBe('Codex')
+  })
+
+  it('uses display names for known AI service keys', () => {
+    expect(
+      managedToAgentInfo({
+        ...base,
+        provider: 'anthropic',
+        model: 'claude-sonnet-4-6',
+      } as any).provider
+    ).toBe('Anthropic')
+    expect(
+      managedToAgentInfo({
+        ...base,
+        provider: 'openai_compatible',
+        model: 'custom-model',
+      } as any).provider
+    ).toBe('OpenAI-compatible service')
+  })
+
+  it('uses beginner-facing labels when AI service and model are missing', () => {
+    const info = managedToAgentInfo({
+      ...base,
+      provider: null,
+      model: null,
+      cliTool: null,
+    } as any)
+
+    expect(info.provider).toBe('Refresh AI service')
+    expect(info.model).toBe('Refresh AI model')
+    expect(info.provider).not.toBe('Unknown')
+    expect(info.model).not.toBe('unknown')
+    expect(info.model).not.toBe('Model not reported')
+  })
+
+  it('does not expose unknown work tool slugs in service or model labels', () => {
+    const info = managedToAgentInfo({
+      ...base,
+      cliTool: 'future_tool',
+      provider: null,
+      model: null,
+    } as any)
+
+    expect(info.provider).toBe('Check work tool')
+    expect(info.model).toBe('Check work tool')
+    expect(info.provider).not.toContain('future_tool')
+    expect(info.model).not.toContain('future_tool')
+  })
+
+  it('does not expose unknown AI service slugs', () => {
+    const info = managedToAgentInfo({
+      ...base,
+      provider: 'future_provider',
+      model: 'future-model',
+      cliTool: null,
+    } as any)
+
+    expect(info.provider).toBe('Check AI service')
+    expect(info.provider).not.toContain('future_provider')
+    expect(info.model).toBe('future-model')
   })
 })

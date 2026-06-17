@@ -1,6 +1,7 @@
-import { type FormEvent, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
+  ArrowRight,
   CheckCircle2,
   Check,
   ClipboardCheck,
@@ -15,20 +16,22 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import { useBoardStore } from '@app/shared/model/board.store'
 import type { TaskSummary } from '@app/shared/api/orchestration'
 import { useNavigationStore } from '@app/entities/navigation'
+import { agentGroupErrorMessage } from './model/agentGroupErrorMessage'
 
 const DEFAULT_GROUP_DESCRIPTION =
-  'This task group is a work lane where agents can receive board tasks.'
+  'This task queue gives project tasks a place to wait for an available agent.'
 
 const TASK_STATE_LABELS: Record<TaskSummary['state'], string> = {
-  backlog: 'Backlog',
-  queued: 'Queued',
+  backlog: 'Not sent yet',
+  queued: 'Waiting to start',
   working: 'Working',
-  blocked: 'Blocked',
+  blocked: 'Needs help',
   completed: 'Done',
-  failed: 'Failed',
+  failed: 'Review recovery',
   canceled: 'Canceled',
 }
 
@@ -73,29 +76,35 @@ const TASK_GROUP_TEMPLATES: TaskGroupTemplate[] = [
     id: 'delivery',
     label: 'Delivery',
     summary: 'Build and verify',
-    name: 'Delivery Group',
-    description: 'Build scoped changes, keep work moving, and verify before handoff.',
+    name: 'Delivery Queue',
+    description:
+      'Build the requested changes, keep work moving, and run checks before sharing results.',
     Icon: Wrench,
   },
   {
     id: 'review',
     label: 'Review',
-    summary: 'Risk and readiness',
-    name: 'Review Group',
-    description: 'Review completed work for regressions, missing tests, and release risk.',
+    summary: 'Check before release',
+    name: 'Review Queue',
+    description:
+      'Review completed work for broken behavior, missing tests, and anything that could block release.',
     Icon: ShieldCheck,
   },
   {
     id: 'triage',
     label: 'Triage',
-    summary: 'Clarify and route',
-    name: 'Triage Group',
-    description: 'Clarify incoming work, identify blockers, and route tasks to the right agent.',
+    summary: 'Clarify and assign',
+    name: 'Triage Queue',
+    description: 'Clarify incoming work, find what is missing, and send tasks to the right agent.',
     Icon: ClipboardCheck,
   },
 ]
 
-export function AgentGroupsPanel() {
+interface AgentGroupsPanelProps {
+  onOpenProjectsSetup?: () => void
+}
+
+export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps = {}) {
   const selectedProjectId = useNavigationStore((state) => state.selectedProjectId)
   const projectsByTeam = useNavigationStore((state) => state.projects)
   const agentGroups = useNavigationStore((state) => state.agentGroups)
@@ -110,6 +119,7 @@ export function AgentGroupsPanel() {
   const [routingSearch, setRoutingSearch] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const nameInputRef = useRef<HTMLInputElement>(null)
 
   const selectedProject = useMemo(() => {
     if (!selectedProjectId) return null
@@ -165,13 +175,16 @@ export function AgentGroupsPanel() {
   async function handleCreateGroup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!selectedProjectId) {
-      setError('Select a project before creating a task group.')
+      setError(
+        'Open project settings to create a project, or choose an existing project before creating a task queue.'
+      )
       return
     }
 
     const trimmedName = name.trim()
     if (!trimmedName) {
-      setError('Task group name is required.')
+      setError('Name this task queue before creating it. Examples: Intake, Review, or Delivery.')
+      nameInputRef.current?.focus()
       return
     }
 
@@ -187,7 +200,7 @@ export function AgentGroupsPanel() {
       setSelectedTemplateId(null)
       setFormOpen(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create task group.')
+      setError(agentGroupErrorMessage(err))
     } finally {
       setSaving(false)
     }
@@ -197,6 +210,7 @@ export function AgentGroupsPanel() {
     setSelectedTemplateId(template.id)
     setName(template.name)
     setDescription(template.description)
+    setError(null)
   }
 
   return (
@@ -214,12 +228,12 @@ export function AgentGroupsPanel() {
               aria-hidden="true"
             />
             <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-              Task Routing
+              Task Queues
             </h2>
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Task groups work like simple lanes: pick one, create tasks, and agents know where to
-            look for work.
+            Task queues are simple places agents check for tasks. Create a queue, add agents, then
+            send tasks to it.
           </p>
           {selectedProject && (
             <p className="mt-2 truncate rounded-md bg-black/[0.04] px-2 py-1 text-ui-caption text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
@@ -242,15 +256,27 @@ export function AgentGroupsPanel() {
             )}
           >
             <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
-            New
+            Create task queue
           </button>
         )}
       </div>
 
       {!selectedProjectId ? (
         <div className="mt-3 rounded-lg border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark">
-          Select a project from the sidebar first. Each project keeps its own task groups and
-          agents.
+          <p>
+            Open project settings to create a project, or choose an existing project from the
+            project list. Each project keeps its own task queues and agents.
+          </p>
+          {onOpenProjectsSetup ? (
+            <button
+              type="button"
+              onClick={onOpenProjectsSetup}
+              className="mt-3 inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-apple-blue/20 bg-apple-blue/[0.08] px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35"
+            >
+              <span>Open project settings</span>
+              <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
+            </button>
+          ) : null}
         </div>
       ) : (
         <div className="mt-3 flex flex-col gap-3">
@@ -278,7 +304,7 @@ export function AgentGroupsPanel() {
               })
             ) : (
               <div className="rounded-lg border border-dashed border-black/10 px-3 py-2 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark">
-                No work lanes yet. Create one below so agents can receive tasks.
+                Create the first task queue so agents know where to receive tasks.
               </div>
             )}
           </div>
@@ -291,42 +317,42 @@ export function AgentGroupsPanel() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                    Group workload
+                    Queue workload
                   </p>
                   <h3 className="truncate text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-                    {selectedGroup?.name ?? 'Select a task group'}
+                    {selectedGroup?.name ?? 'Select a task queue'}
                   </h3>
                 </div>
                 <span className="shrink-0 rounded-full bg-white px-2 py-1 text-ui-caption font-medium text-secondary-light shadow-sm dark:bg-black/20 dark:text-secondary-dark">
-                  {workload.total} routed
+                  {workload.total} {workload.total === 1 ? 'task here' : 'tasks here'}
                 </span>
               </div>
 
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <RoutingMetric
                   testId="routing-metric-active"
-                  label="Active"
+                  label="Working now"
                   value={workload.active}
                   Icon={CircleDot}
                   tone="active"
                 />
                 <RoutingMetric
                   testId="routing-metric-backlog"
-                  label="Backlog"
+                  label="Not sent yet"
                   value={workload.backlog}
                   Icon={Clock3}
                   tone="neutral"
                 />
                 <RoutingMetric
                   testId="routing-metric-needs-action"
-                  label="Needs action"
+                  label="Needs help"
                   value={workload.needsAction}
                   Icon={AlertTriangle}
                   tone="warn"
                 />
                 <RoutingMetric
                   testId="routing-metric-completed"
-                  label="Completed"
+                  label="Done"
                   value={workload.completed}
                   Icon={CheckCircle2}
                   tone="success"
@@ -334,7 +360,7 @@ export function AgentGroupsPanel() {
               </div>
 
               <label className="relative mt-3 block">
-                <span className="sr-only">Search routed tasks</span>
+                <span className="sr-only">Search tasks in this queue</span>
                 <Search
                   size={14}
                   strokeWidth={2}
@@ -347,7 +373,7 @@ export function AgentGroupsPanel() {
                   value={routingSearch}
                   onChange={(event) => setRoutingSearch(event.target.value)}
                   className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-8 pr-3 text-ui-body text-foreground-light outline-none placeholder:text-secondary-light focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-[#2a2a2c] dark:text-foreground-dark dark:placeholder:text-secondary-dark"
-                  placeholder="Search routed work, assignees, blockers…"
+                  placeholder="Search tasks, agents, or problems..."
                 />
               </label>
 
@@ -357,7 +383,11 @@ export function AgentGroupsPanel() {
                     data-testid="task-routing-empty"
                     className="rounded-lg border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark"
                   >
-                    No routed work is loaded for this group yet.
+                    Create the first task for this queue, then choose this task queue so agents know
+                    where to pick it up.
+                    <span className="mt-1 block">
+                      Success looks like a task showing Waiting to start or Working here.
+                    </span>
                   </p>
                 ) : visibleTasks.length > 0 ? (
                   <ul className="flex flex-col gap-1.5">
@@ -368,16 +398,22 @@ export function AgentGroupsPanel() {
                 ) : (
                   <div
                     data-testid="task-routing-filter-empty"
-                    className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark"
+                    className="flex flex-col gap-2 rounded-lg border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark"
                   >
-                    <span>No routed work matches this search.</span>
+                    <div className="space-y-1">
+                      <p className="font-medium text-foreground-light dark:text-foreground-dark">
+                        Search is hiding tasks in this queue
+                      </p>
+                      <p>This task queue still has tasks, but none match the words you typed.</p>
+                      <p>Next: show all queue tasks before assuming the queue is empty.</p>
+                    </div>
                     {hasRoutingSearch && (
                       <button
                         type="button"
                         onClick={() => setRoutingSearch('')}
-                        className="shrink-0 rounded-full bg-white px-2.5 py-1 text-ui-button font-medium text-apple-blue shadow-sm transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:bg-black/20"
+                        className="self-start rounded-full bg-white px-2.5 py-1 text-ui-button font-medium text-apple-blue shadow-sm transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:bg-black/20"
                       >
-                        Clear
+                        Show all queue tasks
                       </button>
                     )}
                   </div>
@@ -389,12 +425,12 @@ export function AgentGroupsPanel() {
           {formOpen && (
             <form onSubmit={handleCreateGroup} className="grid gap-2">
               <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Pick a starter lane or name one yourself. New tasks can use it as soon as it is
-                created.
+                Choose what kind of work this queue should hold, or name one yourself. New tasks can
+                use it as soon as it is created.
               </p>
               <div
                 role="group"
-                aria-label="Task group templates"
+                aria-label="Task queue templates"
                 className="grid gap-2 sm:grid-cols-3"
               >
                 {TASK_GROUP_TEMPLATES.map((template) => (
@@ -426,23 +462,28 @@ export function AgentGroupsPanel() {
               </div>
 
               <input
-                aria-label="Task group name"
+                ref={nameInputRef}
+                aria-label="Task queue name"
                 name="taskGroupName"
                 autoComplete="off"
                 value={name}
-                onChange={(event) => setName(event.target.value)}
+                aria-invalid={error && !name.trim() ? 'true' : undefined}
+                onChange={(event) => {
+                  setName(event.target.value)
+                  if (error) setError(null)
+                }}
                 className="h-10 rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-                placeholder="Task group name…"
+                placeholder="Task queue name…"
                 disabled={saving}
               />
               <input
-                aria-label="Task group description"
+                aria-label="Task queue description"
                 name="taskGroupDescription"
                 autoComplete="off"
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 className="h-10 rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-                placeholder="Describe task routing…"
+                placeholder="What should agents use this queue for?"
                 disabled={saving}
               />
               <div className="flex items-center justify-end gap-2">
@@ -456,7 +497,7 @@ export function AgentGroupsPanel() {
                   )}
                 >
                   <Check size={14} strokeWidth={2.25} aria-hidden="true" />
-                  {saving ? 'Creating…' : 'Create Lane'}
+                  {saving ? 'Creating…' : 'Create task queue'}
                 </button>
                 {agentGroups.length > 0 && (
                   <button
@@ -466,7 +507,7 @@ export function AgentGroupsPanel() {
                       setError(null)
                     }}
                     disabled={saving}
-                    aria-label="Cancel task group creation"
+                    aria-label="Cancel task queue creation"
                     className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ui-button text-secondary-light transition-transform hover:bg-black/[0.04] hover:text-foreground-light active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
                   >
                     <X size={14} strokeWidth={2.25} aria-hidden="true" />
@@ -476,7 +517,11 @@ export function AgentGroupsPanel() {
             </form>
           )}
 
-          {error && <p className="text-ui-caption text-apple-red">{error}</p>}
+          {error && (
+            <p role="alert" className="text-ui-caption text-apple-red">
+              {error}
+            </p>
+          )}
         </div>
       )}
     </section>
@@ -571,18 +616,22 @@ function routedTaskNextStep(task: TaskSummary): string {
   switch (task.state) {
     case 'backlog':
       return task.assignedTo || task.assignedAgentName
-        ? 'Ready to queue'
-        : 'Assign an agent before dispatch'
+        ? 'Ready to send'
+        : 'Choose an agent before sending it'
     case 'queued':
-      return 'Waiting for runtime pickup'
+      return 'Waiting for an available agent to start it'
     case 'working':
-      return 'Monitor live progress'
+      return 'Watch live progress'
     case 'blocked':
-      return task.blockedHint ?? 'Resolve blocker'
+      return taskBlockedPreview({
+        blockedHint: task.blockedHint,
+        blockedReason: task.blockedReason,
+        error: task.error,
+      })
     case 'failed':
-      return task.error ?? 'Review failure and retry'
+      return taskFailurePreview(task.error)
     case 'completed':
-      return 'Review completed handoff'
+      return 'Review what the agent finished'
     case 'canceled':
       return 'Stopped before completion'
   }

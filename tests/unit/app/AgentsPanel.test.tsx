@@ -44,6 +44,28 @@ const agents: AdminAgent[] = [
     projectName: 'Research',
     lastActivity: 1_700_000_200_000,
   },
+  {
+    id: 'agent-4',
+    name: 'Review Needed Agent',
+    status: 'paused',
+    runtimeKind: 'container',
+    cliTool: 'codex',
+    ownerUsername: null,
+    ownerEmail: 'dana@example.com',
+    projectName: 'Ops',
+    lastActivity: Number.POSITIVE_INFINITY,
+  },
+  {
+    id: 'agent-5',
+    name: 'Missing Status Agent',
+    status: ' ',
+    runtimeKind: 'api',
+    cliTool: null,
+    ownerUsername: null,
+    ownerEmail: null,
+    projectName: null,
+    lastActivity: 0,
+  },
 ]
 
 beforeEach(() => {
@@ -75,7 +97,7 @@ afterEach(() => {
 })
 
 describe('AgentsPanel', () => {
-  test('renders the runtime filter with every canonical option', async () => {
+  test('renders the work location filter with every plain-language option', async () => {
     render(<AgentsPanel />)
 
     const select = (await screen.findByTestId('admin-agents-runtime-filter')) as HTMLSelectElement
@@ -84,29 +106,59 @@ describe('AgentsPanel', () => {
       .map((o) => o.textContent)
 
     expect(optionLabels).toEqual([
-      'All runtimes',
-      'Container (Docker)',
-      'Host CLI (local process)',
-      'API (direct LLM calls)',
+      'All work locations',
+      'Managed workspace',
+      'This computer',
+      'Chat-only AI service',
     ])
+    expect(
+      screen.getByText('Review agents across every team space and filter them by work location.')
+    ).toBeDefined()
+    expect(screen.queryByText(/every organization/i)).toBeNull()
     expect(loadAgentsMock).toHaveBeenCalled()
   })
 
   test('shows a runtime-kind badge for each agent row', async () => {
     render(<AgentsPanel />)
 
-    expect(await screen.findByTestId('agent-kind-badge-container')).toBeDefined()
-    expect(screen.getByTestId('agent-kind-badge-cli')).toBeDefined()
-    expect(screen.getByTestId('agent-kind-badge-api')).toBeDefined()
+    expect(await screen.findAllByTestId('agent-kind-badge-container')).toHaveLength(2)
+    expect(screen.getAllByTestId('agent-kind-badge-cli')).toHaveLength(1)
+    expect(screen.getAllByTestId('agent-kind-badge-api')).toHaveLength(2)
 
-    expect(screen.getByText('Container')).toBeDefined()
-    expect(screen.getByText('Host CLI')).toBeDefined()
-    expect(screen.getByText('API')).toBeDefined()
+    expect(screen.getAllByText('Managed')).toHaveLength(2)
+    expect(screen.getAllByText('This computer').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Chat-only')).toHaveLength(2)
+    expect(screen.queryByText(/Text-only model/i)).toBeNull()
+    expect(screen.getByText('Ready')).toBeDefined()
+    expect(screen.queryByText('idle')).toBeNull()
+    expect(screen.getByText('Check agent status')).toBeDefined()
+    expect(screen.getByText('Refresh agents to confirm status')).toBeDefined()
+    expect(screen.queryByText('Status not reported')).toBeNull()
+    expect(screen.queryByText('paused')).toBeNull()
+    expect(screen.queryByText('Unknown')).toBeNull()
+    expect(screen.queryByText('Work tool: codex')).toBeNull()
+    expect(screen.getAllByText('Work tool: Codex')).toHaveLength(2)
+    expect(screen.getByText('Work tool: Claude')).toBeDefined()
 
-    expect(screen.getAllByTestId('admin-agent-row')).toHaveLength(3)
+    expect(screen.getAllByTestId('admin-agent-row')).toHaveLength(5)
   })
 
-  test('selecting a runtime kind triggers the filtered fetch', async () => {
+  test('explains missing admin agent fields instead of showing placeholder symbols', async () => {
+    render(<AgentsPanel />)
+
+    expect(await screen.findByText('Refresh agents to load owner')).toBeDefined()
+    expect(screen.getAllByText('Refresh agents to load project')).toHaveLength(2)
+    expect(screen.queryByText('Owner not reported yet')).toBeNull()
+    expect(screen.queryByText('Project not reported yet')).toBeNull()
+    expect(screen.getByText('Activity appears after work starts')).toBeDefined()
+    expect(screen.getByText('Check activity time')).toBeDefined()
+    expect(screen.queryByText('No activity yet')).toBeNull()
+    expect(screen.queryByText('Activity time needs review')).toBeNull()
+    expect(screen.queryByText('Invalid Date')).toBeNull()
+    expect(screen.queryByText('—')).toBeNull()
+  })
+
+  test('selecting a work location triggers the filtered fetch', async () => {
     render(<AgentsPanel />)
 
     const select = (await screen.findByTestId('admin-agents-runtime-filter')) as HTMLSelectElement
@@ -121,11 +173,50 @@ describe('AgentsPanel', () => {
     render(<AgentsPanel />)
 
     const error = await screen.findByTestId('admin-agents-error')
-    expect(within(error).getByText('HTTP 503')).toBeDefined()
+    expect(error).toHaveAttribute('aria-live', 'polite')
+    expect(within(error).getByText('Refresh Admin to reload the agents.')).toBeDefined()
+    expect(within(error).queryByText('HTTP 503')).toBeNull()
     expect(
       within(error).getByText(
-        'Refresh after the API is healthy, or confirm this account has admin access.'
+        'Refresh Admin, then try again. If it still fails, ask an owner or admin to check Admin setup and your Admin access.'
       )
     ).toBeDefined()
+    expect(within(error).queryByText(/admin service/i)).toBeNull()
+  })
+
+  test('guides admins when no agents exist yet', async () => {
+    useAdminStore.setState({ agents: [], agentsTotal: 0 })
+
+    render(<AgentsPanel />)
+
+    const guide = await screen.findByTestId('admin-agents-guide')
+    expect(
+      within(guide).getByText(
+        'Create the first agent from Agents, then return here to review it across team spaces.'
+      )
+    ).toBeDefined()
+    expect(
+      within(guide).queryByText('No agents have been created across any team space yet.')
+    ).toBeNull()
+
+    const emptyState = await screen.findByTestId('admin-agents-empty')
+    expect(within(emptyState).getByText('Create or connect an agent first')).toBeDefined()
+    expect(within(emptyState).getByText(/create the first agent from agents/i)).toBeDefined()
+    expect(within(emptyState).getByText(/confirm it becomes ready or working/i)).toBeDefined()
+    expect(within(emptyState).getByText(/review it across team spaces/i)).toBeDefined()
+    expect(within(emptyState).getByText(/refresh admin and check again/i)).toBeDefined()
+    expect(within(emptyState).queryByText('No agents to show')).toBeNull()
+    expect(within(emptyState).queryByText(/organizations/i)).toBeNull()
+  })
+
+  test('guides admins to clear a work location filter before assuming an agent is missing', async () => {
+    useAdminStore.setState({ agents: [], agentsTotal: 0, agentRuntimeKindFilter: 'cli' })
+
+    render(<AgentsPanel />)
+
+    const emptyState = await screen.findByTestId('admin-agents-empty')
+    expect(within(emptyState).getByText('No agents match this filter')).toBeDefined()
+    expect(within(emptyState).getByText(/choose "all work locations"/i)).toBeDefined()
+    expect(within(emptyState).getByText(/before assuming the agent is missing/i)).toBeDefined()
   })
 })

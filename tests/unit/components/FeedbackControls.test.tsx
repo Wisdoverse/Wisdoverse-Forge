@@ -70,9 +70,9 @@ describe('FeedbackControls', () => {
   test('explains context feedback choices in beginner language', () => {
     render(<FeedbackControls item={contextItem()} onRecord={async (label) => outcome(label)} />)
 
-    expect(screen.getByText('Was this context helpful?')).toBeInTheDocument()
+    expect(screen.getByText('Was this saved item helpful?')).toBeInTheDocument()
     expect(
-      screen.getByText('Your answer helps future runs choose safer, more useful context.')
+      screen.getByText('Your answer helps future tasks choose safer, more useful saved items.')
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Outdated' })).toHaveAttribute(
       'title',
@@ -80,11 +80,11 @@ describe('FeedbackControls', () => {
     )
     expect(screen.getByRole('button', { name: 'Do not use again' })).toHaveAttribute(
       'title',
-      'Stop selecting this item for future runs.'
+      'Stop selecting this item for future tasks.'
     )
   })
 
-  test('records feedback and confirms what future runs will do', async () => {
+  test('records feedback and confirms what future tasks will do', async () => {
     const onRecord = vi.fn(async (label: ContextFeedbackLabel) => outcome(label))
 
     render(<FeedbackControls item={contextItem()} onRecord={onRecord} />)
@@ -93,7 +93,41 @@ describe('FeedbackControls', () => {
 
     expect(onRecord).toHaveBeenCalledWith('too_sensitive')
     expect(
-      await screen.findByText('Saved: future runs will handle this item more carefully.')
+      await screen.findByText('Saved: future tasks will handle this item more carefully.')
     ).toBeInTheDocument()
+  })
+
+  test('confirms outdated feedback without vague review wording', async () => {
+    const onRecord = vi.fn(async (label: ContextFeedbackLabel) => outcome(label))
+
+    render(<FeedbackControls item={contextItem()} onRecord={onRecord} />)
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Outdated' }))
+
+    expect(onRecord).toHaveBeenCalledWith('stale')
+    expect(
+      await screen.findByText(
+        'Saved: future tasks will ask you to check this item before using it.'
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/needing review/i)).toBeNull()
+  })
+
+  test('shows recovery guidance when feedback cannot be saved', async () => {
+    const onRecord = vi.fn(async () => {
+      throw new Error('API 403: Forbidden')
+    })
+
+    render(<FeedbackControls item={contextItem()} onRecord={onRecord} />)
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Outdated' }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('You do not have permission')
+    expect(alert.textContent).toContain('this saved item')
+    expect(alert.textContent).toContain('Ask an owner or admin')
+    expect(alert.textContent).not.toContain('API 403')
+    expect(alert.textContent).not.toContain('Forbidden')
+    expect(screen.getByRole('button', { name: 'Outdated' })).not.toHaveClass('bg-apple-blue')
   })
 })

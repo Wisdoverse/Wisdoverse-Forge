@@ -7,6 +7,11 @@ afterEach(cleanup)
 
 describe('AgentConfigTab', () => {
   const updateAgentSystemPrompt = vi.fn()
+  const oldDeliveryTemplatePhrases = [
+    new RegExp(['Clarify', 'blockers', 'early'].join('\\s+'), 'i'),
+    new RegExp(['validation', 'evidence'].join('\\s+'), 'i'),
+    new RegExp(['each', 'handoff'].join('\\s+'), 'i'),
+  ]
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -34,6 +39,94 @@ describe('AgentConfigTab', () => {
           tasksInProgress: 0,
           successRate: 0,
           cliTool: 'claude' as const,
+          runtimeId: 'af-claude-container-123',
+        },
+        {
+          id: 'host1',
+          name: 'Local Agent',
+          provider: 'Codex',
+          model: 'codex',
+          status: 'idle' as const,
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+          cliTool: 'codex' as const,
+          runtimeId: 'host-local-123',
+          runtimeKind: 'cli' as const,
+          projectName: 'Platform',
+        },
+        {
+          id: 'host-disconnected',
+          name: 'Disconnected Local Agent',
+          provider: 'Codex',
+          model: 'codex',
+          status: 'idle' as const,
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+          cliTool: 'codex' as const,
+          runtimeId: null,
+          runtimeKind: 'cli' as const,
+          projectName: 'Platform',
+        },
+        {
+          id: 'future-tool',
+          name: 'Future Tool Agent',
+          provider: 'Check work tool',
+          model: 'Check work tool',
+          status: 'idle' as const,
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+          cliTool: 'future_tool' as never,
+          runtimeId: 'af-future-tool-container-123',
+          runtimeKind: 'container' as const,
+        },
+        {
+          id: 'future-provider',
+          name: 'Future Provider Agent',
+          provider: 'future_provider',
+          model: 'future-model-v1',
+          status: 'idle' as const,
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+          systemPrompt: 'plain instructions',
+        },
+        {
+          id: 'missing-model',
+          name: 'Missing Model Agent',
+          provider: 'anthropic',
+          model: ' ',
+          status: 'idle' as const,
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+          systemPrompt: 'plain instructions',
+        },
+        {
+          id: 'no-instructions',
+          name: 'No Instructions Agent',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-6',
+          status: 'idle' as const,
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+          systemPrompt: '',
+        },
+        {
+          id: 'missing-tool',
+          name: 'Missing Tool Agent',
+          provider: 'Check work tool',
+          model: 'Check work tool',
+          status: 'idle' as const,
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+          cliTool: ' ' as never,
+          runtimeId: 'af-missing-tool-container-123',
+          runtimeKind: 'container' as const,
         },
       ],
       updateAgentSystemPrompt,
@@ -42,38 +135,72 @@ describe('AgentConfigTab', () => {
 
   it('shows existing system_prompt value in the textarea', () => {
     render(<AgentConfigTab agentId="a1" />)
-    expect(screen.getByLabelText(/system prompt/i)).toHaveValue('old prompt')
+    expect(screen.getByLabelText(/instructions for this agent/i)).toHaveValue('old prompt')
   })
 
-  it('summarizes prompt profile readiness', () => {
+  it('summarizes agent instruction readiness', () => {
     render(<AgentConfigTab agentId="a1" />)
     const summary = screen.getByTestId('agent-config-summary')
     expect(within(summary).getByText('Words')).toBeDefined()
     expect(within(summary).getByText('2')).toBeDefined()
     expect(within(summary).getByText('Lines')).toBeDefined()
     expect(within(summary).getByText('1')).toBeDefined()
-    expect(screen.getByText('Configured')).toBeDefined()
+    expect(within(summary).getByText('Characters')).toBeDefined()
+    expect(screen.getByText('Has instructions')).toBeDefined()
+    expect(screen.getByText('Agent instructions')).toBeDefined()
+    expect(screen.queryByText('Prompt profile')).toBeNull()
   })
 
   it('Save button disabled until user edits the value', () => {
     render(<AgentConfigTab agentId="a1" />)
     const save = screen.getByRole('button', { name: /save/i })
     expect(save).toBeDisabled()
-    fireEvent.change(screen.getByLabelText(/system prompt/i), {
+    fireEvent.change(screen.getByLabelText(/instructions for this agent/i), {
       target: { value: 'new prompt' },
     })
     expect(save).not.toBeDisabled()
   })
 
-  it('explains prompt editing in beginner language', () => {
+  it('explains instruction editing in beginner language', () => {
     render(<AgentConfigTab agentId="a1" />)
-    const prompt = screen.getByLabelText(/system prompt/i)
+    const instructions = screen.getByLabelText(/instructions for this agent/i)
 
     expect(
       screen.getByText(/start from a template or write everyday instructions/i)
     ).toBeInTheDocument()
-    expect(prompt).toHaveAccessibleDescription(/tell this agent the outcome/i)
-    expect(screen.getByRole('status')).toHaveTextContent(/this agent already has a prompt profile/i)
+    expect(instructions).toHaveAccessibleDescription(/tell this agent the outcome/i)
+    expect(screen.getByRole('status')).toHaveTextContent(
+      /this agent already has saved instructions/i
+    )
+    expect(screen.queryByText(/system prompt/i)).toBeNull()
+  })
+
+  it('points empty instruction setup to the next action', () => {
+    render(<AgentConfigTab agentId="no-instructions" />)
+
+    expect(screen.getByText('Add instructions')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent(
+      /choose a template or write instructions before saving/i
+    )
+    expect(screen.queryByText('No instructions')).toBeNull()
+  })
+
+  it('does not expose raw AI service slugs in instruction setup', () => {
+    render(<AgentConfigTab agentId="future-provider" />)
+
+    expect(screen.getByText(/Check AI service/i)).toBeInTheDocument()
+    expect(screen.getByText(/AI model selected/i)).toBeInTheDocument()
+    expect(screen.queryByText(/future_provider/i)).toBeNull()
+    expect(screen.queryByText(/future provider/i)).toBeNull()
+    expect(screen.queryByText(/future-model-v1/i)).toBeNull()
+  })
+
+  it('tells users to refresh when a chat-only agent has no model details', () => {
+    render(<AgentConfigTab agentId="missing-model" />)
+
+    expect(screen.getByText(/Refresh AI model/i)).toBeInTheDocument()
+    expect(screen.queryByText(/AI model not reported/i)).toBeNull()
+    expect(screen.queryByText(/Model not reported/i)).toBeNull()
   })
 
   it('applies a prompt template and can reset the edit', () => {
@@ -82,21 +209,35 @@ describe('AgentConfigTab', () => {
     expect(reviewTemplate).toHaveAttribute('aria-pressed', 'false')
     fireEvent.click(reviewTemplate)
 
-    expect((screen.getByLabelText(/system prompt/i) as HTMLTextAreaElement).value).toContain(
-      'code review agent'
-    )
+    expect(
+      (screen.getByLabelText(/instructions for this agent/i) as HTMLTextAreaElement).value
+    ).toContain('code review agent')
     expect(reviewTemplate).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText('Unsaved')).toBeDefined()
     expect(screen.getByRole('status')).toHaveTextContent(/unsaved changes/i)
 
     fireEvent.click(screen.getByRole('button', { name: /reset/i }))
-    expect(screen.getByLabelText(/system prompt/i)).toHaveValue('old prompt')
+    expect(screen.getByLabelText(/instructions for this agent/i)).toHaveValue('old prompt')
+  })
+
+  it('uses plain-language delivery template instructions', () => {
+    render(<AgentConfigTab agentId="a1" />)
+    const deliveryTemplate = screen.getByRole('button', { name: /delivery/i })
+    fireEvent.click(deliveryTemplate)
+
+    const instructions = screen.getByLabelText(/instructions for this agent/i)
+    expect(instructions).toHaveValue(
+      'You are a delivery-focused agent. Ask early for missing information, keep changes scoped to the assigned task, preserve existing conventions, and report what you checked before sharing results.'
+    )
+    for (const phrase of oldDeliveryTemplatePhrases) {
+      expect(instructions).not.toHaveValue(expect.stringMatching(phrase))
+    }
   })
 
   it('calls updateAgentSystemPrompt with trimmed value on Save', async () => {
     updateAgentSystemPrompt.mockResolvedValue(true)
     render(<AgentConfigTab agentId="a1" />)
-    fireEvent.change(screen.getByLabelText(/system prompt/i), {
+    fireEvent.change(screen.getByLabelText(/instructions for this agent/i), {
       target: { value: '  new prompt  ' },
     })
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
@@ -106,21 +247,24 @@ describe('AgentConfigTab', () => {
   it('shows a plain-language save failure message', async () => {
     updateAgentSystemPrompt.mockResolvedValue(false)
     render(<AgentConfigTab agentId="a1" />)
-    fireEvent.change(screen.getByLabelText(/system prompt/i), {
+    fireEvent.change(screen.getByLabelText(/instructions for this agent/i), {
       target: { value: 'new prompt' },
     })
 
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
     await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent(/prompt profile was not saved/i)
+      expect(screen.getByRole('alert')).toHaveTextContent(/agent instructions were not saved/i)
     )
+    expect(screen.getByRole('alert')).toHaveTextContent(/confirm it is still a chat-only agent/i)
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/text-only model/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/ask an admin to check your agent access/i)
   })
 
   it('empty string clears the prompt (sent as "" to backend)', async () => {
     updateAgentSystemPrompt.mockResolvedValue(true)
     render(<AgentConfigTab agentId="a1" />)
-    fireEvent.change(screen.getByLabelText(/system prompt/i), {
+    fireEvent.change(screen.getByLabelText(/instructions for this agent/i), {
       target: { value: '' },
     })
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
@@ -129,15 +273,77 @@ describe('AgentConfigTab', () => {
 
   it('renders CLI-agent-not-supported notice instead of the form', () => {
     render(<AgentConfigTab agentId="cli1" />)
-    expect(screen.queryByLabelText(/system prompt/i)).toBeNull()
+    expect(screen.queryByLabelText(/instructions for this agent/i)).toBeNull()
     expect(screen.getByTestId('agent-cli-config-summary')).toBeInTheDocument()
-    expect(screen.getByText('Runtime profile')).toBeInTheDocument()
-    expect(screen.getAllByText('Container CLI').length).toBeGreaterThan(0)
-    expect(screen.getByText(/only available for provider\+prompt agents/i)).toBeInTheDocument()
+    expect(screen.getByText('Where this agent works')).toBeInTheDocument()
+    expect(screen.getByText('Claude')).toBeInTheDocument()
+    expect(screen.getAllByText('Managed workspace').length).toBeGreaterThan(0)
+    expect(screen.getByText('Connection')).toBeInTheDocument()
+    expect(screen.getByText('Ready in managed workspace')).toBeInTheDocument()
+    expect(screen.getByText('Starting project')).toBeInTheDocument()
+    expect(screen.getByText('Open project settings first.')).toBeInTheDocument()
+    expect(screen.queryByText('Choose a project from the sidebar first.')).toBeNull()
+    expect(screen.getByText('Starting folder')).toBeInTheDocument()
+    expect(screen.getByText('Default project folder')).toBeInTheDocument()
+    expect(screen.queryByText('Connection ID')).toBeNull()
+    expect(screen.queryByText('No starting project selected')).toBeNull()
+    expect(
+      screen.queryByText(new RegExp(['workspace', 'project folder'].join(' '), 'i'))
+    ).toBeNull()
+    expect(screen.queryByText('claude')).toBeNull()
+    expect(screen.queryByText('af-claude-container-123')).toBeNull()
+    expect(screen.queryByText('/workspace')).toBeNull()
+    expect(
+      screen.getByText(/confirm where it can open files before assigning work/i)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/text-only model/i)).toBeNull()
+    expect(screen.queryByText(/work profile/i)).toBeNull()
   })
 
-  it('renders "Agent not found" for unknown id', () => {
+  it('explains agents connected from this computer without exposing runtime ids', () => {
+    render(<AgentConfigTab agentId="host1" />)
+
+    expect(screen.getByTestId('agent-cli-config-summary')).toBeInTheDocument()
+    expect(screen.getByText('This computer')).toBeInTheDocument()
+    expect(screen.getByText('Connected from this computer')).toBeInTheDocument()
+    expect(screen.getByText('Starting project')).toBeInTheDocument()
+    expect(screen.getByText('Platform')).toBeInTheDocument()
+    expect(screen.getByText('Starting folder')).toBeInTheDocument()
+    expect(screen.getByText('Folder selected during setup')).toBeInTheDocument()
+    expect(screen.queryByText(/ran the command/i)).toBeNull()
+    expect(screen.queryByText('host-local-123')).toBeNull()
+    expect(screen.queryByText(/runtime/i)).toBeNull()
+  })
+
+  it('guides disconnected this-computer agents back to setup without command jargon', () => {
+    render(<AgentConfigTab agentId="host-disconnected" />)
+
+    expect(screen.getByText('This computer')).toBeInTheDocument()
+    expect(screen.getByText('Open setup again for this computer')).toBeInTheDocument()
+    expect(screen.queryByText(/run the command/i)).toBeNull()
+  })
+
+  it('labels unknown work tools without exposing raw tool values', () => {
+    render(<AgentConfigTab agentId="future-tool" />)
+
+    expect(screen.getByTestId('agent-cli-config-summary')).toBeInTheDocument()
+    expect(screen.getByText('Check work tool setup')).toBeInTheDocument()
+    expect(screen.queryByText('future_tool')).toBeNull()
+    expect(screen.queryByText('Unknown')).toBeNull()
+  })
+
+  it('tells users to refresh work tool setup when the CLI tool is missing', () => {
+    render(<AgentConfigTab agentId="missing-tool" />)
+
+    expect(screen.getByTestId('agent-cli-config-summary')).toBeInTheDocument()
+    expect(screen.getByText('Refresh work tool setup')).toBeInTheDocument()
+    expect(screen.queryByText('Work tool not reported')).toBeNull()
+  })
+
+  it('shows a recovery step when the agent is no longer available', () => {
     render(<AgentConfigTab agentId="missing" />)
-    expect(screen.getByText(/agent not found/i)).toBeInTheDocument()
+    expect(screen.getByText(/this agent could not be found/i)).toBeInTheDocument()
+    expect(screen.getByText(/open agents, choose a current agent/i)).toBeInTheDocument()
+    expect(screen.queryByText('Agent not found.')).toBeNull()
   })
 })

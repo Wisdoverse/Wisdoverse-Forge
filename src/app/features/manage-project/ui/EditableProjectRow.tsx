@@ -2,8 +2,11 @@ import { useState, type FormEvent } from 'react'
 import { Check, Pencil, Trash2, Users, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
+import { workspaceResourceErrorMessage } from '@app/shared/lib/workspaceResourceErrorMessage'
 import type { CloneSummary, NavProject, UpdateProjectInput } from '@app/entities/project'
 import { CloneStatusBadge } from './CloneStatusBadge'
+
+const EMPTY_PROJECT_NAME_MESSAGE = 'Enter a project name, then save again.'
 
 interface EditableProjectRowProps {
   project: NavProject
@@ -44,7 +47,7 @@ export function EditableProjectRow({
     e.preventDefault()
     const trimmedName = name.trim()
     if (!trimmedName) {
-      setError('Project name is required')
+      setError(EMPTY_PROJECT_NAME_MESSAGE)
       return
     }
 
@@ -54,7 +57,7 @@ export function EditableProjectRow({
       await onUpdate(project, { name: trimmedName, description: description.trim(), color })
       setEditing(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update project')
+      setError(workspaceResourceErrorMessage('project', 'update', err))
     } finally {
       setSaving(false)
     }
@@ -71,7 +74,7 @@ export function EditableProjectRow({
     try {
       await onDelete(project)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete project')
+      setError(workspaceResourceErrorMessage('project', 'delete', err))
       setSaving(false)
       setConfirmingDelete(false)
     }
@@ -87,7 +90,11 @@ export function EditableProjectRow({
         )}
       >
         <div className="flex flex-col gap-2">
-          {error && <div className={uiStyles.error}>{error}</div>}
+          {error && (
+            <div role="alert" className={uiStyles.error}>
+              {error}
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-[auto_1fr_1fr_auto] sm:items-start">
             <input
               type="color"
@@ -99,7 +106,15 @@ export function EditableProjectRow({
             />
             <input
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                const nextName = e.target.value
+                setName(nextName)
+                if (!nextName.trim()) {
+                  setError(EMPTY_PROJECT_NAME_MESSAGE)
+                } else if (error === EMPTY_PROJECT_NAME_MESSAGE) {
+                  setError(null)
+                }
+              }}
               disabled={saving}
               autoFocus
               aria-label="Project name"
@@ -178,12 +193,16 @@ export function EditableProjectRow({
               project.
             </p>
           )}
-          {error && <p className="mt-1 text-ui-caption text-apple-red">{error}</p>}
+          {error && (
+            <p role="alert" className="mt-1 text-ui-caption text-apple-red">
+              {error}
+            </p>
+          )}
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <span className="hidden rounded-badge border border-black/5 bg-black/[0.03] px-1.5 py-0.5 font-mono text-[10px] text-secondary-light dark:border-white/10 dark:bg-white/[0.05] dark:text-secondary-dark sm:inline">
-          {project.slug}
+        <span className="hidden rounded-badge border border-black/5 bg-black/[0.03] px-1.5 py-0.5 text-[10px] text-secondary-light dark:border-white/10 dark:bg-white/[0.05] dark:text-secondary-dark sm:inline">
+          Address: {project.slug}
         </span>
         {canManage && (
           <>

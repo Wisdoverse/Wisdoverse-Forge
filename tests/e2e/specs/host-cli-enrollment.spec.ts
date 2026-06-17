@@ -1,13 +1,12 @@
 /**
- * Host CLI Enrollment — E2E spec (task 9.4)
+ * This Computer Enrollment — E2E spec (task 9.4)
  *
- * Verifies the UI-facing properties of Host CLI agents introduced by the
+ * Verifies the UI-facing properties of agents joined from this computer, using the
  * runtime_kind discriminator:
  *
- *   1. Agents page lists a Host CLI agent and shows the "Host CLI" badge.
- *   2. A Host CLI agent's detail view does NOT show a "Restart Container"
- *      button (lifecycle rejected for non-container agents per §6.3).
- *   3. Create Agent modal includes a "Host CLI" kind option.
+ *   1. Agents page lists an agent joined from this computer and shows the "This computer" badge.
+ *   2. That agent's detail view does NOT show a managed-workspace restart button.
+ *   3. Create Agent modal includes a "This computer" kind option.
  *
  * All backend calls are intercepted with page.route(); no real server is
  * required. Auth is injected via localStorage (same pattern as
@@ -19,7 +18,7 @@
  */
 
 // TODO(task 9.4): replace with live-backend tests once stack is available.
-test.describe.skip('Host CLI Enrollment — live-backend (requires running stack)', () => {})
+test.describe.skip('This computer enrollment — live-backend (requires running stack)', () => {})
 
 import { test, expect, type Page, type Route } from '@playwright/test'
 
@@ -46,7 +45,7 @@ const HOST_CLI_AGENT = {
 
 const CONTAINER_AGENT = {
   id: 'agent-container-1',
-  name: 'Codex Container',
+  name: 'Codex Managed Workspace',
   cliTool: 'codex',
   runtimeKind: 'container',
   provider: null,
@@ -241,10 +240,10 @@ async function openAgentsPage(
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-test.describe('Host CLI Enrollment — mocked UI (task 9.4)', () => {
-  // 1. Host CLI badge renders on the agent card ────────────────────────────────
+test.describe('This computer enrollment — mocked UI (task 9.4)', () => {
+  // 1. This computer badge renders on the agent card ───────────────────────────
 
-  test('1. Agents page shows "Host CLI" badge for runtime_kind=cli agent', async ({
+  test('1. Agents page shows "This computer" badge for runtime_kind=cli agent', async ({
     page,
     baseURL,
   }) => {
@@ -253,13 +252,13 @@ test.describe('Host CLI Enrollment — mocked UI (task 9.4)', () => {
     const card = page.locator('[data-testid="agent-card-agent-host-cli-1"]')
     await expect(card).toBeVisible({ timeout: 10_000 })
 
-    // The AgentKindBadge should render "Host CLI" for runtime_kind='cli'
-    await expect(card.getByText('Host CLI', { exact: true })).toBeVisible({ timeout: 5_000 })
+    // The AgentKindBadge should render "This computer" for runtime_kind='cli'
+    await expect(card.getByText('This computer', { exact: true })).toBeVisible({ timeout: 5_000 })
   })
 
-  // 2. Container agent card shows "Container" badge ───────────────────────────
+  // 2. Managed workspace agent card shows "Managed" badge ─────────────────────
 
-  test('2. Container agent shows "Container" badge (runtime_kind=container)', async ({
+  test('2. Managed workspace agent shows "Managed" badge (runtime_kind=container)', async ({
     page,
     baseURL,
   }) => {
@@ -268,12 +267,12 @@ test.describe('Host CLI Enrollment — mocked UI (task 9.4)', () => {
     const card = page.locator('[data-testid="agent-card-agent-container-1"]')
     await expect(card).toBeVisible({ timeout: 10_000 })
 
-    await expect(card.getByText('Container', { exact: true })).toBeVisible({ timeout: 5_000 })
+    await expect(card.getByText('Managed', { exact: true })).toBeVisible({ timeout: 5_000 })
   })
 
-  // 3. Host CLI agent detail does NOT expose a "Restart" / "Restart Container" button
+  // 3. This computer agent detail does NOT expose a managed-workspace restart button
 
-  test('3. Host CLI agent detail page has no Restart Container button', async ({
+  test('3. This computer agent detail page has no managed-workspace restart button', async ({
     page,
     baseURL,
   }) => {
@@ -284,15 +283,15 @@ test.describe('Host CLI Enrollment — mocked UI (task 9.4)', () => {
     // Give detail panel time to render
     await page.waitForTimeout(1_000)
 
-    // A container-restart button must NOT be present for a Host CLI agent
+    // A managed-workspace restart button must NOT be present for this computer agent.
     await expect(
-      page.getByRole('button', { name: /restart container/i })
+      page.getByRole('button', { name: /restart workspace/i })
     ).toHaveCount(0)
   })
 
-  // 4. Container agent detail DOES expose a Restart button ────────────────────
+  // 4. Managed workspace agent detail DOES expose a Restart button ────────────
 
-  test('4. Container agent detail page has Restart Container button', async ({
+  test('4. Managed workspace agent detail page has Restart button', async ({
     page,
     baseURL,
   }) => {
@@ -303,11 +302,11 @@ test.describe('Host CLI Enrollment — mocked UI (task 9.4)', () => {
     // Give detail panel time to render
     await page.waitForTimeout(1_000)
 
-    // Container agents should have a restart button (visible or at least present)
+    // Managed workspace agents should have a restart button.
     // We use a soft assertion here since the button may be inside a collapsed menu.
     const restartButton = page.getByRole('button', { name: /restart/i })
     const count = await restartButton.count()
-    // At minimum one restart-related button should exist for a container agent
+    // At minimum one restart-related button should exist for a managed workspace agent.
     expect(count).toBeGreaterThanOrEqual(0) // non-blocking — surface varies
   })
 

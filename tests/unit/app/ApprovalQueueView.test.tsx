@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { ApprovalQueueView } from '@app/features/context/ApprovalQueueView'
 import { orchestrationApi } from '@app/shared/api/orchestration'
@@ -32,6 +32,8 @@ vi.mock('@app/shared/api/orchestration', async () => {
 })
 
 const listContextCandidates = vi.mocked(orchestrationApi.listContextCandidates)
+const approveContextCandidate = vi.mocked(orchestrationApi.approveContextCandidate)
+const rejectContextCandidate = vi.mocked(orchestrationApi.rejectContextCandidate)
 
 const candidate: ContextCandidateSummary = {
   id: 'candidate-1',
@@ -56,6 +58,13 @@ beforeEach(() => {
   subscribeMock.mockClear()
   useContextStore.getState().reset()
   listContextCandidates.mockResolvedValue([candidate])
+  approveContextCandidate.mockResolvedValue({
+    candidate: { ...candidate, state: 'approved' },
+    item: null,
+  })
+  rejectContextCandidate.mockResolvedValue({
+    candidate: { ...candidate, state: 'rejected' },
+  })
 })
 
 afterEach(() => {
@@ -69,16 +78,105 @@ describe('ApprovalQueueView', () => {
     render(<ApprovalQueueView />)
 
     expect(await screen.findByTestId('context-approval-path')).toBeDefined()
-    expect(screen.getByText('Approval path')).toBeDefined()
-    expect(screen.getByText(/choose the smallest safe scope/i)).toBeDefined()
+    expect(screen.getByText('Review what agents can save')).toBeDefined()
+    expect(screen.getByText('Review steps')).toBeDefined()
+    expect(screen.getByText(/saved notes or instructions are useful/i)).toBeDefined()
+    expect(screen.getByText(/choose who can reuse it/i)).toBeDefined()
     expect(await screen.findByText('Use stable credentials')).toBeDefined()
+    expect(screen.getByText('Saved note')).toBeDefined()
+    expect(screen.getAllByText('Waiting for review').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/Saved\s+memory/i)).toBeNull()
+    expect(screen.queryByText('Pending')).toBeNull()
+    expect(screen.getAllByText('Only me').length).toBeGreaterThan(0)
+    expect(screen.getByText('Who can reuse it: Only me')).toBeDefined()
+    expect(screen.getByText('Original task preview available')).toBeDefined()
+    expect(screen.queryByText(/^Workspace /)).toBeNull()
+    expect(screen.queryByText(/^Owner /)).toBeNull()
+    expect(screen.queryByText(/^Run /)).toBeNull()
+    expect(screen.getByRole('button', { name: /^Save$/ })).toBeDefined()
+    expect(screen.getByRole('button', { name: /^Do not save$/ })).toBeDefined()
+    expect(screen.queryByRole('button', { name: /^Approve$/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Reject$/ })).toBeNull()
 
     await userEvent.setup().click(screen.getByTestId('context-approve-candidate-1'))
 
     expect(screen.getByTestId('context-decision-checklist')).toBeDefined()
-    expect(screen.getByText('Approve only when')).toBeDefined()
-    expect(screen.getByText(/scope is no wider than the people who need it/i)).toBeDefined()
-    expect(screen.getByText(/sensitivity and redaction match the content/i)).toBeDefined()
+    expect(screen.getByText('Save only when')).toBeDefined()
+    expect(screen.queryByText('Approve only when')).toBeNull()
+    expect(screen.getByText(/this saved item still helps/i)).toBeDefined()
+    expect(screen.getByText(/only the right people can reuse it/i)).toBeDefined()
+    expect(screen.getByText(/sensitive details are hidden before saving/i)).toBeDefined()
+    expect(screen.getByText('Who can reuse it')).toBeDefined()
+    expect(screen.getByText(/support reference from Settings/i)).toBeDefined()
+    expect(screen.getByText('Team internal')).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Review later' })).toBeDefined()
+    expect(screen.queryByRole('button', { name: /^Cancel$/ })).toBeNull()
+
+    await userEvent.setup().selectOptions(screen.getByTestId('context-approval-scope-kind'), 'team')
+
+    expect(screen.getByText('Team support reference')).toBeDefined()
+    expect(screen.getByPlaceholderText(/Team support reference from Settings/i)).toBeDefined()
+    expect(screen.getByText(/Paste the Team support reference before saving/i)).toBeDefined()
+    expect(screen.queryByText(/exact I[D] from settings/i)).toBeNull()
+  })
+
+  test('review later closes the decision panel without saving or rejecting', async () => {
+    const user = userEvent.setup()
+    render(<ApprovalQueueView />)
+
+    expect(await screen.findByText('Use stable credentials')).toBeDefined()
+
+    await user.click(screen.getByTestId('context-approve-candidate-1'))
+    expect(screen.getByTestId('context-decision-checklist')).toBeDefined()
+
+    await user.click(screen.getByRole('button', { name: 'Review later' }))
+
+    expect(approveContextCandidate).not.toHaveBeenCalled()
+    expect(rejectContextCandidate).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('context-decision-checklist')).toBeNull()
+    expect(screen.getByText('Use stable credentials')).toBeDefined()
+  })
+
+  test('labels recorded saved-item decisions without approval jargon', async () => {
+    listContextCandidates.mockResolvedValue([
+      { ...candidate, id: 'candidate-saved', state: 'approved' },
+      { ...candidate, id: 'candidate-not-saved', state: 'rejected' },
+      { ...candidate, id: 'candidate-replaced', state: 'superseded' },
+    ])
+
+    render(<ApprovalQueueView />)
+
+    expect(await screen.findByText('Saved')).toBeDefined()
+    expect(screen.getByText('Not saved')).toBeDefined()
+    expect(screen.getByText('Replaced')).toBeDefined()
+    expect(screen.queryByText('Approved')).toBeNull()
+    expect(screen.queryByText('Rejected')).toBeNull()
+  })
+
+  test('explains why saving waits for the original task details', async () => {
+    listContextCandidates.mockResolvedValue([
+      {
+        ...candidate,
+        id: 'candidate-missing-source',
+        source_available: false,
+      },
+    ])
+
+    render(<ApprovalQueueView />)
+
+    const item = await screen.findByTestId('context-candidate-candidate-missing-source')
+    expect(within(item).getByText('Task details need to load')).toBeDefined()
+    expect(
+      within(item).getByText('Save unlocks after the original task details load.')
+    ).toBeDefined()
+    expect(within(item).queryByText('Original task preview unavailable')).toBeNull()
+
+    const saveButton = within(item).getByRole('button', { name: /^Save$/ })
+    expect(saveButton).toBeDisabled()
+    expect(saveButton).toHaveAttribute(
+      'title',
+      'Refresh saved items, then save after the original task details load.'
+    )
   })
 
   test('explains how to recover from empty approval filters', async () => {
@@ -87,7 +185,107 @@ describe('ApprovalQueueView', () => {
     render(<ApprovalQueueView />)
 
     await waitFor(() => expect(listContextCandidates).toHaveBeenCalled())
-    expect(await screen.findByText('No candidates match these filters')).toBeDefined()
-    expect(screen.getByText(/switch state to all or clear item and scope filters/i)).toBeDefined()
+    const emptyState = await screen.findByTestId('context-approval-empty')
+    expect(within(emptyState).getByText('No saved items need review')).toBeDefined()
+    expect(
+      within(emptyState).getByText(
+        /when an agent suggests a saved note or saved instruction, it will appear here/i
+      )
+    ).toBeDefined()
+    expect(within(emptyState).getByText(/finish a task, then come back here/i)).toBeDefined()
+    expect(within(emptyState).queryByRole('button')).toBeNull()
+    expect(emptyState.textContent).not.toContain('No saved items match these filters')
+  })
+
+  test('clears item filters when they hide saved items from a new reviewer', async () => {
+    listContextCandidates.mockImplementation(async (query) => {
+      if (query.itemKind === 'skill') return []
+      return [candidate]
+    })
+
+    const user = userEvent.setup()
+    render(<ApprovalQueueView />)
+
+    expect(await screen.findByText('Use stable credentials')).toBeDefined()
+
+    await user.selectOptions(screen.getByLabelText('Item type'), 'skill')
+
+    const emptyState = await screen.findByTestId('context-approval-empty')
+    expect(within(emptyState).getByText('Filters are hiding saved items')).toBeDefined()
+    expect(
+      within(emptyState).getByText(/clear filters before assuming there is nothing to check/i)
+    ).toBeDefined()
+    expect(within(emptyState).getByText(/review everything first/i)).toBeDefined()
+    expect(emptyState.textContent).not.toContain('No saved items match these filters')
+
+    await user.click(within(emptyState).getByRole('button', { name: /clear filters/i }))
+
+    expect(await screen.findByText('Use stable credentials')).toBeDefined()
+    expect(screen.getByLabelText('Item type')).toHaveValue('all')
+  })
+
+  test('explains how saved item history starts before the first review', async () => {
+    listContextCandidates.mockResolvedValue([])
+
+    const user = userEvent.setup()
+    render(<ApprovalQueueView />)
+
+    await waitFor(() => expect(listContextCandidates).toHaveBeenCalled())
+    await user.click(screen.getByRole('button', { name: 'All saved items' }))
+
+    const emptyState = await screen.findByTestId('context-approval-empty')
+    expect(
+      within(emptyState).getByText('Review the first saved item to start history')
+    ).toBeDefined()
+    expect(
+      within(emptyState).getByText(/appear here after someone reviews the first suggestion/i)
+    ).toBeDefined()
+    expect(within(emptyState).getByText(/switch back to Waiting for review/i)).toBeDefined()
+    expect(within(emptyState).queryByText('No saved item history yet')).toBeNull()
+  })
+
+  test('shows beginner network guidance when the review list cannot load', async () => {
+    listContextCandidates.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+
+    render(<ApprovalQueueView />)
+
+    const error = await screen.findByTestId('context-approval-error')
+    expect(error.textContent).toContain(
+      'Check your connection, then refresh the saved item review list'
+    )
+    expect(error.textContent).toContain('Forge could not connect while loading saved items')
+    expect(error.textContent).not.toMatch(/failed to fetch/i)
+  })
+
+  test('shows beginner conflict guidance when approving fails', async () => {
+    approveContextCandidate.mockRejectedValueOnce(new Error('409 conflict'))
+
+    render(<ApprovalQueueView />)
+
+    await screen.findByText('Use stable credentials')
+    await userEvent.setup().click(screen.getByTestId('context-approve-candidate-1'))
+    await userEvent.setup().click(screen.getByTestId('context-approval-submit'))
+
+    const error = await screen.findByTestId('context-approval-error')
+    expect(error.textContent).toContain('Refresh the list, then open this item again')
+    expect(error.textContent).toContain('It changed while you were reviewing it')
+    expect(error.textContent).not.toContain('Code:')
+    expect(error.textContent).not.toContain('409 conflict')
+  })
+
+  test('shows beginner permission guidance when rejecting fails', async () => {
+    rejectContextCandidate.mockRejectedValueOnce(new Error('403 Forbidden'))
+
+    render(<ApprovalQueueView />)
+
+    await screen.findByText('Use stable credentials')
+    await userEvent.setup().click(screen.getByTestId('context-reject-candidate-1'))
+    await userEvent.setup().click(screen.getByTestId('context-reject-submit'))
+
+    const error = await screen.findByTestId('context-approval-error')
+    expect(error.textContent).toContain('Ask an owner or admin')
+    expect(error.textContent).toContain('owner or admin')
+    expect(error.textContent).toContain('do not have permission')
+    expect(error.textContent).not.toContain('403 Forbidden')
   })
 })

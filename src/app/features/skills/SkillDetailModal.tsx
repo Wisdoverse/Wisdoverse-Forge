@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import type { Skill } from '@app/shared/model/skills.store'
+import { knownWorkToolLabel, savedInstructionSourceLabel } from './model/savedInstructionLabels'
 
 interface SkillDetailModalProps {
   skill: Skill
@@ -11,11 +12,18 @@ interface SkillDetailModalProps {
 
 export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
   const { t } = useTranslation()
-  const version = skill.marketplace ? `${skill.marketplace}` : t('skills.detail.versionLatest')
+  const availability = skill.marketplace
+    ? skillAvailabilityLabel(skill.marketplace, (key) => t(key))
+    : t('skills.detail.availabilityLatest')
   const author = skill.pluginAuthor || t('skills.detail.unknownAuthor')
-  const source = skill.plugin || t('skills.detail.unknownSource')
+  const source = skill.plugin
+    ? savedInstructionSourceLabel(skill.plugin, t('skills.detail.unknownSource'))
+    : t('skills.detail.unknownSource')
+  const toolLabel = skill.cliTool ? knownWorkToolLabel(skill.cliTool) : null
   const cliLabel = skill.cliTool
-    ? t('skills.detail.cliFit', { tool: cliToolLabel(skill.cliTool) })
+    ? toolLabel
+      ? t('skills.detail.cliFit', { tool: toolLabel })
+      : t('skills.detail.unknownToolFit')
     : t('skills.detail.allAgentsFit')
 
   function handleBackdropClick(e: React.MouseEvent<HTMLDivElement>) {
@@ -70,7 +78,9 @@ export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
               className={uiStyles.badge}
               title={
                 skill.cliTool
-                  ? t('skills.detail.containerCliTooltip', { tool: cliToolLabel(skill.cliTool) })
+                  ? toolLabel
+                    ? t('skills.detail.containerCliTooltip', { tool: toolLabel })
+                    : t('skills.detail.unknownToolTooltip')
                   : t('skills.detail.allAgentsTooltip')
               }
             >
@@ -78,10 +88,21 @@ export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
             </span>
           </div>
 
+          <section className="rounded-card border border-apple-blue/20 bg-apple-blue/[0.06] px-3 py-2">
+            <h3 className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+              {t('skills.detail.nextStepHeading')}
+            </h3>
+            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              {skill.installed
+                ? t('skills.detail.nextStepReady')
+                : t('skills.detail.nextStepNeedsInstall')}
+            </p>
+          </section>
+
           <div className="grid gap-2 sm:grid-cols-3">
             <SkillMeta label={t('skills.detail.sourceLabel')} value={source} />
             <SkillMeta label={t('skills.detail.authorLabel')} value={author} />
-            <SkillMeta label={t('skills.detail.versionLabel')} value={version} />
+            <SkillMeta label={t('skills.detail.availabilityLabel')} value={availability} />
           </div>
 
           <section className="flex flex-col gap-1">
@@ -101,9 +122,9 @@ export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
               <p className="text-ui-body text-foreground-light dark:text-foreground-dark">
                 {t('skills.detail.triggerHelper')}
               </p>
-              <code className="mt-1 w-fit max-w-full rounded-full bg-black/[0.04] px-2 py-0.5 font-mono text-[11px] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
+              <span className="mt-1 w-fit max-w-full rounded-full bg-black/[0.04] px-2 py-0.5 text-ui-caption text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
                 {skill.triggerPattern}
-              </code>
+              </span>
             </section>
           )}
 
@@ -153,21 +174,15 @@ function SkillMeta({ label, value }: { label: string; value: string }) {
   )
 }
 
-function cliToolLabel(tool: string): string {
-  switch (tool) {
-    case 'claude':
-      return 'Claude Code'
-    case 'codex':
-      return 'Codex CLI'
-    case 'gemini':
-      return 'Gemini CLI'
-    case 'opencode':
-      return 'OpenCode'
+function skillAvailabilityLabel(value: string, translate: (key: string) => string): string {
+  switch (value.trim().toLowerCase()) {
+    case 'workspace':
+      return translate('skills.detail.availabilityWorkspace')
+    case 'global':
+      return translate('skills.detail.availabilityGlobal')
+    case 'project':
+      return translate('skills.detail.availabilityProject')
     default:
-      return tool
-        .split(/[_-]+/)
-        .filter(Boolean)
-        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-        .join(' ')
+      return translate('skills.detail.availabilityNeedsReview')
   }
 }

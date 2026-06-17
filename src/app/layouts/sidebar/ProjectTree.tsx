@@ -65,6 +65,26 @@ interface ProjectEditorState {
   error: string | null
 }
 
+type DeleteTargetState =
+  | {
+      target: 'team'
+      team: NavTeam
+      saving: boolean
+      error: string | null
+    }
+  | {
+      target: 'project'
+      project: NavProject
+      team: NavTeam
+      saving: boolean
+      error: string | null
+    }
+
+interface CopyFeedback {
+  message: string
+  tone: 'success' | 'error'
+}
+
 interface ProjectMenuItemProps {
   Icon: LucideIcon
   label: string
@@ -82,8 +102,189 @@ interface EmptyTreeHintProps {
   testId: string
 }
 
+interface DeleteConfirmationDialogProps {
+  state: DeleteTargetState
+  onCancel: () => void
+  onConfirm: () => void
+}
+
 const TEAM_MENU_SIZE = { width: 190, height: 108 }
 const PROJECT_MENU_SIZE = { width: 280, height: 456 }
+
+type RenameTarget = 'team' | 'project'
+
+function parseApiStatus(error: unknown): { status: number | null; detail: string | null } {
+  if (error && typeof error === 'object' && !(error instanceof Error)) {
+    const record = error as Record<string, unknown>
+    return {
+      status: firstStatus(record.statusCode, record.status, record.code),
+      detail: detailFromRecord(record),
+    }
+  }
+
+  if (!(error instanceof Error)) {
+    return typeof error === 'string' && error.trim()
+      ? { status: null, detail: error.trim() }
+      : { status: null, detail: null }
+  }
+
+  const message = error.message.trim()
+  const match = /^API\s+(\d{3}):\s*(.*)$/s.exec(message)
+  if (!match) return { status: null, detail: message || null }
+
+  const status = Number(match[1])
+  const body = match[2]?.trim()
+  if (!body) return { status, detail: null }
+
+  try {
+    const parsed = JSON.parse(body) as unknown
+    if (parsed && typeof parsed === 'object') {
+      const detail = detailFromRecord(parsed as Record<string, unknown>)
+      if (detail) return { status, detail }
+    }
+  } catch {
+    // Preserve plain-text server details below.
+  }
+
+  return { status, detail: body }
+}
+
+function firstStatus(...values: unknown[]): number | null {
+  for (const value of values) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    if (typeof value === 'string' && /^\d{3}$/.test(value.trim())) return Number(value.trim())
+  }
+  return null
+}
+
+function detailFromRecord(record: Record<string, unknown>): string | null {
+  const nestedError = record.error
+  if (nestedError && typeof nestedError === 'object' && !Array.isArray(nestedError)) {
+    const detail = detailFromRecord(nestedError as Record<string, unknown>)
+    if (detail) return detail
+  }
+
+  const details = record.details
+  if (details && typeof details === 'object' && !Array.isArray(details)) {
+    const detail = detailFromRecord(details as Record<string, unknown>)
+    if (detail) return detail
+  }
+
+  for (const key of ['serverError', 'error', 'message', 'detail', 'reason'] as const) {
+    const value = record[key]
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return null
+}
+
+function renameErrorMessage(target: RenameTarget, error: unknown): string {
+  const label = target === 'team' ? 'team' : 'project'
+
+  if (
+    error instanceof TypeError ||
+    (error instanceof Error && /^Failed to fetch$/i.test(error.message.trim()))
+  ) {
+    return `Check your connection, then save this ${label} name again. Forge could not connect while saving it.`
+  }
+
+  const { status, detail } = parseApiStatus(error)
+
+  if (!status) {
+    return renameValidationMessage(target, detail)
+  }
+
+  if (status === 401) {
+    return `Sign in again, then reopen the sidebar and save this ${label} name.`
+  }
+  if (status === 403) {
+    return `Ask an owner or admin to let you edit this ${label}, then save this ${label} name again from the sidebar. You do not have permission to rename this ${label}.`
+  }
+  if (status === 404) {
+    return `Refresh the sidebar, then choose the current ${label} again. This ${label} could not be found.`
+  }
+  if (status === 409) {
+    return `Refresh the sidebar, review the current name, then save this ${label} name again. This ${label} changed while you were editing.`
+  }
+  if (status === 422) {
+    return renameValidationMessage(target, detail)
+  }
+  if (status === 429) {
+    return `Wait a moment, then save this ${label} name again. The sidebar is busy.`
+  }
+  if (status >= 500) {
+    return `Refresh the sidebar, then save this ${label} name again. Forge could not save it right now. If it still fails, ask an owner or admin to check workspace setup.`
+  }
+
+  return `Refresh the sidebar, then save this ${label} name again. The ${label} name was not saved.`
+}
+
+function renameValidationMessage(target: RenameTarget, detail: string | null): string {
+  const label = target === 'team' ? 'team' : 'project'
+  const title = target === 'team' ? 'Team' : 'Project'
+  const normalized = detail?.toLowerCase() ?? ''
+
+  if (normalized.includes('duplicate') || normalized.includes('already')) {
+    return `Choose a different ${label} name, refresh the sidebar, then save again.`
+  }
+  if (normalized.includes('name')) {
+    return `Enter a ${label} name, then save again.`
+  }
+
+  return `Refresh the sidebar, then save this ${label} name again. The ${title.toLowerCase()} name was not saved.`
+}
+
+function deleteErrorMessage(target: RenameTarget, error: unknown): string {
+  const label = target === 'team' ? 'team' : 'project'
+
+  if (
+    error instanceof TypeError ||
+    (error instanceof Error && /^Failed to fetch$/i.test(error.message.trim()))
+  ) {
+    return `Check your connection, then delete this ${label} again from the sidebar.`
+  }
+
+  const { status, detail } = parseApiStatus(error)
+  const normalized = detail?.toLowerCase() ?? ''
+
+  if (!status) {
+    return deleteValidationMessage(target, normalized)
+  }
+  if (status === 401) {
+    return `Sign in again, then reopen the sidebar and delete this ${label} again.`
+  }
+  if (status === 403) {
+    return `Ask an owner or admin to let you delete this ${label}, then delete it again from the sidebar. You do not have permission to delete this ${label}.`
+  }
+  if (status === 404) {
+    return `Refresh the sidebar. This ${label} may already be gone.`
+  }
+  if (status === 409 || status === 422) {
+    return deleteValidationMessage(target, normalized)
+  }
+  if (status === 429) {
+    return `Wait a moment, then delete this ${label} again. The sidebar is busy.`
+  }
+  if (status >= 500) {
+    return `Refresh the sidebar, then delete this ${label} again. Forge could not delete it right now. If it still fails, ask an owner or admin to check workspace setup.`
+  }
+
+  return `Refresh the sidebar, then delete this ${label} again.`
+}
+
+function deleteValidationMessage(target: RenameTarget, normalized: string): string {
+  if (target === 'team' && normalized.includes('project')) {
+    return "Move or delete this team's projects first, then delete the team again."
+  }
+  if (target === 'project' && normalized.includes('agent')) {
+    return 'Move agents out of this project first, then delete the project again.'
+  }
+  if (target === 'project' && normalized.includes('task')) {
+    return "Move or finish this project's tasks first, then delete the project again."
+  }
+  return target === 'team'
+    ? 'Check whether this team still has projects or required access, then delete it again.'
+    : 'Check whether agents or tasks still depend on this project, then delete it again.'
+}
 
 function getMenuPosition(
   menu: ContextMenuPosition,
@@ -169,6 +370,81 @@ function EmptyTreeHint({ title, detail, actionLabel, Icon, onAction, testId }: E
   )
 }
 
+function DeleteConfirmationDialog({ state, onCancel, onConfirm }: DeleteConfirmationDialogProps) {
+  const titleId = `sidebar-delete-${state.target}-title`
+  const detailId = `sidebar-delete-${state.target}-detail`
+  const targetName = state.target === 'team' ? state.team.name : state.project.name
+  const title = state.target === 'team' ? 'Delete this team?' : 'Delete this project?'
+  const detail =
+    state.target === 'team'
+      ? `Check and move or finish any work you still need from "${targetName}" before deleting. Projects in this team leave the sidebar too. Agents are not deleted.`
+      : `Check and move or finish any work you still need from "${targetName}" before deleting. The project leaves this workspace, and agents are moved out instead of deleted.`
+  const confirmLabel = state.saving
+    ? 'Deleting...'
+    : state.target === 'team'
+      ? 'Delete team'
+      : 'Delete project'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+      <button
+        type="button"
+        aria-label="Close delete confirmation"
+        className="absolute inset-0 bg-black/40"
+        onClick={onCancel}
+        disabled={state.saving}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={detailId}
+        className="relative w-full max-w-[380px] rounded-lg bg-white p-5 shadow-xl dark:bg-[#2c2c2e]"
+      >
+        <h2
+          id={titleId}
+          className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark"
+        >
+          {title}
+        </h2>
+        <p
+          id={detailId}
+          className="mt-2 text-ui-body text-secondary-light dark:text-secondary-dark"
+        >
+          {detail}
+        </p>
+        {state.error && (
+          <div
+            role="alert"
+            className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-ui-caption text-red-600 dark:bg-red-900/20 dark:text-red-400"
+          >
+            {state.error}
+          </div>
+        )}
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            disabled={state.saving}
+            onClick={onCancel}
+            className="rounded-full bg-apple-gray-5 px-3 py-1.5 text-ui-button font-medium text-foreground-light disabled:opacity-50 dark:bg-white/[0.06] dark:text-foreground-dark"
+          >
+            Keep
+          </button>
+          <button
+            type="button"
+            disabled={state.saving}
+            onClick={onConfirm}
+            aria-busy={state.saving || undefined}
+            className="rounded-full bg-red-600 px-3 py-1.5 text-ui-button font-medium text-white disabled:opacity-50"
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function canManageTeam(team: NavTeam): boolean {
   return team.canManage !== false
 }
@@ -203,8 +479,9 @@ export function ProjectTree({
   const [projectMenu, setProjectMenu] = useState<ProjectMenuState | null>(null)
   const [teamEditor, setTeamEditor] = useState<TeamEditorState | null>(null)
   const [projectEditor, setProjectEditor] = useState<ProjectEditorState | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTargetState | null>(null)
   const [membersProject, setMembersProject] = useState<NavProject | null>(null)
-  const [copyMessage, setCopyMessage] = useState<string | null>(null)
+  const [copyFeedback, setCopyFeedback] = useState<CopyFeedback | null>(null)
 
   const loadOrgUsers = useCallback(() => userApi.getUsers(), [])
 
@@ -238,7 +515,7 @@ export function ProjectTree({
   )
 
   useEffect(() => {
-    if (!teamMenu && !projectMenu && !teamEditor && !projectEditor) return
+    if (!teamMenu && !projectMenu && !teamEditor && !projectEditor && !deleteTarget) return
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
@@ -246,18 +523,19 @@ export function ProjectTree({
         setProjectMenu(null)
         setTeamEditor(null)
         setProjectEditor(null)
+        setDeleteTarget(null)
       }
     }
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [teamMenu, projectMenu, teamEditor, projectEditor])
+  }, [teamMenu, projectMenu, teamEditor, projectEditor, deleteTarget])
 
   useEffect(() => {
-    if (!copyMessage) return
-    const timeout = window.setTimeout(() => setCopyMessage(null), 1800)
+    if (copyFeedback?.tone !== 'success') return
+    const timeout = window.setTimeout(() => setCopyFeedback(null), 1800)
     return () => window.clearTimeout(timeout)
-  }, [copyMessage])
+  }, [copyFeedback])
 
   if (teams.length === 0) {
     return (
@@ -265,7 +543,7 @@ export function ProjectTree({
         testId="project-tree-empty-teams"
         Icon={Users}
         title="Create a team first"
-        detail="Teams group projects and people. Add one, then create a project inside it."
+        detail="Teams keep projects and people together. Add one, then create a project inside it."
         actionLabel="Open Team Settings"
         onAction={onNavigate ? () => onNavigate('/settings/teams') : undefined}
       />
@@ -329,13 +607,16 @@ export function ProjectTree({
     setMembersProject(project)
   }
 
-  async function handleCopyProjectValue(value: string, successMessage: string) {
+  async function handleCopyProjectValue(value: string, successMessage: string, valueLabel: string) {
     setProjectMenu(null)
     try {
       await copyToClipboard(value)
-      setCopyMessage(successMessage)
+      setCopyFeedback({ message: successMessage, tone: 'success' })
     } catch {
-      setCopyMessage('Could not copy. Open project settings and copy it from there.')
+      setCopyFeedback({
+        message: `Forge cannot copy from this browser. Select this ${valueLabel}, then copy it manually: ${value}`,
+        tone: 'error',
+      })
     }
   }
 
@@ -345,7 +626,7 @@ export function ProjectTree({
 
     const name = teamEditor.name.trim()
     if (!name) {
-      setTeamEditor({ ...teamEditor, error: 'Team name is required' })
+      setTeamEditor({ ...teamEditor, error: 'Enter a team name, then save again.' })
       return
     }
 
@@ -358,7 +639,7 @@ export function ProjectTree({
         ...teamEditor,
         name,
         saving: false,
-        error: err instanceof Error ? err.message : 'Failed to update team',
+        error: renameErrorMessage('team', err),
       })
     }
   }
@@ -369,7 +650,7 @@ export function ProjectTree({
 
     const name = projectEditor.name.trim()
     if (!name) {
-      setProjectEditor({ ...projectEditor, error: 'Project name is required' })
+      setProjectEditor({ ...projectEditor, error: 'Enter a project name, then save again.' })
       return
     }
 
@@ -382,27 +663,38 @@ export function ProjectTree({
         ...projectEditor,
         name,
         saving: false,
-        error: err instanceof Error ? err.message : 'Failed to update project',
+        error: renameErrorMessage('project', err),
       })
     }
   }
 
-  async function handleDeleteTeam(team: NavTeam) {
+  function handleDeleteTeam(team: NavTeam) {
     setTeamMenu(null)
-    const confirmed = window.confirm(
-      `Delete team "${team.name}"? Projects in this team will also be removed from the sidebar.`
-    )
-    if (!confirmed) return
-    await onDeleteTeam(team.id)
+    setDeleteTarget({ target: 'team', team, saving: false, error: null })
   }
 
-  async function handleDeleteProject(project: NavProject) {
+  function handleDeleteProject(team: NavTeam, project: NavProject) {
     setProjectMenu(null)
-    const confirmed = window.confirm(
-      `Delete project "${project.name}"? The project disappears from this workspace, but agents are moved out instead of deleted.`
-    )
-    if (!confirmed) return
-    await onDeleteProject(project.id)
+    setDeleteTarget({ target: 'project', team, project, saving: false, error: null })
+  }
+
+  async function confirmDeleteTarget() {
+    if (!deleteTarget) return
+    setDeleteTarget({ ...deleteTarget, saving: true, error: null })
+    try {
+      if (deleteTarget.target === 'team') {
+        await onDeleteTeam(deleteTarget.team.id)
+      } else {
+        await onDeleteProject(deleteTarget.project.id)
+      }
+      setDeleteTarget(null)
+    } catch (err) {
+      setDeleteTarget({
+        ...deleteTarget,
+        saving: false,
+        error: deleteErrorMessage(deleteTarget.target, err),
+      })
+    }
   }
 
   return (
@@ -434,7 +726,7 @@ export function ProjectTree({
                     testId={`team-${team.id}-empty-projects`}
                     Icon={FolderPlus}
                     title="Add this team's first project"
-                    detail="Projects hold tasks, agents, and work lanes for the team."
+                    detail="Projects hold tasks, agents, and task queues for the team."
                     actionLabel="Open Project Settings"
                     onAction={onNavigate ? () => onNavigate('/settings/projects') : undefined}
                   />
@@ -501,7 +793,7 @@ export function ProjectTree({
                 className="w-full rounded-md px-2.5 py-1.5 text-left text-ui-caption text-foreground-light hover:bg-black/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.06]"
                 onClick={() => openTeamEditor(teamMenu.team)}
               >
-                Configure Team
+                Edit team details
               </button>
             )}
             {canDeleteTeam(teamMenu.team) && (
@@ -509,7 +801,7 @@ export function ProjectTree({
                 type="button"
                 role="menuitem"
                 className="w-full rounded-md px-2.5 py-1.5 text-left text-ui-caption text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-                onClick={() => void handleDeleteTeam(teamMenu.team)}
+                onClick={() => handleDeleteTeam(teamMenu.team)}
               >
                 Delete Team
               </button>
@@ -562,8 +854,8 @@ export function ProjectTree({
             />
             <ProjectMenuItem
               Icon={ListPlus}
-              label="Create task here"
-              detail="Start work in this project"
+              label="New task for this project"
+              detail="Open the task form with this project selected"
               onClick={() => void handleCreateTask(projectMenu.project)}
             />
             {canManageProject(projectMenu.project) && (
@@ -571,7 +863,7 @@ export function ProjectTree({
                 <ProjectMenuItem
                   Icon={Users}
                   label="Share project"
-                  detail="Invite people and choose roles"
+                  detail="Invite people and choose what they can do"
                   onClick={() => openProjectMembers(projectMenu.project)}
                 />
                 <ProjectMenuItem
@@ -593,10 +885,14 @@ export function ProjectTree({
             <div className="my-1 h-px bg-black/[0.06] dark:bg-white/[0.08]" />
             <ProjectMenuItem
               Icon={Copy}
-              label="Copy support ID"
-              detail={`${projectMenu.project.id} · use when an admin asks`}
+              label="Copy support reference"
+              detail="Only share this if Support asks for it"
               onClick={() =>
-                void handleCopyProjectValue(projectMenu.project.id, 'Project support ID copied')
+                void handleCopyProjectValue(
+                  projectMenu.project.id,
+                  'Project support reference copied',
+                  'project support reference'
+                )
               }
             />
             <ProjectMenuItem
@@ -604,7 +900,11 @@ export function ProjectTree({
               label="Copy link name"
               detail={`${projectMenu.project.slug} · appears in project links`}
               onClick={() =>
-                void handleCopyProjectValue(projectMenu.project.slug, 'Project link name copied')
+                void handleCopyProjectValue(
+                  projectMenu.project.slug,
+                  'Project link name copied',
+                  'project link name'
+                )
               }
             />
             {canDeleteProject(projectMenu.project) && (
@@ -615,7 +915,7 @@ export function ProjectTree({
                   label="Delete Project"
                   detail="Remove project, not the whole team"
                   tone="danger"
-                  onClick={() => void handleDeleteProject(projectMenu.project)}
+                  onClick={() => handleDeleteProject(projectMenu.team, projectMenu.project)}
                 />
               </>
             )}
@@ -623,26 +923,34 @@ export function ProjectTree({
         </div>
       )}
 
+      {deleteTarget && (
+        <DeleteConfirmationDialog
+          state={deleteTarget}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={() => void confirmDeleteTarget()}
+        />
+      )}
+
       {teamEditor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <button
             type="button"
-            aria-label="Close team configuration"
+            aria-label="Close team details"
             className="absolute inset-0 bg-black/40"
             onClick={() => setTeamEditor(null)}
           />
           <form
             role="dialog"
             aria-modal="true"
-            aria-labelledby="team-config-title"
+            aria-labelledby="team-details-title"
             className="relative w-[360px] rounded-lg bg-white p-5 shadow-xl dark:bg-[#2c2c2e]"
             onSubmit={handleSaveTeam}
           >
             <h2
-              id="team-config-title"
+              id="team-details-title"
               className="mb-4 text-ui-section font-semibold text-foreground-light dark:text-foreground-dark"
             >
-              Configure Team
+              Edit team details
             </h2>
             {teamEditor.error && (
               <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-ui-caption text-red-600 dark:bg-red-900/20 dark:text-red-400">
@@ -653,7 +961,7 @@ export function ProjectTree({
               htmlFor="team-config-name"
               className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
             >
-              Team Name
+              Team name people see
             </label>
             <input
               id="team-config-name"
@@ -760,17 +1068,19 @@ export function ProjectTree({
         />
       )}
 
-      {copyMessage && (
+      {copyFeedback && (
         <div
-          role="status"
+          role={copyFeedback.tone === 'error' ? 'alert' : 'status'}
           aria-live="polite"
           data-testid="project-copy-status"
           className={cn(
-            'fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-full px-4 py-2 text-ui-caption font-medium shadow-lg',
-            'bg-foreground-light text-white dark:bg-foreground-dark dark:text-black'
+            'fixed bottom-4 left-1/2 z-50 max-w-[min(34rem,calc(100vw-2rem))] -translate-x-1/2 break-words px-4 py-2 text-ui-caption font-medium shadow-lg',
+            copyFeedback.tone === 'error'
+              ? 'rounded-card border border-apple-red/25 bg-white text-apple-red dark:bg-[#2c2c2e]'
+              : 'rounded-full bg-foreground-light text-white dark:bg-foreground-dark dark:text-black'
           )}
         >
-          {copyMessage}
+          {copyFeedback.message}
         </div>
       )}
     </div>
@@ -790,6 +1100,11 @@ async function copyToClipboard(value: string) {
   textarea.style.opacity = '0'
   document.body.appendChild(textarea)
   textarea.select()
-  document.execCommand('copy')
-  textarea.remove()
+  try {
+    if (!document.execCommand('copy')) {
+      throw new Error('copy command rejected')
+    }
+  } finally {
+    textarea.remove()
+  }
 }

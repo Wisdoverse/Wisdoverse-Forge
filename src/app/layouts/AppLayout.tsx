@@ -19,16 +19,19 @@ interface AppLayoutProps {
 }
 
 const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
-  '/start': { title: 'Start', subtitle: 'First-run setup and launch checklist' },
-  '/tasks': { title: 'Tasks', subtitle: 'Plan, assign, and track agent work' },
-  '/inbox': { title: 'Inbox', subtitle: 'Notifications and updates' },
-  '/context/audit': { title: 'Context audit', subtitle: 'Governance event review and export' },
-  '/context': { title: 'Context', subtitle: 'Approval queue and governed context decisions' },
-  '/agents': { title: 'Agents', subtitle: 'Deploy and manage AI coding agents' },
-  '/skills': { title: 'Skills', subtitle: 'Reusable capabilities for your agents' },
-  '/analytics': { title: 'Analytics', subtitle: 'Agent performance and activity metrics' },
-  '/billing': { title: 'Billing', subtitle: 'Plan, usage, and invoices' },
-  '/settings': { title: 'Settings', subtitle: 'Account, providers, and workspace' },
+  '/start': { title: 'Start', subtitle: 'Set up Forge and send your first task' },
+  '/tasks': { title: 'Tasks', subtitle: 'Create tasks and follow agent progress' },
+  '/inbox': { title: 'Inbox', subtitle: 'See what needs your attention' },
+  '/context/audit': { title: 'Review history', subtitle: 'See what was reviewed or reused' },
+  '/context': {
+    title: 'Saved notes and instructions',
+    subtitle: 'Review what agents may reuse later',
+  },
+  '/agents': { title: 'Agents', subtitle: 'Create and manage agents that handle tasks' },
+  '/skills': { title: 'Saved instructions', subtitle: 'Instructions agents can follow again' },
+  '/analytics': { title: 'Analytics', subtitle: 'See agent activity and results' },
+  '/billing': { title: 'Billing', subtitle: 'Plan, payments, and invoices' },
+  '/settings': { title: 'Settings', subtitle: 'Set up your account, AI services, and team' },
   '/admin': { title: 'Admin', subtitle: 'System health and user management' },
 }
 
@@ -43,7 +46,7 @@ export function AppLayout({
   onNavigate,
 }: AppLayoutProps) {
   const activePath = useRouterState({ select: (s) => s.location.pathname })
-  const { viewMode, groupBy, setViewMode, setGroupBy } = useBoardStore()
+  const { viewMode, setViewMode } = useBoardStore()
   const toggleSidebar = useNavigationStore((s) => s.toggleSidebar)
   const sidebarExpanded = useNavigationStore((s) => s.sidebarExpanded)
   const { toggleTheme } = useTheme()
@@ -154,7 +157,7 @@ export function AppLayout({
     async (projectId: string) => {
       if (!(await selectProject(projectId))) {
         // One retry: the common cause is a transient fetch failure, and the
-        // task form would otherwise claim the project has no work lanes.
+        // task form would otherwise claim the project has no task queues.
         await selectProject(projectId)
       }
       handleNavigate('/tasks')
@@ -169,7 +172,11 @@ export function AppLayout({
       handleNavigate(path)
     } else if (commandId.startsWith('view:')) {
       const view = commandId.replace('view:', '') as typeof viewMode
+      handleNavigate('/tasks')
       setViewMode(view)
+    } else if (commandId === 'action:create-task') {
+      handleNavigate('/tasks')
+      setTaskFormOpen(true)
     } else if (commandId === 'action:toggle-theme') {
       toggleTheme()
     }
@@ -211,9 +218,7 @@ export function AppLayout({
             isMobile ? () => useNavigationStore.setState({ sidebarExpanded: true }) : undefined
           }
           viewMode={viewMode}
-          groupBy={groupBy}
           onViewChange={setViewMode}
-          onGroupByChange={setGroupBy}
           onCreateTask={() => setTaskFormOpen(true)}
           agentGroupSelector={
             isTasksPage ? (
@@ -276,6 +281,14 @@ export function AppLayout({
         selectedTaskGroupId={selectedGroupId}
         selectedTaskGroupName={selectedTaskGroup?.name ?? null}
         onProjectChange={selectProject}
+        onOpenAgentSetup={() => {
+          setTaskFormOpen(false)
+          handleNavigate('/agents')
+        }}
+        onOpenProjectSettings={() => {
+          setTaskFormOpen(false)
+          handleNavigate('/settings/projects')
+        }}
         onOpenTaskRouting={() => {
           setTaskFormOpen(false)
           handleNavigate('/agents')
@@ -292,12 +305,12 @@ export function AppLayout({
           }
           if (!groupId && !lanesLoaded) {
             throw new Error(
-              'Could not load work lanes for this project. Try creating the task again.'
+              'Task queues could not load for this project. Select the project again, then create the task.'
             )
           }
           if (!groupId) {
             throw new Error(
-              'Select a task group before creating a task. A task group is the work lane agents listen to; create one in Agents > Task Routing.'
+              'Create a task queue before creating a task. A task queue gives new work a place to wait. Open task queues to create one, then come back here.'
             )
           }
           const response = await orchestrationApi.createTask({
@@ -311,7 +324,7 @@ export function AppLayout({
             upsertTask(response.task)
             return
           }
-          throw new Error('Task API did not return the created task.')
+          throw response
         }}
       />
     </div>

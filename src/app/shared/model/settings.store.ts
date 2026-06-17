@@ -73,21 +73,21 @@ type SettingsErrorArea =
 type SettingsErrorAction = 'load' | 'save' | 'delete' | 'create' | 'revoke' | 'update'
 
 const SETTINGS_AREA_LABELS: Record<SettingsErrorArea, string> = {
-  providers: 'provider settings',
-  apiKeys: 'platform API keys',
-  gitCredentials: 'Git credentials',
-  sshKeys: 'SSH keys',
-  resourceProfiles: 'resource profiles',
-  runtime: 'runtime settings',
+  providers: 'AI service settings',
+  apiKeys: 'outside tool access keys',
+  gitCredentials: 'code access',
+  sshKeys: 'git@ Repository Access',
+  resourceProfiles: 'work capacity',
+  runtime: 'agent work settings',
 }
 
 const SETTINGS_ITEM_LABELS: Record<SettingsErrorArea, string> = {
-  providers: 'provider',
-  apiKeys: 'platform API key',
-  gitCredentials: 'Git credential',
-  sshKeys: 'SSH key',
-  resourceProfiles: 'resource profile',
-  runtime: 'runtime setting',
+  providers: 'AI service',
+  apiKeys: 'outside tool access key',
+  gitCredentials: 'code access',
+  sshKeys: 'git@ Repository Access',
+  resourceProfiles: 'agent size',
+  runtime: 'agent work setting',
 }
 
 function settingsActionPhrase(area: SettingsErrorArea, action: SettingsErrorAction): string {
@@ -110,38 +110,84 @@ function settingsActionPhrase(area: SettingsErrorArea, action: SettingsErrorActi
 }
 
 function statusFromSettingsError(error: unknown): number | null {
-  if (error && typeof error === 'object' && 'statusCode' in error) {
-    const statusCode = (error as { statusCode?: unknown }).statusCode
-    if (typeof statusCode === 'number') return statusCode
+  if (error && typeof error === 'object') {
+    for (const key of ['statusCode', 'status', 'code'] as const) {
+      const status = numericStatus((error as Record<string, unknown>)[key])
+      if (status) return status
+    }
   }
 
   const message = settingsErrorDetail(error)
-  const match = message?.match(/\b(?:HTTP|Server error \()? ?(\d{3})\b/)
+  const match = message?.match(/\b(?:API|HTTP|Server error \()? ?(\d{3})\b/)
   return match ? Number(match[1]) : null
+}
+
+function numericStatus(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && /^\d{3}$/.test(value.trim())) {
+    return Number.parseInt(value, 10)
+  }
+  return null
 }
 
 function settingsErrorDetail(error: unknown): string | null {
   if (typeof error === 'string' && error.trim()) return error.trim()
-  if (error instanceof Error && error.message.trim()) return error.message.trim()
-  if (error && typeof error === 'object' && 'error' in error) {
-    const value = (error as { error?: unknown }).error
-    if (typeof value === 'string' && value.trim()) return value.trim()
-  }
-  if (error && typeof error === 'object' && 'message' in error) {
-    const value = (error as { message?: unknown }).message
-    if (typeof value === 'string' && value.trim()) return value.trim()
+  if (error && typeof error === 'object') {
+    for (const key of ['serverError', 'detail', 'error', 'message', 'reason'] as const) {
+      const value = (error as Record<string, unknown>)[key]
+      if (typeof value === 'string' && value.trim()) return value.trim()
+    }
   }
   return null
+}
+
+function isSettingsConnectionFailure(detail: string | null): boolean {
+  if (!detail) return true
+  const normalized = detail.toLowerCase()
+  return (
+    normalized === 'network error' ||
+    normalized === 'failed to fetch' ||
+    normalized === 'load failed' ||
+    normalized.includes('networkerror') ||
+    normalized.includes('connection refused') ||
+    normalized.includes('could not reach')
+  )
 }
 
 function isRawSettingsFailure(detail: string | null): boolean {
   if (!detail) return true
   return (
+    /^API \d{3}/i.test(detail) ||
     /^HTTP \d{3}/i.test(detail) ||
     /^Server error \(\d{3}\)$/i.test(detail) ||
     /^Network error$/i.test(detail) ||
     /^Failed to fetch$/i.test(detail)
   )
+}
+
+function settingsConnectionMessage(actionPhrase: string, action: SettingsErrorAction): string {
+  if (action === 'load') {
+    return `Check your connection, then refresh Settings to ${actionPhrase}. Forge could not connect while loading Settings.`
+  }
+  return `Check your connection, then try to ${actionPhrase} again. Forge could not connect while updating Settings.`
+}
+
+function settingsUnavailableMessage(actionPhrase: string, action: SettingsErrorAction): string {
+  const operation = action === 'load' ? 'load Settings' : 'update Settings'
+  return `Refresh Settings, then try to ${actionPhrase} again. Forge could not ${operation} right now. If it still fails, ask an owner or admin to check Settings.`
+}
+
+function settingsPermissionMessage(area: SettingsErrorArea, actionPhrase: string): string {
+  if (area === 'gitCredentials') {
+    return `Ask an owner or admin to let you manage code access, then try to ${actionPhrase} again. You do not have permission to ${actionPhrase}.`
+  }
+  if (area === 'sshKeys') {
+    return `Ask an owner or admin to let you manage git@ Repository Access, then try to ${actionPhrase} again. You do not have permission to ${actionPhrase}.`
+  }
+  if (area === 'resourceProfiles') {
+    return `Ask an owner or admin to let you manage work capacity, then try to ${actionPhrase} again. You do not have permission to ${actionPhrase}.`
+  }
+  return `Ask an owner or admin to give you access to ${SETTINGS_AREA_LABELS[area]}, then try to ${actionPhrase} again. You do not have permission to ${actionPhrase}.`
 }
 
 export function settingsActionErrorMessage(
@@ -152,39 +198,113 @@ export function settingsActionErrorMessage(
   const actionPhrase = settingsActionPhrase(area, action)
   const status = statusFromSettingsError(error)
   const detail = settingsErrorDetail(error)
-  const suffix = !isRawSettingsFailure(detail) ? ` Details: ${detail}` : ''
 
   if (!status) {
-    if (!isRawSettingsFailure(detail)) {
-      return `Settings could not ${actionPhrase}. Review the message and try again.${suffix}`
+    if (isSettingsConnectionFailure(detail)) {
+      return settingsConnectionMessage(actionPhrase, action)
     }
-    return `Settings could not ${actionPhrase} because the browser could not reach the server. Check your connection and try again.${suffix}`
+    if (!isRawSettingsFailure(detail)) {
+      return settingsValidationMessage(area, action, detail)
+    }
+    return settingsConnectionMessage(actionPhrase, action)
   }
 
-  const statusText = `Code: ${status}.`
   if (status === 401) {
-    return `Sign in again, then ${actionPhrase}. ${statusText}${suffix}`
+    return `Sign in again, then open Settings and try to ${actionPhrase} again.`
   }
   if (status === 403) {
-    return `You do not have permission to ${actionPhrase}. Ask an admin to update your role. ${statusText}${suffix}`
+    return settingsPermissionMessage(area, actionPhrase)
   }
   if (status === 404) {
-    return `The settings service for ${SETTINGS_AREA_LABELS[area]} is not available. Refresh after the backend is deployed. ${statusText}${suffix}`
+    return `Settings for ${SETTINGS_AREA_LABELS[area]} are not ready yet. Refresh Settings, then try again.`
   }
   if (status === 409) {
-    return `This setting changed or already exists. Refresh the list, review the current value, then try again. ${statusText}${suffix}`
+    return `This ${SETTINGS_ITEM_LABELS[area]} changed or already exists. Refresh the list, review the current value, then try again.`
   }
   if (status === 422) {
-    return `Check the required fields for ${SETTINGS_ITEM_LABELS[area]}, then try again. ${statusText}${suffix}`
+    return settingsValidationMessage(area, action, detail)
   }
   if (status === 429) {
-    return `The settings service is busy. Wait a moment, then ${actionPhrase}. ${statusText}${suffix}`
+    return `The Settings page is busy. Wait a moment, then try to ${actionPhrase} again.`
   }
   if (status >= 500) {
-    return `The settings service had a server problem. Try again after the backend is healthy. ${statusText}${suffix}`
+    return settingsUnavailableMessage(actionPhrase, action)
   }
 
-  return `Settings could not ${actionPhrase}. Refresh the page and try again. ${statusText}${suffix}`
+  return `Refresh Settings, then try to ${actionPhrase} again. Settings could not ${actionPhrase}.`
+}
+
+function settingsValidationMessage(
+  area: SettingsErrorArea,
+  action: SettingsErrorAction,
+  detail: string | null
+): string {
+  const normalized = detail?.toLowerCase() ?? ''
+
+  if (area === 'providers') {
+    if (
+      normalized.includes('api key') ||
+      normalized.includes('token') ||
+      normalized.includes('key')
+    ) {
+      return 'Paste the service access key from the selected AI service, then save again.'
+    }
+    if (normalized.includes('model')) {
+      return 'Keep the suggested model or choose a supported model, then save again.'
+    }
+    if (normalized.includes('base url') || normalized.includes('base_url')) {
+      return 'Add the service address for this AI service, then save again.'
+    }
+    if (normalized.includes('provider')) {
+      return 'Choose an AI service from the list, then save again.'
+    }
+    return 'Choose the AI service, confirm the model, add the service access key if needed, then save again.'
+  }
+
+  if (area === 'apiKeys') {
+    return action === 'load'
+      ? 'Refresh outside tool access keys. If they still do not load, ask an owner or admin for access.'
+      : 'Name this outside tool access key, choose the allowed access, then create it again.'
+  }
+
+  if (area === 'gitCredentials') {
+    if (normalized.includes('not configured')) {
+      return 'Code access is not configured yet. Ask an owner or admin to finish GitHub or GitLab setup, then refresh code access.'
+    }
+    if (normalized.includes('provider')) {
+      return 'Choose GitHub or GitLab, then save code access again.'
+    }
+    if (normalized.includes('host')) {
+      return 'Check the GitHub or GitLab address. Leave it blank for github.com or gitlab.com, then save again.'
+    }
+    if (normalized.includes('token') || normalized.includes('key')) {
+      return 'Paste the code access key from GitHub or GitLab, then save again.'
+    }
+    return 'Choose GitHub or GitLab, paste the code access key, then save again.'
+  }
+
+  if (area === 'sshKeys') {
+    if (normalized.includes('label') || normalized.includes('name')) {
+      return 'Add a name for this git@ Repository Access, then save again.'
+    }
+    if (normalized.includes('private key') || normalized.includes('begin private key')) {
+      return 'Paste only the shareable one-line public key that starts with ssh-ed25519 or ssh-rsa, then save again. Do not paste a private key block.'
+    }
+    if (
+      normalized.includes('public key') ||
+      normalized.includes('ssh key') ||
+      normalized.includes('key')
+    ) {
+      return 'Paste the public key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
+    }
+    return 'Add a name for this access, paste the public key line, then save again.'
+  }
+
+  if (area === 'resourceProfiles') {
+    return 'Ask an owner or admin to add an agent size, then refresh Settings.'
+  }
+
+  return 'Choose an available work location and local tool, then save agent work settings again.'
 }
 
 interface SettingsState {
@@ -232,6 +352,7 @@ interface SettingsState {
   // Provider actions
   loadProviders: () => Promise<void>
   saveProvider: (input: CreateProviderInput) => Promise<LlmProviderConfig | null>
+  setProviderEnabled: (id: string, isEnabled: boolean) => Promise<LlmProviderConfig | null>
   deleteProvider: (id: string) => Promise<boolean>
 
   // API Key actions
@@ -323,6 +444,20 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       return provider
     } catch (err) {
       set({ providersError: settingsActionErrorMessage('providers', 'save', err) })
+      return null
+    }
+  },
+
+  setProviderEnabled: async (id, isEnabled) => {
+    set({ providersError: null })
+    try {
+      const provider = await getSettingsApi().updateProvider(id, { isEnabled })
+      set((state) => ({
+        providers: state.providers.map((current) => (current.id === id ? provider : current)),
+      }))
+      return provider
+    } catch (err) {
+      set({ providersError: settingsActionErrorMessage('providers', 'update', err) })
       return null
     }
   },

@@ -9,7 +9,9 @@ import {
   WandSparkles,
 } from 'lucide-react'
 import { taskResultArtifacts, type TaskSummary } from '@app/shared/api/orchestration'
+import { taskStateLabel } from '@app/entities/task'
 import { formatRelativeTime } from '@app/shared/lib/time'
+import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import { cn } from '@app/shared/lib/utils'
 
 interface DescriptionTabProps {
@@ -21,8 +23,11 @@ interface DescriptionTabProps {
 
 const HANDOFF_REVIEW_POINTS = [
   { label: 'Outcome', value: 'Confirm the result solves the original request.' },
-  { label: 'Evidence', value: 'Open artifacts or context before accepting the work.' },
-  { label: 'Reuse', value: 'Draft a skill only when the steps should help future tasks.' },
+  { label: 'Check work', value: 'Open result files or what the agent used before accepting.' },
+  {
+    label: 'Reuse',
+    value: 'Save the repeatable steps only when they should help future tasks.',
+  },
 ]
 
 export function DescriptionTab({
@@ -34,19 +39,29 @@ export function DescriptionTab({
   const resultArtifacts = taskResultArtifacts(task.result)
   const contextTotal = task.contextCounts?.total ?? 0
   const canReview = task.state === 'completed' || task.state === 'failed'
+  const hasBrief = taskHasBrief(task)
   const nextAction = nextActionForTask(task, resultArtifacts.length, contextTotal)
   const assignment = assignmentSummary(task)
+  const failurePreview = task.error ? taskFailurePreview(task.error) : null
+  const blockedPreview =
+    task.state === 'blocked' && task.blockedHint
+      ? taskBlockedPreview({
+          blockedHint: task.blockedHint,
+          blockedReason: task.blockedReason,
+          error: task.error,
+        })
+      : null
 
   return (
     <div className="space-y-3 py-3" data-testid="task-work-review">
       <ReviewSection title="Brief" Icon={FileText}>
-        {task.params.message ? (
+        {hasBrief ? (
           <p className="whitespace-pre-wrap text-xs leading-relaxed text-foreground-light dark:text-foreground-dark">
             {task.params.message}
           </p>
         ) : (
           <p className="text-xs italic text-secondary-light dark:text-secondary-dark">
-            No description provided.
+            {missingBriefCopy(task)}
           </p>
         )}
       </ReviewSection>
@@ -93,7 +108,7 @@ export function DescriptionTab({
       <ReviewSection title="Assignment" Icon={MessageSquare}>
         <div className="space-y-1.5 text-xs">
           <ReviewRow label="Agent" value={assignment.label} muted={!assignment.hasAgent} />
-          <ReviewRow label="State" value={stateLabel(task.state)} />
+          <ReviewRow label="State" value={taskStateLabel(task.state)} />
           <p
             data-testid="task-assignment-guidance"
             className={cn(
@@ -105,15 +120,18 @@ export function DescriptionTab({
           >
             {assignment.detail}
           </p>
-          {task.blockedHint && (
-            <p className="rounded-lg bg-apple-red/10 px-2 py-1.5 text-apple-red">
-              {task.blockedHint}
+          {blockedPreview && (
+            <p
+              data-testid="task-assignment-blocked-guidance"
+              className="rounded-lg bg-apple-red/10 px-2 py-1.5 text-apple-red"
+            >
+              {blockedPreview}
             </p>
           )}
         </div>
       </ReviewSection>
 
-      <ReviewSection title="Execution log" Icon={Clock3}>
+      <ReviewSection title="Task progress" Icon={Clock3}>
         <div className="space-y-1.5 text-xs">
           <ReviewRow label="Created" value={formatRelativeTime(task.createdAt)} />
           <ReviewRow label="Updated" value={formatRelativeTime(task.updatedAt)} />
@@ -136,20 +154,22 @@ export function DescriptionTab({
               </div>
             </div>
           )}
-          {task.error && (
-            <p className="rounded-lg bg-apple-red/10 px-2 py-1.5 text-apple-red">{task.error}</p>
+          {failurePreview && (
+            <p className="rounded-lg bg-apple-red/10 px-2 py-1.5 text-apple-red">
+              {failurePreview}
+            </p>
           )}
         </div>
       </ReviewSection>
 
-      <ReviewSection title="Artifacts and evidence" Icon={CheckCircle2}>
+      <ReviewSection title="Result files and evidence" Icon={CheckCircle2}>
         <div className="space-y-2 text-xs text-secondary-light dark:text-secondary-dark">
           <p>
             {resultArtifacts.length > 0
-              ? `${resultArtifacts.length} result artifact${resultArtifacts.length === 1 ? '' : 's'} ready for review.`
+              ? `${resultArtifacts.length} result file${resultArtifacts.length === 1 ? '' : 's'} ready for review.`
               : canReview
-                ? 'No result artifacts were attached.'
-                : 'Result artifacts appear here after the run finishes.'}
+                ? 'No result files were saved. Use Next action above, then retry or create a follow-up task if files are still needed.'
+                : 'Result files appear here after the task finishes.'}
           </p>
           {resultArtifacts.length > 0 && (
             <button
@@ -157,14 +177,16 @@ export function DescriptionTab({
               onClick={onOpenResult}
               className="inline-flex h-8 items-center gap-1.5 rounded-full bg-apple-blue/10 px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/15"
             >
-              <span>Open artifacts</span>
+              <span>Open result files</span>
               <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
             </button>
           )}
           <p>
             {contextTotal > 0
-              ? `${contextTotal} context item${contextTotal === 1 ? '' : 's'} applied to this task.`
-              : 'Context, evidence, and skill candidates are collected as the run produces them.'}
+              ? `${contextTotal} saved ${
+                  contextTotal === 1 ? 'note or instruction' : 'notes or instructions'
+                } helped this task.`
+              : 'Saved notes, work history, and save-for-next-time ideas appear here while the task is active.'}
           </p>
           {onOpenContext && (
             <button
@@ -172,19 +194,19 @@ export function DescriptionTab({
               onClick={onOpenContext}
               className="inline-flex h-8 items-center gap-1.5 rounded-full bg-black/[0.04] px-3 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.08] dark:bg-white/[0.06] dark:text-foreground-dark dark:hover:bg-white/[0.1]"
             >
-              <span>Review context</span>
+              <span>Review what was used</span>
               <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
             </button>
           )}
         </div>
       </ReviewSection>
 
-      <ReviewSection title="Reusable learning" Icon={WandSparkles}>
+      <ReviewSection title="Reuse what worked" Icon={WandSparkles}>
         <div className="space-y-2 text-xs text-secondary-light dark:text-secondary-dark">
           <p>
             {task.state === 'completed'
-              ? 'Completed work can become a governed skill after review.'
-              : 'The save-as-skill path becomes available once useful work is completed.'}
+              ? 'After review, save the repeatable steps if future tasks should reuse them.'
+              : 'The save-for-next-time path becomes available once useful work is completed.'}
           </p>
           {task.state === 'completed' && (
             <div className="flex flex-wrap gap-2">
@@ -195,7 +217,7 @@ export function DescriptionTab({
                   className="inline-flex h-8 items-center gap-1.5 rounded-full bg-apple-blue px-3 text-ui-button font-medium text-white transition-colors hover:bg-apple-blue-focus"
                 >
                   <WandSparkles size={13} strokeWidth={2.25} aria-hidden="true" />
-                  <span>Review skill candidates</span>
+                  <span>Review save ideas</span>
                 </button>
               )}
               {onDraftSkill && (
@@ -204,7 +226,7 @@ export function DescriptionTab({
                   onClick={onDraftSkill}
                   className="inline-flex h-8 items-center gap-1.5 rounded-full bg-black/[0.04] px-3 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.08] dark:bg-white/[0.06] dark:text-foreground-dark dark:hover:bg-white/[0.1]"
                 >
-                  <span>Draft reusable skill</span>
+                  <span>Draft saved instruction</span>
                   <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
                 </button>
               )}
@@ -236,6 +258,17 @@ function ReviewSection({
       {children}
     </section>
   )
+}
+
+function taskHasBrief(task: TaskSummary): boolean {
+  return task.params.message?.trim().length > 0
+}
+
+function missingBriefCopy(task: TaskSummary): string {
+  if (task.state === 'backlog') {
+    return 'Only the task title was saved. Before sending, add what to finish, where to look, and how you will check it.'
+  }
+  return 'No brief was saved. Open Updates to see what was asked before accepting, retrying, or closing this task.'
 }
 
 function ReviewRow({
@@ -272,40 +305,22 @@ function assignmentSummary(task: TaskSummary): {
   if (task.assignedAgentName) {
     return {
       label: task.assignedAgentName,
-      detail: 'This agent owns the next run for this task.',
+      detail: 'This agent will handle the next step for this task.',
       hasAgent: true,
     }
   }
   if (task.assignedTo) {
     return {
-      label: 'Assigned agent',
-      detail: 'An agent is assigned, but its display name has not loaded yet.',
+      label: 'Agent details loading',
+      detail:
+        'An agent was chosen, but its name has not loaded yet. Refresh this task so you can confirm the right agent before sending it.',
       hasAgent: true,
     }
   }
   return {
     label: 'Needs agent',
-    detail: 'Choose an agent before this task can leave the backlog.',
+    detail: 'Choose an agent before this task can start.',
     hasAgent: false,
-  }
-}
-
-function stateLabel(state: TaskSummary['state']): string {
-  switch (state) {
-    case 'backlog':
-      return 'Backlog'
-    case 'queued':
-      return 'Queued'
-    case 'working':
-      return 'Working'
-    case 'blocked':
-      return 'Blocked'
-    case 'completed':
-      return 'Completed'
-    case 'failed':
-      return 'Failed'
-    case 'canceled':
-      return 'Canceled'
   }
 }
 
@@ -314,39 +329,69 @@ function nextActionForTask(
   artifactCount: number,
   contextTotal: number
 ): { title: string; detail: string; tone: 'default' | 'success' | 'warn' } {
+  const hasBrief = taskHasBrief(task)
+  const hasAgent = Boolean(task.assignedTo || task.assignedAgentName)
+
   switch (task.state) {
     case 'backlog':
-      return task.assignedTo || task.assignedAgentName
+      if (!hasBrief) {
+        return hasAgent
+          ? {
+              title: 'Add details before sending',
+              detail:
+                'This task only has a title. Add what to finish, where to look, and how you will check it before sending.',
+              tone: 'warn',
+            }
+          : {
+              title: 'Add details and choose an agent',
+              detail:
+                'This task only has a title. Add what to finish, where to look, and how to check it, then choose an agent.',
+              tone: 'warn',
+            }
+      }
+      return hasAgent
         ? {
-            title: 'Ready for dispatch',
-            detail: 'Review the brief and queue this task when the assigned agent is available.',
+            title: 'Ready to send',
+            detail: 'Review the brief, then send it to this agent.',
             tone: 'default',
           }
         : {
             title: 'Assign an agent',
             detail:
-              'Choose an available agent or publish with context so the task leaves the backlog.',
+              'Choose an available agent, review the suggested saved notes and instructions, then send the task.',
             tone: 'warn',
           }
     case 'queued':
-      return {
-        title: 'Waiting for execution',
-        detail: 'Keep the brief current while the runtime claims the task.',
-        tone: 'default',
-      }
+      return task.assignedTo || task.assignedAgentName
+        ? {
+            title: 'Waiting for the agent to start',
+            detail:
+              'If this stays here, open Updates to check the last activity, then choose another agent if needed.',
+            tone: 'default',
+          }
+        : {
+            title: 'Waiting for an available agent',
+            detail:
+              'If this stays here, choose or start an agent so the task has someone to begin the work.',
+            tone: 'warn',
+          }
     case 'working':
       return {
         title: 'Monitor progress',
         detail:
           task.progress >= 80
-            ? 'Prepare to review artifacts when the agent completes the run.'
-            : 'Watch progress and use Block if the agent needs owner input.',
+            ? 'Prepare to review result files when the agent finishes this task.'
+            : 'Watch progress and use Needs help if the agent needs your input.',
         tone: 'default',
       }
     case 'blocked':
       return {
-        title: 'Resolve the blocker',
-        detail: task.blockedHint ?? task.blockedReason ?? 'Clarify what is missing, then reassign.',
+        title: 'Provide what is missing',
+        detail: taskBlockedPreview({
+          blockedHint: task.blockedHint,
+          blockedReason: task.blockedReason,
+          error: task.error,
+        }),
         tone: 'warn',
       }
     case 'completed':
@@ -354,25 +399,29 @@ function nextActionForTask(
         title: 'Review the handoff',
         detail:
           artifactCount > 0
-            ? 'Open artifacts, review context, and draft reusable learning if the work should repeat.'
+            ? 'Open result files, check what the agent reused, and save repeatable steps if future tasks should use them.'
             : contextTotal > 0
-              ? 'Review context and decide whether the completed work should become reusable learning.'
-              : 'Confirm the outcome and decide whether follow-up evidence or reusable learning is needed.',
+              ? 'Check what the agent reused, then save repeatable steps if future tasks should use them.'
+              : 'Confirm the outcome, then save repeatable steps or create a follow-up task if something is missing.',
         tone: 'success',
       }
     case 'failed':
       return {
-        title: 'Triage failure',
-        detail:
-          task.error ??
-          'Inspect the run history, then decide whether to retry or rewrite the brief.',
+        title: 'Review recovery',
+        detail: taskFailurePreview(task.error),
         tone: 'warn',
       }
     case 'canceled':
       return {
-        title: 'No active run',
+        title: 'Decide whether to continue',
         detail: 'Create a new task or reopen the brief if this work still matters.',
         tone: 'default',
+      }
+    default:
+      return {
+        title: 'Check current status',
+        detail: 'Open Updates to review the latest activity before starting, retrying, or closing.',
+        tone: 'warn',
       }
   }
 }

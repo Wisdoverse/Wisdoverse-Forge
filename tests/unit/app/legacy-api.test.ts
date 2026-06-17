@@ -232,6 +232,59 @@ describe('Legacy API adapter — URL prefixes', () => {
   })
 })
 
+describe('Legacy API adapter — beginner-safe fallback errors', () => {
+  beforeEach(() => {
+    resetLegacyApis()
+    Object.defineProperty(globalThis, 'navigator', {
+      value: { onLine: true },
+      writable: true,
+      configurable: true,
+    })
+    if (!globalThis.window) {
+      Object.defineProperty(globalThis, 'window', {
+        value: { addEventListener: vi.fn() },
+        writable: true,
+        configurable: true,
+      })
+    } else {
+      vi.spyOn(globalThis.window, 'addEventListener').mockImplementation(() => {})
+    }
+  })
+
+  afterEach(() => {
+    resetLegacyApis()
+    vi.restoreAllMocks()
+  })
+
+  it('uses an actionable request fallback when the server gives no clear message', async () => {
+    initLegacyApis(makeAuthManager(), () => {})
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 503,
+        statusText: 'Service Unavailable',
+        json: () => Promise.resolve({}),
+      })
+    )
+
+    const result = await getAgentApi().createUserLlmConfig({} as never)
+
+    expect(result.error).toBe('Wait a moment, then try again. Forge could not finish this request.')
+    expect(result.error).not.toContain('Server error')
+  })
+
+  it('uses an actionable network fallback when the request cannot connect', async () => {
+    initLegacyApis(makeAuthManager(), () => {})
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+
+    const result = await getAgentApi().testUserLlmConfig('cfg_1')
+
+    expect(result.error).toBe('Check your connection, then try again. Forge could not connect.')
+    expect(result.error).not.toContain('Network error')
+  })
+})
+
 // ---------------------------------------------------------------------------
 // Auth header injection
 // ---------------------------------------------------------------------------

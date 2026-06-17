@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import {
@@ -8,6 +8,10 @@ import {
   type CliImageTool,
   type CliImageToolState,
 } from '@app/shared/model/admin.store'
+import { CLI_IMAGE_RECOVERY, cliImageStatusErrorMessage } from './adminErrorCopy'
+
+const MIN_STATUS_REFRESH_MS = 60_000
+const DEFAULT_STATUS_REFRESH_MS = 5 * 60_000
 
 // ============================================================================
 // Presentation helpers
@@ -23,9 +27,9 @@ function stateLabel(state: CliImageToolState): string {
     case 'updated':
       return 'Just updated'
     case 'failed':
-      return 'Check failed'
+      return 'Choose Check now'
     case 'pending':
-      return 'Not checked yet'
+      return 'Run first check'
   }
 }
 
@@ -43,11 +47,20 @@ function stateDot(state: CliImageToolState): string {
   return 'bg-gray-400'
 }
 
-/** `sha256:abcdef…` → `abcdef…` truncated for display. */
-function shortDigest(digest: string | null): string {
-  if (!digest) return '—'
-  const bare = digest.includes(':') ? (digest.split(':').pop() ?? digest) : digest
-  return bare.length > 12 ? `${bare.slice(0, 12)}…` : bare
+function currentToolStatus(tool: CliImageTool): string {
+  if (!tool.localDigest) return 'Choose Check now to prepare the first tool'
+  return 'Ready for new agents'
+}
+
+function latestToolStatus(tool: CliImageTool): string {
+  if (!tool.remoteDigest) return 'Choose Check now to check for updates'
+  if (tool.state === 'update_available') return 'Update ready for new agents'
+  if (tool.state === 'failed') return 'Current tool kept until a check succeeds'
+  return 'No update needed'
+}
+
+function versionMarker(version: string | null): string {
+  return version ? `v${version}` : 'Choose Check now to find it'
 }
 
 /** Unix seconds → coarse "x ago" relative to now. */
@@ -58,6 +71,101 @@ function relativeTime(unix: number | null): string {
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
   if (seconds < 86_400) return `${Math.floor(seconds / 3600)}h ago`
   return `${Math.floor(seconds / 86_400)}d ago`
+}
+
+function statusRefreshMs(pollIntervalSecs?: number): number {
+  if (!pollIntervalSecs || pollIntervalSecs <= 0) return DEFAULT_STATUS_REFRESH_MS
+  return Math.max(pollIntervalSecs * 1000, MIN_STATUS_REFRESH_MS)
+}
+
+function statusRefreshLabel(ms: number): string {
+  const minutes = Math.max(1, Math.round(ms / 60_000))
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'}`
+  const hours = Math.round(minutes / 60)
+  return `${hours} hour${hours === 1 ? '' : 's'}`
+}
+
+function toolLabel(tool: string): string {
+  switch (tool) {
+    case 'claude':
+      return 'Claude'
+    case 'codex':
+      return 'Codex'
+    case 'gemini':
+      return 'Gemini'
+    case 'opencode':
+      return 'OpenCode'
+    default:
+      return tool
+        .split(/[-_\s]+/)
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .join(' ')
+  }
+}
+
+type CliImageIssueContext = 'check' | 'restart' | 'cleanup'
+
+function cliImageIssueNote(error: string, context: CliImageIssueContext): string {
+  const detail = error.toLowerCase()
+
+  if (
+    detail.includes('already in progress') ||
+    detail.includes('busy') ||
+    detail.includes('too many') ||
+    detail.includes('rate limit')
+  ) {
+    if (context === 'restart') {
+      return 'Another restart is already running. Wait for it to finish, then check this page again.'
+    }
+    return 'Another tool update is already running. Wait a minute, then choose Check now.'
+  }
+  if (
+    detail.includes('password') ||
+    detail.includes('token') ||
+    detail.includes('secret') ||
+    detail.includes('credential') ||
+    detail.includes('unauthorized') ||
+    detail.includes('forbidden') ||
+    detail.includes('permission') ||
+    detail.includes('auth')
+  ) {
+    return 'The tool updater reported an access setup problem. Ask an owner or admin to check tool package access, then choose Check now.'
+  }
+  if (
+    detail.includes('connection') ||
+    detail.includes('refused') ||
+    detail.includes('unreachable') ||
+    detail.includes('timeout') ||
+    detail.includes('timed out') ||
+    detail.includes('registry')
+  ) {
+    return 'The updater could not reach the tool package source. Check network access, then choose Check now.'
+  }
+  if (
+    detail.includes('space') ||
+    detail.includes('disk') ||
+    detail.includes('overlay') ||
+    detail.includes('cleanup') ||
+    detail.includes('prune')
+  ) {
+    return 'Old package cleanup could not finish. Ask an owner or admin to check disk space, then choose Check now.'
+  }
+  if (
+    context === 'restart' ||
+    detail.includes('stop') ||
+    detail.includes('start') ||
+    detail.includes('restart') ||
+    detail.includes('respawn') ||
+    detail.includes('container')
+  ) {
+    return 'Some agents could not restart cleanly. Open Agents, check affected agents, then restart them one at a time.'
+  }
+  if (context === 'cleanup') {
+    return 'Old package cleanup could not finish. Ask an owner or admin to check tool package cleanup, then choose Check now.'
+  }
+
+  return 'The tool updater reported a problem. Choose Check now again, then ask an owner or admin to check tool update setup if it still fails.'
 }
 
 function StateBadge({ state, label }: { state: CliImageToolState; label?: string }) {
@@ -92,30 +200,48 @@ function RollButton({ tool, control }: { tool: CliImageTool; control: RollContro
   // those agents individually from the Agents view instead.
   if (tool.agentsWithContainer === 0 || tool.updateMode === 'local_build') return null
 
+  const agentCountLabel =
+    tool.agentsWithContainer === 1 ? '1 agent' : `${tool.agentsWithContainer} agents`
+
   if (control.rolling) {
     return (
-      <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-        Rolling…
+      <span
+        role="status"
+        aria-live="polite"
+        className="text-ui-caption text-secondary-light dark:text-secondary-dark"
+      >
+        Restarting {agentCountLabel}...
       </span>
     )
   }
   if (control.confirming) {
     return (
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={control.onConfirm}
-          className="rounded-full bg-apple-red/10 px-3 py-1 text-ui-caption font-medium text-apple-red"
-        >
-          Interrupt {tool.agentsWithContainer} & roll
-        </button>
-        <button
-          type="button"
-          onClick={control.onCancel}
-          className="text-ui-caption text-secondary-light dark:text-secondary-dark"
-        >
-          Cancel
-        </button>
+      <div className="grid max-w-md gap-2 rounded-lg border border-apple-red/20 bg-apple-red/5 p-3">
+        <div>
+          <p className="text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
+            Restart {agentCountLabel} on the latest tool?
+          </p>
+          <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            These agents may briefly stop and reopen. Agents that are still working are left running
+            when the platform cannot restart them safely.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={control.onConfirm}
+            className="rounded-full bg-apple-red/10 px-3 py-1 text-ui-caption font-medium text-apple-red"
+          >
+            Restart {agentCountLabel} now
+          </button>
+          <button
+            type="button"
+            onClick={control.onCancel}
+            className="rounded-full border border-black/[0.1] px-3 py-1 text-ui-caption font-medium text-foreground-light dark:border-white/[0.12] dark:text-foreground-dark"
+          >
+            Keep agents running
+          </button>
+        </div>
       </div>
     )
   }
@@ -125,7 +251,7 @@ function RollButton({ tool, control }: { tool: CliImageTool; control: RollContro
       onClick={control.onRequest}
       className="rounded-full border border-black/[0.1] px-3 py-1 text-ui-caption font-medium text-foreground-light dark:border-white/[0.12] dark:text-foreground-dark"
     >
-      Roll onto new image
+      Restart agents on latest tool
     </button>
   )
 }
@@ -199,7 +325,7 @@ function ToolRow({
   // the first tick hasn't run yet", so an operator can't read gray "pending" as
   // "verified fine".
   const pendingOff = tool.state === 'pending' && !enabled
-  const badgeLabel = pendingOff ? 'Not checked — updates off' : undefined
+  const badgeLabel = pendingOff ? 'Check manually or turn updates on' : undefined
 
   return (
     <div className={cn('grid gap-3 px-4 py-3 sm:grid-cols-[1fr_auto]', uiStyles.row)}>
@@ -208,45 +334,41 @@ function ToolRow({
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-              {tool.tool}
+              {toolLabel(tool.tool)}
             </p>
             {localBuild && (
               <span className="rounded-full bg-black/[0.05] px-2 py-0.5 text-ui-caption text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-                Local build
+                Built here
               </span>
             )}
           </div>
           <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
             {tool.agentsWithContainer === 1
-              ? '1 agent currently has a container for this tool'
-              : `${tool.agentsWithContainer} agents currently have a container for this tool`}
+              ? '1 agent is currently using this tool'
+              : `${tool.agentsWithContainer} agents are currently using this tool`}
           </p>
           {tool.state === 'pending' ? (
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
               {enabled
-                ? 'No result yet — the first check has not finished.'
-                : 'This image has never been checked because automatic updates are off.'}
+                ? 'The first check is still running. Wait, then choose Check now if this stays unchanged.'
+                : 'Automatic updates are off. Choose Check now for a manual check, or ask an owner or admin to turn updates on.'}
             </p>
           ) : localBuild ? (
             <div className="mt-1 grid gap-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
               {/* Built on this server (no public registry image), so versions —
                   not registry digests — are the meaningful comparison. */}
-              <span className="font-mono">
-                installed: {tool.localVersion ? `v${tool.localVersion}` : 'unknown'}
+              <span>
+                Current version: {versionMarker(tool.localVersion)}
                 {tool.state === 'update_available' && tool.remoteVersion
-                  ? ` → latest on npm: v${tool.remoteVersion}`
+                  ? ` -> latest available: v${tool.remoteVersion}`
                   : ''}
               </span>
               <span>last checked {relativeTime(tool.lastCheckedUnix)}</span>
             </div>
           ) : (
             <div className="mt-1 grid gap-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              {/* The locally-pulled image the NEXT agent will start from — not
-                  necessarily what already-running agents booted from. */}
-              <span className="font-mono">next-agent image: {shortDigest(tool.localDigest)}</span>
-              <span className="font-mono">
-                latest in registry: {shortDigest(tool.remoteDigest)}
-              </span>
+              <span>New agents use: {currentToolStatus(tool)}</span>
+              <span>Latest check: {latestToolStatus(tool)}</span>
               <span>last checked {relativeTime(tool.lastCheckedUnix)}</span>
             </div>
           )}
@@ -263,10 +385,10 @@ function ToolRow({
           {tool.state === 'failed' && tool.lastError && (
             <div className="mt-2 rounded-card border border-apple-red/20 bg-apple-red/[0.04] px-3 py-2">
               <p className="text-ui-caption text-foreground-light dark:text-foreground-dark">
-                Last check failed. New agents keep the current image until the next check succeeds.
+                New agents keep the current tool package until the next check succeeds.
               </p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Reported detail: {tool.lastError}
+                What to do: {cliImageIssueNote(tool.lastError, 'check')}
               </p>
             </div>
           )}
@@ -277,7 +399,7 @@ function ToolRow({
         <BuildButton tool={tool} control={build} />
         {localBuild && build.autoBuildOn && (
           <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Auto-build on — new versions build themselves
+            Builds automatically — new versions build themselves
           </span>
         )}
         <RollButton tool={tool} control={roll} />
@@ -290,17 +412,7 @@ function ToolRow({
 // Config banner
 // ============================================================================
 
-function ConfigBanner({
-  enabled,
-  intervalSecs,
-  registry,
-  imageTag,
-}: {
-  enabled: boolean
-  intervalSecs: number
-  registry: string
-  imageTag: string
-}) {
+function ConfigBanner({ enabled, intervalSecs }: { enabled: boolean; intervalSecs: number }) {
   const intervalLabel =
     intervalSecs < 120 ? `${intervalSecs}s` : `${Math.round(intervalSecs / 60)} min`
 
@@ -327,11 +439,11 @@ function ConfigBanner({
         </p>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           {enabled
-            ? `This server checks for newer agent images about every ${intervalLabel} and pulls them so new agents start on the latest CLI. Running agents are never interrupted.`
-            : 'New agents keep using the image that was last pulled. Turn on CLI_IMAGE_AUTO_UPDATE_ENABLED in the deployment config to check and pull automatically.'}
+            ? `Forge checks for newer agent tool packages about every ${intervalLabel} and downloads them so new agents start on the latest tool version. Running agents are never interrupted.`
+            : 'New agents keep using the tool package that was last downloaded. Ask an owner or admin to turn on automatic tool updates in Admin settings so updates are checked and downloaded automatically.'}
         </p>
-        <p className="mt-1 text-ui-caption font-mono text-secondary-light dark:text-secondary-dark">
-          source: {registry}/agent-&lt;tool&gt;:{imageTag}
+        <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          Where updates come from is managed in Admin settings.
         </p>
       </div>
     </div>
@@ -356,12 +468,24 @@ export function CliImagesPanel() {
     cliImageBuildError,
   } = useAdminStore()
   const [confirmTool, setConfirmTool] = useState<string | null>(null)
+  const refreshMs = useMemo(
+    () => statusRefreshMs(cliImages?.pollIntervalSecs),
+    [cliImages?.pollIntervalSecs]
+  )
+  const refreshLabel = statusRefreshLabel(refreshMs)
+  const firstLoadRequestedRef = useRef(false)
 
   useEffect(() => {
-    void loadCliImages()
-    const interval = setInterval(() => void loadCliImages(), 30_000)
+    if (!firstLoadRequestedRef.current) {
+      firstLoadRequestedRef.current = true
+      void loadCliImages()
+    }
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'hidden') return
+      void loadCliImages()
+    }, refreshMs)
     return () => clearInterval(interval)
-  }, [loadCliImages])
+  }, [loadCliImages, refreshMs])
 
   const rollControlFor = (tool: string): RollControl => ({
     confirming: confirmTool === tool,
@@ -383,10 +507,11 @@ export function CliImagesPanel() {
     <div>
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>CLI agent images</h2>
+          <h2 className={uiStyles.sectionTitle}>Agent tool updates</h2>
           <p className={uiStyles.sectionDescription}>
-            Shows whether each Container CLI image (claude, codex, gemini, opencode) is current.
-            Refreshes every 30 seconds.
+            Shows whether each agent tool is ready for new agents. New agents use the latest
+            successful check. This page checks when opened, then about every {refreshLabel} while
+            visible. Checks pause when this browser tab is hidden.
           </p>
         </div>
         <button
@@ -400,16 +525,16 @@ export function CliImagesPanel() {
       </div>
 
       {cliImagesError && !cliImages && (
-        <div className={uiStyles.error}>
-          Could not load CLI image status. Try Check now again or confirm the API is reachable.
-          <span className="mt-1 block text-ui-caption">{cliImagesError}</span>
+        <div role="alert" aria-live="polite" className={uiStyles.error}>
+          <p>{cliImageStatusErrorMessage(cliImagesError)}</p>
+          <p className="mt-1 text-ui-caption">{CLI_IMAGE_RECOVERY}</p>
         </div>
       )}
 
       {cliImagesLoading && !cliImages && (
         <div className="flex items-center justify-center py-12">
           <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-            Checking CLI image status...
+            Checking agent tool updates...
           </p>
         </div>
       )}
@@ -418,9 +543,12 @@ export function CliImagesPanel() {
           screen. Surface that so the operator never reads minutes-old digests
           as current. */}
       {cliImagesError && cliImages && (
-        <div className={cn(uiStyles.error, 'mb-4')}>
-          The status below may be out of date — the latest refresh failed.
-          <span className="mt-1 block text-ui-caption">{cliImagesError}</span>
+        <div role="alert" aria-live="polite" className={cn(uiStyles.error, 'mb-4')}>
+          <p>
+            The status below may be out of date. Do not restart agents from this table until Check
+            now succeeds.
+          </p>
+          <p className="mt-1 text-ui-caption">{CLI_IMAGE_RECOVERY}</p>
         </div>
       )}
 
@@ -429,15 +557,22 @@ export function CliImagesPanel() {
           <ConfigBanner
             enabled={cliImages.autoUpdateEnabled}
             intervalSecs={cliImages.pollIntervalSecs}
-            registry={cliImages.registry}
-            imageTag={cliImages.imageTag}
           />
 
           <div className={cn(uiStyles.card)}>
             {cliImages.tools.length === 0 ? (
-              <p className="px-4 py-6 text-ui-body text-secondary-light dark:text-secondary-dark">
-                No pollable CLI tools are configured.
-              </p>
+              <div
+                data-testid="cli-images-empty-tools"
+                className="px-4 py-6 text-center text-ui-body"
+              >
+                <p className="font-medium text-foreground-light dark:text-foreground-dark">
+                  No agent tools are ready for update checks
+                </p>
+                <p className="mx-auto mt-1 max-w-xl text-secondary-light dark:text-secondary-dark">
+                  Open Agents to add or enable a work tool, then return here and choose Check now
+                  before restarting agents.
+                </p>
+              </div>
             ) : (
               cliImages.tools.map((tool) => (
                 <ToolRow
@@ -452,10 +587,11 @@ export function CliImagesPanel() {
           </div>
 
           {cliImageBuildError && (
-            <div className={cn(uiStyles.error, 'mt-4')}>
-              The build could not be started. Nothing was changed — try again once the cause below
-              is fixed.
-              <span className="mt-1 block text-ui-caption">{cliImageBuildError}</span>
+            <div role="alert" aria-live="polite" className={cn(uiStyles.error, 'mt-4')}>
+              Check the note below, then choose Build again. Nothing was changed.
+              <span className="mt-1 block text-ui-caption">
+                {cliImageIssueNote(cliImageBuildError, 'check')}
+              </span>
             </div>
           )}
 
@@ -464,8 +600,8 @@ export function CliImagesPanel() {
           <PruneSummaryBlock prune={cliImages.prune} />
 
           <p className="mt-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            “Agents with a container” is a rough hint of how many agents are running for each tool —
-            it does not confirm which exact image each one started from.
+            “Agents currently using this tool” is a rough hint of how many agents may restart. It
+            does not confirm which exact package each one started from.
           </p>
         </>
       )}
@@ -482,9 +618,9 @@ function RollResultBlock({
 }) {
   if (error) {
     return (
-      <div className={cn(uiStyles.error, 'mt-4')}>
-        The roll could not be started.
-        <span className="mt-1 block text-ui-caption">{error}</span>
+      <div role="alert" aria-live="polite" className={cn(uiStyles.error, 'mt-4')}>
+        Check the note below, then restart affected agents again.
+        <span className="mt-1 block text-ui-caption">{cliImageIssueNote(error, 'restart')}</span>
       </div>
     )
   }
@@ -496,24 +632,24 @@ function RollResultBlock({
   return (
     <div className="mt-4 rounded-card border border-black/[0.06] bg-black/[0.02] px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.03]">
       <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-        Last roll: {result.tool}
+        Last restart: {toolLabel(result.tool)}
       </p>
       <p className="mt-1 text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark">
-        {result.succeeded} of {result.total} agents respawned
-        {result.failed > 0 ? ` · ${result.failed} failed` : ''}
-        {result.skippedBusy > 0 ? ` · ${result.skippedBusy} skipped (busy)` : ''}
+        {result.succeeded} of {result.total} agents restarted
+        {result.failed > 0 ? ` · ${result.failed} need a retry` : ''}
+        {result.skippedBusy > 0 ? ` · ${result.skippedBusy} still working` : ''}
       </p>
       {result.skippedBusy > 0 && (
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Busy agents were left running to avoid interrupting their work — roll again once they are
-          idle.
+          Agents still working were left running to avoid interrupting their work. Restart again
+          once they show Ready.
         </p>
       )}
       {(nowStopped.length > 0 || stillRunning.length > 0) && (
         <div className="mt-2 rounded-card border border-apple-red/20 bg-apple-red/[0.04] px-3 py-2">
           {nowStopped.length > 0 && (
             <p className="text-ui-caption text-foreground-light dark:text-foreground-dark">
-              {nowStopped.length} {nowStopped.length === 1 ? 'agent' : 'agents'} did not respawn and{' '}
+              {nowStopped.length} {nowStopped.length === 1 ? 'agent' : 'agents'} did not restart and{' '}
               {nowStopped.length === 1 ? 'is' : 'are'} now stopped — restart from the Agents view.
             </p>
           )}
@@ -521,13 +657,13 @@ function RollResultBlock({
             <p className="text-ui-caption text-foreground-light dark:text-foreground-dark">
               {stillRunning.length} {stillRunning.length === 1 ? 'agent' : 'agents'} could not be
               stopped cleanly — {stillRunning.length === 1 ? 'it' : 'they'} may still be running on
-              the previous image, or may have stopped without respawning. Check the Agents view and
-              restart if needed.
+              the previous tool version, or may have stopped without restarting. Check the Agents
+              view and restart if needed.
             </p>
           )}
           {firstError && (
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Reported detail: {firstError}
+              What to do: {cliImageIssueNote(firstError, 'restart')}
             </p>
           )}
         </div>
@@ -545,30 +681,30 @@ function PruneSummaryBlock({ prune }: { prune: CliImagePruneStatus }) {
   return (
     <div className="mt-4 rounded-card border border-black/[0.06] bg-black/[0.02] px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.03]">
       <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-        Old image cleanup
+        Old tool package cleanup
       </p>
       {!prune.enabled && (
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Off. Superseded images are kept until removed manually. Turn on CLI_IMAGE_PRUNE_ENABLED in
-          the deployment config to reclaim their disk automatically.
+          Off. Old tool packages are kept until removed manually. Ask an owner or admin to turn on
+          automatic cleanup for old tool packages in Admin settings to reclaim disk automatically.
         </p>
       )}
       {neverRan && (
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          On, but no cleanup has run yet. Cleanup runs as part of the update check — confirm
-          CLI_IMAGE_AUTO_UPDATE_ENABLED is on, or wait for the first check to finish.
+          On, but no cleanup has run yet. Cleanup runs as part of the update check — ask an owner or
+          admin to confirm automatic tool updates are on, or wait for the first check to finish.
         </p>
       )}
       {prune.enabled && prune.lastRunUnix !== null && (
         <>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Superseded agent images are removed automatically after each check, freeing disk. Only
-            unused images for these tools are removed — never an image a container is using.
+            Old agent tool packages are removed automatically after each check, freeing disk. Only
+            unused packages for these tools are removed — never a package an agent is using.
           </p>
           <p className="mt-1 text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark">
-            Last sweep: {prune.removed} removed · {prune.skippedInUse} still in use ·{' '}
-            {prune.scanned} scanned
-            {prune.errors > 0 ? ` · ${prune.errors} errors` : ''} · checked{' '}
+            Last cleanup: {prune.removed} old packages removed · {prune.skippedInUse} kept because
+            agents use them · {prune.scanned} checked
+            {prune.errors > 0 ? ` · ${prune.errors} need a check` : ''} · ran{' '}
             {relativeTime(prune.lastRunUnix)}
           </p>
         </>
@@ -576,10 +712,11 @@ function PruneSummaryBlock({ prune }: { prune: CliImagePruneStatus }) {
       {hasErrors && prune.lastError && (
         <div className="mt-2 rounded-card border border-apple-red/20 bg-apple-red/[0.04] px-3 py-2">
           <p className="text-ui-caption text-foreground-light dark:text-foreground-dark">
-            The last cleanup hit {prune.errors} {prune.errors === 1 ? 'error' : 'errors'}.
+            The last cleanup needs a check for {prune.errors}{' '}
+            {prune.errors === 1 ? 'package' : 'packages'}.
           </p>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Reported detail: {prune.lastError}
+            What to do: {cliImageIssueNote(prune.lastError, 'cleanup')}
           </p>
         </div>
       )}

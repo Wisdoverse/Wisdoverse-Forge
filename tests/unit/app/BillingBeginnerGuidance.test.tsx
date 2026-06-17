@@ -48,7 +48,8 @@ describe('Billing beginner guidance', () => {
     render(<BillingPage />)
 
     expect(screen.getByText('Billing is not ready yet')).toBeInTheDocument()
-    expect(screen.getByText(/Billing is not enabled on this deployment yet/i)).toBeInTheDocument()
+    expect(screen.getByText(/Billing is not enabled for this workspace yet/i)).toBeInTheDocument()
+    expect(screen.queryByText(/deployment/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/integration/i)).not.toBeInTheDocument()
   })
 
@@ -65,9 +66,8 @@ describe('Billing beginner guidance', () => {
     expect(screen.getByText('Team Plan')).toBeInTheDocument()
     expect(screen.getByText('$29')).toBeInTheDocument()
     expect(screen.getByText('Payment due')).toBeInTheDocument()
-    expect(
-      screen.getByText(/Update your payment method to keep the plan active/i)
-    ).toBeDefined()
+    expect(screen.getByText(/Update your payment method to keep the plan active/i)).toBeDefined()
+    expect(screen.getByText(/billing management page/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /manage billing/i })).toHaveTextContent(
       'Manage billing'
     )
@@ -80,7 +80,41 @@ describe('Billing beginner guidance', () => {
     expect(screen.getByText('$0')).toBeInTheDocument()
     expect(screen.getByText(/No paid plan is active yet/i)).toBeInTheDocument()
     expect(screen.getByText(/Upgrade when your team needs more agents/i)).toBeInTheDocument()
+    expect(screen.getByText(/AI message use/i)).toBeInTheDocument()
+    expect(screen.queryByText(new RegExp('AI text\\s+usage', 'i'))).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /upgrade plan/i })).toHaveTextContent('Upgrade plan')
+  })
+
+  test('shows when the secure payment page is opening', () => {
+    render(
+      <PlanCard
+        plan={teamPlan}
+        subscription={null}
+        actionPending="checkout"
+        onUpgrade={vi.fn()}
+        onManage={vi.fn()}
+      />
+    )
+
+    const button = screen.getByRole('button', { name: /opening payment page/i })
+    expect(button).toBeDisabled()
+    expect(button).toHaveTextContent('Opening payment page...')
+  })
+
+  test('shows when the billing management page is opening', () => {
+    render(
+      <PlanCard
+        plan={teamPlan}
+        subscription={activeSubscription}
+        actionPending="portal"
+        onUpgrade={vi.fn()}
+        onManage={vi.fn()}
+      />
+    )
+
+    const button = screen.getByRole('button', { name: /opening billing page/i })
+    expect(button).toBeDisabled()
+    expect(button).toHaveTextContent('Opening billing page...')
   })
 
   test('translates usage metrics into plain-language capacity signals', () => {
@@ -94,9 +128,11 @@ describe('Billing beginner guidance', () => {
     expect(screen.getByText('Agents')).toBeInTheDocument()
     expect(screen.getByText('Almost full')).toBeInTheDocument()
     expect(screen.getByText(/Archive unused agents or upgrade/i)).toBeInTheDocument()
-    expect(screen.getByText('AI usage')).toBeInTheDocument()
+    expect(screen.getByText('AI message use')).toBeInTheDocument()
+    expect(screen.getByText(/Messages and replies processed/i)).toBeInTheDocument()
     expect(screen.getByText('No limit set')).toBeInTheDocument()
     expect(screen.getByText('1.2K used')).toBeInTheDocument()
+    expect(screen.queryByText(/tokens/i)).not.toBeInTheDocument()
   })
 
   test('gives invoices beginner-safe status descriptions and record links', () => {
@@ -122,11 +158,23 @@ describe('Billing beginner guidance', () => {
         createdAt: '2026-05-12T00:00:00.000Z',
         hostedInvoiceUrl: 'https://billing.example.test/inv-open',
       },
+      {
+        id: 'inv_draft_1234567890',
+        status: 'draft',
+        amountDue: 0,
+        amountPaid: 0,
+        total: 2900,
+        currency: 'usd',
+        createdAt: '2026-05-14T00:00:00.000Z',
+      },
     ]
 
     render(<InvoiceList invoices={invoices} />)
 
-    expect(screen.getByText(/Invoices appear after checkout/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Invoices appear after you start or change a plan/i)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/billing portal/i)).not.toBeInTheDocument()
     expect(screen.getByText('Paid')).toBeInTheDocument()
     expect(screen.getByText('No action needed.')).toBeInTheDocument()
     expect(screen.getByText('Payment due')).toBeInTheDocument()
@@ -139,18 +187,29 @@ describe('Billing beginner guidance', () => {
       'href',
       'https://billing.example.test/inv-open'
     )
+    expect(screen.getByText('Receipt appears after payment finishes')).toBeInTheDocument()
+    expect(screen.queryByText('No link')).not.toBeInTheDocument()
   })
 
   test('keeps invoice empty and error states actionable', () => {
     const { rerender } = render(<InvoiceList invoices={[]} />)
 
-    expect(screen.getByText('No invoices have been created yet')).toBeInTheDocument()
+    expect(screen.getByText('Invoices appear after your first charge')).toBeInTheDocument()
     expect(screen.getByText(/Receipts and payment links/i)).toBeInTheDocument()
+    expect(screen.getByText(/start or change a plan/i)).toBeInTheDocument()
+    expect(screen.queryByText('No invoices have been created yet')).not.toBeInTheDocument()
 
-    rerender(<InvoiceList invoices={[]} error="Could not load invoices" />)
+    rerender(
+      <InvoiceList
+        invoices={[]}
+        error="Refresh Billing to load invoices. Ask an owner or admin for access."
+      />
+    )
 
     const alert = screen.getByRole('alert')
-    expect(within(alert).getByText('Could not load invoices')).toBeInTheDocument()
-    expect(within(alert).getByText(/ask an administrator to check billing access/i)).toBeDefined()
+    expect(
+      within(alert).getByText('Refresh Billing to load invoices. Ask an owner or admin for access.')
+    ).toBeInTheDocument()
+    expect(within(alert).getByText(/ask an owner or admin to check billing access/i)).toBeDefined()
   })
 })

@@ -1,5 +1,16 @@
 import { describe, it, expect } from 'vitest'
-import { chatStreamHttpErrorMessage, parseSseFrame } from '@app/features/chat/useChatStream'
+import {
+  chatStreamEventErrorMessage,
+  chatStreamHttpErrorMessage,
+  chatStreamRequestErrorMessage,
+  parseSseFrame,
+} from '@app/features/chat/useChatStream'
+
+function expectBeginnerMessage(actual: string, expected: string): void {
+  expect(actual).toBe(expected)
+  expect(actual).not.toContain('Code:')
+  expect(actual).not.toContain('Details:')
+}
 
 describe('parseSseFrame', () => {
   it('parses message_start frame with JSON data', () => {
@@ -49,26 +60,135 @@ describe('parseSseFrame', () => {
 
 describe('chatStreamHttpErrorMessage', () => {
   it('turns auth failures into a clear next step', () => {
-    expect(chatStreamHttpErrorMessage(401)).toBe(
-      'Sign in again, then resend the message. The chat request was not authorized. Code: 401.'
+    expectBeginnerMessage(
+      chatStreamHttpErrorMessage(401),
+      'Sign in again, then open this agent chat and resend the message. Your sign-in expired.'
     )
   })
 
   it('explains missing agent access without exposing raw transport text', () => {
-    expect(chatStreamHttpErrorMessage(404, { message: 'agent missing' })).toBe(
-      'This agent could not be found. Refresh the Agents page and pick an active agent. Code: 404. Details: agent missing'
+    const message = chatStreamHttpErrorMessage(404, { message: 'agent missing' })
+
+    expectBeginnerMessage(
+      message,
+      'Refresh the Agents page, choose an active agent, then open chat again. This agent could not be found.'
+    )
+    expect(message).not.toContain('agent missing')
+  })
+
+  it('explains denied agent access with team space recovery guidance', () => {
+    const message = chatStreamHttpErrorMessage(403, { message: 'forbidden token scope' })
+
+    expectBeginnerMessage(
+      message,
+      'Ask an owner or admin to update your team space access before using this agent chat. You do not have access to this agent or team space.'
+    )
+    expect(message).not.toContain('workspace role')
+    expect(message).not.toContain('token')
+  })
+
+  it('turns busy agent conflicts into a wait step', () => {
+    expectBeginnerMessage(
+      chatStreamHttpErrorMessage(409, { message: 'agent is busy' }),
+      'Wait for the current reply to finish, then resend the message. This agent is already working.'
     )
   })
 
-  it('turns provider rate limits into an operator action', () => {
-    expect(chatStreamHttpErrorMessage(429)).toBe(
-      'The provider is rate limiting requests. Wait a moment, then resend the message. Code: 429.'
+  it('turns changed conversations into a refresh step', () => {
+    expectBeginnerMessage(
+      chatStreamHttpErrorMessage(409, { message: 'conversation changed' }),
+      'Refresh the chat, review the latest message, then try again. This conversation changed while the message was sending.'
     )
+  })
+
+  it('turns chat rate limits into an operator action', () => {
+    const message = chatStreamHttpErrorMessage(429)
+
+    expectBeginnerMessage(
+      message,
+      'Wait a moment, then resend the message. This agent is receiving too many messages right now.'
+    )
+    expect(message).not.toContain('provider')
+    expect(message).not.toContain('model service')
   })
 
   it('keeps server failures actionable for first-time operators', () => {
-    expect(chatStreamHttpErrorMessage(503, { error: 'service unavailable' })).toBe(
-      'The chat service had a server problem. Try again after the backend is healthy. Code: 503. Details: service unavailable'
+    const message = chatStreamHttpErrorMessage(503, { error: 'service unavailable' })
+
+    expectBeginnerMessage(
+      message,
+      'Wait a few minutes, then resend the message. Forge could not send this chat message right now. If it still fails, ask an owner or admin to check chat and agent setup.'
     )
+    expect(message).not.toContain('service unavailable')
+  })
+
+  it('keeps fallback send errors about the message, not transport details', () => {
+    const message = chatStreamHttpErrorMessage(418, { error: 'teapot route' })
+
+    expectBeginnerMessage(
+      message,
+      'Refresh this agent, then resend the message. This message was not sent.'
+    )
+    expect(message).not.toContain('chat request')
+    expect(message).not.toContain('teapot route')
+  })
+})
+
+describe('chatStreamEventErrorMessage', () => {
+  it('maps streamed rate limits without exposing raw event details', () => {
+    const message = chatStreamEventErrorMessage('provider_error: rate limited')
+
+    expectBeginnerMessage(
+      message,
+      'Wait a moment, then resend the message. This agent is receiving too many messages right now.'
+    )
+    expect(message).not.toContain('provider_error')
+  })
+
+  it('maps streamed permission failures to team space access guidance', () => {
+    const message = chatStreamEventErrorMessage('Forbidden token scope')
+
+    expectBeginnerMessage(
+      message,
+      'Ask an owner or admin to update your team space access before using this agent chat. You do not have access to this agent chat.'
+    )
+    expect(message).not.toContain('workspace role')
+    expect(message).not.toContain('token')
+  })
+
+  it('maps context limit errors to old-message guidance', () => {
+    const message = chatStreamEventErrorMessage('context window exceeded')
+
+    expectBeginnerMessage(
+      message,
+      'This chat has too many old messages. Clear chat only if those messages are no longer useful, then send the message again.'
+    )
+    expect(message).not.toContain('old context')
+    expect(message).not.toContain('context window')
+  })
+
+  it('maps unknown streamed failures to a resend and owner check step', () => {
+    const message = chatStreamEventErrorMessage('stream error')
+
+    expectBeginnerMessage(
+      message,
+      'Resend the message. The agent could not finish this reply. If it still fails, ask an owner or admin to check chat setup.'
+    )
+    expect(message).not.toContain('stream error')
+  })
+})
+
+describe('chatStreamRequestErrorMessage', () => {
+  it('starts network failures with the resend step', () => {
+    expectBeginnerMessage(
+      chatStreamRequestErrorMessage(new TypeError('Failed to fetch')),
+      'Check your connection, then resend the message. Forge could not connect while sending this message.'
+    )
+  })
+
+  it('keeps user-canceled sends quiet', () => {
+    const error = new DOMException('The user aborted a request.', 'AbortError')
+
+    expect(chatStreamRequestErrorMessage(error)).toBe('')
   })
 })

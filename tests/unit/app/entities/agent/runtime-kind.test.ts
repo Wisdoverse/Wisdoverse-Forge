@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { isApiAgent, isContainerAgent, isHostCliAgent } from '@app/entities/agent'
+import {
+  isApiAgent,
+  isContainerAgent,
+  isHostCliAgent,
+  runtimeKindLabel,
+  runtimeKindShortLabel,
+} from '@app/entities/agent'
 
 describe('runtime-kind specifications', () => {
   it('isHostCliAgent matches only runtimeKind="cli"', () => {
@@ -29,5 +35,22 @@ describe('runtime-kind specifications', () => {
     expect(isApiAgent({ runtimeKind: 'api' })).toBe(true)
     expect(isApiAgent({ runtimeKind: 'cli' })).toBe(false)
     expect(isApiAgent({ runtimeKind: 'container' })).toBe(false)
+  })
+
+  it('uses beginner-facing labels for chat-only agents', () => {
+    expect(runtimeKindLabel('api')).toBe('Chat-only AI service')
+    expect(runtimeKindShortLabel('api')).toBe('Chat-only')
+  })
+
+  it('uses beginner-facing labels when runtime kind is missing', () => {
+    expect(runtimeKindLabel(undefined)).toBe('Refresh work location')
+    expect(runtimeKindShortLabel(undefined)).toBe('Refresh location')
+  })
+
+  it('does not expose unknown runtime kind slugs', () => {
+    expect(runtimeKindLabel('future_runtime' as never)).toBe('Check work location')
+    expect(runtimeKindShortLabel('future_runtime' as never)).toBe('Review location')
+    expect(runtimeKindLabel('future_runtime' as never)).not.toContain('future_runtime')
+    expect(runtimeKindShortLabel('future_runtime' as never)).not.toContain('future_runtime')
   })
 })

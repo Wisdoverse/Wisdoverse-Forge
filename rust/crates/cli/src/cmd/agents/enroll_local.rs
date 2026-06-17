@@ -3,6 +3,7 @@ use crate::context::CliContext;
 use crate::error::{CliError, CliResult};
 use crate::output;
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 use std::io::Write;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
@@ -74,13 +75,15 @@ pub async fn run(args: EnrollLocalArgs, ctx: &CliContext, stdout: &mut dyn Write
         body.insert("cwd".into(), Value::String(cwd));
     }
 
+    let idempotency_key = enrollment_idempotency_key(&body)?;
     let data = ctx
         .client
-        .do_request(
+        .do_request_with_headers(
             reqwest::Method::POST,
             "/api/v1/agents/local-enroll",
             Some(&Value::Object(body)),
             ResponseKind::Auto,
+            &[("Idempotency-Key", idempotency_key.as_str())],
         )
         .await?
         .unwrap_or(Value::Null);
@@ -152,6 +155,13 @@ fn launch_command_from_response(data: &Value, shell_format: ShellFormat) -> Opti
     Some(format_launch_command(&entries, sidecar_command, shell_format))
 }
 
+fn enrollment_idempotency_key(body: &serde_json::Map<String, Value>) -> CliResult<String> {
+    let bytes =
+        serde_json::to_vec(body).map_err(|e| CliError::Other(format!("build enrollment idempotency key: {e}")))?;
+    let digest = Sha256::digest(bytes);
+    Ok(format!("cli-enroll-{}", hex::encode(&digest[..16])))
+}
+
 fn format_launch_command(entries: &[(&str, &str)], sidecar_command: &str, shell_format: ShellFormat) -> String {
     entries
         .iter()
@@ -215,5 +225,22 @@ mod tests {
             command,
             "$env:AGENTFORGE_AGENT_ID = 'agent-1'\n$env:AGENTFORGE_SERVER_URL = 'https://forge.example.com/team''s'\nagentforge-sidecar"
         );
+    }
+
+    #[test]
+    fn enrollment_idempotency_key_is_stable_and_header_safe() {
+        let mut body = serde_json::Map::new();
+        body.insert("cliTool".into(), Value::String("codex".into()));
+        body.insert("name".into(), Value::String("Host Codex".into()));
+
+        let key = enrollment_idempotency_key(&body).unwrap();
+
+        assert_eq!(key, enrollment_idempotency_key(&body).unwrap());
+        assert!(key.starts_with("cli-enroll-"));
+        assert!(key.len() <= 256);
+        assert!(key.chars().all(|ch| matches!(ch, '0'..='9' | 'a'..='z' | '-')));
+
+        body.insert("name".into(), Value::String("Another Host Codex".into()));
+        assert_ne!(key, enrollment_idempotency_key(&body).unwrap());
     }
 }

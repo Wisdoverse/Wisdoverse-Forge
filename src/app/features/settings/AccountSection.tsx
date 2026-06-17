@@ -1,4 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useAuth } from '@app/shared/model/auth.context'
@@ -7,6 +8,13 @@ import { useI18n } from '@app/shared/model/i18n.context'
 import { useSettingsStore } from '@app/shared/model/settings.store'
 import { getUserApi } from '@app/shared/api/legacy'
 import { useNavigationStore } from '@app/entities/navigation'
+import { userRoleLabel } from '@app/entities/user'
+import { accountErrorMessage } from './accountErrorMessages'
+
+function reportedAccountValue(value: string | null | undefined, fallback: string): string {
+  const trimmed = value?.trim()
+  return trimmed ? trimmed : fallback
+}
 
 // ============================================================================
 // Password Change Form
@@ -87,7 +95,7 @@ function PasswordChangeForm() {
       setSuccess(true)
       setForm(DEFAULT_PW_FORM)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Password was not changed. Try again.')
+      setError(accountErrorMessage('changePassword', err))
     } finally {
       setSaving(false)
     }
@@ -107,7 +115,11 @@ function PasswordChangeForm() {
         </div>
       )}
       {success && (
-        <div className="rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue">
+        <div
+          role="status"
+          aria-live="polite"
+          className="rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue"
+        >
           Password changed. Use the new password the next time you sign in.
         </div>
       )}
@@ -199,7 +211,7 @@ function PasswordChangeForm() {
 }
 
 // ============================================================================
-// Organization Rename Form
+// Team Space Rename Form
 // ============================================================================
 
 function OrgRenameForm() {
@@ -230,7 +242,7 @@ function OrgRenameForm() {
   if (!currentOrg) {
     return (
       <div className="rounded-card border border-black/[0.08] bg-black/[0.02] px-3 py-2 text-ui-body text-secondary-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark">
-        Select an organization from the sidebar before changing organization settings.
+        Select a team space from the sidebar before changing team space settings.
       </div>
     )
   }
@@ -265,7 +277,7 @@ function OrgRenameForm() {
       }
     } catch (err) {
       if (useNavigationStore.getState().selectedOrgId === submittingOrgId) {
-        setError(err instanceof Error ? err.message : 'Failed to rename organization')
+        setError(accountErrorMessage('renameOrganization', err))
       }
     } finally {
       setPendingOrgIds((prev) => {
@@ -280,15 +292,23 @@ function OrgRenameForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      {error && <div className={uiStyles.error}>{error}</div>}
+      {error && (
+        <div role="alert" className={uiStyles.error}>
+          {error}
+        </div>
+      )}
       {success && (
-        <div className="rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue">
-          Organization name updated. Teammates will see the new name in navigation.
+        <div
+          role="status"
+          aria-live="polite"
+          className="rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue"
+        >
+          Team space name updated. Teammates will see the new name in navigation.
         </div>
       )}
       <div>
         <label htmlFor="account-organization-name" className={uiStyles.label}>
-          Organization Name
+          Team Space Name
         </label>
         <input
           id="account-organization-name"
@@ -307,7 +327,7 @@ function OrgRenameForm() {
         </p>
         {!canEdit && (
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Only owners and admins can rename this organization.
+            Only owners and admins can rename this team space.
           </p>
         )}
       </div>
@@ -318,7 +338,7 @@ function OrgRenameForm() {
             disabled={saving || !dirty || !valid}
             className={uiStyles.primaryButton}
           >
-            {saving ? 'Saving...' : 'Save Organization Name'}
+            {saving ? 'Saving...' : 'Save Team Space Name'}
           </button>
         </div>
       )}
@@ -331,6 +351,7 @@ function OrgRenameForm() {
 // ============================================================================
 
 function GettingStartedGuideRow() {
+  const navigate = useNavigate()
   const preferences = useSettingsStore((s) => s.preferences)
   const preferencesLoaded = useSettingsStore((s) => s.preferencesLoaded)
   const loadPreferences = useSettingsStore((s) => s.loadPreferences)
@@ -346,11 +367,12 @@ function GettingStartedGuideRow() {
   }, [loadPreferences])
 
   const dismissed = preferences?.gettingStartedDismissed === true
+  const canOpenChecklist = preferencesLoaded && !dismissed
   const statusLine = !preferencesLoaded
-    ? 'Checking whether the guide is hidden...'
+    ? 'Checking whether the setup checklist is hidden...'
     : dismissed
-      ? 'The guide is hidden right now.'
-      : 'The guide is already visible in the sidebar.'
+      ? 'The setup checklist is hidden right now.'
+      : 'The setup checklist is already visible in the sidebar, so there is nothing to restore.'
 
   async function handleRestore() {
     setError(null)
@@ -361,8 +383,14 @@ function GettingStartedGuideRow() {
     if (ok) {
       setRestored(true)
     } else {
-      setError('The guide could not be restored. Check your connection and try again.')
+      setError(
+        'Check your connection, then choose Show setup checklist again. The setup checklist could not be shown.'
+      )
     }
+  }
+
+  function openChecklist() {
+    void navigate({ to: '/start' })
   }
 
   return (
@@ -370,20 +398,35 @@ function GettingStartedGuideRow() {
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-ui-body text-foreground-light dark:text-foreground-dark">
-            Getting started guide
+            Setup checklist
           </p>
           <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Hidden after you finish or skip it. {statusLine}
+            Skipping Start only hides the sidebar shortcut. It does not change projects, agents, or
+            tasks. Show it again here when you want the checklist back. {statusLine}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleRestore}
-          disabled={restoring || !preferencesLoaded || !dismissed}
-          className={cn(uiStyles.secondaryButton, 'shrink-0')}
-        >
-          {restoring ? 'Restoring...' : 'Show the guide again'}
-        </button>
+        <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+          {canOpenChecklist && !restored && (
+            <button
+              type="button"
+              onClick={openChecklist}
+              className={cn(
+                uiStyles.secondaryButton,
+                'inline-flex h-9 items-center justify-center text-apple-blue'
+              )}
+            >
+              Open setup checklist
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleRestore}
+            disabled={restoring || !preferencesLoaded || !dismissed}
+            className={uiStyles.secondaryButton}
+          >
+            {restoring ? 'Showing...' : 'Show in sidebar again'}
+          </button>
+        </div>
       </div>
       {error && (
         <div role="alert" className={cn(uiStyles.error, 'mb-0')}>
@@ -391,8 +434,25 @@ function GettingStartedGuideRow() {
         </div>
       )}
       {restored && (
-        <div className="rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue">
-          The guide is back. Open Start in the sidebar to continue the checklist.
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex flex-col gap-2 rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue sm:flex-row sm:items-center sm:justify-between"
+        >
+          <span>
+            The setup checklist is back in the sidebar. Open it whenever you want to check setup
+            again. Your projects, agents, and tasks were not changed.
+          </span>
+          <button
+            type="button"
+            onClick={openChecklist}
+            className={cn(
+              uiStyles.secondaryButton,
+              'inline-flex h-9 shrink-0 items-center justify-center text-apple-blue'
+            )}
+          >
+            Open setup checklist
+          </button>
         </div>
       )}
     </div>
@@ -425,7 +485,7 @@ export function AccountSection() {
               Username
             </span>
             <span className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-              {user?.username ?? '—'}
+              {reportedAccountValue(user?.username, 'Refresh this page to load username')}
             </span>
           </div>
           <div className="flex items-center justify-between px-4 py-3">
@@ -433,19 +493,21 @@ export function AccountSection() {
               Email
             </span>
             <span className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-              {user?.email ?? '—'}
+              {reportedAccountValue(user?.email, 'Refresh this page to load email')}
             </span>
           </div>
           <div className="flex items-center justify-between px-4 py-3">
-            <span className="text-ui-body text-secondary-light dark:text-secondary-dark">Role</span>
-            <span className={cn(uiStyles.activeBadge, 'capitalize')}>{user?.role ?? 'user'}</span>
+            <span className="text-ui-body text-secondary-light dark:text-secondary-dark">
+              Access level
+            </span>
+            <span className={uiStyles.activeBadge}>{userRoleLabel(user?.role)}</span>
           </div>
         </div>
       </div>
 
-      {/* Organization */}
+      {/* Team Space */}
       <div>
-        <h3 className={uiStyles.groupLabel}>Organization</h3>
+        <h3 className={uiStyles.groupLabel}>Team space</h3>
         <div className={uiStyles.cardPadded}>
           <OrgRenameForm />
         </div>

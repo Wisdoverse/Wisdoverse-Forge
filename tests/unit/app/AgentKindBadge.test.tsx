@@ -10,30 +10,30 @@ describe('AgentKindBadge', () => {
   test('explains local-machine agents without implementation details', () => {
     render(<AgentKindBadge cliTool={'workspace-tool' as never} runtimeKind="cli" />)
 
-    const badge = screen.getByText('Host CLI')
+    const badge = screen.getByText('This computer')
     expect(badge).toHaveAttribute(
       'title',
-      'Runs on an enrolled computer. Use it when work should stay on that machine.'
+      'Uses files and tools on this connected computer. Use it when work should stay there.'
     )
   })
 
   test('explains managed-workspace agents by what they can do', () => {
     render(<AgentKindBadge cliTool={'workspace-tool' as never} />)
 
-    const badge = screen.getByText('Container')
+    const badge = screen.getByText('Managed workspace')
     expect(badge).toHaveAttribute(
       'title',
-      'Runs in a managed workspace that can edit files, run commands, and collect evidence.'
+      'Uses a Forge-managed project workspace. It can change files, run checks, and save what it checked.'
     )
   })
 
-  test('explains prompt-only agents by their file access boundary', () => {
+  test('explains chat-only agents by their file access boundary', () => {
     render(<AgentKindBadge />)
 
-    const badge = screen.getByText('Provider')
+    const badge = screen.getByText('Chat-only')
     expect(badge).toHaveAttribute(
       'title',
-      'Handles text-only tasks with a connected model. It does not open workspace files.'
+      'Answers in chat through a connected AI service. It cannot open project files on its own.'
     )
   })
 })

@@ -31,7 +31,9 @@ describe('Billing views', () => {
 
     await waitFor(() => expect(loadAll).toHaveBeenCalledOnce())
     expect(screen.getByText('Billing is not ready yet')).toBeDefined()
-    expect(screen.getByText(/administrator connects the payment provider/i)).toBeDefined()
+    expect(
+      screen.getByText(/connect billing before changing plans or payment methods/i)
+    ).toBeDefined()
     expect(screen.getByText('Billing setup path')).toBeDefined()
   })
 
@@ -39,8 +41,10 @@ describe('Billing views', () => {
     render(<InvoiceList invoices={[]} />)
 
     expect(screen.getByText('Invoices and receipts')).toBeDefined()
-    expect(screen.getByText('No invoices have been created yet')).toBeDefined()
+    expect(screen.getByText('Invoices appear after your first charge')).toBeDefined()
     expect(screen.getByText(/Receipts and payment links/i)).toBeDefined()
+    expect(screen.getByText(/start or change a plan/i)).toBeDefined()
+    expect(screen.queryByText('No invoices have been created yet')).toBeNull()
   })
 
   test('uses payment-focused invoice labels', () => {

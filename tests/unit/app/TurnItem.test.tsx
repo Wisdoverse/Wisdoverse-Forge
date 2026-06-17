@@ -25,7 +25,7 @@ describe('TurnItem', () => {
     )
   })
 
-  test('labels tool calls as agent-used tools within the turn', () => {
+  test('labels tool calls as readable work steps within the turn', () => {
     render(
       <TurnItem
         turn={{
@@ -43,7 +43,15 @@ describe('TurnItem', () => {
       />
     )
 
-    expect(screen.getByLabelText('Tools used by the agent')).toBeDefined()
-    expect(screen.getByText('check_deployment')).toBeDefined()
+    expect(screen.getByLabelText('Work steps used by the agent')).toBeDefined()
+    expect(
+      screen.getByText(
+        /the agent recorded work steps during this turn.*open a step to see what happened before choosing the next move/i
+      )
+    ).toBeDefined()
+    expect(
+      screen.getByRole('button', { name: /show step details for check deployment/i })
+    ).toBeDefined()
+    expect(screen.queryByText('check_deployment')).toBeNull()
   })
 })

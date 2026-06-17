@@ -3,6 +3,8 @@ import { useDraggable } from '@dnd-kit/core'
 import { Brain, Send, WandSparkles } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
+import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
+import { taskMachineKey, taskPriorityLabel, taskStateLabel } from '@app/entities/task'
 import {
   taskResultArtifacts,
   type TaskContextCounts,
@@ -17,13 +19,6 @@ const STATE_DOTS: Record<string, string> = {
   completed: 'bg-apple-gray-2',
   failed: 'bg-apple-red',
   canceled: 'bg-apple-gray-3',
-}
-
-const PRIORITY_LABELS: Record<string, string> = {
-  urgent: 'Urgent',
-  high: 'High',
-  normal: 'Normal',
-  low: 'Low',
 }
 
 const PRIORITY_STYLES: Record<string, string> = {
@@ -55,6 +50,10 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
   const contextCounts = normalizedContextCounts(task.contextCounts)
   const showContextBadge = contextCounts.total > 0
   const hasAssignee = Boolean(task.assignedAgentName || task.assignedTo)
+  const hasBrief = taskHasBrief(task)
+  const stateKey = taskMachineKey(task.state)
+  const stateLabel = taskStateLabel(task.state)
+  const priorityKey = taskMachineKey(task.priority)
   const canPublish =
     task.state === 'backlog' ||
     task.state === 'queued' ||
@@ -65,8 +64,20 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
     : taskNextStep(task, {
         canOpenPublishPreview: canPublish && Boolean(onPublish),
         hasAssignee,
+        hasBrief,
         resultCount: resultArtifacts.length,
       })
+  const failurePreview =
+    task.state === 'failed' && task.error ? taskFailurePreview(task.error) : null
+  const blockedPreview =
+    task.state === 'blocked' && task.blockedHint
+      ? taskBlockedPreview({
+          blockedHint: task.blockedHint,
+          blockedReason: task.blockedReason,
+          error: task.error,
+        })
+      : null
+  const showPriorityBadge = priorityKey !== 'normal'
 
   function trackPressStart(e: PointerEvent<HTMLDivElement> | MouseEvent<HTMLDivElement>) {
     if (e.button !== 0) return
@@ -120,20 +131,22 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
     >
       <div className={cn('flex items-center justify-between', compact ? 'mb-1.5' : 'mb-2')}>
         <div className="flex items-center gap-1.5">
-          <div className={cn('h-1.5 w-1.5 rounded-full', STATE_DOTS[task.state])} />
+          <div
+            className={cn('h-1.5 w-1.5 rounded-full', STATE_DOTS[stateKey] ?? STATE_DOTS.backlog)}
+          />
           <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-            {task.id.slice(0, 8)}
+            {stateLabel}
           </span>
         </div>
         <div className="flex items-center gap-1">
-          {task.priority !== 'normal' && (
+          {showPriorityBadge && (
             <span
               className={cn(
                 'rounded-full border px-2 py-0.5 text-ui-caption font-medium',
-                PRIORITY_STYLES[task.priority] ?? PRIORITY_STYLES.low
+                PRIORITY_STYLES[priorityKey] ?? PRIORITY_STYLES.low
               )}
             >
-              {PRIORITY_LABELS[task.priority]}
+              {taskPriorityLabel(task.priority)}
             </span>
           )}
           {canPublish && onPublish && (
@@ -175,24 +188,24 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
         </div>
       )}
 
-      {task.state === 'failed' && task.error && (
+      {failurePreview && (
         <p
           data-testid="task-error-preview"
           className="mb-1.5 line-clamp-1 text-ui-caption font-medium text-apple-red"
-          title={task.error}
+          title={failurePreview}
         >
-          {task.error}
+          {failurePreview}
         </p>
       )}
 
-      {task.state === 'blocked' && task.blockedHint && (
+      {blockedPreview && (
         <p
           data-testid={`task-blocked-hint-${task.id}`}
           className="mb-1.5 flex items-start gap-1 text-ui-caption font-medium text-apple-red"
-          title={task.blockedHint}
+          title={blockedPreview}
         >
           <span aria-hidden="true">⚠</span>
-          <span>{task.blockedHint}</span>
+          <span>{blockedPreview}</span>
         </p>
       )}
 
@@ -211,7 +224,7 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
             {task.assignedAgentName ?? 'Assigned agent'}
           </span>
         ) : (
-          <span>No assignee</span>
+          <span>Needs agent</span>
         )}
         <span className="flex shrink-0 items-center gap-1.5">
           {showContextBadge && (
@@ -244,7 +257,7 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
               {resultArtifacts.length} file{resultArtifacts.length === 1 ? '' : 's'}
             </span>
           )}
-          <span>{formatRelativeTime(task.createdAt)}</span>
+          <span>Updated {formatRelativeTime(task.updatedAt || task.createdAt)}</span>
         </span>
       </div>
     </div>
@@ -269,24 +282,30 @@ function nonNegativeCount(value: unknown): number {
 interface TaskNextStepOptions {
   canOpenPublishPreview: boolean
   hasAssignee: boolean
+  hasBrief: boolean
   resultCount: number
 }
 
 function taskNextStep(task: TaskSummary, options: TaskNextStepOptions): string | null {
   switch (task.state) {
     case 'backlog':
+      if (!options.hasBrief) {
+        return options.hasAssignee
+          ? 'Open this card and add details before publishing.'
+          : 'Open this card, add details, then choose an agent.'
+      }
       if (!options.hasAssignee) {
         return options.canOpenPublishPreview
           ? 'Choose an agent, then preview and publish.'
           : 'Choose an agent before this task can start.'
       }
       return options.canOpenPublishPreview
-        ? 'Preview context, then publish when ready.'
-        : 'Open details to finish preparing this task.'
+        ? 'Review saved items, then publish.'
+        : 'Open this card, add details, then send it to an agent.'
     case 'queued':
       return options.hasAssignee
-        ? 'Waiting for the assigned agent to start.'
-        : 'Waiting for an available agent to pick this up.'
+        ? 'Waiting for the chosen agent to start. If it stays here, open details or choose another agent.'
+        : 'Waiting for an available agent to start. If it stays here, choose or start an agent.'
     case 'working':
       return 'Open details for live output and recent updates.'
     case 'blocked':
@@ -296,29 +315,33 @@ function taskNextStep(task: TaskSummary, options: TaskNextStepOptions): string |
       }
       return 'Open details to see what is blocking this task.'
     case 'failed':
-      return task.error
-        ? 'Open details, fix the error, then retry.'
-        : 'Open details, review the failure, then retry.'
+      return 'Open details, review the recovery note, then retry.'
     case 'completed':
       return options.resultCount > 0
-        ? 'Open details to review the result files.'
-        : 'Open details to review the final answer.'
+        ? 'Open details, review result files, then save repeatable steps or create a follow-up task.'
+        : 'Open details, check the final answer, then save repeatable steps or create a follow-up task.'
     case 'canceled':
       return 'Open details to see why it was canceled.'
     default:
-      return null
+      return 'Open details to check the current status before taking action.'
   }
+}
+
+function taskHasBrief(task: TaskSummary): boolean {
+  return task.params.message?.trim().length > 0
 }
 
 function formatContextCountsLabel(counts: TaskContextCounts): string {
   const parts = []
   if (counts.appliedMemories > 0) {
     parts.push(
-      `${counts.appliedMemories} applied ${counts.appliedMemories === 1 ? 'memory' : 'memories'}`
+      `${counts.appliedMemories} saved ${counts.appliedMemories === 1 ? 'note' : 'notes'} added`
     )
   }
   if (counts.appliedSkills > 0) {
-    parts.push(`${counts.appliedSkills} applied ${counts.appliedSkills === 1 ? 'skill' : 'skills'}`)
+    parts.push(
+      `${counts.appliedSkills} saved ${counts.appliedSkills === 1 ? 'instruction' : 'instructions'} added`
+    )
   }
   return parts.join(', ')
 }

@@ -8,14 +8,15 @@ describe('FeatureRouteLoadingState', () => {
   test('explains what is being checked and what to do next', () => {
     render(
       <FeatureRouteLoadingState
-        title="Checking context review"
-        detail="We are confirming whether context review is enabled for this workspace. If this takes more than a moment, refresh the page or ask an administrator to check setup."
+        title="Checking saved item review"
+        detail="We are checking whether saved item review is available for this workspace. If this takes more than a moment, refresh the page or ask an owner or admin to check workspace setup."
       />
     )
 
-    expect(screen.getByRole('status')).toHaveTextContent('Checking context review')
+    expect(screen.getByRole('status')).toHaveTextContent('Checking saved item review')
     expect(screen.getByRole('status')).toHaveTextContent(
-      'refresh the page or ask an administrator to check setup'
+      'refresh the page or ask an owner or admin to check workspace setup'
     )
+    expect(screen.getByRole('status')).not.toHaveTextContent(/context\s+review/i)
   })
 })

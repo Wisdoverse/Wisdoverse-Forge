@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  AlertTriangle,
   Info,
   Search,
   ShieldCheck,
@@ -18,6 +19,7 @@ import type {
   UpdateResourceMemberInput,
 } from '@app/entities/member'
 import type { OrgUser } from '@app/entities/user'
+import { resourceMemberErrorMessage } from '../model/resourceMemberErrorMessages'
 
 const ROLE_OPTIONS: Array<{ value: ResourceMemberRole; label: string }> = [
   { value: 'owner', label: 'Owner' },
@@ -40,18 +42,18 @@ const MEMBER_ROLE_GUIDANCE: {
   Icon: LucideIcon
 }[] = [
   {
-    title: 'Start with Member',
+    title: 'Start with Member access',
     description: 'Use this for people who only need normal access to this team or project.',
     Icon: Users,
   },
   {
-    title: 'Use Maintainer for daily setup',
-    description: 'Maintainers can help with routine work without owning access decisions.',
+    title: 'Use Maintainer access for everyday changes',
+    description: 'Maintainers can help manage day-to-day work without deciding who gets access.',
     Icon: ShieldCheck,
   },
   {
-    title: 'Reserve Owner and Admin',
-    description: 'Give these roles only to people who should manage access for others.',
+    title: 'Keep Owner and Admin access limited',
+    description: 'Choose these only for people who should manage access for everyone else.',
     Icon: Info,
   },
 ]
@@ -100,11 +102,7 @@ export function ResourceMembersModal({
       })
       .catch((err) => {
         if (cancelled) return
-        setError(
-          err instanceof Error
-            ? err.message
-            : `Failed to load ${resourceLabel.toLowerCase()} members`
-        )
+        setError(resourceMemberErrorMessage('load', resourceLabel, err))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -166,7 +164,7 @@ export function ResourceMembersModal({
       setSelectedRole('member')
       setConfirmRemoveUserId(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add member')
+      setError(resourceMemberErrorMessage('add', resourceLabel, err))
     } finally {
       setBusyKey(null)
     }
@@ -181,7 +179,7 @@ export function ResourceMembersModal({
       const updated = await updateMember(member.userId, { role })
       setMembers((prev) => prev.map((item) => (item.userId === member.userId ? updated : item)))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update member role')
+      setError(resourceMemberErrorMessage('updateRole', resourceLabel, err))
     } finally {
       setBusyKey(null)
     }
@@ -196,7 +194,7 @@ export function ResourceMembersModal({
       setMembers((prev) => prev.filter((item) => item.userId !== member.userId))
       setConfirmRemoveUserId(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to remove member')
+      setError(resourceMemberErrorMessage('remove', resourceLabel, err))
     } finally {
       setBusyKey(null)
     }
@@ -238,7 +236,7 @@ export function ResourceMembersModal({
                   id="resource-members-title"
                   className="truncate text-ui-title font-semibold text-foreground-light dark:text-foreground-dark"
                 >
-                  {resourceLabel} Members
+                  {resourceLabel} members
                 </h2>
                 <span className={cn(uiStyles.badge, 'shrink-0 tabular-nums')}>
                   {members.length}
@@ -272,11 +270,11 @@ export function ResourceMembersModal({
           <div className="rounded-card border border-black/[0.08] bg-black/[0.015] p-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
             <div className="mb-3">
               <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-                Add Existing Organization Members
+                Add people already in your team space
               </p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Search for a person, choose their role, then add them to this{' '}
-                {resourceLabel.toLowerCase()}. Roles can be changed later.
+                Search for a person, choose what they can do, then add them to this{' '}
+                {resourceLabel.toLowerCase()}. You can change this later.
               </p>
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)_auto_auto]">
@@ -293,7 +291,7 @@ export function ResourceMembersModal({
                   value={memberFilter}
                   onChange={(event) => setMemberFilter(event.target.value)}
                   disabled={loading || candidateUsers.length === 0}
-                  aria-label="Filter organization members"
+                  aria-label="Filter team-space people"
                   aria-describedby={addStatusId}
                   autoComplete="off"
                   placeholder="Search people by name or email…"
@@ -305,7 +303,7 @@ export function ResourceMembersModal({
                 value={selectedUserId}
                 onChange={(event) => setSelectedUserId(event.target.value)}
                 disabled={loading || busyKey === 'add' || filteredCandidateUsers.length === 0}
-                aria-label="Select member to add"
+                aria-label="Select person to add"
                 aria-describedby={addStatusId}
                 className={cn(uiStyles.select, 'min-w-0')}
               >
@@ -321,7 +319,7 @@ export function ResourceMembersModal({
                 value={selectedRole}
                 onChange={(event) => setSelectedRole(event.target.value as ResourceMemberRole)}
                 disabled={loading || busyKey === 'add'}
-                aria-label="New member role"
+                aria-label="New member access level"
                 aria-describedby={roleHelpId}
                 className={uiStyles.select}
               >
@@ -361,7 +359,7 @@ export function ResourceMembersModal({
                   aria-hidden="true"
                 />
                 <span className="truncate text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
-                  Current Access
+                  People with access
                 </span>
               </div>
               <span className="text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark">
@@ -388,12 +386,12 @@ export function ResourceMembersModal({
                     <Users size={17} strokeWidth={2} />
                   </div>
                   <span className="font-medium text-foreground-light dark:text-foreground-dark">
-                    No direct members yet
+                    Add the first direct member
                   </span>
                   <p className="max-w-md text-ui-caption">
-                    Add an organization user above to give them direct access to this{' '}
-                    {resourceLabel.toLowerCase()}. Start with Member unless they need to manage
-                    access.
+                    Add a person from the team space above to give them access to this{' '}
+                    {resourceLabel.toLowerCase()}. Start with Member access unless they need to
+                    manage who can get in.
                   </p>
                 </div>
               ) : (
@@ -437,7 +435,7 @@ export function ResourceMembersModal({
                           void handleRoleChange(member, event.target.value as ResourceMemberRole)
                         }
                         disabled={busyKey !== null}
-                        aria-label={`Role for ${member.username || member.email}`}
+                        aria-label={`Access level for ${member.username || member.email}`}
                         className={cn(uiStyles.select, 'h-8 text-ui-caption')}
                       >
                         {ROLE_OPTIONS.map((role) => (
@@ -447,27 +445,41 @@ export function ResourceMembersModal({
                         ))}
                       </select>
                       {confirmRemoveUserId === member.userId ? (
-                        <div className="flex items-center gap-1.5">
-                          <span className="hidden text-ui-caption text-apple-red sm:inline">
-                            Remove?
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => void handleRemoveMember(member)}
-                            disabled={busyKey !== null}
-                            aria-label={`Confirm remove ${member.username || member.email}`}
-                            className="inline-flex h-8 items-center justify-center rounded-lg bg-apple-red px-2 text-ui-caption font-medium text-white transition-colors hover:bg-apple-red/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {busyKey === `remove:${member.userId}` ? 'Removing…' : 'Remove'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmRemoveUserId(null)}
-                            disabled={busyKey !== null}
-                            className="inline-flex h-8 items-center justify-center rounded-lg px-2 text-ui-caption font-medium text-secondary-light transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/40 disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/5"
-                          >
-                            Cancel
-                          </button>
+                        <div className="flex max-w-full flex-col items-end gap-2 sm:max-w-xs">
+                          <div className="flex items-start gap-1.5 rounded-lg border border-apple-red/20 bg-apple-red/10 px-2 py-1.5 text-left text-ui-caption text-apple-red">
+                            <AlertTriangle
+                              size={14}
+                              strokeWidth={2}
+                              className="mt-0.5 shrink-0"
+                              aria-hidden="true"
+                            />
+                            <span>
+                              Removing access stops {member.username || member.email} from opening
+                              this {resourceLabel.toLowerCase()}.
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => void handleRemoveMember(member)}
+                              disabled={busyKey !== null}
+                              aria-label={`Remove access for ${member.username || member.email}`}
+                              className="inline-flex h-8 items-center justify-center rounded-lg bg-apple-red px-2 text-ui-caption font-medium text-white transition-colors hover:bg-apple-red/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {busyKey === `remove:${member.userId}`
+                                ? 'Removing...'
+                                : 'Remove access'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmRemoveUserId(null)}
+                              disabled={busyKey !== null}
+                              aria-label={`Keep access for ${member.username || member.email}`}
+                              className="inline-flex h-8 items-center justify-center rounded-lg px-2 text-ui-caption font-medium text-secondary-light transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/40 disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/5"
+                            >
+                              Keep access
+                            </button>
+                          </div>
                         </div>
                       ) : (
                         <button
@@ -501,14 +513,14 @@ function MemberRoleGuide({ resourceLabel }: { resourceLabel: 'Team' | 'Project' 
     >
       <div className="mb-3">
         <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-          Access setup
+          Who should get access
         </p>
         <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
           Add people only when they need this {resourceLabel.toLowerCase()}
         </h3>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Only organization users can be added here. Invite the person to the organization first if
-          they do not appear in the list.
+          Only people in this team space can be added here. Invite the person to the team space
+          first if they do not appear in the list.
         </p>
       </div>
       <div className="grid gap-2 sm:grid-cols-3">
@@ -543,31 +555,31 @@ function describeCandidateStatus({
 }): { selectLabel: string; detail: string } {
   if (loading) {
     return {
-      selectLabel: 'Loading org members',
-      detail: 'Loading organization users and current access.',
+      selectLabel: 'Loading team-space people',
+      detail: 'Loading people in this team space and the people already listed below.',
     }
   }
   if (users.length === 0) {
     return {
-      selectLabel: 'No org users available',
-      detail: 'Invite a user to the organization first, then return here to grant access.',
+      selectLabel: 'Invite someone to the team space first',
+      detail: 'Invite the person to the team space first, then return here to give access.',
     }
   }
   if (candidateUsers.length === 0) {
     return {
       selectLabel: 'Everyone already has access',
-      detail: 'Every organization user is already listed below for this resource.',
+      detail: 'Every team-space person is already listed below for this team or project.',
     }
   }
   if (query.trim() && filteredCandidateUsers.length === 0) {
     return {
-      selectLabel: 'No matching org members',
-      detail: 'Clear the filter or invite the person to the organization before adding them here.',
+      selectLabel: 'Clear search or invite this person first',
+      detail: 'Clear the filter or invite the person to the team space before adding them here.',
     }
   }
   return {
-    selectLabel: 'Select org member',
-    detail: 'Choose an organization user, pick the safest role, then add them to this resource.',
+    selectLabel: 'Select person to add',
+    detail: 'Choose a person, pick the safest access level, then add them here.',
   }
 }
 

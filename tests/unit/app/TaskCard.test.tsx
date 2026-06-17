@@ -24,6 +24,14 @@ describe('TaskCard', () => {
     expect(screen.getByText('Refactor database migration')).toBeDefined()
   })
 
+  test('shows readable status and update time instead of the internal task id', () => {
+    render(<TaskCard task={mockTask} />)
+
+    expect(screen.getByText('Working')).toBeDefined()
+    expect(screen.getByText(/Updated (just now|\d+[mhd] ago)/)).toBeDefined()
+    expect(screen.queryByText('task-1')).toBeNull()
+  })
+
   test('shows agent name when assigned', () => {
     render(<TaskCard task={mockTask} />)
     expect(screen.getByText('Claude-2')).toBeDefined()
@@ -36,6 +44,13 @@ describe('TaskCard', () => {
     expect(screen.queryByText('No assignee')).toBeNull()
   })
 
+  test('labels tasks without any agent as needing an agent', () => {
+    render(<TaskCard task={{ ...mockTask, assignedTo: undefined, assignedAgentName: undefined }} />)
+
+    expect(screen.getByText('Needs agent')).toBeDefined()
+    expect(screen.queryByText('No assignee')).toBeNull()
+  })
+
   test('shows progress bar for working state', () => {
     render(<TaskCard task={mockTask} />)
     expect(screen.getByTestId('progress-bar')).toBeDefined()
@@ -44,6 +59,29 @@ describe('TaskCard', () => {
   test('shows priority badge', () => {
     render(<TaskCard task={mockTask} />)
     expect(screen.getByText('High')).toBeDefined()
+  })
+
+  test('labels unknown status and priority without exposing raw codes', () => {
+    render(
+      <TaskCard
+        task={{
+          ...mockTask,
+          state: 'waiting_for_agent' as never,
+          priority: 'future_priority' as never,
+          progress: 0,
+        }}
+      />
+    )
+
+    expect(screen.getByText('Check task priority')).toBeDefined()
+    expect(screen.getByText('Check task status')).toBeDefined()
+    expect(screen.getByTestId('task-next-step').textContent).toBe(
+      'Open details to check the current status before taking action.'
+    )
+    expect(screen.queryByText(/waiting_for_agent/i)).toBeNull()
+    expect(screen.queryByText(/waiting for agent/i)).toBeNull()
+    expect(screen.queryByText(/future_priority/i)).toBeNull()
+    expect(screen.queryByText(/future priority/i)).toBeNull()
   })
 
   test('shows context badge when applied memory or skill counts are present', () => {
@@ -60,7 +98,7 @@ describe('TaskCard', () => {
     expect(badge).toBeDefined()
     expect(badge.textContent).toContain('2')
     expect(badge.textContent).toContain('1')
-    expect(badge.getAttribute('aria-label')).toBe('2 applied memories, 1 applied skill')
+    expect(badge.getAttribute('aria-label')).toBe('2 saved notes added, 1 saved instruction added')
   })
 
   test('hides context badge when no context has been applied', () => {
@@ -100,6 +138,105 @@ describe('TaskCard', () => {
     )
   })
 
+  test('shows a direct publish next step after an agent is selected', () => {
+    const onPublish = vi.fn()
+    render(
+      <TaskCard
+        task={{
+          ...mockTask,
+          state: 'backlog',
+          progress: 0,
+        }}
+        onPublish={onPublish}
+      />
+    )
+
+    expect(screen.getByTestId('task-next-step').textContent).toBe(
+      'Review saved items, then publish.'
+    )
+    expect(screen.getByTestId('task-next-step').textContent).not.toContain('when ready')
+    expect(screen.getByTestId('task-next-step').textContent).not.toContain('context')
+  })
+
+  test('does not send title-only backlog tasks toward publish', () => {
+    const onPublish = vi.fn()
+    render(
+      <TaskCard
+        task={{
+          ...mockTask,
+          state: 'backlog',
+          params: { ...mockTask.params, message: '' },
+          progress: 0,
+        }}
+        onPublish={onPublish}
+      />
+    )
+
+    expect(screen.getByTestId('task-next-step').textContent).toBe(
+      'Open this card and add details before publishing.'
+    )
+    expect(screen.getByTestId('task-next-step').textContent).not.toContain('Review saved items')
+  })
+
+  test('asks for details before agent choice on title-only backlog tasks', () => {
+    const onPublish = vi.fn()
+    render(
+      <TaskCard
+        task={{
+          ...mockTask,
+          state: 'backlog',
+          assignedTo: undefined,
+          assignedAgentName: undefined,
+          params: { ...mockTask.params, message: '   ' },
+          progress: 0,
+        }}
+        onPublish={onPublish}
+      />
+    )
+
+    expect(screen.getByTestId('task-next-step').textContent).toBe(
+      'Open this card, add details, then choose an agent.'
+    )
+    expect(screen.getByTestId('task-next-step').textContent).not.toContain('preview and publish')
+  })
+
+  test('tells operators how to finish a saved task card before sending', () => {
+    render(<TaskCard task={{ ...mockTask, state: 'backlog', progress: 0 }} />)
+
+    expect(screen.getByTestId('task-next-step').textContent).toBe(
+      'Open this card, add details, then send it to an agent.'
+    )
+    expect(screen.getByTestId('task-next-step').textContent).not.toContain('Open details')
+  })
+
+  test('shows what to do when an assigned task is still waiting to start', () => {
+    render(<TaskCard task={{ ...mockTask, state: 'queued', progress: 0 }} />)
+
+    expect(screen.getByTestId('task-next-step').textContent).toBe(
+      'Waiting for the chosen agent to start. If it stays here, open details or choose another agent.'
+    )
+    expect(screen.getByTestId('task-next-step').textContent).not.toContain('assigned agent')
+  })
+
+  test('shows how to recover a waiting task that has no agent yet', () => {
+    render(
+      <TaskCard
+        task={{
+          ...mockTask,
+          state: 'queued',
+          assignedTo: undefined,
+          assignedAgentName: undefined,
+          progress: 0,
+        }}
+      />
+    )
+
+    expect(screen.getByTestId('task-next-step').textContent).toBe(
+      'Waiting for an available agent to start. If it stays here, choose or start an agent.'
+    )
+    expect(screen.getByTestId('task-next-step').textContent).not.toContain('pick this up')
+  })
+
   test('shows a recovery next step for failed tasks', () => {
     render(
       <TaskCard
@@ -108,8 +245,10 @@ describe('TaskCard', () => {
     )
 
     expect(screen.getByTestId('task-next-step').textContent).toBe(
-      'Open details, fix the error, then retry.'
+      'Open details, review the recovery note, then retry.'
     )
+    expect(screen.getByTestId('task-next-step').textContent).not.toContain('error')
+    expect(screen.getByTestId('task-next-step').textContent).not.toContain('failure')
   })
 
   test('does not duplicate server-provided blocked guidance', () => {
@@ -125,6 +264,28 @@ describe('TaskCard', () => {
     )
 
     expect(screen.getByTestId('task-blocked-hint-task-1')).toBeDefined()
+    expect(screen.queryByTestId('task-next-step')).toBeNull()
+  })
+
+  test('shows beginner-safe blocked guidance without sensitive raw hints', () => {
+    render(
+      <TaskCard
+        task={{
+          ...mockTask,
+          state: 'blocked',
+          blockedReason: 'waiting_input',
+          blockedHint: 'Missing token secret for git provider.',
+        }}
+      />
+    )
+
+    const hint = screen.getByTestId('task-blocked-hint-task-1')
+    expect(hint.textContent).toContain('Waiting for account access')
+    expect(hint.textContent).not.toContain('token')
+    expect(hint.textContent).not.toContain('secret')
+    expect(hint.getAttribute('title')).toContain('Waiting for account access')
+    expect(hint.getAttribute('title')).not.toContain('token')
+    expect(hint.getAttribute('title')).not.toContain('secret')
     expect(screen.queryByTestId('task-next-step')).toBeNull()
   })
 
@@ -153,7 +314,17 @@ describe('TaskCard', () => {
     )
     const preview = screen.getByTestId('task-error-preview')
     expect(preview).toBeDefined()
-    expect(preview.textContent).toContain('Rate limit exceeded')
+    expect(preview.textContent).toContain('AI service is busy')
+    expect(preview.textContent).toContain('Wait a minute, then open details and retry')
+    expect(preview.textContent).not.toContain('when ready')
+    expect(preview.textContent).not.toContain('429')
+    expect(preview.textContent).not.toContain('provider')
+    expect(preview.textContent).not.toContain('model service is busy')
+    expect(preview.getAttribute('title')).toContain('AI service is busy')
+    expect(preview.getAttribute('title')).toContain('Wait a minute, then open details and retry')
+    expect(preview.getAttribute('title')).not.toContain('when ready')
+    expect(preview.getAttribute('title')).not.toContain('429')
+    expect(preview.getAttribute('title')).not.toContain('provider')
   })
 
   test('does not show error preview when state is not failed', () => {
@@ -182,9 +353,12 @@ describe('TaskCard', () => {
     const count = screen.getByTestId('task-result-count')
     expect(count).toBeDefined()
     expect(count.textContent).toBe('2 files')
+    expect(screen.getByTestId('task-next-step').textContent).toBe(
+      'Open details, review result files, then save repeatable steps or create a follow-up task.'
+    )
   })
 
-  test('shows stdout result count for real sidecar completions', () => {
+  test('shows stdout result count for real connection-tool completions', () => {
     render(
       <TaskCard task={{ ...mockTask, state: 'completed', result: { stdout: 'real output' } }} />
     )
@@ -231,6 +405,9 @@ describe('TaskCard', () => {
   test('does not show result count when completed task has no results', () => {
     render(<TaskCard task={{ ...mockTask, state: 'completed', result: [] }} />)
     expect(screen.queryByTestId('task-result-count')).toBeNull()
+    expect(screen.getByTestId('task-next-step').textContent).toBe(
+      'Open details, check the final answer, then save repeatable steps or create a follow-up task.'
+    )
   })
 
   test('activates from a short pointer tap without double firing the follow-up click', () => {

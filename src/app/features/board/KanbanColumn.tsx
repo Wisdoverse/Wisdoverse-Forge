@@ -8,12 +8,12 @@ type BoardDisplayMode = 'comfortable' | 'compact'
 
 const COLUMN_CONFIG: Record<string, { label: string; dot: string; surface: string }> = {
   backlog: {
-    label: 'Backlog',
+    label: 'Not sent yet',
     dot: 'bg-apple-gray-2',
     surface: 'bg-white/70 dark:bg-white/[0.03]',
   },
   queued: {
-    label: 'Queued',
+    label: 'Waiting to start',
     dot: 'bg-apple-blue',
     surface: 'bg-apple-blue/[0.035] dark:bg-apple-blue/[0.06]',
   },
@@ -23,7 +23,7 @@ const COLUMN_CONFIG: Record<string, { label: string; dot: string; surface: strin
     surface: 'bg-apple-green/[0.04] dark:bg-apple-green/[0.08]',
   },
   blocked: {
-    label: 'Blocked',
+    label: 'Needs help',
     dot: 'bg-apple-red',
     surface: 'bg-apple-red/[0.045] dark:bg-apple-red/[0.08]',
   },
@@ -33,7 +33,7 @@ const COLUMN_CONFIG: Record<string, { label: string; dot: string; surface: strin
     surface: 'bg-apple-green/[0.035] dark:bg-apple-green/[0.06]',
   },
   failed: {
-    label: 'Failed',
+    label: 'Review recovery',
     dot: 'bg-apple-red',
     surface: 'bg-apple-red/[0.04] dark:bg-apple-red/[0.07]',
   },
@@ -46,31 +46,31 @@ const COLUMN_CONFIG: Record<string, { label: string; dot: string; surface: strin
 
 const COLUMN_EMPTY_STATE: Record<string, { title: string; detail: string }> = {
   backlog: {
-    title: 'No draft tasks',
-    detail: 'Use quick add below to write the first clear task brief.',
+    title: 'Add the first task below',
+    detail: 'Add a task below with the result you want the agent to finish.',
   },
   queued: {
-    title: 'Nothing queued',
-    detail: 'Assigned tasks wait here after dispatch and before a runtime starts.',
+    title: 'Sent tasks wait here for an agent',
+    detail: 'Assigned tasks wait here until an available agent starts them.',
   },
   working: {
-    title: 'No active runs',
+    title: 'Running work appears here',
     detail: 'Running work appears here once an agent starts the task.',
   },
   blocked: {
-    title: 'No blockers',
-    detail: 'Tasks needing owner input or missing details will collect here.',
+    title: 'Tasks needing your answer appear here',
+    detail: 'Tasks waiting for your answer or missing details will collect here.',
   },
   done: {
-    title: 'Nothing ready for review',
-    detail: 'Completed tasks move here so you can check results and reusable learning.',
+    title: 'Finished work appears here for review',
+    detail: 'Completed tasks move here so you can check results and save repeatable steps.',
   },
   failed: {
-    title: 'No failed runs',
-    detail: 'If a run fails, open the card here to inspect the error and retry path.',
+    title: 'Retry paths appear here after a task stops',
+    detail: 'If a task stops early, open its card here to review the recovery note and retry path.',
   },
   canceled: {
-    title: 'No canceled tasks',
+    title: 'Canceled tasks stay here for history',
     detail: 'Canceled work stays here so the board keeps its history visible.',
   },
 }
@@ -80,7 +80,7 @@ interface KanbanColumnProps {
   tasks: TaskSummary[]
   onTaskClick?: (taskId: string) => void
   onTaskPublish?: (task: TaskSummary) => void
-  onQuickCreate?: (title: string, columnId: string) => void
+  onQuickCreate?: (title: string, columnId: string) => void | boolean | Promise<void | boolean>
   displayMode?: BoardDisplayMode
 }
 
@@ -132,7 +132,7 @@ export function KanbanColumn({
         ))}
         {tasks.length === 0 && <ColumnEmptyState columnId={columnId} label={config.label} />}
       </div>
-      {/* Quick-add only on backlog. Other columns reflect dispatcher state and
+      {/* Quick-add only on backlog. Other columns reflect task state and
           can't accept manual inserts — promote a backlog task by dragging instead. */}
       {columnId === 'backlog' && (
         <QuickCreate columnId={columnId} onSubmit={(title, col) => onQuickCreate?.(title, col)} />

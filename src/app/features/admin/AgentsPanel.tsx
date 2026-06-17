@@ -13,6 +13,7 @@ import {
   runtimeKindLabel,
   runtimeKindShortLabel,
 } from '@app/entities/agent'
+import { ADMIN_PANEL_RECOVERY, adminPanelLoadErrorMessage } from './adminErrorCopy'
 
 // ============================================================================
 // Filter options
@@ -24,7 +25,7 @@ interface FilterOption {
 }
 
 const RUNTIME_KIND_FILTER_OPTIONS: FilterOption[] = [
-  { value: 'all', label: 'All runtimes' },
+  { value: 'all', label: 'All work locations' },
   ...RUNTIME_KINDS.map((kind) => ({ value: kind, label: runtimeKindLabel(kind) })),
 ]
 
@@ -33,16 +34,59 @@ const RUNTIME_KIND_FILTER_OPTIONS: FilterOption[] = [
 // ============================================================================
 
 function formatLastActivity(epochMs: number): string {
-  if (!epochMs) return '—'
+  if (!epochMs) return 'Activity appears after work starts'
+  if (!Number.isFinite(epochMs)) return 'Check activity time'
+
   try {
-    return new Date(epochMs).toLocaleString(undefined, {
+    const formatted = new Date(epochMs).toLocaleString(undefined, {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
     })
+    return formatted === 'Invalid Date' ? 'Check activity time' : formatted
   } catch {
-    return '—'
+    return 'Check activity time'
+  }
+}
+
+function agentStatusLabel(status: string): string {
+  switch (status.trim().toLowerCase()) {
+    case 'idle':
+      return 'Ready'
+    case 'working':
+      return 'Working now'
+    case 'offline':
+      return 'Not connected'
+    default:
+      return status.trim() ? 'Check agent status' : 'Refresh agents to confirm status'
+  }
+}
+
+function readableValue(value: string | null | undefined, fallback: string): string {
+  const trimmed = value?.trim()
+  return trimmed ? trimmed : fallback
+}
+
+function agentOwnerLabel(agent: AdminAgent): string {
+  return readableValue(
+    agent.ownerUsername,
+    readableValue(agent.ownerEmail, 'Refresh agents to load owner')
+  )
+}
+
+function workToolLabel(tool: string): string {
+  switch (tool.trim().toLowerCase()) {
+    case 'claude':
+      return 'Claude'
+    case 'codex':
+      return 'Codex'
+    case 'gemini':
+      return 'Gemini'
+    case 'opencode':
+      return 'OpenCode'
+    default:
+      return 'Check work tool'
   }
 }
 
@@ -73,19 +117,20 @@ function AgentKindBadge({ kind }: { kind: AgentRuntimeKind }) {
 
 const AGENT_GUIDANCE: { title: string; description: string; Icon: LucideIcon }[] = [
   {
-    title: 'Container (Docker)',
-    description: 'Runs the Container CLI inside a managed Docker container. The platform default.',
+    title: 'Managed workspace',
+    description: 'Runs file and command work in a platform-managed workspace. Best for most teams.',
     Icon: Server,
   },
   {
-    title: 'Host CLI (local process)',
+    title: 'This computer',
     description:
-      'Runs the Container CLI as a local process on an operator machine. Legacy dev mode.',
+      'Runs work from a joined computer. Use it when files or tools must stay on that machine.',
     Icon: Cpu,
   },
   {
-    title: 'API (direct LLM calls)',
-    description: 'Provider + Prompt agents that call the LLM directly. No container, no terminal.',
+    title: 'Chat-only AI service',
+    description:
+      'Uses a connected AI service for planning and review. It does not open files or run commands.',
     Icon: Sparkles,
   },
 ]
@@ -93,10 +138,10 @@ const AGENT_GUIDANCE: { title: string; description: string; Icon: LucideIcon }[]
 function agentsSummary(agents: AdminAgent[], filter: AdminAgentRuntimeKindFilter): string {
   if (agents.length === 0) {
     return filter === 'all'
-      ? 'No agents have been created across any organization yet.'
+      ? 'Create the first agent from Agents, then return here to review it across team spaces.'
       : `No ${runtimeKindLabel(filter)} agents are present right now.`
   }
-  const scope = filter === 'all' ? 'all runtimes' : runtimeKindLabel(filter)
+  const scope = filter === 'all' ? 'all work locations' : runtimeKindLabel(filter)
   return `Showing ${agents.length} agent${agents.length === 1 ? '' : 's'} (${scope}).`
 }
 
@@ -117,7 +162,7 @@ function AgentsGuide({
           Admin view
         </p>
         <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-          Filter agents by where they run
+          Filter agents by how they work
         </h3>
         <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
           {agentsSummary(agents, filter)}
@@ -153,12 +198,12 @@ function AgentsEmptyState({ filter }: { filter: AdminAgentRuntimeKindFilter }) {
         <Bot size={18} strokeWidth={2} />
       </div>
       <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-        No agents to show
+        {filter === 'all' ? 'Create or connect an agent first' : 'No agents match this filter'}
       </p>
       <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
         {filter === 'all'
-          ? 'Agents created by any organization will appear here. Create an agent or refresh after the API is healthy.'
-          : `No ${runtimeKindLabel(filter)} agents match this filter. Choose "All runtimes" to see every agent.`}
+          ? 'Create the first agent from Agents, confirm it becomes Ready or Working, then return here to review it across team spaces. If you just created one, refresh Admin and check again.'
+          : `No ${runtimeKindLabel(filter)} agents match this filter. Choose "All work locations" before assuming the agent is missing.`}
       </p>
     </div>
   )
@@ -188,17 +233,17 @@ export function AgentsPanel() {
         <div>
           <h2 className={uiStyles.sectionTitle}>Agents</h2>
           <p className={uiStyles.sectionDescription}>
-            Review agents across every organization and filter them by runtime.
+            Review agents across every team space and filter them by work location.
           </p>
         </div>
         <div>
           <label htmlFor="admin-agents-runtime-filter" className={uiStyles.label}>
-            Runtime
+            Work location
           </label>
           <select
             id="admin-agents-runtime-filter"
             data-testid="admin-agents-runtime-filter"
-            aria-label="Filter agents by runtime kind"
+            aria-label="Filter agents by work location"
             value={agentRuntimeKindFilter}
             onChange={(event) =>
               void setAgentRuntimeKindFilter(event.target.value as AdminAgentRuntimeKindFilter)
@@ -215,11 +260,14 @@ export function AgentsPanel() {
       </div>
 
       {agentsError && (
-        <div data-testid="admin-agents-error" role="alert" className={uiStyles.error}>
-          <p>{agentsError}</p>
-          <p className="mt-1 text-ui-caption">
-            Refresh after the API is healthy, or confirm this account has admin access.
-          </p>
+        <div
+          data-testid="admin-agents-error"
+          role="alert"
+          aria-live="polite"
+          className={uiStyles.error}
+        >
+          <p>{adminPanelLoadErrorMessage(agentsError, 'agents')}</p>
+          <p className="mt-1 text-ui-caption">{ADMIN_PANEL_RECOVERY}</p>
         </div>
       )}
 
@@ -239,7 +287,7 @@ export function AgentsPanel() {
             <thead className={uiStyles.tableHead}>
               <tr>
                 <th className={uiStyles.tableHeaderCell}>Name</th>
-                <th className={uiStyles.tableHeaderCell}>Runtime</th>
+                <th className={uiStyles.tableHeaderCell}>Work location</th>
                 <th className={uiStyles.tableHeaderCell}>Status</th>
                 <th className={uiStyles.tableHeaderCell}>Owner</th>
                 <th className={uiStyles.tableHeaderCell}>Project</th>
@@ -259,7 +307,7 @@ export function AgentsPanel() {
                     </p>
                     {agent.cliTool && (
                       <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                        Container CLI: {agent.cliTool}
+                        Work tool: {workToolLabel(agent.cliTool)}
                       </p>
                     )}
                   </td>
@@ -272,7 +320,7 @@ export function AgentsPanel() {
                       'text-ui-body text-foreground-light dark:text-foreground-dark'
                     )}
                   >
-                    {agent.status}
+                    {agentStatusLabel(agent.status)}
                   </td>
                   <td
                     className={cn(
@@ -280,7 +328,7 @@ export function AgentsPanel() {
                       'text-ui-caption text-secondary-light dark:text-secondary-dark'
                     )}
                   >
-                    {agent.ownerUsername ?? agent.ownerEmail ?? '—'}
+                    {agentOwnerLabel(agent)}
                   </td>
                   <td
                     className={cn(
@@ -288,7 +336,7 @@ export function AgentsPanel() {
                       'text-ui-caption text-secondary-light dark:text-secondary-dark'
                     )}
                   >
-                    {agent.projectName ?? '—'}
+                    {readableValue(agent.projectName, 'Refresh agents to load project')}
                   </td>
                   <td
                     className={cn(

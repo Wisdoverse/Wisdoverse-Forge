@@ -44,6 +44,7 @@ impl Client {
         method: reqwest::Method,
         path: &str,
         body: Option<&Value>,
+        extra_headers: &[(&str, &str)],
     ) -> Result<Option<Value>, crate::error::CliError> {
         use crate::error::CliError;
 
@@ -69,6 +70,9 @@ impl Client {
                 req = req.header("Content-Type", "application/json").body(b.clone());
             }
             req = req.header("Accept", "application/json");
+            for (name, value) in extra_headers {
+                req = req.header(*name, *value);
+            }
 
             // Inject W3C traceparent header when tracing is active.
             if self.opts.trace {
@@ -194,7 +198,21 @@ impl Client {
         body: Option<&Value>,
         kind: ResponseKind,
     ) -> Result<Option<Value>, crate::error::CliError> {
-        let raw = self.send_raw(method, path, body).await?;
+        let raw = self.send_raw(method, path, body, &[]).await?;
+        Ok(raw.map(|v| unwrap_success(v, kind)))
+    }
+
+    /// Executes an API request with additional caller-supplied HTTP headers.
+    /// Use this for endpoint-specific protocol headers such as idempotency keys.
+    pub async fn do_request_with_headers(
+        &self,
+        method: reqwest::Method,
+        path: &str,
+        body: Option<&Value>,
+        kind: ResponseKind,
+        extra_headers: &[(&str, &str)],
+    ) -> Result<Option<Value>, crate::error::CliError> {
+        let raw = self.send_raw(method, path, body, extra_headers).await?;
         Ok(raw.map(|v| unwrap_success(v, kind)))
     }
 
@@ -216,7 +234,7 @@ impl Client {
     ) -> Result<(Vec<Value>, u64, u64, u64), crate::error::CliError> {
         use crate::error::CliError;
         let raw = self
-            .send_raw(method, path, body)
+            .send_raw(method, path, body, &[])
             .await?
             .ok_or_else(|| CliError::Other("empty response body for list endpoint".into()))?;
 
@@ -476,7 +494,7 @@ fn jitter() -> std::time::Duration {
 mod tests {
     use super::*;
     use serde_json::json;
-    use wiremock::matchers::{method, path};
+    use wiremock::matchers::{header, method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     #[tokio::test]
@@ -664,6 +682,44 @@ mod tests {
         assert_eq!(out.get("dispatched"), Some(&json!(2)));
         assert_eq!(out.get("failed"), Some(&json!(1)));
         assert!(out.get("results").is_some());
+    }
+
+    #[tokio::test]
+    async fn sends_endpoint_specific_headers() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api/v1/agents/local-enroll"))
+            .and(header("Idempotency-Key", "enroll-key-1"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "ok": true,
+                "data": { "id": "agent-1" }
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = Client::new(ClientOptions {
+            server: server.uri(),
+            token: None,
+            timeout: Duration::from_secs(5),
+            insecure: false,
+            verbose: false,
+            debug: false,
+            trace: false,
+        })
+        .unwrap();
+
+        let out = client
+            .do_request_with_headers(
+                reqwest::Method::POST,
+                "/api/v1/agents/local-enroll",
+                Some(&json!({"cliTool":"codex"})),
+                ResponseKind::Auto,
+                &[("Idempotency-Key", "enroll-key-1")],
+            )
+            .await
+            .unwrap();
+        assert_eq!(out.unwrap(), json!({"id": "agent-1"}));
     }
 
     #[tokio::test]

@@ -11,7 +11,7 @@ vi.mock('@app/entities/agent-group', () => ({
     getGroups: vi.fn().mockResolvedValue([]),
     createGroup: vi.fn().mockResolvedValue({
       id: 'group-new',
-      name: 'Default Work Lane',
+      name: 'Default Task Queue',
       projectId: 'p1',
     }),
   },
@@ -24,6 +24,7 @@ afterEach(() => {
 
 beforeEach(() => {
   useAgentsStore.getState().reset()
+  useNavigationStore.getState().reset()
   useSettingsStore.setState({
     providers: [],
     providersLoading: false,
@@ -32,7 +33,7 @@ beforeEach(() => {
   vi.mocked(agentGroupApi.getGroups).mockResolvedValue([])
   vi.mocked(agentGroupApi.createGroup).mockResolvedValue({
     id: 'group-new',
-    name: 'Default Work Lane',
+    name: 'Default Task Queue',
     projectId: 'p1',
   })
   useAgentsStore.setState({
@@ -40,28 +41,94 @@ beforeEach(() => {
     loading: false,
     error: null,
   })
-  useNavigationStore.setState({ selectedProjectId: null, projects: {} })
 })
 
 describe('CreateAgentModal', () => {
-  test('renders Container CLI fields by default', () => {
+  const previousCliInstallCopy = new RegExp(
+    ['where', 'the', 'CLI', 'is', 'installed'].join('\\s+'),
+    'i'
+  )
+  const previousManualConnectionCopy = new RegExp(
+    ['manual', 'connection', 'setup'].join('\\s+'),
+    'i'
+  )
+
+  test('renders managed workspace fields by default', () => {
     render(<CreateAgentModal />)
 
-    expect(screen.getByRole('radio', { name: /container cli/i })).toBeChecked()
+    expect(screen.getByRole('heading', { name: 'Create an agent' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: /managed workspace/i })).toBeChecked()
     expect(screen.getByTestId('agent-runtime-fit')).toBeInTheDocument()
-    expect(screen.getByText(/claude container worker/i)).toBeInTheDocument()
-    expect(screen.getByText('/workspace mounted')).toBeInTheDocument()
-    expect(screen.getByText(/runtime container must start/i)).toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: /container cli/i })).toBeInTheDocument()
-    expect(screen.getByLabelText(/working directory/i)).toBeInTheDocument()
-    expect(screen.getByText(/shared workspace mount/i)).toBeInTheDocument()
+    expect(screen.getByText('Pick a starter template')).toBeInTheDocument()
+    expect(screen.queryByText('Start with a role')).toBeNull()
+    expect(screen.getByText('Fills in the agent name')).toBeInTheDocument()
+    expect(screen.getByText('Updates the work and checks it')).toBeInTheDocument()
+    expect(screen.queryByText('Builds changes and checks them')).toBeNull()
+    expect(screen.getAllByText(/claude in a managed workspace/i).length).toBeGreaterThan(0)
+    expect(screen.getByText('Project files included')).toBeInTheDocument()
+    expect(screen.getByText('Agent location')).toBeInTheDocument()
+    expect(screen.getByText('Check Where agents run in Settings')).toBeInTheDocument()
+    expect(screen.getByText('Can edit files')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        /not sure\? use managed workspace for project-file work, this computer when files must stay local, or simple chat agent after an AI service is ready/i
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/workspace must be ready/i)).toBeNull()
+    expect(screen.queryByText(/choose a runtime/i)).toBeNull()
+    expect(screen.queryByText('File work')).toBeNull()
+    expect(screen.getByRole('combobox', { name: /^work tool$/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/work folder/i)).toBeInTheDocument()
+    expect(screen.getByText(/keep the suggested folder/i)).toBeInTheDocument()
+    expect(screen.getByText(/new tasks start from the primary project/i)).toBeInTheDocument()
+    expect(screen.queryByText(/use \/workspace unless/i)).toBeNull()
+    expect(screen.queryByText(/default task context/i)).toBeNull()
     expect(screen.getAllByText(/primary project/i).length).toBeGreaterThan(0)
-    expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/choose a project first/i)
+    expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/open project settings/i)
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(
+      /open project settings to create or choose a project/i
+    )
+    expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/choose a project later/i)
+    expect(screen.getByTestId('agent-work-readiness')).not.toHaveTextContent(/no primary project/i)
+    expect(screen.getByTestId('agent-work-readiness')).not.toHaveTextContent(
       /select a project in the sidebar/i
     )
+    expect(screen.queryByRole('button', { name: /open project settings/i })).toBeNull()
+    const review = screen.getByTestId('agent-create-review')
+    expect(within(review).getByText('Before you create')).toBeInTheDocument()
+    expect(within(review).getByText(/claude in a managed workspace/i)).toBeInTheDocument()
+    expect(within(review).getByText('Choose a project before assigning tasks.')).toBeInTheDocument()
+    expect(within(review).queryByText('No project selected yet')).toBeNull()
+    expect(
+      within(review).getByText('Choose a project later before assigning tasks.')
+    ).toBeInTheDocument()
+    expect(
+      within(review).getByText('Wait until it shows Ready, then send one small task from Tasks.')
+    ).toBeInTheDocument()
+    expect(
+      within(review).queryByText('Start the agent, then send one small task from Tasks.')
+    ).toBeNull()
+    expect(
+      within(review).getByText('Forge starts it after the managed workspace is prepared.')
+    ).toBeInTheDocument()
+    expect(screen.queryByLabelText(/^ai service$/i)).toBeNull()
+    expect(screen.queryByLabelText(/^ai model$/i)).toBeNull()
+    expect(screen.queryByText(/Name seeds CLI agents/i)).toBeNull()
     expect(screen.queryByLabelText(/^provider$/i)).toBeNull()
     expect(screen.queryByLabelText(/^model$/i)).toBeNull()
+  })
+
+  test('closes the modal and opens project settings when no primary project is selected', () => {
+    const onOpenProjectsSetup = vi.fn()
+
+    render(<CreateAgentModal onOpenProjectsSetup={onOpenProjectsSetup} />)
+
+    const readiness = screen.getByTestId('agent-work-readiness')
+    fireEvent.click(within(readiness).getByRole('button', { name: /open project settings/i }))
+
+    expect(onOpenProjectsSetup).toHaveBeenCalledTimes(1)
+    expect(useAgentsStore.getState().createModalOpen).toBe(false)
+    expect(screen.queryByRole('dialog', { name: /create an agent/i })).toBeNull()
   })
 
   test('shows selected project as the primary project context', () => {
@@ -84,9 +151,46 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
 
-    expect(screen.getByText('Platform')).toBeInTheDocument()
+    expect(screen.getAllByText('Platform').length).toBeGreaterThan(0)
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/project ready/i)
     expect(screen.getByText(/tasks default to this project/i)).toBeInTheDocument()
+    const review = screen.getByTestId('agent-create-review')
+    expect(within(review).getByText('Platform')).toBeInTheDocument()
+    expect(
+      within(review).getByText(
+        'Create a task queue here when you want new tasks to wait in one place.'
+      )
+    ).toBeInTheDocument()
+  })
+
+  test('guides users when task queues exist but none is selected yet', () => {
+    useNavigationStore.setState({
+      selectedProjectId: 'p1',
+      projects: {
+        t1: [
+          {
+            id: 'p1',
+            teamId: 't1',
+            workspaceId: 'w1',
+            name: 'Platform',
+            slug: 'platform',
+            color: '#007AFF',
+            description: '',
+          },
+        ],
+      },
+      agentGroups: [{ id: 'group-1', name: 'Review Queue', projectId: 'p1' }],
+    })
+
+    render(<CreateAgentModal />)
+
+    const review = screen.getByTestId('agent-create-review')
+    expect(
+      within(review).getByText('Choose a task queue now, or assign one later from Tasks.')
+    ).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /choose a task queue later/i })).toBeInTheDocument()
+    expect(within(review).queryByText('No task queue selected yet')).toBeNull()
+    expect(screen.queryByRole('option', { name: /^no task queue$/i })).toBeNull()
   })
 
   test('submits selected project workspace as the execution boundary', async () => {
@@ -120,7 +224,20 @@ describe('CreateAgentModal', () => {
     })
   })
 
-  test('creates and selects a work lane for the selected project', async () => {
+  test('guides users to name the agent before creating it', async () => {
+    const createAgent = vi.fn().mockResolvedValue(true)
+    useAgentsStore.setState({ createAgent } as never)
+
+    render(<CreateAgentModal />)
+    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Name this agent before creating it.'
+    )
+    expect(createAgent).not.toHaveBeenCalled()
+  })
+
+  test('creates and selects a task queue for the selected project', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
     useNavigationStore.setState({
@@ -141,17 +258,29 @@ describe('CreateAgentModal', () => {
     })
 
     render(<CreateAgentModal />)
-    fireEvent.click(await screen.findByRole('button', { name: /create task group/i }))
+    expect(
+      screen.getByText(/starter queue for this project so new tasks have a clear place to wait/i)
+    ).toBeInTheDocument()
+    fireEvent.click(await screen.findByRole('button', { name: /create task queue/i }))
 
     await waitFor(() =>
       expect(agentGroupApi.createGroup).toHaveBeenCalledWith({
         projectId: 'p1',
-        name: 'Default Work Lane',
-        description: 'This work lane lets agents receive board tasks.',
+        name: 'Default Task Queue',
+        description:
+          'Starter queue for this project. New tasks wait here until an agent can take them.',
       })
     )
-    expect(screen.getByRole('combobox', { name: /task group/i })).toHaveValue('group-new')
+    expect(screen.getByRole('combobox', { name: /task queue/i })).toHaveValue('group-new')
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/project ready/i)
+    expect(
+      screen.getByText(/new tasks can wait in this queue until an available agent can take them/i)
+    ).toBeInTheDocument()
+    expect(
+      within(screen.getByTestId('agent-create-review')).getByText('Default Task Queue')
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/work a place to wait until this agent can take it/i)).toBeNull()
+    expect(screen.queryByText(new RegExp('board\\s+tasks', 'i'))).toBeNull()
 
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'CLI Worker' } })
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
@@ -164,7 +293,38 @@ describe('CreateAgentModal', () => {
     })
   })
 
-  test('switching to Provider+Prompt hides CLI fields and shows Provider/Model', () => {
+  test('hides raw task queue creation errors while creating a default queue', async () => {
+    vi.mocked(agentGroupApi.createGroup).mockRejectedValueOnce(
+      new Error('HTTP 500: database unavailable')
+    )
+    useNavigationStore.setState({
+      selectedProjectId: 'p1',
+      projects: {
+        t1: [
+          {
+            id: 'p1',
+            teamId: 't1',
+            workspaceId: 'w1',
+            name: 'Platform',
+            slug: 'platform',
+            color: '#007AFF',
+            description: '',
+          },
+        ],
+      },
+    })
+
+    render(<CreateAgentModal />)
+    fireEvent.click(await screen.findByRole('button', { name: /create task queue/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Wait a few minutes, then try creating the task queue again.')
+    expect(alert).toHaveTextContent('ask an owner or admin to check task queue setup')
+    expect(alert).not.toHaveTextContent('HTTP 500')
+    expect(alert).not.toHaveTextContent('database unavailable')
+  })
+
+  test('switching to simple chat agent hides work tool fields and shows AI service details', () => {
     useSettingsStore.setState({
       providers: [
         {
@@ -182,36 +342,58 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
 
-    fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
 
-    expect(screen.getByText(/anthropic prompt worker/i)).toBeInTheDocument()
-    expect(screen.getByText(/no direct workspace mount/i)).toBeInTheDocument()
-    expect(screen.getByText(/provider key must be ready/i)).toBeInTheDocument()
-    expect(screen.queryByRole('combobox', { name: /container cli/i })).toBeNull()
-    expect(screen.queryByLabelText(/working directory/i)).toBeNull()
-    expect(screen.getByLabelText(/^provider$/i)).toBeInTheDocument()
-    // Model is derived from the configured provider (read-only).
-    expect(screen.getByLabelText(/^model$/i)).toHaveValue('claude-sonnet-4-6')
+    expect(screen.getByText('Fills in name and instructions')).toBeInTheDocument()
+    expect(screen.getAllByText(/anthropic simple chat agent/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/questions, planning, writing, and review/i)).toBeInTheDocument()
+    expect(screen.getByText(/does not open project files/i)).toBeInTheDocument()
+    expect(screen.getByText('Check AI service in Settings')).toBeInTheDocument()
+    expect(screen.queryByText(/ai service must be checked/i)).toBeNull()
+    expect(screen.queryByRole('combobox', { name: /^work tool$/i })).toBeNull()
+    expect(screen.queryByLabelText(/work folder/i)).toBeNull()
+    expect(screen.getByLabelText(/^ai service$/i)).toHaveValue('provider-anthropic')
+    expect(screen.getByLabelText(/^ai model$/i)).toHaveValue('claude-sonnet-4-6')
+    expect(screen.getByText(/choose a checked AI service/i)).toBeInTheDocument()
+    const review = screen.getByTestId('agent-create-review')
+    expect(
+      within(review).getByText(
+        'Ask a first question or assign review work that does not need files.'
+      )
+    ).toBeInTheDocument()
+    expect(
+      within(review).getByText('Ready for chat and review after the AI service is connected.')
+    ).toBeInTheDocument()
+    expect(screen.queryByLabelText(/^model name$/i)).toBeNull()
+    expect(screen.queryByLabelText(/^provider$/i)).toBeNull()
+    expect(screen.queryByLabelText(/^model$/i)).toBeNull()
   })
 
-  test('Provider+Prompt with no configured provider shows a Settings hint and blocks submit', async () => {
+  test('simple chat agent with no checked AI service shows a Settings hint and blocks submit', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
 
     render(<CreateAgentModal />)
-    fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
 
-    expect(screen.getByTestId('provider-empty-hint')).toHaveTextContent(
-      /settings .* llm providers/i
+    const providerHint = screen.getByTestId('provider-empty-hint')
+    expect(providerHint).toHaveTextContent(/open settings > ai services/i)
+    expect(providerHint).toHaveTextContent(/paste its access key/i)
+    expect(providerHint).toHaveTextContent(/click check/i)
+    expect(providerHint).toHaveTextContent(/service says ready/i)
+    expect(screen.getByRole('link', { name: /open ai services settings/i })).toHaveAttribute(
+      'href',
+      '/settings/providers'
     )
-    expect(screen.queryByLabelText(/^provider$/i)).toBeNull()
+    expect(screen.queryByLabelText(/^ai service$/i)).toBeNull()
 
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
     await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent(/add and test a provider in settings/i)
+      expect(screen.getByRole('alert')).toHaveTextContent(/open settings > ai services/i)
     )
+    expect(screen.getByRole('alert')).toHaveTextContent(/click check until it says ready/i)
     expect(createAgent).not.toHaveBeenCalled()
   })
 
@@ -243,29 +425,56 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
 
-    // A verified provider exists, so the modal opens on Provider + Prompt.
-    fireEvent.click(screen.getByRole('radio', { name: /local cli/i }))
-    fireEvent.change(screen.getByRole('combobox', { name: /local cli/i }), {
+    fireEvent.click(screen.getByRole('radio', { name: /managed workspace/i }))
+    fireEvent.change(screen.getByRole('combobox', { name: /^work tool$/i }), {
       target: { value: 'codex' },
     })
-    expect(screen.getByText(/codex local worker/i)).toBeInTheDocument()
-    expect(screen.getByText('Run the join command')).toBeInTheDocument()
+    expect(screen.getAllByText(/codex in a managed workspace/i).length).toBeGreaterThan(0)
 
-    fireEvent.click(screen.getByRole('radio', { name: /container cli/i }))
-    fireEvent.change(screen.getByRole('combobox', { name: /container cli/i }), {
-      target: { value: 'codex' },
+    fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
+    expect(screen.getAllByText(/codex on this computer/i).length).toBeGreaterThan(0)
+    expect(
+      screen.getByText(/files and commands on your computer\. Forge still manages the agent here/i)
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/After setup, Forge still manages this agent here/i)
+    ).toBeInTheDocument()
+    expect(screen.getAllByText(/tasks, status, and task history/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/Forge gives it tasks/i)).toBeNull()
+    expect(screen.getByText('Paste setup text on this computer')).toBeInTheDocument()
+    expect(screen.getByText('Uses this computer')).toBeInTheDocument()
+    const localReview = screen.getByTestId('agent-create-review')
+    expect(
+      within(localReview).getByText(
+        'Paste the setup text on this computer and keep that window open.'
+      )
+    ).toBeInTheDocument()
+    expect(
+      within(localReview).getByText(
+        'Forge creates the agent, then shows setup steps for this computer.'
+      )
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText(new RegExp(['work tool', 'installed', 'your computer'].join('.*'), 'i'))
+    ).toBeNull()
+    expect(screen.queryByText(new RegExp(['Local', 'work'].join('\\s+')))).toBeNull()
+
+    fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
+    fireEvent.change(screen.getByLabelText(/^ai service$/i), {
+      target: { value: 'provider-google' },
     })
-    expect(screen.getByText(/codex container worker/i)).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
-    fireEvent.change(screen.getByLabelText(/^provider$/i), { target: { value: 'provider-google' } })
 
     await waitFor(() => {
-      expect(screen.getByText(/google prompt worker/i)).toBeInTheDocument()
+      expect(screen.getAllByText(/google simple chat agent/i).length).toBeGreaterThan(0)
     })
+    expect(screen.getByText('Chat-only AI service')).toBeInTheDocument()
+    expect(screen.getByText('Check AI service in Settings')).toBeInTheDocument()
+    expect(
+      screen.queryByText(new RegExp(['AI service', 'must be checked'].join('.*'), 'i'))
+    ).toBeNull()
   })
 
-  test('enrolls a Local CLI agent and shows the join command', async () => {
+  test('enrolls an agent on this computer and shows the setup text', async () => {
     const enrollLocalAgent = vi.fn().mockResolvedValue({
       ok: true,
       agent: {
@@ -291,12 +500,12 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
 
-    fireEvent.click(screen.getByRole('radio', { name: /local cli/i }))
-    fireEvent.change(screen.getByRole('combobox', { name: /local cli/i }), {
+    fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
+    fireEvent.change(screen.getByRole('combobox', { name: /work tool on this computer/i }), {
       target: { value: 'codex' },
     })
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Laptop Worker' } })
-    fireEvent.change(screen.getByLabelText(/local working directory/i), {
+    fireEvent.change(screen.getByLabelText(/folder on this computer/i), {
       target: { value: '/Users/me/project' },
     })
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
@@ -307,12 +516,34 @@ describe('CreateAgentModal', () => {
       cliTool: 'codex',
       cwd: '/Users/me/project',
     })
-    expect(await screen.findByLabelText(/join command/i)).toHaveValue(
+    expect(await screen.findByLabelText(/setup text/i)).toHaveValue(
       "export AGENT_ID='a-local'\nagentforge-sidecar"
     )
+    expect(screen.queryByLabelText(/setup command/i)).toBeNull()
+    expect(screen.getByText('Connect this computer')).toBeInTheDocument()
+    expect(screen.getByText(/agent managed by forge/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Forge will manage its tasks, status, and history/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/files stay on that computer/i)).toBeInTheDocument()
+    expect(screen.getByText('1. Copy the setup text.')).toBeInTheDocument()
+    expect(screen.getByText(/paste it into the terminal app/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/changes from Not connected to Ready on the Agents page/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/Closing that window disconnects this agent/i)).toBeInTheDocument()
+    expect(screen.getByText(/come back to Forge, open Agents/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /close and watch agents/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^done$/i })).toBeNull()
+    expect(screen.queryByText(previousCliInstallCopy)).toBeNull()
+    expect(screen.queryByText(previousManualConnectionCopy)).toBeNull()
+    expect(screen.queryByText(new RegExp(['local', 'agent', 'join'].join('.*'), 'i'))).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /close and watch agents/i }))
+    expect(screen.queryByRole('dialog', { name: /connect this computer/i })).toBeNull()
   })
 
-  test('shows the one-command join with an OS toggle when the server mints a join code', async () => {
+  test('shows the setup command with an OS toggle when the server mints a join code', async () => {
     const joinCommand =
       'curl -fsSL https://forge.example.com/api/v1/agents/local-join/script | sh -s -- --code afj_test'
     const joinCommandPowershell =
@@ -345,24 +576,133 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
 
-    fireEvent.click(screen.getByRole('radio', { name: /local cli/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Laptop Worker' } })
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
-    // One-command join leads; the pasted command tracks the OS toggle.
-    const oneLiner = await screen.findByLabelText(/one-command join/i)
+    // The setup text leads; the pasted text tracks the OS toggle.
+    const oneLiner = await screen.findByLabelText(/setup text/i)
     expect(oneLiner).toHaveValue(joinCommand)
+    expect(screen.getByText(/Forge will show it as an agent here/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/assign tasks to it, and keep its status and history/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/Files stay on that computer/i)).toBeInTheDocument()
+    expect(screen.getByTestId('local-agent-paste-hint')).toHaveTextContent(
+      'Open Terminal on macOS or your Linux terminal, then paste this setup text.'
+    )
+    expect(screen.getByText('1. Copy the setup text.')).toBeInTheDocument()
+    expect(screen.getByText(/paste it into terminal or powershell/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/changes from Not connected to Ready on the Agents page/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/Closing that window disconnects this agent/i)).toBeInTheDocument()
+    expect(screen.getByText(/come back to Forge, open Agents/i)).toBeInTheDocument()
+    expect(screen.queryByText(/shows online/i)).toBeNull()
+    expect(screen.queryByText(/agent fleet/i)).toBeNull()
+    expect(screen.getByRole('group', { name: /computer type/i })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /windows/i }))
     expect(oneLiner).toHaveValue(joinCommandPowershell)
+    expect(screen.getByTestId('local-agent-paste-hint')).toHaveTextContent(
+      'Open PowerShell on Windows, then paste this setup text.'
+    )
 
-    // Manual env block stays available behind the advanced section.
-    expect(screen.getByText(/manual setup \(advanced\)/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/manual setup environment/i)).toHaveValue(
+    // Backup values stay available without exposing advanced connection jargon.
+    expect(screen.getByText(/if the setup text does not work/i)).toBeInTheDocument()
+    const backupHelp = screen.getByText(/backup setup values/i)
+    expect(backupHelp).toBeInTheDocument()
+    expect(backupHelp.textContent).toMatch(/same Terminal or PowerShell window/)
+    expect(backupHelp.textContent).not.toMatch(/advanced/i)
+    expect(backupHelp.textContent).not.toMatch(/sidecar/i)
+    expect(screen.queryByText(previousManualConnectionCopy)).toBeNull()
+    expect(screen.getByRole('button', { name: /copy backup setup/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/backup setup values/i)).toHaveValue(
       "export AGENT_ID='a-local'\nagentforge-sidecar"
     )
   })
 
-  test('defaults to Provider+Prompt when a verified provider exists', async () => {
+  test('guides Windows users to backup setup values when the one-line command is missing', async () => {
+    const joinCommand =
+      'curl -fsSL https://forge.example.com/api/v1/agents/local-join/script | sh -s -- --code afj_test'
+    const enrollLocalAgent = vi.fn().mockResolvedValue({
+      ok: true,
+      agent: {
+        id: 'a-local',
+        name: 'Laptop Worker',
+        status: 'offline',
+        createdAt: Date.now(),
+        lastActivity: Date.now(),
+        cliTool: 'codex',
+        runtimeId: 'host-a-local',
+      },
+      enrollment: {
+        agentId: 'a-local',
+        runtimeId: 'host-a-local',
+        cliTool: 'codex',
+        env: { AGENT_ID: 'a-local' },
+        shellExports: "$env:AGENT_ID = 'a-local'\nagentforge-sidecar",
+        sidecarCommand: 'agentforge-sidecar',
+        serverUrl: 'https://forge.example.com',
+        joinCode: 'afj_test',
+        joinCommand,
+        joinCommandPowershell: null,
+      },
+    })
+    useAgentsStore.setState({ enrollLocalAgent } as never)
+
+    render(<CreateAgentModal />)
+
+    fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
+    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Laptop Worker' } })
+    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+
+    expect(await screen.findByLabelText(/setup text/i)).toHaveValue(joinCommand)
+    fireEvent.click(screen.getByRole('button', { name: /windows/i }))
+
+    expect(screen.queryByLabelText(/setup command/i)).toBeNull()
+    expect(
+      screen.getByText(/one-line Windows setup text is not ready for this agent/i)
+    ).toBeInTheDocument()
+    expect(screen.getByTestId('local-agent-paste-hint')).toHaveTextContent(
+      'Use the backup setup values below for Windows.'
+    )
+    expect(screen.getByRole('button', { name: /use backup setup values/i })).toBeDisabled()
+    expect(screen.getByLabelText(/backup setup values/i)).toHaveValue(
+      "$env:AGENT_ID = 'a-local'\nagentforge-sidecar"
+    )
+  })
+
+  test('uses a beginner fallback name when the setup response has no agent name', async () => {
+    const enrollLocalAgent = vi.fn().mockResolvedValue({
+      ok: true,
+      agent: {
+        id: 'a-local',
+        status: 'offline',
+        createdAt: Date.now(),
+        lastActivity: Date.now(),
+        cliTool: 'codex',
+        runtimeId: 'host-a-local',
+      },
+      enrollment: {
+        agentId: 'a-local',
+        runtimeId: 'host-a-local',
+        cliTool: 'codex',
+        shellExports: "export AGENT_ID='a-local'\nagentforge-sidecar",
+      },
+    })
+    useAgentsStore.setState({ enrollLocalAgent } as never)
+
+    render(<CreateAgentModal />)
+
+    fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
+    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Laptop Worker' } })
+    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+
+    expect(await screen.findByText('This computer agent')).toBeInTheDocument()
+    expect(screen.queryByText(new RegExp(['Local', 'agent'].join(' '), 'i'))).toBeNull()
+  })
+
+  test('defaults to simple chat agent when a verified provider exists', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
     useSettingsStore.setState({
@@ -382,11 +722,10 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
 
-    expect(screen.getByRole('radio', { name: /provider \+ prompt/i })).toBeChecked()
-    expect(screen.queryByRole('combobox', { name: /container cli/i })).toBeNull()
-    // The select chooses the configured provider by id; model is read-only.
-    expect(screen.getByLabelText(/^provider$/i)).toHaveValue('provider-1')
-    expect(screen.getByLabelText(/^model$/i)).toHaveValue('gpt-5.5')
+    expect(screen.getByRole('radio', { name: /simple chat agent/i })).toBeChecked()
+    expect(screen.queryByRole('combobox', { name: /^work tool$/i })).toBeNull()
+    expect(screen.getByLabelText(/^ai service$/i)).toHaveValue('provider-1')
+    expect(screen.getByLabelText(/^ai model$/i)).toHaveValue('gpt-5.5')
 
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
@@ -428,11 +767,13 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
 
-    fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
-    fireEvent.change(screen.getByLabelText(/^provider$/i), { target: { value: 'provider-openai' } })
+    fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
+    fireEvent.change(screen.getByLabelText(/^ai service$/i), {
+      target: { value: 'provider-openai' },
+    })
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/^model$/i)).toHaveValue('gpt-5.4')
+      expect(screen.getByLabelText(/^ai model$/i)).toHaveValue('gpt-5.4')
     })
   })
 
@@ -464,9 +805,9 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
 
-    fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
 
-    const providerSelect = screen.getByLabelText(/^provider$/i)
+    const providerSelect = screen.getByLabelText(/^ai service$/i)
     // Each option shows the display name and the model.
     expect(
       within(providerSelect).getByRole('option', { name: /zhipu glm · glm-4\.7/i })
@@ -478,7 +819,7 @@ describe('CreateAgentModal', () => {
     fireEvent.change(providerSelect, { target: { value: 'provider-zhipu' } })
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/^model$/i)).toHaveValue('glm-4.7')
+      expect(screen.getByLabelText(/^ai model$/i)).toHaveValue('glm-4.7')
     })
   })
 
@@ -522,7 +863,7 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
-    fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
     await waitFor(() => expect(createAgent).toHaveBeenCalledTimes(1))
@@ -536,18 +877,7 @@ describe('CreateAgentModal', () => {
     expect(payload).not.toHaveProperty('cliTool')
   })
 
-  test('empty name shows a visible error instead of silently ignoring the click', async () => {
-    const createAgent = vi.fn().mockResolvedValue(true)
-    useAgentsStore.setState({ createAgent } as never)
-
-    render(<CreateAgentModal />)
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
-
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Name is required'))
-    expect(createAgent).not.toHaveBeenCalled()
-  })
-
-  test('whitespace-only name shows the same error', async () => {
+  test('whitespace-only name shows the same beginner-safe error', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
 
@@ -555,7 +885,9 @@ describe('CreateAgentModal', () => {
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: '   ' } })
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Name is required'))
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent('Name this agent before creating it.')
+    )
     expect(createAgent).not.toHaveBeenCalled()
   })
 
@@ -581,11 +913,13 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
-    fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
     await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent('Provider and model are required')
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Choose an AI service and AI model before creating this agent.'
+      )
     )
     expect(createAgent).not.toHaveBeenCalled()
   })
@@ -601,7 +935,9 @@ describe('CreateAgentModal', () => {
     const submit = screen.getByRole('button', { name: /^create agent$/i })
 
     fireEvent.click(submit)
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Name is required'))
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent('Name this agent before creating it.')
+    )
     const callsAfterFirst = scrollSpy.mock.calls.length
     expect(callsAfterFirst).toBeGreaterThan(0)
 
@@ -626,20 +962,21 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Local Worker' } })
-    fireEvent.click(screen.getByRole('radio', { name: /local cli/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
-    const copyButton = await screen.findByRole('button', { name: /copy command/i })
+    const copyButton = await screen.findByRole('button', { name: /copy setup text/i })
     // jsdom has no navigator.clipboard, which is exactly the non-secure-context
     // (plain HTTP) deployment case the message exists for.
     fireEvent.click(copyButton)
 
     await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent(/copy is unavailable here/i)
+      expect(screen.getByRole('alert')).toHaveTextContent(/select the setup text/i)
     )
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/clipboard access/i)
   })
 
-  test('applies a role template to a provider agent prompt', async () => {
+  test('applies a starter template to simple chat agent instructions', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
     useSettingsStore.setState({
@@ -658,24 +995,27 @@ describe('CreateAgentModal', () => {
     })
 
     render(<CreateAgentModal />)
-    fireEvent.click(screen.getByRole('radio', { name: /provider \+ prompt/i }))
-    const templateGroup = screen.getByRole('group', { name: /agent role templates/i })
-    fireEvent.click(within(templateGroup).getByRole('button', { name: /reviewer/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
+    const templateGroup = screen.getByRole('group', { name: /agent starter templates/i })
+    fireEvent.click(within(templateGroup).getByRole('button', { name: /review work/i }))
 
-    expect(screen.getByLabelText(/^name$/i)).toHaveValue('Review Agent')
-    expect((screen.getByLabelText(/system prompt/i) as HTMLTextAreaElement).value).toContain(
-      'security issues'
+    expect(screen.getByLabelText(/^name$/i)).toHaveValue('Review Helper')
+    expect((screen.getByLabelText(/agent instructions/i) as HTMLTextAreaElement).value).toContain(
+      'confusing behavior'
     )
+    expect(screen.queryByText(/^Reviewer$/)).toBeNull()
+    expect(screen.queryByText(/prompt work/i)).toBeNull()
+    expect(screen.queryByRole('group', { name: /agent role templates/i })).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
     await waitFor(() => expect(createAgent).toHaveBeenCalledTimes(1))
     expect(createAgent.mock.calls[0][0]).toMatchObject({
       kind: 'provider',
-      name: 'Review Agent',
+      name: 'Review Helper',
       provider: 'anthropic',
       model: 'claude-sonnet-4-6',
-      systemPrompt: expect.stringContaining('security issues'),
+      systemPrompt: expect.stringContaining('confusing behavior'),
     })
   })
 })

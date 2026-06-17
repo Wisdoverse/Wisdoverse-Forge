@@ -7,10 +7,10 @@ afterEach(() => {
   cleanup()
 })
 
-const groups: NavAgentGroup[] = [{ id: 'lane-1', name: 'Delivery Lane', projectId: 'project-1' }]
+const groups: NavAgentGroup[] = [{ id: 'queue-1', name: 'Delivery Queue', projectId: 'project-1' }]
 
 describe('AgentGroupSelector', () => {
-  test('explains that a project is needed before choosing a work lane', () => {
+  test('explains that a project is needed before choosing a task queue', () => {
     render(
       <AgentGroupSelector
         groups={[]}
@@ -20,9 +20,9 @@ describe('AgentGroupSelector', () => {
       />
     )
 
-    expect(screen.getByText('Work lane')).toBeDefined()
+    expect(screen.getByText('Task queue')).toBeDefined()
     const select = screen.getByRole('combobox', {
-      name: /work lane for new tasks/i,
+      name: /task queue for new tasks/i,
     }) as HTMLSelectElement
 
     expect(select.disabled).toBe(true)
@@ -30,7 +30,7 @@ describe('AgentGroupSelector', () => {
     expect(screen.getByRole('option', { name: /choose a project first/i })).toBeDefined()
   })
 
-  test('explains that a work lane must be created before assigning tasks', () => {
+  test('explains how to create a task queue before sending work', () => {
     render(
       <AgentGroupSelector
         groups={[]}
@@ -41,15 +41,17 @@ describe('AgentGroupSelector', () => {
     )
 
     const select = screen.getByRole('combobox', {
-      name: /work lane for new tasks/i,
+      name: /task queue for new tasks/i,
     }) as HTMLSelectElement
 
     expect(select.disabled).toBe(true)
-    expect(select.title).toContain('Create a work lane')
-    expect(screen.getByRole('option', { name: /create a work lane first/i })).toBeDefined()
+    expect(select.title).toBe('Open task queues to create one, then come back here.')
+    const previousActionPhrase = ['assigning', 'tasks'].join(' ')
+    expect(select.title).not.toContain(previousActionPhrase)
+    expect(screen.getByRole('option', { name: /create a task queue first/i })).toBeDefined()
   })
 
-  test('selects the chosen work lane for new tasks', () => {
+  test('selects the chosen task queue for new tasks', () => {
     const onSelectGroup = vi.fn()
 
     render(
@@ -62,14 +64,14 @@ describe('AgentGroupSelector', () => {
     )
 
     const select = screen.getByRole('combobox', {
-      name: /work lane for new tasks/i,
+      name: /task queue for new tasks/i,
     }) as HTMLSelectElement
 
     expect(select.disabled).toBe(false)
-    expect(select.title).toContain('where new tasks will go')
+    expect(select.title).toContain('where new tasks should wait')
 
-    fireEvent.change(select, { target: { value: 'lane-1' } })
+    fireEvent.change(select, { target: { value: 'queue-1' } })
 
-    expect(onSelectGroup).toHaveBeenCalledWith('lane-1')
+    expect(onSelectGroup).toHaveBeenCalledWith('queue-1')
   })
 })

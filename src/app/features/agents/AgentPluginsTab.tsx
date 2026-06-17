@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, Circle, RotateCcw, Search, SlidersHorizontal, Wrench } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { agentPluginErrorMessage } from './model/pluginErrorMessage'
 
 interface AgentPluginRow {
   pluginId: string
@@ -35,6 +36,11 @@ interface PluginSummary {
   enabled: number
   disabled: number
   overridden: number
+}
+
+interface EmptyStateCopy {
+  title: string
+  detail: string
 }
 
 const FILTER_LABELS: Record<PluginFilter, string> = {
@@ -79,6 +85,39 @@ function countPluginsByFilter(summary: PluginSummary, filter: PluginFilter): num
   }
 }
 
+function agentPluginEmptyState(): EmptyStateCopy {
+  return {
+    title: 'Ask an owner or admin to add tools',
+    detail:
+      'Tools give agents extra abilities. After tools are added, return here to choose which ones this agent can use.',
+  }
+}
+
+function agentPluginFilterEmptyState(filter: PluginFilter, query: string): EmptyStateCopy {
+  const hasSearch = query.trim().length > 0
+  const hasFilter = filter !== 'all'
+
+  if (hasSearch && hasFilter) {
+    return {
+      title: 'Clear search or show all tools',
+      detail: 'This agent has tools, but the current search and filter hide them.',
+    }
+  }
+
+  if (hasSearch) {
+    return {
+      title: 'Clear search to see tools',
+      detail:
+        'This agent has tools, but the search hides them. Try a broader word or clear search.',
+    }
+  }
+
+  return {
+    title: 'Choose All to see tools',
+    detail: 'This agent has tools, but this filter has no results yet.',
+  }
+}
+
 function filterPlugins(plugins: PluginItem[], filter: PluginFilter, query: string): PluginItem[] {
   const normalized = query.trim().toLowerCase()
   return plugins.filter((plugin) => {
@@ -96,6 +135,25 @@ function filterPlugins(plugins: PluginItem[], filter: PluginFilter, query: strin
   })
 }
 
+export function pluginSettingNote(
+  plugin: Pick<PluginItem, 'defaultEnabled' | 'hasOverride'>
+): string {
+  const teamSetting = plugin.defaultEnabled
+    ? 'normally available for agents'
+    : 'normally off for agents'
+  return plugin.hasOverride
+    ? `Changed for this agent - ${teamSetting}`
+    : `Using team setting - ${teamSetting}`
+}
+
+function toolDescription(plugin: Pick<PluginItem, 'description'>): string {
+  const description = plugin.description.trim()
+  return (
+    description ||
+    'Tool summary is missing. Keep the team setting until an owner explains what this tool lets the agent do.'
+  )
+}
+
 interface AgentPluginsTabProps {
   agentId: string
 }
@@ -104,6 +162,7 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
   const [plugins, setPlugins] = useState<PluginItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<PluginFilter>('all')
 
@@ -112,11 +171,14 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
     () => filterPlugins(plugins, filter, query),
     [plugins, filter, query]
   )
+  const emptyPlugins = agentPluginEmptyState()
+  const filteredEmpty = agentPluginFilterEmptyState(filter, query)
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     setError(null)
+    setActionError(null)
 
     async function load() {
       try {
@@ -141,7 +203,7 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
           )
         }
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load plugins')
+        if (!cancelled) setError(agentPluginErrorMessage('load', err))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -155,6 +217,7 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
 
   async function toggle(plugin: PluginItem) {
     const next = !plugin.enabled
+    setActionError(null)
     // Optimistic update with saving guard
     setPlugins((prev) =>
       prev.map((p) => (p.id === plugin.id ? { ...p, enabled: next, saving: true } : p))
@@ -170,11 +233,12 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
       )
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       setPlugins((prev) => prev.map((p) => (p.id === plugin.id ? { ...p, saving: false } : p)))
-    } catch {
+    } catch (err) {
       // Revert on failure so the UI stays consistent with the server.
       setPlugins((prev) =>
         prev.map((p) => (p.id === plugin.id ? { ...p, enabled: !next, saving: false } : p))
       )
+      setActionError(agentPluginErrorMessage('save', err))
     }
   }
 
@@ -190,10 +254,10 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 text-center">
-        <p className="text-ui-body font-medium text-apple-red">Tools could not be loaded.</p>
+      <div role="alert" className="flex flex-col items-center justify-center py-8 text-center">
+        <p className="text-ui-body font-medium text-apple-red">Agent tools need attention.</p>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Details: {error}
+          {error}
         </p>
       </div>
     )
@@ -201,10 +265,20 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
 
   if (plugins.length === 0) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-          No tools are available for this agent yet. Add tools to the workspace before assigning
-          them here.
+      <div
+        data-testid="agent-plugin-empty"
+        className="flex flex-col items-center justify-center rounded-card border border-dashed border-black/[0.1] bg-black/[0.02] px-4 py-8 text-center dark:border-white/[0.12] dark:bg-white/[0.03]"
+      >
+        <Wrench
+          size={18}
+          strokeWidth={2}
+          className="text-secondary-light dark:text-secondary-dark"
+        />
+        <p className="mt-2 text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+          {emptyPlugins.title}
+        </p>
+        <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {emptyPlugins.detail}
         </p>
       </div>
     )
@@ -221,7 +295,8 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
             What this agent can use
           </h3>
           <p className="mt-1 max-w-2xl text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Tools are extra abilities. Turning one on or off here affects only this agent.
+            Tools are extra abilities. Only turn on tools this agent needs for its next tasks. If
+            you are not sure, keep the team setting and ask an owner before changing access.
           </p>
         </div>
 
@@ -272,7 +347,7 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
           <div
             data-testid="agent-plugin-filter"
             role="group"
-            aria-label="Plugin filter"
+            aria-label="Tool filter"
             className="inline-flex h-9 items-center gap-1 rounded-lg border border-black/[0.08] bg-black/[0.025] p-1 dark:border-white/[0.1] dark:bg-white/[0.04]"
           >
             {(Object.keys(FILTER_LABELS) as PluginFilter[]).map((option) => (
@@ -301,8 +376,23 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
           <span>
             Showing {visiblePlugins.length} of {summary.total} tools
           </span>
+          <span className="hidden sm:inline" aria-hidden="true">
+            ·
+          </span>
+          <span className="hidden sm:inline">
+            Saved changes apply to this agent&apos;s next task.
+          </span>
         </div>
       </section>
+
+      {actionError ? (
+        <div
+          role="alert"
+          className="rounded-card border border-apple-red/25 bg-apple-red/[0.06] px-4 py-3 text-ui-caption text-apple-red"
+        >
+          {actionError}
+        </div>
+      ) : null}
 
       {visiblePlugins.length === 0 ? (
         <div
@@ -315,10 +405,10 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
             className="text-secondary-light dark:text-secondary-dark"
           />
           <p className="mt-2 text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-            No tools match this view
+            {filteredEmpty.title}
           </p>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Clear the search or choose All to see every tool this agent can be given.
+            {filteredEmpty.detail}
           </p>
           <button
             type="button"
@@ -329,7 +419,7 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
             className="mt-3 inline-flex h-8 items-center gap-2 rounded-lg border border-black/[0.08] bg-white px-3 text-ui-caption font-medium text-foreground-light transition-colors hover:border-apple-blue/35 hover:text-apple-blue dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-foreground-dark"
           >
             <RotateCcw size={13} strokeWidth={2} aria-hidden="true" />
-            Clear filters
+            Show all tools
           </button>
         </div>
       ) : (
@@ -350,12 +440,10 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
                 <PluginStatusPill plugin={plugin} />
               </div>
               <span className="truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-                {plugin.description || 'No description provided'}
+                {toolDescription(plugin)}
               </span>
               <span className="text-[10px] font-mono uppercase tracking-normal text-secondary-light/80 dark:text-secondary-dark/80">
-                {plugin.hasOverride
-                  ? `Changed for this agent · workspace default is ${plugin.defaultEnabled ? 'on' : 'off'}`
-                  : `Using workspace default · ${plugin.defaultEnabled ? 'on' : 'off'}`}
+                {pluginSettingNote(plugin)}
               </span>
             </div>
 
@@ -421,7 +509,7 @@ function PluginMetric({
 
 function PluginStatusPill({ plugin }: { plugin: PluginItem }) {
   const Icon = plugin.enabled ? CheckCircle2 : Circle
-  const label = plugin.enabled ? 'Agent can use' : 'Not available'
+  const label = plugin.enabled ? 'Can use now' : 'Turned off for this agent'
   return (
     <span
       className={cn(

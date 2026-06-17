@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import type { TaskSummary } from '@app/shared/api/orchestration'
+import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import { useAdminStore } from '@app/shared/model/admin.store'
 import { useBoardStore } from '@app/shared/model/board.store'
 import { useFeedStore } from '@app/shared/model/feed.store'
@@ -118,8 +119,8 @@ export function dispatchWsMessage(msg: WsMessage) {
           id: `${eventType}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           type: eventType,
           agentName,
-          taskTitle: tool ?? eventType,
-          detail: tool ? `Tool: ${tool}` : eventType,
+          taskTitle: agentActivityTitle(eventType, tool),
+          detail: agentActivityDetail(eventType, tool),
           timestamp,
         })
 
@@ -225,9 +226,13 @@ function notifyTaskOwner(task: TaskSummary) {
   const timestamp = Number.isFinite(updatedAt) ? updatedAt : Date.now()
   const detail =
     notificationType === 'blocked'
-      ? (task.blockedHint ?? task.blockedReason ?? task.error ?? 'No unblock reason was provided')
+      ? taskBlockedPreview({
+          blockedHint: task.blockedHint,
+          blockedReason: task.blockedReason,
+          error: task.error,
+        })
       : notificationType === 'failed'
-        ? (task.error ?? 'No failure reason was provided')
+        ? taskFailurePreview(task.error)
         : completionSummary(task)
 
   useFeedStore.getState().addNotification({
@@ -251,11 +256,71 @@ function taskNotificationMessage(
   const actor = assigned || 'Assigned agent'
   switch (type) {
     case 'blocked':
-      return `${actor} is blocked and needs owner input: ${detail}`
+      return `${actor} needs your answer before work can continue: ${detail}`
     case 'failed':
-      return `${actor} failed to complete this task: ${detail}`
+      return `${actor} stopped before finishing. Open the task, review the recovery note, then retry or choose another agent. ${detail}`
     case 'completed':
       return `${actor} completed this task: ${detail}`
+  }
+}
+
+function agentActivityTitle(eventType: string, tool?: string | null): string {
+  switch (eventType) {
+    case 'pre_tool_use':
+      return tool ? activityToolLabel(tool) : 'Starting a work step'
+    case 'post_tool_use':
+      return tool ? `Finished ${activityToolLabel(tool).toLowerCase()}` : 'Finished a work step'
+    case 'permission_prompt':
+      return 'Decision needed'
+    case 'blocked':
+      return 'Needs help'
+    default:
+      return 'Task update'
+  }
+}
+
+function agentActivityDetail(eventType: string, tool?: string | null): string {
+  switch (eventType) {
+    case 'pre_tool_use':
+      return tool
+        ? `Started ${activityToolLabel(tool).toLowerCase()}.`
+        : 'The agent started a work step.'
+    case 'post_tool_use':
+      return tool
+        ? `Finished ${activityToolLabel(tool).toLowerCase()}.`
+        : 'The agent finished a work step.'
+    case 'permission_prompt':
+      return 'Review the request before the agent continues.'
+    case 'blocked':
+      return 'Open the task to see what is needed before work can continue.'
+    default:
+      return 'The agent shared a task update.'
+  }
+}
+
+function activityToolLabel(tool: string): string {
+  switch (tool.toLowerCase()) {
+    case 'read':
+      return 'Checking project files'
+    case 'write':
+    case 'edit':
+    case 'multiedit':
+      return 'Updating project files'
+    case 'bash':
+    case 'shell':
+      return 'Running a project command'
+    case 'grep':
+    case 'glob':
+    case 'ls':
+    case 'rg':
+      return 'Searching the project'
+    case 'webfetch':
+    case 'websearch':
+      return 'Checking online information'
+    case 'todowrite':
+      return 'Updating the work checklist'
+    default:
+      return 'Working on the task'
   }
 }
 
@@ -289,8 +354,8 @@ function notifyCredentialOwner(payload: Record<string, unknown> | null) {
     id: `credential-owner:${ownerId}:${cliTool}:expired:${eventKey}`,
     type: 'credential_expired',
     taskId: `credential:${cliTool}`,
-    taskTitle: `${displayName} credential expired`,
-    message: `Reconnect ${displayName} auth in Settings before starting new container agents.`,
+    taskTitle: `${displayName} account needs reconnecting`,
+    message: `Reconnect the ${displayName} account in Settings before starting new agents that work on files.`,
     taskHref: '/settings',
     ownerUserId: ownerId,
     read: false,
@@ -329,16 +394,16 @@ function handleCliImageUpdate(payload: Record<string, unknown> | null) {
   const display = displayCliTool(tool)
   const title =
     state === 'updated'
-      ? `${display} agent image updated`
+      ? `${display} agent tool package updated`
       : state === 'update_available'
         ? `${display} update available${remoteVersion ? ` (v${remoteVersion})` : ''}`
-        : `${display} image check failed`
+        : `${display} tool package check failed`
   const message =
     state === 'updated'
-      ? `New ${display} agents will start on the latest CLI. Running agents are unaffected.`
+      ? `New ${display} agents will start on the latest tool package. Running agents are unaffected.`
       : state === 'update_available'
-        ? `A newer ${display} CLI is on npm. Build it with one click from Admin → CLI agent images; running agents are unaffected.`
-        : `The ${display} image check failed${lastError ? `: ${lastError}` : ''}. New agents keep the current image until it succeeds.`
+        ? `A newer ${display} tool package is available. Build it from Admin, then new agents can use it. Running agents are unaffected.`
+        : `The ${display} tool package check failed. Open Admin and choose Check now after a few minutes, or ask an owner to check tool package access. New agents keep the current tool package until it succeeds.`
   useFeedStore.getState().addNotification({
     id: eventId,
     type: 'cli_image_updated',
@@ -362,21 +427,47 @@ function displayCliTool(cliTool: string): string {
     case 'opencode':
       return 'OpenCode'
     default:
-      return 'Container CLI'
+      return 'Work tool'
   }
 }
 
 function completionSummary(task: TaskSummary): string {
   const result = task.result
-  if (!result) return 'No completion summary was provided'
+  if (!result) return 'Open the task details to confirm what changed before using the result.'
   if (Array.isArray(result)) {
-    return `${result.length} result artifact${result.length === 1 ? '' : 's'}`
+    return `${result.length} result file${result.length === 1 ? '' : 's'}`
   }
-  if (typeof result.message === 'string' && result.message.trim()) return result.message
+  if (typeof result.message === 'string' && result.message.trim()) {
+    return safeCompletionMessage(result.message)
+  }
   if (typeof result.stdout === 'string' && result.stdout.trim()) {
-    return result.stdout.trim().split('\n')[0]?.slice(0, 140) || 'Completed'
+    return 'Finished with a text result. Open details to review it.'
   }
   return 'Completed'
+}
+
+function safeCompletionMessage(message: string): string {
+  const trimmed = message.trim()
+  const lower = trimmed.toLowerCase()
+  const looksLikeSupportDetail =
+    trimmed.length > 180 ||
+    trimmed.includes('\n') ||
+    /\b(token|secret|password|api[_\s-]?key|credential|credentials)\b/i.test(trimmed) ||
+    /\b(401|403|500|502|503|504)\b/.test(trimmed) ||
+    lower.includes('unauthorized') ||
+    lower.includes('forbidden') ||
+    lower.includes('panic') ||
+    lower.includes('stack trace') ||
+    lower.includes('traceback') ||
+    lower.includes('exception') ||
+    lower.includes('database') ||
+    lower.includes('raw command output')
+
+  if (looksLikeSupportDetail) {
+    return 'Finished with a summary you should check. Open details before using the result.'
+  }
+
+  return trimmed
 }
 
 function mapAgentStatus(status: unknown): 'working' | 'idle' | 'blocked' | 'offline' {

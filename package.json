@@ -55,8 +55,13 @@
     "migrate:down": "node scripts/rust-migrate-unsupported.mjs down",
     "migrate:status": "node scripts/rust-migrate-unsupported.mjs status",
     "pr:summary": "node scripts/pr-status-summary.mjs",
+    "pr:summary:local": "node scripts/pr-status-summary.mjs --local-only",
+    "pr:summary:refresh": "node scripts/pr-status-summary.mjs --refresh",
+    "pr:summary:force-refresh": "node scripts/pr-status-summary.mjs --force-refresh",
+    "pr:summary:monitor": "node scripts/pr-status-summary.mjs --monitor",
+    "beginner:ux:copy": "node scripts/check-beginner-ux-copy.mjs",
     "fsd:check": "node scripts/check-fsd-boundaries.mjs",
-    "lint": "npm run fsd:check && eslint shared scripts src/app",
+    "lint": "npm run fsd:check && npm run beginner:ux:copy && eslint shared scripts src/app",
     "lint:fix": "eslint shared scripts src/app --fix",
     "format:check": "prettier --check \"shared/**/*.ts\" \"src/**/*.ts\"",
     "format": "prettier --write \"shared/**/*.ts\" \"src/**/*.ts\"",
@@ -77,7 +82,7 @@
     "cmdk": "^1.1.1",
     "i18next": "^26.3.1",
     "lucide-react": "^1.18.0",
-    "nats": "^2.29.3",
+    "@nats-io/transport-node": "^3.4.0",
     "pg": "^8.21.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
@@ -89,8 +94,9 @@
   },
   "overrides": {
     "flatted": ">=3.4.0",
-    "undici": "7.25.0",
-    "protobufjs": "^7.6.1"
+    "js-yaml": "4.2.0",
+    "protobufjs": "7.6.4",
+    "undici": "7.25.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -20,9 +20,10 @@ import {
   taskResultArtifacts,
   type TaskSummary,
 } from '@app/shared/api/orchestration'
-import { isHostCliAgent, useAgentsStore } from '@app/entities/agent'
+import { agentAiServiceLabel, isHostCliAgent, useAgentsStore } from '@app/entities/agent'
 import { useBoardStore } from '@app/shared/model/board.store'
 import { useSettingsStore } from '@app/shared/model/settings.store'
+import type { LlmProviderConfig } from '@app/shared/api/legacy/settingsApi'
 import { useSkillsStore } from '@app/shared/model/skills.store'
 import { cn } from '@app/shared/lib/utils'
 
@@ -71,6 +72,8 @@ export function GettingStartedView() {
   const skills = useSkillsStore((state) => state.skills)
   const loadSkills = useSkillsStore((state) => state.loadSkills)
   const [loadedTasks, setLoadedTasks] = useState<TaskSummary[]>([])
+  const [skipSaving, setSkipSaving] = useState(false)
+  const [skipError, setSkipError] = useState<string | null>(null)
 
   useEffect(() => {
     void Promise.allSettled([
@@ -108,6 +111,7 @@ export function GettingStartedView() {
     runtimeSettings.availableCliTools.length > 0
   )
   const executionCredentialReady = Boolean(verifiedProvider || cliExecutionAgent)
+  const verifiedProviderLabel = verifiedProvider ? providerDisplayLabel(verifiedProvider) : null
   const executionCredentialPath = verifiedProvider
     ? '/settings/providers'
     : providers.length > 0
@@ -158,8 +162,8 @@ export function GettingStartedView() {
       {
         id: 'provider',
         title: t('gettingStarted.steps.provider.title'),
-        detail: verifiedProvider
-          ? verifiedProvider.displayName || verifiedProvider.provider
+        detail: verifiedProviderLabel
+          ? verifiedProviderLabel
           : cliExecutionAgent
             ? t('gettingStarted.steps.provider.cliReady', {
                 name: cliExecutionAgent.name,
@@ -286,6 +290,7 @@ export function GettingStartedView() {
       t,
       teams,
       verifiedProvider,
+      verifiedProviderLabel,
       workspaceDetail,
     ]
   )
@@ -314,11 +319,16 @@ export function GettingStartedView() {
   const nextStep = steps.find((step) => !step.complete) ?? steps[steps.length - 1]
   const NextStepIcon = nextStep.Icon
   const setupComplete = completeCount === steps.length
+  const actionTitle = setupComplete ? t('gettingStarted.steps.task.title') : nextStep.title
+  const actionSuccess = setupComplete ? t('gettingStarted.steps.task.success') : nextStep.success
+  const actionPath = setupComplete ? '/tasks' : nextStep.path
+  const actionCta = setupComplete ? t('gettingStarted.readyCta') : nextStep.cta
+  const ActionIcon = setupComplete ? ListTodo : NextStepIcon
 
   // Once every step is done, hide the guide from the sidebar automatically.
   // Persist exactly once: wait for the stored preference (so an already
   // dismissed guide is not re-patched) and remember the write across renders.
-  // The page itself stays reachable at /start either way.
+  // Fresh /start visits skip the guide when the stored preference is already hidden.
   const autoDismissPersistedRef = useRef(false)
   useEffect(() => {
     if (!setupComplete || !preferencesLoaded) return
@@ -332,10 +342,17 @@ export function GettingStartedView() {
     void navigate({ to: path })
   }
 
-  function skipGuide() {
+  async function skipGuide() {
     // Optimistic store update hides the sidebar entry immediately; the store
     // reverts it if the server rejects the patch.
-    void setGettingStartedDismissed(true)
+    setSkipError(null)
+    setSkipSaving(true)
+    const ok = await setGettingStartedDismissed(true)
+    setSkipSaving(false)
+    if (!ok) {
+      setSkipError(t('gettingStarted.skipError'))
+      return
+    }
     void navigate({ to: '/tasks' })
   }
 
@@ -358,10 +375,19 @@ export function GettingStartedView() {
                 type="button"
                 data-testid="getting-started-skip"
                 onClick={skipGuide}
-                className="mt-2 text-ui-caption font-medium text-secondary-light underline-offset-2 transition-colors hover:text-foreground-light hover:underline focus-visible:underline focus-visible:outline-none dark:text-secondary-dark dark:hover:text-foreground-dark"
+                disabled={skipSaving}
+                className="mt-2 text-ui-caption font-medium text-secondary-light underline-offset-2 transition-colors hover:text-foreground-light hover:underline focus-visible:underline focus-visible:outline-none disabled:cursor-wait disabled:opacity-60 dark:text-secondary-dark dark:hover:text-foreground-dark"
               >
-                {t('gettingStarted.skip')}
+                {skipSaving ? t('gettingStarted.skipSaving') : t('gettingStarted.skip')}
               </button>
+              <p className="mt-1 max-w-2xl text-ui-caption text-secondary-light dark:text-secondary-dark">
+                {t('gettingStarted.skipHint')}
+              </p>
+              {skipError && (
+                <p role="alert" className="mt-2 text-ui-caption font-medium text-apple-red">
+                  {skipError}
+                </p>
+              )}
             </div>
             <div className="shrink-0 rounded-lg border border-black/[0.08] px-4 py-3 text-right dark:border-white/[0.1]">
               <p className="text-ui-metric font-semibold tabular-nums text-foreground-light dark:text-foreground-dark">
@@ -390,7 +416,7 @@ export function GettingStartedView() {
             {setupComplete ? t('gettingStarted.readyTitle') : t('gettingStarted.nextTitle')}
           </p>
           <p className="mt-1 text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-            {nextStep.title}
+            {actionTitle}
           </p>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
             {setupComplete ? t('gettingStarted.readyDetail') : nextStep.why}
@@ -399,15 +425,15 @@ export function GettingStartedView() {
             <span className="font-medium text-foreground-light dark:text-foreground-dark">
               {t('gettingStarted.successLabel')}
             </span>{' '}
-            {nextStep.success}
+            {actionSuccess}
           </div>
           <button
             type="button"
-            onClick={() => go(nextStep.path)}
+            onClick={() => go(actionPath)}
             className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-full bg-apple-blue px-4 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
           >
-            <NextStepIcon width={14} height={14} aria-hidden="true" />
-            {nextStep.cta}
+            <ActionIcon width={14} height={14} aria-hidden="true" />
+            {actionCta}
             <ArrowRight size={14} strokeWidth={2.25} aria-hidden="true" />
           </button>
           <div className="mt-4 border-t border-black/[0.06] pt-3 dark:border-white/[0.08]">
@@ -474,6 +500,11 @@ function workLocationLabel(runtime: string, t: (key: string) => string): string 
   }
 }
 
+function providerDisplayLabel(provider: LlmProviderConfig): string {
+  const displayName = provider.displayName.trim()
+  return displayName || agentAiServiceLabel(provider.provider)
+}
+
 function SetupStepItem({
   step,
   index,
@@ -497,55 +528,63 @@ function SetupStepItem({
   return (
     <article
       className={cn(
-        'flex min-w-0 items-center gap-4 rounded-card border bg-white p-4 dark:bg-[#2a2a2c]',
+        'flex min-w-0 flex-col gap-3 rounded-card border bg-white p-4 dark:bg-[#2a2a2c] sm:flex-row sm:items-center sm:gap-4',
         step.complete || isNext
           ? 'border-apple-blue/30'
           : 'border-black/[0.08] dark:border-white/[0.1]'
       )}
     >
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-        <Icon size={18} strokeWidth={2} aria-hidden="true" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-center gap-2">
-          <StatusIcon
-            size={16}
-            strokeWidth={2.25}
-            className={
-              step.complete ? 'text-apple-blue' : 'text-secondary-light dark:text-secondary-dark'
-            }
-            aria-hidden="true"
-          />
-          <h3 className="truncate text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            <span className="mr-1 tabular-nums text-secondary-light dark:text-secondary-dark">
-              {index + 1}.
-            </span>
-            {step.title}
-          </h3>
-          <span
-            className={cn(
-              'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',
-              step.complete || isNext
-                ? 'bg-apple-blue/10 text-apple-blue'
-                : 'bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
-            )}
-          >
-            {statusLabel}
-          </span>
+      <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center sm:gap-4">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
+          <Icon size={18} strokeWidth={2} aria-hidden="true" />
         </div>
-        <p className="mt-1 truncate text-ui-body text-secondary-light dark:text-secondary-dark">
-          {step.detail}
-        </p>
-        {isNext && (
-          <p className="mt-1 line-clamp-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            {step.why}
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <StatusIcon
+              size={16}
+              strokeWidth={2.25}
+              className={
+                step.complete ? 'text-apple-blue' : 'text-secondary-light dark:text-secondary-dark'
+              }
+              aria-hidden="true"
+            />
+            <h3 className="truncate text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+              <span className="mr-1 tabular-nums text-secondary-light dark:text-secondary-dark">
+                {index + 1}.
+              </span>
+              {step.title}
+            </h3>
+            <span
+              className={cn(
+                'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                step.complete || isNext
+                  ? 'bg-apple-blue/10 text-apple-blue'
+                  : 'bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
+              )}
+            >
+              {statusLabel}
+            </span>
+          </div>
+          <p className="mt-1 truncate text-ui-body text-secondary-light dark:text-secondary-dark">
+            {step.detail}
           </p>
-        )}
+          {isNext && (
+            <p className="mt-1 line-clamp-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              {step.why}
+            </p>
+          )}
+          <p className="mt-1 line-clamp-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            <span className="font-medium text-foreground-light dark:text-foreground-dark">
+              {t('gettingStarted.successLabel')}
+            </span>{' '}
+            {step.success}
+          </p>
+        </div>
       </div>
       <button
         type="button"
         onClick={() => onNavigate(step.path)}
-        className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full bg-apple-blue px-4 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+        className="inline-flex min-h-10 w-full shrink-0 items-center justify-center gap-2 rounded-full bg-apple-blue px-4 py-2 text-center text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus sm:w-auto"
       >
         <span>{step.cta}</span>
         <ArrowRight size={14} strokeWidth={2.25} aria-hidden="true" />

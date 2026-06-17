@@ -3,6 +3,7 @@ import { ChevronLeft } from 'lucide-react'
 import { FitAddon } from '@xterm/addon-fit'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
+import { agentStatusLabel, agentToolLabel } from '@app/entities/agent'
 import { cn } from '@app/shared/lib/utils'
 import { useWebSocket } from '@app/shared/model/websocket.context'
 import { NAV_KEYS, NUM_KEYS, UTIL_KEYS, type KeyDef } from './lib/terminalKeys'
@@ -17,6 +18,17 @@ interface AgentTerminalTabProps {
 }
 
 const KEY_GROUPS: KeyDef[][] = [NAV_KEYS, NUM_KEYS, UTIL_KEYS]
+const LIVE_WORK_CONNECTION_NOTICE =
+  'Live work notice: Connection dropped. Refresh this page first. If this agent still shows Not connected, open Overview, use Controls, and choose Restart agent.'
+
+export function liveWorkToolLabel(cliTool?: CliTool): string {
+  return agentToolLabel(cliTool)
+}
+
+export function liveWorkStatusLabel(status?: string): string {
+  if (!status?.trim()) return 'Refresh to load status'
+  return agentStatusLabel(status)
+}
 
 export function AgentTerminalTab({
   agentId,
@@ -138,7 +150,7 @@ export function AgentTerminalTab({
         const term = terminalRef.current
         if (!term) return
         if (msg.type === 'terminal_error') {
-          term.write(`\r\n[terminal] ${msg.payload?.message ?? 'connection failed'}\r\n`)
+          term.write(`\r\n${LIVE_WORK_CONNECTION_NOTICE}\r\n`)
           return
         }
         const data = msg.payload?.data
@@ -163,6 +175,7 @@ export function AgentTerminalTab({
 
   const isLive = status === 'connected'
   const statusLabel = isLive ? 'Live' : status === 'connecting' ? 'Connecting' : 'Disconnected'
+  const toolLabel = liveWorkToolLabel(cliTool)
 
   if (!containerId) {
     return (
@@ -177,22 +190,23 @@ export function AgentTerminalTab({
           <span className="text-white/30">$</span>
           <span className="truncate">{agentName ?? agentId}</span>
           <span className="rounded bg-white/10 px-1.5 py-0.5 uppercase tracking-wide">
-            {cliTool ?? 'cli'}
+            {toolLabel}
           </span>
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-white">Terminal unavailable</h3>
+          <h3 className="text-sm font-semibold text-white">Live work is still starting</h3>
           <p className="mt-1 text-xs leading-relaxed text-white/60">
-            The Container CLI runtime is selected, but no running container is attached yet.
+            Wait until this agent shows Ready. If it still shows Not connected, open Overview, use
+            Controls, and start or restart this agent before using Live work.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2 text-[11px] text-white/55">
           <span>Agent status</span>
-          <span className="text-white/80">{agentStatus ?? 'unknown'}</span>
-          <span>Runtime</span>
-          <span className="text-white/80">{cliTool ?? 'container-cli'}</span>
-          <span>Container</span>
-          <span className="text-white/80">Pending</span>
+          <span className="text-white/80">{liveWorkStatusLabel(agentStatus)}</span>
+          <span>Work tool</span>
+          <span className="text-white/80">{toolLabel}</span>
+          <span>Agent startup</span>
+          <span className="text-white/80">Waiting for this agent</span>
         </div>
       </div>
     )
@@ -215,7 +229,7 @@ export function AgentTerminalTab({
       >
         <span className="text-white/40">$</span>
         <span className="truncate text-white/40">Agent: {(agentName ?? agentId).slice(0, 24)}</span>
-        <span className="truncate text-white/25">Container: {containerId.slice(0, 12)}</span>
+        <span className="truncate text-white/25">Ready for live work</span>
         <span className="flex-1" />
         <span
           className={cn(
@@ -251,7 +265,9 @@ interface KeyToolbarProps {
 function KeyToolbar({ onKeys, disabled }: KeyToolbarProps) {
   const [collapsed, setCollapsed] = useState(false)
   const toggleLabel = collapsed ? 'Show virtual keyboard' : 'Hide virtual keyboard'
-  const keyboardHint = disabled ? 'Connect terminal to use keys' : 'Shortcut keys send to terminal'
+  const keyboardHint = disabled
+    ? 'Wait for live work before using keys'
+    : 'Shortcut keys send to live work'
 
   return (
     <div

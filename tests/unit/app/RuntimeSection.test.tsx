@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import '@app/i18n'
 import { RuntimeSection } from '@app/features/settings/RuntimeSection'
 import { useSettingsStore } from '@app/shared/model/settings.store'
@@ -115,15 +115,74 @@ describe('RuntimeSection', () => {
     render(<RuntimeSection />)
 
     expect(await screen.findByTestId('runtime-launch-checklist')).toBeDefined()
+    const readiness = screen.getByTestId('runtime-readiness')
     const nextStep = screen.getByTestId('runtime-next-step')
-    expect(nextStep).toHaveTextContent('Do This Next')
-    expect(nextStep).toHaveTextContent('Local tool setup')
-    expect(screen.getByText('Work setup checklist')).toBeDefined()
+    expect(nextStep).toHaveTextContent('Next step')
+    expect(nextStep).toHaveTextContent('Work tools ready')
+    expect(nextStep).toHaveTextContent('What success looks like: This item changes to Ready.')
+    expect(nextStep).not.toHaveTextContent('Success:')
+    expect(screen.getByText('Before assigning work')).toBeDefined()
     expect(screen.getByText('2/4 ready')).toBeDefined()
-    expect(screen.getAllByText(/Rebuild the agent tool packages/i).length).toBeGreaterThan(0)
-    expect(screen.getByRole('button', { name: /Connect GitHub/i })).toBeDefined()
+    expect(within(readiness).getByText('Finish agent work setup')).toBeDefined()
+    expect(
+      screen.getByText(/Setup has 2 agent locations and 2 work tools like Claude or Codex/i)
+    ).toBeDefined()
+    expect(screen.getByText(/1 work tool sign-in is connected\. 1 agent is online/i)).toBeDefined()
+    expect(
+      within(readiness).queryByText(new RegExp('agent locations\\s+available', 'i'))
+    ).toBeNull()
+    expect(screen.queryByText(/work places available/i)).toBeNull()
+    expect(
+      screen.queryByText(new RegExp('tools like Claude or Codex\\s+available', 'i'))
+    ).toBeNull()
+    expect(screen.queryByText(/seen online/i)).toBeNull()
+    expect(
+      screen.getAllByText(/project files, commands, or live work access/i).length
+    ).toBeGreaterThan(0)
+    expect(
+      screen.getByText(
+        'Managed workspace is the simplest choice. Choose This computer only when this machine should join the workspace as a managed agent.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByText(new RegExp(['unless', 'owner', 'tells'].join('.*'), 'i'))).toBeNull()
+    expect(screen.getAllByText(/work tool setup/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/tool install status/i)).toBeNull()
+    expect(screen.getAllByText('Managed workspace').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Chat-only AI service').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Codex').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/command window/i)).toBeNull()
+    expect(screen.queryByText(/Text-only model service/i)).toBeNull()
+    expect(screen.queryByText('container')).toBeNull()
+    expect(screen.queryByText('api')).toBeNull()
+    expect(screen.queryByText('codex')).toBeNull()
+    expect(
+      screen.getAllByText(/ask an owner to finish setting up the tools/i).length
+    ).toBeGreaterThan(0)
+    expect(screen.queryByText(/agent tools/i)).toBeNull()
+    expect(screen.queryByText(/agent check-in/i)).toBeNull()
+    expect(screen.queryByText(/tool check|not reported|not checked/i)).toBeNull()
+    expect(screen.queryByText(/package check/i)).toBeNull()
+    expect(screen.getByText('Check tool version')).toBeDefined()
+    expect(screen.queryByText('Needs attention')).toBeNull()
+    expect(screen.getByText('Setup needed')).toBeDefined()
+    expect(screen.getByText('check setup')).toBeDefined()
+    expect(screen.getByText('Installed and ready')).toBeDefined()
+    expect(screen.getAllByText(/work tool sign-ins/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/1\/2 work tool sign-ins ready/i)).toBeDefined()
+    expect(
+      screen.getByText(/Sign in again before starting agents that use this tool/i)
+    ).toBeDefined()
+    expect(screen.queryByText(/No work tool sign-in saved/i)).toBeNull()
+    expect(screen.getByRole('button', { name: /Sign in to GitHub/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /Check setup/i })).toBeDefined()
+    expect(
+      screen.queryByRole('button', { name: new RegExp(['Check', 'status'].join(' '), 'i') })
+    ).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Refresh$/i })).toBeNull()
+    expect(screen.queryByText('Needs action')).toBeNull()
+    expect(screen.getAllByText('Needs setup').length).toBeGreaterThan(0)
 
-    fireEvent.click(screen.getByRole('button', { name: /Connect GitHub/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Sign in to GitHub/i }))
 
     await waitFor(() => expect(agentApiMock.startCliAuthProxyLogin).toHaveBeenCalledWith('github'))
     expect(openSpy).toHaveBeenCalledWith(
@@ -167,8 +226,200 @@ describe('RuntimeSection', () => {
     render(<RuntimeSection />)
 
     expect(await screen.findByText('4/4 ready')).toBeDefined()
-    expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('Ready to start agent work')
-    expect(screen.queryByRole('button', { name: /Connect GitHub/i })).toBeNull()
-    expect(screen.getByText(/1\/1 local tool versions reported/i)).toBeDefined()
+    expect(
+      screen.getByText(/Setup has 1 agent location and 1 work tool like Claude or Codex/i)
+    ).toBeDefined()
+    expect(screen.getByText(/1 work tool sign-in is connected\. 1 agent is online/i)).toBeDefined()
+    expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('Ready to give agents work')
+    expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('The agent location')
+    expect(screen.getByTestId('runtime-next-step')).toHaveTextContent(
+      'What success looks like: Open Agents, create or select an agent, then assign work from Tasks.'
+    )
+    expect(screen.getByTestId('runtime-next-step')).not.toHaveTextContent('Success:')
+    expect(screen.queryByRole('button', { name: /Sign in to GitHub/i })).toBeNull()
+    expect(screen.getByText(/1\/1 work tools are ready/i)).toBeDefined()
+    expect(screen.getByText(/1\/1 work tool sign-ins ready/i)).toBeDefined()
+    expect(screen.getAllByText(/agent online status/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/agent tools are checked/i)).toBeNull()
+    expect(screen.queryByText(/agent check-ins/i)).toBeNull()
+  })
+
+  test('tells users to sign in before starting agents when no work tool sign-ins are connected', async () => {
+    agentApiMock.getCliAuthProxyStatus.mockResolvedValueOnce({
+      ok: true,
+      statuses: [
+        {
+          provider: 'github',
+          displayName: 'GitHub',
+          cliTool: 'codex',
+          connected: false,
+        },
+      ],
+    })
+
+    render(<RuntimeSection />)
+
+    expect(await screen.findByTestId('runtime-launch-checklist')).toBeDefined()
+    expect(
+      screen.getByText(/Sign in to a work tool before starting agents that need one/i)
+    ).toBeDefined()
+    expect(screen.queryByText(/No work tool sign-ins are connected yet/i)).toBeNull()
+    expect(screen.getByText(/Sign in before starting agents that use this tool/i)).toBeDefined()
+    expect(screen.queryByText(/No work tool sign-in saved/i)).toBeNull()
+    expect(screen.getByRole('button', { name: /Sign in to GitHub/i })).toBeDefined()
+  })
+
+  test('labels missing work setup clearly instead of Unknown', async () => {
+    useSettingsStore.setState({
+      runtimeSettings: null,
+      runtimeLoading: false,
+      runtimeError: null,
+    })
+
+    render(<RuntimeSection />)
+
+    expect(
+      await screen.findByText('The Where agents run settings have not loaded yet.')
+    ).toBeDefined()
+    expect(
+      screen.getByText(
+        'Refresh this settings page to load the Where agents run settings. If they still do not load, ask an owner or admin to check agent setup.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByText(/Where agents run could not load/i)).toBeNull()
+    expect(screen.getByText('Load setup to choose a location')).toBeDefined()
+    expect(screen.queryByText('Not set yet')).toBeNull()
+    expect(screen.queryByText('Could not load work setup')).toBeNull()
+    expect(screen.queryByText('Unknown')).toBeNull()
+  })
+
+  test('guides missing setup metrics toward the next action', async () => {
+    agentApiMock.getCliAuthProxyStatus.mockResolvedValueOnce({
+      ok: true,
+      statuses: [],
+    })
+    orchestrationApiMock.getParticipants.mockResolvedValueOnce([])
+    useSettingsStore.setState({
+      runtimeSettings: {
+        defaultRuntime: 'container',
+        availableRuntimes: ['container'],
+        defaultCliTool: 'codex',
+        availableCliTools: ['codex'],
+        cliToolDetails: [],
+      },
+    })
+
+    render(<RuntimeSection />)
+
+    expect(
+      await screen.findAllByText(
+        'Check setup after tools finish. If this stays here, ask an owner to finish tool setup.'
+      )
+    ).toHaveLength(2)
+    expect(screen.getByText('Start an agent, then check again.')).toBeDefined()
+    expect(screen.getByText('Start or wake an agent, then choose Check again.')).toBeDefined()
+    expect(screen.getByText(/No extra work tool sign-ins are needed/i)).toBeDefined()
+    expect(screen.getByText(/Start or wake an agent to bring one online/i)).toBeDefined()
+    expect(
+      screen.queryByText(/Sign in to a work tool before starting agents that need one/i)
+    ).toBeNull()
+    expect(screen.queryByText('No work tool status yet')).toBeNull()
+    expect(screen.queryByText('No agent seen online yet')).toBeNull()
+    expect(screen.queryByText(/No work tool setup status yet/i)).toBeNull()
+    expect(screen.queryByText(/No agent has been seen online yet/i)).toBeNull()
+    expect(screen.queryByText(/no agents are online yet/i)).toBeNull()
+  })
+
+  test('labels unknown agent location and tool values without exposing backend codes', async () => {
+    useSettingsStore.setState({
+      runtimeSettings: {
+        defaultRuntime: 'future_runtime' as never,
+        availableRuntimes: ['future_runtime' as never],
+        defaultCliTool: 'future_tool' as never,
+        availableCliTools: ['future_tool' as never],
+        cliToolDetails: [
+          {
+            cliTool: 'future_tool' as never,
+            image: 'agentforge-agent:future-tool',
+            imagePresent: true,
+            version: '1.0.0',
+            versionSource: 'docker-label',
+          },
+        ],
+      },
+    })
+
+    render(<RuntimeSection />)
+
+    expect((await screen.findAllByText('Check agent location')).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Check work tool setup').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/future_runtime/i)).toBeNull()
+    expect(screen.queryByText(/future_tool/i)).toBeNull()
+    expect(screen.queryByText('Unknown')).toBeNull()
+  })
+
+  test('shows beginner guidance when work tool sign-in status cannot load', async () => {
+    agentApiMock.getCliAuthProxyStatus.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+
+    render(<RuntimeSection />)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(/work tool sign-in could not be checked/i)
+    expect(alert).toHaveTextContent(/Forge could not connect while checking where agents run/i)
+    expect(screen.getByText(/Choose Check again to refresh work tool sign-ins/i)).toBeDefined()
+    expect(screen.queryByText(/^Work tool sign-ins could not be checked/i)).toBeNull()
+    expect(screen.queryByText(/failed to fetch/i)).toBeNull()
+    expect(screen.queryByText(/app could not reach/i)).toBeNull()
+    expect(screen.queryByText(/service is healthy/i)).toBeNull()
+  })
+
+  test('shows beginner guidance when agent online status cannot load', async () => {
+    orchestrationApiMock.getParticipants.mockRejectedValueOnce(new Error('401 Unauthorized'))
+
+    render(<RuntimeSection />)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(/sign in again/i)
+    expect(screen.getByText(/Choose Check again to refresh agent online status/i)).toBeDefined()
+    expect(screen.queryByText(/^Agent online status could not be checked/i)).toBeNull()
+    expect(screen.queryByText(/code: 401/i)).toBeNull()
+    expect(screen.queryByText(/Code:/i)).toBeNull()
+    expect(screen.queryByText(/401 Unauthorized/)).toBeNull()
+    expect(screen.queryByText(/service is healthy/i)).toBeNull()
+  })
+
+  test('shows beginner guidance when work tool sign-in cannot start', async () => {
+    agentApiMock.startCliAuthProxyLogin.mockResolvedValueOnce({
+      ok: false,
+      error: '403 Forbidden',
+    })
+
+    render(<RuntimeSection />)
+
+    await screen.findByTestId('runtime-launch-checklist')
+    fireEvent.click(screen.getByRole('button', { name: /Sign in to GitHub/i }))
+
+    expect(
+      await screen.findByText(/do not have permission to change where agents run/i)
+    ).toBeDefined()
+    expect(screen.getAllByText(/owner or admin/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/403 Forbidden/)).toBeNull()
+  })
+
+  test('shows beginner guidance instead of raw runtime setting details', async () => {
+    useSettingsStore.setState({
+      runtimeError:
+        'Check the required fields for runtime setting, then try again. Code: 422. Details: default CLI tool is not available',
+    })
+
+    render(<RuntimeSection />)
+
+    await screen.findByTestId('runtime-launch-checklist')
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Choose an available agent location and work tool, then save again. Where agents run could not be saved.'
+    )
+    expect(screen.queryByText(/Details: default CLI tool is not available/i)).toBeNull()
   })
 })

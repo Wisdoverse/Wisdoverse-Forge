@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { boardActionErrorMessage } from './boardErrorMessages'
 
 interface TaskFormData {
   projectId: string
@@ -44,13 +45,22 @@ interface TaskBriefTemplate {
   Icon: LucideIcon
 }
 
+interface TaskBriefCue {
+  id: 'goal' | 'where' | 'done'
+  label: string
+  ready: boolean
+  readyDetail: string
+  missingDetail: string
+}
+
 const TASK_BRIEF_TEMPLATES: TaskBriefTemplate[] = [
   {
     id: 'feature',
     label: 'Feature',
-    summary: 'Scoped implementation',
-    title: 'Ship a scoped feature',
-    description: 'Outcome:\n- \n\nScope:\n- \n\nConstraints:\n- \n\nEvidence:\n- ',
+    summary: 'Build a contained change',
+    title: 'Build a focused feature',
+    description:
+      'What should change:\n- \n\nWhere to work:\n- \n\nWhat to avoid:\n- \n\nDone when:\n- ',
     priority: 'normal',
     Icon: ClipboardCheck,
   },
@@ -59,36 +69,37 @@ const TASK_BRIEF_TEMPLATES: TaskBriefTemplate[] = [
     label: 'Bug',
     summary: 'Reproduce and fix',
     title: 'Fix a reproducible defect',
-    description: 'Symptom:\n- \n\nExpected behavior:\n- \n\nLikely area:\n- \n\nVerification:\n- ',
+    description:
+      'What is broken:\n- \n\nWhat should happen:\n- \n\nWhere to look first:\n- \n\nDone when:\n- ',
     priority: 'high',
     Icon: Bug,
   },
   {
     id: 'investigation',
     label: 'Investigate',
-    summary: 'Find root cause',
+    summary: 'Find the reason',
     title: 'Investigate an unclear issue',
     description:
-      'Question:\n- \n\nSignals to inspect:\n- \n\nKnown constraints:\n- \n\nDecision needed:\n- ',
+      'Question to answer:\n- \n\nWhat to inspect:\n- \n\nWhat is already known:\n- \n\nDecision needed:\n- ',
     priority: 'normal',
     Icon: Search,
   },
   {
     id: 'review',
     label: 'Review',
-    summary: 'Risk and evidence pass',
+    summary: 'Check before release',
     title: 'Review a change for release readiness',
     description:
-      'Change to review:\n- \n\nRisk areas:\n- \n\nRequired checks:\n- \n\nOutput expected:\n- ',
+      'Change to review:\n- \n\nWhat could go wrong:\n- \n\nChecks to run:\n- \n\nAnswer format:\n- ',
     priority: 'normal',
     Icon: ShieldCheck,
   },
 ]
 
 const AGENT_READY_BRIEF_POINTS = [
-  { label: 'Result', value: 'The visible change or decision you need.' },
-  { label: 'Boundary', value: 'Where the agent should work and what to avoid.' },
-  { label: 'Proof', value: 'The check, screenshot, or output that proves it is done.' },
+  { label: 'What to finish', value: 'The visible change or decision you need.' },
+  { label: 'Where to work', value: 'Files, screens, or areas to use and what to avoid.' },
+  { label: 'Done when', value: 'The check, screenshot, or output that proves it is done.' },
 ]
 
 interface TaskFormModalProps {
@@ -100,9 +111,11 @@ interface TaskFormModalProps {
   selectedProjectId?: string | null
   selectedTaskGroupId?: string | null
   selectedTaskGroupName?: string | null
-  /** May resolve `false` to signal the project switched but its work lanes
+  /** May resolve `false` to signal the project switched but its task queues
    * failed to load (the modal shows a retry message in that case). */
   onProjectChange?: (projectId: string) => void | boolean | Promise<void | boolean>
+  onOpenAgentSetup?: () => void
+  onOpenProjectSettings?: () => void
   onOpenTaskRouting?: () => void
 }
 
@@ -116,6 +129,8 @@ export function TaskFormModal({
   selectedTaskGroupId = null,
   selectedTaskGroupName = null,
   onProjectChange,
+  onOpenAgentSetup,
+  onOpenProjectSettings,
   onOpenTaskRouting,
 }: TaskFormModalProps) {
   const {
@@ -124,7 +139,7 @@ export function TaskFormModal({
     reset,
     setValue,
     watch,
-    formState: { isSubmitting, submitCount },
+    formState: { errors, isSubmitting, submitCount },
   } = useForm<TaskFormData>({
     defaultValues: {
       projectId: selectedProjectId ?? '',
@@ -137,6 +152,7 @@ export function TaskFormModal({
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [selectingProject, setSelectingProject] = useState(false)
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
+  const [confirmIncompleteBrief, setConfirmIncompleteBrief] = useState(false)
 
   const dialogRef = useRef<HTMLDivElement>(null)
   const errorBannerRef = useRef<HTMLDivElement>(null)
@@ -144,9 +160,28 @@ export function TaskFormModal({
   const selectedProject = projects.find((project) => project.id === projectId)
   const projectSelectionSettled = Boolean(projectId && selectedProjectId === projectId)
   const workLaneReady = Boolean(projectSelectionSettled && selectedTaskGroupId)
+  const readinessTitle = selectingProject
+    ? 'Preparing This Project'
+    : workLaneReady
+      ? 'Ready to Send'
+      : 'Create a task queue before sending work'
+  const readinessDetail = selectingProject
+    ? 'Forge is loading the task queue for this project. Wait a moment before creating the task.'
+    : workLaneReady
+      ? `New tasks will wait in ${selectedTaskGroupName ?? 'this task queue'} until an available agent picks them up.`
+      : 'A task queue gives new work a place to wait. Create one once, then return here.'
   const assignableAgents = agents.filter((agent) => agentCanTakeTask(agent.status))
+  const taskWillWaitForAgent = workLaneReady && assignableAgents.length === 0
   const projectGroups = useMemo(() => groupProjectsByTeam(projects), [projects])
   const projectField = register('projectId')
+  const titleValue = watch('title')
+  const descriptionValue = watch('description')
+  const briefCues = useMemo(
+    () => taskBriefCues(titleValue, descriptionValue),
+    [descriptionValue, titleValue]
+  )
+  const missingBriefCues = useMemo(() => briefCues.filter((cue) => !cue.ready), [briefCues])
+  const briefReady = missingBriefCues.length === 0
 
   // The error banner renders partway down a scrollable dialog (below the
   // header and project panels) while the submit button sits at the bottom, so
@@ -162,8 +197,13 @@ export function TaskFormModal({
     if (isOpen) {
       setSubmitError(null)
       setSelectedTemplateId(null)
+      setConfirmIncompleteBrief(false)
     }
   }, [isOpen])
+
+  useEffect(() => {
+    setConfirmIncompleteBrief(false)
+  }, [titleValue, descriptionValue])
 
   useEffect(() => {
     if (isOpen) setValue('projectId', selectedProjectId ?? '')
@@ -183,7 +223,7 @@ export function TaskFormModal({
   async function handleFormSubmit(data: TaskFormData) {
     setSubmitError(null)
     if (!data.title.trim()) {
-      setSubmitError('Add a title before creating a task.')
+      setSubmitError('Add a short title so the agent knows the goal.')
       return
     }
     if (!data.projectId) {
@@ -191,13 +231,17 @@ export function TaskFormModal({
       return
     }
     if (!selectedTaskGroupId) {
-      setSubmitError('Create a work lane before creating a task.')
+      setSubmitError('Create a task queue before creating a task.')
+      return
+    }
+    if (!briefReady && !confirmIncompleteBrief) {
+      setConfirmIncompleteBrief(true)
       return
     }
     try {
       await onSubmit({ ...data, title: data.title.trim() })
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Failed to create task')
+      setSubmitError(boardActionErrorMessage('createTask', err))
       return
     }
     reset()
@@ -206,15 +250,18 @@ export function TaskFormModal({
 
   async function handleProjectChange(projectId: string) {
     setSubmitError(null)
+    setConfirmIncompleteBrief(false)
     if (!projectId || !onProjectChange) return
     setSelectingProject(true)
     try {
       const ok = await onProjectChange(projectId)
       if (ok === false) {
-        setSubmitError('Could not load work lanes for this project. Select it again to retry.')
+        setSubmitError(
+          'Select the project again to load task queues. If it still does not load, refresh the board or ask an owner to check task queue setup.'
+        )
       }
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Failed to select project')
+      setSubmitError(boardActionErrorMessage('selectProject', err))
     } finally {
       setSelectingProject(false)
     }
@@ -247,10 +294,11 @@ export function TaskFormModal({
         <div className="flex items-center justify-between mb-4">
           <div className="min-w-0">
             <h2 id="task-form-title" className="text-ui-title font-semibold">
-              New Task
+              Tell an Agent What to Do
             </h2>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Start with the outcome. Templates add the scope and proof an agent needs.
+              Write the result you want. A template can add what to include and how to check the
+              work.
             </p>
           </div>
           <button
@@ -264,14 +312,30 @@ export function TaskFormModal({
         </div>
 
         {projects.length === 0 ? (
-          <div className="mb-4 flex gap-2 rounded-lg bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange">
-            <AlertTriangle
-              size={14}
-              strokeWidth={2}
-              className="mt-0.5 shrink-0"
-              aria-hidden="true"
-            />
-            <span>No projects available. Create a project in Settings before creating tasks.</span>
+          <div className="mb-4 rounded-lg border border-apple-orange/20 bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange">
+            <div className="flex gap-2">
+              <AlertTriangle
+                size={14}
+                strokeWidth={2}
+                className="mt-0.5 shrink-0"
+                aria-hidden="true"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold">Create a project before sending tasks</p>
+                <p className="mt-0.5">
+                  Projects keep each task, its files, and its activity history in one place.
+                </p>
+              </div>
+            </div>
+            {onOpenProjectSettings && (
+              <button
+                type="button"
+                onClick={onOpenProjectSettings}
+                className="mt-3 inline-flex h-8 items-center justify-center rounded-full border border-apple-orange/30 bg-white px-3 text-ui-button font-medium text-apple-orange transition-colors hover:bg-apple-orange/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-orange/35 dark:bg-white/[0.06]"
+              >
+                Open project settings
+              </button>
+            )}
           </div>
         ) : (
           <div className="mb-4">
@@ -322,36 +386,69 @@ export function TaskFormModal({
                   </span>
                 </>
               ) : (
-                <span>Select the project that should own this task.</span>
+                <span>Choose where this task, its files, and its activity history belong.</span>
               )}
             </div>
           </div>
         )}
 
         {agents.length === 0 && (
-          <div className="mb-4 flex gap-2 rounded-lg bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange">
-            <AlertTriangle
-              size={14}
-              strokeWidth={2}
-              className="mt-0.5 shrink-0"
-              aria-hidden="true"
-            />
-            <span>
-              No online agents available. Tasks will be queued and dispatched when an agent comes
-              online.
-            </span>
+          <div className="mb-4 rounded-lg border border-apple-orange/20 bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange">
+            <div className="flex gap-2">
+              <AlertTriangle
+                size={14}
+                strokeWidth={2}
+                className="mt-0.5 shrink-0"
+                aria-hidden="true"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold">Connect an agent before this task can start</p>
+                <p className="mt-0.5">
+                  Save the task now. It will wait until an agent is Ready, or you can open agent
+                  setup first.
+                </p>
+              </div>
+            </div>
+            {onOpenAgentSetup && (
+              <button
+                type="button"
+                onClick={onOpenAgentSetup}
+                className="mt-3 inline-flex h-8 items-center justify-center rounded-full border border-apple-orange/30 bg-white px-3 text-ui-button font-medium text-apple-orange transition-colors hover:bg-apple-orange/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-orange/35 dark:bg-white/[0.06]"
+              >
+                Open agent setup
+              </button>
+            )}
           </div>
         )}
 
         {agents.length > 0 && assignableAgents.length === 0 && (
-          <div className="mb-4 flex gap-2 rounded-lg bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange">
-            <AlertTriangle
-              size={14}
-              strokeWidth={2}
-              className="mt-0.5 shrink-0"
-              aria-hidden="true"
-            />
-            <span>All agents are busy or offline. Leave the task unassigned so it can queue.</span>
+          <div className="mb-4 rounded-lg border border-apple-orange/20 bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange">
+            <div className="flex gap-2">
+              <AlertTriangle
+                size={14}
+                strokeWidth={2}
+                className="mt-0.5 shrink-0"
+                aria-hidden="true"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold">
+                  Start or connect an agent before this task can start
+                </p>
+                <p className="mt-0.5">
+                  Save the task now. It will wait until one of your agents is Ready, or you can open
+                  agent setup first.
+                </p>
+              </div>
+            </div>
+            {onOpenAgentSetup && (
+              <button
+                type="button"
+                onClick={onOpenAgentSetup}
+                className="mt-3 inline-flex h-8 items-center justify-center rounded-full border border-apple-orange/30 bg-white px-3 text-ui-button font-medium text-apple-orange transition-colors hover:bg-apple-orange/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-orange/35 dark:bg-white/[0.06]"
+              >
+                Open agent setup
+              </button>
+            )}
           </div>
         )}
 
@@ -382,13 +479,9 @@ export function TaskFormModal({
                 />
               )}
               <div className="min-w-0 flex-1">
-                <p className="font-semibold">
-                  {workLaneReady ? 'Work Lane Ready' : 'Create a Work Lane First'}
-                </p>
+                <p className="font-semibold">{readinessTitle}</p>
                 <p className="mt-0.5 text-secondary-light dark:text-secondary-dark">
-                  {workLaneReady
-                    ? `${selectedTaskGroupName ?? 'Selected work lane'} will receive this task.`
-                    : 'Agents listen to work lanes. Open Task Routing, create a lane, then return to Tasks.'}
+                  {readinessDetail}
                 </p>
               </div>
             </div>
@@ -398,7 +491,7 @@ export function TaskFormModal({
                 onClick={onOpenTaskRouting}
                 className="mt-3 inline-flex h-8 items-center justify-center rounded-full border border-apple-orange/30 bg-white px-3 text-ui-button font-medium text-apple-orange transition-colors hover:bg-apple-orange/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-orange/35 dark:bg-white/[0.06]"
               >
-                Open Task Routing
+                Open task queues
               </button>
             )}
           </div>
@@ -414,21 +507,31 @@ export function TaskFormModal({
           </div>
         )}
 
-        <form onSubmit={handleSubmit(handleFormSubmit)} className="flex flex-col gap-4">
+        {confirmIncompleteBrief && missingBriefCues.length > 0 && (
+          <div
+            role="status"
+            data-testid="task-brief-confirmation"
+            className="mb-4 rounded-lg border border-apple-orange/20 bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange"
+          >
+            <p className="font-semibold">This task may be hard for an agent to finish.</p>
+            <p className="mt-0.5">
+              Add {formatBriefCueList(missingBriefCues.map((cue) => cue.label).slice(0, 2))}, or
+              choose Create task anyway if this is enough for now.
+            </p>
+          </div>
+        )}
+
+        <form noValidate onSubmit={handleSubmit(handleFormSubmit)} className="flex flex-col gap-4">
           <div>
             <div className="mb-2 flex items-center justify-between gap-2">
               <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                Start From a Brief
+                Start with a task template
               </span>
               <span className="hidden text-ui-caption text-secondary-light dark:text-secondary-dark sm:inline">
-                Outcome, scope, proof
+                Fills in a safe first draft
               </span>
             </div>
-            <div
-              role="group"
-              aria-label="Task brief templates"
-              className="grid gap-2 sm:grid-cols-2"
-            >
+            <div role="group" aria-label="Task templates" className="grid gap-2 sm:grid-cols-2">
               {TASK_BRIEF_TEMPLATES.map((template) => (
                 <button
                   key={template.id}
@@ -456,7 +559,7 @@ export function TaskFormModal({
             </div>
             <div className="mt-3 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.04]">
               <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                Agent-ready brief
+                A clear task has three parts
               </div>
               <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
                 {AGENT_READY_BRIEF_POINTS.map((point) => (
@@ -481,16 +584,30 @@ export function TaskFormModal({
               htmlFor="task-title"
               className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
             >
-              Title
+              What should the agent finish?
             </label>
             <input
               id="task-title"
               autoComplete="off"
-              {...register('title')}
+              {...register('title', { required: 'Add a short title so the agent knows the goal.' })}
+              aria-invalid={errors.title ? 'true' : undefined}
+              aria-describedby={errors.title ? 'task-title-error' : 'task-title-help'}
               className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-              placeholder="What needs to be done…"
+              placeholder="For example: Fix the login error"
               autoFocus
             />
+            {errors.title ? (
+              <p id="task-title-error" role="alert" className="mt-1 text-ui-caption text-apple-red">
+                {errors.title.message}
+              </p>
+            ) : (
+              <p
+                id="task-title-help"
+                className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+              >
+                Use one sentence. Put the details in the next field.
+              </p>
+            )}
           </div>
 
           <div>
@@ -498,7 +615,7 @@ export function TaskFormModal({
               htmlFor="task-description"
               className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
             >
-              Description
+              Details the agent should know
             </label>
             <textarea
               id="task-description"
@@ -506,8 +623,44 @@ export function TaskFormModal({
               {...register('description')}
               rows={3}
               className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-              placeholder="Additional details…"
+              placeholder="Add background, files to check, what to avoid, and how you will know it is done."
             />
+            <div
+              data-testid="task-brief-checklist"
+              className="mt-2 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.04]"
+            >
+              <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                Make this task easy to pick up
+              </p>
+              <div className="mt-2 grid gap-1.5">
+                {briefCues.map((cue) => (
+                  <div
+                    key={cue.id}
+                    data-testid={`task-brief-cue-${cue.id}`}
+                    className="flex items-start gap-2 rounded-md bg-white px-2 py-1.5 dark:bg-black/20"
+                  >
+                    <span
+                      className={cn(
+                        'mt-0.5 inline-flex h-5 min-w-12 items-center justify-center rounded-full px-2 text-[10px] font-semibold',
+                        cue.ready
+                          ? 'bg-apple-blue/10 text-apple-blue'
+                          : 'bg-apple-orange/10 text-apple-orange'
+                      )}
+                    >
+                      {cue.ready ? 'Ready' : 'Add'}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
+                        {cue.label}
+                      </span>
+                      <span className="block text-ui-caption text-secondary-light dark:text-secondary-dark">
+                        {cue.ready ? cue.readyDetail : cue.missingDetail}
+                      </span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="flex flex-col gap-4 sm:flex-row">
@@ -528,6 +681,9 @@ export function TaskFormModal({
                 <option value="high">High</option>
                 <option value="urgent">Urgent</option>
               </select>
+              <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                Normal is right for most work. Use Urgent only when people are waiting on it now.
+              </p>
             </div>
             <div className="flex-1">
               <div className="mb-1 flex items-center justify-between gap-2">
@@ -535,7 +691,7 @@ export function TaskFormModal({
                   htmlFor="task-assigned-to"
                   className="block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                 >
-                  Assign Agent
+                  Who should pick it up?
                 </label>
                 <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
                   {assignableAgents.length} available
@@ -546,7 +702,7 @@ export function TaskFormModal({
                 {...register('assignedTo')}
                 className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
               >
-                <option value="">Unassigned</option>
+                <option value="">Let the next available agent pick it up</option>
                 {agents.map((a) => (
                   <option key={a.id} value={a.id} disabled={!agentCanTakeTask(a.status)}>
                     {a.name} ({agentStatusLabel(a.status)})
@@ -554,16 +710,18 @@ export function TaskFormModal({
                 ))}
               </select>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Leave this unassigned when you want the next available agent to pick it up.
+                {taskWillWaitForAgent
+                  ? 'This task will wait here until an agent is Ready.'
+                  : 'Keep this choice when any available agent can do the work.'}
               </p>
             </div>
           </div>
 
-          <div className="mt-2 flex justify-end gap-2">
+          <div className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-full bg-surface-pearl px-4 py-2 text-ui-button font-medium text-foreground-light ring-1 ring-black/[0.04] transition-transform active:scale-95 dark:bg-white/[0.06] dark:text-foreground-dark"
+              className="w-full rounded-full bg-surface-pearl px-4 py-2 text-ui-button font-medium text-foreground-light ring-1 ring-black/[0.04] transition-transform active:scale-95 dark:bg-white/[0.06] dark:text-foreground-dark sm:w-auto"
             >
               Cancel
             </button>
@@ -577,9 +735,21 @@ export function TaskFormModal({
                 !selectedTaskGroupId
               }
               aria-busy={isSubmitting || selectingProject}
-              className="rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
-              {selectingProject ? 'Selecting…' : isSubmitting ? 'Creating…' : 'Create Task'}
+              {selectingProject
+                ? 'Preparing project...'
+                : isSubmitting
+                  ? taskWillWaitForAgent
+                    ? 'Saving...'
+                    : 'Creating...'
+                  : confirmIncompleteBrief && !briefReady
+                    ? taskWillWaitForAgent
+                      ? 'Save task anyway'
+                      : 'Create task anyway'
+                    : taskWillWaitForAgent
+                      ? 'Save task to wait'
+                      : 'Create task'}
             </button>
           </div>
         </form>
@@ -589,22 +759,151 @@ export function TaskFormModal({
 }
 
 function agentCanTakeTask(status: string): boolean {
-  return status === 'available' || status === 'idle'
+  const normalized = normalizeAgentStatus(status)
+  return normalized === 'available' || normalized === 'idle'
 }
 
 function agentStatusLabel(status: string): string {
-  switch (status) {
+  const normalized = normalizeAgentStatus(status)
+  switch (normalized) {
     case 'available':
     case 'idle':
-      return 'available'
+      return 'ready'
     case 'busy':
     case 'working':
-      return 'busy'
+      return 'working now'
     case 'offline':
-      return 'offline'
+      return 'not connected'
     default:
-      return status
+      return normalized ? 'not ready' : 'refresh agent status'
   }
+}
+
+function normalizeAgentStatus(status: string): string {
+  return status.trim().toLowerCase()
+}
+
+function taskBriefCues(title: string, description: string): TaskBriefCue[] {
+  const normalizedTitle = title.trim()
+  const hasPersonalizedTitle = normalizedTitle.length > 0 && !isTemplateTaskTitle(normalizedTitle)
+  const contentText = meaningfulBriefText(description)
+  const hasWorkSectionContent = hasBriefSectionContent(description, [
+    'where to work',
+    'where to look first',
+    'what to inspect',
+    'what to avoid',
+    'change to review',
+  ])
+  const hasDoneSectionContent = hasBriefSectionContent(description, [
+    'done when',
+    'checks to run',
+    'answer format',
+    'decision needed',
+  ])
+  const namesWorkArea =
+    hasWorkSectionContent ||
+    /\b(files?|folder|screen|page|area|src\/|docs\/|tests?\/|rust\/)\b/.test(contentText)
+  const namesFinishCheck =
+    hasDoneSectionContent ||
+    /\b(success|verify|test|check|screenshot|output|result|passes?)\b/.test(contentText)
+
+  return [
+    {
+      id: 'goal',
+      label: 'Result',
+      ready: hasPersonalizedTitle,
+      readyDetail: 'The agent has a clear result to finish.',
+      missingDetail:
+        normalizedTitle.length > 0
+          ? 'Replace the template title with the specific result you want.'
+          : 'Write one sentence for the result you want.',
+    },
+    {
+      id: 'where',
+      label: 'Where to work',
+      ready: namesWorkArea,
+      readyDetail: 'The agent knows where to look or what to avoid.',
+      missingDetail: 'Name the files, screen, folder, or area to check first.',
+    },
+    {
+      id: 'done',
+      label: 'Done when',
+      ready: namesFinishCheck,
+      readyDetail: 'The agent knows how success will be checked.',
+      missingDetail: 'Add the test, screenshot, output, or result that proves it is done.',
+    },
+  ]
+}
+
+function isTemplateTaskTitle(title: string): boolean {
+  const normalizedTitle = title.trim().toLowerCase()
+  return TASK_BRIEF_TEMPLATES.some((template) => template.title.toLowerCase() === normalizedTitle)
+}
+
+function meaningfulBriefText(description: string): string {
+  return description
+    .split(/\r?\n/)
+    .map(cleanBriefLine)
+    .filter((line) => line.length > 0 && !isTemplateCueLabel(line))
+    .join('\n')
+    .toLowerCase()
+}
+
+function hasBriefSectionContent(description: string, labels: string[]): boolean {
+  const normalizedLabels = new Set(labels.map((label) => label.toLowerCase()))
+  let inSection = false
+
+  for (const rawLine of description.split(/\r?\n/)) {
+    const line = cleanBriefLine(rawLine)
+    if (!line) continue
+
+    const cueLabel = templateCueLabel(line)
+    if (cueLabel) {
+      inSection = normalizedLabels.has(cueLabel)
+      continue
+    }
+
+    if (inSection) return true
+  }
+
+  return false
+}
+
+function cleanBriefLine(line: string): string {
+  return line.replace(/^[-*]\s*/, '').trim()
+}
+
+function templateCueLabel(line: string): string | null {
+  const normalized = line.trim().replace(/:$/, '').toLowerCase()
+  return isTemplateCueLabel(normalized) ? normalized : null
+}
+
+function isTemplateCueLabel(line: string): boolean {
+  return TEMPLATE_CUE_LABELS.has(line.trim().replace(/:$/, '').toLowerCase())
+}
+
+const TEMPLATE_CUE_LABELS = new Set([
+  'what should change',
+  'where to work',
+  'what to avoid',
+  'done when',
+  'what is broken',
+  'what should happen',
+  'where to look first',
+  'question to answer',
+  'what to inspect',
+  'what is already known',
+  'decision needed',
+  'change to review',
+  'what could go wrong',
+  'checks to run',
+  'answer format',
+])
+
+function formatBriefCueList(labels: string[]): string {
+  if (labels.length === 0) return 'the missing details'
+  if (labels.length === 1) return labels[0].toLowerCase()
+  return `${labels.slice(0, -1).join(', ').toLowerCase()} and ${labels[labels.length - 1].toLowerCase()}`
 }
 
 function groupProjectsByTeam(projects: TaskProjectOption[]): TaskProjectGroup[] {

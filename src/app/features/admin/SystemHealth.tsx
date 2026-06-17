@@ -6,6 +6,9 @@ import {
   type ComponentHealth,
   type SystemHealth,
 } from '@app/shared/model/admin.store'
+import { systemHealthErrorMessage } from './systemHealthErrorMessage'
+
+const SYSTEM_HEALTH_REFRESH_MS = 30_000
 
 // ============================================================================
 // Status badge
@@ -27,34 +30,37 @@ const SERVICE_DEFINITIONS: readonly ServiceDefinition[] = [
   {
     key: 'database',
     name: 'Saved Data',
-    supportName: 'PostgreSQL database',
+    supportName: 'Keeps saved work available',
     description: 'Keeps accounts, tasks, runs, evidence, and settings available.',
     impact: 'New work may fail to save, and existing pages may load slowly or not at all.',
-    action: 'Check the database service first, then refresh this page.',
+    action: 'Ask an owner or admin to check saved data first, then choose Check now.',
   },
   {
     key: 'redis',
     name: 'Fast Loading',
-    supportName: 'Redis cache',
-    description: 'Helps the app respond quickly and keeps short-lived coordination state.',
+    supportName: 'Helps pages load quickly',
+    description: 'Helps pages respond quickly and keeps temporary app state in sync.',
     impact: 'The app can still work, but pages and realtime updates may feel slower.',
-    action: 'Wait a minute and refresh. If it stays degraded, restart the cache service.',
+    action:
+      'Wait a minute, then choose Check now. If it still shows Check soon, ask an owner or admin to restart fast loading.',
   },
   {
     key: 'nats',
     name: 'Live Updates',
-    supportName: 'NATS message bus',
+    supportName: 'Shows new progress in the browser',
     description: 'Moves events from running agents into the browser in near real time.',
     impact: 'Runs may continue, but users may not see progress updates immediately.',
-    action: 'Check the messaging service, then confirm new events appear after refresh.',
+    action: 'Ask an owner or admin to check live updates, then refresh and look for new progress.',
   },
   {
     key: 'docker',
-    name: 'Agent Containers',
-    supportName: 'Docker runtime',
-    description: 'Starts and manages the containers that agents work inside.',
-    impact: 'Starting new container agents may fail; agents already running may stop reporting.',
-    action: 'Check that Docker is running on the host before starting new agent work.',
+    name: 'Agent Work Starter',
+    supportName: 'Starts file-work agents',
+    description: 'Starts and manages the prepared workspaces where agents do file work.',
+    impact:
+      'Starting new agents in managed workspaces may fail; agents already running may stop reporting.',
+    action:
+      'Ask an owner or admin to check managed workspace setup before sending new file work to agents.',
   },
 ]
 
@@ -82,10 +88,10 @@ function StatusBadge({ status }: { status: ServiceStatus }) {
     status === 'up'
       ? 'Ready'
       : status === 'degraded'
-        ? 'Needs attention'
+        ? 'Check soon'
         : status === 'down'
-          ? 'Unavailable'
-          : 'Not checked'
+          ? 'Fix first'
+          : 'Check now'
 
   return (
     <span
@@ -102,9 +108,9 @@ function StatusBadge({ status }: { status: ServiceStatus }) {
 
 function serviceStatusText(status: ServiceStatus): string {
   if (status === 'up') return 'Working normally'
-  if (status === 'degraded') return 'Needs attention'
+  if (status === 'degraded') return 'Check soon'
   if (status === 'down') return 'Not working'
-  return 'Not checked yet'
+  return 'Choose Check now to confirm'
 }
 
 function serviceTone(status: ServiceStatus): string {
@@ -120,6 +126,49 @@ function countAttentionServices(health: SystemHealth) {
   }).length
 }
 
+function serviceIssueNote(error: string): string {
+  const detail = error.toLowerCase()
+
+  if (
+    detail.includes('password') ||
+    detail.includes('token') ||
+    detail.includes('secret') ||
+    detail.includes('credential') ||
+    detail.includes('unauthorized') ||
+    detail.includes('forbidden') ||
+    detail.includes('permission')
+  ) {
+    return 'This area reported an access setup problem. Ask an owner or admin to check saved data access, then choose Check now.'
+  }
+  if (
+    detail.includes('connection') ||
+    detail.includes('refused') ||
+    detail.includes('unreachable') ||
+    detail.includes('timeout') ||
+    detail.includes('timed out')
+  ) {
+    return 'This area reported a connection problem. Use the next step above, then choose Check now.'
+  }
+  if (
+    detail.includes('missing') ||
+    detail.includes('not configured') ||
+    detail.includes('configuration') ||
+    detail.includes('config')
+  ) {
+    return 'A required setting may be missing. Ask an owner or admin to check app setup, then choose Check now.'
+  }
+  if (
+    detail.includes('rate limit') ||
+    detail.includes('too many') ||
+    detail.includes('busy') ||
+    detail.includes('overloaded')
+  ) {
+    return 'This area is busy. Wait a minute, then choose Check now.'
+  }
+
+  return 'This area reported a problem. Use the next step above, then choose Check now.'
+}
+
 // ============================================================================
 // Service row
 // ============================================================================
@@ -131,7 +180,7 @@ interface ServiceRowProps extends ServiceDefinition {
 function ServiceRow({ name, supportName, description, impact, action, health }: ServiceRowProps) {
   const status: ServiceStatus = health?.status ?? 'unknown'
   const hasIssue = status !== 'up'
-  const responseTime = health?.latencyMs !== undefined ? `${health.latencyMs} ms response` : null
+  const responseTime = health?.latencyMs !== undefined ? `responds in ${health.latencyMs} ms` : null
 
   return (
     <div className={cn('grid gap-3 px-4 py-3 sm:grid-cols-[1fr_auto]', uiStyles.row)}>
@@ -162,7 +211,7 @@ function ServiceRow({ name, supportName, description, impact, action, health }: 
               </p>
               {health?.error && (
                 <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                  Reported detail: {health.error}
+                  Owner/admin note: {serviceIssueNote(health.error)}
                 </p>
               )}
             </div>
@@ -196,20 +245,21 @@ function OverallBanner({
     healthy: {
       bg: 'border-apple-blue/20 bg-apple-blue/10',
       text: 'text-apple-blue',
-      label: 'All services are ready',
+      label: 'All areas are ready',
       detail: 'Users should be able to open the app, run agents, and receive updates.',
     },
     degraded: {
       bg: 'border-black/[0.08] bg-black/[0.03] dark:border-white/[0.08] dark:bg-white/[0.03]',
       text: 'text-secondary-light dark:text-secondary-dark',
-      label: 'Some services need attention',
-      detail: 'Users may see slow screens, delayed updates, or queued work until this clears.',
+      label: 'Some areas need a check',
+      detail:
+        'Users may see slow screens, delayed updates, or work waiting to start until this clears.',
     },
     unhealthy: {
       bg: 'border-apple-red/20 bg-apple-red/10',
       text: 'text-apple-red',
-      label: 'Service interruption likely',
-      detail: 'Check the unavailable service first before assigning new work.',
+      label: 'App interruption likely',
+      detail: 'Fix the area marked Fix first before assigning new work.',
     },
   }
   const c = config[status]
@@ -245,8 +295,10 @@ export function SystemHealth() {
 
   useEffect(() => {
     void loadHealth()
-    // Refresh every 30 seconds
-    const interval = setInterval(() => void loadHealth(), 30_000)
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'hidden') return
+      void loadHealth()
+    }, SYSTEM_HEALTH_REFRESH_MS)
     return () => clearInterval(interval)
   }, [loadHealth])
 
@@ -256,9 +308,10 @@ export function SystemHealth() {
     <div>
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>Service readiness</h2>
+          <h2 className={uiStyles.sectionTitle}>App health check</h2>
           <p className={uiStyles.sectionDescription}>
-            Auto-checks every 30 seconds. Start with anything marked Needs attention or Unavailable.
+            Checks when opened, then refreshes every 30 seconds while Admin is open. Start with
+            anything marked Fix first, then items marked Check soon.
           </p>
         </div>
         <button
@@ -267,15 +320,14 @@ export function SystemHealth() {
           disabled={healthLoading}
           className={uiStyles.secondaryButton}
         >
-          {healthLoading ? 'Checking...' : 'Check now'}
+          {healthLoading ? 'Checking now' : 'Check now'}
         </button>
       </div>
 
       {/* Error */}
       {healthError && !health && (
-        <div className={uiStyles.error}>
-          Could not load service readiness. Try Check now again or confirm the API is reachable.
-          <span className="mt-1 block text-ui-caption">{healthError}</span>
+        <div role="alert" aria-live="polite" className={uiStyles.error}>
+          {systemHealthErrorMessage(healthError)}
         </div>
       )}
 
@@ -283,7 +335,7 @@ export function SystemHealth() {
       {healthLoading && !health && (
         <div className="flex items-center justify-center py-12">
           <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-            Checking service readiness...
+            Checking app health now
           </p>
         </div>
       )}
@@ -310,7 +362,7 @@ export function SystemHealth() {
           {/* Uptime */}
           {health.uptime !== undefined && (
             <p className="mt-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              API has been running for{' '}
+              Forge has been running for{' '}
               {health.uptime < 60
                 ? `${Math.round(health.uptime)}s`
                 : health.uptime < 3600

@@ -10,28 +10,75 @@ interface ContextUsageDashboardProps {
 
 const percent = (value: number): string => `${Math.round(value * 100)}%`
 
+const RUNTIME_LABELS: Record<string, string> = {
+  api: 'Chat-only AI service',
+  container: 'Managed workspace',
+  provider: 'Chat-only AI service',
+  local: 'This computer',
+  cli: 'This computer',
+}
+
+const TASK_KIND_LABELS: Record<string, string> = {
+  chat: 'Chat task',
+  coding: 'Code change',
+  implementation: 'Implementation task',
+  planning: 'Planning task',
+  review: 'Review task',
+  workflow: 'Workflow task',
+}
+
 const EMPTY_TOP_USEFUL = {
-  title: 'No useful context yet',
-  detail: 'Helpful items appear after users mark applied context as useful.',
+  title: 'Mark useful saved items to rank them here',
+  detail:
+    'After a task uses a saved note or instruction, choose Useful in the task result to place it in this list.',
+  nextStep:
+    'Next: after reviewing a completed task, mark a helpful saved item Useful so this list can rank it.',
 }
 
 const EMPTY_NEEDS_REVIEW = {
-  title: 'No review signals',
-  detail: 'Items show here when feedback says context may be outdated, incorrect, or sensitive.',
+  title: 'No saved items need checking',
+  detail: 'Items appear here when people report they may be outdated, incorrect, or too sensitive.',
+  nextStep:
+    'Next: no action is needed now; keep using task feedback so risky saved items appear here.',
 }
 
 const EMPTY_STALE = {
-  title: 'No stale context',
-  detail: 'Nothing has crossed the stale threshold for this workspace.',
+  title: 'No saved items look outdated',
+  detail: 'Saved notes and saved instructions appear here when they are old enough to check again.',
+  nextStep:
+    'Next: no action is needed now; update saved items when team guidance changes so old advice is easier to spot.',
 }
 
-function relativeAge(timestamp: string): string {
+function updatedAtLabel(timestamp: string): string {
   const value = Date.parse(timestamp)
-  if (Number.isNaN(value)) return 'unknown'
+  if (Number.isNaN(value)) return 'Refresh analytics to update time'
   const seconds = Math.max(0, Math.floor((Date.now() - value) / 1000))
-  if (seconds < 3600) return `${Math.max(1, Math.floor(seconds / 60))}m ago`
-  if (seconds < 86_400) return `${Math.floor(seconds / 3600)}h ago`
-  return `${Math.floor(seconds / 86_400)}d ago`
+  if (seconds < 3600) return `Updated ${Math.max(1, Math.floor(seconds / 60))}m ago`
+  if (seconds < 86_400) return `Updated ${Math.floor(seconds / 3600)}h ago`
+  return `Updated ${Math.floor(seconds / 86_400)}d ago`
+}
+
+function runtimeLabel(runtime: string): string {
+  const normalized = runtime.trim().toLowerCase()
+  if (!normalized) return 'Refresh work location'
+  return RUNTIME_LABELS[normalized] ?? 'Check work location'
+}
+
+function taskKindLabel(taskKind: string): string {
+  const normalized = taskKind.trim().toLowerCase()
+  if (!normalized) return 'Refresh task type'
+  return TASK_KIND_LABELS[normalized] ?? 'Check task type'
+}
+
+function contextItemKindLabel(itemKind: string): string {
+  switch (itemKind) {
+    case 'memory':
+      return 'Saved note'
+    case 'skill':
+      return 'Saved instruction'
+    default:
+      return 'Saved item'
+  }
 }
 
 export function ContextUsageDashboard({ data, loading = false }: ContextUsageDashboardProps) {
@@ -40,14 +87,14 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            Context reuse
+            Saved item reuse
           </h2>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Snapshot refreshed {data ? relativeAge(data.lastRefreshedAt) : 'when data is available'}
+            {data ? updatedAtLabel(data.lastRefreshedAt) : 'Updated when data is available'}
           </p>
           <p className="mt-1 max-w-2xl text-ui-body text-secondary-light dark:text-secondary-dark">
-            Use this panel to keep context that helps work finish and review items that may be
-            outdated, incorrect, or too sensitive before agents reuse them.
+            Use this panel to keep saved notes and instructions that help work finish, and check
+            items that may be outdated, incorrect, or too sensitive before agents reuse them.
           </p>
         </div>
         {data?.isStale && (
@@ -57,8 +104,8 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
           >
             <AlertTriangle size={14} strokeWidth={2} aria-hidden="true" />
             <span>
-              Snapshot is older than {data.staleAfterHours}h. Refresh analytics before acting on
-              these numbers.
+              These numbers are more than {data.staleAfterHours}h old. Refresh analytics before
+              making decisions from them.
             </span>
           </div>
         )}
@@ -68,28 +115,28 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
         <StatCard
           title="Applied"
           value={data?.summary.appliedCount ?? 0}
-          subtitle="Times context was added to agent work."
+          subtitle="Times saved notes or instructions were added to agent work."
           loading={loading}
           accent="blue"
         />
         <StatCard
           title="Success"
           value={data ? percent(data.summary.successRate) : '0%'}
-          subtitle="Completed work after context was used."
+          subtitle="Completed work after saved items were used."
           loading={loading}
           accent="blue"
         />
         <StatCard
           title="Useful"
           value={data?.summary.feedbackUsefulCount ?? 0}
-          subtitle="Times users marked the context helpful."
+          subtitle="Times users marked saved items helpful."
           loading={loading}
           accent="blue"
         />
         <StatCard
-          title="Needs Review"
+          title="Check first"
           value={data?.summary.feedbackNegativeCount ?? 0}
-          subtitle="Signals to check before reuse."
+          subtitle="Items people marked for another look."
           loading={loading}
           accent="red"
         />
@@ -100,6 +147,7 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
           testId="context-usage-top-useful"
           title="Top useful"
           description="Keep these available; users marked them helpful after use."
+          nextStep="Next: keep this available for similar tasks."
           icon="useful"
           items={data?.topUseful ?? []}
           loading={loading}
@@ -107,8 +155,9 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
         />
         <UsageList
           testId="context-usage-needs-review"
-          title="Needs review"
-          description="Check these before reuse because feedback says they may be unsafe or wrong."
+          title="Check before reuse"
+          description="Review these before reuse because people reported they may be outdated, incorrect, or sensitive."
+          nextStep="Next: open the latest task result, then update or remove this before reuse."
           icon="review"
           items={data?.needsReview ?? []}
           loading={loading}
@@ -116,8 +165,9 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
         />
         <UsageList
           testId="context-usage-stale-items"
-          title="Stale"
+          title="May be outdated"
           description="Verify these before agents rely on them again."
+          nextStep="Next: verify this still matches current team guidance before reuse."
           icon="stale"
           items={data?.staleItems ?? []}
           loading={loading}
@@ -132,6 +182,7 @@ function UsageList({
   testId,
   title,
   description,
+  nextStep,
   icon,
   items,
   loading,
@@ -140,12 +191,14 @@ function UsageList({
   testId: string
   title: string
   description: string
+  nextStep: string
   icon: 'useful' | 'review' | 'stale'
   items: ContextUsageItem[]
   loading: boolean
   empty: {
     title: string
     detail: string
+    nextStep: string
   }
 }) {
   const Icon = icon === 'useful' ? CheckCircle2 : icon === 'review' ? ShieldAlert : Clock3
@@ -188,6 +241,7 @@ function UsageList({
             {empty.title}
           </p>
           <p>{empty.detail}</p>
+          <p className="text-ui-caption">{empty.nextStep}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -195,6 +249,7 @@ function UsageList({
             <UsageItem
               key={`${item.itemId}:${item.agentId}:${item.taskKind}:${item.runtime}`}
               item={item}
+              nextStep={nextStep}
             />
           ))}
         </div>
@@ -203,8 +258,9 @@ function UsageList({
   )
 }
 
-function UsageItem({ item }: { item: ContextUsageItem }) {
+function UsageItem({ item, nextStep }: { item: ContextUsageItem; nextStep: string }) {
   const Icon = item.itemKind === 'memory' ? Brain : WandSparkles
+  const itemKindLabel = contextItemKindLabel(item.itemKind)
   const negative = item.feedbackNegativeCount > 0
 
   return (
@@ -230,11 +286,11 @@ function UsageItem({ item }: { item: ContextUsageItem }) {
               {item.itemTitle}
             </p>
             <span className="shrink-0 rounded-full bg-black/[0.04] px-1.5 py-0.5 text-ui-caption text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-              {item.itemKind}
+              {itemKindLabel}
             </span>
           </div>
           <p className="mt-1 truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-            {item.agentName} · {item.runtime} · {item.taskKind}
+            {item.agentName} · {runtimeLabel(item.runtime)} · {taskKindLabel(item.taskKind)}
           </p>
         </div>
       </div>
@@ -244,11 +300,14 @@ function UsageItem({ item }: { item: ContextUsageItem }) {
         <Metric label="success" value={percent(item.successRate)} />
         <Metric label="useful" value={item.feedbackUsefulCount} />
         <Metric
-          label="negative"
+          label="check"
           value={item.feedbackNegativeCount}
           className={negative ? 'text-apple-red' : undefined}
         />
       </div>
+      <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+        {nextStep}
+      </p>
     </div>
   )
 }

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Command } from 'cmdk'
 import { cn } from '@app/shared/lib/utils'
 import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
@@ -13,20 +14,28 @@ const NAV_COMMANDS = [
   { id: 'nav:inbox', label: 'Inbox', description: 'Review alerts that may need a person.' },
   {
     id: 'nav:context',
-    label: 'Context',
-    description: 'Review knowledge before agents use it in tasks.',
+    label: 'Saved items',
+    description: 'Review saved notes and instructions before agents reuse them.',
   },
-  { id: 'nav:agents', label: 'Agents', description: 'Create or check the workers doing tasks.' },
-  { id: 'nav:skills', label: 'Skills', description: 'Reuse instructions for repeated work.' },
+  { id: 'nav:agents', label: 'Agents', description: 'Create or check agents that handle work.' },
+  {
+    id: 'nav:skills',
+    label: 'Saved instructions',
+    description: 'Reuse instructions for repeated work.',
+  },
   {
     id: 'nav:settings',
     label: 'Settings',
-    description: 'Connect tools, keys, teams, and projects.',
+    description: 'Connect tools, account access, teams, and projects.',
   },
 ]
 
 const ACTION_COMMANDS = [
-  { id: 'action:create-task', label: 'Create task', description: 'Start a new piece of work.' },
+  {
+    id: 'action:create-task',
+    label: 'New task',
+    description: 'Create a task for an agent to finish.',
+  },
   { id: 'action:toggle-theme', label: 'Change theme', description: 'Switch the app appearance.' },
 ]
 
@@ -34,21 +43,31 @@ const VIEW_COMMANDS = [
   { id: 'view:board', label: 'Board view', description: 'Move tasks through simple columns.' },
   { id: 'view:list', label: 'List view', description: 'Scan tasks in one sortable table.' },
   { id: 'view:timeline', label: 'Timeline view', description: 'See when work happened.' },
-  { id: 'view:3d', label: '3D view', description: 'Inspect work and agents in a visual map.' },
+  { id: 'view:3d', label: 'Visual map', description: 'See agents and tasks on a visual map.' },
 ]
 
 const COMMAND_DISCOVERY_STEPS = [
   'Use Tasks when you want to plan or inspect work.',
   'Use Inbox when something needs your attention.',
-  'Use Settings when setup, credentials, or runtime status is blocking work.',
+  'Use Settings when setup, account access, or agent work status is blocking work.',
 ]
+
+function commonWorkflowSuggestion(commands: typeof NAV_COMMANDS): string {
+  const labels = commands.map((command) => command.label)
+  if (labels.length === 0) return 'Try a shorter search, or open Settings to browse setup.'
+  if (labels.length === 1) return `Try ${labels[0]} to jump to a common workflow.`
+  const prefix = labels.slice(0, -1).join(', ')
+  return `Try ${prefix}, or ${labels[labels.length - 1]} to jump to a common workflow.`
+}
 
 export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProps) {
   const contextGovernanceEnabled = useContextFeaturesStore((s) => s.governance)
+  const [search, setSearch] = useState('')
   if (!isOpen) return null
   const navCommands = NAV_COMMANDS.filter(
     (cmd) => cmd.id !== 'nav:context' || contextGovernanceEnabled
   )
+  const emptySearchSuggestion = commonWorkflowSuggestion(navCommands)
 
   function handleSelect(commandId: string) {
     onSelect?.(commandId)
@@ -73,7 +92,7 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
         <Command>
           <div className="border-b border-black/[0.08] px-4 py-3 dark:border-white/[0.08]">
             <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
-              Command discovery path
+              Find what you need
             </p>
             <ol className="mt-2 list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
               {COMMAND_DISCOVERY_STEPS.map((step) => (
@@ -82,7 +101,9 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
             </ol>
           </div>
           <Command.Input
-            placeholder="Search commands, e.g. tasks, inbox, settings"
+            value={search}
+            onValueChange={setSearch}
+            placeholder="Search pages or actions, e.g. tasks, inbox, settings"
             className={cn(
               'w-full px-4 py-3 text-sm outline-none',
               'bg-transparent border-b border-black/[0.08] dark:border-white/[0.08]',
@@ -93,11 +114,16 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
           <Command.List className="max-h-80 overflow-y-auto py-2">
             <Command.Empty className="px-4 py-6 text-center text-sm text-secondary-light dark:text-secondary-dark">
               <p className="font-medium text-foreground-light dark:text-foreground-dark">
-                No commands found
+                No page or action matches that search
               </p>
-              <p className="mt-1">
-                Try Tasks, Inbox, Agents, Skills, or Settings to jump to a common workflow.
-              </p>
+              <p className="mt-1">{emptySearchSuggestion}</p>
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="mt-3 inline-flex h-8 items-center justify-center rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.08]"
+              >
+                Clear search
+              </button>
             </Command.Empty>
 
             <Command.Group

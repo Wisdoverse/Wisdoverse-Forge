@@ -189,6 +189,44 @@ Use `gh` for GitHub PRs and `glab` for GitLab MRs and pipeline inspection. If
 CLI flags differ on this host, check `<tool> <command> --help` or use the
 provider API.
 
+For PR/MR queue checks, prefer low-token snapshots over live watches. The
+operator should see one compact state, one classification, and the next useful
+action.
+
+For GitHub PR queues, use:
+
+```bash
+npm run pr:summary
+```
+
+Treat `ACTION` as the only state that needs immediate fix work. Treat `WAIT` as
+the stop condition for the chat: review, CI, or the merge queue is still
+working, so do not repeatedly refresh status inside the conversation. If you
+only need to show the same view again, use `npm run pr:summary:local`. For
+external monitoring, schedule `npm run pr:summary:monitor`; it reuses the local
+snapshot when run too soon and alerts only when a PR needs action.
+
+For GitLab MRs, take one compact snapshot with `glab mr view --output json` or a
+field-limited `glab api` call, then classify the result as:
+
+- `ACTION`: failed or canceled pipeline, manual job, merge conflict, requested
+  changes, or another blocker with a concrete fix.
+- `WAIT`: pipeline running or queued, review pending, or server-side
+  merge-when-pipeline-succeeds already enabled.
+- `DONE`: merged, closed intentionally, or the pinned pipeline completed.
+
+When the result is `WAIT`, enable server-side auto-merge if policy allows, then
+stop the chat. Fetch GitHub or GitLab job logs only after a failed terminal
+state, and fetch only the failed job list plus a short trace tail.
+Do not use `gh pr checks --watch`, `gh run watch`, shell loops, or repeated
+forced refreshes from the chat unless the user explicitly asks for a live watch.
+Do not run `glab pipeline ci trace --watch`, broad `glab pipeline list` loops, or
+chat-side retry loops while CI is merely pending. Do not lower the script's
+repeat-read guard below 60 seconds or save the emergency bypass flag into
+reusable commands.
+If a bounded local waiter is necessary, it must print only terminal output and
+must be stopped before sending the final response.
+
 ## Backend Contracts
 
 - New HTTP, WebSocket, and MCP routes must be registered behind the auth

@@ -87,7 +87,7 @@ async function openAgents(page: Page, baseURL: string): Promise<void> {
 }
 
 test.describe('Agent detail Terminal tab', () => {
-  test('Container CLI agent exposes Terminal tab and status output', async ({ page, baseURL }) => {
+  test('Managed workspace agent exposes Terminal tab and status output', async ({ page, baseURL }) => {
     await openAgents(page, baseURL!)
     await page.locator('[data-testid="agent-card-agent-container-cli"]').click()
 
@@ -97,7 +97,7 @@ test.describe('Agent detail Terminal tab', () => {
       timeout: 10_000,
     })
     await expect(page.locator('[data-testid="agent-terminal-tab"]')).toContainText(
-      'Container: container-12'
+      'Workspace: container-12'
     )
   })
 

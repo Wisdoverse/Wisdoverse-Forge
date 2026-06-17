@@ -977,7 +977,7 @@ mod tests {
             organization_id: sample_org_id(),
             user_id: sample_user_id(),
             name: "Laptop".to_string(),
-            public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 user@host".to_string(),
+            public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 dev@example.com".to_string(),
             fingerprint: "SHA256:abc".to_string(),
             key_type: "ed25519".to_string(),
             created_at: sample_time(),
@@ -1037,7 +1037,7 @@ mod tests {
 
         assert_eq!(list_body["ok"], true);
         assert_eq!(list_body["keys"], list_body["data"]);
-        assert_eq!(list_body["data"][0]["publicKey"], "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 user@host");
+        assert_eq!(list_body["data"][0]["publicKey"], "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 dev@example.com");
         assert_eq!(list_body["data"][0]["keyType"], "ed25519");
         assert_eq!(create_body["key"], create_body["data"]);
     }
@@ -1110,26 +1110,26 @@ mod tests {
     #[test]
     fn ssh_public_key_recognizes_supported_kinds() {
         assert_eq!(
-            SshPublicKey::parse("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 user@host").unwrap().kind(),
+            SshPublicKey::parse("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 dev@example.com").unwrap().kind(),
             SshKeyKind::Ed25519
         );
         assert_eq!(
-            SshPublicKey::parse("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQ user@host").unwrap().kind(),
+            SshPublicKey::parse("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQ dev@example.com").unwrap().kind(),
             SshKeyKind::Rsa
         );
         assert_eq!(
-            SshPublicKey::parse("ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHA user@host").unwrap().kind(),
+            SshPublicKey::parse("ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHA dev@example.com").unwrap().kind(),
             SshKeyKind::Ecdsa
         );
-        assert!(SshPublicKey::parse("ssh-dss AAAAB3NzaC1kc3M user@host").is_err());
+        assert!(SshPublicKey::parse("ssh-dss AAAAB3NzaC1kc3M dev@example.com").is_err());
         assert!(SshPublicKey::parse("").is_err());
     }
 
     #[test]
     fn ssh_fingerprint_is_stable_and_key_specific() {
-        let fp1 = SshPublicKey::parse("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA user1@host").unwrap().fingerprint();
-        let fp2 = SshPublicKey::parse("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA user1@host").unwrap().fingerprint();
-        let fp3 = SshPublicKey::parse("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5BBBB user2@host").unwrap().fingerprint();
+        let fp1 = SshPublicKey::parse("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA dev1@example.com").unwrap().fingerprint();
+        let fp2 = SshPublicKey::parse("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA dev1@example.com").unwrap().fingerprint();
+        let fp3 = SshPublicKey::parse("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5BBBB dev2@example.com").unwrap().fingerprint();
         assert_eq!(fp1, fp2);
         assert_ne!(fp1, fp3);
         assert!(fp1.starts_with("SHA256:"));
