@@ -4031,6 +4031,28 @@ function ToolRow() {
     ])
   })
 
+  it('flags agent tool package copy that exposes build-server wording', () => {
+    const cwd = fixture({
+      'src/app/features/admin/CliImagesPanel.tsx': `
+function ToolRow() {
+  return <><p>Built here</p><p>Building on this server — usually a few minutes.</p><p>Builds automatically — new versions build themselves</p></>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'cli-image-status-copy',
+          location: 'src/app/features/admin/CliImagesPanel.tsx:3',
+        }),
+      ])
+    )
+  })
+
   it('accepts agent tool update status copy that tells users to check now', () => {
     const cwd = fixture({
       'src/app/features/admin/CliImagesPanel.tsx': `

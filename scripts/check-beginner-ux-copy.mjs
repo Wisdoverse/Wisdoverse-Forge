@@ -386,6 +386,9 @@ const CLI_IMAGE_STATUS_DEAD_END_PATTERNS = [
   /\bNot checked yet\b/i,
   /\bNot checked — updates off\b/i,
   /\bVersion not reported yet\b/i,
+  /\bBuilt here\b/i,
+  /\bBuilding on this server\b/i,
+  /\bBuilds automatically\b/i,
 ]
 
 const CLI_IMAGE_ACTION_FAILURE_FIRST_PATTERNS = [
