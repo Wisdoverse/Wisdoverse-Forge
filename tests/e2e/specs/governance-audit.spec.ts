@@ -102,7 +102,7 @@ test.describe('Governance audit log', () => {
       hiddenSkillHash.slice(0, 10)
     )
     await expect(page.getByTestId('governance-audit-redacted')).toBeVisible()
-    await expect(page.getByText('Hidden item IDs')).toBeVisible()
+    await expect(page.getByText('Hidden item references')).toBeVisible()
     await expect(page.getByText('Review notes')).toBeVisible()
     await expect(page.getByText('Show event details').first()).toBeVisible()
 

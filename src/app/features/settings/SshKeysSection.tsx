@@ -69,8 +69,8 @@ function SshKeyRow({ sshKey, onDelete }: SshKeyRowProps) {
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
           {formatAccessDate(sshKey.createdAt, {
-            missing: 'Refresh git@ Repository Access to load added date',
-            invalid: 'Refresh git@ Repository Access to check added date',
+            missing: 'Refresh SSH code access to load added date',
+            invalid: 'Refresh SSH code access to check added date',
           })}
         </span>
       </td>
@@ -92,8 +92,8 @@ function SshKeyRow({ sshKey, onDelete }: SshKeyRowProps) {
             disabled={removing}
             aria-label={
               confirming
-                ? `Confirm removing ${sshKey.label} git@ Repository Access`
-                : `Remove ${sshKey.label} git@ Repository Access`
+                ? `Confirm removing ${sshKey.label} SSH code access`
+                : `Remove ${sshKey.label} SSH code access`
             }
             aria-describedby={confirming ? removeWarningId : undefined}
             aria-busy={removing || undefined}
@@ -260,7 +260,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
           disabled={saving || !label.trim() || !publicKey.trim()}
           className={uiStyles.primaryButton}
         >
-          {saving ? 'Saving...' : 'Save git@ Repository Access'}
+          {saving ? 'Saving...' : 'Save SSH code access'}
         </button>
       </div>
     </form>
@@ -290,7 +290,7 @@ export function SshKeysSection() {
     if (ok) {
       setShowForm(false)
       setSavedMessage(
-        'git@ Repository Access saved. Create a small task with a git@ code link to confirm agents can open it. If it cannot read the repository, come back here and replace this key.'
+        'SSH code access saved. Create a small task with a git@ code link to confirm agents can open it. If it cannot read the repository, come back here and replace this key.'
       )
     }
   }
@@ -312,7 +312,7 @@ export function SshKeysSection() {
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>git@ Repository Access</h2>
+          <h2 className={uiStyles.sectionTitle}>SSH code access</h2>
           <p className={uiStyles.sectionDescription}>
             Use this only when a private code link starts with git@. If it starts with https://, use
             Code Repository Access instead.
@@ -328,7 +328,7 @@ export function SshKeysSection() {
             className={uiStyles.primaryButton}
           >
             <span>+</span>
-            <span>Add git@ Repository Access</span>
+            <span>Add SSH code access</span>
           </button>
         )}
       </div>
@@ -354,7 +354,7 @@ export function SshKeysSection() {
       <div className={cn(uiStyles.card, 'overflow-x-auto')}>
         {sshKeysLoading && sshKeys.length === 0 ? (
           <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading git@ Repository Access...
+            Loading SSH code access...
           </div>
         ) : sshKeys.length === 0 && !showForm ? (
           <div className="px-4 py-6 text-center" data-testid="ssh-access-empty-state">
@@ -376,13 +376,13 @@ export function SshKeysSection() {
               }}
               className={cn(uiStyles.primaryButton, 'mx-auto mt-3')}
             >
-              Add git@ Repository Access
+              Add SSH code access
             </button>
           </div>
         ) : (
           <>
             {sshKeys.length > 0 && (
-              <table className={uiStyles.table} aria-label="git@ Repository Access">
+              <table className={uiStyles.table} aria-label="SSH code access">
                 <thead className={uiStyles.tableHead}>
                   <tr>
                     {tableHeaders.map((h) => (
