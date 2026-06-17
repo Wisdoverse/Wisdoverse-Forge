@@ -11029,10 +11029,64 @@ function permissionCloneRetryErrorMessage() {
   return 'Ask an owner or admin to let you copy code into this project, then try again. You do not have permission right now.'
 }
 function busyCloneRetryErrorMessage() {
-  return 'Wait a minute, then try copying code again. Too many code import retries are happening right now.'
+  return 'Wait a minute, then try copying code again. Too many copy retries are happening right now.'
 }
 function fallbackCloneRetryErrorMessage() {
   return 'Check the code link and saved code access, then try copying code again. Forge could not copy code into the project.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags code import status and recovery labels that do not match copy wording', () => {
+    const cwd = fixture({
+      'src/app/features/manage-project/ui/CloneStatusBadge.tsx': `
+const VISUALS = {
+  queued: { label: 'Code import queued' },
+  ready: { label: 'Code ready' },
+  failed: { label: 'Code import failed' },
+}
+function cloneFailureMessage() {
+  return 'Forge could not finish the code import.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'clone-status-label-copy',
+          location: 'src/app/features/manage-project/ui/CloneStatusBadge.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'clone-status-label-copy',
+          location: 'src/app/features/manage-project/ui/CloneStatusBadge.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'clone-status-label-copy',
+          location: 'src/app/features/manage-project/ui/CloneStatusBadge.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'clone-status-label-copy',
+          location: 'src/app/features/manage-project/ui/CloneStatusBadge.tsx:8',
+        }),
+      ])
+    )
+  })
+
+  it('accepts code copy status labels that describe the user-visible action', () => {
+    const cwd = fixture({
+      'src/app/features/manage-project/ui/CloneStatusBadge.tsx': `
+const VISUALS = {
+  queued: { label: 'Code copy waiting' },
+  cloning: { label: 'Copying code…' },
+  ready: { label: 'Code copied' },
+  failed: { label: 'Code copy needs help' },
 }
 `,
     })
@@ -11069,7 +11123,7 @@ function cloneFailureMessage(clone) {
   if (clone.errorClass === 'auth') {
     return 'Check saved code access for this repository, then try copying code again. The repository rejected Forge access.'
   }
-  return 'Check the code link and saved code access, then try copying code again. Forge could not finish the code import.'
+  return 'Check the code link and saved code access, then try copying code again. Forge could not finish copying code.'
 }
 `,
     })
