@@ -7657,11 +7657,11 @@ function tamperStatusLabel() {
     const cwd = fixture({
       'src/app/features/governance/AuditLogView.tsx': `
 function auditEventLabel(eventType) {
-  return readableCodeLabel(eventType, { fallback: 'Check audit change' })
+  return readableCodeLabel(eventType, { fallback: 'Check change' })
 }
 
 function shortEventType(eventType) {
-  return eventType.trim() || 'Check support event'
+  return eventType.trim() || 'Check change details'
 }
 
 function resourceTypeLabel(value) {
@@ -7739,23 +7739,99 @@ function permission() {
     const cwd = fixture({
       'src/app/features/governance/governanceAuditErrorMessages.ts': `
 const ACTION_FALLBACKS = {
-  exportAudit: 'Keep secrets hidden, refresh the audit view, then try the export again.',
-  loadAudit: 'Refresh the audit view, then apply the filters again.',
+  exportAudit: 'Keep secrets hidden, refresh change history, then try the export again.',
+  loadAudit: 'Refresh change history, then apply the filters again.',
 }
 function notFound() {
-  return 'Open the Admin audit view again, then retry.'
+  return 'Open Admin change history again, then retry.'
 }
 function conflict() {
-  return 'Refresh the audit view, then export again because audit data changed while export was running.'
+  return 'Refresh change history, then export again because the change list changed while export was running.'
 }
 function rateLimit() {
-  return 'Wait a moment, then try again. Audit history is handling too many requests right now.'
+  return 'Wait a moment, then try again. Change history is handling too many requests right now.'
 }
 function service() {
-  return 'Refresh the audit view, then apply the filters again. If it still fails, ask an owner or admin to check governance audit setup.'
+  return 'Refresh change history, then apply the filters again. If it still fails, ask an owner or admin to check change history setup.'
 }
 function permission() {
-  return 'Ask an owner or admin to update your team space access, then retry this audit action. You do not have permission to view or export audit history.'
+  return 'Ask an owner or admin to update your team space access, then retry this change-history action. You do not have permission to view or export change history.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags governance history copy that exposes audit and event jargon', () => {
+    const cwd = fixture({
+      'src/app/features/governance/AuditLogView.tsx': `
+function AuditLogView() {
+  return <section aria-label="Common audit views">
+    <p>Pick a common audit view, then narrow it.</p>
+    <label>Exact event name</label>
+    <input placeholder="Paste an event category only when needed" />
+    <button aria-label="Refresh audit history">Refresh</button>
+    <button>Show event details</button>
+  </section>
+}
+`,
+      'src/app/features/governance/governanceAuditErrorMessages.ts': `
+function message() {
+  return 'Your sign-in expired. Sign in again, then retry this audit action.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'governance-audit-jargon-copy',
+          location: 'src/app/features/governance/AuditLogView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-jargon-copy',
+          location: 'src/app/features/governance/AuditLogView.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-jargon-copy',
+          location: 'src/app/features/governance/AuditLogView.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-jargon-copy',
+          location: 'src/app/features/governance/AuditLogView.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-jargon-copy',
+          location: 'src/app/features/governance/AuditLogView.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-jargon-copy',
+          location: 'src/app/features/governance/governanceAuditErrorMessages.ts:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts governance history copy that uses change-history wording', () => {
+    const cwd = fixture({
+      'src/app/features/governance/AuditLogView.tsx': `
+function AuditLogView() {
+  return <section aria-label="Common change views">
+    <p>Pick a common change view, then narrow it.</p>
+    <label>Specific change name</label>
+    <input placeholder="Paste an exact change area only when needed" />
+    <button aria-label="Refresh change history">Refresh</button>
+    <button>Show change details</button>
+  </section>
+}
+`,
+      'src/app/features/governance/governanceAuditErrorMessages.ts': `
+function message() {
+  return 'Your sign-in expired. Sign in again, then retry this change-history action.'
 }
 `,
     })

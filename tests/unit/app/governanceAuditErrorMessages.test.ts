@@ -11,7 +11,7 @@ describe('governanceAuditErrorMessage', () => {
   test('turns auth failures into a sign-in instruction', () => {
     expectBeginnerMessage(
       governanceAuditErrorMessage('loadAudit', new Error('401 Unauthorized')),
-      'Your sign-in expired. Sign in again, then retry this audit action.'
+      'Your sign-in expired. Sign in again, then retry this change-history action.'
     )
   })
 
@@ -20,9 +20,10 @@ describe('governanceAuditErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Ask an owner or admin to update your team space access, then retry this audit action. You do not have permission to view or export audit history.'
+      'Ask an owner or admin to update your team space access, then retry this change-history action. You do not have permission to view or export change history.'
     )
     expect(message).not.toContain('governance audit records')
+    expect(message).not.toContain('audit history')
     expect(message).not.toContain('role')
     expect(message).not.toContain('HTTP 403')
     expect(message).not.toContain('Forbidden')
@@ -31,7 +32,7 @@ describe('governanceAuditErrorMessage', () => {
   test('explains load network failures without exposing only a transport error', () => {
     const message = governanceAuditErrorMessage('loadAudit', new TypeError('Failed to fetch'))
 
-    expect(message).toContain('Refresh the audit view, then apply the filters again.')
+    expect(message).toContain('Refresh change history, then apply the filters again.')
     expect(message).toContain('If it still does not load, check your connection')
     expect(message).not.toContain('API')
     expect(message).not.toContain('Failed to fetch')
@@ -43,14 +44,14 @@ describe('governanceAuditErrorMessage', () => {
     const message = governanceAuditErrorMessage('exportAudit', 'Network Error')
 
     expect(message).toContain('Keep secrets hidden')
-    expect(message).toContain('choose Export audit history again')
+    expect(message).toContain('choose Export change history again')
     expect(message).not.toContain('audit export did not finish')
   })
 
   test('gives a clear export conflict recovery step', () => {
     expectBeginnerMessage(
       governanceAuditErrorMessage('exportAudit', new Error('409 conflict')),
-      'Refresh the audit view, then export again because audit data changed while export was running.'
+      'Refresh change history, then export again because the change list changed while export was running.'
     )
   })
 
@@ -59,7 +60,7 @@ describe('governanceAuditErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh the audit view, then apply the filters again. If it still fails, ask an owner or admin to check governance audit setup.'
+      'Refresh change history, then apply the filters again. If it still fails, ask an owner or admin to check change history setup.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('temporarily unavailable')
@@ -71,7 +72,7 @@ describe('governanceAuditErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open the Admin audit view again, then retry. If it still fails, ask an owner or admin to check team space access.'
+      'Open Admin change history again, then retry. If it still fails, ask an owner or admin to check team space access.'
     )
     expect(message).not.toContain('route')
     expect(message).not.toContain('workspace access')
@@ -80,7 +81,7 @@ describe('governanceAuditErrorMessage', () => {
   test('turns rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       governanceAuditErrorMessage('loadAudit', { code: '429' }),
-      'Wait a moment, then try again. Audit history is handling too many requests right now.'
+      'Wait a moment, then try again. Change history is handling too many requests right now.'
     )
   })
 
@@ -89,7 +90,7 @@ describe('governanceAuditErrorMessage', () => {
       governanceAuditErrorMessage('loadAudit', {
         error: 'Invalid time range',
       }),
-      'Choose a valid time range. Make sure From is before To, then apply the audit filters again.'
+      'Choose a valid time range. Make sure From is before To, then apply the change filters again.'
     )
   })
 
@@ -98,7 +99,7 @@ describe('governanceAuditErrorMessage', () => {
       governanceAuditErrorMessage('loadAudit', {
         error: 'limit must be less than or equal to 200',
       }),
-      'Enter a record limit from 1 to 200, then apply the audit filters again.'
+      'Enter a row limit from 1 to 200, then apply the change filters again.'
     )
   })
 
@@ -109,7 +110,7 @@ describe('governanceAuditErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check the selected team space, project workspace, user, or task reference, then apply the audit filters again.'
+      'Check the selected team space, project workspace, user, or task reference, then apply the change filters again.'
     )
     expect(message).not.toContain('selected organization')
     expect(message).not.toMatch(/task I[D]/)

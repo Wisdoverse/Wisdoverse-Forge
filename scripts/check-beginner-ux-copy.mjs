@@ -846,6 +846,20 @@ const GOVERNANCE_AUDIT_ERROR_FAILURE_FIRST_PATTERNS = [
   /\bYou do not have permission to view or export audit history\. Ask an owner/i,
 ]
 
+const GOVERNANCE_AUDIT_VISIBLE_JARGON_PATTERNS = [
+  /\baudit views\b/i,
+  /\baudit view\b/i,
+  /\baudit history\b/i,
+  /\baudit action\b/i,
+  /\baudit data\b/i,
+  /\baudit records?\b/i,
+  /\bgovernance audit\b/i,
+  /\bevent category\b/i,
+  /\bevent name\b/i,
+  /\bevent details\b/i,
+  /\bCheck audit change\b/i,
+]
+
 const APPROVAL_QUEUE_ERROR_FAILURE_FIRST_PATTERNS = [
   /^\s*(?:return\s+|(?:approveCandidate|rejectCandidate)\s*:\s*)['"`]The item was not (?:approved|rejected)\./i,
   /^\s*(?:return\s+|loadQueue\s*:\s*)['"`]The saved item review list could not load\./i,
@@ -2607,6 +2621,17 @@ function hasGovernanceAuditErrorFailureFirstCopy(relFile, line) {
   return GOVERNANCE_AUDIT_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasGovernanceAuditVisibleJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/governance/AuditLogView.tsx') &&
+    !relFile.endsWith('src/app/features/governance/governanceAuditErrorMessages.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return GOVERNANCE_AUDIT_VISIBLE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasApprovalQueueErrorFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/context/approvalQueueErrorMessages.ts')) {
     return false
@@ -4197,6 +4222,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Governance audit errors must start with the next action, not the failure summary.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasGovernanceAuditVisibleJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'governance-audit-jargon-copy',
+        location,
+        message:
+          'Governance history copy must say change history and change details instead of audit or event jargon.',
         sample: line.trim(),
       })
     }

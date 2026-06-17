@@ -1,8 +1,8 @@
 export type GovernanceAuditErrorAction = 'exportAudit' | 'loadAudit'
 
 const ACTION_FALLBACKS: Record<GovernanceAuditErrorAction, string> = {
-  exportAudit: 'Keep secrets hidden, refresh the audit view, then try the export again.',
-  loadAudit: 'Refresh the audit view, then apply the filters again.',
+  exportAudit: 'Keep secrets hidden, refresh change history, then try the export again.',
+  loadAudit: 'Refresh change history, then apply the filters again.',
 }
 
 export function governanceAuditErrorMessage(
@@ -18,19 +18,19 @@ export function governanceAuditErrorMessage(
   }
 
   if (status === 401) {
-    return 'Your sign-in expired. Sign in again, then retry this audit action.'
+    return 'Your sign-in expired. Sign in again, then retry this change-history action.'
   }
 
   if (status === 403) {
-    return 'Ask an owner or admin to update your team space access, then retry this audit action. You do not have permission to view or export audit history.'
+    return 'Ask an owner or admin to update your team space access, then retry this change-history action. You do not have permission to view or export change history.'
   }
 
   if (status === 404) {
-    return 'Open the Admin audit view again, then retry. If it still fails, ask an owner or admin to check team space access.'
+    return 'Open Admin change history again, then retry. If it still fails, ask an owner or admin to check team space access.'
   }
 
   if (status === 409) {
-    return 'Refresh the audit view, then export again because audit data changed while export was running.'
+    return 'Refresh change history, then export again because the change list changed while export was running.'
   }
 
   if (status === 422) {
@@ -38,11 +38,11 @@ export function governanceAuditErrorMessage(
   }
 
   if (status === 429) {
-    return 'Wait a moment, then try again. Audit history is handling too many requests right now.'
+    return 'Wait a moment, then try again. Change history is handling too many requests right now.'
   }
 
   if (status && status >= 500) {
-    return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check governance audit setup.`
+    return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check change history setup.`
   }
 
   return validationMessage(action, detail)
@@ -106,7 +106,7 @@ function isNetworkError(normalizedDetail: string): boolean {
 
 function networkRecoveryMessage(action: GovernanceAuditErrorAction): string {
   if (action === 'exportAudit') {
-    return 'If it still does not export, check your connection and choose Export audit history again.'
+    return 'If it still does not export, check your connection and choose Export change history again.'
   }
   return 'If it still does not load, check your connection and refresh the page.'
 }
@@ -114,16 +114,16 @@ function networkRecoveryMessage(action: GovernanceAuditErrorAction): string {
 function validationMessage(action: GovernanceAuditErrorAction, detail: string): string {
   const normalized = detail.toLowerCase()
   if (normalized.includes('time')) {
-    return 'Choose a valid time range. Make sure From is before To, then apply the audit filters again.'
+    return 'Choose a valid time range. Make sure From is before To, then apply the change filters again.'
   }
   if (normalized.includes('limit')) {
-    return 'Enter a record limit from 1 to 200, then apply the audit filters again.'
+    return 'Enter a row limit from 1 to 200, then apply the change filters again.'
   }
   if (normalized.includes('event')) {
-    return 'Choose a common audit view or paste an exact event name, then apply the audit filters again.'
+    return 'Choose a common change view or paste a specific change name, then apply the change filters again.'
   }
   if (normalized.includes('id')) {
-    return 'Check the selected team space, project workspace, user, or task reference, then apply the audit filters again.'
+    return 'Check the selected team space, project workspace, user, or task reference, then apply the change filters again.'
   }
   return ACTION_FALLBACKS[action]
 }
