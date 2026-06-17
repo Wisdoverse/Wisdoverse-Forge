@@ -260,6 +260,12 @@ const ANALYTICS_GUIDANCE_JARGON_PATTERNS = [
   /\bended in error\b/i,
 ]
 
+const ANALYTICS_EVENT_LABEL_JARGON_PATTERNS = [
+  /\bHourly event activity\b/i,
+  /\}\s*events\b/i,
+  /\$\{bar\.label\}:\s*\$\{bar\.value\}\s+events\b/i,
+]
+
 const ACTIVITY_FEED_EMPTY_DEAD_END_PATTERNS = [
   /\bNo work has reported progress yet\b/i,
   /\bNo updates need action right now\b/i,
@@ -1619,6 +1625,12 @@ function hasAnalyticsGuidanceJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/analytics/AnalyticsDashboard.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return ANALYTICS_GUIDANCE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAnalyticsEventLabelJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/analytics/AnalyticsDashboard.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ANALYTICS_EVENT_LABEL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasActivityFeedEmptyDeadEndCopy(relFile, line) {
@@ -3191,6 +3203,15 @@ function scanFile(file, relFile) {
         type: 'analytics-guidance-copy',
         location,
         message: 'Analytics guidance must describe the next check without failed-tool jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAnalyticsEventLabelJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'analytics-event-label-copy',
+        location,
+        message: 'Analytics chart labels must say updates, not event activity.',
         sample: line.trim(),
       })
     }

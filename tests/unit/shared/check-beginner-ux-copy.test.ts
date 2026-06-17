@@ -5707,6 +5707,44 @@ function nextStep() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags analytics chart labels that expose event wording', () => {
+    const cwd = fixture({
+      'src/app/features/analytics/AnalyticsDashboard.tsx': `
+function ActivityBarChart() {
+  return <div aria-label="Hourly event activity">{activeBar.value} events<button aria-label={\`\${bar.label}: \${bar.value} events\`} /></div>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'analytics-event-label-copy',
+          sample: expect.stringContaining('Hourly event activity'),
+        }),
+        expect.objectContaining({
+          type: 'analytics-event-label-copy',
+          sample: expect.stringContaining('events'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts analytics chart labels that describe work updates', () => {
+    const cwd = fixture({
+      'src/app/features/analytics/AnalyticsDashboard.tsx': `
+function ActivityBarChart() {
+  return <div aria-label="Hourly work updates">{activeBar.value} updates<button aria-label={\`\${bar.label}: \${bar.value} updates\`} /></div>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags suggested saved-item preview copy that stops at no preview', () => {
     const cwd = fixture({
       'src/app/features/detail/ContextCandidatesList.tsx': `
