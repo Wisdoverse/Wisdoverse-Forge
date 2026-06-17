@@ -60,6 +60,9 @@ const DEAD_END_CONFIRMATION_PATTERNS = [
   /\bAre you sure you want to reset\??/i,
   /\bAre you sure you want to stop this operation\??/i,
   /\bAre you sure you want to discard your changes\??/i,
+  /\bremoved from this workspace\b/i,
+  /\blose access to this workspace\b/i,
+  /\bproject leaves this workspace\b/i,
   /确定要删除(?:此|这个)?.*吗？/,
   /确定要恢复所有设置吗？/,
   /您有未保存的更改，确定要离开吗？/,
@@ -67,6 +70,8 @@ const DEAD_END_CONFIRMATION_PATTERNS = [
   /确定要重置吗？/,
   /确定要停止此操作吗？/,
   /确定要放弃更改吗？/,
+  /从当前工作区移除/,
+  /失去当前工作区访问权限/,
 ]
 
 const DEAD_END_LIMIT_CONFLICT_PATTERNS = [

@@ -378,7 +378,7 @@ function DeleteConfirmationDialog({ state, onCancel, onConfirm }: DeleteConfirma
   const detail =
     state.target === 'team'
       ? `Check and move or finish any work you still need from "${targetName}" before deleting. Projects in this team leave the left menu too. Agents are not deleted.`
-      : `Check and move or finish any work you still need from "${targetName}" before deleting. The project leaves this workspace, and agents are moved out instead of deleted.`
+      : `Check and move or finish any work you still need from "${targetName}" before deleting. The project is removed from this team space, and agents are moved out instead of deleted.`
   const confirmLabel = state.saving
     ? 'Deleting...'
     : state.target === 'team'

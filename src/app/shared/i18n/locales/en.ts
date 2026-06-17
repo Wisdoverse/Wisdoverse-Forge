@@ -614,7 +614,7 @@ export const en = {
   // Confirmations
   // =========================================================================
   confirm: {
-    delete: 'Delete this item? It will be removed from this workspace.',
+    delete: 'Delete this item? It will be removed from this team space.',
     unsavedChanges: 'Leave without saving? Unsaved changes will be lost.',
     logout: 'Sign out now? Unsaved work in open forms may be lost.',
     reset: 'Reset this? Current changes will be replaced by defaults.',
@@ -770,7 +770,7 @@ export const en = {
         inactive: 'Inactive',
         suspended: 'Suspended',
       },
-      confirmDelete: 'Delete this user? They will lose access to this workspace.',
+      confirmDelete: 'Delete this user? They will lose access to this team space.',
     },
     health: {
       title: 'System Health',

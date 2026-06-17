@@ -590,7 +590,7 @@ export const zh: TranslationKeys = {
   // 确认
   // =========================================================================
   confirm: {
-    delete: '要删除这一项吗？它会从当前工作区移除。',
+    delete: '要删除这一项吗？它会从当前团队空间移除。',
     unsavedChanges: '不保存就离开吗？未保存的更改会丢失。',
     logout: '现在退出登录吗？打开表单里的未保存内容可能会丢失。',
     reset: '要重置吗？当前更改会被默认值替换。',
@@ -745,7 +745,7 @@ export const zh: TranslationKeys = {
         inactive: '未激活',
         suspended: '已暂停',
       },
-      confirmDelete: '要删除这个用户吗？该用户将失去当前工作区访问权限。',
+      confirmDelete: '要删除这个用户吗？该用户将失去当前团队空间访问权限。',
     },
     health: {
       title: '系统健康',

@@ -720,6 +720,8 @@ describe('Sidebar', () => {
     expect(
       screen.getByText(/Check and move or finish any work you still need from "Project X"/i)
     ).toBeInTheDocument()
+    expect(screen.getByText(/removed from this team space/i)).toBeInTheDocument()
+    expect(screen.queryByText(/leaves this workspace/i)).not.toBeInTheDocument()
     expect(confirmSpy).not.toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: /^delete project$/i }))

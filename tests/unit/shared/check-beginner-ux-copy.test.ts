@@ -4395,6 +4395,12 @@ export const en = {
   },
   confirm: {
     unsavedChanges: 'You have unsaved changes. Are you sure you want to leave?',
+    delete: 'Delete this item? It will be removed from this workspace.',
+  },
+  admin: {
+    users: {
+      confirmDelete: 'Delete this user? They will lose access to this workspace.',
+    },
   },
 }
 `,
@@ -4416,6 +4422,14 @@ export const en = {
         type: 'confirmation-impact',
         location: 'src/app/shared/i18n/locales/en.ts:10',
       }),
+      expect.objectContaining({
+        type: 'confirmation-impact',
+        location: 'src/app/shared/i18n/locales/en.ts:11',
+      }),
+      expect.objectContaining({
+        type: 'confirmation-impact',
+        location: 'src/app/shared/i18n/locales/en.ts:15',
+      }),
     ])
   })
 
@@ -4431,6 +4445,12 @@ export const zh = {
   },
   confirm: {
     unsavedChanges: '您有未保存的更改，确定要离开吗？',
+    delete: '要删除这一项吗？它会从当前工作区移除。',
+  },
+  admin: {
+    users: {
+      confirmDelete: '要删除这个用户吗？该用户将失去当前工作区访问权限。',
+    },
   },
 }
 `,
@@ -4452,6 +4472,14 @@ export const zh = {
         type: 'confirmation-impact',
         location: 'src/app/shared/i18n/locales/zh.ts:10',
       }),
+      expect.objectContaining({
+        type: 'confirmation-impact',
+        location: 'src/app/shared/i18n/locales/zh.ts:11',
+      }),
+      expect.objectContaining({
+        type: 'confirmation-impact',
+        location: 'src/app/shared/i18n/locales/zh.ts:15',
+      }),
     ])
   })
 
@@ -4462,6 +4490,31 @@ export const en = {
   agents: {
     confirmDelete: 'Delete this agent? This removes its setup and stops assigning new work to it.',
   },
+  confirm: {
+    delete: 'Delete this item? It will be removed from this team space.',
+  },
+  admin: {
+    users: {
+      confirmDelete: 'Delete this user? They will lose access to this team space.',
+    },
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  confirm: {
+    delete: '要删除这一项吗？它会从当前团队空间移除。',
+  },
+  admin: {
+    users: {
+      confirmDelete: '要删除这个用户吗？该用户将失去当前团队空间访问权限。',
+    },
+  },
+}
+`,
+      'src/app/layouts/sidebar/ProjectTree.tsx': `
+function deleteDetail() {
+  return 'The project is removed from this team space, and agents are moved out instead of deleted.'
 }
 `,
     })
