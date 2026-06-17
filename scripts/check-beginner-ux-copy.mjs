@@ -227,6 +227,8 @@ const BILLING_CHECKPOINT_DEAD_END_PATTERNS = [/\bNo invoices yet\b/i]
 
 const BILLING_USAGE_DEAD_END_PATTERNS = [/\bNo usage reported yet\b/i, /\busage areas shown\b/i]
 
+const BILLING_USAGE_AUDIT_JARGON_PATTERNS = [/\baudit records?\b/i]
+
 const BILLING_RECEIPT_LINK_DEAD_END_PATTERNS = [/\bNo link\b/i]
 
 const BILLING_ERROR_FAILURE_FIRST_PATTERNS = [
@@ -751,6 +753,12 @@ const CONTEXT_WORK_HISTORY_JARGON_PATTERNS = [
   /\bnew runs\b/i,
 ]
 
+const CONTEXT_EVIDENCE_SOURCE_TITLE_JARGON_PATTERNS = [
+  /\breturn\s+['"`]Task result['"`]/,
+  /\breturn\s+['"`]Tool activity['"`]/,
+  /\breturn\s+['"`]Source message['"`]/,
+]
+
 const CHAT_MESSAGE_FALLBACK_DEAD_END_PATTERNS = [
   /\bMessage needs review\b/i,
   /\bMessage sender not reported\b/i,
@@ -838,6 +846,20 @@ const GOVERNANCE_AUDIT_ERROR_FAILURE_FIRST_PATTERNS = [
   /\bGovernance audit is handling too many requests right now\./i,
   /\bForge could not (?:load|export) governance audit history right now\./i,
   /\bYou do not have permission to view or export audit history\. Ask an owner/i,
+]
+
+const GOVERNANCE_AUDIT_VISIBLE_JARGON_PATTERNS = [
+  /\baudit views\b/i,
+  /\baudit view\b/i,
+  /\baudit history\b/i,
+  /\baudit action\b/i,
+  /\baudit data\b/i,
+  /\baudit records?\b/i,
+  /\bgovernance audit\b/i,
+  /\bevent category\b/i,
+  /\bevent name\b/i,
+  /\bevent details\b/i,
+  /\bCheck audit change\b/i,
 ]
 
 const APPROVAL_QUEUE_ERROR_FAILURE_FIRST_PATTERNS = [
@@ -957,7 +979,14 @@ const AUTH_FAILURE_FIRST_PATTERNS = [
 
 const AUTH_INTRO_JARGON_PATTERNS = [/\bSign in to manage\b.*\bevidence\b/i]
 
-const LEGAL_PRIVACY_EVIDENCE_JARGON_PATTERNS = [/\blive task,\s*agent,\s*and evidence updates\b/i]
+const LEGAL_PRIVACY_EVIDENCE_JARGON_PATTERNS = [
+  /\blive task,\s*agent,\s*and evidence updates\b/i,
+  /\brate limiting\b/i,
+  /\baudit logging\b/i,
+  /\baudit logs?\b/i,
+  /\bevent history\b/i,
+  /\bsecurity monitoring and compliance purposes\b/i,
+]
 
 const GETTING_STARTED_REVIEW_EVIDENCE_JARGON_PATTERNS = [
   /\breturned useful work and evidence\b/i,
@@ -1507,6 +1536,12 @@ function hasBillingUsageDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/billing/BillingPage.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return BILLING_USAGE_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasBillingUsageAuditJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/billing/UsageMeter.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return BILLING_USAGE_AUDIT_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasBillingReceiptLinkDeadEndCopy(relFile, line) {
@@ -2495,6 +2530,11 @@ function hasContextWorkHistoryJargonCopy(relFile, line) {
   return CONTEXT_WORK_HISTORY_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasContextEvidenceSourceTitleJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/detail/ContextEvidenceList.tsx')) return false
+  return CONTEXT_EVIDENCE_SOURCE_TITLE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasChatMessageFallbackDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/chat/ChatView.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -2594,6 +2634,17 @@ function hasGovernanceAuditErrorFailureFirstCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return GOVERNANCE_AUDIT_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasGovernanceAuditVisibleJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/governance/AuditLogView.tsx') &&
+    !relFile.endsWith('src/app/features/governance/governanceAuditErrorMessages.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return GOVERNANCE_AUDIT_VISIBLE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasApprovalQueueErrorFailureFirstCopy(relFile, line) {
@@ -3008,6 +3059,15 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasBillingUsageAuditJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'billing-usage-audit-copy',
+        location,
+        message: 'Billing usage event copy must describe change history instead of audit records.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasBillingReceiptLinkDeadEndCopy(relFile, line)) {
       findings.push({
         type: 'billing-receipt-link-copy',
@@ -3273,7 +3333,8 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'legal-privacy-copy',
         location,
-        message: 'Legal privacy copy must describe saved work updates without evidence jargon.',
+        message:
+          'Legal privacy copy must explain saved work and security records in beginner-readable language.',
         sample: line.trim(),
       })
     }
@@ -4074,6 +4135,15 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasContextEvidenceSourceTitleJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'context-evidence-source-title-copy',
+        location,
+        message: 'Task result records must use result-first titles instead of source-type jargon.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasChatMessageFallbackDeadEndCopy(relFile, line)) {
       findings.push({
         type: 'chat-message-fallback-copy',
@@ -4177,6 +4247,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Governance audit errors must start with the next action, not the failure summary.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasGovernanceAuditVisibleJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'governance-audit-jargon-copy',
+        location,
+        message:
+          'Governance history copy must say change history and change details instead of audit or event jargon.',
         sample: line.trim(),
       })
     }

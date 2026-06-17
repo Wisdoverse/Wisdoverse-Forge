@@ -21,11 +21,11 @@ export function ContextEvidenceList({ evidence, revokedItems }: ContextEvidenceL
     <section className="space-y-2" data-testid="context-evidence">
       <div>
         <h3 className="text-xs font-semibold text-foreground-light dark:text-foreground-dark">
-          What the agent used
+          What helped produce this result
         </h3>
         <p className="mt-0.5 text-[11px] leading-relaxed text-secondary-light dark:text-secondary-dark">
-          These records show what the agent used or saved so you can understand the result before
-          taking the next step.
+          These records show the answers, steps, and files used or saved so you can understand the
+          result before taking the next step.
         </p>
       </div>
       <div className="space-y-2">
@@ -96,27 +96,27 @@ export function ContextEvidenceList({ evidence, revokedItems }: ContextEvidenceL
 }
 
 function evidenceTitle(item: TaskContextEvidence): string {
-  if (item.sourceType === 'task_result') return 'Task result'
-  if (item.sourceType === 'tool_call') return 'Tool activity'
+  if (item.sourceType === 'task_result') return 'Final answer'
+  if (item.sourceType === 'tool_call') return 'Step the agent took'
   if (item.sourceType === 'artifact') return 'Saved result file'
-  if (item.sourceType === 'source_message') return 'Source message'
+  if (item.sourceType === 'source_message') return 'Message used for this work'
   return 'Work details'
 }
 
 function evidenceDescription(item: TaskContextEvidence): string {
   if (item.sourceType === 'task_result') {
-    return 'Final answer or status saved from the agent work.'
+    return "The agent's final answer or saved status for this task."
   }
   if (item.sourceType === 'tool_call') {
-    return 'A recorded tool action that helped the agent complete the work.'
+    return 'An action the agent took to complete the work.'
   }
   if (item.sourceType === 'artifact') {
-    return 'A file or result saved while the task ran.'
+    return 'A file or result saved while the work was running.'
   }
   if (item.sourceType === 'source_message') {
     return 'A message the agent used while preparing the result.'
   }
-  return 'Extra information recorded while the task ran.'
+  return 'Extra information saved while the work was running.'
 }
 
 function payloadSummary(payload: Record<string, unknown>): string {

@@ -74,7 +74,7 @@ afterEach(() => {
 })
 
 describe('AuditLogView', () => {
-  test('starts from common audit views for first-time users', async () => {
+  test('starts from common change views for first-time users', async () => {
     render(<AuditLogView />)
 
     await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(1))
@@ -84,7 +84,8 @@ describe('AuditLogView', () => {
     expect(screen.getByText('Selected view')).toBeDefined()
     expect(screen.getAllByText('All saved item changes').length).toBeGreaterThan(0)
 
-    const quickViews = screen.getByRole('group', { name: /common audit views/i })
+    const quickViews = screen.getByRole('group', { name: /common change views/i })
+    expect(screen.queryByRole('group', { name: /common audit views/i })).toBeNull()
     fireEvent.click(
       within(quickViews).getByRole('button', { name: /saved instruction decisions/i })
     )
@@ -110,34 +111,45 @@ describe('AuditLogView', () => {
     expect(screen.getByText(/Hide secrets before export/i)).toBeDefined()
     expect(screen.getByText('Rows to show')).toBeDefined()
     expect(screen.queryByText('Record limit')).toBeNull()
-    expect(screen.getByText('History rows')).toBeDefined()
+    expect(screen.getByText('Changes shown')).toBeDefined()
+    expect(screen.queryByText('History rows')).toBeNull()
     expect(screen.getByText('Hidden review-note rows')).toBeDefined()
     expect(screen.queryByText('Hidden detail rows')).toBeNull()
     expect(screen.queryByText('Hidden support-note rows')).toBeNull()
-    expect(screen.getByLabelText('Refresh audit history')).toBeDefined()
-    expect(screen.getByLabelText('Export audit history')).toBeDefined()
-    expect(screen.getByText('Change category')).toBeDefined()
-    expect(screen.getByText(/Use the default for normal review/i)).toBeDefined()
-    expect(screen.getByPlaceholderText(/event category only when needed/i)).toBeDefined()
+    expect(screen.getByLabelText('Refresh change history')).toBeDefined()
+    expect(screen.queryByLabelText('Refresh audit history')).toBeNull()
+    expect(screen.getByLabelText('Export change history')).toBeDefined()
+    expect(screen.queryByLabelText('Export audit history')).toBeNull()
+    expect(screen.getByText('Change area')).toBeDefined()
+    expect(
+      screen.getByText(/Paste an exact change area only when an owner or admin gives you one/i)
+    ).toBeDefined()
+    expect(screen.getByPlaceholderText(/exact change area only when needed/i)).toBeDefined()
+    expect(screen.queryByText('Change category')).toBeNull()
+    expect(screen.queryByText(/event category/i)).toBeNull()
     expect(screen.queryByText('Change group')).toBeNull()
     expect(screen.queryByText(/support event group/i)).toBeNull()
-    expect(screen.getByText('Exact event name')).toBeDefined()
+    expect(screen.getByText('Specific change name')).toBeDefined()
     expect(
-      screen.getByText('Optional. Use this only when you know the exact event name.')
+      screen.getByText(
+        'Optional. Use this only when an owner or admin gives you the exact change name.'
+      )
     ).toBeDefined()
+    expect(screen.queryByText('Exact event name')).toBeNull()
+    expect(screen.queryByText(/exact event name/i)).toBeNull()
     expect(screen.queryByText('Support event name')).toBeNull()
     expect(screen.getByText('Exact work area')).toBeDefined()
     expect(
-      screen.getByPlaceholderText(/exact team space, project workspace, team, or project reference/i)
+      screen.getByPlaceholderText(
+        /exact team space, project workspace, team, or project reference/i
+      )
     ).toBeDefined()
     expect(screen.getByRole('option', { name: 'Team space' })).toBeDefined()
     expect(screen.getByRole('option', { name: 'Project workspace' })).toBeDefined()
     expect(screen.queryByRole('option', { name: 'Workspace' })).toBeNull()
     expect(screen.queryByRole('option', { name: 'Organization' })).toBeNull()
     expect(screen.getByText('Exact person')).toBeDefined()
-    expect(
-      screen.getByPlaceholderText(/exact person reference only when needed/i)
-    ).toBeDefined()
+    expect(screen.getByPlaceholderText(/exact person reference only when needed/i)).toBeDefined()
     expect(screen.queryByText(['Work area', 'ID'].join(' '))).toBeNull()
     expect(screen.queryByText(['Person', 'ID'].join(' '))).toBeNull()
     expect(screen.queryByPlaceholderText(/user ID when support asks for one/i)).toBeNull()
@@ -146,7 +158,8 @@ describe('AuditLogView', () => {
     expect(screen.getByText('Feedback recorded')).toBeDefined()
     expect(screen.getByText('Saved instruction saved')).toBeDefined()
     expect(screen.queryByText('Skill approved')).toBeNull()
-    expect(screen.getAllByText('Show event details').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Show change details').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Show event details')).toBeNull()
     expect(screen.queryByText('Show support event')).toBeNull()
     expect(screen.getByText('Saved note · Saved note record')).toBeDefined()
     expect(
@@ -217,10 +230,13 @@ describe('AuditLogView', () => {
 
     render(<AuditLogView />)
 
-    expect(await screen.findByText('Check audit change')).toBeDefined()
+    expect(await screen.findByText('Check change')).toBeDefined()
     expect(screen.getByText('Item hidden for safety · Check record type')).toBeDefined()
-    expect(screen.getByText('Show event details')).toBeDefined()
-    expect(screen.getByText('Check event details')).toBeDefined()
+    expect(screen.getByText('Show change details')).toBeDefined()
+    expect(screen.getByText('Check change details')).toBeDefined()
+    expect(screen.queryByText('Check audit change')).toBeNull()
+    expect(screen.queryByText('Show event details')).toBeNull()
+    expect(screen.queryByText('Check event details')).toBeNull()
     expect(screen.queryByText('Show support event')).toBeNull()
     expect(screen.queryByText('Check support event')).toBeNull()
     expect(screen.queryByText('Change not listed')).toBeNull()
@@ -288,7 +304,8 @@ describe('AuditLogView', () => {
 
     render(<AuditLogView />)
 
-    expect(await screen.findByText('Your filters may be hiding audit history')).toBeDefined()
+    expect(await screen.findByText('Your filters may be hiding changes')).toBeDefined()
+    expect(screen.queryByText('Your filters may be hiding audit history')).toBeNull()
     expect(screen.getByText(/Show all history first/i)).toBeDefined()
     expect(
       screen.getByText(/save a useful instruction or mark a saved note as helpful/i)
@@ -297,7 +314,8 @@ describe('AuditLogView', () => {
     expect(screen.queryByText(/new workspace/i)).toBeNull()
     expect(screen.queryByText(/approve a skill/i)).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show all audit history' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Show all change history' }))
+    expect(screen.queryByRole('button', { name: 'Show all audit history' })).toBeNull()
 
     await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(2))
     expect(fetchGovernanceAudit).toHaveBeenLastCalledWith(
@@ -317,7 +335,8 @@ describe('AuditLogView', () => {
     render(<AuditLogView />)
 
     const error = await screen.findByRole('alert')
-    expect(error.textContent).toContain('Refresh the audit view, then apply the filters again.')
+    expect(error.textContent).toContain('Refresh change history, then apply the filters again.')
+    expect(error.textContent).not.toContain('audit view')
     expect(error.textContent).toContain('check your connection and refresh the page')
     expect(error.textContent).not.toMatch(/failed to fetch/i)
     expect(error.textContent).not.toContain('service')
