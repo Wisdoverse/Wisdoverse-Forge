@@ -1202,6 +1202,13 @@ const AGENT_PROJECT_LOCATION_JARGON_PATTERNS = [
   /(?:searchProjects|enterFolderPath|invalidProjectPath):\s*['"`][^'"`]*文件夹路径/,
 ]
 
+const AGENT_WORK_AREA_DISPLAY_JARGON_PATTERNS = [
+  /\bin a managed workspace\b/i,
+  /\bReady in managed workspace\b/i,
+  /\bForge-managed project workspace\b/i,
+  /\bWorkspace project folder\b/i,
+]
+
 const PROJECT_SHARE_ROLE_JARGON_PATTERNS = [/\bInvite people and choose roles\b/i]
 
 const VAGUE_ACCESS_RECOVERY_PATTERNS = [
@@ -2057,6 +2064,19 @@ function hasAgentProjectLocationJargonCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return AGENT_PROJECT_LOCATION_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentWorkAreaDisplayJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/entities/agent/model/display-labels.ts') &&
+    !relFile.endsWith('src/app/features/agents/AgentKindBadge.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx') &&
+    !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_WORK_AREA_DISPLAY_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentModelDeadEndCopy(relFile, line) {
@@ -3758,6 +3778,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Agent project folder copy must say folder location instead of path for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentWorkAreaDisplayJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-work-area-display-copy',
+        location,
+        message:
+          'Agent display copy must explain project files and project area instead of managed-workspace internals.',
         sample: line.trim(),
       })
     }

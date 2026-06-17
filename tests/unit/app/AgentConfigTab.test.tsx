@@ -294,7 +294,7 @@ describe('AgentConfigTab', () => {
     expect(screen.getByText('Claude')).toBeInTheDocument()
     expect(screen.getAllByText('Managed workspace').length).toBeGreaterThan(0)
     expect(screen.getByText('Connection')).toBeInTheDocument()
-    expect(screen.getByText('Ready in managed workspace')).toBeInTheDocument()
+    expect(screen.getByText('Ready with project files')).toBeInTheDocument()
     expect(screen.getByText('Starting project')).toBeInTheDocument()
     expect(screen.getByText('Open project settings first.')).toBeInTheDocument()
     expect(screen.queryByText('Choose a project from the sidebar first.')).toBeNull()
@@ -302,6 +302,7 @@ describe('AgentConfigTab', () => {
     expect(screen.getByText('Default project folder')).toBeInTheDocument()
     expect(screen.queryByText('Connection ID')).toBeNull()
     expect(screen.queryByText('No starting project selected')).toBeNull()
+    expect(screen.queryByText('Ready in managed workspace')).toBeNull()
     expect(
       screen.queryByText(new RegExp(['workspace', 'project folder'].join(' '), 'i'))
     ).toBeNull()

@@ -3042,6 +3042,82 @@ function HelpText() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags agent display copy that exposes managed-workspace internals', () => {
+    const cwd = fixture({
+      'src/app/entities/agent/model/display-labels.ts': `
+function agentRuntimeLabel() {
+  return 'OpenCode in a managed workspace'
+}
+`,
+      'src/app/features/agents/AgentKindBadge.tsx': `
+export function AgentKindBadge() {
+  return <span title="Uses a Forge-managed project workspace.">Managed workspace</span>
+}
+`,
+      'src/app/features/agents/AgentConfigTab.tsx': `
+function Connection() {
+  return <p>Ready in managed workspace</p>
+}
+`,
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function agentFolderLabel() {
+  return 'Workspace project folder'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-work-area-display-copy',
+          sample: expect.stringContaining('in a managed workspace'),
+        }),
+        expect.objectContaining({
+          type: 'agent-work-area-display-copy',
+          sample: expect.stringContaining('Forge-managed project workspace'),
+        }),
+        expect.objectContaining({
+          type: 'agent-work-area-display-copy',
+          sample: expect.stringContaining('Ready in managed workspace'),
+        }),
+        expect.objectContaining({
+          type: 'agent-work-area-display-copy',
+          sample: expect.stringContaining('Workspace project folder'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts agent display copy that explains project files plainly', () => {
+    const cwd = fixture({
+      'src/app/entities/agent/model/display-labels.ts': `
+function agentRuntimeLabel() {
+  return 'OpenCode with project files'
+}
+`,
+      'src/app/features/agents/AgentKindBadge.tsx': `
+export function AgentKindBadge() {
+  return <span title="Works in a Forge project area. It can change files.">Managed workspace</span>
+}
+`,
+      'src/app/features/agents/AgentConfigTab.tsx': `
+function Connection() {
+  return <p>Ready with project files</p>
+}
+`,
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function agentFolderLabel() {
+  return 'Default project folder'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags create-agent project labels that do not explain where new tasks start', () => {
     const cwd = fixture({
       'src/app/features/agents/CreateAgentModal.tsx': `
