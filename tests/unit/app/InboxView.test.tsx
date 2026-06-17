@@ -48,7 +48,7 @@ describe('InboxView', () => {
   test('shows empty state when no notifications', async () => {
     render(<InboxView />)
     expect(await screen.findByText(/all caught up/i)).toBeDefined()
-    expect(screen.getByText('Inbox triage path')).toBeDefined()
+    expect(screen.getByText('Inbox action order')).toBeDefined()
     expect(screen.getByText(/start with needs action/i)).toBeDefined()
     expect(screen.getByText(/tasks that need help/i)).toBeDefined()
     expect(screen.getByText(/stopped early/i)).toBeDefined()
@@ -59,6 +59,7 @@ describe('InboxView', () => {
     expect(screen.queryByText(/needs a connection restored/i)).toBeNull()
     expect(screen.queryByText(/failures/i)).toBeNull()
     expect(screen.queryByText(/system alerts/i)).toBeNull()
+    expect(screen.queryByText(/triage/i)).toBeNull()
   })
 
   test('shows progress while older saved updates are loading', async () => {
@@ -163,7 +164,7 @@ describe('InboxView', () => {
     expect(screen.queryByText(/Unauthorized/i)).toBeNull()
   })
 
-  test('summarizes the safest next action for beginner triage', () => {
+  test('summarizes the safest next action for beginners', () => {
     const store = useFeedStore.getState()
     store.addNotification({
       id: 'n1',
@@ -286,7 +287,7 @@ describe('InboxView', () => {
     expect(screen.getByRole('button', { name: /mark all as read/i })).toBeDefined()
   })
 
-  test('filters notifications by triage lane', async () => {
+  test('filters notifications by action lane', async () => {
     const store = useFeedStore.getState()
     store.addNotification({
       id: 'n1',

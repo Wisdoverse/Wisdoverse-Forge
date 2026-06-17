@@ -23,7 +23,7 @@ const FILTERS: { id: InboxFilter; label: string }[] = [
   { id: 'credentials', label: 'Account access' },
 ]
 
-const INBOX_TRIAGE_STEPS = [
+const INBOX_ACTION_STEPS = [
   'Start with Needs action to find tasks that need help or stopped early.',
   'Use Account access when an agent needs you to reconnect a work account.',
   'Mark items read after the task or setting has been handled.',
@@ -185,7 +185,7 @@ export function InboxView() {
               : 'Agent updates, finished work, and account access notices will show up here.'}
           </p>
         </div>
-        <InboxTriagePath compact />
+        <InboxActionPath compact />
       </div>
     )
   }
@@ -297,7 +297,7 @@ export function InboxView() {
             )
           })}
         </div>
-        <InboxTriagePath />
+        <InboxActionPath />
       </div>
       <div className="flex-1 divide-y divide-black/[0.04] overflow-y-auto dark:divide-white/[0.04]">
         {filteredNotifications.length > 0 ? (
@@ -436,10 +436,10 @@ function nextStepActionLabel(notification: Notification): string {
   }
 }
 
-function InboxTriagePath({ compact = false }: { compact?: boolean }) {
+function InboxActionPath({ compact = false }: { compact?: boolean }) {
   return (
     <section
-      data-testid="inbox-triage-path"
+      data-testid="inbox-action-path"
       className={cn(
         'text-left text-ui-caption text-secondary-light dark:text-secondary-dark',
         compact
@@ -448,10 +448,10 @@ function InboxTriagePath({ compact = false }: { compact?: boolean }) {
       )}
     >
       <p className="font-semibold text-foreground-light dark:text-foreground-dark">
-        Inbox triage path
+        Inbox action order
       </p>
       <ol className="mt-2 list-decimal space-y-1 pl-4">
-        {INBOX_TRIAGE_STEPS.map((step) => (
+        {INBOX_ACTION_STEPS.map((step) => (
           <li key={step}>{step}</li>
         ))}
       </ol>

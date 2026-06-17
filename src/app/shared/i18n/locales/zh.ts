@@ -63,7 +63,7 @@ export const zh: TranslationKeys = {
   // =========================================================================
   nav: {
     home: '首页',
-    start: '开始',
+    start: '设置清单',
     dashboard: '仪表板',
     tasks: '任务',
     inbox: '收件箱',
@@ -90,8 +90,8 @@ export const zh: TranslationKeys = {
     skip: '跳过并打开任务',
     skipSaving: '正在跳过...',
     skipHint:
-      '这只会隐藏侧栏里的 Start。项目、Agent 和任务都不会变化，也可以在设置里重新显示 Start。',
-    skipError: '暂时无法隐藏 Start。请检查网络，然后再点一次跳过。',
+      '这只会隐藏侧栏里的设置清单。项目、Agent 和任务都不会变化，也可以在设置里重新显示它。',
+    skipError: '请检查网络，然后再点一次跳过。暂时无法隐藏设置清单。',
     progressCount: '{{complete}} / {{total}}',
     nextTitle: '下一步先做这个',
     readyTitle: '已经可以开始工作',

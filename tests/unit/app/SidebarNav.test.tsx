@@ -55,8 +55,8 @@ describe('SidebarNav', () => {
     render(<SidebarNav expanded={false} activePath="/tasks" onNavigate={() => {}} />)
 
     expect(
-      screen.getByRole('button', { name: /start: follow the setup checklist/i })
-    ).toHaveAttribute('title', 'Start: follow the setup checklist')
+      screen.getByRole('button', { name: /setup checklist: follow the setup checklist/i })
+    ).toHaveAttribute('title', 'Setup checklist: follow the setup checklist')
     expect(
       screen.getByRole('button', { name: /tasks: see tasks and review progress/i })
     ).toHaveAttribute('aria-current', 'page')
@@ -136,7 +136,7 @@ describe('SidebarNav', () => {
     }
   })
 
-  const startItem = { name: /start: follow the setup checklist/i }
+  const startItem = { name: /setup checklist: follow the setup checklist/i }
 
   test('hides the Getting Started entry once the guide is dismissed', () => {
     useSettingsStore.setState({

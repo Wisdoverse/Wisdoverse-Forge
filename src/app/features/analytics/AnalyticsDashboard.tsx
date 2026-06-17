@@ -510,10 +510,10 @@ function ActivityBarChart({ bars }: { bars: BarPoint[] }) {
         >
           {activeBar.label}
           <span className="mx-1.5 text-secondary-light dark:text-secondary-dark">·</span>
-          {activeBar.value} events
+          {activeBar.value} updates
         </span>
         <span className="text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark">
-          {hoverIndex === null ? 'most recent' : `${activePct}% of window`}
+          {hoverIndex === null ? 'most recent' : `${activePct}% of shown hours`}
         </span>
       </div>
 
@@ -521,7 +521,7 @@ function ActivityBarChart({ bars }: { bars: BarPoint[] }) {
       <div
         className="flex h-16 w-full items-end gap-px"
         role="group"
-        aria-label="Hourly event activity"
+        aria-label="Hourly work updates"
       >
         {bars.map((bar, i) => {
           const heightPct = Math.max(2, (bar.value / max) * 100)
@@ -534,7 +534,7 @@ function ActivityBarChart({ bars }: { bars: BarPoint[] }) {
               onMouseEnter={() => setHoverIndex(i)}
               onFocus={() => setHoverIndex(i)}
               onBlur={() => setHoverIndex(null)}
-              aria-label={`${bar.label}: ${bar.value} events`}
+              aria-label={`${bar.label}: ${bar.value} updates`}
               className="flex flex-1 cursor-default flex-col justify-end rounded-sm text-ui-button focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
             >
               <div

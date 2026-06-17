@@ -290,9 +290,12 @@ describe('AgentGroupsPanel', () => {
     const reviewSummary = screen.getByText('Check before release')
     const triageSummary = screen.getByText('Clarify and assign')
     fireEvent.click(triageSummary.closest('button')!)
+    expect(screen.getByRole('button', { name: /sort work/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/task queue name/i)).toHaveValue('Intake Queue')
     expect(screen.getByLabelText(/task queue description/i)).toHaveValue(
       'Clarify incoming work, find what is missing, and send tasks to the right agent.'
     )
+    expect(screen.queryByDisplayValue(/triage/i)).toBeNull()
     expect(screen.queryByDisplayValue(previousBlockingCopy)).toBeNull()
     fireEvent.click(reviewSummary.closest('button')!)
     expect(reviewSummary).toBeInTheDocument()
