@@ -95,7 +95,7 @@ const BOTTOM_ITEMS: NavItem[] = [
     id: 'settings',
     Icon: Settings,
     labelKey: 'nav.settings',
-    description: 'manage workspace, agents, and access',
+    description: 'manage teams, agents, and access',
     path: '/settings',
   },
 ]
@@ -202,13 +202,13 @@ export function SidebarNav({
       <button
         data-testid="sidebar-nav-logout"
         onClick={handleLogout}
-        aria-label="Logout: sign out of this workspace"
+        aria-label="Logout: sign out of Forge"
         className={cn(
           'flex items-center gap-2.5 rounded-lg transition-colors',
           expanded ? 'px-2.5 py-1.5 w-full' : 'w-9 h-9 justify-center',
           'text-foreground-light/80 dark:text-foreground-dark/80 hover:bg-red-500/10 hover:text-red-500'
         )}
-        title="Logout: sign out of this workspace"
+        title="Logout: sign out of Forge"
       >
         <LogOut size={16} strokeWidth={2} className="flex-shrink-0" />
         {expanded && <span className="truncate text-ui-body font-medium">{t('nav.logout')}</span>}

@@ -7595,6 +7595,10 @@ function renameErrorMessage() {
   return 'Refresh the left menu, then save this project name again. If it still fails, ask an owner or admin to check workspace setup.'
 }
 `,
+      'src/app/layouts/sidebar/SidebarNav.tsx': `
+export const settings = { description: 'manage workspace, agents, and access' }
+export const logout = { title: 'Logout: sign out of this workspace' }
+`,
       'src/app/shared/lib/taskFailureCopy.ts': `
 export function taskBlockedPreview() {
   return 'The workspace is busy. Retry later or ask an owner for help.'
@@ -7625,6 +7629,14 @@ export function taskBlockedPreview() {
         }),
         expect.objectContaining({
           type: 'workspace-setup-copy',
+          location: 'src/app/layouts/sidebar/SidebarNav.tsx:2',
+        }),
+        expect.objectContaining({
+          type: 'workspace-setup-copy',
+          location: 'src/app/layouts/sidebar/SidebarNav.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'workspace-setup-copy',
           location: 'src/app/shared/lib/taskFailureCopy.ts:3',
         }),
       ])
@@ -7648,6 +7660,10 @@ export function ResourcesSection() {
 function renameErrorMessage() {
   return 'Refresh the left menu, then save this project name again. If it still fails, ask an owner or admin to check team and project setup.'
 }
+`,
+      'src/app/layouts/sidebar/SidebarNav.tsx': `
+export const settings = { description: 'manage teams, agents, and access' }
+export const logout = { title: 'Logout: sign out of Forge' }
 `,
       'src/app/shared/lib/taskFailureCopy.ts': `
 export function taskBlockedPreview() {

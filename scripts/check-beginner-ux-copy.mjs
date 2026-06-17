@@ -477,6 +477,8 @@ const SIDEBAR_LAYOUT_JARGON_PATTERNS = [
 
 const WORKSPACE_SETUP_JARGON_PATTERNS = [
   /\bfor this workspace\b/i,
+  /\bsign out of this workspace\b/i,
+  /\bmanage workspace, agents, and access\b/i,
   /\bworkspace setup\b/i,
   /\bworkspace settings\b/i,
   /\bworkspace navigation\b/i,
@@ -2402,6 +2404,7 @@ function hasWorkspaceSetupJargonCopy(relFile, line) {
     !relFile.endsWith('src/app/routes/context-audit.tsx') &&
     !relFile.endsWith('src/app/features/settings/ResourcesSection.tsx') &&
     !relFile.endsWith('src/app/layouts/sidebar/ProjectTree.tsx') &&
+    !relFile.endsWith('src/app/layouts/sidebar/SidebarNav.tsx') &&
     !relFile.endsWith('src/app/shared/lib/taskFailureCopy.ts')
   ) {
     return false
