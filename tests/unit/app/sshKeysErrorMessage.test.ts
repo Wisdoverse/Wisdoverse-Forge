@@ -65,9 +65,21 @@ describe('sshKeysErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then save this SSH code access again. Forge could not connect while opening SSH code access.'
+      'Check your connection, then save this SSH code access again. The save did not finish.'
     )
     expect(message).not.toContain('Network error')
+    expect(message).not.toContain('opening SSH code access')
+  })
+
+  test('starts remove network failures with the recovery step', () => {
+    const message = sshKeysErrorMessage('removing SSH key failed: Network error')
+
+    expectBeginnerMessage(
+      message,
+      'Check your connection, then remove this SSH code access again. The removal did not finish.'
+    )
+    expect(message).not.toContain('Network error')
+    expect(message).not.toContain('opening SSH code access')
   })
 
   test('turns server failures into Settings recovery guidance', () => {
