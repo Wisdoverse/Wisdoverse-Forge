@@ -76,7 +76,7 @@ const SETTINGS_AREA_LABELS: Record<SettingsErrorArea, string> = {
   providers: 'AI service settings',
   apiKeys: 'outside tool access keys',
   gitCredentials: 'code access',
-  sshKeys: 'git@ Repository Access',
+  sshKeys: 'SSH code access',
   resourceProfiles: 'work capacity',
   runtime: 'agent work settings',
 }
@@ -85,7 +85,7 @@ const SETTINGS_ITEM_LABELS: Record<SettingsErrorArea, string> = {
   providers: 'AI service',
   apiKeys: 'outside tool access key',
   gitCredentials: 'code access',
-  sshKeys: 'git@ Repository Access',
+  sshKeys: 'SSH code access',
   resourceProfiles: 'agent size',
   runtime: 'agent work setting',
 }
@@ -182,7 +182,7 @@ function settingsPermissionMessage(area: SettingsErrorArea, actionPhrase: string
     return `Ask an owner or admin to let you manage code access, then try to ${actionPhrase} again. You do not have permission to ${actionPhrase}.`
   }
   if (area === 'sshKeys') {
-    return `Ask an owner or admin to let you manage git@ Repository Access, then try to ${actionPhrase} again. You do not have permission to ${actionPhrase}.`
+    return `Ask an owner or admin to let you manage SSH code access, then try to ${actionPhrase} again. You do not have permission to ${actionPhrase}.`
   }
   if (area === 'resourceProfiles') {
     return `Ask an owner or admin to let you manage work capacity, then try to ${actionPhrase} again. You do not have permission to ${actionPhrase}.`
@@ -285,7 +285,7 @@ function settingsValidationMessage(
 
   if (area === 'sshKeys') {
     if (normalized.includes('label') || normalized.includes('name')) {
-      return 'Add a name for this git@ Repository Access, then save again.'
+      return 'Add a name for this SSH code access, then save again.'
     }
     if (normalized.includes('private key') || normalized.includes('begin private key')) {
       return 'Paste only the shareable one-line public key that starts with ssh-ed25519 or ssh-rsa, then save again. Do not paste a private key block.'

@@ -64,7 +64,7 @@ const SECTIONS: SectionItem[] = [
   },
   {
     id: 'ssh-keys',
-    label: 'git@ Repository Access',
+    label: 'SSH code access',
     description: 'Use this when a private code link starts with git@.',
     group: 'Work setup',
     Icon: Terminal,

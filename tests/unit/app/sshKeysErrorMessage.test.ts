@@ -19,7 +19,7 @@ describe('sshKeysErrorMessage', () => {
   test('explains permission errors without exposing raw backend details', () => {
     expectBeginnerMessage(
       sshKeysErrorMessage('HTTP 403'),
-      'Ask an owner or admin for access to manage git@ Repository Access.'
+      'Ask an owner or admin for access to manage SSH code access.'
     )
   })
 
@@ -54,7 +54,7 @@ describe('sshKeysErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then refresh Settings to load git@ Repository Access. Forge could not connect while opening git@ Repository Access.'
+      'Check your connection, then refresh Settings to load SSH code access. Forge could not connect while opening SSH code access.'
     )
     expect(message).not.toContain('service')
     expect(message).not.toContain('Failed to fetch')
@@ -65,7 +65,7 @@ describe('sshKeysErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then save this git@ Repository Access again. Forge could not connect while opening git@ Repository Access.'
+      'Check your connection, then save this SSH code access again. Forge could not connect while opening SSH code access.'
     )
     expect(message).not.toContain('Network error')
   })
@@ -75,7 +75,7 @@ describe('sshKeysErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load git@ Repository Access. If it still fails, ask an owner or admin to check git@ Repository Access settings.'
+      'Refresh Settings to load SSH code access. If it still fails, ask an owner or admin to check SSH code access settings.'
     )
     expect(message).not.toContain('temporarily unavailable')
   })
@@ -83,7 +83,7 @@ describe('sshKeysErrorMessage', () => {
   test('turns structured rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       sshKeysErrorMessage({ code: '429' }),
-      'Wait a minute, then try again. Forge is receiving too many git@ Repository Access requests right now.'
+      'Wait a minute, then try again. Forge is receiving too many SSH code access requests right now.'
     )
   })
 
@@ -92,7 +92,7 @@ describe('sshKeysErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load git@ Repository Access. If it still fails, ask an owner or admin to check git@ Repository Access settings.'
+      'Refresh Settings to load SSH code access. If it still fails, ask an owner or admin to check SSH code access settings.'
     )
     expect(message).not.toContain('parser')
   })

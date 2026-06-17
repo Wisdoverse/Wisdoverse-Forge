@@ -141,10 +141,10 @@ describe('settingsActionErrorMessage', () => {
     )
   })
 
-  test('turns git@ Repository Access label validation into a naming step', () => {
+  test('turns SSH code access label validation into a naming step', () => {
     expectBeginnerError(
       settingsActionErrorMessage('sshKeys', 'create', statusError(422, 'label is required')),
-      'Add a name for this git@ Repository Access, then save again.'
+      'Add a name for this SSH code access, then save again.'
     )
   })
 
@@ -160,7 +160,7 @@ describe('settingsActionErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'Check your connection, then refresh Settings to load git@ Repository Access. Forge could not connect while loading Settings.'
+      'Check your connection, then refresh Settings to load SSH code access. Forge could not connect while loading Settings.'
     )
     expect(message).not.toContain('SSH keys')
     expect(message).not.toContain('Network error')
@@ -296,7 +296,7 @@ describe('useSettingsStore errors', () => {
 
     expectBeginnerError(
       useSettingsStore.getState().sshKeysError,
-      'Check your connection, then refresh Settings to load git@ Repository Access. Forge could not connect while loading Settings.'
+      'Check your connection, then refresh Settings to load SSH code access. Forge could not connect while loading Settings.'
     )
     expect(useSettingsStore.getState().sshKeysError).not.toContain('Network error')
   })
