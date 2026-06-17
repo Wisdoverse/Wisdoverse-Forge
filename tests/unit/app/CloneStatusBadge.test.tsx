@@ -28,7 +28,7 @@ describe('CloneStatusBadge', () => {
 
   it('renders the queued status', () => {
     render(<CloneStatusBadge projectId="p1" status="queued" variant="detail" />)
-    expect(screen.getByText('Code import queued')).toBeInTheDocument()
+    expect(screen.getByText('Code copy waiting')).toBeInTheDocument()
     expect(screen.getByTestId('clone-status-p1')).toHaveAttribute('data-clone-status', 'queued')
   })
 
@@ -46,7 +46,7 @@ describe('CloneStatusBadge', () => {
         clone={summary({ status: 'ready', resolvedBranch: 'main', headSha: 'abc1234deadbeef' })}
       />
     )
-    expect(screen.getByText('Code ready')).toBeInTheDocument()
+    expect(screen.getByText('Code copied')).toBeInTheDocument()
     expect(screen.getByText('main')).toBeInTheDocument()
     expect(screen.getByText('abc1234')).toBeInTheDocument()
   })
@@ -60,9 +60,10 @@ describe('CloneStatusBadge', () => {
         clone={summary({ status: 'failed', errorClass: 'auth', errorMessage: 'authentication failed' })}
       />
     )
-    expect(screen.getByText('Code import failed')).toBeInTheDocument()
+    expect(screen.getByText('Code copy needs help')).toBeInTheDocument()
     expect(screen.getByText(/Check saved code access for this repository/)).toBeInTheDocument()
     expect(screen.queryByText('authentication failed')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Code import/i)).not.toBeInTheDocument()
   })
 
   it('renders failed missing repositories with beginner-safe recovery copy', () => {
@@ -225,7 +226,7 @@ describe('CloneStatusBadge', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Wait a minute, then try copying code again'
+        'Wait a minute, then try copying code again. Too many copy retries are happening right now.'
       )
     })
   })
