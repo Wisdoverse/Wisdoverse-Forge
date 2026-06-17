@@ -12,7 +12,7 @@ export function accountErrorMessage(action: AccountErrorAction, error?: unknown)
     if (detail) {
       return validationMessage(action, detail)
     }
-    return `Check your connection, then ${retryPhrase(action)}. Forge could not connect while opening ${settingsAreaLabel(action).toLowerCase()}.`
+    return networkMessage(action)
   }
 
   if (status === 401) {
@@ -46,6 +46,13 @@ function retryPhrase(action: AccountErrorAction): string {
 
 function settingsAreaLabel(action: AccountErrorAction): string {
   return action === 'changePassword' ? 'Password settings' : 'Team space settings'
+}
+
+function networkMessage(action: AccountErrorAction): string {
+  if (action === 'changePassword') {
+    return 'Check your connection, then change your password again. The password change did not finish.'
+  }
+  return 'Check your connection, then rename the team space again. The team space rename did not finish.'
 }
 
 function permissionMessage(action: AccountErrorAction): string {
