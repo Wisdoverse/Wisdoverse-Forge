@@ -250,10 +250,10 @@ describe('ApprovalQueueView', () => {
     render(<ApprovalQueueView />)
 
     const error = await screen.findByTestId('context-approval-error')
+    expect(error.textContent).toContain('Check your connection, then refresh saved notes review')
     expect(error.textContent).toContain(
-      'Check your connection, then refresh the saved item review list'
+      'Forge could not connect while loading saved notes and instructions'
     )
-    expect(error.textContent).toContain('Forge could not connect while loading saved items')
     expect(error.textContent).not.toMatch(/failed to fetch/i)
   })
 

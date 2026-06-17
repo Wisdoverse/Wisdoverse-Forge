@@ -18,8 +18,8 @@ describe('approvalQueueErrorMessage', () => {
   test('explains network failures without exposing only a transport error', () => {
     const message = approvalQueueErrorMessage('loadQueue', new TypeError('Failed to fetch'))
 
-    expect(message).toContain('Check your connection, then refresh the saved item review list')
-    expect(message).toContain('Forge could not connect while loading saved items')
+    expect(message).toContain('Check your connection, then refresh saved notes review')
+    expect(message).toContain('Forge could not connect while loading saved notes and instructions')
     expect(message).not.toContain('API')
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('app could not reach')
@@ -52,12 +52,12 @@ describe('approvalQueueErrorMessage', () => {
     )
   })
 
-  test('turns service failures into saved item setup recovery', () => {
+  test('turns service failures into saved notes setup recovery', () => {
     const message = approvalQueueErrorMessage('loadQueue', new Error('HTTP 500'))
 
     expectBeginnerMessage(
       message,
-      'Refresh the list so you see the latest saved items. The saved item review list could not load. If it still fails, ask an owner or admin to check saved item setup.'
+      'Refresh the list so you see the latest saved items. Saved notes review could not load. If it still fails, ask an owner or admin to check saved notes setup.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('temporarily unavailable')
@@ -87,14 +87,14 @@ describe('approvalQueueErrorMessage', () => {
       approvalQueueErrorMessage('loadQueue', {
         detail: 'Scope ID is required',
       }),
-      'Refresh the list, then check who can reuse the selected items. The saved item review list could not load.'
+      'Refresh the list, then check who can reuse the selected items. Saved notes review could not load.'
     )
   })
 
   test('turns rate limits into a wait step first', () => {
     expectBeginnerMessage(
       approvalQueueErrorMessage('loadQueue', new Error('429 too many requests')),
-      'Wait a moment, then try again. The saved item review list is busy.'
+      'Wait a moment, then try again. Saved notes review is busy.'
     )
   })
 })
