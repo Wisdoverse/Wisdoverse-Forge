@@ -46,7 +46,7 @@ describe('SkillDetailModal', () => {
     expect(screen.getByText('Maintainer')).toBeInTheDocument()
     expect(screen.getByText('Platform team')).toBeInTheDocument()
     expect(screen.getByText('Available to')).toBeInTheDocument()
-    expect(screen.getByText('This workspace')).toBeInTheDocument()
+    expect(screen.getByText('This team space')).toBeInTheDocument()
     expect(screen.queryByText('Version')).toBeNull()
     expect(screen.queryByText('workspace')).toBeNull()
     expect(screen.getByText('What this helps with')).toBeInTheDocument()

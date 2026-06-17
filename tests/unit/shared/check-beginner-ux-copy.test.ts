@@ -6919,6 +6919,54 @@ export function SkillDetailModal() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags saved instruction availability labels that still say workspace', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  skills: { detail: { availabilityWorkspace: 'This workspace' } }
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  skills: { detail: { availabilityWorkspace: '当前工作区' } }
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'saved-instruction-availability-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-availability-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved instruction availability labels that say team space', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  skills: { detail: { availabilityWorkspace: 'This team space' } }
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  skills: { detail: { availabilityWorkspace: '当前团队空间' } }
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags vague app health attention copy', () => {
     const cwd = fixture({
       'src/app/features/admin/SystemHealth.tsx': `

@@ -495,7 +495,7 @@ export const zh: TranslationKeys = {
       noContent: '还没有保存可复用说明。请先补充说明，再让 Agent 使用这条保存的说明。',
       unknownAuthor: '刷新保存的说明以加载维护者',
       unknownSource: '保存的说明库',
-      availabilityWorkspace: '当前工作区',
+      availabilityWorkspace: '当前团队空间',
       availabilityGlobal: '保存的说明库',
       availabilityProject: '当前项目',
       availabilityLatest: '最新保存版本',

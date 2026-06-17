@@ -578,6 +578,7 @@ const SAVED_INSTRUCTION_TOOL_TOOLTIP_PATTERNS = [
 ]
 
 const SAVED_INSTRUCTION_SOURCE_LABEL_PATTERNS = [/\bWorkspace saved instructions\b/i]
+const SAVED_INSTRUCTION_AVAILABILITY_LABEL_PATTERNS = [/\bThis workspace\b/i, /当前工作区/]
 
 const AGENT_PLUGIN_ERROR_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*Tool change was not saved\. The switch was returned to its previous setting\./i,
@@ -2563,6 +2564,18 @@ function hasSavedInstructionSourceLabelCopy(relFile, line) {
   return SAVED_INSTRUCTION_SOURCE_LABEL_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasSavedInstructionAvailabilityLabelCopy(relFile, line) {
+  const isLocaleFile =
+    relFile.endsWith('src/app/shared/i18n/locales/en.ts') ||
+    relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  if (!isLocaleFile && !relFile.endsWith('src/app/features/skills/SkillDetailModal.tsx')) {
+    return false
+  }
+  if (isLocaleFile && !line.includes('availabilityWorkspace')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SAVED_INSTRUCTION_AVAILABILITY_LABEL_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasSavedInstructionsLoadDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/skills/SkillsView.tsx') &&
@@ -4409,6 +4422,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Saved instruction source labels must say team space instead of workspace for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSavedInstructionAvailabilityLabelCopy(relFile, line)) {
+      findings.push({
+        type: 'saved-instruction-availability-copy',
+        location,
+        message:
+          'Saved instruction availability labels must say team space instead of workspace for beginners.',
         sample: line.trim(),
       })
     }

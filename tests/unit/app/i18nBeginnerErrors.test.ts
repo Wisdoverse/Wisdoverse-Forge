@@ -476,6 +476,13 @@ describe('beginner error translations', () => {
     expect(JSON.stringify(zh)).not.toContain('会话')
   })
 
+  test('saved instruction availability labels use team space wording', () => {
+    expect(en.skills.detail.availabilityWorkspace).toBe('This team space')
+    expect(en.skills.detail.availabilityWorkspace).not.toBe('This workspace')
+    expect(zh.skills.detail.availabilityWorkspace).toBe('当前团队空间')
+    expect(zh.skills.detail.availabilityWorkspace).not.toBe('当前工作区')
+  })
+
   test('admin metric labels describe live browser activity without protocol jargon', () => {
     expect(en.admin.metrics.wsConnections).toBe('Live browser connections')
     expect(en.admin.metrics.wsConnections).not.toContain('WS')
