@@ -103,8 +103,8 @@ test.describe('Governance audit log', () => {
     )
     await expect(page.getByTestId('governance-audit-redacted')).toBeVisible()
     await expect(page.getByText('Hidden item IDs')).toBeVisible()
-    await expect(page.getByText('Support notes')).toBeVisible()
-    await expect(page.getByText('Show support event').first()).toBeVisible()
+    await expect(page.getByText('Review notes')).toBeVisible()
+    await expect(page.getByText('Show event details').first()).toBeVisible()
 
     await page
       .getByTestId('governance-audit-filter-event-type')

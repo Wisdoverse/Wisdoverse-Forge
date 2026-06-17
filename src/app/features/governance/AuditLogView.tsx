@@ -231,7 +231,7 @@ export function AuditLogView() {
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_160px_160px_160px_auto]">
           <Field
             label="Change category"
-            help="Use the default unless support gives you a specific category."
+            help="Use the default for normal review. Paste a category only when you need one exact change area."
           >
             <input
               data-testid="governance-audit-filter-event-prefix"
@@ -239,13 +239,13 @@ export function AuditLogView() {
               autoComplete="off"
               value={filters.eventPrefix}
               onChange={(event) => updateFilter('eventPrefix', event.target.value)}
-              placeholder="Paste a support event category when needed"
+              placeholder="Paste an event category only when needed"
               className={INPUT_CLASS}
             />
           </Field>
           <Field
-            label="Support event name"
-            help="Optional. Paste this only when support asks for a specific event."
+            label="Exact event name"
+            help="Optional. Use this only when you know the exact event name."
           >
             <input
               data-testid="governance-audit-filter-event-type"
@@ -254,7 +254,7 @@ export function AuditLogView() {
               autoComplete="off"
               value={filters.eventType}
               onChange={(event) => updateFilter('eventType', event.target.value)}
-              placeholder="Pick a view or paste a support event name"
+              placeholder="Pick a view or paste an exact event name"
               className={INPUT_CLASS}
             />
             <datalist id="governance-audit-event-type-options">
@@ -420,7 +420,7 @@ export function AuditLogView() {
             compact
           />
           <Metric label="Hidden item IDs" value={protectedReferences} />
-          <Metric label="Hidden support-note rows" value={redactedRows} />
+          <Metric label="Hidden review-note rows" value={redactedRows} />
         </div>
 
         <div className="overflow-hidden rounded-card border border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-[#2c2c2e]">
@@ -434,7 +434,7 @@ export function AuditLogView() {
                   <th className="px-4 py-3 font-semibold">Area</th>
                   <th className="px-4 py-3 font-semibold">Changed by</th>
                   <th className="px-4 py-3 font-semibold">Verification</th>
-                  <th className="px-4 py-3 font-semibold">Support notes</th>
+                  <th className="px-4 py-3 font-semibold">Review notes</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5 dark:divide-white/10">
@@ -531,7 +531,7 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
         </div>
         <details className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           <summary className="cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/30">
-            Show support event
+            Show event details
           </summary>
           <span className="mt-1 block font-mono">{shortEventType(entry.eventType)}</span>
         </details>
@@ -582,7 +582,7 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
       <td className="min-w-[260px] px-4 py-3">
         <details>
           <summary className="cursor-pointer select-none text-ui-caption font-medium text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/30 dark:text-foreground-dark">
-            Show support notes
+            Show review notes
           </summary>
           <pre className="mt-2 max-h-32 overflow-auto rounded-card bg-black/[0.035] p-2 font-mono text-ui-caption leading-relaxed text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
             {prettyDetails(entry.details)}
@@ -783,11 +783,11 @@ function auditViewMetricLabel(eventPrefix: string | undefined): string {
   if (!eventPrefix || eventPrefix === 'governance.context.') return 'All saved item changes'
   if (eventPrefix === 'governance.context.skill.') return 'Saved instruction changes'
   if (eventPrefix === 'governance.context.memory.') return 'Saved note changes'
-  return 'Support-filtered view'
+  return 'Custom audit view'
 }
 
 function shortEventType(eventType: string): string {
-  return eventType.replace(/^governance\.context\./, '').trim() || 'Check support event'
+  return eventType.replace(/^governance\.context\./, '').trim() || 'Check event details'
 }
 
 function auditItemKindLabel(kind: GovernanceAuditItemKind | null | undefined): string {

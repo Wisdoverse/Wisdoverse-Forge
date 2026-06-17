@@ -103,7 +103,7 @@ describe('AuditLogView', () => {
     )
   })
 
-  test('shows support references without database wording and sends filters', async () => {
+  test('shows review references without database wording and sends filters', async () => {
     render(<AuditLogView />)
 
     await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(1))
@@ -111,21 +111,21 @@ describe('AuditLogView', () => {
     expect(screen.getByText('Rows to show')).toBeDefined()
     expect(screen.queryByText('Record limit')).toBeNull()
     expect(screen.getByText('History rows')).toBeDefined()
-    expect(screen.getByText('Hidden support-note rows')).toBeDefined()
+    expect(screen.getByText('Hidden review-note rows')).toBeDefined()
     expect(screen.queryByText('Hidden detail rows')).toBeNull()
+    expect(screen.queryByText('Hidden support-note rows')).toBeNull()
     expect(screen.getByLabelText('Refresh audit history')).toBeDefined()
     expect(screen.getByLabelText('Export audit history')).toBeDefined()
     expect(screen.getByText('Change category')).toBeDefined()
-    expect(
-      screen.getByText('Use the default unless support gives you a specific category.')
-    ).toBeDefined()
-    expect(screen.getByPlaceholderText(/support event category/i)).toBeDefined()
+    expect(screen.getByText(/Use the default for normal review/i)).toBeDefined()
+    expect(screen.getByPlaceholderText(/event category only when needed/i)).toBeDefined()
     expect(screen.queryByText('Change group')).toBeNull()
     expect(screen.queryByText(/support event group/i)).toBeNull()
-    expect(screen.getByText('Support event name')).toBeDefined()
+    expect(screen.getByText('Exact event name')).toBeDefined()
     expect(
-      screen.getByText('Optional. Paste this only when support asks for a specific event.')
+      screen.getByText('Optional. Use this only when you know the exact event name.')
     ).toBeDefined()
+    expect(screen.queryByText('Support event name')).toBeNull()
     expect(screen.getByText('Work area ID')).toBeDefined()
     expect(
       screen.getByPlaceholderText(/team space, project workspace, team, or project ID/i)
@@ -141,7 +141,8 @@ describe('AuditLogView', () => {
     expect(screen.getByText('Feedback recorded')).toBeDefined()
     expect(screen.getByText('Saved instruction saved')).toBeDefined()
     expect(screen.queryByText('Skill approved')).toBeNull()
-    expect(screen.getAllByText('Show support event').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Show event details').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Show support event')).toBeNull()
     expect(screen.getByText('Saved note · Saved note record')).toBeDefined()
     expect(
       screen.queryByText(
@@ -153,8 +154,10 @@ describe('AuditLogView', () => {
     expect(screen.getAllByText('Changed item').length).toBeGreaterThan(0)
     expect(screen.getByText('Changed by')).toBeDefined()
     expect(screen.getByText('Verification')).toBeDefined()
-    expect(screen.getByText('Support notes')).toBeDefined()
-    expect(screen.getAllByText('Show support notes').length).toBeGreaterThan(0)
+    expect(screen.getByText('Review notes')).toBeDefined()
+    expect(screen.getAllByText('Show review notes').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Support notes')).toBeNull()
+    expect(screen.queryByText('Show support notes')).toBeNull()
     expect(screen.getByTestId('governance-audit-item-reference').textContent).toContain(
       'Visible item ID'
     )
@@ -212,8 +215,10 @@ describe('AuditLogView', () => {
 
     expect(await screen.findByText('Check audit change')).toBeDefined()
     expect(screen.getByText('Item hidden for safety · Check record type')).toBeDefined()
-    expect(screen.getByText('Show support event')).toBeDefined()
-    expect(screen.getByText('Check support event')).toBeDefined()
+    expect(screen.getByText('Show event details')).toBeDefined()
+    expect(screen.getByText('Check event details')).toBeDefined()
+    expect(screen.queryByText('Show support event')).toBeNull()
+    expect(screen.queryByText('Check support event')).toBeNull()
     expect(screen.queryByText('Change not listed')).toBeNull()
     expect(screen.queryByText('Resource not listed')).toBeNull()
     expect(screen.queryByText('not listed')).toBeNull()
