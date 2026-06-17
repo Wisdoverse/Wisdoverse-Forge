@@ -330,7 +330,7 @@ export function ApprovalQueueView() {
             onChange={(value) => setKindFilter(value)}
           />
           <SelectFilter
-            label="Sharing range"
+            label="Who can reuse it"
             value={scopeFilter}
             options={SCOPE_FILTERS}
             onChange={(value) => setScopeFilter(value)}
@@ -659,7 +659,7 @@ function DecisionPanel({
                   </Field>
                 )}
 
-                <Field label="Expiration (optional)">
+                <Field label="Stop sharing after (optional)">
                   <input
                     type="datetime-local"
                     value={form.ttlLocal}
@@ -669,7 +669,7 @@ function DecisionPanel({
                   />
                 </Field>
 
-                <Field label="Sensitivity">
+                <Field label="Sensitive content level">
                   <select
                     value={form.sensitivity}
                     onChange={(event) =>

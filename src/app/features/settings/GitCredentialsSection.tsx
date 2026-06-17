@@ -399,7 +399,7 @@ export function GitCredentialsSection() {
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>Code Repository Access</h2>
+          <h2 className={uiStyles.sectionTitle}>HTTPS code access</h2>
           <p className={uiStyles.sectionDescription}>
             Use this when a private code link starts with https://. If it starts with git@, use SSH
             code access instead.
