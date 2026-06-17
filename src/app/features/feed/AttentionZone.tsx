@@ -14,14 +14,14 @@ export function AttentionZone({ items, onApprove, onView }: AttentionZoneProps) 
       <div className="mb-2">
         <div className="text-[10px] font-semibold text-apple-red">Needs your decision</div>
         <p className="mt-0.5 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
-          Open each request before choosing what happens next, so the agent can continue safely.
+          Open the details before choosing what happens next, so the agent can continue safely.
         </p>
       </div>
       <p className="mb-2 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
         These items are waiting for a decision, missing access, or a quick review.
       </p>
       <p className="mb-2 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
-        Approve only after checking the request and confirming the agent can continue safely.
+        Choose Allow to continue only after checking what the agent needs.
       </p>
       {items.map((item) => {
         const reason = attentionReasonPreview(item.reason)
@@ -43,14 +43,14 @@ export function AttentionZone({ items, onApprove, onView }: AttentionZoneProps) 
                 onClick={() => onView?.(item.id)}
                 className="rounded-badge bg-black/[0.04] px-2.5 py-1 text-[9px] font-medium dark:bg-white/[0.06]"
               >
-                Review request
+                Open details
               </button>
               <button
                 type="button"
                 onClick={() => onApprove?.(item.id)}
                 className="rounded-badge bg-apple-blue px-2.5 py-1 text-[9px] font-medium text-white"
               >
-                Approve request
+                Allow to continue
               </button>
             </div>
           </div>

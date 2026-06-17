@@ -120,10 +120,10 @@ function validationMessage(action: GovernanceAuditErrorAction, detail: string): 
     return 'Enter a record limit from 1 to 200, then apply the audit filters again.'
   }
   if (normalized.includes('event')) {
-    return 'Choose a common audit view or paste a support event name, then apply the audit filters again.'
+    return 'Choose a common audit view or paste an exact event name, then apply the audit filters again.'
   }
   if (normalized.includes('id')) {
-    return 'Check the selected team space, project workspace, user, or task support reference, then apply the audit filters again.'
+    return 'Check the selected team space, project workspace, user, or task reference, then apply the audit filters again.'
   }
   return ACTION_FALLBACKS[action]
 }

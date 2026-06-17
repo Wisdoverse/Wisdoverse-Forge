@@ -175,7 +175,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
       {/* Header */}
       <div className="flex items-center justify-between mb-1">
         <span className="text-[10px] text-secondary-light dark:text-secondary-dark">
-          {taskSupportReference(task.id)}
+          {taskReferenceLabel(task.id)}
         </span>
         <button
           data-testid="detail-close"
@@ -382,7 +382,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                 )}
               >
                 <CheckCircle2 size={13} strokeWidth={2.25} aria-hidden="true" />
-                <span>{recoveryAction === 'approve' ? 'Approving…' : 'Approve and continue'}</span>
+                <span>{recoveryAction === 'approve' ? 'Allowing…' : 'Allow and continue'}</span>
               </button>
             )}
           </div>
@@ -500,10 +500,10 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
   )
 }
 
-function taskSupportReference(id: string): string {
+function taskReferenceLabel(id: string): string {
   const trimmed = id.trim()
   if (!trimmed) return 'Refresh task details'
-  return `Support reference ${trimmed.length > 8 ? trimmed.slice(0, 8) : trimmed}`
+  return `Task reference ${trimmed.length > 8 ? trimmed.slice(0, 8) : trimmed}`
 }
 
 function resultFileKindLabel(mimeType: string): string {
@@ -531,7 +531,7 @@ function taskRecoveryGuidance(
     return {
       title: 'Let the task continue when it has what it needs',
       detail:
-        'Check the request first. Then use the green button to return the task to the queue for an agent to continue.',
+        'Check the request first. Then choose Allow and continue to return the task to the queue for an agent to continue.',
     }
   }
   return null
