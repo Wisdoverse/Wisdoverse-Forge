@@ -89,7 +89,7 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
         <p>
           This agent answers in chat through an AI service. It can plan, write, and review text, but
           it cannot open project files on its own. For file work, use an agent on this computer or
-          in a managed workspace.
+          one that can edit project files.
         </p>
       )}
     </div>
@@ -101,7 +101,7 @@ function agentFolderLabel(agent: AgentInfo): string {
   if (!agent.cwd || agent.cwd === '/workspace') {
     return isHostCliAgent(agent)
       ? 'Folder where you pasted the setup text'
-      : 'Workspace project folder'
+      : 'Default project folder'
   }
   return agent.cwd
 }
@@ -125,7 +125,7 @@ function agentConnectionStatus(agent: AgentInfo): string {
       ? 'Connected from this computer'
       : 'Paste setup text on this computer again'
   }
-  if (agent.cliTool) return agent.containerId ? 'Ready in managed workspace' : 'Waiting to start'
+  if (agent.cliTool) return agent.containerId ? 'Ready with project files' : 'Waiting to start'
   return 'AI service is ready for chat'
 }
 

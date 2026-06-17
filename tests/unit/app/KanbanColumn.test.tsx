@@ -102,11 +102,12 @@ describe('KanbanColumn', () => {
 
     const recoveryEmpty = screen.getByTestId('kanban-empty-failed')
     expect(
-      within(recoveryEmpty).getByText('Retry paths appear here after a task stops')
+      within(recoveryEmpty).getByText('Retry steps appear here after a task stops')
     ).toBeDefined()
     expect(
-      within(recoveryEmpty).getByText(/review the recovery note and retry path/i)
+      within(recoveryEmpty).getByText(/review the recovery note and retry steps/i)
     ).toBeDefined()
+    expect(recoveryEmpty.textContent).not.toMatch(/retry path/i)
     expect(within(recoveryEmpty).queryByText('No work needing recovery')).toBeNull()
   })
 })

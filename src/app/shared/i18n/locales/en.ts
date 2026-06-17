@@ -84,9 +84,9 @@ export const en = {
   // =========================================================================
   gettingStarted: {
     eyebrow: 'First run',
-    title: 'Start with one safe path',
+    title: 'Set up your first agent safely',
     description:
-      'Follow one step at a time. Finish this path to create an agent, send work, and review the result.',
+      'Follow one step at a time. Finish this checklist to create an agent, send work, and review the result.',
     skip: 'Skip and open Tasks',
     skipSaving: 'Skipping...',
     skipHint:
@@ -250,7 +250,7 @@ export const en = {
     deleteAgent: 'Delete Agent',
     noAgents: 'No agents yet. Create one agent to start assigning work.',
     agentName: 'Agent Name',
-    projectPath: 'Project Path',
+    projectPath: 'Project folder location',
     workingDirectory: 'Working Directory',
     startAgent: 'Start Agent',
     stopAgent: 'Stop Agent',
@@ -280,8 +280,8 @@ export const en = {
     startNewAgent: 'Start a new agent',
     pickProject: 'Pick a project to begin',
     tellClaude: 'Tell Claude what to work on',
-    searchProjects: 'Search projects or enter a folder path...',
-    enterFolderPath: 'Enter a project folder path...',
+    searchProjects: 'Search projects or enter a folder location...',
+    enterFolderPath: 'Enter the project folder location...',
     moreOptions: 'More options',
     behavior: 'Behavior',
     autoApprove: 'Auto-approve actions',
@@ -294,7 +294,7 @@ export const en = {
     agentDeleted: 'Agent deleted',
     agentCreated: 'Agent created',
     maxAgentsReached: 'Agent limit reached. Stop or delete an unused agent, then try again.',
-    invalidProjectPath: 'Enter a project folder path, then try again.',
+    invalidProjectPath: 'Enter the project folder location, then try again.',
   },
 
   // =========================================================================

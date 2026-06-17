@@ -81,12 +81,12 @@ afterEach(() => {
 })
 
 describe('BillingPage', () => {
-  test('explains the setup path when billing is not configured', async () => {
+  test('explains the setup steps when billing is not configured', async () => {
     setBillingState({ billingNotConfigured: true })
 
     render(<BillingPage />)
 
-    expect(await screen.findByText('Billing setup path')).toBeDefined()
+    expect(await screen.findByText('Billing setup steps')).toBeDefined()
     expect(
       screen.getByText(/connect billing before changing plans or payment methods/i)
     ).toBeDefined()

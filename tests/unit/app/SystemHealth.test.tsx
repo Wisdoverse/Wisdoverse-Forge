@@ -50,6 +50,7 @@ describe('SystemHealth', () => {
     ).toBeDefined()
     expect(screen.getByText('Helps pages load quickly')).toBeDefined()
     expect(screen.getByText('Shows new progress in the browser')).toBeDefined()
+    expect(screen.getByText(/Shows progress from running agents in the browser/i)).toBeDefined()
     expect(screen.getByText('Agent Work Starter')).toBeDefined()
     expect(screen.getByText('Starts file-work agents')).toBeDefined()
     expect(
@@ -71,6 +72,7 @@ describe('SystemHealth', () => {
     expect(screen.queryByText(/Docker runtime/i)).toBeNull()
     expect(screen.queryByText(/container service/i)).toBeNull()
     expect(screen.queryByText(/runs, evidence/i)).toBeNull()
+    expect(screen.queryByText(/Moves events from running agents/i)).toBeNull()
   })
 
   test('shows every check as ready when the probe reports all dependencies up', () => {

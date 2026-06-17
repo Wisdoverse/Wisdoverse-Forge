@@ -238,7 +238,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
 
       <div className="mb-4 border-l-2 border-apple-blue/40 pl-3">
         <p className="text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
-          Project setup path
+          Project creation steps
         </p>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           Use projects to keep one work area&apos;s tasks, files, and saved work records together.
@@ -274,7 +274,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
           </p>
           {trimmedName && (
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Address preview: {slugifyName(name)}. Forge creates this automatically from the name.
+              Project short name: {slugifyName(name)}. Forge creates it automatically from the name.
             </p>
           )}
         </div>
@@ -339,7 +339,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
         </p>
         {workspacePath && (
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Work folder preview:{' '}
+            Agent work folder:{' '}
             <span className="font-mono text-[11px] text-foreground-light dark:text-foreground-dark">
               {workspacePath}
             </span>

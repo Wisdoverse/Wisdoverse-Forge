@@ -30,7 +30,7 @@ function metricCopy(metric: string): { label: string; description: string; highA
       }
     case 'events':
       return {
-        label: 'Activity events',
+        label: 'Work update history',
         description: 'Work updates, change history, and timeline messages.',
         highAction: 'Export old records or plan for more capacity.',
       }

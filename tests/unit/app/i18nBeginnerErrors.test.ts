@@ -147,19 +147,37 @@ describe('beginner error translations', () => {
   })
 
   test('validation errors tell beginners what to change next', () => {
-    expect(en.agents.invalidProjectPath).toBe('Enter a project folder path, then try again.')
+    expect(en.agents.invalidProjectPath).toBe('Enter the project folder location, then try again.')
     expect(en.files.invalidType).toBe('Choose a file with one of these types: {{types}}.')
     expect(en.a11y.invalid).toBe('Check this field, then try again')
     expect(en.agents.invalidProjectPath).not.toContain('Invalid project path')
+    expect(en.agents.invalidProjectPath).not.toContain('folder path')
     expect(en.files.invalidType).not.toContain('Invalid file type')
     expect(en.a11y.invalid).not.toContain('This field is invalid')
 
-    expect(zh.agents.invalidProjectPath).toBe('请输入项目文件夹路径，然后重试。')
+    expect(zh.agents.invalidProjectPath).toBe('请输入项目文件夹位置，然后重试。')
     expect(zh.files.invalidType).toBe('请选择这些类型之一的文件：{{types}}。')
     expect(zh.a11y.invalid).toBe('请检查此字段，然后重试')
     expect(zh.agents.invalidProjectPath).not.toContain('无效的项目路径')
+    expect(zh.agents.invalidProjectPath).not.toContain('文件夹路径')
     expect(zh.files.invalidType).not.toContain('无效的文件类型')
     expect(zh.a11y.invalid).not.toContain('此字段无效')
+  })
+
+  test('agent project folder labels use location wording for beginners', () => {
+    expect(en.agents.projectPath).toBe('Project folder location')
+    expect(en.agents.searchProjects).toContain('folder location')
+    expect(en.agents.enterFolderPath).toContain('folder location')
+    expect(
+      `${en.agents.projectPath} ${en.agents.searchProjects} ${en.agents.enterFolderPath}`
+    ).not.toMatch(/\b(?:Project Path|folder path)\b/i)
+
+    expect(zh.agents.projectPath).toBe('项目文件夹位置')
+    expect(zh.agents.searchProjects).toContain('文件夹位置')
+    expect(zh.agents.enterFolderPath).toContain('文件夹位置')
+    expect(
+      `${zh.agents.projectPath} ${zh.agents.searchProjects} ${zh.agents.enterFolderPath}`
+    ).not.toContain('路径')
   })
 
   test('limit and conflict messages tell beginners what to change next', () => {
@@ -269,6 +287,16 @@ describe('beginner error translations', () => {
     expect(zh.gettingStarted.steps.reuse.open).toBe('查看保存的指令')
     expect(JSON.stringify(zh.gettingStarted.steps.reuse)).not.toContain('技能候选')
     expect(JSON.stringify(zh.gettingStarted.steps.reuse)).not.toContain('技能上下文')
+  })
+
+  test('getting started first-run copy uses checklist wording', () => {
+    expect(en.gettingStarted.title).toBe('Set up your first agent safely')
+    expect(en.gettingStarted.description).toContain('Finish this checklist')
+    expect(`${en.gettingStarted.title} ${en.gettingStarted.description}`).not.toMatch(/\bpath\b/i)
+
+    expect(zh.gettingStarted.title).toBe('按清单安全设置第一个 Agent')
+    expect(zh.gettingStarted.description).toContain('这份设置清单')
+    expect(`${zh.gettingStarted.title} ${zh.gettingStarted.description}`).not.toContain('路径')
   })
 
   test('getting started review copy avoids evidence jargon', () => {

@@ -34,7 +34,7 @@ describe('organization setup forms', () => {
 
     render(<CreateTeamForm onSave={onSave} onCancel={vi.fn()} saving={false} />)
 
-    expect(screen.getByText('Team setup path')).toBeDefined()
+    expect(screen.getByText('Team creation steps')).toBeDefined()
     expect(screen.getByText(/create the team before adding projects/i)).toBeDefined()
     expect(screen.getByText(/open the team after creation to invite people/i)).toBeDefined()
     expect(screen.queryByText(/Open Team members/i)).toBeNull()
@@ -45,7 +45,7 @@ describe('organization setup forms', () => {
     })
     expect(
       screen.getByText(
-        'Address preview: platform-ops. Forge creates this automatically from the name.'
+        'Team short name: platform-ops. Forge creates it automatically from the name.'
       )
     ).toBeDefined()
     expect(screen.queryByText(/slug:/i)).toBeNull()
@@ -60,7 +60,7 @@ describe('organization setup forms', () => {
 
     render(<CreateProjectForm teams={teams} onSave={onSave} onCancel={vi.fn()} saving={false} />)
 
-    expect(screen.getByText('Project setup path')).toBeDefined()
+    expect(screen.getByText('Project creation steps')).toBeDefined()
     expect(screen.getByText(/choose the team that owns the work/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /create project/i })).not.toBeDisabled()
 
@@ -70,7 +70,7 @@ describe('organization setup forms', () => {
     fireEvent.change(screen.getByLabelText(/^team/i), { target: { value: 'team-ops' } })
     expect(
       screen.getByText(
-        'Address preview: customer-portal. Forge creates this automatically from the name.'
+        'Project short name: customer-portal. Forge creates it automatically from the name.'
       )
     ).toBeDefined()
     expect(screen.queryByText(/slug:/i)).toBeNull()

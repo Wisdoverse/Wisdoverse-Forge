@@ -92,7 +92,7 @@ describe('workspace setup create forms', () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledWith('Customer Portal', 'team-1', undefined))
   })
 
-  test('shows the derived read-only workspace path once a name is entered', () => {
+  test('shows the agent work folder once a project name is entered', () => {
     render(<CreateProjectForm teams={[team]} onSave={vi.fn()} onCancel={vi.fn()} saving={false} />)
 
     expect(screen.queryByText(/\/workspace\//)).not.toBeInTheDocument()
@@ -101,7 +101,7 @@ describe('workspace setup create forms', () => {
       target: { value: 'My New Repo' },
     })
 
-    // Path is derived (slugified) and shown, not typed by the user.
+    expect(screen.getByText(/Agent work folder:/)).toBeInTheDocument()
     expect(screen.getByText('/workspace/my-new-repo')).toBeInTheDocument()
   })
 

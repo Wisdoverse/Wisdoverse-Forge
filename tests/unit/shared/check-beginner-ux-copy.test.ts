@@ -2082,6 +2082,70 @@ function metricCopy(metric) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags billing event usage labels that expose activity-event wording', () => {
+    const cwd = fixture({
+      'src/app/features/billing/UsageMeter.tsx': `
+function metricCopy(metric) {
+  return { label: 'Activity events' }
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'billing-usage-event-copy',
+        location: 'src/app/features/billing/UsageMeter.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts billing event usage labels that describe work update history', () => {
+    const cwd = fixture({
+      'src/app/features/billing/UsageMeter.tsx': `
+function metricCopy(metric) {
+  return { label: 'Work update history' }
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags billing setup copy that uses setup-path wording', () => {
+    const cwd = fixture({
+      'src/app/features/billing/BillingPage.tsx': `
+function BillingNotConfigured() {
+  return <p>Billing setup path</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'billing-setup-copy',
+        location: 'src/app/features/billing/BillingPage.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts billing setup copy that describes setup steps', () => {
+    const cwd = fixture({
+      'src/app/features/billing/BillingPage.tsx': `
+function BillingNotConfigured() {
+  return <p>Billing setup steps</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags invoice receipt copy that does not explain when the link appears', () => {
     const cwd = fixture({
       'src/app/features/billing/InvoiceList.tsx': `
@@ -2923,6 +2987,130 @@ function createReviewItems() {
 }
 function WorkLocationPicker() {
   return <label>Where should this agent work?</label>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags create-agent work-area copy that exposes workspace internals', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+function runtimeFitFor() {
+  return [{ label: 'Agent location', value: 'Managed workspace' }]
+}
+function HelpText() {
+  return <><p>Uses a ready workspace managed by Forge for file work.</p><p>Forge prepares this project workspace for the agent.</p></>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'create-agent-work-area-copy',
+          sample: expect.stringContaining('Agent location'),
+        }),
+        expect.objectContaining({
+          type: 'create-agent-work-area-copy',
+          sample: expect.stringContaining('ready workspace managed by Forge'),
+        }),
+        expect.objectContaining({
+          type: 'create-agent-work-area-copy',
+          sample: expect.stringContaining('project workspace'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts create-agent work-area copy that explains project files plainly', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+function runtimeFitFor() {
+  return [{ label: 'Where it works', value: 'Forge project area' }]
+}
+function HelpText() {
+  return <><p>Forge prepares a safe project area for file work.</p><p>Forge prepares this project area for the agent.</p></>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags agent display copy that exposes managed-workspace internals', () => {
+    const cwd = fixture({
+      'src/app/entities/agent/model/display-labels.ts': `
+function agentRuntimeLabel() {
+  return 'OpenCode in a managed workspace'
+}
+`,
+      'src/app/features/agents/AgentKindBadge.tsx': `
+export function AgentKindBadge() {
+  return <span title="Uses a Forge-managed project workspace.">Managed workspace</span>
+}
+`,
+      'src/app/features/agents/AgentConfigTab.tsx': `
+function Connection() {
+  return <p>Ready in managed workspace</p>
+}
+`,
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function agentFolderLabel() {
+  return 'Workspace project folder'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-work-area-display-copy',
+          sample: expect.stringContaining('in a managed workspace'),
+        }),
+        expect.objectContaining({
+          type: 'agent-work-area-display-copy',
+          sample: expect.stringContaining('Forge-managed project workspace'),
+        }),
+        expect.objectContaining({
+          type: 'agent-work-area-display-copy',
+          sample: expect.stringContaining('Ready in managed workspace'),
+        }),
+        expect.objectContaining({
+          type: 'agent-work-area-display-copy',
+          sample: expect.stringContaining('Workspace project folder'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts agent display copy that explains project files plainly', () => {
+    const cwd = fixture({
+      'src/app/entities/agent/model/display-labels.ts': `
+function agentRuntimeLabel() {
+  return 'OpenCode with project files'
+}
+`,
+      'src/app/features/agents/AgentKindBadge.tsx': `
+export function AgentKindBadge() {
+  return <span title="Works in a Forge project area. It can change files.">Managed workspace</span>
+}
+`,
+      'src/app/features/agents/AgentConfigTab.tsx': `
+function Connection() {
+  return <p>Ready with project files</p>
+}
+`,
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function agentFolderLabel() {
+  return 'Default project folder'
 }
 `,
     })
@@ -3955,6 +4143,72 @@ export const zh = {
         location: 'src/app/shared/i18n/locales/zh.ts:10',
       }),
     ])
+  })
+
+  it('flags agent project folder copy that uses path wording', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  agents: {
+    projectPath: 'Project Path',
+    searchProjects: 'Search projects or enter a folder path...',
+    invalidProjectPath: 'Enter a project folder path, then try again.',
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  agents: {
+    projectPath: '项目路径',
+    enterFolderPath: '输入项目文件夹路径...',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-project-location-copy',
+          sample: expect.stringContaining('Project Path'),
+        }),
+        expect.objectContaining({
+          type: 'agent-project-location-copy',
+          sample: expect.stringContaining('folder path'),
+        }),
+        expect.objectContaining({
+          type: 'agent-project-location-copy',
+          sample: expect.stringContaining('文件夹路径'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts agent project folder copy that uses location wording', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  agents: {
+    projectPath: 'Project folder location',
+    searchProjects: 'Search projects or enter a folder location...',
+    invalidProjectPath: 'Enter the project folder location, then try again.',
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  agents: {
+    projectPath: '项目文件夹位置',
+    enterFolderPath: '输入项目文件夹位置...',
+  },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
   it('flags confirmation copy that hides the impact from beginners', () => {
@@ -6307,6 +6561,38 @@ function serviceStatusText(status: ServiceStatus): string {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags app health live update copy that exposes event wording', () => {
+    const cwd = fixture({
+      'src/app/features/admin/SystemHealth.tsx': `
+const SERVICE_DEFINITIONS = [
+  { description: 'Moves events from running agents into the browser in near real time.' },
+]
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'system-health-live-update-copy',
+        location: 'src/app/features/admin/SystemHealth.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts app health live update copy that describes visible progress', () => {
+    const cwd = fixture({
+      'src/app/features/admin/SystemHealth.tsx': `
+const SERVICE_DEFINITIONS = [
+  { description: 'Shows progress from running agents in the browser in near real time.' },
+]
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags app health error copy that starts with the failure summary', () => {
     const cwd = fixture({
       'src/app/features/admin/systemHealthErrorMessage.ts': `
@@ -6744,6 +7030,38 @@ function KeyRow() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags code access setup copy that starts with a vague key', () => {
+    const cwd = fixture({
+      'src/app/features/settings/GitCredentialsSection.tsx': `
+function AddCredentialForm() {
+  return <p>Paste the key from GitHub or GitLab. Those sites may call it a personal access token.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'code-access-key-copy',
+        location: 'src/app/features/settings/GitCredentialsSection.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts code access setup copy that names the key before provider token wording', () => {
+    const cwd = fixture({
+      'src/app/features/settings/GitCredentialsSection.tsx': `
+function AddCredentialForm() {
+  return <p>Paste the code access key from GitHub or GitLab. If that page says personal access token, use that value here.</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags date fallback copy that does not tell users which list to refresh', () => {
     const cwd = fixture({
       'src/app/features/settings/GitCredentialsSection.tsx': `
@@ -7028,6 +7346,66 @@ export const zh = {
 `,
       'src/app/layouts/sidebar/SidebarNav.tsx': `
 const item = { description: 'follow the setup checklist' }
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags first-run guide copy that describes a path instead of the setup checklist', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  gettingStarted: {
+    title: 'Start with one safe path',
+    description: 'Follow one step at a time. Finish this path to create an agent.',
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  gettingStarted: {
+    title: '先按一条安全路径跑通',
+    description: '一次只做一步。先完成这条最小路径。',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'start-guide-path-copy',
+          sample: expect.stringContaining('Start with one safe path'),
+        }),
+        expect.objectContaining({
+          type: 'start-guide-path-copy',
+          sample: expect.stringContaining('安全路径'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts first-run guide copy that uses setup checklist wording', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  gettingStarted: {
+    title: 'Set up your first agent safely',
+    description: 'Follow one step at a time. Finish this checklist to create an agent.',
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  gettingStarted: {
+    title: '按清单安全设置第一个 Agent',
+    description: '一次只做一步。按这份设置清单创建 Agent。',
+  },
+}
 `,
     })
 
@@ -9708,6 +10086,56 @@ function ProjectSetupPath() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags team and project creation copy that exposes setup path or address preview wording', () => {
+    const cwd = fixture({
+      'src/app/features/manage-team/ui/CreateTeamForm.tsx': `
+function CreateTeamForm() {
+  return <><p>Team setup path</p><p>Address preview: platform-ops.</p></>
+}
+`,
+      'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
+function CreateProjectForm() {
+  return <><p>Project setup path</p><p>Work folder preview: /workspace/app</p></>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'team-project-create-copy',
+          location: 'src/app/features/manage-team/ui/CreateTeamForm.tsx:3',
+          sample: expect.stringContaining('Team setup path'),
+        }),
+        expect.objectContaining({
+          type: 'team-project-create-copy',
+          location: 'src/app/features/manage-project/ui/CreateProjectForm.tsx:3',
+          sample: expect.stringContaining('Project setup path'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts team and project creation copy that uses steps and short-name wording', () => {
+    const cwd = fixture({
+      'src/app/features/manage-team/ui/CreateTeamForm.tsx': `
+function CreateTeamForm() {
+  return <><p>Team creation steps</p><p>Team short name: platform-ops.</p></>
+}
+`,
+      'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
+function CreateProjectForm() {
+  return <><p>Project creation steps</p><p>Project short name: app.</p><p>Agent work folder: /workspace/app</p></>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags code import retry errors that start with the failure', () => {
     const cwd = fixture({
       'src/app/features/manage-project/ui/CloneStatusBadge.tsx': `
@@ -10251,6 +10679,70 @@ function taskNextStep() {
       'src/app/features/board/TaskCard.tsx': `
 function taskNextStep() {
   return 'Open details, review the recovery note, then retry.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags failed task board empty copy that uses retry-path wording', () => {
+    const cwd = fixture({
+      'src/app/features/board/KanbanColumn.tsx': `
+const COLUMN_EMPTY_STATE = {
+  failed: { title: 'Retry paths appear here after a task stops', detail: 'Review the recovery note and retry path.' },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'task-recovery-status-copy',
+        location: 'src/app/features/board/KanbanColumn.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts failed task board empty copy that uses retry-step wording', () => {
+    const cwd = fixture({
+      'src/app/features/board/KanbanColumn.tsx': `
+const COLUMN_EMPTY_STATE = {
+  failed: { title: 'Retry steps appear here after a task stops', detail: 'Review the recovery note and retry steps.' },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags task detail reuse copy that describes a save-for-next-time path', () => {
+    const cwd = fixture({
+      'src/app/features/detail/DescriptionTab.tsx': `
+function DescriptionTab() {
+  return <p>The save-for-next-time path becomes available once useful work is completed.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'task-reuse-path-copy',
+        location: 'src/app/features/detail/DescriptionTab.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts task detail reuse copy that describes a save-for-next-time option', () => {
+    const cwd = fixture({
+      'src/app/features/detail/DescriptionTab.tsx': `
+function DescriptionTab() {
+  return <p>The save-for-next-time option becomes available once useful work is completed.</p>
 }
 `,
     })

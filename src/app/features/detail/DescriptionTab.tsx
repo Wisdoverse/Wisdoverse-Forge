@@ -206,7 +206,7 @@ export function DescriptionTab({
           <p>
             {task.state === 'completed'
               ? 'After review, save the repeatable steps if future tasks should reuse them.'
-              : 'The save-for-next-time path becomes available once useful work is completed.'}
+              : 'The save-for-next-time option becomes available once useful work is completed.'}
           </p>
           {task.state === 'completed' && (
             <div className="flex flex-wrap gap-2">

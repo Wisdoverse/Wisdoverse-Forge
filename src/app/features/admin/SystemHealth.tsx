@@ -48,7 +48,7 @@ const SERVICE_DEFINITIONS: readonly ServiceDefinition[] = [
     key: 'nats',
     name: 'Live Updates',
     supportName: 'Shows new progress in the browser',
-    description: 'Moves events from running agents into the browser in near real time.',
+    description: 'Shows progress from running agents in the browser in near real time.',
     impact: 'Runs may continue, but users may not see progress updates immediately.',
     action: 'Ask an owner or admin to check live updates, then refresh and look for new progress.',
   },

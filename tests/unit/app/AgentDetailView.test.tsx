@@ -88,12 +88,13 @@ describe('AgentDetailView', () => {
   })
 
   test('agent header summarizes work location without raw model names', () => {
-    expect(agentDetailHeaderSubtitle(containerAgent)).toBe('OpenCode in a managed workspace')
+    expect(agentDetailHeaderSubtitle(containerAgent)).toBe('OpenCode with project files')
 
     render(<AgentDetailView agent={containerAgent} onBack={() => {}} />)
 
-    expect(screen.getAllByText('OpenCode in a managed workspace').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('OpenCode with project files').length).toBeGreaterThan(0)
     expect(screen.queryByText('tool-large')).toBeNull()
+    expect(screen.queryByText('OpenCode in a managed workspace')).toBeNull()
   })
 
   test('workspace tool agent shows the live work tab and labels chat as History', () => {
@@ -397,14 +398,16 @@ describe('AgentDetailView', () => {
   test('explains workspace access and primary project context', () => {
     render(<AgentDetailView agent={{ ...containerAgent, cwd: '/workspace' }} onBack={() => {}} />)
     expect(screen.getByText('Starting folder')).toBeDefined()
-    expect(screen.getByText('Workspace project folder')).toBeDefined()
+    expect(screen.getByText('Default project folder')).toBeDefined()
     expect(screen.getByText('Connection')).toBeDefined()
-    expect(screen.getByText('Ready in managed workspace')).toBeDefined()
+    expect(screen.getByText('Ready with project files')).toBeDefined()
     expect(screen.queryByText('/workspace')).toBeNull()
     expect(screen.queryByText('c-abc')).toBeNull()
     expect(screen.getAllByText('Where it works').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('OpenCode in a managed workspace').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('OpenCode with project files').length).toBeGreaterThan(0)
     expect(screen.queryByText('opencode managed workspace')).toBeNull()
+    expect(screen.queryByText('Workspace project folder')).toBeNull()
+    expect(screen.queryByText('Ready in managed workspace')).toBeNull()
     expect(screen.getByText('Workspace it can use')).toBeDefined()
     expect(screen.getByText('Engineering')).toBeDefined()
     expect(screen.getByText('Starting project for tasks')).toBeDefined()

@@ -23,7 +23,7 @@ describe('AgentKindBadge', () => {
     const badge = screen.getByText('Managed workspace')
     expect(badge).toHaveAttribute(
       'title',
-      'Uses a Forge-managed project workspace. It can change files, run checks, and save what it checked.'
+      'Works in a Forge project area. It can change files, run checks, and save what it checked.'
     )
   })
 
