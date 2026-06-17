@@ -967,6 +967,7 @@ const TASK_DETAIL_EVIDENCE_JARGON_PATTERNS = [
   /\bresult, evidence\b/i,
   /\breview the result and evidence\b/i,
   /\breview evidence\b/i,
+  /\bresult item(?:s)? ready to review\b/i,
 ]
 
 const AUTH_MANAGER_DEAD_END_PATTERNS = [
@@ -1718,6 +1719,7 @@ function hasGettingStartedReviewEvidenceJargonCopy(relFile, line) {
 function hasTaskDetailEvidenceJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/detail/DescriptionTab.tsx') &&
+    !relFile.endsWith('src/app/features/detail/HistoryTab.tsx') &&
     !relFile.endsWith('src/app/features/detail/TaskDetailPanel.tsx') &&
     !relFile.endsWith('src/app/features/list/ListView.tsx') &&
     !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')

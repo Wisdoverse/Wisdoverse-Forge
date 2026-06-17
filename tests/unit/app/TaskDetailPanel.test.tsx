@@ -176,7 +176,7 @@ describe('TaskDetailPanel', () => {
 
     expect(await screen.findByTestId('task-agent-check-in')).toBeDefined()
     expect(screen.getByText(/agent two finished the task/i)).toBeDefined()
-    expect(screen.getByText(/1 result item ready to review/i)).toBeDefined()
+    expect(screen.getByText(/1 result file ready to review/i)).toBeDefined()
     expect(screen.getByText(/open results next/i)).toBeDefined()
     expect(screen.getAllByText('Completed').length).toBeGreaterThan(0)
   })

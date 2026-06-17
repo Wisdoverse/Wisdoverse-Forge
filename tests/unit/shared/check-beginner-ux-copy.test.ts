@@ -8392,6 +8392,11 @@ function ResultReviewGuide() {
   ]
 }
 `,
+      'src/app/features/detail/HistoryTab.tsx': `
+function taskCheckIn() {
+  return '1 result item ready to review.'
+}
+`,
       'src/app/features/list/ListView.tsx': `
 function listNextStep() {
   return {
@@ -8423,6 +8428,10 @@ function agentNextStep() {
         expect.objectContaining({
           type: 'task-detail-result-review-copy',
           location: 'src/app/features/detail/TaskDetailPanel.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/HistoryTab.tsx:3',
         }),
         expect.objectContaining({
           type: 'task-detail-result-review-copy',
