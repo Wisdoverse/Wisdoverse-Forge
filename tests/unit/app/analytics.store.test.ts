@@ -59,7 +59,9 @@ describe('useAnalyticsStore', () => {
 
     expect(useAnalyticsStore.getState().error).toBe(analyticsUnavailableMessage())
     expect(useAnalyticsStore.getState().error).toContain('Refresh the dashboard')
+    expect(useAnalyticsStore.getState().error).toContain('new team space')
     expect(useAnalyticsStore.getState().error).toContain('run an agent task first')
+    expect(useAnalyticsStore.getState().error).not.toContain('new workspace')
     expect(useAnalyticsStore.getState().error).not.toContain('API')
     expect(useAnalyticsStore.getState().loading).toBe(false)
   })

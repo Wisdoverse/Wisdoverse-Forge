@@ -541,7 +541,7 @@ describe('useAdminStore loading errors', () => {
     expect(useAdminStore.getState().usersTotal).toBe(2)
   })
 
-  test('a user action that cannot reach the server explains the retry step', async () => {
+  test('a user removal connection failure explains that the removal did not finish', async () => {
     useAdminStore.setState({ users: seedUsers(), usersTotal: 2 })
     authFetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
 
@@ -549,9 +549,24 @@ describe('useAdminStore loading errors', () => {
 
     expect(ok).toBe(false)
     expect(useAdminStore.getState().userActionError).toBe(
-      'Check your connection, then try again. The removal could not reach the server.'
+      'Check your connection, then try again. The removal did not finish.'
     )
+    expect(useAdminStore.getState().userActionError).not.toContain('server')
     expect(useAdminStore.getState().users).toHaveLength(2)
+  })
+
+  test('a user access change connection failure explains that the access change did not finish', async () => {
+    useAdminStore.setState({ users: seedUsers(), usersTotal: 2 })
+    authFetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
+
+    const ok = await useAdminStore.getState().updateUserRole('user-2', 'admin')
+
+    expect(ok).toBe(false)
+    expect(useAdminStore.getState().userActionError).toBe(
+      'Check your connection, then try again. The access change did not finish.'
+    )
+    expect(useAdminStore.getState().userActionError).not.toContain('server')
+    expect(useAdminStore.getState().users[1]?.role).toBe('member')
   })
 
   test('clearUserActionError dismisses a stale action error', () => {

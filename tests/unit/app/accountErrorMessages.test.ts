@@ -14,11 +14,24 @@ describe('accountErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then change your password again. Forge could not connect while opening password settings.'
+      'Check your connection, then change your password again. The password change did not finish.'
     )
     expect(message).toContain('Check your connection')
     expect(message).not.toContain('Failed to fetch')
+    expect(message).not.toContain('opening password settings')
     expect(message).not.toContain('service')
+  })
+
+  test('turns team space rename network failures into action-specific recovery guidance', () => {
+    const message = accountErrorMessage('renameOrganization', new Error('Network error'))
+
+    expectBeginnerMessage(
+      message,
+      'Check your connection, then rename the team space again. The team space rename did not finish.'
+    )
+    expect(message).not.toContain('opening team space settings')
+    expect(message).not.toContain('Network error')
+    expect(message).not.toContain('organization')
   })
 
   test('maps password auth failures without raw HTTP text', () => {

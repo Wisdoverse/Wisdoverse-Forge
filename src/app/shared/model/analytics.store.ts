@@ -69,7 +69,7 @@ const initialState = {
 }
 
 export function analyticsUnavailableMessage(): string {
-  return 'Refresh the dashboard. If this is a new workspace, run an agent task first so live activity has data to report. Analytics could not load live activity.'
+  return 'Refresh the dashboard. If this is a new team space, run an agent task first so live activity has data to report. Analytics could not load live activity.'
 }
 
 export function analyticsNetworkErrorMessage(): string {

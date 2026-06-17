@@ -119,11 +119,12 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       message,
-      'Ask an owner or admin to check Where agents run, then start this agent from the agent card. The place where this agent runs is not ready.'
+      'Ask an owner or admin to check Where agents run, then start this agent from the agent card. File work setup is not ready.'
     )
     expect(message).not.toContain('worker')
     expect(message).not.toContain('Docker')
     expect(message).not.toContain('workspace is not ready')
+    expect(message).not.toContain('place where this agent runs')
   })
 
   test('starts unknown action failures with a refresh step', () => {
@@ -320,11 +321,12 @@ describe('Agents Store', () => {
     expect(state.agents).toHaveLength(1)
     expectBeginnerError(
       state.error,
-      'Ask an owner or admin to check Where agents run, then start this agent from the card. Agent was created, but the place where it runs is not ready yet. It will stay in the list.'
+      'Ask an owner or admin to check Where agents run, then start this agent from the card. Agent was created, but file work setup is not ready yet. It will stay in the list.'
     )
     expect(state.error).not.toContain('worker')
     expect(state.error).not.toContain('Docker')
     expect(state.error).not.toContain('workspace is not ready')
+    expect(state.error).not.toContain('the place where it runs')
   })
 
   test('closes the create modal when the managed workspace starts', async () => {
