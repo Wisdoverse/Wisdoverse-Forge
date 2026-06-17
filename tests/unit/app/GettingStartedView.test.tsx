@@ -287,9 +287,7 @@ describe('GettingStartedView', () => {
     expect(screen.queryByText(/The basic path is complete/i)).toBeNull()
     expect(screen.getAllByText('Reuse what worked').length).toBeGreaterThan(0)
     expect(screen.getByText('Saved instructions are available for future tasks.')).toBeDefined()
-    expect(
-      screen.getByText('Useful instructions are saved or were used on a task.')
-    ).toBeDefined()
+    expect(screen.getByText('Useful instructions are saved or were used on a task.')).toBeDefined()
     const [savedInstructionsButton] = screen.getAllByRole('button', {
       name: /show saved instructions/i,
     })
@@ -674,7 +672,7 @@ describe('GettingStartedView', () => {
     expect(await screen.findByRole('button', { name: /skip and open tasks/i })).toBeDefined()
     expect(
       screen.getByText(
-        'This only hides Start from the sidebar. Your projects, agents, and tasks stay the same, and you can show Start again from Settings.'
+        'This only hides the setup checklist from the sidebar. Your projects, agents, and tasks stay the same, and you can show it again from Settings.'
       )
     ).toBeDefined()
     expect(screen.queryByRole('button', { name: /^skip the guide$/i })).toBeNull()
@@ -694,7 +692,7 @@ describe('GettingStartedView', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'Check your connection, then choose Skip again. Start could not be hidden.'
+      'Check your connection, then choose Skip again. The setup checklist could not be hidden.'
     )
     expect(navigateMock).not.toHaveBeenCalled()
     expect(screen.getByRole('button', { name: /skip and open tasks/i })).not.toBeDisabled()

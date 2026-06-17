@@ -419,6 +419,10 @@ describe('beginner error translations', () => {
     const previousContextNavLabel = ['Con', 'text'].join('')
     const previousChineseContextNavLabel = ['上', '下', '文'].join('')
 
+    expect(en.nav.start).toBe('Setup checklist')
+    expect(en.nav.start).not.toBe('Start')
+    expect(zh.nav.start).toBe('设置清单')
+    expect(zh.nav.start).not.toBe('开始')
     expect(en.nav.context).toBe('Saved items')
     expect(en.nav.context).not.toBe(previousContextNavLabel)
     expect(en.nav.skills).toBe('Saved instructions')

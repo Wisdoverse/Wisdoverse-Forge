@@ -260,6 +260,13 @@ const ANALYTICS_GUIDANCE_JARGON_PATTERNS = [
   /\bended in error\b/i,
 ]
 
+const ANALYTICS_EVENT_LABEL_JARGON_PATTERNS = [
+  /\bHourly event activity\b/i,
+  /\}\s*events\b/i,
+  /\$\{bar\.label\}:\s*\$\{bar\.value\}\s+events\b/i,
+  /%\s+of window\b/i,
+]
+
 const ACTIVITY_FEED_EMPTY_DEAD_END_PATTERNS = [
   /\bNo work has reported progress yet\b/i,
   /\bNo updates need action right now\b/i,
@@ -422,6 +429,24 @@ const START_GUIDE_RESET_JARGON_PATTERNS = [
 const START_GUIDE_FAILURE_FIRST_PATTERNS = [
   /\bStart could not be hidden\. Check your connection, then try Skip again\./i,
   /\bThe setup checklist could not be shown\. Check your connection, then try again\./i,
+]
+
+const START_NAV_JARGON_PATTERNS = [
+  /\bnav:\s*\{[^}]*\bstart:\s*['"`]Start['"`]/,
+  /\bnav:\s*\{[^}]*\bstart:\s*['"`]开始['"`]/,
+  /\bhides Start from the sidebar\b/i,
+  /\bshow Start again from Settings\b/i,
+  /\bskipHint:\s*['"`][^'"`]*Start\b/,
+  /\bskipError:\s*['"`][^'"`]*Start\b/,
+  /\b隐藏侧栏里的 Start\b/,
+  /\b重新显示 Start\b/,
+  /\bStart could not be hidden\b/i,
+  /\b无法隐藏 Start\b/,
+]
+
+const START_NAV_LABEL_JARGON_PATTERNS = [
+  /^\s*start:\s*['"`]Start['"`]/,
+  /^\s*start:\s*['"`]开始['"`]/,
 ]
 
 const TASK_VIEW_LABEL_JARGON_PATTERNS = [/\bid:\s*['"`]3d['"`]\s*,\s*label:\s*['"`]3D['"`]/]
@@ -713,6 +738,12 @@ const TASK_RECOVERY_STATUS_DEAD_END_PATTERNS = [
   /\breview the failure\b/i,
   /\bread the failure\b/i,
   /\bTriage failure\b/,
+]
+
+const BEGINNER_SORTING_JARGON_PATTERNS = [
+  /\bInbox triage path\b/i,
+  /\bTriage Queue\b/,
+  /\bYou are a triage agent\b/i,
 ]
 
 const TASK_DETAIL_EMPTY_DEAD_END_PATTERNS = [
@@ -1597,6 +1628,12 @@ function hasAnalyticsGuidanceJargonCopy(relFile, line) {
   return ANALYTICS_GUIDANCE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAnalyticsEventLabelJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/analytics/AnalyticsDashboard.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ANALYTICS_EVENT_LABEL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasActivityFeedEmptyDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/feed/ActivityFeed.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -1757,6 +1794,18 @@ function hasLegalPrivacyEvidenceJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/shared/ui/legal/LegalPage.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return LEGAL_PRIVACY_EVIDENCE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasBeginnerSortingJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/inbox/InboxView.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentGroupsPanel.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return BEGINNER_SORTING_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasGettingStartedReviewEvidenceJargonCopy(relFile, line) {
@@ -2135,6 +2184,23 @@ function hasStartGuideFailureFirstCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return START_GUIDE_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasStartNavJargonCopy(relFile, lines, index, line) {
+  if (
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts') &&
+    !relFile.endsWith('src/app/layouts/sidebar/SidebarNav.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  const contextStart = Math.max(0, index - 8)
+  const context = lines.slice(contextStart, index + 1).join('\n')
+  const isNavLabel =
+    /\bnav:\s*\{/.test(context) &&
+    START_NAV_LABEL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+  return isNavLabel || START_NAV_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasTaskViewLabelJargonCopy(relFile, line) {
@@ -3142,6 +3208,15 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasAnalyticsEventLabelJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'analytics-event-label-copy',
+        location,
+        message: 'Analytics chart labels must say updates, not event activity.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasActivityFeedEmptyDeadEndCopy(relFile, line)) {
       findings.push({
         type: 'activity-feed-empty-copy',
@@ -3335,6 +3410,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Legal privacy copy must explain saved work and security records in beginner-readable language.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasBeginnerSortingJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'beginner-sorting-copy',
+        location,
+        message:
+          'Inbox and agent setup copy must describe sorting work in beginner-readable language.',
         sample: line.trim(),
       })
     }
@@ -3773,6 +3858,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Start and setup checklist errors must start with the next action, not the failure summary.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasStartNavJargonCopy(relFile, lines, index, line)) {
+      findings.push({
+        type: 'start-nav-copy',
+        location,
+        message:
+          'Start navigation copy must say setup checklist so beginners know this is a guide, not a launch button.',
         sample: line.trim(),
       })
     }

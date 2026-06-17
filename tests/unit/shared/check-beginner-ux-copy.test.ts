@@ -5707,6 +5707,48 @@ function nextStep() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags analytics chart labels that expose event wording', () => {
+    const cwd = fixture({
+      'src/app/features/analytics/AnalyticsDashboard.tsx': `
+function ActivityBarChart() {
+  return <div aria-label="Hourly event activity">{activeBar.value} events<span>{activePct}% of window</span><button aria-label={\`\${bar.label}: \${bar.value} events\`} /></div>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'analytics-event-label-copy',
+          sample: expect.stringContaining('Hourly event activity'),
+        }),
+        expect.objectContaining({
+          type: 'analytics-event-label-copy',
+          sample: expect.stringContaining('events'),
+        }),
+        expect.objectContaining({
+          type: 'analytics-event-label-copy',
+          sample: expect.stringContaining('of window'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts analytics chart labels that describe work updates', () => {
+    const cwd = fixture({
+      'src/app/features/analytics/AnalyticsDashboard.tsx': `
+function ActivityBarChart() {
+  return <div aria-label="Hourly work updates">{activeBar.value} updates<span>{activePct}% of shown hours</span><button aria-label={\`\${bar.label}: \${bar.value} updates\`} /></div>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags suggested saved-item preview copy that stops at no preview', () => {
     const cwd = fixture({
       'src/app/features/detail/ContextCandidatesList.tsx': `
@@ -6900,12 +6942,12 @@ function GettingStartedGuideRow() {
     )
   })
 
-  it('accepts Start and setup checklist errors that start with the next action', () => {
+  it('accepts setup checklist errors that start with the next action', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `
 export const en = {
   gettingStarted: {
-    skipError: 'Check your connection, then choose Skip again. Start could not be hidden.',
+    skipError: 'Check your connection, then choose Skip again. The setup checklist could not be hidden.',
   },
 }
 `,
@@ -6913,6 +6955,79 @@ export const en = {
 function GettingStartedGuideRow() {
   return 'Check your connection, then choose Show setup checklist again. The setup checklist could not be shown.'
 }
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags Start navigation copy that sounds like a launch button', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  nav: { start: 'Start' },
+  gettingStarted: {
+    skipHint: 'This only hides Start from the sidebar. You can show Start again from Settings.',
+    skipError: 'Check your connection, then choose Skip again. Start could not be hidden.',
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  nav: { start: '开始' },
+  gettingStarted: {
+    skipHint: '这只会隐藏侧栏里的 Start，也可以在设置里重新显示 Start。',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'start-nav-copy',
+          sample: expect.stringContaining("start: 'Start'"),
+        }),
+        expect.objectContaining({
+          type: 'start-nav-copy',
+          sample: expect.stringContaining('hides Start'),
+        }),
+        expect.objectContaining({
+          type: 'start-nav-copy',
+          sample: expect.stringContaining("start: '开始'"),
+        }),
+        expect.objectContaining({
+          type: 'start-nav-copy',
+          sample: expect.stringContaining('隐藏侧栏里的 Start'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts setup checklist navigation copy', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  nav: { start: 'Setup checklist' },
+  gettingStarted: {
+    skipHint: 'This only hides the setup checklist from the sidebar. You can show it again from Settings.',
+    skipError: 'Check your connection, then choose Skip again. The setup checklist could not be hidden.',
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  nav: { start: '设置清单' },
+  gettingStarted: {
+    skipHint: '这只会隐藏侧栏里的设置清单，也可以在设置里重新显示它。',
+  },
+}
+`,
+      'src/app/layouts/sidebar/SidebarNav.tsx': `
+const item = { description: 'follow the setup checklist' }
 `,
     })
 
@@ -8571,6 +8686,68 @@ function renderPrivacy() {
     '<li>To keep security history records for safety reviews and legal requirements</li>',
     '<li>The export includes change history and configuration settings</li>',
   ].join('')
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags inbox and agent setup copy that exposes triage jargon', () => {
+    const cwd = fixture({
+      'src/app/features/inbox/InboxView.tsx': `
+function renderInboxPath() {
+  return 'Inbox triage path'
+}
+`,
+      'src/app/features/agents/AgentConfigTab.tsx': `
+function promptTemplate() {
+  return 'You are a triage agent. Reproduce the reported behavior.'
+}
+`,
+      'src/app/features/agents/AgentGroupsPanel.tsx': `
+function groupTemplate() {
+  return 'Triage Queue'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'beginner-sorting-copy',
+          sample: expect.stringContaining('Inbox triage path'),
+        }),
+        expect.objectContaining({
+          type: 'beginner-sorting-copy',
+          sample: expect.stringContaining('triage agent'),
+        }),
+        expect.objectContaining({
+          type: 'beginner-sorting-copy',
+          sample: expect.stringContaining('Triage Queue'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts inbox and agent setup copy that describes sorting work plainly', () => {
+    const cwd = fixture({
+      'src/app/features/inbox/InboxView.tsx': `
+function renderInboxPath() {
+  return 'Inbox action order'
+}
+`,
+      'src/app/features/agents/AgentConfigTab.tsx': `
+function promptTemplate() {
+  return 'You help sort incoming work. Recreate the reported behavior.'
+}
+`,
+      'src/app/features/agents/AgentGroupsPanel.tsx': `
+function groupTemplate() {
+  return 'Intake Queue'
 }
 `,
     })

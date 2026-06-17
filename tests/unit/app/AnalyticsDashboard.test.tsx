@@ -204,9 +204,13 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
   test('shows the most-recent bar detail by default', () => {
     render(<AnalyticsDashboard />)
     const detail = screen.getByTestId('activity-chart-detail')
-    // Last bar: 13:00, 8 events
+    // Last bar: 13:00, 8 updates
     expect(detail.textContent).toContain('13:00')
-    expect(detail.textContent).toContain('8 events')
+    expect(detail.textContent).toContain('8 updates')
+    expect(screen.getByRole('group', { name: /hourly work updates/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /13:00: 8 updates/i })).toBeDefined()
+    expect(detail).not.toHaveTextContent(/events/i)
+    expect(screen.queryByRole('group', { name: /hourly event activity/i })).toBeNull()
     expect(screen.getByText('most recent')).toBeDefined()
   })
 
@@ -219,8 +223,9 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
 
     const detail = screen.getByTestId('activity-chart-detail')
     expect(detail.textContent).toContain('12:00')
-    expect(detail.textContent).toContain('20 events')
-    expect(screen.getByText(/47% of window/)).toBeDefined()
+    expect(detail.textContent).toContain('20 updates')
+    expect(screen.getByText(/47% of shown hours/)).toBeDefined()
+    expect(screen.queryByText(/47% of window/)).toBeNull()
   })
 
   test('restores most-recent label when mouse leaves the chart', () => {
