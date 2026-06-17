@@ -154,7 +154,7 @@ dependencies = [
  "hex",
  "humantime",
  "is-terminal",
- "jaq-core",
+ "jaq-core 3.1.0",
  "jaq-json",
  "jaq-std",
  "opentelemetry",
@@ -166,7 +166,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_norway",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "similar-asserts",
  "sqlx",
  "tabwriter",
@@ -3464,6 +3464,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "jaq-core"
+version = "3.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7561783b20275a6c9cb576e39208b0c635f34ef14357f1f05a2927a774f3adec"
+dependencies = [
+ "dyn-clone",
+ "once_cell",
+ "typed-arena",
+]
+
+[[package]]
 name = "jaq-json"
 version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3472,7 +3483,7 @@ dependencies = [
  "foldhash 0.1.5",
  "hifijson",
  "indexmap 2.14.0",
- "jaq-core",
+ "jaq-core 2.2.1",
  "jaq-std",
  "serde_json",
 ]
@@ -3486,7 +3497,7 @@ dependencies = [
  "aho-corasick",
  "base64 0.22.1",
  "chrono",
- "jaq-core",
+ "jaq-core 2.2.1",
  "libm",
  "log",
  "regex-lite",
