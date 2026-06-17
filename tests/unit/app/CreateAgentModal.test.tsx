@@ -67,16 +67,19 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText('Fills in the agent name')).toBeInTheDocument()
     expect(screen.getByText('Updates the work and checks it')).toBeInTheDocument()
     expect(screen.queryByText('Builds changes and checks them')).toBeNull()
-    expect(screen.getAllByText(/claude in a managed workspace/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/claude with project files/i).length).toBeGreaterThan(0)
     expect(screen.getByText('Project files included')).toBeInTheDocument()
-    expect(screen.getByText('Agent location')).toBeInTheDocument()
+    expect(screen.getAllByText('Where it works').length).toBeGreaterThan(0)
+    expect(screen.getByText('Forge project area')).toBeInTheDocument()
     expect(screen.getByText('Check Where agents run in Settings')).toBeInTheDocument()
     expect(screen.getByText('Can edit files')).toBeInTheDocument()
     expect(
       screen.getByText(
-        /not sure\? use managed workspace for project-file work, this computer when files must stay local, or simple chat agent after an AI service is ready/i
+        /not sure\? use managed workspace when the agent should edit project files, this computer when files must stay local, or simple chat agent after an AI service is ready/i
       )
     ).toBeInTheDocument()
+    expect(screen.queryByText(/ready workspace managed by forge/i)).toBeNull()
+    expect(screen.queryByText(/agent location/i)).toBeNull()
     expect(screen.queryByText(/workspace must be ready/i)).toBeNull()
     expect(screen.queryByText(/choose a runtime/i)).toBeNull()
     expect(screen.queryByText('File work')).toBeNull()
@@ -102,7 +105,7 @@ describe('CreateAgentModal', () => {
     expect(within(review).getByText('Before you create')).toBeInTheDocument()
     expect(within(review).getByText('Where it works')).toBeInTheDocument()
     expect(within(review).queryByText('Work style')).toBeNull()
-    expect(within(review).getByText(/claude in a managed workspace/i)).toBeInTheDocument()
+    expect(within(review).getByText(/claude with project files/i)).toBeInTheDocument()
     expect(within(review).getByText('Choose a project before assigning tasks.')).toBeInTheDocument()
     expect(within(review).queryByText('No project selected yet')).toBeNull()
     expect(
@@ -115,7 +118,7 @@ describe('CreateAgentModal', () => {
       within(review).queryByText('Start the agent, then send one small task from Tasks.')
     ).toBeNull()
     expect(
-      within(review).getByText('Forge starts it after the managed workspace is prepared.')
+      within(review).getByText('Forge starts it after the project file area is ready.')
     ).toBeInTheDocument()
     expect(screen.queryByLabelText(/^ai service$/i)).toBeNull()
     expect(screen.queryByLabelText(/^ai model$/i)).toBeNull()
@@ -199,7 +202,7 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByRole('option', { name: /^no task queue$/i })).toBeNull()
   })
 
-  test('submits selected project workspace as the execution boundary', async () => {
+  test('submits the selected project as the execution boundary', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
     useNavigationStore.setState({
@@ -351,7 +354,7 @@ describe('CreateAgentModal', () => {
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
 
     expect(screen.getByText('Fills in name and instructions')).toBeInTheDocument()
-    expect(screen.getAllByText(/anthropic simple chat agent/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/anthropic for chat and review/i).length).toBeGreaterThan(0)
     expect(screen.getByText(/questions, planning, writing, and review/i)).toBeInTheDocument()
     expect(screen.getByText(/does not open project files/i)).toBeInTheDocument()
     expect(screen.getByText('Check AI service in Settings')).toBeInTheDocument()
@@ -435,7 +438,7 @@ describe('CreateAgentModal', () => {
     fireEvent.change(screen.getByRole('combobox', { name: /^work tool$/i }), {
       target: { value: 'codex' },
     })
-    expect(screen.getAllByText(/codex in a managed workspace/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/codex with project files/i).length).toBeGreaterThan(0)
 
     fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
     expect(screen.getAllByText(/codex on this computer/i).length).toBeGreaterThan(0)
@@ -471,7 +474,7 @@ describe('CreateAgentModal', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getAllByText(/google simple chat agent/i).length).toBeGreaterThan(0)
+      expect(screen.getAllByText(/google for chat and review/i).length).toBeGreaterThan(0)
     })
     expect(screen.getByText('Chat-only AI service')).toBeInTheDocument()
     expect(screen.getByText('Check AI service in Settings')).toBeInTheDocument()

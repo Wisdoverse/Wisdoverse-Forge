@@ -85,8 +85,8 @@ export const zh: TranslationKeys = {
   // =========================================================================
   gettingStarted: {
     eyebrow: '首次使用',
-    title: '先按一条安全路径跑通',
-    description: '一次只做一步。先完成创建 Agent、发送任务、验收结果这条最小路径。',
+    title: '按清单安全设置第一个 Agent',
+    description: '一次只做一步。按这份设置清单创建 Agent、发送任务、验收结果。',
     skip: '跳过并打开任务',
     skipSaving: '正在跳过...',
     skipHint:
@@ -242,7 +242,7 @@ export const zh: TranslationKeys = {
     deleteAgent: '删除 Agent',
     noAgents: '还没有 Agent。先创建一个 Agent，再开始分配任务。',
     agentName: 'Agent 名称',
-    projectPath: '项目路径',
+    projectPath: '项目文件夹位置',
     workingDirectory: '工作目录',
     startAgent: '启动 Agent',
     stopAgent: '停止 Agent',
@@ -272,8 +272,8 @@ export const zh: TranslationKeys = {
     startNewAgent: '开始新 Agent',
     pickProject: '选择一个项目开始',
     tellClaude: '告诉 Claude 你要做什么',
-    searchProjects: '搜索项目或输入文件夹路径...',
-    enterFolderPath: '输入项目文件夹路径...',
+    searchProjects: '搜索项目或输入文件夹位置...',
+    enterFolderPath: '输入项目文件夹位置...',
     moreOptions: '更多选项',
     behavior: '行为设置',
     autoApprove: '自动批准操作',
@@ -286,7 +286,7 @@ export const zh: TranslationKeys = {
     agentDeleted: 'Agent 已删除',
     agentCreated: 'Agent 已创建',
     maxAgentsReached: 'Agent 数量已达上限。请先停止或删除不用的 Agent，然后重试。',
-    invalidProjectPath: '请输入项目文件夹路径，然后重试。',
+    invalidProjectPath: '请输入项目文件夹位置，然后重试。',
   },
 
   // =========================================================================

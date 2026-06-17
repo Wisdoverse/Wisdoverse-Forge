@@ -66,10 +66,14 @@ test.describe('First-use Start checklist', () => {
 
     const startPage = page.locator('[data-testid="page-start"]')
     await expect(startPage).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Start with one safe path' })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: 'Set up your first agent safely' })
+    ).toBeVisible()
     await expect(startPage.getByRole('heading', { name: /Workspace/i }).first()).toBeVisible()
     await expect(startPage.getByRole('heading', { name: /Agent/i }).first()).toBeVisible()
-    await expect(startPage.getByRole('heading', { name: /How agents can answer/i }).first()).toBeVisible()
+    await expect(
+      startPage.getByRole('heading', { name: /How agents can answer/i }).first()
+    ).toBeVisible()
     await expect(startPage.getByText('Wisdoverse Forge').first()).toBeVisible()
     await expect(startPage.getByText(/\d+ of \d+/).first()).toBeVisible()
   })

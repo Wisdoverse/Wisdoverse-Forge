@@ -38,7 +38,7 @@ function BillingNotConfigured() {
       </p>
       <div className="mt-2 max-w-sm text-left">
         <p className="text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
-          Billing setup path
+          Billing setup steps
         </p>
         <ol className="mt-2 list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
           {BILLING_SETUP_STEPS.map((step) => (

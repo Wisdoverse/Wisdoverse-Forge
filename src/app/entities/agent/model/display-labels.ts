@@ -43,7 +43,7 @@ export function agentAiServiceLabel(provider?: string | null): string {
 
 export function agentRuntimeLabel(agent: AgentInfo): string {
   if (agent.runtimeKind === 'cli') return `${agentToolLabel(agent.cliTool)} on this computer`
-  if (agent.cliTool) return `${agentToolLabel(agent.cliTool)} in a managed workspace`
+  if (agent.cliTool) return `${agentToolLabel(agent.cliTool)} with project files`
   return agentAiServiceLabel(agent.provider)
 }
 

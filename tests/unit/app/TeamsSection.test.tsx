@@ -125,7 +125,7 @@ describe('TeamsSection', () => {
     await waitFor(() => expect(getTeams).toHaveBeenCalledWith('org-1'))
     fireEvent.click(screen.getByRole('button', { name: 'Create first team' }))
 
-    expect(screen.getByText('Team setup path')).toBeDefined()
+    expect(screen.getByText('Team creation steps')).toBeDefined()
     expect(screen.getByLabelText(/team name/i)).toHaveFocus()
   })
 })

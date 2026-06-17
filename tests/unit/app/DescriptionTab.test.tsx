@@ -184,10 +184,16 @@ describe('DescriptionTab', () => {
       )
     ).toBeDefined()
     expect(
+      screen.getByText(
+        'The save-for-next-time option becomes available once useful work is completed.'
+      )
+    ).toBeDefined()
+    expect(
       screen.queryByText(
         'Saved notes, run details, and save-for-next-time ideas appear here as the task runs.'
       )
     ).toBeNull()
+    expect(screen.queryByText(/save-for-next-time path/i)).toBeNull()
     expect(screen.queryByText(/after the run finishes/i)).toBeNull()
     expect(screen.queryByText(/next run for this task/i)).toBeNull()
     expect(screen.queryByText(new RegExp(['Saved', 'memories'].join('\\s+'), 'i'))).toBeNull()

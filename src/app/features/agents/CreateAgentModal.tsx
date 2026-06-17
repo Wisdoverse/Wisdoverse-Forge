@@ -164,10 +164,10 @@ function runtimeFitFor(
 ): RuntimeFitSummary {
   if (kind === 'cli') {
     return {
-      title: `${cliToolLabel(cliTool)} in a managed workspace`,
+      title: `${cliToolLabel(cliTool)} with project files`,
       detail: 'Best when the task needs project files or work tools prepared by Forge.',
       items: [
-        { label: 'Agent location', value: 'Managed workspace' },
+        { label: 'Where it works', value: 'Forge project area' },
         { label: 'Files', value: 'Project files included' },
         { label: 'Before use', value: 'Check Where agents run in Settings' },
       ],
@@ -180,7 +180,7 @@ function runtimeFitFor(
       detail:
         'Best when files or tools must stay on this computer. After setup, Forge still manages this agent here: tasks, status, and task history.',
       items: [
-        { label: 'Agent location', value: 'This computer' },
+        { label: 'Where it works', value: 'This computer' },
         { label: 'Files', value: 'Your chosen folder' },
         { label: 'Before use', value: 'Paste setup text on this computer' },
       ],
@@ -188,10 +188,10 @@ function runtimeFitFor(
   }
 
   return {
-    title: `${providerLabel} simple chat agent`,
+    title: `${providerLabel} for chat and review`,
     detail: 'Best for questions, planning, writing, and review that do not need project files.',
     items: [
-      { label: 'Agent location', value: 'Chat-only AI service' },
+      { label: 'Where it works', value: 'Chat-only AI service' },
       { label: 'Files', value: 'Does not open project files' },
       { label: 'Before use', value: 'Check AI service in Settings' },
     ],
@@ -234,7 +234,7 @@ function createReviewItems({
       ? 'Forge creates the agent, then shows setup steps for this computer.'
       : kind === 'provider'
         ? 'Ready for chat and review after the AI service is connected.'
-        : 'Forge starts it after the managed workspace is prepared.'
+        : 'Forge starts it after the project file area is ready.'
 
   const taskQueue = selectedGroupName
     ? selectedGroupName
@@ -943,14 +943,15 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {kind === 'cli'
-                  ? 'Uses a ready workspace managed by Forge for file and command work.'
+                  ? 'Forge prepares a safe project area for file and command work.'
                   : kind === 'local-cli'
                     ? 'Uses files and commands on your computer. Forge still manages the agent here with tasks, status, and history.'
                     : 'Uses a connected AI service for planning, writing, and review. It does not open files or run commands.'}
               </p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Not sure? Use Managed workspace for project-file work, This computer when files must
-                stay local, or Simple chat agent after an AI service is ready.
+                Not sure? Use Managed workspace when the agent should edit project files, This
+                computer when files must stay local, or Simple chat agent after an AI service is
+                ready.
               </p>
             </div>
 
@@ -1006,7 +1007,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 {selectedProject
                   ? kind === 'local-cli'
                     ? 'Project ready. Tasks default to this project. File access stays on the joined computer.'
-                    : 'Project ready. Tasks default to this project. Forge prepares this project workspace for the agent.'
+                    : 'Project ready. Tasks default to this project. Forge prepares this project area for the agent.'
                   : 'Open project settings to create or choose a project before assigning tasks. The agent can still be created first.'}
               </p>
               {!selectedProject && onOpenProjectsSetup ? (

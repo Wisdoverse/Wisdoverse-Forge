@@ -377,7 +377,7 @@ function CliRuntimeConfig({ agent }: { agent: AgentInfo }) {
               ? agent.runtimeId
                 ? 'Connected from this computer'
                 : 'Open setup again for this computer'
-              : 'Ready in managed workspace'
+              : 'Ready with project files'
           }
         />
         <RuntimeRow

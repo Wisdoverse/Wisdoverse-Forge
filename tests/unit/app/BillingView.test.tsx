@@ -34,7 +34,7 @@ describe('Billing views', () => {
     expect(
       screen.getByText(/connect billing before changing plans or payment methods/i)
     ).toBeDefined()
-    expect(screen.getByText('Billing setup path')).toBeDefined()
+    expect(screen.getByText('Billing setup steps')).toBeDefined()
   })
 
   test('guides users when there are no invoices yet', () => {

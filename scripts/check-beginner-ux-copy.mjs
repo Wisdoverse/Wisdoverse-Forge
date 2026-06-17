@@ -228,6 +228,9 @@ const BILLING_CHECKPOINT_DEAD_END_PATTERNS = [/\bNo invoices yet\b/i]
 const BILLING_USAGE_DEAD_END_PATTERNS = [/\bNo usage reported yet\b/i, /\busage areas shown\b/i]
 
 const BILLING_USAGE_AUDIT_JARGON_PATTERNS = [/\baudit records?\b/i]
+const BILLING_USAGE_EVENT_JARGON_PATTERNS = [/\bActivity events\b/i]
+
+const BILLING_SETUP_JARGON_PATTERNS = [/\bBilling setup path\b/i]
 
 const BILLING_RECEIPT_LINK_DEAD_END_PATTERNS = [/\bNo link\b/i]
 
@@ -397,6 +400,10 @@ const SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS = [
   /\bKeeps accounts,\s*tasks,\s*runs,\s*evidence,\s*and settings available\b/i,
 ]
 
+const SYSTEM_HEALTH_LIVE_UPDATE_JARGON_PATTERNS = [/\bMoves events from running agents\b/i]
+
+const CODE_ACCESS_KEY_JARGON_PATTERNS = [/\bPaste the key from GitHub or GitLab\b/i]
+
 const ACCESS_KEY_LAST_USED_DEAD_END_PATTERNS = [/\bNot used yet\b/i]
 
 const DATE_FALLBACK_DEAD_END_PATTERNS = [
@@ -447,6 +454,14 @@ const START_NAV_JARGON_PATTERNS = [
 const START_NAV_LABEL_JARGON_PATTERNS = [
   /^\s*start:\s*['"`]Start['"`]/,
   /^\s*start:\s*['"`]开始['"`]/,
+]
+
+const START_GUIDE_PATH_JARGON_PATTERNS = [
+  /\bStart with one safe path\b/i,
+  /\bFinish this path\b/i,
+  /\bsafe path\b/i,
+  /安全路径/,
+  /最小路径/,
 ]
 
 const TASK_VIEW_LABEL_JARGON_PATTERNS = [/\bid:\s*['"`]3d['"`]\s*,\s*label:\s*['"`]3D['"`]/]
@@ -728,6 +743,8 @@ const TASK_COMPLETION_SUMMARY_DEAD_END_PATTERNS = [/\bNo completion summary was 
 
 const TASK_OWNER_INPUT_JARGON_PATTERNS = [/\bneeds owner input\b/i]
 
+const TASK_REUSE_PATH_JARGON_PATTERNS = [/\bsave-for-next-time path\b/i]
+
 const TASK_RECOVERY_STATUS_DEAD_END_PATTERNS = [
   /\bfailed:\s*['"`]Needs review['"`]/,
   /\bfailed:\s*['"`]Stopped with an error['"`]/,
@@ -737,6 +754,7 @@ const TASK_RECOVERY_STATUS_DEAD_END_PATTERNS = [
   /\bfix the error\b/i,
   /\breview the failure\b/i,
   /\bread the failure\b/i,
+  /\bretry paths?\b/i,
   /\bTriage failure\b/,
 ]
 
@@ -1114,6 +1132,12 @@ const PROJECT_CREATE_OVERVIEW_JARGON_PATTERNS = [
   /\breceive tasks and evidence\b/i,
 ]
 
+const TEAM_PROJECT_CREATE_JARGON_PATTERNS = [
+  /\b(?:Team|Project) setup path\b/i,
+  /\bAddress preview:/i,
+  /\bWork folder preview:/i,
+]
+
 const CLONE_RETRY_FAILURE_FIRST_PATTERNS = [
   /\bYou do not have permission to copy code into this project\. Ask an owner or admin to let you try again\./i,
   /\bThis project could not be found\. Refresh Projects, then try copying code again from the current project row\./i,
@@ -1163,6 +1187,26 @@ const CREATE_AGENT_WORK_STYLE_JARGON_PATTERNS = [
 const CREATE_AGENT_PROJECT_JARGON_PATTERNS = [
   /\bPrimary Project\b/,
   /\blabel:\s*['"`]Primary project['"`]/,
+]
+
+const CREATE_AGENT_WORK_AREA_JARGON_PATTERNS = [
+  /\bAgent location\b/,
+  /\bready workspace managed by Forge\b/i,
+  /\bproject workspace\b/i,
+]
+
+const AGENT_PROJECT_LOCATION_JARGON_PATTERNS = [
+  /\bprojectPath:\s*['"`]Project Path['"`]/,
+  /\b(?:searchProjects|enterFolderPath|invalidProjectPath):\s*['"`][^'"`]*(?:folder|project folder) path/i,
+  /\bprojectPath:\s*['"`]项目路径['"`]/,
+  /(?:searchProjects|enterFolderPath|invalidProjectPath):\s*['"`][^'"`]*文件夹路径/,
+]
+
+const AGENT_WORK_AREA_DISPLAY_JARGON_PATTERNS = [
+  /\bin a managed workspace\b/i,
+  /\bReady in managed workspace\b/i,
+  /\bForge-managed project workspace\b/i,
+  /\bWorkspace project folder\b/i,
 ]
 
 const PROJECT_SHARE_ROLE_JARGON_PATTERNS = [/\bInvite people and choose roles\b/i]
@@ -1575,6 +1619,18 @@ function hasBillingUsageAuditJargonCopy(relFile, line) {
   return BILLING_USAGE_AUDIT_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasBillingUsageEventJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/billing/UsageMeter.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return BILLING_USAGE_EVENT_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasBillingSetupJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/billing/BillingPage.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return BILLING_SETUP_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasBillingReceiptLinkDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/billing/InvoiceList.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -1924,6 +1980,17 @@ function hasProjectCreateOverviewJargonCopy(relFile, line) {
   return PROJECT_CREATE_OVERVIEW_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTeamProjectCreateJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/manage-team/ui/CreateTeamForm.tsx') &&
+    !relFile.endsWith('src/app/features/manage-project/ui/CreateProjectForm.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TEAM_PROJECT_CREATE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasCloneRetryFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/manage-project/ui/CloneStatusBadge.tsx')) {
     return false
@@ -1980,6 +2047,36 @@ function hasCreateAgentProjectJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return CREATE_AGENT_PROJECT_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasCreateAgentWorkAreaJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CREATE_AGENT_WORK_AREA_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentProjectLocationJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_PROJECT_LOCATION_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentWorkAreaDisplayJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/entities/agent/model/display-labels.ts') &&
+    !relFile.endsWith('src/app/features/agents/AgentKindBadge.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx') &&
+    !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_WORK_AREA_DISPLAY_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentModelDeadEndCopy(relFile, line) {
@@ -2115,6 +2212,12 @@ function hasSystemHealthStatusDeadEndCopy(relFile, line) {
   return SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasSystemHealthLiveUpdateJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/admin/SystemHealth.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SYSTEM_HEALTH_LIVE_UPDATE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasSystemHealthErrorFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/admin/systemHealthErrorMessage.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -2125,6 +2228,12 @@ function hasAccessKeyLastUsedDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/settings/KeysSection.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return ACCESS_KEY_LAST_USED_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasCodeAccessKeyJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/settings/GitCredentialsSection.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CODE_ACCESS_KEY_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasDateFallbackDeadEndCopy(relFile, line) {
@@ -2201,6 +2310,17 @@ function hasStartNavJargonCopy(relFile, lines, index, line) {
     /\bnav:\s*\{/.test(context) &&
     START_NAV_LABEL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
   return isNavLabel || START_NAV_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasStartGuidePathJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return START_GUIDE_PATH_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasTaskViewLabelJargonCopy(relFile, line) {
@@ -2530,6 +2650,12 @@ function hasTaskOwnerInputJargonCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return TASK_OWNER_INPUT_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasTaskReusePathJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/detail/DescriptionTab.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_REUSE_PATH_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasTaskRecoveryStatusDeadEndCopy(relFile, line) {
@@ -3134,6 +3260,24 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasBillingUsageEventJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'billing-usage-event-copy',
+        location,
+        message: 'Billing usage labels must say work update history instead of activity events.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasBillingSetupJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'billing-setup-copy',
+        location,
+        message: 'Billing setup copy must say setup steps instead of setup path.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasBillingReceiptLinkDeadEndCopy(relFile, line)) {
       findings.push({
         type: 'billing-receipt-link-copy',
@@ -3534,6 +3678,16 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasTeamProjectCreateJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'team-project-create-copy',
+        location,
+        message:
+          'Team and project creation forms must say creation steps and short name instead of setup path or address preview.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasCloneRetryFailureFirstCopy(relFile, line)) {
       findings.push({
         type: 'clone-retry-error-copy',
@@ -3604,6 +3758,36 @@ function scanFile(file, relFile) {
         location,
         message:
           'Create agent setup must explain which project new tasks use without primary-project jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCreateAgentWorkAreaJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'create-agent-work-area-copy',
+        location,
+        message:
+          'Create agent setup must explain the project area in beginner-facing words, not workspace internals.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentProjectLocationJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-project-location-copy',
+        location,
+        message:
+          'Agent project folder copy must say folder location instead of path for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentWorkAreaDisplayJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-work-area-display-copy',
+        location,
+        message:
+          'Agent display copy must explain project files and project area instead of managed-workspace internals.',
         sample: line.trim(),
       })
     }
@@ -3787,6 +3971,15 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasSystemHealthLiveUpdateJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'system-health-live-update-copy',
+        location,
+        message: 'App health live-update copy must say progress instead of events.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasSystemHealthErrorFailureFirstCopy(relFile, line)) {
       findings.push({
         type: 'system-health-error-copy',
@@ -3801,6 +3994,16 @@ function scanFile(file, relFile) {
         type: 'access-key-last-used-copy',
         location,
         message: 'Outside tool access copy must explain that a trusted tool uses the key first.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCodeAccessKeyJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'code-access-key-copy',
+        location,
+        message:
+          'Code access setup must name the code access key before provider-specific token wording.',
         sample: line.trim(),
       })
     }
@@ -3868,6 +4071,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Start navigation copy must say setup checklist so beginners know this is a guide, not a launch button.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasStartGuidePathJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'start-guide-path-copy',
+        location,
+        message: 'First-run guide copy must say setup checklist instead of path.',
         sample: line.trim(),
       })
     }
@@ -4188,6 +4400,15 @@ function scanFile(file, relFile) {
         type: 'task-owner-input-copy',
         location,
         message: 'Task owner guidance must ask for the user answer, not owner-input jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskReusePathJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'task-reuse-path-copy',
+        location,
+        message: 'Task reuse copy must say option instead of path.',
         sample: line.trim(),
       })
     }
