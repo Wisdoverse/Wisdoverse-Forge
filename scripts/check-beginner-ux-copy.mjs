@@ -949,6 +949,13 @@ const AUTH_FAILURE_FIRST_PATTERNS = [
 
 const AUTH_INTRO_JARGON_PATTERNS = [/\bSign in to manage\b.*\bevidence\b/i]
 
+const GETTING_STARTED_REVIEW_EVIDENCE_JARGON_PATTERNS = [
+  /\breturned useful work and evidence\b/i,
+  /\bcompleted output or attached evidence\b/i,
+  /有用输出和证据/,
+  /输出或证据/,
+]
+
 const AUTH_MANAGER_DEAD_END_PATTERNS = [
   /\bLogin failed\b/,
   /\bRegistration failed\b/,
@@ -1682,6 +1689,17 @@ function hasAuthIntroJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/auth/AuthPage.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return AUTH_INTRO_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasGettingStartedReviewEvidenceJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return GETTING_STARTED_REVIEW_EVIDENCE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAuthManagerDeadEndCopy(relFile, line) {
@@ -3189,6 +3207,15 @@ function scanFile(file, relFile) {
         type: 'auth-intro-copy',
         location,
         message: 'Sign-in orientation must describe saved work records, not evidence.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasGettingStartedReviewEvidenceJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'getting-started-review-copy',
+        location,
+        message: 'Getting Started review copy must describe output and result files plainly.',
         sample: line.trim(),
       })
     }

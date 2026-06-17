@@ -180,8 +180,8 @@ export const en = {
         empty: 'Assigned task output will appear in the detail panel.',
         inFlight: 'A task is assigned. Review progress from the board.',
         ready: '{{count}} completed task ready for acceptance.',
-        why: 'Reviewing the result confirms the agent returned useful work and evidence.',
-        success: 'A task has completed output or attached evidence.',
+        why: 'Reviewing the result confirms the agent returned useful output you can trust.',
+        success: 'A task has completed output or result files you can open.',
         open: 'Review work',
       },
       reuse: {
