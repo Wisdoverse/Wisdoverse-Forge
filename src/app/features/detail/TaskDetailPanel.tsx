@@ -76,6 +76,8 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
       (task.state === 'blocked' && task.blockedReason === 'waiting_agent'))
   const canRetry = task.state === 'failed' || task.state === 'canceled'
   const canApprove = task.state === 'blocked' && task.blockedReason === 'waiting_approval'
+  const recoveryGuidance = taskRecoveryGuidance(canRetry, canApprove)
+  const liveActionGuidance = taskLiveActionGuidance(task.state)
 
   useEffect(() => {
     if (!canAssign) return
@@ -336,6 +338,17 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
           data-testid="task-recovery-actions"
           className="space-y-2 pt-3 border-t border-black/[0.04] dark:border-white/[0.04]"
         >
+          {recoveryGuidance && (
+            <div
+              data-testid="task-recovery-guidance"
+              className="rounded-lg bg-apple-blue/10 px-3 py-2 text-xs text-foreground-light dark:text-foreground-dark"
+            >
+              <p className="font-semibold">{recoveryGuidance.title}</p>
+              <p className="mt-0.5 leading-relaxed text-secondary-light dark:text-secondary-dark">
+                {recoveryGuidance.detail}
+              </p>
+            </div>
+          )}
           {recoveryError && (
             <div className="rounded-lg bg-apple-red/10 px-3 py-2 text-xs text-apple-red">
               {recoveryError}
@@ -378,6 +391,17 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
 
       {showActions && (
         <div className="space-y-2 pt-3 border-t border-black/[0.04] dark:border-white/[0.04]">
+          {liveActionGuidance && (
+            <div
+              data-testid="task-live-action-guidance"
+              className="rounded-lg bg-apple-orange/10 px-3 py-2 text-xs text-foreground-light dark:text-foreground-dark"
+            >
+              <p className="font-semibold">{liveActionGuidance.title}</p>
+              <p className="mt-0.5 leading-relaxed text-secondary-light dark:text-secondary-dark">
+                {liveActionGuidance.detail}
+              </p>
+            </div>
+          )}
           {taskActionError && (
             <div
               role="alert"
@@ -490,6 +514,47 @@ function resultFileKindLabel(mimeType: string): string {
   if (normalized.startsWith('image/')) return 'Image result'
   if (normalized === 'application/pdf') return 'PDF result'
   return 'Result file'
+}
+
+function taskRecoveryGuidance(
+  canRetry: boolean,
+  canApprove: boolean
+): { title: string; detail: string } | null {
+  if (canRetry) {
+    return {
+      title: 'Try the task again when the request is still useful',
+      detail:
+        'Use Retry task after checking the brief. The task goes back to the queue so an agent can make another attempt.',
+    }
+  }
+  if (canApprove) {
+    return {
+      title: 'Let the task continue when it has what it needs',
+      detail:
+        'Check the request first. Then use the green button to return the task to the queue for an agent to continue.',
+    }
+  }
+  return null
+}
+
+function taskLiveActionGuidance(
+  state: TaskSummary['state']
+): { title: string; detail: string } | null {
+  if (state === 'working') {
+    return {
+      title: 'Need to pause or stop this work?',
+      detail:
+        'Use Needs help when the agent needs your input. Use Cancel only when this task should stop.',
+    }
+  }
+  if (state === 'queued') {
+    return {
+      title: 'Need to change this waiting task?',
+      detail:
+        'Use Needs help when something is missing. Use Cancel only if this task should not run.',
+    }
+  }
+  return null
 }
 
 function ResultReviewGuide({ task, artifactCount }: { task: TaskSummary; artifactCount: number }) {

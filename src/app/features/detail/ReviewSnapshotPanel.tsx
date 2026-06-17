@@ -16,6 +16,7 @@ import {
   type TaskSummary,
 } from '@app/shared/api/orchestration'
 import { useBoardStore } from '@app/shared/model/board.store'
+import { reviewSnapshotErrorMessage } from './model/reviewSnapshotErrorMessage'
 
 interface ReviewSnapshotPanelProps {
   task: TaskSummary
@@ -26,15 +27,16 @@ const STATUS_LABEL: Record<SelfFixReviewStatus, string> = {
   approved: 'Approved',
   changes_requested: 'Changes requested',
   merged: 'Merged',
-  sensitive_blocked: 'Sensitive — blocked',
+  sensitive_blocked: 'Needs maintainer review',
 }
 
 /**
- * Self-fix draft-PR review surface (plan milestone 9). Fetches the server-side
- * review snapshot and lets an operator approve→merge. Approve is enabled ONLY
- * when `checksGreen && !sensitive && reviewStatus !== 'merged'`; both gating
- * facts are computed server-side, so disabling here is defense-in-depth, not the
- * security boundary. Errors are surfaced in a banner — never swallowed.
+ * Pull request review surface (plan milestone 9). Fetches the server-side
+ * review state and lets an operator approve and merge. Approve is enabled ONLY
+ * when a pull request exists and `checksGreen && !sensitive &&
+ * reviewStatus !== 'merged'`; the merge decision still lives server-side, so
+ * disabling here is defense-in-depth, not the security boundary. Errors are
+ * surfaced in a banner — never swallowed.
  */
 export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
   const upsertTask = useBoardStore((state) => state.upsertTask)
@@ -43,11 +45,11 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
   const [error, setError] = useState<string | null>(null)
   const [approving, setApproving] = useState(false)
 
-  // Load the review snapshot on mount AND whenever the task's review status
+  // Load the pull request review on mount AND whenever the task's review status
   // changes. A server-side transition (another operator's approve→merge, and
   // once the loop wires it, a PR-open) is broadcast as an
   // `orchestration:task_update` frame → board upsert → this task prop. Keying
-  // the fetch on `task.reviewStatus` re-pulls the FULL snapshot on that real
+  // the fetch on `task.reviewStatus` re-pulls the full snapshot on that real
   // transition, so `checksGreen`/`sensitive`/`prNumber` stay consistent with
   // the new status instead of going stale. This is NOT a fetch-on-every-render
   // loop: status transitions are rare and the effect ignores all other task
@@ -63,7 +65,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
         if (!cancelled) setReview(snapshot)
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load review')
+        if (!cancelled) setError(reviewSnapshotErrorMessage('load', err))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -79,14 +81,14 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
     try {
       setReview(await orchestrationApi.getSelfFixReview(task.id))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load review')
+      setError(reviewSnapshotErrorMessage('load', err))
     } finally {
       setLoading(false)
     }
   }
 
   async function approve() {
-    if (!review) return
+    if (!review || !review.prNumber || !review.prUrl) return
     setApproving(true)
     setError(null)
     try {
@@ -94,20 +96,22 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
       setReview({ ...review, reviewStatus })
       upsertTask({ ...task, reviewStatus })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Approve failed')
+      setError(reviewSnapshotErrorMessage('approve', err))
     } finally {
       setApproving(false)
     }
   }
 
   const merged = review?.reviewStatus === 'merged'
-  const approveDisabled = !review || !review.checksGreen || review.sensitive || merged || approving
+  const hasPullRequest = Boolean(review?.prNumber && review.prUrl)
+  const approveDisabled =
+    !review || !hasPullRequest || !review.checksGreen || review.sensitive || merged || approving
 
   return (
     <div className="py-3 space-y-3" data-testid="review-snapshot-panel">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-medium uppercase text-secondary-light dark:text-secondary-dark">
-          Self-fix review
+          Pull request review
         </span>
         <button
           onClick={refresh}
@@ -116,7 +120,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
             'flex items-center gap-1 text-[10px] text-secondary-light dark:text-secondary-dark',
             'hover:text-foreground-light dark:hover:text-foreground-dark transition-colors disabled:opacity-50'
           )}
-          aria-label="Refresh review snapshot"
+          aria-label="Refresh pull request review"
         >
           <RefreshCw size={11} className={loading ? 'animate-spin' : undefined} />
           Refresh
@@ -137,7 +141,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
       ) : review ? (
         <div className="rounded-lg border border-black/[0.06] bg-white p-3 dark:border-white/[0.08] dark:bg-white/[0.04] space-y-3">
           {/* PR linkage */}
-          {review.prNumber ? (
+          {hasPullRequest ? (
             <a
               href={review.prUrl}
               target="_blank"
@@ -150,7 +154,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
             </a>
           ) : (
             <p className="text-xs text-secondary-light dark:text-secondary-dark">
-              No pull request has been opened for this task yet.
+              No pull request has been opened for this task yet. Refresh after the agent opens one.
             </p>
           )}
 
@@ -166,15 +170,17 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
                 <XCircle size={13} className="text-secondary-light dark:text-secondary-dark" />
               )}
               <span className="text-foreground-light dark:text-foreground-dark">
-                {review.checksGreen ? 'CI checks passing' : 'CI checks not confirmed green'}
+                {review.checksGreen
+                  ? 'Pull request checks passing'
+                  : 'Pull request checks not ready'}
               </span>
             </div>
             {review.sensitive && (
               <div className="flex items-start gap-1.5 text-apple-red">
                 <ShieldAlert size={13} className="mt-px shrink-0" />
                 <span>
-                  Touches a sensitive path — in-platform merge is blocked. A maintainer must review
-                  and merge it manually.
+                  This pull request changes protected files. A maintainer must review and merge it
+                  manually.
                 </span>
               </div>
             )}
@@ -187,7 +193,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-[11px] text-secondary-light dark:text-secondary-dark hover:text-apple-blue transition-colors"
             >
-              Review file diff
+              Review changed files
               <ExternalLink size={10} />
             </a>
           )}
@@ -206,11 +212,18 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
               )}
             >
               {approving && <Loader2 size={13} className="animate-spin" />}
-              {merged ? 'Merged' : approving ? 'Approving…' : 'Approve & merge'}
+              {merged ? 'Merged' : approving ? 'Approving…' : 'Approve and merge'}
             </button>
-            {!merged && !review.checksGreen && !review.sensitive && (
+            {!merged && !hasPullRequest && (
               <p className="mt-1.5 text-[10px] text-secondary-light dark:text-secondary-dark">
-                Approve unlocks once CI is confirmed green. Use Refresh after checks finish.
+                Approve unlocks after a pull request is available. Use Refresh after the agent opens
+                one.
+              </p>
+            )}
+            {!merged && hasPullRequest && !review.checksGreen && !review.sensitive && (
+              <p className="mt-1.5 text-[10px] text-secondary-light dark:text-secondary-dark">
+                Approve unlocks once pull request checks are green. Use Refresh after checks
+                finish.
               </p>
             )}
           </div>

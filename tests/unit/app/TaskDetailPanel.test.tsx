@@ -181,9 +181,26 @@ describe('TaskDetailPanel', () => {
 
   test('has action buttons for working tasks', () => {
     render(<TaskDetailPanel task={mockTask} onClose={() => {}} />)
+    expect(screen.getByTestId('task-live-action-guidance')).toHaveTextContent(
+      'Need to pause or stop this work?'
+    )
+    expect(screen.getByTestId('task-live-action-guidance')).toHaveTextContent(
+      'Use Needs help when the agent needs your input.'
+    )
     expect(screen.getByText('Needs help')).toBeDefined()
     expect(screen.queryByRole('button', { name: /^block$/i })).toBeNull()
     expect(screen.getByText('Cancel')).toBeDefined()
+  })
+
+  test('explains actions for queued tasks before stopping them', () => {
+    render(<TaskDetailPanel task={{ ...mockTask, state: 'queued' }} onClose={() => {}} />)
+
+    expect(screen.getByTestId('task-live-action-guidance')).toHaveTextContent(
+      'Need to change this waiting task?'
+    )
+    expect(screen.getByTestId('task-live-action-guidance')).toHaveTextContent(
+      'Use Cancel only if this task should not run.'
+    )
   })
 
   test('blocks working tasks and updates the board store', async () => {
@@ -281,6 +298,12 @@ describe('TaskDetailPanel', () => {
     )
 
     expect(screen.getByTestId('task-recovery-actions')).toBeDefined()
+    expect(screen.getByTestId('task-recovery-guidance')).toHaveTextContent(
+      'Try the task again when the request is still useful'
+    )
+    expect(screen.getByTestId('task-recovery-guidance')).toHaveTextContent(
+      'goes back to the queue'
+    )
     await userEvent.setup().click(screen.getByRole('button', { name: /retry task/i }))
 
     await waitFor(() => expect(orchestrationApiMock.retryTask).toHaveBeenCalledWith('task-1'))
@@ -345,6 +368,12 @@ describe('TaskDetailPanel', () => {
       />
     )
 
+    expect(screen.getByTestId('task-recovery-guidance')).toHaveTextContent(
+      'Let the task continue when it has what it needs'
+    )
+    expect(screen.getByTestId('task-recovery-guidance')).toHaveTextContent(
+      'return the task to the queue'
+    )
     await userEvent.setup().click(screen.getByRole('button', { name: /approve and continue/i }))
 
     await waitFor(() => expect(orchestrationApiMock.approveTask).toHaveBeenCalledWith('task-1'))
