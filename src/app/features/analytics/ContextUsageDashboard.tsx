@@ -12,7 +12,7 @@ const percent = (value: number): string => `${Math.round(value * 100)}%`
 
 const RUNTIME_LABELS: Record<string, string> = {
   api: 'Chat-only AI service',
-  container: 'Managed workspace',
+  container: 'Project files',
   provider: 'Chat-only AI service',
   local: 'This computer',
   cli: 'This computer',

@@ -141,13 +141,14 @@ describe('RuntimeSection', () => {
     ).toBeGreaterThan(0)
     expect(
       screen.getByText(
-        'Managed workspace is the simplest choice. Choose This computer only when this machine should join the workspace as a managed agent.'
+        'Choose Project files for the simplest shared file work. Choose This computer only when this machine should join as an agent.'
       )
     ).toBeDefined()
     expect(screen.queryByText(new RegExp(['unless', 'owner', 'tells'].join('.*'), 'i'))).toBeNull()
     expect(screen.getAllByText(/work tool setup/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/tool install status/i)).toBeNull()
-    expect(screen.getAllByText('Managed workspace').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Project files').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Managed workspace')).toBeNull()
     expect(screen.getAllByText('Chat-only AI service').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Codex').length).toBeGreaterThan(0)
     expect(screen.queryByText(/command window/i)).toBeNull()

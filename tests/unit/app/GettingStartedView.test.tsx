@@ -276,7 +276,8 @@ describe('GettingStartedView', () => {
 
     expect(await screen.findByTestId('page-start')).toBeDefined()
     expect(screen.getAllByText('Launch Project').length).toBeGreaterThan(0)
-    expect(screen.getByText(/managed workspace is ready for agent work/i)).toBeDefined()
+    expect(screen.getByText(/Project files option is ready for agent work/i)).toBeDefined()
+    expect(screen.queryByText(/managed workspace is ready for agent work/i)).toBeNull()
     expect(screen.getByText('Model Service')).toBeDefined()
     expect(screen.getByText('Starter Agent')).toBeDefined()
     expect(await screen.findByText('100%')).toBeDefined()

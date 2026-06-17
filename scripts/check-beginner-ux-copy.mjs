@@ -1210,6 +1210,7 @@ const AGENT_WORK_AREA_DISPLAY_JARGON_PATTERNS = [
   /\bmanaged workspace setup\b/i,
   /\bForge-managed project workspace\b/i,
   /\bWorkspace project folder\b/i,
+  /托管工作区/,
 ]
 
 const AGENT_FILE_WORK_CONTROL_JARGON_PATTERNS = [
@@ -2086,13 +2087,20 @@ function hasAgentWorkAreaDisplayJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/entities/agent/model/display-labels.ts') &&
     !relFile.endsWith('src/app/entities/agent/model/runtime-kind.ts') &&
+    !relFile.endsWith('src/app/entities/context/ui/InjectionPreviewModal.tsx') &&
     !relFile.endsWith('src/app/features/admin/AgentsPanel.tsx') &&
     !relFile.endsWith('src/app/features/admin/SystemHealth.tsx') &&
+    !relFile.endsWith('src/app/features/analytics/ContextUsageDashboard.tsx') &&
     !relFile.endsWith('src/app/features/agents/AgentCard.tsx') &&
     !relFile.endsWith('src/app/features/agents/AgentListView.tsx') &&
     !relFile.endsWith('src/app/features/agents/AgentKindBadge.tsx') &&
     !relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx') &&
     !relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx') &&
+    !relFile.endsWith('src/app/features/detail/HistoryTab.tsx') &&
+    !relFile.endsWith('src/app/features/settings/ResourcesSection.tsx') &&
+    !relFile.endsWith('src/app/features/settings/RuntimeSection.tsx') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts') &&
     !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')
   ) {
     return false

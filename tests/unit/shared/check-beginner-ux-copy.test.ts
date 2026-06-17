@@ -3052,11 +3052,19 @@ function agentRuntimeLabel() {
       'src/app/entities/agent/model/runtime-kind.ts': `
 export const RUNTIME_KIND_LABELS = { container: 'Managed workspace' }
 `,
+      'src/app/entities/context/ui/InjectionPreviewModal.tsx': `
+function runtimeLabel() {
+  return 'Managed workspace'
+}
+`,
       'src/app/features/admin/AgentsPanel.tsx': `
 const AGENT_GUIDANCE = [{ title: 'Managed workspace' }]
 `,
       'src/app/features/admin/SystemHealth.tsx': `
 const action = 'Ask an owner or admin to check managed workspace setup.'
+`,
+      'src/app/features/analytics/ContextUsageDashboard.tsx': `
+const RUNTIME_LABELS = { container: 'Managed workspace' }
 `,
       'src/app/features/agents/AgentCard.tsx': `
 function AgentCard() {
@@ -3076,6 +3084,31 @@ export function AgentKindBadge() {
       'src/app/features/agents/AgentConfigTab.tsx': `
 function Connection() {
   return <p>Ready in managed workspace</p>
+}
+`,
+      'src/app/features/detail/HistoryTab.tsx': `
+function runSourceLabel() {
+  return 'a managed workspace'
+}
+`,
+      'src/app/features/settings/ResourcesSection.tsx': `
+function ResourceProfilesEmptyState() {
+  return <p>Return here before creating agents in managed workspaces.</p>
+}
+`,
+      'src/app/features/settings/RuntimeSection.tsx': `
+function fallbackRuntimeLabel() {
+  return 'Managed workspace'
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  runtimeLabels: { container: 'Managed workspace' },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  runtimeLabels: { container: '托管工作区' },
 }
 `,
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
@@ -3112,6 +3145,10 @@ function agentFolderLabel() {
         }),
         expect.objectContaining({
           type: 'agent-work-area-display-copy',
+          sample: expect.stringContaining('托管工作区'),
+        }),
+        expect.objectContaining({
+          type: 'agent-work-area-display-copy',
           sample: expect.stringContaining('Workspace project folder'),
         }),
       ])
@@ -3125,6 +3162,14 @@ function agentRuntimeLabel() {
   return 'OpenCode with project files'
 }
 `,
+      'src/app/entities/context/ui/InjectionPreviewModal.tsx': `
+function runtimeLabel() {
+  return 'Project files'
+}
+`,
+      'src/app/features/analytics/ContextUsageDashboard.tsx': `
+const RUNTIME_LABELS = { container: 'Project files' }
+`,
       'src/app/features/agents/AgentKindBadge.tsx': `
 export function AgentKindBadge() {
   return <span title="Works in a Forge project area. It can change files.">Project files</span>
@@ -3133,6 +3178,31 @@ export function AgentKindBadge() {
       'src/app/features/agents/AgentConfigTab.tsx': `
 function Connection() {
   return <p>Ready with project files</p>
+}
+`,
+      'src/app/features/detail/HistoryTab.tsx': `
+function runSourceLabel() {
+  return 'project files'
+}
+`,
+      'src/app/features/settings/ResourcesSection.tsx': `
+function ResourceProfilesEmptyState() {
+  return <p>Return here before creating agents that edit project files.</p>
+}
+`,
+      'src/app/features/settings/RuntimeSection.tsx': `
+function fallbackRuntimeLabel() {
+  return 'Project files'
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  runtimeLabels: { container: 'Project files' },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  runtimeLabels: { container: '项目文件' },
 }
 `,
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `

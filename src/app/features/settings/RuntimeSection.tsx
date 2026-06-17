@@ -866,7 +866,7 @@ function fallbackRuntimeLabel(runtime: string): string {
     case 'api':
       return 'Chat-only AI service'
     case 'container':
-      return 'Managed workspace'
+      return 'Project files'
     default:
       return runtime.trim() ? 'Check agent location' : 'Refresh agent location'
   }

@@ -100,7 +100,8 @@ describe('InjectionPreviewModal', () => {
     expect(screen.getByText('Agent will use')).toBeDefined()
     expect(screen.getByText('Claude')).toBeDefined()
     expect(screen.getByText('Work location')).toBeDefined()
-    expect(screen.getByText('Managed workspace')).toBeDefined()
+    expect(screen.getByText('Project files')).toBeDefined()
+    expect(screen.queryByText('Managed workspace')).toBeNull()
     expect(screen.getByText('Note limits')).toBeDefined()
     expect(
       screen.getByText('Some notes will be left out because this agent has limited note space')

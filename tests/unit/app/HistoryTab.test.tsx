@@ -118,6 +118,25 @@ describe('HistoryTab', () => {
     expect(screen.queryByText(/Work method|configured worker|unknown worker|runtime/i)).toBeNull()
   })
 
+  test('labels project-file work history without managed workspace wording', async () => {
+    getTaskRunsMock.mockResolvedValue([
+      {
+        id: 'run-files1234',
+        taskId: 'task-1',
+        agentId: 'agent-1',
+        status: 'running',
+        startedAt: '2026-04-25T06:06:00Z',
+        runtimeKind: 'container',
+      },
+    ])
+
+    render(<HistoryTab task={makeTask()} />)
+
+    expect(await screen.findByText('Agent work history')).toBeInTheDocument()
+    expect(screen.getByText(/Used project files/i)).toBeInTheDocument()
+    expect(screen.queryByText(/managed workspace/i)).toBeNull()
+  })
+
   test('labels unknown work history tools without exposing raw tool values', async () => {
     getTaskRunsMock.mockResolvedValue([
       {

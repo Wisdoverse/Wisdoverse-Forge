@@ -102,7 +102,7 @@ export const zh: TranslationKeys = {
     noProject: '打开项目设置，创建或选择一个项目。',
     projects: '项目',
     workLocations: {
-      managed: '托管工作区',
+      managed: '项目文件选项',
       local: '这台电脑',
       textOnly: '只处理文字的模式',
       ready: '一个工作位置',
@@ -123,10 +123,10 @@ export const zh: TranslationKeys = {
       },
       runtime: {
         title: '工作位置',
-        empty: '先选择 Agent 在哪里工作：托管工作区，或这台电脑。',
+        empty: '先选择 Agent 在哪里工作：项目文件，或这台电脑。',
         ready: '{{location}} 已经可以接收 Agent 工作。',
         why: 'Agent 需要一个安全的工作位置，才能接收任务。',
-        success: '已经有可用的托管工作区，或这台电脑已经可用。',
+        success: '项目文件或这台电脑已经可以接收 Agent 工作。',
         open: '选择工作位置',
         review: '查看工作位置',
       },
@@ -145,7 +145,7 @@ export const zh: TranslationKeys = {
       },
       agent: {
         title: 'Agent',
-        empty: '先创建一个简单 Agent：文字 Agent、托管工作区 Agent，或这台电脑上的 Agent。',
+        empty: '先创建一个简单 Agent：文字 Agent、项目文件 Agent，或这台电脑上的 Agent。',
         why: 'Agent 会接收任务并返回结果。先创建一个简单 Agent 即可。',
         success: 'Agent 页面里至少能看到一个 Agent。',
         create: '创建 Agent',
@@ -442,7 +442,7 @@ export const zh: TranslationKeys = {
         '请刷新这个设置页来加载 Agent 工作设置。如果仍然无法加载，请找 owner 或 admin 检查 Agent 工作设置。',
       defaultRuntimeLabel: '默认 Agent 运行位置',
       defaultRuntimeDescription:
-        '托管工作区最简单。只有要把这台电脑接入为可管理的本地 Agent 时，才选择这台电脑。',
+        '处理共享项目文件时，选择“项目文件”最简单。只有要把这台电脑接入为 Agent 时，才选择这台电脑。',
       defaultContainerCliLabel: '项目工作默认工具',
       defaultContainerCliDescription:
         'Agent 编辑文件或运行命令时使用的 Claude Code、Codex、Gemini 或 OpenCode',
@@ -453,7 +453,7 @@ export const zh: TranslationKeys = {
       runtimeLabels: {
         cli: '这台电脑',
         api: '只处理文字的模型服务',
-        container: '托管工作区',
+        container: '项目文件',
       },
       cliToolLabels: {
         claude: 'Claude Code',
@@ -558,11 +558,12 @@ export const zh: TranslationKeys = {
       create: {
         missing_cli_tool_for_container: {
           title: '请选择一个工作工具',
-          detail: '托管工作区中的 Agent 需要一个工作工具：Claude Code、Codex、Gemini 或 OpenCode。',
+          detail:
+            '会编辑项目文件的 Agent 需要一个工作工具：Claude Code、Codex、Gemini 或 OpenCode。',
         },
         api_cannot_have_cli_tool: {
           title: '只处理文字的模型 Agent 不能有工作工具',
-          detail: '请移除工作工具，或将工作类型改为“托管工作区”。',
+          detail: '请移除工作工具，或将工作类型改为“项目文件”。',
         },
         missing_cli_tool_for_host_cli: {
           title: '请选择一个工作工具',
