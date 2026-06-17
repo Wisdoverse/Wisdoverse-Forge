@@ -421,7 +421,7 @@ export function adminUserActionErrorMessage(
 }
 
 function adminUserActionNetworkMessage(action: AdminUserAction): string {
-  return `Check your connection, then try again. The ${adminUserActionLabel(action)} could not reach the server.`
+  return `Check your connection, then try again. The ${adminUserActionLabel(action)} did not finish.`
 }
 
 function adminUserActionError(err: unknown, action: AdminUserAction): string {
