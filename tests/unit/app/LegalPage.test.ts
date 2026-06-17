@@ -16,8 +16,9 @@ describe('LegalPage', () => {
     page.show('privacy')
 
     expect(document.querySelector('.legal-summary')?.textContent).toContain(
-      'Review what you agree to and how your workspace data is handled'
+      'Review what you agree to and how your team space data is handled'
     )
+    expect(document.querySelector('.legal-summary')?.textContent).not.toContain('workspace data')
     expect(document.querySelector('.legal-tab.active')?.textContent).toContain('Privacy Policy')
   })
 
@@ -52,9 +53,10 @@ describe('LegalPage', () => {
     expect(text).toContain('slow abusive requests')
     expect(text).toContain('security history records')
     expect(text).toContain('change history')
-    expect(text).toContain('Visual workspace preferences, such as saved view settings')
+    expect(text).toContain('Saved view choices, such as layout and display settings')
     expect(text).toContain('Navigation and layout preferences')
     expect(text).toContain('Login session data that keeps you signed in')
+    expect(text).not.toContain('Visual workspace preferences')
     expect(text).not.toContain('rate limiting')
     expect(text).not.toContain('audit logging')
     expect(text).not.toContain('audit logs')

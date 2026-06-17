@@ -66,7 +66,7 @@ export class LegalPage {
               <span>Legal</span>
             </div>
             <p class="legal-summary">
-              Review what you agree to and how your workspace data is handled.
+              Review what you agree to and how your team space data is handled.
             </p>
           </div>
           <button class="legal-close" title="Close">&times;</button>
@@ -784,7 +784,7 @@ export class LegalPage {
         <ul class="legal-list">
           <li>Audio volume and mute preferences</li>
           <li>Keyboard shortcut customizations</li>
-          <li>Visual workspace preferences, such as saved view settings</li>
+          <li>Saved view choices, such as layout and display settings</li>
           <li>Navigation and layout preferences that make the interface easier to reuse</li>
           <li>Theme and display settings</li>
           <li>Login session data that keeps you signed in</li>

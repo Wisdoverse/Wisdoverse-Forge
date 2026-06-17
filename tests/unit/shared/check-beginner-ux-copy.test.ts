@@ -9410,6 +9410,8 @@ function renderPrivacy() {
     '<li>IP address used for rate limiting and audit logging</li>',
     '<li>To maintain audit logs for security monitoring and compliance purposes</li>',
     '<li>The export includes event history and configuration settings</li>',
+    '<p>Review what you agree to and how your workspace data is handled.</p>',
+    '<li>Visual workspace preferences, such as saved view settings</li>',
   ].join('')
 }
 `,
@@ -9436,6 +9438,14 @@ function renderPrivacy() {
           type: 'legal-privacy-copy',
           sample: expect.stringContaining('event history'),
         }),
+        expect.objectContaining({
+          type: 'legal-privacy-copy',
+          sample: expect.stringContaining('workspace data'),
+        }),
+        expect.objectContaining({
+          type: 'legal-privacy-copy',
+          sample: expect.stringContaining('Visual workspace preferences'),
+        }),
       ])
     )
   })
@@ -9449,6 +9459,8 @@ function renderPrivacy() {
     '<li>IP address used to protect the Service, slow abusive requests, and record security-relevant activity</li>',
     '<li>To keep security history records for safety reviews and legal requirements</li>',
     '<li>The export includes change history and configuration settings</li>',
+    '<p>Review what you agree to and how your team space data is handled.</p>',
+    '<li>Saved view choices, such as layout and display settings</li>',
   ].join('')
 }
 `,
