@@ -326,7 +326,7 @@ export class AuthPage {
           <h1 class="auth-title">Wisdoverse Forge</h1>
           <p class="auth-subtitle">Team space access</p>
           <p class="auth-intro">
-            Sign in to manage agents, tasks, evidence, and team settings from one team space.
+            Sign in to manage agents, tasks, saved work records, and team settings from one team space.
           </p>
           <p class="auth-intro auth-intro-secondary">
             New here? Create an account first. Already invited? Sign in with your email.

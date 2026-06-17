@@ -8140,6 +8140,38 @@ function authRecoveryErrorMessage(action) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags sign-in orientation that exposes evidence jargon', () => {
+    const cwd = fixture({
+      'src/app/features/auth/AuthPage.ts': `
+function render() {
+  return 'Sign in to manage agents, tasks, evidence, and team settings from one team space.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'auth-intro-copy',
+        location: 'src/app/features/auth/AuthPage.ts:3',
+      }),
+    ])
+  })
+
+  it('accepts sign-in orientation that explains saved work records', () => {
+    const cwd = fixture({
+      'src/app/features/auth/AuthPage.ts': `
+function render() {
+  return 'Sign in to manage agents, tasks, saved work records, and team settings from one team space.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags authentication network copy that starts with the failure instead of the next step', () => {
     const cwd = fixture({
       'src/app/features/auth/AuthPage.ts': `

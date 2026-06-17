@@ -943,6 +943,8 @@ const AUTH_FAILURE_FIRST_PATTERNS = [
   /\bVerification email could not be sent\. Check that this is the email/i,
 ]
 
+const AUTH_INTRO_JARGON_PATTERNS = [/\bSign in to manage\b.*\bevidence\b/i]
+
 const AUTH_MANAGER_DEAD_END_PATTERNS = [
   /\bLogin failed\b/,
   /\bRegistration failed\b/,
@@ -1655,6 +1657,12 @@ function hasAuthFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/auth/AuthPage.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return AUTH_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAuthIntroJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/auth/AuthPage.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AUTH_INTRO_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAuthManagerDeadEndCopy(relFile, line) {
@@ -3127,6 +3135,15 @@ function scanFile(file, relFile) {
         type: 'auth-error-copy',
         location,
         message: 'Authentication errors must start with the next recovery action for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAuthIntroJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'auth-intro-copy',
+        location,
+        message: 'Sign-in orientation must describe saved work records, not evidence.',
         sample: line.trim(),
       })
     }
