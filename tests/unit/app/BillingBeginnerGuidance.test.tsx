@@ -129,10 +129,11 @@ describe('Billing beginner guidance', () => {
     expect(screen.getByText('Agents')).toBeInTheDocument()
     expect(screen.getByText('Almost full')).toBeInTheDocument()
     expect(screen.getByText(/Archive unused agents or upgrade/i)).toBeInTheDocument()
-    expect(screen.getByText('Activity events')).toBeInTheDocument()
+    expect(screen.getByText('Work update history')).toBeInTheDocument()
     expect(
       screen.getByText(/Work updates, change history, and timeline messages/i)
     ).toBeInTheDocument()
+    expect(screen.queryByText('Activity events')).not.toBeInTheDocument()
     expect(screen.queryByText(/audit records/i)).not.toBeInTheDocument()
     expect(screen.getByText('AI message use')).toBeInTheDocument()
     expect(screen.getByText(/Messages and replies processed/i)).toBeInTheDocument()

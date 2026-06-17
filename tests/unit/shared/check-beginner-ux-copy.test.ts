@@ -2082,6 +2082,38 @@ function metricCopy(metric) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags billing event usage labels that expose activity-event wording', () => {
+    const cwd = fixture({
+      'src/app/features/billing/UsageMeter.tsx': `
+function metricCopy(metric) {
+  return { label: 'Activity events' }
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'billing-usage-event-copy',
+        location: 'src/app/features/billing/UsageMeter.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts billing event usage labels that describe work update history', () => {
+    const cwd = fixture({
+      'src/app/features/billing/UsageMeter.tsx': `
+function metricCopy(metric) {
+  return { label: 'Work update history' }
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags invoice receipt copy that does not explain when the link appears', () => {
     const cwd = fixture({
       'src/app/features/billing/InvoiceList.tsx': `
@@ -6307,6 +6339,38 @@ function serviceStatusText(status: ServiceStatus): string {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags app health live update copy that exposes event wording', () => {
+    const cwd = fixture({
+      'src/app/features/admin/SystemHealth.tsx': `
+const SERVICE_DEFINITIONS = [
+  { description: 'Moves events from running agents into the browser in near real time.' },
+]
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'system-health-live-update-copy',
+        location: 'src/app/features/admin/SystemHealth.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts app health live update copy that describes visible progress', () => {
+    const cwd = fixture({
+      'src/app/features/admin/SystemHealth.tsx': `
+const SERVICE_DEFINITIONS = [
+  { description: 'Shows progress from running agents in the browser in near real time.' },
+]
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags app health error copy that starts with the failure summary', () => {
     const cwd = fixture({
       'src/app/features/admin/systemHealthErrorMessage.ts': `
@@ -6737,6 +6801,38 @@ function KeyRow() {
       'src/app/features/settings/KeysSection.tsx': `
 function KeyRow() {
   return <span>Use this key from a trusted tool first</span>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags code access setup copy that starts with a vague key', () => {
+    const cwd = fixture({
+      'src/app/features/settings/GitCredentialsSection.tsx': `
+function AddCredentialForm() {
+  return <p>Paste the key from GitHub or GitLab. Those sites may call it a personal access token.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'code-access-key-copy',
+        location: 'src/app/features/settings/GitCredentialsSection.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts code access setup copy that names the key before provider token wording', () => {
+    const cwd = fixture({
+      'src/app/features/settings/GitCredentialsSection.tsx': `
+function AddCredentialForm() {
+  return <p>Paste the code access key from GitHub or GitLab. If that page says personal access token, use that value here.</p>
 }
 `,
     })

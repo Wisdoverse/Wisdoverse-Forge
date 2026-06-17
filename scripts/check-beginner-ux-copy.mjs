@@ -228,6 +228,7 @@ const BILLING_CHECKPOINT_DEAD_END_PATTERNS = [/\bNo invoices yet\b/i]
 const BILLING_USAGE_DEAD_END_PATTERNS = [/\bNo usage reported yet\b/i, /\busage areas shown\b/i]
 
 const BILLING_USAGE_AUDIT_JARGON_PATTERNS = [/\baudit records?\b/i]
+const BILLING_USAGE_EVENT_JARGON_PATTERNS = [/\bActivity events\b/i]
 
 const BILLING_RECEIPT_LINK_DEAD_END_PATTERNS = [/\bNo link\b/i]
 
@@ -396,6 +397,10 @@ const SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS = [
   /\bChecking\.\.\./i,
   /\bKeeps accounts,\s*tasks,\s*runs,\s*evidence,\s*and settings available\b/i,
 ]
+
+const SYSTEM_HEALTH_LIVE_UPDATE_JARGON_PATTERNS = [/\bMoves events from running agents\b/i]
+
+const CODE_ACCESS_KEY_JARGON_PATTERNS = [/\bPaste the key from GitHub or GitLab\b/i]
 
 const ACCESS_KEY_LAST_USED_DEAD_END_PATTERNS = [/\bNot used yet\b/i]
 
@@ -1575,6 +1580,12 @@ function hasBillingUsageAuditJargonCopy(relFile, line) {
   return BILLING_USAGE_AUDIT_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasBillingUsageEventJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/billing/UsageMeter.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return BILLING_USAGE_EVENT_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasBillingReceiptLinkDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/billing/InvoiceList.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -2115,6 +2126,12 @@ function hasSystemHealthStatusDeadEndCopy(relFile, line) {
   return SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasSystemHealthLiveUpdateJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/admin/SystemHealth.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SYSTEM_HEALTH_LIVE_UPDATE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasSystemHealthErrorFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/admin/systemHealthErrorMessage.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -2125,6 +2142,12 @@ function hasAccessKeyLastUsedDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/settings/KeysSection.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return ACCESS_KEY_LAST_USED_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasCodeAccessKeyJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/settings/GitCredentialsSection.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CODE_ACCESS_KEY_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasDateFallbackDeadEndCopy(relFile, line) {
@@ -3134,6 +3157,15 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasBillingUsageEventJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'billing-usage-event-copy',
+        location,
+        message: 'Billing usage labels must say work update history instead of activity events.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasBillingReceiptLinkDeadEndCopy(relFile, line)) {
       findings.push({
         type: 'billing-receipt-link-copy',
@@ -3787,6 +3819,15 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasSystemHealthLiveUpdateJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'system-health-live-update-copy',
+        location,
+        message: 'App health live-update copy must say progress instead of events.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasSystemHealthErrorFailureFirstCopy(relFile, line)) {
       findings.push({
         type: 'system-health-error-copy',
@@ -3801,6 +3842,16 @@ function scanFile(file, relFile) {
         type: 'access-key-last-used-copy',
         location,
         message: 'Outside tool access copy must explain that a trusted tool uses the key first.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCodeAccessKeyJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'code-access-key-copy',
+        location,
+        message:
+          'Code access setup must name the code access key before provider-specific token wording.',
         sample: line.trim(),
       })
     }
