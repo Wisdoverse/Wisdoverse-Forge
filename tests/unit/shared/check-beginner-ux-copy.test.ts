@@ -6953,6 +6953,40 @@ export function SkillDetailModal() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags saved instruction publishing copy that still says workspace', () => {
+    const cwd = fixture({
+      'src/app/features/detail/SkillDraftModal.tsx': `
+export function SkillDraftModal() {
+  return 'Review what should repeat before saving it for the workspace.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'saved-instruction-workspace-copy',
+          location: 'src/app/features/detail/SkillDraftModal.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved instruction publishing copy that says team space', () => {
+    const cwd = fixture({
+      'src/app/features/detail/SkillDraftModal.tsx': `
+export function SkillDraftModal() {
+  return 'Review what should repeat before saving it for your team space.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags saved instruction availability labels that still say workspace', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `
