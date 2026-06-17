@@ -673,7 +673,7 @@ describe('GettingStartedView', () => {
     expect(await screen.findByRole('button', { name: /skip and open tasks/i })).toBeDefined()
     expect(
       screen.getByText(
-        'This only hides the setup checklist from the sidebar. Your projects, agents, and tasks stay the same, and you can show it again from Settings.'
+        'This only hides Start from the left menu. Your projects, agents, and tasks stay the same, and you can show it again from Settings.'
       )
     ).toBeDefined()
     expect(screen.queryByRole('button', { name: /^skip the guide$/i })).toBeNull()

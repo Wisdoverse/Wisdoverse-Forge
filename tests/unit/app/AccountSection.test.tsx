@@ -171,7 +171,9 @@ describe('AccountSection', () => {
     renderAccountSection()
 
     expect(
-      screen.getByText('Select a team space from the sidebar before changing team space settings.')
+      screen.getByText(
+        'Select a team space from the left menu before changing team space settings.'
+      )
     ).toBeDefined()
   })
 
@@ -279,23 +281,24 @@ describe('AccountSection', () => {
     expect(loadPreferencesMock).toHaveBeenCalled()
     expect(screen.getByRole('heading', { name: 'Setup checklist' })).toBeDefined()
     expect(screen.queryByText('Onboarding')).toBeNull()
-    expect(screen.getByText(/Skipping Start only hides the sidebar shortcut/i)).toBeDefined()
+    expect(screen.getByText(/Skipping Start only hides it from the left menu/i)).toBeDefined()
     expect(screen.getByText(/It does not change projects, agents, or tasks/i)).toBeDefined()
-    expect(screen.getByText(/The setup checklist is hidden right now/i)).toBeDefined()
+    expect(screen.getByText(/Start is hidden from the left menu right now/i)).toBeDefined()
     expect(screen.queryByText(/Reset Start guide/i)).toBeNull()
     expect(screen.queryByText(/Reset it here/i)).toBeNull()
+    expect(screen.queryByText(/sidebar shortcut/i)).toBeNull()
 
-    const restoreButton = screen.getByRole('button', { name: /show in sidebar again/i })
+    const restoreButton = screen.getByRole('button', { name: /show start in left menu/i })
     expect(restoreButton).not.toBeDisabled()
     fireEvent.click(restoreButton)
 
     await waitFor(() => expect(setGettingStartedDismissedMock).toHaveBeenCalledWith(false))
     expect(await screen.findByRole('status')).toHaveTextContent(
-      'The setup checklist is back in the sidebar. Open it whenever you want to check setup again. Your projects, agents, and tasks were not changed.'
+      'Start is back in the left menu. Open the setup checklist whenever you want to check setup again. Your projects, agents, and tasks were not changed.'
     )
     expect(
       screen.getByText(
-        'The setup checklist is back in the sidebar. Open it whenever you want to check setup again. Your projects, agents, and tasks were not changed.'
+        'Start is back in the left menu. Open the setup checklist whenever you want to check setup again. Your projects, agents, and tasks were not changed.'
       )
     ).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: /open setup checklist/i }))
@@ -308,7 +311,7 @@ describe('AccountSection', () => {
     renderAccountSection()
 
     expect(screen.getByText(/there is nothing to restore/)).toBeDefined()
-    expect(screen.getByRole('button', { name: /show in sidebar again/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /show start in left menu/i })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: /open setup checklist/i }))
     expect(navigateMock).toHaveBeenCalledWith({ to: '/start' })
   })
@@ -322,16 +325,16 @@ describe('AccountSection', () => {
 
     renderAccountSection()
 
-    fireEvent.click(screen.getByRole('button', { name: /show in sidebar again/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show start in left menu/i }))
 
     expect(
       await screen.findByText(
-        'Check your connection, then choose Show setup checklist again. The setup checklist could not be shown.'
+        'Check your connection, then choose Show Start in left menu again. Start could not be shown.'
       )
     ).toBeDefined()
     expect(
       screen.queryByText(
-        'The setup checklist is back in the sidebar. Open it whenever you want to check setup again.'
+        'Start is back in the left menu. Open the setup checklist whenever you want to check setup again.'
       )
     ).toBeNull()
     expect(screen.queryByRole('button', { name: /open setup checklist/i })).toBeNull()
