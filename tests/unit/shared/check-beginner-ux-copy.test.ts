@@ -2994,6 +2994,54 @@ function WorkLocationPicker() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags create-agent work-area copy that exposes workspace internals', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+function runtimeFitFor() {
+  return [{ label: 'Agent location', value: 'Managed workspace' }]
+}
+function HelpText() {
+  return <><p>Uses a ready workspace managed by Forge for file work.</p><p>Forge prepares this project workspace for the agent.</p></>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'create-agent-work-area-copy',
+          sample: expect.stringContaining('Agent location'),
+        }),
+        expect.objectContaining({
+          type: 'create-agent-work-area-copy',
+          sample: expect.stringContaining('ready workspace managed by Forge'),
+        }),
+        expect.objectContaining({
+          type: 'create-agent-work-area-copy',
+          sample: expect.stringContaining('project workspace'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts create-agent work-area copy that explains project files plainly', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+function runtimeFitFor() {
+  return [{ label: 'Where it works', value: 'Forge project area' }]
+}
+function HelpText() {
+  return <><p>Forge prepares a safe project area for file work.</p><p>Forge prepares this project area for the agent.</p></>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags create-agent project labels that do not explain where new tasks start', () => {
     const cwd = fixture({
       'src/app/features/agents/CreateAgentModal.tsx': `

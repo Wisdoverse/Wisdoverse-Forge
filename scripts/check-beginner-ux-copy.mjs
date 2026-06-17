@@ -1189,6 +1189,12 @@ const CREATE_AGENT_PROJECT_JARGON_PATTERNS = [
   /\blabel:\s*['"`]Primary project['"`]/,
 ]
 
+const CREATE_AGENT_WORK_AREA_JARGON_PATTERNS = [
+  /\bAgent location\b/,
+  /\bready workspace managed by Forge\b/i,
+  /\bproject workspace\b/i,
+]
+
 const AGENT_PROJECT_LOCATION_JARGON_PATTERNS = [
   /\bprojectPath:\s*['"`]Project Path['"`]/,
   /\b(?:searchProjects|enterFolderPath|invalidProjectPath):\s*['"`][^'"`]*(?:folder|project folder) path/i,
@@ -2034,6 +2040,12 @@ function hasCreateAgentProjectJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return CREATE_AGENT_PROJECT_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasCreateAgentWorkAreaJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CREATE_AGENT_WORK_AREA_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentProjectLocationJargonCopy(relFile, line) {
@@ -3726,6 +3738,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Create agent setup must explain which project new tasks use without primary-project jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCreateAgentWorkAreaJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'create-agent-work-area-copy',
+        location,
+        message:
+          'Create agent setup must explain the project area in beginner-facing words, not workspace internals.',
         sample: line.trim(),
       })
     }
