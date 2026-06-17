@@ -33,6 +33,11 @@ const PROV_AGENT = {
   successRate: 0,
 }
 
+// A configured LLM provider (the gateway link). Since #629 the create-agent
+// provider dropdown is sourced from the configured providers in the settings
+// store, keyed by the provider-config id — not a static provider-key list.
+const PROV_CONFIG_ID = 'prov-cfg-anthropic-1'
+
 // ── SSE body helpers ─────────────────────────────────────────────────────────
 
 function makeSSEBody(): string {
@@ -191,10 +196,36 @@ async function waitForAppReady(page: Page): Promise<void> {
   await page.locator('[data-testid="sidebar"]').waitFor({ state: 'attached', timeout: 15000 })
 }
 
+// Seed the configured LLM providers (the gateway). The CreateAgentModal
+// self-loads these on open via GET /llm-providers, so the Provider + Prompt
+// dropdown is populated even when opened from a deep link to /agents.
+async function setupProviderMocks(page: Page): Promise<void> {
+  await page.route('**/api/v1/llm-providers', (r: Route) =>
+    r.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        ok: true,
+        providers: [
+          {
+            id: PROV_CONFIG_ID,
+            provider: 'anthropic',
+            displayName: 'Anthropic',
+            model: 'claude-sonnet-4-6',
+            isEnabled: true,
+            lastTestStatus: 'passed',
+          },
+        ],
+      }),
+    })
+  )
+}
+
 async function navigateToAgents(page: Page, baseURL: string): Promise<void> {
   await injectAuth(page, baseURL)
   await setupNavMocks(page)
   await setupAgentMocks(page)
+  await setupProviderMocks(page)
   await page.goto(baseURL)
   await waitForAppReady(page)
   await page.locator('[data-testid="sidebar-nav-agents"]').click()
@@ -214,13 +245,18 @@ test.describe.serial('Provider + Prompt Agent UX (#21)', () => {
     await page.getByText('New Agent').first().click()
     await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 })
 
-    // Default kind is "Container CLI" — system-prompt textarea must NOT be present
+    // With a tested provider seeded, the modal defaults to Provider + Prompt
+    // (buildDefaultValues picks the verified provider). The system-prompt
+    // textarea is part of the provider UI, so this test exercises the toggle
+    // default-independently: switch to Container CLI, then back to provider.
+    const kindGroup = page.getByRole('radiogroup', { name: 'Agent kind' })
+
+    // Container CLI kind hides the system-prompt textarea.
+    await kindGroup.getByText('Container CLI').click()
     await expect(page.locator('textarea#systemPrompt')).not.toBeVisible()
 
-    // Switch to "Provider + Prompt"
-    await page.getByText('Provider + Prompt').click()
-
-    // System-prompt textarea must now be visible
+    // Switching to Provider + Prompt reveals the system-prompt textarea.
+    await kindGroup.getByText('Provider + Prompt').click()
     await expect(page.locator('textarea#systemPrompt')).toBeVisible({ timeout: 3000 })
     await expect(page.getByPlaceholder(/concise.*code reviewer/i)).toBeVisible()
   })
@@ -259,17 +295,19 @@ test.describe.serial('Provider + Prompt Agent UX (#21)', () => {
     await page.getByText('New Agent').first().click()
     await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 })
 
-    // Fill name
-    await page.getByPlaceholder('e.g. Frontend Agent').fill('My LLM Agent')
-
-    // Switch to provider kind
-    await page.getByText('Provider + Prompt').click()
-
-    // Provider select should default to 'anthropic' (first in list)
+    // Switch to provider kind, then wait for the gateway providers to self-load
+    // into the dropdown. The select is keyed by provider-config id (not the
+    // static provider key). Waiting here also lets the provider-load form reset
+    // settle before we fill the remaining fields, so nothing gets clobbered.
+    await page
+      .getByRole('radiogroup', { name: 'Agent kind' })
+      .getByText('Provider + Prompt')
+      .click()
     const providerSelect = page.locator('select#agent-provider')
-    await expect(providerSelect).toHaveValue('anthropic')
+    await expect(providerSelect).toHaveValue(PROV_CONFIG_ID, { timeout: 5000 })
 
-    // Fill system prompt
+    // Fill name + system prompt after the provider selection has settled
+    await page.getByPlaceholder('e.g. Frontend Agent').fill('My LLM Agent')
     await page.locator('textarea#systemPrompt').fill('Be concise.')
 
     // Submit
