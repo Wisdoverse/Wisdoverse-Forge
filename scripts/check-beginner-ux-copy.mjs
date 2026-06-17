@@ -691,6 +691,17 @@ const SSH_CODE_ACCESS_FAILURE_FIRST_PATTERNS = [
   /\bRefresh Settings to load SSH code access\. Try again\./i,
 ]
 
+const SSH_CODE_ACCESS_JARGON_PATTERNS = [
+  /\bPaste the public line\b/i,
+  /\bone-line \.pub key\b/i,
+  /\bPaste the public key line before saving\b/i,
+  />\s*Public key line\b/i,
+  /\bModern key type\b/i,
+  /\bRSA key type\b/i,
+  /\bSafety check\b/i,
+  /\bKey type\b/i,
+]
+
 const PLATFORM_KEY_FAILURE_FIRST_PATTERNS = [
   /\bOutside tool access key could not be (?:created|removed)\./i,
   /\bRefresh Settings to load outside tool access keys\. Forge is receiving too many outside tool access requests/i,
@@ -2762,6 +2773,14 @@ function hasSshCodeAccessFailureFirstCopy(relFile, line) {
   return SSH_CODE_ACCESS_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasSshCodeAccessJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/settings/SshKeysSection.tsx')) return false
+  if (isLikelyGuardOrParserLine(line) && !/\b(?:Modern key type|RSA key type)\b/i.test(line)) {
+    return false
+  }
+  return SSH_CODE_ACCESS_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasPlatformKeyFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/settings/platformKeyErrorMessage.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -3312,6 +3331,16 @@ function scanFile(file, relFile) {
         type: 'ssh-code-access-error-copy',
         location,
         message: 'SSH code access errors must start with the next action, not the failure summary.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSshCodeAccessJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'ssh-code-access-jargon-copy',
+        location,
+        message:
+          'SSH code access setup must explain the shareable public key line and supported key kind.',
         sample: line.trim(),
       })
     }

@@ -7702,6 +7702,91 @@ const tableHeaders = [{ label: 'Website address' }]
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags SSH code access setup copy that uses public-line and key-type jargon', () => {
+    const cwd = fixture({
+      'src/app/features/settings/SshKeysSection.tsx': `
+function describeKeyType(keyType) {
+  if (keyType === 'ssh-ed25519') return 'Modern key type'
+  if (keyType === 'ssh-rsa') return 'RSA key type'
+}
+const SSH_KEY_SETUP_STEPS = [
+  { label: 'Paste the public line', value: 'Copy only the one-line .pub key that starts with ssh-ed25519 or ssh-rsa.' },
+]
+function AddSshKeyForm() {
+  return <label>Public key line</label>
+}
+function validation() {
+  return 'Paste the public key line before saving.'
+}
+const tableHeaders = [{ label: 'Safety check' }, { label: 'Key type' }]
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'ssh-code-access-jargon-copy',
+          sample: expect.stringContaining('Modern key type'),
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-jargon-copy',
+          sample: expect.stringContaining('RSA key type'),
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-jargon-copy',
+          sample: expect.stringContaining('Paste the public line'),
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-jargon-copy',
+          sample: expect.stringContaining('one-line .pub key'),
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-jargon-copy',
+          sample: expect.stringContaining('Public key line'),
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-jargon-copy',
+          sample: expect.stringContaining('Paste the public key line'),
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-jargon-copy',
+          sample: expect.stringContaining('Safety check'),
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-jargon-copy',
+          sample: expect.stringContaining('Key type'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts SSH code access setup copy that explains the shareable public key line', () => {
+    const cwd = fixture({
+      'src/app/features/settings/SshKeysSection.tsx': `
+function describeKeyType(keyType) {
+  if (keyType === 'ssh-ed25519') return 'Recommended SSH key'
+  if (keyType === 'ssh-rsa') return 'Older SSH key'
+  return 'Ask an admin to check this SSH key'
+}
+const SSH_KEY_SETUP_STEPS = [
+  { label: 'Paste the shareable public key line', value: 'Copy only the shareable one-line public key from the .pub file. It starts with ssh-ed25519 or ssh-rsa.' },
+]
+function AddSshKeyForm() {
+  return <label>Shareable public key line</label>
+}
+function validation() {
+  return 'Paste the shareable public key line before saving.'
+}
+const tableHeaders = [{ label: 'Saved key check code' }, { label: 'Accepted by Forge' }]
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags date fallback copy that does not tell users which list to refresh', () => {
     const cwd = fixture({
       'src/app/features/settings/GitCredentialsSection.tsx': `

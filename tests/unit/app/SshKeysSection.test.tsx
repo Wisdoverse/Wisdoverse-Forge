@@ -71,8 +71,9 @@ describe('SshKeysSection', () => {
 
     expect(screen.queryByTestId('ssh-access-empty-state')).toBeNull()
     expect(screen.getByText('Add access for code links that start with git@')).toBeDefined()
-    expect(screen.getByText('Paste the public line')).toBeDefined()
-    expect(screen.getByText(/one-line \.pub key/i)).toBeDefined()
+    expect(screen.getByText('Paste the shareable public key line')).toBeDefined()
+    expect(screen.getByText(/shareable one-line public key from the \.pub file/i)).toBeDefined()
+    expect(screen.queryByText('Paste the public line')).toBeNull()
     expect(screen.getAllByText(/starts with ssh-ed25519 or ssh-rsa/i).length).toBeGreaterThan(0)
     expect(screen.getByText('Keep the private key secret')).toBeDefined()
     expect(screen.getAllByText(/BEGIN PRIVATE KEY/i).length).toBeGreaterThan(0)
@@ -81,7 +82,7 @@ describe('SshKeysSection', () => {
     ).toBeDefined()
 
     const nameInput = screen.getByLabelText(/^name for this access/i)
-    const shareableLineInput = screen.getByLabelText(/^public key line/i)
+    const shareableLineInput = screen.getByLabelText(/^shareable public key line/i)
     const form = nameInput.closest('form')
     expect(form).toBeTruthy()
 
@@ -98,7 +99,10 @@ describe('SshKeysSection', () => {
     fireEvent.change(nameInput, { target: { value: 'Work laptop' } })
     fireEvent.submit(form!)
     expect(createSshKeyMock).not.toHaveBeenCalled()
-    expect(screen.getByRole('alert')).toHaveTextContent(/paste the public key line before saving/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /paste the shareable public key line before saving/i
+    )
+    expect(screen.getByRole('alert')).toHaveTextContent(/shareable/i)
     expect(shareableLineInput).toHaveFocus()
 
     fireEvent.change(shareableLineInput, {
@@ -126,9 +130,12 @@ describe('SshKeysSection', () => {
     render(<SshKeysSection />)
 
     await waitFor(() => expect(loadSshKeysMock).toHaveBeenCalledTimes(1))
-    expect(screen.getByText('Safety check')).toBeDefined()
-    expect(screen.getByText('Key type')).toBeDefined()
-    expect(screen.getByText('Modern key type')).toBeDefined()
+    expect(screen.getByText('Saved key check code')).toBeDefined()
+    expect(screen.getByText('Accepted by Forge')).toBeDefined()
+    expect(screen.getByText('Recommended SSH key')).toBeDefined()
+    expect(screen.queryByText('Safety check')).toBeNull()
+    expect(screen.queryByText('Key type')).toBeNull()
+    expect(screen.queryByText('Modern key type')).toBeNull()
     expect(screen.queryByText('Saved key ID')).toBeNull()
     expect(screen.queryByText('Key kind')).toBeNull()
 

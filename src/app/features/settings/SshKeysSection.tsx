@@ -7,16 +7,17 @@ import { formatAccessDate } from './formatAccessDate'
 import { sshKeysErrorMessage } from './sshKeysErrorMessage'
 
 function describeKeyType(keyType: string): string {
-  if (keyType === 'ssh-ed25519') return 'Modern key type'
-  if (keyType === 'ssh-rsa') return 'RSA key type'
-  return keyType
+  if (keyType === 'ssh-ed25519') return 'Recommended SSH key'
+  if (keyType === 'ssh-rsa') return 'Older SSH key'
+  return 'Ask an admin to check this SSH key'
 }
 
 const SSH_KEY_SETUP_STEPS = [
   { label: 'Name where it is used', value: 'Use a device, team, or code project name.' },
   {
-    label: 'Paste the public line',
-    value: 'Copy only the one-line .pub key that starts with ssh-ed25519 or ssh-rsa.',
+    label: 'Paste the shareable public key line',
+    value:
+      'Copy only the shareable one-line public key from the .pub file. It starts with ssh-ed25519 or ssh-rsa.',
   },
   {
     label: 'Keep the private key secret',
@@ -140,7 +141,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
     submitAttempted && missingField === 'label'
       ? 'Add a name your team will recognize before saving.'
       : submitAttempted && missingField === 'publicKey'
-        ? 'Paste the public key line before saving.'
+        ? 'Paste the shareable public key line before saving.'
         : null
 
   async function handleSubmit(e: FormEvent) {
@@ -211,14 +212,14 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
 
         <div>
           <label htmlFor="ssh-public-key" className={uiStyles.label}>
-            Public key line <span className="text-red-500">*</span>
+            Shareable public key line <span className="text-red-500">*</span>
           </label>
           <p
             id={publicKeyHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Paste the line from your .pub file. It is safe to share and usually starts with
-            ssh-ed25519 or ssh-rsa.
+            Paste the one-line public key from your .pub file. This public line is safe to share and
+            usually starts with ssh-ed25519 or ssh-rsa.
           </p>
           <textarea
             id={publicKeyInputId}
@@ -301,8 +302,8 @@ export function SshKeysSection() {
 
   const tableHeaders: { label: string; className?: string }[] = [
     { label: 'Key name' },
-    { label: 'Safety check' },
-    { label: 'Key type' },
+    { label: 'Saved key check code' },
+    { label: 'Accepted by Forge' },
     { label: 'Added on' },
     { label: '', className: 'w-20' },
   ]
