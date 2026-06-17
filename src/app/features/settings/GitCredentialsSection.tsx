@@ -401,8 +401,8 @@ export function GitCredentialsSection() {
         <div>
           <h2 className={uiStyles.sectionTitle}>Code Repository Access</h2>
           <p className={uiStyles.sectionDescription}>
-            Use this when a private code link starts with https://. If it starts with git@, use git@
-            Repository Access instead.
+            Use this when a private code link starts with https://. If it starts with git@, use SSH
+            code access instead.
           </p>
         </div>
         {!showForm && canAddMore && (
@@ -450,8 +450,8 @@ export function GitCredentialsSection() {
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
               Use this for GitHub or GitLab links that start with https://, such as
-              https://github.com/team/repo.git. If the address starts with git@, use git@ Repository
-              Access instead.
+              https://github.com/team/repo.git. If the address starts with git@, use SSH code access
+              instead.
             </p>
           </div>
         ) : (

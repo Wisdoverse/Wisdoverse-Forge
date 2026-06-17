@@ -51,7 +51,7 @@ afterEach(() => {
 })
 
 describe('SshKeysSection', () => {
-  test('guides first-time git@ Repository Access setup and saves only after required fields are filled', async () => {
+  test('guides first-time SSH code access setup and saves only after required fields are filled', async () => {
     render(<SshKeysSection />)
 
     expect(await screen.findByText('Add access for code links that start with git@')).toBeDefined()
@@ -61,12 +61,12 @@ describe('SshKeysSection', () => {
     expect(within(emptyState).getByText(/use Code Repository Access instead/i)).toBeDefined()
     expect(within(emptyState).getByText(/skip this for public projects/i)).toBeDefined()
     expect(
-      within(emptyState).getByRole('button', { name: /add git@ Repository Access/i })
+      within(emptyState).getByRole('button', { name: /add SSH code access/i })
     ).toBeDefined()
     expect(within(emptyState).queryByText('No repository access yet')).toBeNull()
 
     fireEvent.click(
-      within(emptyState).getByRole('button', { name: /add git@ Repository Access/i })
+      within(emptyState).getByRole('button', { name: /add SSH code access/i })
     )
 
     expect(screen.queryByTestId('ssh-access-empty-state')).toBeNull()
@@ -85,7 +85,7 @@ describe('SshKeysSection', () => {
     const form = nameInput.closest('form')
     expect(form).toBeTruthy()
 
-    const saveButton = screen.getByRole('button', { name: /save git@ Repository Access/i })
+    const saveButton = screen.getByRole('button', { name: /save SSH code access/i })
     expect(saveButton).toBeDisabled()
 
     fireEvent.submit(form!)
@@ -114,12 +114,12 @@ describe('SshKeysSection', () => {
       )
     )
     expect(await screen.findByRole('status')).toHaveTextContent(
-      'git@ Repository Access saved. Create a small task with a git@ code link to confirm agents can open it.'
+      'SSH code access saved. Create a small task with a git@ code link to confirm agents can open it.'
     )
     expect(screen.getByRole('status')).toHaveTextContent('come back here and replace this key')
   })
 
-  test('explains the impact before removing git@ Repository Access', async () => {
+  test('explains the impact before removing SSH code access', async () => {
     const user = userEvent.setup()
     useSettingsStore.setState({ sshKeys: [sshKey()] })
 
@@ -133,7 +133,7 @@ describe('SshKeysSection', () => {
     expect(screen.queryByText('Key kind')).toBeNull()
 
     fireEvent.click(
-      screen.getByRole('button', { name: /remove work laptop git@ Repository Access/i })
+      screen.getByRole('button', { name: /remove work laptop SSH code access/i })
     )
 
     expect(deleteSshKeyMock).not.toHaveBeenCalled()
@@ -149,10 +149,10 @@ describe('SshKeysSection', () => {
     expect(deleteSshKeyMock).not.toHaveBeenCalled()
 
     await user.click(
-      screen.getByRole('button', { name: /remove work laptop git@ Repository Access/i })
+      screen.getByRole('button', { name: /remove work laptop SSH code access/i })
     )
     const removeNowButton = screen.getByRole('button', {
-        name: /confirm removing work laptop git@ Repository Access/i,
+        name: /confirm removing work laptop SSH code access/i,
     })
     deleteSshKeyMock.mockImplementationOnce(
       () => new Promise((resolve) => setTimeout(() => resolve(true), 20))
@@ -166,7 +166,7 @@ describe('SshKeysSection', () => {
     await waitFor(() => expect(deleteSshKeyMock).toHaveBeenCalledWith('ssh-key-1'))
   })
 
-  test('explains missing git@ Repository Access dates instead of showing raw date failures', async () => {
+  test('explains missing SSH code access dates instead of showing raw date failures', async () => {
     useSettingsStore.setState({
       sshKeys: [
         sshKey({ createdAt: '' }),
@@ -181,9 +181,9 @@ describe('SshKeysSection', () => {
 
     render(<SshKeysSection />)
 
-    expect(await screen.findByRole('table', { name: /git@ Repository Access/i })).toBeDefined()
-    expect(screen.getByText('Refresh git@ Repository Access to load added date')).toBeDefined()
-    expect(screen.getByText('Refresh git@ Repository Access to check added date')).toBeDefined()
+    expect(await screen.findByRole('table', { name: /SSH code access/i })).toBeDefined()
+    expect(screen.getByText('Refresh SSH code access to load added date')).toBeDefined()
+    expect(screen.getByText('Refresh SSH code access to check added date')).toBeDefined()
     expect(screen.queryByText('Invalid Date')).toBeNull()
     expect(screen.queryByText('—')).toBeNull()
   })

@@ -341,23 +341,23 @@ export function AuditLogView() {
         </div>
 
         <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_180px_180px_auto]">
-          <Field label="Work area ID">
+          <Field label="Exact work area">
             <input
               value={filters.scopeId}
               name="scopeId"
               autoComplete="off"
               onChange={(event) => updateFilter('scopeId', event.target.value)}
-              placeholder="Paste a team space, project workspace, team, or project ID"
+              placeholder="Paste the exact team space, project workspace, team, or project reference"
               className={INPUT_CLASS}
             />
           </Field>
-          <Field label="Person ID">
+          <Field label="Exact person">
             <input
               value={filters.userId}
               name="userId"
               autoComplete="off"
               onChange={(event) => updateFilter('userId', event.target.value)}
-              placeholder="Paste a user ID only when you need one exact person"
+              placeholder="Paste the exact person reference only when needed"
               className={INPUT_CLASS}
             />
           </Field>
@@ -419,7 +419,7 @@ export function AuditLogView() {
             value={auditViewMetricLabel(data?.query.eventPrefix ?? filters.eventPrefix)}
             compact
           />
-          <Metric label="Hidden item IDs" value={protectedReferences} />
+          <Metric label="Hidden item references" value={protectedReferences} />
           <Metric label="Hidden review-note rows" value={redactedRows} />
         </div>
 
@@ -544,14 +544,14 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
           <SubjectLine
             testId="governance-audit-item-reference"
             icon="visible"
-            label="Visible item ID"
+            label="Visible item reference"
             value={entry.rawItemId}
           />
         ) : (
           <SubjectLine
             testId="governance-audit-protected-reference"
             icon="hash"
-            label="Hidden item ID"
+            label="Hidden item reference"
             value={entry.auditSubjectHash}
           />
         )}
@@ -568,7 +568,7 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
       <td className="w-56 px-4 py-3">
         <div className="font-medium">{auditAreaLabel(entry.scopeKind)}</div>
         <div className="mt-1 truncate font-mono text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {entry.scopeId ? `Area ID ${shortId(entry.scopeId)}` : 'Area ID hidden'}
+          {entry.scopeId ? `Area reference ${shortId(entry.scopeId)}` : 'Area reference hidden'}
         </div>
       </td>
       <td className="w-48 px-4 py-3">

@@ -46,7 +46,7 @@ describe('GitCredentialsSection', () => {
 
     expect(await screen.findByText('Give agents access to private code')).toBeDefined()
     expect(screen.getByText(/links that start with https:\/\//i)).toBeDefined()
-    expect(screen.getAllByText(/use git@ Repository Access instead/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/use SSH code access instead/i).length).toBeGreaterThan(0)
     expect(screen.queryByText('No repository access saved yet')).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /add code access/i }))
