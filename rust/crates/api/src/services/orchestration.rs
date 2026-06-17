@@ -852,6 +852,12 @@ impl OrchestrationService {
     /// flips `review_status` to `merged`) and still want every operator's board
     /// and Review tab to reflect it without a manual refetch.
     pub(crate) async fn broadcast_task_update_by_id(&self, scope: &TenantScope, task_id: Uuid, action: &str) {
+        // Attempt trace: failures below warn, but a successful broadcast is
+        // otherwise silent. This debug line gives ops a thread to pull on when
+        // diagnosing "I merged but my colleague's board didn't update" — it
+        // shows the push WAS attempted, so the gap is downstream (NATS / client
+        // subscription), not a missing emit.
+        tracing::debug!(%task_id, %action, "broadcast_task_update_by_id: emitting task update");
         let task = match self.task_repo.find_by_id(scope, task_id).await {
             Ok(task) => task,
             Err(err) => {

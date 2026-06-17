@@ -43,6 +43,16 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
   const [error, setError] = useState<string | null>(null)
   const [approving, setApproving] = useState(false)
 
+  // Load the review snapshot on mount AND whenever the task's review status
+  // changes. A server-side transition (another operator's approve→merge, and
+  // once the loop wires it, a PR-open) is broadcast as an
+  // `orchestration:task_update` frame → board upsert → this task prop. Keying
+  // the fetch on `task.reviewStatus` re-pulls the FULL snapshot on that real
+  // transition, so `checksGreen`/`sensitive`/`prNumber` stay consistent with
+  // the new status instead of going stale. This is NOT a fetch-on-every-render
+  // loop: status transitions are rare and the effect ignores all other task
+  // field changes. While refetching, the prior snapshot stays on screen (the
+  // loading screen only shows when there is no snapshot yet).
   useEffect(() => {
     let cancelled = false
     setLoading(true)
@@ -61,20 +71,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
     return () => {
       cancelled = true
     }
-  }, [task.id])
-
-  // Realtime sync: another operator's approve→merge (and, once the loop wires
-  // it, a PR-open) is broadcast as an `orchestration:task_update` frame →
-  // board upsert → this task prop. Reflect the new review status in the loaded
-  // snapshot WITHOUT a refetch (the full snapshot still self-heals via Refresh
-  // or remount). The functional update reads no other state, so it never loops.
-  useEffect(() => {
-    setReview((current) =>
-      current && task.reviewStatus && current.reviewStatus !== task.reviewStatus
-        ? { ...current, reviewStatus: task.reviewStatus }
-        : current
-    )
-  }, [task.reviewStatus])
+  }, [task.id, task.reviewStatus])
 
   async function refresh() {
     setLoading(true)

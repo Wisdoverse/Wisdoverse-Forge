@@ -99,10 +99,12 @@ describe('ReviewSnapshotPanel', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('boom')
   })
 
-  it('reflects a pushed review-status change on the task prop without refetching', async () => {
+  it('refetches the full snapshot when a pushed review-status change arrives', async () => {
+    // First load = in_review; the post-merge refetch returns the fresh snapshot.
     const fetchSpy = vi
       .spyOn(orchestrationApi, 'getSelfFixReview')
-      .mockResolvedValue(review({ reviewStatus: 'in_review' }))
+      .mockResolvedValueOnce(review({ reviewStatus: 'in_review', checksGreen: true }))
+      .mockResolvedValueOnce(review({ reviewStatus: 'merged', checksGreen: true }))
     const { rerender } = render(<ReviewSnapshotPanel task={task({ reviewStatus: 'in_review' })} />)
 
     // Initial snapshot load.
@@ -110,13 +112,13 @@ describe('ReviewSnapshotPanel', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1)
 
     // Another operator's approve→merge arrives as an `orchestration:task_update`
-    // frame → board upsert → this task prop flips to `merged`.
+    // frame → board upsert → this task prop flips to `merged`. The panel re-pulls
+    // the FULL snapshot so every field (status + CI + PR) stays consistent —
+    // never a stale "CI checks passing" next to a fresh "Merged".
     rerender(<ReviewSnapshotPanel task={task({ reviewStatus: 'merged' })} />)
 
-    // The panel reflects the merge live (button reads "Merged" and is disabled)
-    // and issues NO second snapshot fetch — the status syncs off the prop.
     await waitFor(() => expect(screen.getByTestId('review-approve')).toHaveTextContent('Merged'))
     expect(screen.getByTestId('review-approve')).toBeDisabled()
-    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
   })
 })
