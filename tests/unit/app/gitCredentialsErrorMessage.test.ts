@@ -73,9 +73,21 @@ describe('gitCredentialsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then save code access again. Forge could not connect while opening code access.'
+      'Check your connection, then save code access again. The save did not finish.'
     )
     expect(message).not.toContain('Network error')
+    expect(message).not.toContain('opening code access')
+  })
+
+  test('starts remove network failures with the recovery step', () => {
+    const message = gitCredentialsErrorMessage('removing code access failed: Network error')
+
+    expectBeginnerMessage(
+      message,
+      'Check your connection, then remove code access again. The removal did not finish.'
+    )
+    expect(message).not.toContain('Network error')
+    expect(message).not.toContain('opening code access')
   })
 
   test('turns structured rate limits into a wait and retry step', () => {

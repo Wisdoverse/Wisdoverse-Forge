@@ -87,8 +87,10 @@ function connectionMessage(action: PlatformKeyAction): string {
   if (action === 'load') {
     return 'Check your connection, then refresh Settings to load outside tool access keys. Forge could not connect while opening outside tool access settings.'
   }
-  const verb = action === 'remove' ? 'remove' : 'create'
-  return `Check your connection, then ${verb} this outside tool access key again. Forge could not connect while opening outside tool access settings.`
+  if (action === 'remove') {
+    return 'Check your connection, then remove this outside tool access key again. The removal did not finish.'
+  }
+  return 'Check your connection, then create this outside tool access key again. The creation did not finish.'
 }
 
 export function platformKeyErrorMessage(error: unknown): string {

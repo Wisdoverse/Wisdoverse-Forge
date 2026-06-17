@@ -88,8 +88,10 @@ function connectionMessage(action: SshKeyAction): string {
   if (action === 'load') {
     return 'Check your connection, then refresh Settings to load SSH code access. Forge could not connect while opening SSH code access.'
   }
-  const verb = action === 'remove' ? 'remove' : 'save'
-  return `Check your connection, then ${verb} this SSH code access again. Forge could not connect while opening SSH code access.`
+  if (action === 'remove') {
+    return 'Check your connection, then remove this SSH code access again. The removal did not finish.'
+  }
+  return 'Check your connection, then save this SSH code access again. The save did not finish.'
 }
 
 export function sshKeysErrorMessage(error: unknown): string {

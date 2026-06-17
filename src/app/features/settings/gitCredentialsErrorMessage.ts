@@ -85,8 +85,10 @@ function connectionMessage(action: GitCredentialAction): string {
   if (action === 'load') {
     return 'Check your connection, then refresh Settings to load code access. Forge could not connect while opening code access.'
   }
-  const verb = action === 'remove' ? 'remove' : 'save'
-  return `Check your connection, then ${verb} code access again. Forge could not connect while opening code access.`
+  if (action === 'remove') {
+    return 'Check your connection, then remove code access again. The removal did not finish.'
+  }
+  return 'Check your connection, then save code access again. The save did not finish.'
 }
 
 function validationGuidance(lower: string): string {
