@@ -340,6 +340,8 @@ describe('SkillsView', () => {
 
     await user.click(screen.getAllByRole('button', { name: /save instruction/i })[0])
     const dialog = screen.getByRole('dialog', { name: /save a reusable instruction/i })
+    expect(within(dialog).getByText(/safe enough for this team space/i)).toBeDefined()
+    expect(within(dialog).queryByText(/safe enough for the workspace/i)).toBeNull()
     await user.click(within(dialog).getByRole('button', { name: /save instruction/i }))
 
     expect(screen.getByRole('alert')).toHaveTextContent(
