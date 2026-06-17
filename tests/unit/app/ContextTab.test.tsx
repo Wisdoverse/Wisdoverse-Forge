@@ -361,7 +361,7 @@ describe('ContextTab', () => {
     expect(screen.queryByText('Unknown')).toBeNull()
   })
 
-  test('loads full saved note content only after the user asks for it', async () => {
+  test('loads complete saved note content only after the user asks for it', async () => {
     const readMemoryContent = vi.fn(async () => ({
       id: 'memory-1',
       content: 'Full memory content loaded on demand.',
@@ -390,13 +390,13 @@ describe('ContextTab', () => {
     expect(await screen.findByText('Short preview...')).toBeDefined()
     expect(readMemoryContent).not.toHaveBeenCalled()
 
-    await userEvent.setup().click(screen.getByRole('button', { name: /show full saved note/i }))
+    await userEvent.setup().click(screen.getByRole('button', { name: /show complete saved note/i }))
 
     expect(readMemoryContent).toHaveBeenCalledWith('memory-1')
     expect(await screen.findByText('Full memory content loaded on demand.')).toBeDefined()
   })
 
-  test('shows a beginner-safe message when full saved note content fails to load', async () => {
+  test('shows a beginner-safe message when complete saved note content fails to load', async () => {
     const readMemoryContent = vi.fn(async () => {
       throw new Error('raw backend failure')
     })
@@ -420,12 +420,13 @@ describe('ContextTab', () => {
     )
 
     await screen.findByText('Short preview...')
-    await userEvent.setup().click(screen.getByRole('button', { name: /show full saved note/i }))
+    await userEvent.setup().click(screen.getByRole('button', { name: /show complete saved note/i }))
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'Choose Show full saved note again before relying on it. The full saved note could not load.'
+      'Choose Show complete saved note again before relying on it. The complete saved note could not load.'
     )
+    expect(screen.queryByText(/full saved note/i)).toBeNull()
     expect(screen.queryByText('raw backend failure')).toBeNull()
   })
 

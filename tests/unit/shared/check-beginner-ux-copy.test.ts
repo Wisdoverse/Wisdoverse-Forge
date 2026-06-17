@@ -6126,6 +6126,11 @@ function taskKindLabel(kind) {
   return kind ? 'Check task type' : 'Refresh task type'
 }
 `,
+      'src/app/features/detail/ContextAppliedList.tsx': `
+function contentLoadError() {
+  return 'Choose Show complete saved note again before relying on it. The complete saved note could not load.'
+}
+`,
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
@@ -6746,6 +6751,40 @@ const PROBLEM_MESSAGE =
       'src/app/features/detail/ContextEvidenceList.tsx': `
 const PROBLEM_MESSAGE =
   'This record hit a problem. Ask the agent to explain what happened, then retry if the task still matters.'
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags saved detail toggles that expose full-record jargon', () => {
+    const cwd = fixture({
+      'src/app/features/detail/ContextEvidenceList.tsx': `
+export function ContextEvidenceList() {
+  return <details><summary>Show full record</summary><p>Open the full record only when checking an unexpected result.</p><p>Full record details were saved but could not be shown safely.</p></details>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'context-evidence-full-record-copy',
+          location: 'src/app/features/detail/ContextEvidenceList.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved detail toggles that use beginner-facing wording', () => {
+    const cwd = fixture({
+      'src/app/features/detail/ContextEvidenceList.tsx': `
+export function ContextEvidenceList() {
+  return <details><summary>Show saved details</summary><p>Open saved details only when checking an unexpected result.</p></details>
+}
 `,
     })
 
@@ -8852,7 +8891,7 @@ function auditEventLabel(eventType) {
 }
 
 function shortEventType(eventType) {
-  return eventType.trim() || 'Check change details'
+  return eventType.trim() || 'Saved change name missing'
 }
 
 function resourceTypeLabel(value) {
@@ -8964,6 +9003,8 @@ function AuditLogView() {
     <input placeholder="Paste an event category only when needed" />
     <button aria-label="Refresh audit history">Refresh</button>
     <button>Show event details</button>
+    <button>Show change details</button>
+    <p>Check change details</p>
   </section>
 }
 `,
@@ -9001,6 +9042,14 @@ function message() {
         }),
         expect.objectContaining({
           type: 'governance-audit-jargon-copy',
+          location: 'src/app/features/governance/AuditLogView.tsx:8',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-jargon-copy',
+          location: 'src/app/features/governance/AuditLogView.tsx:9',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-jargon-copy',
           location: 'src/app/features/governance/governanceAuditErrorMessages.ts:3',
         }),
       ])
@@ -9016,7 +9065,7 @@ function AuditLogView() {
     <label>Specific change name</label>
     <input placeholder="Paste an exact change area only when needed" />
     <button aria-label="Refresh change history">Refresh</button>
-    <button>Show change details</button>
+    <button>Show saved change name</button>
   </section>
 }
 `,

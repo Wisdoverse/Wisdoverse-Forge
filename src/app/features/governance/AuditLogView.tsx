@@ -531,7 +531,7 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
         </div>
         <details className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           <summary className="cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/30">
-            Show change details
+            Show saved change name
           </summary>
           <span className="mt-1 block font-mono">{shortEventType(entry.eventType)}</span>
         </details>
@@ -787,7 +787,7 @@ function auditViewMetricLabel(eventPrefix: string | undefined): string {
 }
 
 function shortEventType(eventType: string): string {
-  return eventType.replace(/^governance\.context\./, '').trim() || 'Check change details'
+  return eventType.replace(/^governance\.context\./, '').trim() || 'Saved change name missing'
 }
 
 function auditItemKindLabel(kind: GovernanceAuditItemKind | null | undefined): string {

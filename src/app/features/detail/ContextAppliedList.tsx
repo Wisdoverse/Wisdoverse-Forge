@@ -79,7 +79,7 @@ function AppliedContextCard({
   const [contentError, setContentError] = useState<string | null>(null)
   const Icon = item.itemKind === 'skill' ? Workflow : Brain
   const content = expandedContent ?? item.contentPreview
-  const showMoreLabel = loadingContent ? 'Loading full saved note…' : 'Show full saved note'
+  const showMoreLabel = loadingContent ? 'Loading complete saved note…' : 'Show complete saved note'
 
   async function showMore() {
     if (!item.contentTruncated || item.itemKind !== 'memory') {
@@ -93,7 +93,7 @@ function AppliedContextCard({
       setExpandedContent(result.content)
     } catch {
       setContentError(
-        'Choose Show full saved note again before relying on it. The full saved note could not load.'
+        'Choose Show complete saved note again before relying on it. The complete saved note could not load.'
       )
     } finally {
       setLoadingContent(false)
@@ -132,8 +132,8 @@ function AppliedContextCard({
               aria-label={`${showMoreLabel} for ${item.title}`}
               title={
                 loadingContent
-                  ? 'Loading the full saved note text.'
-                  : 'Open the full saved note text.'
+                  ? 'Loading the complete saved note text.'
+                  : 'Open the complete saved note text.'
               }
               className="mt-1 text-[10px] font-medium text-apple-blue hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-wait disabled:opacity-60"
             >

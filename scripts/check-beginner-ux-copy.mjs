@@ -824,7 +824,8 @@ const CONTEXT_FALLBACK_DEAD_END_PATTERNS = [
   /\bSome note limits need review\b/i,
   /\bTask type not listed\b/i,
   /\bTask type needs review\b/i,
-  /\bThe full saved note could not load\. Choose Show full saved note again\b/i,
+  /\bShow full saved note\b/i,
+  /\bfull saved note\b/i,
 ]
 
 const CONTEXT_WORK_HISTORY_JARGON_PATTERNS = [
@@ -851,6 +852,13 @@ const CONTEXT_EVIDENCE_SOURCE_TITLE_JARGON_PATTERNS = [
   /\breturn\s+['"`]Task result['"`]/,
   /\breturn\s+['"`]Tool activity['"`]/,
   /\breturn\s+['"`]Source message['"`]/,
+]
+
+const CONTEXT_EVIDENCE_FULL_RECORD_JARGON_PATTERNS = [
+  /\bShow full record\b/i,
+  /\bOpen the full record\b/i,
+  /\bFull record details\b/i,
+  /\bfull record only\b/i,
 ]
 
 const CHAT_MESSAGE_FALLBACK_DEAD_END_PATTERNS = [
@@ -954,6 +962,8 @@ const GOVERNANCE_AUDIT_VISIBLE_JARGON_PATTERNS = [
   /\bevent category\b/i,
   /\bevent name\b/i,
   /\bevent details\b/i,
+  /\bShow change details\b/i,
+  /\bCheck change details\b/i,
   /\bCheck audit change\b/i,
 ]
 
@@ -2927,6 +2937,12 @@ function hasContextEvidenceSourceTitleJargonCopy(relFile, line) {
   return CONTEXT_EVIDENCE_SOURCE_TITLE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasContextEvidenceFullRecordJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/detail/ContextEvidenceList.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CONTEXT_EVIDENCE_FULL_RECORD_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasChatMessageFallbackDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/chat/ChatView.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -4821,6 +4837,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Tool and saved-item problem copy must explain what to do without technical-problem jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasContextEvidenceFullRecordJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'context-evidence-full-record-copy',
+        location,
+        message:
+          'Saved detail copy must say saved details instead of full record for first-time users.',
         sample: line.trim(),
       })
     }
