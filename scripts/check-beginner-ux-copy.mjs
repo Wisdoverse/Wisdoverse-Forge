@@ -1052,6 +1052,11 @@ const ACCESS_LEVEL_DEAD_END_PATTERNS = [
 
 const AGENT_TEMPLATE_ROLE_JARGON_PATTERNS = [/\bStart with a role\b/i, /\bAgent role templates\b/i]
 
+const CREATE_AGENT_WORK_STYLE_JARGON_PATTERNS = [
+  /\bChoose work style\b/i,
+  /\blabel:\s*['"`]Work style['"`]/,
+]
+
 const PROJECT_SHARE_ROLE_JARGON_PATTERNS = [/\bInvite people and choose roles\b/i]
 
 const VAGUE_ACCESS_RECOVERY_PATTERNS = [
@@ -1792,6 +1797,12 @@ function hasAgentAiServiceDeadEndCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return AGENT_AI_SERVICE_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasCreateAgentWorkStyleJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CREATE_AGENT_WORK_STYLE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentModelDeadEndCopy(relFile, line) {
@@ -3280,6 +3291,16 @@ function scanFile(file, relFile) {
         type: 'agent-ai-service-copy',
         location,
         message: 'Agent AI service fallback copy must tell beginners to refresh service data.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCreateAgentWorkStyleJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'create-agent-work-location-copy',
+        location,
+        message:
+          'Create agent setup must ask where the agent works instead of using work-style jargon.',
         sample: line.trim(),
       })
     }

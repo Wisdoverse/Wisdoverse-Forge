@@ -252,7 +252,7 @@ function createReviewItems({
         : 'Wait until it shows Ready, then send one small task from Tasks.'
 
   return [
-    { label: 'Work style', value: runtimeTitle },
+    { label: 'Where it works', value: runtimeTitle },
     {
       label: 'Primary project',
       value: projectName ?? 'Choose a project before assigning tasks.',
@@ -900,9 +900,13 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
 
             <div>
               <label className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                Choose work style
+                Where should this agent work?
               </label>
-              <div className="flex gap-2" role="radiogroup" aria-label="Choose work style">
+              <div
+                className="flex gap-2"
+                role="radiogroup"
+                aria-label="Where should this agent work?"
+              >
                 <label
                   className={cn(
                     'flex-1 cursor-pointer rounded-full px-4 py-2 text-center text-ui-button font-medium transition-transform active:scale-95',

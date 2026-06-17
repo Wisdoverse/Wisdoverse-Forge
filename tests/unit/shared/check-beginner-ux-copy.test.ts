@@ -2811,6 +2811,50 @@ function cliToolToProvider() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags create-agent work-style labels that do not say where the agent works', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+function createReviewItems() {
+  return [{ label: 'Work style', value: 'Claude in a managed workspace' }]
+}
+function WorkStylePicker() {
+  return <label>Choose work style</label>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'create-agent-work-location-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'create-agent-work-location-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:6',
+        }),
+      ])
+    )
+  })
+
+  it('accepts create-agent labels that ask where the agent works', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+function createReviewItems() {
+  return [{ label: 'Where it works', value: 'Claude in a managed workspace' }]
+}
+function WorkLocationPicker() {
+  return <label>Where should this agent work?</label>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags access level fallback copy that does not tell users what to refresh', () => {
     const cwd = fixture({
       'src/app/entities/user/model/roleLabels.ts': `
