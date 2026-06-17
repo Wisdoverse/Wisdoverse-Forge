@@ -10,23 +10,23 @@ const MISSING_ACCESS_MESSAGE =
 const TECHNICAL_PROBLEM_MESSAGE =
   'This step hit a problem. Ask the agent to explain what happened, then retry if the task still matters.'
 
-function formatSupportDetails(data: Record<string, unknown>): string {
+function formatExtraDetails(data: Record<string, unknown>): string {
   try {
     const safeData = safeToolValue(data)
     if (!safeData || typeof safeData !== 'object' || Array.isArray(safeData)) {
-      return formatSupportValue(safeData)
+      return formatExtraValue(safeData)
     }
 
     const lines = Object.entries(safeData as Record<string, unknown>).map(
-      ([key, value]) => `${supportDetailLabel(key)}: ${formatSupportValue(value, key)}`
+      ([key, value]) => `${extraDetailLabel(key)}: ${formatExtraValue(value, key)}`
     )
-    return lines.length > 0 ? lines.join('\n') : 'No support details were recorded.'
+    return lines.length > 0 ? lines.join('\n') : 'No extra details were recorded.'
   } catch {
-    return 'Details for support were recorded but could not be shown safely. Review the summary above, then ask support to check this task if needed.'
+    return 'Extra details were recorded but could not be shown safely. Review the summary above, then ask an owner or admin to check this task if needed.'
   }
 }
 
-function supportDetailLabel(key: string): string {
+function extraDetailLabel(key: string): string {
   if (isSensitiveKey(key)) return 'Account access'
 
   const normalized = key
@@ -50,10 +50,10 @@ function supportDetailLabel(key: string): string {
     reason: 'Reason',
     error: 'Problem',
   }
-  return labels[normalized] ?? humanizeSupportKey(key)
+  return labels[normalized] ?? humanizeDetailKey(key)
 }
 
-function humanizeSupportKey(key: string): string {
+function humanizeDetailKey(key: string): string {
   return key
     .trim()
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
@@ -63,7 +63,7 @@ function humanizeSupportKey(key: string): string {
     .join(' ')
 }
 
-function formatSupportValue(value: unknown, key = ''): string {
+function formatExtraValue(value: unknown, key = ''): string {
   if (
     typeof value === 'number' &&
     key
@@ -176,7 +176,7 @@ function toolDataSummary(data: Record<string, unknown>, kind: 'request' | 'resul
 
   const itemCount = Object.keys(data).length
   if (itemCount > 0) {
-    return `${kind === 'request' ? 'Step setup' : 'Step result'} includes ${itemCount} ${itemCount === 1 ? 'item' : 'items'} for support review.`
+    return `${kind === 'request' ? 'Before this step' : 'After this step'} includes ${itemCount} ${itemCount === 1 ? 'item' : 'items'} you can inspect.`
   }
 
   return kind === 'request'
@@ -230,9 +230,9 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
   const [showFullOutput, setShowFullOutput] = useState(false)
 
   const requestSummary = toolDataSummary(call.input, 'request')
-  const requestDetails = formatSupportDetails(call.input)
+  const requestDetails = formatExtraDetails(call.input)
   const outputSummary = call.output ? toolDataSummary(call.output, 'result') : null
-  const outputText = call.output ? formatSupportDetails(call.output) : null
+  const outputText = call.output ? formatExtraDetails(call.output) : null
   const outputLines = outputText?.split('\n') ?? []
   const isTruncated = outputLines.length > MAX_OUTPUT_LINES
   const outcome = toolOutcome(call)
@@ -309,10 +309,10 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
           {/* Request */}
           <div>
             <span className="text-[10px] font-medium text-secondary-light dark:text-secondary-dark uppercase tracking-wide">
-              Step setup
+              Before this step
             </span>
             <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
-              Settings or instructions recorded for this step.
+              What the agent was told or given before it ran this step.
             </p>
             <p className="mt-1 rounded-md bg-black/[0.035] px-3 py-2 text-[11px] leading-relaxed text-foreground-light dark:bg-white/[0.04] dark:text-foreground-dark">
               {requestSummary}
@@ -323,9 +323,7 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
               onClick={() => setShowRequestDetails((visible) => !visible)}
               className="mt-1 text-[10px] font-medium text-apple-blue hover:underline"
             >
-              {showRequestDetails
-                ? 'Hide support details for setup'
-                : 'Show support details for setup'}
+              {showRequestDetails ? 'Hide setup details' : 'Show setup details'}
             </button>
             {showRequestDetails && (
               <pre
@@ -345,10 +343,10 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
           {outputText ? (
             <div>
               <span className="text-[10px] font-medium text-secondary-light dark:text-secondary-dark uppercase tracking-wide">
-                Step result
+                After this step
               </span>
               <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
-                What happened when this step finished.
+                What the agent reported after this step finished.
               </p>
               <p className="mt-1 rounded-md bg-black/[0.035] px-3 py-2 text-[11px] leading-relaxed text-foreground-light dark:bg-white/[0.04] dark:text-foreground-dark">
                 {outputSummary}
@@ -359,9 +357,7 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
                 onClick={() => setShowResultDetails((visible) => !visible)}
                 className="mt-1 text-[10px] font-medium text-apple-blue hover:underline"
               >
-                {showResultDetails
-                  ? 'Hide support details for result'
-                  : 'Show support details for result'}
+                {showResultDetails ? 'Hide result details' : 'Show result details'}
               </button>
               {showResultDetails && (
                 <>
@@ -383,7 +379,7 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
                       onClick={() => setShowFullOutput(true)}
                       className="text-[10px] text-apple-blue hover:underline mt-1"
                     >
-                      Show full recorded result ({outputLines.length} lines)
+                      Show all recorded result details ({outputLines.length} lines)
                     </button>
                   )}
                 </>

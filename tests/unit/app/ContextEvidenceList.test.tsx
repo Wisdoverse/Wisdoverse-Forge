@@ -70,11 +70,15 @@ describe('ContextEvidenceList', () => {
     expect(screen.queryByText(/Final answer or status saved from the agent run/i)).toBeNull()
     expect(screen.getByText('Health check completed successfully.')).toBeInTheDocument()
     expect(
-      screen.getByText(/Most users can rely on the summary above.*sharing details with support/i)
+      screen.getByText(
+        /Most users can rely on the summary above.*sharing details with an owner or admin/i
+      )
     ).toBeInTheDocument()
     expect(screen.queryByText(/sharing run details with support/i)).toBeNull()
+    expect(screen.queryByText(/support details/i)).toBeNull()
+    expect(screen.queryByText(/details with support/i)).toBeNull()
     expect(screen.queryByText(/this run already used it/i)).toBeNull()
-    expect(screen.getByText('Show support details')).toBeInTheDocument()
+    expect(screen.getByText('Show full record')).toBeInTheDocument()
     expect(screen.queryByText('Evidence')).toBeNull()
     expect(screen.queryByText(/technical details/i)).toBeNull()
     expect(screen.queryByText(/raw details/i)).toBeNull()
@@ -158,7 +162,7 @@ describe('ContextEvidenceList', () => {
 
     expect(screen.getByText('Deployment check')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByText('Show support details'))
+    fireEvent.click(screen.getByText('Show full record'))
 
     expect(screen.getAllByText(/Hidden for safety/i).length).toBeGreaterThan(0)
     expect(screen.getByText(/Required account access is missing/i)).toBeInTheDocument()
@@ -167,7 +171,7 @@ describe('ContextEvidenceList', () => {
     expect(screen.queryByText(/Missing token/i)).toBeNull()
   })
 
-  test('hides raw technical evidence failures from summaries and support details', () => {
+  test('hides raw technical evidence failures from summaries and full records', () => {
     render(
       <ContextEvidenceList
         evidence={[
@@ -193,7 +197,7 @@ describe('ContextEvidenceList', () => {
     expect(screen.queryByText(/stack trace/i)).toBeNull()
     expect(screen.queryByText(/raw command output/i)).toBeNull()
 
-    fireEvent.click(screen.getByText('Show support details'))
+    fireEvent.click(screen.getByText('Show full record'))
 
     expect(screen.getAllByText(/hit a problem/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/technical problem/i)).toBeNull()

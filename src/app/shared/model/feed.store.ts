@@ -111,7 +111,7 @@ export function attentionReasonPreview(rawReason: string): string {
     return 'Open the request to see what the agent needs before it can continue.'
   }
   if (/^permission required$/i.test(reason)) {
-    return 'Review the permission request before the agent continues.'
+    return 'Open the details before allowing the agent to continue.'
   }
 
   return taskBlockedPreview({ blockedHint: reason })

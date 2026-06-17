@@ -609,7 +609,7 @@ function DecisionPanel({
               <>
                 <div className="rounded-card bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue">
                   Choose who can reuse it. Only me is the safest choice. My team or This project
-                  shares it more broadly and needs the support reference from Settings.
+                  shares it more broadly and needs the team or project reference from Settings.
                 </div>
 
                 {!candidate.source_available && (
@@ -994,7 +994,7 @@ function reuseAudienceLabel(value: ContextCandidateSummary['proposed_scope_kind'
 }
 
 function scopeTargetReferenceLabel(value: ContextScopeKind): string {
-  return `${titleCase(value)} support reference`
+  return `${titleCase(value)} reference`
 }
 
 function candidatePreview(candidate: ContextCandidateSummary): string {

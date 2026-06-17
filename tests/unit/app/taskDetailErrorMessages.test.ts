@@ -111,7 +111,7 @@ describe('taskDetailErrorMessage', () => {
 
   test('keeps task action fallbacks next-step first', () => {
     expect(taskDetailErrorMessage('approveTask', new Error('unexpected action issue'))).toBe(
-      'Check that the task is still waiting for approval, then choose Approve again. The task was not approved.'
+      'Check that the task is still waiting for your decision, then choose Allow and continue again. The task did not continue.'
     )
     expect(taskDetailErrorMessage('retryTask', new Error('unknown retry issue'))).toBe(
       'Refresh the task, then choose Retry task again. The task was not retried.'
@@ -121,7 +121,7 @@ describe('taskDetailErrorMessage', () => {
   test('turns approval validation details into the Approve action', () => {
     expectBeginnerMessage(
       taskDetailErrorMessage('approveTask', new Error('approval state changed')),
-      'Check that the task is still waiting for approval, then choose Approve again.'
+      'Check that the task is still waiting for your decision, then choose Allow and continue again.'
     )
   })
 

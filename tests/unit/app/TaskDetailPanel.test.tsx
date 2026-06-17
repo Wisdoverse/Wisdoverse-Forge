@@ -77,14 +77,15 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByTestId('detail-close')).toBeDefined()
   })
 
-  test('labels the task support reference instead of showing a bare task id', () => {
+  test('labels the task reference instead of showing a bare task id', () => {
     render(<TaskDetailPanel task={mockTask} onClose={() => {}} />)
 
-    expect(screen.getByText('Support reference task-1')).toBeDefined()
+    expect(screen.getByText('Task reference task-1')).toBeDefined()
     expect(screen.queryByText(/^task-1$/)).toBeNull()
+    expect(screen.queryByText(/Support reference task-1/i)).toBeNull()
   })
 
-  test('tells users to refresh when the task support reference is missing', () => {
+  test('tells users to refresh when the task reference is missing', () => {
     render(<TaskDetailPanel task={{ ...mockTask, id: ' ' }} onClose={() => {}} />)
 
     expect(screen.getByText('Refresh task details')).toBeDefined()
@@ -142,12 +143,13 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByTestId('task-updates-guide')).toBeDefined()
     expect(screen.getByText('What to check now')).toBeDefined()
     expect(screen.getAllByText(/needs your input/i).length).toBeGreaterThan(0)
-    expect(screen.getByText(/approve or update the task/i)).toBeDefined()
+    expect(screen.getByText(/allow it to continue or update the task/i)).toBeDefined()
     expect(screen.getByText('Task story')).toBeDefined()
     expect(screen.getByText('Agent work history')).toBeDefined()
     expect(await screen.findByText('Work attempt: In progress')).toBeDefined()
     expect(screen.getByText(/used a work tool you should check/i)).toBeDefined()
-    expect(screen.getByText(/support reference run-1234/i)).toBeDefined()
+    expect(screen.getByText(/work attempt reference run-1234/i)).toBeDefined()
+    expect(screen.queryByText(/support reference run-1234/i)).toBeNull()
     expect(screen.getAllByText(/waiting for account access/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/waiting for api credentials/i)).toBeNull()
     expect(screen.getAllByText('Needs help').length).toBeGreaterThan(0)
@@ -233,9 +235,7 @@ describe('TaskDetailPanel', () => {
     await user.click(screen.getByRole('button', { name: /^cancel$/i }))
 
     expect(orchestrationApiMock.cancelTask).not.toHaveBeenCalled()
-    expect(
-      screen.getByText(/canceling stops the current agent work/i)
-    ).toBeDefined()
+    expect(screen.getByText(/canceling stops the current agent work/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /cancel task/i })).toBeDefined()
     expect(screen.getByRole('button', { name: /keep running/i })).toBeDefined()
 
@@ -301,9 +301,7 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByTestId('task-recovery-guidance')).toHaveTextContent(
       'Try the task again when the request is still useful'
     )
-    expect(screen.getByTestId('task-recovery-guidance')).toHaveTextContent(
-      'goes back to the queue'
-    )
+    expect(screen.getByTestId('task-recovery-guidance')).toHaveTextContent('goes back to the queue')
     await userEvent.setup().click(screen.getByRole('button', { name: /retry task/i }))
 
     await waitFor(() => expect(orchestrationApiMock.retryTask).toHaveBeenCalledWith('task-1'))
@@ -352,7 +350,7 @@ describe('TaskDetailPanel', () => {
     expect(screen.queryByText(/409 conflict/i)).toBeNull()
   })
 
-  test('approves blocked tasks waiting on human approval', async () => {
+  test('allows blocked tasks waiting on a human decision to continue', async () => {
     const approvedTask = { ...mockTask, state: 'queued' as const, blockedReason: undefined }
     orchestrationApiMock.approveTask.mockResolvedValue({ ok: true, task: approvedTask })
 
@@ -374,7 +372,7 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByTestId('task-recovery-guidance')).toHaveTextContent(
       'return the task to the queue'
     )
-    await userEvent.setup().click(screen.getByRole('button', { name: /approve and continue/i }))
+    await userEvent.setup().click(screen.getByRole('button', { name: /allow and continue/i }))
 
     await waitFor(() => expect(orchestrationApiMock.approveTask).toHaveBeenCalledWith('task-1'))
     expect(useBoardStore.getState().columns.queued[0]).toMatchObject({
