@@ -17,6 +17,11 @@ const providerAgent: AgentInfo = {
   cliTool: undefined,
 }
 
+const offlineProviderAgent: AgentInfo = {
+  ...providerAgent,
+  status: 'offline',
+}
+
 const cliAgent: AgentInfo = {
   ...providerAgent,
   id: 'cli-agent',
@@ -80,16 +85,51 @@ afterEach(() => {
 })
 
 describe('ChatView', () => {
-  test('shows provider-agent banner when agent has no cliTool', async () => {
+  const previousFindHelpCopy = new RegExp(['find', 'blockers'].join('\\s+'), 'i')
+  const previousHandoffLabel = 'Conversation handoff'
+  const previousHandoffTitle = 'Agent updates and help needed'
+
+  test('shows chat-only AI service banner when agent has no cliTool', async () => {
     const loadMessages = vi.fn().mockResolvedValue(undefined)
     useAgentsStore.setState({ agents: [providerAgent] })
     seedChatState({ messages: [message('Hello from provider')], loadMessages })
 
     render(<ChatView agentId={providerAgent.id} />)
 
-    expect(screen.getByTestId('provider-agent-chat-banner')).toBeInTheDocument()
+    const banner = screen.getByTestId('provider-agent-chat-banner')
+    expect(banner).toBeInTheDocument()
+    expect(within(banner).getByText('Chat-only AI service')).toBeInTheDocument()
+    expect(within(banner).getByText(/messages use anthropic/i)).toBeInTheDocument()
+    expect(
+      within(banner).getByText(/can answer in chat.*does not work on workspace files/i)
+    ).toBeInTheDocument()
+    expect(banner).not.toHaveTextContent(/terminal/i)
+    expect(banner).not.toHaveTextContent(/provider/i)
+    expect(banner).not.toHaveTextContent(/model service/i)
+    expect(banner).not.toHaveTextContent(/command window/i)
+    expect(banner).not.toHaveTextContent('Chat-only agent')
     expect(screen.getByText('Hello from provider')).toBeInTheDocument()
     await waitFor(() => expect(loadMessages).toHaveBeenCalledWith(providerAgent.id))
+  })
+
+  test('does not expose raw AI service slugs in the chat-only banner', () => {
+    useAgentsStore.setState({
+      agents: [
+        {
+          ...providerAgent,
+          id: 'unknown-provider-agent',
+          provider: 'future_provider',
+        },
+      ],
+    })
+    seedChatState({ messages: [] })
+
+    render(<ChatView agentId="unknown-provider-agent" />)
+
+    const banner = screen.getByTestId('provider-agent-chat-banner')
+    expect(within(banner).getByText(/messages use Check AI service/i)).toBeInTheDocument()
+    expect(banner).not.toHaveTextContent(/future_provider/i)
+    expect(banner).not.toHaveTextContent(/future provider/i)
   })
 
   test('does not show banner for container CLI agent', async () => {
@@ -113,19 +153,95 @@ describe('ChatView', () => {
     expect(screen.getByTestId('conversation-empty-state')).toBeInTheDocument()
     expect(screen.getByText('Start by asking this agent')).toBeInTheDocument()
     expect(screen.getByText('Ask for one outcome at a time.')).toBeInTheDocument()
+    expect(screen.getByText('Use Attention after a reply to find what needs help.')).toBeVisible()
+    expect(screen.getByText(/old messages are no longer useful/i)).toBeInTheDocument()
+    expect(screen.queryByText(previousFindHelpCopy)).toBeNull()
+    expect(screen.queryByText(/old context/i)).toBeNull()
   })
 
-  test('guides empty Container CLI history toward routed work', () => {
+  test('guides offline chat-only agents to AI service settings before messaging', () => {
+    useAgentsStore.setState({ agents: [offlineProviderAgent] })
+    seedChatState({ messages: [] })
+
+    render(<ChatView agentId={offlineProviderAgent.id} />)
+
+    const emptyState = screen.getByTestId('conversation-empty-state')
+    expect(emptyState).toHaveTextContent(
+      'This chat-only AI service is not ready. Open AI service settings, check this connection, then refresh Agents.'
+    )
+    expect(emptyState).not.toHaveTextContent('Settings > AI services')
+    expect(emptyState).not.toHaveTextContent('Start it before sending a message')
+    expect(screen.getByRole('textbox', { name: /message this agent/i })).toBeDisabled()
+    expect(
+      screen.getByText(
+        'Open AI service settings, check this connection, then refresh Agents before sending a message.'
+      )
+    ).toBeVisible()
+    expect(
+      screen.queryByText('This agent is offline. Start it before sending a message.')
+    ).toBeNull()
+  })
+
+  test('guides empty managed workspace history toward routed work', () => {
     useAgentsStore.setState({ agents: [cliAgent] })
     seedChatState({ turns: [] })
 
     render(<ChatView agentId={cliAgent.id} />)
 
     expect(screen.getByTestId('conversation-empty-state')).toBeInTheDocument()
-    expect(screen.getByText('No agent updates yet')).toBeInTheDocument()
+    expect(screen.getByText('Send this agent a task to start updates')).toBeInTheDocument()
+    expect(screen.getByText('Send work to create the first update.')).toBeInTheDocument()
     expect(
-      screen.getByText('Open Tasks and route work to this agent or its lane.')
+      screen.getByText(
+        'Create a task and assign it to this agent or to a task queue it can receive.'
+      )
     ).toBeInTheDocument()
+    expect(
+      screen.getByText('Check Attention once work starts to see what needs help.')
+    ).toBeVisible()
+    expect(screen.getByTestId('conversation-empty-state')).not.toHaveTextContent('lane')
+    expect(screen.queryByText('No updates from this agent yet')).toBeNull()
+    expect(screen.queryByText('No updates captured yet')).toBeNull()
+    expect(screen.queryByText(previousFindHelpCopy)).toBeNull()
+  })
+
+  test('shows a clear retry path when workspace conversation history cannot load', () => {
+    const fetchEvents = vi.fn().mockResolvedValue(undefined)
+    useAgentsStore.setState({ agents: [cliAgent] })
+    seedChatState({
+      error:
+        'Retry conversation to load conversation history. Check your connection, then choose Retry conversation again. Forge could not connect while loading this conversation.',
+      fetchEvents,
+    })
+
+    render(<ChatView agentId={cliAgent.id} />)
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent('Check this conversation')
+    expect(alert).toHaveTextContent('Check your connection, then choose Retry conversation again.')
+    expect(alert).not.toHaveTextContent('HTTP')
+    expect(alert).not.toHaveTextContent('Failed to fetch')
+
+    fireEvent.click(screen.getByRole('button', { name: /retry conversation/i }))
+    expect(fetchEvents).toHaveBeenCalledWith(cliAgent.id)
+  })
+
+  test('shows provider chat errors as attention without raw transport details', () => {
+    useAgentsStore.setState({ agents: [providerAgent] })
+    seedChatState({
+      messages: [message('Earlier answer')],
+      error:
+        'Retry conversation to load conversation history. Wait a few minutes, then choose Retry conversation again. Forge could not load this conversation right now. If it still fails, ask an owner or admin to check chat setup.',
+    })
+
+    render(<ChatView agentId={providerAgent.id} />)
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent('Check this conversation')
+    expect(alert).toHaveTextContent('ask an owner or admin to check chat setup')
+    expect(alert).not.toHaveTextContent('HTTP 500')
+    expect(alert).not.toHaveTextContent('Server error')
+    expect(screen.getByText('Earlier answer')).toBeInTheDocument()
   })
 
   test('summarizes provider conversation handoff and filters updates', () => {
@@ -147,12 +263,27 @@ describe('ChatView', () => {
           content: 'Settings page shipped',
           createdAt: '2026-04-25T06:10:00Z',
         }),
+        message('Internal sender is not listed yet', {
+          id: 'future-role',
+          role: 'function_call' as never,
+          content: 'Internal sender is not listed yet',
+        }),
       ],
     })
 
     render(<ChatView agentId={providerAgent.id} />)
 
     expect(screen.getByTestId('conversation-handoff-summary')).toBeInTheDocument()
+    expect(screen.getByText('Conversation summary')).toBeInTheDocument()
+    expect(screen.getByText('Updates and next steps')).toBeInTheDocument()
+    expect(screen.queryByText(previousHandoffLabel)).toBeNull()
+    expect(screen.queryByText(previousHandoffTitle)).toBeNull()
+    expect(
+      screen.getByPlaceholderText('Search updates, help requests, work steps...')
+    ).toBeInTheDocument()
+    expect(
+      within(screen.getByTestId('conversation-metric-operator')).getByText('Your messages')
+    ).toBeInTheDocument()
     expect(
       within(screen.getByTestId('conversation-metric-operator')).getByText('1')
     ).toBeInTheDocument()
@@ -162,8 +293,17 @@ describe('ChatView', () => {
     expect(
       within(screen.getByTestId('conversation-metric-attention')).getByText('1')
     ).toBeInTheDocument()
+    expect(screen.getAllByText('You').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Agent').length).toBeGreaterThan(0)
+    expect(screen.getByText('Check message sender')).toBeInTheDocument()
+    expect(screen.queryByText('Message needs review')).toBeNull()
+    expect(screen.queryByText(/^user$/i)).toBeNull()
+    expect(screen.queryByText(/^assistant$/i)).toBeNull()
+    expect(screen.queryByText(/function_call/i)).toBeNull()
 
     const filters = screen.getByTestId('conversation-filter-group')
+    expect(within(filters).getByRole('button', { name: /you\s*1/i })).toBeInTheDocument()
+    expect(within(filters).getByRole('button', { name: /work steps\s*0/i })).toBeInTheDocument()
     fireEvent.click(within(filters).getByRole('button', { name: /attention\s*1/i }))
     expect(screen.getByText('Billing flow is blocked by a missing secret')).toBeInTheDocument()
     expect(screen.queryByText('Settings page shipped')).toBeNull()
@@ -171,10 +311,46 @@ describe('ChatView', () => {
     fireEvent.change(screen.getByTestId('conversation-search'), {
       target: { value: 'missing-term' },
     })
-    expect(screen.getByTestId('conversation-filter-empty')).toBeInTheDocument()
-    expect(screen.getByText('Try All, Attention, or a shorter search term.')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /clear filters/i }))
+    const emptyState = screen.getByTestId('conversation-filter-empty')
+    expect(emptyState).toBeInTheDocument()
+    expect(within(emptyState).getByText('Search and filter are hiding updates')).toBeInTheDocument()
+    expect(within(emptyState).getByText(/useful updates may be hidden/i)).toBeInTheDocument()
+    expect(within(emptyState).getByText(/review every update/i)).toBeInTheDocument()
+    expect(emptyState).not.toHaveTextContent('No conversation updates match the current filters.')
+    expect(emptyState).not.toHaveTextContent('Try All, Attention, or a shorter search term.')
+    fireEvent.click(screen.getByRole('button', { name: /show all updates/i }))
+    expect(screen.getByTestId('conversation-search')).toHaveValue('')
     expect(screen.getByText('Settings page shipped')).toBeInTheDocument()
+
+    fireEvent.click(within(filters).getByRole('button', { name: /work steps\s*0/i }))
+    expect(screen.getByText('No work steps are showing yet')).toBeInTheDocument()
+    expect(
+      screen.getByText('Work steps appear when an agent shares commands or tool results.')
+    ).toBeInTheDocument()
+    expect(screen.getByText(/assign a task so work steps can appear/i)).toBeInTheDocument()
+    expect(screen.queryByText('No work steps have been reported yet')).toBeNull()
+  })
+
+  test('explains an empty You filter without operator jargon', () => {
+    useAgentsStore.setState({ agents: [providerAgent] })
+    seedChatState({
+      messages: [
+        message('Settings page shipped', {
+          id: 'assistant-1',
+          content: 'Settings page shipped',
+        }),
+      ],
+    })
+
+    render(<ChatView agentId={providerAgent.id} />)
+
+    const filters = screen.getByTestId('conversation-filter-group')
+    fireEvent.click(within(filters).getByRole('button', { name: /you\s*0/i }))
+
+    const emptyState = screen.getByTestId('conversation-filter-empty')
+    expect(emptyState).toHaveTextContent('No messages from you in this view yet')
+    expect(emptyState).toHaveTextContent('The You filter only shows requests you sent.')
+    expect(emptyState).not.toHaveTextContent('operator')
   })
 
   test('summarizes CLI turns with tools and failed tool attention', async () => {
@@ -223,6 +399,9 @@ describe('ChatView', () => {
       within(screen.getByTestId('conversation-metric-agent')).getByText('2')
     ).toBeInTheDocument()
     expect(
+      within(screen.getByTestId('conversation-metric-tools')).getByText('Work steps')
+    ).toBeInTheDocument()
+    expect(
       within(screen.getByTestId('conversation-metric-tools')).getByText('2')
     ).toBeInTheDocument()
     expect(
@@ -230,6 +409,7 @@ describe('ChatView', () => {
     ).toBeInTheDocument()
 
     const filters = screen.getByTestId('conversation-filter-group')
+    expect(within(filters).getByRole('button', { name: /work steps\s*2/i })).toBeInTheDocument()
     fireEvent.click(within(filters).getByRole('button', { name: /attention\s*1/i }))
     expect(screen.getByText(/Deploy failed because credentials are missing/i)).toBeInTheDocument()
     expect(screen.queryByText(/Typecheck passed/i)).toBeNull()

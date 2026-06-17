@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { taskBlockedPreview } from '@app/shared/lib/taskFailureCopy'
 
 export interface FeedItem {
   id: string
@@ -74,7 +75,13 @@ export const useFeedStore = create<FeedState>((set) => ({
   addFeedItem: (item) =>
     set((s) => ({ feedItems: [item, ...s.feedItems].slice(0, MAX_FEED_ITEMS) })),
   setAgents: (agents) => set({ agents }),
-  addAttentionItem: (item) => set((s) => ({ attentionItems: [...s.attentionItems, item] })),
+  addAttentionItem: (item) =>
+    set((s) => ({
+      attentionItems: [
+        ...s.attentionItems,
+        { ...item, reason: attentionReasonPreview(item.reason) },
+      ],
+    })),
   removeAttentionItem: (id) =>
     set((s) => ({ attentionItems: s.attentionItems.filter((a) => a.id !== id) })),
   addNotification: (notification) =>
@@ -97,3 +104,15 @@ export const useFeedStore = create<FeedState>((set) => ({
     set((s) => ({ notifications: s.notifications.map((n) => ({ ...n, read: true })) })),
   reset: () => set(initialState),
 }))
+
+export function attentionReasonPreview(rawReason: string): string {
+  const reason = rawReason.trim()
+  if (!reason || /^blocked$/i.test(reason)) {
+    return 'Open the request to see what the agent needs before it can continue.'
+  }
+  if (/^permission required$/i.test(reason)) {
+    return 'Review the permission request before the agent continues.'
+  }
+
+  return taskBlockedPreview({ blockedHint: reason })
+}

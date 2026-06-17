@@ -8,9 +8,9 @@ import { UsageMeter } from './UsageMeter'
 import { InvoiceList } from './InvoiceList'
 
 const BILLING_SETUP_STEPS = [
-  'Ask an owner to enable billing for this deployment.',
-  'Keep payment provider keys in deployment secrets, not in this browser.',
-  'Refresh this page after the deployment has restarted.',
+  'Ask an owner or admin to turn on billing for this workspace.',
+  'Do not paste secret payment settings here. Ask an owner or admin to connect billing in settings.',
+  'Refresh this page after billing is turned on.',
 ]
 
 // ============================================================================
@@ -33,8 +33,8 @@ function BillingNotConfigured() {
         Billing is not ready yet
       </h2>
       <p className="max-w-sm text-ui-body text-secondary-light dark:text-secondary-dark">
-        Billing is not enabled on this deployment yet. Nothing can be charged from this page until
-        an administrator connects the payment provider.
+        Billing is not enabled for this workspace yet. Ask an owner or admin to connect billing
+        before changing plans or payment methods.
       </p>
       <div className="mt-2 max-w-sm text-left">
         <p className="text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
@@ -56,19 +56,29 @@ interface BillingCheckpointProps {
   invoicesCount: number
 }
 
+function formatCapacityCheckCount(count: number): string {
+  return `${count} capacity ${count === 1 ? 'check' : 'checks'} shown`
+}
+
 function BillingCheckpoint({ hasSubscription, usageCount, invoicesCount }: BillingCheckpointProps) {
   const checkpoints = [
     {
       label: 'Plan',
-      value: hasSubscription ? 'Subscription is active or managed' : 'No paid subscription yet',
+      value: hasSubscription
+        ? 'Paid plan is active'
+        : 'Free plan is active. Ask an owner or admin to choose a paid plan when the team is ready.',
     },
     {
-      label: 'Usage',
-      value: usageCount > 0 ? `${usageCount} usage areas visible` : 'No usage reported yet',
+      label: 'Capacity',
+      value:
+        usageCount > 0
+          ? formatCapacityCheckCount(usageCount)
+          : 'Capacity details appear after agents run billable work',
     },
     {
       label: 'Invoices',
-      value: invoicesCount > 0 ? `${invoicesCount} invoice records` : 'No invoices yet',
+      value:
+        invoicesCount > 0 ? `${invoicesCount} invoices shown` : 'Invoices appear after a charge',
     },
   ]
 
@@ -80,7 +90,7 @@ function BillingCheckpoint({ hasSubscription, usageCount, invoicesCount }: Billi
       <div className="flex flex-col gap-1">
         <h2 className={uiStyles.sectionTitle}>Billing checkpoint</h2>
         <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-          Check the plan, usage, and invoices before changing billing settings.
+          Review the plan, capacity, and invoices before you change a plan or payment method.
         </p>
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
@@ -113,8 +123,10 @@ export function BillingPage() {
     subscription,
     plan,
     subscriptionLoading,
+    subscriptionError,
     usage,
     usageLoading,
+    usageError,
     invoices,
     invoicesLoading,
     invoicesError,
@@ -130,7 +142,9 @@ export function BillingPage() {
 
   const handleUpgrade = async () => {
     if (!plan) {
-      setActionError('A paid plan must be available before checkout can open.')
+      setActionError(
+        'Ask an owner or admin to make a paid plan available before opening the secure payment page.'
+      )
       return
     }
 
@@ -147,7 +161,9 @@ export function BillingPage() {
         window.location.href = url
         return
       }
-      setActionError('Checkout did not open. Try again or ask an administrator to check billing.')
+      setActionError(
+        'Try opening the secure payment page again. If it still does not open, ask an owner or admin to check billing.'
+      )
     } finally {
       setBillingAction(null)
     }
@@ -163,7 +179,7 @@ export function BillingPage() {
         return
       }
       setActionError(
-        'Billing management did not open. Try again or ask an administrator to check access.'
+        'Try opening the billing management page again. If it still does not open, ask an owner or admin to check access.'
       )
     } finally {
       setBillingAction(null)
@@ -189,6 +205,11 @@ export function BillingPage() {
       {/* Current Plan */}
       <section>
         <h3 className={uiStyles.groupLabel}>Plan and payment</h3>
+        {subscriptionError && (
+          <div role="alert" aria-live="polite" className={cn(uiStyles.error, 'mb-3')}>
+            {subscriptionError}
+          </div>
+        )}
         <PlanCard
           plan={plan}
           subscription={subscription}
@@ -200,10 +221,16 @@ export function BillingPage() {
         />
       </section>
 
-      {(usageLoading || usage.length > 0) && (
+      {(usageLoading || usage.length > 0 || usageError) && (
         <section>
-          <h3 className={uiStyles.groupLabel}>Usage this period</h3>
-          <UsageMeter metrics={usage} loading={usageLoading} />
+          <h3 className={uiStyles.groupLabel}>Capacity this period</h3>
+          {usageError ? (
+            <div role="alert" aria-live="polite" className={uiStyles.error}>
+              {usageError}
+            </div>
+          ) : (
+            <UsageMeter metrics={usage} loading={usageLoading} />
+          )}
         </section>
       )}
 

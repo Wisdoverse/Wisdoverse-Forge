@@ -4,6 +4,7 @@ import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSkillsStore, type Skill } from '@app/shared/model/skills.store'
 import type { TaskResultArtifact, TaskSummary } from '@app/shared/api/orchestration'
+import { skillDraftErrorMessage } from './model/skillDraftErrorMessage'
 
 interface SkillDraftModalProps {
   open: boolean
@@ -20,12 +21,12 @@ interface DraftForm {
 }
 
 const SKILL_REVIEW_POINTS = [
-  { label: 'Reusable rule', value: 'Keep only instructions future work should repeat.' },
+  { label: 'Saved instruction', value: 'Keep only instructions future work should repeat.' },
   {
     label: 'No secrets',
-    value: 'Remove tokens, customer data, one-time paths, and private notes.',
+    value: 'Remove secret keys, customer data, one-time paths, and private notes.',
   },
-  { label: 'Next owner', value: 'After publishing, choose the agents that should use it.' },
+  { label: 'Next owner', value: 'After publishing, choose the agents that should follow it.' },
 ]
 
 export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftModalProps) {
@@ -54,12 +55,14 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
     const name = form.name.trim()
     const content = form.content.trim()
     if (!name) {
-      setError('Name this skill before publishing it.')
+      setError('Name this instruction before publishing it.')
+      setFieldError('name')
       nameInputRef.current?.focus()
       return
     }
     if (!content) {
       setError('Keep or rewrite the reusable instructions before publishing.')
+      setFieldError('content')
       contentInputRef.current?.focus()
       return
     }
@@ -76,7 +79,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
       })
       setCreatedSkill(skill)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create skill')
+      setError(skillDraftErrorMessage(err))
     } finally {
       setSubmitting(false)
     }
@@ -109,11 +112,11 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 id="skill-draft-title" className={uiStyles.sectionTitle}>
-              Draft reusable skill
+              Draft saved instruction
             </h2>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
               Turn this completed task into reusable instructions. Review what should repeat before
-              publishing it to the workspace skill library.
+              saving it for the workspace.
             </p>
           </div>
           <button
@@ -143,7 +146,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label htmlFor="skill-draft-name" className={uiStyles.label}>
-                  Skill name
+                  Instruction name
                 </label>
                 <input
                   id="skill-draft-name"
@@ -164,7 +167,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
                   id="skill-draft-name-help"
                   className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
                 >
-                  Use a short name people will understand in the skill list.
+                  Use a short name people will understand in the saved instruction list.
                 </p>
               </div>
               <div>
@@ -172,10 +175,10 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
                   Use when
                 </label>
                 <p
-                  id="skill-draft-trigger-help"
+                  id="skill-draft-trigger-intro"
                   className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
                 >
-                  Short phrase that tells agents when this skill fits.
+                  Short phrase that tells agents when this instruction fits.
                 </p>
                 <input
                   id="skill-draft-trigger"
@@ -183,7 +186,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
                   autoComplete="off"
                   value={form.triggerPattern}
                   onChange={(event) => updateField('triggerPattern', event.target.value)}
-                  aria-describedby="skill-draft-trigger-help"
+                  aria-describedby="skill-draft-trigger-intro skill-draft-trigger-help"
                   className={cn(uiStyles.input, 'font-mono')}
                 />
                 <p
@@ -266,10 +269,10 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
 
             <div className="flex justify-end gap-2 pt-1">
               <button type="button" onClick={onClose} className={uiStyles.secondaryButton}>
-                Cancel
+                Close without publishing
               </button>
               <button type="submit" disabled={submitting} className={uiStyles.primaryButton}>
-                {submitting ? 'Publishing…' : 'Publish Skill'}
+                {submitting ? 'Publishing...' : 'Publish instruction'}
               </button>
             </div>
           </form>
@@ -286,7 +289,7 @@ function SkillPublishedState({ skill, onClose }: { skill: Skill; onClose: () => 
         <div className="flex items-start gap-3">
           <CheckCircle2 size={18} strokeWidth={2.25} aria-hidden="true" className="mt-0.5" />
           <div className="min-w-0">
-            <p className="text-ui-section font-semibold">Skill published</p>
+            <p className="text-ui-section font-semibold">Instruction published</p>
             <p className="mt-1 break-words text-ui-body text-foreground-light dark:text-foreground-dark">
               {skill.name}
             </p>
@@ -298,14 +301,14 @@ function SkillPublishedState({ skill, onClose }: { skill: Skill; onClose: () => 
         <NextReuseLink
           href="/skills"
           Icon={LibraryBig}
-          title="Open skills"
+          title="Open saved instructions"
           detail="Review the reusable instructions."
         />
         <NextReuseLink
           href="/agents"
           Icon={Users}
           title="Choose agent"
-          detail="Pick who should reuse this skill."
+          detail="Pick who should follow this instruction."
         />
       </div>
 
@@ -356,7 +359,7 @@ function NextReuseLink({
 }
 
 function buildSkillDraft(task: TaskSummary, artifacts: TaskResultArtifact[]): DraftForm {
-  const title = task.params.task.trim() || `Task ${task.id.slice(0, 8)}`
+  const title = draftTitle(task)
   const artifactContent = artifacts
     .map((artifact) => `# ${artifact.name}\n\n${artifact.data}`)
     .join('\n\n---\n\n')
@@ -364,17 +367,27 @@ function buildSkillDraft(task: TaskSummary, artifacts: TaskResultArtifact[]): Dr
   const source = artifactContent || task.params.message.trim() || title
 
   return {
-    name: slugify(title) || `task-${task.id.slice(0, 8)}-skill`,
+    name: slugify(title) || 'completed-task-instructions',
     description: `Reusable instructions extracted from completed task: ${title}`,
     triggerPattern: title.toLowerCase().slice(0, 80),
-    content: `# Skill: ${title}
+    content: `# Instruction: ${title}
 
 ## When to use
-Use this skill when a future task needs the same judgment, workflow, or implementation pattern.
+Use this instruction when a future task needs the same judgment, workflow, or implementation pattern.
 
 ## Reusable instructions
 ${source}`,
   }
+}
+
+function draftTitle(task: TaskSummary): string {
+  const taskTitle = task.params.task.trim()
+  if (taskTitle) return taskTitle
+
+  const messageTitle = task.params.message.trim().split(/\r?\n/)[0]?.trim()
+  if (messageTitle) return messageTitle
+
+  return 'Completed task instructions'
 }
 
 function slugify(value: string): string {

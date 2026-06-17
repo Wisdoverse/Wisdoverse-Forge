@@ -95,7 +95,7 @@ export function InvoiceList({ invoices, loading, error }: InvoiceListProps) {
           <div role="alert" className="px-6 py-8 text-center">
             <p className="text-ui-body text-apple-red">{error}</p>
             <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Try again later or ask an administrator to check billing access.
+              Try again later or ask an owner or admin to check billing access.
             </p>
           </div>
         )}
@@ -103,20 +103,20 @@ export function InvoiceList({ invoices, loading, error }: InvoiceListProps) {
         {!loading && !error && invoices.length === 0 && (
           <div className="px-6 py-8 text-center">
             <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-              No invoices have been created yet
+              Invoices appear after your first charge
             </p>
             <p className="mx-auto mt-1 max-w-sm text-ui-caption text-secondary-light dark:text-secondary-dark">
               Receipts and payment links will appear here after the first billing cycle.
             </p>
             <p className="mx-auto mt-1 max-w-sm text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Invoices appear after checkout or a billing portal change creates a charge.
+              Invoices appear after you start or change a plan and a charge is created.
             </p>
           </div>
         )}
 
         {!loading && !error && invoices.length > 0 && (
           <p className="px-4 pb-2 pt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Invoices appear after checkout or a billing portal change creates a charge.
+            Invoices appear after you start or change a plan and a charge is created.
           </p>
         )}
 
@@ -199,7 +199,7 @@ export function InvoiceList({ invoices, loading, error }: InvoiceListProps) {
                         </a>
                       ) : (
                         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                          No link
+                          Receipt appears after payment finishes
                         </span>
                       )}
                     </td>

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Bot, CheckCircle2, ListChecks, RotateCcw, Send, X } from 'lucide-react'
+import { AlertTriangle, Bot, CheckCircle2, ListChecks, RotateCcw, Send, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
+import { agentCapabilitySummary } from '@app/shared/lib/agentCapabilityCopy'
 import {
   orchestrationApi,
   taskResultArtifacts,
@@ -17,12 +19,13 @@ import { ContextTab } from './ContextTab'
 import { HistoryTab } from './HistoryTab'
 import { ReviewSnapshotPanel } from './ReviewSnapshotPanel'
 import { SkillDraftModal } from './SkillDraftModal'
+import { taskDetailErrorMessage } from './taskDetailErrorMessages'
 
 type TabId = 'description' | 'result' | 'context' | 'history' | 'review'
 
 const BASE_TABS: { id: TabId; label: string }[] = [
   { id: 'description', label: 'Work' },
-  { id: 'context', label: 'Context' },
+  { id: 'context', label: 'Saved items' },
   { id: 'history', label: 'Updates' },
 ]
 
@@ -37,6 +40,8 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
   const canPublishWithContext = useContextFeaturesStore((s) => s.preview && s.injection)
   const resultArtifacts = taskResultArtifacts(task.result)
   const hasResult = resultArtifacts.length > 0
+  const failurePreview =
+    task.state === 'failed' && task.error ? taskFailurePreview(task.error) : null
   const baseTabs = contextVisible ? BASE_TABS : BASE_TABS.filter((tab) => tab.id !== 'context')
   const coreTabs = hasResult
     ? [baseTabs[0], { id: 'result' as TabId, label: 'Result' }, ...baseTabs.slice(1)]
@@ -55,6 +60,9 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
   const [skillDraftOpen, setSkillDraftOpen] = useState(false)
   const [recoveryAction, setRecoveryAction] = useState<'retry' | 'approve' | null>(null)
   const [recoveryError, setRecoveryError] = useState<string | null>(null)
+  const [taskAction, setTaskAction] = useState<'block' | 'cancel' | null>(null)
+  const [taskActionError, setTaskActionError] = useState<string | null>(null)
+  const [confirmCancelTask, setConfirmCancelTask] = useState(false)
 
   useEffect(() => {
     if (!contextVisible && activeTab === 'context') setActiveTab('description')
@@ -80,8 +88,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
         setSelectedAgentId((current) => current || items[0]?.agentId || '')
       })
       .catch((err) => {
-        if (!cancelled)
-          setPreviewError(err instanceof Error ? err.message : 'Failed to load agents')
+        if (!cancelled) setPreviewError(taskDetailErrorMessage('loadAgents', err))
       })
     return () => {
       cancelled = true
@@ -97,7 +104,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
     try {
       setPreview(await orchestrationApi.previewContext(task.id, agentId))
     } catch (err) {
-      setPreviewError(err instanceof Error ? err.message : 'Failed to load context preview')
+      setPreviewError(taskDetailErrorMessage('previewContext', err))
     } finally {
       setPreviewLoading(false)
     }
@@ -117,7 +124,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
       if (response.ok && response.task) upsertTask(response.task)
       setPreviewOpen(false)
     } catch (err) {
-      setPreviewError(err instanceof Error ? err.message : 'Failed to publish task')
+      setPreviewError(taskDetailErrorMessage('publishTask', err))
     } finally {
       setPublishing(false)
     }
@@ -133,9 +140,31 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
           : await orchestrationApi.approveTask(task.id)
       if (response.ok && response.task) upsertTask(response.task)
     } catch (err) {
-      setRecoveryError(err instanceof Error ? err.message : 'Failed to update task')
+      setRecoveryError(
+        taskDetailErrorMessage(action === 'retry' ? 'retryTask' : 'approveTask', err)
+      )
     } finally {
       setRecoveryAction(null)
+    }
+  }
+
+  async function handleTaskAction(action: 'block' | 'cancel') {
+    if (action === 'block') setConfirmCancelTask(false)
+    setTaskAction(action)
+    setTaskActionError(null)
+    try {
+      const response =
+        action === 'block'
+          ? await orchestrationApi.updateTask(task.id, { state: 'blocked' })
+          : await orchestrationApi.cancelTask(task.id)
+      if (response.ok && response.task) upsertTask(response.task)
+      if (action === 'cancel') setConfirmCancelTask(false)
+    } catch (err) {
+      setTaskActionError(
+        taskDetailErrorMessage(action === 'block' ? 'blockTask' : 'cancelTask', err)
+      )
+    } finally {
+      setTaskAction(null)
     }
   }
 
@@ -143,8 +172,8 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] font-mono text-secondary-light dark:text-secondary-dark">
-          {task.id.slice(0, 8)}
+        <span className="text-[10px] text-secondary-light dark:text-secondary-dark">
+          {taskSupportReference(task.id)}
         </span>
         <button
           data-testid="detail-close"
@@ -190,9 +219,12 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
       </div>
 
       {/* Error banner for failed tasks */}
-      {task.state === 'failed' && task.error && (
-        <div className="mt-2 px-3 py-2 rounded-lg bg-apple-red/10 text-apple-red text-xs">
-          {task.error}
+      {failurePreview && (
+        <div
+          data-testid="task-detail-failure-preview"
+          className="mt-2 px-3 py-2 rounded-lg bg-apple-red/10 text-apple-red text-xs"
+        >
+          {failurePreview}
         </div>
       )}
 
@@ -220,13 +252,13 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                     {artifact.name}
                   </span>
                   <span className="text-[10px] text-secondary-light dark:text-secondary-dark">
-                    {artifact.mimeType}
+                    {resultFileKindLabel(artifact.mimeType)}
                   </span>
                 </div>
                 <p className="mb-2 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
                   Use this result as evidence for the task outcome. If it does not answer the brief,
-                  go back to Work and decide whether to retry, add context, or create a follow-up
-                  task.
+                  go back to Work and decide whether to retry, review saved notes and instructions,
+                  or create a follow-up task.
                 </p>
                 <pre className="text-xs text-foreground-light dark:text-foreground-dark whitespace-pre-wrap break-words font-mono leading-relaxed max-h-[300px] overflow-y-auto">
                   {artifact.data}
@@ -262,8 +294,13 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
               ))}
             </div>
           ) : (
-            <div className="rounded-lg border border-dashed border-black/[0.1] px-3 py-2 text-xs text-secondary-light dark:border-white/[0.12] dark:text-secondary-dark">
-              No available agent can take this task right now.
+            <div className="rounded-lg border border-dashed border-black/[0.1] px-3 py-2 text-xs dark:border-white/[0.12]">
+              <p className="font-medium text-foreground-light dark:text-foreground-dark">
+                No agent can take this task right now
+              </p>
+              <p className="mt-1 leading-relaxed text-secondary-light dark:text-secondary-dark">
+                Open Agents to start or connect an agent, then return here and refresh this task.
+              </p>
             </div>
           )}
           <div className="flex justify-end">
@@ -276,11 +313,19 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                 'bg-apple-blue text-white transition-colors hover:bg-apple-blue/90',
                 'disabled:cursor-not-allowed disabled:opacity-50'
               )}
-              aria-label="Preview and publish task"
-              title="Preview and publish task"
+              aria-label={
+                selectedAgentId
+                  ? 'Preview and send task'
+                  : 'Choose an available agent before sending'
+              }
+              title={
+                selectedAgentId
+                  ? 'Preview and send task'
+                  : 'Choose an available agent before sending'
+              }
             >
               <Send size={14} strokeWidth={2} />
-              <span>Preview and publish</span>
+              <span>Preview and send</span>
             </button>
           </div>
         </div>
@@ -332,31 +377,81 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
       )}
 
       {showActions && (
-        <div className="flex gap-2 pt-3 border-t border-black/[0.04] dark:border-white/[0.04]">
-          <button
-            onClick={() => {
-              orchestrationApi.updateTask(task.id, { state: 'blocked' }).catch(console.error)
-            }}
-            className={cn(
-              'flex-1 text-xs font-medium py-1.5 rounded-button',
-              'bg-apple-orange/10 text-apple-orange',
-              'hover:bg-apple-orange/20 transition-colors'
-            )}
-          >
-            Block
-          </button>
-          <button
-            onClick={() => {
-              orchestrationApi.cancelTask(task.id).catch(console.error)
-            }}
-            className={cn(
-              'flex-1 text-xs font-medium py-1.5 rounded-button',
-              'bg-apple-red/10 text-apple-red',
-              'hover:bg-apple-red/20 transition-colors'
-            )}
-          >
-            Cancel
-          </button>
+        <div className="space-y-2 pt-3 border-t border-black/[0.04] dark:border-white/[0.04]">
+          {taskActionError && (
+            <div
+              role="alert"
+              className="rounded-lg bg-apple-red/10 px-3 py-2 text-xs text-apple-red"
+            >
+              {taskActionError}
+            </div>
+          )}
+          {confirmCancelTask ? (
+            <div className="space-y-2 rounded-lg border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-xs text-apple-red">
+              <div className="flex gap-2">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <p>
+                  Canceling stops the current agent work. Use Needs help instead if you only need to
+                  pause for missing input.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleTaskAction('cancel')}
+                  disabled={taskAction !== null}
+                  className={cn(
+                    'flex-1 rounded-button bg-apple-red px-2 py-1.5 font-medium text-white',
+                    'transition-colors hover:bg-apple-red/90',
+                    'disabled:cursor-not-allowed disabled:opacity-50'
+                  )}
+                >
+                  {taskAction === 'cancel' ? 'Canceling…' : 'Cancel task'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmCancelTask(false)}
+                  disabled={taskAction !== null}
+                  className={cn(
+                    'flex-1 rounded-button bg-white/70 px-2 py-1.5 font-medium text-foreground-light',
+                    'transition-colors hover:bg-white',
+                    'disabled:cursor-not-allowed disabled:opacity-50 dark:bg-black/20 dark:text-foreground-dark dark:hover:bg-black/30'
+                  )}
+                >
+                  Keep running
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => void handleTaskAction('block')}
+                disabled={taskAction !== null}
+                className={cn(
+                  'flex-1 text-xs font-medium py-1.5 rounded-button',
+                  'bg-apple-orange/10 text-apple-orange',
+                  'hover:bg-apple-orange/20 transition-colors',
+                  'disabled:cursor-not-allowed disabled:opacity-50'
+                )}
+              >
+                {taskAction === 'block' ? 'Marking…' : 'Needs help'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmCancelTask(true)}
+                disabled={taskAction !== null}
+                className={cn(
+                  'flex-1 text-xs font-medium py-1.5 rounded-button',
+                  'bg-apple-red/10 text-apple-red',
+                  'hover:bg-apple-red/20 transition-colors',
+                  'disabled:cursor-not-allowed disabled:opacity-50'
+                )}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -379,6 +474,22 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
       />
     </div>
   )
+}
+
+function taskSupportReference(id: string): string {
+  const trimmed = id.trim()
+  if (!trimmed) return 'Refresh task details'
+  return `Support reference ${trimmed.length > 8 ? trimmed.slice(0, 8) : trimmed}`
+}
+
+function resultFileKindLabel(mimeType: string): string {
+  const normalized = mimeType.trim().toLowerCase()
+  if (!normalized) return 'Result file'
+  if (normalized.startsWith('text/') || normalized.includes('markdown')) return 'Text result'
+  if (normalized.includes('json')) return 'Data result'
+  if (normalized.startsWith('image/')) return 'Image result'
+  if (normalized === 'application/pdf') return 'PDF result'
+  return 'Result file'
 }
 
 function ResultReviewGuide({ task, artifactCount }: { task: TaskSummary; artifactCount: number }) {
@@ -412,14 +523,14 @@ function ResultReviewGuide({ task, artifactCount }: { task: TaskSummary; artifac
         <ResultReviewStep
           number="2"
           title="Check the evidence"
-          detail={`${artifactCount} result artifact${artifactCount === 1 ? '' : 's'} attached for review.`}
+          detail={`${artifactCount} result file${artifactCount === 1 ? '' : 's'} attached for review.`}
         />
         <ResultReviewStep
           number="3"
           title="Choose the next action"
           detail={
             completed
-              ? 'Accept the result, draft reusable learning, or create a follow-up task if something is missing.'
+              ? 'Accept the result, save repeatable steps, or create a follow-up task if something is missing.'
               : 'Use Work or Updates to decide whether the agent needs more input.'
           }
         />
@@ -491,8 +602,8 @@ function AgentChoice({
         </span>
         <span className="block truncate text-[10px] text-secondary-light dark:text-secondary-dark">
           {participant.capabilities.length > 0
-            ? participant.capabilities.join(', ')
-            : 'Ready for assignment'}
+            ? agentCapabilitySummary(participant.capabilities)
+            : 'Ready to take this task'}
         </span>
       </span>
       <span

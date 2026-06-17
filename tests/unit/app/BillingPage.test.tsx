@@ -87,8 +87,13 @@ describe('BillingPage', () => {
     render(<BillingPage />)
 
     expect(await screen.findByText('Billing setup path')).toBeDefined()
-    expect(screen.getByText(/nothing can be charged/i)).toBeDefined()
-    expect(screen.getByText(/deployment secrets/i)).toBeDefined()
+    expect(
+      screen.getByText(/connect billing before changing plans or payment methods/i)
+    ).toBeDefined()
+    expect(screen.getByText(/turn on billing for this workspace/i)).toBeDefined()
+    expect(screen.getByText(/do not paste secret payment settings/i)).toBeDefined()
+    expect(screen.getByText(/after billing is turned on/i)).toBeDefined()
+    expect(screen.queryByText(/deployment/i)).toBeNull()
     await waitFor(() => expect(loadAllMock).toHaveBeenCalled())
   })
 
@@ -96,23 +101,31 @@ describe('BillingPage', () => {
     render(<BillingPage />)
 
     expect(await screen.findByText('Billing checkpoint')).toBeDefined()
-    expect(screen.getAllByText('No paid subscription yet').length).toBeGreaterThan(0)
+    expect(screen.getByText(/Free plan is active/i)).toBeDefined()
+    expect(screen.queryByText('No paid plan yet')).toBeNull()
+    expect(screen.getByText('Capacity details appear after agents run billable work')).toBeDefined()
     expect(screen.getByText(/no paid plan is attached yet/i)).toBeDefined()
-    expect(screen.getByText(/ask an owner or administrator/i)).toBeDefined()
+    expect(screen.getByText(/secure payment page can open/i)).toBeDefined()
+    expect(screen.getByText('Ask an owner or admin to make a plan available.')).toBeDefined()
     expect(screen.getByRole('button', { name: /upgrade plan/i })).toBeDisabled()
-    expect(screen.getByText(/invoices appear after checkout/i)).toBeDefined()
+    expect(screen.getByText('Invoices appear after a charge')).toBeDefined()
+    expect(screen.getByText(/invoices appear after you start or change a plan/i)).toBeDefined()
+    expect(screen.queryByText('No usage reported yet')).toBeNull()
+    expect(screen.queryByText(/checkout/i)).toBeNull()
+    expect(screen.queryByText(/billing portal/i)).toBeNull()
   })
 
-  test('opens the billing portal from an active subscription', async () => {
+  test('opens the billing management page from an active subscription', async () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
     openPortalMock.mockResolvedValue('https://billing.example.test/portal')
     setBillingState({ plan, subscription, usage, invoices })
 
     render(<BillingPage />)
 
-    expect(await screen.findByText('Subscription is active or managed')).toBeDefined()
-    expect(screen.getByText('1 usage areas visible')).toBeDefined()
-    expect(screen.getByText('1 invoice records')).toBeDefined()
+    expect(await screen.findByText('Paid plan is active')).toBeDefined()
+    expect(screen.getByText('1 capacity check shown')).toBeDefined()
+    expect(screen.getByText('1 invoices shown')).toBeDefined()
+    expect(screen.queryByText(/usage areas shown/i)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /manage billing/i }))
 
@@ -121,6 +134,56 @@ describe('BillingPage', () => {
       'https://billing.example.test/portal',
       '_blank',
       'noopener,noreferrer'
+    )
+  })
+
+  test('shows plan and usage load errors instead of silently falling back', async () => {
+    setBillingState({
+      subscriptionError:
+        'Refresh Billing to load plan and payment. Ask an owner or admin to give you billing access.',
+      usageError:
+        'Refresh Billing to load usage. Check your connection, then refresh Billing again. Forge could not connect while loading billing.',
+    })
+
+    render(<BillingPage />)
+
+    expect(await screen.findByText('Billing checkpoint')).toBeDefined()
+    expect(screen.getAllByRole('alert')).toHaveLength(2)
+    expect(
+      screen.getByText(
+        'Refresh Billing to load plan and payment. Ask an owner or admin to give you billing access.'
+      )
+    ).toBeDefined()
+    expect(
+      screen.getByText(
+        'Refresh Billing to load usage. Check your connection, then refresh Billing again. Forge could not connect while loading billing.'
+      )
+    ).toBeDefined()
+  })
+
+  test('starts checkout recovery with the retry action', async () => {
+    setBillingState({ plan })
+
+    render(<BillingPage />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /upgrade plan/i }))
+
+    await waitFor(() => expect(createCheckoutMock).toHaveBeenCalled())
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Try opening the secure payment page again. If it still does not open, ask an owner or admin to check billing.'
+    )
+  })
+
+  test('starts billing management recovery with the retry action', async () => {
+    setBillingState({ plan, subscription })
+
+    render(<BillingPage />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /manage billing/i }))
+
+    await waitFor(() => expect(openPortalMock).toHaveBeenCalled())
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Try opening the billing management page again. If it still does not open, ask an owner or admin to check access.'
     )
   })
 })

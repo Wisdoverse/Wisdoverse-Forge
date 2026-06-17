@@ -33,15 +33,30 @@ function makeMember(overrides: Partial<ResourceMember>): ResourceMember {
 function renderMembersModal({
   members = [],
   users = [makeUser({})],
+  loadMembersError,
+  loadUsersError,
+  addMemberError,
+  updateMemberError,
+  removeMemberError,
 }: {
   members?: ResourceMember[]
   users?: OrgUser[]
+  loadMembersError?: unknown
+  loadUsersError?: unknown
+  addMemberError?: unknown
+  updateMemberError?: unknown
+  removeMemberError?: unknown
 } = {}) {
-  const loadMembers = vi.fn().mockResolvedValue(members)
-  const loadUsers = vi.fn().mockResolvedValue(users)
+  const loadMembers = loadMembersError
+    ? vi.fn<() => Promise<ResourceMember[]>>().mockRejectedValue(loadMembersError)
+    : vi.fn<() => Promise<ResourceMember[]>>().mockResolvedValue(members)
+  const loadUsers = loadUsersError
+    ? vi.fn<() => Promise<OrgUser[]>>().mockRejectedValue(loadUsersError)
+    : vi.fn<() => Promise<OrgUser[]>>().mockResolvedValue(users)
   const addMember = vi
     .fn<(input: AddResourceMemberInput) => Promise<ResourceMember>>()
     .mockImplementation(async (input) => {
+      if (addMemberError) throw addMemberError
       const user = users.find((item) => item.id === input.userId) ?? makeUser({ id: input.userId })
       return makeMember({
         userId: user.id,
@@ -53,10 +68,13 @@ function renderMembersModal({
   const updateMember = vi
     .fn<(userId: string, input: UpdateResourceMemberInput) => Promise<ResourceMember>>()
     .mockImplementation(async (userId, input) => {
+      if (updateMemberError) throw updateMemberError
       const member = members.find((item) => item.userId === userId) ?? makeMember({ userId })
       return { ...member, role: input.role }
     })
-  const removeMember = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
+  const removeMember = vi.fn<(userId: string) => Promise<void>>().mockImplementation(async () => {
+    if (removeMemberError) throw removeMemberError
+  })
   const onClose = vi.fn()
 
   render(
@@ -81,22 +99,26 @@ describe('ResourceMembersModal', () => {
 
     const guide = await screen.findByTestId('member-role-guide')
     expect(within(guide).getByText('Add people only when they need this project')).toBeDefined()
-    expect(within(guide).getByText('Start with Member')).toBeDefined()
-    expect(within(guide).getByText('Use Maintainer for daily setup')).toBeDefined()
-    expect(within(guide).getByText('Reserve Owner and Admin')).toBeDefined()
+    expect(within(guide).getByText('Start with Member access')).toBeDefined()
+    expect(within(guide).getByText('Use Maintainer access for everyday changes')).toBeDefined()
+    expect(within(guide).getByText('Keep Owner and Admin access limited')).toBeDefined()
     expect(
-      screen.getByText(
-        'Choose an organization user, pick the safest role, then add them to this resource.'
+      screen.getByText('Choose a person, pick the safest access level, then add them here.')
+    ).toBeDefined()
+    expect(screen.getByText('Add people already in your team space')).toBeDefined()
+    expect(screen.getByText('People with access')).toBeDefined()
+    expect(screen.queryByText('Add People Already in Your Organization')).toBeNull()
+
+    const emptyState = screen.getByTestId('members-empty-state')
+    expect(within(emptyState).getByText('Add the first direct member')).toBeDefined()
+    expect(within(emptyState).queryByText('No direct members yet')).toBeNull()
+    expect(
+      within(emptyState).getByText(
+        /Start with Member access unless they need to manage who can get in/i
       )
     ).toBeDefined()
 
-    const emptyState = screen.getByTestId('members-empty-state')
-    expect(within(emptyState).getByText('No direct members yet')).toBeDefined()
-    expect(
-      within(emptyState).getByText(/Start with Member unless they need to manage access/i)
-    ).toBeDefined()
-
-    fireEvent.change(screen.getByLabelText('Select member to add'), {
+    fireEvent.change(screen.getByLabelText('Select person to add'), {
       target: { value: 'user-1' },
     })
     fireEvent.click(screen.getByRole('button', { name: /add/i }))
@@ -107,14 +129,18 @@ describe('ResourceMembersModal', () => {
     expect(screen.getByText('builder')).toBeDefined()
   })
 
-  test('explains that organization users must exist before members can be added', async () => {
+  test('explains that team-space people must exist before members can be added', async () => {
     renderMembersModal({ users: [] })
 
-    expect(await screen.findByText('No org users available')).toBeDefined()
+    expect(await screen.findByText('Invite someone to the team space first')).toBeDefined()
     expect(
-      screen.getByText('Invite a user to the organization first, then return here to grant access.')
+      screen.getByText(
+        'Invite the person to the team space first, then return here to give access.'
+      )
     ).toBeDefined()
-    expect(screen.getByLabelText('Select member to add')).toBeDisabled()
+    expect(screen.queryByText('No team-space people available')).toBeNull()
+    expect(screen.queryByText(/organization users/i)).toBeNull()
+    expect(screen.getByLabelText('Select person to add')).toBeDisabled()
   })
 
   test('explains filtered candidate results without hiding current access', async () => {
@@ -127,16 +153,129 @@ describe('ResourceMembersModal', () => {
     })
 
     expect(await screen.findByText('owner')).toBeDefined()
-    fireEvent.change(screen.getByLabelText('Filter organization members'), {
+    fireEvent.change(screen.getByLabelText('Filter team-space people'), {
       target: { value: 'missing-user' },
     })
 
-    expect(screen.getByText('No matching org members')).toBeDefined()
+    expect(screen.getByText('Clear search or invite this person first')).toBeDefined()
     expect(
       screen.getByText(
-        'Clear the filter or invite the person to the organization before adding them here.'
+        'Clear the filter or invite the person to the team space before adding them here.'
       )
     ).toBeDefined()
+    expect(screen.queryByText('No matching team-space people')).toBeNull()
+    expect(screen.queryByText(/organization members/i)).toBeNull()
     expect(screen.getByText('owner@example.com')).toBeDefined()
+  })
+
+  test('shows beginner guidance when members cannot load', async () => {
+    renderMembersModal({ loadMembersError: new Error('API 401: {"message":"token expired"}') })
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('Sign in again')
+    expect(alert.textContent).not.toContain('Code:')
+    expect(alert.textContent).not.toContain('API 401')
+    expect(alert.textContent).not.toContain('token expired')
+  })
+
+  test('shows permission guidance when adding a member fails', async () => {
+    renderMembersModal({ addMemberError: new Error('API 403: Forbidden') })
+
+    await screen.findByText('Add the first direct member')
+    fireEvent.change(screen.getByLabelText('Select person to add'), {
+      target: { value: 'user-1' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /add/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('You do not have permission')
+    expect(alert.textContent).toContain('Ask an owner or admin')
+    expect(alert.textContent).not.toContain('API 403')
+    expect(alert.textContent).not.toContain('Forbidden')
+  })
+
+  test('shows recovery guidance when the selected project changes before adding a member', async () => {
+    renderMembersModal({ addMemberError: new Error('No project selected') })
+
+    await screen.findByText('Add the first direct member')
+    fireEvent.change(screen.getByLabelText('Select person to add'), {
+      target: { value: 'user-1' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /add/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('This project is no longer selected')
+    expect(alert.textContent).toContain('choose the project again')
+    expect(alert.textContent).not.toContain('No project selected')
+  })
+
+  test('shows refresh guidance when role changes conflict', async () => {
+    renderMembersModal({
+      members: [makeMember({})],
+      users: [makeUser({})],
+      updateMemberError: new Error('API 409: {"message":"role already changed"}'),
+    })
+
+    await screen.findByText('builder')
+    fireEvent.change(screen.getByLabelText('Access level for builder'), {
+      target: { value: 'admin' },
+    })
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain("This person's access changed while you were editing")
+    expect(alert.textContent).toContain('Refresh the members list')
+    expect(alert.textContent).not.toContain('API 409')
+    expect(alert.textContent).not.toContain('role already changed')
+  })
+
+  test('explains access removal before removing a member', async () => {
+    const { removeMember } = renderMembersModal({
+      members: [makeMember({})],
+      users: [makeUser({})],
+    })
+
+    await screen.findByText('builder')
+    fireEvent.click(screen.getByRole('button', { name: 'Remove builder' }))
+
+    expect(
+      screen.getByText('Removing access stops builder from opening this project.')
+    ).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Keep access for builder' })).toHaveTextContent(
+      'Keep access'
+    )
+    expect(screen.getByRole('button', { name: 'Remove access for builder' })).toHaveTextContent(
+      'Remove access'
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Keep access for builder' }))
+    expect(removeMember).not.toHaveBeenCalled()
+    expect(
+      screen.queryByText('Removing access stops builder from opening this project.')
+    ).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove builder' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove access for builder' }))
+
+    await waitFor(() => {
+      expect(removeMember).toHaveBeenCalledWith('user-1')
+    })
+  })
+
+  test('explains last-owner style remove failures without raw API text', async () => {
+    renderMembersModal({
+      members: [makeMember({ role: 'owner' })],
+      users: [makeUser({})],
+      removeMemberError: new Error('API 422: {"message":"Choose a different owner first."}'),
+    })
+
+    await screen.findByText('builder')
+    fireEvent.click(screen.getByRole('button', { name: 'Remove builder' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove access for builder' }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('Choose a different owner first')
+    expect(alert.textContent).toContain('remove this person from this project')
+    expect(alert.textContent).not.toContain('Details:')
+    expect(alert.textContent).not.toContain('API 422')
   })
 })

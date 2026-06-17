@@ -12,7 +12,7 @@ describe('IconRail', () => {
     expect(screen.getByRole('button', { name: 'Task board' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Updates inbox' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Managed agents' })).toBeDefined()
-    expect(screen.getByRole('button', { name: 'Reusable skills' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Saved instructions' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Settings and setup' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Task board' })).toHaveAttribute(
       'aria-current',

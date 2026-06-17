@@ -2,7 +2,10 @@ import { useState, type FormEvent } from 'react'
 import { Check, Pencil, Trash2, Users, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
+import { workspaceResourceErrorMessage } from '@app/shared/lib/workspaceResourceErrorMessage'
 import type { NavTeam, UpdateTeamInput } from '@app/entities/team'
+
+const EMPTY_TEAM_NAME_MESSAGE = 'Enter a team name, then save again.'
 
 interface EditableTeamRowProps {
   team: NavTeam
@@ -37,7 +40,7 @@ export function EditableTeamRow({
     e.preventDefault()
     const trimmedName = name.trim()
     if (!trimmedName) {
-      setError('Team name is required')
+      setError(EMPTY_TEAM_NAME_MESSAGE)
       return
     }
 
@@ -47,7 +50,7 @@ export function EditableTeamRow({
       await onUpdate(team.id, { name: trimmedName, description: description.trim() })
       setEditing(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update team')
+      setError(workspaceResourceErrorMessage('team', 'update', err))
     } finally {
       setSaving(false)
     }
@@ -64,7 +67,7 @@ export function EditableTeamRow({
     try {
       await onDelete(team.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete team')
+      setError(workspaceResourceErrorMessage('team', 'delete', err))
       setSaving(false)
       setConfirmingDelete(false)
     }
@@ -80,11 +83,23 @@ export function EditableTeamRow({
         )}
       >
         <div className="flex flex-col gap-2">
-          {error && <div className={uiStyles.error}>{error}</div>}
+          {error && (
+            <div role="alert" className={uiStyles.error}>
+              {error}
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-start">
             <input
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                const nextName = e.target.value
+                setName(nextName)
+                if (!nextName.trim()) {
+                  setError(EMPTY_TEAM_NAME_MESSAGE)
+                } else if (error === EMPTY_TEAM_NAME_MESSAGE) {
+                  setError(null)
+                }
+              }}
               disabled={saving}
               autoFocus
               aria-label="Team name"
@@ -148,7 +163,7 @@ export function EditableTeamRow({
           </span>
         </div>
         <p className="mt-0.5 truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {team.slug}
+          Address: {team.slug}
           {team.description ? ` · ${team.description}` : ''}
         </p>
         {confirmingDelete && (
@@ -157,7 +172,11 @@ export function EditableTeamRow({
             sidebar.
           </p>
         )}
-        {error && <p className="mt-1 text-ui-caption text-apple-red">{error}</p>}
+        {error && (
+          <p role="alert" className="mt-1 text-ui-caption text-apple-red">
+            {error}
+          </p>
+        )}
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {canManage && (

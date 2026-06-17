@@ -107,6 +107,43 @@ Every PR should include:
 - migration, environment, or rollout notes when runtime behavior changes,
 - documentation updates for any changed API, runtime, deployment path, or contributor workflow.
 
+### Low-token PR status checks
+
+Do not repeatedly refresh PR, MR, or CI status inside an agent chat. Use one
+compact snapshot first.
+
+For GitHub pull requests:
+
+```bash
+npm run pr:summary
+```
+
+For GitLab merge requests or pipelines, use one `glab` snapshot with the fields
+needed for `ACTION`, `WAIT`, or `DONE`; do not use watch mode from chat.
+
+Read the buckets this way:
+
+- `ACTION`: fix the listed PRs or checks now.
+- `WAIT`: stop checking in chat; review, CI, or the merge queue is still
+  working. Reuse `npm run pr:summary:local` if you only need to show the last
+  saved snapshot.
+- `DONE`: no action is needed for that PR or MR.
+
+For an external monitor, schedule the low-noise command instead of asking an
+agent to watch a loop:
+
+```bash
+npm run pr:summary:monitor
+```
+
+That command reuses the local snapshot for 1 hour when it runs too soon and
+exits with an alert only when a PR needs action. See
+[docs/guides/pr-status-summary.md](docs/guides/pr-status-summary.md) for the
+refresh rules and emergency one-time override.
+Do not lower the repeat-read guard below 60 seconds or put the emergency
+override in scripts, aliases, scheduled jobs, or agent instructions. Do not
+lower the monitor cache below 1 hour in scheduled jobs.
+
 ### Merge requirements
 
 `main` is protected by a GitHub ruleset: all 15 status checks must be green, one

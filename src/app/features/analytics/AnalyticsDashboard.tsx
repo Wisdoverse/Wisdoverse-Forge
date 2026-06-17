@@ -11,6 +11,29 @@ const DATE_RANGE_OPTIONS: { value: DateRange; label: string }[] = [
   { value: '30d', label: 'Last 30 days' },
 ]
 
+const TOOL_DISPLAY_NAMES: Record<string, string> = {
+  apply_patch: 'File editing',
+  bash: 'Command line',
+  browser: 'Browser',
+  codebase_search: 'File search',
+  edit_file: 'File editing',
+  execute_command: 'Command line',
+  find: 'File search',
+  grep: 'File search',
+  list_files: 'File browsing',
+  read_file: 'File reading',
+  rg: 'File search',
+  search_file: 'File search',
+  search_files: 'File search',
+  shell: 'Command line',
+  shell_command: 'Command line',
+  str_replace_editor: 'File editing',
+  terminal: 'Command line',
+  todo_write: 'Task checklist',
+  web_search: 'Web search',
+  write_file: 'File editing',
+}
+
 function hourlyToBars(hourly: { hour: number; count: number }[]): BarPoint[] {
   // Take up to 24 hours, group by hour slot
   return hourly.slice(-24).map((h) => ({
@@ -21,9 +44,32 @@ function hourlyToBars(hourly: { hour: number; count: number }[]): BarPoint[] {
 
 function toolsToBars(tools: { tool: string; count: number }[]): BarPoint[] {
   return tools.slice(0, 8).map((t) => ({
-    label: t.tool,
+    label: analyticsToolDisplayName(t.tool),
     value: t.count,
   }))
+}
+
+function analyticsToolDisplayName(tool: string): string {
+  const trimmed = tool.trim()
+  if (!trimmed) return 'Work step'
+
+  const tail = trimmed.includes('__') ? trimmed.split('__').filter(Boolean).at(-1) : trimmed
+  const key = (tail ?? trimmed)
+    .replace(/([a-z])([A-Z])/g, '$1_$2')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+
+  if (TOOL_DISPLAY_NAMES[key]) return TOOL_DISPLAY_NAMES[key]
+
+  const words = key
+    .split('_')
+    .filter(Boolean)
+    .filter((part) => part !== 'mcp' && part !== 'tool' && part !== 'call')
+
+  if (words.length === 0) return 'Work step'
+
+  return words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
 }
 
 interface AnalyticsGuidance {
@@ -53,7 +99,8 @@ function buildAnalyticsGuidance({
   if (totalAgents === 0) {
     return {
       title: 'Create or connect an agent first',
-      detail: 'No agents are reporting status yet, so this page cannot show real work patterns.',
+      detail:
+        'This page starts showing trends after at least one agent is connected and has run a task.',
       action: 'Open Agents, add one agent, then run a small task to generate the first signals.',
       tone: 'attention',
     }
@@ -79,10 +126,10 @@ function buildAnalyticsGuidance({
 
   if (topToolName && typeof topToolSuccessRate === 'number' && topToolSuccessRate < 70) {
     return {
-      title: `Review ${topToolName} failures first`,
+      title: `Review ${topToolName} recovery first`,
       detail: `The busiest tool completed cleanly only ${topToolSuccessRate}% of the time in this range.`,
       action:
-        'Open recent task results and check the failed tool steps before assigning more work.',
+        'Open recent task results, review the recovery notes, then pause new work until the next step is clear.',
       tone: 'attention',
     }
   }
@@ -129,6 +176,9 @@ export function AnalyticsDashboard() {
 
   const topTool = tools[0]
   const topToolRate = topTool ? Math.round(topTool.successRate * 100) : 0
+  const topToolDisplayName = topTool ? analyticsToolDisplayName(topTool.tool) : undefined
+  const selectedDateRangeLabel =
+    DATE_RANGE_OPTIONS.find((option) => option.value === dateRange)?.label ?? 'Selected range'
   const totalEvents = summary?.totalEvents ?? 0
   const guidance = buildAnalyticsGuidance({
     totalAgents: agentStats.total,
@@ -136,41 +186,58 @@ export function AnalyticsDashboard() {
     workingAgents: agentStats.working,
     offlineAgents: agentStats.offline,
     totalEvents,
-    topToolName: topTool?.tool,
+    topToolName: topToolDisplayName,
     topToolSuccessRate: topTool ? topToolRate : undefined,
   })
 
   return (
     <div className="flex h-full flex-col">
       {/* Toolbar */}
-      <div className="flex shrink-0 items-center justify-end border-b border-black/[0.06] px-4 py-3 dark:border-white/[0.06] sm:px-6">
+      <div
+        className="flex shrink-0 flex-col gap-2 border-b border-black/[0.06] px-4 py-3 dark:border-white/[0.06] sm:flex-row sm:items-center sm:justify-between sm:px-6"
+        aria-busy={loading || undefined}
+      >
+        <p
+          className="min-h-5 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
+          aria-live="polite"
+        >
+          {loading
+            ? `Refreshing ${selectedDateRangeLabel}...`
+            : `Showing ${selectedDateRangeLabel}`}
+        </p>
+
         {/* Date range selector */}
         <div className="flex items-center gap-0.5 rounded-full border border-black/[0.08] bg-white p-0.5 dark:border-white/[0.1] dark:bg-white/[0.06]">
-          {DATE_RANGE_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setDateRange(opt.value)}
-              className={cn(
-                'rounded-full px-3 py-1 text-ui-caption font-medium transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
-                dateRange === opt.value
-                  ? 'bg-apple-blue text-white'
-                  : 'text-secondary-light dark:text-secondary-dark hover:text-foreground-light dark:hover:text-foreground-dark'
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
+          {DATE_RANGE_OPTIONS.map((opt) => {
+            const selected = dateRange === opt.value
+            const stateLabel = selected ? (loading ? ', refreshing now' : ', selected') : ''
+
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setDateRange(opt.value)}
+                disabled={loading}
+                aria-pressed={selected}
+                aria-label={`${opt.label}${stateLabel}`}
+                className={cn(
+                  'rounded-full px-3 py-1 text-ui-caption font-medium transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:active:scale-100',
+                  selected
+                    ? 'bg-apple-blue text-white'
+                    : 'text-secondary-light dark:text-secondary-dark hover:text-foreground-light dark:hover:text-foreground-dark',
+                  loading && !selected && 'opacity-60'
+                )}
+              >
+                {opt.label}
+              </button>
+            )
+          })}
         </div>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-        {error && (
-          <div className="mb-4 rounded-card border border-apple-red/20 bg-apple-red/10 px-4 py-2 text-ui-body text-apple-red">
-            {error}
-          </div>
-        )}
+        {error && <AnalyticsErrorPanel message={error} loading={loading} onRetry={load} />}
 
         <AnalyticsNextStepPanel guidance={guidance} loading={loading} />
 
@@ -192,8 +259,18 @@ export function AnalyticsDashboard() {
               loading={loading}
               accent="blue"
             />
-            <StatCard title="Working" value={agentStats.working} loading={loading} accent="blue" />
-            <StatCard title="Offline" value={agentStats.offline} loading={loading} accent="red" />
+            <StatCard
+              title="Working now"
+              value={agentStats.working}
+              loading={loading}
+              accent="blue"
+            />
+            <StatCard
+              title="Not connected"
+              value={agentStats.offline}
+              loading={loading}
+              accent="red"
+            />
           </div>
         </section>
 
@@ -241,7 +318,7 @@ export function AnalyticsDashboard() {
             ) : (
               <div className="flex h-24 items-center justify-center">
                 <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-                  No activity data
+                  Run a task to fill this chart
                 </p>
               </div>
             )}
@@ -260,10 +337,11 @@ export function AnalyticsDashboard() {
                   const maxCount = tools[0]?.count ?? 1
                   const pct = Math.max(2, Math.round((t.count / maxCount) * 100))
                   const rate = Math.round(t.successRate * 100)
+                  const toolName = analyticsToolDisplayName(t.tool)
                   return (
                     <div key={t.tool} className="flex items-center gap-2">
                       <span className="w-24 shrink-0 truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-                        {t.tool}
+                        {toolName}
                       </span>
                       <div className="h-2 flex-1 overflow-hidden rounded-full bg-black/[0.04] dark:bg-white/[0.05]">
                         <div
@@ -291,7 +369,7 @@ export function AnalyticsDashboard() {
             ) : (
               <div className="flex h-20 items-center justify-center">
                 <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-                  No tool usage data
+                  Tool use appears after an agent finishes a task
                 </p>
               </div>
             )}
@@ -303,7 +381,7 @@ export function AnalyticsDashboard() {
           <div className="mt-4">
             <StatCard
               title="Busiest tool"
-              value={topTool.tool}
+              value={topToolDisplayName ?? 'Work step'}
               subtitle={`${topTool.count} uses, ${topToolRate}% completed cleanly`}
               accent="blue"
             />
@@ -366,6 +444,39 @@ function AnalyticsNextStepPanel({
         )}
       </div>
     </section>
+  )
+}
+
+function AnalyticsErrorPanel({
+  message,
+  loading,
+  onRetry,
+}: {
+  message: string
+  loading: boolean
+  onRetry: () => Promise<void>
+}) {
+  return (
+    <div
+      role="alert"
+      aria-live="polite"
+      className="mb-4 rounded-card border border-apple-red/20 bg-apple-red/10 px-4 py-3 text-apple-red"
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-ui-body font-semibold">Refresh analytics data</p>
+          <p className="mt-1 text-ui-body">{message}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void onRetry()}
+          disabled={loading}
+          className="inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-apple-red/30 px-3 text-ui-button font-semibold text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/40 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {loading ? 'Refreshing...' : 'Refresh dashboard'}
+        </button>
+      </div>
+    </div>
   )
 }
 

@@ -69,12 +69,12 @@ test.describe('First-use Start checklist', () => {
     await expect(page.getByRole('heading', { name: 'Start with one safe path' })).toBeVisible()
     await expect(startPage.getByRole('heading', { name: /Workspace/i }).first()).toBeVisible()
     await expect(startPage.getByRole('heading', { name: /Agent/i }).first()).toBeVisible()
-    await expect(startPage.getByRole('heading', { name: /Model or local access/i }).first()).toBeVisible()
+    await expect(startPage.getByRole('heading', { name: /How agents can answer/i }).first()).toBeVisible()
     await expect(startPage.getByText('Wisdoverse Forge').first()).toBeVisible()
     await expect(startPage.getByText(/\d+ of \d+/).first()).toBeVisible()
   })
 
-  test('model or local access step navigates to settings', async ({ page, baseURL }) => {
+  test('agent answer setup step navigates to settings', async ({ page, baseURL }) => {
     await injectStartPreferences(page)
     await mockProviders(page, [])
 
@@ -83,7 +83,7 @@ test.describe('First-use Start checklist', () => {
 
     const startPage = page.locator('[data-testid="page-start"]')
     await expect(startPage).toBeVisible()
-    const providerStep = startPage.getByRole('heading', { name: /Model or local access/i }).first()
+    const providerStep = startPage.getByRole('heading', { name: /How agents can answer/i }).first()
     await expect(providerStep).toBeVisible()
     const stepRow = providerStep.locator('xpath=ancestor::article')
     const actionBtn = stepRow.getByRole('button').first()

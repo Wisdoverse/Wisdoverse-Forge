@@ -13,8 +13,10 @@ const SKILL_FILTER_LABELS: Record<SkillFilter, string> = {
   all: 'All',
   installed: 'Installed',
   available: 'Available',
-  cli: 'CLI scoped',
+  cli: 'For one work tool',
 }
+
+const RAW_LOAD_ERROR_PATTERN = /\b(?:API|HTTP|Code:)\s*\(?\d{3}\b/i
 
 export function SkillsView() {
   const {
@@ -50,6 +52,11 @@ export function SkillsView() {
     [catalogSkills.length, stats]
   )
   const hasCatalogSkills = catalogSkills.length > 0
+  const emptyState = savedInstructionsEmptyState({
+    hasCatalogSkills,
+    searchQuery,
+    filter: skillFilter,
+  })
   const toolbarStatus = skillToolbarStatus({
     visibleCount: visibleSkills.length,
     totalCount: catalogSkills.length,
@@ -71,7 +78,7 @@ export function SkillsView() {
         </p>
         <div className="flex min-w-0 items-center gap-2">
           <label htmlFor="skill-search" className="sr-only">
-            Search skills
+            Search saved instructions
           </label>
           <div className="relative">
             <Search
@@ -83,7 +90,7 @@ export function SkillsView() {
             <input
               id="skill-search"
               type="search"
-              placeholder="Search skills…"
+              placeholder="Search saved instructions..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className={cn(uiStyles.input, 'w-40 shrink pl-9 sm:w-56')}
@@ -95,7 +102,7 @@ export function SkillsView() {
             className={uiStyles.primaryButton}
           >
             <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
-            <span>New Skill</span>
+            <span>Save Instruction</span>
           </button>
         </div>
       </div>
@@ -111,14 +118,18 @@ export function SkillsView() {
               <SkillStat label="Total" value={stats.total} Icon={BrainCircuit} />
               <SkillStat label="Installed" value={stats.installed} Icon={CheckCircle2} />
               <SkillStat label="Available" value={stats.available} Icon={Circle} />
-              <SkillStat label="CLI scoped" value={stats.cliScoped} Icon={Terminal} />
+              <SkillStat label="For one work tool" value={stats.cliScoped} Icon={Terminal} />
             </div>
             <div className="rounded-card border border-black/[0.08] bg-white p-3 dark:border-white/[0.1] dark:bg-[#2a2a2c]">
               <div className="mb-2 flex items-center gap-2 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
                 <Filter size={14} strokeWidth={2.25} aria-hidden="true" />
-                <span>Reuse view</span>
+                <span>Show saved instructions</span>
               </div>
-              <div role="group" aria-label="Skill filter" className="flex flex-wrap gap-1.5">
+              <div
+                role="group"
+                aria-label="Saved instruction filter"
+                className="flex flex-wrap gap-1.5"
+              >
                 {(Object.keys(SKILL_FILTER_LABELS) as SkillFilter[]).map((filter) => (
                   <SkillFilterButton
                     key={filter}
@@ -136,14 +147,24 @@ export function SkillsView() {
         {loading && (
           <div className="flex h-full items-center justify-center">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              Loading skills…
+              Loading saved instructions...
             </p>
           </div>
         )}
 
         {!loading && error && (
-          <div className="flex h-full flex-col items-center justify-center gap-3">
-            <p className="text-ui-body text-apple-red">{error}</p>
+          <div
+            role="alert"
+            className="flex h-full flex-col items-center justify-center gap-3 text-center"
+          >
+            <div className="space-y-1">
+              <p className="text-ui-body text-apple-red">
+                {savedInstructionsLoadErrorMessage(error)}
+              </p>
+              <p className="max-w-sm text-ui-caption text-secondary-light dark:text-secondary-dark">
+                {savedInstructionsLoadRecoveryMessage(error)}
+              </p>
+            </div>
             <button
               type="button"
               onClick={() => void loadSkills()}
@@ -161,18 +182,10 @@ export function SkillsView() {
             </div>
             <div className="space-y-1">
               <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-                {hasCatalogSkills
-                  ? 'No skills match this view'
-                  : searchQuery
-                    ? 'No skills match your search'
-                    : 'Create your first skill'}
+                {emptyState.title}
               </p>
               <p className="max-w-sm text-ui-body text-secondary-light dark:text-secondary-dark">
-                {hasCatalogSkills
-                  ? 'Adjust search or filters to review reusable instructions.'
-                  : searchQuery
-                    ? 'Clear the search or add a new skill for this workspace.'
-                    : 'Skills store reusable instructions that agents can apply during task work.'}
+                {emptyState.detail}
               </p>
             </div>
             <button
@@ -181,7 +194,7 @@ export function SkillsView() {
               className={uiStyles.primaryButton}
             >
               <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
-              <span>New Skill</span>
+              <span>Save Instruction</span>
             </button>
           </div>
         )}
@@ -206,6 +219,59 @@ export function SkillsView() {
       <CreateSkillModal open={createModalOpen} onClose={() => setCreateModalOpen(false)} />
     </div>
   )
+}
+
+function savedInstructionsLoadErrorMessage(error: string): string {
+  return RAW_LOAD_ERROR_PATTERN.test(error) ? 'Saved instructions need a refresh.' : error
+}
+
+function savedInstructionsLoadRecoveryMessage(error: string): string {
+  const normalized = error.toLowerCase()
+  if (normalized.includes('sign in')) return 'After signing in, choose Retry.'
+  if (normalized.includes('permission') || normalized.includes('access')) {
+    return 'After an owner or admin updates your access, choose Retry.'
+  }
+  if (normalized.includes('connect') || normalized.includes('connection')) {
+    return 'Check your connection, then choose Retry.'
+  }
+  return 'Choose Retry to refresh Saved instructions.'
+}
+
+function savedInstructionsEmptyState({
+  hasCatalogSkills,
+  searchQuery,
+  filter,
+}: {
+  hasCatalogSkills: boolean
+  searchQuery: string
+  filter: SkillFilter
+}): { title: string; detail: string } {
+  if (hasCatalogSkills && searchQuery.trim()) {
+    return {
+      title: 'Clear search to see saved instructions',
+      detail: 'The library has saved instructions, but this search hides them.',
+    }
+  }
+
+  if (hasCatalogSkills && filter !== 'all') {
+    return {
+      title: 'Change filter to see saved instructions',
+      detail: 'The library has saved instructions, but this filter hides them.',
+    }
+  }
+
+  if (searchQuery.trim()) {
+    return {
+      title: 'Clear search or create a saved instruction',
+      detail:
+        'There are no saved instructions yet. Clear search, then choose Save Instruction to save reusable steps.',
+    }
+  }
+
+  return {
+    title: 'Create your first saved instruction',
+    detail: 'Saved instructions are reusable steps that agents can apply during task work.',
+  }
 }
 
 function filterSkills(skills: Skill[], filter: SkillFilter): Skill[] {
@@ -250,13 +316,15 @@ function skillToolbarStatus({
   loading: boolean
   error: string | null
 }) {
-  if (loading) return 'Checking skills'
-  if (error) return 'Skills need attention'
-  if (visibleCount > 0) return `${visibleCount} skill${visibleCount === 1 ? '' : 's'}`
-  if (totalCount === 0) return 'No skills yet'
-  if (searchQuery.trim()) return 'No skills match search'
-  if (filter !== 'all') return 'No skills match filter'
-  return 'No skills to show'
+  if (loading) return 'Checking saved instructions'
+  if (error) return 'Saved instructions need attention'
+  if (visibleCount > 0) {
+    return `${visibleCount} saved instruction${visibleCount === 1 ? '' : 's'}`
+  }
+  if (totalCount === 0) return 'Choose Save Instruction to start.'
+  if (searchQuery.trim()) return 'Clear search to see saved instructions.'
+  if (filter !== 'all') return 'Change filter to see saved instructions.'
+  return 'Choose Save Instruction or refresh this page.'
 }
 
 function SkillStat({

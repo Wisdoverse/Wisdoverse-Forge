@@ -152,11 +152,11 @@ CLI_IMAGE_NPM_REGISTRY=https://registry.npmmirror.com   # default registry.npmjs
 
 Status codes for the build endpoint:
 
-| Code  | When                                                                                      |
-| ----- | ----------------------------------------------------------------------------------------- |
-| `202` | Build accepted and started; `targetVersion` is the npm version being built.              |
-| `422` | Tool is not `claude` (registry tools update by pull, not build).                          |
-| `409` | A claude build is already in progress (manual or auto).                                   |
+| Code  | When                                                                                                  |
+| ----- | ----------------------------------------------------------------------------------------------------- |
+| `202` | Build accepted and started; `targetVersion` is the npm version being built.                           |
+| `422` | Tool is not `claude` (registry tools update by pull, not build).                                      |
+| `409` | A claude build is already in progress (manual or auto).                                               |
 | `503` | The container runtime is unavailable, or the npm registry could not be reached — nothing was started. |
 
 The build only creates images — it never creates or stops a container, so it is

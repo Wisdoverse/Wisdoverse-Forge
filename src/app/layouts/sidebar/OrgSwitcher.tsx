@@ -22,7 +22,7 @@ export function OrgSwitcher({ orgs, selectedOrgId, onSelect }: OrgSwitcherProps)
   }, [open])
 
   const selected = orgs.find((o) => o.id === selectedOrgId)
-  const selectedName = selected?.name ?? 'Select organization'
+  const selectedName = selected?.name ?? 'Select team space'
 
   // Derive a 2-letter avatar from the org name
   const avatar = (selected?.name ?? '?')
@@ -41,8 +41,8 @@ export function OrgSwitcher({ orgs, selectedOrgId, onSelect }: OrgSwitcherProps)
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label={`Organization selector: ${selectedName}`}
-        title="Choose organization"
+        aria-label={`Team space selector: ${selectedName}`}
+        title="Choose team space"
         className={cn(
           'w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-ui-body',
           'hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors'
@@ -63,7 +63,7 @@ export function OrgSwitcher({ orgs, selectedOrgId, onSelect }: OrgSwitcherProps)
         <div
           data-testid="org-dropdown"
           role="menu"
-          aria-label="Choose organization"
+          aria-label="Choose team space"
           className={cn(
             'absolute left-3 right-3 top-full mt-1 z-50',
             'bg-surface dark:bg-surface-dark backdrop-blur-xl rounded-lg',
@@ -73,7 +73,7 @@ export function OrgSwitcher({ orgs, selectedOrgId, onSelect }: OrgSwitcherProps)
         >
           <div className="border-b border-black/[0.06] px-3 pb-2 pt-1.5 dark:border-white/[0.08]">
             <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-              Organization
+              Team space
             </p>
             <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
               Switching changes which teams, projects, and Agents you can see.

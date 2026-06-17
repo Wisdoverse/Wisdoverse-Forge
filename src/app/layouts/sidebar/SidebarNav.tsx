@@ -43,7 +43,7 @@ const NAV_ITEMS: NavItem[] = [
     id: 'tasks',
     Icon: CheckSquare,
     labelKey: 'nav.tasks',
-    description: 'create and review agent work',
+    description: 'see tasks and review progress',
     path: '/tasks',
   },
   {
@@ -57,28 +57,28 @@ const NAV_ITEMS: NavItem[] = [
     id: 'context',
     Icon: ClipboardCheck,
     labelKey: 'nav.context',
-    description: 'approve reusable knowledge',
+    description: 'review saved notes and instructions',
     path: '/context',
   },
   {
     id: 'agents',
     Icon: Bot,
     labelKey: 'nav.agents',
-    description: 'create and manage workers',
+    description: 'create and manage agents',
     path: '/agents',
   },
   {
     id: 'skills',
     Icon: Zap,
     labelKey: 'nav.skills',
-    description: 'reuse proven work steps',
+    description: 'reuse instructions',
     path: '/skills',
   },
   {
     id: 'analytics',
     Icon: BarChart3,
     labelKey: 'nav.analytics',
-    description: 'review usage and outcomes',
+    description: 'see agent activity and results',
     path: '/analytics',
   },
 ]
@@ -88,14 +88,14 @@ const BOTTOM_ITEMS: NavItem[] = [
     id: 'billing',
     Icon: CreditCard,
     labelKey: 'nav.billing',
-    description: 'review plan and invoices',
+    description: 'review plan, payments, and invoices',
     path: '/billing',
   },
   {
     id: 'settings',
     Icon: Settings,
     labelKey: 'nav.settings',
-    description: 'configure workspace, runtime, and access',
+    description: 'manage workspace, agents, and access',
     path: '/settings',
   },
 ]
@@ -196,7 +196,7 @@ export function SidebarNav({
           id: 'admin',
           Icon: Shield,
           labelKey: 'nav.admin',
-          description: 'manage organizations, users, and system health',
+          description: 'manage team spaces, users, and system health',
           path: '/admin',
         })}
       <button

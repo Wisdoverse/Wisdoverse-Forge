@@ -103,6 +103,44 @@ describe('dispatchWsMessage', () => {
 
     expect(useFeedStore.getState().feedItems).toHaveLength(1)
     expect(useFeedStore.getState().feedItems[0].type).toBe('pre_tool_use')
+    expect(useFeedStore.getState().feedItems[0].taskTitle).toBe('Checking project files')
+    expect(useFeedStore.getState().feedItems[0].detail).toBe('Started checking project files.')
+    expect(useFeedStore.getState().feedItems[0].detail).not.toContain('Tool:')
+    expect(useFeedStore.getState().feedItems[0].taskTitle).not.toBe('Read')
+  })
+
+  it('turns command activity events into plain work steps', () => {
+    dispatchWsMessage({
+      type: 'event',
+      payload: {
+        type: 'post_tool_use',
+        agentName: 'Codex',
+        tool: 'Bash',
+        timestamp: Date.now(),
+      },
+    })
+
+    const item = useFeedStore.getState().feedItems[0]
+    expect(item.taskTitle).toBe('Finished running a project command')
+    expect(item.detail).toBe('Finished running a project command.')
+    expect(item.detail).not.toContain('Tool:')
+    expect(item.taskTitle).not.toBe('Bash')
+  })
+
+  it('uses plain wording for unknown activity events', () => {
+    dispatchWsMessage({
+      type: 'event',
+      payload: {
+        type: 'future_event',
+        agentName: 'Codex',
+        timestamp: Date.now(),
+      },
+    })
+
+    const item = useFeedStore.getState().feedItems[0]
+    expect(item.taskTitle).toBe('Task update')
+    expect(item.detail).toBe('The agent shared a task update.')
+    expect(item.detail).not.toContain('reported')
   })
 
   it('ignores unknown message types', () => {
@@ -183,7 +221,77 @@ describe('dispatchWsMessage', () => {
       read: false,
     })
     expect(notifications[0].message).toContain('Waiting for SSH approval')
-    expect(notifications[0].message).toContain('needs owner input')
+    expect(notifications[0].message).toContain('needs your answer before work can continue')
+    expect(notifications[0].message).not.toContain('needs owner input')
+    expect(notifications[0].message).not.toContain('is blocked')
+  })
+
+  it('hides raw blocked fallback details in owner notifications', () => {
+    localStorage.setItem('af:auth:user', JSON.stringify({ id: 'user-owner' }))
+
+    dispatchWsMessage({
+      type: 'orchestration:task_update',
+      payload: {
+        action: 'updated',
+        task: {
+          id: 'task-owner-blocked-raw',
+          groupId: 'g-other',
+          state: 'blocked',
+          method: 'code',
+          params: { task: 'Scale preview worker', message: '' },
+          createdBy: 'user-owner',
+          assignedAgentName: 'Codex',
+          blockedReason: 'quota_exceeded',
+          error: 'quota_exceeded: docker socket denied secret token abc',
+          priority: 'normal',
+          progress: 0,
+          createdAt: '2026-04-03T00:00:00Z',
+          updatedAt: '2026-04-03T00:01:00Z',
+        },
+      },
+    })
+
+    const notifications = useFeedStore.getState().notifications
+    expect(notifications).toHaveLength(1)
+    expect(notifications[0].message).toContain(
+      'Pause lower-priority work or ask an owner to raise the limit, then retry.'
+    )
+    expect(notifications[0].message).not.toContain('quota_exceeded')
+    expect(notifications[0].message).not.toContain('docker socket')
+    expect(notifications[0].message).not.toContain('secret token')
+  })
+
+  it('hides raw blocked error details when no structured reason is available', () => {
+    localStorage.setItem('af:auth:user', JSON.stringify({ id: 'user-owner' }))
+
+    dispatchWsMessage({
+      type: 'orchestration:task_update',
+      payload: {
+        action: 'updated',
+        task: {
+          id: 'task-owner-blocked-error',
+          groupId: 'g-other',
+          state: 'blocked',
+          method: 'code',
+          params: { task: 'Reconnect account', message: '' },
+          createdBy: 'user-owner',
+          assignedAgentName: 'Codex',
+          error: '401 Unauthorized: token expired',
+          priority: 'normal',
+          progress: 0,
+          createdAt: '2026-04-03T00:00:00Z',
+          updatedAt: '2026-04-03T00:01:00Z',
+        },
+      },
+    })
+
+    const notifications = useFeedStore.getState().notifications
+    expect(notifications).toHaveLength(1)
+    expect(notifications[0].message).toContain(
+      'This task needs account access before it can continue.'
+    )
+    expect(notifications[0].message).not.toContain('401 Unauthorized')
+    expect(notifications[0].message).not.toContain('token expired')
   })
 
   it('notifies the human task owner when their task fails', () => {
@@ -221,9 +329,14 @@ describe('dispatchWsMessage', () => {
       taskHref: '/tasks',
       read: false,
     })
-    expect(notifications[0].message).toContain('failed')
-    expect(notifications[0].message).toContain('401 Unauthorized')
-    expect(notifications[0].message).toContain('failed to complete this task')
+    expect(notifications[0].message).toContain('Reconnect sign-in or service access, then retry.')
+    expect(notifications[0].message).toContain(
+      'stopped before finishing. Open the task, review the recovery note, then retry or choose another agent.'
+    )
+    expect(notifications[0].message).not.toContain('when ready')
+    expect(notifications[0].message).not.toContain('reassign')
+    expect(notifications[0].message).not.toContain('failed to complete this task')
+    expect(notifications[0].message).not.toContain('401 Unauthorized')
   })
 
   it('notifies for legacy error task updates with snake_case owner fields', () => {
@@ -258,7 +371,10 @@ describe('dispatchWsMessage', () => {
       taskId: 'task-owner-error',
       ownerUserId: 'user-owner',
     })
-    expect(notifications[0].message).toContain('migration exited non-zero')
+    expect(notifications[0].message).toContain(
+      'Stopped before finishing. Open details to see what happened and retry.'
+    )
+    expect(notifications[0].message).not.toContain('migration exited non-zero')
   })
 
   it('does not notify non-owners and does not duplicate repeated completed events', () => {
@@ -292,7 +408,141 @@ describe('dispatchWsMessage', () => {
     expect(notifications[0].message).toContain('Patch merged')
   })
 
-  it('notifies the credential owner when a Container CLI credential expires', () => {
+  it('describes completed result arrays as result files in owner notifications', () => {
+    localStorage.setItem('af:auth:user', JSON.stringify({ id: 'user-owner' }))
+
+    dispatchWsMessage({
+      type: 'orchestration:task_update',
+      payload: {
+        task: {
+          id: 'task-owner-result-files',
+          groupId: 'g1',
+          state: 'completed',
+          method: 'code',
+          params: { task: 'Write release summary', message: '' },
+          createdBy: 'user-owner',
+          assignedAgentName: 'Codex',
+          result: [
+            { name: 'summary.md', mimeType: 'text/markdown', data: 'Done' },
+            { name: 'checks.md', mimeType: 'text/markdown', data: 'Passed' },
+          ],
+          priority: 'normal',
+          progress: 100,
+          createdAt: '2026-04-03T00:00:00Z',
+          updatedAt: '2026-04-03T00:01:00Z',
+        },
+      },
+    })
+
+    const notifications = useFeedStore.getState().notifications
+    expect(notifications).toHaveLength(1)
+    expect(notifications[0].message).toContain('2 result files')
+    expect(notifications[0].message).not.toContain(['result', 'artifact'].join(' '))
+  })
+
+  it('turns missing completed task summaries into a clear next step', () => {
+    localStorage.setItem('af:auth:user', JSON.stringify({ id: 'user-owner' }))
+
+    dispatchWsMessage({
+      type: 'orchestration:task_update',
+      payload: {
+        task: {
+          id: 'task-owner-no-result',
+          groupId: 'g1',
+          state: 'completed',
+          method: 'code',
+          params: { task: 'Update onboarding copy', message: '' },
+          createdBy: 'user-owner',
+          assignedAgentName: 'Codex',
+          priority: 'normal',
+          progress: 100,
+          createdAt: '2026-04-03T00:00:00Z',
+          updatedAt: '2026-04-03T00:01:00Z',
+        },
+      },
+    })
+
+    const notifications = useFeedStore.getState().notifications
+    expect(notifications).toHaveLength(1)
+    expect(notifications[0].message).toContain(
+      'Open the task details to confirm what changed before using the result.'
+    )
+    expect(notifications[0].message).not.toContain('No completion summary was provided')
+  })
+
+  it('hides raw completed task stdout in owner notifications', () => {
+    localStorage.setItem('af:auth:user', JSON.stringify({ id: 'user-owner' }))
+
+    dispatchWsMessage({
+      type: 'orchestration:task_update',
+      payload: {
+        task: {
+          id: 'task-owner-stdout',
+          groupId: 'g1',
+          state: 'completed',
+          method: 'code',
+          params: { task: 'Generate report', message: '' },
+          createdBy: 'user-owner',
+          assignedAgentName: 'Codex',
+          result: {
+            stdout: 'panic: stack trace line 7\nsecret token abc\nraw command output',
+          },
+          priority: 'normal',
+          progress: 100,
+          createdAt: '2026-04-03T00:00:00Z',
+          updatedAt: '2026-04-03T00:01:00Z',
+        },
+      },
+    })
+
+    const notifications = useFeedStore.getState().notifications
+    expect(notifications).toHaveLength(1)
+    expect(notifications[0].message).toContain(
+      'Finished with a text result. Open details to review it.'
+    )
+    expect(notifications[0].message).not.toContain('panic')
+    expect(notifications[0].message).not.toContain('stack trace')
+    expect(notifications[0].message).not.toContain('secret token')
+    expect(notifications[0].message).not.toContain('raw command output')
+  })
+
+  it('hides support-style completed task messages in owner notifications', () => {
+    localStorage.setItem('af:auth:user', JSON.stringify({ id: 'user-owner' }))
+
+    dispatchWsMessage({
+      type: 'orchestration:task_update',
+      payload: {
+        task: {
+          id: 'task-owner-message-raw',
+          groupId: 'g1',
+          state: 'completed',
+          method: 'code',
+          params: { task: 'Update deployment notes', message: '' },
+          createdBy: 'user-owner',
+          assignedAgentName: 'Codex',
+          result: {
+            message: 'panic: stack trace line 7\nsecret token abc\nraw command output',
+          },
+          priority: 'normal',
+          progress: 100,
+          createdAt: '2026-04-03T00:00:00Z',
+          updatedAt: '2026-04-03T00:01:00Z',
+        },
+      },
+    })
+
+    const notifications = useFeedStore.getState().notifications
+    expect(notifications).toHaveLength(1)
+    expect(notifications[0].message).toContain(
+      'Finished with a summary you should check. Open details before using the result.'
+    )
+    expect(notifications[0].message).not.toContain('panic')
+    expect(notifications[0].message).not.toContain('stack trace')
+    expect(notifications[0].message).not.toContain('secret token')
+    expect(notifications[0].message).not.toContain('raw command output')
+  })
+
+  it('notifies the credential owner when a tool account expires', () => {
     localStorage.setItem('af:auth:user', JSON.stringify({ id: 'user-owner' }))
 
     dispatchWsMessage({
@@ -316,12 +566,14 @@ describe('dispatchWsMessage', () => {
       id: 'credential-owner:user-owner:codex:expired:evt-credential-1',
       type: 'credential_expired',
       taskId: 'credential:codex',
-      taskTitle: 'Codex credential expired',
+      taskTitle: 'Codex account needs reconnecting',
       ownerUserId: 'user-owner',
       taskHref: '/settings',
       read: false,
     })
-    expect(notifications[0].message).toContain('Reconnect Codex auth in Settings')
+    expect(notifications[0].message).toContain('Reconnect the Codex account in Settings')
+    expect(notifications[0].message).toContain('new agents that work on files')
+    expect(notifications[0].taskTitle).not.toContain('credential expired')
   })
 
   it('does not notify other users for credential status updates', () => {
@@ -342,7 +594,7 @@ describe('dispatchWsMessage', () => {
     expect(useFeedStore.getState().notifications).toHaveLength(0)
   })
 
-  it('toasts admins when a CLI agent image is updated and dedups by eventId', () => {
+  it('toasts admins when a CLI agent tool package is updated and dedups by eventId', () => {
     const frame = {
       type: 'cli_image.updated',
       payload: {
@@ -367,10 +619,11 @@ describe('dispatchWsMessage', () => {
       taskHref: '/admin',
       read: false,
     })
-    expect(notifications[0].message).toContain('latest CLI')
+    expect(notifications[0].taskTitle).toContain('agent tool package updated')
+    expect(notifications[0].message).toContain('latest tool package')
   })
 
-  it('toasts a failed CLI image check with the reported error', () => {
+  it('toasts a failed CLI tool package check with a beginner recovery step', () => {
     dispatchWsMessage({
       type: 'cli_image.updated',
       payload: {
@@ -387,8 +640,10 @@ describe('dispatchWsMessage', () => {
     const notifications = useFeedStore.getState().notifications
     expect(notifications).toHaveLength(1)
     expect(notifications[0].type).toBe('cli_image_updated')
-    expect(notifications[0].taskTitle).toContain('check failed')
-    expect(notifications[0].message).toContain('registry timeout')
+    expect(notifications[0].taskTitle).toContain('tool package check failed')
+    expect(notifications[0].message).toContain('Open Admin and choose Check now')
+    expect(notifications[0].message).toContain('tool package access')
+    expect(notifications[0].message).not.toContain('registry timeout')
   })
 
   it('live-patches an open CLI images panel from the toast', () => {
@@ -576,7 +831,8 @@ describe('dispatchWsMessage', () => {
     expect(notifications).toHaveLength(2)
     const fresh = notifications.find((n) => n.id === 'cli-image:gemini:failed:bbb')
     expect(fresh?.read).toBe(false)
-    expect(fresh?.message).toContain('auth revoked')
+    expect(fresh?.message).toContain('Open Admin and choose Check now')
+    expect(fresh?.message).not.toContain('auth revoked')
   })
 
   it('ignores a cli_image toast for a panel that has not loaded', () => {

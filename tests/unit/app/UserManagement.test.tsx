@@ -75,7 +75,42 @@ describe('UserManagement', () => {
     expect(screen.queryByText('Active sessions')).toBeNull()
   })
 
-  test('saving a new access level calls the role update and closes the editor', async () => {
+  test('explains missing and invalid user dates without placeholder symbols', async () => {
+    useAdminStore.setState({
+      ...originalAdminState,
+      users: [
+        {
+          ...mockUser,
+          id: 'user-missing-dates',
+          createdAt: null,
+          lastLoginAt: null,
+        },
+        {
+          ...mockUser,
+          id: 'user-invalid-dates',
+          createdAt: 'not-a-date',
+          lastLoginAt: 'not-a-date',
+        },
+      ],
+      usersTotal: 2,
+      usersPage: 1,
+      usersLoading: false,
+      usersError: null,
+      userSearch: '',
+      loadUsers: vi.fn(),
+    })
+
+    render(<UserManagement />)
+
+    expect(screen.getByText('Refresh users to load added date')).toBeDefined()
+    expect(screen.getByText('Never signed in')).toBeDefined()
+    expect(screen.getByText('Refresh users to check added date')).toBeDefined()
+    expect(screen.getByText('Refresh users to check sign-in date')).toBeDefined()
+    expect(screen.queryByText('—')).toBeNull()
+    expect(screen.queryByText('Invalid Date')).toBeNull()
+  })
+
+  test('saving a new access level calls the access update and closes the editor', async () => {
     const updateUserRole = vi.fn(async () => {
       // Mirror the real store: the row is swapped for the saved projection.
       useAdminStore.setState((s) => ({
@@ -215,7 +250,8 @@ describe('UserManagement', () => {
     expect(screen.getAllByRole('button', { name: 'Remove' })).toHaveLength(1)
   })
 
-  test('explains an empty user search result without crashing on zero users', () => {
+  test('explains an empty user search result and lets operators reset it', async () => {
+    const loadUsers = vi.fn()
     useAdminStore.setState({
       ...originalAdminState,
       users: [],
@@ -224,16 +260,75 @@ describe('UserManagement', () => {
       usersLoading: false,
       usersError: null,
       userSearch: 'missing@example.com',
-      loadUsers: vi.fn(),
+      loadUsers,
     })
 
     render(<UserManagement />)
 
-    expect(screen.getByText('No users match this view')).toBeDefined()
-    expect(screen.getByText(/New teammates appear here after they are invited/i)).toBeDefined()
+    await waitFor(() => expect(loadUsers).toHaveBeenCalledWith(1))
+    loadUsers.mockClear()
+
+    expect(screen.getByText('Search did not find a matching person')).toBeDefined()
+    expect(screen.getByText(/clear the search to see everyone who can sign in/i)).toBeDefined()
+    expect(screen.queryByText('No users match this view')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+
+    expect(screen.getByLabelText('Search people by name or email')).toHaveValue('')
+    await waitFor(() => expect(loadUsers).toHaveBeenCalledWith(1))
     // Zero users → no pagination controls and no crash.
     expect(screen.queryByRole('button', { name: 'Previous' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Next' })).toBeNull()
+  })
+
+  test('explains a fully empty user list as an invitation starting point', async () => {
+    const loadUsers = vi.fn()
+    useAdminStore.setState({
+      ...originalAdminState,
+      users: [],
+      usersTotal: 0,
+      usersPage: 1,
+      usersLoading: false,
+      usersError: null,
+      userSearch: '',
+      loadUsers,
+    })
+
+    render(<UserManagement />)
+
+    await waitFor(() => expect(loadUsers).toHaveBeenCalledWith(1))
+    expect(screen.getByText('Invite people to list them here')).toBeDefined()
+    expect(
+      screen.getByText(/people appear here after an owner or admin invites them/i)
+    ).toBeDefined()
+    expect(screen.queryByText('No one is listed yet')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull()
+    expect(screen.queryByText('No users match this view')).toBeNull()
+  })
+
+  test('hides raw load errors behind a recovery step', async () => {
+    const loadUsers = vi.fn()
+    useAdminStore.setState({
+      ...originalAdminState,
+      users: [],
+      usersTotal: 0,
+      usersPage: 1,
+      usersLoading: false,
+      usersError: 'HTTP 503',
+      userSearch: '',
+      loadUsers,
+    })
+
+    render(<UserManagement />)
+
+    await waitFor(() => expect(loadUsers).toHaveBeenCalledWith(1))
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent('Refresh Admin to reload the user list.')
+    expect(alert).toHaveTextContent(
+      'Refresh Admin, then try again. If it still fails, ask an owner or admin to check Admin setup and your Admin access.'
+    )
+    expect(alert).not.toHaveTextContent('HTTP 503')
   })
 
   test('search submits a fresh first-page lookup', async () => {

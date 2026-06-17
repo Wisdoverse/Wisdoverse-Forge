@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { CliTool, ManagedAgent } from '@shared/types'
 import { getAgentApi } from '@app/shared/api/legacy'
-import { extractApiError, type LocalAgentEnrollmentResponse } from '@app/shared/api/legacy/AgentAPI'
+import type { LocalAgentEnrollmentResponse } from '@app/shared/api/legacy/AgentAPI'
 
 export type AgentStatus = 'working' | 'idle' | 'offline'
 export type AgentRuntimeKind = 'container-cli' | 'host-cli' | 'provider'
@@ -106,7 +106,7 @@ function cliToolToProvider(cliTool?: CliTool): string {
     case 'opencode':
       return 'OpenAI'
     default:
-      return 'Unknown'
+      return 'Refresh AI service'
   }
 }
 
@@ -123,7 +123,7 @@ function managedToAgentInfo(agent: ManagedAgent): AgentInfo {
     // Provider+prompt agents: backend carries the real provider/model keys.
     // CLI-tool agents: backend leaves them null, fall back to cliTool-derived labels.
     provider: agent.provider ?? cliToolToProvider(agent.cliTool),
-    model: agent.model ?? agent.cliTool ?? 'unknown',
+    model: agent.model ?? agent.cliTool ?? 'Refresh AI model',
     status: mapManagedAgentStatus(agent.status),
     tasksCompleted: 0,
     tasksInProgress: 0,
@@ -156,6 +156,19 @@ const initialState = {
   error: null as string | null,
 }
 
+const AGENTS_LOAD_ERROR = 'Refresh Agents to load agents.'
+const AGENT_CREATE_ERROR = 'Agent was not created. Check the agent details, then try again.'
+const AGENT_CREATED_START_ERROR =
+  'Agent was created, but its workspace was not started. Ask an owner or admin to check Where agents run, then start this agent from the card.'
+const THIS_COMPUTER_SETUP_ERROR =
+  'This computer setup text could not be prepared. Check the agent name and work tool, then choose Create Agent again.'
+const AGENT_INSTRUCTIONS_ERROR =
+  'Agent instructions were not saved. Review the instructions, then try again.'
+const AGENT_DELETE_ERROR = 'Agent was not removed. Refresh Agents, then try again.'
+const AGENT_PROMPT_ERROR = 'Instruction was not sent. Refresh this agent, then try again.'
+const AGENT_START_ERROR = 'Agent was not started. Refresh this agent, then try again.'
+const AGENT_RESTART_ERROR = 'Agent was not restarted. Refresh this agent, then try again.'
+
 export const useAgentsStore = create<AgentsState>((set, get) => ({
   ...initialState,
   setAgents: (agents) => set({ agents }),
@@ -177,11 +190,11 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
       if (result.ok) {
         set({ agents: result.agents.map(managedToAgentInfo), loading: false })
       } else {
-        set({ loading: false, error: 'Failed to load agents' })
+        set({ loading: false, error: AGENTS_LOAD_ERROR })
       }
     } catch (err) {
       console.error('loadAgents failed:', err)
-      set({ loading: false, error: err instanceof Error ? err.message : 'Failed to load agents' })
+      set({ loading: false, error: AGENTS_LOAD_ERROR })
     }
   },
 
@@ -215,7 +228,7 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
               agents: [...state.agents, newAgent],
               loading: false,
               createModalOpen: false,
-              error: `Agent created, but container start failed: ${extractApiError(startResult, 'Failed to start agent')}`,
+              error: AGENT_CREATED_START_ERROR,
             }))
             return true
           }
@@ -227,12 +240,12 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
         }))
         return true
       } else {
-        set({ loading: false, error: extractApiError(result, 'Failed to create agent') })
+        set({ loading: false, error: AGENT_CREATE_ERROR })
         return false
       }
     } catch (err) {
       console.error('createAgent failed:', err)
-      set({ loading: false, error: err instanceof Error ? err.message : 'Failed to create agent' })
+      set({ loading: false, error: AGENT_CREATE_ERROR })
       return false
     }
   },
@@ -257,13 +270,16 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
         }))
         return result
       }
-      set({ loading: false, error: extractApiError(result, 'Failed to enroll local agent') })
+      set({
+        loading: false,
+        error: THIS_COMPUTER_SETUP_ERROR,
+      })
       return null
     } catch (err) {
       console.error('enrollLocalAgent failed:', err)
       set({
         loading: false,
-        error: err instanceof Error ? err.message : 'Failed to enroll local agent',
+        error: THIS_COMPUTER_SETUP_ERROR,
       })
       return null
     }
@@ -275,7 +291,7 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
       const api = getAgentApi()
       const result = await api.updateAgent(id, { systemPrompt })
       if (!result.ok) {
-        set({ error: extractApiError(result, 'Failed to update system prompt') })
+        set({ error: AGENT_INSTRUCTIONS_ERROR })
         return false
       }
       // Reload so the cached agent reflects the new value.
@@ -283,7 +299,7 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
       return true
     } catch (err) {
       console.error('updateAgentSystemPrompt failed:', err)
-      set({ error: err instanceof Error ? err.message : 'Failed to update system prompt' })
+      set({ error: AGENT_INSTRUCTIONS_ERROR })
       return false
     }
   },
@@ -300,12 +316,12 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
         }))
         return true
       } else {
-        set({ error: extractApiError(result, 'Failed to delete agent') })
+        set({ error: AGENT_DELETE_ERROR })
         return false
       }
     } catch (err) {
       console.error('deleteAgent failed:', err)
-      set({ error: err instanceof Error ? err.message : 'Failed to delete agent' })
+      set({ error: AGENT_DELETE_ERROR })
       return false
     }
   },
@@ -320,12 +336,12 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
         get().updateAgentStatus(id, 'working')
         return true
       } else {
-        set({ error: extractApiError(result, 'Failed to send prompt') })
+        set({ error: AGENT_PROMPT_ERROR })
         return false
       }
     } catch (err) {
       console.error('sendPrompt failed:', err)
-      set({ error: err instanceof Error ? err.message : 'Failed to send prompt' })
+      set({ error: AGENT_PROMPT_ERROR })
       return false
     }
   },
@@ -350,11 +366,11 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
         }))
         return true
       }
-      set({ error: extractApiError(result, 'Failed to start agent') })
+      set({ error: AGENT_START_ERROR })
       return false
     } catch (err) {
       console.error('startAgent failed:', err)
-      set({ error: err instanceof Error ? err.message : 'Failed to start agent' })
+      set({ error: AGENT_START_ERROR })
       return false
     }
   },
@@ -368,14 +384,13 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
         get().updateAgentStatus(id, 'idle')
         return true
       } else {
-        const message = extractApiError(result, 'Failed to restart agent')
         await get().loadAgents()
-        set({ error: message })
+        set({ error: AGENT_RESTART_ERROR })
         return false
       }
     } catch (err) {
       console.error('restartAgent failed:', err)
-      set({ error: err instanceof Error ? err.message : 'Failed to restart agent' })
+      set({ error: AGENT_RESTART_ERROR })
       return false
     }
   },

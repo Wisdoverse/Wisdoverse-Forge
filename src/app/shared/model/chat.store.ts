@@ -3,6 +3,7 @@ import type { ClaudeEvent } from '@shared/types/events'
 import type { AgentMessageRow } from '@shared/types'
 import { getAgentApi } from '@app/shared/api/legacy'
 import { extractApiError } from '@app/shared/api/agent-api-types'
+import { chatErrorMessage } from './chat.errors'
 
 // ============================================================================
 // Types
@@ -167,8 +168,8 @@ export const useChatStore = create<ChatState>((set) => ({
       }
       const turns = groupEventsIntoTurns(data.events)
       set({ turns, loading: false })
-    } catch {
-      set({ loading: false, error: 'Failed to load conversation history' })
+    } catch (err) {
+      set({ loading: false, error: chatErrorMessage('load', err) })
     }
   },
 
@@ -182,13 +183,16 @@ export const useChatStore = create<ChatState>((set) => ({
       if (result.ok && result.messages) {
         set({ messages: result.messages, messagesLoading: false })
       } else {
-        set({ messagesLoading: false, error: extractApiError(result, 'Failed to load messages') })
+        set({
+          messagesLoading: false,
+          error: chatErrorMessage('load', extractApiError(result, 'Failed to load messages')),
+        })
       }
     } catch (err) {
       console.error('loadMessages failed:', err)
       set({
         messagesLoading: false,
-        error: err instanceof Error ? err.message : 'Failed to load messages',
+        error: chatErrorMessage('load', err),
       })
     }
   },
@@ -281,11 +285,11 @@ export const useChatStore = create<ChatState>((set) => ({
       if (result.ok) {
         set({ messages: [] })
       } else {
-        set({ error: extractApiError(result, 'Failed to clear chat') })
+        set({ error: chatErrorMessage('clear', extractApiError(result, 'Failed to clear chat')) })
       }
     } catch (err) {
       console.error('clearMessages failed:', err)
-      set({ error: err instanceof Error ? err.message : 'Failed to clear messages' })
+      set({ error: chatErrorMessage('clear', err) })
     }
   },
 

@@ -1,17 +1,20 @@
 import { useRef, useMemo, useState, type ReactNode } from 'react'
 import { useVirtualizer, type VirtualizerOptions } from '@tanstack/react-virtual'
-import { AlertTriangle, CheckCircle2, Clock3, CircleDot, ListChecks, Search } from 'lucide-react'
+import {
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  Clock3,
+  CircleDot,
+  ListChecks,
+  Search,
+} from 'lucide-react'
 import { useBoardStore } from '@app/shared/model/board.store'
 import type { TaskSummary } from '@app/shared/api/orchestration'
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime as formatDate } from '@app/shared/lib/time'
-
-const PRIORITY_LABELS: Record<string, string> = {
-  low: 'Low',
-  normal: 'Normal',
-  high: 'High',
-  urgent: 'Urgent',
-}
+import { taskBlockedPreview } from '@app/shared/lib/taskFailureCopy'
+import { taskMachineKey, taskPriorityLabel, taskStateLabel } from '@app/entities/task'
 
 const PRIORITY_COLORS: Record<string, string> = {
   low: 'border-black/[0.08] bg-white text-secondary-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark',
@@ -19,16 +22,6 @@ const PRIORITY_COLORS: Record<string, string> = {
     'border-black/[0.08] bg-white text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark',
   high: 'border-black/[0.08] bg-white text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark',
   urgent: 'border-apple-red/20 bg-apple-red/10 text-apple-red',
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  backlog: 'Backlog',
-  queued: 'Queued',
-  working: 'Working',
-  blocked: 'Blocked',
-  completed: 'Done',
-  failed: 'Failed',
-  canceled: 'Canceled',
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -49,6 +42,11 @@ const STATUS_COLORS: Record<string, string> = {
 const ROW_HEIGHT = 68
 
 type ListTaskFilter = 'all' | 'open' | 'attention' | 'completed'
+
+interface EmptyStateCopy {
+  title: string
+  detail: string
+}
 
 const LIST_FILTERS: { value: ListTaskFilter; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -86,7 +84,7 @@ const observeElementRectFallback: VirtualizerOptions<
 }
 
 export function ListView() {
-  const { columns, setSelectedTask } = useBoardStore()
+  const { columns, setSelectedTask, setViewMode } = useBoardStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [filter, setFilter] = useState<ListTaskFilter>('all')
 
@@ -106,6 +104,7 @@ export function ListView() {
     [filter, searchQuery, tasks]
   )
   const hasActiveFilter = searchQuery.trim().length > 0 || filter !== 'all'
+  const filteredEmptyState = listFilterEmptyState(filter, searchQuery)
 
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -153,7 +152,7 @@ export function ListView() {
             />
             <ListMetric
               testId="list-metric-backlog"
-              label="Backlog"
+              label="Not sent yet"
               value={workload.backlog}
               icon={<Clock3 size={15} strokeWidth={2.15} aria-hidden="true" />}
               tone="neutral"
@@ -188,7 +187,7 @@ export function ListView() {
                 type="search"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search tasks, agents, blockers…"
+                placeholder="Search tasks, agents, or help needed…"
                 className="h-9 w-full rounded-lg border border-black/[0.08] bg-black/[0.02] pl-9 pr-3 text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light focus:border-apple-blue/40 focus:bg-white focus:ring-2 focus:ring-apple-blue/20 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark dark:focus:bg-white/[0.06]"
               />
             </label>
@@ -220,9 +219,9 @@ export function ListView() {
       {/* Table header */}
       <div className="flex-shrink-0 overflow-x-auto border-b border-black/[0.06] dark:border-white/[0.06]">
         <div className="grid min-w-[720px] select-none grid-cols-[minmax(220px,1fr)_120px_140px_96px_96px] px-4 py-2 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-          <span>Title</span>
+          <span>Task result</span>
           <span>Status</span>
-          <span>Assignee</span>
+          <span>Agent</span>
           <span>Priority</span>
           <span>Updated</span>
         </div>
@@ -237,12 +236,20 @@ export function ListView() {
             <ListChecks size={18} strokeWidth={1.9} aria-hidden="true" />
           </div>
           <p className="font-semibold text-foreground-light dark:text-foreground-dark">
-            No tasks yet
+            Create your first small task
           </p>
           <p className="max-w-sm text-ui-caption leading-relaxed text-secondary-light dark:text-secondary-dark">
-            Create one small task from the board first. Start with the outcome you want, then add
+            Use the board to create one small task first. Start with the outcome you want, then add
             the proof you expect the agent to return.
           </p>
+          <button
+            type="button"
+            onClick={() => setViewMode('board')}
+            className="mt-1 inline-flex h-8 items-center gap-1.5 rounded-full bg-apple-blue px-3 text-ui-button font-medium text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+          >
+            <span>Open board to create task</span>
+            <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
+          </button>
         </div>
       ) : visibleTasks.length === 0 ? (
         <div
@@ -250,10 +257,10 @@ export function ListView() {
           className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-ui-body text-secondary-light dark:text-secondary-dark"
         >
           <span className="font-medium text-foreground-light dark:text-foreground-dark">
-            No tasks match this view
+            {filteredEmptyState.title}
           </span>
           <span className="max-w-sm text-ui-caption leading-relaxed">
-            Show all tasks first, then narrow by task title, agent name, blocker, or priority.
+            {filteredEmptyState.detail}
           </span>
           {hasActiveFilter && (
             <button
@@ -279,6 +286,8 @@ export function ListView() {
               const task = visibleTasks[virtualRow.index]
               const openTask = () => setSelectedTask(task.id)
               const nextAction = taskNextAction(task)
+              const stateKey = taskMachineKey(task.state)
+              const priorityKey = taskMachineKey(task.priority)
               return (
                 <div
                   key={task.id}
@@ -317,25 +326,25 @@ export function ListView() {
                   <span
                     className={cn(
                       'inline-flex w-fit items-center rounded-full border px-2 py-0.5 text-ui-caption font-medium',
-                      STATUS_COLORS[task.state] ?? STATUS_COLORS.backlog
+                      STATUS_COLORS[stateKey] ?? STATUS_COLORS.backlog
                     )}
                   >
-                    {STATUS_LABELS[task.state] ?? task.state}
+                    {taskStateLabel(task.state, { completedLabel: 'Done' })}
                   </span>
 
                   {/* Assignee */}
                   <span className="truncate text-ui-body text-secondary-light dark:text-secondary-dark">
-                    {task.assignedAgentName ?? task.assignedTo ?? '—'}
+                    {taskAgentLabel(task)}
                   </span>
 
                   {/* Priority badge */}
                   <span
                     className={cn(
                       'inline-flex w-fit items-center rounded-full border px-2 py-0.5 text-ui-caption font-medium',
-                      PRIORITY_COLORS[task.priority] ?? PRIORITY_COLORS.normal
+                      PRIORITY_COLORS[priorityKey] ?? PRIORITY_COLORS.normal
                     )}
                   >
-                    {PRIORITY_LABELS[task.priority] ?? task.priority}
+                    {taskPriorityLabel(task.priority)}
                   </span>
 
                   {/* Updated */}
@@ -461,7 +470,7 @@ function listNextStep(
   if (workload.attention > 0) {
     return {
       title: `Start with ${workload.attention} task${workload.attention === 1 ? '' : 's'} needing action.`,
-      detail: 'Open the blocked or failed work first so the agent is not waiting on you.',
+      detail: 'Open work that needs help or recovery first so the agent is not waiting on you.',
     }
   }
 
@@ -473,9 +482,10 @@ function listNextStep(
   }
 
   if (workload.backlog > 0) {
+    const pronoun = workload.backlog === 1 ? 'it' : 'they'
     return {
-      title: `Move ${workload.backlog} backlog task${workload.backlog === 1 ? '' : 's'} forward.`,
-      detail: 'Assign an agent or send ready work into the next lane when the scope is clear.',
+      title: `Send ${workload.backlog} task${workload.backlog === 1 ? '' : 's'} after choosing where ${pronoun} should run.`,
+      detail: 'Choose an agent or task queue, then send the work.',
     }
   }
 
@@ -485,22 +495,48 @@ function listNextStep(
   }
 }
 
+function listFilterEmptyState(filter: ListTaskFilter, query: string): EmptyStateCopy {
+  const hasSearch = query.trim().length > 0
+  const hasFilter = filter !== 'all'
+
+  if (hasSearch && hasFilter) {
+    return {
+      title: 'Clear search or show all tasks',
+      detail: 'There are tasks here, but the current search and filter hide them.',
+    }
+  }
+
+  if (hasSearch) {
+    return {
+      title: 'Clear search to see tasks',
+      detail: 'There are tasks here, but this search hides them. Try a broader word.',
+    }
+  }
+
+  return {
+    title: 'Choose All to see tasks',
+    detail: 'There are tasks here, but this filter has no results yet.',
+  }
+}
+
 function taskNextAction(task: TaskSummary): string {
   switch (task.state) {
     case 'backlog':
       return task.assignedAgentName || task.assignedTo
-        ? 'Queue this when you are ready for the agent to start.'
-        : 'Assign an agent or move it into a ready work lane.'
+        ? 'Review the task, then send it to the agent.'
+        : 'Choose an agent or task queue, then send it.'
     case 'queued':
-      return 'Wait for an agent to pick it up; check again if it stays queued.'
+      return 'Wait for an available agent to start it; check again if it stays here.'
     case 'working':
       return `Follow progress at ${task.progress}%; open it if updates stop.`
     case 'blocked':
-      return task.blockedHint || task.blockedReason
-        ? `Resolve blocker: ${task.blockedHint ?? task.blockedReason}.`
-        : 'Open it and provide the missing decision or input.'
+      return `Help needed: ${taskBlockedPreview({
+        blockedHint: task.blockedHint,
+        blockedReason: task.blockedReason,
+        error: task.error,
+      })}`
     case 'failed':
-      return 'Open it, read the failure, then retry only after the cause is clear.'
+      return 'Open it, review the recovery note, then retry only after the next step is clear.'
     case 'completed':
       return 'Open it to review the result and evidence.'
     case 'canceled':
@@ -508,6 +544,16 @@ function taskNextAction(task: TaskSummary): string {
     default:
       return 'Open the task to decide the next safe step.'
   }
+}
+
+function taskAgentLabel(task: TaskSummary): string {
+  const assignedName = task.assignedAgentName?.trim()
+  if (assignedName) return assignedName
+
+  const assignedId = task.assignedTo?.trim()
+  if (assignedId) return 'Assigned agent'
+
+  return task.state === 'backlog' ? 'Choose where it runs' : 'Refresh tasks to load agent'
 }
 
 function filterListTasks(

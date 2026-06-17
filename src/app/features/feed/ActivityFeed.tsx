@@ -15,6 +15,44 @@ const FEED_FILTERS: { value: FeedFilter; label: string }[] = [
   { value: 'completed', label: 'Completed' },
 ]
 
+interface FeedFilteredEmptyCopy {
+  title: string
+  detail: string
+  nextStep: string
+}
+
+function feedFilteredEmptyCopy(filter: FeedFilter): FeedFilteredEmptyCopy {
+  if (filter === 'needs-action') {
+    return {
+      title: 'You are caught up on urgent updates',
+      detail: 'Nothing is asking for your help. Use All to review work that is still moving.',
+      nextStep: 'Next: show all updates before starting more work.',
+    }
+  }
+
+  if (filter === 'progress') {
+    return {
+      title: 'Progress updates will appear here',
+      detail: 'Assigned agents add updates here after work starts.',
+      nextStep: 'Next: use All to check completed work or items that need help.',
+    }
+  }
+
+  if (filter === 'completed') {
+    return {
+      title: 'Completed updates will appear here',
+      detail: 'Finished work shows here after an agent closes a task.',
+      nextStep: 'Next: show all updates to see what happened most recently.',
+    }
+  }
+
+  return {
+    title: 'Activity will appear here',
+    detail: 'Recent task updates show up here after an agent starts or finishes work.',
+    nextStep: 'Next: check back after an agent sends its first update.',
+  }
+}
+
 export function ActivityFeed() {
   const agents = useFeedStore((state) => state.agents)
   const attentionItems = useFeedStore((state) => state.attentionItems)
@@ -150,7 +188,7 @@ export function ActivityFeed() {
               ))}
             </div>
           ) : (
-            <FilteredEmptyState />
+            <FilteredEmptyState filter={activeFilter} onShowAll={() => setActiveFilter('all')} />
           )}
         </div>
       ) : (
@@ -162,8 +200,11 @@ export function ActivityFeed() {
             Quiet so far
           </p>
           <p className="text-[11px] text-secondary-light dark:text-secondary-dark leading-relaxed">
-            No work has reported progress yet. Start a task or wait for an assigned agent to send
-            its first update.
+            Start a task or wait for the assigned agent to send its first update.
+          </p>
+          <p className="max-w-[240px] text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+            Next: open Board, create or assign a task, then return here after the first agent
+            update.
           </p>
         </div>
       )}
@@ -238,18 +279,32 @@ function FeedFilterButton({
   )
 }
 
-function FilteredEmptyState() {
+function FilteredEmptyState({ filter, onShowAll }: { filter: FeedFilter; onShowAll: () => void }) {
+  const copy = feedFilteredEmptyCopy(filter)
   return (
-    <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-black/[0.08] px-3 py-6 text-center dark:border-white/[0.1]">
+    <div
+      data-testid="feed-filter-empty"
+      className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-black/[0.08] px-3 py-6 text-center dark:border-white/[0.1]"
+    >
       <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
         <ListFilter size={15} strokeWidth={1.9} aria-hidden="true" />
       </div>
       <p className="text-[11px] font-medium text-foreground-light dark:text-foreground-dark">
-        No updates in this view
+        {copy.title}
       </p>
       <p className="max-w-[220px] text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
-        Choose All to see every recent update, or check back when this type of work changes.
+        {copy.detail}
       </p>
+      <p className="max-w-[220px] text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+        {copy.nextStep}
+      </p>
+      <button
+        type="button"
+        onClick={onShowAll}
+        className="rounded-full bg-apple-blue/10 px-3 py-1.5 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+      >
+        Show all updates
+      </button>
     </div>
   )
 }

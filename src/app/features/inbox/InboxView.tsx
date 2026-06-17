@@ -11,26 +11,47 @@ import { InboxItem } from './InboxItem'
 
 type InboxFilter = 'all' | 'unread' | 'needs-action' | 'credentials'
 
-const FILTERS: { id: InboxFilter; label: string; empty: string }[] = [
-  { id: 'all', label: 'All', empty: 'No notifications match this view.' },
-  { id: 'unread', label: 'Unread', empty: 'Nothing new is waiting for you.' },
-  {
-    id: 'needs-action',
-    label: 'Needs action',
-    empty: 'No blockers, failures, or expired credentials need action right now.',
-  },
-  {
-    id: 'credentials',
-    label: 'Credentials',
-    empty: 'No credentials need reconnecting right now.',
-  },
+interface InboxFilterEmptyState {
+  title: string
+  detail: string
+}
+
+const FILTERS: { id: InboxFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'unread', label: 'Unread' },
+  { id: 'needs-action', label: 'Needs action' },
+  { id: 'credentials', label: 'Account access' },
 ]
 
 const INBOX_TRIAGE_STEPS = [
-  'Start with Needs action to find blocked tasks and failures.',
-  'Use Credentials when an agent needs access reconnected.',
+  'Start with Needs action to find tasks that need help or stopped early.',
+  'Use Account access when an agent needs you to reconnect a work account.',
   'Mark items read after the task or setting has been handled.',
 ]
+
+function InboxLoadError({ loading, onRetry }: { loading: boolean; onRetry: () => void }) {
+  return (
+    <div
+      role="alert"
+      aria-live="polite"
+      className="flex flex-col gap-2 rounded-card border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red sm:flex-row sm:items-center sm:justify-between"
+    >
+      <span>
+        Check your connection, then reload the inbox. Saved notifications could not be loaded, but
+        new updates will still appear here.
+      </span>
+      <button
+        type="button"
+        onClick={onRetry}
+        disabled={loading}
+        className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-ui-button font-semibold text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30 disabled:cursor-not-allowed disabled:opacity-70"
+      >
+        <RefreshCw size={14} className={cn(loading && 'animate-spin')} aria-hidden="true" />
+        {loading ? 'Reloading inbox...' : 'Reload inbox'}
+      </button>
+    </div>
+  )
+}
 
 export function InboxView() {
   const { notifications, addNotification, markRead, markAllRead } = useFeedStore()
@@ -38,6 +59,7 @@ export function InboxView() {
   const navigate = useNavigate()
   const [activeFilter, setActiveFilter] = useState<InboxFilter>('all')
   const [loadError, setLoadError] = useState(false)
+  const [loadingSavedNotifications, setLoadingSavedNotifications] = useState(false)
   const unreadCount = notifications.filter((n) => !n.read).length
   const orderedNotifications = useMemo(
     () => [...notifications].sort((a, b) => b.timestamp - a.timestamp),
@@ -55,6 +77,7 @@ export function InboxView() {
     () => orderedNotifications.filter((notification) => matchesFilter(notification, activeFilter)),
     [activeFilter, orderedNotifications]
   )
+  const filterEmptyState = inboxFilterEmptyState(activeFilter)
   const filterCounts = useMemo(
     () =>
       FILTERS.reduce(
@@ -79,17 +102,22 @@ export function InboxView() {
   )
   const loadNotifications = useCallback(() => {
     let cancelled = false
-    setLoadError(false)
+    setLoadingSavedNotifications(true)
     orchestrationApi
       .fetchInboxNotifications()
       .then((items) => {
         if (cancelled) return
+        setLoadError(false)
         items.forEach((item) => addNotification(item))
       })
       .catch((error) => {
         if (cancelled) return
         console.warn('Failed to load inbox notifications', error)
         setLoadError(true)
+      })
+      .finally(() => {
+        if (cancelled) return
+        setLoadingSavedNotifications(false)
       })
     return () => {
       cancelled = true
@@ -110,7 +138,7 @@ export function InboxView() {
       useSettingsStore.getState().setActiveSection('runtime')
       void navigate({ to: '/settings/$section', params: { section: 'runtime' } })
     } else if (notification.taskHref === '/admin') {
-      // CLI agent-image toast → open the admin console on the CLI Images panel,
+      // Tool update notifications open the admin console on the tool updates panel,
       // mirroring the /settings runtime-section pattern above.
       useAdminStore.getState().setActiveSection('cli-images')
       void navigate({ to: '/admin' })
@@ -131,27 +159,30 @@ export function InboxView() {
           <InboxIcon size={26} strokeWidth={1.75} aria-hidden="true" />
         </div>
         {loadError && (
+          <div className="w-full">
+            <InboxLoadError loading={loadingSavedNotifications} onRetry={loadNotifications} />
+          </div>
+        )}
+        {!loadError && loadingSavedNotifications && (
           <div
-            role="alert"
-            className="w-full flex flex-col gap-2 rounded-card border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red sm:flex-row sm:items-center sm:justify-between"
+            role="status"
+            aria-live="polite"
+            className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] bg-white px-3 py-1.5 text-ui-caption font-medium text-secondary-light dark:border-white/[0.1] dark:bg-white/[0.06] dark:text-secondary-dark"
           >
-            <span>Could not load older notifications. New updates will still appear here.</span>
-            <button
-              type="button"
-              onClick={loadNotifications}
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-ui-button font-semibold text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30"
-            >
-              <RefreshCw size={14} aria-hidden="true" />
-              Try Again
-            </button>
+            <RefreshCw size={13} className="animate-spin" aria-hidden="true" />
+            Checking for saved updates...
           </div>
         )}
         <div className="space-y-1">
           <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            You're all caught up
+            {loadingSavedNotifications && !loadError
+              ? 'Checking for saved updates'
+              : "You're all caught up"}
           </p>
           <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-            Agent updates, task completions, and system alerts will show up here.
+            {loadingSavedNotifications && !loadError
+              ? 'Forge is checking older notifications. New live updates will still appear here.'
+              : 'Agent updates, finished work, and account access notices will show up here.'}
           </p>
         </div>
         <InboxTriagePath compact />
@@ -167,7 +198,8 @@ export function InboxView() {
             Inbox
           </h1>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Start with blockers and expired credentials. Completed work can wait until review time.
+            Start with tasks that need help and account access issues. Completed work can wait until
+            review time.
           </p>
         </header>
         {nextStepNotification && (
@@ -178,7 +210,7 @@ export function InboxView() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
-                  Do This Next
+                  Do this next
                 </p>
                 <p className="mt-0.5 text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
                   {nextStepTitle(nextStepNotification)}
@@ -198,19 +230,8 @@ export function InboxView() {
           </div>
         )}
         {loadError && (
-          <div
-            role="alert"
-            className="mb-3 flex flex-col gap-2 rounded-card border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red sm:flex-row sm:items-center sm:justify-between"
-          >
-            <span>Could not load older notifications. New updates will still appear here.</span>
-            <button
-              type="button"
-              onClick={loadNotifications}
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-ui-button font-semibold text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30"
-            >
-              <RefreshCw size={14} aria-hidden="true" />
-              Try Again
-            </button>
+          <div className="mb-3">
+            <InboxLoadError loading={loadingSavedNotifications} onRetry={loadNotifications} />
           </div>
         )}
         <div className="flex items-center justify-between gap-3">
@@ -234,7 +255,7 @@ export function InboxView() {
               onClick={handleMarkAllRead}
               className="rounded-full px-3 py-1.5 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
             >
-              Mark All As Read
+              Mark all as read
             </button>
           )}
         </div>
@@ -288,21 +309,18 @@ export function InboxView() {
             data-testid="inbox-filter-empty"
             className="flex h-full flex-col items-center justify-center px-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark"
           >
-            <p>
-              {FILTERS.find((f) => f.id === activeFilter)?.empty ??
-                'No notifications in this view.'}
+            <p className="font-medium text-foreground-light dark:text-foreground-dark">
+              {filterEmptyState.title}
             </p>
-            <p className="mt-1 max-w-sm text-ui-caption">
-              Try All for the full history, or Needs action for items that still need a response.
-            </p>
+            <p className="mt-1 max-w-sm text-ui-caption">{filterEmptyState.detail}</p>
             {activeFilter !== 'all' && (
               <button
                 type="button"
-                aria-label="Show all notifications"
+                aria-label="Show all updates"
                 onClick={() => setActiveFilter('all')}
                 className="mt-2 rounded-full px-3 py-1.5 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
               >
-                Show all
+                Show all updates
               </button>
             )}
           </div>
@@ -310,6 +328,33 @@ export function InboxView() {
       </div>
     </div>
   )
+}
+
+function inboxFilterEmptyState(filter: InboxFilter): InboxFilterEmptyState {
+  switch (filter) {
+    case 'unread':
+      return {
+        title: 'No unread updates',
+        detail: 'Older updates are still in All. Open All if you need the full history.',
+      }
+    case 'needs-action':
+      return {
+        title: 'You are caught up on action items',
+        detail:
+          'No task is asking for help and no account access needs reconnecting. Use All when you want to review older updates.',
+      }
+    case 'credentials':
+      return {
+        title: 'No account access needs reconnecting',
+        detail:
+          'Account access is not blocking agent work right now. Open All to review other updates.',
+      }
+    case 'all':
+      return {
+        title: 'No updates match this filter',
+        detail: 'Open another filter or refresh the inbox if you expected to see recent updates.',
+      }
+  }
 }
 
 function isActionNotification(notification: Notification): boolean {
@@ -336,11 +381,11 @@ function matchesFilter(notification: Notification, filter: InboxFilter): boolean
 function nextStepTitle(notification: Notification): string {
   switch (notification.type) {
     case 'credential_expired':
-      return 'Reconnect a credential before more agent work starts'
+      return 'Reconnect account access before more agent work starts'
     case 'blocked':
-      return 'Review the blocker that is stopping work'
+      return 'Review what is stopping work'
     case 'failed':
-      return 'Review the failed task before retrying'
+      return 'Review the recovery note before retrying'
     case 'completed':
       return 'Review the latest completed result when you have time'
     case 'assigned':
@@ -348,7 +393,7 @@ function nextStepTitle(notification: Notification): string {
     case 'mentioned':
       return 'Open the newest mention'
     case 'cli_image_updated':
-      return 'Review the latest CLI agent-image update'
+      return 'Review the latest agent tool update'
   }
 }
 
@@ -359,35 +404,35 @@ function nextStepDescription(
 ): string {
   if (notification.type === 'credential_expired') {
     return credentialCount === 1
-      ? 'One credential needs reconnecting. Fixing it keeps future agent runs from failing.'
-      : `${credentialCount} credentials need reconnecting. Start here because access problems can block new runs.`
+      ? 'One account connection needs reconnecting. Fixing it keeps future agent work from failing.'
+      : `${credentialCount} account connections need reconnecting. Start here because access problems can block new tasks.`
   }
 
   if (notification.type === 'blocked' || notification.type === 'failed') {
     return needsActionCount === 1
       ? 'This is the only item that needs action. Open it and decide the next owner step.'
-      : `${needsActionCount} items need action. Start with the newest blocker or failure first.`
+      : `${needsActionCount} items need action. Start with the newest item that needs help.`
   }
 
-  return 'There are no urgent blockers. Open this update only if you need to review the latest work.'
+  return 'There are no urgent items that need help. Open this update only if you need to review the latest work.'
 }
 
 function nextStepActionLabel(notification: Notification): string {
   switch (notification.type) {
     case 'credential_expired':
-      return 'Open Settings'
+      return 'Open agent work settings'
     case 'blocked':
-      return 'Open Blocked Task'
+      return 'Open task'
     case 'failed':
-      return 'Open Failed Task'
+      return 'Review recovery'
     case 'completed':
-      return 'Open Result'
+      return 'Open result'
     case 'assigned':
-      return 'Open Assignment'
+      return 'Open assignment'
     case 'mentioned':
-      return 'Open Mention'
+      return 'Open mention'
     case 'cli_image_updated':
-      return 'Open CLI Images'
+      return 'Open tool updates'
   }
 }
 

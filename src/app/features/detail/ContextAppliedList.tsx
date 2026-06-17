@@ -39,7 +39,7 @@ export function ContextAppliedList({
           {title}
         </h3>
         <p className="mt-0.5 text-[11px] text-secondary-light dark:text-secondary-dark">
-          These items were added to the agent's working context for this run.
+          {appliedContextDescription(kind)}
         </p>
       </div>
       <div className="space-y-2">
@@ -54,6 +54,13 @@ export function ContextAppliedList({
       </div>
     </section>
   )
+}
+
+function appliedContextDescription(kind: ContextCandidateKind): string {
+  if (kind === 'skill') {
+    return 'These saved instructions helped the agent before it worked on this task.'
+  }
+  return 'These saved notes helped the agent before it worked on this task.'
 }
 
 interface AppliedContextCardProps {
@@ -72,7 +79,7 @@ function AppliedContextCard({
   const [contentError, setContentError] = useState<string | null>(null)
   const Icon = item.itemKind === 'skill' ? Workflow : Brain
   const content = expandedContent ?? item.contentPreview
-  const showMoreLabel = loadingContent ? 'Loading full memory…' : 'Show full memory'
+  const showMoreLabel = loadingContent ? 'Loading full saved note…' : 'Show full saved note'
 
   async function showMore() {
     if (!item.contentTruncated || item.itemKind !== 'memory') {
@@ -85,7 +92,9 @@ function AppliedContextCard({
       const result = await onReadMemoryContent(item.itemId)
       setExpandedContent(result.content)
     } catch {
-      setContentError('Full context could not load. Try again or check the source memory.')
+      setContentError(
+        'Choose Show full saved note again before relying on it. The full saved note could not load.'
+      )
     } finally {
       setLoadingContent(false)
     }
@@ -109,8 +118,8 @@ function AppliedContextCard({
               {item.title}
             </h4>
             {item.revoked && <Badge tone="red">Revoked</Badge>}
-            {item.scopeKind && <Badge>{item.scopeKind}</Badge>}
-            {item.sensitivity && <Badge tone="orange">{item.sensitivity}</Badge>}
+            {item.scopeKind && <Badge>{scopeKindLabel(item.scopeKind)}</Badge>}
+            {item.sensitivity && <Badge tone="orange">{sensitivityLabel(item.sensitivity)}</Badge>}
           </div>
           <p className="mt-1 text-[11px] leading-relaxed text-secondary-light dark:text-secondary-dark whitespace-pre-wrap break-words">
             {content}
@@ -122,7 +131,9 @@ function AppliedContextCard({
               disabled={loadingContent}
               aria-label={`${showMoreLabel} for ${item.title}`}
               title={
-                loadingContent ? 'Loading the full memory text.' : 'Open the full memory text.'
+                loadingContent
+                  ? 'Loading the full saved note text.'
+                  : 'Open the full saved note text.'
               }
               className="mt-1 text-[10px] font-medium text-apple-blue hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-wait disabled:opacity-60"
             >
@@ -138,23 +149,52 @@ function AppliedContextCard({
       </div>
 
       <div className="grid grid-cols-2 gap-2 text-[10px] text-secondary-light dark:text-secondary-dark">
-        <span>Applied {formatRelativeTime(item.appliedAt)}</span>
+        <span>Used {formatRelativeTime(item.appliedAt)}</span>
         <span>Last used {formatRelativeTime(item.lastUsedAt ?? item.appliedAt)}</span>
-        {item.sourceTaskId && (
-          <span className="truncate">Source task {item.sourceTaskId.slice(0, 8)}</span>
-        )}
-        {item.adapter && <span className="truncate">Adapter {item.adapter}</span>}
+        {item.sourceTaskId && <span className="truncate">Saved from an earlier task</span>}
+        {item.adapter && <span className="truncate">Prepared before the agent worked</span>}
       </div>
 
       {item.degradationReason && (
         <p className="text-[10px] text-apple-orange">
-          Limited context: {item.degradationReason}. Review before relying on it.
+          This saved item was shortened before the agent used it. Review the full item before
+          relying on it.
         </p>
       )}
 
       <FeedbackControls item={item} onRecord={onRecordFeedback} />
     </article>
   )
+}
+
+function scopeKindLabel(scopeKind: string): string {
+  switch (scopeKind) {
+    case 'org':
+      return 'Team space'
+    case 'team':
+      return 'Team'
+    case 'project':
+      return 'Project'
+    case 'user':
+      return 'Only you'
+    default:
+      return 'Check sharing setting'
+  }
+}
+
+function sensitivityLabel(sensitivity: string): string {
+  switch (sensitivity) {
+    case 'public':
+      return 'Shareable'
+    case 'internal':
+      return 'Internal only'
+    case 'confidential':
+      return 'Confidential'
+    case 'secret_detected':
+      return 'May contain secrets'
+    default:
+      return 'Check safety label'
+  }
 }
 
 function Badge({

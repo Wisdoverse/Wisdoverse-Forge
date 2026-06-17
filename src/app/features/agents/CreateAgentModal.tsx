@@ -1,6 +1,7 @@
 import { useForm } from 'react-hook-form'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  ArrowRight,
   Bug,
   Check,
   ClipboardCheck,
@@ -8,17 +9,19 @@ import {
   Copy,
   Plus,
   Search,
+  X,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { useAgentsStore } from '@app/entities/agent'
 import { useNavigationStore } from '@app/entities/navigation'
 import { useSettingsStore } from '@app/shared/model/settings.store'
-import type { LocalAgentEnrollmentResponse } from '@app/entities/agent'
+import type { AgentCreateInitialKind, LocalAgentEnrollmentResponse } from '@app/entities/agent'
 import type { LlmProviderConfig } from '@app/shared/api/legacy/settingsApi'
 import type { CliTool } from '@shared/types'
+import { createAgentWorkLaneErrorMessage } from './model/createAgentWorkLaneErrorMessage'
 
-type AgentKind = 'cli' | 'local-cli' | 'provider'
+type AgentKind = AgentCreateInitialKind
 
 interface CreateAgentFormData {
   name: string
@@ -30,6 +33,10 @@ interface CreateAgentFormData {
   cwd: string
   groupId: string
   systemPrompt: string
+}
+
+interface CreateAgentModalProps {
+  onOpenProjectsSetup?: () => void
 }
 
 const CLI_TOOLS: { value: CliTool; label: string }[] = [
@@ -54,41 +61,46 @@ interface RuntimeFitSummary {
   items: { label: string; value: string }[]
 }
 
+interface AgentCreateReviewItem {
+  label: string
+  value: string
+}
+
 const AGENT_ROLE_TEMPLATES: AgentRoleTemplate[] = [
   {
     id: 'builder',
-    label: 'Builder',
-    summary: 'Implementation and tests',
-    name: 'Builder Agent',
+    label: 'Make a change',
+    summary: 'Updates the work and checks it',
+    name: 'Change Helper',
     systemPrompt:
-      'You turn scoped requests into working changes. Keep edits narrow, explain tradeoffs when requirements conflict, and verify with the most relevant checks before handing work back.',
+      'You help turn a clear request into a working change. Keep edits narrow, explain any tradeoffs in plain language, and run the most relevant checks before handing work back.',
     Icon: Code2,
   },
   {
     id: 'reviewer',
-    label: 'Reviewer',
-    summary: 'Risk and release checks',
-    name: 'Review Agent',
+    label: 'Review work',
+    summary: 'Looks for risks before use',
+    name: 'Review Helper',
     systemPrompt:
-      'You review changes for regressions, security issues, missing tests, and release risk. Lead with concrete findings and cite the exact files or checks that prove each point.',
+      'You review work before it is used. Point out concrete risks, missing checks, confusing behavior, and the next safest step. Use plain language and cite files or checks when you have them.',
     Icon: ClipboardCheck,
   },
   {
     id: 'investigator',
-    label: 'Investigator',
-    summary: 'Root-cause analysis',
-    name: 'Investigation Agent',
+    label: 'Find the cause',
+    summary: 'Tracks down unclear failures',
+    name: 'Investigation Helper',
     systemPrompt:
-      'You investigate uncertain failures by gathering evidence first, separating facts from hypotheses, and ending with the smallest next action that can disprove or confirm the cause.',
+      'You investigate unclear failures by gathering evidence first. Separate what is known from what is only a guess, then end with the smallest next action that can confirm the cause.',
     Icon: Search,
   },
   {
     id: 'fixer',
-    label: 'Fixer',
-    summary: 'Bug repair loop',
-    name: 'Bug Fix Agent',
+    label: 'Fix a bug',
+    summary: 'Reproduces and fixes bugs',
+    name: 'Bug Fix Helper',
     systemPrompt:
-      'You reproduce bugs, identify the smallest responsible path, patch the defect without unrelated refactors, and verify both the failing case and the nearby regression surface.',
+      'You reproduce bugs, find the smallest cause, fix the defect without unrelated changes, and verify both the failing case and nearby behavior before handing work back.',
     Icon: Bug,
   },
 ]
@@ -108,6 +120,12 @@ interface ProviderOption {
 }
 
 const DEFAULT_AGENT_CWD = '/workspace'
+
+function setupCommandPasteHint(os: 'posix' | 'windows'): string {
+  return os === 'windows'
+    ? 'Open PowerShell on Windows, then paste this setup text.'
+    : 'Open Terminal on macOS or your Linux terminal, then paste this setup text.'
+}
 
 /**
  * Build the Provider + Prompt options from configured providers. Prefer
@@ -146,44 +164,47 @@ function runtimeFitFor(
 ): RuntimeFitSummary {
   if (kind === 'cli') {
     return {
-      title: `${cliToolLabel(cliTool)} container worker`,
-      detail: 'Best when the task needs repository files, terminal tools, or local CLI sessions.',
+      title: `${cliToolLabel(cliTool)} in a managed workspace`,
+      detail: 'Best when the task needs project files or work tools prepared by Forge.',
       items: [
-        { label: 'Execution', value: 'Container CLI' },
-        { label: 'Files', value: '/workspace mounted' },
-        { label: 'Before use', value: 'Runtime container must start' },
+        { label: 'Agent location', value: 'Managed workspace' },
+        { label: 'Files', value: 'Project files included' },
+        { label: 'Before use', value: 'Check Where agents run in Settings' },
       ],
     }
   }
 
   if (kind === 'local-cli') {
     return {
-      title: `${cliToolLabel(cliTool)} local worker`,
-      detail: 'Best when the CLI already runs on your computer and this platform should manage it.',
+      title: `${cliToolLabel(cliTool)} on this computer`,
+      detail:
+        'Best when files or tools must stay on this computer. After setup, Forge still manages this agent here: tasks, status, and task history.',
       items: [
-        { label: 'Execution', value: 'Local CLI' },
-        { label: 'Files', value: 'Your local folder' },
-        { label: 'Before use', value: 'Run the join command' },
+        { label: 'Agent location', value: 'This computer' },
+        { label: 'Files', value: 'Your chosen folder' },
+        { label: 'Before use', value: 'Paste setup text on this computer' },
       ],
     }
   }
 
   return {
-    title: `${providerLabel} prompt worker`,
-    detail:
-      'Best for planning, review, and lightweight coordination that does not need filesystem tools.',
+    title: `${providerLabel} simple chat agent`,
+    detail: 'Best for questions, planning, writing, and review that do not need project files.',
     items: [
-      { label: 'Execution', value: 'Provider API' },
-      { label: 'Files', value: 'No direct workspace mount' },
-      { label: 'Before use', value: 'Provider key must be ready' },
+      { label: 'Agent location', value: 'Chat-only AI service' },
+      { label: 'Files', value: 'Does not open project files' },
+      { label: 'Before use', value: 'Check AI service in Settings' },
     ],
   }
 }
 
-function buildDefaultValues(provider: LlmProviderConfig | null): CreateAgentFormData {
+function buildDefaultValues(
+  provider: LlmProviderConfig | null,
+  initialKind: AgentKind | null
+): CreateAgentFormData {
   return {
     name: '',
-    kind: provider ? 'provider' : 'cli',
+    kind: initialKind ?? (provider ? 'provider' : 'cli'),
     cliTool: 'claude',
     providerId: provider?.id ?? '',
     model: provider?.model ?? '',
@@ -193,9 +214,59 @@ function buildDefaultValues(provider: LlmProviderConfig | null): CreateAgentForm
   }
 }
 
-export function CreateAgentModal() {
+function createReviewItems({
+  kind,
+  runtimeTitle,
+  projectName,
+  hasSelectedProject,
+  selectedGroupName,
+  hasGroups,
+}: {
+  kind: AgentKind
+  runtimeTitle: string
+  projectName: string | null
+  hasSelectedProject: boolean
+  selectedGroupName: string | null
+  hasGroups: boolean
+}): AgentCreateReviewItem[] {
+  const startState =
+    kind === 'local-cli'
+      ? 'Forge creates the agent, then shows setup steps for this computer.'
+      : kind === 'provider'
+        ? 'Ready for chat and review after the AI service is connected.'
+        : 'Forge starts it after the managed workspace is prepared.'
+
+  const taskQueue = selectedGroupName
+    ? selectedGroupName
+    : hasSelectedProject
+      ? hasGroups
+        ? 'Choose a task queue now, or assign one later from Tasks.'
+        : 'Create a task queue here when you want new tasks to wait in one place.'
+      : 'Choose a project later before assigning tasks.'
+
+  const nextStep =
+    kind === 'local-cli'
+      ? 'Paste the setup text on this computer and keep that window open.'
+      : kind === 'provider'
+        ? 'Ask a first question or assign review work that does not need files.'
+        : 'Wait until it shows Ready, then send one small task from Tasks.'
+
+  return [
+    { label: 'Work style', value: runtimeTitle },
+    {
+      label: 'Primary project',
+      value: projectName ?? 'Choose a project before assigning tasks.',
+    },
+    { label: 'Task queue', value: taskQueue },
+    { label: 'Next step', value: nextStep },
+    { label: 'Created state', value: startState },
+  ]
+}
+
+export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps = {}) {
   const {
     createModalOpen,
+    createModalInitialKind,
     setCreateModalOpen,
     createAgent,
     enrollLocalAgent,
@@ -228,7 +299,10 @@ export function CreateAgentModal() {
       null,
     [providers]
   )
-  const defaultValues = useMemo(() => buildDefaultValues(verifiedProvider), [verifiedProvider])
+  const defaultValues = useMemo(
+    () => buildDefaultValues(verifiedProvider, createModalInitialKind),
+    [createModalInitialKind, verifiedProvider]
+  )
 
   const {
     register,
@@ -245,16 +319,44 @@ export function CreateAgentModal() {
   const providerId = watch('providerId')
   const cliTool = watch('cliTool')
   const cwd = watch('cwd')
+  const groupId = watch('groupId')
   const runtimeFit = runtimeFitFor(kind, cliTool, providerOptionLabel(providerOptions, providerId))
   const selectedProject = selectedProjectId
     ? (Object.values(projectsByTeam)
         .flat()
         .find((project) => project.id === selectedProjectId) ?? null)
     : null
+  const selectedGroup = useMemo(
+    () => groups.find((group) => group.id === groupId) ?? null,
+    [groupId, groups]
+  )
+  const reviewItems = useMemo(
+    () =>
+      createReviewItems({
+        kind,
+        runtimeTitle: runtimeFit.title,
+        projectName: selectedProject?.name ?? null,
+        hasSelectedProject: Boolean(selectedProjectId),
+        selectedGroupName: selectedGroup?.name ?? null,
+        hasGroups: groups.length > 0,
+      }),
+    [groups.length, kind, runtimeFit.title, selectedGroup, selectedProject, selectedProjectId]
+  )
   const dialogRef = useRef<HTMLDivElement>(null)
   const errorBannerRef = useRef<HTMLDivElement>(null)
   const providersRequestedRef = useRef(false)
   const displayedError = formError ?? error
+  const joinCommand = localEnrollment?.enrollment?.joinCommand ?? ''
+  const joinCommandPowershell = localEnrollment?.enrollment?.joinCommandPowershell ?? ''
+  const selectedJoinCommand = joinOs === 'posix' ? joinCommand : joinCommandPowershell
+  const selectedJoinCommandReady = selectedJoinCommand.trim().length > 0
+
+  function handleOpenProjectsSetup() {
+    setCreateModalOpen(false)
+    setError(null)
+    setFormError(null)
+    onOpenProjectsSetup?.()
+  }
 
   // The error banner sits above the form in a scrollable dialog while the
   // submit button sits at the bottom, so a failed submit can leave the banner
@@ -335,7 +437,7 @@ export function CreateAgentModal() {
   async function handleFormSubmit(data: CreateAgentFormData) {
     setFormError(null)
     if (!data.name.trim()) {
-      setFormError('Name is required')
+      setFormError('Name this agent before creating it.')
       return
     }
     const base = {
@@ -348,12 +450,12 @@ export function CreateAgentModal() {
       const selected = providerOptions.find((option) => option.id === data.providerId)
       if (!selected) {
         setFormError(
-          'Add and test a provider in Settings → LLM Providers first, then choose it here.'
+          'Open Settings > AI services, add a service, save it, then click Check until it says Ready.'
         )
         return
       }
       if (!data.model.trim()) {
-        setFormError('Provider and model are required')
+        setFormError('Choose an AI service and AI model before creating this agent.')
         return
       }
       await createAgent({
@@ -382,7 +484,7 @@ export function CreateAgentModal() {
 
   async function handleCreateDefaultGroup() {
     if (!selectedProjectId) {
-      setError('Select a project before creating a work lane. Work lanes belong to one project.')
+      setError('Select a project before creating a task queue. Task queues belong to one project.')
       return
     }
 
@@ -390,12 +492,13 @@ export function CreateAgentModal() {
     setError(null)
     try {
       const group = await createAgentGroup(selectedProjectId, {
-        name: 'Default Work Lane',
-        description: 'This work lane lets agents receive board tasks.',
+        name: 'Default Task Queue',
+        description:
+          'Starter queue for this project. New tasks wait here until an agent can take them.',
       })
       setValue('groupId', group.id, { shouldDirty: true })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create work lane')
+      setError(createAgentWorkLaneErrorMessage(err))
     } finally {
       setCreatingGroup(false)
     }
@@ -418,7 +521,7 @@ export function CreateAgentModal() {
   }
 
   const CLIPBOARD_UNAVAILABLE =
-    'Copy is unavailable here (no clipboard access) — select the command text and copy it manually.'
+    'Forge cannot copy from this browser. Select the setup text in the box, then copy it manually.'
 
   async function handleCopyCommand() {
     const command = localEnrollment?.enrollment?.shellExports
@@ -473,7 +576,7 @@ export function CreateAgentModal() {
         aria-modal="true"
         aria-labelledby="create-agent-title"
         className={cn(
-          'relative w-[480px] max-h-[80vh] overflow-y-auto',
+          'relative mx-4 max-h-[86vh] w-full max-w-[520px] overflow-y-auto',
           'rounded-panel border border-black/[0.08] bg-white p-6 dark:border-white/[0.1] dark:bg-[#2a2a2c]'
         )}
       >
@@ -482,15 +585,15 @@ export function CreateAgentModal() {
             id="create-agent-title"
             className="text-ui-title font-semibold text-foreground-light dark:text-foreground-dark"
           >
-            {localEnrollment ? 'Local Agent Join' : 'New Agent'}
+            {localEnrollment ? 'Connect this computer' : 'Create an agent'}
           </h2>
           <button
             type="button"
             onClick={handleClose}
             aria-label="Close dialog"
-            className="text-ui-body text-secondary-light dark:text-secondary-dark"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-secondary-light transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/40 dark:text-secondary-dark dark:hover:bg-white/5"
           >
-            ✕
+            <X size={15} strokeWidth={2} aria-hidden="true" />
           </button>
         </div>
 
@@ -498,6 +601,7 @@ export function CreateAgentModal() {
           <div
             ref={errorBannerRef}
             role="alert"
+            aria-live="polite"
             className="mb-4 rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
           >
             {displayedError}
@@ -510,20 +614,20 @@ export function CreateAgentModal() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                    Managed agent
+                    Agent managed by Forge
                   </div>
                   <div className="mt-1 text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
-                    {localEnrollment.agent?.name ?? 'Local agent'}
+                    {localEnrollment.agent?.name ?? 'This computer agent'}
                   </div>
                 </div>
                 <span className="rounded-full border border-apple-green/20 bg-white px-2.5 py-1 text-ui-caption text-apple-green dark:bg-white/[0.04]">
-                  Local CLI
+                  This computer
                 </span>
               </div>
               <p className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {localEnrollment.enrollment?.joinCommand
-                  ? 'Paste one command into a terminal on the machine where the agent should work. It downloads what is missing and connects this agent.'
-                  : 'Copy this command and run it on the machine where the CLI is installed. The agent will appear online after the sidecar starts.'}
+                  ? 'Paste the setup text into Terminal or PowerShell on the computer where this agent should work. Forge will show it as an agent here, assign tasks to it, and keep its status and history. Files stay on that computer.'
+                  : 'Paste this setup text on the computer where this agent should work. Forge will manage its tasks, status, and history while files stay on that computer.'}
               </p>
             </div>
 
@@ -531,9 +635,9 @@ export function CreateAgentModal() {
               <div>
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                    Join command
+                    Setup text
                   </span>
-                  <div role="group" aria-label="Local machine platform" className="flex gap-1">
+                  <div role="group" aria-label="Computer type" className="flex gap-1">
                     {(
                       [
                         { value: 'posix', label: 'macOS / Linux' },
@@ -560,34 +664,65 @@ export function CreateAgentModal() {
                     ))}
                   </div>
                 </div>
-                <textarea
-                  id="local-agent-join-command"
-                  aria-label="One-command join"
-                  readOnly
-                  value={
-                    (joinOs === 'posix'
-                      ? localEnrollment.enrollment.joinCommand
-                      : localEnrollment.enrollment.joinCommandPowershell) ?? ''
-                  }
-                  rows={3}
-                  className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 font-mono text-ui-caption text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-                />
+                {selectedJoinCommandReady ? (
+                  <textarea
+                    id="local-agent-join-command"
+                    aria-label="Setup text"
+                    readOnly
+                    value={selectedJoinCommand}
+                    rows={3}
+                    className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 font-mono text-ui-caption text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                  />
+                ) : (
+                  <div
+                    role="note"
+                    className="rounded-[18px] border border-apple-orange/30 bg-apple-orange/10 px-4 py-3 text-ui-caption text-secondary-light dark:text-secondary-dark"
+                  >
+                    One-line Windows setup text is not ready for this agent. Open the backup setup
+                    values below, copy them into PowerShell, and keep that window open.
+                  </div>
+                )}
                 <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                   The pairing code inside expires in 15 minutes. If it expires, create the agent
-                  again to get a fresh command. Success looks like: this agent shows Online in the
-                  Agent Fleet.
+                  again to get a fresh command.
                 </p>
+                <p
+                  data-testid="local-agent-paste-hint"
+                  className="mt-1 text-ui-caption font-medium text-foreground-light dark:text-foreground-dark"
+                >
+                  {selectedJoinCommandReady
+                    ? setupCommandPasteHint(joinOs)
+                    : 'Use the backup setup values below for Windows.'}
+                </p>
+                <div className="mt-2 grid gap-1.5 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 text-ui-caption text-secondary-light dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-secondary-dark">
+                  <p>1. Copy the setup text.</p>
+                  <p>
+                    2. Paste it into Terminal or PowerShell on the computer that will do the work.
+                  </p>
+                  <p>
+                    3. Keep that window open. Success looks like: the agent changes from Not
+                    connected to Ready on the Agents page.
+                  </p>
+                  <p>
+                    4. Closing that window disconnects this agent until you paste the setup text
+                    again.
+                  </p>
+                  <p>
+                    5. Come back to Forge, open Agents, and send one small task when it is Ready.
+                  </p>
+                </div>
                 <details className="mt-3">
                   <summary className="cursor-pointer text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                    Manual setup (advanced)
+                    If the setup text does not work
                   </summary>
                   <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                    Already have <code>agentforge-sidecar</code> installed? Export this environment
-                    and start the sidecar yourself.
+                    Use this backup only if the setup text above does not work on this computer.
+                    Copy these backup setup values into the same Terminal or PowerShell window, then
+                    keep that window open.
                   </p>
                   <textarea
                     id="local-agent-command"
-                    aria-label="Manual setup environment"
+                    aria-label="Backup setup values"
                     readOnly
                     value={localEnrollment.enrollment?.shellExports ?? ''}
                     rows={6}
@@ -604,7 +739,7 @@ export function CreateAgentModal() {
                       ) : (
                         <Copy size={13} strokeWidth={2.25} aria-hidden="true" />
                       )}
-                      {copiedCommand ? 'Copied' : 'Copy manual setup'}
+                      {copiedCommand ? 'Copied' : 'Copy backup setup'}
                     </button>
                   </div>
                 </details>
@@ -615,7 +750,7 @@ export function CreateAgentModal() {
                   htmlFor="local-agent-command"
                   className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                 >
-                  Join command
+                  Setup text
                 </label>
                 <textarea
                   id="local-agent-command"
@@ -624,6 +759,21 @@ export function CreateAgentModal() {
                   rows={8}
                   className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 font-mono text-ui-caption text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                 />
+                <div className="mt-2 grid gap-1.5 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 text-ui-caption text-secondary-light dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-secondary-dark">
+                  <p>1. Copy the setup text.</p>
+                  <p>2. Paste it into the terminal app on the computer that will do the work.</p>
+                  <p>
+                    3. Keep that window open. Success looks like: the agent changes from Not
+                    connected to Ready on the Agents page.
+                  </p>
+                  <p>
+                    4. Closing that window disconnects this agent until you paste the setup text
+                    again.
+                  </p>
+                  <p>
+                    5. Come back to Forge, open Agents, and send one small task when it is Ready.
+                  </p>
+                </div>
               </div>
             )}
 
@@ -645,20 +795,24 @@ export function CreateAgentModal() {
                 <button
                   type="button"
                   onClick={() => {
-                    const command =
-                      joinOs === 'posix'
-                        ? localEnrollment.enrollment?.joinCommand
-                        : localEnrollment.enrollment?.joinCommandPowershell
-                    if (command) void handleCopyJoinCommand(command)
+                    if (selectedJoinCommandReady) void handleCopyJoinCommand(selectedJoinCommand)
                   }}
-                  className="inline-flex items-center gap-2 rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95"
+                  disabled={!selectedJoinCommandReady}
+                  className={cn(
+                    'inline-flex items-center gap-2 rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95',
+                    !selectedJoinCommandReady && 'cursor-not-allowed opacity-60'
+                  )}
                 >
                   {copiedJoin ? (
                     <Check size={14} strokeWidth={2.25} aria-hidden="true" />
                   ) : (
                     <Copy size={14} strokeWidth={2.25} aria-hidden="true" />
                   )}
-                  {copiedJoin ? 'Copied' : 'Copy join command'}
+                  {!selectedJoinCommandReady
+                    ? 'Use backup setup values'
+                    : copiedJoin
+                      ? 'Copied'
+                      : 'Copy setup text'}
                 </button>
               ) : (
                 <button
@@ -671,7 +825,7 @@ export function CreateAgentModal() {
                   ) : (
                     <Copy size={14} strokeWidth={2.25} aria-hidden="true" />
                   )}
-                  {copiedCommand ? 'Copied' : 'Copy command'}
+                  {copiedCommand ? 'Copied' : 'Copy setup text'}
                 </button>
               )}
               <button
@@ -679,7 +833,7 @@ export function CreateAgentModal() {
                 onClick={handleClose}
                 className="rounded-full bg-apple-gray-5 px-4 py-2 text-ui-button font-medium text-foreground-light transition-transform active:scale-95 dark:bg-white/[0.06] dark:text-foreground-dark"
               >
-                Done
+                Close and watch Agents
               </button>
             </div>
           </div>
@@ -688,15 +842,17 @@ export function CreateAgentModal() {
             <div>
               <div className="mb-2 flex items-center justify-between gap-2">
                 <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                  Role template
+                  Pick a starter template
                 </span>
                 <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                  {kind === 'provider' ? 'Prompt ready' : 'Name seeds CLI agents'}
+                  {kind === 'provider'
+                    ? 'Fills in name and instructions'
+                    : 'Fills in the agent name'}
                 </span>
               </div>
               <div
                 role="group"
-                aria-label="Agent role templates"
+                aria-label="Agent starter templates"
                 className="grid gap-2 sm:grid-cols-2"
               >
                 {AGENT_ROLE_TEMPLATES.map((template) => (
@@ -744,9 +900,9 @@ export function CreateAgentModal() {
 
             <div>
               <label className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                Agent kind
+                Choose work style
               </label>
-              <div className="flex gap-2" role="radiogroup" aria-label="Agent kind">
+              <div className="flex gap-2" role="radiogroup" aria-label="Choose work style">
                 <label
                   className={cn(
                     'flex-1 cursor-pointer rounded-full px-4 py-2 text-center text-ui-button font-medium transition-transform active:scale-95',
@@ -756,7 +912,7 @@ export function CreateAgentModal() {
                   )}
                 >
                   <input type="radio" value="cli" {...register('kind')} className="sr-only" />
-                  Container CLI
+                  Managed workspace
                 </label>
                 <label
                   className={cn(
@@ -767,7 +923,7 @@ export function CreateAgentModal() {
                   )}
                 >
                   <input type="radio" value="local-cli" {...register('kind')} className="sr-only" />
-                  Local CLI
+                  This computer
                 </label>
                 <label
                   className={cn(
@@ -778,15 +934,19 @@ export function CreateAgentModal() {
                   )}
                 >
                   <input type="radio" value="provider" {...register('kind')} className="sr-only" />
-                  Provider + Prompt
+                  Simple chat agent
                 </label>
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {kind === 'cli'
-                  ? 'Runs claude/codex/gemini/opencode inside a container.'
+                  ? 'Uses a ready workspace managed by Forge for file and command work.'
                   : kind === 'local-cli'
-                    ? 'Runs a CLI on your machine while this platform manages identity and tasks.'
-                    : 'Calls the LLM provider directly — no container, no terminal.'}
+                    ? 'Uses files and commands on your computer. Forge still manages the agent here with tasks, status, and history.'
+                    : 'Uses a connected AI service for planning, writing, and review. It does not open files or run commands.'}
+              </p>
+              <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                Not sure? Use Managed workspace for project-file work, This computer when files must
+                stay local, or Simple chat agent after an AI service is ready.
               </p>
             </div>
 
@@ -797,7 +957,7 @@ export function CreateAgentModal() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                    Runtime fit
+                    Best for
                   </p>
                   <p className="mt-0.5 text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
                     {runtimeFit.title}
@@ -805,10 +965,10 @@ export function CreateAgentModal() {
                 </div>
                 <span className="shrink-0 rounded-full bg-apple-blue/10 px-2 py-0.5 text-ui-caption font-medium text-apple-blue">
                   {kind === 'cli'
-                    ? 'File work'
+                    ? 'Can edit files'
                     : kind === 'local-cli'
-                      ? 'Local work'
-                      : 'Prompt work'}
+                      ? 'Uses this computer'
+                      : 'Chat only'}
                 </span>
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -836,17 +996,25 @@ export function CreateAgentModal() {
                 Primary Project
               </div>
               <div className="w-full rounded-[18px] border border-black/[0.08] bg-white px-4 py-2 text-ui-body text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark">
-                {selectedProject?.name ?? 'No primary project'}
+                {selectedProject?.name ?? 'Choose a project later'}
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {selectedProject
                   ? kind === 'local-cli'
-                    ? 'Project ready. Tasks default to this project. Local filesystem access stays on the joined machine.'
-                    : 'Project ready. Tasks default to this project. Container access is the selected project workspace.'
-                  : kind === 'local-cli'
-                    ? 'Choose a project first. Tasks can still be assigned later. Select a project in the sidebar before creating.'
-                    : 'Choose a project first. Tasks can still be assigned later. Select a project in the sidebar to set the execution boundary.'}
+                    ? 'Project ready. Tasks default to this project. File access stays on the joined computer.'
+                    : 'Project ready. Tasks default to this project. Forge prepares this project workspace for the agent.'
+                  : 'Open project settings to create or choose a project before assigning tasks. The agent can still be created first.'}
               </p>
+              {!selectedProject && onOpenProjectsSetup ? (
+                <button
+                  type="button"
+                  onClick={handleOpenProjectsSetup}
+                  className="mt-2 inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-apple-blue/20 bg-apple-blue/[0.08] px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35"
+                >
+                  <span>Open project settings</span>
+                  <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
+                </button>
+              ) : null}
             </div>
 
             {kind !== 'provider' && (
@@ -855,7 +1023,7 @@ export function CreateAgentModal() {
                   htmlFor="agent-cli-tool"
                   className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                 >
-                  {kind === 'local-cli' ? 'Local CLI' : 'Container CLI'}
+                  {kind === 'local-cli' ? 'Work tool on this computer' : 'Work tool'}
                 </label>
                 <select
                   id="agent-cli-tool"
@@ -880,7 +1048,7 @@ export function CreateAgentModal() {
                         htmlFor="agent-provider"
                         className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                       >
-                        Provider
+                        AI service
                       </label>
                       <select
                         id="agent-provider"
@@ -894,8 +1062,7 @@ export function CreateAgentModal() {
                         ))}
                       </select>
                       <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                        Choose a configured provider from Settings → LLM Providers. Model is set by
-                        that provider.
+                        Choose a checked AI service from Settings. The model is set by that service.
                       </p>
                     </div>
                     <div>
@@ -903,14 +1070,14 @@ export function CreateAgentModal() {
                         htmlFor="agent-model"
                         className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                       >
-                        Model
+                        AI model
                       </label>
                       <input
                         id="agent-model"
                         {...register('model')}
                         readOnly
                         className="h-10 w-full rounded-full border border-black/[0.08] bg-black/[0.025] px-4 text-ui-body text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-                        placeholder="Set by the selected provider"
+                        placeholder="Set by the selected AI service"
                       />
                     </div>
                   </>
@@ -920,12 +1087,19 @@ export function CreateAgentModal() {
                     className="rounded-lg border border-apple-orange/20 bg-apple-orange/[0.06] px-3 py-2.5"
                   >
                     <p className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
-                      No usable provider yet
+                      No AI service ready yet
                     </p>
                     <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                      Add and test a provider in Settings → LLM Providers first, then come back to
-                      create a Provider + Prompt agent.
+                      Open Settings &gt; AI services, add a service, paste its access key, save it,
+                      then click Check. Come back when the service says Ready.
                     </p>
+                    <a
+                      href="/settings/providers"
+                      className="mt-2 inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-apple-blue/20 bg-apple-blue/[0.08] px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35"
+                    >
+                      <span>Open AI services settings</span>
+                      <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
+                    </a>
                   </div>
                 )}
                 <div>
@@ -933,13 +1107,13 @@ export function CreateAgentModal() {
                     htmlFor="systemPrompt"
                     className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                   >
-                    System prompt
+                    Agent instructions
                   </label>
                   <textarea
                     id="systemPrompt"
                     {...register('systemPrompt')}
                     rows={4}
-                    placeholder="e.g. You are a concise, Pythonic code reviewer…"
+                    placeholder="e.g. Help review tasks, explain risks in plain language, and list the next step."
                     className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                   />
                 </div>
@@ -952,7 +1126,7 @@ export function CreateAgentModal() {
                   htmlFor="agent-cwd"
                   className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                 >
-                  {kind === 'local-cli' ? 'Local working directory' : 'Working Directory'}
+                  {kind === 'local-cli' ? 'Folder on this computer' : 'Work folder'}
                 </label>
                 <input
                   id="agent-cwd"
@@ -962,8 +1136,8 @@ export function CreateAgentModal() {
                 />
                 <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                   {kind === 'local-cli'
-                    ? 'Leave blank to use the folder where you run the join command.'
-                    : '/workspace is the shared workspace mount and may contain multiple projects. Primary Project sets default context; it is not a private user directory.'}
+                    ? 'Leave blank to use the folder where you paste the setup text.'
+                    : 'Keep the suggested folder unless an owner gives you a different one. New tasks start from the Primary Project selected above.'}
                 </p>
               </div>
             )}
@@ -974,7 +1148,7 @@ export function CreateAgentModal() {
                   htmlFor="agent-group"
                   className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                 >
-                  Task Group
+                  Task queue
                 </label>
                 {groups.length > 0 ? (
                   <>
@@ -983,7 +1157,7 @@ export function CreateAgentModal() {
                       {...register('groupId')}
                       className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                     >
-                      <option value="">No task group</option>
+                      <option value="">Choose a task queue later</option>
                       {groups.map((g) => (
                         <option key={g.id} value={g.id}>
                           {g.name}
@@ -991,7 +1165,7 @@ export function CreateAgentModal() {
                       ))}
                     </select>
                     <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                      A task group is the work lane this agent listens to for board tasks.
+                      New tasks can wait in this queue until an available agent can take them.
                     </p>
                   </>
                 ) : (
@@ -1008,15 +1182,38 @@ export function CreateAgentModal() {
                       )}
                     >
                       <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
-                      {creatingGroup ? 'Creating…' : 'Create Task Group'}
+                      {creatingGroup ? 'Creating…' : 'Create task queue'}
                     </button>
                     <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                      This creates the first work lane so the agent can receive tasks.
+                      This creates a starter queue for this project so new tasks have a clear place
+                      to wait.
                     </p>
                   </div>
                 )}
               </div>
             )}
+
+            <section
+              data-testid="agent-create-review"
+              className="rounded-lg border border-apple-blue/20 bg-apple-blue/10 px-3 py-2.5"
+            >
+              <p className="text-ui-caption font-semibold text-apple-blue">Before you create</p>
+              <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+                {reviewItems.map((item) => (
+                  <div
+                    key={item.label}
+                    className="min-w-0 rounded-md bg-white px-2 py-1.5 dark:bg-black/20"
+                  >
+                    <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
+                      {item.label}
+                    </span>
+                    <span className="mt-0.5 block text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
+                      {item.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
 
             <div className="flex justify-end gap-2 mt-2">
               <button
@@ -1035,7 +1232,7 @@ export function CreateAgentModal() {
                   loading && 'opacity-50 cursor-not-allowed'
                 )}
               >
-                {loading ? 'Creating…' : 'Create Agent'}
+                {loading ? 'Creating…' : 'Create agent'}
               </button>
             </div>
           </form>

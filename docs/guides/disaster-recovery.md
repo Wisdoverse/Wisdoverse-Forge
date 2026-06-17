@@ -1,5 +1,29 @@
 # Disaster Recovery Runbook
 
+This runbook is written for operators restoring a self-contained production
+deployment started with `make prod`, `make prod-pull`, `make prod-backup`, or
+`make prod-storage`.
+
+If your deployment uses `make prod-ext`, PostgreSQL and Redis are external
+services. Restore those systems with your provider's runbook, then use this
+document only for the Forge services, object storage, and health checks.
+
+Before you start:
+
+1. Confirm you are on the server that owns the deployment.
+2. Confirm `docker/.env` is present and restored from secure storage.
+3. Run commands from the repository root.
+4. Set this helper once per shell session:
+
+```bash
+COMPOSE_PROD="docker compose --env-file docker/.env -f docker/compose.yml -f docker/compose.prod.yml --profile prod"
+```
+
+The examples below use Compose service names from `docker/compose.yml`: `db`,
+`redis`, `nats`, `agentforge-server`, `orchestrator`, `orchestrator-db`, and
+`temporal`. Avoid old container nicknames such as `server` or `postgres`; those
+are not service names in the current Compose files.
+
 ## RTO/RPO Targets
 
 | Component                          | RPO (Recovery Point Objective) | RTO (Recovery Time Objective) |
@@ -71,8 +95,8 @@ cp -r /var/lib/nats/jetstream /backup/nats-jetstream-$(date +%Y%m%d)/
 ### PostgreSQL Restore
 
 ```bash
-# Stop the application
-docker compose -f docker/compose.yml stop server
+# Stop services that write to PostgreSQL
+$COMPOSE_PROD stop agentforge-server orchestrator
 
 # Restore from backup
 pg_restore -h localhost -U agentforge -d agentforge \
@@ -82,27 +106,34 @@ pg_restore -h localhost -U agentforge -d agentforge \
 # Run pending migrations
 npm run migrate
 
-# Start the application
-docker compose -f docker/compose.yml start server
+# Start the application services again
+$COMPOSE_PROD start agentforge-server orchestrator
 
 # Verify
 curl -s http://localhost:4003/health | jq .
+curl -s http://localhost:4010/health | jq .
 ```
 
 ### Redis Restore
 
 ```bash
 # Stop Redis
-docker compose -f docker/compose.yml stop redis
+$COMPOSE_PROD stop redis
 
 # Replace dump file
 cp /backup/redis-dump-YYYYMMDD.rdb /var/lib/redis/dump.rdb
 
 # Start Redis
-docker compose -f docker/compose.yml start redis
+$COMPOSE_PROD start redis
 ```
 
 ### MinIO Restore
+
+If you use the managed MinIO profile, start MinIO before mirroring objects:
+
+```bash
+docker compose --env-file docker/.env -f docker/compose.yml --profile storage up -d minio
+```
 
 ```bash
 mc mirror /backup/minio-agentforge-YYYYMMDD/ minio/agentforge
@@ -112,7 +143,7 @@ mc mirror /backup/minio-agentforge-YYYYMMDD/ minio/agentforge
 
 ```bash
 # 1. Start infrastructure
-docker compose -f docker/compose.yml up -d postgres redis minio nats
+$COMPOSE_PROD up -d db redis nats orchestrator-db temporal
 
 # 2. Wait for PostgreSQL
 until pg_isready -h localhost -U agentforge; do sleep 1; done
@@ -124,15 +155,17 @@ pg_restore -h localhost -U agentforge -d agentforge \
 # 4. Run migrations
 npm run migrate
 
-# 5. Restore attachments
+# 5. Restore attachments if you use managed MinIO storage
+docker compose --env-file docker/.env -f docker/compose.yml --profile storage up -d minio
 mc mirror /backup/minio-agentforge-latest/ minio/agentforge
 
-# 6. Start application
-docker compose -f docker/compose.yml up -d server
+# 6. Start application services
+$COMPOSE_PROD up -d agentforge-server orchestrator
 
 # 7. Verify health
 curl -s http://localhost:4003/health | jq .
 curl -s http://localhost:4003/api/health | jq .
+curl -s http://localhost:4010/health | jq .
 ```
 
 ---
@@ -141,8 +174,8 @@ curl -s http://localhost:4003/api/health | jq .
 
 ### Database corruption
 
-1. Stop the application server
-2. Check PostgreSQL logs: `docker logs agentforge-postgres`
+1. Stop the application services
+2. Check PostgreSQL logs: `$COMPOSE_PROD logs db`
 3. If recoverable: `pg_resetwal` or repair
 4. If not recoverable: restore from latest backup (see above)
 5. Run migrations to catch up
@@ -151,7 +184,7 @@ curl -s http://localhost:4003/api/health | jq .
 ### Redis failure
 
 1. Redis is optional (circuit breaker handles degradation)
-2. Restart Redis: `docker compose restart redis`
+2. Restart Redis: `$COMPOSE_PROD restart redis`
 3. Application will auto-reconnect
 4. Cache will be cold — expect slower responses temporarily
 
@@ -159,8 +192,8 @@ curl -s http://localhost:4003/api/health | jq .
 
 1. Check container status: `docker ps -a | grep agentforge`
 2. View logs: `docker logs <container_id>`
-3. Restart: `docker compose restart server`
-4. If persistent: `docker compose down && docker compose up -d`
+3. Restart application services: `$COMPOSE_PROD restart agentforge-server orchestrator`
+4. If persistent: `make prod-down && make prod`
 
 ### Full server loss
 
@@ -182,6 +215,9 @@ curl -s http://localhost:4003/health | jq .
 # Readiness (database connectivity)
 curl -s http://localhost:4003/api/health | jq .
 
+# Orchestrator health
+curl -s http://localhost:4010/health | jq .
+
 # Prometheus metrics (requires admin auth token)
 curl -s -H "Authorization: Bearer <admin-token>" http://localhost:4003/metrics | head -20
 
@@ -189,10 +225,10 @@ curl -s -H "Authorization: Bearer <admin-token>" http://localhost:4003/metrics |
 pg_isready -h localhost -U agentforge
 
 # Redis connectivity
-redis-cli ping
+redis-cli -h localhost -a '<redis-password-from-docker-env>' ping
 
 # Docker container status
-docker compose -f docker/compose.yml ps
+$COMPOSE_PROD ps
 
 # NATS connectivity
 nats server check connection

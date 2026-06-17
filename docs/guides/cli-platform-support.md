@@ -87,7 +87,7 @@ path edits are required.
 
 The first install path should not require cloning the repository.
 
-Recommended order:
+Recommended order for operators:
 
 1. Download a release artifact for the user's OS and CPU.
 2. Verify the checksum.
@@ -103,6 +103,94 @@ or Linux and `--shell-format powershell` on Windows so the returned
 
 Source builds are still supported for contributors, but they are not the
 primary operator path.
+
+### Linux or macOS install example
+
+Prerequisites:
+
+- A shell with `curl`, `grep`, `tar`, `shasum`, and permission to write to
+  `/usr/local/bin`.
+- The release version and target name from the release page.
+
+Replace `v1.2.3` and the target archive with the current release artifact for
+your computer.
+
+```bash
+VERSION=v1.2.3
+TARGET=linux-x86_64
+
+curl -LO "https://github.com/Wisdoverse/Wisdoverse-Forge/releases/download/${VERSION}/agentforge-${VERSION}-${TARGET}.tar.gz"
+curl -LO "https://github.com/Wisdoverse/Wisdoverse-Forge/releases/download/${VERSION}/SHA256SUMS"
+grep " agentforge-${VERSION}-${TARGET}.tar.gz$" SHA256SUMS | shasum -a 256 -c -
+tar -xzf "agentforge-${VERSION}-${TARGET}.tar.gz"
+sudo install -m 0755 agentforge /usr/local/bin/agentforge
+sudo install -m 0755 agentforge-sidecar /usr/local/bin/agentforge-sidecar
+
+agentforge --version
+agentforge --help
+agentforge-sidecar --help
+```
+
+Success looks like:
+
+- `agentforge --version` prints the CLI version and exits with code `0`.
+- `agentforge --help` lists commands such as `auth`, `config`, and `agents`.
+- `agentforge-sidecar --help` explains that most users should copy the join
+  command from the Agents page.
+
+Next, point the CLI at your Forge server and store a token:
+
+```bash
+agentforge config set server https://forge.example.com
+agentforge auth login --token <platform-token>
+agentforge auth status
+```
+
+### Windows PowerShell install example
+
+Prerequisites:
+
+- PowerShell 7 or Windows PowerShell with permission to write to a folder on
+  `PATH`.
+- The release version and target archive from the release page.
+
+Replace `v1.2.3` with the current release version.
+
+```powershell
+$Version = "v1.2.3"
+$Target = "windows-x86_64"
+$InstallDir = "$env:LOCALAPPDATA\Programs\AgentForge"
+
+New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+Invoke-WebRequest -Uri "https://github.com/Wisdoverse/Wisdoverse-Forge/releases/download/$Version/agentforge-$Version-$Target.zip" -OutFile "agentforge.zip"
+Invoke-WebRequest -Uri "https://github.com/Wisdoverse/Wisdoverse-Forge/releases/download/$Version/SHA256SUMS" -OutFile "SHA256SUMS"
+Get-FileHash .\agentforge.zip -Algorithm SHA256
+Expand-Archive .\agentforge.zip -DestinationPath $InstallDir -Force
+
+setx PATH "$env:PATH;$InstallDir"
+& "$InstallDir\agentforge.exe" --version
+& "$InstallDir\agentforge.exe" --help
+& "$InstallDir\agentforge-sidecar.exe" --help
+```
+
+Compare the printed SHA-256 value with the matching line in `SHA256SUMS` before
+using the binaries.
+
+Success looks like:
+
+- `agentforge.exe --version` prints the CLI version and exits with code `0`.
+- `agentforge.exe --help` lists commands such as `auth`, `config`, and
+  `agents`.
+- `agentforge-sidecar.exe --help` prints the join-command guidance instead of
+  trying to connect to the server.
+
+Next, open a new PowerShell window so `PATH` is refreshed, then connect:
+
+```powershell
+agentforge config set server https://forge.example.com
+agentforge auth login --token <platform-token>
+agentforge auth status
+```
 
 ## Host CLI Agent Enrollment
 

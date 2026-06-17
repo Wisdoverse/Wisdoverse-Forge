@@ -7,6 +7,7 @@ import { ResourceMembersModal } from '@app/features/manage-members'
 import { CreateTeamForm, EditableTeamRow } from '@app/features/manage-team'
 import { userApi } from '@app/entities/user'
 import { teamApi, type NavTeam, type UpdateTeamInput } from '@app/entities/team'
+import { workspaceSettingsErrorMessage } from '../model/workspaceSettingsErrorMessage'
 
 export function TeamsSection() {
   const { user } = useAuth()
@@ -28,7 +29,7 @@ export function TeamsSection() {
       const result = await teamApi.getTeams(orgId)
       setTeams(result)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load teams')
+      setError(workspaceSettingsErrorMessage('team', 'load', err))
     } finally {
       setLoading(false)
     }
@@ -48,7 +49,7 @@ export function TeamsSection() {
       setTeams((prev) => [...prev, team])
       setShowForm(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create team')
+      setError(workspaceSettingsErrorMessage('team', 'create', err))
     } finally {
       setSaving(false)
     }
@@ -106,10 +107,10 @@ export function TeamsSection() {
     <div>
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>Teams and access groups</h2>
+          <h2 className={uiStyles.sectionTitle}>Teams and access</h2>
           <p className={uiStyles.sectionDescription}>
-            {teams.length} {teams.length === 1 ? 'team groups people' : 'teams group people'} and
-            projects inside this organization
+            {teams.length} {teams.length === 1 ? 'team keeps' : 'teams keep'} people and projects
+            together inside this team space
           </p>
         </div>
         {!showForm && canCreateTeam && (
@@ -119,12 +120,16 @@ export function TeamsSection() {
             className={uiStyles.primaryButton}
           >
             <Plus size={14} strokeWidth={2} aria-hidden="true" />
-            <span>New Team</span>
+            <span>New team</span>
           </button>
         )}
       </div>
 
-      {error && <div className={uiStyles.error}>{error}</div>}
+      {error && (
+        <div role="alert" aria-live="polite" className={uiStyles.error}>
+          {error}
+        </div>
+      )}
 
       <div className={cn(uiStyles.card)}>
         {loading && teams.length === 0 ? (
@@ -134,10 +139,10 @@ export function TeamsSection() {
         ) : !user?.orgId ? (
           <div className="px-4 py-6 text-center">
             <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-              Choose an organization first
+              Choose a team space first
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Teams belong to an organization. Select or create one before adding people.
+              Teams belong to a team space. Select or create one before adding people.
             </p>
           </div>
         ) : teams.length === 0 && !showForm ? (
@@ -149,9 +154,19 @@ export function TeamsSection() {
             </p>
             <p className="mx-auto mt-1 max-w-sm text-ui-caption text-secondary-light dark:text-secondary-dark">
               {canCreateTeam
-                ? 'Teams group projects and decide who can manage work. Start with one team, then add projects inside it.'
+                ? 'Teams keep projects and access together. Start with one team, then add projects inside it.'
                 : 'Only owners and admins can create teams. You can work here after someone adds a team for you.'}
             </p>
+            {canCreateTeam && (
+              <button
+                type="button"
+                onClick={() => setShowForm(true)}
+                className={cn(uiStyles.primaryButton, 'mt-4')}
+              >
+                <Plus size={14} strokeWidth={2} aria-hidden="true" />
+                <span>Create first team</span>
+              </button>
+            )}
           </div>
         ) : (
           teams.map((team) => (

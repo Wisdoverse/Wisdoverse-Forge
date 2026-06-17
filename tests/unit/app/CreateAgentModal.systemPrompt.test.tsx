@@ -41,21 +41,19 @@ beforeEach(() => {
   useNavigationStore.setState({ selectedProjectId: null, projects: {} })
 })
 
-describe('CreateAgentModal systemPrompt', () => {
-  it('hides system prompt textarea in CLI branch', () => {
+describe('CreateAgentModal agent instructions', () => {
+  it('hides instruction textarea in CLI branch', () => {
     render(<CreateAgentModal />)
-    // A verified provider exists, so the modal opens on Provider + Prompt;
-    // switch to Container CLI to assert the CLI branch hides the prompt.
-    fireEvent.click(screen.getByRole('radio', { name: /container cli/i }))
-    expect(screen.queryByLabelText(/system prompt/i)).toBeNull()
+    fireEvent.click(screen.getByRole('radio', { name: /managed workspace/i }))
+    expect(screen.queryByLabelText(/agent instructions/i)).toBeNull()
   })
 
-  it('defaults CLI working directory to the container workspace', async () => {
+  it('defaults managed workspace work directory to /workspace', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
 
     render(<CreateAgentModal />)
-    fireEvent.click(screen.getByRole('radio', { name: /container cli/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /managed workspace/i }))
     fireEvent.change(screen.getByPlaceholderText(/Frontend Agent/i), {
       target: { value: 'Test' },
     })
@@ -71,10 +69,12 @@ describe('CreateAgentModal systemPrompt', () => {
     )
   })
 
-  it('shows system prompt textarea when Provider + Prompt selected', () => {
+  it('shows instruction textarea when simple chat agent selected', () => {
     render(<CreateAgentModal />)
-    fireEvent.click(screen.getByText(/Provider \+ Prompt/i))
-    expect(screen.getByLabelText(/system prompt/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
+    expect(screen.getByLabelText(/agent instructions/i)).toBeInTheDocument()
+    expect(screen.queryByText(/system prompt/i)).toBeNull()
+    expect(screen.queryByText(/prompt work/i)).toBeNull()
   })
 
   it('submits with lowercase provider + systemPrompt payload', async () => {
@@ -85,8 +85,8 @@ describe('CreateAgentModal systemPrompt', () => {
     fireEvent.change(screen.getByPlaceholderText(/Frontend Agent/i), {
       target: { value: 'Test' },
     })
-    fireEvent.click(screen.getByText(/Provider \+ Prompt/i))
-    fireEvent.change(screen.getByLabelText(/system prompt/i), {
+    fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
+    fireEvent.change(screen.getByLabelText(/agent instructions/i), {
       target: { value: 'you are terse' },
     })
     fireEvent.click(screen.getByRole('button', { name: /create agent/i }))
@@ -110,7 +110,7 @@ describe('CreateAgentModal systemPrompt', () => {
     fireEvent.change(screen.getByPlaceholderText(/Frontend Agent/i), {
       target: { value: 'Test' },
     })
-    fireEvent.click(screen.getByText(/Provider \+ Prompt/i))
+    fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
     fireEvent.click(screen.getByRole('button', { name: /create agent/i }))
     await waitFor(() =>
       expect(createAgent).toHaveBeenCalledWith(

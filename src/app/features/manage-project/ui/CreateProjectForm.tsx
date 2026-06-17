@@ -13,8 +13,8 @@ interface CreateProjectFormProps {
 
 const PROJECT_SETUP_STEPS = [
   'Choose the team that owns the work.',
-  'Name the project after the product, repo, or work area.',
-  'Optionally paste an HTTPS git URL to clone an existing repo into the project.',
+  'Name the project after the product, app, or work area.',
+  'Optional: paste an https:// code link. Use git@ Repository Access in Settings for links that start with git@.',
 ]
 
 /**
@@ -28,22 +28,124 @@ const PROJECT_SETUP_STEPS = [
 export function validateRepositoryUrl(raw: string): string | null {
   const value = raw.trim()
   if (!value) return null // optional — empty is valid
+  if (/^(?:git@|ssh:\/\/)/i.test(value)) {
+    return 'Use a code link that starts with https://. Links that start with git@ go in git@ Repository Access.'
+  }
 
   let parsed: URL
   try {
     parsed = new URL(value)
   } catch {
-    return 'Enter a valid URL, e.g. https://github.com/org/repo.git'
+    return 'Enter a valid code link, e.g. https://github.com/org/repo.git'
   }
   if (parsed.protocol !== 'https:') {
-    return 'Use an https:// URL. SSH and other schemes are not supported here.'
+    return 'Use a code link that starts with https://. Links that start with git@ go in git@ Repository Access.'
   }
   // No credentials embedded in the URL (user[:pass]@host) — the server rejects
   // these so a token never lands in a stored URL. `URL` also flags a bare `@`.
   if (parsed.username || parsed.password || value.includes('@')) {
-    return 'Remove credentials from the URL. Connect a git account in Settings instead.'
+    return 'Remove account details from the code link. Connect code access in Settings instead.'
   }
   return null
+}
+
+function rawProjectCreateError(error: unknown): string {
+  if (error instanceof Error) return error.message.trim()
+  if (typeof error === 'string') return error.trim()
+  if (!error || typeof error !== 'object') return ''
+
+  const value = error as {
+    serverError?: unknown
+    detail?: unknown
+    error?: unknown
+    message?: unknown
+    reason?: unknown
+  }
+
+  for (const candidate of [
+    value.serverError,
+    value.detail,
+    value.error,
+    value.message,
+    value.reason,
+  ]) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
+  }
+
+  return ''
+}
+
+function projectCreateStatusCode(error: unknown): number | null {
+  if (error && typeof error === 'object') {
+    const value = error as { status?: unknown; statusCode?: unknown; code?: unknown }
+    for (const candidate of [value.status, value.statusCode, value.code]) {
+      if (typeof candidate === 'number' && Number.isFinite(candidate)) return candidate
+      if (typeof candidate === 'string' && /^\d{3}$/.test(candidate.trim())) {
+        return Number.parseInt(candidate, 10)
+      }
+    }
+  }
+
+  const match = rawProjectCreateError(error).match(
+    /\b(?:HTTP|API|Server error|Code:)\s*\(?(\d{3})\b/i
+  )
+  if (!match) return null
+  const code = Number.parseInt(match[1] ?? '', 10)
+  return Number.isFinite(code) ? code : null
+}
+
+function createProjectErrorMessage(error: unknown): string {
+  const raw = rawProjectCreateError(error)
+  const lower = raw.toLowerCase()
+  const code = projectCreateStatusCode(error)
+
+  if (code === 401 || lower.includes('unauthorized') || lower.includes('sign in again')) {
+    return 'Sign in again, then create this project.'
+  }
+  if (code === 403 || lower.includes('forbidden') || lower.includes('permission')) {
+    return 'Ask an owner or admin to let you create projects in this team.'
+  }
+  if (code === 404) {
+    return 'Refresh Settings, choose the team again, then create this project.'
+  }
+  if (code === 409 || lower.includes('already exists') || lower.includes('duplicate')) {
+    return 'Choose a different project name, then create this project again.'
+  }
+  if (
+    lower.includes('repository_url') ||
+    lower.includes('repository url') ||
+    lower.includes('repo url') ||
+    lower.includes('https url')
+  ) {
+    return 'Use an https:// code link without account details, or leave the code link blank.'
+  }
+  if (
+    lower.includes('credential') ||
+    lower.includes('token') ||
+    lower.includes('password') ||
+    lower.includes('username')
+  ) {
+    return 'Remove account details from the code link. Connect code access in Settings instead.'
+  }
+  if (code === 422 || lower.includes('validation') || lower.includes('invalid')) {
+    return 'Check the project name, team, and code link, then create this project again.'
+  }
+  if (code === 429 || lower.includes('rate limit') || lower.includes('too many')) {
+    return 'Wait a minute, then create this project again. Too many project changes are happening right now.'
+  }
+  if (code != null && code >= 500) {
+    return 'Wait a few minutes, then create this project again. Forge could not create the project right now. If it still fails, ask an owner or admin to check project setup.'
+  }
+  if (
+    error instanceof TypeError ||
+    lower.includes('failed to fetch') ||
+    lower.includes('network') ||
+    lower.includes('load failed')
+  ) {
+    return 'Check your connection, then create this project again.'
+  }
+
+  return 'Check the project name and team, then create this project again. Forge could not create the project.'
 }
 
 export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreateProjectFormProps) {
@@ -111,9 +213,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
     } catch (err) {
       // Surface the server's rejection (e.g. invalid URL / embedded creds the
       // local check did not catch) as a banner rather than failing silently.
-      setBannerError(
-        err instanceof Error ? err.message : 'Could not create the project. Try again.'
-      )
+      setBannerError(createProjectErrorMessage(err))
       focusTop()
     }
   }
@@ -152,11 +252,11 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
 
       <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <label htmlFor="project-name" className={uiStyles.label}>
-            Project Name *
+          <label htmlFor={nameInputId} className={uiStyles.label}>
+            Project name *
           </label>
           <input
-            id="project-name"
+            id={nameInputId}
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -174,18 +274,18 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
           </p>
           {trimmedName && (
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Slug: {slugifyName(name)}
+              Address preview: {slugifyName(name)}. Forge creates this automatically from the name.
             </p>
           )}
         </div>
 
         <div>
-          <label htmlFor="project-team" className={uiStyles.label}>
+          <label htmlFor={teamSelectId} className={uiStyles.label}>
             Team *
           </label>
           {teams.length === 0 ? (
             <p
-              id="create-project-team"
+              id={teamSelectId}
               tabIndex={-1}
               className="py-1.5 text-ui-caption text-secondary-light dark:text-secondary-dark"
             >
@@ -193,7 +293,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
             </p>
           ) : (
             <select
-              id="project-team"
+              id={teamSelectId}
               value={teamId}
               onChange={(e) => setTeamId(e.target.value)}
               aria-invalid={errorField === 'team'}
@@ -212,7 +312,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
 
       <div className="mb-3">
         <label htmlFor={repoInputId} className={uiStyles.label}>
-          Git repository URL
+          Code link
           <span className="ml-1 font-normal text-secondary-light dark:text-secondary-dark">
             (optional)
           </span>
@@ -234,12 +334,12 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
           id="project-repo-help"
           className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
-          Optional — clone an existing repo into this project. HTTPS only, no credentials in the
-          URL.
+          Optional — paste a GitHub or GitLab https:// link. Forge copies that code into this
+          project. If your link starts with git@, add it in git@ Repository Access first.
         </p>
         {workspacePath && (
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Workspace path:{' '}
+            Work folder preview:{' '}
             <span className="font-mono text-[11px] text-foreground-light dark:text-foreground-dark">
               {workspacePath}
             </span>
@@ -264,10 +364,10 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
           className="text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
           {isReady
-            ? 'Ready to Create Project'
+            ? 'Ready to create project'
             : missingTeam
-              ? 'Next: Create a Team First'
-              : 'Next: Name the Project'}
+              ? 'Next: create a team first'
+              : 'Next: name the project'}
         </p>
         <div className="flex gap-2">
           <button
@@ -279,7 +379,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
             Cancel
           </button>
           <button type="submit" disabled={saving} className={uiStyles.primaryButton}>
-            {saving ? 'Creating…' : 'Create Project'}
+            {saving ? 'Creating…' : 'Create project'}
           </button>
         </div>
       </div>

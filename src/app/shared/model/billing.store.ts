@@ -45,24 +45,91 @@ interface BillingState {
 // Helpers
 // ============================================================================
 
+type BillingErrorArea = 'subscription' | 'usage' | 'invoices'
+
+const BILLING_AREA_LABEL: Record<BillingErrorArea, string> = {
+  subscription: 'Plan and payment',
+  usage: 'Usage',
+  invoices: 'Invoices',
+}
+
 function isBillingNotConfigured(err: unknown): boolean {
-  if (err instanceof Error) {
-    const msg = err.message.toLowerCase()
-    // 404 or "not configured" or "billing" + "disabled"
-    if (msg.includes('404') || msg.includes('not configured') || msg.includes('not found')) {
-      return true
-    }
-    // Check statusCode on BillingApiError
-    const asAny = err as { statusCode?: number }
-    if (asAny.statusCode === 404 || asAny.statusCode === 501 || asAny.statusCode === 503) {
-      return true
-    }
+  const code = statusCode(err)
+  if (code === 404 || code === 501 || code === 503) {
+    return true
+  }
+
+  const msg = structuredErrorText(err).toLowerCase()
+  if (msg.includes('404') || msg.includes('not configured') || msg.includes('not found')) {
+    return true
   }
   return false
 }
 
-function extractMessage(err: unknown, fallback: string): string {
-  return err instanceof Error ? err.message : fallback
+function errorText(err: unknown): string {
+  if (err instanceof Error) return err.message
+  return typeof err === 'string' ? err : ''
+}
+
+function structuredErrorText(err: unknown): string {
+  if (!err || typeof err !== 'object') return errorText(err)
+  for (const key of ['serverError', 'detail', 'error', 'message', 'reason'] as const) {
+    const value = (err as Record<string, unknown>)[key]
+    if (typeof value === 'string' && value.trim()) return value
+  }
+  return errorText(err)
+}
+
+function statusCode(err: unknown): number | null {
+  if (err && typeof err === 'object') {
+    for (const key of ['statusCode', 'status', 'code'] as const) {
+      const value = (err as Record<string, unknown>)[key]
+      if (typeof value === 'number' && Number.isFinite(value)) return value
+      if (typeof value === 'string' && /^\d{3}$/.test(value.trim())) {
+        return Number.parseInt(value, 10)
+      }
+    }
+  }
+
+  const match = structuredErrorText(err).match(/\b(?:HTTP|API|Server error|Code:)\s*\(?(\d{3})\b/i)
+  if (!match) return null
+  const code = Number.parseInt(match[1] ?? '', 10)
+  return Number.isFinite(code) ? code : null
+}
+
+function isNetworkError(err: unknown): boolean {
+  const text = structuredErrorText(err).toLowerCase()
+  return (
+    err instanceof TypeError ||
+    text.includes('failed to fetch') ||
+    text.includes('network') ||
+    text.includes('browser could not reach') ||
+    text.includes('load failed')
+  )
+}
+
+export function billingErrorMessage(err: unknown, area: BillingErrorArea): string {
+  const base = `Refresh Billing to load ${BILLING_AREA_LABEL[area].toLowerCase()}.`
+  const text = structuredErrorText(err).toLowerCase()
+  const code = statusCode(err)
+
+  if (code === 401 || text.includes('sign in again') || text.includes('unauthorized')) {
+    return `${base} Sign in again, then open Billing.`
+  }
+  if (code === 403 || text.includes('permission') || text.includes('forbidden')) {
+    return `${base} Ask an owner or admin to give you billing access.`
+  }
+  if (code === 429 || text.includes('busy') || text.includes('too many')) {
+    return `${base} Billing is busy. Wait a minute, then refresh Billing again.`
+  }
+  if (code != null && code >= 500) {
+    return `${base} If it still fails, ask an owner or admin to check billing.`
+  }
+  if (isNetworkError(err)) {
+    return `${base} Check your connection, then refresh Billing again. Forge could not connect while loading billing.`
+  }
+
+  return `${base} If it still fails, ask an owner or admin to check billing.`
 }
 
 // ============================================================================
@@ -104,7 +171,7 @@ export const useBillingStore = create<BillingState>((set) => ({
       } else {
         set({
           subscriptionLoading: false,
-          subscriptionError: extractMessage(err, 'Failed to load subscription'),
+          subscriptionError: billingErrorMessage(err, 'subscription'),
         })
       }
     }
@@ -125,7 +192,7 @@ export const useBillingStore = create<BillingState>((set) => ({
       } else {
         set({
           usageLoading: false,
-          usageError: extractMessage(err, 'Failed to load usage'),
+          usageError: billingErrorMessage(err, 'usage'),
         })
       }
     }
@@ -146,7 +213,7 @@ export const useBillingStore = create<BillingState>((set) => ({
       } else {
         set({
           invoicesLoading: false,
-          invoicesError: extractMessage(err, 'Failed to load invoices'),
+          invoicesError: billingErrorMessage(err, 'invoices'),
         })
       }
     }

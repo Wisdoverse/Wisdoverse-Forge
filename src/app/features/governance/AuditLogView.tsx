@@ -21,6 +21,7 @@ import {
   type GovernanceAuditScopeKind,
   type GovernanceAuditTamperStatus,
 } from '@app/shared/api/orchestration'
+import { governanceAuditErrorMessage } from './governanceAuditErrorMessages'
 
 type ItemKindFilter = 'all' | GovernanceAuditItemKind
 type ScopeKindFilter = 'all' | GovernanceAuditScopeKind
@@ -62,15 +63,15 @@ const DEFAULT_FILTERS: FilterState = {
 const QUICK_AUDIT_VIEWS: QuickAuditView[] = [
   {
     id: 'all',
-    label: 'All governance events',
-    description: 'Start broad, then narrow the result.',
+    label: 'All saved item changes',
+    description: 'See every saved note and saved instruction change.',
     Icon: Search,
     filters: {},
   },
   {
     id: 'skill-decisions',
-    label: 'Skill decisions',
-    description: 'Review approvals and changes for skills.',
+    label: 'Saved instruction decisions',
+    description: 'Check who approved or updated saved instructions.',
     Icon: ClipboardCheck,
     filters: {
       eventPrefix: 'governance.context.skill.',
@@ -79,8 +80,8 @@ const QUICK_AUDIT_VIEWS: QuickAuditView[] = [
   },
   {
     id: 'memory-feedback',
-    label: 'Memory feedback',
-    description: 'See saved context feedback first.',
+    label: 'Saved note feedback',
+    description: 'See whether saved notes helped or caused trouble.',
     Icon: ShieldCheck,
     filters: {
       eventType: 'governance.context.feedback.recorded',
@@ -91,14 +92,14 @@ const QUICK_AUDIT_VIEWS: QuickAuditView[] = [
 
 const ITEM_KIND_OPTIONS: { value: ItemKindFilter; label: string }[] = [
   { value: 'all', label: 'All items' },
-  { value: 'memory', label: 'Memory' },
-  { value: 'skill', label: 'Skill' },
+  { value: 'memory', label: 'Saved note' },
+  { value: 'skill', label: 'Saved instruction' },
 ]
 
 const SCOPE_KIND_OPTIONS: { value: ScopeKindFilter; label: string }[] = [
   { value: 'all', label: 'All areas' },
-  { value: 'org', label: 'Organization' },
-  { value: 'workspace', label: 'Workspace' },
+  { value: 'org', label: 'Team space' },
+  { value: 'workspace', label: 'Project workspace' },
   { value: 'team', label: 'Team' },
   { value: 'project', label: 'Project' },
   { value: 'user', label: 'User' },
@@ -114,6 +115,11 @@ const COMMON_EVENT_TYPES = [
 
 const INPUT_CLASS =
   'h-9 w-full rounded-full border border-black/[0.08] bg-white px-3 text-ui-caption text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70'
+const HIDDEN_AUDIT_DETAIL_VALUE =
+  'Hidden for safety. Keep secrets hidden, refresh the audit view, then export again.'
+const MISSING_AUDIT_ACCESS_MESSAGE =
+  'Required account access is missing. Add or reconnect service access, then review the audit again.'
+const REPEATED_AUDIT_DETAIL_VALUE = 'Repeated detail omitted.'
 
 export function AuditLogView() {
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS)
@@ -124,7 +130,10 @@ export function AuditLogView() {
   const [exportStatus, setExportStatus] = useState<string | null>(null)
 
   const entries = data?.entries ?? []
-  const hiddenRawIds = useMemo(() => entries.filter((entry) => !entry.rawItemId).length, [entries])
+  const protectedReferences = useMemo(
+    () => entries.filter((entry) => !entry.rawItemId).length,
+    [entries]
+  )
   const redactedRows = useMemo(
     () => entries.filter((entry) => entry.detailsRedacted).length,
     [entries]
@@ -142,7 +151,7 @@ export function AuditLogView() {
       const response = await orchestrationApi.fetchGovernanceAudit(buildQuery(nextFilters))
       setData(response)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load governance audit')
+      setError(governanceAuditErrorMessage('loadAudit', err))
     } finally {
       setLoading(false)
     }
@@ -183,10 +192,10 @@ export function AuditLogView() {
       URL.revokeObjectURL(url)
       setData(response)
       setExportStatus(
-        `${response.entries.length} audit ${response.entries.length === 1 ? 'event' : 'events'} exported`
+        `${response.entries.length} history ${response.entries.length === 1 ? 'row' : 'rows'} exported`
       )
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to export governance audit')
+      setError(governanceAuditErrorMessage('exportAudit', err))
     } finally {
       setExporting(false)
     }
@@ -220,25 +229,32 @@ export function AuditLogView() {
           </div>
         </div>
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_160px_160px_160px_auto]">
-          <Field label="Event family">
+          <Field
+            label="Change category"
+            help="Use the default unless support gives you a specific category."
+          >
             <input
               data-testid="governance-audit-filter-event-prefix"
               name="eventPrefix"
               autoComplete="off"
               value={filters.eventPrefix}
               onChange={(event) => updateFilter('eventPrefix', event.target.value)}
-              placeholder="governance.context."
+              placeholder="Paste a support event category when needed"
               className={INPUT_CLASS}
             />
           </Field>
-          <Field label="Exact event name">
+          <Field
+            label="Support event name"
+            help="Optional. Paste this only when support asks for a specific event."
+          >
             <input
               data-testid="governance-audit-filter-event-type"
               name="eventType"
+              list="governance-audit-event-type-options"
               autoComplete="off"
               value={filters.eventType}
               onChange={(event) => updateFilter('eventType', event.target.value)}
-              placeholder="Pick a view or paste an event name"
+              placeholder="Pick a view or paste a support event name"
               className={INPUT_CLASS}
             />
             <datalist id="governance-audit-event-type-options">
@@ -277,7 +293,7 @@ export function AuditLogView() {
               ))}
             </select>
           </Field>
-          <Field label="Record limit">
+          <Field label="Rows to show">
             <input
               type="number"
               name="limit"
@@ -304,9 +320,9 @@ export function AuditLogView() {
               data-testid="governance-audit-refresh"
               onClick={() => void loadAudit(filters)}
               disabled={loading}
-              aria-label="Refresh audit events"
+              aria-label="Refresh audit history"
               className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white text-ui-button text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:hover:bg-white/[0.06]"
-              title="Refresh audit events"
+              title="Refresh audit history"
             >
               <RefreshCw size={15} className={cn(loading && 'animate-spin')} aria-hidden="true" />
             </button>
@@ -315,9 +331,9 @@ export function AuditLogView() {
               data-testid="governance-audit-export"
               onClick={() => void exportAudit()}
               disabled={exporting}
-              aria-label="Export audit events"
+              aria-label="Export audit history"
               className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white text-ui-button text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:hover:bg-white/[0.06]"
-              title="Export audit events"
+              title="Export audit history"
             >
               <Download size={15} aria-hidden="true" />
             </button>
@@ -325,23 +341,23 @@ export function AuditLogView() {
         </div>
 
         <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_180px_180px_auto]">
-          <Field label="Work area ID">
+          <Field label="Work area reference">
             <input
               value={filters.scopeId}
               name="scopeId"
               autoComplete="off"
               onChange={(event) => updateFilter('scopeId', event.target.value)}
-              placeholder="Paste an org, workspace, team, or project ID"
+              placeholder="Paste a team space, project workspace, team, or project reference"
               className={INPUT_CLASS}
             />
           </Field>
-          <Field label="Person ID">
+          <Field label="Person reference">
             <input
               value={filters.userId}
               name="userId"
               autoComplete="off"
               onChange={(event) => updateFilter('userId', event.target.value)}
-              placeholder="Paste a user ID when needed"
+              placeholder="Paste a user reference when needed"
               className={INPUT_CLASS}
             />
           </Field>
@@ -397,10 +413,14 @@ export function AuditLogView() {
         )}
 
         <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Metric label="Events" value={entries.length} />
-          <Metric label="View" value={data?.query.eventPrefix ?? filters.eventPrefix} compact />
-          <Metric label="Protected subjects" value={hiddenRawIds} />
-          <Metric label="Safe details" value={redactedRows} />
+          <Metric label="History rows" value={entries.length} />
+          <Metric
+            label="Selected view"
+            value={auditViewMetricLabel(data?.query.eventPrefix ?? filters.eventPrefix)}
+            compact
+          />
+          <Metric label="Hidden item references" value={protectedReferences} />
+          <Metric label="Hidden support-note rows" value={redactedRows} />
         </div>
 
         <div className="overflow-hidden rounded-card border border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-[#2c2c2e]">
@@ -414,25 +434,35 @@ export function AuditLogView() {
                   <th className="px-4 py-3 font-semibold">Area</th>
                   <th className="px-4 py-3 font-semibold">Changed by</th>
                   <th className="px-4 py-3 font-semibold">Verification</th>
-                  <th className="px-4 py-3 font-semibold">Change details</th>
+                  <th className="px-4 py-3 font-semibold">Support notes</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5 dark:divide-white/10">
                 {loading ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-12 text-center text-secondary-light">
-                      Loading audit records…
+                      Loading audit history...
                     </td>
                   </tr>
                 ) : entries.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-12 text-center">
                       <p className="font-semibold text-foreground-light dark:text-foreground-dark">
-                        No audit events in this view
+                        Your filters may be hiding audit history
                       </p>
                       <p className="mt-1 text-secondary-light dark:text-secondary-dark">
-                        Try All governance events or widen the time range.
+                        Show all history first, then narrow by item, area, person, or time. If this
+                        is a new team space, approve saved instructions or mark a saved note
+                        helpful, then refresh this view.
                       </p>
+                      <button
+                        type="button"
+                        onClick={() => applyQuickView(QUICK_AUDIT_VIEWS[0])}
+                        className="mt-4 inline-flex h-9 items-center gap-2 rounded-full bg-apple-blue px-3 text-ui-button font-semibold text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+                      >
+                        <Search size={15} aria-hidden="true" />
+                        Show all audit history
+                      </button>
                     </td>
                   </tr>
                 ) : (
@@ -496,24 +526,32 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
         <span className="tabular-nums">{formatDate(entry.createdAt)}</span>
       </td>
       <td className="max-w-[260px] px-4 py-3">
-        <div className="truncate font-mono text-ui-caption" title={entry.eventType}>
-          {entry.eventType}
+        <div className="truncate font-medium" title={entry.eventType}>
+          {auditEventLabel(entry.eventType)}
         </div>
+        <details className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          <summary className="cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/30">
+            Show support event
+          </summary>
+          <span className="mt-1 block font-mono">{shortEventType(entry.eventType)}</span>
+        </details>
         <div className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {entry.itemKind ?? 'hidden item'} · {entry.resourceType}
+          {auditItemKindLabel(entry.itemKind)} · {resourceTypeLabel(entry.resourceType)}
         </div>
       </td>
       <td className="w-72 px-4 py-3">
         {entry.rawItemId ? (
           <SubjectLine
-            testId="governance-audit-raw-item-id"
+            testId="governance-audit-item-reference"
             icon="visible"
+            label="Visible item reference"
             value={entry.rawItemId}
           />
         ) : (
           <SubjectLine
-            testId="governance-audit-subject-hash"
+            testId="governance-audit-protected-reference"
             icon="hash"
+            label="Hidden item reference"
             value={entry.auditSubjectHash}
           />
         )}
@@ -528,23 +566,28 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
         )}
       </td>
       <td className="w-56 px-4 py-3">
-        <div className="font-medium">{entry.scopeKind ?? 'hidden area'}</div>
+        <div className="font-medium">{auditAreaLabel(entry.scopeKind)}</div>
         <div className="mt-1 truncate font-mono text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {entry.scopeId ?? 'not shared'}
+          {entry.scopeId ? `Reference ${shortId(entry.scopeId)}` : 'No sharing reference'}
         </div>
       </td>
       <td className="w-48 px-4 py-3">
         <span className="block truncate font-mono text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {entry.actorUserId ?? 'System'}
+          {entry.actorUserId ? shortId(entry.actorUserId) : 'System'}
         </span>
       </td>
       <td className="w-44 px-4 py-3">
         <TamperBadge status={entry.tamperStatus} />
       </td>
       <td className="min-w-[260px] px-4 py-3">
-        <pre className="max-h-32 overflow-auto rounded-card bg-black/[0.035] p-2 font-mono text-ui-caption leading-relaxed text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
-          {prettyDetails(entry.details)}
-        </pre>
+        <details>
+          <summary className="cursor-pointer select-none text-ui-caption font-medium text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/30 dark:text-foreground-dark">
+            Show support notes
+          </summary>
+          <pre className="mt-2 max-h-32 overflow-auto rounded-card bg-black/[0.035] p-2 font-mono text-ui-caption leading-relaxed text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
+            {prettyDetails(entry.details)}
+          </pre>
+        </details>
       </td>
     </tr>
   )
@@ -553,17 +596,25 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
 function SubjectLine({
   testId,
   icon,
+  label,
   value,
 }: {
   testId: string
   icon: 'visible' | 'hash'
+  label: string
   value: string
 }) {
   const Icon = icon === 'visible' ? ShieldCheck : Fingerprint
   return (
     <div data-testid={testId} className="flex min-w-0 items-center gap-2">
       <Icon size={14} className="shrink-0 text-apple-blue" aria-hidden="true" />
-      <span className="truncate font-mono text-ui-caption" title={value}>
+      <span className="shrink-0 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+        {label}
+      </span>
+      <span
+        className="truncate font-mono text-ui-caption"
+        aria-label={`${label}: ${shortId(value)}`}
+      >
         {shortId(value)}
       </span>
     </div>
@@ -580,13 +631,13 @@ function TamperBadge({ status }: { status: GovernanceAuditTamperStatus }) {
     invalid: {
       Icon: ShieldAlert,
       className: 'bg-apple-red/10 text-apple-red',
-      label: 'Needs review',
+      label: 'Review proof',
     },
     not_configured: {
       Icon: ShieldQuestion,
       className:
         'bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark',
-      label: 'Not checked',
+      label: 'Check proof setup',
     },
   }[status]
   return (
@@ -712,14 +763,118 @@ function formatDate(value: string): string {
   }).format(date)
 }
 
+function auditEventLabel(eventType: string): string {
+  const labels: Record<string, string> = {
+    'governance.context.feedback.recorded': 'Feedback recorded',
+    'governance.context.skill.approved': 'Saved instruction approved',
+    'governance.context.skill.reviewed': 'Saved instruction reviewed',
+    'governance.context.memory.updated': 'Saved note updated',
+    'governance.context.memory.rejected': 'Saved note rejected',
+  }
+  return (
+    labels[eventType] ??
+    readableCodeLabel(eventType.split('.').slice(-2).join(' '), {
+      fallback: 'Check audit change',
+    })
+  )
+}
+
+function auditViewMetricLabel(eventPrefix: string | undefined): string {
+  if (!eventPrefix || eventPrefix === 'governance.context.') return 'All saved item changes'
+  if (eventPrefix === 'governance.context.skill.') return 'Saved instruction changes'
+  if (eventPrefix === 'governance.context.memory.') return 'Saved note changes'
+  return 'Support-filtered view'
+}
+
+function shortEventType(eventType: string): string {
+  return eventType.replace(/^governance\.context\./, '').trim() || 'Check support event'
+}
+
+function auditItemKindLabel(kind: GovernanceAuditItemKind | null | undefined): string {
+  if (kind === 'memory') return 'Saved note'
+  if (kind === 'skill') return 'Saved instruction'
+  return 'Item hidden for safety'
+}
+
+function resourceTypeLabel(value: string): string {
+  const normalized = value.trim().toLowerCase()
+  if (normalized === 'memory' || normalized === 'memories' || normalized === 'memory_item') {
+    return 'Saved note record'
+  }
+  if (normalized === 'skill' || normalized === 'skills') return 'Instruction record'
+  return readableCodeLabel(value, { fallback: 'Check record type' })
+}
+
+function auditAreaLabel(kind: GovernanceAuditScopeKind | null | undefined): string {
+  switch (kind) {
+    case 'org':
+      return 'Team space'
+    case 'workspace':
+      return 'Project workspace'
+    case 'team':
+      return 'Team'
+    case 'project':
+      return 'Project'
+    case 'user':
+      return 'User account'
+    default:
+      return 'Area hidden for safety'
+  }
+}
+
+function readableCodeLabel(value: string, options: { fallback: string }): string {
+  const words = value.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase()
+  if (!words) return options.fallback
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
 function shortId(value: string): string {
   return value.length <= 22 ? value : `${value.slice(0, 10)}…${value.slice(-8)}`
 }
 
 function prettyDetails(value: unknown): string {
   try {
-    return JSON.stringify(value, null, 2)
+    return JSON.stringify(safeAuditDetailValue(value), null, 2)
   } catch {
-    return String(value)
+    return safeAuditDetailString(String(value))
   }
+}
+
+function safeAuditDetailValue(
+  value: unknown,
+  key = '',
+  seen: WeakSet<object> = new WeakSet<object>()
+): unknown {
+  if (isSensitiveAuditDetailKey(key)) return HIDDEN_AUDIT_DETAIL_VALUE
+  if (typeof value === 'string') return safeAuditDetailString(value)
+  if (Array.isArray(value)) return value.map((item) => safeAuditDetailValue(item, '', seen))
+  if (value && typeof value === 'object') {
+    if (seen.has(value)) return REPEATED_AUDIT_DETAIL_VALUE
+    seen.add(value)
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([entryKey, entryValue]) => [
+        entryKey,
+        safeAuditDetailValue(entryValue, entryKey, seen),
+      ])
+    )
+  }
+  return value
+}
+
+function isSensitiveAuditDetailKey(key: string): boolean {
+  const normalizedKey = key.replace(/[^a-z0-9]/gi, '').toLowerCase()
+  return ['token', 'secret', 'password', 'apikey', 'credential'].some((sensitivePart) =>
+    normalizedKey.includes(sensitivePart)
+  )
+}
+
+function safeAuditDetailString(value: string): string {
+  const accessIssue =
+    /\b(missing|invalid|expired|revoked)\b.{0,32}\b(token|credential|credentials|api\s*key|secret)\b/i
+  const reversedAccessIssue =
+    /\b(token|credential|credentials|api\s*key|secret)\b.{0,32}\b(missing|invalid|expired|revoked)\b/i
+  if (accessIssue.test(value) || reversedAccessIssue.test(value)) {
+    return MISSING_AUDIT_ACCESS_MESSAGE
+  }
+  return value
 }

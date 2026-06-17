@@ -20,7 +20,7 @@
 # Debian Bookworm slim — same Debian family as the agent base (node:24-slim),
 # so the cloned repo's file ownership/safe.directory semantics match what later
 # agents expect.
-FROM debian:bookworm-slim
+FROM debian:bookworm-slim@sha256:96e378d7e6531ac9a15ad505478fcc2e69f371b10f5cdf87857c4b8188404716
 
 LABEL org.opencontainers.image.title="Wisdoverse Forge Clone" \
       org.opencontainers.image.description="Ephemeral least-privilege git clone container" \

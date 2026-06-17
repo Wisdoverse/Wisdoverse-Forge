@@ -13,9 +13,9 @@ const originalSaveGitCredential = useSettingsStore.getState().saveGitCredential
 const originalDeleteGitCredential = useSettingsStore.getState().deleteGitCredential
 
 beforeEach(() => {
-  loadGitCredentialsMock.mockClear()
-  saveGitCredentialMock.mockClear()
-  deleteGitCredentialMock.mockClear()
+  loadGitCredentialsMock.mockResolvedValue(undefined)
+  saveGitCredentialMock.mockResolvedValue(true)
+  deleteGitCredentialMock.mockResolvedValue(true)
   useSettingsStore.setState({
     gitCredentials: [],
     gitCredentialsLoading: false,
@@ -40,30 +40,159 @@ afterEach(() => {
 })
 
 describe('GitCredentialsSection', () => {
-  test('guides first-time git credential setup before saving a token', async () => {
+  test('guides first-time code access setup before saving a key', async () => {
+    const user = userEvent.setup()
     render(<GitCredentialsSection />)
 
-    expect(await screen.findByText('No repository access tokens yet')).toBeDefined()
+    expect(await screen.findByText('Give agents access to private code')).toBeDefined()
+    expect(screen.getByText(/links that start with https:\/\//i)).toBeDefined()
+    expect(screen.getAllByText(/use git@ Repository Access instead/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText('No repository access saved yet')).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: /add repository token/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add code access/i }))
 
-    expect(screen.getByText('Git access setup path')).toBeDefined()
-    expect(screen.getByText('Choose Git host')).toBeDefined()
-    expect(screen.getByText('Paste token')).toBeDefined()
-    expect(screen.getByText(/use a personal access token with repository access/i)).toBeDefined()
-    expect(screen.getByText(/leave this empty for github.com or gitlab.com/i)).toBeDefined()
+    expect(screen.getByText('Add code access')).toBeDefined()
+    expect(screen.getByText('Choose where your code lives')).toBeDefined()
+    expect(screen.getByText('Create a code access key')).toBeDefined()
+    expect(screen.getByText(/allow it to read the code agents need/i)).toBeDefined()
+    expect(screen.getByText(/next: create a code access key/i)).toBeDefined()
+    expect(screen.queryByText('Paste the access token')).toBeNull()
+    expect(screen.queryByText(/look for a personal access token/i)).toBeNull()
+    expect(screen.queryByLabelText(/^repository access token/i)).toBeNull()
+    expect(screen.getByText(/sites may call it a personal access token/i)).toBeDefined()
+    expect(screen.getByText(/do not paste your GitHub or GitLab password/i)).toBeDefined()
+    expect(screen.getByText(/leave this empty if you use github.com or gitlab.com/i)).toBeDefined()
+    expect(screen.getByPlaceholderText('e.g. gitlab.example.com')).toBeDefined()
 
-    const saveButton = screen.getByRole('button', { name: /save token/i })
+    const tokenInput = screen.getByLabelText(/^code access key/i)
+    const form = tokenInput.closest('form')
+    expect(form).toBeTruthy()
+    const saveButton = screen.getByRole('button', { name: /save code access/i })
     expect(saveButton).toBeDisabled()
 
-    fireEvent.change(screen.getByLabelText(/^access token/i), {
-      target: { value: 'ghp_example_token' },
-    })
+    expect(tokenInput).toHaveAttribute(
+      'aria-describedby',
+      'git-credential-token-intro git-credential-token-safety'
+    )
+    expect(document.querySelectorAll('[id="git-credential-token-intro"]')).toHaveLength(1)
+    expect(document.querySelectorAll('[id="git-credential-token-safety"]')).toHaveLength(1)
+
+    fireEvent.submit(form!)
+    expect(saveGitCredentialMock).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /paste the code access key from GitHub or GitLab before saving/i
+    )
+    expect(tokenInput).toHaveFocus()
+    expect(tokenInput).toHaveAttribute(
+      'aria-describedby',
+      'git-credential-token-intro git-credential-token-safety git-credential-token-error'
+    )
+
+    await user.type(tokenInput, 'ghp_example_token')
     expect(saveButton).toBeEnabled()
-    fireEvent.click(saveButton)
+    await user.click(saveButton)
 
     await waitFor(() =>
       expect(saveGitCredentialMock).toHaveBeenCalledWith('github', 'ghp_example_token', undefined)
     )
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Code access saved. Create a small task with a private repository link to confirm agents can open it.'
+    )
+    expect(screen.getByRole('status')).toHaveTextContent('come back here and replace this key')
+  })
+
+  test('uses a clear confirmation label before removing code access', async () => {
+    const user = userEvent.setup()
+    const credential: GitCredential = {
+      id: 'git-1',
+      provider: 'github',
+      host: null,
+      createdAt: '2026-06-01T00:00:00Z',
+      updatedAt: '2026-06-01T00:00:00Z',
+    }
+    useSettingsStore.setState({ gitCredentials: [credential] })
+
+    render(<GitCredentialsSection />)
+
+    const removeButton = await screen.findByRole('button', {
+      name: /remove github code access/i,
+    })
+    expect(removeButton).toHaveTextContent('Remove')
+
+    fireEvent.click(removeButton)
+
+    expect(deleteGitCredentialMock).not.toHaveBeenCalled()
+    const confirmButton = screen.getByRole('button', {
+      name: /confirm removing github code access/i,
+    })
+    expect(confirmButton).toHaveTextContent('Remove access now')
+    expect(confirmButton).not.toHaveTextContent('Remove access?')
+    expect(screen.getByRole('button', { name: /keep access/i })).toBeDefined()
+    expect(
+      screen.getByText(/removing this access can stop agents from opening private code on GitHub/i)
+    ).toBeDefined()
+
+    await user.click(screen.getByRole('button', { name: /keep access/i }))
+    expect(screen.queryByText(/removing this access can stop agents/i)).toBeNull()
+    expect(deleteGitCredentialMock).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: /remove github code access/i }))
+    const removeNowButton = screen.getByRole('button', {
+      name: /confirm removing github code access/i,
+    })
+    deleteGitCredentialMock.mockImplementationOnce(
+      () => new Promise((resolve) => setTimeout(() => resolve(true), 20))
+    )
+
+    await user.click(removeNowButton)
+    expect(removeNowButton).toHaveTextContent('Removing...')
+    expect(removeNowButton).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByRole('button', { name: /keep access/i })).toBeDisabled()
+
+    await waitFor(() => {
+      expect(deleteGitCredentialMock).toHaveBeenCalledWith('git-1')
+    })
+  })
+
+  test('explains missing code access dates instead of showing raw date failures', async () => {
+    const credentials: GitCredential[] = [
+      {
+        id: 'git-1',
+        provider: 'github',
+        host: null,
+        createdAt: '',
+        updatedAt: '2026-06-01T00:00:00Z',
+      },
+      {
+        id: 'git-2',
+        provider: 'gitlab',
+        host: 'gitlab.example.com',
+        createdAt: 'not-a-date',
+        updatedAt: '2026-06-01T00:00:00Z',
+      },
+    ]
+    useSettingsStore.setState({ gitCredentials: credentials })
+
+    render(<GitCredentialsSection />)
+
+    expect(await screen.findByRole('table', { name: /^code access$/i })).toBeDefined()
+    expect(screen.getByText('Refresh code access to load added date')).toBeDefined()
+    expect(screen.getByText('Refresh code access to check added date')).toBeDefined()
+    expect(screen.queryByText('Invalid Date')).toBeNull()
+    expect(screen.queryByText('—')).toBeNull()
+  })
+
+  test('shows a beginner recovery step instead of raw git credential details', async () => {
+    useSettingsStore.setState({
+      gitCredentialsError: 'Paste the code access key from GitHub or GitLab, then save again.',
+    })
+
+    render(<GitCredentialsSection />)
+
+    await waitFor(() => expect(loadGitCredentialsMock).toHaveBeenCalled())
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Paste the code access key from GitHub or GitLab, then save again.'
+    )
+    expect(screen.queryByText(/Details: invalid token/i)).toBeNull()
   })
 })

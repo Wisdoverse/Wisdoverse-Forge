@@ -24,11 +24,14 @@ describe('Skills toolbar status', () => {
   test('keeps the empty catalog status visible for first-time users', async () => {
     render(<SkillsView />)
 
-    await waitFor(() => expect(screen.getByText('No skills yet')).toBeInTheDocument())
-    expect(screen.getByText(/skills store reusable instructions/i)).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.getByText('Choose Save Instruction to start.')).toBeInTheDocument()
+    )
+    expect(screen.getByText(/saved instructions are reusable steps/i)).toBeInTheDocument()
+    expect(screen.queryByText('No saved instructions yet')).toBeNull()
   })
 
-  test('explains when search hides every reusable skill', async () => {
+  test('explains when search hides every saved instruction', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -49,11 +52,44 @@ describe('Skills toolbar status', () => {
     render(<SkillsView />)
 
     await screen.findByText('release-review')
-    fireEvent.change(screen.getByLabelText(/search skills/i), {
+    fireEvent.change(screen.getByLabelText(/search saved instructions/i), {
       target: { value: 'database' },
     })
 
-    expect(screen.getByText('No skills match search')).toBeInTheDocument()
-    expect(screen.getByText(/adjust search or filters/i)).toBeInTheDocument()
+    expect(screen.getByText('Clear search to see saved instructions.')).toBeInTheDocument()
+    expect(screen.getByText('Clear search to see saved instructions')).toBeInTheDocument()
+    expect(screen.getByText(/this search hides them/i)).toBeInTheDocument()
+    expect(screen.queryByText('No saved instructions match search')).toBeNull()
+    expect(screen.queryByText('No saved instructions match this view')).toBeNull()
+  })
+
+  test('explains when a filter hides every saved instruction', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        data: [
+          {
+            id: 'skill-release',
+            name: 'release-review',
+            description: 'Review release notes',
+            trigger_pattern: 'release',
+            content: 'Review release notes before publishing',
+            enabled: true,
+          },
+        ],
+      }),
+    })
+
+    render(<SkillsView />)
+
+    await screen.findByText('release-review')
+    fireEvent.click(screen.getByRole('button', { name: /for one work tool\s*0/i }))
+
+    expect(screen.getByText('Change filter to see saved instructions.')).toBeInTheDocument()
+    expect(screen.getByText('Change filter to see saved instructions')).toBeInTheDocument()
+    expect(screen.getByText(/this filter hides them/i)).toBeInTheDocument()
+    expect(screen.queryByText('No saved instructions match filter')).toBeNull()
+    expect(screen.queryByText('No saved instructions match this view')).toBeNull()
   })
 })

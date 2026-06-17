@@ -44,7 +44,10 @@ describe('BoardToolbar', () => {
   test('uses beginner-friendly filter labels and task counts', () => {
     renderToolbar()
 
-    expect(screen.getByPlaceholderText('Search task names, agents, blockers...')).toBeDefined()
+    expect(
+      screen.getByPlaceholderText('Search task names, agents, or help needed...')
+    ).toBeDefined()
+    expect(screen.queryByPlaceholderText(/blockers/i)).toBeNull()
     expect(screen.getByRole('button', { name: /all priorities\s*6/i })).toBeDefined()
     expect(screen.getByRole('button', { name: /all agents\s*6/i })).toBeDefined()
     expect(screen.getByRole('button', { name: /needs agent\s*3/i })).toBeDefined()

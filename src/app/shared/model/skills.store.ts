@@ -156,43 +156,54 @@ export function skillHttpErrorMessage(
   data: Record<string, unknown> = {}
 ): string {
   const detail = errorDetail(data)
-  const suffix = detail ? ` Details: ${detail}` : ''
-  const statusText = `Code: ${status}.`
-  const actionText = action === 'create' ? 'create the skill' : 'load skills'
+  const actionText = action === 'create' ? 'create the instruction' : 'refresh Saved instructions'
+  const createPermissionMessage =
+    'Ask an owner or admin to let you create saved instructions for this team space.'
+  const createConflictMessage =
+    'Review the existing instructions, then change the name or matching words and try again.'
+  const createRateLimitMessage =
+    'Wait a moment, then create the instruction again. Instruction setup is busy right now.'
+  const createServiceMessage =
+    'Refresh Saved instructions, then create the instruction again. If it still fails, ask an owner or admin to check instruction setup.'
+  const createDefaultMessage = 'Review the fields, then create the instruction again.'
 
   if (status === 401) {
-    return `Sign in again, then ${actionText}. ${statusText}${suffix}`
+    return `Sign in again, then ${actionText}.`
   }
   if (status === 403) {
     return action === 'create'
-      ? `You do not have permission to create workspace skills. Ask an admin to update your role. ${statusText}${suffix}`
-      : `You do not have permission to view workspace skills. Ask an admin to update your role. ${statusText}${suffix}`
+      ? createPermissionMessage
+      : 'Ask an owner or admin to update your team space access, then refresh Saved instructions. You do not have access to saved instructions for this team space.'
   }
   if (status === 404) {
-    return `The skills service is not available from this page. Refresh after the backend is deployed. ${statusText}${suffix}`
+    return action === 'create'
+      ? 'Open Saved instructions again, then create the instruction.'
+      : 'Refresh Saved instructions to load the list.'
   }
   if (status === 409) {
-    return `A skill with this name or trigger may already exist. Review the existing skills, then try again. ${statusText}${suffix}`
+    return createConflictMessage
   }
   if (status === 422) {
-    return `Check the skill name, trigger pattern, and content, then try again. ${statusText}${suffix}`
+    return skillValidationMessage(detail)
   }
   if (status === 429) {
-    return `The skills service is busy. Wait a moment, then ${actionText}. ${statusText}${suffix}`
+    return action === 'create'
+      ? createRateLimitMessage
+      : `Wait a moment, then ${actionText}. Instruction setup is busy right now.`
   }
   if (status >= 500) {
-    return `The skills service had a server problem. Try again after the backend is healthy. ${statusText}${suffix}`
+    return action === 'create'
+      ? createServiceMessage
+      : 'Refresh Saved instructions to load the list. If it still fails, ask an owner or admin to check instruction setup.'
   }
 
-  return action === 'create'
-    ? `The skill could not be created. Review the fields and try again. ${statusText}${suffix}`
-    : `Skills could not load. Refresh the page and try again. ${statusText}${suffix}`
+  return action === 'create' ? createDefaultMessage : 'Refresh Saved instructions to load the list.'
 }
 
 function skillNetworkErrorMessage(action: SkillAction): string {
   return action === 'create'
-    ? 'The skill could not be created because the browser could not reach the server. Check your connection and try again.'
-    : 'Skills could not load because the browser could not reach the server. Check your connection and refresh the page.'
+    ? 'Check your connection, then create the instruction again. Forge could not connect while creating it.'
+    : 'Check your connection, then refresh Saved instructions to load the list.'
 }
 
 function skillResponseErrorMessage(
@@ -200,10 +211,27 @@ function skillResponseErrorMessage(
   data: SkillsResponse | Record<string, unknown>
 ): string {
   const detail = errorDetail(data)
-  if (detail) return detail
+  if (detail)
+    return action === 'create'
+      ? skillValidationMessage(detail)
+      : 'Refresh Saved instructions to load the list.'
   return action === 'create'
-    ? 'The skill could not be created. Review the fields and try again.'
-    : 'Skills could not load. Refresh the page and try again.'
+    ? 'Review the fields, then create the instruction again.'
+    : 'Refresh Saved instructions to load the list.'
+}
+
+function skillValidationMessage(detail: string | null): string {
+  const normalized = detail?.toLowerCase() ?? ''
+  if (normalized.includes('trigger')) {
+    return 'Check the matching words, then try again.'
+  }
+  if (normalized.includes('name')) {
+    return 'Enter an instruction name, then try again.'
+  }
+  if (normalized.includes('content') || normalized.includes('instruction')) {
+    return 'Enter the saved instructions, then try again.'
+  }
+  return 'Check the instruction name, matching words, and instructions, then try again.'
 }
 
 export const useSkillsStore = create<SkillsState>((set, get) => ({

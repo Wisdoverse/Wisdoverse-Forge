@@ -15,19 +15,19 @@ export function AgentGroupSelector({
   onSelectGroup,
 }: AgentGroupSelectorProps) {
   const disabledHelp = !selectedProjectId
-    ? 'Choose a project before selecting a work lane.'
+    ? 'Choose a project before selecting a task queue.'
     : groups.length === 0
-      ? 'Create a work lane in Agents > Task Routing before assigning tasks.'
+      ? 'Open task queues to create one, then come back here.'
       : null
-  const selectTitle = disabledHelp ?? 'Choose the work lane where new tasks will go.'
+  const selectTitle = disabledHelp ?? 'Choose where new tasks should wait.'
 
   return (
     <div className="hidden items-center gap-2 rounded-full border border-black/[0.08] bg-white p-0.5 pl-3 dark:border-white/[0.1] dark:bg-white/[0.06] md:flex">
       <span className="shrink-0 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-        Work lane
+        Task queue
       </span>
       <select
-        aria-label="Work lane for new tasks"
+        aria-label="Task queue for new tasks"
         title={selectTitle}
         value={selectedGroupId ?? ''}
         onChange={(event) => {
@@ -42,7 +42,7 @@ export function AgentGroupSelector({
       >
         {!selectedProjectId && <option value="">Choose a project first</option>}
         {selectedProjectId && groups.length === 0 && (
-          <option value="">Create a work lane first</option>
+          <option value="">Create a task queue first</option>
         )}
         {groups.map((group) => (
           <option key={group.id} value={group.id}>

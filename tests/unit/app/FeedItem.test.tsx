@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, test } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
 import { FeedItem } from '@app/features/feed/FeedItem'
 import type { FeedItem as FeedItemType } from '@app/shared/model/feed.store'
 
@@ -12,6 +12,8 @@ const baseItem: FeedItemType = {
   timestamp: new Date('2026-05-25T12:00:00.000Z').getTime(),
 }
 
+afterEach(cleanup)
+
 describe('FeedItem', () => {
   test('uses outcome labels that explain task updates to non-specialists', () => {
     render(
@@ -20,11 +22,56 @@ describe('FeedItem', () => {
 
     expect(screen.getByText('Needs help')).toBeDefined()
     expect(screen.queryByText('Blocked')).toBeNull()
+    expect(screen.getByText(/Waiting for account access/i)).toBeDefined()
+    expect(screen.queryByText(/repository key/i)).toBeNull()
     expect(
       screen.getByLabelText(
-        /needs help: builder on update checkout flow\. the task is waiting for someone to clear a blocker/i
+        /needs help: builder on update checkout flow\. the task is waiting for someone to provide what is needed/i
       )
     ).toBeDefined()
+    expect(
+      screen.getByText(/next step: open the task and provide what is missing or reconnect access/i)
+    ).toBeDefined()
+    expect(screen.queryByText(/clear the blocker/i)).toBeNull()
+  })
+
+  test('shows a retry-safe next step for failed task updates', () => {
+    render(<FeedItem item={{ ...baseItem, type: 'task.failed', detail: 'Command exited 1' }} />)
+
+    expect(screen.getByText('Review recovery')).toBeDefined()
+    expect(screen.queryByText('Failed')).toBeNull()
+    expect(
+      screen.getByText('Open details to see the recovery note, then retry or choose another agent.')
+    ).toBeDefined()
+    expect(
+      screen.getByText(/follow the recovery note, then retry or choose another agent/i)
+    ).toBeDefined()
+    expect(screen.queryByText(/when ready/i)).toBeNull()
+    expect(screen.queryByText(/reassign/i)).toBeNull()
+    expect(screen.queryByText('Command exited 1')).toBeNull()
+    expect(screen.queryByText(/read the error/i)).toBeNull()
+  })
+
+  test('hides sensitive failed task details', () => {
+    render(<FeedItem item={{ ...baseItem, type: 'task.failed', detail: 'SSH key rejected' }} />)
+
+    expect(
+      screen.getByText('Open details to see the recovery note, then retry or choose another agent.')
+    ).toBeDefined()
+    expect(screen.queryByText(/when ready/i)).toBeNull()
+    expect(screen.queryByText(/reassign/i)).toBeNull()
+    expect(screen.queryByText(/SSH key rejected/i)).toBeNull()
+  })
+
+  test('keeps readable failed task details when they are already safe', () => {
+    render(
+      <FeedItem
+        item={{ ...baseItem, type: 'task.failed', detail: 'Repository access needs reconnecting' }}
+      />
+    )
+
+    expect(screen.getByText('Repository access needs reconnecting')).toBeDefined()
+    expect(screen.queryByText(/HTTP 500/i)).toBeNull()
   })
 
   test('shows waiting and finished labels instead of raw queue status words', () => {
@@ -32,6 +79,16 @@ describe('FeedItem', () => {
 
     expect(screen.getByText('Waiting')).toBeDefined()
     expect(screen.queryByText('Queued')).toBeNull()
+    expect(
+      screen.getByLabelText(
+        /waiting: builder on update checkout flow\. the task is waiting for an agent to start work/i
+      )
+    ).toBeDefined()
+    expect(
+      screen.getByText(
+        /next step: keep this task open\. if it stays waiting, start an available agent or choose another one/i
+      )
+    ).toBeDefined()
 
     rerender(<FeedItem item={{ ...baseItem, type: 'task.completed' }} />)
 
@@ -43,6 +100,14 @@ describe('FeedItem', () => {
     render(<FeedItem item={{ ...baseItem, type: 'task.custom' }} />)
 
     expect(screen.getByText('Update')).toBeDefined()
-    expect(screen.getByLabelText(/the agent reported a task update/i)).toBeDefined()
+    expect(screen.getByLabelText(/the agent shared a task update/i)).toBeDefined()
+    expect(screen.queryByLabelText(/the agent reported a task update/i)).toBeNull()
+  })
+
+  test('describes progress updates without system-log wording', () => {
+    render(<FeedItem item={baseItem} />)
+
+    expect(screen.getByLabelText(/the agent shared progress on this task/i)).toBeDefined()
+    expect(screen.queryByLabelText(/reported progress/i)).toBeNull()
   })
 })

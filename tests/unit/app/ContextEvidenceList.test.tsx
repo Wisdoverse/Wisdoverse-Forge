@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, test } from 'vitest'
 import { ContextEvidenceList } from '@app/features/detail/ContextEvidenceList'
 import type { AppliedContextItem, TaskContextEvidence } from '@shared/types/context'
@@ -61,14 +61,146 @@ describe('ContextEvidenceList', () => {
   test('explains task result evidence before showing technical details', () => {
     render(<ContextEvidenceList evidence={[evidence()]} revokedItems={[]} />)
 
-    expect(screen.getByText('Evidence')).toBeInTheDocument()
-    expect(screen.getByText(/what the agent used or produced/i)).toBeInTheDocument()
+    expect(screen.getByText('What the agent used')).toBeInTheDocument()
+    expect(screen.getByText(/what the agent used or saved/i)).toBeInTheDocument()
     expect(screen.getByText('Task result')).toBeInTheDocument()
     expect(
-      screen.getByText(/Final output or status captured from the agent run/i)
+      screen.getByText(/Final answer or status saved from the agent work/i)
     ).toBeInTheDocument()
+    expect(screen.queryByText(/Final answer or status saved from the agent run/i)).toBeNull()
     expect(screen.getByText('Health check completed successfully.')).toBeInTheDocument()
-    expect(screen.getByText('Technical details')).toBeInTheDocument()
+    expect(
+      screen.getByText(/Most users can rely on the summary above.*sharing details with support/i)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/sharing run details with support/i)).toBeNull()
+    expect(screen.queryByText(/this run already used it/i)).toBeNull()
+    expect(screen.getByText('Show support details')).toBeInTheDocument()
+    expect(screen.queryByText('Evidence')).toBeNull()
+    expect(screen.queryByText(/technical details/i)).toBeNull()
+    expect(screen.queryByText(/raw details/i)).toBeNull()
+  })
+
+  test('describes tool evidence without API jargon', () => {
+    render(
+      <ContextEvidenceList
+        evidence={[
+          evidence({
+            sourceType: 'tool_call',
+            payload: { ok: true },
+          }),
+        ]}
+        revokedItems={[]}
+      />
+    )
+
+    expect(screen.getByText('Tool activity')).toBeInTheDocument()
+    expect(
+      screen.getByText('A recorded tool action that helped the agent complete the work.')
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/API record/i)).toBeNull()
+  })
+
+  test('summarizes detailed payloads without implementation field wording', () => {
+    render(
+      <ContextEvidenceList
+        evidence={[
+          evidence({
+            payload: { code: 'needs-review', retryable: true },
+          }),
+        ]}
+        revokedItems={[]}
+      />
+    )
+
+    expect(
+      screen.getByText('Additional work details with 2 pieces of information.')
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Additional run details with 2 pieces of information.')).toBeNull()
+    expect(screen.queryByText(/Additional evidence/i)).toBeNull()
+    expect(screen.queryByText(/fields/i)).toBeNull()
+  })
+
+  test('uses result-file wording for saved file evidence', () => {
+    render(
+      <ContextEvidenceList
+        evidence={[
+          evidence({
+            sourceType: 'artifact',
+            payload: { title: 'release-notes.md', description: 'Release notes saved for review.' },
+          }),
+        ]}
+        revokedItems={[]}
+      />
+    )
+
+    expect(screen.getByText('Saved result file')).toBeInTheDocument()
+    expect(screen.getByText('A file or result saved while the task ran.')).toBeInTheDocument()
+    expect(screen.queryByText('A file or result saved during the run.')).toBeNull()
+    expect(screen.queryByText(/artifact/i)).toBeNull()
+  })
+
+  test('hides sensitive values in technical evidence details', () => {
+    render(
+      <ContextEvidenceList
+        evidence={[
+          evidence({
+            payload: {
+              ok: false,
+              title: 'Deployment check',
+              token: 'secret-token-value',
+              nested: { apiKey: 'private-api-key', error: 'Missing token' },
+            },
+          }),
+        ]}
+        revokedItems={[]}
+      />
+    )
+
+    expect(screen.getByText('Deployment check')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Show support details'))
+
+    expect(screen.getAllByText(/Hidden for safety/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/Required account access is missing/i)).toBeInTheDocument()
+    expect(screen.queryByText(/secret-token-value/i)).toBeNull()
+    expect(screen.queryByText(/private-api-key/i)).toBeNull()
+    expect(screen.queryByText(/Missing token/i)).toBeNull()
+  })
+
+  test('hides raw technical evidence failures from summaries and support details', () => {
+    render(
+      <ContextEvidenceList
+        evidence={[
+          evidence({
+            payload: {
+              ok: false,
+              summary: 'panic: stack trace line 7 from raw command output',
+              error: 'database unavailable: connection refused at postgres.internal:5432',
+              nested: { stdout: 'secret token abc' },
+            },
+          }),
+        ]}
+        revokedItems={[]}
+      />
+    )
+
+    expect(
+      screen.getByText(
+        'This record hit a problem. Ask the agent to explain what happened, then retry if the task still matters.'
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/panic/i)).toBeNull()
+    expect(screen.queryByText(/stack trace/i)).toBeNull()
+    expect(screen.queryByText(/raw command output/i)).toBeNull()
+
+    fireEvent.click(screen.getByText('Show support details'))
+
+    expect(screen.getAllByText(/hit a problem/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/technical problem/i)).toBeNull()
+    expect(screen.getAllByText(/Hidden for safety/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/postgres\.internal/i)).toBeNull()
+    expect(screen.queryByText(/connection refused/i)).toBeNull()
+    expect(screen.queryByText(/secret token/i)).toBeNull()
   })
 
   test('uses a plain-language fallback for unknown evidence sources', () => {
@@ -84,9 +216,12 @@ describe('ContextEvidenceList', () => {
       />
     )
 
-    expect(screen.getByText('Custom Probe')).toBeInTheDocument()
-    expect(screen.getByText('Supporting information recorded during the run.')).toBeInTheDocument()
-    expect(screen.getByText('The recorded result needs attention.')).toBeInTheDocument()
+    expect(screen.getByText('Work details')).toBeInTheDocument()
+    expect(screen.getByText('Extra information recorded while the task ran.')).toBeInTheDocument()
+    expect(screen.getByText('Check the recorded result before reusing it.')).toBeInTheDocument()
+    expect(screen.queryByText('Run details')).toBeNull()
+    expect(screen.queryByText('Run evidence')).toBeNull()
+    expect(screen.queryByText('Custom Probe')).toBeNull()
   })
 
   test('explains why revoked context is still visible', () => {
@@ -94,6 +229,8 @@ describe('ContextEvidenceList', () => {
 
     expect(screen.getByText('Old deployment memory')).toBeInTheDocument()
     expect(screen.getByText(/No longer used for future work/i)).toBeInTheDocument()
+    expect(screen.getByText(/because this task already used it/i)).toBeInTheDocument()
     expect(screen.getByText(/understand the past result/i)).toBeInTheDocument()
+    expect(screen.queryByText(/because this run already used it/i)).toBeNull()
   })
 })

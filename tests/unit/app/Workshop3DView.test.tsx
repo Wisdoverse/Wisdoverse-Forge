@@ -1,6 +1,11 @@
 import { describe, test, expect, afterEach } from 'vitest'
 import { cleanup, render, screen, within } from '@testing-library/react'
-import { Workshop3DEmptyState } from '@app/widgets/views/Workshop3DView'
+import type { AgentInfo } from '@app/entities/agent'
+import {
+  Workshop3DEmptyState,
+  Workshop3DStatusSummary,
+  workshop3DAgentSubtitle,
+} from '@app/widgets/views/Workshop3DView'
 
 afterEach(cleanup)
 
@@ -10,14 +15,52 @@ describe('Workshop3DEmptyState', () => {
 
     const emptyState = screen.getByTestId('workshop-3d-empty-state')
 
-    expect(within(emptyState).getByText('No agents in the workshop yet')).toBeDefined()
+    expect(within(emptyState).getByText('Open Agents to build the visual map')).toBeDefined()
     expect(
       within(emptyState).getByText(
-        'Create or wake an agent, then this view will show its live status and activity in 3D.'
+        'If this is your first agent, create it from Agents. If you already have one, start or wake it there, then refresh this view.'
       )
     ).toBeDefined()
-    expect(within(emptyState).getByText('Create an agent from Agents')).toBeDefined()
-    expect(within(emptyState).getByText('Start or wake the runtime')).toBeDefined()
-    expect(within(emptyState).getByText('Refresh after the agent checks in')).toBeDefined()
+    expect(within(emptyState).queryByText('No agents on the visual map yet')).toBeNull()
+    expect(within(emptyState).queryByText(/workshop/i)).toBeNull()
+    expect(within(emptyState).getByText('Open Agents and create one if none exists')).toBeDefined()
+    expect(
+      within(emptyState).getByText('Start or wake the agent if it is already listed')
+    ).toBeDefined()
+    expect(
+      within(emptyState).getByText('Refresh this view after the agent checks in')
+    ).toBeDefined()
+  })
+})
+
+describe('Workshop3DStatusSummary', () => {
+  test('uses beginner-safe labels instead of raw agent status words', () => {
+    render(<Workshop3DStatusSummary totals={{ working: 2, idle: 1, offline: 0 }} />)
+
+    expect(screen.getByText('2 Working now')).toBeDefined()
+    expect(screen.getByText('1 Ready')).toBeDefined()
+    expect(screen.getByText('0 Not connected')).toBeDefined()
+    expect(screen.queryByText(/idle/i)).toBeNull()
+  })
+})
+
+describe('workshop3DAgentSubtitle', () => {
+  test('uses beginner-safe runtime labels instead of raw service fields', () => {
+    const agent: AgentInfo = {
+      id: 'agent-1',
+      name: 'Planning agent',
+      provider: 'openai_compatible',
+      model: 'vendor-internal-model',
+      status: 'idle',
+      tasksCompleted: 0,
+      tasksInProgress: 0,
+      successRate: 0,
+      cliTool: 'codex',
+      runtimeKind: 'cli',
+    }
+
+    expect(workshop3DAgentSubtitle(agent)).toBe('Ready - Codex on this computer')
+    expect(workshop3DAgentSubtitle(agent)).not.toContain('vendor-internal-model')
+    expect(workshop3DAgentSubtitle(agent)).not.toContain('openai_compatible')
   })
 })

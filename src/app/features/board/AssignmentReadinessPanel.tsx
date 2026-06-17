@@ -1,6 +1,7 @@
 import { RefreshCw, UserCheck } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
+import { agentCapabilitySummary } from '@app/shared/lib/agentCapabilityCopy'
 import type { ParticipantSummary } from '@app/shared/api/orchestration'
 
 export interface BoardWorkloadSnapshot {
@@ -20,9 +21,9 @@ interface AssignmentReadinessPanelProps {
 }
 
 const STATUS_LABELS: Record<ParticipantSummary['status'], string> = {
-  available: 'Available',
-  busy: 'Busy',
-  offline: 'Offline',
+  available: 'Can take work',
+  busy: 'Working now',
+  offline: 'Not connected',
 }
 
 const STATUS_STYLES: Record<ParticipantSummary['status'], string> = {
@@ -43,10 +44,10 @@ export function AssignmentReadinessPanel({
   const offline = participants.filter((participant) => participant.status === 'offline')
   const summary =
     participants.length === 0
-      ? 'No agents are registered for this work lane yet.'
+      ? 'Connect an agent before sending work.'
       : available.length > 0
         ? `${available.length} agent${available.length === 1 ? '' : 's'} can take work now.`
-        : 'No agent can take work right now.'
+        : 'Open Agents to start or connect an agent, or wait for one to finish.'
   const handoffSummary = summarizeHandoff(workload, available.length)
 
   return (
@@ -62,10 +63,10 @@ export function AssignmentReadinessPanel({
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
               <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-                Assignment readiness
+                Agent status
               </h2>
               <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                {loading ? 'Checking agents…' : summary}
+                {loading ? 'Checking agent status…' : summary}
               </span>
             </div>
             <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -76,16 +77,16 @@ export function AssignmentReadinessPanel({
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <MetricPill label="Available" value={available.length} />
-          <MetricPill label="Busy" value={busy.length} />
-          <MetricPill label="Offline" value={offline.length} />
+          <MetricPill label="Can take work" value={available.length} />
+          <MetricPill label="Working now" value={busy.length} />
+          <MetricPill label="Not connected" value={offline.length} />
           <button
             type="button"
             onClick={onRefresh}
             disabled={loading}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-secondary-light transition-colors hover:bg-black/[0.05] hover:text-foreground-light disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
-            aria-label="Refresh assignment readiness"
-            title="Refresh assignment readiness"
+            aria-label="Refresh agent status"
+            title="Refresh agent status"
           >
             <RefreshCw
               size={14}
@@ -98,13 +99,22 @@ export function AssignmentReadinessPanel({
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-black/[0.06] pt-2 dark:border-white/[0.08]">
-        <MetricPill label="Backlog" value={workload.backlog} />
-        <MetricPill label="Unassigned" value={workload.unassigned} />
+        <MetricPill
+          label="Not sent yet"
+          value={workload.backlog}
+          testId="assignment-metric-backlog"
+        />
+        <MetricPill
+          label="Needs agent"
+          value={workload.unassigned}
+          testId="assignment-metric-unassigned"
+        />
         <MetricPill label="In flight" value={workload.inFlight} />
         <MetricPill
-          label="Blocked"
+          label="Needs help"
           value={workload.blocked}
           tone={workload.blocked > 0 ? 'warn' : 'default'}
+          testId="assignment-metric-blocked"
         />
         <MetricPill
           label="Review"
@@ -119,11 +129,11 @@ export function AssignmentReadinessPanel({
           className="mt-2 rounded-lg border border-dashed border-apple-blue/25 bg-apple-blue/[0.04] px-3 py-2"
         >
           <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
-            Connect an agent before dispatch
+            Connect an agent before sending work
           </p>
           <p className="mt-0.5 text-ui-caption leading-snug text-secondary-light dark:text-secondary-dark">
-            Open Agents / Task Routing, choose this work lane, then attach an available agent. Until
-            then, backlog tasks cannot leave this lane.
+            Open task queues, choose this task queue, and add an available agent to it. Until then,
+            tasks that are not sent yet will wait here.
           </p>
         </div>
       ) : participants.length > 0 ? (
@@ -141,14 +151,16 @@ function MetricPill({
   label,
   value,
   tone = 'default',
+  testId,
 }: {
   label: string
   value: number
   tone?: 'default' | 'success' | 'warn'
+  testId?: string
 }) {
   return (
     <span
-      data-testid={`assignment-metric-${label.toLowerCase().replace(/\s+/g, '-')}`}
+      data-testid={testId ?? `assignment-metric-${label.toLowerCase().replace(/\s+/g, '-')}`}
       className={cn(
         'inline-flex h-7 items-center gap-1.5 rounded-full px-2 text-ui-caption',
         tone === 'success'
@@ -169,20 +181,27 @@ function MetricPill({
 function summarizeHandoff(workload: BoardWorkloadSnapshot, availableCount: number): string {
   if (workload.unassigned > 0) {
     const taskLabel = pluralize(workload.unassigned, 'task')
+    const verb = workload.unassigned === 1 ? 'needs' : 'need'
+    const pronoun = workload.unassigned === 1 ? 'it' : 'them'
+
     return availableCount > 0
-      ? `${workload.unassigned} unassigned ${taskLabel} can be handed off.`
-      : `${workload.unassigned} unassigned ${taskLabel} waiting for capacity.`
+      ? `${workload.unassigned} ${taskLabel} ${verb} an agent. Choose an available agent to start ${pronoun}.`
+      : `${workload.unassigned} ${taskLabel} ${verb} an agent. Open Agents to start or connect an agent, or wait for one to finish.`
   }
 
   if (workload.blocked > 0) {
-    return `${workload.blocked} blocked ${pluralize(workload.blocked, 'task')} need follow-up.`
+    const taskLabel = pluralize(workload.blocked, 'task')
+    const verb = workload.blocked === 1 ? 'needs' : 'need'
+    const pronoun = workload.blocked === 1 ? 'it' : 'they'
+
+    return `${workload.blocked} ${taskLabel} ${verb} help before ${pronoun} can continue.`
   }
 
   if (workload.review > 0) {
     return `${workload.review} completed ${pluralize(workload.review, 'task')} ready for review.`
   }
 
-  return 'Work lane is clear.'
+  return 'Create a task when you have work to send.'
 }
 
 function pluralize(count: number, singular: string): string {
@@ -196,8 +215,12 @@ function ParticipantChip({ participant }: { participant: ParticipantSummary }) {
       : participant.status === 'busy'
         ? 'Already working'
         : participant.lastHeartbeatAt
-          ? `Last heartbeat ${formatRelativeTime(participant.lastHeartbeatAt)}`
-          : 'No recent heartbeat'
+          ? `Last seen ${formatRelativeTime(participant.lastHeartbeatAt)}`
+          : 'Open Agents to reconnect'
+  const capabilities =
+    participant.capabilities.length > 0 ? agentCapabilitySummary(participant.capabilities) : ''
+  const detail =
+    participant.status === 'available' ? capabilities || reason : joinDetails(reason, capabilities)
 
   return (
     <div className="flex min-w-[180px] items-center justify-between gap-2 rounded-lg bg-black/[0.03] px-2.5 py-2 dark:bg-white/[0.04]">
@@ -206,7 +229,7 @@ function ParticipantChip({ participant }: { participant: ParticipantSummary }) {
           {participant.name}
         </p>
         <p className="truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {participant.capabilities.length > 0 ? participant.capabilities.join(', ') : reason}
+          {detail}
         </p>
       </div>
       <span
@@ -220,4 +243,8 @@ function ParticipantChip({ participant }: { participant: ParticipantSummary }) {
       </span>
     </div>
   )
+}
+
+function joinDetails(...parts: Array<string | undefined>): string {
+  return parts.filter(Boolean).join(' · ')
 }

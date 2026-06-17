@@ -1,6 +1,7 @@
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import type { Skill } from '@app/shared/model/skills.store'
+import { savedInstructionSourceLabel } from './model/savedInstructionLabels'
 
 interface SkillCardProps {
   skill: Skill
@@ -9,11 +10,17 @@ interface SkillCardProps {
 
 export function SkillCard({ skill, onClick }: SkillCardProps) {
   const statusLabel = skill.installed ? 'Ready to reuse' : 'Install to use'
+  const summary =
+    skill.description ||
+    'Open details to check the reusable instructions before using this saved instruction.'
+  const source = savedInstructionSourceLabel(skill.plugin, 'saved instructions library')
+  const author = skill.pluginAuthor.trim()
+  const savedInLabel = author ? `Saved in ${source} by ${author}` : `Saved in ${source}`
   return (
     <button
       type="button"
       onClick={() => onClick(skill)}
-      aria-label={`${skill.name}. ${statusLabel}. ${skill.description || 'No description available'}`}
+      aria-label={`${skill.name}. ${statusLabel}. ${summary}`}
       className={cn(
         'w-full rounded-lg px-4 py-3 text-left text-ui-button transition-colors',
         'border border-black/[0.08] bg-white hover:border-apple-blue/35 hover:bg-white',
@@ -27,15 +34,14 @@ export function SkillCard({ skill, onClick }: SkillCardProps) {
             {skill.name}
           </span>
           <p className="line-clamp-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            {skill.description || 'No description available'}
+            {summary}
           </p>
           <span className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Source: <span>{skill.plugin}</span>
-            {skill.pluginAuthor ? <span> by {skill.pluginAuthor}</span> : null}
+            {savedInLabel}
           </span>
           {skill.triggerPattern && (
-            <span className="mt-1 inline-flex w-fit max-w-full items-center rounded-full bg-black/[0.04] px-2 py-0.5 font-mono text-[10px] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-              <span className="truncate">Trigger: {skill.triggerPattern}</span>
+            <span className="mt-1 inline-flex w-fit max-w-full items-center rounded-full bg-black/[0.04] px-2 py-0.5 text-ui-caption text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
+              <span className="truncate">Use when task says: {skill.triggerPattern}</span>
             </span>
           )}
         </div>

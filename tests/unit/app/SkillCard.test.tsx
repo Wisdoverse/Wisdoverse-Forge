@@ -29,16 +29,45 @@ describe('SkillCard', () => {
       })
     ).toBeInTheDocument()
     expect(screen.getByText('Ready to reuse')).toBeInTheDocument()
-    expect(screen.getByText(/^Source:/)).toBeInTheDocument()
-    expect(screen.getByText('Workspace skills')).toBeInTheDocument()
-    expect(screen.getByText(/by Platform team/i)).toBeInTheDocument()
-    expect(screen.getByText('Trigger: release')).toBeInTheDocument()
+    expect(
+      screen.getByText(/saved in workspace saved instructions by platform team/i)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/workspace skills/i)).toBeNull()
+    expect(screen.getByText('Use when task says: release')).toBeInTheDocument()
   })
 
   test('marks unavailable skills as needing installation before use', () => {
     render(<SkillCard skill={{ ...baseSkill, installed: false }} onClick={() => {}} />)
 
     expect(screen.getByText('Install to use')).toBeInTheDocument()
+  })
+
+  test('guides users to details when a skill has no summary', () => {
+    render(<SkillCard skill={{ ...baseSkill, description: '' }} onClick={() => {}} />)
+
+    expect(
+      screen.getByRole('button', {
+        name: /release-review\. ready to reuse\. open details to check the reusable instructions before using this saved instruction/i,
+      })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Open details to check the reusable instructions before using this saved instruction.'
+      )
+    ).toBeDefined()
+  })
+
+  test('uses readable source fallback when saved-in metadata is missing', () => {
+    render(
+      <SkillCard
+        skill={{ ...baseSkill, plugin: '   ', pluginAuthor: '   ' }}
+        onClick={() => {}}
+      />
+    )
+
+    expect(screen.getByText('Saved in saved instructions library')).toBeInTheDocument()
+    expect(screen.queryByText(/Saved in\s*$/)).toBeNull()
+    expect(screen.queryByText(/by\s*$/)).toBeNull()
   })
 
   test('opens the selected skill', () => {

@@ -69,11 +69,11 @@ const initialState = {
 }
 
 export function analyticsUnavailableMessage(): string {
-  return 'Analytics could not load live activity. Refresh after the API is healthy. If this is a new workspace, run an agent task first so there is activity to report.'
+  return 'Refresh the dashboard. If this is a new workspace, run an agent task first so live activity has data to report. Analytics could not load live activity.'
 }
 
 export function analyticsNetworkErrorMessage(): string {
-  return 'Analytics could not reach the server. Check your connection, then refresh the dashboard.'
+  return 'Check your connection, then refresh the dashboard. Analytics could not connect.'
 }
 
 export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({

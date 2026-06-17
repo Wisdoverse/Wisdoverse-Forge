@@ -19,13 +19,13 @@ interface SectionItem {
 
 const SECTIONS: SectionItem[] = [
   { id: 'users', label: 'User access', group: 'Management' },
-  { id: 'organizations', label: 'Organizations', group: 'Management' },
+  { id: 'organizations', label: 'Team spaces', group: 'Management' },
   { id: 'agents', label: 'Agents', group: 'Management' },
-  { id: 'health', label: 'Service health', group: 'System status' },
-  { id: 'cli-images', label: 'CLI agent images', group: 'System status' },
+  { id: 'health', label: 'App health', group: 'App setup' },
+  { id: 'cli-images', label: 'Agent tool updates', group: 'App setup' },
 ]
 
-const GROUPS = ['Management', 'System status']
+const GROUPS = ['Management', 'App setup']
 
 // ============================================================================
 // Content router

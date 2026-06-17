@@ -1,5 +1,6 @@
 import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
-import { useState, useEffect, useMemo } from 'react'
+import { ArrowRight, FolderKanban } from 'lucide-react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useBoardStore } from '@app/shared/model/board.store'
 import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
 import { useNavigationStore } from '@app/entities/navigation'
@@ -21,6 +22,8 @@ import {
   type BoardFilterCounts,
   type BoardPriorityFilter,
 } from './BoardToolbar'
+import { boardActionErrorMessage } from './boardErrorMessages'
+import { useWebSocket } from '@app/shared/model/websocket.context'
 
 const COLUMN_ORDER: ColumnId[] = [
   'backlog',
@@ -34,7 +37,18 @@ const COLUMN_ORDER: ColumnId[] = [
 const BOARD_FALLBACK_REFRESH_MS = 30_000
 const TAP_DRAG_DISTANCE_PX = 6
 
-export function BoardView() {
+interface BoardFilterEmptyCopy {
+  title: string
+  detail: string
+  nextStep: string
+}
+
+interface BoardViewProps {
+  onOpenProjectsSetup?: () => void
+  onOpenTaskQueues?: () => void
+}
+
+export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewProps = {}) {
   const {
     columns,
     moveTask,
@@ -49,6 +63,8 @@ export function BoardView() {
   } = useBoardStore()
   const selectedProjectId = useNavigationStore((s) => s.selectedProjectId)
   const canPublishWithContext = useContextFeaturesStore((s) => s.preview && s.injection)
+  const { status: wsStatus } = useWebSocket()
+  const wsStatusRef = useRef(wsStatus)
   const [activeTask, setActiveTask] = useState<TaskSummary | null>(null)
   const [previewTask, setPreviewTask] = useState<TaskSummary | null>(null)
   const [preview, setPreview] = useState<ContextPreviewResponse | null>(null)
@@ -58,6 +74,7 @@ export function BoardView() {
   const [participants, setParticipants] = useState<ParticipantSummary[]>([])
   const [participantsLoading, setParticipantsLoading] = useState(false)
   const [participantsError, setParticipantsError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [priorityFilter, setPriorityFilter] = useState<BoardPriorityFilter>('all')
   const [assigneeFilter, setAssigneeFilter] = useState<BoardAssigneeFilter>('all')
@@ -75,37 +92,52 @@ export function BoardView() {
     () => summarizeBoardFilters(columns, visibleColumns),
     [columns, visibleColumns]
   )
+  const boardFilterEmpty = useMemo(() => boardFilterEmptyCopy(boardFilters), [boardFilters])
   const hasActiveBoardFilter =
     searchQuery.trim().length > 0 || priorityFilter !== 'all' || assigneeFilter !== 'all'
+  const clearBoardFilters = () => {
+    setSearchQuery('')
+    setPriorityFilter('all')
+    setAssigneeFilter('all')
+  }
+  const loadTasksForGroup = useCallback(
+    async (groupId: string, showLoading: boolean, shouldApply: () => boolean = () => true) => {
+      try {
+        if (showLoading && shouldApply()) setLoading(true)
+        if (shouldApply()) setError(null)
+        const tasks = await orchestrationApi.getTasks(groupId)
+        if (shouldApply()) setTasks(tasks)
+      } catch (err) {
+        if (showLoading && shouldApply()) {
+          setError(boardActionErrorMessage('loadTasks', err))
+        }
+      } finally {
+        if (showLoading && shouldApply()) setLoading(false)
+      }
+    },
+    [setError, setLoading, setTasks]
+  )
+
+  useEffect(() => {
+    wsStatusRef.current = wsStatus
+  }, [wsStatus])
 
   useEffect(() => {
     if (!selectedGroupId) return
     const groupId = selectedGroupId
     let cancelled = false
-    async function loadTasks(showLoading: boolean) {
-      try {
-        if (showLoading) setLoading(true)
-        setError(null)
-        const tasks = await orchestrationApi.getTasks(groupId)
-        if (!cancelled) setTasks(tasks)
-      } catch (err) {
-        if (!cancelled && showLoading) {
-          setError(err instanceof Error ? err.message : 'Failed to load tasks')
-        }
-      } finally {
-        if (!cancelled && showLoading) setLoading(false)
-      }
-    }
-    void loadTasks(true)
+    const shouldApply = () => !cancelled
+    void loadTasksForGroup(groupId, true, shouldApply)
     const fallbackRefresh = window.setInterval(() => {
       if (document.visibilityState === 'hidden') return
-      void loadTasks(false)
+      if (wsStatusRef.current === 'connected') return
+      void loadTasksForGroup(groupId, false, shouldApply)
     }, BOARD_FALLBACK_REFRESH_MS)
     return () => {
       cancelled = true
       window.clearInterval(fallbackRefresh)
     }
-  }, [selectedGroupId, setTasks, setLoading, setError])
+  }, [loadTasksForGroup, selectedGroupId])
 
   async function loadParticipants(showLoading = true) {
     try {
@@ -114,7 +146,7 @@ export function BoardView() {
       setParticipants(await orchestrationApi.getParticipants('all'))
     } catch (err) {
       setParticipants([])
-      setParticipantsError(err instanceof Error ? err.message : 'Failed to load agent readiness')
+      setParticipantsError(boardActionErrorMessage('loadReadiness', err))
     } finally {
       if (showLoading) setParticipantsLoading(false)
     }
@@ -128,6 +160,7 @@ export function BoardView() {
     void loadParticipants(true)
     const fallbackRefresh = window.setInterval(() => {
       if (document.visibilityState === 'hidden') return
+      if (wsStatusRef.current === 'connected') return
       void loadParticipants(false)
     }, BOARD_FALLBACK_REFRESH_MS)
     return () => window.clearInterval(fallbackRefresh)
@@ -168,19 +201,22 @@ export function BoardView() {
     const previousCol = currentCol
 
     // Optimistic update
+    setActionError(null)
     moveTask(taskId, colId)
 
     try {
       await orchestrationApi.updateTask(taskId, { state: newState })
-    } catch {
+    } catch (err) {
       // Rollback on failure
       if (previousCol) moveTask(taskId, previousCol)
+      setActionError(boardActionErrorMessage('moveTask', err))
       console.error('Failed to persist task move')
     }
   }
 
-  async function handleQuickCreate(title: string) {
-    if (!selectedGroupId) return
+  async function handleQuickCreate(title: string): Promise<boolean> {
+    if (!selectedGroupId) return false
+    setActionError(null)
     try {
       const response = await orchestrationApi.createTask({
         groupId: selectedGroupId,
@@ -188,9 +224,15 @@ export function BoardView() {
       })
       if (response.ok && response.task) {
         upsertTask(response.task)
+        return true
+      } else {
+        setActionError(boardActionErrorMessage('createTask', response))
+        return false
       }
     } catch (err) {
+      setActionError(boardActionErrorMessage('createTask', err))
       console.error('Failed to create task:', err)
+      return false
     }
   }
 
@@ -207,7 +249,7 @@ export function BoardView() {
       }
       setPreview(await orchestrationApi.previewContext(task.id, agentId))
     } catch (err) {
-      setPreviewError(err instanceof Error ? err.message : 'Failed to load context preview')
+      setPreviewError(boardActionErrorMessage('previewContext', err))
     } finally {
       setPreviewLoading(false)
     }
@@ -228,48 +270,46 @@ export function BoardView() {
       setPreviewTask(null)
       setPreview(null)
     } catch (err) {
-      setPreviewError(err instanceof Error ? err.message : 'Failed to publish task')
+      setPreviewError(boardActionErrorMessage('publishTask', err))
     } finally {
       setPublishing(false)
     }
   }
 
   if (!selectedGroupId) {
+    const actionLabel = selectedProjectId ? 'Set up task queues' : 'Open project settings'
+    const action = selectedProjectId ? onOpenTaskQueues : onOpenProjectsSetup
+
     return (
       <div
         data-testid="board-no-group"
         className="mx-auto flex h-full max-w-sm flex-col items-center justify-center gap-4 px-6 text-center"
       >
         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-apple-blue/10 text-apple-blue">
-          <svg
-            width="26"
-            height="26"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.75"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M3 7V5a2 2 0 0 1 2-2h2" />
-            <path d="M17 3h2a2 2 0 0 1 2 2v2" />
-            <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
-            <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
-            <rect width="7" height="5" x="7" y="7" rx="1" />
-            <rect width="7" height="5" x="7" y="12" rx="1" />
-          </svg>
+          <FolderKanban size={26} strokeWidth={1.85} aria-hidden="true" />
         </div>
         <div className="space-y-1">
           <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            {selectedProjectId ? 'Create a Work Lane First' : 'Pick a Project to Start'}
+            {selectedProjectId
+              ? 'Create a task queue before sending work'
+              : 'Create or choose a project before creating tasks'}
           </p>
           <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
             {selectedProjectId
-              ? 'A task group is the work lane agents listen to. Create one in Agents > Task Routing, then come back here to add work.'
-              : 'Choose a project from the sidebar first. A project keeps tasks, agents, and work lanes together.'}
+              ? 'A task queue gives new tasks a place to wait. Open task queues to create one, then come back here.'
+              : 'Open project settings to create a project, or choose an existing project from the project list. A project keeps tasks, agents, and task queues together.'}
           </p>
         </div>
+        {action ? (
+          <button
+            type="button"
+            onClick={action}
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-apple-blue px-4 text-ui-button font-semibold text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+          >
+            <span>{actionLabel}</span>
+            <ArrowRight size={14} strokeWidth={2.25} aria-hidden="true" />
+          </button>
+        ) : null}
       </div>
     )
   }
@@ -289,9 +329,20 @@ export function BoardView() {
     return (
       <div
         data-testid="board-error"
-        className="flex h-full items-center justify-center text-ui-body text-apple-red"
+        className="flex h-full items-center justify-center px-6 text-center"
       >
-        {error}
+        <div className="flex max-w-sm flex-col items-center gap-3">
+          <p className="text-ui-body text-apple-red">{error}</p>
+          {selectedGroupId ? (
+            <button
+              type="button"
+              onClick={() => void loadTasksForGroup(selectedGroupId, true)}
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-apple-red/20 bg-white px-3 text-ui-button font-medium text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30 dark:bg-white/[0.04]"
+            >
+              Try Again
+            </button>
+          ) : null}
+        </div>
       </div>
     )
   }
@@ -316,33 +367,37 @@ export function BoardView() {
           displayMode={displayMode}
           onDisplayModeChange={setDisplayMode}
           counts={filterCounts}
-          onClear={() => {
-            setSearchQuery('')
-            setPriorityFilter('all')
-            setAssigneeFilter('all')
-          }}
+          onClear={clearBoardFilters}
         />
+        {actionError ? (
+          <div
+            data-testid="board-action-error"
+            role="alert"
+            className="rounded-lg border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red"
+          >
+            {actionError}
+          </div>
+        ) : null}
         {hasActiveBoardFilter && filterCounts.visible === 0 ? (
           <div
             data-testid="board-filter-empty"
             className="flex min-h-64 flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-black/10 px-6 text-center dark:border-white/10"
           >
             <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-              No Tasks Match This Board View
+              {boardFilterEmpty.title}
             </p>
             <p className="max-w-sm text-ui-body text-secondary-light dark:text-secondary-dark">
-              Adjust search, priority, or assignee filters to return to the full workflow.
+              {boardFilterEmpty.detail}
+            </p>
+            <p className="max-w-sm text-ui-body text-secondary-light dark:text-secondary-dark">
+              {boardFilterEmpty.nextStep}
             </p>
             <button
               type="button"
-              onClick={() => {
-                setSearchQuery('')
-                setPriorityFilter('all')
-                setAssigneeFilter('all')
-              }}
+              onClick={clearBoardFilters}
               className="inline-flex h-9 items-center justify-center rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:border-apple-blue/35 hover:text-apple-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 dark:border-white/[0.1] dark:bg-[#2a2a2c] dark:text-foreground-dark"
             >
-              Clear Filters
+              Show all tasks
             </button>
           </div>
         ) : (
@@ -380,6 +435,42 @@ export function BoardView() {
       />
     </DndContext>
   )
+}
+
+function boardFilterEmptyCopy(filters: BoardFilters): BoardFilterEmptyCopy {
+  const hasSearch = filters.searchQuery.trim().length > 0
+  const hasPriority = filters.priorityFilter !== 'all'
+  const hasAssignee = filters.assigneeFilter !== 'all'
+
+  if (hasSearch && !hasPriority && !hasAssignee) {
+    return {
+      title: 'Search is hiding every task',
+      detail: 'Tasks may still exist, but none match the words you typed.',
+      nextStep: 'Next: show all tasks before assuming the board is empty.',
+    }
+  }
+
+  if (!hasSearch && hasPriority && !hasAssignee) {
+    return {
+      title: 'This priority filter hides every task',
+      detail: 'Tasks may still exist at another priority level.',
+      nextStep: 'Next: show all tasks to review the full board.',
+    }
+  }
+
+  if (!hasSearch && !hasPriority && hasAssignee) {
+    return {
+      title: 'This agent filter hides every task',
+      detail: 'Tasks may still exist with a different agent status.',
+      nextStep: 'Next: show all tasks before deciding nothing is waiting.',
+    }
+  }
+
+  return {
+    title: 'Filters are hiding every task',
+    detail: 'The board still has tasks, but the current search and filters hide all of them.',
+    nextStep: 'Next: show all tasks, then narrow the board one filter at a time.',
+  }
 }
 
 interface BoardFilters {

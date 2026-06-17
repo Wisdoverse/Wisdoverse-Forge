@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { isRawTaskFailureDetail } from '@app/shared/lib/taskFailureCopy'
 import type { Notification } from '@app/shared/model/feed.store'
 
 const TYPE_CONFIG: Record<
@@ -29,8 +30,8 @@ const TYPE_CONFIG: Record<
     color: 'text-apple-red',
     unreadBg: 'bg-apple-red/[0.04]',
     dot: 'bg-apple-red',
-    label: 'Blocked task',
-    actionLabel: 'Review blocker',
+    label: 'Needs help',
+    actionLabel: 'Review what needs help',
     guidance: 'Open the task, read what is missing, and provide the requested input.',
     template: 'task-lifecycle',
   },
@@ -49,9 +50,9 @@ const TYPE_CONFIG: Record<
     color: 'text-apple-red',
     unreadBg: 'bg-apple-red/[0.05]',
     dot: 'bg-apple-red',
-    label: 'Failed task',
-    actionLabel: 'View failure',
-    guidance: 'Open the task to see what failed before starting another attempt.',
+    label: 'Recovery needed',
+    actionLabel: 'Review recovery',
+    guidance: 'Open the task, review the recovery note, then retry or choose another agent.',
     template: 'task-lifecycle',
   },
   assigned: {
@@ -79,9 +80,9 @@ const TYPE_CONFIG: Record<
     color: 'text-apple-blue',
     unreadBg: 'bg-apple-blue/[0.04]',
     dot: 'bg-apple-blue',
-    label: 'Credential',
-    actionLabel: 'Reconnect credential',
-    guidance: 'Reconnect access in settings so agents can keep working.',
+    label: 'Account access',
+    actionLabel: 'Reconnect work access',
+    guidance: 'Open agent work settings and reconnect the account agents use for file work.',
     template: 'credential-action',
   },
   cli_image_updated: {
@@ -89,10 +90,10 @@ const TYPE_CONFIG: Record<
     color: 'text-apple-blue',
     unreadBg: 'bg-apple-blue/[0.04]',
     dot: 'bg-apple-blue',
-    label: 'CLI image',
-    actionLabel: 'Open CLI images',
+    label: 'Tool update',
+    actionLabel: 'Open tool updates',
     guidance:
-      'Open Admin → CLI agent images to see the per-tool status. New agents pick up the change automatically.',
+      'Open Admin, then Agent tool updates, to check each work tool. New agents use the update automatically.',
     template: 'task-lifecycle',
   },
 }
@@ -108,13 +109,15 @@ export function InboxItem({
 }) {
   const config = TYPE_CONFIG[notification.type]
   const Icon = config.Icon
+  const title = displayNotificationTitle(notification)
+  const message = displayNotificationMessage(notification)
 
   return (
     <button
       type="button"
       data-testid={`inbox-notification-${notification.id}`}
       data-template={config.template}
-      aria-label={`${config.actionLabel}: ${notification.taskTitle}`}
+      aria-label={`${config.actionLabel}: ${title}`}
       onClick={onClick}
       className={cn(
         'flex w-full gap-3 px-4 py-3 text-left transition-colors',
@@ -153,10 +156,10 @@ export function InboxItem({
             !notification.read && 'font-semibold'
           )}
         >
-          {notification.taskTitle}
+          {title}
         </p>
         <p className="mt-0.5 line-clamp-2 break-words text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {notification.message}
+          {message}
         </p>
         <p className="mt-1 text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
           {config.guidance}
@@ -167,6 +170,42 @@ export function InboxItem({
       </div>
     </button>
   )
+}
+
+function displayNotificationMessage(notification: Notification): string {
+  if (notification.type === 'credential_expired') {
+    return notification.message
+      .replace(/\baccount connection\b/gi, 'work account')
+      .replace(/\bruntime access\b/gi, 'agent work access')
+      .replace(/\bcredentials?\b/gi, 'account access')
+      .replace(/\bexpired\b/gi, 'needs reconnecting')
+  }
+  if (notification.type === 'failed') {
+    return failedNotificationMessage(notification.message)
+  }
+  return notification.message
+}
+
+function failedNotificationMessage(message: string): string {
+  if (
+    !message.toLowerCase().includes('failed to complete this task') &&
+    !isRawTaskFailureDetail(message)
+  ) {
+    return message
+  }
+
+  return 'The task stopped before finishing. Open it, review the recovery note, then retry or choose another agent.'
+}
+
+function displayNotificationTitle(notification: Notification): string {
+  if (notification.type === 'credential_expired') {
+    const title = notification.taskTitle
+      .replace(/\bcredential expired\b/gi, 'account access needs reconnecting')
+      .replace(/\bcredentials?\b/gi, 'account access')
+      .replace(/\bexpired\b/gi, 'needs reconnecting')
+    return title.charAt(0).toUpperCase() + title.slice(1)
+  }
+  return notification.taskTitle
 }
 
 function formatTime(ts: number): string {

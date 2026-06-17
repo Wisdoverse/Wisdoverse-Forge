@@ -92,7 +92,7 @@ export function InjectionPreviewModal({
       <button
         type="button"
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        aria-label="Close context review"
+        aria-label="Close saved notes review"
         onClick={() => {
           if (!publishing) onClose()
         }}
@@ -112,13 +112,16 @@ export function InjectionPreviewModal({
               id="context-preview-title"
               className="text-ui-title font-semibold text-foreground-light dark:text-foreground-dark"
             >
-              Review context before publishing
+              Review saved notes before sending
             </h2>
-            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            <p
+              className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+              data-testid="context-fit-summary"
+            >
               {selectedSummary} · {budget}
             </p>
             <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
-              These are the saved notes and skill instructions the agent will see next. Remove
+              These are the saved notes and saved instructions the agent will see next. Remove
               anything that does not belong.
             </p>
           </div>
@@ -126,7 +129,7 @@ export function InjectionPreviewModal({
             type="button"
             onClick={onClose}
             disabled={publishing}
-            aria-label="Close context review"
+            aria-label="Close saved notes review"
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-secondary-light transition-colors hover:bg-black/[0.04] hover:text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
           >
             <X size={15} strokeWidth={2} aria-hidden="true" />
@@ -137,7 +140,7 @@ export function InjectionPreviewModal({
           {loading ? (
             <div className="flex items-center gap-2 py-8 text-ui-body text-secondary-light dark:text-secondary-dark">
               <RefreshCw size={14} strokeWidth={2} className="animate-spin" aria-hidden="true" />
-              Loading context review…
+              Loading saved notes review…
             </div>
           ) : preview ? (
             <div className="space-y-4">
@@ -176,29 +179,29 @@ export function InjectionPreviewModal({
 
               <PreviewSection
                 title="Will be included"
-                helper="Checked items will be shared with the agent when you publish."
+                helper="Checked items will be shared with the agent when you send the task."
                 items={preview.items}
-                empty="Nothing will be shared yet."
+                empty="No saved items will be included yet. Add one below, or send without notes if none fit."
                 selectedIds={selectedIds}
                 pinnedIds={pinnedIds}
                 onToggleSelected={toggleSelected}
                 onTogglePinned={togglePinned}
               />
               <PreviewSection
-                title="Optional matches"
-                helper="These may help, but they stay out unless you choose them."
+                title="More saved items you can include"
+                helper="These are not shared unless you add them."
                 items={preview.suggestedItems}
-                empty="No extra matches were found."
+                empty="More saved items appear here after tasks save helpful notes or instructions."
                 selectedIds={selectedIds}
                 pinnedIds={pinnedIds}
                 onToggleSelected={toggleSelected}
                 onTogglePinned={togglePinned}
               />
               <PreviewSection
-                title="Pinned for later"
-                helper="Pinned items are kept easy to reuse for this task."
+                title="Kept easy to reuse"
+                helper="These saved items stay easy to reuse for this task."
                 items={preview.previouslyPinned}
-                empty="Nothing is pinned yet."
+                empty="No saved items are pinned yet. Choose the pin button on a saved item to keep it easy to reuse."
                 selectedIds={selectedIds}
                 pinnedIds={pinnedIds}
                 onToggleSelected={toggleSelected}
@@ -206,8 +209,25 @@ export function InjectionPreviewModal({
               />
             </div>
           ) : (
-            <div className="py-8 text-ui-body text-secondary-light dark:text-secondary-dark">
-              No context review is available yet.
+            <div className="space-y-3 py-8 text-ui-body text-secondary-light dark:text-secondary-dark">
+              {error && (
+                <div
+                  role="alert"
+                  className="flex gap-2 rounded-card bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red"
+                >
+                  <AlertTriangle
+                    size={14}
+                    strokeWidth={2}
+                    className="mt-0.5 shrink-0"
+                    aria-hidden="true"
+                  />
+                  <span>{error}</span>
+                </div>
+              )}
+              <p>
+                Saved notes review is not ready yet. Close this window, choose an available agent,
+                then try sending again.
+              </p>
             </div>
           )}
         </div>
@@ -227,7 +247,7 @@ export function InjectionPreviewModal({
             disabled={!preview || loading || publishing}
             className="rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {publishing ? 'Publishing…' : 'Publish with selected context'}
+            {publishing ? 'Sending…' : 'Send task with selected notes'}
           </button>
         </div>
       </div>
@@ -240,12 +260,12 @@ function PreviewMeta({ preview }: { preview: ContextPreviewResponse }) {
     stringValue(preview.capability.cli_tool) ??
     stringValue(preview.capability.provider_name) ??
     'the selected agent'
-  const runtime = stringValue(preview.capability.runtime_kind) ?? 'runtime'
+  const runtime = stringValue(preview.capability.runtime_kind)
   return (
     <div className="grid gap-2 text-ui-caption sm:grid-cols-3">
       <MetaCell label="Agent will use" value={formatCodeLabel(cli)} />
       <MetaCell label="Work location" value={runtimeLabel(runtime)} />
-      <MetaCell label="Limits applied" value={degradationSummary(preview.degradation)} />
+      <MetaCell label="Note limits" value={degradationSummary(preview.degradation)} />
     </div>
   )
 }
@@ -340,7 +360,7 @@ function PreviewItemRow({
           checked={selected}
           onChange={() => onToggleSelected(item.id)}
           aria-label={
-            selected ? `Remove ${item.title} from context` : `Include ${item.title} in context`
+            selected ? `Remove ${item.title} from this task` : `Include ${item.title} for the agent`
           }
           className="mt-1 h-4 w-4 shrink-0 accent-apple-blue focus:ring-apple-blue"
         />
@@ -357,7 +377,7 @@ function PreviewItemRow({
             {item.why}
           </p>
           <div className="mt-2 flex flex-wrap gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            <span>About {item.estimatedTokens} context tokens</span>
+            <span>{noteSizeLabel(item.estimatedTokens)}</span>
             {item.lastUsedAt && <span>Used {formatRelativeTime(item.lastUsedAt)}</span>}
             {item.lastVerifiedAt && <span>Verified {formatRelativeTime(item.lastVerifiedAt)}</span>}
           </div>
@@ -365,7 +385,9 @@ function PreviewItemRow({
         <button
           type="button"
           onClick={() => onTogglePinned(item.id)}
-          aria-label={pinned ? `Stop pinning ${item.title}` : `Keep ${item.title} pinned`}
+          aria-label={
+            pinned ? `Stop keeping ${item.title} easy to reuse` : `Keep ${item.title} easy to reuse`
+          }
           className={cn(
             'flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
             pinned
@@ -394,43 +416,58 @@ function Badge({ children }: { children: string }) {
 
 function budgetLabel(capability?: Record<string, unknown>): string {
   const tokens = capability?.max_context_tokens
-  return typeof tokens === 'number'
-    ? `Context limit: ${tokens.toLocaleString()} tokens`
-    : 'Context limit is still loading'
+  if (typeof tokens !== 'number') return "Checking this agent's note space"
+  if (tokens >= 3000) return 'Plenty of room for saved notes'
+  if (tokens >= 1000) return 'Enough room for a few saved notes'
+  return 'Limited room for saved notes'
+}
+
+function noteSizeLabel(estimatedTokens: number): string {
+  if (estimatedTokens >= 1000) return 'Large saved item'
+  if (estimatedTokens >= 300) return 'Medium saved item'
+  return 'Small saved item'
 }
 
 function stringValue(value: unknown): string | null {
-  return typeof value === 'string' && value.length > 0 ? value : null
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
 }
 
-function runtimeLabel(runtime: string): string {
-  switch (runtime) {
+function runtimeLabel(runtime: string | null): string {
+  switch (runtime?.toLowerCase() ?? '') {
     case 'container':
-      return 'Container workspace'
+    case 'container-cli':
+      return 'Managed workspace'
     case 'host':
-      return 'Local computer'
+    case 'cli':
+    case 'host-cli':
+      return 'This computer'
     case 'provider':
-      return 'Model only'
+    case 'api':
+      return 'Chat-only AI service'
+    case '':
+      return 'Refresh work location'
     default:
-      return formatCodeLabel(runtime)
+      return 'Check work location'
   }
 }
 
 function degradationSummary(reasons: string[]): string {
-  if (reasons.length === 0) return 'No limits applied'
+  if (reasons.length === 0) return 'No note limits right now'
   return reasons.map(degradationLabel).join(', ')
 }
 
 function degradationLabel(reason: string): string {
   switch (reason) {
     case 'budget_truncated':
-      return 'Some matches were left out to stay within the context limit'
+      return 'Some notes will be left out because this agent has limited note space'
     case 'runtime_capability_fallback':
-      return 'Using safe defaults because runtime details were incomplete'
+      return 'Using safe defaults because agent setup details were incomplete'
     case 'no_subagents':
-      return 'Subagent-specific context will be skipped'
+      return 'Notes meant only for helper agents will be skipped'
     default:
-      return formatCodeLabel(reason)
+      return 'Check note limits'
   }
 }
 
@@ -439,16 +476,16 @@ function itemKindLabel(kind: string): string {
     case 'memory':
       return 'Saved note'
     case 'skill':
-      return 'Skill instruction'
+      return 'Saved instruction'
     default:
-      return formatCodeLabel(kind)
+      return 'Check saved item'
   }
 }
 
 function scopeKindLabel(scope: string): string {
   switch (scope) {
     case 'org':
-      return 'Organization'
+      return 'Team space'
     case 'user':
       return 'Only me'
     case 'team':
@@ -456,7 +493,7 @@ function scopeKindLabel(scope: string): string {
     case 'project':
       return 'Project'
     default:
-      return formatCodeLabel(scope)
+      return 'Check sharing setting'
   }
 }
 
@@ -471,7 +508,7 @@ function sensitivityLabel(sensitivity: string): string {
     case 'secret_detected':
       return 'Possible secret'
     default:
-      return formatCodeLabel(sensitivity)
+      return 'Check safety label'
   }
 }
 

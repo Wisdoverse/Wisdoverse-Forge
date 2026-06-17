@@ -7,6 +7,7 @@ const mockGetParticipants = vi.fn()
 const mockCreateTask = vi.fn()
 const mockGetGroups = vi.fn()
 const mockCreateGroup = vi.fn()
+const routerState = vi.hoisted(() => ({ path: '/tasks' }))
 
 vi.mock('@app/shared/model/auth.context', () => ({
   useAuth: () => ({
@@ -19,7 +20,7 @@ vi.mock('@app/shared/model/auth.context', () => ({
 
 vi.mock('@tanstack/react-router', () => ({
   useRouterState: ({ select }: { select: (s: any) => string }) =>
-    select({ location: { pathname: '/tasks' } }),
+    select({ location: { pathname: routerState.path } }),
   useNavigate: () => vi.fn(),
 }))
 
@@ -41,6 +42,7 @@ vi.mock('@app/entities/agent-group', () => ({
 import { MemoryRouter } from './layout-test-wrapper'
 
 beforeEach(() => {
+  routerState.path = '/tasks'
   useNavigationStore.getState().reset()
   mockGetParticipants.mockResolvedValue([
     { id: 'participant-1', agentId: 'agent-1', name: 'Agent One', status: 'available' },
@@ -128,29 +130,166 @@ describe('AppLayout', () => {
     expect(screen.getByText('Board')).toBeDefined()
     expect(screen.getByText('List')).toBeDefined()
     expect(screen.getByText('Timeline')).toBeDefined()
-    expect(screen.getByText('3D')).toBeDefined()
+    expect(screen.getByText('Map')).toBeDefined()
+    expect(screen.getByRole('button', { name: /new task/i })).toBeDefined()
+    expect(screen.queryByRole('button', { name: '3D' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /\+ task/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Status' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Agent' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Priority' })).toBeNull()
   })
 
   test('top bar labels the command search entry for beginners', () => {
     render(<MemoryRouter />)
 
     const searchButton = screen.getByTestId('top-bar-command-search')
-    expect(searchButton).toHaveAccessibleName('Search commands and pages')
+    expect(searchButton).toHaveAccessibleName('Search pages and actions')
     expect(screen.getByText('Search')).toBeDefined()
 
     fireEvent.click(searchButton)
 
-    expect(screen.getByPlaceholderText(/search commands/i)).toBeDefined()
+    expect(screen.getByPlaceholderText(/search pages or actions/i)).toBeDefined()
+    expect(
+      screen.queryByPlaceholderText(new RegExp(['search', 'commands'].join('\\s+'), 'i'))
+    ).toBeNull()
   })
 
-  test('does not expose task group creation from the Tasks top bar', async () => {
+  test('command palette New task action opens the task form', async () => {
+    seedProjectNavigation('p1')
+    useBoardStore.getState().setSelectedGroupId('group-1')
+
+    render(<MemoryRouter />)
+
+    fireEvent.click(screen.getByTestId('top-bar-command-search'))
+    fireEvent.click(screen.getByText('Create a task for an agent to finish.'))
+
+    await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
+    expect(screen.getByRole('dialog')).toBeDefined()
+    expect(screen.getByLabelText(/what should the agent finish/i)).toBeDefined()
+    expect(screen.queryByPlaceholderText(/search pages or actions/i)).toBeNull()
+  })
+
+  test('command palette task view actions open Tasks before switching view', () => {
+    routerState.path = '/settings'
+    const onNavigate = vi.fn()
+
+    render(<MemoryRouter onNavigate={onNavigate} />)
+
+    fireEvent.click(screen.getByTestId('top-bar-command-search'))
+    fireEvent.click(screen.getByText('Scan tasks in one sortable table.'))
+
+    expect(onNavigate).toHaveBeenCalledWith('/tasks')
+    expect(useBoardStore.getState().viewMode).toBe('list')
+    expect(screen.queryByPlaceholderText(/search pages or actions/i)).toBeNull()
+  })
+
+  test('uses beginner-facing start page metadata', () => {
+    routerState.path = '/start'
+
+    render(<MemoryRouter />)
+
+    expect(screen.getByText('Start')).toBeDefined()
+    expect(screen.getByText('Set up Forge and send your first task')).toBeDefined()
+    expect(screen.queryByText(/first-run setup/i)).toBeNull()
+    expect(screen.queryByText(/launch checklist/i)).toBeNull()
+  })
+
+  test('uses beginner-facing tasks page metadata', () => {
+    routerState.path = '/tasks'
+
+    render(<MemoryRouter />)
+
+    expect(screen.getByText('Tasks')).toBeDefined()
+    expect(screen.getByText('Create tasks and follow agent progress')).toBeDefined()
+    expect(screen.queryByText(/assign/i)).toBeNull()
+    expect(screen.queryByText(/track agent work/i)).toBeNull()
+  })
+
+  test('uses beginner-facing inbox page metadata', () => {
+    routerState.path = '/inbox'
+
+    render(<MemoryRouter />)
+
+    expect(screen.getByText('Inbox')).toBeDefined()
+    expect(screen.getByText('See what needs your attention')).toBeDefined()
+    expect(screen.queryByText(/notifications and updates/i)).toBeNull()
+  })
+
+  test('uses beginner-facing settings page metadata', () => {
+    routerState.path = '/settings'
+
+    render(<MemoryRouter />)
+
+    expect(screen.getByText('Settings')).toBeDefined()
+    expect(screen.getByText('Set up your account, AI services, and team')).toBeDefined()
+    expect(screen.queryByText(/Account, AI services, and workspace/i)).toBeNull()
+    expect(screen.queryByText(/model services/i)).toBeNull()
+    expect(screen.queryByText(/providers/i)).toBeNull()
+  })
+
+  test('uses beginner-facing saved context page metadata', () => {
+    routerState.path = '/context'
+
+    render(<MemoryRouter />)
+
+    expect(screen.getByText('Saved notes and instructions')).toBeDefined()
+    expect(screen.getByText('Review what agents may reuse later')).toBeDefined()
+    expect(screen.queryByText(/Saved\s+memories/i)).toBeNull()
+    expect(screen.queryByText('Saved guidance')).toBeNull()
+    expect(screen.queryByText(/approval queue/i)).toBeNull()
+    expect(screen.queryByText(/governed context/i)).toBeNull()
+  })
+
+  test('uses beginner-facing agents page metadata', () => {
+    routerState.path = '/agents'
+
+    render(<MemoryRouter />)
+
+    expect(screen.getByText('Agents')).toBeDefined()
+    expect(screen.getByText('Create and manage agents that handle tasks')).toBeDefined()
+    expect(screen.queryByText(/deploy and manage/i)).toBeNull()
+    expect(screen.queryByText(/AI coding agents/i)).toBeNull()
+  })
+
+  test('uses beginner-facing analytics page metadata', () => {
+    routerState.path = '/analytics'
+
+    render(<MemoryRouter />)
+
+    expect(screen.getByText('Analytics')).toBeDefined()
+    expect(screen.getByText('See agent activity and results')).toBeDefined()
+    expect(screen.queryByText(/performance and activity metrics/i)).toBeNull()
+  })
+
+  test('uses beginner-facing billing page metadata', () => {
+    routerState.path = '/billing'
+
+    render(<MemoryRouter />)
+
+    expect(screen.getByText('Billing')).toBeDefined()
+    expect(screen.getByText('Plan, payments, and invoices')).toBeDefined()
+    expect(screen.queryByText(/usage/i)).toBeNull()
+  })
+
+  test('uses plain review history metadata', () => {
+    routerState.path = '/context/audit'
+
+    render(<MemoryRouter />)
+
+    expect(screen.getByText('Review history')).toBeDefined()
+    expect(screen.getByText('See what was reviewed or reused')).toBeDefined()
+    expect(screen.queryByText(/exports/i)).toBeNull()
+    expect(screen.queryByText(/governance event/i)).toBeNull()
+  })
+
+  test('does not expose task queue creation from the Tasks top bar', async () => {
     seedProjectNavigation('p1')
     useNavigationStore.setState({ agentGroups: [] })
 
     render(<MemoryRouter />)
 
-    expect(screen.queryByRole('button', { name: /new task group/i })).toBeNull()
-    expect(screen.getByRole('combobox', { name: /work lane for new tasks/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /new task queue/i })).toBeNull()
+    expect(screen.getByRole('combobox', { name: /task queue for new tasks/i })).toBeDisabled()
     expect(mockCreateGroup).not.toHaveBeenCalled()
   })
 
@@ -179,16 +318,18 @@ describe('AppLayout', () => {
   test('adds a task returned from the New Task modal to the board store', async () => {
     seedProjectNavigation('p1')
     useBoardStore.getState().setSelectedGroupId('group-1')
+    const taskDetails =
+      'Where to work:\n- src/app/features/board\n\nDone when:\n- AppLayout test passes'
 
     render(<MemoryRouter />)
-    fireEvent.click(screen.getByRole('button', { name: /\+ task/i }))
+    fireEvent.click(screen.getByRole('button', { name: /new task/i }))
 
     await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
-    fireEvent.change(screen.getByPlaceholderText(/what needs to be done/i), {
+    fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
       target: { value: 'Modal task' },
     })
-    fireEvent.change(screen.getByPlaceholderText(/additional details/i), {
-      target: { value: 'Details' },
+    fireEvent.change(screen.getByLabelText(/details the agent should know/i), {
+      target: { value: taskDetails },
     })
     const modal = screen.getByRole('dialog')
     const [, prioritySelect, assigneeSelect] = within(modal).getAllByRole('combobox')
@@ -199,7 +340,7 @@ describe('AppLayout', () => {
     await waitFor(() =>
       expect(mockCreateTask).toHaveBeenCalledWith({
         groupId: 'group-1',
-        params: { task: 'Modal task', message: 'Details' },
+        params: { task: 'Modal task', message: taskDetails },
         priority: 'high',
         assignedTo: 'agent-1',
       })
@@ -212,37 +353,107 @@ describe('AppLayout', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  test('applies a brief template before creating a New Task', async () => {
+  test('shows beginner guidance when New Task does not return a created task', async () => {
+    seedProjectNavigation('p1')
+    useBoardStore.getState().setSelectedGroupId('group-1')
+    mockCreateTask.mockResolvedValueOnce({ ok: true, task: null })
+
+    render(<MemoryRouter />)
+    fireEvent.click(screen.getByRole('button', { name: /new task/i }))
+
+    await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
+    fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
+      target: { value: 'Modal task without result' },
+    })
+    fireEvent.change(screen.getByLabelText(/details the agent should know/i), {
+      target: {
+        value:
+          'Where to work:\n- src/app/features/board\n\nDone when:\n- no task result returns guidance',
+      },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create task/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Check the project, task queue, and result, then create the task again. The task was not created.'
+    )
+    expect(alert.textContent).not.toContain('API')
+  })
+
+  test('routes no-agent setup from New Task to Agents', async () => {
+    seedProjectNavigation('p1')
+    useBoardStore.getState().setSelectedGroupId('group-1')
+    mockGetParticipants.mockResolvedValueOnce([])
+    const onNavigate = vi.fn()
+
+    render(<MemoryRouter onNavigate={onNavigate} />)
+    fireEvent.click(screen.getByRole('button', { name: /new task/i }))
+
+    await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
+    expect(screen.getByText('Connect an agent before this task can start')).toBeDefined()
+    expect(screen.queryByText('No agents are online')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /open agent setup/i }))
+
+    expect(onNavigate).toHaveBeenCalledWith('/agents')
+    expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
+  })
+
+  test('routes unavailable-agent setup from New Task to Agents', async () => {
+    seedProjectNavigation('p1')
+    useBoardStore.getState().setSelectedGroupId('group-1')
+    mockGetParticipants.mockResolvedValueOnce([
+      { id: 'participant-1', agentId: 'agent-1', name: 'Busy Agent', status: 'busy' },
+    ])
+    const onNavigate = vi.fn()
+
+    render(<MemoryRouter onNavigate={onNavigate} />)
+    fireEvent.click(screen.getByRole('button', { name: /new task/i }))
+
+    await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
+    expect(screen.getByText('Start or connect an agent before this task can start')).toBeDefined()
+    expect(screen.queryByText('No agents are available right now')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /open agent setup/i }))
+
+    expect(onNavigate).toHaveBeenCalledWith('/agents')
+    expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
+  })
+
+  test('asks for confirmation before creating from an unchanged task template', async () => {
     seedProjectNavigation('p1')
     useBoardStore.getState().setSelectedGroupId('group-1')
 
     render(<MemoryRouter />)
-    fireEvent.click(screen.getByRole('button', { name: /\+ task/i }))
+    fireEvent.click(screen.getByRole('button', { name: /new task/i }))
 
     await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
-    const briefGroup = screen.getByRole('group', { name: /task brief templates/i })
-    expect(screen.getByText(/agent-ready brief/i)).toBeDefined()
-    expect(screen.getByText('Result')).toBeDefined()
+    const briefGroup = screen.getByRole('group', { name: /task templates/i })
+    expect(screen.getByText(/clear task has three parts/i)).toBeDefined()
+    expect(screen.getByText('What to finish')).toBeDefined()
     expect(screen.getByText(/visible change or decision/i)).toBeDefined()
 
     fireEvent.click(within(briefGroup).getByRole('button', { name: /bug/i }))
 
-    expect(screen.getByPlaceholderText(/what needs to be done/i)).toHaveValue(
+    expect(screen.getByLabelText(/what should the agent finish/i)).toHaveValue(
       'Fix a reproducible defect'
     )
-    expect(screen.getByPlaceholderText(/additional details/i)).toHaveValue()
+    expect(screen.getByLabelText(/details the agent should know/i)).toHaveValue()
     expect(
-      (screen.getByPlaceholderText(/additional details/i) as HTMLTextAreaElement).value
-    ).toContain('Symptom:')
+      (screen.getByLabelText(/details the agent should know/i) as HTMLTextAreaElement).value
+    ).toContain('What is broken:')
 
     fireEvent.click(screen.getByRole('button', { name: /create task/i }))
+    await screen.findByTestId('task-brief-confirmation')
+    expect(screen.getByText(/replace the template title/i)).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: /create task anyway/i }))
 
     await waitFor(() =>
       expect(mockCreateTask).toHaveBeenCalledWith({
         groupId: 'group-1',
         params: {
           task: 'Fix a reproducible defect',
-          message: expect.stringContaining('Verification:'),
+          message: expect.stringContaining('Done when:'),
         },
         priority: 'high',
       })
@@ -253,7 +464,7 @@ describe('AppLayout', () => {
     seedProjectNavigation(null)
 
     render(<MemoryRouter />)
-    fireEvent.click(screen.getByRole('button', { name: /\+ task/i }))
+    fireEvent.click(screen.getByRole('button', { name: /new task/i }))
 
     const projectSelect = screen.getByLabelText(/project/i)
     const createButton = screen.getByRole('button', { name: /create task/i })
@@ -262,12 +473,14 @@ describe('AppLayout', () => {
     fireEvent.change(projectSelect, { target: { value: 'p1' } })
     await waitFor(() => expect(mockGetGroups).toHaveBeenCalledWith('p1'))
 
-    fireEvent.change(screen.getByPlaceholderText(/what needs to be done/i), {
+    fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
       target: { value: 'Project-scoped task' },
     })
     await waitFor(() => expect(createButton).toBeEnabled())
-    expect(screen.getByTestId('task-work-lane-readiness').textContent).toContain('Work Lane Ready')
+    expect(screen.getByTestId('task-work-lane-readiness').textContent).toContain('Ready to Send')
     fireEvent.click(createButton)
+    await screen.findByTestId('task-brief-confirmation')
+    fireEvent.click(screen.getByRole('button', { name: /create task anyway/i }))
 
     await waitFor(() =>
       expect(mockCreateTask).toHaveBeenCalledWith({
@@ -279,12 +492,12 @@ describe('AppLayout', () => {
     expect(useNavigationStore.getState().selectedProjectId).toBe('p1')
   })
 
-  test('requires a task group instead of initializing one from New Task', async () => {
+  test('requires a task queue instead of initializing one from New Task', async () => {
     seedProjectNavigation(null)
     mockGetGroups.mockResolvedValue([])
 
     render(<MemoryRouter />)
-    fireEvent.click(screen.getByRole('button', { name: /\+ task/i }))
+    fireEvent.click(screen.getByRole('button', { name: /new task/i }))
     const projectSelect = screen.getByLabelText(/project/i)
     const createButton = screen.getByRole('button', { name: /create task/i })
     expect(createButton).toBeDisabled()
@@ -292,27 +505,36 @@ describe('AppLayout', () => {
     fireEvent.change(projectSelect, { target: { value: 'p1' } })
     await waitFor(() => expect(mockGetGroups).toHaveBeenCalledWith('p1'))
 
-    fireEvent.change(screen.getByPlaceholderText(/what needs to be done/i), {
+    fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
       target: { value: 'Initialize project board' },
     })
     await waitFor(() =>
       expect(screen.getByTestId('task-work-lane-readiness').textContent).toContain(
-        'Create a Work Lane First'
+        'Create a task queue before sending work'
       )
     )
-    expect(screen.getByText(/agents listen to work lanes/i)).toBeDefined()
-    expect(screen.getByRole('button', { name: /open task routing/i })).toBeDefined()
+    expect(screen.getByText(/a task queue gives new work a place to wait/i)).toBeDefined()
+    expect(screen.getByRole('button', { name: /open task queues/i })).toBeDefined()
+    const previousQueueInstruction = ['agents', 'check', 'task', 'queues'].join(' ')
+    expect(screen.queryByText(new RegExp(previousQueueInstruction, 'i'))).toBeNull()
     expect(createButton).toBeDisabled()
     expect(mockCreateGroup).not.toHaveBeenCalled()
     expect(mockCreateTask).not.toHaveBeenCalled()
     expect(useBoardStore.getState().selectedGroupId).toBeNull()
   }, 20_000)
 
-  test('disables New Task submission when there are no projects', () => {
-    render(<MemoryRouter />)
-    fireEvent.click(screen.getByRole('button', { name: /\+ task/i }))
+  test('routes missing project setup from New Task to project settings', () => {
+    const onNavigate = vi.fn()
+    render(<MemoryRouter onNavigate={onNavigate} />)
+    fireEvent.click(screen.getByRole('button', { name: /new task/i }))
 
-    expect(screen.getByText(/no projects available/i)).toBeDefined()
+    expect(screen.getByText(/create a project before sending tasks/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /create task/i })).toBeDisabled()
+    expect(screen.queryByText(/no projects available/i)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /open project settings/i }))
+
+    expect(onNavigate).toHaveBeenCalledWith('/settings/projects')
+    expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
   })
 })

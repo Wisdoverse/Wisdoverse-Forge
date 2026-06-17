@@ -101,6 +101,15 @@ describe('ApprovalQueueView', () => {
     mockQueue([
       candidate(),
       candidate({
+        id: 'candidate-team-space',
+        proposed_scope_kind: 'org',
+        proposed_preview: {
+          title: 'Team space reuse memory',
+          content_preview: 'Shared setup advice for this team space.',
+          sensitivity: 'internal',
+        },
+      }),
+      candidate({
         id: 'candidate-missing',
         source_available: false,
         proposed_preview: {
@@ -113,19 +122,24 @@ describe('ApprovalQueueView', () => {
     render(<ApprovalQueueView />)
 
     expect(await screen.findByText('Prod deploy memory')).toBeDefined()
+    expect(screen.getByText('Team space reuse memory')).toBeDefined()
+    expect(screen.getAllByText('Team space').length).toBeGreaterThan(0)
+    expect(screen.getByText('Who can reuse it: Team space')).toBeDefined()
+    expect(screen.queryByText('Organization')).toBeNull()
+    expect(screen.queryByText('Who can reuse it: Organization')).toBeNull()
     expect(screen.getByText('Missing source memory')).toBeDefined()
     expect(screen.getByTestId('context-source-unavailable-candidate-missing')).toBeDefined()
     expect(screen.getByTestId('context-approve-candidate-missing')).toBeDisabled()
-    expect(useContextStore.getState().pendingCandidateCount).toBe(2)
+    expect(useContextStore.getState().pendingCandidateCount).toBe(3)
   })
 
   test('passes selected filters to the list API', async () => {
     render(<ApprovalQueueView />)
     await screen.findByText('Prod deploy memory')
 
-    await userEvent.setup().click(screen.getByRole('button', { name: 'All' }))
-    await userEvent.setup().selectOptions(screen.getByLabelText('Item kind'), 'skill')
-    await userEvent.setup().selectOptions(screen.getByLabelText('Scope'), 'team')
+    await userEvent.setup().click(screen.getByRole('button', { name: 'All saved items' }))
+    await userEvent.setup().selectOptions(screen.getByLabelText('Item type'), 'skill')
+    await userEvent.setup().selectOptions(screen.getByLabelText('Sharing range'), 'team')
 
     await waitFor(() => {
       expect(listContextCandidatesMock).toHaveBeenCalledWith(
@@ -139,15 +153,15 @@ describe('ApprovalQueueView', () => {
     await screen.findByText('Prod deploy memory')
 
     await userEvent.setup().click(screen.getByTestId('context-approve-candidate-1'))
-    const dialog = screen.getByRole('dialog', { name: /approve prod deploy memory/i })
+    const dialog = screen.getByRole('dialog', { name: /save prod deploy memory/i })
 
-    expect(within(dialog).getByText(/choose who can reuse this context/i)).toBeInTheDocument()
+    expect(within(dialog).getByText(/choose who can reuse it/i)).toBeInTheDocument()
     await userEvent
       .setup()
       .selectOptions(within(dialog).getByTestId('context-approval-scope-kind'), 'team')
-    expect(within(dialog).getByRole('status')).toHaveTextContent(/enter the team id/i)
+    expect(within(dialog).getByRole('status')).toHaveTextContent(/team support reference/i)
     await userEvent.setup().type(screen.getByTestId('context-approval-scope-id'), 'team-1')
-    expect(within(dialog).getByRole('status')).toHaveTextContent(/confirm this team/i)
+    expect(within(dialog).getByRole('status')).toHaveTextContent(/your team can reuse this safely/i)
     await userEvent.setup().type(within(dialog).getByLabelText(/expiration/i), '2030-01-01T12:00')
     await userEvent
       .setup()
@@ -155,10 +169,10 @@ describe('ApprovalQueueView', () => {
     await userEvent.setup().type(within(dialog).getByLabelText('Note'), 'Approved for team reuse')
     await userEvent.setup().click(
       within(dialog).getByRole('checkbox', {
-        name: 'Confirm this team can reuse this context',
+        name: /your team can reuse this safely/i,
       })
     )
-    expect(within(dialog).getByRole('status')).toHaveTextContent(/ready to approve for this team/i)
+    expect(within(dialog).getByRole('status')).toHaveTextContent(/ready to save for your team/i)
     await userEvent.setup().click(screen.getByTestId('context-approval-submit'))
 
     await waitFor(() => {
@@ -182,7 +196,7 @@ describe('ApprovalQueueView', () => {
     await screen.findByText('Prod deploy memory')
 
     await userEvent.setup().click(screen.getByTestId('context-reject-candidate-1'))
-    const dialog = screen.getByRole('dialog', { name: /reject prod deploy memory/i })
+    const dialog = screen.getByRole('dialog', { name: /do not save prod deploy memory/i })
     expect(within(dialog).getByPlaceholderText(/why should this not be saved/i)).toBeInTheDocument()
     await userEvent.setup().type(within(dialog).getByTestId('context-reject-reason'), 'Too broad')
     await userEvent.setup().click(screen.getByTestId('context-reject-submit'))

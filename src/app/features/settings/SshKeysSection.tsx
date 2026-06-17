@@ -3,23 +3,25 @@ import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
 import type { UserSshKey } from '@app/entities/agent'
+import { formatAccessDate } from './formatAccessDate'
+import { sshKeysErrorMessage } from './sshKeysErrorMessage'
 
-// ============================================================================
-// Helpers
-// ============================================================================
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
+function describeKeyType(keyType: string): string {
+  if (keyType === 'ssh-ed25519') return 'Modern key type'
+  if (keyType === 'ssh-rsa') return 'RSA key type'
+  return keyType
 }
 
 const SSH_KEY_SETUP_STEPS = [
-  { label: 'Name the key', value: 'Use a label you will recognize later.' },
-  { label: 'Paste public key', value: 'Use the line that starts with ssh-ed25519 or ssh-rsa.' },
-  { label: 'Keep private key private', value: 'Never paste a private key into this form.' },
+  { label: 'Name where it is used', value: 'Use a device, team, or code project name.' },
+  {
+    label: 'Paste the public line',
+    value: 'Copy only the one-line .pub key that starts with ssh-ed25519 or ssh-rsa.',
+  },
+  {
+    label: 'Keep the private key secret',
+    value: 'Never paste a private key file or anything that says BEGIN PRIVATE KEY.',
+  },
 ]
 
 // ============================================================================
@@ -28,19 +30,23 @@ const SSH_KEY_SETUP_STEPS = [
 
 interface SshKeyRowProps {
   sshKey: UserSshKey
-  onDelete: (id: string) => void
+  onDelete: (id: string) => Promise<boolean>
 }
 
 function SshKeyRow({ sshKey, onDelete }: SshKeyRowProps) {
   const [confirming, setConfirming] = useState(false)
+  const [removing, setRemoving] = useState(false)
+  const removeWarningId = `ssh-key-remove-warning-${sshKey.id}`
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!confirming) {
       setConfirming(true)
       return
     }
-    onDelete(sshKey.id)
-    setConfirming(false)
+    setRemoving(true)
+    const removed = await onDelete(sshKey.id)
+    setRemoving(false)
+    if (removed) setConfirming(false)
   }
 
   return (
@@ -57,27 +63,50 @@ function SshKeyRow({ sshKey, onDelete }: SshKeyRowProps) {
       </td>
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {sshKey.keyType}
+          {describeKeyType(sshKey.keyType)}
         </span>
       </td>
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {formatDate(sshKey.createdAt)}
+          {formatAccessDate(sshKey.createdAt, {
+            missing: 'Refresh git@ Repository Access to load added date',
+            invalid: 'Refresh git@ Repository Access to check added date',
+          })}
         </span>
       </td>
       <td className={cn(uiStyles.tableCell, 'text-right')}>
-        <button
-          type="button"
-          onClick={handleDelete}
-          aria-label={
-            confirming
-              ? `Confirm removing ${sshKey.label} SSH key`
-              : `Remove ${sshKey.label} SSH key`
-          }
-          className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
-        >
-          {confirming ? 'Remove key?' : 'Remove'}
-        </button>
+        <div className="flex flex-wrap justify-end gap-2">
+          {confirming && (
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              disabled={removing}
+              className={uiStyles.subtleButton}
+            >
+              Keep access
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => void handleDelete()}
+            disabled={removing}
+            aria-label={
+              confirming
+                ? `Confirm removing ${sshKey.label} git@ Repository Access`
+                : `Remove ${sshKey.label} git@ Repository Access`
+            }
+            aria-describedby={confirming ? removeWarningId : undefined}
+            aria-busy={removing || undefined}
+            className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
+          >
+            {removing ? 'Removing...' : confirming ? 'Remove access now' : 'Remove'}
+          </button>
+        </div>
+        {confirming && (
+          <p id={removeWarningId} className="ml-auto mt-1 max-w-44 text-ui-caption text-apple-red">
+            Removing this access can block agents that use private code links starting with git@.
+          </p>
+        )}
       </td>
     </tr>
   )
@@ -101,7 +130,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
   const labelHelpId = 'ssh-key-label-help'
   const publicKeyInputId = 'ssh-public-key'
   const publicKeyHelpId = 'ssh-public-key-help'
-  const statusId = 'ssh-key-form-status'
+  const publicKeySafetyId = 'ssh-public-key-safety'
   const errorId = 'ssh-key-form-error'
   const trimmedLabel = label.trim()
   const trimmedPublicKey = publicKey.trim()
@@ -109,9 +138,9 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
   const isReady = missingField === null
   const visibleError =
     submitAttempted && missingField === 'label'
-      ? 'Name this SSH key before saving it.'
+      ? 'Add a name your team will recognize before saving.'
       : submitAttempted && missingField === 'publicKey'
-        ? 'Paste the public SSH key before saving it.'
+        ? 'Paste the public key line before saving.'
         : null
 
   async function handleSubmit(e: FormEvent) {
@@ -135,7 +164,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
     >
       <div className="mb-3 rounded-lg border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
         <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-          SSH key setup path
+          Add access for code links that start with git@
         </div>
         <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
           {SSH_KEY_SETUP_STEPS.map((step) => (
@@ -157,66 +186,65 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
       <div className="flex flex-col gap-3 mb-3">
         <div>
           <label htmlFor="ssh-key-label" className={uiStyles.label}>
-            Key name <span className="text-red-500">*</span>
+            Name for this access <span className="text-red-500">*</span>
           </label>
           <p
             id={labelHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Use a device or account name, for example Work laptop.
+            Use a device, team, or code project name, for example Work laptop.
           </p>
           <input
             id={labelInputId}
             type="text"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            placeholder="e.g. GitHub deploy key"
+            placeholder="e.g. Work laptop"
             autoFocus
             autoComplete="off"
             spellCheck={false}
             aria-invalid={visibleError !== null && missingField === 'label'}
-            aria-describedby={`${statusId}${visibleError !== null && missingField === 'label' ? ` ${errorId}` : ''} ${labelHelpId}`}
+            aria-describedby={`${labelHelpId}${visibleError !== null && missingField === 'label' ? ` ${errorId}` : ''}`}
             className={uiStyles.input}
           />
-          <p
-            id="ssh-key-label-help"
-            className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
-          >
-            Use a name that tells your team where this key is used.
-          </p>
         </div>
 
         <div>
           <label htmlFor="ssh-public-key" className={uiStyles.label}>
-            Public key text <span className="text-red-500">*</span>
+            Public key line <span className="text-red-500">*</span>
           </label>
           <p
             id={publicKeyHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Paste only the public key line. Do not paste a private key block.
+            Paste the line from your .pub file. It is safe to share and usually starts with
+            ssh-ed25519 or ssh-rsa.
           </p>
           <textarea
             id={publicKeyInputId}
             value={publicKey}
             onChange={(e) => setPublicKey(e.target.value)}
-            placeholder="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... user@host"
+            placeholder="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... dev@example.com"
             required
             rows={6}
             className={cn(
               'w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-3 py-2 font-mono text-ui-caption text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70'
             )}
-            aria-describedby={publicKeyHelpId}
+            aria-describedby={`${publicKeyHelpId} ${publicKeySafetyId}${visibleError !== null && missingField === 'publicKey' ? ` ${errorId}` : ''}`}
           />
           <p
-            id="ssh-key-public-help"
+            id={publicKeySafetyId}
             className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Paste only the public key that starts with ssh-ed25519 or ssh-rsa. Never paste a private
-            key.
+            Do not paste the private key file. Private keys often include BEGIN PRIVATE KEY.
           </p>
         </div>
       </div>
+      {visibleError && (
+        <p id={errorId} role="alert" className="mb-3 text-ui-caption text-apple-red">
+          {visibleError}
+        </p>
+      )}
 
       <div className="flex gap-2 justify-end">
         <button
@@ -232,7 +260,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
           disabled={saving || !label.trim() || !publicKey.trim()}
           className={uiStyles.primaryButton}
         >
-          {saving ? 'Saving...' : 'Save SSH key'}
+          {saving ? 'Saving...' : 'Save git@ Repository Access'}
         </button>
       </div>
     </form>
@@ -248,25 +276,32 @@ export function SshKeysSection() {
     useSettingsStore()
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [savedMessage, setSavedMessage] = useState<string | null>(null)
 
   useEffect(() => {
     void loadSshKeys()
   }, [loadSshKeys])
 
   async function handleSave(label: string, publicKey: string) {
+    setSavedMessage(null)
     setSaving(true)
     const ok = await createSshKey(label, publicKey)
     setSaving(false)
-    if (ok) setShowForm(false)
+    if (ok) {
+      setShowForm(false)
+      setSavedMessage(
+        'git@ Repository Access saved. Create a small task with a git@ code link to confirm agents can open it. If it cannot read the repository, come back here and replace this key.'
+      )
+    }
   }
 
   async function handleDelete(id: string) {
-    await deleteSshKey(id)
+    return deleteSshKey(id)
   }
 
   const tableHeaders: { label: string; className?: string }[] = [
     { label: 'Key name' },
-    { label: 'Fingerprint' },
+    { label: 'Safety check' },
     { label: 'Key type' },
     { label: 'Added on' },
     { label: '', className: 'w-20' },
@@ -277,45 +312,77 @@ export function SshKeysSection() {
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>Repository SSH keys</h2>
+          <h2 className={uiStyles.sectionTitle}>git@ Repository Access</h2>
           <p className={uiStyles.sectionDescription}>
-            Add public keys that let agents access private repositories without a password.
+            Use this only when a private code link starts with git@. If it starts with https://, use
+            Code Repository Access instead.
           </p>
         </div>
         {!showForm && (
           <button
             type="button"
-            onClick={() => setShowForm(true)}
+            onClick={() => {
+              setSavedMessage(null)
+              setShowForm(true)
+            }}
             className={uiStyles.primaryButton}
           >
             <span>+</span>
-            <span>Add SSH key</span>
+            <span>Add git@ Repository Access</span>
           </button>
         )}
       </div>
 
       {/* Error */}
-      {sshKeysError && <div className={uiStyles.error}>{sshKeysError}</div>}
+      {sshKeysError && (
+        <div role="alert" aria-live="polite" className={uiStyles.error}>
+          {sshKeysErrorMessage(sshKeysError)}
+        </div>
+      )}
+
+      {savedMessage && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="mb-3 rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue"
+        >
+          {savedMessage}
+        </div>
+      )}
 
       {/* Table */}
       <div className={cn(uiStyles.card, 'overflow-x-auto')}>
         {sshKeysLoading && sshKeys.length === 0 ? (
           <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading repository SSH keys...
+            Loading git@ Repository Access...
           </div>
         ) : sshKeys.length === 0 && !showForm ? (
-          <div className="px-4 py-6 text-center">
+          <div className="px-4 py-6 text-center" data-testid="ssh-access-empty-state">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              No repository SSH keys yet
+              Add access for code links that start with git@
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Add a public key before assigning private repository work that uses SSH access.
+              If the code link starts with git@, add this. If it starts with https://, use Code
+              Repository Access instead.
             </p>
+            <p className="mx-auto mt-2 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
+              You can skip this for public projects or normal https:// code links.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSavedMessage(null)
+                setShowForm(true)
+              }}
+              className={cn(uiStyles.primaryButton, 'mx-auto mt-3')}
+            >
+              Add git@ Repository Access
+            </button>
           </div>
         ) : (
           <>
             {sshKeys.length > 0 && (
-              <table className={uiStyles.table} aria-label="Repository SSH keys">
+              <table className={uiStyles.table} aria-label="git@ Repository Access">
                 <thead className={uiStyles.tableHead}>
                   <tr>
                     {tableHeaders.map((h) => (

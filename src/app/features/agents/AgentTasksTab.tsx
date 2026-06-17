@@ -10,10 +10,17 @@ import {
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
+import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import { orchestrationApi, type TaskState, type TaskSummary } from '@app/shared/api/orchestration'
+import { agentTasksErrorMessage } from './model/taskErrorMessage'
 
 interface AgentTasksTabProps {
   agentId: string
+}
+
+interface EmptyStateCopy {
+  title: string
+  detail: string
 }
 
 const STATE_ORDER: TaskState[] = [
@@ -29,20 +36,20 @@ const STATE_ORDER: TaskState[] = [
 const STATE_LABELS: Record<TaskState, string> = {
   working: 'Doing now',
   queued: 'Waiting to start',
-  backlog: 'Ready for later',
+  backlog: 'Ready, not started',
   blocked: 'Needs your help',
   completed: 'Done',
-  failed: 'Stopped with an error',
+  failed: 'Review recovery',
   canceled: 'Canceled',
 }
 
 const STATE_HELP: Record<TaskState, string> = {
   working: 'The agent is actively working on these tasks.',
   queued: 'These tasks are next in line for this agent.',
-  backlog: 'These tasks are assigned but not started yet.',
-  blocked: 'These tasks need a person to unblock them.',
+  backlog: 'These tasks already have an agent, but work has not started yet.',
+  blocked: 'These tasks need a person to help them move forward.',
   completed: 'These tasks are finished.',
-  failed: 'These tasks stopped before finishing.',
+  failed: 'Open the task, review the latest update, then retry when ready.',
   canceled: 'These tasks were stopped on purpose.',
 }
 
@@ -67,18 +74,19 @@ const TASK_FILTERS: { value: AgentTaskFilter; label: string }[] = [
 
 const AGENT_TASK_EMPTY_STEPS: { title: string; description: string; Icon: LucideIcon }[] = [
   {
-    title: 'Open Tasks',
-    description: 'Create work and send it to this agent or its work lane.',
+    title: 'Create a task',
+    description: 'Choose this agent, or choose a task queue it can receive.',
     Icon: ListFilter,
   },
   {
-    title: 'Check the work lane routing',
-    description: 'Make sure new work is assigned to a lane this agent can receive.',
+    title: 'Check the task queue',
+    description: 'Open task queues, then make sure this agent is attached.',
     Icon: CircleDot,
   },
   {
-    title: 'Use Needs action after tasks arrive',
-    description: 'Blocked or failed work will appear there so you know what needs help.',
+    title: 'Use Needs help after tasks arrive',
+    description:
+      'Work that needs help or stopped early appears there first, so you know what to fix.',
     Icon: AlertTriangle,
   },
 ]
@@ -100,7 +108,7 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
         if (!cancelled) setTasks(list)
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load tasks')
+        if (!cancelled) setError(agentTasksErrorMessage(err))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -127,6 +135,7 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
   // Group tasks by state for compact rendering. STATE_ORDER puts active work
   // (working/queued/backlog/blocked) above terminal states (completed/failed/canceled).
   const grouped = useMemo(() => groupTasksByState(visibleTasks), [visibleTasks])
+  const filterEmptyState = agentTasksFilterEmptyState(filter, query)
   const resetTaskFilters = () => {
     setFilter('all')
     setQuery('')
@@ -142,7 +151,7 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
           'animate-pulse text-center text-ui-body text-secondary-light dark:text-secondary-dark'
         )}
       >
-        Loading this agent's tasks...
+        Checking this agent's work list...
       </div>
     )
   }
@@ -150,6 +159,7 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
   if (error) {
     return (
       <div
+        role="alert"
         data-testid="agent-tasks-error"
         className={cn(
           'bg-white dark:bg-[#2c2c2e] rounded-xl px-4 py-6',
@@ -157,9 +167,9 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
           'text-center text-ui-body text-apple-red'
         )}
       >
-        <p className="font-medium">Tasks could not be loaded.</p>
+        <p className="font-medium">Refresh this agent's work list.</p>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Details: {error}
+          {error}
         </p>
       </div>
     )
@@ -236,7 +246,7 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search by task name, blocker, or result"
+            placeholder="Search by task name, problem, or result"
             className={cn(
               'h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-8 pr-3 text-ui-body outline-none',
               'text-foreground-light placeholder:text-secondary-light dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:placeholder:text-secondary-dark',
@@ -293,7 +303,7 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
           )
         })
       ) : (
-        <AgentTasksFilterEmptyState onReset={resetTaskFilters} />
+        <AgentTasksFilterEmptyState copy={filterEmptyState} onReset={resetTaskFilters} />
       )}
     </div>
   )
@@ -313,9 +323,10 @@ function AgentTasksEmptyState() {
           <ListFilter size={17} strokeWidth={2.15} aria-hidden="true" />
         </span>
         <div className="min-w-0">
-          <h3 className="text-ui-section font-semibold">No tasks have reached this agent yet</h3>
+          <h3 className="text-ui-section font-semibold">Create a task for this agent</h3>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-            Tasks appear here after work is routed to this agent or to a work lane it can receive.
+            Send a small task to this agent, or choose a task queue it can receive, then work will
+            appear here.
           </p>
         </div>
       </div>
@@ -332,11 +343,20 @@ function AgentTasksEmptyState() {
           </li>
         ))}
       </ol>
+      <p className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
+        Success looks like a task showing Waiting to start or Doing now in this list.
+      </p>
     </section>
   )
 }
 
-function AgentTasksFilterEmptyState({ onReset }: { onReset: () => void }) {
+function AgentTasksFilterEmptyState({
+  copy,
+  onReset,
+}: {
+  copy: EmptyStateCopy
+  onReset: () => void
+}) {
   return (
     <div
       data-testid="agent-tasks-filter-empty"
@@ -345,10 +365,8 @@ function AgentTasksFilterEmptyState({ onReset }: { onReset: () => void }) {
         'text-center text-ui-body text-secondary-light dark:border-white/[0.12] dark:bg-[#2c2c2e] dark:text-secondary-dark'
       )}
     >
-      <p className="font-medium text-foreground-light dark:text-foreground-dark">
-        No tasks match this view.
-      </p>
-      <p className="mt-1 text-ui-caption">Try All or clear the search to see this agent's tasks.</p>
+      <p className="font-medium text-foreground-light dark:text-foreground-dark">{copy.title}</p>
+      <p className="mt-1 text-ui-caption">{copy.detail}</p>
       <button
         type="button"
         onClick={onReset}
@@ -358,10 +376,34 @@ function AgentTasksFilterEmptyState({ onReset }: { onReset: () => void }) {
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35'
         )}
       >
-        Clear filters
+        Show all agent work
       </button>
     </div>
   )
+}
+
+function agentTasksFilterEmptyState(filter: AgentTaskFilter, query: string): EmptyStateCopy {
+  const hasSearch = query.trim().length > 0
+  const hasFilter = filter !== 'all'
+
+  if (hasSearch && hasFilter) {
+    return {
+      title: 'Clear search or show all agent work',
+      detail: 'This agent has tasks, but the current search and filter hide them.',
+    }
+  }
+
+  if (hasSearch) {
+    return {
+      title: "Clear search to see this agent's work",
+      detail: 'This agent has tasks, but this search hides them. Try a broader word.',
+    }
+  }
+
+  return {
+    title: "Choose All to see this agent's work",
+    detail: 'This agent has tasks, but this filter has no results yet.',
+  }
 }
 
 function WorkloadMetric({
@@ -433,6 +475,17 @@ function TaskFilterButton({
 
 function AgentTaskRow({ task }: { task: TaskSummary }) {
   const showProgress = task.state === 'working' && task.progress > 0
+  const failurePreview =
+    task.state === 'failed' && task.error ? taskFailurePreview(task.error) : null
+  const blockedPreview =
+    task.state === 'blocked' && task.blockedHint
+      ? taskBlockedPreview({
+          blockedHint: task.blockedHint,
+          blockedReason: task.blockedReason,
+          error: task.error,
+        })
+      : null
+
   return (
     <li
       data-testid={`agent-task-row-${task.id}`}
@@ -461,24 +514,24 @@ function AgentTaskRow({ task }: { task: TaskSummary }) {
         </div>
       )}
 
-      {task.state === 'blocked' && task.blockedHint && (
+      {blockedPreview && (
         <p
           data-testid={`agent-task-blocked-${task.id}`}
           className="flex items-start gap-1 text-ui-caption font-medium text-apple-red"
-          title={task.blockedHint}
+          title={blockedPreview}
         >
           <AlertTriangle size={12} strokeWidth={2.25} className="mt-0.5 shrink-0" />
-          <span className="line-clamp-2">Needs help: {task.blockedHint}</span>
+          <span className="line-clamp-2">Needs help: {blockedPreview}</span>
         </p>
       )}
 
-      {task.state === 'failed' && task.error && (
+      {failurePreview && (
         <p
           data-testid={`agent-task-error-${task.id}`}
           className="line-clamp-1 text-ui-caption text-apple-red"
-          title={task.error}
+          title={failurePreview}
         >
-          Stopped because: {task.error}
+          {failurePreview}
         </p>
       )}
     </li>

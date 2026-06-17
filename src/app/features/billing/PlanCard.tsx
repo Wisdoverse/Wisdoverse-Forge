@@ -69,16 +69,16 @@ function nextStep(plan: BillingPlan | null, subscription: BillingSubscription | 
   if (!subscription) {
     return plan
       ? 'Upgrade only when your team needs this paid capacity.'
-      : 'Start here. Upgrade when your team needs more agents, history, or AI usage.'
+      : 'Start here. Upgrade when your team needs more agents, history, or AI message use.'
   }
 
   if (subscription.cancelAtPeriodEnd) {
-    return `The plan will stop on ${formatDate(subscription.currentPeriodEnd)}. Manage billing to resume it before that date.`
+    return `The plan will stop on ${formatDate(subscription.currentPeriodEnd)}. Open billing management to resume it before that date.`
   }
 
   switch (subscription.status) {
     case 'active':
-      return 'No action needed now. Manage billing for receipts, payment details, or cancellation.'
+      return 'No action needed now. Open billing management for receipts, payment details, or cancellation.'
     case 'trialing':
       return `The trial runs until ${formatDate(subscription.currentPeriodEnd)}. Check usage before it ends.`
     case 'past_due':
@@ -109,7 +109,7 @@ export function PlanCard({
   onUpgrade,
   onManage,
   loading,
-  actionPending: _actionPending,
+  actionPending,
   actionError,
 }: PlanCardProps) {
   if (loading) {
@@ -125,6 +125,8 @@ export function PlanCard({
   const badge = subscription ? statusBadge(subscription.status) : null
   const canUpgrade = Boolean(plan)
   const priceLabel = plan ? formatCurrency(plan.price.monthly, plan.price.currency) : '$0'
+  const openingCheckout = actionPending === 'checkout'
+  const openingPortal = actionPending === 'portal'
 
   return (
     <div className={cn(uiStyles.cardPadded, 'flex flex-col gap-4')}>
@@ -160,8 +162,8 @@ export function PlanCard({
 
           {!plan && !subscription && (
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              No paid plan is attached yet. An administrator must publish a billing plan before
-              checkout is available.
+              No paid plan is attached yet. An owner or admin must make a paid plan available before
+              the secure payment page can open.
             </p>
           )}
 
@@ -173,26 +175,31 @@ export function PlanCard({
 
           <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
             {subscription
-              ? 'Use the billing portal to update payment methods, invoices, or cancellation.'
+              ? 'Use the billing management page to update payment methods, invoices, or cancellation.'
               : canUpgrade
-                ? 'Upgrade opens checkout in this browser. Review the plan before continuing.'
-                : 'Ask an owner or administrator to make a plan available.'}
+                ? 'Upgrade opens a secure payment page in this browser. Review the plan before continuing.'
+                : 'Ask an owner or admin to make a plan available.'}
           </p>
         </div>
 
         <div className="flex shrink-0 flex-col gap-2 sm:items-end">
           {subscription ? (
-            <button type="button" onClick={onManage} className={uiStyles.secondaryButton}>
-              Manage billing
+            <button
+              type="button"
+              onClick={onManage}
+              disabled={openingPortal}
+              className={uiStyles.secondaryButton}
+            >
+              {openingPortal ? 'Opening billing page...' : 'Manage billing'}
             </button>
           ) : (
             <button
               type="button"
               onClick={onUpgrade}
-              disabled={!canUpgrade}
+              disabled={!canUpgrade || openingCheckout}
               className={uiStyles.primaryButton}
             >
-              Upgrade plan
+              {openingCheckout ? 'Opening payment page...' : 'Upgrade plan'}
             </button>
           )}
         </div>

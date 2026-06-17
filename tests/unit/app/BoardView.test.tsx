@@ -4,10 +4,21 @@ import { BoardView } from '@app/features/board/BoardView'
 import { useBoardStore } from '@app/shared/model/board.store'
 import { useNavigationStore } from '@app/entities/navigation'
 
+const boardSocketMocks = vi.hoisted(() => ({
+  status: 'disconnected' as 'connecting' | 'connected' | 'disconnected',
+}))
 const mockGetTasks = vi.fn().mockResolvedValue([])
 const mockCreateTask = vi.fn().mockResolvedValue({ ok: true, task: null })
 const mockUpdateTask = vi.fn().mockResolvedValue({ ok: true })
 const mockGetParticipants = vi.fn().mockResolvedValue([])
+
+vi.mock('@app/shared/model/websocket.context', () => ({
+  useWebSocket: () => ({
+    status: boardSocketMocks.status,
+    send: vi.fn(),
+    subscribe: vi.fn(() => () => {}),
+  }),
+}))
 
 vi.mock('@app/shared/api/orchestration', () => ({
   taskResultArtifacts: (result: unknown) => (Array.isArray(result) ? result : []),
@@ -20,8 +31,9 @@ vi.mock('@app/shared/api/orchestration', () => ({
 }))
 
 beforeEach(() => {
+  boardSocketMocks.status = 'disconnected'
   mockGetTasks.mockClear().mockResolvedValue([])
-  mockCreateTask.mockClear()
+  mockCreateTask.mockClear().mockResolvedValue({ ok: true, task: null })
   mockUpdateTask.mockClear()
   mockGetParticipants.mockClear().mockResolvedValue([])
 })
@@ -35,32 +47,91 @@ afterEach(() => {
 
 describe('BoardView', () => {
   test('shows no-group placeholder when no group is selected', () => {
-    render(<BoardView />)
+    const onOpenProjectsSetup = vi.fn()
+
+    render(<BoardView onOpenProjectsSetup={onOpenProjectsSetup} />)
+
     expect(screen.getByTestId('board-no-group')).toBeDefined()
-    expect(screen.getByText(/pick a project to start/i)).toBeDefined()
+    expect(screen.getByText(/create or choose a project before creating tasks/i)).toBeDefined()
+    expect(screen.getByText(/open project settings to create a project/i)).toBeDefined()
+    expect(screen.queryByText(/choose a project from the sidebar/i)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /open project settings/i }))
+    expect(onOpenProjectsSetup).toHaveBeenCalledTimes(1)
   })
 
-  test('explains missing task group when a project is selected', () => {
+  test('explains missing task queue when a project is selected', () => {
     useNavigationStore.setState({ selectedProjectId: 'p1' })
+    const onOpenTaskQueues = vi.fn()
 
-    render(<BoardView />)
+    render(<BoardView onOpenTaskQueues={onOpenTaskQueues} />)
 
-    expect(screen.getByText(/create a work lane first/i)).toBeDefined()
-    expect(screen.getByText(/task group is the work lane agents listen to/i)).toBeDefined()
+    expect(screen.getByText(/create a task queue before sending work/i)).toBeDefined()
+    expect(screen.getByText(/a task queue gives new tasks a place to wait/i)).toBeDefined()
+    expect(screen.getByText(/open task queues to create one/i)).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: /set up task queues/i }))
+    expect(onOpenTaskQueues).toHaveBeenCalledTimes(1)
   })
 
   test('renders task lifecycle columns with correct headers', async () => {
     useBoardStore.getState().setSelectedGroupId('test-group')
     render(<BoardView />)
     await waitFor(() => {
-      expect(screen.getAllByText('Backlog').length).toBeGreaterThan(0)
+      expect(screen.getAllByText('Not sent yet').length).toBeGreaterThan(0)
     })
-    expect(screen.getByText('Queued')).toBeDefined()
+    expect(screen.queryByText('Backlog')).toBeNull()
+    expect(screen.getByText('Waiting to start')).toBeDefined()
     expect(screen.getByText('Working')).toBeDefined()
-    expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Needs help').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Blocked')).toBeNull()
     expect(screen.getByText('Done')).toBeDefined()
-    expect(screen.getByText('Failed')).toBeDefined()
+    expect(screen.getByText(/check results and save repeatable steps/i)).toBeDefined()
+    expect(screen.queryByText(/saved guidance/i)).toBeNull()
+    expect(screen.getByText('Review recovery')).toBeDefined()
+    expect(screen.queryByText('Failed')).toBeNull()
     expect(screen.getByText('Canceled')).toBeDefined()
+  })
+
+  test('shows beginner sign-in guidance when tasks fail to load', async () => {
+    mockGetTasks.mockRejectedValueOnce(new Error('401 Unauthorized'))
+    useBoardStore.getState().setSelectedGroupId('test-group')
+
+    render(<BoardView />)
+
+    const error = await screen.findByTestId('board-error')
+    expect(error.textContent).toContain('Sign in again')
+    expect(error.textContent).not.toContain('Code:')
+    expect(error.textContent).not.toContain('401 Unauthorized')
+    expect(within(error).getByRole('button', { name: /try again/i })).toBeDefined()
+  })
+
+  test('lets users retry when tasks fail to load', async () => {
+    mockGetTasks.mockRejectedValueOnce(new Error('HTTP 503')).mockResolvedValueOnce([])
+    useBoardStore.getState().setSelectedGroupId('test-group')
+
+    render(<BoardView />)
+
+    const error = await screen.findByTestId('board-error')
+    fireEvent.click(within(error).getByRole('button', { name: /try again/i }))
+
+    await waitFor(() => expect(mockGetTasks).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(screen.queryByTestId('board-error')).toBeNull())
+    expect(screen.getByTestId('assignment-readiness')).toBeDefined()
+  })
+
+  test('shows beginner network guidance when readiness cannot load', async () => {
+    mockGetParticipants.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    useBoardStore.getState().setSelectedGroupId('test-group')
+
+    render(<BoardView />)
+
+    const readiness = await screen.findByTestId('assignment-readiness')
+    expect(readiness.textContent).toContain(
+      'Refresh the board to load agent status before sending work.'
+    )
+    expect(readiness.textContent).toContain(
+      'If it still does not load, check your connection and refresh the page.'
+    )
+    expect(screen.queryByText(/failed to fetch/i)).toBeNull()
   })
 
   test('shows board-level assignment readiness with agent blockers', async () => {
@@ -88,8 +159,8 @@ describe('BoardView', () => {
     expect(screen.getByText(/1 agent can take work now/i)).toBeDefined()
     expect(screen.getByText('Ready Agent')).toBeDefined()
     expect(screen.getByText('Busy Agent')).toBeDefined()
-    expect(screen.getAllByText('Available').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Busy').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Can take work').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Working now').length).toBeGreaterThan(0)
   })
 
   test('summarizes work handoff pressure from board columns', async () => {
@@ -135,7 +206,7 @@ describe('BoardView', () => {
       {
         id: 'blocked-1',
         state: 'blocked',
-        params: { task: 'Blocked task', message: '' },
+        params: { task: 'Task waiting for help', message: '' },
         assignedTo: 'agent-1',
         assignedAgentName: 'Ready Agent',
         priority: 'high',
@@ -160,11 +231,14 @@ describe('BoardView', () => {
 
     render(<BoardView />)
 
-    expect(await screen.findByText(/2 unassigned tasks can be handed off/i)).toBeDefined()
+    expect(await screen.findByText(/2 tasks need an agent/i)).toBeDefined()
+    expect(screen.getByText(/choose an available agent to start them/i)).toBeDefined()
     expect(screen.getByTestId('assignment-metric-backlog').textContent).toContain('2')
     expect(screen.getByTestId('assignment-metric-unassigned').textContent).toContain('2')
+    expect(screen.getByTestId('assignment-metric-unassigned').textContent).toContain('Needs agent')
     expect(screen.getByTestId('assignment-metric-in-flight').textContent).toContain('1')
     expect(screen.getByTestId('assignment-metric-blocked').textContent).toContain('1')
+    expect(screen.getByTestId('assignment-metric-blocked').textContent).toContain('Needs help')
     expect(screen.getByTestId('assignment-metric-review').textContent).toContain('1')
   })
 
@@ -252,9 +326,14 @@ describe('BoardView', () => {
     expect(screen.getByText('Dashboard polish')).toBeDefined()
 
     fireEvent.change(screen.getByTestId('board-search'), { target: { value: 'missing' } })
-    expect(screen.getByTestId('board-filter-empty')).toBeDefined()
+    const emptyState = screen.getByTestId('board-filter-empty')
+    expect(within(emptyState).getByText('Search is hiding every task')).toBeDefined()
+    expect(within(emptyState).getByText(/none match the words you typed/i)).toBeDefined()
+    expect(within(emptyState).getByText(/before assuming the board is empty/i)).toBeDefined()
+    expect(emptyState.textContent).not.toContain('No Tasks Match This Board View')
+    expect(emptyState.textContent).not.toContain('full workflow')
 
-    fireEvent.click(screen.getByRole('button', { name: /clear filters/i }))
+    fireEvent.click(within(emptyState).getByRole('button', { name: /show all tasks/i }))
     expect(screen.getByText('API migration')).toBeDefined()
     expect(screen.getByText('Dashboard polish')).toBeDefined()
   })
@@ -296,6 +375,23 @@ describe('BoardView', () => {
     fireEvent.click(within(toolbar).getByRole('button', { name: /^has agent\s*1$/i }))
     expect(screen.queryByText('Production incident')).toBeNull()
     expect(screen.getByText('Copy review')).toBeDefined()
+  })
+
+  test('shows beginner guidance when quick task creation returns no task', async () => {
+    useBoardStore.getState().setSelectedGroupId('test-group')
+    render(<BoardView />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /add task idea/i }))
+    fireEvent.change(screen.getByLabelText(/task goal/i), {
+      target: { value: 'Task without result' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^save for later$/i }))
+
+    const alert = await screen.findByTestId('board-action-error')
+    expect(alert).toHaveTextContent(
+      'Check the project, task queue, and result, then create the task again. The task was not created.'
+    )
+    expect(alert.textContent).not.toContain('API')
   })
 
   test('shows column task count', async () => {
@@ -342,5 +438,23 @@ describe('BoardView', () => {
     })
 
     expect(mockGetTasks).toHaveBeenCalledTimes(2)
+  })
+
+  test('skips fallback refresh while live updates are connected', async () => {
+    vi.useFakeTimers()
+    boardSocketMocks.status = 'connected'
+    useBoardStore.getState().setSelectedGroupId('test-group')
+
+    render(<BoardView />)
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(mockGetTasks).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000)
+    })
+
+    expect(mockGetTasks).toHaveBeenCalledTimes(1)
   })
 })

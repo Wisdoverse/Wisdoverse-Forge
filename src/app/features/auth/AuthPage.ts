@@ -2,11 +2,193 @@
  * AuthPage - Full-screen login/registration page with tech-themed dark UI
  */
 
-import type { AuthManager } from '@app/shared/auth/AuthManager'
+import type { AuthManager, LoginResult } from '@app/shared/auth/AuthManager'
 import { config } from '@app/shared/config'
 import { iconSuccess } from '@app/shared/ui/icons'
 
 type AuthTab = 'login' | 'register'
+type AuthRecoveryAction = 'resend-verification' | 'forgot-password' | 'reset-password'
+type AuthFailure = Pick<LoginResult, 'error' | 'errorCode'>
+
+function authFailureDetail(result: AuthFailure): {
+  code: string
+  detail: string
+  lowerDetail: string
+} {
+  const code = typeof result.errorCode === 'string' ? result.errorCode.trim().toUpperCase() : ''
+  const detail = typeof result.error === 'string' ? result.error.trim() : ''
+  return { code, detail, lowerDetail: detail.toLowerCase() }
+}
+
+function authLoginErrorMessage(result: AuthFailure): string {
+  const { code, lowerDetail } = authFailureDetail(result)
+  const networkFailed =
+    lowerDetail.includes('could not connect') ||
+    lowerDetail.includes('network') ||
+    lowerDetail.includes('failed to fetch') ||
+    lowerDetail.includes('load failed')
+
+  if (networkFailed) {
+    return 'Check your connection, then try signing in again. Forge could not reach sign-in.'
+  }
+  if (
+    code.includes('RATE') ||
+    code.includes('TOO_MANY') ||
+    lowerDetail.includes('too many') ||
+    lowerDetail.includes('rate limit') ||
+    lowerDetail.includes('429')
+  ) {
+    return 'Wait a few minutes, then try signing in again. Too many sign-in attempts.'
+  }
+  if (
+    code.includes('INVALID') ||
+    code.includes('UNAUTHORIZED') ||
+    lowerDetail.includes('invalid credential') ||
+    lowerDetail.includes('invalid email') ||
+    lowerDetail.includes('incorrect password') ||
+    lowerDetail.includes('wrong password') ||
+    lowerDetail.includes('not found') ||
+    lowerDetail.includes('unauthorized')
+  ) {
+    return 'Check your email and password, then try signing in again.'
+  }
+  if (
+    lowerDetail.includes('disabled') ||
+    lowerDetail.includes('locked') ||
+    lowerDetail.includes('suspended') ||
+    lowerDetail.includes('forbidden')
+  ) {
+    return 'Ask an owner or admin to check your access. This account is not allowed to sign in here.'
+  }
+
+  return 'Try signing in again in a minute. If it still fails, ask an owner or admin to check sign-in setup.'
+}
+
+function authRegisterErrorMessage(result: AuthFailure): string {
+  const { code, lowerDetail } = authFailureDetail(result)
+  const networkFailed =
+    lowerDetail.includes('could not connect') ||
+    lowerDetail.includes('network') ||
+    lowerDetail.includes('failed to fetch') ||
+    lowerDetail.includes('load failed')
+
+  if (networkFailed) {
+    return 'Check your connection, then create the account again. Forge could not reach account setup.'
+  }
+  if (
+    code.includes('RATE') ||
+    code.includes('TOO_MANY') ||
+    lowerDetail.includes('too many') ||
+    lowerDetail.includes('rate limit') ||
+    lowerDetail.includes('429')
+  ) {
+    return 'Wait a few minutes, then create the account again. Too many account creation attempts.'
+  }
+  if (
+    code.includes('EMAIL_ALREADY') ||
+    code.includes('ALREADY_EXISTS') ||
+    code.includes('CONFLICT') ||
+    lowerDetail.includes('already exists') ||
+    lowerDetail.includes('already registered') ||
+    lowerDetail.includes('duplicate') ||
+    lowerDetail.includes('conflict')
+  ) {
+    return 'Sign in instead, or reset the password if you cannot access it. An account may already exist for this email.'
+  }
+  if (
+    code.includes('WEAK_PASSWORD') ||
+    lowerDetail.includes('password') ||
+    lowerDetail.includes('too short')
+  ) {
+    return 'Use a stronger password. It needs at least 12 characters and a mix of letters, numbers, and symbols.'
+  }
+  if (
+    code.includes('INVALID_EMAIL') ||
+    lowerDetail.includes('invalid email') ||
+    lowerDetail.includes('email address')
+  ) {
+    return 'Enter a valid email address, then try creating the account again.'
+  }
+
+  return 'Check the fields, then create the account again. If it still fails, ask an owner or admin to check account setup.'
+}
+
+function authSignInErrorMessage(error: unknown): string {
+  const detail =
+    error instanceof Error ? error.message.trim() : typeof error === 'string' ? error.trim() : ''
+  const lowerDetail = detail.toLowerCase()
+  const networkFailed =
+    error instanceof TypeError ||
+    /^failed to fetch$/i.test(detail) ||
+    lowerDetail.includes('network') ||
+    lowerDetail.includes('load failed')
+
+  if (networkFailed) {
+    return 'Check your connection, then try signing in again. Forge could not reach sign-in.'
+  }
+  if (lowerDetail.includes('access_denied') || lowerDetail.includes('cancel')) {
+    return 'Choose a sign-in option, then try again. Sign-in was cancelled.'
+  }
+  if (
+    lowerDetail.includes('invalid_grant') ||
+    lowerDetail.includes('invalid_request') ||
+    lowerDetail.includes('expired') ||
+    lowerDetail.includes('auth code') ||
+    lowerDetail.includes('state mismatch') ||
+    lowerDetail.includes('token')
+  ) {
+    return 'Start sign-in again from this page. This sign-in link expired or could not be verified.'
+  }
+  if (
+    lowerDetail.includes('unauthorized') ||
+    lowerDetail.includes('forbidden') ||
+    lowerDetail.includes('permission')
+  ) {
+    return 'Ask an owner or admin to check your access. This account is not allowed to sign in here.'
+  }
+  if (
+    lowerDetail.includes('provider') ||
+    lowerDetail.includes('client') ||
+    lowerDetail.includes('not configured')
+  ) {
+    return 'Ask an owner or admin to check sign-in setup. This sign-in option is not ready.'
+  }
+
+  return 'Choose a sign-in option and try again. If it still fails, ask an owner or admin to check sign-in setup.'
+}
+
+function authRecoveryErrorMessage(action: AuthRecoveryAction, error: unknown): string {
+  const detail = error instanceof Error ? error.message.trim() : ''
+  const lowerDetail = detail.toLowerCase()
+  const networkFailed =
+    error instanceof TypeError ||
+    /^failed to fetch$/i.test(detail) ||
+    lowerDetail.includes('network')
+
+  if (networkFailed) {
+    switch (action) {
+      case 'resend-verification':
+        return 'Check your connection, then send the verification email again. Forge could not reach email delivery.'
+      case 'forgot-password':
+        return 'Check your connection, then request the reset email again. Forge could not reach email delivery.'
+      case 'reset-password':
+        return 'Check your connection, then save the new password again. Forge could not reach password reset.'
+    }
+  }
+
+  if (action === 'reset-password') {
+    if (lowerDetail.includes('expired') || lowerDetail.includes('invalid')) {
+      return 'Request a new reset email, then open the newest link. This reset link may have expired.'
+    }
+    return 'Check the password rules, then try again. Password could not be updated.'
+  }
+
+  if (action === 'forgot-password') {
+    return 'Check the email address, wait a moment, then request the reset email again.'
+  }
+
+  return 'Check that this is the email you used to create the account, then send the verification email again.'
+}
 
 /** Get SSO provider icon based on provider name */
 function getSsoIcon(name: string): string {
@@ -51,6 +233,7 @@ export class AuthPage {
 
     // Handle URL parameters first
     const urlParams = new URLSearchParams(window.location.search)
+    let signInError: unknown | null = null
 
     // Handle reset token
     const resetToken = this.initialResetToken ?? urlParams.get('reset_token')
@@ -79,6 +262,7 @@ export class AuthPage {
       } catch (error) {
         // Show error, fall through to login page
         console.error('SSO exchange failed:', error)
+        signInError = error
       }
     }
 
@@ -103,7 +287,10 @@ export class AuthPage {
     const authError = urlParams.get('auth_error')
     if (authError) {
       window.history.replaceState({}, '', window.location.pathname)
-      this.setError(decodeURIComponent(authError))
+      signInError = authError
+    }
+    if (signInError) {
+      this.setError(authSignInErrorMessage(signInError))
     }
 
     // Auto-focus first input
@@ -137,9 +324,9 @@ export class AuthPage {
         <div class="auth-header">
           <div class="auth-logo">&#9881;</div>
           <h1 class="auth-title">Wisdoverse Forge</h1>
-          <p class="auth-subtitle">Team workspace access</p>
+          <p class="auth-subtitle">Team space access</p>
           <p class="auth-intro">
-            Sign in to manage agents, tasks, evidence, and team settings from one workspace.
+            Sign in to manage agents, tasks, evidence, and team settings from one team space.
           </p>
           <p class="auth-intro auth-intro-secondary">
             New here? Create an account first. Already invited? Sign in with your email.
@@ -237,12 +424,12 @@ export class AuthPage {
     return `
       <form class="auth-form" id="register-form" style="display:none">
         <p class="auth-form-note">
-          Create your first workspace account. You can invite teammates and connect agents after you get in.
+          Create your first team space account. You can invite teammates and connect agents after you get in.
         </p>
         <div class="auth-field">
           <label class="auth-label" for="register-email">Email address</label>
           <input class="auth-input" id="register-email" type="email" placeholder="name@example.com" autocomplete="email" required>
-          <span class="auth-hint">We use this for verification, password reset, and workspace alerts.</span>
+          <span class="auth-hint">We use this for verification, password reset, and team space alerts.</span>
         </div>
         <div class="auth-field">
           <label class="auth-label" for="register-username">Display name <span class="auth-optional">(optional)</span></label>
@@ -411,9 +598,7 @@ export class AuthPage {
       this.setError('')
       this.showVerificationBanner(email)
     } else {
-      this.setError(
-        result.error || 'We could not sign you in. Check your email and password, then try again.'
-      )
+      this.setError(authLoginErrorMessage(result))
       this.shakeCard()
     }
   }
@@ -439,9 +624,7 @@ export class AuthPage {
         this.showVerificationPending(email)
       }
     } else {
-      this.setError(
-        result.error || 'We could not create the account yet. Check the fields and try again.'
-      )
+      this.setError(authRegisterErrorMessage(result))
       this.shakeCard()
     }
   }
@@ -480,6 +663,7 @@ export class AuthPage {
         <div class="auth-verify-banner-title">Check your email first</div>
         <div class="auth-verify-banner-text">We sent a verification link to <strong id="verify-email-display"></strong>. Open it, then come back and sign in.</div>
         <button type="button" class="auth-verify-banner-resend" id="verify-resend-btn">Send verification email again</button>
+        <div id="verify-resend-error" class="auth-error" style="display:none; margin:8px 0 0;"></div>
       </div>
     `
 
@@ -493,10 +677,15 @@ export class AuthPage {
 
     // Wire up resend button
     const resendBtn = banner.querySelector<HTMLButtonElement>('#verify-resend-btn')
+    const resendError = banner.querySelector<HTMLDivElement>('#verify-resend-error')
     resendBtn?.addEventListener('click', async () => {
       if (!resendBtn || resendBtn.disabled) return
       resendBtn.disabled = true
       resendBtn.textContent = 'Sending...'
+      if (resendError) {
+        resendError.textContent = ''
+        resendError.style.display = 'none'
+      }
       try {
         await this.authManager.resendVerification(email)
         resendBtn.textContent = 'Sent. Check your inbox.'
@@ -509,7 +698,11 @@ export class AuthPage {
       } catch (err) {
         console.error('[AuthPage] Failed to resend verification email:', err)
         resendBtn.disabled = false
-        resendBtn.textContent = 'Could not send. Try again.'
+        resendBtn.textContent = 'Send verification email again'
+        if (resendError) {
+          resendError.textContent = authRecoveryErrorMessage('resend-verification', err)
+          resendError.style.display = ''
+        }
       }
     })
   }
@@ -623,6 +816,7 @@ export class AuthPage {
           padding: 10px 24px; border-radius: 8px; cursor: pointer; font-size: 14px;
           margin-bottom: 16px; transition: all 0.2s; font-weight: 500;
         ">Send verification email again</button>
+        <p id="resend-error" style="display:none; color:#fca5a5; font-size:13px; margin:0 0 16px;"></p>
         <br/>
         <a href="#" id="back-to-login" style="color: #64748b; font-size: 13px; text-decoration: none; transition: color 0.2s;">Back to sign in</a>
       </div>
@@ -631,9 +825,14 @@ export class AuthPage {
     if (emailTarget) emailTarget.textContent = email
     // Add event listeners
     const resendBtn = container.querySelector('#resend-btn') as HTMLButtonElement
+    const resendError = container.querySelector('#resend-error') as HTMLElement | null
     resendBtn?.addEventListener('click', async () => {
       resendBtn.disabled = true
       resendBtn.textContent = 'Sending...'
+      if (resendError) {
+        resendError.textContent = ''
+        resendError.style.display = 'none'
+      }
       try {
         await this.authManager.resendVerification(email)
         resendBtn.textContent = 'Sent. Try again in 60s'
@@ -644,7 +843,10 @@ export class AuthPage {
       } catch (error) {
         resendBtn.disabled = false
         resendBtn.textContent = 'Send verification email again'
-        console.error('Resend failed:', error)
+        if (resendError) {
+          resendError.textContent = authRecoveryErrorMessage('resend-verification', error)
+          resendError.style.display = ''
+        }
       }
     })
     resendBtn?.addEventListener('mouseenter', () => {
@@ -743,8 +945,7 @@ export class AuthPage {
         }, 1000)
       } catch (error) {
         this.setLoading('forgot-submit', false)
-        errorDiv.textContent =
-          (error as Error).message || 'We could not send the reset email. Try again in a moment.'
+        errorDiv.textContent = authRecoveryErrorMessage('forgot-password', error)
         errorDiv.style.display = ''
       }
     })
@@ -838,13 +1039,15 @@ export class AuthPage {
       errorDiv.style.display = 'none'
 
       if (password !== confirm) {
-        errorDiv.textContent = 'The two passwords do not match.'
+        errorDiv.textContent =
+          'The two passwords do not match. Re-enter both fields, then try again.'
         errorDiv.style.display = ''
         this.shakeCard()
         return
       }
       if (password.length < 12) {
-        errorDiv.textContent = 'Use at least 12 characters for the new password.'
+        errorDiv.textContent =
+          'Use at least 12 characters for the new password. Add a few more characters, then try again.'
         errorDiv.style.display = ''
         this.shakeCard()
         return
@@ -878,8 +1081,7 @@ export class AuthPage {
           navigateToLogin()
         })
       } catch (error) {
-        errorDiv.textContent =
-          (error as Error).message || 'We could not update the password. The link may have expired.'
+        errorDiv.textContent = authRecoveryErrorMessage('reset-password', error)
         errorDiv.style.display = ''
         this.setLoading('reset-submit', false)
         this.shakeCard()

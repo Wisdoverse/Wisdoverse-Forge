@@ -75,41 +75,163 @@ function preview(overrides: Partial<ContextPreviewResponse> = {}): ContextPrevie
 
 describe('InjectionPreviewModal', () => {
   test('renders a beginner-readable review before publishing context', () => {
+    const review = preview()
+    review.items = [
+      review.items[0],
+      {
+        ...review.items[1],
+        id: 'memory-team-space',
+        title: 'Team space setup note',
+        scopeKind: 'org',
+        scopeId: 'org-1',
+      },
+    ]
+    review.degradation = ['budget_truncated']
+
+    render(
+      <InjectionPreviewModal isOpen preview={review} onClose={() => {}} onConfirm={() => {}} />
+    )
+
+    expect(screen.getByRole('dialog', { name: 'Review saved notes before sending' })).toBeDefined()
+    expect(
+      screen.getByText(/saved notes and saved instructions the agent will see next/i)
+    ).toBeDefined()
+    expect(screen.getByText('2 items selected · Enough room for a few saved notes')).toBeDefined()
+    expect(screen.getByText('Agent will use')).toBeDefined()
+    expect(screen.getByText('Claude')).toBeDefined()
+    expect(screen.getByText('Work location')).toBeDefined()
+    expect(screen.getByText('Managed workspace')).toBeDefined()
+    expect(screen.getByText('Note limits')).toBeDefined()
+    expect(
+      screen.getByText('Some notes will be left out because this agent has limited note space')
+    ).toBeDefined()
+    expect(screen.getByText('Will be included')).toBeDefined()
+    expect(
+      screen.getByText('Checked items will be shared with the agent when you send the task.')
+    ).toBeDefined()
+    expect(screen.getByText('More saved items you can include')).toBeDefined()
+    expect(screen.getByText('These are not shared unless you add them.')).toBeDefined()
+    expect(screen.getByText('Kept easy to reuse')).toBeDefined()
+    expect(
+      screen.getByText(
+        'No saved items are pinned yet. Choose the pin button on a saved item to keep it easy to reuse.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByText('Nothing will be shared yet.')).toBeNull()
+    expect(
+      screen.queryByText(
+        'Nothing is kept yet. Choose the pin button on a saved item to keep it easy to reuse.'
+      )
+    ).toBeNull()
+    expect(screen.getAllByText('Saved note').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Project').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Team space').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Organization')).toBeNull()
+    expect(screen.getAllByText('Internal').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Small saved item').length).toBeGreaterThan(0)
+  })
+
+  test('uses chat-only AI service wording for provider context reviews', () => {
     render(
       <InjectionPreviewModal
         isOpen
-        preview={preview({ degradation: ['budget_truncated'] })}
+        preview={preview({
+          capability: {
+            runtime_kind: 'provider',
+            max_context_tokens: 1200,
+          },
+        })}
         onClose={() => {}}
         onConfirm={() => {}}
       />
     )
 
-    expect(screen.getByRole('dialog', { name: 'Review context before publishing' })).toBeDefined()
-    expect(
-      screen.getByText(/saved notes and skill instructions the agent will see next/i)
-    ).toBeDefined()
-    expect(screen.getByText('2 items selected · Context limit: 1,200 tokens')).toBeDefined()
-    expect(screen.getByText('Agent will use')).toBeDefined()
-    expect(screen.getByText('Claude')).toBeDefined()
     expect(screen.getByText('Work location')).toBeDefined()
-    expect(screen.getByText('Container workspace')).toBeDefined()
-    expect(screen.getByText('Limits applied')).toBeDefined()
-    expect(
-      screen.getByText('Some matches were left out to stay within the context limit')
-    ).toBeDefined()
-    expect(screen.getByText('Will be included')).toBeDefined()
-    expect(
-      screen.getByText('Checked items will be shared with the agent when you publish.')
-    ).toBeDefined()
-    expect(screen.getByText('Optional matches')).toBeDefined()
-    expect(
-      screen.getByText('These may help, but they stay out unless you choose them.')
-    ).toBeDefined()
-    expect(screen.getByText('Pinned for later')).toBeDefined()
-    expect(screen.getAllByText('Saved note').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Project').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Internal').length).toBeGreaterThan(0)
-    expect(screen.getByText('About 120 context tokens')).toBeDefined()
+    expect(screen.getByText('Chat-only AI service')).toBeDefined()
+    expect(screen.queryByText(/Text-only model/i)).toBeNull()
+  })
+
+  test('labels unknown work locations without exposing backend values', () => {
+    render(
+      <InjectionPreviewModal
+        isOpen
+        preview={preview({
+          capability: {
+            cli_tool: 'codex',
+            runtime_kind: 'future_runtime' as never,
+            max_context_tokens: 1200,
+          },
+        })}
+        onClose={() => {}}
+        onConfirm={() => {}}
+      />
+    )
+
+    expect(screen.getByText('Work location')).toBeDefined()
+    expect(screen.getByText('Check work location')).toBeDefined()
+    expect(screen.queryByText(/future runtime/i)).toBeNull()
+    expect(screen.queryByText('Unknown')).toBeNull()
+  })
+
+  test('labels missing work locations as not listed', () => {
+    render(
+      <InjectionPreviewModal
+        isOpen
+        preview={preview({
+          capability: {
+            cli_tool: 'codex',
+            max_context_tokens: 1200,
+          },
+        })}
+        onClose={() => {}}
+        onConfirm={() => {}}
+      />
+    )
+
+    expect(screen.getByText('Work location')).toBeDefined()
+    expect(screen.getByText('Refresh work location')).toBeDefined()
+    expect(screen.queryByText('Runtime')).toBeNull()
+  })
+
+  test('labels unknown context badges without exposing backend values', () => {
+    render(
+      <InjectionPreviewModal
+        isOpen
+        preview={preview({
+          degradation: ['future_limit_reason'],
+          items: [
+            {
+              id: 'memory-unknown-badges',
+              itemKind: 'future_context_kind' as never,
+              title: 'Unknown badge memory',
+              selected: true,
+              pinned: false,
+              scopeKind: 'global_workspace' as never,
+              scopeId: 'workspace-1',
+              sensitivity: 'restricted_zone' as never,
+              estimatedTokens: 90,
+              lastUsedAt: null,
+              lastVerifiedAt: null,
+              why: 'Matched task text.',
+            },
+          ],
+          suggestedItems: [],
+        })}
+        onClose={() => {}}
+        onConfirm={() => {}}
+      />
+    )
+
+    expect(screen.getByText('Unknown badge memory')).toBeDefined()
+    expect(screen.getByText('Check saved item')).toBeDefined()
+    expect(screen.getByText('Check sharing setting')).toBeDefined()
+    expect(screen.getByText('Check safety label')).toBeDefined()
+    expect(screen.getByText('Check note limits')).toBeDefined()
+    expect(screen.queryByText(/future context kind/i)).toBeNull()
+    expect(screen.queryByText(/future limit reason/i)).toBeNull()
+    expect(screen.queryByText(/global workspace/i)).toBeNull()
+    expect(screen.queryByText(/restricted zone/i)).toBeNull()
+    expect(screen.queryByText('Unknown')).toBeNull()
   })
 
   test('submits removed default items and pinned suggested items', async () => {
@@ -120,15 +242,17 @@ describe('InjectionPreviewModal', () => {
 
     await userEvent
       .setup()
-      .click(screen.getByRole('checkbox', { name: 'Remove Release rollback memory from context' }))
+      .click(
+        screen.getByRole('checkbox', { name: 'Remove Release rollback memory from this task' })
+      )
     const suggested = screen.getByText('Pinned migration note').closest('div')
     expect(suggested).not.toBeNull()
     await userEvent
       .setup()
-      .click(screen.getByRole('button', { name: 'Keep Pinned migration note pinned' }))
+      .click(screen.getByRole('button', { name: 'Keep Pinned migration note easy to reuse' }))
     await userEvent
       .setup()
-      .click(screen.getByRole('button', { name: 'Publish with selected context' }))
+      .click(screen.getByRole('button', { name: 'Send task with selected notes' }))
 
     expect(onConfirm).toHaveBeenCalledWith({
       pinnedIds: ['memory-3'],

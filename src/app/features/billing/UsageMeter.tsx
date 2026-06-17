@@ -36,9 +36,9 @@ function metricCopy(metric: string): { label: string; description: string; highA
       }
     case 'tokens':
       return {
-        label: 'AI usage',
-        description: 'Text processed by connected model providers.',
-        highAction: 'Review busy agents or upgrade before more runs are blocked.',
+        label: 'AI message use',
+        description: 'Messages and replies processed while agents work.',
+        highAction: 'Review busy agents or upgrade before more agent work is blocked.',
       }
     default:
       return {

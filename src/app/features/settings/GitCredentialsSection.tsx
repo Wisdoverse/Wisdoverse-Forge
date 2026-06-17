@@ -3,18 +3,7 @@ import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
 import type { GitCredential, GitProvider } from '@app/entities/agent'
-
-// ============================================================================
-// Helpers
-// ============================================================================
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
-}
+import { formatAccessDate } from './formatAccessDate'
 
 const PROVIDER_LABELS: Record<GitProvider, string> = {
   github: 'GitHub',
@@ -22,9 +11,15 @@ const PROVIDER_LABELS: Record<GitProvider, string> = {
 }
 
 const GIT_CREDENTIAL_SETUP_STEPS = [
-  { label: 'Choose Git host', value: 'Pick where the repositories live.' },
-  { label: 'Paste token', value: 'Use a personal access token with repository access.' },
-  { label: 'Leave host blank', value: 'Only enter a host for self-hosted GitHub or GitLab.' },
+  { label: 'Choose where your code lives', value: 'Pick GitHub or GitLab.' },
+  {
+    label: 'Create a code access key',
+    value: 'Create an access key on GitHub or GitLab and allow it to read the code agents need.',
+  },
+  {
+    label: 'Leave address blank for cloud',
+    value: 'Only enter an address when your company hosts its own GitHub or GitLab.',
+  },
 ]
 
 interface CredentialFormReadiness {
@@ -45,17 +40,18 @@ function credentialFormReadiness({
   if (!token.trim()) {
     return {
       ready: false,
-      title: 'Next: Paste Access Token',
-      detail: 'Paste a token from GitHub or GitLab so agents can clone and push repositories.',
-      error: 'Paste an access token before saving this credential.',
+      title: 'Next: Create a code access key',
+      detail:
+        'Create the key in GitHub or GitLab, paste it here, then agents can open the code you allow.',
+      error: 'Paste the code access key from GitHub or GitLab before saving.',
       fieldId: tokenInputId,
     }
   }
 
   return {
     ready: true,
-    title: 'Ready to Save',
-    detail: 'Save this token, then use a small agent task to confirm repository access.',
+    title: 'Ready to save',
+    detail: 'Save code access, then use a small agent task to confirm it works.',
     error: null,
     fieldId: null,
   }
@@ -67,19 +63,23 @@ function credentialFormReadiness({
 
 interface CredentialRowProps {
   credential: GitCredential
-  onDelete: (id: string) => void
+  onDelete: (id: string) => Promise<boolean>
 }
 
 function CredentialRow({ credential, onDelete }: CredentialRowProps) {
   const [confirming, setConfirming] = useState(false)
+  const [removing, setRemoving] = useState(false)
+  const removeWarningId = `code-access-remove-warning-${credential.id}`
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!confirming) {
       setConfirming(true)
       return
     }
-    onDelete(credential.id)
-    setConfirming(false)
+    setRemoving(true)
+    const removed = await onDelete(credential.id)
+    setRemoving(false)
+    if (removed) setConfirming(false)
   }
 
   return (
@@ -96,22 +96,46 @@ function CredentialRow({ credential, onDelete }: CredentialRowProps) {
       </td>
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {formatDate(credential.createdAt)}
+          {formatAccessDate(credential.createdAt, {
+            missing: 'Refresh code access to load added date',
+            invalid: 'Refresh code access to check added date',
+          })}
         </span>
       </td>
       <td className={cn(uiStyles.tableCell, 'text-right')}>
-        <button
-          type="button"
-          onClick={handleDelete}
-          aria-label={
-            confirming
-              ? `Confirm removing ${PROVIDER_LABELS[credential.provider]} repository token`
-              : `Remove ${PROVIDER_LABELS[credential.provider]} repository token`
-          }
-          className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
-        >
-          {confirming ? 'Remove token?' : 'Remove'}
-        </button>
+        <div className="flex flex-wrap justify-end gap-2">
+          {confirming && (
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              disabled={removing}
+              className={uiStyles.subtleButton}
+            >
+              Keep access
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => void handleDelete()}
+            disabled={removing}
+            aria-label={
+              confirming
+                ? `Confirm removing ${PROVIDER_LABELS[credential.provider]} code access`
+                : `Remove ${PROVIDER_LABELS[credential.provider]} code access`
+            }
+            aria-describedby={confirming ? removeWarningId : undefined}
+            aria-busy={removing || undefined}
+            className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
+          >
+            {removing ? 'Removing...' : confirming ? 'Remove access now' : 'Remove'}
+          </button>
+        </div>
+        {confirming && (
+          <p id={removeWarningId} className="ml-auto mt-1 max-w-48 text-ui-caption text-apple-red">
+            Removing this access can stop agents from opening private code on{' '}
+            {PROVIDER_LABELS[credential.provider]}.
+          </p>
+        )}
       </td>
     </tr>
   )
@@ -147,14 +171,20 @@ function AddCredentialForm({
   saving,
 }: AddCredentialFormProps) {
   const [form, setForm] = useState<AddCredentialFormState>(DEFAULT_FORM)
+  const [submitAttempted, setSubmitAttempted] = useState(false)
   const providerInputId = 'git-credential-provider'
   const tokenInputId = 'git-credential-token'
-  const tokenHelpId = 'git-credential-token-help'
+  const tokenIntroId = 'git-credential-token-intro'
+  const tokenSafetyId = 'git-credential-token-safety'
+  const tokenErrorId = 'git-credential-token-error'
   const hostHelpId = 'git-credential-host-help'
+  const hostCompanyHelpId = 'git-credential-host-company-help'
   const readiness = credentialFormReadiness({ token: form.token, tokenInputId })
+  const visibleError = submitAttempted && !readiness.ready ? readiness.error : null
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    setSubmitAttempted(true)
     if (!readiness.ready) {
       if (readiness.fieldId) document.getElementById(readiness.fieldId)?.focus()
       return
@@ -177,7 +207,7 @@ function AddCredentialForm({
     >
       <div className="mb-3 rounded-lg border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
         <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-          Git access setup path
+          Add code access
         </div>
         <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
           {GIT_CREDENTIAL_SETUP_STEPS.map((step) => (
@@ -196,10 +226,20 @@ function AddCredentialForm({
         </div>
       </div>
 
+      <div
+        className="mb-3 text-ui-caption text-secondary-light dark:text-secondary-dark"
+        aria-live="polite"
+      >
+        <span className="font-medium text-foreground-light dark:text-foreground-dark">
+          {readiness.title}
+        </span>
+        <span> {readiness.detail}</span>
+      </div>
+
       <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label htmlFor="git-credential-provider" className={uiStyles.label}>
-            Git provider
+            Git service
           </label>
           <select
             id={providerInputId}
@@ -214,19 +254,19 @@ function AddCredentialForm({
             ))}
           </select>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Choose where the repository is hosted.
+            Choose the site that owns the repository.
           </p>
         </div>
 
         <div>
           <label htmlFor="git-credential-token" className={uiStyles.label}>
-            Access token <span className="text-red-500">*</span>
+            Code access key <span className="text-red-500">*</span>
           </label>
           <p
-            id={tokenHelpId}
+            id={tokenIntroId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Paste a personal access token from the selected Git service. It is hidden after saving.
+            Paste the key from GitHub or GitLab. Those sites may call it a personal access token.
           </p>
           <input
             id="git-credential-token"
@@ -234,23 +274,29 @@ function AddCredentialForm({
             name="token"
             value={form.token}
             onChange={(e) => setForm({ ...form, token: e.target.value })}
-            placeholder="Paste a repository access token"
+            placeholder="Paste the code access key from GitHub or GitLab"
             required
             className={uiStyles.input}
-            aria-describedby={tokenHelpId}
+            aria-invalid={visibleError !== null}
+            aria-describedby={`${tokenIntroId} ${tokenSafetyId}${visibleError ? ` ${tokenErrorId}` : ''}`}
           />
           <p
-            id="git-credential-token-help"
+            id={tokenSafetyId}
             className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Paste a token that can read the repositories your agents need. It will not be shown
-            again after saving.
+            It lets agents open only the code projects you allow. Do not paste your GitHub or GitLab
+            password. This key is hidden after saving.
           </p>
+          {visibleError && (
+            <p id={tokenErrorId} role="alert" className="mt-1 text-ui-caption text-apple-red">
+              {visibleError}
+            </p>
+          )}
         </div>
 
         <div className="sm:col-span-2">
           <label htmlFor="git-credential-host" className={uiStyles.label}>
-            Self-hosted Git address{' '}
+            GitHub or GitLab address{' '}
             <span className="text-secondary-light dark:text-secondary-dark font-normal">
               (optional)
             </span>
@@ -259,7 +305,7 @@ function AddCredentialForm({
             id={hostHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Leave this empty for github.com or gitlab.com.
+            Leave this empty if you use github.com or gitlab.com.
           </p>
           <input
             id="git-credential-host"
@@ -267,15 +313,15 @@ function AddCredentialForm({
             name="host"
             value={form.host}
             onChange={(e) => setForm({ ...form, host: e.target.value })}
-            placeholder="e.g. gitlab.company.com"
+            placeholder="e.g. gitlab.example.com"
             className={uiStyles.input}
-            aria-describedby={hostHelpId}
+            aria-describedby={`${hostHelpId} ${hostCompanyHelpId}`}
           />
           <p
-            id="git-credential-host-help"
+            id={hostCompanyHelpId}
             className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Leave blank for github.com or gitlab.com.
+            For a company-hosted Git service, enter the address you open in the browser.
           </p>
         </div>
       </div>
@@ -294,7 +340,7 @@ function AddCredentialForm({
           disabled={saving || !form.token.trim()}
           className={uiStyles.primaryButton}
         >
-          {saving ? 'Saving...' : 'Save token'}
+          {saving ? 'Saving...' : 'Save code access'}
         </button>
       </div>
     </form>
@@ -316,6 +362,7 @@ export function GitCredentialsSection() {
   } = useSettingsStore()
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [savedMessage, setSavedMessage] = useState<string | null>(null)
 
   useEffect(() => {
     void loadGitCredentials()
@@ -325,19 +372,24 @@ export function GitCredentialsSection() {
     setSaving(true)
     const ok = await saveGitCredential(provider, token, host)
     setSaving(false)
-    if (ok) setShowForm(false)
+    if (ok) {
+      setShowForm(false)
+      setSavedMessage(
+        'Code access saved. Create a small task with a private repository link to confirm agents can open it. If it cannot read the repository, come back here and replace this key.'
+      )
+    }
   }
 
   async function handleDelete(id: string) {
-    await deleteGitCredential(id)
+    return deleteGitCredential(id)
   }
 
   const existingProviders = gitCredentials.map((c) => c.provider)
   const canAddMore = existingProviders.length < 2
 
   const tableHeaders: { label: string; className?: string }[] = [
-    { label: 'Git provider' },
-    { label: 'Address' },
+    { label: 'Git service' },
+    { label: 'Git address' },
     { label: 'Added on' },
     { label: '', className: 'w-20' },
   ]
@@ -347,47 +399,65 @@ export function GitCredentialsSection() {
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>Repository access tokens</h2>
+          <h2 className={uiStyles.sectionTitle}>Code Repository Access</h2>
           <p className={uiStyles.sectionDescription}>
-            Connect GitHub or GitLab so agents can clone and update repositories when a task needs
-            code access.
+            Use this when a private code link starts with https://. If it starts with git@, use git@
+            Repository Access instead.
           </p>
         </div>
         {!showForm && canAddMore && (
           <button
             type="button"
-            onClick={() => setShowForm(true)}
+            onClick={() => {
+              setSavedMessage(null)
+              setShowForm(true)
+            }}
             className={uiStyles.primaryButton}
           >
             <span>+</span>
-            <span>Add repository token</span>
+            <span>Add code access</span>
           </button>
         )}
       </div>
 
       {/* Error */}
-      {gitCredentialsError && <div className={uiStyles.error}>{gitCredentialsError}</div>}
+      {gitCredentialsError && (
+        <div role="alert" aria-live="polite" className={uiStyles.error}>
+          {gitCredentialsError}
+        </div>
+      )}
+
+      {savedMessage && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="mb-3 rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue"
+        >
+          {savedMessage}
+        </div>
+      )}
 
       {/* Table */}
       <div className={cn(uiStyles.card, 'overflow-x-auto')}>
         {gitCredentialsLoading && gitCredentials.length === 0 ? (
           <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading repository access tokens...
+            Loading code access...
           </div>
         ) : gitCredentials.length === 0 && !showForm ? (
           <div className="px-4 py-6 text-center">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              No repository access tokens yet
+              Give agents access to private code
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Add a GitHub or GitLab token before assigning work that needs private repository
-              access.
+              Use this for GitHub or GitLab links that start with https://, such as
+              https://github.com/team/repo.git. If the address starts with git@, use git@ Repository
+              Access instead.
             </p>
           </div>
         ) : (
           <>
             {gitCredentials.length > 0 && (
-              <table className={uiStyles.table} aria-label="Repository access tokens">
+              <table className={uiStyles.table} aria-label="Code access">
                 <thead className={uiStyles.tableHead}>
                   <tr>
                     {tableHeaders.map((h) => (

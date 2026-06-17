@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { type Turn, useChatStore } from '@app/shared/model/chat.store'
-import { useAgentsStore } from '@app/entities/agent'
+import { agentAiServiceLabel, useAgentsStore } from '@app/entities/agent'
 import type { AgentMessageRow } from '@shared/types'
 import { TurnItem } from './TurnItem'
 import { ChatComposer } from './ChatComposer'
@@ -26,9 +26,9 @@ type ConversationFilter = 'all' | 'operator' | 'agent' | 'tool' | 'attention'
 
 const CONVERSATION_FILTERS: { value: ConversationFilter; label: string }[] = [
   { value: 'all', label: 'All' },
-  { value: 'operator', label: 'Operator' },
+  { value: 'operator', label: 'You' },
   { value: 'agent', label: 'Agent' },
-  { value: 'tool', label: 'Tool' },
+  { value: 'tool', label: 'Work steps' },
   { value: 'attention', label: 'Attention' },
 ]
 
@@ -37,20 +37,90 @@ const PROVIDER_EMPTY_COPY = {
   detail: 'Send a short request below when you need planning, review, or a direct answer.',
   steps: [
     'Ask for one outcome at a time.',
-    'Use Attention after a reply to find blockers.',
-    'Clear chat only when old context is no longer useful.',
+    'Use Attention after a reply to find what needs help.',
+    'Clear chat only when old messages are no longer useful.',
   ],
 }
 
-const CLI_EMPTY_COPY = {
-  title: 'No agent updates yet',
-  detail:
-    'Updates appear after this Container CLI agent receives work or reports terminal progress.',
+const WORKSPACE_AGENT_EMPTY_COPY = {
+  title: 'Send this agent a task to start updates',
+  detail: 'This history fills in after the agent receives work or reports progress.',
   steps: [
-    'Open Tasks and route work to this agent or its lane.',
-    'Use Attention once work starts to find blockers.',
-    'Refresh if the runtime just came online.',
+    'Create a task and assign it to this agent or to a task queue it can receive.',
+    'Check Attention once work starts to see what needs help.',
+    'Refresh if the agent just came online.',
   ],
+}
+
+interface ConversationFilterEmptyCopy {
+  title: string
+  detail: string
+  nextStep: string
+}
+
+function conversationFilterEmptyCopy(
+  filter: ConversationFilter,
+  search: string
+): ConversationFilterEmptyCopy {
+  const hasSearch = search.trim().length > 0
+  const filterLabel =
+    CONVERSATION_FILTERS.find((item) => item.value === filter)?.label ?? 'selected'
+
+  if (hasSearch && filter !== 'all') {
+    return {
+      title: 'Search and filter are hiding updates',
+      detail:
+        'The search is only looking inside the selected view, so useful updates may be hidden.',
+      nextStep: 'Next: clear filters, review every update, then search again with one short word.',
+    }
+  }
+
+  if (hasSearch) {
+    return {
+      title: 'Search did not find a conversation update',
+      detail: 'Try one word from the update, such as the task name, result, or help request.',
+      nextStep: 'Next: clear the search to see every update again.',
+    }
+  }
+
+  if (filter === 'attention') {
+    return {
+      title: 'No help requests are open',
+      detail: 'No message is stuck, failed, waiting, or asking for your help in this view.',
+      nextStep:
+        'Next: use All to read the full conversation, or send a short follow-up if you expected a blocker.',
+    }
+  }
+
+  if (filter === 'operator') {
+    return {
+      title: 'No messages from you in this view yet',
+      detail: 'The You filter only shows requests you sent.',
+      nextStep: 'Next: use All to review every update, or send a message below to add a request.',
+    }
+  }
+
+  if (filter === 'agent') {
+    return {
+      title: 'No agent replies in this view yet',
+      detail: 'The Agent filter only shows answers or progress notes from the agent.',
+      nextStep: 'Next: use All to see the full history, or wait for the agent to report progress.',
+    }
+  }
+
+  if (filter === 'tool') {
+    return {
+      title: 'No work steps are showing yet',
+      detail: 'Work steps appear when an agent shares commands or tool results.',
+      nextStep: 'Next: use All to see chat updates, or assign a task so work steps can appear.',
+    }
+  }
+
+  return {
+    title: `No updates in ${filterLabel} yet`,
+    detail: 'This view has no matching conversation updates right now.',
+    nextStep: 'Next: use All to see every update.',
+  }
 }
 
 export function ChatView({ agentId }: ChatViewProps) {
@@ -68,8 +138,11 @@ export function ChatView({ agentId }: ChatViewProps) {
   const agent = useAgentsStore((s) => s.agents.find((a) => a.id === agentId))
   const isProviderAgent = agent != null && !agent.cliTool
   const offline = agent?.status === 'offline'
+  const offlineRecoveryDetail = isProviderAgent
+    ? 'This chat-only AI service is not ready. Open AI service settings, check this connection, then refresh Agents.'
+    : 'This agent is not ready. Open Agents, start or reconnect it, then return here when it shows Ready.'
   const composerDisabledReason = offline
-    ? 'This agent is offline. Start it before sending a message.'
+    ? 'Open AI service settings, check this connection, then refresh Agents before sending a message.'
     : messagesLoading
       ? 'Loading earlier messages. You can send once loading finishes.'
       : undefined
@@ -130,9 +203,6 @@ export function ChatView({ agentId }: ChatViewProps) {
       turns.filter((turn) => turnMatchesConversation(turn, conversationFilter, conversationSearch)),
     [conversationFilter, conversationSearch, turns]
   )
-  const hasActiveConversationFilter =
-    conversationSearch.trim().length > 0 || conversationFilter !== 'all'
-
   function resetConversationFilters() {
     setConversationFilter('all')
     setConversationSearch('')
@@ -163,7 +233,7 @@ export function ChatView({ agentId }: ChatViewProps) {
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
             />
           </svg>
-          Loading conversation...
+          Loading updates...
         </div>
       </div>
     )
@@ -171,46 +241,24 @@ export function ChatView({ agentId }: ChatViewProps) {
 
   if (error && !isProviderAgent) {
     return (
-      <div
-        className={cn(
-          'bg-white dark:bg-[#2c2c2e] rounded-xl px-4 py-6',
-          'shadow-card dark:shadow-card-dark',
-          'flex flex-col items-center gap-3'
-        )}
-      >
-        <span className="text-sm text-apple-red">{error}</span>
-        <button
-          type="button"
-          onClick={() => void fetchEvents(agentId)}
-          className={cn(
-            'px-3 py-1.5 rounded-lg text-xs font-medium',
-            'bg-apple-blue/10 text-apple-blue',
-            'hover:bg-apple-blue/20 transition-colors'
-          )}
-        >
-          Retry
-        </button>
-      </div>
+      <ChatErrorNotice
+        message={error}
+        actionLabel="Retry conversation"
+        onAction={() => void fetchEvents(agentId)}
+      />
     )
   }
 
   const banner =
     isProviderAgent && error ? (
-      <div
-        className={cn(
-          'rounded-xl px-4 py-3 text-xs flex items-center justify-between',
-          'bg-apple-red/10 text-apple-red border border-apple-red/20'
-        )}
-      >
-        <span>{error}</span>
-        {error.includes('context') && (
-          <button type="button" onClick={() => void clearMessages(agentId)} className="underline">
-            Clear chat
-          </button>
-        )}
-      </div>
+      <ChatErrorNotice
+        message={error}
+        actionLabel={error.includes('context') ? 'Clear chat' : undefined}
+        onAction={error.includes('context') ? () => void clearMessages(agentId) : undefined}
+      />
     ) : null
 
+  const modelServiceName = agent ? agentAiServiceLabel(agent.provider) : 'your saved AI service'
   const providerAgentBanner = isProviderAgent ? (
     <div
       data-testid="provider-agent-chat-banner"
@@ -219,10 +267,10 @@ export function ChatView({ agentId }: ChatViewProps) {
         'bg-apple-blue/10 text-apple-blue border border-apple-blue/20'
       )}
     >
-      <span className="font-medium">Provider + Prompt agent</span>
+      <span className="font-medium">Chat-only AI service</span>
       <span className="text-apple-blue/80">
-        Messages are sent directly to {agent?.provider ?? 'the provider'} without a container
-        terminal.
+        Messages use {modelServiceName}. This agent can answer in chat, but it does not work on
+        workspace files.
       </span>
     </div>
   ) : null
@@ -241,10 +289,10 @@ export function ChatView({ agentId }: ChatViewProps) {
           </span>
           <div className="min-w-0">
             <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-              Conversation handoff
+              Conversation summary
             </p>
             <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-              Agent updates and blockers
+              Updates and next steps
             </h3>
           </div>
         </div>
@@ -252,7 +300,7 @@ export function ChatView({ agentId }: ChatViewProps) {
         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
           <ConversationMetric
             testId="conversation-metric-operator"
-            label="Operator"
+            label="Your messages"
             value={transcriptStats.operator}
             Icon={UserRound}
             tone="operator"
@@ -266,7 +314,7 @@ export function ChatView({ agentId }: ChatViewProps) {
           />
           <ConversationMetric
             testId="conversation-metric-tools"
-            label="Tools"
+            label="Work steps"
             value={transcriptStats.tools}
             Icon={Terminal}
             tone="tool"
@@ -283,7 +331,7 @@ export function ChatView({ agentId }: ChatViewProps) {
         <p className="mt-3 truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
           {transcriptStats.lastUpdate
             ? `Last update ${transcriptStats.lastUpdate}`
-            : 'No updates captured yet'}
+            : 'Send work to create the first update.'}
         </p>
       </section>
 
@@ -301,7 +349,7 @@ export function ChatView({ agentId }: ChatViewProps) {
             type="search"
             value={conversationSearch}
             onChange={(event) => setConversationSearch(event.target.value)}
-            placeholder="Search updates, blockers, tools..."
+            placeholder="Search updates, help requests, work steps..."
             className={cn(
               'h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-8 pr-3 text-ui-body outline-none',
               'text-foreground-light placeholder:text-secondary-light dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:placeholder:text-secondary-dark',
@@ -340,72 +388,57 @@ export function ChatView({ agentId }: ChatViewProps) {
               <ConversationEmptyState
                 copy={PROVIDER_EMPTY_COPY}
                 offline={offline}
+                offlineDetail={offlineRecoveryDetail}
                 testId="conversation-empty-state"
               />
             ) : visibleMessages.length === 0 ? (
-              <div
-                data-testid="conversation-filter-empty"
-                className="flex flex-col items-center gap-2 text-center text-sm text-secondary-light"
-              >
-                <span>No conversation updates match the current filters.</span>
-                <span>Try All, Attention, or a shorter search term.</span>
-                {hasActiveConversationFilter && (
-                  <button
-                    type="button"
-                    onClick={resetConversationFilters}
-                    className="rounded-full bg-apple-blue/10 px-3 py-1.5 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
-                  >
-                    Clear filters
-                  </button>
-                )}
-              </div>
+              <ConversationFilterEmptyState
+                filter={conversationFilter}
+                search={conversationSearch}
+                onClear={resetConversationFilters}
+              />
             ) : (
-              visibleMessages.map((m) => (
-                <div
-                  key={m.id}
-                  className={cn(
-                    'flex flex-col gap-1',
-                    m.role === 'user' ? 'items-end' : 'items-start'
-                  )}
-                >
-                  <span className="text-[10px] text-secondary-light">{m.role}</span>
+              visibleMessages.map((m) => {
+                const role = messageRoleKey(m.role)
+                return (
                   <div
+                    key={m.id}
                     className={cn(
-                      'rounded-xl px-3 py-2 max-w-[80%] text-sm whitespace-pre-wrap',
-                      m.role === 'user'
-                        ? 'bg-apple-blue/10 text-apple-blue'
-                        : 'bg-apple-gray-6 dark:bg-white/[0.06]'
+                      'flex flex-col gap-1',
+                      role === 'user' ? 'items-end' : 'items-start'
                     )}
                   >
-                    {m.content ||
-                      (m.role === 'assistant' && streaming && m.finishReason == null ? '…' : '')}
+                    <span className="text-[10px] text-secondary-light">
+                      {messageRoleLabel(m.role)}
+                    </span>
+                    <div
+                      className={cn(
+                        'rounded-xl px-3 py-2 max-w-[80%] text-sm whitespace-pre-wrap',
+                        role === 'user'
+                          ? 'bg-apple-blue/10 text-apple-blue'
+                          : 'bg-apple-gray-6 dark:bg-white/[0.06]'
+                      )}
+                    >
+                      {m.content ||
+                        (role === 'assistant' && streaming && m.finishReason == null ? '…' : '')}
+                    </div>
                   </div>
-                </div>
-              ))
+                )
+              })
             )
           ) : turns.length === 0 ? (
             <ConversationEmptyState
-              copy={CLI_EMPTY_COPY}
+              copy={WORKSPACE_AGENT_EMPTY_COPY}
               offline={offline}
+              offlineDetail={offlineRecoveryDetail}
               testId="conversation-empty-state"
             />
           ) : visibleTurns.length === 0 ? (
-            <div
-              data-testid="conversation-filter-empty"
-              className="flex flex-col items-center gap-2 text-center text-sm text-secondary-light"
-            >
-              <span>No conversation updates match the current filters.</span>
-              <span>Try All, Attention, or a shorter search term.</span>
-              {hasActiveConversationFilter && (
-                <button
-                  type="button"
-                  onClick={resetConversationFilters}
-                  className="rounded-full bg-apple-blue/10 px-3 py-1.5 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
-                >
-                  Clear filters
-                </button>
-              )}
-            </div>
+            <ConversationFilterEmptyState
+              filter={conversationFilter}
+              search={conversationSearch}
+              onClear={resetConversationFilters}
+            />
           ) : (
             visibleTurns.map((turn) => <TurnItem key={turn.id} turn={turn} />)
           )}
@@ -425,13 +458,89 @@ export function ChatView({ agentId }: ChatViewProps) {
   )
 }
 
+function ConversationFilterEmptyState({
+  filter,
+  search,
+  onClear,
+}: {
+  filter: ConversationFilter
+  search: string
+  onClear: () => void
+}) {
+  const copy = conversationFilterEmptyCopy(filter, search)
+  return (
+    <div
+      data-testid="conversation-filter-empty"
+      className="flex flex-col items-center gap-2 text-center text-sm text-secondary-light"
+    >
+      <span className="font-medium text-foreground-light dark:text-foreground-dark">
+        {copy.title}
+      </span>
+      <span>{copy.detail}</span>
+      <span className="text-ui-caption">{copy.nextStep}</span>
+      <button
+        type="button"
+        onClick={onClear}
+        className="rounded-full bg-apple-blue/10 px-3 py-1.5 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+      >
+        Show all updates
+      </button>
+    </div>
+  )
+}
+
+function ChatErrorNotice({
+  message,
+  actionLabel,
+  onAction,
+}: {
+  message: string
+  actionLabel?: string
+  onAction?: () => void
+}) {
+  return (
+    <div
+      role="alert"
+      aria-live="polite"
+      className={cn(
+        'rounded-xl border border-apple-red/20 bg-apple-red/10 px-4 py-3 text-left text-apple-red',
+        'flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'
+      )}
+    >
+      <span className="flex min-w-0 items-start gap-2">
+        <AlertTriangle
+          size={15}
+          strokeWidth={2.25}
+          className="mt-0.5 shrink-0"
+          aria-hidden="true"
+        />
+        <span className="min-w-0">
+          <span className="block text-ui-caption font-semibold">Check this conversation</span>
+          <span className="mt-0.5 block text-ui-caption">{message}</span>
+        </span>
+      </span>
+      {actionLabel && onAction && (
+        <button
+          type="button"
+          onClick={onAction}
+          className="shrink-0 rounded-full bg-white/70 px-3 py-1.5 text-ui-button font-medium text-apple-red transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30 dark:bg-black/20 dark:hover:bg-black/30"
+        >
+          {actionLabel}
+        </button>
+      )}
+    </div>
+  )
+}
+
 function ConversationEmptyState({
   copy,
   offline,
+  offlineDetail,
   testId,
 }: {
   copy: typeof PROVIDER_EMPTY_COPY
   offline: boolean
+  offlineDetail: string
   testId: string
 }) {
   return (
@@ -469,7 +578,7 @@ function ConversationEmptyState({
       </div>
       {offline && (
         <p className="rounded-lg bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange">
-          This agent is offline, so new updates will appear after the runtime is available.
+          {offlineDetail}
         </p>
       )}
     </div>
@@ -613,9 +722,10 @@ function turnMatchesConversation(turn: Turn, filter: ConversationFilter, query: 
 }
 
 function messageMatchesFilter(message: AgentMessageRow, filter: ConversationFilter): boolean {
+  const role = messageRoleKey(message.role)
   if (filter === 'all') return true
-  if (filter === 'operator') return message.role === 'user'
-  if (filter === 'agent') return message.role === 'assistant'
+  if (filter === 'operator') return role === 'user'
+  if (filter === 'agent') return role === 'assistant'
   if (filter === 'tool') return false
   return messageNeedsAttention(message)
 }
@@ -645,7 +755,7 @@ function turnNeedsAttention(turn: Turn): boolean {
 }
 
 function messageSearchText(message: AgentMessageRow): string {
-  return [message.role, message.content, message.model, message.finishReason]
+  return [messageRoleLabel(message.role), message.content, message.model, message.finishReason]
     .filter(Boolean)
     .join(' ')
     .toLowerCase()
@@ -676,6 +786,21 @@ function formatMessageTime(value: string): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return 'recently'
   return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+}
+
+function messageRoleKey(role: string): string {
+  return role.trim().toLowerCase()
+}
+
+function messageRoleLabel(role: string): string {
+  switch (messageRoleKey(role)) {
+    case 'user':
+      return 'You'
+    case 'assistant':
+      return 'Agent'
+    default:
+      return role.trim() ? 'Check message sender' : 'Refresh chat to load sender'
+  }
 }
 
 function formatTurnTime(value: number): string {

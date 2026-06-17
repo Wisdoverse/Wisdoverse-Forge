@@ -3,6 +3,7 @@ import { Sparkles, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSkillsStore } from '@app/shared/model/skills.store'
+import { createSkillErrorMessage } from './model/createSkillErrorMessage'
 
 interface CreateSkillModalProps {
   open: boolean
@@ -20,7 +21,7 @@ const SKILL_REVIEW_POINTS = [
   { label: 'Repeatable', value: 'Use this for work your team expects to repeat.' },
   {
     label: 'Safe to share',
-    value: 'Leave out tokens, private notes, and one-time project details.',
+    value: 'Leave out secret keys, private notes, and one-time project details.',
   },
   { label: 'Agent ready', value: 'Write steps an agent can follow without extra context.' },
 ]
@@ -48,6 +49,18 @@ const skillTemplates = [
       triggerPattern: 'release',
       content:
         'Summarize what changed.\nGroup user-facing updates, fixes, and risks.\nCall out any setup or migration step before publishing.',
+    },
+  },
+  {
+    id: 'ci-status',
+    label: 'Check review status',
+    description: 'Check review and builds once',
+    form: {
+      name: 'pr-status-check',
+      description: 'Summarize review and build status from one fresh check',
+      triggerPattern: 'review status, build status, checks',
+      content:
+        'Check the code review page once and summarize only the review result, merge readiness, and build result needed for the next step. If the project already has a recent status summary, reuse it instead of refreshing.\nStart with one plain result: Needs a fix, Waiting, or Done.\nFor Needs a fix, open only the failed build or review item needed to make the fix.\nFor Waiting, stop checking in chat. Tell the user when one later check is useful, or point to the project background watcher if one exists.\nFor Done, report the final status and stop.',
     },
   },
   {
@@ -105,12 +118,12 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
     const content = form.content.trim()
 
     if (!name) {
-      setError('Name this skill before creating it.')
+      setError('Name this saved instruction before saving it.')
       nameInputRef.current?.focus()
       return
     }
     if (!content) {
-      setError('Add the instructions this skill should apply.')
+      setError('Add the steps this saved instruction should apply.')
       contentInputRef.current?.focus()
       return
     }
@@ -127,7 +140,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
       })
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create skill')
+      setError(createSkillErrorMessage(err))
     } finally {
       setSubmitting(false)
     }
@@ -158,7 +171,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 id="create-skill-title" className={uiStyles.sectionTitle}>
-              New reusable skill
+              Save a reusable instruction
             </h2>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
               Save instructions your agents can reuse on future tasks. Keep it general and safe
@@ -176,8 +189,8 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
         </div>
 
         <p className="mb-4 text-ui-body text-secondary-light dark:text-secondary-dark">
-          Skills are reusable instructions. Start with a clear name and the rules the agent should
-          follow.
+          Saved instructions are reusable steps for agents. Start with a clear name and the rules
+          the agent should follow.
         </p>
 
         {error && (
@@ -202,7 +215,11 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
                 Common starting points
               </h3>
             </div>
-            <div role="group" aria-label="Skill templates" className="grid gap-2 sm:grid-cols-3">
+            <div
+              role="group"
+              aria-label="Instruction templates"
+              className="grid gap-2 sm:grid-cols-2"
+            >
               {skillTemplates.map((template) => (
                 <button
                   key={template.id}
@@ -229,7 +246,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
 
           <div>
             <label htmlFor="skill-name" className={uiStyles.label}>
-              Skill name
+              Instruction name
             </label>
             <input
               id="skill-name"
@@ -254,7 +271,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
               value={form.description}
               onChange={(event) => updateField('description', event.target.value)}
               className={uiStyles.input}
-              placeholder="Short summary shown in the skill list"
+              placeholder="Short summary shown in the saved instruction list"
             />
             <p
               id="skill-description-help"
@@ -266,30 +283,29 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
 
           <div>
             <label htmlFor="skill-trigger" className={uiStyles.label}>
-              Trigger Word
+              Matching words for future tasks
             </label>
             <p
               id="skill-trigger-help"
               className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
             >
-              Short phrase that tells agents when this skill fits.
+              Type the words people usually write when this saved instruction should be suggested.
             </p>
             <input
               id="skill-trigger"
-              aria-label="Trigger Pattern"
               value={form.triggerPattern}
               onChange={(event) => updateField('triggerPattern', event.target.value)}
-              className={cn(uiStyles.input, 'font-mono')}
-              placeholder="e.g. review or release"
+              className={uiStyles.input}
+              placeholder="release review, incident notes"
             />
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Leave blank if users should choose this skill manually.
+              Leave blank if people should choose this instruction manually.
             </p>
           </div>
 
           <div className="rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.04]">
             <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-              Check before creating
+              Check before saving
             </div>
             <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
               {SKILL_REVIEW_POINTS.map((point) => (
@@ -315,13 +331,12 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
             <textarea
               id="skill-content"
               ref={contentInputRef}
-              aria-label="Content"
               value={form.content}
               onChange={(event) => updateField('content', event.target.value)}
               className={cn(
                 'min-h-36 w-full resize-y rounded-[18px] border border-black/[0.08] bg-white px-3 py-2 font-mono text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70'
               )}
-              placeholder="Steps the agent should follow when this skill is selected"
+              placeholder="Steps the agent should follow when this instruction is selected"
             />
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
               Plain steps work best. Include what success should look like.
@@ -330,10 +345,10 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
 
           <div className="flex justify-end gap-2 pt-1">
             <button type="button" onClick={onClose} className={uiStyles.secondaryButton}>
-              Cancel
+              Close without saving
             </button>
             <button type="submit" disabled={submitting} className={uiStyles.primaryButton}>
-              {submitting ? 'Creating...' : 'Create Skill'}
+              {submitting ? 'Saving...' : 'Save instruction'}
             </button>
           </div>
         </form>

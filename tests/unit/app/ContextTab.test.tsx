@@ -70,18 +70,70 @@ function context(overrides: Partial<TaskContextResponse> = {}): TaskContextRespo
 }
 
 describe('ContextTab', () => {
+  test('uses beginner wording while loading saved items', () => {
+    render(<ContextTab taskId="task-1" loadContext={async () => new Promise(() => {})} />)
+
+    expect(screen.getByText('Loading saved notes and instructions...')).toBeDefined()
+    expect(screen.queryByText(/saved\s+context/i)).toBeNull()
+  })
+
+  test('shows beginner guidance when task context fails to load', async () => {
+    render(
+      <ContextTab
+        taskId="task-1"
+        loadContext={async () => {
+          throw new Error('401 Unauthorized')
+        }}
+      />
+    )
+
+    expect(await screen.findByText(/sign in again/i)).toBeDefined()
+    expect(screen.queryByText(/code: 401/i)).toBeNull()
+    expect(screen.queryByText(/401 unauthorized/i)).toBeNull()
+  })
+
   test('shows the empty state when no run context exists', async () => {
     render(<ContextTab taskId="task-1" loadContext={async () => context({ runs: [] })} />)
 
     const emptyState = await screen.findByTestId('context-empty-state')
-    expect(within(emptyState).getByText('No context has been applied yet')).toBeDefined()
+    expect(within(emptyState).getByText('Start the task to build work history')).toBeDefined()
     expect(
-      within(emptyState).getByText(/Context appears here after an agent run uses saved memories/i)
+      within(emptyState).getByText(/saved notes, saved instructions, or work history/i)
+    ).toBeDefined()
+    expect(within(emptyState).getByText(/future tasks get better/i)).toBeDefined()
+    expect(within(emptyState).queryByText('No saved notes or run details yet')).toBeNull()
+    expect(within(emptyState).queryByText('No saved notes or work history yet')).toBeNull()
+    expect(
+      within(emptyState).getByText(
+        /Start the task first\. If it is still waiting, open Work or Updates to choose or start an agent/i
+      )
     ).toBeDefined()
     expect(
-      within(emptyState).getByText(/Publish or run the task so Forge can choose memories/i)
+      within(emptyState).getByText(/make sure the task has an agent and has started/i)
     ).toBeDefined()
-    expect(within(emptyState).getByText(/Use feedback on applied items/i)).toBeDefined()
+    expect(within(emptyState).queryByText('No context has been applied yet')).toBeNull()
+    expect(within(emptyState).queryByText(/Context appears here/i)).toBeNull()
+    expect(within(emptyState).queryByText(/choose memories and skills/i)).toBeNull()
+    expect(within(emptyState).queryByText(/Run the task so Forge can choose/i)).toBeNull()
+    expect(within(emptyState).getByText(/Mark which saved items helped/i)).toBeDefined()
+    expect(within(emptyState).queryByText(/Use feedback on applied items/i)).toBeNull()
+  })
+
+  test('shows beginner recovery guidance when task context fails to load', async () => {
+    render(
+      <ContextTab
+        taskId="task-1"
+        loadContext={async () => {
+          throw new Error('HTTP 403')
+        }}
+      />
+    )
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Ask an owner or admin to give you access to this task, then refresh the task detail panel. You do not have permission to view this task.'
+    )
+    expect(alert).not.toHaveTextContent('HTTP 403')
   })
 
   test('renders applied context, candidates, evidence, and provenance', async () => {
@@ -176,22 +228,140 @@ describe('ContextTab', () => {
     )
 
     expect(await screen.findByTestId('context-tab')).toBeDefined()
-    expect(screen.getByText('Applied memories')).toBeDefined()
-    expect(screen.getAllByText(/added to the agent's working context/i).length).toBeGreaterThan(0)
+    expect(screen.getByText('Agent checked saved notes and instructions')).toBeDefined()
+    expect(screen.getByText('Check 1')).toBeDefined()
+    expect(screen.queryByText('Agent work checked saved notes and instructions')).toBeNull()
+    expect(screen.queryByText('Work run 1')).toBeNull()
+    expect(screen.getByText('Finished')).toBeDefined()
+    expect(screen.getByText('Saved notes used')).toBeDefined()
+    expect(screen.queryByText('Applied memories')).toBeNull()
+    expect(
+      screen.getByText('These saved notes helped the agent before it worked on this task.')
+    ).toBeDefined()
+    expect(
+      screen.getByText('These saved instructions helped the agent before it worked on this task.')
+    ).toBeDefined()
+    expect(screen.queryByText(/notes and skills/i)).toBeNull()
+    expect(screen.queryByText(/These skills were selected/i)).toBeNull()
+    expect(screen.queryByText(/selected for the agent before it worked/i)).toBeNull()
+    expect(screen.getAllByText(/helped the agent before it worked/i).length).toBe(2)
     expect(screen.getAllByText('Prod deploy memory').length).toBeGreaterThan(0)
-    expect(screen.getByText(/limited context: source snapshot was shortened/i)).toBeDefined()
-    expect(screen.getByText('Applied skills')).toBeDefined()
+    expect(screen.getAllByText('Project').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Project-level')).toBeNull()
+    expect(screen.getAllByText('Internal only').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Saved from an earlier task').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Prepared before the agent worked').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/Source task/i)).toBeNull()
+    expect(screen.queryByText(/Adapter claude/i)).toBeNull()
+    expect(
+      screen.getByText(/This saved item was shortened before the agent used it/i)
+    ).toBeDefined()
+    expect(screen.getByText(/Review the full item before relying on it/i)).toBeDefined()
+    expect(screen.queryByText(/source snapshot/i)).toBeNull()
+    expect(screen.queryByText(/limited context/i)).toBeNull()
+    expect(screen.getByText('Instructions used')).toBeDefined()
+    expect(screen.queryByText('Applied instructions')).toBeNull()
     expect(screen.getByText('Release checklist')).toBeDefined()
-    expect(screen.getByText('Suggested memory updates')).toBeDefined()
+    expect(screen.getByText('Team space')).toBeDefined()
+    expect(screen.queryByText('Team space-level')).toBeNull()
+    expect(screen.queryByText('Organization-level')).toBeNull()
+    expect(screen.getByText('Suggested notes to review')).toBeDefined()
+    expect(screen.queryByText('Suggested memory updates')).toBeNull()
     expect(screen.getByText('New release memory')).toBeDefined()
-    expect(screen.getByText('Skill candidates')).toBeDefined()
+    expect(screen.getByText('Suggested instructions to review')).toBeDefined()
+    expect(screen.queryByText('Suggested saved instructions')).toBeNull()
     expect(screen.getByText('Release operator')).toBeDefined()
     expect(screen.getByTestId('context-evidence')).toBeDefined()
     expect(screen.getByText(/No longer used for future work/)).toBeDefined()
     expect(screen.getByTestId('context-provenance')).toBeDefined()
+    expect(screen.getByText('Where saved notes or instructions came from')).toBeDefined()
+    expect(screen.queryByText('Where saved context came from')).toBeNull()
+    expect(
+      screen.getByText(/came from Prod deploy memory and helped during this task/i)
+    ).toBeDefined()
+    expect(screen.queryByText(/helped during this run/i)).toBeNull()
+    expect(screen.queryByText(/was used during this agent run/i)).toBeNull()
+    expect(screen.queryByText(/via claude/i)).toBeNull()
+    expect(screen.queryByText(/envelope/i)).toBeNull()
   })
 
-  test('loads full memory content only after Show more is clicked', async () => {
+  test('labels unknown context run states without exposing backend status values', async () => {
+    render(
+      <ContextTab
+        taskId="task-1"
+        loadContext={async () =>
+          context({
+            runs: [
+              {
+                id: 'run-1',
+                status: 'pending',
+                agentId: 'agent-1',
+                startedAt: now,
+                finishedAt: null,
+                capabilityProfile: {},
+              },
+              {
+                id: 'run-2',
+                status: 'waiting_for_context',
+                agentId: 'agent-1',
+                startedAt: now,
+                finishedAt: null,
+                capabilityProfile: {},
+              },
+              {
+                id: 'run-3',
+                status: ' ',
+                agentId: 'agent-1',
+                startedAt: now,
+                finishedAt: null,
+                capabilityProfile: {},
+              },
+            ],
+            appliedItems: [applied({ itemId: 'memory-run-status' })],
+          })
+        }
+      />
+    )
+
+    expect(await screen.findByText('Agent checked saved notes and instructions')).toBeDefined()
+    expect(screen.getByText('Waiting to start')).toBeDefined()
+    expect(screen.getByText('Check task status')).toBeDefined()
+    expect(screen.getByText('Refresh task status')).toBeDefined()
+    expect(screen.queryByText('Status not reported')).toBeNull()
+    expect(screen.queryByText(/waiting_for_context/i)).toBeNull()
+    expect(screen.queryByText('Unknown')).toBeNull()
+  })
+
+  test('labels unknown applied context badges without exposing backend values', async () => {
+    render(
+      <ContextTab
+        taskId="task-1"
+        loadContext={async () =>
+          context({
+            appliedItems: [
+              applied({
+                itemId: 'memory-unknown-badges',
+                title: 'Unknown badge memory',
+                scopeKind: 'global_workspace' as never,
+                sensitivity: 'restricted_zone' as never,
+              }),
+            ],
+          })
+        }
+      />
+    )
+
+    expect(await screen.findByText('Unknown badge memory')).toBeDefined()
+    expect(screen.getByText('Check sharing setting')).toBeDefined()
+    expect(screen.getByText('Check safety label')).toBeDefined()
+    expect(screen.queryByText('Scope needs review')).toBeNull()
+    expect(screen.queryByText('Sensitivity needs review')).toBeNull()
+    expect(screen.queryByText(/global workspace/i)).toBeNull()
+    expect(screen.queryByText(/restricted zone/i)).toBeNull()
+    expect(screen.queryByText('Unknown')).toBeNull()
+  })
+
+  test('loads full saved note content only after the user asks for it', async () => {
     const readMemoryContent = vi.fn(async () => ({
       id: 'memory-1',
       content: 'Full memory content loaded on demand.',
@@ -220,13 +390,13 @@ describe('ContextTab', () => {
     expect(await screen.findByText('Short preview...')).toBeDefined()
     expect(readMemoryContent).not.toHaveBeenCalled()
 
-    await userEvent.setup().click(screen.getByRole('button', { name: /show full memory/i }))
+    await userEvent.setup().click(screen.getByRole('button', { name: /show full saved note/i }))
 
     expect(readMemoryContent).toHaveBeenCalledWith('memory-1')
     expect(await screen.findByText('Full memory content loaded on demand.')).toBeDefined()
   })
 
-  test('shows a beginner-safe message when full memory content fails to load', async () => {
+  test('shows a beginner-safe message when full saved note content fails to load', async () => {
     const readMemoryContent = vi.fn(async () => {
       throw new Error('raw backend failure')
     })
@@ -250,9 +420,12 @@ describe('ContextTab', () => {
     )
 
     await screen.findByText('Short preview...')
-    await userEvent.setup().click(screen.getByRole('button', { name: /show full memory/i }))
+    await userEvent.setup().click(screen.getByRole('button', { name: /show full saved note/i }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/full context could not load/i)
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Choose Show full saved note again before relying on it. The full saved note could not load.'
+    )
     expect(screen.queryByText('raw backend failure')).toBeNull()
   })
 

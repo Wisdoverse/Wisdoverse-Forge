@@ -104,10 +104,10 @@ describe('workspace settings empty states', () => {
     render(<TeamsSection />)
 
     expect(await screen.findByText('Create a team first')).toBeInTheDocument()
-    expect(
-      screen.getByText(/Teams group projects and decide who can manage work/i)
-    ).toBeInTheDocument()
+    expect(screen.getByText(/Teams keep projects and access together/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Teams group projects/i)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /new team/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /create first team/i })).toBeInTheDocument()
   })
 
   it('tells non-admin users who can create the first team', async () => {
@@ -121,12 +121,64 @@ describe('workspace settings empty states', () => {
     expect(screen.queryByRole('button', { name: /new team/i })).not.toBeInTheDocument()
   })
 
+  it('shows beginner recovery guidance when teams fail to load', async () => {
+    mocks.getTeams.mockRejectedValue(new Error('HTTP 403'))
+
+    render(<TeamsSection />)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain(
+      'Ask an owner or admin to update your team space access, then refresh Settings to load teams.'
+    )
+    expect(alert.textContent).not.toContain('workspace access')
+    expect(alert.textContent).toMatch(/^Ask an owner or admin/)
+    expect(alert.textContent).not.toContain('HTTP 403')
+  })
+
   it('explains that projects need a team before they can be created', async () => {
     render(<ProjectsSection />)
 
     expect(await screen.findByText('Create a team before adding projects')).toBeInTheDocument()
     expect(screen.getByText(/Projects live inside teams/i)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /new project/i })).not.toBeInTheDocument()
+    const openTeams = screen.getByRole('link', { name: /open teams/i })
+    expect(openTeams).toHaveAttribute('href', '/settings/teams')
+  })
+
+  it('guides users to choose a team space before creating projects', () => {
+    mocks.user = { role: 'owner' } as typeof mocks.user
+
+    render(<ProjectsSection />)
+
+    expect(mocks.getTeams).not.toHaveBeenCalled()
+    expect(screen.getByText('Choose a team space first')).toBeInTheDocument()
+    expect(screen.getByText(/Projects belong to teams inside a team space/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Choose an organization first/i)).not.toBeInTheDocument()
+  })
+
+  it('shows beginner recovery guidance when projects fail to load', async () => {
+    mocks.getTeams.mockRejectedValue(new Error('HTTP 500'))
+
+    render(<ProjectsSection />)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain(
+      'Refresh Settings to load projects. If it still fails, ask an owner or admin to check team space setup.'
+    )
+    expect(alert.textContent).not.toContain('HTTP 500')
+    expect(alert.textContent).not.toContain('temporarily unavailable')
+    expect(alert.textContent).not.toContain('workspace projects')
+  })
+
+  it('turns project loading server failures into a team space setup step', async () => {
+    mocks.getTeams.mockRejectedValue(new Error('API 503: {"message":"database unavailable"}'))
+
+    render(<ProjectsSection />)
+
+    expect(await screen.findByText(/Refresh Settings to load projects/i)).toBeInTheDocument()
+    expect(screen.getByText(/ask an owner or admin to check team space setup/i)).toBeInTheDocument()
+    expect(screen.queryByText(/workspace setup/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/database unavailable/i)).not.toBeInTheDocument()
   })
 
   it('shows project creation when at least one team allows it', async () => {
@@ -153,5 +205,16 @@ describe('workspace settings empty states', () => {
       await screen.findByText('Ask a team admin to let you create projects')
     ).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /new project/i })).not.toBeInTheDocument()
+  })
+
+  it('shows a beginner recovery step when projects cannot load', async () => {
+    mocks.getTeams.mockRejectedValue(new Error('HTTP 403'))
+
+    render(<ProjectsSection />)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Ask an owner or admin to update your team space access, then refresh Settings to load projects. You do not have access to these project settings right now.'
+    )
+    expect(screen.queryByText('HTTP 403')).not.toBeInTheDocument()
   })
 })

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { TeamsSection } from '@app/pages/settings/ui/TeamsSection'
 import { teamApi } from '@app/entities/team'
 
@@ -35,6 +35,7 @@ vi.mock('@app/entities/team', () => ({
 }))
 
 const getTeams = vi.mocked(teamApi.getTeams)
+const createTeam = vi.mocked(teamApi.createTeam)
 
 afterEach(() => {
   cleanup()
@@ -49,20 +50,82 @@ describe('TeamsSection', () => {
     render(<TeamsSection />)
 
     await waitFor(() => expect(getTeams).toHaveBeenCalledWith('org-1'))
-    expect(screen.getByText('Teams and access groups')).toBeDefined()
-    expect(screen.getByText(/teams group people and projects/i)).toBeDefined()
-    expect(screen.getByRole('button', { name: 'New Team' })).toBeDefined()
+    expect(screen.getByText('Teams and access')).toBeDefined()
+    expect(
+      screen.getByText(/teams keep people and projects together inside this team space/i)
+    ).toBeDefined()
+    expect(screen.queryByText(/access groups/i)).toBeNull()
+    expect(screen.getByRole('button', { name: 'New team' })).toBeDefined()
     expect(screen.getByText('Create a team first')).toBeDefined()
-    expect(screen.getByText(/Teams group projects and decide who can manage work/i)).toBeDefined()
+    expect(screen.getByText(/Teams keep projects and access together/i)).toBeDefined()
+    expect(screen.queryByText(/teams group projects/i)).toBeNull()
+    expect(screen.getByRole('button', { name: 'Create first team' })).toBeDefined()
   })
 
-  test('guides users to choose an organization before creating teams', () => {
+  test('guides users to choose a team space before creating teams', () => {
     authState.user = { id: 'user-1', role: 'owner' }
 
     render(<TeamsSection />)
 
     expect(getTeams).not.toHaveBeenCalled()
-    expect(screen.getByText('Choose an organization first')).toBeDefined()
+    expect(screen.getByText('Choose a team space first')).toBeDefined()
     expect(screen.getByText(/Select or create one before adding people/i)).toBeDefined()
+    expect(screen.queryByText(/Choose an organization first/i)).toBeNull()
+  })
+
+  test('shows a beginner recovery step when teams cannot load', async () => {
+    getTeams.mockRejectedValue(new Error('HTTP 500'))
+
+    render(<TeamsSection />)
+
+    await waitFor(() => expect(getTeams).toHaveBeenCalledWith('org-1'))
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Refresh Settings to load teams. If it still fails, ask an owner or admin to check team space setup.'
+    )
+    expect(screen.queryByText(/workspace teams/i)).toBeNull()
+    expect(screen.queryByText(/workspace setup/i)).toBeNull()
+    expect(screen.queryByText('HTTP 500')).toBeNull()
+    expect(screen.queryByText(/temporarily unavailable/i)).toBeNull()
+  })
+
+  test('turns team loading permission errors into an owner access step', async () => {
+    getTeams.mockRejectedValue(new Error('API 403: {"error":"owner role required"}'))
+
+    render(<TeamsSection />)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Ask an owner or admin to update your team space access, then refresh Settings to load teams. You do not have access to these team settings right now.'
+    )
+    expect(alert.textContent).not.toContain('workspace access')
+    expect(alert.textContent).not.toContain('Detail:')
+    expect(alert.textContent).not.toContain('owner role required')
+  })
+
+  test('turns team creation validation errors into field guidance', async () => {
+    getTeams.mockResolvedValue([])
+    createTeam.mockRejectedValue(new Error('API 422: {"message":"team name is required"}'))
+
+    render(<TeamsSection />)
+
+    await waitFor(() => expect(getTeams).toHaveBeenCalledWith('org-1'))
+    fireEvent.click(screen.getByRole('button', { name: 'New team' }))
+    fireEvent.change(screen.getByLabelText(/team name/i), { target: { value: 'Design' } })
+    fireEvent.click(screen.getByRole('button', { name: /create team/i }))
+
+    expect(await screen.findByText(/Enter a team name, then try again/i)).toBeDefined()
+    expect(screen.queryByText(/team name is required/i)).toBeNull()
+  })
+
+  test('opens team creation from the empty state action', async () => {
+    getTeams.mockResolvedValue([])
+
+    render(<TeamsSection />)
+
+    await waitFor(() => expect(getTeams).toHaveBeenCalledWith('org-1'))
+    fireEvent.click(screen.getByRole('button', { name: 'Create first team' }))
+
+    expect(screen.getByText('Team setup path')).toBeDefined()
+    expect(screen.getByLabelText(/team name/i)).toHaveFocus()
   })
 })

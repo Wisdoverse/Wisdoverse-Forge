@@ -58,20 +58,87 @@ sh -c 'set -a; . ~/.agentforge/agents/<agent-id>.env; set +a; exec agentforge-si
 Everything below is the manual path — useful when you want to verify binaries
 first or cannot pipe scripts from the network.
 
+## What this does
+
+A Host CLI agent is a normal managed Agent that runs from your own computer
+instead of inside a platform container. The platform still creates the Agent,
+assigns work, receives heartbeats, and records evidence. Your local terminal
+runs the selected work tool and the sidecar process that connects it back to the
+platform.
+
+Use this path when:
+
+- You want your local `codex`, `claude`, `gemini`, or `opencode` CLI to receive
+  platform tasks.
+- The local machine can reach the remote Forge server.
+- You can keep one terminal window open while the Agent is working.
+
+Do not use this path for API/provider agents or container-backed Agents created
+entirely inside the platform.
+
 ## Requirements
 
-- The remote API must be reachable by the operator.
-- `NATS_AGENT_URL` must point to a NATS address reachable from the operator
-  machine. The API strips user-info and injects per-agent credentials.
-- `agentforge-sidecar` and the selected CLI (`claude`, `codex`, `gemini`, or
-  `opencode`) must be installed on the operator machine.
-- The Platform CLI and sidecar should come from a release artifact for the
-  operator's operating system whenever possible. See
+## Before you start
+
+Operator prerequisites:
+
+- You can open the Forge web UI and sign in.
+- You have a Platform CLI token from an owner or admin.
+- You know which project should receive the Agent.
+- You have a local folder where the Agent is allowed to work.
+- The selected work tool is installed locally: `codex`, `claude`, `gemini`, or
+  `opencode`.
+- `agentforge` and `agentforge-sidecar` are installed from the release artifact
+  for your operating system when possible. See
   [CLI Platform Support](../guides/cli-platform-support.md).
+
+Admin prerequisites:
+
+- The remote API is reachable from the operator's machine.
+- Host CLI enrollment is enabled for the organization.
+- `NATS_AGENT_URL` points to a NATS address reachable from the operator's
+  machine. The API removes any user-info and injects per-agent credentials.
 
 Supported operator platforms are Linux x86_64, Linux ARM64, macOS Apple Silicon,
 macOS Intel, and Windows x86_64. Windows ARM64 is a secondary target until the
 release pipeline has validated artifacts for it.
+
+## Short path
+
+1. Install and verify `agentforge` plus `agentforge-sidecar`.
+2. Point `agentforge` at the Forge server.
+3. Log in with your platform token.
+4. Open the local folder where the Agent should work.
+5. Run the enrollment command for your shell.
+6. Copy and run the launch block printed by the command.
+7. Confirm the Agent appears online in the web UI.
+
+### Connect the CLI to Forge
+
+Replace `https://forge.example.com` and `<platform-token>` with values from your
+owner or admin.
+
+For macOS or Linux Terminal:
+
+```bash
+agentforge config set server https://forge.example.com
+agentforge auth login --token <platform-token>
+agentforge auth status
+```
+
+For Windows PowerShell:
+
+```powershell
+agentforge config set server https://forge.example.com
+agentforge auth login --token <platform-token>
+agentforge auth status
+```
+
+Success looks like:
+
+- `agentforge auth status` says you are signed in.
+- The server URL matches your Forge server.
+- No token value is printed back to the terminal.
 
 ## Verify the sidecar binary (recommended)
 
@@ -178,10 +245,20 @@ gh attestation verify oci://ghcr.io/wisdoverse/wisdoverse-forge/sidecar@sha256:<
   --repo Wisdoverse/Wisdoverse-Forge
 ```
 
-## Enroll
+## Enroll the local Agent
 
-Run this from the local directory where the agent should work. Replace
-`<project-id>` with the project selected in the web UI.
+Run this from the local directory where the Agent should work. Replace
+`<project-id>` with the project ID from the Forge web UI.
+
+Where to find `<project-id>`:
+
+1. Open the project in the web UI.
+2. Copy the project ID from the project settings page or the URL if your
+   deployment exposes it there.
+3. Ask an owner or admin if you only see the project name.
+
+The examples below use `codex`. Replace it with `claude`, `gemini`, or
+`opencode` if that is the local work tool installed on your machine.
 
 For macOS or Linux Terminal:
 
@@ -205,16 +282,30 @@ agentforge agents enroll-local `
   --shell-format powershell
 ```
 
-The command returns the environment variables plus `agentforge-sidecar` in the
-selected shell syntax. Run that returned block in the local directory that
-should receive tasks. The platform will then see heartbeats, assign tasks
-through NATS, and receive signed result evidence from that sidecar.
+The command prints a launch block for your shell. It contains several
+environment variables followed by `agentforge-sidecar`. Copy the entire block
+and run it in the same local folder.
 
-The `agentforge agents enroll-local` command generates an `Idempotency-Key`
-header automatically. If you re-run the same command within 24 hours, the
-platform returns the same agent rather than creating a duplicate. To force a
-fresh enrollment, pass `--idempotency-key <new-uuid>` or wait for the 24-hour
-window to expire.
+Success looks like:
+
+- The terminal keeps running instead of immediately returning to the prompt.
+- The sidecar logs show that it connected to the platform.
+- The Agents page shows the new Agent as online after the first heartbeat.
+- Tasks assigned to that Agent create updates and evidence in the platform.
+
+Keep that terminal open while the Agent is working. Closing it stops the local
+Agent connection; the platform can keep the Agent record, but it cannot assign
+new work to the local machine until you run the launch block again.
+
+The `agentforge agents enroll-local` command generates the required
+`Idempotency-Key` header automatically from the command inputs. If the network
+drops and you run the same command again within the platform's 24-hour replay
+window, the platform can return the same Agent instead of creating a duplicate.
+You do not need to copy, remember, or type that header yourself.
+
+To intentionally create another local Agent, use a different `--name` and run
+the enrollment command again after confirming the first Agent is no longer
+needed, or wait until the replay window expires.
 
 ## Verify
 

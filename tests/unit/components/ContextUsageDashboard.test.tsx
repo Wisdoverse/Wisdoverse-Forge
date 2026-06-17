@@ -37,36 +37,59 @@ afterEach(() => {
 })
 
 describe('ContextUsageDashboard', () => {
-  test('explains context reuse metrics for beginner operators', () => {
+  test('explains saved item reuse metrics for beginner operators', () => {
     vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-05-25T12:00:00Z').getTime())
 
     render(<ContextUsageDashboard data={baseData} />)
 
+    expect(screen.getByText('Saved item reuse')).toBeDefined()
     expect(
       screen.getByText(
-        'Use this panel to keep context that helps work finish and review items that may be outdated, incorrect, or too sensitive before agents reuse them.'
+        'Use this panel to keep saved notes and instructions that help work finish, and check items that may be outdated, incorrect, or too sensitive before agents reuse them.'
       )
     ).toBeDefined()
-    expect(screen.getByText('Times context was added to agent work.')).toBeDefined()
-    expect(screen.getByText('Completed work after context was used.')).toBeDefined()
-    expect(screen.getByText('Times users marked the context helpful.')).toBeDefined()
-    expect(screen.getByText('Signals to check before reuse.')).toBeDefined()
-    expect(screen.getByText('Snapshot refreshed 15m ago')).toBeDefined()
+    expect(
+      screen.getByText('Times saved notes or instructions were added to agent work.')
+    ).toBeDefined()
+    expect(screen.getByText('Completed work after saved items were used.')).toBeDefined()
+    expect(screen.getByText('Times users marked saved items helpful.')).toBeDefined()
+    expect(screen.getByText('Items people marked for another look.')).toBeDefined()
+    expect(screen.getByText('Updated 15m ago')).toBeDefined()
+    expect(screen.queryByText('Signals to check before reuse.')).toBeNull()
   })
 
   test('turns empty lists into next-step guidance', () => {
     render(<ContextUsageDashboard data={baseData} />)
 
     expect(
-      screen.getByText('Helpful items appear after users mark applied context as useful.')
-    ).toBeDefined()
-    expect(
       screen.getByText(
-        'Items show here when feedback says context may be outdated, incorrect, or sensitive.'
+        'After a task uses a saved note or instruction, choose Useful in the task result to place it in this list.'
       )
     ).toBeDefined()
     expect(
-      screen.getByText('Nothing has crossed the stale threshold for this workspace.')
+      screen.getByText(
+        'Next: after reviewing a completed task, mark a helpful saved item Useful so this list can rank it.'
+      )
+    ).toBeDefined()
+    expect(
+      screen.getByText(
+        'Items appear here when people report they may be outdated, incorrect, or too sensitive.'
+      )
+    ).toBeDefined()
+    expect(
+      screen.getByText(
+        'Next: no action is needed now; keep using task feedback so risky saved items appear here.'
+      )
+    ).toBeDefined()
+    expect(
+      screen.getByText(
+        'Saved notes and saved instructions appear here when they are old enough to check again.'
+      )
+    ).toBeDefined()
+    expect(
+      screen.getByText(
+        'Next: no action is needed now; update saved items when team guidance changes so old advice is easier to spot.'
+      )
     ).toBeDefined()
   })
 
@@ -74,7 +97,51 @@ describe('ContextUsageDashboard', () => {
     render(<ContextUsageDashboard data={{ ...baseData, isStale: true }} />)
 
     expect(screen.getByTestId('context-usage-stale-banner').textContent).toContain(
-      'Refresh analytics before acting on these numbers.'
+      'Refresh analytics before making decisions from them.'
     )
+  })
+
+  test('turns machine item labels into beginner-readable copy', () => {
+    render(
+      <ContextUsageDashboard
+        data={{
+          ...baseData,
+          topUseful: [
+            {
+              itemId: 'b6f4e2f4-5e28-4b36-bced-4d0e1bb32c3d',
+              itemKind: 'memory',
+              itemTitle: 'Release checklist',
+              scopeKind: 'workspace',
+              scopeId: '22c49f3c-6485-4d47-a263-343e0449b496',
+              itemState: 'active',
+              sensitivity: 'internal',
+              lastVerifiedAt: null,
+              taskKind: 'coding',
+              runtime: 'container',
+              agentId: 'a2d0b101-b64e-4b0e-a93a-0a9d02f1c55c',
+              agentName: 'Planner Agent',
+              appliedCount: 4,
+              completedCount: 3,
+              successRate: 0.75,
+              feedbackTotalCount: 2,
+              feedbackUsefulCount: 1,
+              feedbackNegativeCount: 1,
+              negativeFeedbackRate: 0.5,
+              lastUsedAt: '2026-05-25T11:45:00Z',
+              lastFeedbackAt: '2026-05-25T11:50:00Z',
+            },
+          ],
+        }}
+      />
+    )
+
+    expect(screen.getByText('Saved note')).toBeDefined()
+    expect(screen.getByText('Planner Agent · Managed workspace · Code change')).toBeDefined()
+    expect(screen.getByText('Next: keep this available for similar tasks.')).toBeDefined()
+    expect(screen.getByText('check')).toBeDefined()
+    expect(screen.queryByText(/Saved\s+memory/)).toBeNull()
+    expect(screen.queryByText('memory')).toBeNull()
+    expect(screen.queryByText('Planner Agent · container · coding')).toBeNull()
+    expect(screen.queryByText('negative')).toBeNull()
   })
 })

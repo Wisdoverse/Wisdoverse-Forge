@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react'
-import { Menu, Moon, Search, Sun } from 'lucide-react'
+import { Menu, Moon, Plus, Search, Sun } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { useTheme } from '@app/shared/model/theme.context'
-import type { ViewMode, GroupBy } from '@app/shared/model/board.types'
+import type { ViewMode } from '@app/shared/model/board.types'
 
 interface TopBarProps {
   title: string
@@ -10,9 +10,7 @@ interface TopBarProps {
   showTaskControls?: boolean
   onMenuClick?: () => void
   viewMode: ViewMode
-  groupBy: GroupBy
   onViewChange: (view: ViewMode) => void
-  onGroupByChange: (group: GroupBy) => void
   onCreateTask: () => void
   agentGroupSelector?: ReactNode
   onCmdK?: () => void
@@ -22,13 +20,7 @@ const VIEW_OPTIONS: { id: ViewMode; label: string }[] = [
   { id: 'board', label: 'Board' },
   { id: 'list', label: 'List' },
   { id: 'timeline', label: 'Timeline' },
-  { id: '3d', label: '3D' },
-]
-
-const GROUP_OPTIONS: { id: GroupBy; label: string }[] = [
-  { id: 'status', label: 'Status' },
-  { id: 'agent', label: 'Agent' },
-  { id: 'priority', label: 'Priority' },
+  { id: '3d', label: 'Map' },
 ]
 
 export function TopBar({
@@ -37,9 +29,7 @@ export function TopBar({
   showTaskControls = false,
   onMenuClick,
   viewMode,
-  groupBy,
   onViewChange,
-  onGroupByChange,
   onCreateTask,
   agentGroupSelector,
   onCmdK,
@@ -99,26 +89,6 @@ export function TopBar({
       <div className="flex items-center gap-2 flex-shrink-0">
         {showTaskControls && agentGroupSelector}
 
-        {showTaskControls && (
-          <div className="hidden gap-0.5 rounded-full border border-black/[0.08] bg-white p-0.5 dark:border-white/[0.1] dark:bg-white/[0.06] lg:flex">
-            {GROUP_OPTIONS.map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => onGroupByChange(opt.id)}
-                className={cn(
-                  'rounded-full px-3 py-1 text-ui-caption transition-transform active:scale-95',
-                  groupBy === opt.id
-                    ? 'bg-apple-blue text-white'
-                    : 'text-secondary-light dark:text-secondary-dark'
-                )}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        )}
-
         <button
           type="button"
           onClick={toggleTheme}
@@ -137,9 +107,9 @@ export function TopBar({
             type="button"
             data-testid="top-bar-command-search"
             onClick={onCmdK}
-            aria-label="Search commands and pages"
+            aria-label="Search pages and actions"
             className="hidden items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3 py-1.5 text-ui-caption font-medium text-secondary-light transition-colors hover:text-foreground-light active:scale-95 dark:bg-white/[0.06] dark:text-secondary-dark dark:hover:text-foreground-dark sm:flex"
-            title="Search commands and pages"
+            title="Search pages and actions"
           >
             <Search size={14} strokeWidth={2} aria-hidden="true" />
             <span>Search</span>
@@ -150,9 +120,10 @@ export function TopBar({
           <button
             type="button"
             onClick={onCreateTask}
-            className="rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95"
+            className="inline-flex items-center gap-1.5 rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95"
           >
-            + Task
+            <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
+            <span>New task</span>
           </button>
         )}
       </div>

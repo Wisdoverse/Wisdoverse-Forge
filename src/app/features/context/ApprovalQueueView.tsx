@@ -14,6 +14,7 @@ import { orchestrationApi } from '@app/shared/api/orchestration'
 import { cn } from '@app/shared/lib/utils'
 import { useWebSocket } from '@app/shared/model/websocket.context'
 import { useContextStore } from '@app/shared/model/context.store'
+import { approvalQueueErrorMessage } from './approvalQueueErrorMessages'
 import type {
   ContextCandidateKind,
   ContextCandidateState,
@@ -49,46 +50,96 @@ interface WsContextCandidateMessage {
 }
 
 const STATE_FILTERS: Array<{ value: StateFilter; label: string }> = [
-  { value: 'pending', label: 'Pending' },
-  { value: 'all', label: 'All' },
+  { value: 'pending', label: 'Waiting for review' },
+  { value: 'all', label: 'All saved items' },
 ]
 
 const KIND_FILTERS: Array<{ value: KindFilter; label: string }> = [
   { value: 'all', label: 'All items' },
-  { value: 'memory', label: 'Memory' },
-  { value: 'skill', label: 'Skill' },
+  { value: 'memory', label: 'Saved notes' },
+  { value: 'skill', label: 'Saved instructions' },
 ]
 
 const SCOPE_FILTERS: Array<{ value: ScopeFilter; label: string }> = [
-  { value: 'all', label: 'All scopes' },
-  { value: 'user', label: 'User' },
-  { value: 'team', label: 'Team' },
-  { value: 'project', label: 'Project' },
+  { value: 'all', label: 'All reuse options' },
+  { value: 'user', label: 'Only me' },
+  { value: 'team', label: 'My team' },
+  { value: 'project', label: 'This project' },
 ]
 
 const SENSITIVITIES: Array<{ value: ContextSensitivity; label: string }> = [
-  { value: 'public', label: 'Public' },
-  { value: 'internal', label: 'Internal' },
+  { value: 'public', label: 'Safe to share' },
+  { value: 'internal', label: 'Team internal' },
   { value: 'confidential', label: 'Confidential' },
-  { value: 'secret_detected', label: 'Secret detected' },
+  { value: 'secret_detected', label: 'May contain secrets' },
 ]
 
 const APPROVAL_PATH_STEPS = [
-  'Open the candidate and read the source preview.',
-  'Approve only reusable context, and choose the smallest safe scope.',
-  'Reject anything outdated, unsafe, or unclear.',
+  'Open the item and check what agents would save.',
+  'Save it only if it will help future work, then choose who can reuse it.',
+  'Do not save it if it is outdated, unsafe, duplicated, or unclear.',
 ]
 
 const APPROVE_CHECKLIST = [
-  'Source run is complete and still relevant.',
-  'Scope is no wider than the people who need it.',
-  'Sensitivity and redaction match the content.',
+  'The original task is complete and this saved item still helps.',
+  'Only the right people can reuse it.',
+  'Sensitive details are hidden before saving.',
 ]
 
 const REJECT_CHECKLIST = [
-  'Reject when the candidate is wrong, duplicated, unsafe, or too narrow to reuse.',
-  'Add a short reason so the next operator knows what happened.',
+  'Do not save it when the item is wrong, duplicated, unsafe, or too narrow to help later.',
+  'Add a short reason so the next reviewer knows what happened.',
 ]
+
+const SOURCE_MISSING_LABEL = 'Task details need to load'
+const SOURCE_MISSING_DETAIL = 'Save unlocks after the original task details load.'
+const SOURCE_MISSING_NEXT_STEP =
+  'Refresh saved items, then save after the original task details load.'
+
+interface ApprovalQueueEmptyState {
+  title: string
+  detail: string
+  nextStep: string
+  actionLabel?: string
+}
+
+function approvalQueueEmptyState({
+  stateFilter,
+  kindFilter,
+  scopeFilter,
+}: {
+  stateFilter: StateFilter
+  kindFilter: KindFilter
+  scopeFilter: ScopeFilter
+}): ApprovalQueueEmptyState {
+  if (kindFilter !== 'all' || scopeFilter !== 'all') {
+    return {
+      title: 'Filters are hiding saved items',
+      detail:
+        'This view only shows the selected item type and reuse option. Clear filters before assuming there is nothing to check.',
+      nextStep: 'Next: review everything first, then narrow the list again only if it is long.',
+      actionLabel: 'Clear filters',
+    }
+  }
+
+  if (stateFilter === 'all') {
+    return {
+      title: 'Review the first saved item to start history',
+      detail:
+        'Saved and not-saved notes or instructions appear here after someone reviews the first suggestion.',
+      nextStep:
+        'Next: switch back to Waiting for review when you only want items waiting for a decision.',
+      actionLabel: 'Show pending reviews',
+    }
+  }
+
+  return {
+    title: 'No saved items need review',
+    detail:
+      'When an agent suggests a saved note or saved instruction, it will appear here before anyone can reuse it.',
+    nextStep: 'Next: finish a task, then come back here if you want agents to reuse what worked.',
+  }
+}
 
 export function ApprovalQueueView() {
   const { subscribe } = useWebSocket()
@@ -120,7 +171,7 @@ export function ApprovalQueueView() {
       setCandidates(queue)
       setPendingCandidateCount(pending.length)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load approval queue')
+      setError(approvalQueueErrorMessage('loadQueue', err))
     } finally {
       setLoading(false)
     }
@@ -141,9 +192,20 @@ export function ApprovalQueueView() {
   )
 
   const totalLabel = useMemo(() => {
-    const suffix = pendingCandidateCount === 1 ? 'pending candidate' : 'pending candidates'
+    const suffix = pendingCandidateCount === 1 ? 'pending item' : 'pending items'
     return `${pendingCandidateCount} ${suffix}`
   }, [pendingCandidateCount])
+
+  const emptyState = useMemo(
+    () => approvalQueueEmptyState({ stateFilter, kindFilter, scopeFilter }),
+    [kindFilter, scopeFilter, stateFilter]
+  )
+
+  const resetFilters = useCallback(() => {
+    setStateFilter('pending')
+    setKindFilter('all')
+    setScopeFilter('all')
+  }, [])
 
   const handleDecisionComplete = useCallback(
     (candidateId: string, state: Extract<ContextCandidateState, 'approved' | 'rejected'>) => {
@@ -177,7 +239,7 @@ export function ApprovalQueueView() {
       handleDecisionComplete(candidate.id, 'approved')
       setActiveDecision(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to approve candidate')
+      setError(approvalQueueErrorMessage('approveCandidate', err))
     } finally {
       setDecisionLoading(false)
     }
@@ -193,7 +255,7 @@ export function ApprovalQueueView() {
       handleDecisionComplete(candidate.id, 'rejected')
       setActiveDecision(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to reject candidate')
+      setError(approvalQueueErrorMessage('rejectCandidate', err))
     } finally {
       setDecisionLoading(false)
     }
@@ -209,9 +271,9 @@ export function ApprovalQueueView() {
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-ui-caption font-semibold text-apple-blue">
               <ShieldCheck size={14} strokeWidth={2} aria-hidden="true" />
-              <span>Governed context</span>
+              <span>Saved item review</span>
             </div>
-            <h1 className="mt-1 text-ui-title font-semibold">Approval queue</h1>
+            <h1 className="mt-1 text-ui-title font-semibold">Review what agents can save</h1>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
               {totalLabel}
             </p>
@@ -220,7 +282,7 @@ export function ApprovalQueueView() {
             type="button"
             onClick={() => void loadCandidates()}
             className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.08]"
-            title="Refresh approval queue"
+            title="Refresh review list"
           >
             <RefreshCw
               size={15}
@@ -239,10 +301,11 @@ export function ApprovalQueueView() {
           <div className="grid gap-3 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)] md:items-start">
             <div>
               <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
-                Approval path
+                Review steps
               </p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Decide whether a memory or skill should become reusable context for future work.
+                Decide which saved notes or instructions are useful and safe to save for future
+                work.
               </p>
             </div>
             <ol className="list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -255,19 +318,19 @@ export function ApprovalQueueView() {
 
         <section className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]">
           <SegmentedFilter
-            label="State"
+            label="Status"
             value={stateFilter}
             options={STATE_FILTERS}
             onChange={(value) => setStateFilter(value)}
           />
           <SelectFilter
-            label="Item kind"
+            label="Item type"
             value={kindFilter}
             options={KIND_FILTERS}
             onChange={(value) => setKindFilter(value)}
           />
           <SelectFilter
-            label="Scope"
+            label="Sharing range"
             value={scopeFilter}
             options={SCOPE_FILTERS}
             onChange={(value) => setScopeFilter(value)}
@@ -293,23 +356,35 @@ export function ApprovalQueueView() {
           {loading && candidates.length === 0 ? (
             <div className="flex h-64 items-center justify-center gap-2 text-ui-body text-secondary-light dark:text-secondary-dark">
               <Loader2 size={18} strokeWidth={2} className="animate-spin" aria-hidden="true" />
-              <span>Loading approval queue…</span>
+              <span>Checking saved items...</span>
             </div>
           ) : candidates.length === 0 ? (
-            <div className="flex h-64 flex-col items-center justify-center rounded-card border border-dashed border-black/[0.12] text-center dark:border-white/[0.12]">
+            <div
+              data-testid="context-approval-empty"
+              className="flex h-64 flex-col items-center justify-center rounded-card border border-dashed border-black/[0.12] px-4 text-center dark:border-white/[0.12]"
+            >
               <CheckCircle2
                 size={24}
                 strokeWidth={2}
                 className="text-apple-blue"
                 aria-hidden="true"
               />
-              <p className="mt-2 text-ui-section font-medium">No candidates match these filters</p>
+              <p className="mt-2 text-ui-section font-medium">{emptyState.title}</p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                New candidates appear here from completed task runs.
+                {emptyState.detail}
               </p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Switch State to All or clear item and scope filters if you expected older decisions.
+                {emptyState.nextStep}
               </p>
+              {emptyState.actionLabel && (
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="mt-3 inline-flex h-9 items-center justify-center rounded-full bg-apple-blue px-3 text-ui-button font-semibold text-white transition-colors hover:bg-apple-blue/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+                >
+                  {emptyState.actionLabel}
+                </button>
+              )}
             </div>
           ) : (
             <div className="grid gap-3">
@@ -353,6 +428,8 @@ function CandidateRow({
   const preview = candidatePreview(candidate)
   const unavailable = pending && !candidate.source_available
   const Icon = candidate.item_kind === 'skill' ? Zap : FileText
+  const itemKindLabel = contextItemKindLabel(candidate.item_kind)
+  const reuseLabel = reuseRangeLabel(candidate.proposed_scope_kind)
 
   return (
     <article
@@ -370,11 +447,11 @@ function CandidateRow({
             )}
           >
             <Icon size={13} strokeWidth={2} aria-hidden="true" />
-            {titleCase(candidate.item_kind)}
+            {itemKindLabel}
           </span>
           <StatusPill state={candidate.state} />
           <span className="inline-flex h-6 items-center rounded-full bg-black/[0.05] px-2 text-ui-caption font-medium text-secondary-light dark:bg-white/[0.08] dark:text-secondary-dark">
-            {titleCase(candidate.proposed_scope_kind)}
+            {reuseLabel}
           </span>
           {unavailable && (
             <span
@@ -382,7 +459,7 @@ function CandidateRow({
               className="inline-flex h-6 items-center gap-1 rounded-full bg-apple-red/10 px-2 text-ui-caption font-semibold text-apple-red"
             >
               <AlertTriangle size={12} strokeWidth={2} aria-hidden="true" />
-              Source unavailable
+              {SOURCE_MISSING_LABEL}
             </span>
           )}
         </div>
@@ -393,10 +470,15 @@ function CandidateRow({
           </p>
         )}
         <div className="mt-3 flex flex-wrap items-center gap-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          <span>Workspace {shortId(candidate.workspace_id)}</span>
-          <span>Owner {shortId(candidate.owner_user_id)}</span>
-          {candidate.source_run_id && <span>Run {shortId(candidate.source_run_id)}</span>}
-          <span>{formatTimestamp(candidate.created_at)}</span>
+          <span>Who can reuse it: {reuseRangeLabel(candidate.proposed_scope_kind)}</span>
+          {candidate.source_run_id && (
+            <span>
+              {candidate.source_available
+                ? 'Original task preview available'
+                : SOURCE_MISSING_DETAIL}
+            </span>
+          )}
+          <span>Created {formatTimestamp(candidate.created_at)}</span>
         </div>
       </div>
 
@@ -409,10 +491,14 @@ function CandidateRow({
               onClick={onApprove}
               disabled={!candidate.source_available}
               className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-apple-blue px-3 text-ui-button font-semibold text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:bg-black/20 disabled:text-black/45 dark:disabled:bg-white/10 dark:disabled:text-white/35"
-              title={candidate.source_available ? 'Approve candidate' : 'Source run is unavailable'}
+              title={
+                candidate.source_available
+                  ? 'Save this item for future work'
+                  : SOURCE_MISSING_NEXT_STEP
+              }
             >
               <CheckCircle2 size={15} strokeWidth={2} aria-hidden="true" />
-              <span>Approve</span>
+              <span>Save</span>
             </button>
             <button
               type="button"
@@ -421,7 +507,7 @@ function CandidateRow({
               className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-semibold text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.08]"
             >
               <XCircle size={15} strokeWidth={2} aria-hidden="true" />
-              <span>Reject</span>
+              <span>Do not save</span>
             </button>
           </>
         ) : (
@@ -458,14 +544,14 @@ function DecisionPanel({
     (!requiresScopeId || (form.scopeId.trim().length > 0 && form.confirmExpansion))
   const approvalStatusId = `context-approval-status-${candidate.id}`
   const approvalStatus = !candidate.source_available
-    ? 'This item cannot be approved because the source run is unavailable.'
+    ? SOURCE_MISSING_NEXT_STEP
     : !requiresScopeId
-      ? 'Ready to approve for your own account.'
+      ? 'Ready to save for your own account.'
       : !form.scopeId.trim()
-        ? `Enter the ${form.scopeKind} ID before approving.`
+        ? `Paste the ${scopeTargetReferenceLabel(form.scopeKind)} before saving.`
         : !form.confirmExpansion
-          ? `Confirm this ${form.scopeKind} can reuse this context before approving.`
-          : `Ready to approve for this ${form.scopeKind}.`
+          ? `Confirm ${reuseAudienceLabel(form.scopeKind)} can reuse this safely before saving.`
+          : `Ready to save for ${reuseAudienceLabel(form.scopeKind)}.`
 
   function updateForm<K extends keyof ApprovalFormState>(key: K, value: ApprovalFormState[K]) {
     setForm((current) => ({ ...current, [key]: value }))
@@ -485,21 +571,21 @@ function DecisionPanel({
     <div className="fixed inset-0 z-50 flex justify-end bg-black/35 backdrop-blur-sm">
       <button
         type="button"
-        aria-label="Close approval panel"
+        aria-label="Close review panel"
         className="hidden flex-1 md:block"
         onClick={onClose}
       />
       <aside
         role="dialog"
         aria-modal="true"
-        aria-label={approving ? `Approve ${title}` : `Reject ${title}`}
+        aria-label={approving ? `Save ${title}` : `Do not save ${title}`}
         className="flex h-full w-full max-w-md flex-col border-l border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-[#111417]"
       >
         <div className="border-b border-black/[0.06] px-4 py-4 dark:border-white/[0.06]">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-ui-caption font-semibold text-apple-blue">
-                {approving ? 'Approve candidate' : 'Reject candidate'}
+                {approving ? 'Save for future work' : 'Do not save this'}
               </p>
               <h2 className="mt-1 truncate text-ui-title font-semibold">{title}</h2>
             </div>
@@ -522,8 +608,8 @@ function DecisionPanel({
             {approving ? (
               <>
                 <div className="rounded-card bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue">
-                  Choose who can reuse this context. User is the safest choice. Team or project
-                  approval shares it more broadly and needs the exact ID.
+                  Choose who can reuse it. Only me is the safest choice. My team or This project
+                  shares it more broadly and needs the support reference from Settings.
                 </div>
 
                 {!candidate.source_available && (
@@ -534,11 +620,11 @@ function DecisionPanel({
                       className="mt-0.5 flex-shrink-0"
                       aria-hidden="true"
                     />
-                    <span>Approval is blocked because the source run is not completed.</span>
+                    <span>{SOURCE_MISSING_NEXT_STEP}</span>
                   </div>
                 )}
 
-                <Field label="Approval scope">
+                <Field label="Who can reuse it">
                   <select
                     data-testid="context-approval-scope-kind"
                     value={form.scopeKind}
@@ -553,19 +639,19 @@ function DecisionPanel({
                     }}
                     className={fieldClassName}
                   >
-                    <option value="user">User</option>
-                    <option value="team">Team</option>
-                    <option value="project">Project</option>
+                    <option value="user">Only me</option>
+                    <option value="team">My team</option>
+                    <option value="project">This project</option>
                   </select>
                 </Field>
 
                 {requiresScopeId && (
-                  <Field label={`${titleCase(form.scopeKind)} ID`}>
+                  <Field label={scopeTargetReferenceLabel(form.scopeKind)}>
                     <input
                       value={form.scopeId}
                       onChange={(event) => updateForm('scopeId', event.target.value)}
                       className={fieldClassName}
-                      placeholder={`Paste the ${form.scopeKind} ID here…`}
+                      placeholder={`Paste the ${scopeTargetReferenceLabel(form.scopeKind)} from Settings…`}
                       name="scopeId"
                       autoComplete="off"
                       data-testid="context-approval-scope-id"
@@ -613,29 +699,29 @@ function DecisionPanel({
                   <Checkbox
                     checked={form.redacted}
                     onChange={(checked) => updateForm('redacted', checked)}
-                    label="Redact sensitive content"
+                    label="Hide sensitive content before saving"
                   />
                   <Checkbox
                     checked={form.userAttested}
                     onChange={(checked) => updateForm('userAttested', checked)}
-                    label="Attest sensitive content review"
+                    label="I checked the sensitive content"
                   />
                   {requiresScopeId && (
                     <Checkbox
                       checked={form.confirmExpansion}
                       onChange={(checked) => updateForm('confirmExpansion', checked)}
-                      label={`Confirm this ${form.scopeKind} can reuse this context`}
+                      label={`I checked ${reuseAudienceLabel(form.scopeKind)} can reuse this safely`}
                     />
                   )}
                 </div>
               </>
             ) : (
-              <Field label="Reject reason">
+              <Field label="Why not save it?">
                 <textarea
                   value={rejectReason}
                   onChange={(event) => setRejectReason(event.target.value)}
                   className={cn(fieldClassName, 'min-h-32 resize-y py-2')}
-                  placeholder="Why should this not be saved for reuse?"
+                  placeholder="Why should this not be saved?"
                   name="rejectReason"
                   data-testid="context-reject-reason"
                 />
@@ -660,7 +746,7 @@ function DecisionPanel({
                 onClick={onClose}
                 className="inline-flex h-9 items-center justify-center rounded-full px-3 text-ui-button font-medium text-secondary-light transition-colors hover:bg-black/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:text-secondary-dark dark:hover:bg-white/[0.08]"
               >
-                Cancel
+                Review later
               </button>
               <button
                 type="submit"
@@ -677,7 +763,7 @@ function DecisionPanel({
                 {loading ? (
                   <Loader2 size={15} strokeWidth={2} className="animate-spin" aria-hidden="true" />
                 ) : null}
-                <span>{approving ? 'Approve candidate' : 'Reject candidate'}</span>
+                <span>{approving ? 'Approve and save' : 'Do not save'}</span>
               </button>
             </div>
           </div>
@@ -714,7 +800,7 @@ function DecisionChecklist({ approving }: { approving: boolean }) {
       className="rounded-card border border-black/[0.08] bg-white px-3 py-2.5 dark:border-white/[0.1] dark:bg-white/[0.04]"
     >
       <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
-        {approving ? 'Approve only when' : 'Reject when'}
+        {approving ? 'Save only when' : 'Do not save when'}
       </p>
       <ol className="mt-2 list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
         {items.map((item) => (
@@ -834,6 +920,12 @@ function StatusPill({ state }: { state: ContextCandidateState }) {
     superseded:
       'bg-black/[0.06] text-secondary-light dark:bg-white/[0.08] dark:text-secondary-dark',
   }
+  const labels: Record<ContextCandidateState, string> = {
+    pending: 'Waiting for review',
+    approved: 'Saved',
+    rejected: 'Not saved',
+    superseded: 'Replaced',
+  }
   return (
     <span
       className={cn(
@@ -841,7 +933,7 @@ function StatusPill({ state }: { state: ContextCandidateState }) {
         styles[state]
       )}
     >
-      {titleCase(state)}
+      {labels[state]}
     </span>
   )
 }
@@ -877,8 +969,32 @@ function candidateTitle(candidate: ContextCandidateSummary): string {
     previewString(candidate, 'title') ||
     previewString(candidate, 'name') ||
     previewString(candidate, 'description') ||
-    `${titleCase(candidate.item_kind)} ${shortId(candidate.id)}`
+    `${contextItemKindLabel(candidate.item_kind)} ready to review`
   )
+}
+
+function contextItemKindLabel(value: ContextCandidateKind): string {
+  return value === 'skill' ? 'Saved instruction' : 'Saved note'
+}
+
+function reuseRangeLabel(value: ContextCandidateSummary['proposed_scope_kind']): string {
+  if (value === 'org') return 'Team space'
+  if (value === 'user') return 'Only me'
+  if (value === 'team') return 'My team'
+  if (value === 'project') return 'This project'
+  return titleCase(value)
+}
+
+function reuseAudienceLabel(value: ContextCandidateSummary['proposed_scope_kind']): string {
+  if (value === 'org') return 'everyone in the team space'
+  if (value === 'user') return 'your own account'
+  if (value === 'team') return 'your team'
+  if (value === 'project') return 'this project'
+  return `the selected ${value}`
+}
+
+function scopeTargetReferenceLabel(value: ContextScopeKind): string {
+  return `${titleCase(value)} support reference`
 }
 
 function candidatePreview(candidate: ContextCandidateSummary): string {
@@ -901,10 +1017,6 @@ function titleCase(value: string): string {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ')
-}
-
-function shortId(value: string): string {
-  return value.length > 8 ? value.slice(0, 8) : value
 }
 
 function formatTimestamp(value: string): string {

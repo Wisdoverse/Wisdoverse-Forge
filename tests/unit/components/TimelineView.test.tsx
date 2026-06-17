@@ -41,7 +41,7 @@ describe('TimelineView', () => {
     render(<TimelineView />)
 
     expect(screen.getByTestId('timeline-view')).toBeDefined()
-    expect(screen.getByText('No timeline events yet')).toBeDefined()
+    expect(screen.getByText('Start a task to build the timeline')).toBeDefined()
     expect(
       screen.getByText(
         'Start a task or open a running task. Status changes will appear here in time order.'
@@ -49,14 +49,19 @@ describe('TimelineView', () => {
     ).toBeDefined()
     expect(screen.getByText('Start a task from the board')).toBeDefined()
     expect(
-      screen.getByText('Open a task when the timeline shows something that needs attention')
+      screen.getByText('Watch tasks move through waiting, working, help needed, and finished steps')
     ).toBeDefined()
+    expect(screen.getByText('Open a task marked help needed to see what to do next')).toBeDefined()
+    expect(screen.queryByText(/something that needs attention/i)).toBeNull()
+    expect(screen.queryByText('No timeline events yet')).toBeNull()
+    expect(screen.queryByText(/blocked and completed/i)).toBeNull()
   })
 
   test('keeps the timeline canvas mounted for the route smoke test', () => {
     render(<TimelineView />)
 
     expect(document.querySelector('canvas.timeline-canvas')).toBeTruthy()
-    expect(canvasContext.fillText).toHaveBeenCalledWith('Waiting for run events', 320, 136)
+    expect(canvasContext.fillText).toHaveBeenCalledWith('Waiting for work updates', 320, 136)
+    expect(canvasContext.fillText).not.toHaveBeenCalledWith('Waiting for run events', 320, 136)
   })
 })

@@ -301,13 +301,13 @@ function adminResourceLabel(resource: AdminResource): string {
     case 'users':
       return 'user list'
     case 'organizations':
-      return 'organization list'
+      return 'team space list'
     case 'agents':
       return 'agent list'
     case 'health':
       return 'system health'
     case 'cli-images':
-      return 'CLI agent images'
+      return 'agent tool updates'
   }
 }
 
@@ -336,31 +336,34 @@ export function adminHttpErrorMessage(
   data: Record<string, unknown> = {}
 ): string {
   const label = adminResourceLabel(resource)
-  const detail = adminErrorDetail(data)
-  const suffix = detail ? ` Details: ${detail}` : ''
-  const statusText = `Code: ${status}.`
+  void data
 
   if (status === 401) {
-    return `Sign in again, then reload the ${label}. ${statusText}${suffix}`
+    return `Your sign-in expired. Sign in again, then open Admin and reload the ${label}.`
   }
   if (status === 403) {
-    return `You do not have permission to view admin ${label}. Ask an owner to update your admin role. ${statusText}${suffix}`
+    return `Ask an owner or admin to give you Admin access, then reload Admin. You do not have access to the admin ${label}.`
   }
   if (status === 404) {
-    return `The admin ${label} endpoint is not available. Refresh after the backend is deployed. ${statusText}${suffix}`
+    return `Refresh Admin, then try again. The admin ${label} is not available from this Admin view. If it still fails, ask an owner or admin to check setup.`
+  }
+  if (status === 409) {
+    return resource === 'cli-images'
+      ? 'An agent tool update is already in progress. Wait for the current update to finish, refresh agent tool updates, then try again.'
+      : `The admin ${label} changed while you were working. Refresh Admin, review the latest state, then try again.`
   }
   if (status === 429) {
-    return `The admin service is busy. Wait a moment, then reload the ${label}. ${statusText}${suffix}`
+    return `Forge is receiving too many Admin requests right now. Wait a moment, then reload the ${label}.`
   }
   if (status >= 500) {
-    return `The admin service had a server problem. Try again after the backend is healthy. ${statusText}${suffix}`
+    return `Reload the ${label}, then try again. Forge could not load the admin ${label} right now. If it still fails, ask an owner or admin to check Admin setup.`
   }
 
-  return `The admin ${label} could not load. Refresh the page and try again. ${statusText}${suffix}`
+  return `Refresh Admin, then try again. The admin ${label} could not load. If it still fails, ask an owner or admin to check Admin setup.`
 }
 
 function adminNetworkErrorMessage(resource: AdminResource): string {
-  return `The admin ${adminResourceLabel(resource)} could not load because the browser could not reach the server. Check your connection and refresh the page.`
+  return `Check your connection, then refresh Admin. Forge could not connect while loading the admin ${adminResourceLabel(resource)}.`
 }
 
 function adminErrorMessage(err: unknown, resource: AdminResource): string {
@@ -375,6 +378,10 @@ type AdminUserAction = 'change-role' | 'remove'
 
 function adminUserActionLabel(action: AdminUserAction): string {
   return action === 'change-role' ? 'access change' : 'removal'
+}
+
+function adminUserActionRecovery(action: AdminUserAction): string {
+  return action === 'change-role' ? 'the access change' : 'the removal'
 }
 
 /**
@@ -396,25 +403,25 @@ export function adminUserActionErrorMessage(
     return message.charAt(0).toUpperCase() + message.slice(1)
   }
 
-  const suffix = detail ? ` Details: ${detail}` : ''
-  const statusText = `Code: ${status}.`
   if (status === 401) {
-    return `Sign in again, then retry the ${label}. ${statusText}${suffix}`
+    return `Your sign-in expired. Sign in again, then retry ${adminUserActionRecovery(action)}.`
   }
   if (status === 403) {
-    return `You do not have permission to manage users. Ask an owner to update your admin role. ${statusText}${suffix}`
+    return action === 'change-role'
+      ? 'Ask an owner or admin to give you Admin access, then save again. You do not have access to change user access.'
+      : 'Ask an owner or admin to give you Admin access, then try again. You do not have access to remove user accounts.'
   }
   if (status === 404) {
-    return `This user is no longer in the list. Reload the user list to see the latest accounts. ${statusText}${suffix}`
+    return 'This user is no longer in the list. Reload the user list to see the latest accounts.'
   }
   if (status >= 500) {
-    return `The admin service had a server problem. Retry the ${label} after the backend is healthy. ${statusText}${suffix}`
+    return `Reload the user list, then try again. Forge could not finish ${adminUserActionRecovery(action)} right now. If it still fails, ask an owner or admin to check Admin setup.`
   }
-  return `The ${label} did not go through. Try again. ${statusText}${suffix}`
+  return `Refresh the user list, then try again. The ${label} did not go through.`
 }
 
 function adminUserActionNetworkMessage(action: AdminUserAction): string {
-  return `The ${adminUserActionLabel(action)} could not reach the server. Check your connection and try again.`
+  return `Check your connection, then try again. The ${adminUserActionLabel(action)} could not reach the server.`
 }
 
 function adminUserActionError(err: unknown, action: AdminUserAction): string {

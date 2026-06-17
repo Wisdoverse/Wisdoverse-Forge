@@ -22,7 +22,9 @@ export function ChatComposer({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const inputId = useId()
   const helpId = `${inputId}-help`
+  const examplesId = `${inputId}-examples`
   const errorId = `${inputId}-error`
+  const describedBy = error ? `${helpId} ${examplesId} ${errorId}` : `${helpId} ${examplesId}`
 
   const statusText = streaming
     ? 'Agent is responding. Stop it if you need to change the message.'
@@ -46,7 +48,9 @@ export function ChatComposer({
 
     const trimmed = value.trim()
     if (!trimmed) {
-      setError('Write a message before sending it to this agent.')
+      setError(
+        'Write a message before sending it to this agent. Try asking for a summary, what needs help, or the next safe step.'
+      )
       textareaRef.current?.focus()
       return
     }
@@ -81,7 +85,7 @@ export function ChatComposer({
           rows={2}
           disabled={disabled || streaming}
           aria-invalid={error != null}
-          aria-describedby={error ? `${helpId} ${errorId}` : helpId}
+          aria-describedby={describedBy}
           onChange={(e) => {
             setValue(e.target.value)
             if (error) setError(null)
@@ -113,6 +117,9 @@ export function ChatComposer({
       </div>
       <p id={helpId} className="text-ui-caption text-secondary-light dark:text-secondary-dark">
         {statusText}
+      </p>
+      <p id={examplesId} className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+        Need a starting point? Ask for a short summary, what needs help, or the next safe step.
       </p>
       {error && (
         <p id={errorId} role="alert" className="text-ui-caption font-medium text-apple-red">

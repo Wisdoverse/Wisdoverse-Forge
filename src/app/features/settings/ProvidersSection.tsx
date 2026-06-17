@@ -4,8 +4,10 @@ import {
   AlertTriangle,
   CheckCircle2,
   Plus,
+  Power,
   Search,
   SlidersHorizontal,
+  Trash2,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
@@ -18,6 +20,7 @@ import type {
   TestConnectionResult,
 } from '@app/shared/api/legacy/settingsApi'
 import { getSettingsApi } from '@app/shared/api/legacy'
+import { providerTestErrorMessage } from './providerTestErrorMessage'
 
 // ============================================================================
 // Types
@@ -32,7 +35,7 @@ interface AddProviderForm {
 }
 
 type ProviderFilter = 'all' | 'ready' | 'needs-test' | 'disabled'
-type ProviderNextAction = 'add-provider' | 'show-needs-test'
+type ProviderNextAction = 'add-provider' | 'show-needs-test' | 'show-disabled'
 /** Which "Add" experience is visible: the curated catalog or the bring-your-own gateway form. */
 type AddBucket = 'catalog' | 'custom'
 
@@ -53,10 +56,16 @@ interface ProviderFormReadiness {
   fieldId: string | null
 }
 
+interface ProviderFilterEmptyState {
+  title: string
+  detail: string
+}
+
 /**
- * A built-in catalog vendor. The `xxx` (API) and `xxx_coding` (Coding Plan)
+ * A built-in catalog vendor. The `xxx` (standard setup) and `xxx_coding`
  * provider keys are collapsed into one card so operators pick the vendor once,
- * then toggle Plan / Region instead of scrolling a 25-entry dropdown.
+ * then choose the service plan and address region instead of scrolling a
+ * 25-entry dropdown.
  */
 interface CatalogVendor {
   /** Stable grouping key (the base provider key, e.g. `zhipu`). */
@@ -70,7 +79,7 @@ interface CatalogVendor {
 const PROVIDER_FILTERS: { id: ProviderFilter; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'ready', label: 'Ready' },
-  { id: 'needs-test', label: 'Needs Test' },
+  { id: 'needs-test', label: 'Needs check' },
   { id: 'disabled', label: 'Disabled' },
 ]
 
@@ -90,9 +99,15 @@ const DEFAULT_FORM: AddProviderForm = {
 }
 
 const PROVIDER_SETUP_STEPS = [
-  { label: 'Choose endpoint', value: 'Point at your OpenAI-compatible or gateway service.' },
-  { label: 'Paste key', value: 'Use the provider key from that account. It is stored encrypted.' },
-  { label: 'Save, then test', value: 'Run Test before creating Provider + Prompt agents.' },
+  { label: 'Choose AI account', value: 'Pick the service your team already pays for or runs.' },
+  {
+    label: 'Paste service access key',
+    value: 'Open that account, copy its access key, and paste it here.',
+  },
+  {
+    label: 'Save and check',
+    value: 'Click Check after saving. Ready means agents can use this service.',
+  },
 ]
 
 const FALLBACK_SUPPORTED_PROVIDERS: ProviderInfo[] = [
@@ -314,24 +329,15 @@ const FALLBACK_SUPPORTED_PROVIDERS: ProviderInfo[] = [
   },
 ]
 
-function baseUrlPlaceholder(provider: LlmProvider, info?: ProviderInfo): string {
-  if (info?.defaultBaseUrl) return info.defaultBaseUrl
-  switch (provider) {
-    case 'ollama':
-      return 'http://localhost:11434'
-    case 'groq':
-      return 'https://api.groq.com/openai'
-    case 'openrouter':
-      return 'https://openrouter.ai/api'
-    case 'together':
-      return 'https://api.together.xyz'
-    case 'fireworks':
-      return 'https://api.fireworks.ai/inference'
-    case 'openai_compatible':
-      return 'https://api.example.com'
-    default:
-      return 'https://api.example.com'
+function serviceAddressPlaceholder(needsBaseUrl: boolean): string {
+  return needsBaseUrl ? 'Paste the service address from your guide' : 'Usually leave this blank'
+}
+
+function serviceAddressHelp(selectedProvider?: ProviderInfo): string {
+  if (selectedProvider?.globalBaseUrl) {
+    return 'Leave blank to use the default regional address. Fill it only when your service guide or owner gives you a global address.'
   }
+  return 'Most users leave this blank. Fill it only when an owner gives you a custom AI service address.'
 }
 
 function providerNeedsApiKey(provider: LlmProvider, info?: ProviderInfo): boolean {
@@ -402,9 +408,10 @@ function providerFormReadiness({
   if (!form.model.trim()) {
     return {
       ready: false,
-      title: 'Next: Add Model',
-      detail: 'Choose a model from the list or keep the suggested default.',
-      error: 'Add a model before saving this provider.',
+      title: 'Next: choose the model to use',
+      detail:
+        'The suggested model is safe to start with. Change it only if your service guide gave you another model name.',
+      error: 'Choose the model to use before saving this AI service.',
       fieldId: modelInputId,
     }
   }
@@ -412,9 +419,10 @@ function providerFormReadiness({
   if (needsApiKey && !form.apiKey.trim()) {
     return {
       ready: false,
-      title: 'Next: Paste API Key',
-      detail: 'Paste the key from your provider account. It will be stored as a secret.',
-      error: 'Add the API key before saving this provider.',
+      title: 'Next: paste the service access key',
+      detail:
+        'Open your AI service account, copy its access key, and paste it here. Some services call this an API key. Forge hides it after saving.',
+      error: 'Paste the service access key before saving this AI service.',
       fieldId: apiKeyInputId,
     }
   }
@@ -422,17 +430,18 @@ function providerFormReadiness({
   if (needsBaseUrl && !form.baseUrl.trim()) {
     return {
       ready: false,
-      title: 'Next: Add Base URL',
-      detail: 'Paste the HTTPS endpoint for your OpenAI-compatible service.',
-      error: 'Add the Base URL before saving this provider.',
+      title: 'Next: add the service address',
+      detail:
+        'Most users leave this blank. Fill it only when an owner gives you a custom AI service address.',
+      error: 'Add the service address before saving this AI service.',
       fieldId: baseUrlInputId,
     }
   }
 
   return {
     ready: true,
-    title: 'Ready to Save',
-    detail: 'Save this provider, then run Test so agents can use it safely.',
+    title: 'Ready to save this service',
+    detail: 'Save it. When it appears in the list, click Check; Ready means agents can use it.',
     error: null,
     fieldId: null,
   }
@@ -446,8 +455,7 @@ function providerConnectionState(provider: LlmProviderConfig): ProviderFilter {
 function providerStatusLabel(provider: LlmProviderConfig): string {
   if (!provider.isEnabled) return 'Disabled'
   if (provider.lastTestStatus === 'passed') return 'Ready'
-  if (provider.lastTestStatus === 'failed') return 'Failed'
-  return 'Needs Test'
+  return 'Needs check'
 }
 
 function providerStatusTone(provider: LlmProviderConfig): string {
@@ -466,6 +474,33 @@ function providerMatchesSearch(provider: LlmProviderConfig, search: string): boo
     .some((value) => value.toLowerCase().includes(query))
 }
 
+function providerFilterEmptyState(
+  filter: ProviderFilter,
+  search: string
+): ProviderFilterEmptyState {
+  const hasSearch = search.trim().length > 0
+  const hasFilter = filter !== 'all'
+
+  if (hasSearch && hasFilter) {
+    return {
+      title: 'Clear search or show all AI services',
+      detail: 'Your AI services exist, but the current search and filter hide them.',
+    }
+  }
+
+  if (hasSearch) {
+    return {
+      title: 'Clear search to see AI services',
+      detail: 'Your AI services exist, but this search hides them. Try a broader name.',
+    }
+  }
+
+  return {
+    title: 'Choose All to see AI services',
+    detail: 'Your AI services exist, but this filter has no results yet.',
+  }
+}
+
 function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
   const total = providers.length
   const readyProviders = providers.filter(
@@ -478,53 +513,53 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
 
   if (total === 0) {
     return {
-      title: 'Add Your First Provider',
+      title: 'Add your first AI service',
       detail:
-        'A provider gives agents a model to use. Pick a provider, paste the key, save it, then run a connection test.',
-      success: 'At least 1 provider is saved and ready for a test.',
+        'An AI service is the account agents use to answer. Pick a service, paste the service access key, save it, then click Check.',
+      success: 'At least 1 AI service is saved and ready for a connection check.',
       ready: false,
       action: 'add-provider',
-      actionLabel: 'Add Provider',
+      actionLabel: 'Add AI service',
     }
   }
 
   if (needsTestProviders.length > 0) {
     const firstProvider = needsTestProviders[0]
     return {
-      title: 'Test Provider Connection',
-      detail: `Test ${firstProvider.displayName} before assigning work so agent creation does not fail on the first run.`,
-      success: 'The provider shows Ready and can be used by Provider + Prompt agents.',
+      title: 'Check the AI service connection',
+      detail: `Click Check for ${firstProvider.displayName} before assigning work so agents do not fail on the first answer.`,
+      success: 'The AI service shows Ready and can be used by simple chat agents.',
       ready: false,
       action: 'show-needs-test',
-      actionLabel: 'Show Needs Test',
+      actionLabel: 'Show needs check',
     }
   }
 
   if (readyProviders.length === 0) {
     return {
-      title: 'Add an Active Provider',
+      title: 'Turn on or replace an AI service',
       detail:
-        'All saved providers are disabled. Add a working provider so agents have a model to use.',
-      success: 'At least 1 enabled provider is tested and marked Ready.',
+        'All saved AI services are disabled. Show the disabled list, turn on one service if this account should still be used, then click Check. Add a new service only if none of these accounts should be used.',
+      success: 'At least 1 enabled AI service is checked and marked Ready.',
       ready: false,
-      action: 'add-provider',
-      actionLabel: 'Add Provider',
+      action: 'show-disabled',
+      actionLabel: 'Show disabled services',
     }
   }
 
   if (!defaultProvider && readyProviders.length > 0) {
     return {
-      title: 'Ready Provider Available',
-      detail: `${readyProviders[0].displayName} is ready. Use it when creating a Provider + Prompt agent.`,
-      success: 'New Provider + Prompt agents can select a tested provider.',
+      title: 'Ready AI service available',
+      detail: `${readyProviders[0].displayName} is ready. Choose it when creating a simple chat agent.`,
+      success: 'New simple chat agents can select a tested AI service.',
       ready: true,
     }
   }
 
   return {
-    title: 'Ready to Create Provider Agents',
-    detail: `${defaultProvider?.displayName ?? readyProviders[0]?.displayName ?? 'A provider'} is ready for Provider + Prompt agents.`,
-    success: 'Open Agents, choose New Agent, then select Provider + Prompt.',
+    title: 'Ready to create simple chat agents',
+    detail: `${defaultProvider?.displayName ?? readyProviders[0]?.displayName ?? 'An AI service'} is ready for agents that answer in chat.`,
+    success: 'Open Agents, choose Create Agent, then select Simple chat agent.',
     ready: true,
   }
 }
@@ -536,10 +571,11 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
 interface ProviderCardProps {
   providerConfig: LlmProviderConfig
   onTest: (id: string) => Promise<TestConnectionResult>
-  onDelete: (id: string) => void
+  onSetEnabled: (id: string, isEnabled: boolean) => Promise<LlmProviderConfig | null>
+  onDelete: (id: string) => Promise<boolean>
 }
 
-function ProviderCard({ providerConfig, onTest, onDelete }: ProviderCardProps) {
+function ProviderCard({ providerConfig, onTest, onSetEnabled, onDelete }: ProviderCardProps) {
   const {
     id,
     displayName,
@@ -551,23 +587,32 @@ function ProviderCard({ providerConfig, onTest, onDelete }: ProviderCardProps) {
     lastTestErrorMessage,
   } = providerConfig
   const [confirming, setConfirming] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [testing, setTesting] = useState(false)
+  const [changingEnabled, setChangingEnabled] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
   const persistedTestResult =
     lastTestStatus === 'passed'
       ? { ok: true, message: 'Connection ready' }
       : lastTestStatus === 'failed'
-        ? { ok: false, message: lastTestErrorMessage || 'Connection failed' }
+        ? { ok: false, message: providerTestErrorMessage(lastTestErrorMessage, displayName) }
         : null
   const visibleTestResult = testResult ?? persistedTestResult
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!confirming) {
       setConfirming(true)
       return
     }
-    onDelete(id)
-    setConfirming(false)
+    setDeleting(true)
+    try {
+      const removed = await onDelete(id)
+      if (removed) {
+        setConfirming(false)
+      }
+    } finally {
+      setDeleting(false)
+    }
   }
 
   async function handleTest() {
@@ -577,94 +622,149 @@ function ProviderCard({ providerConfig, onTest, onDelete }: ProviderCardProps) {
       const result = await onTest(id)
       setTestResult({
         ok: result.ok,
-        message: result.ok ? 'Connection ready' : result.error || 'Connection failed',
+        message: result.ok
+          ? 'Connection ready'
+          : providerTestErrorMessage(result.error, displayName),
       })
     } catch (err) {
       setTestResult({
         ok: false,
-        message: err instanceof Error ? err.message : 'Connection failed',
+        message: providerTestErrorMessage(err, displayName),
       })
     } finally {
       setTesting(false)
     }
   }
 
+  async function handleSetEnabled() {
+    const nextEnabled = !isEnabled
+    setChangingEnabled(true)
+    setTestResult(null)
+    try {
+      await onSetEnabled(id, nextEnabled)
+    } finally {
+      setChangingEnabled(false)
+    }
+  }
+
   return (
-    <div
-      className={cn(
-        'flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between',
-        uiStyles.row
-      )}
-    >
-      <div className="flex min-w-0 items-center gap-3">
-        {/* Status dot */}
-        <div
-          className={cn(
-            'h-2 w-2 shrink-0 rounded-full',
-            isEnabled ? 'bg-apple-blue' : 'bg-[#d2d2d7]'
-          )}
-        />
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="truncate text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
-              {displayName}
-            </span>
-            {isDefault && <span className={uiStyles.activeBadge}>default</span>}
-            <span
-              className={cn(
-                'rounded-full px-2 py-0.5 text-ui-caption font-semibold',
-                providerStatusTone(providerConfig)
-              )}
-            >
-              {providerStatusLabel(providerConfig)}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-              {model}
-            </span>
-            {apiKeyPrefix && (
-              <span className="font-mono text-ui-caption text-secondary-light dark:text-secondary-dark">
-                {apiKeyPrefix}••••
+    <div className={cn('px-4 py-3', uiStyles.row)}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          {/* Status dot */}
+          <div
+            className={cn(
+              'h-2 w-2 shrink-0 rounded-full',
+              isEnabled ? 'bg-apple-blue' : 'bg-[#d2d2d7]'
+            )}
+          />
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="truncate text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
+                {displayName}
               </span>
+              {isDefault && <span className={uiStyles.activeBadge}>default</span>}
+              <span
+                className={cn(
+                  'rounded-full px-2 py-0.5 text-ui-caption font-semibold',
+                  providerStatusTone(providerConfig)
+                )}
+              >
+                {providerStatusLabel(providerConfig)}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                {model}
+              </span>
+              {apiKeyPrefix && (
+                <span className="font-mono text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  {apiKeyPrefix}••••
+                </span>
+              )}
+            </div>
+            {visibleTestResult && (
+              <div
+                role={visibleTestResult.ok ? 'status' : 'alert'}
+                aria-live="polite"
+                className={cn(
+                  'mt-1 text-ui-caption',
+                  visibleTestResult.ok ? 'text-apple-green' : 'text-apple-red'
+                )}
+              >
+                {visibleTestResult.message}
+              </div>
             )}
           </div>
-          {visibleTestResult && (
-            <div
-              className={cn(
-                'mt-1 text-ui-caption',
-                visibleTestResult.ok ? 'text-apple-green' : 'text-apple-red'
-              )}
+        </div>
+
+        <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto">
+          <button
+            type="button"
+            onClick={handleSetEnabled}
+            disabled={changingEnabled || testing || deleting}
+            className={uiStyles.secondaryButton}
+            aria-label={`${isEnabled ? 'Turn off' : 'Turn on'} ${displayName} AI service`}
+            title={isEnabled ? 'Turn off AI service' : 'Turn on AI service'}
+          >
+            <Power className="h-4 w-4" aria-hidden="true" />
+            <span>{changingEnabled ? 'Updating' : isEnabled ? 'Turn off' : 'Turn on'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleTest}
+            disabled={testing || !isEnabled || deleting}
+            className={uiStyles.secondaryButton}
+            aria-label={`Check ${displayName} AI service connection`}
+            title="Check AI service connection"
+          >
+            <Activity className="h-4 w-4" aria-hidden="true" />
+            <span>{testing ? 'Checking' : 'Check'}</span>
+          </button>
+          {confirming && (
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              disabled={deleting}
+              className={uiStyles.secondaryButton}
+              aria-label={`Keep ${displayName} AI service`}
             >
-              {visibleTestResult.message}
-            </div>
+              Keep service
+            </button>
           )}
+          <button
+            type="button"
+            onClick={() => void handleDelete()}
+            disabled={deleting}
+            aria-label={
+              confirming
+                ? `Remove ${displayName} AI service now`
+                : `Remove ${displayName} AI service`
+            }
+            aria-describedby={confirming ? `${id}-remove-help` : undefined}
+            className={cn(
+              'shrink-0 gap-1.5',
+              confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton
+            )}
+          >
+            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+            {deleting ? 'Removing...' : confirming ? 'Remove now' : 'Remove AI service'}
+          </button>
         </div>
       </div>
-
-      <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto">
-        <button
-          type="button"
-          onClick={handleTest}
-          disabled={testing || !isEnabled}
-          className={uiStyles.secondaryButton}
-          aria-label={`Test ${displayName} connection`}
-          title="Test connection"
+      {confirming && (
+        <div
+          id={`${id}-remove-help`}
+          role="note"
+          className="mt-3 flex gap-2 rounded-lg border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
         >
-          <Activity className="h-4 w-4" aria-hidden="true" />
-          <span>{testing ? 'Testing' : 'Test'}</span>
-        </button>
-        <button
-          type="button"
-          onClick={handleDelete}
-          className={cn(
-            'shrink-0',
-            confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton
-          )}
-        >
-          {confirming ? 'Confirm?' : 'Delete'}
-        </button>
-      </div>
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>
+            Removing this service stops agents from using {displayName}. Keep it if any current
+            agent still depends on this AI service.
+          </span>
+        </div>
+      )}
     </div>
   )
 }
@@ -679,6 +779,11 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
     (provider) => providerConnectionState(provider) === 'needs-test'
   ).length
   const defaultProvider = providers.find((provider) => provider.isDefault)
+  const defaultProviderLabel =
+    defaultProvider?.displayName ??
+    (total === 0 ? 'add an AI service first' : 'choose a ready AI service')
+  const defaultProviderMetric =
+    defaultProvider?.displayName ?? (total === 0 ? 'Add first service' : 'Choose a default')
   const allReady = ready > 0 && ready === total - disabled && needsTest === 0
 
   return (
@@ -705,38 +810,59 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
               />
             )}
             <h3 className={uiStyles.sectionTitle}>
-              {allReady ? 'Providers ready for agent creation' : 'Provider setup needs attention'}
+              {allReady ? 'AI services ready for agent creation' : 'Finish AI service setup'}
             </h3>
           </div>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
             {total === 0
-              ? 'Add and test a provider before creating Provider + Prompt agents.'
-              : `${ready}/${total} provider${total === 1 ? '' : 's'} ready, ${needsTest} need${
-                  needsTest === 1 ? 's' : ''
-                } a connection test, ${disabled} disabled.`}
+              ? 'Add and check an AI service before creating simple chat agents.'
+              : providerReadinessSummary(ready, needsTest, disabled)}
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-black/[0.04] px-2.5 py-1 text-ui-caption font-semibold text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-          Default: {defaultProvider?.displayName ?? 'None'}
+          Default: {defaultProviderLabel}
         </span>
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-4">
         <ProviderReadinessMetric label="Ready" value={String(ready)} ready={ready > 0} />
         <ProviderReadinessMetric
-          label="Needs Test"
+          label="Needs check"
           value={String(needsTest)}
           ready={needsTest === 0}
         />
         <ProviderReadinessMetric label="Disabled" value={String(disabled)} ready={disabled === 0} />
         <ProviderReadinessMetric
-          label="Default Route"
-          value={defaultProvider?.displayName ?? 'Not Set'}
+          label="Default AI service"
+          value={defaultProviderMetric}
           ready={Boolean(defaultProvider)}
         />
       </div>
     </section>
   )
+}
+
+function providerReadinessSummary(ready: number, needsTest: number, disabled: number): string {
+  const readyText =
+    ready === 0
+      ? needsTest > 0
+        ? 'Run a connection check before agents use these AI services'
+        : 'Enable or add an AI service before agents can use one'
+      : `${providerCount(ready)} ${ready === 1 ? 'is' : 'are'} ready to use`
+  const needsTestText =
+    needsTest === 0
+      ? 'no connection checks are needed'
+      : `${providerCount(needsTest)} ${needsTest === 1 ? 'needs' : 'need'} a connection check`
+  const disabledText =
+    disabled === 0
+      ? 'none are disabled'
+      : `${providerCount(disabled)} ${disabled === 1 ? 'is' : 'are'} disabled`
+
+  return `${readyText}. ${needsTestText}, and ${disabledText}.`
+}
+
+function providerCount(count: number): string {
+  return `${count} AI service${count === 1 ? '' : 's'}`
 }
 
 function ProviderNextStepPanel({
@@ -777,7 +903,7 @@ function ProviderNextStepPanel({
               />
             )}
             <p className="text-ui-caption font-semibold uppercase text-secondary-light dark:text-secondary-dark">
-              {step.ready ? 'Ready' : 'Do This Next'}
+              {step.ready ? 'Ready' : 'Do this next'}
             </p>
           </div>
           <h3 className="mt-1 text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
@@ -787,7 +913,7 @@ function ProviderNextStepPanel({
             {step.detail}
           </p>
           <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Success: {step.success}
+            What success looks like: {step.success}
           </p>
         </div>
         {action && step.actionLabel && (
@@ -831,7 +957,7 @@ function ProviderReadinessMetric({
 }
 
 // ============================================================================
-// Segmented toggle (Plan / Region)
+// Segmented toggle
 // ============================================================================
 
 interface SegmentedToggleProps<T extends string> {
@@ -916,10 +1042,10 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
   const missingApiKey = needsApiKey && !apiKey.trim()
   const ready = Boolean(variant) && !missingModel && !missingApiKey
   const statusTitle = missingModel
-    ? 'Next: Add Model'
+    ? 'Next: add model'
     : missingApiKey
-      ? 'Next: Paste API Key'
-      : 'Ready to Save'
+      ? 'Next: paste the service access key'
+      : 'Ready to save this service'
 
   const modelError = submitAttempted && missingModel
   const apiKeyError = submitAttempted && !missingModel && missingApiKey
@@ -969,7 +1095,8 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
             {vendor.displayName}
           </p>
           <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Base URL and model are derived from this vendor. Paste your key and save.
+            Service address and model are filled in for you. Paste the service access key and save.
+            After saving, click Check. Ready means simple chat agents can use this service.
           </p>
         </div>
         <button
@@ -977,7 +1104,7 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
           onClick={onCancel}
           className="text-ui-caption font-medium text-apple-blue hover:underline"
         >
-          Back to catalog
+          Back to service list
         </button>
       </div>
 
@@ -985,22 +1112,22 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
         <div className="mb-3 flex flex-wrap gap-4">
           {hasPlanToggle && (
             <SegmentedToggle<PlanVariant>
-              label="Plan"
+              label="Service plan"
               value={plan}
               onChange={setPlan}
               options={[
-                { value: 'api', label: 'API' },
+                { value: 'api', label: 'Standard' },
                 { value: 'coding', label: 'Coding Plan' },
               ]}
             />
           )}
           {hasRegionToggle && (
             <SegmentedToggle<RegionVariant>
-              label="Region"
+              label="Service address region"
               value={region}
               onChange={setRegion}
               options={[
-                { value: 'cn', label: 'CN' },
+                { value: 'cn', label: 'China' },
                 { value: 'global', label: 'Global' },
               ]}
             />
@@ -1012,7 +1139,7 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
         {/* Model */}
         <div>
           <label htmlFor={modelInputId} className={uiStyles.label}>
-            Model
+            Model to use
           </label>
           {allowCustomModels ? (
             <>
@@ -1058,7 +1185,7 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
           )}
           {modelError && (
             <p className="mt-1 text-ui-caption text-apple-red">
-              Add a model before saving this provider.
+              Add a model before saving this AI service.
             </p>
           )}
         </div>
@@ -1067,7 +1194,7 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
         {needsApiKey ? (
           <div>
             <label htmlFor={apiKeyInputId} className={uiStyles.label}>
-              API Key <span className="text-red-500">*</span>
+              Service access key <span className="text-red-500">*</span>
             </label>
             <input
               id={apiKeyInputId}
@@ -1084,13 +1211,13 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
             />
             {apiKeyError && (
               <p className="mt-1 text-ui-caption text-apple-red">
-                Add the API key before saving this provider.
+                Paste the service access key before saving this AI service.
               </p>
             )}
           </div>
         ) : (
           <div className={uiStyles.note}>
-            This vendor runs locally and needs no API key. Save to add it.
+            This AI service runs locally and needs no access key. Save to add it.
           </div>
         )}
       </div>
@@ -1113,7 +1240,7 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
             Cancel
           </button>
           <button type="submit" disabled={saving || !ready} className={uiStyles.primaryButton}>
-            {saving ? 'Saving…' : 'Save Provider'}
+            {saving ? 'Saving…' : 'Save AI service'}
           </button>
         </div>
       </div>
@@ -1134,7 +1261,7 @@ function CatalogGrid({
   selectedVendorKey,
   onSelect,
 }: CatalogGridProps) {
-  // A vendor counts as configured when either its API or Coding Plan key exists.
+  // A vendor counts as configured when either service-plan key exists.
   const configuredKeys = useMemo(() => {
     const keys = new Set<string>()
     for (const config of configuredProviders) {
@@ -1146,7 +1273,7 @@ function CatalogGrid({
   return (
     <div
       role="group"
-      aria-label="Built-in provider catalog"
+      aria-label="Known AI services"
       className="grid gap-2 p-4 sm:grid-cols-2 lg:grid-cols-3"
     >
       {vendors.map((vendor) => {
@@ -1176,8 +1303,10 @@ function CatalogGrid({
               )}
             </span>
             <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-              {vendor.coding ? 'API · Coding Plan' : 'API'}
-              {vendor.api?.globalBaseUrl || vendor.coding?.globalBaseUrl ? ' · CN/Global' : ''}
+              {vendor.coding ? 'Standard setup · Coding plan' : 'Standard setup'}
+              {vendor.api?.globalBaseUrl || vendor.coding?.globalBaseUrl
+                ? ' · China/Global address'
+                : ''}
             </span>
           </button>
         )
@@ -1187,7 +1316,7 @@ function CatalogGrid({
 }
 
 // ============================================================================
-// Custom / Gateway form (bring-your-own endpoint)
+// Custom service address form
 // ============================================================================
 
 interface AddProviderFormProps {
@@ -1226,6 +1355,7 @@ function AddProviderFormPanel({
   const modelListId = `provider-models-${form.provider}`
   const providerInputId = 'provider-form-provider'
   const modelInputId = 'provider-form-model'
+  const modelHelpId = 'provider-form-model-help'
   const displayNameInputId = 'provider-form-display-name'
   const apiKeyInputId = 'provider-form-api-key'
   const apiKeyHelpId = 'provider-form-api-key-help'
@@ -1284,7 +1414,7 @@ function AddProviderFormPanel({
     >
       <div className="mb-3 rounded-lg border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
         <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-          Custom / Gateway setup path
+          3 steps to connect an AI account
         </div>
         <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
           {PROVIDER_SETUP_STEPS.map((step) => (
@@ -1304,10 +1434,10 @@ function AddProviderFormPanel({
       </div>
 
       <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {/* Provider */}
+        {/* AI service */}
         <div>
           <label htmlFor={providerInputId} className={uiStyles.label}>
-            Provider
+            AI service
           </label>
           <select
             id={providerInputId}
@@ -1327,8 +1457,15 @@ function AddProviderFormPanel({
         {/* Model */}
         <div>
           <label htmlFor={modelInputId} className={uiStyles.label}>
-            Model
+            Model to use
           </label>
+          <p
+            id={modelHelpId}
+            className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+          >
+            The suggested model is safe to start with. Change it only if your service guide gave you
+            another model name.
+          </p>
           {(selectedProvider?.allowCustomModels ?? true) ? (
             <>
               <input
@@ -1341,7 +1478,7 @@ function AddProviderFormPanel({
                 list={models.length > 0 ? modelListId : undefined}
                 autoComplete="off"
                 aria-invalid={visibleError !== null && readiness.fieldId === modelInputId}
-                aria-describedby={`${formStatusId}${
+                aria-describedby={`${formStatusId} ${modelHelpId}${
                   visibleError !== null && readiness.fieldId === modelInputId
                     ? ` ${modelErrorId}`
                     : ''
@@ -1371,7 +1508,7 @@ function AddProviderFormPanel({
                 value={form.model}
                 onChange={(e) => setForm({ ...form, model: e.target.value })}
                 aria-invalid={visibleError !== null && readiness.fieldId === modelInputId}
-                aria-describedby={`${formStatusId}${
+                aria-describedby={`${formStatusId} ${modelHelpId}${
                   visibleError !== null && readiness.fieldId === modelInputId
                     ? ` ${modelErrorId}`
                     : ''
@@ -1401,7 +1538,7 @@ function AddProviderFormPanel({
                 placeholder="e.g. gpt-4o-mini…"
                 autoComplete="off"
                 aria-invalid={visibleError !== null && readiness.fieldId === modelInputId}
-                aria-describedby={`${formStatusId}${
+                aria-describedby={`${formStatusId} ${modelHelpId}${
                   visibleError !== null && readiness.fieldId === modelInputId
                     ? ` ${modelErrorId}`
                     : ''
@@ -1417,10 +1554,10 @@ function AddProviderFormPanel({
           )}
         </div>
 
-        {/* Display Name */}
+        {/* Display name */}
         <div>
           <label htmlFor={displayNameInputId} className={uiStyles.label}>
-            Display Name
+            Name in Forge
           </label>
           <input
             id={displayNameInputId}
@@ -1428,22 +1565,23 @@ function AddProviderFormPanel({
             name="displayName"
             value={form.displayName}
             onChange={(e) => setForm({ ...form, displayName: e.target.value })}
-            placeholder="My Provider…"
+            placeholder="My AI service…"
             autoComplete="off"
             className={uiStyles.input}
           />
         </div>
 
-        {/* API Key */}
+        {/* Service access key */}
         <div>
           <label htmlFor={apiKeyInputId} className={uiStyles.label}>
-            API Key {needsApiKey && <span className="text-red-500">*</span>}
+            Service access key {needsApiKey && <span className="text-red-500">*</span>}
           </label>
           <p
             id={apiKeyHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Paste the secret key from your provider account. It is hidden after saving.
+            Paste the access key from your AI service account. Some services call this an API key.
+            Forge hides it after saving.
           </p>
           <input
             id={apiKeyInputId}
@@ -1469,17 +1607,16 @@ function AddProviderFormPanel({
           )}
         </div>
 
-        {/* Base URL */}
+        {/* Service address (optional) */}
         <div className="sm:col-span-2">
           <label htmlFor={baseUrlInputId} className={uiStyles.label}>
-            Base URL {needsBaseUrl && <span className="text-red-500">*</span>}
+            Service address {needsBaseUrl && <span className="text-red-500">*</span>}
           </label>
           <p
             id={baseUrlHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Paste the HTTPS endpoint for your OpenAI-compatible service or gateway. Leave blank to
-            use the gateway default.
+            {serviceAddressHelp(selectedProvider)}
           </p>
           <input
             id={baseUrlInputId}
@@ -1487,7 +1624,7 @@ function AddProviderFormPanel({
             name="baseUrl"
             value={form.baseUrl}
             onChange={(e) => setForm({ ...form, baseUrl: e.target.value })}
-            placeholder={`${baseUrlPlaceholder(form.provider, selectedProvider)}…`}
+            placeholder={`${serviceAddressPlaceholder(needsBaseUrl)}…`}
             autoComplete="off"
             aria-invalid={visibleError !== null && readiness.fieldId === baseUrlInputId}
             aria-describedby={`${formStatusId}${
@@ -1506,13 +1643,16 @@ function AddProviderFormPanel({
       </div>
 
       <div className="flex items-center justify-between gap-2">
-        <p
+        <div
           id={formStatusId}
           data-testid="provider-form-status"
           className="text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
-          {readiness.title}
-        </p>
+          <span className="block font-semibold text-foreground-light dark:text-foreground-dark">
+            {readiness.title}
+          </span>
+          <span className="block">{readiness.detail}</span>
+        </div>
         <div className="flex gap-2">
           <button
             type="button"
@@ -1523,7 +1663,7 @@ function AddProviderFormPanel({
             Cancel
           </button>
           <button type="submit" disabled={saving} className={uiStyles.primaryButton}>
-            {saving ? 'Saving…' : 'Save Provider'}
+            {saving ? 'Saving…' : 'Save AI service'}
           </button>
         </div>
       </div>
@@ -1561,7 +1701,7 @@ function AddProviderPanel({
       <div className="flex flex-col gap-3 px-4 pt-4 sm:flex-row sm:items-center sm:justify-between">
         <div
           role="group"
-          aria-label="Add provider method"
+          aria-label="Choose how to add an AI service"
           className="inline-flex rounded-full bg-black/[0.04] p-0.5 dark:bg-white/[0.06]"
         >
           <button
@@ -1576,7 +1716,7 @@ function AddProviderPanel({
             )}
           >
             <Plus size={13} strokeWidth={2.25} aria-hidden="true" />
-            Built-in catalog
+            Known AI services
           </button>
           <button
             type="button"
@@ -1590,7 +1730,7 @@ function AddProviderPanel({
             )}
           >
             <SlidersHorizontal size={13} strokeWidth={2.25} aria-hidden="true" />
-            Custom / Gateway
+            Custom service address
           </button>
         </div>
         <button
@@ -1613,8 +1753,8 @@ function AddProviderPanel({
         ) : (
           <>
             <p className="px-4 pt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Pick a vendor for a minimal setup — base URL and model are filled in for you. Need a
-              private endpoint? Switch to Custom / Gateway.
+              Pick a known AI service. Forge fills in the service address and model for you. If your
+              setup guide gives you a private address, choose Custom service address.
             </p>
             <CatalogGrid
               vendors={vendors}
@@ -1647,6 +1787,7 @@ export function ProvidersSection() {
     providersError,
     loadProviders,
     saveProvider,
+    setProviderEnabled,
     deleteProvider,
   } = useSettingsStore()
   const [showForm, setShowForm] = useState(false)
@@ -1668,6 +1809,7 @@ export function ProvidersSection() {
       }),
     [providerFilter, providerSearch, providers]
   )
+  const filterEmptyState = providerFilterEmptyState(providerFilter, providerSearch)
 
   useEffect(() => {
     void loadProviders()
@@ -1691,13 +1833,27 @@ export function ProvidersSection() {
   }
 
   async function handleDelete(id: string) {
-    await deleteProvider(id)
+    return deleteProvider(id)
   }
 
   async function handleTest(id: string) {
     const result = await getSettingsApi().testProvider(id)
     await loadProviders()
     return result
+  }
+
+  async function handleSetProviderEnabled(id: string, isEnabled: boolean) {
+    const provider = await setProviderEnabled(id, isEnabled)
+    if (provider && isEnabled) {
+      setProviderSearch('')
+      setProviderFilter('needs-test')
+    }
+    return provider
+  }
+
+  function resetProviderFilters() {
+    setProviderSearch('')
+    setProviderFilter('all')
   }
 
   function handleNextStepAction(action: ProviderNextAction) {
@@ -1708,6 +1864,11 @@ export function ProvidersSection() {
     if (action === 'show-needs-test') {
       setProviderSearch('')
       setProviderFilter('needs-test')
+      return
+    }
+    if (action === 'show-disabled') {
+      setProviderSearch('')
+      setProviderFilter('disabled')
     }
   }
 
@@ -1716,8 +1877,10 @@ export function ProvidersSection() {
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>LLM Providers</h2>
-          <p className={uiStyles.sectionDescription}>Configure AI model providers and API keys</p>
+          <h2 className={uiStyles.sectionTitle}>AI services</h2>
+          <p className={uiStyles.sectionDescription}>
+            Connect the AI accounts that simple chat agents use to answer questions.
+          </p>
         </div>
         {!showForm && (
           <button
@@ -1726,20 +1889,24 @@ export function ProvidersSection() {
             className={uiStyles.primaryButton}
           >
             <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
-            <span>Add Provider</span>
+            <span>Add AI service</span>
           </button>
         )}
       </div>
 
       {/* Error */}
-      {providersError && <div className={uiStyles.error}>{providersError}</div>}
+      {providersError && (
+        <div role="alert" aria-live="polite" className={uiStyles.error}>
+          {providersError}
+        </div>
+      )}
 
       <ProviderReadinessPanel providers={providers} />
       <ProviderNextStepPanel step={nextStep} onAction={handleNextStepAction} />
 
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <label className="relative min-w-0 flex-1">
-          <span className="sr-only">Search Providers</span>
+          <span className="sr-only">Search AI services</span>
           <Search
             size={14}
             strokeWidth={2}
@@ -1751,12 +1918,16 @@ export function ProvidersSection() {
             name="provider-search"
             value={providerSearch}
             onChange={(event) => setProviderSearch(event.target.value)}
-            placeholder="Search providers…"
+            placeholder="Search AI services…"
             autoComplete="off"
             className={cn(uiStyles.input, 'pl-9')}
           />
         </label>
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Filter providers by status">
+        <div
+          className="flex flex-wrap gap-2"
+          role="group"
+          aria-label="Filter AI services by status"
+        >
           {PROVIDER_FILTERS.map((filter) => (
             <button
               key={filter.id}
@@ -1780,25 +1951,33 @@ export function ProvidersSection() {
       <div className={uiStyles.card}>
         {providersLoading && providers.length === 0 ? (
           <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading providers…
+            Loading AI services…
           </div>
         ) : providers.length === 0 && !showForm ? (
           <div className="px-4 py-6 text-center">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              No providers configured
+              Add your first AI service
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Add a provider to enable AI capabilities
+              Use the step above to add one AI account, then click Check so agents can answer
+              without setup surprises.
             </p>
           </div>
         ) : filteredProviders.length === 0 && !showForm ? (
-          <div className="px-4 py-6 text-center">
-            <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              No providers match this view
+          <div data-testid="provider-filter-empty" className="px-4 py-6 text-center">
+            <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+              {filterEmptyState.title}
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Clear search or switch filters to review every provider.
+              {filterEmptyState.detail}
             </p>
+            <button
+              type="button"
+              onClick={resetProviderFilters}
+              className="mt-3 inline-flex h-8 items-center rounded-full px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+            >
+              Show all AI services
+            </button>
           </div>
         ) : (
           filteredProviders.map((provider) => (
@@ -1806,6 +1985,7 @@ export function ProvidersSection() {
               key={provider.id}
               providerConfig={provider}
               onTest={handleTest}
+              onSetEnabled={handleSetProviderEnabled}
               onDelete={handleDelete}
             />
           ))
