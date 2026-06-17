@@ -315,7 +315,7 @@ export function SshKeysSection() {
           <h2 className={uiStyles.sectionTitle}>SSH code access</h2>
           <p className={uiStyles.sectionDescription}>
             Use this only when a private code link starts with git@. If it starts with https://, use
-            Code Repository Access instead.
+            HTTPS code access instead.
           </p>
         </div>
         {!showForm && (
@@ -362,8 +362,8 @@ export function SshKeysSection() {
               Add access for code links that start with git@
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              If the code link starts with git@, add this. If it starts with https://, use Code
-              Repository Access instead.
+              If the code link starts with git@, add this. If it starts with https://, use HTTPS
+              code access instead.
             </p>
             <p className="mx-auto mt-2 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
               You can skip this for public projects or normal https:// code links.
