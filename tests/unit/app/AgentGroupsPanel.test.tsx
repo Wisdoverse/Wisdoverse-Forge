@@ -60,6 +60,8 @@ describe('AgentGroupsPanel', () => {
     render(<AgentGroupsPanel onOpenProjectsSetup={onOpenProjectsSetup} />)
 
     const panel = screen.getByTestId('agent-groups-panel')
+    expect(panel).toHaveTextContent(/shared lists where new tasks wait/i)
+    expect(panel).not.toHaveTextContent(/agents check for tasks/i)
     expect(panel).toHaveTextContent(/open project settings to create a project/i)
     expect(panel).not.toHaveTextContent(/select a project from the sidebar/i)
 

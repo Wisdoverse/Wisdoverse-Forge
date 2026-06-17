@@ -271,6 +271,16 @@ describe('beginner error translations', () => {
     expect(JSON.stringify(zh.gettingStarted.steps.reuse)).not.toContain('技能上下文')
   })
 
+  test('getting started review copy avoids evidence jargon', () => {
+    expect(en.gettingStarted.steps.review.why).toContain('useful output')
+    expect(en.gettingStarted.steps.review.success).toContain('result files')
+    expect(JSON.stringify(en.gettingStarted.steps.review)).not.toContain('evidence')
+
+    expect(zh.gettingStarted.steps.review.why).toContain('可采用的输出')
+    expect(zh.gettingStarted.steps.review.success).toContain('结果文件')
+    expect(JSON.stringify(zh.gettingStarted.steps.review)).not.toContain('证据')
+  })
+
   test('visual map labels avoid old scene and draw-mode jargon', () => {
     expect(en.workshop.title).toBe('Visual map')
     expect(en.workshop.loading).toBe('Loading visual map...')

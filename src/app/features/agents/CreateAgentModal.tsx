@@ -252,9 +252,9 @@ function createReviewItems({
         : 'Wait until it shows Ready, then send one small task from Tasks.'
 
   return [
-    { label: 'Work style', value: runtimeTitle },
+    { label: 'Where it works', value: runtimeTitle },
     {
-      label: 'Primary project',
+      label: 'Project for new tasks',
       value: projectName ?? 'Choose a project before assigning tasks.',
     },
     { label: 'Task queue', value: taskQueue },
@@ -900,9 +900,13 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
 
             <div>
               <label className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                Choose work style
+                Where should this agent work?
               </label>
-              <div className="flex gap-2" role="radiogroup" aria-label="Choose work style">
+              <div
+                className="flex gap-2"
+                role="radiogroup"
+                aria-label="Where should this agent work?"
+              >
                 <label
                   className={cn(
                     'flex-1 cursor-pointer rounded-full px-4 py-2 text-center text-ui-button font-medium transition-transform active:scale-95',
@@ -993,7 +997,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
 
             <div data-testid="agent-work-readiness">
               <div className="mb-1 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                Primary Project
+                Project for new tasks
               </div>
               <div className="w-full rounded-[18px] border border-black/[0.08] bg-white px-4 py-2 text-ui-body text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark">
                 {selectedProject?.name ?? 'Choose a project later'}
@@ -1137,7 +1141,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                   {kind === 'local-cli'
                     ? 'Leave blank to use the folder where you paste the setup text.'
-                    : 'Keep the suggested folder unless an owner gives you a different one. New tasks start from the Primary Project selected above.'}
+                    : 'Keep the suggested folder unless an owner gives you a different one. New tasks start from the project shown above.'}
                 </p>
               </div>
             )}

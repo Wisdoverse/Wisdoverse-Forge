@@ -47,9 +47,12 @@ describe('AuthPage beginner guidance', () => {
     await page.show()
 
     expect(bodyText()).toContain('Team space access')
-    expect(bodyText()).toContain('Sign in to manage agents, tasks, evidence, and team settings')
+    expect(bodyText()).toContain(
+      'Sign in to manage agents, tasks, saved work records, and team settings'
+    )
     expect(bodyText()).toContain('from one team space')
     expect(bodyText()).toContain('New here? Create an account first.')
+    expect(bodyText()).not.toContain('evidence')
     expect(bodyText()).not.toContain('Team workspace access')
     expect(document.querySelector('#login-submit')?.textContent).toContain('Sign in')
     expect(document.querySelector('#forgot-password-link')?.textContent).toContain(

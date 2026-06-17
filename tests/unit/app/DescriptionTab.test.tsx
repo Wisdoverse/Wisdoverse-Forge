@@ -161,9 +161,11 @@ describe('DescriptionTab', () => {
     expect(
       screen.getByText('Open result files or what the agent used before accepting.')
     ).toBeDefined()
+    expect(screen.getByText('Result files')).toBeDefined()
     expect(screen.getByText('1 saved note or instruction helped this task.')).toBeDefined()
     expect(screen.queryByText(new RegExp(['saved context', 'item'].join('\\s+'), 'i'))).toBeNull()
     expect(screen.queryByText('Evidence')).toBeNull()
+    expect(screen.queryByText(/result files and evidence/i)).toBeNull()
     const previousReuseCopy = new RegExp(['Completed work', 'saved instructions'].join('.*'), 'i')
     expect(screen.queryByText(previousReuseCopy)).toBeNull()
     expect(screen.queryByText('Reusable learning')).toBeNull()

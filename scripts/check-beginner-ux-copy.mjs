@@ -408,6 +408,7 @@ const LOCALE_ACCESS_ROLE_JARGON_PATTERNS = [
 ]
 
 const START_GUIDE_RESET_JARGON_PATTERNS = [
+  /\bOnboarding\b/,
   /\bStart guide\b/i,
   /\bReset Start guide\b/i,
   /\bReset it here\b/i,
@@ -455,6 +456,10 @@ const QUICK_CREATE_DRAFT_TASK_JARGON_PATTERNS = [
 ]
 
 const AGENT_TASK_QUEUE_SUBMIT_LABEL_JARGON_PATTERNS = [/\bCreate Task Queue\b/]
+const AGENT_TASK_QUEUE_OVERVIEW_JARGON_PATTERNS = [
+  /\bTask queues are simple places agents check for tasks\b/i,
+  /\bagents check for tasks\b/i,
+]
 const AGENT_TASK_QUEUE_EMPTY_DEAD_END_PATTERNS = [
   /\bNo task queues yet\b/i,
   /\bNo tasks are in this task queue yet\b/i,
@@ -942,6 +947,21 @@ const AUTH_FAILURE_FIRST_PATTERNS = [
   /\bVerification email could not be sent\. Check that this is the email/i,
 ]
 
+const AUTH_INTRO_JARGON_PATTERNS = [/\bSign in to manage\b.*\bevidence\b/i]
+
+const GETTING_STARTED_REVIEW_EVIDENCE_JARGON_PATTERNS = [
+  /\breturned useful work and evidence\b/i,
+  /\bcompleted output or attached evidence\b/i,
+  /有用输出和证据/,
+  /输出或证据/,
+]
+
+const TASK_DETAIL_EVIDENCE_JARGON_PATTERNS = [
+  /\bResult files and evidence\b/i,
+  /\bUse this result as evidence\b/i,
+  /\bCheck the evidence\b/i,
+]
+
 const AUTH_MANAGER_DEAD_END_PATTERNS = [
   /\bLogin failed\b/,
   /\bRegistration failed\b/,
@@ -1015,6 +1035,11 @@ const PROJECT_CREATE_FAILURE_FIRST_PATTERNS = [
   /\bCould not create the project\. Check the project name and team, then try again\./i,
 ]
 
+const PROJECT_CREATE_OVERVIEW_JARGON_PATTERNS = [
+  /\bUse projects for the work areas where agents receive tasks and evidence\b/i,
+  /\breceive tasks and evidence\b/i,
+]
+
 const CLONE_RETRY_FAILURE_FIRST_PATTERNS = [
   /\bYou do not have permission to copy code into this project\. Ask an owner or admin to let you try again\./i,
   /\bThis project could not be found\. Refresh Projects, then try copying code again from the current project row\./i,
@@ -1048,6 +1073,16 @@ const ACCESS_LEVEL_DEAD_END_PATTERNS = [
 ]
 
 const AGENT_TEMPLATE_ROLE_JARGON_PATTERNS = [/\bStart with a role\b/i, /\bAgent role templates\b/i]
+
+const CREATE_AGENT_WORK_STYLE_JARGON_PATTERNS = [
+  /\bChoose work style\b/i,
+  /\blabel:\s*['"`]Work style['"`]/,
+]
+
+const CREATE_AGENT_PROJECT_JARGON_PATTERNS = [
+  /\bPrimary Project\b/,
+  /\blabel:\s*['"`]Primary project['"`]/,
+]
 
 const PROJECT_SHARE_ROLE_JARGON_PATTERNS = [/\bInvite people and choose roles\b/i]
 
@@ -1656,6 +1691,34 @@ function hasAuthFailureFirstCopy(relFile, line) {
   return AUTH_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAuthIntroJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/auth/AuthPage.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AUTH_INTRO_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasGettingStartedReviewEvidenceJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return GETTING_STARTED_REVIEW_EVIDENCE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasTaskDetailEvidenceJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/detail/DescriptionTab.tsx') &&
+    !relFile.endsWith('src/app/features/detail/TaskDetailPanel.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_DETAIL_EVIDENCE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasAuthManagerDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/shared/auth/AuthManager.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -1739,6 +1802,14 @@ function hasProjectCreateFailureFirstCopy(relFile, line) {
   return PROJECT_CREATE_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasProjectCreateOverviewJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/manage-project/ui/CreateProjectForm.tsx')) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return PROJECT_CREATE_OVERVIEW_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasCloneRetryFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/manage-project/ui/CloneStatusBadge.tsx')) {
     return false
@@ -1783,6 +1854,18 @@ function hasAgentAiServiceDeadEndCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return AGENT_AI_SERVICE_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasCreateAgentWorkStyleJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CREATE_AGENT_WORK_STYLE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasCreateAgentProjectJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CREATE_AGENT_PROJECT_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentModelDeadEndCopy(relFile, line) {
@@ -2035,6 +2118,12 @@ function hasAgentTaskQueueSubmitLabelJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/agents/AgentGroupsPanel.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return AGENT_TASK_QUEUE_SUBMIT_LABEL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentTaskQueueOverviewJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/agents/AgentGroupsPanel.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_TASK_QUEUE_OVERVIEW_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentTaskQueueEmptyDeadEndCopy(relFile, line) {
@@ -3130,6 +3219,33 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasAuthIntroJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'auth-intro-copy',
+        location,
+        message: 'Sign-in orientation must describe saved work records, not evidence.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasGettingStartedReviewEvidenceJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'getting-started-review-copy',
+        location,
+        message: 'Getting Started review copy must describe output and result files plainly.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskDetailEvidenceJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'task-detail-result-review-copy',
+        location,
+        message: 'Task result review copy must describe result files without evidence jargon.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasAuthManagerDeadEndCopy(relFile, line)) {
       findings.push({
         type: 'auth-manager-copy',
@@ -3212,6 +3328,16 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasProjectCreateOverviewJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'project-create-overview-copy',
+        location,
+        message:
+          'Project setup overview must explain tasks, files, and saved work records without evidence jargon.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasCloneRetryFailureFirstCopy(relFile, line)) {
       findings.push({
         type: 'clone-retry-error-copy',
@@ -3262,6 +3388,26 @@ function scanFile(file, relFile) {
         type: 'agent-ai-service-copy',
         location,
         message: 'Agent AI service fallback copy must tell beginners to refresh service data.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCreateAgentWorkStyleJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'create-agent-work-location-copy',
+        location,
+        message:
+          'Create agent setup must ask where the agent works instead of using work-style jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCreateAgentProjectJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'create-agent-project-copy',
+        location,
+        message:
+          'Create agent setup must explain which project new tasks use without primary-project jargon.',
         sample: line.trim(),
       })
     }
@@ -3605,6 +3751,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Task queue submit labels must use sentence case so first-time users see one consistent action style.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentTaskQueueOverviewJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-task-queue-overview-copy',
+        location,
+        message:
+          'Task queue overview copy must explain that new tasks wait for an available agent.',
         sample: line.trim(),
       })
     }

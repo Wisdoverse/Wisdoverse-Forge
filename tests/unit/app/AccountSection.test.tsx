@@ -277,7 +277,8 @@ describe('AccountSection', () => {
     renderAccountSection()
 
     expect(loadPreferencesMock).toHaveBeenCalled()
-    expect(screen.getByText('Setup checklist')).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Setup checklist' })).toBeDefined()
+    expect(screen.queryByText('Onboarding')).toBeNull()
     expect(screen.getByText(/Skipping Start only hides the sidebar shortcut/i)).toBeDefined()
     expect(screen.getByText(/It does not change projects, agents, or tasks/i)).toBeDefined()
     expect(screen.getByText(/The setup checklist is hidden right now/i)).toBeDefined()
