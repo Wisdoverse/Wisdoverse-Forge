@@ -419,7 +419,23 @@ const SYSTEM_HEALTH_LIVE_UPDATE_JARGON_PATTERNS = [/\bMoves events from running 
 
 const CODE_ACCESS_KEY_JARGON_PATTERNS = [/\bPaste the key from GitHub or GitLab\b/i]
 
+const CODE_ACCESS_ADDRESS_JARGON_PATTERNS = [
+  /\bLeave address blank for cloud\b/i,
+  /\bDefault cloud address\b/i,
+  /\bGit address\b/i,
+  /\bGitHub or GitLab address\b/i,
+  /\bOnly enter an address when your company hosts its own GitHub or GitLab\b/i,
+]
+
 const ACCESS_KEY_LAST_USED_DEAD_END_PATTERNS = [/\bNot used yet\b/i]
+
+const ACCESS_KEY_SECRET_VALUE_JARGON_PATTERNS = [
+  /\bCopy the new key into a password manager\b/i,
+  /\bonly time the full key is shown\b/i,
+  /\bCopy key\b/i,
+  /\bSelect the key text\b/i,
+  /\bKey preview\b/i,
+]
 
 const DATE_FALLBACK_DEAD_END_PATTERNS = [
   /\b(?:Added|Created|Sign-in|Last used) date not reported\b/i,
@@ -673,6 +689,17 @@ const SSH_CODE_ACCESS_FAILURE_FIRST_PATTERNS = [
   /\bSSH code access could not be (?:saved|removed)\./i,
   /\bRefresh Settings to load SSH code access\. Forge is receiving too many SSH code access requests/i,
   /\bRefresh Settings to load SSH code access\. Try again\./i,
+]
+
+const SSH_CODE_ACCESS_JARGON_PATTERNS = [
+  /\bPaste the public line\b/i,
+  /\bone-line \.pub key\b/i,
+  /\bPaste the public key line before saving\b/i,
+  />\s*Public key line\b/i,
+  /\bModern key type\b/i,
+  /\bRSA key type\b/i,
+  /\bSafety check\b/i,
+  /\bKey type\b/i,
 ]
 
 const PLATFORM_KEY_FAILURE_FIRST_PATTERNS = [
@@ -2392,10 +2419,22 @@ function hasAccessKeyLastUsedDeadEndCopy(relFile, line) {
   return ACCESS_KEY_LAST_USED_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAccessKeySecretValueJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/settings/KeysSection.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ACCESS_KEY_SECRET_VALUE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasCodeAccessKeyJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/settings/GitCredentialsSection.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return CODE_ACCESS_KEY_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasCodeAccessAddressJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/settings/GitCredentialsSection.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CODE_ACCESS_ADDRESS_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasDateFallbackDeadEndCopy(relFile, line) {
@@ -2732,6 +2771,14 @@ function hasSshCodeAccessFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/settings/sshKeysErrorMessage.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return SSH_CODE_ACCESS_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasSshCodeAccessJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/settings/SshKeysSection.tsx')) return false
+  if (isLikelyGuardOrParserLine(line) && !/\b(?:Modern key type|RSA key type)\b/i.test(line)) {
+    return false
+  }
+  return SSH_CODE_ACCESS_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasPlatformKeyFailureFirstCopy(relFile, line) {
@@ -3284,6 +3331,16 @@ function scanFile(file, relFile) {
         type: 'ssh-code-access-error-copy',
         location,
         message: 'SSH code access errors must start with the next action, not the failure summary.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSshCodeAccessJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'ssh-code-access-jargon-copy',
+        location,
+        message:
+          'SSH code access setup must explain the shareable public key line and supported key kind.',
         sample: line.trim(),
       })
     }
@@ -4286,12 +4343,30 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasAccessKeySecretValueJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'access-key-secret-value-copy',
+        location,
+        message: 'Outside tool access copy must tell beginners to save the one-time access value.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasCodeAccessKeyJargonCopy(relFile, line)) {
       findings.push({
         type: 'code-access-key-copy',
         location,
         message:
           'Code access setup must name the code access key before provider-specific token wording.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCodeAccessAddressJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'code-access-address-copy',
+        location,
+        message: 'Code access address copy must tell beginners when to leave the address empty.',
         sample: line.trim(),
       })
     }
