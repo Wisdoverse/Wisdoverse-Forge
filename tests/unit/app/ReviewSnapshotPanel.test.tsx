@@ -52,9 +52,12 @@ describe('ReviewSnapshotPanel', () => {
     vi.spyOn(orchestrationApi, 'getSelfFixReview').mockResolvedValue(review())
     render(<ReviewSnapshotPanel task={task()} />)
 
+    expect(await screen.findByText('Pull request review')).toBeInTheDocument()
     expect(await screen.findByText('Pull request #42')).toBeInTheDocument()
     expect(screen.getByText('In review')).toBeInTheDocument()
-    expect(screen.getByText('CI checks passing')).toBeInTheDocument()
+    expect(screen.getByText('Pull request checks passing')).toBeInTheDocument()
+    expect(screen.getByLabelText('Refresh pull request review')).toBeInTheDocument()
+    expect(screen.getByText('Review changed files')).toBeInTheDocument()
   })
 
   it('enables Approve when checks are green and the change is not sensitive', async () => {
@@ -66,6 +69,7 @@ describe('ReviewSnapshotPanel', () => {
 
     const button = await screen.findByTestId('review-approve')
     expect(button).not.toBeDisabled()
+    expect(button).toHaveTextContent('Approve and merge')
 
     fireEvent.click(button)
     await waitFor(() => expect(approveSpy).toHaveBeenCalledWith('task-1'))
@@ -75,11 +79,31 @@ describe('ReviewSnapshotPanel', () => {
     expect(screen.getByTestId('review-approve')).toBeDisabled()
   })
 
-  it('disables Approve when CI is not green', async () => {
+  it('disables Approve when pull request checks are not green', async () => {
     vi.spyOn(orchestrationApi, 'getSelfFixReview').mockResolvedValue(review({ checksGreen: false }))
     render(<ReviewSnapshotPanel task={task()} />)
 
     expect(await screen.findByTestId('review-approve')).toBeDisabled()
+    expect(screen.getByText(/pull request checks are green/i)).toBeInTheDocument()
+  })
+
+  it('disables Approve until a pull request exists', async () => {
+    const approveSpy = vi.spyOn(orchestrationApi, 'approveSelfFix').mockResolvedValue('merged')
+    vi.spyOn(orchestrationApi, 'getSelfFixReview').mockResolvedValue(
+      review({ prNumber: undefined, prUrl: undefined, diffUrl: undefined, checksGreen: true })
+    )
+    render(<ReviewSnapshotPanel task={task()} />)
+
+    expect(await screen.findByText(/no pull request has been opened/i)).toBeInTheDocument()
+    const button = screen.getByTestId('review-approve')
+    expect(button).toBeDisabled()
+    expect(
+      screen.getByText(/approve unlocks after a pull request is available/i)
+    ).toBeInTheDocument()
+
+    fireEvent.click(button)
+
+    expect(approveSpy).not.toHaveBeenCalled()
   })
 
   it('disables Approve and shows a warning when the change is sensitive', async () => {
@@ -89,14 +113,40 @@ describe('ReviewSnapshotPanel', () => {
     render(<ReviewSnapshotPanel task={task()} />)
 
     expect(await screen.findByTestId('review-approve')).toBeDisabled()
-    expect(screen.getByText(/sensitive path/i)).toBeInTheDocument()
+    expect(screen.getByText('Needs maintainer review')).toBeInTheDocument()
+    expect(screen.getByText(/changes protected files/i)).toBeInTheDocument()
   })
 
-  it('surfaces a fetch error in a banner instead of swallowing it', async () => {
-    vi.spyOn(orchestrationApi, 'getSelfFixReview').mockRejectedValue(new Error('boom'))
+  it('surfaces a beginner-safe fetch error instead of raw API details', async () => {
+    vi.spyOn(orchestrationApi, 'getSelfFixReview').mockRejectedValue(
+      new Error('API 500: {"error":"database unavailable"}')
+    )
     render(<ReviewSnapshotPanel task={task()} />)
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('boom')
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Refresh pull request review, then try again. Forge could not load the current pull request status.'
+    )
+    expect(alert).not.toHaveTextContent('API 500')
+    expect(alert).not.toHaveTextContent('database')
+  })
+
+  it('explains when the current user cannot approve their own pull request', async () => {
+    vi.spyOn(orchestrationApi, 'getSelfFixReview').mockResolvedValue(review())
+    vi.spyOn(orchestrationApi, 'approveSelfFix').mockRejectedValue(
+      new Error('GraphQL: Review Can not approve your own pull request (addPullRequestReview)')
+    )
+    render(<ReviewSnapshotPanel task={task()} />)
+
+    fireEvent.click(await screen.findByTestId('review-approve'))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Ask another maintainer to approve this pull request.')
+    expect(alert).toHaveTextContent(
+      'GitHub does not allow you to approve your own pull request.'
+    )
+    expect(alert).not.toHaveTextContent('GraphQL')
+    expect(alert).not.toHaveTextContent('addPullRequestReview')
   })
 
   it('refetches the full snapshot when a pushed review-status change arrives', async () => {
@@ -113,8 +163,8 @@ describe('ReviewSnapshotPanel', () => {
 
     // Another operator's approve→merge arrives as an `orchestration:task_update`
     // frame → board upsert → this task prop flips to `merged`. The panel re-pulls
-    // the FULL snapshot so every field (status + CI + PR) stays consistent —
-    // never a stale "CI checks passing" next to a fresh "Merged".
+    // the full snapshot so every field stays consistent —
+    // never stale passing-check copy next to a fresh "Merged".
     rerender(<ReviewSnapshotPanel task={task({ reviewStatus: 'merged' })} />)
 
     await waitFor(() => expect(screen.getByTestId('review-approve')).toHaveTextContent('Merged'))
