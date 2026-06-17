@@ -49,6 +49,8 @@ describe('Billing beginner guidance', () => {
 
     expect(screen.getByText('Billing is not ready yet')).toBeInTheDocument()
     expect(screen.getByText(/Billing is not enabled for this workspace yet/i)).toBeInTheDocument()
+    expect(screen.getByText('Billing setup steps')).toBeInTheDocument()
+    expect(screen.queryByText('Billing setup path')).not.toBeInTheDocument()
     expect(screen.queryByText(/deployment/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/integration/i)).not.toBeInTheDocument()
   })

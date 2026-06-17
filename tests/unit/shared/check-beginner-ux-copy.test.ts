@@ -2114,6 +2114,38 @@ function metricCopy(metric) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags billing setup copy that uses setup-path wording', () => {
+    const cwd = fixture({
+      'src/app/features/billing/BillingPage.tsx': `
+function BillingNotConfigured() {
+  return <p>Billing setup path</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'billing-setup-copy',
+        location: 'src/app/features/billing/BillingPage.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts billing setup copy that describes setup steps', () => {
+    const cwd = fixture({
+      'src/app/features/billing/BillingPage.tsx': `
+function BillingNotConfigured() {
+  return <p>Billing setup steps</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags invoice receipt copy that does not explain when the link appears', () => {
     const cwd = fixture({
       'src/app/features/billing/InvoiceList.tsx': `

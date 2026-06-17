@@ -230,6 +230,8 @@ const BILLING_USAGE_DEAD_END_PATTERNS = [/\bNo usage reported yet\b/i, /\busage 
 const BILLING_USAGE_AUDIT_JARGON_PATTERNS = [/\baudit records?\b/i]
 const BILLING_USAGE_EVENT_JARGON_PATTERNS = [/\bActivity events\b/i]
 
+const BILLING_SETUP_JARGON_PATTERNS = [/\bBilling setup path\b/i]
+
 const BILLING_RECEIPT_LINK_DEAD_END_PATTERNS = [/\bNo link\b/i]
 
 const BILLING_ERROR_FAILURE_FIRST_PATTERNS = [
@@ -1590,6 +1592,12 @@ function hasBillingUsageEventJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/billing/UsageMeter.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return BILLING_USAGE_EVENT_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasBillingSetupJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/billing/BillingPage.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return BILLING_SETUP_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasBillingReceiptLinkDeadEndCopy(relFile, line) {
@@ -3179,6 +3187,15 @@ function scanFile(file, relFile) {
         type: 'billing-usage-event-copy',
         location,
         message: 'Billing usage labels must say work update history instead of activity events.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasBillingSetupJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'billing-setup-copy',
+        location,
+        message: 'Billing setup copy must say setup steps instead of setup path.',
         sample: line.trim(),
       })
     }
