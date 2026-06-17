@@ -1022,6 +1022,11 @@ const PROJECT_CREATE_FAILURE_FIRST_PATTERNS = [
   /\bCould not create the project\. Check the project name and team, then try again\./i,
 ]
 
+const PROJECT_CREATE_OVERVIEW_JARGON_PATTERNS = [
+  /\bUse projects for the work areas where agents receive tasks and evidence\b/i,
+  /\breceive tasks and evidence\b/i,
+]
+
 const CLONE_RETRY_FAILURE_FIRST_PATTERNS = [
   /\bYou do not have permission to copy code into this project\. Ask an owner or admin to let you try again\./i,
   /\bThis project could not be found\. Refresh Projects, then try copying code again from the current project row\./i,
@@ -1760,6 +1765,14 @@ function hasProjectCreateFailureFirstCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return PROJECT_CREATE_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasProjectCreateOverviewJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/manage-project/ui/CreateProjectForm.tsx')) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return PROJECT_CREATE_OVERVIEW_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasCloneRetryFailureFirstCopy(relFile, line) {
@@ -3258,6 +3271,16 @@ function scanFile(file, relFile) {
         type: 'project-create-error-copy',
         location,
         message: 'Project creation errors must start with the next action for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasProjectCreateOverviewJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'project-create-overview-copy',
+        location,
+        message:
+          'Project setup overview must explain tasks, files, and saved work records without evidence jargon.',
         sample: line.trim(),
       })
     }

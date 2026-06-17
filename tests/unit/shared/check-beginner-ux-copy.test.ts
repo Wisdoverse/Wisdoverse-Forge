@@ -9052,6 +9052,38 @@ function createProjectErrorMessage(code) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags project setup overview copy that exposes evidence jargon', () => {
+    const cwd = fixture({
+      'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
+function ProjectSetupPath() {
+  return <p>Use projects for the work areas where agents receive tasks and evidence.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'project-create-overview-copy',
+        location: 'src/app/features/manage-project/ui/CreateProjectForm.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts project setup overview copy that describes saved work records plainly', () => {
+    const cwd = fixture({
+      'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
+function ProjectSetupPath() {
+  return <p>Use projects to keep one work area&apos;s tasks, files, and saved work records together.</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags code import retry errors that start with the failure', () => {
     const cwd = fixture({
       'src/app/features/manage-project/ui/CloneStatusBadge.tsx': `
