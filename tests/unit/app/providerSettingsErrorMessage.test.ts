@@ -78,9 +78,21 @@ describe('providerSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then save this AI service again. Forge could not connect while opening AI service settings.'
+      'Check your connection, then save this AI service again. The save did not finish.'
     )
     expect(message).not.toContain('Network error')
+    expect(message).not.toContain('opening AI service settings')
+  })
+
+  test('starts remove network failures with the recovery step', () => {
+    const message = providerSettingsErrorMessage('removing provider failed: Network error')
+
+    expectBeginnerMessage(
+      message,
+      'Check your connection, then remove this AI service again. The removal did not finish.'
+    )
+    expect(message).not.toContain('Network error')
+    expect(message).not.toContain('opening AI service settings')
   })
 
   test('turns temporary failures into a model service settings recovery step', () => {
