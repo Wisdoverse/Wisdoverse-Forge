@@ -513,7 +513,7 @@ function ActivityBarChart({ bars }: { bars: BarPoint[] }) {
           {activeBar.value} updates
         </span>
         <span className="text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark">
-          {hoverIndex === null ? 'most recent' : `${activePct}% of window`}
+          {hoverIndex === null ? 'most recent' : `${activePct}% of shown hours`}
         </span>
       </div>
 

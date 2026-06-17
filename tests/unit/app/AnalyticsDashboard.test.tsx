@@ -224,7 +224,8 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
     const detail = screen.getByTestId('activity-chart-detail')
     expect(detail.textContent).toContain('12:00')
     expect(detail.textContent).toContain('20 updates')
-    expect(screen.getByText(/47% of window/)).toBeDefined()
+    expect(screen.getByText(/47% of shown hours/)).toBeDefined()
+    expect(screen.queryByText(/47% of window/)).toBeNull()
   })
 
   test('restores most-recent label when mouse leaves the chart', () => {

@@ -264,6 +264,7 @@ const ANALYTICS_EVENT_LABEL_JARGON_PATTERNS = [
   /\bHourly event activity\b/i,
   /\}\s*events\b/i,
   /\$\{bar\.label\}:\s*\$\{bar\.value\}\s+events\b/i,
+  /%\s+of window\b/i,
 ]
 
 const ACTIVITY_FEED_EMPTY_DEAD_END_PATTERNS = [

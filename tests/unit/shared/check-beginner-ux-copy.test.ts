@@ -5711,7 +5711,7 @@ function nextStep() {
     const cwd = fixture({
       'src/app/features/analytics/AnalyticsDashboard.tsx': `
 function ActivityBarChart() {
-  return <div aria-label="Hourly event activity">{activeBar.value} events<button aria-label={\`\${bar.label}: \${bar.value} events\`} /></div>
+  return <div aria-label="Hourly event activity">{activeBar.value} events<span>{activePct}% of window</span><button aria-label={\`\${bar.label}: \${bar.value} events\`} /></div>
 }
 `,
     })
@@ -5729,6 +5729,10 @@ function ActivityBarChart() {
           type: 'analytics-event-label-copy',
           sample: expect.stringContaining('events'),
         }),
+        expect.objectContaining({
+          type: 'analytics-event-label-copy',
+          sample: expect.stringContaining('of window'),
+        }),
       ])
     )
   })
@@ -5737,7 +5741,7 @@ function ActivityBarChart() {
     const cwd = fixture({
       'src/app/features/analytics/AnalyticsDashboard.tsx': `
 function ActivityBarChart() {
-  return <div aria-label="Hourly work updates">{activeBar.value} updates<button aria-label={\`\${bar.label}: \${bar.value} updates\`} /></div>
+  return <div aria-label="Hourly work updates">{activeBar.value} updates<span>{activePct}% of shown hours</span><button aria-label={\`\${bar.label}: \${bar.value} updates\`} /></div>
 }
 `,
     })
