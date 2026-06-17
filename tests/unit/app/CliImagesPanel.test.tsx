@@ -501,7 +501,7 @@ describe('CliImagesPanel', () => {
   // claude local build
   // --------------------------------------------------------------------
 
-  test('claude row shows the local-build chip, versions, and a one-click build', () => {
+  test('claude row shows the local-prepare chip, versions, and a one-click prepare action', () => {
     const buildClaudeImage = vi.fn()
     useAdminStore.setState({
       ...originalAdminState,
@@ -514,20 +514,21 @@ describe('CliImagesPanel', () => {
 
     render(<CliImagesPanel />)
 
-    expect(screen.getByText('Built here')).toBeDefined()
+    expect(screen.getByText('Prepared by Forge')).toBeDefined()
     expect(screen.getByText('Update available')).toBeDefined()
     // installed vs latest, in plain versions (claude has no registry digests).
     expect(screen.getByText(/Current version: v2\.1\.100/)).toBeDefined()
     expect(screen.getByText(/latest available: v2\.1\.173/)).toBeDefined()
     expect(screen.queryByText(/npm/i)).toBeNull()
+    expect(screen.queryByText(/built here/i)).toBeNull()
 
-    // ONE click builds — no confirm step (image-level, agents untouched).
-    const build = screen.getByRole('button', { name: 'Build v2.1.173' })
+    // ONE click prepares the tool package — no confirm step, agents untouched.
+    const build = screen.getByRole('button', { name: 'Prepare v2.1.173' })
     fireEvent.click(build)
     expect(buildClaudeImage).toHaveBeenCalledOnce()
   })
 
-  test('claude row disables the build button with a progress label while building', () => {
+  test('claude row disables the prepare button with a progress label while preparing', () => {
     useAdminStore.setState({
       ...originalAdminState,
       cliImages: sampleStatus({ tools: [claudeTool({ building: true })] }),
@@ -538,8 +539,10 @@ describe('CliImagesPanel', () => {
 
     render(<CliImagesPanel />)
 
-    expect(screen.getByRole('button', { name: 'Building…' })).toBeDisabled()
-    expect(screen.queryByRole('button', { name: /Build v/ })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Preparing…' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /Prepare v/ })).toBeNull()
+    expect(screen.queryByText(/building on this server/i)).toBeNull()
+    expect(screen.getByText(/Forge is preparing this tool package/i)).toBeDefined()
     expect(screen.getByText(/usually a few minutes/i)).toBeDefined()
   })
 
@@ -558,7 +561,8 @@ describe('CliImagesPanel', () => {
 
     render(<CliImagesPanel />)
 
-    expect(screen.getByText(/Builds automatically/)).toBeDefined()
+    expect(screen.getByText(/Prepares automatically/)).toBeDefined()
+    expect(screen.queryByText(/versions build themselves/i)).toBeNull()
     expect(screen.queryByRole('button', { name: 'Restart agents on latest tool' })).toBeNull()
   })
 
@@ -576,10 +580,10 @@ describe('CliImagesPanel', () => {
     render(<CliImagesPanel />)
 
     expect(screen.getByText('Up to date')).toBeDefined()
-    expect(screen.queryByRole('button', { name: /Build/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Prepare/ })).toBeNull()
   })
 
-  test('claude never-checked still offers Build latest (works with checks off)', () => {
+  test('claude never-checked still offers Prepare latest (works with checks off)', () => {
     // With auto-update off nothing ever flips claude to update_available — the
     // build endpoint resolves npm itself, so the row must still offer a build.
     const buildClaudeImage = vi.fn()
@@ -604,12 +608,12 @@ describe('CliImagesPanel', () => {
 
     render(<CliImagesPanel />)
 
-    const build = screen.getByRole('button', { name: 'Build latest' })
+    const build = screen.getByRole('button', { name: 'Prepare latest' })
     fireEvent.click(build)
     expect(buildClaudeImage).toHaveBeenCalledOnce()
   })
 
-  test('claude failed check offers a Build latest retry', () => {
+  test('claude failed check offers a Prepare latest retry', () => {
     useAdminStore.setState({
       ...originalAdminState,
       cliImages: sampleStatus({
@@ -625,7 +629,7 @@ describe('CliImagesPanel', () => {
     expect(screen.getByText(/What to do:/)).toBeDefined()
     expect(screen.getByText(/could not reach the tool package source/i)).toBeDefined()
     expect(screen.queryByText(/npm registry timeout/)).toBeNull()
-    expect(screen.getByRole('button', { name: 'Build latest' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Prepare latest' })).toBeDefined()
   })
 
   test('claude missing version uses a next-step label instead of unknown', () => {
@@ -659,13 +663,13 @@ describe('CliImagesPanel', () => {
     render(<CliImagesPanel />)
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(alert).toHaveTextContent(/Check the note below, then choose Build again/i)
+    expect(alert).toHaveTextContent(/Check the note below, then choose Prepare again/i)
     expect(alert).not.toHaveTextContent(/The build could not be started/i)
-    expect(screen.getByText(/Check the note below, then choose Build again/i)).toBeDefined()
+    expect(screen.getByText(/Check the note below, then choose Prepare again/i)).toBeDefined()
     expect(screen.getByText(/Another tool update is already running/i)).toBeDefined()
     expect(screen.queryByText(/tool update service is busy/i)).toBeNull()
     expect(screen.queryByText(/a claude image build is already in progress/i)).toBeNull()
     // the row still renders for retry.
-    expect(screen.getByRole('button', { name: 'Build v2.1.173' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Prepare v2.1.173' })).toBeDefined()
   })
 })

@@ -69,6 +69,8 @@ describe('UserManagement', () => {
     expect(screen.getByText('Actions')).toBeDefined()
     expect(screen.getByText('Admin')).toBeDefined()
     expect(screen.getByText('Member')).toBeDefined()
+    expect(screen.getByText('Can manage people, team settings, and safety controls.')).toBeDefined()
+    expect(screen.queryByText(/system configuration/i)).toBeNull()
     expect(screen.getByText('Can sign in')).toBeDefined()
     expect(screen.getByText('Access paused')).toBeDefined()
     // The fabricated sessions column is gone — the backend never reported it.

@@ -263,11 +263,11 @@ interface BuildControl {
 }
 
 /**
- * One-click local build for a `local_build` tool (claude). Prominent when an
- * update is waiting; a disabled progress label while the server builds; and a
- * quiet "Build latest" when nothing has been checked yet or the last attempt
- * failed — the build endpoint looks up npm itself, so it works even while
- * automatic checks are off.
+ * One-click local preparation for a `local_build` tool (claude). Prominent when
+ * an update is waiting; a disabled progress label while Forge prepares it; and
+ * a quiet "Prepare latest" when nothing has been checked yet or the last
+ * attempt failed. The endpoint resolves the latest package itself, so it works
+ * even while automatic checks are off.
  */
 function BuildButton({ tool, control }: { tool: CliImageTool; control: BuildControl }) {
   if (tool.updateMode !== 'local_build') return null
@@ -279,7 +279,7 @@ function BuildButton({ tool, control }: { tool: CliImageTool; control: BuildCont
         disabled
         className="rounded-full bg-apple-blue/60 px-3 py-1 text-ui-caption font-medium text-white"
       >
-        Building…
+        Preparing…
       </button>
     )
   }
@@ -290,7 +290,7 @@ function BuildButton({ tool, control }: { tool: CliImageTool; control: BuildCont
         onClick={control.onBuild}
         className="rounded-full bg-apple-blue px-3 py-1 text-ui-caption font-medium text-white"
       >
-        Build {tool.remoteVersion ? `v${tool.remoteVersion}` : 'update'}
+        Prepare {tool.remoteVersion ? `v${tool.remoteVersion}` : 'update'}
       </button>
     )
   }
@@ -301,7 +301,7 @@ function BuildButton({ tool, control }: { tool: CliImageTool; control: BuildCont
         onClick={control.onBuild}
         className="rounded-full border border-black/[0.1] px-3 py-1 text-ui-caption font-medium text-foreground-light dark:border-white/[0.12] dark:text-foreground-dark"
       >
-        Build latest
+        Prepare latest
       </button>
     )
   }
@@ -338,7 +338,7 @@ function ToolRow({
             </p>
             {localBuild && (
               <span className="rounded-full bg-black/[0.05] px-2 py-0.5 text-ui-caption text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-                Built here
+                Prepared by Forge
               </span>
             )}
           </div>
@@ -355,8 +355,8 @@ function ToolRow({
             </p>
           ) : localBuild ? (
             <div className="mt-1 grid gap-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              {/* Built on this server (no public registry image), so versions —
-                  not registry digests — are the meaningful comparison. */}
+              {/* Local-prepared tools have no public registry image, so versions
+                  are the meaningful comparison. */}
               <span>
                 Current version: {versionMarker(tool.localVersion)}
                 {tool.state === 'update_available' && tool.remoteVersion
@@ -374,12 +374,12 @@ function ToolRow({
           )}
           {localBuild && tool.state === 'update_available' && !tool.building && (
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Building only affects new agents — running agents keep working.
+              Preparing this update only affects new agents — running agents keep working.
             </p>
           )}
           {localBuild && tool.building && (
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Building on this server — usually a few minutes. You can leave this page.
+              Forge is preparing this tool package — usually a few minutes. You can leave this page.
             </p>
           )}
           {tool.state === 'failed' && tool.lastError && (
@@ -399,7 +399,7 @@ function ToolRow({
         <BuildButton tool={tool} control={build} />
         {localBuild && build.autoBuildOn && (
           <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Builds automatically — new versions build themselves
+            Prepares automatically — new versions are prepared by Forge
           </span>
         )}
         <RollButton tool={tool} control={roll} />
@@ -588,7 +588,7 @@ export function CliImagesPanel() {
 
           {cliImageBuildError && (
             <div role="alert" aria-live="polite" className={cn(uiStyles.error, 'mt-4')}>
-              Check the note below, then choose Build again. Nothing was changed.
+              Check the note below, then choose Prepare again. Nothing was changed.
               <span className="mt-1 block text-ui-caption">
                 {cliImageIssueNote(cliImageBuildError, 'check')}
               </span>

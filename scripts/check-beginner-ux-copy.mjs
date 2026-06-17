@@ -60,6 +60,9 @@ const DEAD_END_CONFIRMATION_PATTERNS = [
   /\bAre you sure you want to reset\??/i,
   /\bAre you sure you want to stop this operation\??/i,
   /\bAre you sure you want to discard your changes\??/i,
+  /\bremoved from this workspace\b/i,
+  /\blose access to this workspace\b/i,
+  /\bproject leaves this workspace\b/i,
   /确定要删除(?:此|这个)?.*吗？/,
   /确定要恢复所有设置吗？/,
   /您有未保存的更改，确定要离开吗？/,
@@ -67,6 +70,8 @@ const DEAD_END_CONFIRMATION_PATTERNS = [
   /确定要重置吗？/,
   /确定要停止此操作吗？/,
   /确定要放弃更改吗？/,
+  /从当前工作区移除/,
+  /失去当前工作区访问权限/,
 ]
 
 const DEAD_END_LIMIT_CONFLICT_PATTERNS = [
@@ -174,6 +179,8 @@ const PROVIDER_ADDRESS_JARGON_PATTERNS = [
 
 const ADMIN_USERS_EMPTY_DEAD_END_PATTERNS = [/\bNo one is listed yet\b/i]
 
+const ADMIN_USER_ROLE_JARGON_PATTERNS = [/\bsystem configuration\b/i]
+
 const ADMIN_ORGS_EMPTY_DEAD_END_PATTERNS = [
   /\bNo team spaces are visible yet\b/i,
   /\baccess needs review\b/i,
@@ -230,7 +237,12 @@ const BILLING_USAGE_DEAD_END_PATTERNS = [/\bNo usage reported yet\b/i, /\busage 
 const BILLING_USAGE_AUDIT_JARGON_PATTERNS = [/\baudit records?\b/i]
 const BILLING_USAGE_EVENT_JARGON_PATTERNS = [/\bActivity events\b/i]
 
-const BILLING_SETUP_JARGON_PATTERNS = [/\bBilling setup path\b/i]
+const BILLING_SETUP_JARGON_PATTERNS = [
+  /\bBilling setup (?:path|steps)\b/i,
+  /\bfor this workspace\b/i,
+  /\bthis workspace\b/i,
+  /\bsecret payment settings\b/i,
+]
 
 const BILLING_RECEIPT_LINK_DEAD_END_PATTERNS = [/\bNo link\b/i]
 
@@ -374,6 +386,9 @@ const CLI_IMAGE_STATUS_DEAD_END_PATTERNS = [
   /\bNot checked yet\b/i,
   /\bNot checked — updates off\b/i,
   /\bVersion not reported yet\b/i,
+  /\bBuilt here\b/i,
+  /\bBuilding on this server\b/i,
+  /\bBuilds automatically\b/i,
 ]
 
 const CLI_IMAGE_ACTION_FAILURE_FIRST_PATTERNS = [
@@ -454,6 +469,31 @@ const START_NAV_JARGON_PATTERNS = [
 const START_NAV_LABEL_JARGON_PATTERNS = [
   /^\s*start:\s*['"`]Start['"`]/,
   /^\s*start:\s*['"`]开始['"`]/,
+]
+
+const SIDEBAR_LAYOUT_JARGON_PATTERNS = [
+  /\b(?:from|in|to) the sidebar\b/i,
+  /\breopen the sidebar\b/i,
+  /\bRefresh the sidebar\b/i,
+  /\brefresh the sidebar\b/i,
+  /\bThe sidebar is busy\b/i,
+  /\bleaves? the sidebar\b/i,
+  /\bdisappear from the sidebar\b/i,
+  /\bExpand sidebar\b/i,
+  /\bCollapse sidebar\b/i,
+  /\bClose sidebar\b/i,
+  /侧栏/,
+]
+
+const WORKSPACE_SETUP_JARGON_PATTERNS = [
+  /\bfor this workspace\b/i,
+  /\bsign out of this workspace\b/i,
+  /\bmanage workspace, agents, and access\b/i,
+  /\bworkspace setup\b/i,
+  /\bworkspace settings\b/i,
+  /\bworkspace navigation\b/i,
+  /\bopening the workspace\b/i,
+  /\bThe workspace is busy\b/i,
 ]
 
 const START_GUIDE_PATH_JARGON_PATTERNS = [
@@ -543,6 +583,10 @@ const SAVED_INSTRUCTION_TOOL_TOOLTIP_PATTERNS = [
   /工作工具设置需要检查。/,
 ]
 
+const SAVED_INSTRUCTION_SOURCE_LABEL_PATTERNS = [/\bWorkspace saved instructions\b/i]
+const SAVED_INSTRUCTION_AVAILABILITY_LABEL_PATTERNS = [/\bThis workspace\b/i, /当前工作区/]
+const SAVED_INSTRUCTION_WORKSPACE_INTRO_PATTERNS = [/\bsaving it for the workspace\b/i]
+
 const AGENT_PLUGIN_ERROR_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*Tool change was not saved\. The switch was returned to its previous setting\./i,
   /['"`]\s*Forge could not finish this tool request right now\. Wait a few minutes, then try again\./i,
@@ -599,6 +643,7 @@ const RUNTIME_ERROR_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*Work tool sign-in could not be checked\. Refresh this page/i,
   /['"`]\s*Work tool sign-ins could not be checked\. Check setup/i,
   /['"`]\s*Agent online status could not be checked\. Check setup/i,
+  /['"`]\s*The Where agents run settings have not loaded yet\. Check setup/i,
   /['"`]\s*Work tool sign-in did not start\. Check the connected AI service/i,
   /['"`]\s*Where agents run is not available yet\. Refresh Settings/i,
   /['"`]\s*Forge could not check where agents run right now\. Refresh this page/i,
@@ -815,6 +860,7 @@ const CHAT_MESSAGE_FALLBACK_DEAD_END_PATTERNS = [
 
 const CHAT_OPERATOR_JARGON_PATTERNS = [
   /\bThe You filter only shows requests sent by an operator\./i,
+  /\bworkspace files\b/i,
 ]
 
 const CHAT_FILTER_EMPTY_DEAD_END_PATTERNS = [
@@ -1026,7 +1072,10 @@ const AUTH_FAILURE_FIRST_PATTERNS = [
   /\bVerification email could not be sent\. Check that this is the email/i,
 ]
 
-const AUTH_INTRO_JARGON_PATTERNS = [/\bSign in to manage\b.*\bevidence\b/i]
+const AUTH_INTRO_JARGON_PATTERNS = [
+  /\bSign in to manage\b.*\bevidence\b/i,
+  /\bUse the email your workspace admin invited\b/i,
+]
 
 const LEGAL_PRIVACY_EVIDENCE_JARGON_PATTERNS = [
   /\blive task,\s*agent,\s*and evidence updates\b/i,
@@ -1034,7 +1083,10 @@ const LEGAL_PRIVACY_EVIDENCE_JARGON_PATTERNS = [
   /\baudit logging\b/i,
   /\baudit logs?\b/i,
   /\bevent history\b/i,
+  /\bconfiguration settings\b/i,
   /\bsecurity monitoring and compliance purposes\b/i,
+  /\bworkspace data\b/i,
+  /\bVisual workspace preferences\b/i,
 ]
 
 const GETTING_STARTED_REVIEW_EVIDENCE_JARGON_PATTERNS = [
@@ -1042,6 +1094,15 @@ const GETTING_STARTED_REVIEW_EVIDENCE_JARGON_PATTERNS = [
   /\bcompleted output or attached evidence\b/i,
   /有用输出和证据/,
   /输出或证据/,
+]
+
+const GETTING_STARTED_WORKSPACE_LABEL_PATTERNS = [
+  /\btitle:\s*['"`]Workspace['"`]/i,
+  /\bcreate:\s*['"`]Create workspace['"`]/i,
+  /\breview:\s*['"`]Review workspace['"`]/i,
+  /title:\s*['"`]工作区['"`]/,
+  /create:\s*['"`]创建工作区['"`]/,
+  /review:\s*['"`]查看工作区['"`]/,
 ]
 
 const TASK_DETAIL_EVIDENCE_JARGON_PATTERNS = [
@@ -1157,6 +1218,11 @@ const AGENT_CONFIG_DETAIL_DEAD_END_PATTERNS = [
   /\bNo instructions\b/i,
 ]
 
+const AGENT_CONFIG_SAVE_FAILURE_PATTERNS = [
+  /\bAgent instructions were not saved\. Refresh this agent/i,
+  /\bAsk an admin to check your agent access\b/i,
+]
+
 const AGENT_AI_SERVICE_DEAD_END_PATTERNS = [/\bAI service not reported\b/i]
 
 const AGENT_MODEL_DEAD_END_PATTERNS = [
@@ -1203,13 +1269,32 @@ const AGENT_PROJECT_LOCATION_JARGON_PATTERNS = [
 ]
 
 const AGENT_WORK_AREA_DISPLAY_JARGON_PATTERNS = [
+  /\bManaged workspace\b/i,
+  /\bmanaged workspaces\b/i,
   /\bin a managed workspace\b/i,
   /\bReady in managed workspace\b/i,
+  /\bmanaged workspace setup\b/i,
   /\bForge-managed project workspace\b/i,
   /\bWorkspace project folder\b/i,
+  /托管工作区/,
+]
+
+const AGENT_FILE_WORK_CONTROL_JARGON_PATTERNS = [
+  /\bStart (?:the|this) workspace\b/i,
+  /\bStart workspace\b/i,
+  /\bWorkspace start requested\b/i,
+  /\bFix a stuck workspace\b/i,
+  /\bAgent workspace controls\b/i,
+  /\bWorkspace needs to start\b/i,
+  /\bno workspace is running yet\b/i,
+  /\bworkspace looks ready\b/i,
+  /\bThis workspace is not connected\b/i,
+  /\bworkspace before this agent works on files\b/i,
 ]
 
 const PROJECT_SHARE_ROLE_JARGON_PATTERNS = [/\bInvite people and choose roles\b/i]
+
+const PROJECT_SETTINGS_CONFIGURATION_PATTERNS = [/\bClose project configuration\b/i]
 
 const VAGUE_ACCESS_RECOVERY_PATTERNS = [
   /\bAsk an owner or admin to update your access\b/i,
@@ -1551,6 +1636,12 @@ function hasAdminUsersEmptyDeadEndCopy(relFile, line) {
   return ADMIN_USERS_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAdminUserRoleJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/admin/UserManagement.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ADMIN_USER_ROLE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasAdminOrgsEmptyDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/admin/OrganizationsPanel.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -1875,6 +1966,17 @@ function hasGettingStartedReviewEvidenceJargonCopy(relFile, line) {
   return GETTING_STARTED_REVIEW_EVIDENCE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasGettingStartedWorkspaceLabelCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return GETTING_STARTED_WORKSPACE_LABEL_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasTaskDetailEvidenceJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/detail/DescriptionTab.tsx') &&
@@ -2013,6 +2115,12 @@ function hasAgentConfigDetailDeadEndCopy(relFile, line) {
   return AGENT_CONFIG_DETAIL_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAgentConfigSaveFailureCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_CONFIG_SAVE_FAILURE_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasAgentListSummaryDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/agents/AgentListView.tsx')) return false
   if (line.trim().startsWith('//') || line.trim().startsWith('*')) return false
@@ -2069,14 +2177,38 @@ function hasAgentProjectLocationJargonCopy(relFile, line) {
 function hasAgentWorkAreaDisplayJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/entities/agent/model/display-labels.ts') &&
+    !relFile.endsWith('src/app/entities/agent/model/runtime-kind.ts') &&
+    !relFile.endsWith('src/app/entities/context/ui/InjectionPreviewModal.tsx') &&
+    !relFile.endsWith('src/app/features/admin/AgentsPanel.tsx') &&
+    !relFile.endsWith('src/app/features/admin/SystemHealth.tsx') &&
+    !relFile.endsWith('src/app/features/analytics/ContextUsageDashboard.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentCard.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentListView.tsx') &&
     !relFile.endsWith('src/app/features/agents/AgentKindBadge.tsx') &&
     !relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx') &&
+    !relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx') &&
+    !relFile.endsWith('src/app/features/detail/HistoryTab.tsx') &&
+    !relFile.endsWith('src/app/features/settings/ResourcesSection.tsx') &&
+    !relFile.endsWith('src/app/features/settings/RuntimeSection.tsx') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts') &&
     !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')
   ) {
     return false
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return AGENT_WORK_AREA_DISPLAY_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentFileWorkControlJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/agents/AgentControlPanel.tsx') &&
+    !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_FILE_WORK_CONTROL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentModelDeadEndCopy(relFile, line) {
@@ -2123,6 +2255,12 @@ function hasProjectShareRoleJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/layouts/sidebar/ProjectTree.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return PROJECT_SHARE_ROLE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasProjectSettingsConfigurationCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/layouts/sidebar/ProjectTree.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return PROJECT_SETTINGS_CONFIGURATION_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasVagueAccessRecoveryCopy(line) {
@@ -2312,6 +2450,38 @@ function hasStartNavJargonCopy(relFile, lines, index, line) {
   return isNavLabel || START_NAV_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasSidebarLayoutJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/layouts/AppLayout.tsx') &&
+    !relFile.endsWith('src/app/layouts/sidebar/SidebarHeader.tsx') &&
+    !relFile.endsWith('src/app/layouts/sidebar/ProjectTree.tsx') &&
+    !relFile.endsWith('src/app/features/manage-team/ui/EditableTeamRow.tsx') &&
+    !relFile.endsWith('src/app/features/settings/AccountSection.tsx') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SIDEBAR_LAYOUT_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasWorkspaceSetupJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/routes/context.tsx') &&
+    !relFile.endsWith('src/app/routes/context-audit.tsx') &&
+    !relFile.endsWith('src/app/features/settings/ResourcesSection.tsx') &&
+    !relFile.endsWith('src/app/layouts/sidebar/ProjectTree.tsx') &&
+    !relFile.endsWith('src/app/layouts/sidebar/SidebarNav.tsx') &&
+    !relFile.endsWith('src/app/routes/__root.tsx') &&
+    !relFile.endsWith('src/app/shared/lib/taskFailureCopy.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return WORKSPACE_SETUP_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasStartGuidePathJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
@@ -2438,6 +2608,36 @@ function hasSavedInstructionToolTooltipFallbackCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return SAVED_INSTRUCTION_TOOL_TOOLTIP_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasSavedInstructionSourceLabelCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/skills/SkillCard.tsx') &&
+    !relFile.endsWith('src/app/features/skills/SkillDetailModal.tsx') &&
+    !relFile.endsWith('src/app/features/skills/model/savedInstructionLabels.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SAVED_INSTRUCTION_SOURCE_LABEL_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasSavedInstructionAvailabilityLabelCopy(relFile, line) {
+  const isLocaleFile =
+    relFile.endsWith('src/app/shared/i18n/locales/en.ts') ||
+    relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  if (!isLocaleFile && !relFile.endsWith('src/app/features/skills/SkillDetailModal.tsx')) {
+    return false
+  }
+  if (isLocaleFile && !line.includes('availabilityWorkspace')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SAVED_INSTRUCTION_AVAILABILITY_LABEL_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasSavedInstructionWorkspaceIntroCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/detail/SkillDraftModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SAVED_INSTRUCTION_WORKSPACE_INTRO_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasSavedInstructionsLoadDeadEndCopy(relFile, line) {
@@ -3146,6 +3346,15 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasAdminUserRoleJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'admin-user-role-copy',
+        location,
+        message: 'Admin role descriptions must explain access in beginner-readable language.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasAdminOrgsEmptyDeadEndCopy(relFile, line)) {
       findings.push({
         type: 'admin-orgs-empty-copy',
@@ -3577,6 +3786,16 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasGettingStartedWorkspaceLabelCopy(relFile, line)) {
+      findings.push({
+        type: 'getting-started-team-project-copy',
+        location,
+        message:
+          'Getting Started team/project setup copy must name team and project instead of workspace.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasTaskDetailEvidenceJargonCopy(relFile, line)) {
       findings.push({
         type: 'task-detail-result-review-copy',
@@ -3715,6 +3934,16 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasAgentConfigSaveFailureCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-config-save-copy',
+        location,
+        message:
+          'Agent instruction save errors must start with the next action and point to an owner or admin.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasAgentListSummaryDeadEndCopy(relFile, line)) {
       findings.push({
         type: 'agent-list-summary-copy',
@@ -3792,6 +4021,15 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasAgentFileWorkControlJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-file-work-control-copy',
+        location,
+        message: 'Agent file-work controls must say file work instead of workspace internals.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasAgentModelDeadEndCopy(relFile, line)) {
       findings.push({
         type: 'agent-model-copy',
@@ -3834,6 +4072,16 @@ function scanFile(file, relFile) {
         type: 'project-share-role-copy',
         location,
         message: 'Project sharing copy must say what people can do instead of choose roles.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasProjectSettingsConfigurationCopy(relFile, line)) {
+      findings.push({
+        type: 'project-settings-copy',
+        location,
+        message:
+          'Project settings controls must say settings instead of configuration for beginners.',
         sample: line.trim(),
       })
     }
@@ -4075,6 +4323,25 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasSidebarLayoutJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'left-menu-copy',
+        location,
+        message: 'User-facing navigation copy must say left menu instead of sidebar.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasWorkspaceSetupJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'workspace-setup-copy',
+        location,
+        message:
+          'Beginner-facing setup copy must name the concrete area instead of workspace setup jargon.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasStartGuidePathJargonCopy(relFile, line)) {
       findings.push({
         type: 'start-guide-path-copy',
@@ -4248,6 +4515,36 @@ function scanFile(file, relFile) {
         location,
         message:
           'Saved instruction work-tool tooltip copy must tell beginners where to check setup.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSavedInstructionSourceLabelCopy(relFile, line)) {
+      findings.push({
+        type: 'saved-instruction-source-label-copy',
+        location,
+        message:
+          'Saved instruction source labels must say team space instead of workspace for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSavedInstructionAvailabilityLabelCopy(relFile, line)) {
+      findings.push({
+        type: 'saved-instruction-availability-copy',
+        location,
+        message:
+          'Saved instruction availability labels must say team space instead of workspace for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSavedInstructionWorkspaceIntroCopy(relFile, line)) {
+      findings.push({
+        type: 'saved-instruction-workspace-copy',
+        location,
+        message:
+          'Saved instruction publishing copy must say team space instead of workspace for beginners.',
         sample: line.trim(),
       })
     }

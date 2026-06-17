@@ -44,16 +44,16 @@ beforeEach(() => {
 describe('CreateAgentModal agent instructions', () => {
   it('hides instruction textarea in CLI branch', () => {
     render(<CreateAgentModal />)
-    fireEvent.click(screen.getByRole('radio', { name: /managed workspace/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /project files/i }))
     expect(screen.queryByLabelText(/agent instructions/i)).toBeNull()
   })
 
-  it('defaults managed workspace work directory to /workspace', async () => {
+  it('defaults project-file work directory to /workspace', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
 
     render(<CreateAgentModal />)
-    fireEvent.click(screen.getByRole('radio', { name: /managed workspace/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /project files/i }))
     fireEvent.change(screen.getByPlaceholderText(/Frontend Agent/i), {
       target: { value: 'Test' },
     })

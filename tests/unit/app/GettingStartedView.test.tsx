@@ -275,8 +275,13 @@ describe('GettingStartedView', () => {
     render(<GettingStartedView />)
 
     expect(await screen.findByTestId('page-start')).toBeDefined()
+    expect(screen.getAllByText('Team and project').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Workspace')).toBeNull()
+    expect(screen.getAllByText('Review team and project').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Review workspace')).toBeNull()
     expect(screen.getAllByText('Launch Project').length).toBeGreaterThan(0)
-    expect(screen.getByText(/managed workspace is ready for agent work/i)).toBeDefined()
+    expect(screen.getByText(/Project files option is ready for agent work/i)).toBeDefined()
+    expect(screen.queryByText(/managed workspace is ready for agent work/i)).toBeNull()
     expect(screen.getByText('Model Service')).toBeDefined()
     expect(screen.getByText('Starter Agent')).toBeDefined()
     expect(await screen.findByText('100%')).toBeDefined()
@@ -672,7 +677,7 @@ describe('GettingStartedView', () => {
     expect(await screen.findByRole('button', { name: /skip and open tasks/i })).toBeDefined()
     expect(
       screen.getByText(
-        'This only hides the setup checklist from the sidebar. Your projects, agents, and tasks stay the same, and you can show it again from Settings.'
+        'This only hides Start from the left menu. Your projects, agents, and tasks stay the same, and you can show it again from Settings.'
       )
     ).toBeDefined()
     expect(screen.queryByRole('button', { name: /^skip the guide$/i })).toBeNull()

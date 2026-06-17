@@ -242,7 +242,7 @@ function OrgRenameForm() {
   if (!currentOrg) {
     return (
       <div className="rounded-card border border-black/[0.08] bg-black/[0.02] px-3 py-2 text-ui-body text-secondary-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark">
-        Select a team space from the sidebar before changing team space settings.
+        Select a team space from the left menu before changing team space settings.
       </div>
     )
   }
@@ -369,10 +369,10 @@ function GettingStartedGuideRow() {
   const dismissed = preferences?.gettingStartedDismissed === true
   const canOpenChecklist = preferencesLoaded && !dismissed
   const statusLine = !preferencesLoaded
-    ? 'Checking whether the setup checklist is hidden...'
+    ? 'Checking whether Start is hidden...'
     : dismissed
-      ? 'The setup checklist is hidden right now.'
-      : 'The setup checklist is already visible in the sidebar, so there is nothing to restore.'
+      ? 'Start is hidden from the left menu right now.'
+      : 'Start is already visible in the left menu, so there is nothing to restore.'
 
   async function handleRestore() {
     setError(null)
@@ -384,7 +384,7 @@ function GettingStartedGuideRow() {
       setRestored(true)
     } else {
       setError(
-        'Check your connection, then choose Show setup checklist again. The setup checklist could not be shown.'
+        'Check your connection, then choose Show Start in left menu again. Start could not be shown.'
       )
     }
   }
@@ -401,7 +401,7 @@ function GettingStartedGuideRow() {
             Setup checklist
           </p>
           <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Skipping Start only hides the sidebar shortcut. It does not change projects, agents, or
+            Skipping Start only hides it from the left menu. It does not change projects, agents, or
             tasks. Show it again here when you want the checklist back. {statusLine}
           </p>
         </div>
@@ -424,7 +424,7 @@ function GettingStartedGuideRow() {
             disabled={restoring || !preferencesLoaded || !dismissed}
             className={uiStyles.secondaryButton}
           >
-            {restoring ? 'Showing...' : 'Show in sidebar again'}
+            {restoring ? 'Showing...' : 'Show Start in left menu'}
           </button>
         </div>
       </div>
@@ -440,8 +440,8 @@ function GettingStartedGuideRow() {
           className="flex flex-col gap-2 rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue sm:flex-row sm:items-center sm:justify-between"
         >
           <span>
-            The setup checklist is back in the sidebar. Open it whenever you want to check setup
-            again. Your projects, agents, and tasks were not changed.
+            Start is back in the left menu. Open the setup checklist whenever you want to check
+            setup again. Your projects, agents, and tasks were not changed.
           </span>
           <button
             type="button"

@@ -86,13 +86,15 @@ describe('BillingPage', () => {
 
     render(<BillingPage />)
 
-    expect(await screen.findByText('Billing setup steps')).toBeDefined()
+    expect(await screen.findByText('What to do next')).toBeDefined()
     expect(
       screen.getByText(/connect billing before changing plans or payment methods/i)
     ).toBeDefined()
-    expect(screen.getByText(/turn on billing for this workspace/i)).toBeDefined()
-    expect(screen.getByText(/do not paste secret payment settings/i)).toBeDefined()
+    expect(screen.getByText(/turn on billing for this team/i)).toBeDefined()
+    expect(screen.getByText(/payment account passwords or keys/i)).toBeDefined()
     expect(screen.getByText(/after billing is turned on/i)).toBeDefined()
+    expect(screen.queryByText(/this workspace/i)).toBeNull()
+    expect(screen.queryByText(/secret payment settings/i)).toBeNull()
     expect(screen.queryByText(/deployment/i)).toBeNull()
     await waitFor(() => expect(loadAllMock).toHaveBeenCalled())
   })

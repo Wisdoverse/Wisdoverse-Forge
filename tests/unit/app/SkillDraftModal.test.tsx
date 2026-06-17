@@ -46,6 +46,8 @@ describe('SkillDraftModal', () => {
     )
 
     expect(screen.getByRole('button', { name: 'Close without publishing' })).toBeDefined()
+    expect(screen.getByText(/saving it for your team space/i)).toBeDefined()
+    expect(screen.queryByText(/saving it for the workspace/i)).toBeNull()
     expect(screen.queryByRole('button', { name: /^Cancel$/ })).toBeNull()
 
     await user.click(screen.getByRole('button', { name: 'Close without publishing' }))

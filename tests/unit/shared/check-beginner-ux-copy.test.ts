@@ -539,6 +539,40 @@ function userEmptyState() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags admin role copy that exposes system configuration jargon', () => {
+    const cwd = fixture({
+      'src/app/features/admin/UserManagement.tsx': `
+const ROLE_DETAILS = {
+  admin: { description: 'Can manage users, settings, and system configuration.' },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'admin-user-role-copy',
+          location: 'src/app/features/admin/UserManagement.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts admin role copy that names people and safety controls', () => {
+    const cwd = fixture({
+      'src/app/features/admin/UserManagement.tsx': `
+const ROLE_DETAILS = {
+  admin: { description: 'Can manage people, team settings, and safety controls.' },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags team space empty states that do not point to creating or syncing first', () => {
     const cwd = fixture({
       'src/app/features/admin/OrganizationsPanel.tsx': `
@@ -2114,11 +2148,18 @@ function metricCopy(metric) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags billing setup copy that uses setup-path wording', () => {
+  it('flags billing setup copy that uses setup-path or workspace wording', () => {
     const cwd = fixture({
       'src/app/features/billing/BillingPage.tsx': `
 function BillingNotConfigured() {
-  return <p>Billing setup path</p>
+  return (
+    <div>
+      <p>Billing setup path</p>
+      <p>Billing setup steps</p>
+      <p>Ask an owner or admin to turn on billing for this workspace.</p>
+      <p>Do not paste secret payment settings here.</p>
+    </div>
+  )
 }
 `,
     })
@@ -2126,19 +2167,39 @@ function BillingNotConfigured() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'billing-setup-copy',
-        location: 'src/app/features/billing/BillingPage.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'billing-setup-copy',
+          location: 'src/app/features/billing/BillingPage.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'billing-setup-copy',
+          location: 'src/app/features/billing/BillingPage.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'billing-setup-copy',
+          location: 'src/app/features/billing/BillingPage.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'billing-setup-copy',
+          location: 'src/app/features/billing/BillingPage.tsx:8',
+        }),
+      ])
+    )
   })
 
-  it('accepts billing setup copy that describes setup steps', () => {
+  it('accepts billing setup copy that gives a plain next step', () => {
     const cwd = fixture({
       'src/app/features/billing/BillingPage.tsx': `
 function BillingNotConfigured() {
-  return <p>Billing setup steps</p>
+  return (
+    <div>
+      <p>What to do next</p>
+      <p>Ask an owner or admin to turn on billing for this team.</p>
+      <p>Do not enter payment account passwords or keys on this page.</p>
+    </div>
+  )
 }
 `,
     })
@@ -2841,6 +2902,40 @@ function emptyInstructionBadge() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags agent instruction save errors that hide the next step behind the failure', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentConfigTab.tsx': `
+function promptProfileSaveErrorMessage() {
+  return 'Agent instructions were not saved. Refresh this agent, confirm it is still a chat-only agent, then save again. Ask an admin to check your agent access if it keeps failing.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-config-save-copy',
+          location: 'src/app/features/agents/AgentConfigTab.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts agent instruction save errors that start with the next action', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentConfigTab.tsx': `
+function promptProfileSaveErrorMessage() {
+  return 'Refresh this agent, confirm it is still a chat-only agent, then save again. If it keeps failing, ask an owner or admin to check your agent access. Agent instructions were not saved.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags agent model fallback copy that does not tell users what to refresh', () => {
     const cwd = fixture({
       'src/app/entities/agent/model/agents.store.ts': `
@@ -2983,7 +3078,7 @@ function WorkStylePicker() {
     const cwd = fixture({
       'src/app/features/agents/CreateAgentModal.tsx': `
 function createReviewItems() {
-  return [{ label: 'Where it works', value: 'Claude in a managed workspace' }]
+  return [{ label: 'Where it works', value: 'Claude with project files' }]
 }
 function WorkLocationPicker() {
   return <label>Where should this agent work?</label>
@@ -3049,6 +3144,33 @@ function agentRuntimeLabel() {
   return 'OpenCode in a managed workspace'
 }
 `,
+      'src/app/entities/agent/model/runtime-kind.ts': `
+export const RUNTIME_KIND_LABELS = { container: 'Managed workspace' }
+`,
+      'src/app/entities/context/ui/InjectionPreviewModal.tsx': `
+function runtimeLabel() {
+  return 'Managed workspace'
+}
+`,
+      'src/app/features/admin/AgentsPanel.tsx': `
+const AGENT_GUIDANCE = [{ title: 'Managed workspace' }]
+`,
+      'src/app/features/admin/SystemHealth.tsx': `
+const action = 'Ask an owner or admin to check managed workspace setup.'
+`,
+      'src/app/features/analytics/ContextUsageDashboard.tsx': `
+const RUNTIME_LABELS = { container: 'Managed workspace' }
+`,
+      'src/app/features/agents/AgentCard.tsx': `
+function AgentCard() {
+  return <p>Managed workspace</p>
+}
+`,
+      'src/app/features/agents/AgentListView.tsx': `
+function AgentChoiceGuide() {
+  return <p>Managed workspace</p>
+}
+`,
       'src/app/features/agents/AgentKindBadge.tsx': `
 export function AgentKindBadge() {
   return <span title="Uses a Forge-managed project workspace.">Managed workspace</span>
@@ -3057,6 +3179,31 @@ export function AgentKindBadge() {
       'src/app/features/agents/AgentConfigTab.tsx': `
 function Connection() {
   return <p>Ready in managed workspace</p>
+}
+`,
+      'src/app/features/detail/HistoryTab.tsx': `
+function runSourceLabel() {
+  return 'a managed workspace'
+}
+`,
+      'src/app/features/settings/ResourcesSection.tsx': `
+function ResourceProfilesEmptyState() {
+  return <p>Return here before creating agents in managed workspaces.</p>
+}
+`,
+      'src/app/features/settings/RuntimeSection.tsx': `
+function fallbackRuntimeLabel() {
+  return 'Managed workspace'
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  runtimeLabels: { container: 'Managed workspace' },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  runtimeLabels: { container: '托管工作区' },
 }
 `,
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
@@ -3077,11 +3224,23 @@ function agentFolderLabel() {
         }),
         expect.objectContaining({
           type: 'agent-work-area-display-copy',
+          sample: expect.stringContaining('Managed workspace'),
+        }),
+        expect.objectContaining({
+          type: 'agent-work-area-display-copy',
+          sample: expect.stringContaining('managed workspace setup'),
+        }),
+        expect.objectContaining({
+          type: 'agent-work-area-display-copy',
           sample: expect.stringContaining('Forge-managed project workspace'),
         }),
         expect.objectContaining({
           type: 'agent-work-area-display-copy',
           sample: expect.stringContaining('Ready in managed workspace'),
+        }),
+        expect.objectContaining({
+          type: 'agent-work-area-display-copy',
+          sample: expect.stringContaining('托管工作区'),
         }),
         expect.objectContaining({
           type: 'agent-work-area-display-copy',
@@ -3098,14 +3257,47 @@ function agentRuntimeLabel() {
   return 'OpenCode with project files'
 }
 `,
+      'src/app/entities/context/ui/InjectionPreviewModal.tsx': `
+function runtimeLabel() {
+  return 'Project files'
+}
+`,
+      'src/app/features/analytics/ContextUsageDashboard.tsx': `
+const RUNTIME_LABELS = { container: 'Project files' }
+`,
       'src/app/features/agents/AgentKindBadge.tsx': `
 export function AgentKindBadge() {
-  return <span title="Works in a Forge project area. It can change files.">Managed workspace</span>
+  return <span title="Works in a Forge project area. It can change files.">Project files</span>
 }
 `,
       'src/app/features/agents/AgentConfigTab.tsx': `
 function Connection() {
   return <p>Ready with project files</p>
+}
+`,
+      'src/app/features/detail/HistoryTab.tsx': `
+function runSourceLabel() {
+  return 'project files'
+}
+`,
+      'src/app/features/settings/ResourcesSection.tsx': `
+function ResourceProfilesEmptyState() {
+  return <p>Return here before creating agents that edit project files.</p>
+}
+`,
+      'src/app/features/settings/RuntimeSection.tsx': `
+function fallbackRuntimeLabel() {
+  return 'Project files'
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  runtimeLabels: { container: 'Project files' },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  runtimeLabels: { container: '项目文件' },
 }
 `,
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
@@ -3387,7 +3579,7 @@ function agentAvailabilityLabel() {
     const cwd = fixture({
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
 function agentAvailabilityLabel() {
-  return 'Open Live work and start workspace'
+  return 'Open Live work and start file work'
 }
 `,
     })
@@ -3421,7 +3613,55 @@ function PendingTerminal() {
     const cwd = fixture({
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
 function PendingTerminal() {
-  return 'Check the agent status, then choose Start workspace again.'
+  return 'Check the agent status, then choose Start file work again.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags workspace wording in agent file-work controls', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentControlPanel.tsx': `
+function StartCard() {
+  return 'Workspace needs to start. Choose Start workspace again.'
+}
+`,
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function PendingTerminal() {
+  return 'Open Live work, choose Start workspace, and wait until this agent shows Ready.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-file-work-control-copy',
+          location: 'src/app/features/agents/AgentControlPanel.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-file-work-control-copy',
+          location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts file-work wording in agent start controls', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentControlPanel.tsx': `
+function StartCard() {
+  return 'File work needs to start. Choose Start file work again.'
+}
+`,
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function PendingTerminal() {
+  return 'Open Live work, choose Start file work, and wait until this agent shows Ready.'
 }
 `,
     })
@@ -3791,6 +4031,28 @@ function ToolRow() {
     ])
   })
 
+  it('flags agent tool package copy that exposes build-server wording', () => {
+    const cwd = fixture({
+      'src/app/features/admin/CliImagesPanel.tsx': `
+function ToolRow() {
+  return <><p>Built here</p><p>Building on this server — usually a few minutes.</p><p>Builds automatically — new versions build themselves</p></>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'cli-image-status-copy',
+          location: 'src/app/features/admin/CliImagesPanel.tsx:3',
+        }),
+      ])
+    )
+  })
+
   it('accepts agent tool update status copy that tells users to check now', () => {
     const cwd = fixture({
       'src/app/features/admin/CliImagesPanel.tsx': `
@@ -3959,6 +4221,10 @@ function runtimeSettingsFallback() {
 }
 `,
       'src/app/features/settings/RuntimeSection.tsx': `
+function runtimeChecklistCopy() {
+  return 'The Where agents run settings have not loaded yet. Check setup. If they still do not load, ask an owner or admin to check Where agents run.'
+}
+
 function credentialStatusCopy() {
   return 'Work tool sign-ins could not be checked. Check setup. If they still cannot be checked, ask an owner or admin to check work tool sign-ins.'
 }
@@ -3998,6 +4264,10 @@ function heartbeatStatusCopy() {
           type: 'runtime-error-copy',
           location: 'src/app/features/settings/RuntimeSection.tsx:7',
         }),
+        expect.objectContaining({
+          type: 'runtime-error-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:11',
+        }),
       ])
     )
   })
@@ -4022,6 +4292,10 @@ function runtimeSettingsFallback() {
 }
 `,
       'src/app/features/settings/RuntimeSection.tsx': `
+function runtimeChecklistCopy() {
+  return 'Refresh this settings page to load Where agents run. If it still does not load, ask an owner or admin to check Where agents run.'
+}
+
 function credentialStatusCopy() {
   return 'Choose Check again to refresh work tool sign-ins. If they still cannot be checked, ask an owner or admin to check work tool sign-ins.'
 }
@@ -4223,6 +4497,12 @@ export const en = {
   },
   confirm: {
     unsavedChanges: 'You have unsaved changes. Are you sure you want to leave?',
+    delete: 'Delete this item? It will be removed from this workspace.',
+  },
+  admin: {
+    users: {
+      confirmDelete: 'Delete this user? They will lose access to this workspace.',
+    },
   },
 }
 `,
@@ -4244,6 +4524,14 @@ export const en = {
         type: 'confirmation-impact',
         location: 'src/app/shared/i18n/locales/en.ts:10',
       }),
+      expect.objectContaining({
+        type: 'confirmation-impact',
+        location: 'src/app/shared/i18n/locales/en.ts:11',
+      }),
+      expect.objectContaining({
+        type: 'confirmation-impact',
+        location: 'src/app/shared/i18n/locales/en.ts:15',
+      }),
     ])
   })
 
@@ -4259,6 +4547,12 @@ export const zh = {
   },
   confirm: {
     unsavedChanges: '您有未保存的更改，确定要离开吗？',
+    delete: '要删除这一项吗？它会从当前工作区移除。',
+  },
+  admin: {
+    users: {
+      confirmDelete: '要删除这个用户吗？该用户将失去当前工作区访问权限。',
+    },
   },
 }
 `,
@@ -4280,6 +4574,14 @@ export const zh = {
         type: 'confirmation-impact',
         location: 'src/app/shared/i18n/locales/zh.ts:10',
       }),
+      expect.objectContaining({
+        type: 'confirmation-impact',
+        location: 'src/app/shared/i18n/locales/zh.ts:11',
+      }),
+      expect.objectContaining({
+        type: 'confirmation-impact',
+        location: 'src/app/shared/i18n/locales/zh.ts:15',
+      }),
     ])
   })
 
@@ -4290,6 +4592,31 @@ export const en = {
   agents: {
     confirmDelete: 'Delete this agent? This removes its setup and stops assigning new work to it.',
   },
+  confirm: {
+    delete: 'Delete this item? It will be removed from this team space.',
+  },
+  admin: {
+    users: {
+      confirmDelete: 'Delete this user? They will lose access to this team space.',
+    },
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  confirm: {
+    delete: '要删除这一项吗？它会从当前团队空间移除。',
+  },
+  admin: {
+    users: {
+      confirmDelete: '要删除这个用户吗？该用户将失去当前团队空间访问权限。',
+    },
+  },
+}
+`,
+      'src/app/layouts/sidebar/ProjectTree.tsx': `
+function deleteDetail() {
+  return 'The project is removed from this team space, and agents are moved out instead of deleted.'
 }
 `,
     })
@@ -5007,12 +5334,14 @@ export function CreateAgentModal() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'beginner-jargon-copy',
-        location: 'src/app/features/agents/CreateAgentModal.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'beginner-jargon-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:3',
+        }),
+      ])
+    )
   })
 
   it('flags managed workspace agent noun stacks in user-visible copy', () => {
@@ -5027,12 +5356,14 @@ export function CreateAgentModal() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'beginner-jargon-copy',
-        location: 'src/app/features/agents/CreateAgentModal.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'beginner-jargon-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:3',
+        }),
+      ])
+    )
   })
 
   it('flags this-computer setup copy that uses command-window jargon', () => {
@@ -5838,6 +6169,9 @@ function messageRoleLabel(role) {
 function conversationFilterEmptyCopy() {
   return 'The You filter only shows requests sent by an operator.'
 }
+function chatOnlyBanner() {
+  return 'This agent can answer in chat, but it does not work on workspace files.'
+}
 `,
     })
 
@@ -5849,6 +6183,10 @@ function conversationFilterEmptyCopy() {
         type: 'chat-operator-copy',
         location: 'src/app/features/chat/ChatView.tsx:3',
       }),
+      expect.objectContaining({
+        type: 'chat-operator-copy',
+        location: 'src/app/features/chat/ChatView.tsx:6',
+      }),
     ])
   })
 
@@ -5857,6 +6195,9 @@ function conversationFilterEmptyCopy() {
       'src/app/features/chat/ChatView.tsx': `
 function conversationFilterEmptyCopy() {
   return 'The You filter only shows requests you sent.'
+}
+function chatOnlyBanner() {
+  return 'This agent can answer in chat, but it does not open project files.'
 }
 `,
     })
@@ -6093,7 +6434,7 @@ export function approvalQueueEmptyState() {
 `,
       'src/app/features/settings/AccountSection.tsx': `
 	export function AccountSection() {
-	  return <span>The setup checklist is back in the sidebar. Open it when setup needs review.</span>
+	  return <span>Start is back in the left menu. Open it when setup needs review.</span>
 	}
 	`,
       'src/app/features/chat/ChatView.tsx': `
@@ -6152,7 +6493,7 @@ export function approvalQueueEmptyState() {
 `,
       'src/app/features/settings/AccountSection.tsx': `
 export function AccountSection() {
-  return <span>The setup checklist is back in the sidebar. Open it whenever you want to check setup again.</span>
+  return <span>Start is back in the left menu. Open the setup checklist whenever you want to check setup again.</span>
 }
 `,
     })
@@ -6625,6 +6966,136 @@ export function systemHealthErrorMessage() {
       'src/app/features/admin/systemHealthErrorMessage.ts': `
 export function systemHealthErrorMessage() {
   return 'Refresh Admin, then choose Check now. Forge could not check app health.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags saved instruction source labels that still say workspace', () => {
+    const cwd = fixture({
+      'src/app/features/skills/SkillCard.tsx': `
+export function SkillCard() {
+  return 'Saved in Workspace saved instructions by Platform team'
+}
+`,
+      'src/app/features/skills/SkillDetailModal.tsx': `
+export function SkillDetailModal() {
+  return 'Workspace saved instructions'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'saved-instruction-source-label-copy',
+          location: 'src/app/features/skills/SkillCard.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-source-label-copy',
+          location: 'src/app/features/skills/SkillDetailModal.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved instruction source labels that say team space', () => {
+    const cwd = fixture({
+      'src/app/features/skills/SkillCard.tsx': `
+export function SkillCard() {
+  return 'Saved in Team space saved instructions by Platform team'
+}
+`,
+      'src/app/features/skills/SkillDetailModal.tsx': `
+export function SkillDetailModal() {
+  return 'Team space saved instructions'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags saved instruction publishing copy that still says workspace', () => {
+    const cwd = fixture({
+      'src/app/features/detail/SkillDraftModal.tsx': `
+export function SkillDraftModal() {
+  return 'Review what should repeat before saving it for the workspace.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'saved-instruction-workspace-copy',
+          location: 'src/app/features/detail/SkillDraftModal.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved instruction publishing copy that says team space', () => {
+    const cwd = fixture({
+      'src/app/features/detail/SkillDraftModal.tsx': `
+export function SkillDraftModal() {
+  return 'Review what should repeat before saving it for your team space.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags saved instruction availability labels that still say workspace', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  skills: { detail: { availabilityWorkspace: 'This workspace' } }
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  skills: { detail: { availabilityWorkspace: '当前工作区' } }
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'saved-instruction-availability-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-availability-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved instruction availability labels that say team space', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  skills: { detail: { availabilityWorkspace: 'This team space' } }
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  skills: { detail: { availabilityWorkspace: '当前团队空间' } }
 }
 `,
     })
@@ -7331,7 +7802,7 @@ export const zh = {
 export const en = {
   nav: { start: 'Setup checklist' },
   gettingStarted: {
-    skipHint: 'This only hides the setup checklist from the sidebar. You can show it again from Settings.',
+    skipHint: 'This only hides the setup checklist from the left menu. You can show it again from Settings.',
     skipError: 'Check your connection, then choose Skip again. The setup checklist could not be hidden.',
   },
 }
@@ -7340,12 +7811,173 @@ export const en = {
 export const zh = {
   nav: { start: '设置清单' },
   gettingStarted: {
-    skipHint: '这只会隐藏侧栏里的设置清单，也可以在设置里重新显示它。',
+    skipHint: '这只会隐藏左侧菜单里的设置清单，也可以在设置里重新显示它。',
   },
 }
 `,
       'src/app/layouts/sidebar/SidebarNav.tsx': `
 const item = { description: 'follow the setup checklist' }
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags sidebar layout wording in user-visible left-menu copy', () => {
+    const cwd = fixture({
+      'src/app/layouts/AppLayout.tsx': `
+export function AppLayout() {
+  return <button aria-label="Close sidebar" />
+}
+`,
+      'src/app/layouts/sidebar/SidebarHeader.tsx': `
+export function SidebarHeader() {
+  return <button title="Expand sidebar">Open</button>
+}
+`,
+      'src/app/layouts/sidebar/ProjectTree.tsx': `
+function renameErrorMessage() {
+  return 'Refresh the sidebar, then save this project name again.'
+}
+`,
+      'src/app/features/manage-team/ui/EditableTeamRow.tsx': `
+export function EditableTeamRow() {
+  return <p>Projects in this team will also disappear from the sidebar.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'left-menu-copy',
+          location: 'src/app/layouts/AppLayout.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'left-menu-copy',
+          location: 'src/app/layouts/sidebar/SidebarHeader.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'left-menu-copy',
+          location: 'src/app/layouts/sidebar/ProjectTree.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'left-menu-copy',
+          location: 'src/app/features/manage-team/ui/EditableTeamRow.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('flags workspace setup wording in beginner-facing recovery copy', () => {
+    const cwd = fixture({
+      'src/app/routes/context.tsx': `
+export const detail = 'Saved notes review is available for this workspace. Ask an owner to check workspace setup.'
+`,
+      'src/app/routes/context-audit.tsx': `
+export const detail = 'Audit is enabled for this workspace. Ask an owner to check workspace setup.'
+`,
+      'src/app/features/settings/ResourcesSection.tsx': `
+export function ResourcesSection() {
+  return <p>Ask an owner or admin to add agent sizes in workspace settings.</p>
+}
+`,
+      'src/app/layouts/sidebar/ProjectTree.tsx': `
+function renameErrorMessage() {
+  return 'Refresh the left menu, then save this project name again. If it still fails, ask an owner or admin to check workspace setup.'
+}
+`,
+      'src/app/layouts/sidebar/SidebarNav.tsx': `
+export const settings = { description: 'manage workspace, agents, and access' }
+export const logout = { title: 'Logout: sign out of this workspace' }
+`,
+      'src/app/routes/__root.tsx': `
+export function AuthShellLoadingState() {
+  return 'We are confirming your session before opening the workspace.'
+}
+`,
+      'src/app/shared/lib/taskFailureCopy.ts': `
+export function taskBlockedPreview() {
+  return 'The workspace is busy. Retry later or ask an owner for help.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'workspace-setup-copy',
+          location: 'src/app/routes/context.tsx:2',
+        }),
+        expect.objectContaining({
+          type: 'workspace-setup-copy',
+          location: 'src/app/routes/context-audit.tsx:2',
+        }),
+        expect.objectContaining({
+          type: 'workspace-setup-copy',
+          location: 'src/app/features/settings/ResourcesSection.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'workspace-setup-copy',
+          location: 'src/app/layouts/sidebar/ProjectTree.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'workspace-setup-copy',
+          location: 'src/app/layouts/sidebar/SidebarNav.tsx:2',
+        }),
+        expect.objectContaining({
+          type: 'workspace-setup-copy',
+          location: 'src/app/layouts/sidebar/SidebarNav.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'workspace-setup-copy',
+          location: 'src/app/routes/__root.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'workspace-setup-copy',
+          location: 'src/app/shared/lib/taskFailureCopy.ts:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts concrete setup wording for beginner-facing recovery copy', () => {
+    const cwd = fixture({
+      'src/app/routes/context.tsx': `
+export const detail = 'Saved notes review is available here. Ask an owner to check saved items setup.'
+`,
+      'src/app/routes/context-audit.tsx': `
+export const detail = 'Audit history is available here. Ask an owner to check audit setup.'
+`,
+      'src/app/features/settings/ResourcesSection.tsx': `
+export function ResourcesSection() {
+  return <p>Ask an owner or admin to add agent sizes in Work limits.</p>
+}
+`,
+      'src/app/layouts/sidebar/ProjectTree.tsx': `
+function renameErrorMessage() {
+  return 'Refresh the left menu, then save this project name again. If it still fails, ask an owner or admin to check team and project setup.'
+}
+`,
+      'src/app/layouts/sidebar/SidebarNav.tsx': `
+export const settings = { description: 'manage teams, agents, and access' }
+export const logout = { title: 'Logout: sign out of Forge' }
+`,
+      'src/app/routes/__root.tsx': `
+export function AuthShellLoadingState() {
+  return 'We are making sure you are signed in before opening your team space.'
+}
+`,
+      'src/app/shared/lib/taskFailureCopy.ts': `
+export function taskBlockedPreview() {
+  return 'Too much work is running right now. Wait a bit, then retry or ask an owner for help.'
+}
 `,
     })
 
@@ -7504,6 +8136,40 @@ const ACTION_COMMANDS = [
 const ACTION_COMMANDS = [
   { id: 'action:create-task', label: 'New task', description: 'Create a task for an agent to finish.' },
 ]
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags project settings controls that use configuration wording', () => {
+    const cwd = fixture({
+      'src/app/layouts/sidebar/ProjectTree.tsx': `
+function ProjectTree() {
+  return <button aria-label="Close project configuration" />
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'project-settings-copy',
+          location: 'src/app/layouts/sidebar/ProjectTree.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts project settings controls that use plain settings wording', () => {
+    const cwd = fixture({
+      'src/app/layouts/sidebar/ProjectTree.tsx': `
+function ProjectTree() {
+  return <button aria-label="Close project settings" />
+}
 `,
     })
 
@@ -9003,11 +9669,130 @@ function render() {
     ])
   })
 
-  it('accepts sign-in orientation that explains saved work records', () => {
+  it('flags sign-in orientation that mentions workspace-admin invitations', () => {
+    const cwd = fixture({
+      'src/app/features/auth/AuthPage.ts': `
+function renderLoginForm() {
+  return 'Use the email your workspace admin invited. After sign in, you will land on your task board.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'auth-intro-copy',
+        location: 'src/app/features/auth/AuthPage.ts:3',
+      }),
+    ])
+  })
+
+  it('accepts sign-in orientation that explains saved work records and invitation email', () => {
     const cwd = fixture({
       'src/app/features/auth/AuthPage.ts': `
 function render() {
   return 'Sign in to manage agents, tasks, saved work records, and team settings from one team space.'
+}
+function renderLoginForm() {
+  return 'Use the email address from your invitation. After sign in, you will land on your task board.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags getting started setup labels that still say workspace', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  gettingStarted: {
+    steps: {
+      workspace: {
+        title: 'Workspace',
+        create: 'Create workspace',
+        review: 'Review workspace',
+      },
+    },
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  gettingStarted: {
+    steps: {
+      workspace: {
+        title: '工作区',
+        create: '创建工作区',
+        review: '查看工作区',
+      },
+    },
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'getting-started-team-project-copy',
+          sample: expect.stringContaining('Workspace'),
+        }),
+        expect.objectContaining({
+          type: 'getting-started-team-project-copy',
+          sample: expect.stringContaining('Create workspace'),
+        }),
+        expect.objectContaining({
+          type: 'getting-started-team-project-copy',
+          sample: expect.stringContaining('Review workspace'),
+        }),
+        expect.objectContaining({
+          type: 'getting-started-team-project-copy',
+          sample: expect.stringContaining('工作区'),
+        }),
+        expect.objectContaining({
+          type: 'getting-started-team-project-copy',
+          sample: expect.stringContaining('创建工作区'),
+        }),
+        expect.objectContaining({
+          type: 'getting-started-team-project-copy',
+          sample: expect.stringContaining('查看工作区'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts getting started setup labels that name team and project', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  gettingStarted: {
+    steps: {
+      workspace: {
+        title: 'Team and project',
+        create: 'Create team and project',
+        review: 'Review team and project',
+      },
+    },
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  gettingStarted: {
+    steps: {
+      workspace: {
+        title: '团队和项目',
+        create: '创建团队和项目',
+        review: '查看团队和项目',
+      },
+    },
+  },
 }
 `,
     })
@@ -9024,6 +9809,8 @@ function renderPrivacy() {
     '<li>IP address used for rate limiting and audit logging</li>',
     '<li>To maintain audit logs for security monitoring and compliance purposes</li>',
     '<li>The export includes event history and configuration settings</li>',
+    '<p>Review what you agree to and how your workspace data is handled.</p>',
+    '<li>Visual workspace preferences, such as saved view settings</li>',
   ].join('')
 }
 `,
@@ -9050,6 +9837,18 @@ function renderPrivacy() {
           type: 'legal-privacy-copy',
           sample: expect.stringContaining('event history'),
         }),
+        expect.objectContaining({
+          type: 'legal-privacy-copy',
+          sample: expect.stringContaining('configuration settings'),
+        }),
+        expect.objectContaining({
+          type: 'legal-privacy-copy',
+          sample: expect.stringContaining('workspace data'),
+        }),
+        expect.objectContaining({
+          type: 'legal-privacy-copy',
+          sample: expect.stringContaining('Visual workspace preferences'),
+        }),
       ])
     )
   })
@@ -9062,7 +9861,9 @@ function renderPrivacy() {
     '<li>To show live task, agent, and saved work updates in the product interface</li>',
     '<li>IP address used to protect the Service, slow abusive requests, and record security-relevant activity</li>',
     '<li>To keep security history records for safety reviews and legal requirements</li>',
-    '<li>The export includes change history and configuration settings</li>',
+    '<li>The export includes change history and settings choices</li>',
+    '<p>Review what you agree to and how your team space data is handled.</p>',
+    '<li>Saved view choices, such as layout and display settings</li>',
   ].join('')
 }
 `,
@@ -9915,28 +10716,28 @@ function permissionMessage() {
 `,
       'src/app/layouts/sidebar/ProjectTree.tsx': `
 function renameErrorMessage() {
-  return 'Refresh the sidebar, then save this project name again. The project name was not saved.'
+  return 'Refresh the left menu, then save this project name again. The project name was not saved.'
 }
 function projectMissingMessage() {
-  return 'Refresh the sidebar, then choose the current project again. This project could not be found.'
+  return 'Refresh the left menu, then choose the current project again. This project could not be found.'
 }
 function projectChangedMessage() {
-  return 'Refresh the sidebar, review the current name, then save this project name again. This project changed while you were editing.'
+  return 'Refresh the left menu, review the current name, then save this project name again. This project changed while you were editing.'
 }
 function renameBusyMessage() {
-  return 'Wait a moment, then save this project name again. The sidebar is busy.'
+  return 'Wait a moment, then save this project name again. The left menu is busy.'
 }
 function renameServiceMessage() {
-  return 'Refresh the sidebar, then save this project name again. Forge could not save it right now.'
+  return 'Refresh the left menu, then save this project name again. Forge could not save it right now.'
 }
 function deleteServiceMessage() {
-  return 'Refresh the sidebar, then delete this project again. Forge could not delete it right now.'
+  return 'Refresh the left menu, then delete this project again. Forge could not delete it right now.'
 }
 function permissionRenameMessage() {
-  return 'Ask an owner or admin to let you edit this project, then save this project name again from the sidebar. You do not have permission to rename this project.'
+  return 'Ask an owner or admin to let you edit this project, then save this project name again from the left menu. You do not have permission to rename this project.'
 }
 function permissionDeleteMessage() {
-  return 'Ask an owner or admin to let you delete this team, then delete it again from the sidebar. You do not have permission to delete this team.'
+  return 'Ask an owner or admin to let you delete this team, then delete it again from the left menu. You do not have permission to delete this team.'
 }
 `,
     })
@@ -10246,10 +11047,10 @@ function serviceRecoveryMessage(action) {
 `,
       'src/app/entities/navigation/model/navigation.store.ts': `
 function navigationActionErrorMessage(actionPhrase) {
-  return 'Check your connection, then refresh the sidebar to load task queues.'
+  return 'Check your connection, then refresh the left menu to load task queues.'
 }
 function serviceRecoveryMessage() {
-  return 'Refresh the sidebar to load workspace navigation. If it still fails, ask an owner or admin to check workspace navigation.'
+  return 'Refresh the left menu to load workspace navigation. If it still fails, ask an owner or admin to check workspace navigation.'
 }
 `,
     })

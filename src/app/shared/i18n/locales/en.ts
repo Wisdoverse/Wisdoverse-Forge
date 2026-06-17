@@ -90,7 +90,7 @@ export const en = {
     skip: 'Skip and open Tasks',
     skipSaving: 'Skipping...',
     skipHint:
-      'This only hides the setup checklist from the sidebar. Your projects, agents, and tasks stay the same, and you can show it again from Settings.',
+      'This only hides Start from the left menu. Your projects, agents, and tasks stay the same, and you can show it again from Settings.',
     skipError:
       'Check your connection, then choose Skip again. The setup checklist could not be hidden.',
     progressCount: '{{complete}} of {{total}}',
@@ -104,7 +104,7 @@ export const en = {
     noProject: 'Open project settings to create or choose a project.',
     projects: 'Projects',
     workLocations: {
-      managed: 'a managed workspace',
+      managed: 'the Project files option',
       local: 'this computer',
       textOnly: 'text-only work',
       ready: 'a work location',
@@ -116,19 +116,19 @@ export const en = {
     },
     steps: {
       workspace: {
-        title: 'Workspace',
+        title: 'Team and project',
         empty: 'Create one team and project so tasks have a clear home.',
         why: 'A project gives tasks a clear home so agents know what work belongs together.',
         success: 'A team and project exist, and the project is selected.',
-        create: 'Create workspace',
-        review: 'Review workspace',
+        create: 'Create team and project',
+        review: 'Review team and project',
       },
       runtime: {
         title: 'Work location',
-        empty: 'Choose where agents should do work: in a managed workspace or on this computer.',
+        empty: 'Choose where agents should work: Project files or this computer.',
         ready: '{{location}} is ready for agent work.',
         why: 'Agents need a safe place to run before they can receive tasks.',
-        success: 'A managed workspace or this computer is available for agent work.',
+        success: 'At least one work location is ready for agent work.',
         open: 'Choose work location',
         review: 'Review work location',
       },
@@ -149,7 +149,7 @@ export const en = {
       },
       agent: {
         title: 'Agent',
-        empty: 'Create one simple agent: text-only, managed workspace, or this computer.',
+        empty: 'Create one simple agent: chat-only, Project files, or this computer.',
         why: 'Agents receive tasks and return results. Start with one simple agent.',
         success: 'At least one agent appears in the Agents page.',
         create: 'Create agent',
@@ -452,7 +452,7 @@ export const en = {
         'Refresh this settings page to load the Where agents run settings. If they still do not load, ask an owner or admin to check agent setup.',
       defaultRuntimeLabel: 'Default agent location',
       defaultRuntimeDescription:
-        'Managed workspace is the simplest choice. Choose This computer only when this machine should join the workspace as a managed agent.',
+        'Choose Project files for the simplest shared file work. Choose This computer only when this machine should join as an agent.',
       defaultContainerCliLabel: 'Default tool for project work',
       defaultContainerCliDescription:
         'Claude Code, Codex, Gemini, or OpenCode when an agent edits files or runs commands',
@@ -463,7 +463,7 @@ export const en = {
       runtimeLabels: {
         cli: 'This computer',
         api: 'Chat-only AI service',
-        container: 'Managed workspace',
+        container: 'Project files',
       },
       cliToolLabels: {
         claude: 'Claude Code',
@@ -511,7 +511,7 @@ export const en = {
         'No reusable instructions have been saved yet. Add instructions before asking agents to use this saved instruction.',
       unknownAuthor: 'Refresh saved instructions to load maintainer',
       unknownSource: 'Saved instructions library',
-      availabilityWorkspace: 'This workspace',
+      availabilityWorkspace: 'This team space',
       availabilityGlobal: 'Saved instructions library',
       availabilityProject: 'This project',
       availabilityLatest: 'Latest saved copy',
@@ -583,11 +583,11 @@ export const en = {
         missing_cli_tool_for_container: {
           title: 'Choose a work tool',
           detail:
-            'Agents in managed workspaces need a work tool: Claude Code, Codex, Gemini, or OpenCode.',
+            'Agents that edit project files need a work tool: Claude Code, Codex, Gemini, or OpenCode.',
         },
         api_cannot_have_cli_tool: {
           title: 'Chat-only agent cannot have a work tool',
-          detail: 'Remove the work tool, or change the work location to "Managed workspace".',
+          detail: 'Remove the work tool, or change the work location to "Project files".',
         },
         missing_cli_tool_for_host_cli: {
           title: 'Choose a work tool',
@@ -614,7 +614,7 @@ export const en = {
   // Confirmations
   // =========================================================================
   confirm: {
-    delete: 'Delete this item? It will be removed from this workspace.',
+    delete: 'Delete this item? It will be removed from this team space.',
     unsavedChanges: 'Leave without saving? Unsaved changes will be lost.',
     logout: 'Sign out now? Unsaved work in open forms may be lost.',
     reset: 'Reset this? Current changes will be replaced by defaults.',
@@ -770,7 +770,7 @@ export const en = {
         inactive: 'Inactive',
         suspended: 'Suspended',
       },
-      confirmDelete: 'Delete this user? They will lose access to this workspace.',
+      confirmDelete: 'Delete this user? They will lose access to this team space.',
     },
     health: {
       title: 'System Health',

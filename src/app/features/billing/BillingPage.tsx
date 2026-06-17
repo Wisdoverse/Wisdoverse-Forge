@@ -8,8 +8,8 @@ import { UsageMeter } from './UsageMeter'
 import { InvoiceList } from './InvoiceList'
 
 const BILLING_SETUP_STEPS = [
-  'Ask an owner or admin to turn on billing for this workspace.',
-  'Do not paste secret payment settings here. Ask an owner or admin to connect billing in settings.',
+  'Ask an owner or admin to turn on billing for this team.',
+  'Do not enter payment account passwords or keys on this page. Ask an owner or admin to connect billing in Billing settings.',
   'Refresh this page after billing is turned on.',
 ]
 
@@ -33,12 +33,12 @@ function BillingNotConfigured() {
         Billing is not ready yet
       </h2>
       <p className="max-w-sm text-ui-body text-secondary-light dark:text-secondary-dark">
-        Billing is not enabled for this workspace yet. Ask an owner or admin to connect billing
-        before changing plans or payment methods.
+        Billing is not turned on for this team yet. Ask an owner or admin to connect billing before
+        changing plans or payment methods.
       </p>
       <div className="mt-2 max-w-sm text-left">
         <p className="text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
-          Billing setup steps
+          What to do next
         </p>
         <ol className="mt-2 list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
           {BILLING_SETUP_STEPS.map((step) => (
