@@ -2983,7 +2983,7 @@ function WorkStylePicker() {
     const cwd = fixture({
       'src/app/features/agents/CreateAgentModal.tsx': `
 function createReviewItems() {
-  return [{ label: 'Where it works', value: 'Claude in a managed workspace' }]
+  return [{ label: 'Where it works', value: 'Claude with project files' }]
 }
 function WorkLocationPicker() {
   return <label>Where should this agent work?</label>
@@ -3049,6 +3049,25 @@ function agentRuntimeLabel() {
   return 'OpenCode in a managed workspace'
 }
 `,
+      'src/app/entities/agent/model/runtime-kind.ts': `
+export const RUNTIME_KIND_LABELS = { container: 'Managed workspace' }
+`,
+      'src/app/features/admin/AgentsPanel.tsx': `
+const AGENT_GUIDANCE = [{ title: 'Managed workspace' }]
+`,
+      'src/app/features/admin/SystemHealth.tsx': `
+const action = 'Ask an owner or admin to check managed workspace setup.'
+`,
+      'src/app/features/agents/AgentCard.tsx': `
+function AgentCard() {
+  return <p>Managed workspace</p>
+}
+`,
+      'src/app/features/agents/AgentListView.tsx': `
+function AgentChoiceGuide() {
+  return <p>Managed workspace</p>
+}
+`,
       'src/app/features/agents/AgentKindBadge.tsx': `
 export function AgentKindBadge() {
   return <span title="Uses a Forge-managed project workspace.">Managed workspace</span>
@@ -3077,6 +3096,14 @@ function agentFolderLabel() {
         }),
         expect.objectContaining({
           type: 'agent-work-area-display-copy',
+          sample: expect.stringContaining('Managed workspace'),
+        }),
+        expect.objectContaining({
+          type: 'agent-work-area-display-copy',
+          sample: expect.stringContaining('managed workspace setup'),
+        }),
+        expect.objectContaining({
+          type: 'agent-work-area-display-copy',
           sample: expect.stringContaining('Forge-managed project workspace'),
         }),
         expect.objectContaining({
@@ -3100,7 +3127,7 @@ function agentRuntimeLabel() {
 `,
       'src/app/features/agents/AgentKindBadge.tsx': `
 export function AgentKindBadge() {
-  return <span title="Works in a Forge project area. It can change files.">Managed workspace</span>
+  return <span title="Works in a Forge project area. It can change files.">Project files</span>
 }
 `,
       'src/app/features/agents/AgentConfigTab.tsx': `
@@ -5055,12 +5082,14 @@ export function CreateAgentModal() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'beginner-jargon-copy',
-        location: 'src/app/features/agents/CreateAgentModal.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'beginner-jargon-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:3',
+        }),
+      ])
+    )
   })
 
   it('flags managed workspace agent noun stacks in user-visible copy', () => {
@@ -5075,12 +5104,14 @@ export function CreateAgentModal() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'beginner-jargon-copy',
-        location: 'src/app/features/agents/CreateAgentModal.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'beginner-jargon-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:3',
+        }),
+      ])
+    )
   })
 
   it('flags this-computer setup copy that uses command-window jargon', () => {

@@ -191,7 +191,7 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('In progress')).toBeDefined()
     expect(screen.getByText('Finished cleanly')).toBeDefined()
     expect(screen.getByText('Work setup')).toBeDefined()
-    expect(screen.getAllByText('Managed workspace').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Project files').length).toBeGreaterThan(0)
     expect(screen.queryByText('Tasks Done')).toBeNull()
     expect(screen.queryByText('In Progress')).toBeNull()
     expect(screen.queryByText('Success Rate')).toBeNull()

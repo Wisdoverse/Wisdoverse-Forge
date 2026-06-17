@@ -1203,8 +1203,11 @@ const AGENT_PROJECT_LOCATION_JARGON_PATTERNS = [
 ]
 
 const AGENT_WORK_AREA_DISPLAY_JARGON_PATTERNS = [
+  /\bManaged workspace\b/i,
+  /\bmanaged workspaces\b/i,
   /\bin a managed workspace\b/i,
   /\bReady in managed workspace\b/i,
+  /\bmanaged workspace setup\b/i,
   /\bForge-managed project workspace\b/i,
   /\bWorkspace project folder\b/i,
 ]
@@ -2082,8 +2085,14 @@ function hasAgentProjectLocationJargonCopy(relFile, line) {
 function hasAgentWorkAreaDisplayJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/entities/agent/model/display-labels.ts') &&
+    !relFile.endsWith('src/app/entities/agent/model/runtime-kind.ts') &&
+    !relFile.endsWith('src/app/features/admin/AgentsPanel.tsx') &&
+    !relFile.endsWith('src/app/features/admin/SystemHealth.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentCard.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentListView.tsx') &&
     !relFile.endsWith('src/app/features/agents/AgentKindBadge.tsx') &&
     !relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx') &&
+    !relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx') &&
     !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')
   ) {
     return false

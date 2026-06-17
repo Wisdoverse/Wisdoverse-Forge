@@ -53,11 +53,11 @@ describe('CreateAgentModal', () => {
     'i'
   )
 
-  test('renders managed workspace fields by default', () => {
+  test('renders project-file fields by default', () => {
     render(<CreateAgentModal />)
 
     expect(screen.getByRole('heading', { name: 'Create an agent' })).toBeInTheDocument()
-    expect(screen.getByRole('radio', { name: /managed workspace/i })).toBeChecked()
+    expect(screen.getByRole('radio', { name: /project files/i })).toBeChecked()
     expect(screen.getByTestId('agent-runtime-fit')).toBeInTheDocument()
     expect(screen.getByText('Pick a starter template')).toBeInTheDocument()
     expect(screen.queryByText('Start with a role')).toBeNull()
@@ -75,7 +75,7 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText('Can edit files')).toBeInTheDocument()
     expect(
       screen.getByText(
-        /not sure\? use managed workspace when the agent should edit project files, this computer when files must stay local, or simple chat agent after an AI service is ready/i
+        /not sure\? use project files when the agent should edit shared project files, this computer when files must stay local, or simple chat agent after an AI service is ready/i
       )
     ).toBeInTheDocument()
     expect(screen.queryByText(/ready workspace managed by forge/i)).toBeNull()
@@ -434,7 +434,7 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
 
-    fireEvent.click(screen.getByRole('radio', { name: /managed workspace/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /project files/i }))
     fireEvent.change(screen.getByRole('combobox', { name: /^work tool$/i }), {
       target: { value: 'codex' },
     })

@@ -42,6 +42,11 @@ describe('runtime-kind specifications', () => {
     expect(runtimeKindShortLabel('api')).toBe('Chat-only')
   })
 
+  it('uses result-facing labels for agents that can edit project files', () => {
+    expect(runtimeKindLabel('container')).toBe('Project files')
+    expect(runtimeKindShortLabel('container')).toBe('Project files')
+  })
+
   it('uses beginner-facing labels when runtime kind is missing', () => {
     expect(runtimeKindLabel(undefined)).toBe('Refresh work location')
     expect(runtimeKindShortLabel(undefined)).toBe('Refresh location')

@@ -292,7 +292,7 @@ describe('AgentConfigTab', () => {
     expect(screen.getByTestId('agent-cli-config-summary')).toBeInTheDocument()
     expect(screen.getByText('Where this agent works')).toBeInTheDocument()
     expect(screen.getByText('Claude')).toBeInTheDocument()
-    expect(screen.getAllByText('Managed workspace').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Project files').length).toBeGreaterThan(0)
     expect(screen.getByText('Connection')).toBeInTheDocument()
     expect(screen.getByText('Ready with project files')).toBeInTheDocument()
     expect(screen.getByText('Starting project')).toBeInTheDocument()

@@ -364,7 +364,7 @@ function CliRuntimeConfig({ agent }: { agent: AgentInfo }) {
           </p>
         </div>
         <span className="inline-flex h-7 w-fit items-center rounded-full bg-apple-blue/10 px-2.5 text-ui-caption font-medium text-apple-blue">
-          {hostCli ? 'This computer' : 'Managed workspace'}
+          {hostCli ? 'This computer' : 'Project files'}
         </span>
       </div>
 

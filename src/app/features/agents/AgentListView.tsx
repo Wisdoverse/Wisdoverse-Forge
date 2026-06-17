@@ -49,7 +49,7 @@ const STATUS_FILTERS: { value: AgentStatusFilter; label: string }[] = [
 
 const RUNTIME_FILTERS: { value: AgentRuntimeFilter; label: string }[] = [
   { value: 'all', label: 'All agents' },
-  { value: 'container', label: 'Managed workspace' },
+  { value: 'container', label: 'Project files' },
   { value: 'host', label: 'This computer' },
   { value: 'provider', label: 'Chat-only AI service' },
 ]
@@ -284,7 +284,7 @@ function agentFilterEmptyCopy({
     return {
       title: 'This work location hides every agent',
       detail:
-        'Agents may still exist in another place, such as this computer or a managed workspace.',
+        'Agents may still exist in another place, such as this computer or the project files option.',
       nextStep: 'Next: show all agents before deciding one is missing.',
     }
   }
@@ -350,8 +350,8 @@ function AgentChoiceGuide() {
         />
         <ChoiceGuideItem
           icon={Terminal}
-          title="Managed workspace"
-          detail="Best for shared project files that should run inside the Forge workspace."
+          title="Project files"
+          detail="Best when the agent should edit shared project files inside Forge."
         />
       </div>
     </section>
