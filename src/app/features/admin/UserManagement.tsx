@@ -14,7 +14,7 @@ import { ADMIN_PANEL_RECOVERY, adminPanelLoadErrorMessage } from './adminErrorCo
 const ROLE_DETAILS: Record<Role, { label: string; description: string }> = {
   admin: {
     label: 'Admin',
-    description: 'Can manage users, settings, and system configuration.',
+    description: 'Can manage people, team settings, and safety controls.',
   },
   member: {
     label: 'Member',

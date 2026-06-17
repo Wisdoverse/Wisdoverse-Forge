@@ -539,6 +539,40 @@ function userEmptyState() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags admin role copy that exposes system configuration jargon', () => {
+    const cwd = fixture({
+      'src/app/features/admin/UserManagement.tsx': `
+const ROLE_DETAILS = {
+  admin: { description: 'Can manage users, settings, and system configuration.' },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'admin-user-role-copy',
+          location: 'src/app/features/admin/UserManagement.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts admin role copy that names people and safety controls', () => {
+    const cwd = fixture({
+      'src/app/features/admin/UserManagement.tsx': `
+const ROLE_DETAILS = {
+  admin: { description: 'Can manage people, team settings, and safety controls.' },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags team space empty states that do not point to creating or syncing first', () => {
     const cwd = fixture({
       'src/app/features/admin/OrganizationsPanel.tsx': `

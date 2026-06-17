@@ -179,6 +179,8 @@ const PROVIDER_ADDRESS_JARGON_PATTERNS = [
 
 const ADMIN_USERS_EMPTY_DEAD_END_PATTERNS = [/\bNo one is listed yet\b/i]
 
+const ADMIN_USER_ROLE_JARGON_PATTERNS = [/\bsystem configuration\b/i]
+
 const ADMIN_ORGS_EMPTY_DEAD_END_PATTERNS = [
   /\bNo team spaces are visible yet\b/i,
   /\baccess needs review\b/i,
@@ -1615,6 +1617,12 @@ function hasAdminUsersEmptyDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/admin/UserManagement.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return ADMIN_USERS_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAdminUserRoleJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/admin/UserManagement.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ADMIN_USER_ROLE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAdminOrgsEmptyDeadEndCopy(relFile, line) {
@@ -3298,6 +3306,15 @@ function scanFile(file, relFile) {
         type: 'admin-users-empty-copy',
         location,
         message: 'User management empty states must tell beginners to invite people first.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAdminUserRoleJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'admin-user-role-copy',
+        location,
+        message: 'Admin role descriptions must explain access in beginner-readable language.',
         sample: line.trim(),
       })
     }
