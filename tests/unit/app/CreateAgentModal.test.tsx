@@ -83,16 +83,17 @@ describe('CreateAgentModal', () => {
     expect(screen.getByRole('combobox', { name: /^work tool$/i })).toBeInTheDocument()
     expect(screen.getByLabelText(/work folder/i)).toBeInTheDocument()
     expect(screen.getByText(/keep the suggested folder/i)).toBeInTheDocument()
-    expect(screen.getByText(/new tasks start from the primary project/i)).toBeInTheDocument()
+    expect(screen.getByText(/new tasks start from the project shown above/i)).toBeInTheDocument()
     expect(screen.queryByText(/use \/workspace unless/i)).toBeNull()
     expect(screen.queryByText(/default task context/i)).toBeNull()
-    expect(screen.getAllByText(/primary project/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/project for new tasks/i).length).toBeGreaterThan(0)
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/open project settings/i)
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(
       /open project settings to create or choose a project/i
     )
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/choose a project later/i)
     expect(screen.getByTestId('agent-work-readiness')).not.toHaveTextContent(/no primary project/i)
+    expect(screen.queryByText(/primary project/i)).toBeNull()
     expect(screen.getByTestId('agent-work-readiness')).not.toHaveTextContent(
       /select a project in the sidebar/i
     )
@@ -136,7 +137,7 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByRole('dialog', { name: /create an agent/i })).toBeNull()
   })
 
-  test('shows selected project as the primary project context', () => {
+  test('shows selected project as the project for new tasks', () => {
     useNavigationStore.setState({
       selectedProjectId: 'p1',
       projects: {

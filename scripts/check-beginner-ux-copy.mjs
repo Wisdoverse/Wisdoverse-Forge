@@ -1057,6 +1057,11 @@ const CREATE_AGENT_WORK_STYLE_JARGON_PATTERNS = [
   /\blabel:\s*['"`]Work style['"`]/,
 ]
 
+const CREATE_AGENT_PROJECT_JARGON_PATTERNS = [
+  /\bPrimary Project\b/,
+  /\blabel:\s*['"`]Primary project['"`]/,
+]
+
 const PROJECT_SHARE_ROLE_JARGON_PATTERNS = [/\bInvite people and choose roles\b/i]
 
 const VAGUE_ACCESS_RECOVERY_PATTERNS = [
@@ -1803,6 +1808,12 @@ function hasCreateAgentWorkStyleJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return CREATE_AGENT_WORK_STYLE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasCreateAgentProjectJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CREATE_AGENT_PROJECT_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentModelDeadEndCopy(relFile, line) {
@@ -3301,6 +3312,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Create agent setup must ask where the agent works instead of using work-style jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCreateAgentProjectJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'create-agent-project-copy',
+        location,
+        message:
+          'Create agent setup must explain which project new tasks use without primary-project jargon.',
         sample: line.trim(),
       })
     }

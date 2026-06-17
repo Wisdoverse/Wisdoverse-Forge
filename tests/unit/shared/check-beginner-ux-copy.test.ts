@@ -2855,6 +2855,50 @@ function WorkLocationPicker() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags create-agent project labels that do not explain where new tasks start', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+function createReviewItems() {
+  return [{ label: 'Primary project', value: 'Platform' }]
+}
+function ProjectReadiness() {
+  return <p>New tasks start from the Primary Project selected above.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'create-agent-project-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'create-agent-project-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:6',
+        }),
+      ])
+    )
+  })
+
+  it('accepts create-agent project labels that explain where new tasks start', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+function createReviewItems() {
+  return [{ label: 'Project for new tasks', value: 'Platform' }]
+}
+function ProjectReadiness() {
+  return <p>New tasks start from the project shown above.</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags access level fallback copy that does not tell users what to refresh', () => {
     const cwd = fixture({
       'src/app/entities/user/model/roleLabels.ts': `
