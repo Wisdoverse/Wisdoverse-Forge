@@ -159,9 +159,11 @@ describe('ApprovalQueueView', () => {
     await userEvent
       .setup()
       .selectOptions(within(dialog).getByTestId('context-approval-scope-kind'), 'team')
-    expect(within(dialog).getByRole('status')).toHaveTextContent(/team support reference/i)
+    expect(within(dialog).getByRole('status')).toHaveTextContent(/team reference/i)
     await userEvent.setup().type(screen.getByTestId('context-approval-scope-id'), 'team-1')
-    expect(within(dialog).getByRole('status')).toHaveTextContent(/your team can reuse this safely/i)
+    expect(within(dialog).getByRole('status')).toHaveTextContent(
+      /confirm your team can reuse this safely/i
+    )
     await userEvent.setup().type(within(dialog).getByLabelText(/expiration/i), '2030-01-01T12:00')
     await userEvent
       .setup()
@@ -169,7 +171,7 @@ describe('ApprovalQueueView', () => {
     await userEvent.setup().type(within(dialog).getByLabelText('Note'), 'Approved for team reuse')
     await userEvent.setup().click(
       within(dialog).getByRole('checkbox', {
-        name: /your team can reuse this safely/i,
+        name: /i checked your team can reuse this safely/i,
       })
     )
     expect(within(dialog).getByRole('status')).toHaveTextContent(/ready to save for your team/i)

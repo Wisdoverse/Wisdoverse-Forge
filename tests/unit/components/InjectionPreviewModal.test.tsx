@@ -269,7 +269,7 @@ describe('InjectionPreviewModal', () => {
 
     await userEvent
       .setup()
-      .click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }))
+      .click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Back to task' }))
 
     expect(onClose).toHaveBeenCalledOnce()
     expect(onConfirm).not.toHaveBeenCalled()

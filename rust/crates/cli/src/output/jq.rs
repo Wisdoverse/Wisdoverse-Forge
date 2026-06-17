@@ -5,31 +5,35 @@ use std::io::Write;
 /// Strings are printed raw (matches jq -r default). Others as JSON.
 /// Replaces `cli/internal/output/jq.go:ApplyJQ`.
 pub fn apply(data: &Value, expr: &str, w: &mut dyn Write) -> anyhow::Result<()> {
+    use jaq_core::data;
     use jaq_core::load::{Arena, File, Loader};
-    use jaq_core::{Compiler, Ctx, RcIter};
+    use jaq_core::{Compiler, Ctx, Vars, unwrap_valr};
     use jaq_json::Val;
 
-    // jaq 2.x pipeline: load (lex+parse against the std defs) then compile
-    // with the native funs. jaq-json owns the serde_json `Val` bridge.
+    // jaq pipeline: load (lex+parse against the std defs) then compile with
+    // the native funs. jaq-json owns the serde_json `Val` bridge.
     let program = File { code: expr, path: () };
-    let loader = Loader::new(jaq_std::defs().chain(jaq_json::defs()));
+    let defs = jaq_core::defs().chain(jaq_std::defs()).chain(jaq_json::defs());
+    let funs = jaq_core::funs().chain(jaq_std::funs()).chain(jaq_json::funs());
+    let loader = Loader::new(defs);
     let arena = Arena::default();
     let modules =
         loader.load(&arena, program).map_err(|errs| anyhow::anyhow!("jq parse: {}", load_errors_to_string(&errs)))?;
     let filter = Compiler::default()
-        .with_funs(jaq_std::funs().chain(jaq_json::funs()))
+        .with_funs(funs)
         .compile(modules)
         .map_err(|errs| anyhow::anyhow!("jq compile: {}", compile_errors_to_string(&errs)))?;
 
-    let inputs = RcIter::new(core::iter::empty());
-    let input = Val::from(data.clone());
-    for out in filter.run((Ctx::new([], &inputs), input)) {
+    let ctx = Ctx::<data::JustLut<Val>>::new(&filter.lut, Vars::new([]));
+    let input: Val = serde_json::from_value(data.clone())?;
+    for out in filter.id.run((ctx, input)).map(unwrap_valr) {
         let v = out.map_err(|e| anyhow::anyhow!("jq eval: {e}"))?;
-        let j: Value = v.into();
-        match &j {
-            Value::Null => writeln!(w, "null")?,
-            Value::String(s) => writeln!(w, "{s}")?,
-            _ => writeln!(w, "{}", serde_json::to_string(&j)?)?,
+        match &v {
+            Val::TStr(s) => writeln!(w, "{}", jaq_json::bstr(s.as_ref()))?,
+            _ => {
+                jaq_json::write::write(w, &jaq_json::write::Pp::default(), 0, &v)?;
+                writeln!(w)?;
+            }
         }
     }
     Ok(())
