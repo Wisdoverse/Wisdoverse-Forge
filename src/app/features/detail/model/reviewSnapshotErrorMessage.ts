@@ -4,9 +4,9 @@ const RAW_NETWORK_ERRORS = [/^Network error$/i, /^Failed to fetch$/i]
 const RAW_STATUS_ERRORS = [/^API\s+\d{3}/i, /^HTTP\s+\d{3}/i, /^Server error\s*\(\d{3}\)$/i]
 
 const ACTION_FALLBACKS: Record<ReviewSnapshotAction, string> = {
-  load: 'Refresh pull request review, then try again. Forge could not load the current pull request status.',
+  load: 'Refresh code fix review, then try again. Forge could not load the current GitHub review status.',
   approve:
-    'Refresh pull request review, confirm the pull request checks are passing, then approve again. The pull request was not merged.',
+    'Refresh code fix review, confirm build checks passed, then merge this fix again. The fix was not merged.',
 }
 
 export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: unknown): string {
@@ -15,7 +15,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
   const text = detail?.toLowerCase() ?? ''
 
   if (text.includes('can not approve your own pull request')) {
-    return 'Ask another maintainer to approve this pull request. GitHub does not allow you to approve your own pull request.'
+    return 'Ask another maintainer to review this code fix. GitHub needs someone else to review changes you opened yourself.'
   }
 
   if (
@@ -24,7 +24,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('bad credentials') ||
     text.includes('sign in again')
   ) {
-    return 'Sign in again, then refresh pull request review. Forge could not confirm your GitHub access.'
+    return 'Sign in again, then refresh code fix review. Forge could not confirm your GitHub access.'
   }
 
   if (
@@ -42,7 +42,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('no pull request') ||
     text.includes('pull request could not be found')
   ) {
-    return 'Refresh this task, then open the pull request again. Forge could not find the pull request for this task.'
+    return 'Refresh this task, then open the GitHub review again. Forge could not find the review for this task.'
   }
 
   if (
@@ -51,7 +51,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('mergeable state') ||
     text.includes('cannot be merged')
   ) {
-    return 'Refresh pull request review after the branch is updated. The pull request needs the latest main branch before it can merge.'
+    return 'Refresh code fix review after the branch is updated. This fix needs the latest main branch before it can merge.'
   }
 
   if (
@@ -60,7 +60,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('check_suite') ||
     text.includes('required status')
   ) {
-    return 'Wait for pull request checks to finish, then refresh pull request review before approving.'
+    return 'Wait for build checks to finish, then refresh code fix review before merging.'
   }
 
   const safeDetail = userSafeDetail(detail)

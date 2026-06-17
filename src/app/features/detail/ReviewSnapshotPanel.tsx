@@ -23,9 +23,9 @@ interface ReviewSnapshotPanelProps {
 }
 
 const STATUS_LABEL: Record<SelfFixReviewStatus, string> = {
-  in_review: 'In review',
-  approved: 'Approved',
-  changes_requested: 'Changes requested',
+  in_review: 'Waiting for review',
+  approved: 'Ready to merge',
+  changes_requested: 'Needs changes',
   merged: 'Merged',
   sensitive_blocked: 'Needs maintainer review',
 }
@@ -111,7 +111,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
     <div className="py-3 space-y-3" data-testid="review-snapshot-panel">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-medium uppercase text-secondary-light dark:text-secondary-dark">
-          Pull request review
+          Code fix review
         </span>
         <button
           onClick={refresh}
@@ -120,7 +120,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
             'flex items-center gap-1 text-[10px] text-secondary-light dark:text-secondary-dark',
             'hover:text-foreground-light dark:hover:text-foreground-dark transition-colors disabled:opacity-50'
           )}
-          aria-label="Refresh pull request review"
+          aria-label="Refresh code fix review"
         >
           <RefreshCw size={11} className={loading ? 'animate-spin' : undefined} />
           Refresh
@@ -149,12 +149,12 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
               className="flex items-center gap-2 text-xs font-medium text-apple-blue hover:underline"
             >
               <GitPullRequest size={14} />
-              Pull request #{review.prNumber}
+              GitHub review #{review.prNumber}
               <ExternalLink size={11} />
             </a>
           ) : (
             <p className="text-xs text-secondary-light dark:text-secondary-dark">
-              No pull request has been opened for this task yet. Refresh after the agent opens one.
+              The agent has not opened a GitHub review for this fix yet. Refresh after it does.
             </p>
           )}
 
@@ -170,17 +170,14 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
                 <XCircle size={13} className="text-secondary-light dark:text-secondary-dark" />
               )}
               <span className="text-foreground-light dark:text-foreground-dark">
-                {review.checksGreen
-                  ? 'Pull request checks passing'
-                  : 'Pull request checks not ready'}
+                {review.checksGreen ? 'Build checks passed' : 'Build checks not ready yet'}
               </span>
             </div>
             {review.sensitive && (
               <div className="flex items-start gap-1.5 text-apple-red">
                 <ShieldAlert size={13} className="mt-px shrink-0" />
                 <span>
-                  This pull request changes protected files. A maintainer must review and merge it
-                  manually.
+                  This fix changes protected files. A maintainer must review and merge it manually.
                 </span>
               </div>
             )}
@@ -193,7 +190,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-[11px] text-secondary-light dark:text-secondary-dark hover:text-apple-blue transition-colors"
             >
-              Review changed files
+              Open changed files
               <ExternalLink size={10} />
             </a>
           )}
@@ -212,18 +209,16 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
               )}
             >
               {approving && <Loader2 size={13} className="animate-spin" />}
-              {merged ? 'Merged' : approving ? 'Approving…' : 'Approve and merge'}
+              {merged ? 'Merged' : approving ? 'Merging…' : 'Merge this fix'}
             </button>
             {!merged && !hasPullRequest && (
               <p className="mt-1.5 text-[10px] text-secondary-light dark:text-secondary-dark">
-                Approve unlocks after a pull request is available. Use Refresh after the agent opens
-                one.
+                Merge unlocks after the agent opens a GitHub review. Use Refresh after it opens.
               </p>
             )}
             {!merged && hasPullRequest && !review.checksGreen && !review.sensitive && (
               <p className="mt-1.5 text-[10px] text-secondary-light dark:text-secondary-dark">
-                Approve unlocks once pull request checks are green. Use Refresh after checks
-                finish.
+                Merge unlocks once build checks pass. Use Refresh after checks finish.
               </p>
             )}
           </div>
