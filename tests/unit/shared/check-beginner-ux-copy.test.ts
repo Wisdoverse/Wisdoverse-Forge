@@ -7121,6 +7121,38 @@ function AgentGroupsPanel() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags task queue overview copy that describes implementation behavior first', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentGroupsPanel.tsx': `
+function AgentGroupsPanel() {
+  return <p>Task queues are simple places agents check for tasks. Create a queue, add agents, then send tasks to it.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'agent-task-queue-overview-copy',
+        location: 'src/app/features/agents/AgentGroupsPanel.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts task queue overview copy that explains where new tasks wait', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentGroupsPanel.tsx': `
+function AgentGroupsPanel() {
+  return <p>Task queues are shared lists where new tasks wait for an available agent.</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags task queue empty states that start with no-results copy', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentGroupsPanel.tsx': `
