@@ -751,6 +751,12 @@ const CONTEXT_WORK_HISTORY_JARGON_PATTERNS = [
   /\bnew runs\b/i,
 ]
 
+const CONTEXT_EVIDENCE_SOURCE_TITLE_JARGON_PATTERNS = [
+  /\breturn\s+['"`]Task result['"`]/,
+  /\breturn\s+['"`]Tool activity['"`]/,
+  /\breturn\s+['"`]Source message['"`]/,
+]
+
 const CHAT_MESSAGE_FALLBACK_DEAD_END_PATTERNS = [
   /\bMessage needs review\b/i,
   /\bMessage sender not reported\b/i,
@@ -2495,6 +2501,11 @@ function hasContextWorkHistoryJargonCopy(relFile, line) {
   return CONTEXT_WORK_HISTORY_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasContextEvidenceSourceTitleJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/detail/ContextEvidenceList.tsx')) return false
+  return CONTEXT_EVIDENCE_SOURCE_TITLE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasChatMessageFallbackDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/chat/ChatView.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -4070,6 +4081,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Task and saved-item copy must use work or task wording instead of run-detail jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasContextEvidenceSourceTitleJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'context-evidence-source-title-copy',
+        location,
+        message: 'Task result records must use result-first titles instead of source-type jargon.',
         sample: line.trim(),
       })
     }

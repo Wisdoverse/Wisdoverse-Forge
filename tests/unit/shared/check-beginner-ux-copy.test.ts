@@ -9767,6 +9767,53 @@ function emptyChart() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags task result record titles that expose source-type jargon', () => {
+    const cwd = fixture({
+      'src/app/features/detail/ContextEvidenceList.tsx': `
+function evidenceTitle(item) {
+  if (item.sourceType === 'task_result') return 'Task result'
+  if (item.sourceType === 'tool_call') return 'Tool activity'
+  if (item.sourceType === 'source_message') return 'Source message'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'context-evidence-source-title-copy',
+          location: 'src/app/features/detail/ContextEvidenceList.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'context-evidence-source-title-copy',
+          location: 'src/app/features/detail/ContextEvidenceList.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'context-evidence-source-title-copy',
+          location: 'src/app/features/detail/ContextEvidenceList.tsx:5',
+        }),
+      ])
+    )
+  })
+
+  it('accepts task result record titles that explain what users are checking', () => {
+    const cwd = fixture({
+      'src/app/features/detail/ContextEvidenceList.tsx': `
+function evidenceTitle(item) {
+  if (item.sourceType === 'task_result') return 'Final answer'
+  if (item.sourceType === 'tool_call') return 'Step the agent took'
+  if (item.sourceType === 'source_message') return 'Message used for this work'
+  return 'Work details'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags inbox needs-action empty copy that says nothing instead of caught up', () => {
     const cwd = fixture({
       'src/app/features/inbox/InboxView.tsx': `

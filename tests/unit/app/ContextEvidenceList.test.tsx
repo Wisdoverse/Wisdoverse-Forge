@@ -61,12 +61,14 @@ describe('ContextEvidenceList', () => {
   test('explains task result evidence before showing technical details', () => {
     render(<ContextEvidenceList evidence={[evidence()]} revokedItems={[]} />)
 
-    expect(screen.getByText('What the agent used')).toBeInTheDocument()
-    expect(screen.getByText(/what the agent used or saved/i)).toBeInTheDocument()
-    expect(screen.getByText('Task result')).toBeInTheDocument()
+    expect(screen.getByText('What helped produce this result')).toBeInTheDocument()
+    expect(screen.getByText(/answers, steps, and files used or saved/i)).toBeInTheDocument()
+    expect(screen.getByText('Final answer')).toBeInTheDocument()
     expect(
-      screen.getByText(/Final answer or status saved from the agent work/i)
+      screen.getByText(/agent's final answer or saved status for this task/i)
     ).toBeInTheDocument()
+    expect(screen.queryByText('Task result')).toBeNull()
+    expect(screen.queryByText(/Final answer or status saved from the agent work/i)).toBeNull()
     expect(screen.queryByText(/Final answer or status saved from the agent run/i)).toBeNull()
     expect(screen.getByText('Health check completed successfully.')).toBeInTheDocument()
     expect(
@@ -97,11 +99,31 @@ describe('ContextEvidenceList', () => {
       />
     )
 
-    expect(screen.getByText('Tool activity')).toBeInTheDocument()
-    expect(
-      screen.getByText('A recorded tool action that helped the agent complete the work.')
-    ).toBeInTheDocument()
+    expect(screen.getByText('Step the agent took')).toBeInTheDocument()
+    expect(screen.getByText('An action the agent took to complete the work.')).toBeInTheDocument()
+    expect(screen.queryByText('Tool activity')).toBeNull()
+    expect(screen.queryByText(/recorded tool action/i)).toBeNull()
     expect(screen.queryByText(/API record/i)).toBeNull()
+  })
+
+  test('names source-message evidence as a message used for the work', () => {
+    render(
+      <ContextEvidenceList
+        evidence={[
+          evidence({
+            sourceType: 'source_message',
+            payload: { summary: 'The request asked for a production-ready review.' },
+          }),
+        ]}
+        revokedItems={[]}
+      />
+    )
+
+    expect(screen.getByText('Message used for this work')).toBeInTheDocument()
+    expect(
+      screen.getByText('A message the agent used while preparing the result.')
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Source message')).toBeNull()
   })
 
   test('summarizes detailed payloads without implementation field wording', () => {
@@ -138,7 +160,10 @@ describe('ContextEvidenceList', () => {
     )
 
     expect(screen.getByText('Saved result file')).toBeInTheDocument()
-    expect(screen.getByText('A file or result saved while the task ran.')).toBeInTheDocument()
+    expect(
+      screen.getByText('A file or result saved while the work was running.')
+    ).toBeInTheDocument()
+    expect(screen.queryByText('A file or result saved while the task ran.')).toBeNull()
     expect(screen.queryByText('A file or result saved during the run.')).toBeNull()
     expect(screen.queryByText(/artifact/i)).toBeNull()
   })
@@ -221,7 +246,10 @@ describe('ContextEvidenceList', () => {
     )
 
     expect(screen.getByText('Work details')).toBeInTheDocument()
-    expect(screen.getByText('Extra information recorded while the task ran.')).toBeInTheDocument()
+    expect(
+      screen.getByText('Extra information saved while the work was running.')
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Extra information recorded while the task ran.')).toBeNull()
     expect(screen.getByText('Check the recorded result before reusing it.')).toBeInTheDocument()
     expect(screen.queryByText('Run details')).toBeNull()
     expect(screen.queryByText('Run evidence')).toBeNull()
