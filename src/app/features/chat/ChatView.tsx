@@ -269,8 +269,8 @@ export function ChatView({ agentId }: ChatViewProps) {
     >
       <span className="font-medium">Chat-only AI service</span>
       <span className="text-apple-blue/80">
-        Messages use {modelServiceName}. This agent can answer in chat, but it does not work on
-        workspace files.
+        Messages use {modelServiceName}. This agent can answer in chat, but it does not open project
+        files.
       </span>
     </div>
   ) : null

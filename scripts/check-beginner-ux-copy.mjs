@@ -849,6 +849,7 @@ const CHAT_MESSAGE_FALLBACK_DEAD_END_PATTERNS = [
 
 const CHAT_OPERATOR_JARGON_PATTERNS = [
   /\bThe You filter only shows requests sent by an operator\./i,
+  /\bworkspace files\b/i,
 ]
 
 const CHAT_FILTER_EMPTY_DEAD_END_PATTERNS = [

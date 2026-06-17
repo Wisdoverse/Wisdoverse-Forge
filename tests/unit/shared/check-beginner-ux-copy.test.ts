@@ -6067,6 +6067,9 @@ function messageRoleLabel(role) {
 function conversationFilterEmptyCopy() {
   return 'The You filter only shows requests sent by an operator.'
 }
+function chatOnlyBanner() {
+  return 'This agent can answer in chat, but it does not work on workspace files.'
+}
 `,
     })
 
@@ -6078,6 +6081,10 @@ function conversationFilterEmptyCopy() {
         type: 'chat-operator-copy',
         location: 'src/app/features/chat/ChatView.tsx:3',
       }),
+      expect.objectContaining({
+        type: 'chat-operator-copy',
+        location: 'src/app/features/chat/ChatView.tsx:6',
+      }),
     ])
   })
 
@@ -6086,6 +6093,9 @@ function conversationFilterEmptyCopy() {
       'src/app/features/chat/ChatView.tsx': `
 function conversationFilterEmptyCopy() {
   return 'The You filter only shows requests you sent.'
+}
+function chatOnlyBanner() {
+  return 'This agent can answer in chat, but it does not open project files.'
 }
 `,
     })
