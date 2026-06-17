@@ -168,8 +168,8 @@ export function EditableTeamRow({
         </p>
         {confirmingDelete && (
           <p className="mt-1 text-ui-caption font-medium text-apple-red" aria-live="polite">
-            Click Delete team to confirm. Projects in this team will also disappear from the
-            sidebar.
+            Click Delete team to confirm. Projects in this team will also disappear from the left
+            menu.
           </p>
         )}
         {error && (

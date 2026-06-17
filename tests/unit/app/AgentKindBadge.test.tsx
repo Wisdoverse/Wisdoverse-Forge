@@ -17,10 +17,10 @@ describe('AgentKindBadge', () => {
     )
   })
 
-  test('explains managed-workspace agents by what they can do', () => {
+  test('explains project-file agents by what they can do', () => {
     render(<AgentKindBadge cliTool={'workspace-tool' as never} />)
 
-    const badge = screen.getByText('Managed workspace')
+    const badge = screen.getByText('Project files')
     expect(badge).toHaveAttribute(
       'title',
       'Works in a Forge project area. It can change files, run checks, and save what it checked.'

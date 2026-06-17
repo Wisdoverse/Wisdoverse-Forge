@@ -136,11 +136,12 @@ describe('ContextUsageDashboard', () => {
     )
 
     expect(screen.getByText('Saved note')).toBeDefined()
-    expect(screen.getByText('Planner Agent · Managed workspace · Code change')).toBeDefined()
+    expect(screen.getByText('Planner Agent · Project files · Code change')).toBeDefined()
     expect(screen.getByText('Next: keep this available for similar tasks.')).toBeDefined()
     expect(screen.getByText('check')).toBeDefined()
     expect(screen.queryByText(/Saved\s+memory/)).toBeNull()
     expect(screen.queryByText('memory')).toBeNull()
+    expect(screen.queryByText('Planner Agent · Managed workspace · Code change')).toBeNull()
     expect(screen.queryByText('Planner Agent · container · coding')).toBeNull()
     expect(screen.queryByText('negative')).toBeNull()
   })

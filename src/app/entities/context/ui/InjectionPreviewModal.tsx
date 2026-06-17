@@ -438,7 +438,7 @@ function runtimeLabel(runtime: string | null): string {
   switch (runtime?.toLowerCase() ?? '') {
     case 'container':
     case 'container-cli':
-      return 'Managed workspace'
+      return 'Project files'
     case 'host':
     case 'cli':
     case 'host-cli':

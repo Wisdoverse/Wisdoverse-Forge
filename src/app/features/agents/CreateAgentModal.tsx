@@ -916,7 +916,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                   )}
                 >
                   <input type="radio" value="cli" {...register('kind')} className="sr-only" />
-                  Managed workspace
+                  Project files
                 </label>
                 <label
                   className={cn(
@@ -949,7 +949,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     : 'Uses a connected AI service for planning, writing, and review. It does not open files or run commands.'}
               </p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Not sure? Use Managed workspace when the agent should edit project files, This
+                Not sure? Use Project files when the agent should edit shared project files, This
                 computer when files must stay local, or Simple chat agent after an AI service is
                 ready.
               </p>

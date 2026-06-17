@@ -101,8 +101,9 @@ describe('ChatView', () => {
     expect(within(banner).getByText('Chat-only AI service')).toBeInTheDocument()
     expect(within(banner).getByText(/messages use anthropic/i)).toBeInTheDocument()
     expect(
-      within(banner).getByText(/can answer in chat.*does not work on workspace files/i)
+      within(banner).getByText(/can answer in chat.*does not open project files/i)
     ).toBeInTheDocument()
+    expect(banner).not.toHaveTextContent(/workspace files/i)
     expect(banner).not.toHaveTextContent(/terminal/i)
     expect(banner).not.toHaveTextContent(/provider/i)
     expect(banner).not.toHaveTextContent(/model service/i)

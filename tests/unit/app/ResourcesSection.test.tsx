@@ -79,13 +79,11 @@ describe('ResourcesSection', () => {
       )
     ).toBeDefined()
     expect(
-      within(emptyState).getByText(
-        'Ask an owner or admin to add agent sizes in workspace settings.'
-      )
+      within(emptyState).getByText('Ask an owner or admin to add agent sizes in Work limits.')
     ).toBeDefined()
     expect(
       within(emptyState).getByText(
-        'Return here before creating agents in managed workspaces; at least one row means this step is ready.'
+        'Return here before creating agents that edit project files; at least one row means this step is ready.'
       )
     ).toBeDefined()
   })
@@ -101,6 +99,8 @@ describe('ResourcesSection', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('Reload sizes to load agent sizes.')
     expect(alert).toHaveTextContent('Agent sizes decide how much computer power and memory')
+    expect(alert).toHaveTextContent('agent that edits project files')
+    expect(alert).not.toHaveTextContent('managed workspace')
     expect(alert).not.toHaveTextContent('HTTP 500')
 
     fireEvent.click(screen.getByRole('button', { name: /reload sizes/i }))

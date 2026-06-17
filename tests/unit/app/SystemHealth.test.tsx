@@ -53,9 +53,7 @@ describe('SystemHealth', () => {
     expect(screen.getByText(/Shows progress from running agents in the browser/i)).toBeDefined()
     expect(screen.getByText('Agent Work Starter')).toBeDefined()
     expect(screen.getByText('Starts file-work agents')).toBeDefined()
-    expect(
-      screen.getByText(/ask an owner or admin to check managed workspace setup/i)
-    ).toBeDefined()
+    expect(screen.getByText(/ask an owner or admin to check Project files setup/i)).toBeDefined()
     expect(screen.getByText('responds in 12 ms')).toBeDefined()
     expect(screen.getByText('Ready')).toBeDefined()
     expect(screen.getAllByText('Check soon').length).toBeGreaterThan(0)

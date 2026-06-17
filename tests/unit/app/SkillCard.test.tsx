@@ -30,9 +30,10 @@ describe('SkillCard', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('Ready to reuse')).toBeInTheDocument()
     expect(
-      screen.getByText(/saved in workspace saved instructions by platform team/i)
+      screen.getByText(/saved in team space saved instructions by platform team/i)
     ).toBeInTheDocument()
     expect(screen.queryByText(/workspace skills/i)).toBeNull()
+    expect(screen.queryByText(/workspace saved instructions/i)).toBeNull()
     expect(screen.getByText('Use when task says: release')).toBeInTheDocument()
   })
 
@@ -59,10 +60,7 @@ describe('SkillCard', () => {
 
   test('uses readable source fallback when saved-in metadata is missing', () => {
     render(
-      <SkillCard
-        skill={{ ...baseSkill, plugin: '   ', pluginAuthor: '   ' }}
-        onClick={() => {}}
-      />
+      <SkillCard skill={{ ...baseSkill, plugin: '   ', pluginAuthor: '   ' }} onClick={() => {}} />
     )
 
     expect(screen.getByText('Saved in saved instructions library')).toBeInTheDocument()

@@ -45,7 +45,7 @@ function resourceProfileUseCase(profile: ResourceProfileOption): string {
 
 function summarizeProfileRange(profiles: ResourceProfileOption[]): string {
   if (profiles.length === 0) {
-    return 'Ask an owner or admin to add at least one agent size before creating agents in managed workspaces.'
+    return 'Ask an owner or admin to add at least one agent size before creating agents that edit project files.'
   }
   const sorted = [...profiles].sort((a, b) => a.cpu - b.cpu || a.memoryMb - b.memoryMb)
   const smallest = sorted[0]
@@ -162,14 +162,14 @@ function ResourceProfilesEmptyState() {
       </p>
       <div className="mx-auto mt-4 grid max-w-2xl gap-2 text-left sm:grid-cols-3">
         <p className="rounded-lg bg-black/[0.03] p-3 text-ui-caption text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
-          Ask an owner or admin to add agent sizes in workspace settings.
+          Ask an owner or admin to add agent sizes in Work limits.
         </p>
         <p className="rounded-lg bg-black/[0.03] p-3 text-ui-caption text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
           Start with small, standard, and large sizes so users can choose safely.
         </p>
         <p className="rounded-lg bg-black/[0.03] p-3 text-ui-caption text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
-          Return here before creating agents in managed workspaces; at least one row means this step
-          is ready.
+          Return here before creating agents that edit project files; at least one row means this
+          step is ready.
         </p>
       </div>
     </div>
@@ -189,8 +189,8 @@ function ResourceProfilesError({
         <div>
           <p className="font-semibold">Reload sizes to load agent sizes.</p>
           <p className="mt-1">
-            Agent sizes decide how much computer power and memory an agent in a managed workspace
-            can use. Reload this list before creating or changing agents in managed workspaces.
+            Agent sizes decide how much computer power and memory an agent that edits project files
+            can use. Reload this list before creating or changing agents that edit project files.
           </p>
         </div>
         <button

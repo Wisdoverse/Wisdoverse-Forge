@@ -191,7 +191,7 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('In progress')).toBeDefined()
     expect(screen.getByText('Finished cleanly')).toBeDefined()
     expect(screen.getByText('Work setup')).toBeDefined()
-    expect(screen.getAllByText('Managed workspace').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Project files').length).toBeGreaterThan(0)
     expect(screen.queryByText('Tasks Done')).toBeNull()
     expect(screen.queryByText('In Progress')).toBeNull()
     expect(screen.queryByText('Success Rate')).toBeNull()
@@ -281,17 +281,17 @@ describe('AgentDetailView', () => {
       />
     )
 
-    expect(screen.getByText('Start this workspace')).toBeDefined()
-    expect(screen.getByText('Open Live work and start workspace')).toBeDefined()
+    expect(screen.getAllByText('Start file work').length).toBeGreaterThan(1)
+    expect(screen.getByText('Open Live work and start file work')).toBeDefined()
     expect(screen.queryByText('Unavailable until restarted or reconnected')).toBeNull()
     expect(
       screen.getByText(
-        'Open Live work, choose Start workspace, and wait until this agent shows Ready before sending file work.'
+        'Open Live work, choose Start file work, and wait until this agent shows Ready before sending file work.'
       )
     ).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: /open live work/i }))
-    expect(screen.getByText('Start this workspace to open Live work')).toBeDefined()
-    expect(screen.getByText(/start the workspace before this agent works on files/i)).toBeDefined()
+    expect(screen.getByText('Start file work to open Live work')).toBeDefined()
+    expect(screen.getByText(/start file work before this agent works on files/i)).toBeDefined()
     expect(
       screen.getByText(/success looks like the agent status changing to ready or working/i)
     ).toBeDefined()
@@ -300,7 +300,7 @@ describe('AgentDetailView', () => {
     expect(screen.queryByText(/terminal access/i)).toBeNull()
     expect(screen.queryByText(/live terminal/i)).toBeNull()
     expect(screen.queryByText(/command window/i)).toBeNull()
-    expect(screen.getByRole('button', { name: /start workspace/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /start file work/i })).toBeDefined()
   })
 
   test('shows start failure guidance without raw setup details', () => {
@@ -325,7 +325,7 @@ describe('AgentDetailView', () => {
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('Check the agent status')
-    expect(alert).toHaveTextContent('choose Start workspace again')
+    expect(alert).toHaveTextContent('choose Start file work again')
     expect(alert).toHaveTextContent('ask an owner or admin to check this agent setup')
     expect(alert).not.toHaveTextContent('Start did not finish')
     expect(alert.textContent).not.toContain('Details:')
@@ -353,14 +353,14 @@ describe('AgentDetailView', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: /open live work/i }))
-    const startButton = screen.getByRole('button', { name: /start workspace/i })
+    const startButton = screen.getByRole('button', { name: /start file work/i })
     fireEvent.click(startButton)
 
     await waitFor(() => expect(startButton).not.toBeDisabled())
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('Check the agent status')
-    expect(alert).toHaveTextContent('choose Start workspace again')
+    expect(alert).toHaveTextContent('choose Start file work again')
     expect(alert).toHaveTextContent('ask an owner or admin to check this agent setup')
     expect(alert).not.toHaveTextContent('Start did not finish')
     expect(alert.textContent).not.toContain('socket hang up')
@@ -408,12 +408,12 @@ describe('AgentDetailView', () => {
     expect(screen.queryByText('opencode managed workspace')).toBeNull()
     expect(screen.queryByText('Workspace project folder')).toBeNull()
     expect(screen.queryByText('Ready in managed workspace')).toBeNull()
-    expect(screen.getByText('Workspace it can use')).toBeDefined()
+    expect(screen.getByText('Project area it can use')).toBeDefined()
     expect(screen.getByText('Engineering')).toBeDefined()
     expect(screen.getByText('Starting project for tasks')).toBeDefined()
     expect(screen.getByText('Platform')).toBeDefined()
     expect(screen.getByText(/can include several projects/i)).toBeDefined()
-    expect(screen.getByText(/starting project for new tasks/i)).toBeDefined()
+    expect(screen.getByText(/where new tasks begin/i)).toBeDefined()
     expect(screen.getByText(/files must be kept apart/i)).toBeDefined()
   })
 

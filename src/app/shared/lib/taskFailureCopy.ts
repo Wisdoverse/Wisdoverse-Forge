@@ -75,6 +75,9 @@ export function taskBlockedPreview({
 }
 
 function beginnerBlockedHint(hint: string): string {
+  if (/\b(?:quota|rate limit|rate limited)\b/i.test(hint) || /\b429\b/.test(hint)) {
+    return 'Too much work is running right now. Wait a bit, then retry or ask an owner for help.'
+  }
   if (/\b(api\s*)?(credential|credentials|key|keys|token|tokens|secret|secrets)\b/i.test(hint)) {
     return 'Waiting for account access. Add or reconnect the required service access, then retry.'
   }
@@ -108,7 +111,7 @@ function blockedErrorPreview(error?: string | null): string {
     return 'This task needs access before it can continue. Ask an owner or admin for help.'
   }
   if (detail.includes('quota') || detail.includes('rate limit') || /\b429\b/.test(detail)) {
-    return 'The workspace is busy. Retry later or ask an owner for help.'
+    return 'Too much work is running right now. Wait a bit, then retry or ask an owner for help.'
   }
   if (detail.includes('timeout') || detail.includes('timed out')) {
     return 'A required service did not answer in time. Open details and retry when it is ready.'

@@ -13,14 +13,14 @@ export const isApiAgent = (a: Pick<AgentInfo, 'runtimeKind'>): boolean => a.runt
  * language; protocol slugs still stay in sync with server-side RuntimeKind.
  */
 export const RUNTIME_KIND_LABELS: Record<AgentRuntimeKind, string> = {
-  container: 'Managed workspace',
+  container: 'Project files',
   cli: 'This computer',
   api: 'Chat-only AI service',
 }
 
 /** Short labels suited to compact table badges. */
 export const RUNTIME_KIND_SHORT_LABELS: Record<AgentRuntimeKind, string> = {
-  container: 'Managed',
+  container: 'Project files',
   cli: 'This computer',
   api: 'Chat-only',
 }

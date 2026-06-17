@@ -100,7 +100,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
       const ok = await startAgent(agent.id)
       if (ok) {
         setLocalActionStatus(
-          'Workspace start requested. Refresh Agents until this agent shows Ready, then send an instruction or create a task.'
+          'File work start requested. Refresh Agents until this agent shows Ready, then send an instruction or create a task.'
         )
       } else {
         setLocalActionError(LOCAL_AGENT_CONTROL_FAILURE.startWorkspace)
@@ -290,8 +290,8 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
               {canStartContainer ? (
                 <ActionCard
                   icon={Play}
-                  title="Start the workspace"
-                  detail="Use this when no workspace is running yet. Wait for Ready before sending file work."
+                  title="Start file work"
+                  detail="Use this when file work has not started yet. Wait for Ready before sending file work."
                 >
                   <button
                     type="button"
@@ -303,7 +303,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
                       starting && 'opacity-50 cursor-not-allowed'
                     )}
                   >
-                    {starting ? 'Starting...' : 'Start workspace'}
+                    {starting ? 'Starting...' : 'Start file work'}
                   </button>
                 </ActionCard>
               ) : confirmRestart ? (
@@ -320,7 +320,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
               ) : (
                 <ActionCard
                   icon={RotateCcw}
-                  title="Fix a stuck workspace"
+                  title="Fix stuck file work"
                   detail="Restart only after checking Tasks or Live work and seeing no new progress."
                 >
                   <button
@@ -386,15 +386,15 @@ function getControlSummary(
 ): { title: string; detail: string; Icon: LucideIcon } {
   if (canStartContainer) {
     return {
-      title: 'Workspace needs to start',
-      detail: 'Start this workspace before sending file work or opening Live work.',
+      title: 'File work needs to start',
+      detail: 'Start file work before sending file tasks or opening Live work.',
       Icon: Play,
     }
   }
 
   if (canRestartContainer) {
     return {
-      title: 'Agent workspace controls',
+      title: 'Agent file-work controls',
       detail: 'Most agents do not need manual recovery. Restart only when progress has stopped.',
       Icon: RotateCcw,
     }
@@ -407,7 +407,7 @@ function getControlSummary(
   if (agent.cliTool) {
     return {
       title: 'Agent controls',
-      detail: 'The workspace looks ready. Use messages for quick help and Tasks for tracked work.',
+      detail: 'File work looks ready. Use messages for quick help and Tasks for tracked work.',
       Icon: CheckCircle2,
     }
   }
@@ -472,7 +472,7 @@ function getMessageAvailability(
     return {
       canSend: false,
       detail:
-        'Start the workspace first. When this agent shows Ready, you can send an instruction or create a task.',
+        'Start file work first. When this agent shows Ready, you can send an instruction or create a task.',
     }
   }
 
@@ -492,7 +492,7 @@ function getMessageAvailability(
     return {
       canSend: false,
       detail:
-        'This workspace is not connected. Refresh Agents or start the workspace before sending an instruction.',
+        'File work is not connected. Refresh Agents or start file work before sending an instruction.',
     }
   }
 
@@ -597,7 +597,7 @@ function agentControlErrorMessage(error: string): string {
     return 'Refresh this agent, confirm it still shows Ready, then resend the instruction. If it still fails, create a task instead or ask an owner or admin to check agent messaging.'
   }
   if (error === LOCAL_AGENT_CONTROL_FAILURE.startWorkspace) {
-    return 'Refresh Agents, then choose Start workspace again. If it still does not show Ready, ask an owner or admin to check Where agents run.'
+    return 'Refresh Agents, then choose Start file work again. If it still does not show Ready, ask an owner or admin to check Where agents run.'
   }
   if (error === LOCAL_AGENT_CONTROL_FAILURE.restartWorkspace) {
     return 'Refresh this agent, then choose Restart agent again only if Tasks or Live work still shows no progress. If it keeps failing, ask an owner or admin to check this agent setup.'

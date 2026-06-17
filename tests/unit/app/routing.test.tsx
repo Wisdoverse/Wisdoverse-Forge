@@ -69,6 +69,8 @@ describe('Routing', () => {
   test('explains the protected route sign-in check while auth is loading', () => {
     render(<AuthShellLoadingState />)
     expect(screen.getByRole('status')).toHaveTextContent('Checking your sign-in')
+    expect(screen.getByRole('status')).toHaveTextContent('opening your team space')
     expect(screen.getByRole('status')).toHaveTextContent('refresh the page or sign in again')
+    expect(screen.getByRole('status')).not.toHaveTextContent('opening the workspace')
   })
 })

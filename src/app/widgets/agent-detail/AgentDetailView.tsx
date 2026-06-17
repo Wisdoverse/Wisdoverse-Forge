@@ -81,9 +81,9 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
         </p>
       ) : agent.cliTool ? (
         <p>
-          This agent can work in the shared workspace folder, which can include several projects.
-          The selected project is just the starting project for new tasks. Use a separate workspace
-          when files must be kept apart.
+          This agent can edit files in a shared project area, which can include several projects.
+          The selected project is just where new tasks begin. Use a separate project area when files
+          must be kept apart.
         </p>
       ) : (
         <p>
@@ -108,7 +108,7 @@ function agentFolderLabel(agent: AgentInfo): string {
 
 function agentSetupSummary(agent: AgentInfo): string {
   if (isHostCliAgent(agent)) return 'This computer'
-  if (agent.cliTool) return 'Managed workspace'
+  if (agent.cliTool) return 'Project files'
   return 'Chat-only AI service'
 }
 
@@ -133,7 +133,7 @@ function agentAvailabilityLabel(agent: AgentInfo): string {
   if (agent.status === 'idle') return 'Can be assigned now'
   if (agent.status === 'working') return 'Already working'
   if (isHostCliAgent(agent)) return 'Paste setup text again on this computer'
-  if (agent.cliTool) return 'Open Live work and start workspace'
+  if (agent.cliTool) return 'Open Live work and start file work'
   return 'Open AI service settings and click Check'
 }
 
@@ -281,8 +281,8 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
               <DetailRow label="Where it works" value={agentRuntimeLabel(agent)} />
               <DetailRow label="Status" value={statusLabel} />
               <DetailRow
-                label="Workspace it can use"
-                value={agent.workspaceName ?? 'Default workspace'}
+                label="Project area it can use"
+                value={agent.workspaceName ?? 'Default project area'}
               />
               <DetailRow
                 label="Starting project for tasks"
@@ -358,9 +358,9 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
 
     if (hasContainerTerminal) {
       return {
-        title: 'Start this workspace',
+        title: 'Start file work',
         detail:
-          'Open Live work, choose Start workspace, and wait until this agent shows Ready before sending file work.',
+          'Open Live work, choose Start file work, and wait until this agent shows Ready before sending file work.',
         success: 'The agent returns to Ready and can receive tasks.',
         ready: false,
         targetTab: 'terminal',
@@ -521,7 +521,7 @@ function AssignmentFitCard({
   } else if (agent.cliTool === 'codex') {
     credential = 'Settings shows whether this tool account is connected.'
   } else if (agent.cliTool) {
-    credential = 'Forge adds project file access when the managed workspace starts.'
+    credential = 'Forge adds project file access when file work starts.'
   }
 
   return (
@@ -659,12 +659,12 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
     >
       <div className="flex flex-col gap-1">
         <span className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-          Start this workspace to open Live work
+          Start file work to open Live work
         </span>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
           {agent.cliTool
-            ? `${agentToolLabel(agent.cliTool)} is ready. Start the workspace before this agent works on files.`
-            : 'This agent does not need a managed workspace.'}
+            ? `${agentToolLabel(agent.cliTool)} is ready. Start file work before this agent works on files.`
+            : 'This agent does not need file-work setup.'}
         </span>
         {agent.cliTool && (
           <span className="max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -679,7 +679,7 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
           aria-live="polite"
           className="rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
         >
-          Check the agent status, then choose Start workspace again. If it keeps failing, ask an
+          Check the agent status, then choose Start file work again. If it keeps failing, ask an
           owner or admin to check this agent setup.
         </div>
       )}
@@ -694,7 +694,7 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
             starting && 'opacity-50'
           )}
         >
-          {starting ? 'Starting...' : 'Start workspace'}
+          {starting ? 'Starting...' : 'Start file work'}
         </button>
       )}
     </div>

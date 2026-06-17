@@ -247,7 +247,7 @@ function runSourceLabel(run: TaskRunSummary): string {
 
   switch (run.runtimeKind) {
     case 'container':
-      return 'a managed workspace'
+      return 'project files'
     case 'cli':
     case 'host':
       return 'this computer'

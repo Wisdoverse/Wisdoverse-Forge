@@ -59,8 +59,8 @@ export function AuthShellLoadingState() {
             lineHeight: 1.55,
           }}
         >
-          We are confirming your session before opening the workspace. If this takes more than a
-          moment, refresh the page or sign in again.
+          We are making sure you are signed in before opening your team space. If this takes more
+          than a moment, refresh the page or sign in again.
         </p>
       </div>
     </div>

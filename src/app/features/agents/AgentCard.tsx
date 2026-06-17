@@ -57,7 +57,7 @@ export function AgentCard({ agent, onClick }: AgentCardProps) {
   const runtimeLabel = isHostCliAgent(agent)
     ? 'This computer'
     : agent.cliTool
-      ? 'Managed workspace'
+      ? 'Project files'
       : 'Chat-only AI service'
   const projectLabel = agent.projectName ?? agent.workspaceName ?? 'Open project settings first.'
   const serviceLabel = agentServiceLabel(agent)

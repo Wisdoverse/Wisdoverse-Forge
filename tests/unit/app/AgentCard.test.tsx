@@ -42,11 +42,11 @@ describe('AgentCard', () => {
     expect(agentStatusLabel('future_status')).not.toBe('Status needs review')
   })
 
-  test('summarizes managed workspace agents without raw provider/model pairs', () => {
+  test('summarizes project-file agents without raw provider/model pairs', () => {
     render(<AgentCard agent={mockAgent} />)
 
     expect(screen.getByText('Codex')).toBeDefined()
-    expect(screen.getAllByText('Managed workspace').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Project files').length).toBeGreaterThan(0)
     expect(screen.getByText('Console')).toBeDefined()
     expect(screen.queryByText('OpenAI · codex')).toBeNull()
   })

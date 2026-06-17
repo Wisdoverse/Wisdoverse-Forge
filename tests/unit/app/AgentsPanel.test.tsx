@@ -107,7 +107,7 @@ describe('AgentsPanel', () => {
 
     expect(optionLabels).toEqual([
       'All work locations',
-      'Managed workspace',
+      'Project files',
       'This computer',
       'Chat-only AI service',
     ])
@@ -125,7 +125,7 @@ describe('AgentsPanel', () => {
     expect(screen.getAllByTestId('agent-kind-badge-cli')).toHaveLength(1)
     expect(screen.getAllByTestId('agent-kind-badge-api')).toHaveLength(2)
 
-    expect(screen.getAllByText('Managed')).toHaveLength(2)
+    expect(screen.getAllByText('Project files').length).toBeGreaterThanOrEqual(2)
     expect(screen.getAllByText('This computer').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Chat-only')).toHaveLength(2)
     expect(screen.queryByText(/Text-only model/i)).toBeNull()

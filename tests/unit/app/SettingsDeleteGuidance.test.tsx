@@ -45,7 +45,7 @@ describe('settings delete guidance', () => {
     expect(onDelete).not.toHaveBeenCalled()
     expect(screen.getByText('Delete team')).toBeInTheDocument()
     expect(
-      screen.getByText(/projects in this team will also disappear from the sidebar/i)
+      screen.getByText(/projects in this team will also disappear from the left menu/i)
     ).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Confirm delete Platform Team' }))

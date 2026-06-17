@@ -23,8 +23,8 @@ export function SidebarHeader({ expanded, onToggle }: SidebarHeaderProps) {
           type="button"
           data-testid="sidebar-toggle"
           onClick={onToggle}
-          aria-label="Expand sidebar"
-          title="Expand sidebar"
+          aria-label="Expand left menu"
+          title="Expand left menu"
           className={cn(
             'flex h-8 w-8 items-center justify-center rounded-lg bg-apple-blue',
             'text-sm font-bold text-white transition-transform active:scale-95',
@@ -39,8 +39,8 @@ export function SidebarHeader({ expanded, onToggle }: SidebarHeaderProps) {
           type="button"
           data-testid="sidebar-toggle"
           onClick={onToggle}
-          aria-label="Collapse sidebar"
-          title="Collapse sidebar"
+          aria-label="Collapse left menu"
+          title="Collapse left menu"
           className={cn(
             'w-7 h-7 flex items-center justify-center rounded-md',
             'text-secondary-light dark:text-secondary-dark',

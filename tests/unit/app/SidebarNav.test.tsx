@@ -78,7 +78,7 @@ describe('SidebarNav', () => {
     ).not.toBeInTheDocument()
   })
 
-  test('labels secondary navigation and signs out from the workspace', () => {
+  test('labels secondary navigation and signs out of Forge', () => {
     render(
       <SidebarNav
         expanded={false}
@@ -90,7 +90,7 @@ describe('SidebarNav', () => {
 
     expect(
       screen.getByRole('button', {
-        name: /settings: manage workspace, agents, and access/i,
+        name: /settings: manage teams, agents, and access/i,
       })
     ).toHaveAttribute('aria-current', 'page')
     expect(
@@ -99,7 +99,9 @@ describe('SidebarNav', () => {
       })
     ).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /logout: sign out of this workspace/i }))
+    expect(screen.queryByRole('button', { name: /logout: sign out of this workspace/i })).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /logout: sign out of Forge/i }))
 
     expect(logoutMock).toHaveBeenCalledTimes(1)
     expect(navigateMock).toHaveBeenCalledWith({ to: '/login', search: {} })

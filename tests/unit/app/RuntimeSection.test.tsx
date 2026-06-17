@@ -141,13 +141,14 @@ describe('RuntimeSection', () => {
     ).toBeGreaterThan(0)
     expect(
       screen.getByText(
-        'Managed workspace is the simplest choice. Choose This computer only when this machine should join the workspace as a managed agent.'
+        'Choose Project files for the simplest shared file work. Choose This computer only when this machine should join as an agent.'
       )
     ).toBeDefined()
     expect(screen.queryByText(new RegExp(['unless', 'owner', 'tells'].join('.*'), 'i'))).toBeNull()
     expect(screen.getAllByText(/work tool setup/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/tool install status/i)).toBeNull()
-    expect(screen.getAllByText('Managed workspace').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Project files').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Managed workspace')).toBeNull()
     expect(screen.getAllByText('Chat-only AI service').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Codex').length).toBeGreaterThan(0)
     expect(screen.queryByText(/command window/i)).toBeNull()
@@ -278,14 +279,13 @@ describe('RuntimeSection', () => {
 
     render(<RuntimeSection />)
 
-    expect(
-      await screen.findByText('The Where agents run settings have not loaded yet.')
-    ).toBeDefined()
-    expect(
-      screen.getByText(
-        'Refresh this settings page to load the Where agents run settings. If they still do not load, ask an owner or admin to check agent setup.'
-      )
-    ).toBeDefined()
+    const loadGuidance = await screen.findAllByText(
+      'Refresh this settings page to load Where agents run. If it still does not load, ask an owner or admin to check Where agents run.'
+    )
+    expect(loadGuidance.length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByRole('button', { name: /Check again/i }).length).toBeGreaterThanOrEqual(1)
+    expect(screen.queryByText(/settings have not loaded yet/i)).toBeNull()
+    expect(screen.queryByText(/check setup\. if/i)).toBeNull()
     expect(screen.queryByText(/Where agents run could not load/i)).toBeNull()
     expect(screen.getByText('Load setup to choose a location')).toBeDefined()
     expect(screen.queryByText('Not set yet')).toBeNull()

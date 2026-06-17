@@ -48,7 +48,7 @@ describe('AgentListView', () => {
     expect(within(guide).getByText('Pick by where the work should happen')).toBeDefined()
     expect(within(guide).getByText('Chat-only AI service')).toBeDefined()
     expect(within(guide).getByText('This computer')).toBeDefined()
-    expect(within(guide).getByText('Managed workspace')).toBeDefined()
+    expect(within(guide).getByText('Project files')).toBeDefined()
     expect(screen.queryByTestId('agent-fleet-controls')).toBeNull()
     expect(screen.queryByText(/connected model for text-only work/i)).toBeNull()
     expect(screen.getAllByRole('button', { name: /create agent/i }).length).toBeGreaterThan(0)
@@ -252,7 +252,7 @@ describe('AgentListView', () => {
     expect(within(guide).getByText(/planning, writing, and review/i)).toBeDefined()
     expect(within(guide).getByText('This computer')).toBeDefined()
     expect(within(guide).getByText(/folder, accounts, or tools on your own machine/i)).toBeDefined()
-    expect(within(guide).getByText('Managed workspace')).toBeDefined()
+    expect(within(guide).getByText('Project files')).toBeDefined()
     expect(within(guide).getByText(/shared project files/i)).toBeDefined()
     expect(screen.getByText('Review Agent')).toBeDefined()
   })
@@ -436,9 +436,7 @@ describe('AgentListView', () => {
     render(<AgentListView />)
 
     expect(screen.getByText('Task Queues')).toBeDefined()
-    expect(
-      screen.getByText(/task queues are shared lists where new tasks wait/i)
-    ).toBeDefined()
+    expect(screen.getByText(/task queues are shared lists where new tasks wait/i)).toBeDefined()
     expect(screen.queryByText(/agents check for tasks/i)).toBeNull()
     fireEvent.change(screen.getByLabelText(/task queue name/i), {
       target: { value: 'Frontend Delivery' },
