@@ -46,7 +46,7 @@ export function CreateTeamForm({ onSave, onCancel, saving }: CreateTeamFormProps
     >
       <div className="mb-4 border-l-2 border-apple-blue/40 pl-3">
         <p className="text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
-          Team setup path
+          Team creation steps
         </p>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           Use teams for people who share project access and operating responsibility.
@@ -81,7 +81,7 @@ export function CreateTeamForm({ onSave, onCancel, saving }: CreateTeamFormProps
         </p>
         {name.trim() && (
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Address preview: {slugifyName(name)}. Forge creates this automatically from the name.
+            Team short name: {slugifyName(name)}. Forge creates it automatically from the name.
           </p>
         )}
       </div>

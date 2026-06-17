@@ -1119,6 +1119,12 @@ const PROJECT_CREATE_OVERVIEW_JARGON_PATTERNS = [
   /\breceive tasks and evidence\b/i,
 ]
 
+const TEAM_PROJECT_CREATE_JARGON_PATTERNS = [
+  /\b(?:Team|Project) setup path\b/i,
+  /\bAddress preview:/i,
+  /\bWork folder preview:/i,
+]
+
 const CLONE_RETRY_FAILURE_FIRST_PATTERNS = [
   /\bYou do not have permission to copy code into this project\. Ask an owner or admin to let you try again\./i,
   /\bThis project could not be found\. Refresh Projects, then try copying code again from the current project row\./i,
@@ -1933,6 +1939,17 @@ function hasProjectCreateOverviewJargonCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return PROJECT_CREATE_OVERVIEW_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasTeamProjectCreateJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/manage-team/ui/CreateTeamForm.tsx') &&
+    !relFile.endsWith('src/app/features/manage-project/ui/CreateProjectForm.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TEAM_PROJECT_CREATE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasCloneRetryFailureFirstCopy(relFile, line) {
@@ -3562,6 +3579,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Project setup overview must explain tasks, files, and saved work records without evidence jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTeamProjectCreateJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'team-project-create-copy',
+        location,
+        message:
+          'Team and project creation forms must say creation steps and short name instead of setup path or address preview.',
         sample: line.trim(),
       })
     }

@@ -9804,6 +9804,56 @@ function ProjectSetupPath() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags team and project creation copy that exposes setup path or address preview wording', () => {
+    const cwd = fixture({
+      'src/app/features/manage-team/ui/CreateTeamForm.tsx': `
+function CreateTeamForm() {
+  return <><p>Team setup path</p><p>Address preview: platform-ops.</p></>
+}
+`,
+      'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
+function CreateProjectForm() {
+  return <><p>Project setup path</p><p>Work folder preview: /workspace/app</p></>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'team-project-create-copy',
+          location: 'src/app/features/manage-team/ui/CreateTeamForm.tsx:3',
+          sample: expect.stringContaining('Team setup path'),
+        }),
+        expect.objectContaining({
+          type: 'team-project-create-copy',
+          location: 'src/app/features/manage-project/ui/CreateProjectForm.tsx:3',
+          sample: expect.stringContaining('Project setup path'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts team and project creation copy that uses steps and short-name wording', () => {
+    const cwd = fixture({
+      'src/app/features/manage-team/ui/CreateTeamForm.tsx': `
+function CreateTeamForm() {
+  return <><p>Team creation steps</p><p>Team short name: platform-ops.</p></>
+}
+`,
+      'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
+function CreateProjectForm() {
+  return <><p>Project creation steps</p><p>Project short name: app.</p><p>Agent work folder: /workspace/app</p></>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags code import retry errors that start with the failure', () => {
     const cwd = fixture({
       'src/app/features/manage-project/ui/CloneStatusBadge.tsx': `
