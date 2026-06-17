@@ -31,7 +31,7 @@ const SERVICE_DEFINITIONS: readonly ServiceDefinition[] = [
     key: 'database',
     name: 'Saved Data',
     supportName: 'Keeps saved work available',
-    description: 'Keeps accounts, tasks, runs, evidence, and settings available.',
+    description: 'Keeps accounts, tasks, work history, saved work records, and settings available.',
     impact: 'New work may fail to save, and existing pages may load slowly or not at all.',
     action: 'Ask an owner or admin to check saved data first, then choose Check now.',
   },

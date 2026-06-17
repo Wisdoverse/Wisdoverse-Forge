@@ -548,7 +548,7 @@ test.describe('React App Smoke Tests', () => {
     })
 
     test('settings page shows provider configuration nav', async ({ page }) => {
-      // Settings uses task-first labels so first-time operators can find setup
+      // Settings uses task-first labels so first-time users can find setup
       // paths without knowing internal provider, credential, or runtime terms.
       await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible({ timeout: 5000 })
       await expect(page.getByRole('button', { name: 'Model Services', exact: true })).toBeVisible()

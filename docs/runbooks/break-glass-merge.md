@@ -55,8 +55,8 @@ Break-glass is **not** justified for:
    If anything other than `pass` or `skipping` remains, **stop** — fix the
    check first. Break-glass never merges a red PR.
 
-2. Confirm the PR body has a complete Beginner UX / Operator Path section. The
-   PR template asks for this (advisory `Beginner UX / Operator Path` check); it
+2. Confirm the PR body has a complete Beginner UX / First-Time User Path section. The
+   PR template asks for this (advisory `Beginner UX / First-Time User Path` check); it
    is not one of the 15 required status checks, so confirm it by hand before
    merging.
 

@@ -70,6 +70,19 @@ describe('SkillsView', () => {
     )
   })
 
+  test('uses plain wording in the review checklist starter instruction', async () => {
+    const user = userEvent.setup()
+    render(<SkillsView />)
+
+    await user.click(screen.getAllByRole('button', { name: /save instruction/i })[0])
+    const templates = screen.getByRole('group', { name: /instruction templates/i })
+    await user.click(within(templates).getByRole('button', { name: /review checklist/i }))
+
+    const instructions = screen.getByLabelText(/^agent instructions$/i) as HTMLTextAreaElement
+    expect(instructions.value).toContain('link the file or page you checked')
+    expect(instructions.value).not.toContain('link evidence')
+  })
+
   test('offers a review status instruction that avoids repeated waiting', async () => {
     const user = userEvent.setup()
     render(<SkillsView />)

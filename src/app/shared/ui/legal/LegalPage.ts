@@ -249,7 +249,7 @@ export class LegalPage {
           <li>Team, project, and workspace controls for keeping work separated by organization</li>
           <li>Connections to supported AI services and work tools chosen by your organization</li>
           <li>Live activity updates and notifications for important task and agent changes</li>
-          <li>Operator tools for setup, troubleshooting, and supported automation</li>
+          <li>Setup tools for troubleshooting and supported automation</li>
         </ul>
         <p class="legal-text">
           We reserve the right to modify, suspend, or discontinue any part of the Service at any time, with or without
@@ -592,7 +592,7 @@ export class LegalPage {
         <ul class="legal-list">
           <li>To create and manage your account</li>
           <li>To provide the core Wisdoverse Forge agent, task, context, and workspace functionality</li>
-          <li>To show live task, agent, and evidence updates in the product interface</li>
+          <li>To show live task, agent, and saved work updates in the product interface</li>
           <li>To coordinate team workflows across managed agents</li>
           <li>To authenticate your identity and authorize access to protected resources</li>
           <li>To process payments and manage subscriptions</li>

@@ -385,6 +385,7 @@ const SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS = [
   /\bwhile this page is visible\b/i,
   /\bHidden tabs pause checks\b/i,
   /\bChecking\.\.\./i,
+  /\bKeeps accounts,\s*tasks,\s*runs,\s*evidence,\s*and settings available\b/i,
 ]
 
 const ACCESS_KEY_LAST_USED_DEAD_END_PATTERNS = [/\bNot used yet\b/i]
@@ -535,6 +536,7 @@ const SAVED_INSTRUCTION_TEMPLATE_JARGON_PATTERNS = [
   /\bfailed check or job details\b/i,
   /\bstop monitoring in chat\b/i,
   /\bsuggest a background monitor\b/i,
+  /\blink evidence\b/i,
 ]
 
 const RUNTIME_SIGN_IN_DEAD_END_PATTERNS = [
@@ -955,6 +957,8 @@ const AUTH_FAILURE_FIRST_PATTERNS = [
 
 const AUTH_INTRO_JARGON_PATTERNS = [/\bSign in to manage\b.*\bevidence\b/i]
 
+const LEGAL_PRIVACY_EVIDENCE_JARGON_PATTERNS = [/\blive task,\s*agent,\s*and evidence updates\b/i]
+
 const GETTING_STARTED_REVIEW_EVIDENCE_JARGON_PATTERNS = [
   /\breturned useful work and evidence\b/i,
   /\bcompleted output or attached evidence\b/i,
@@ -1084,6 +1088,12 @@ const ACCESS_LEVEL_DEAD_END_PATTERNS = [
 ]
 
 const AGENT_TEMPLATE_ROLE_JARGON_PATTERNS = [/\bStart with a role\b/i, /\bAgent role templates\b/i]
+
+const AGENT_INSTRUCTION_TEMPLATE_JARGON_PATTERNS = [
+  /\bgathering evidence first\b/i,
+  /\bmore evidence is needed\b/i,
+  /\broot cause\b/i,
+]
 
 const CREATE_AGENT_WORK_STYLE_JARGON_PATTERNS = [
   /\bChoose work style\b/i,
@@ -1708,6 +1718,12 @@ function hasAuthIntroJargonCopy(relFile, line) {
   return AUTH_INTRO_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasLegalPrivacyEvidenceJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/shared/ui/legal/LegalPage.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return LEGAL_PRIVACY_EVIDENCE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasGettingStartedReviewEvidenceJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
@@ -1903,6 +1919,17 @@ function hasAgentTemplateRoleJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return AGENT_TEMPLATE_ROLE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentInstructionTemplateJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_INSTRUCTION_TEMPLATE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasCreateAgentOptionalContextDeadEndCopy(relFile, line) {
@@ -2606,7 +2633,7 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'empty-state-next-action',
         location,
-        message: 'Empty state copy must include a nearby next action for first-time operators.',
+        message: 'Empty state copy must include a nearby next action for first-time users.',
         sample: line.trim(),
       })
     }
@@ -2745,7 +2772,7 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'work-setup-load-next-action',
         location,
-        message: 'Work setup load failure copy must tell first-time operators how to recover.',
+        message: 'Work setup load failure copy must tell first-time users how to recover.',
         sample: line.trim(),
       })
     }
@@ -3242,6 +3269,15 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasLegalPrivacyEvidenceJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'legal-privacy-copy',
+        location,
+        message: 'Legal privacy copy must describe saved work updates without evidence jargon.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasGettingStartedReviewEvidenceJargonCopy(relFile, line)) {
       findings.push({
         type: 'getting-started-review-copy',
@@ -3449,6 +3485,16 @@ function scanFile(file, relFile) {
         type: 'agent-template-role-copy',
         location,
         message: 'Agent creation templates must say starter template instead of role template.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentInstructionTemplateJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-instruction-template-copy',
+        location,
+        message:
+          'Agent instruction templates must use beginner-facing fact and information wording.',
         sample: line.trim(),
       })
     }
