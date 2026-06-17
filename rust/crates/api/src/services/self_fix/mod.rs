@@ -140,6 +140,15 @@ impl SelfFixService {
             )
             .await?;
 
+        // Realtime note: this persist flips `review_status` to `in_review` (or
+        // `sensitive_blocked`). When this method is wired to the self-fix loop,
+        // the caller — which holds `AppState` — should mirror the approve route
+        // and emit `orchestration_service().broadcast_task_update_by_id(scope,
+        // task_id, "self_fix.pr_opened")` so the Review tab appears live. The
+        // broadcast is deliberately NOT emitted here: `SelfFixService` owns no
+        // NATS handle (DDD layering), and the orchestration service is the owner
+        // of the task-update broadcast contract.
+
         // 12. Return the outcome.
         Ok(SelfFixPrOutcome {
             pr_number: result.pr.number,
