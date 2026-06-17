@@ -20,7 +20,7 @@ export function AboutSection() {
         <dl className={cn(uiStyles.card, 'divide-y divide-[rgb(var(--border))]')}>
           <Row
             label="Product name"
-            description="Use this name when sharing screenshots or asking for support."
+            description="Use this name when sharing screenshots or asking an owner or admin for help."
             value="Wisdoverse Forge"
           />
           <Row

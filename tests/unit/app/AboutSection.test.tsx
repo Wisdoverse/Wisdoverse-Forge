@@ -7,7 +7,7 @@ afterEach(() => {
 })
 
 describe('AboutSection', () => {
-  test('explains install details in beginner support language', () => {
+  test('explains install details in beginner help language', () => {
     render(<AboutSection />)
 
     const section = screen.getByTestId('settings-about')
@@ -19,8 +19,12 @@ describe('AboutSection', () => {
     ).toBeDefined()
     expect(within(section).getByText('Product name')).toBeDefined()
     expect(
-      within(section).getByText('Use this name when sharing screenshots or asking for support.')
+      within(section).getByText(
+        'Use this name when sharing screenshots or asking an owner or admin for help.'
+      )
     ).toBeDefined()
+    const legacySupportCopy = new RegExp(['asking for', 'support'].join(' '), 'i')
+    expect(within(section).queryByText(legacySupportCopy)).toBeNull()
     expect(
       within(section).getByText('Share this number when something looks wrong after an update.')
     ).toBeDefined()
