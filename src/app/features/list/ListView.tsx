@@ -240,7 +240,7 @@ export function ListView() {
           </p>
           <p className="max-w-sm text-ui-caption leading-relaxed text-secondary-light dark:text-secondary-dark">
             Use the board to create one small task first. Start with the outcome you want, then add
-            the proof you expect the agent to return.
+            whether you need files, notes, or a short answer back.
           </p>
           <button
             type="button"
@@ -463,7 +463,7 @@ function listNextStep(
   if (totalTasks === 0) {
     return {
       title: 'Create your first small task.',
-      detail: 'Use the board to give an agent one clear outcome and expected proof.',
+      detail: 'Use the board to tell an agent the outcome you want and what to send back.',
     }
   }
 
@@ -491,7 +491,7 @@ function listNextStep(
 
   return {
     title: 'Review completed work.',
-    detail: 'Open completed tasks to check the result, evidence, and anything worth reusing.',
+    detail: 'Open completed tasks to check the result, result files, and anything worth reusing.',
   }
 }
 
@@ -538,7 +538,7 @@ function taskNextAction(task: TaskSummary): string {
     case 'failed':
       return 'Open it, review the recovery note, then retry only after the next step is clear.'
     case 'completed':
-      return 'Open it to review the result and evidence.'
+      return 'Open it to review the result and result files.'
     case 'canceled':
       return 'Open it only if you need to restart or explain why it stopped.'
     default:

@@ -1242,7 +1242,10 @@ export const zh = {
       'src/app/shared/i18n/locales/en.ts': `
 export const en = {
   admin: {
-    users: { role: 'Role' },
+    users: {
+      role: 'Role',
+      roles: { operator: 'Operator' },
+    },
   },
 }
 `,
@@ -1252,7 +1255,10 @@ export const zh = {
     forbidden: '你当前没有权限执行这个操作。请让所有者或管理员更新你的角色。',
   },
   admin: {
-    users: { role: '角色' },
+    users: {
+      role: '角色',
+      roles: { operator: '操作员' },
+    },
   },
 }
 `,
@@ -1265,7 +1271,7 @@ export const zh = {
       expect.arrayContaining([
         expect.objectContaining({
           type: 'locale-access-role-copy',
-          location: 'src/app/shared/i18n/locales/en.ts:4',
+          location: 'src/app/shared/i18n/locales/en.ts:5',
         }),
         expect.objectContaining({
           type: 'locale-access-role-copy',
@@ -1273,7 +1279,15 @@ export const zh = {
         }),
         expect.objectContaining({
           type: 'locale-access-role-copy',
-          location: 'src/app/shared/i18n/locales/zh.ts:7',
+          location: 'src/app/shared/i18n/locales/en.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'locale-access-role-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:8',
+        }),
+        expect.objectContaining({
+          type: 'locale-access-role-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:9',
         }),
       ])
     )
@@ -1284,7 +1298,7 @@ export const zh = {
       'src/app/shared/i18n/locales/en.ts': `
 export const en = {
   admin: {
-    users: { role: 'Access level' },
+    users: { role: 'Access level', roles: { operator: 'Member' } },
   },
 }
 `,
@@ -1294,7 +1308,7 @@ export const zh = {
     forbidden: '你当前无法执行这个操作。请让所有者或管理员检查你的团队空间访问权限。',
   },
   admin: {
-    users: { role: '访问级别' },
+    users: { role: '访问级别', roles: { operator: '成员' } },
   },
 }
 `,
@@ -2457,11 +2471,40 @@ function EmptyList() {
     )
   })
 
+  it('flags task list empty copy that asks beginners for expected proof', () => {
+    const cwd = fixture({
+      'src/app/features/list/ListView.tsx': `
+function EmptyList() {
+  return [
+    'Use the board to give an agent one clear outcome and expected proof.',
+    'Start with the outcome you want, then add the proof you expect the agent to return.',
+  ]
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-list-empty-copy',
+          location: 'src/app/features/list/ListView.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'task-list-empty-copy',
+          location: 'src/app/features/list/ListView.tsx:5',
+        }),
+      ])
+    )
+  })
+
   it('accepts task list empty copy that points to opening the board', () => {
     const cwd = fixture({
       'src/app/features/list/ListView.tsx': `
 function EmptyList() {
-  return 'Use the board to create one small task first. Open board to create task.'
+  return 'Use the board to create one small task first. Tell the agent what to send back. Open board to create task.'
 }
 `,
     })
@@ -2905,6 +2948,7 @@ function ProjectReadiness() {
 function userRoleLabel() {
   return 'Access level not reported'
   return 'Access level needs review'
+  return { operator: 'Operator' }
 }
 `,
     })
@@ -2921,6 +2965,10 @@ function userRoleLabel() {
         expect.objectContaining({
           type: 'access-level-copy',
           location: 'src/app/entities/user/model/roleLabels.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'access-level-copy',
+          location: 'src/app/entities/user/model/roleLabels.ts:5',
         }),
       ])
     )
@@ -8363,6 +8411,24 @@ function ResultReviewGuide() {
   ]
 }
 `,
+      'src/app/features/detail/HistoryTab.tsx': `
+function taskCheckIn() {
+  return '1 result item ready to review.'
+}
+`,
+      'src/app/features/list/ListView.tsx': `
+function listNextStep() {
+  return {
+    detail: 'Open completed tasks to check the result, evidence, and anything worth reusing.',
+    action: 'Open it to review the result and evidence.',
+  }
+}
+`,
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function agentNextStep() {
+  return 'You can decide whether to reuse the agent, review evidence, or assign another task.'
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
@@ -8382,6 +8448,22 @@ function ResultReviewGuide() {
           type: 'task-detail-result-review-copy',
           location: 'src/app/features/detail/TaskDetailPanel.tsx:5',
         }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/HistoryTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/list/ListView.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/list/ListView.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:3',
+        }),
       ])
     )
   })
@@ -8399,6 +8481,19 @@ function ResultReviewGuide() {
     'Use this result to decide whether the task is done.',
     'Check result files',
   ]
+}
+`,
+      'src/app/features/list/ListView.tsx': `
+function listNextStep() {
+  return {
+    detail: 'Open completed tasks to check the result, result files, and anything worth reusing.',
+    action: 'Open it to review the result and result files.',
+  }
+}
+`,
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function agentNextStep() {
+  return 'You can decide whether to reuse the agent, review result files, or assign another task.'
 }
 `,
     })

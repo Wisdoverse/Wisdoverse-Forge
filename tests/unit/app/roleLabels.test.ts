@@ -10,6 +10,7 @@ describe('userRoleLabel', () => {
 
   test('keeps known and unexpected access levels readable', () => {
     expect(userRoleLabel('owner')).toBe('Owner')
+    expect(userRoleLabel('operator')).toBe('Member')
     expect(userRoleLabel('super-admin')).toBe('Check access level')
   })
 })

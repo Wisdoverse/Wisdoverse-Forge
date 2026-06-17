@@ -116,8 +116,9 @@ describe('ListView', () => {
     expect(screen.getByTestId('list-empty-state')).toBeDefined()
     expect(screen.getByText('Create your first small task')).toBeDefined()
     expect(screen.getByText(/use the board to create one small task/i)).toBeDefined()
-    expect(screen.getByText(/proof you expect the agent to return/i)).toBeDefined()
+    expect(screen.getByText(/whether you need files, notes, or a short answer back/i)).toBeDefined()
     expect(screen.queryByText(/Create one small task from the board first/i)).toBeNull()
+    expect(screen.queryByText(/proof you expect the agent to return/i)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /open board to create task/i }))
     expect(useBoardStore.getState().viewMode).toBe('board')
     expect(screen.queryByText('No tasks yet')).toBeNull()
@@ -206,6 +207,32 @@ describe('ListView', () => {
     expect(screen.getByTestId('list-next-step').textContent).not.toContain('when ready')
     expect(screen.getByTestId('list-work-register').textContent).not.toContain('backlog task')
     expect(screen.getByTestId('list-work-register').textContent).not.toContain('next lane')
+  })
+
+  test('guides completed task review without evidence jargon', () => {
+    useBoardStore.getState().setTasks([
+      {
+        id: 'done-1',
+        state: 'completed',
+        params: { task: 'Document setup', message: '' },
+        priority: 'low',
+        progress: 100,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as any,
+    ])
+
+    render(<ListView />)
+
+    expect(screen.getByTestId('list-next-step')).toHaveTextContent('Review completed work.')
+    expect(
+      screen.getByText(
+        'Open completed tasks to check the result, result files, and anything worth reusing.'
+      )
+    ).toBeDefined()
+    expect(screen.getByText('Open it to review the result and result files.')).toBeDefined()
+    expect(screen.queryByText(/result, evidence/i)).toBeNull()
+    expect(screen.queryByText(/result and evidence/i)).toBeNull()
   })
 
   test('filters task list by attention state and search', () => {

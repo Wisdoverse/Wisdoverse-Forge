@@ -404,6 +404,8 @@ const ACCOUNT_PROFILE_ROLE_JARGON_PATTERNS = [/>Role</]
 const LOCALE_ACCESS_ROLE_JARGON_PATTERNS = [
   /\brole:\s*['"`]Role['"`]/,
   /\brole:\s*['"`]角色['"`]/,
+  /\boperator:\s*['"`]Operator['"`]/,
+  /\boperator:\s*['"`]操作员['"`]/,
   /更新你的角色/,
 ]
 
@@ -467,7 +469,11 @@ const AGENT_TASK_QUEUE_EMPTY_DEAD_END_PATTERNS = [
 const AGENT_TASK_QUEUE_FAILURE_FIRST_PATTERNS = [
   /\bTask queue was not created\. (?:A|Ask|Check|Choose|Forge|Refresh|Sign in|Too many|Try|Use|Wait)\b/i,
 ]
-const TASK_LIST_EMPTY_DEAD_END_PATTERNS = [/\bCreate one small task from the board first\b/i]
+const TASK_LIST_EMPTY_DEAD_END_PATTERNS = [
+  /\bCreate one small task from the board first\b/i,
+  /\bexpected proof\b/i,
+  /\bproof you expect the agent to return\b/i,
+]
 const AGENT_LIST_SUMMARY_DEAD_END_PATTERNS = [/\bNo agents\b/i]
 const AGENT_TOOL_SUMMARY_DEAD_END_PATTERNS = [
   /\bNo tool summary yet\. Ask an owner what this tool lets the agent do before turning it on\./i,
@@ -960,6 +966,10 @@ const TASK_DETAIL_EVIDENCE_JARGON_PATTERNS = [
   /\bResult files and evidence\b/i,
   /\bUse this result as evidence\b/i,
   /\bCheck the evidence\b/i,
+  /\bresult, evidence\b/i,
+  /\breview the result and evidence\b/i,
+  /\breview evidence\b/i,
+  /\bresult item(?:s)? ready to review\b/i,
 ]
 
 const AUTH_MANAGER_DEAD_END_PATTERNS = [
@@ -1070,6 +1080,7 @@ const AGENT_MODEL_DEAD_END_PATTERNS = [
 const ACCESS_LEVEL_DEAD_END_PATTERNS = [
   /\bAccess level not reported\b/i,
   /\bAccess level needs review\b/i,
+  /\boperator:\s*['"`]Operator['"`]/,
 ]
 
 const AGENT_TEMPLATE_ROLE_JARGON_PATTERNS = [/\bStart with a role\b/i, /\bAgent role templates\b/i]
@@ -1711,7 +1722,10 @@ function hasGettingStartedReviewEvidenceJargonCopy(relFile, line) {
 function hasTaskDetailEvidenceJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/detail/DescriptionTab.tsx') &&
-    !relFile.endsWith('src/app/features/detail/TaskDetailPanel.tsx')
+    !relFile.endsWith('src/app/features/detail/HistoryTab.tsx') &&
+    !relFile.endsWith('src/app/features/detail/TaskDetailPanel.tsx') &&
+    !relFile.endsWith('src/app/features/list/ListView.tsx') &&
+    !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')
   ) {
     return false
   }

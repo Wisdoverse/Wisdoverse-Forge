@@ -375,7 +375,7 @@ function taskCheckIn(task: TaskSummary): {
         title: `${agentName} finished the task`,
         detail:
           artifactCount > 0
-            ? `${artifactCount} result item${artifactCount === 1 ? '' : 's'} ready to review.`
+            ? `${artifactCount} result file${artifactCount === 1 ? '' : 's'} ready to review.`
             : 'Review the outcome, then save repeatable steps or create a follow-up task if something is missing.',
         tone: 'success',
         Icon: CheckCircle2,
