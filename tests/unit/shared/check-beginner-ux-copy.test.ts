@@ -4021,6 +4021,72 @@ export const zh = {
     ])
   })
 
+  it('flags agent project folder copy that uses path wording', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  agents: {
+    projectPath: 'Project Path',
+    searchProjects: 'Search projects or enter a folder path...',
+    invalidProjectPath: 'Enter a project folder path, then try again.',
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  agents: {
+    projectPath: '项目路径',
+    enterFolderPath: '输入项目文件夹路径...',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-project-location-copy',
+          sample: expect.stringContaining('Project Path'),
+        }),
+        expect.objectContaining({
+          type: 'agent-project-location-copy',
+          sample: expect.stringContaining('folder path'),
+        }),
+        expect.objectContaining({
+          type: 'agent-project-location-copy',
+          sample: expect.stringContaining('文件夹路径'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts agent project folder copy that uses location wording', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  agents: {
+    projectPath: 'Project folder location',
+    searchProjects: 'Search projects or enter a folder location...',
+    invalidProjectPath: 'Enter the project folder location, then try again.',
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  agents: {
+    projectPath: '项目文件夹位置',
+    enterFolderPath: '输入项目文件夹位置...',
+  },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags confirmation copy that hides the impact from beginners', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `

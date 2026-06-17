@@ -1189,6 +1189,13 @@ const CREATE_AGENT_PROJECT_JARGON_PATTERNS = [
   /\blabel:\s*['"`]Primary project['"`]/,
 ]
 
+const AGENT_PROJECT_LOCATION_JARGON_PATTERNS = [
+  /\bprojectPath:\s*['"`]Project Path['"`]/,
+  /\b(?:searchProjects|enterFolderPath|invalidProjectPath):\s*['"`][^'"`]*(?:folder|project folder) path/i,
+  /\bprojectPath:\s*['"`]项目路径['"`]/,
+  /(?:searchProjects|enterFolderPath|invalidProjectPath):\s*['"`][^'"`]*文件夹路径/,
+]
+
 const PROJECT_SHARE_ROLE_JARGON_PATTERNS = [/\bInvite people and choose roles\b/i]
 
 const VAGUE_ACCESS_RECOVERY_PATTERNS = [
@@ -2027,6 +2034,17 @@ function hasCreateAgentProjectJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return CREATE_AGENT_PROJECT_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentProjectLocationJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_PROJECT_LOCATION_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentModelDeadEndCopy(relFile, line) {
@@ -3708,6 +3726,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Create agent setup must explain which project new tasks use without primary-project jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentProjectLocationJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-project-location-copy',
+        location,
+        message:
+          'Agent project folder copy must say folder location instead of path for beginners.',
         sample: line.trim(),
       })
     }
