@@ -2811,6 +2811,94 @@ function cliToolToProvider() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags create-agent work-style labels that do not say where the agent works', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+function createReviewItems() {
+  return [{ label: 'Work style', value: 'Claude in a managed workspace' }]
+}
+function WorkStylePicker() {
+  return <label>Choose work style</label>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'create-agent-work-location-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'create-agent-work-location-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:6',
+        }),
+      ])
+    )
+  })
+
+  it('accepts create-agent labels that ask where the agent works', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+function createReviewItems() {
+  return [{ label: 'Where it works', value: 'Claude in a managed workspace' }]
+}
+function WorkLocationPicker() {
+  return <label>Where should this agent work?</label>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags create-agent project labels that do not explain where new tasks start', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+function createReviewItems() {
+  return [{ label: 'Primary project', value: 'Platform' }]
+}
+function ProjectReadiness() {
+  return <p>New tasks start from the Primary Project selected above.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'create-agent-project-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'create-agent-project-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:6',
+        }),
+      ])
+    )
+  })
+
+  it('accepts create-agent project labels that explain where new tasks start', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+function createReviewItems() {
+  return [{ label: 'Project for new tasks', value: 'Platform' }]
+}
+function ProjectReadiness() {
+  return <p>New tasks start from the project shown above.</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags access level fallback copy that does not tell users what to refresh', () => {
     const cwd = fixture({
       'src/app/entities/user/model/roleLabels.ts': `
@@ -6582,11 +6670,11 @@ function ProfileRow() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags Start guide reset copy that sounds like data reset', () => {
+  it('flags Start guide reset and onboarding copy that hide the visible result', () => {
     const cwd = fixture({
       'src/app/features/settings/AccountSection.tsx': `
 function GettingStartedGuideRow() {
-  return <button>Reset Start guide</button>
+  return <section><h3>Onboarding</h3><button>Reset Start guide</button></section>
 }
 `,
       'src/app/pages/settings/ui/SettingsLayout.tsx': `
@@ -7026,6 +7114,38 @@ function AgentGroupsPanel() {
       'src/app/features/agents/AgentGroupsPanel.tsx': `
 function AgentGroupsPanel() {
   return <button>{saving ? 'Creating…' : 'Create task queue'}</button>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags task queue overview copy that describes implementation behavior first', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentGroupsPanel.tsx': `
+function AgentGroupsPanel() {
+  return <p>Task queues are simple places agents check for tasks. Create a queue, add agents, then send tasks to it.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'agent-task-queue-overview-copy',
+        location: 'src/app/features/agents/AgentGroupsPanel.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts task queue overview copy that explains where new tasks wait', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentGroupsPanel.tsx': `
+function AgentGroupsPanel() {
+  return <p>Task queues are shared lists where new tasks wait for an available agent.</p>
 }
 `,
     })
@@ -8140,6 +8260,152 @@ function authRecoveryErrorMessage(action) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags sign-in orientation that exposes evidence jargon', () => {
+    const cwd = fixture({
+      'src/app/features/auth/AuthPage.ts': `
+function render() {
+  return 'Sign in to manage agents, tasks, evidence, and team settings from one team space.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'auth-intro-copy',
+        location: 'src/app/features/auth/AuthPage.ts:3',
+      }),
+    ])
+  })
+
+  it('accepts sign-in orientation that explains saved work records', () => {
+    const cwd = fixture({
+      'src/app/features/auth/AuthPage.ts': `
+function render() {
+  return 'Sign in to manage agents, tasks, saved work records, and team settings from one team space.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags Getting Started review copy that exposes evidence jargon', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  gettingStarted: {
+    steps: { review: { why: 'Reviewing the result confirms the agent returned useful work and evidence.' } },
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  gettingStarted: {
+    steps: { review: { success: '任务已经完成，并且能看到输出或证据。' } },
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'getting-started-review-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'getting-started-review-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:4',
+        }),
+      ])
+    )
+  })
+
+  it('accepts Getting Started review copy that explains result files plainly', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  gettingStarted: {
+    steps: { review: { success: 'A task has completed output or result files you can open.' } },
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  gettingStarted: {
+    steps: { review: { success: '任务已经完成，并且能看到输出或结果文件。' } },
+  },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags task result review copy that exposes evidence jargon', () => {
+    const cwd = fixture({
+      'src/app/features/detail/DescriptionTab.tsx': `
+function DescriptionTab() {
+  return <ReviewSection title="Result files and evidence" />
+}
+`,
+      'src/app/features/detail/TaskDetailPanel.tsx': `
+function ResultReviewGuide() {
+  return [
+    'Use this result as evidence for the task outcome.',
+    'Check the evidence',
+  ]
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/DescriptionTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/TaskDetailPanel.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/TaskDetailPanel.tsx:5',
+        }),
+      ])
+    )
+  })
+
+  it('accepts task result review copy that describes result files plainly', () => {
+    const cwd = fixture({
+      'src/app/features/detail/DescriptionTab.tsx': `
+function DescriptionTab() {
+  return <ReviewSection title="Result files" />
+}
+`,
+      'src/app/features/detail/TaskDetailPanel.tsx': `
+function ResultReviewGuide() {
+  return [
+    'Use this result to decide whether the task is done.',
+    'Check result files',
+  ]
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags authentication network copy that starts with the failure instead of the next step', () => {
     const cwd = fixture({
       'src/app/features/auth/AuthPage.ts': `
@@ -8893,6 +9159,38 @@ function createProjectErrorMessage(code) {
   if (code === 429) return 'Wait a minute, then create this project again. Too many project changes are happening right now.'
   if (code >= 500) return 'Wait a few minutes, then create this project again. Forge could not create the project right now. If it still fails, ask an owner or admin to check project setup.'
   return 'Check the project name and team, then create this project again. Forge could not create the project.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags project setup overview copy that exposes evidence jargon', () => {
+    const cwd = fixture({
+      'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
+function ProjectSetupPath() {
+  return <p>Use projects for the work areas where agents receive tasks and evidence.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'project-create-overview-copy',
+        location: 'src/app/features/manage-project/ui/CreateProjectForm.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts project setup overview copy that describes saved work records plainly', () => {
+    const cwd = fixture({
+      'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
+function ProjectSetupPath() {
+  return <p>Use projects to keep one work area&apos;s tasks, files, and saved work records together.</p>
 }
 `,
     })

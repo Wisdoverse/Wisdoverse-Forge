@@ -232,8 +232,8 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
             </h2>
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Task queues are simple places agents check for tasks. Create a queue, add agents, then
-            send tasks to it.
+            Task queues are shared lists where new tasks wait for an available agent. Create a
+            queue, add agents, then send tasks to it.
           </p>
           {selectedProject && (
             <p className="mt-2 truncate rounded-md bg-black/[0.04] px-2 py-1 text-ui-caption text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">

@@ -61,6 +61,9 @@ describe('CreateAgentModal', () => {
     expect(screen.getByTestId('agent-runtime-fit')).toBeInTheDocument()
     expect(screen.getByText('Pick a starter template')).toBeInTheDocument()
     expect(screen.queryByText('Start with a role')).toBeNull()
+    expect(screen.getByText('Where should this agent work?')).toBeInTheDocument()
+    expect(screen.getByRole('radiogroup', { name: /where should this agent work/i })).toBeDefined()
+    expect(screen.queryByText('Choose work style')).toBeNull()
     expect(screen.getByText('Fills in the agent name')).toBeInTheDocument()
     expect(screen.getByText('Updates the work and checks it')).toBeInTheDocument()
     expect(screen.queryByText('Builds changes and checks them')).toBeNull()
@@ -80,22 +83,25 @@ describe('CreateAgentModal', () => {
     expect(screen.getByRole('combobox', { name: /^work tool$/i })).toBeInTheDocument()
     expect(screen.getByLabelText(/work folder/i)).toBeInTheDocument()
     expect(screen.getByText(/keep the suggested folder/i)).toBeInTheDocument()
-    expect(screen.getByText(/new tasks start from the primary project/i)).toBeInTheDocument()
+    expect(screen.getByText(/new tasks start from the project shown above/i)).toBeInTheDocument()
     expect(screen.queryByText(/use \/workspace unless/i)).toBeNull()
     expect(screen.queryByText(/default task context/i)).toBeNull()
-    expect(screen.getAllByText(/primary project/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/project for new tasks/i).length).toBeGreaterThan(0)
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/open project settings/i)
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(
       /open project settings to create or choose a project/i
     )
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/choose a project later/i)
     expect(screen.getByTestId('agent-work-readiness')).not.toHaveTextContent(/no primary project/i)
+    expect(screen.queryByText(/primary project/i)).toBeNull()
     expect(screen.getByTestId('agent-work-readiness')).not.toHaveTextContent(
       /select a project in the sidebar/i
     )
     expect(screen.queryByRole('button', { name: /open project settings/i })).toBeNull()
     const review = screen.getByTestId('agent-create-review')
     expect(within(review).getByText('Before you create')).toBeInTheDocument()
+    expect(within(review).getByText('Where it works')).toBeInTheDocument()
+    expect(within(review).queryByText('Work style')).toBeNull()
     expect(within(review).getByText(/claude in a managed workspace/i)).toBeInTheDocument()
     expect(within(review).getByText('Choose a project before assigning tasks.')).toBeInTheDocument()
     expect(within(review).queryByText('No project selected yet')).toBeNull()
@@ -131,7 +137,7 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByRole('dialog', { name: /create an agent/i })).toBeNull()
   })
 
-  test('shows selected project as the primary project context', () => {
+  test('shows selected project as the project for new tasks', () => {
     useNavigationStore.setState({
       selectedProjectId: 'p1',
       projects: {

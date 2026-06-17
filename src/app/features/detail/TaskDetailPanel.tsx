@@ -258,9 +258,9 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                   </span>
                 </div>
                 <p className="mb-2 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
-                  Use this result as evidence for the task outcome. If it does not answer the brief,
-                  go back to Work and decide whether to retry, review saved notes and instructions,
-                  or create a follow-up task.
+                  Use this result to decide whether the task is done. If it does not answer the
+                  brief, go back to Work and decide whether to retry, review saved notes and
+                  instructions, or create a follow-up task.
                 </p>
                 <pre className="text-xs text-foreground-light dark:text-foreground-dark whitespace-pre-wrap break-words font-mono leading-relaxed max-h-[300px] overflow-y-auto">
                   {artifact.data}
@@ -587,7 +587,7 @@ function ResultReviewGuide({ task, artifactCount }: { task: TaskSummary; artifac
         />
         <ResultReviewStep
           number="2"
-          title="Check the evidence"
+          title="Check result files"
           detail={`${artifactCount} result file${artifactCount === 1 ? '' : 's'} attached for review.`}
         />
         <ResultReviewStep

@@ -162,7 +162,7 @@ export function DescriptionTab({
         </div>
       </ReviewSection>
 
-      <ReviewSection title="Result files and evidence" Icon={CheckCircle2}>
+      <ReviewSection title="Result files" Icon={CheckCircle2}>
         <div className="space-y-2 text-xs text-secondary-light dark:text-secondary-dark">
           <p>
             {resultArtifacts.length > 0

@@ -436,7 +436,10 @@ describe('AgentListView', () => {
     render(<AgentListView />)
 
     expect(screen.getByText('Task Queues')).toBeDefined()
-    expect(screen.getByText(/task queues are simple places agents check for tasks/i)).toBeDefined()
+    expect(
+      screen.getByText(/task queues are shared lists where new tasks wait/i)
+    ).toBeDefined()
+    expect(screen.queryByText(/agents check for tasks/i)).toBeNull()
     fireEvent.change(screen.getByLabelText(/task queue name/i), {
       target: { value: 'Frontend Delivery' },
     })

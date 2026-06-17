@@ -175,8 +175,8 @@ export const zh: TranslationKeys = {
         empty: '已分配任务的输出会出现在详情面板。',
         inFlight: '已有任务被分配，可从看板查看进度。',
         ready: '{{count}} 个已完成任务等待验收。',
-        why: '验收结果能确认 Agent 确实返回了有用输出和证据。',
-        success: '任务已经完成，并且能看到输出或证据。',
+        why: '验收结果能确认 Agent 返回了可采用的输出。',
+        success: '任务已经完成，并且能看到输出或结果文件。',
         open: '查看工作',
       },
       reuse: {
