@@ -14,11 +14,11 @@ const attentionItem: AttentionItem = {
 afterEach(cleanup)
 
 describe('AttentionZone', () => {
-  test('guides first-time users before approval', () => {
+  test('guides first-time users before allowing work to continue', () => {
     render(<AttentionZone items={[attentionItem]} />)
 
     expect(screen.getByText('Needs your decision')).toBeDefined()
-    expect(screen.getByText(/approve only after checking the request/i)).toBeDefined()
+    expect(screen.getByText(/allow to continue only after checking/i)).toBeDefined()
     expect(screen.getByText('Deploy staging')).toBeDefined()
     expect(screen.getByText(/Agent Two is waiting: Waiting for account access/i)).toBeDefined()
     expect(screen.queryByText(/Needs SSH key/i)).toBeNull()
@@ -41,14 +41,14 @@ describe('AttentionZone', () => {
     expect(screen.queryByText(/SSH key/i)).toBeNull()
   })
 
-  test('keeps review and approve actions explicit', () => {
+  test('keeps open and allow actions explicit', () => {
     const onView = vi.fn()
     const onApprove = vi.fn()
 
     render(<AttentionZone items={[attentionItem]} onView={onView} onApprove={onApprove} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /review request/i }))
-    fireEvent.click(screen.getByRole('button', { name: /approve request/i }))
+    fireEvent.click(screen.getByRole('button', { name: /open details/i }))
+    fireEvent.click(screen.getByRole('button', { name: /allow to continue/i }))
 
     expect(onView).toHaveBeenCalledWith('attention-1')
     expect(onApprove).toHaveBeenCalledWith('attention-1')
