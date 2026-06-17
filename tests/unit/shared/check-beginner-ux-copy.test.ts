@@ -6871,6 +6871,54 @@ export function systemHealthErrorMessage() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags saved instruction source labels that still say workspace', () => {
+    const cwd = fixture({
+      'src/app/features/skills/SkillCard.tsx': `
+export function SkillCard() {
+  return 'Saved in Workspace saved instructions by Platform team'
+}
+`,
+      'src/app/features/skills/SkillDetailModal.tsx': `
+export function SkillDetailModal() {
+  return 'Workspace saved instructions'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'saved-instruction-source-label-copy',
+          location: 'src/app/features/skills/SkillCard.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-source-label-copy',
+          location: 'src/app/features/skills/SkillDetailModal.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved instruction source labels that say team space', () => {
+    const cwd = fixture({
+      'src/app/features/skills/SkillCard.tsx': `
+export function SkillCard() {
+  return 'Saved in Team space saved instructions by Platform team'
+}
+`,
+      'src/app/features/skills/SkillDetailModal.tsx': `
+export function SkillDetailModal() {
+  return 'Team space saved instructions'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags vague app health attention copy', () => {
     const cwd = fixture({
       'src/app/features/admin/SystemHealth.tsx': `

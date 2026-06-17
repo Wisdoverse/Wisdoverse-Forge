@@ -577,6 +577,8 @@ const SAVED_INSTRUCTION_TOOL_TOOLTIP_PATTERNS = [
   /工作工具设置需要检查。/,
 ]
 
+const SAVED_INSTRUCTION_SOURCE_LABEL_PATTERNS = [/\bWorkspace saved instructions\b/i]
+
 const AGENT_PLUGIN_ERROR_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*Tool change was not saved\. The switch was returned to its previous setting\./i,
   /['"`]\s*Forge could not finish this tool request right now\. Wait a few minutes, then try again\./i,
@@ -2549,6 +2551,18 @@ function hasSavedInstructionToolTooltipFallbackCopy(relFile, line) {
   return SAVED_INSTRUCTION_TOOL_TOOLTIP_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasSavedInstructionSourceLabelCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/skills/SkillCard.tsx') &&
+    !relFile.endsWith('src/app/features/skills/SkillDetailModal.tsx') &&
+    !relFile.endsWith('src/app/features/skills/model/savedInstructionLabels.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SAVED_INSTRUCTION_SOURCE_LABEL_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasSavedInstructionsLoadDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/skills/SkillsView.tsx') &&
@@ -4385,6 +4399,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Saved instruction work-tool tooltip copy must tell beginners where to check setup.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSavedInstructionSourceLabelCopy(relFile, line)) {
+      findings.push({
+        type: 'saved-instruction-source-label-copy',
+        location,
+        message:
+          'Saved instruction source labels must say team space instead of workspace for beginners.',
         sample: line.trim(),
       })
     }

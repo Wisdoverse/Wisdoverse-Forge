@@ -40,8 +40,9 @@ describe('SkillDetailModal', () => {
       )
     ).toBeInTheDocument()
     expect(screen.getByText('Where it came from')).toBeInTheDocument()
-    expect(screen.getByText('Workspace saved instructions')).toBeInTheDocument()
+    expect(screen.getByText('Team space saved instructions')).toBeInTheDocument()
     expect(screen.queryByText('Workspace skills')).toBeNull()
+    expect(screen.queryByText('Workspace saved instructions')).toBeNull()
     expect(screen.getByText('Maintainer')).toBeInTheDocument()
     expect(screen.getByText('Platform team')).toBeInTheDocument()
     expect(screen.getByText('Available to')).toBeInTheDocument()
@@ -98,9 +99,7 @@ describe('SkillDetailModal', () => {
     expect(screen.queryByText('Unknown')).toBeNull()
     expect(screen.getByText('Latest saved copy')).toBeInTheDocument()
     expect(
-      screen.getByText(
-        'Check the reusable instructions below before using this saved instruction.'
-      )
+      screen.getByText('Check the reusable instructions below before using this saved instruction.')
     ).toBeInTheDocument()
     expect(
       screen.getByText(
