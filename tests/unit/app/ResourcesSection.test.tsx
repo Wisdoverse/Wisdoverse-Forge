@@ -79,9 +79,7 @@ describe('ResourcesSection', () => {
       )
     ).toBeDefined()
     expect(
-      within(emptyState).getByText(
-        'Ask an owner or admin to add agent sizes in workspace settings.'
-      )
+      within(emptyState).getByText('Ask an owner or admin to add agent sizes in Work limits.')
     ).toBeDefined()
     expect(
       within(emptyState).getByText(

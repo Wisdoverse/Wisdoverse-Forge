@@ -7550,6 +7550,88 @@ export function EditableTeamRow() {
     )
   })
 
+  it('flags workspace setup wording in beginner-facing recovery copy', () => {
+    const cwd = fixture({
+      'src/app/routes/context.tsx': `
+export const detail = 'Saved notes review is available for this workspace. Ask an owner to check workspace setup.'
+`,
+      'src/app/routes/context-audit.tsx': `
+export const detail = 'Audit is enabled for this workspace. Ask an owner to check workspace setup.'
+`,
+      'src/app/features/settings/ResourcesSection.tsx': `
+export function ResourcesSection() {
+  return <p>Ask an owner or admin to add agent sizes in workspace settings.</p>
+}
+`,
+      'src/app/layouts/sidebar/ProjectTree.tsx': `
+function renameErrorMessage() {
+  return 'Refresh the left menu, then save this project name again. If it still fails, ask an owner or admin to check workspace setup.'
+}
+`,
+      'src/app/shared/lib/taskFailureCopy.ts': `
+export function taskBlockedPreview() {
+  return 'The workspace is busy. Retry later or ask an owner for help.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'workspace-setup-copy',
+          location: 'src/app/routes/context.tsx:2',
+        }),
+        expect.objectContaining({
+          type: 'workspace-setup-copy',
+          location: 'src/app/routes/context-audit.tsx:2',
+        }),
+        expect.objectContaining({
+          type: 'workspace-setup-copy',
+          location: 'src/app/features/settings/ResourcesSection.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'workspace-setup-copy',
+          location: 'src/app/layouts/sidebar/ProjectTree.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'workspace-setup-copy',
+          location: 'src/app/shared/lib/taskFailureCopy.ts:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts concrete setup wording for beginner-facing recovery copy', () => {
+    const cwd = fixture({
+      'src/app/routes/context.tsx': `
+export const detail = 'Saved notes review is available here. Ask an owner to check saved items setup.'
+`,
+      'src/app/routes/context-audit.tsx': `
+export const detail = 'Audit history is available here. Ask an owner to check audit setup.'
+`,
+      'src/app/features/settings/ResourcesSection.tsx': `
+export function ResourcesSection() {
+  return <p>Ask an owner or admin to add agent sizes in Work limits.</p>
+}
+`,
+      'src/app/layouts/sidebar/ProjectTree.tsx': `
+function renameErrorMessage() {
+  return 'Refresh the left menu, then save this project name again. If it still fails, ask an owner or admin to check team and project setup.'
+}
+`,
+      'src/app/shared/lib/taskFailureCopy.ts': `
+export function taskBlockedPreview() {
+  return 'Too much work is running right now. Wait a bit, then retry or ask an owner for help.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags first-run guide copy that describes a path instead of the setup checklist', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `

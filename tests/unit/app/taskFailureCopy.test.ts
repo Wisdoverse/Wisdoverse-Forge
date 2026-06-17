@@ -50,6 +50,20 @@ describe('taskFailureCopy', () => {
     expect(message).not.toContain('401')
   })
 
+  test('turns busy or rate-limit blocked hints into plain wait guidance', () => {
+    const message = taskBlockedPreview({
+      blockedHint: 'Rate limit exceeded: 429 from provider',
+      blockedReason: 'waiting_input',
+    })
+
+    expect(message).toBe(
+      'Too much work is running right now. Wait a bit, then retry or ask an owner for help.'
+    )
+    expect(message).not.toContain('workspace')
+    expect(message).not.toContain('429')
+    expect(message).not.toContain('provider')
+  })
+
   test('identifies raw failure details before they reach user-facing summaries', () => {
     expect(isRawTaskFailureDetail('command exited 1')).toBe(true)
     expect(isRawTaskFailureDetail('provider token rejected')).toBe(true)

@@ -9,14 +9,15 @@ describe('FeatureRouteLoadingState', () => {
     render(
       <FeatureRouteLoadingState
         title="Checking saved notes review"
-        detail="We are checking whether saved notes review is available for this workspace. If this takes more than a moment, refresh the page or ask an owner or admin to check workspace setup."
+        detail="We are checking whether saved notes review is available here. If this takes more than a moment, refresh the page or ask an owner or admin to check saved items setup."
       />
     )
 
     expect(screen.getByRole('status')).toHaveTextContent('Checking saved notes review')
     expect(screen.getByRole('status')).toHaveTextContent(
-      'refresh the page or ask an owner or admin to check workspace setup'
+      'refresh the page or ask an owner or admin to check saved items setup'
     )
+    expect(screen.getByRole('status')).not.toHaveTextContent(/workspace setup/i)
     expect(screen.getByRole('status')).not.toHaveTextContent(/context\s+review/i)
   })
 })

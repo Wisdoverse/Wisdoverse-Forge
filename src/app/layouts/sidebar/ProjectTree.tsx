@@ -212,7 +212,7 @@ function renameErrorMessage(target: RenameTarget, error: unknown): string {
     return `Wait a moment, then save this ${label} name again. The left menu is busy.`
   }
   if (status >= 500) {
-    return `Refresh the left menu, then save this ${label} name again. Forge could not save it right now. If it still fails, ask an owner or admin to check workspace setup.`
+    return `Refresh the left menu, then save this ${label} name again. Forge could not save it right now. If it still fails, ask an owner or admin to check team and project setup.`
   }
 
   return `Refresh the left menu, then save this ${label} name again. The ${label} name was not saved.`
@@ -265,7 +265,7 @@ function deleteErrorMessage(target: RenameTarget, error: unknown): string {
     return `Wait a moment, then delete this ${label} again. The left menu is busy.`
   }
   if (status >= 500) {
-    return `Refresh the left menu, then delete this ${label} again. Forge could not delete it right now. If it still fails, ask an owner or admin to check workspace setup.`
+    return `Refresh the left menu, then delete this ${label} again. Forge could not delete it right now. If it still fails, ask an owner or admin to check team and project setup.`
   }
 
   return `Refresh the left menu, then delete this ${label} again.`

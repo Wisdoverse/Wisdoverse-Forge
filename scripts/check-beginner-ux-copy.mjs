@@ -470,6 +470,14 @@ const SIDEBAR_LAYOUT_JARGON_PATTERNS = [
   /侧栏/,
 ]
 
+const WORKSPACE_SETUP_JARGON_PATTERNS = [
+  /\bfor this workspace\b/i,
+  /\bworkspace setup\b/i,
+  /\bworkspace settings\b/i,
+  /\bworkspace navigation\b/i,
+  /\bThe workspace is busy\b/i,
+]
+
 const START_GUIDE_PATH_JARGON_PATTERNS = [
   /\bStart with one safe path\b/i,
   /\bFinish this path\b/i,
@@ -2383,6 +2391,20 @@ function hasSidebarLayoutJargonCopy(relFile, line) {
   return SIDEBAR_LAYOUT_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasWorkspaceSetupJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/routes/context.tsx') &&
+    !relFile.endsWith('src/app/routes/context-audit.tsx') &&
+    !relFile.endsWith('src/app/features/settings/ResourcesSection.tsx') &&
+    !relFile.endsWith('src/app/layouts/sidebar/ProjectTree.tsx') &&
+    !relFile.endsWith('src/app/shared/lib/taskFailureCopy.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return WORKSPACE_SETUP_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasStartGuidePathJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
@@ -4160,6 +4182,16 @@ function scanFile(file, relFile) {
         type: 'left-menu-copy',
         location,
         message: 'User-facing navigation copy must say left menu instead of sidebar.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasWorkspaceSetupJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'workspace-setup-copy',
+        location,
+        message:
+          'Beginner-facing setup copy must name the concrete area instead of workspace setup jargon.',
         sample: line.trim(),
       })
     }

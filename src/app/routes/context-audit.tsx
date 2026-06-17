@@ -15,7 +15,7 @@ export const Route = createRoute({
         <FeatureRouteLoadingState
           testId="context-audit-route-loading"
           title="Checking audit access"
-          detail="We are confirming whether governance audit is enabled for this workspace. If this takes more than a moment, refresh the page or ask an owner or admin to check workspace setup."
+          detail="We are confirming whether audit history is available here. If this takes more than a moment, refresh the page or ask an owner or admin to check audit setup."
         />
       )
     }
