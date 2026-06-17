@@ -73,14 +73,16 @@ describe('ContextEvidenceList', () => {
     expect(screen.getByText('Health check completed successfully.')).toBeInTheDocument()
     expect(
       screen.getByText(
-        /Most users can rely on the summary above.*sharing details with an owner or admin/i
+        /Most users can rely on the summary above.*Open saved details.*sharing details with an owner or admin/i
       )
     ).toBeInTheDocument()
+    expect(screen.queryByText(/Open the full record/i)).toBeNull()
     expect(screen.queryByText(/sharing run details with support/i)).toBeNull()
     expect(screen.queryByText(/support details/i)).toBeNull()
     expect(screen.queryByText(/details with support/i)).toBeNull()
     expect(screen.queryByText(/this run already used it/i)).toBeNull()
-    expect(screen.getByText('Show full record')).toBeInTheDocument()
+    expect(screen.getByText('Show saved details')).toBeInTheDocument()
+    expect(screen.queryByText('Show full record')).toBeNull()
     expect(screen.queryByText('Evidence')).toBeNull()
     expect(screen.queryByText(/technical details/i)).toBeNull()
     expect(screen.queryByText(/raw details/i)).toBeNull()
@@ -187,7 +189,7 @@ describe('ContextEvidenceList', () => {
 
     expect(screen.getByText('Deployment check')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByText('Show full record'))
+    fireEvent.click(screen.getByText('Show saved details'))
 
     expect(screen.getAllByText(/Hidden for safety/i).length).toBeGreaterThan(0)
     expect(screen.getByText(/Required account access is missing/i)).toBeInTheDocument()
@@ -222,7 +224,7 @@ describe('ContextEvidenceList', () => {
     expect(screen.queryByText(/stack trace/i)).toBeNull()
     expect(screen.queryByText(/raw command output/i)).toBeNull()
 
-    fireEvent.click(screen.getByText('Show full record'))
+    fireEvent.click(screen.getByText('Show saved details'))
 
     expect(screen.getAllByText(/hit a problem/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/technical problem/i)).toBeNull()
@@ -230,6 +232,27 @@ describe('ContextEvidenceList', () => {
     expect(screen.queryByText(/postgres\.internal/i)).toBeNull()
     expect(screen.queryByText(/connection refused/i)).toBeNull()
     expect(screen.queryByText(/secret token/i)).toBeNull()
+  })
+
+  test('uses saved-detail wording when a full record cannot be shown safely', () => {
+    const circularPayload: Record<string, unknown> = {}
+    circularPayload.self = circularPayload
+
+    render(
+      <ContextEvidenceList
+        evidence={[
+          evidence({
+            payload: circularPayload,
+          }),
+        ]}
+        revokedItems={[]}
+      />
+    )
+
+    fireEvent.click(screen.getByText('Show saved details'))
+
+    expect(screen.getByText(/Saved details were recorded but could not be shown safely/i)).toBeDefined()
+    expect(screen.queryByText(/Full record details/i)).toBeNull()
   })
 
   test('uses a plain-language fallback for unknown evidence sources', () => {
