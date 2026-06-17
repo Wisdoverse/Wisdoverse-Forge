@@ -53,10 +53,10 @@ export function ContextCandidatesList({ title, kind, candidates }: ContextCandid
                   </p>
                   <a
                     href="/context"
-                    aria-label={`Open saved item review for ${title}`}
+                    aria-label={`Open saved notes review for ${title}`}
                     className="mt-2 inline-flex items-center gap-1 text-[10px] font-semibold text-apple-blue underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/30"
                   >
-                    <span>Open saved item review</span>
+                    <span>Open saved notes review</span>
                     <ArrowRight size={12} strokeWidth={2.25} aria-hidden="true" />
                   </a>
                   <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-secondary-light dark:text-secondary-dark">
@@ -99,7 +99,7 @@ function candidatePreview(candidate: TaskContextCandidate): string {
   const value = candidate.proposedPreview.content_preview
   return typeof value === 'string' && value.trim().length > 0
     ? value
-    : 'The summary is not ready yet. Open saved item review and read the full suggestion before using it.'
+    : 'The summary is not ready yet. Open saved notes review and read the full suggestion before using it.'
 }
 
 function candidateKindLabel(candidate: TaskContextCandidate): string {
@@ -123,10 +123,10 @@ function candidateStateLabel(state: TaskContextCandidate['state']): string {
 function candidateNextStep(candidate: TaskContextCandidate): string {
   switch (candidate.itemKind) {
     case 'memory':
-      return 'Next step: open Saved items, then review the wording before saving it for future tasks.'
+      return 'Next step: open Saved notes review, then check the wording before saving it for future tasks.'
     case 'skill':
-      return 'Next step: open Saved items, then review this instruction before agents can follow it.'
+      return 'Next step: open Saved notes review, then check this instruction before agents can follow it.'
     default:
-      return 'Next step: open Saved items, then review this suggestion before agents can reuse it.'
+      return 'Next step: open Saved notes review, then check this suggestion before agents can reuse it.'
   }
 }

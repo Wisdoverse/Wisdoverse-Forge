@@ -48,10 +48,10 @@ describe('taskDetailErrorMessage', () => {
     )
   })
 
-  test('uses saved item wording when the review preview cannot load', () => {
+  test('uses saved notes wording when the review preview cannot load', () => {
     const message = taskDetailErrorMessage('previewContext', new Error('HTTP 500'))
 
-    expect(message).toContain('Choose an available agent, then open saved item review again.')
+    expect(message).toContain('Choose an available agent, then open the saved notes review again.')
     expect(message).not.toMatch(new RegExp(['context', 'review'].join('\\s+'), 'i'))
   })
 

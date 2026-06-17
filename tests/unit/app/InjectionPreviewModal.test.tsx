@@ -45,8 +45,10 @@ describe('InjectionPreviewModal', () => {
       )
     ).toBeDefined()
     expect(screen.queryByText('No other saved items were found.')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Back to task' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Send task with selected notes' })).toBeDefined()
     expect(screen.getAllByLabelText('Close saved notes review')).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: /^Cancel$/ })).toBeNull()
     expect(screen.queryByText(/publish/i)).toBeNull()
     expect(screen.queryByText(/selected context/i)).toBeNull()
     expect(screen.queryByText(new RegExp(['skill', 'instructions'].join('\\s+'), 'i'))).toBeNull()
@@ -150,14 +152,14 @@ describe('InjectionPreviewModal', () => {
       <InjectionPreviewModal
         isOpen
         preview={null}
-        error="No agent can prepare the saved item preview right now. Open Agents to start or connect an agent, then return to the board and refresh."
+        error="No agent can prepare the saved notes review right now. Open Agents to start or connect an agent, then return to the board and refresh."
         onClose={() => {}}
         onConfirm={() => {}}
       />
     )
 
     const alert = screen.getByRole('alert')
-    expect(alert.textContent).toContain('No agent can prepare the saved item preview right now')
+    expect(alert.textContent).toContain('No agent can prepare the saved notes review right now')
     expect(alert.textContent).toContain('Open Agents to start or connect an agent')
     expect(screen.getByText(/choose an available agent, then try sending again/i)).toBeDefined()
     expect(screen.queryByText('No saved notes review is available yet.')).toBeNull()

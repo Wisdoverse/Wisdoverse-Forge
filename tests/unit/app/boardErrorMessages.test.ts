@@ -39,15 +39,15 @@ describe('boardActionErrorMessage', () => {
 
   test('gives a clear next step when no agent can preview context', () => {
     expect(boardActionErrorMessage('previewContext', new Error('No available agent'))).toBe(
-      'No agent can prepare the saved item preview right now. Open Agents to start or connect an agent, then return to the board and refresh.'
+      'No agent can prepare the saved notes review right now. Open Agents to start or connect an agent, then return to the board and refresh.'
     )
   })
 
-  test('uses saved item wording when board send fails', () => {
+  test('uses saved notes wording when board send fails', () => {
     const message = boardActionErrorMessage('publishTask', new Error('HTTP 500'))
 
     expect(message).toContain(
-      'Review the saved item preview, then send the task with selected saved items again.'
+      'Review the saved notes, then send the task with selected saved notes again.'
     )
     expect(message).toContain('The task was not sent.')
     expect(message).not.toMatch(
@@ -74,10 +74,10 @@ describe('boardActionErrorMessage', () => {
     expect(message).not.toContain('temporarily unavailable')
   })
 
-  test('uses saved item preview recovery wording when preview fails', () => {
+  test('uses saved notes review recovery wording when preview fails', () => {
     const message = boardActionErrorMessage('previewContext', new Error('HTTP 500'))
 
-    expect(message).toContain('Choose an available agent, then open the saved item preview again.')
+    expect(message).toContain('Choose an available agent, then open the saved notes review again.')
     expect(message).not.toMatch(new RegExp(['context', 'preview'].join('\\s+'), 'i'))
     expect(message).not.toContain('HTTP 500')
   })

@@ -239,7 +239,7 @@ export function InjectionPreviewModal({
             disabled={publishing}
             className="rounded-full bg-apple-gray-5 px-4 py-2 text-ui-button font-medium transition-colors hover:bg-apple-gray-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:opacity-50 dark:bg-white/[0.06] dark:hover:bg-white/[0.1]"
           >
-            Cancel
+            Back to task
           </button>
           <button
             type="button"

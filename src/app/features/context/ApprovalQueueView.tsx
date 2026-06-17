@@ -271,7 +271,7 @@ export function ApprovalQueueView() {
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-ui-caption font-semibold text-apple-blue">
               <ShieldCheck size={14} strokeWidth={2} aria-hidden="true" />
-              <span>Saved item review</span>
+              <span>Saved notes review</span>
             </div>
             <h1 className="mt-1 text-ui-title font-semibold">Review what agents can save</h1>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
@@ -356,7 +356,7 @@ export function ApprovalQueueView() {
           {loading && candidates.length === 0 ? (
             <div className="flex h-64 items-center justify-center gap-2 text-ui-body text-secondary-light dark:text-secondary-dark">
               <Loader2 size={18} strokeWidth={2} className="animate-spin" aria-hidden="true" />
-              <span>Checking saved items...</span>
+              <span>Checking saved notes and instructions...</span>
             </div>
           ) : candidates.length === 0 ? (
             <div
