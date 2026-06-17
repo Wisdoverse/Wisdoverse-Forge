@@ -1084,6 +1084,15 @@ const GETTING_STARTED_REVIEW_EVIDENCE_JARGON_PATTERNS = [
   /输出或证据/,
 ]
 
+const GETTING_STARTED_WORKSPACE_LABEL_PATTERNS = [
+  /\btitle:\s*['"`]Workspace['"`]/i,
+  /\bcreate:\s*['"`]Create workspace['"`]/i,
+  /\breview:\s*['"`]Review workspace['"`]/i,
+  /title:\s*['"`]工作区['"`]/,
+  /create:\s*['"`]创建工作区['"`]/,
+  /review:\s*['"`]查看工作区['"`]/,
+]
+
 const TASK_DETAIL_EVIDENCE_JARGON_PATTERNS = [
   /\bResult files and evidence\b/i,
   /\bUse this result as evidence\b/i,
@@ -1930,6 +1939,17 @@ function hasGettingStartedReviewEvidenceJargonCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return GETTING_STARTED_REVIEW_EVIDENCE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasGettingStartedWorkspaceLabelCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return GETTING_STARTED_WORKSPACE_LABEL_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasTaskDetailEvidenceJargonCopy(relFile, line) {
@@ -3709,6 +3729,16 @@ function scanFile(file, relFile) {
         type: 'getting-started-review-copy',
         location,
         message: 'Getting Started review copy must describe output and result files plainly.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasGettingStartedWorkspaceLabelCopy(relFile, line)) {
+      findings.push({
+        type: 'getting-started-team-project-copy',
+        location,
+        message:
+          'Getting Started team/project setup copy must name team and project instead of workspace.',
         sample: line.trim(),
       })
     }

@@ -116,12 +116,12 @@ export const en = {
     },
     steps: {
       workspace: {
-        title: 'Workspace',
+        title: 'Team and project',
         empty: 'Create one team and project so tasks have a clear home.',
         why: 'A project gives tasks a clear home so agents know what work belongs together.',
         success: 'A team and project exist, and the project is selected.',
-        create: 'Create workspace',
-        review: 'Review workspace',
+        create: 'Create team and project',
+        review: 'Review team and project',
       },
       runtime: {
         title: 'Work location',

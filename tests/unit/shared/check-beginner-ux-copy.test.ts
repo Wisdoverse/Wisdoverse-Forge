@@ -9497,6 +9497,102 @@ function render() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags getting started setup labels that still say workspace', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  gettingStarted: {
+    steps: {
+      workspace: {
+        title: 'Workspace',
+        create: 'Create workspace',
+        review: 'Review workspace',
+      },
+    },
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  gettingStarted: {
+    steps: {
+      workspace: {
+        title: '工作区',
+        create: '创建工作区',
+        review: '查看工作区',
+      },
+    },
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'getting-started-team-project-copy',
+          sample: expect.stringContaining('Workspace'),
+        }),
+        expect.objectContaining({
+          type: 'getting-started-team-project-copy',
+          sample: expect.stringContaining('Create workspace'),
+        }),
+        expect.objectContaining({
+          type: 'getting-started-team-project-copy',
+          sample: expect.stringContaining('Review workspace'),
+        }),
+        expect.objectContaining({
+          type: 'getting-started-team-project-copy',
+          sample: expect.stringContaining('工作区'),
+        }),
+        expect.objectContaining({
+          type: 'getting-started-team-project-copy',
+          sample: expect.stringContaining('创建工作区'),
+        }),
+        expect.objectContaining({
+          type: 'getting-started-team-project-copy',
+          sample: expect.stringContaining('查看工作区'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts getting started setup labels that name team and project', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  gettingStarted: {
+    steps: {
+      workspace: {
+        title: 'Team and project',
+        create: 'Create team and project',
+        review: 'Review team and project',
+      },
+    },
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  gettingStarted: {
+    steps: {
+      workspace: {
+        title: '团队和项目',
+        create: '创建团队和项目',
+        review: '查看团队和项目',
+      },
+    },
+  },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags legal privacy copy that exposes evidence jargon', () => {
     const cwd = fixture({
       'src/app/shared/ui/legal/LegalPage.ts': `
