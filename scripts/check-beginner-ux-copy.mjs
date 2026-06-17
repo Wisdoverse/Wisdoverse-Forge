@@ -456,6 +456,14 @@ const START_NAV_LABEL_JARGON_PATTERNS = [
   /^\s*start:\s*['"`]开始['"`]/,
 ]
 
+const START_GUIDE_PATH_JARGON_PATTERNS = [
+  /\bStart with one safe path\b/i,
+  /\bFinish this path\b/i,
+  /\bsafe path\b/i,
+  /安全路径/,
+  /最小路径/,
+]
+
 const TASK_VIEW_LABEL_JARGON_PATTERNS = [/\bid:\s*['"`]3d['"`]\s*,\s*label:\s*['"`]3D['"`]/]
 
 const TOP_BAR_CREATE_TASK_JARGON_PATTERNS = [/\+\s*Task\b/]
@@ -734,6 +742,8 @@ const TASK_STATUS_FALLBACK_DEAD_END_PATTERNS = [
 const TASK_COMPLETION_SUMMARY_DEAD_END_PATTERNS = [/\bNo completion summary was provided\b/i]
 
 const TASK_OWNER_INPUT_JARGON_PATTERNS = [/\bneeds owner input\b/i]
+
+const TASK_REUSE_PATH_JARGON_PATTERNS = [/\bsave-for-next-time path\b/i]
 
 const TASK_RECOVERY_STATUS_DEAD_END_PATTERNS = [
   /\bfailed:\s*['"`]Needs review['"`]/,
@@ -2252,6 +2262,17 @@ function hasStartNavJargonCopy(relFile, lines, index, line) {
   return isNavLabel || START_NAV_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasStartGuidePathJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return START_GUIDE_PATH_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasTaskViewLabelJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/layouts/TopBar.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -2579,6 +2600,12 @@ function hasTaskOwnerInputJargonCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return TASK_OWNER_INPUT_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasTaskReusePathJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/detail/DescriptionTab.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_REUSE_PATH_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasTaskRecoveryStatusDeadEndCopy(relFile, line) {
@@ -3968,6 +3995,15 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasStartGuidePathJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'start-guide-path-copy',
+        location,
+        message: 'First-run guide copy must say setup checklist instead of path.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasBoardActionFailureFirstCopy(relFile, line)) {
       findings.push({
         type: 'board-action-error-copy',
@@ -4284,6 +4320,15 @@ function scanFile(file, relFile) {
         type: 'task-owner-input-copy',
         location,
         message: 'Task owner guidance must ask for the user answer, not owner-input jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskReusePathJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'task-reuse-path-copy',
+        location,
+        message: 'Task reuse copy must say option instead of path.',
         sample: line.trim(),
       })
     }

@@ -7162,6 +7162,66 @@ const item = { description: 'follow the setup checklist' }
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags first-run guide copy that describes a path instead of the setup checklist', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  gettingStarted: {
+    title: 'Start with one safe path',
+    description: 'Follow one step at a time. Finish this path to create an agent.',
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  gettingStarted: {
+    title: '先按一条安全路径跑通',
+    description: '一次只做一步。先完成这条最小路径。',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'start-guide-path-copy',
+          sample: expect.stringContaining('Start with one safe path'),
+        }),
+        expect.objectContaining({
+          type: 'start-guide-path-copy',
+          sample: expect.stringContaining('安全路径'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts first-run guide copy that uses setup checklist wording', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  gettingStarted: {
+    title: 'Set up your first agent safely',
+    description: 'Follow one step at a time. Finish this checklist to create an agent.',
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  gettingStarted: {
+    title: '按清单安全设置第一个 Agent',
+    description: '一次只做一步。按这份设置清单创建 Agent。',
+  },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags bare 3D task view labels in the top bar', () => {
     const cwd = fixture({
       'src/app/layouts/TopBar.tsx': `
@@ -10461,6 +10521,38 @@ const COLUMN_EMPTY_STATE = {
       'src/app/features/board/KanbanColumn.tsx': `
 const COLUMN_EMPTY_STATE = {
   failed: { title: 'Retry steps appear here after a task stops', detail: 'Review the recovery note and retry steps.' },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags task detail reuse copy that describes a save-for-next-time path', () => {
+    const cwd = fixture({
+      'src/app/features/detail/DescriptionTab.tsx': `
+function DescriptionTab() {
+  return <p>The save-for-next-time path becomes available once useful work is completed.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'task-reuse-path-copy',
+        location: 'src/app/features/detail/DescriptionTab.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts task detail reuse copy that describes a save-for-next-time option', () => {
+    const cwd = fixture({
+      'src/app/features/detail/DescriptionTab.tsx': `
+function DescriptionTab() {
+  return <p>The save-for-next-time option becomes available once useful work is completed.</p>
 }
 `,
     })

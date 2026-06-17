@@ -85,8 +85,8 @@ export const zh: TranslationKeys = {
   // =========================================================================
   gettingStarted: {
     eyebrow: '首次使用',
-    title: '先按一条安全路径跑通',
-    description: '一次只做一步。先完成创建 Agent、发送任务、验收结果这条最小路径。',
+    title: '按清单安全设置第一个 Agent',
+    description: '一次只做一步。按这份设置清单创建 Agent、发送任务、验收结果。',
     skip: '跳过并打开任务',
     skipSaving: '正在跳过...',
     skipHint:

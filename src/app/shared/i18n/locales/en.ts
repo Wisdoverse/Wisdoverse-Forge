@@ -84,9 +84,9 @@ export const en = {
   // =========================================================================
   gettingStarted: {
     eyebrow: 'First run',
-    title: 'Start with one safe path',
+    title: 'Set up your first agent safely',
     description:
-      'Follow one step at a time. Finish this path to create an agent, send work, and review the result.',
+      'Follow one step at a time. Finish this checklist to create an agent, send work, and review the result.',
     skip: 'Skip and open Tasks',
     skipSaving: 'Skipping...',
     skipHint:

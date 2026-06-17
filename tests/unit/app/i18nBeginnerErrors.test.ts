@@ -271,6 +271,16 @@ describe('beginner error translations', () => {
     expect(JSON.stringify(zh.gettingStarted.steps.reuse)).not.toContain('技能上下文')
   })
 
+  test('getting started first-run copy uses checklist wording', () => {
+    expect(en.gettingStarted.title).toBe('Set up your first agent safely')
+    expect(en.gettingStarted.description).toContain('Finish this checklist')
+    expect(`${en.gettingStarted.title} ${en.gettingStarted.description}`).not.toMatch(/\bpath\b/i)
+
+    expect(zh.gettingStarted.title).toBe('按清单安全设置第一个 Agent')
+    expect(zh.gettingStarted.description).toContain('这份设置清单')
+    expect(`${zh.gettingStarted.title} ${zh.gettingStarted.description}`).not.toContain('路径')
+  })
+
   test('getting started review copy avoids evidence jargon', () => {
     expect(en.gettingStarted.steps.review.why).toContain('useful output')
     expect(en.gettingStarted.steps.review.success).toContain('result files')
