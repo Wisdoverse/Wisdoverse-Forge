@@ -135,7 +135,10 @@ describe('AuditLogView', () => {
     expect(screen.queryByRole('option', { name: 'Workspace' })).toBeNull()
     expect(screen.queryByRole('option', { name: 'Organization' })).toBeNull()
     expect(screen.getByText('Person ID')).toBeDefined()
-    expect(screen.getByPlaceholderText(/user ID when support asks for one/i)).toBeDefined()
+    expect(
+      screen.getByPlaceholderText(/user ID only when you need one exact person/i)
+    ).toBeDefined()
+    expect(screen.queryByPlaceholderText(/user ID when support asks for one/i)).toBeNull()
     expect(screen.getAllByTestId('governance-audit-row')).toHaveLength(2)
     expect(screen.getByText('Change')).toBeDefined()
     expect(screen.getByText('Feedback recorded')).toBeDefined()

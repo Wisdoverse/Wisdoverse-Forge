@@ -357,7 +357,7 @@ export function AuditLogView() {
               name="userId"
               autoComplete="off"
               onChange={(event) => updateFilter('userId', event.target.value)}
-              placeholder="Paste a user ID when support asks for one"
+              placeholder="Paste a user ID only when you need one exact person"
               className={INPUT_CLASS}
             />
           </Field>
