@@ -562,7 +562,7 @@ export const en = {
         start_api: {
           title: 'Send a message to start this chat-only agent',
           detail:
-            'Chat-only agents start work when you send a message. There is no live workspace to start.',
+            'Chat-only agents start work when you send a message. There is no file work area to start.',
         },
         stop_host_cli: {
           title: 'Stop the connection helper on your computer',
@@ -572,7 +572,7 @@ export const en = {
         stop_api: {
           title: 'Close the chat or wait for the reply to finish',
           detail:
-            'Chat-only agents have no live workspace to stop. Send a new message when you need more help.',
+            'Chat-only agents have no file work area to stop. Send a new message when you need more help.',
         },
         not_permitted: {
           title: 'You cannot manage this agent',

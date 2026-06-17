@@ -175,7 +175,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
             </h2>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
               Save instructions your agents can reuse on future tasks. Keep it general and safe
-              enough for the workspace.
+              enough for this team space.
             </p>
           </div>
           <button
