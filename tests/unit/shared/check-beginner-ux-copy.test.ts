@@ -7540,6 +7540,72 @@ function KeyRow() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags outside tool access value copy that hides the one-time save action behind key jargon', () => {
+    const cwd = fixture({
+      'src/app/features/settings/KeysSection.tsx': `
+function NewKeyBanner() {
+  return (
+    <section>
+      <p>This is the only time the full key is shown. Copy it into a password manager before choosing I saved it.</p>
+      <button>Copy key</button>
+      <p>Forge cannot copy from this browser. Select the key text, then copy it manually before choosing I saved it.</p>
+      <th>Key preview</th>
+    </section>
+  )
+}
+const ACCESS_KEY_EMPTY_STEPS = ['Copy the new key into a password manager before closing this message.']
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'access-key-secret-value-copy',
+          sample: expect.stringContaining('full key'),
+        }),
+        expect.objectContaining({
+          type: 'access-key-secret-value-copy',
+          sample: expect.stringContaining('Copy key'),
+        }),
+        expect.objectContaining({
+          type: 'access-key-secret-value-copy',
+          sample: expect.stringContaining('Select the key text'),
+        }),
+        expect.objectContaining({
+          type: 'access-key-secret-value-copy',
+          sample: expect.stringContaining('Key preview'),
+        }),
+        expect.objectContaining({
+          type: 'access-key-secret-value-copy',
+          sample: expect.stringContaining('Copy the new key'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts outside tool access value copy that tells beginners what to save', () => {
+    const cwd = fixture({
+      'src/app/features/settings/KeysSection.tsx': `
+function NewKeyBanner() {
+  return (
+    <section>
+      <p>This full access value is shown only once. Save it in a password manager before choosing I saved this value.</p>
+      <button>Copy access value</button>
+      <p>Forge cannot copy from this browser. Select the access value text, then copy it manually before choosing I saved this value.</p>
+      <th>Saved key starts with</th>
+    </section>
+  )
+}
+const ACCESS_KEY_EMPTY_STEPS = ['Save the new access value in a password manager before closing this message.']
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags code access setup copy that starts with a vague key', () => {
     const cwd = fixture({
       'src/app/features/settings/GitCredentialsSection.tsx': `

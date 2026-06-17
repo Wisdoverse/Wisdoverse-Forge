@@ -10,7 +10,7 @@ import { platformKeyErrorMessage } from './platformKeyErrorMessage'
 const ACCESS_KEY_EMPTY_STEPS = [
   'Create one only for a tool you trust.',
   'Name it after the exact tool or job that will use it.',
-  'Copy the new key into a password manager before closing this message.',
+  'Save the new access value in a password manager before closing this message.',
 ]
 
 // ============================================================================
@@ -121,7 +121,7 @@ function NewKeyBanner({ keyValue, onDismiss }: NewKeyBannerProps) {
     setCopyError(null)
     if (!navigator.clipboard?.writeText) {
       setCopyError(
-        'Forge cannot copy from this browser. Select the key text, then copy it manually before choosing I saved it.'
+        'Forge cannot copy from this browser. Select the access value text, then copy it manually before choosing I saved this value.'
       )
       return
     }
@@ -131,7 +131,7 @@ function NewKeyBanner({ keyValue, onDismiss }: NewKeyBannerProps) {
       setTimeout(() => setCopied(false), 2000)
     } catch {
       setCopyError(
-        'Forge cannot copy from this browser. Select the key text, then copy it manually before choosing I saved it.'
+        'Forge cannot copy from this browser. Select the access value text, then copy it manually before choosing I saved this value.'
       )
     }
   }
@@ -145,11 +145,11 @@ function NewKeyBanner({ keyValue, onDismiss }: NewKeyBannerProps) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
           <p className="mb-1 text-ui-caption font-semibold">
-            Outside tool access key created - save it now
+            Outside tool access key created - save this value now
           </p>
           <p className="mb-2 text-ui-caption text-apple-blue/80">
-            This is the only time the full key is shown. Copy it into a password manager before
-            choosing I saved it.
+            This full access value is shown only once. Save it in a password manager before choosing
+            I saved this value.
           </p>
           <code className="break-all font-mono text-ui-caption">{keyValue}</code>
           {copyError && (
@@ -167,14 +167,14 @@ function NewKeyBanner({ keyValue, onDismiss }: NewKeyBannerProps) {
               'flex-1 sm:flex-none'
             )}
           >
-            {copied ? 'Copied' : 'Copy key'}
+            {copied ? 'Copied' : 'Copy access value'}
           </button>
           <button
             type="button"
             onClick={onDismiss}
             className={cn(uiStyles.subtleButton, 'flex-1 sm:flex-none')}
           >
-            I saved it
+            I saved this value
           </button>
         </div>
       </div>
@@ -295,7 +295,7 @@ export function KeysSection() {
 
   const tableHeaders: { label: string; className?: string }[] = [
     { label: 'Name' },
-    { label: 'Key preview' },
+    { label: 'Saved key starts with' },
     { label: 'Created' },
     { label: 'Last used' },
     { label: '', className: 'w-20' },

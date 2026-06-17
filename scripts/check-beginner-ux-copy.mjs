@@ -421,6 +421,14 @@ const CODE_ACCESS_KEY_JARGON_PATTERNS = [/\bPaste the key from GitHub or GitLab\
 
 const ACCESS_KEY_LAST_USED_DEAD_END_PATTERNS = [/\bNot used yet\b/i]
 
+const ACCESS_KEY_SECRET_VALUE_JARGON_PATTERNS = [
+  /\bCopy the new key into a password manager\b/i,
+  /\bonly time the full key is shown\b/i,
+  /\bCopy key\b/i,
+  /\bSelect the key text\b/i,
+  /\bKey preview\b/i,
+]
+
 const DATE_FALLBACK_DEAD_END_PATTERNS = [
   /\b(?:Added|Created|Sign-in|Last used) date not reported\b/i,
   /\b(?:Added|Created|Sign-in|Last used) date needs review\b/i,
@@ -2392,6 +2400,12 @@ function hasAccessKeyLastUsedDeadEndCopy(relFile, line) {
   return ACCESS_KEY_LAST_USED_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAccessKeySecretValueJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/settings/KeysSection.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ACCESS_KEY_SECRET_VALUE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasCodeAccessKeyJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/settings/GitCredentialsSection.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -4282,6 +4296,15 @@ function scanFile(file, relFile) {
         type: 'access-key-last-used-copy',
         location,
         message: 'Outside tool access copy must explain that a trusted tool uses the key first.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAccessKeySecretValueJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'access-key-secret-value-copy',
+        location,
+        message: 'Outside tool access copy must tell beginners to save the one-time access value.',
         sample: line.trim(),
       })
     }
