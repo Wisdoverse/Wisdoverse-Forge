@@ -1209,6 +1209,19 @@ const AGENT_WORK_AREA_DISPLAY_JARGON_PATTERNS = [
   /\bWorkspace project folder\b/i,
 ]
 
+const AGENT_FILE_WORK_CONTROL_JARGON_PATTERNS = [
+  /\bStart (?:the|this) workspace\b/i,
+  /\bStart workspace\b/i,
+  /\bWorkspace start requested\b/i,
+  /\bFix a stuck workspace\b/i,
+  /\bAgent workspace controls\b/i,
+  /\bWorkspace needs to start\b/i,
+  /\bno workspace is running yet\b/i,
+  /\bworkspace looks ready\b/i,
+  /\bThis workspace is not connected\b/i,
+  /\bworkspace before this agent works on files\b/i,
+]
+
 const PROJECT_SHARE_ROLE_JARGON_PATTERNS = [/\bInvite people and choose roles\b/i]
 
 const VAGUE_ACCESS_RECOVERY_PATTERNS = [
@@ -2077,6 +2090,17 @@ function hasAgentWorkAreaDisplayJargonCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return AGENT_WORK_AREA_DISPLAY_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentFileWorkControlJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/agents/AgentControlPanel.tsx') &&
+    !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_FILE_WORK_CONTROL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentModelDeadEndCopy(relFile, line) {
@@ -3788,6 +3812,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Agent display copy must explain project files and project area instead of managed-workspace internals.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentFileWorkControlJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-file-work-control-copy',
+        location,
+        message: 'Agent file-work controls must say file work instead of workspace internals.',
         sample: line.trim(),
       })
     }

@@ -278,21 +278,21 @@ describe('AgentControlPanel', () => {
       />
     )
 
-    expect(screen.getByText('Workspace needs to start')).toBeDefined()
-    expect(screen.getByText(/no workspace is running yet/i)).toBeDefined()
+    expect(screen.getByText('File work needs to start')).toBeDefined()
+    expect(screen.getByText(/file work has not started yet/i)).toBeDefined()
     expect(screen.getByText(/Wait for Ready before sending file work/i)).toBeDefined()
     expect(
-      screen.getByText(/Start this workspace before sending file work or opening Live work/i)
+      screen.getByText(/Start file work before sending file tasks or opening Live work/i)
     ).toBeDefined()
     expect(screen.queryByText(/opening a terminal/i)).toBeNull()
     expect(screen.queryByText(/opening the command window/i)).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: /start workspace/i }))
+    fireEvent.click(screen.getByRole('button', { name: /start file work/i }))
 
     await waitFor(() => {
       expect(startAgentMock).toHaveBeenCalledWith('pending-agent')
     })
-    expect(await screen.findByRole('status')).toHaveTextContent('Workspace start requested')
+    expect(await screen.findByRole('status')).toHaveTextContent('File work start requested')
     expect(screen.getByRole('status')).toHaveTextContent(
       'Refresh Agents until this agent shows Ready'
     )
@@ -308,18 +308,18 @@ describe('AgentControlPanel', () => {
       />
     )
 
-    const startButton = screen.getByRole('button', { name: /start workspace/i })
+    const startButton = screen.getByRole('button', { name: /start file work/i })
     fireEvent.click(startButton)
 
     await waitFor(() => expect(startButton).not.toBeDisabled())
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('Action did not finish')
-    expect(alert).toHaveTextContent(/Refresh Agents, then choose Start workspace again/i)
+    expect(alert).toHaveTextContent(/Refresh Agents, then choose Start file work again/i)
     expect(alert).toHaveTextContent(/ask an owner or admin to check Where agents run/i)
     expect(alert).not.toHaveTextContent(/agent control action failed/i)
     expect(screen.queryByRole('status')).toBeNull()
-    expect(screen.getByRole('button', { name: /start workspace/i })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /start file work/i })).toBeEnabled()
   })
 
   test('warns before restarting a running agent workspace', async () => {
@@ -335,7 +335,7 @@ describe('AgentControlPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /keep running/i }))
     expect(restartAgentMock).not.toHaveBeenCalled()
 
-    expect(screen.getByText('Fix a stuck workspace')).toBeDefined()
+    expect(screen.getByText('Fix stuck file work')).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: /restart agent/i }))
     fireEvent.click(screen.getByRole('button', { name: /restart now/i }))
 
@@ -358,7 +358,7 @@ describe('AgentControlPanel', () => {
 
     await waitFor(() => {
       expect(restartAgentMock).toHaveBeenCalledWith('agent-1')
-      expect(screen.getByText('Fix a stuck workspace')).toBeDefined()
+      expect(screen.getByText('Fix stuck file work')).toBeDefined()
     })
 
     const alert = screen.getByRole('alert')

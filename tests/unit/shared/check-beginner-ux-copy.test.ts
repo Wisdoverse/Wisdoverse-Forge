@@ -3387,7 +3387,7 @@ function agentAvailabilityLabel() {
     const cwd = fixture({
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
 function agentAvailabilityLabel() {
-  return 'Open Live work and start workspace'
+  return 'Open Live work and start file work'
 }
 `,
     })
@@ -3421,7 +3421,55 @@ function PendingTerminal() {
     const cwd = fixture({
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
 function PendingTerminal() {
-  return 'Check the agent status, then choose Start workspace again.'
+  return 'Check the agent status, then choose Start file work again.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags workspace wording in agent file-work controls', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentControlPanel.tsx': `
+function StartCard() {
+  return 'Workspace needs to start. Choose Start workspace again.'
+}
+`,
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function PendingTerminal() {
+  return 'Open Live work, choose Start workspace, and wait until this agent shows Ready.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-file-work-control-copy',
+          location: 'src/app/features/agents/AgentControlPanel.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-file-work-control-copy',
+          location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts file-work wording in agent start controls', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentControlPanel.tsx': `
+function StartCard() {
+  return 'File work needs to start. Choose Start file work again.'
+}
+`,
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function PendingTerminal() {
+  return 'Open Live work, choose Start file work, and wait until this agent shows Ready.'
 }
 `,
     })
