@@ -736,7 +736,7 @@ export const zh: TranslationKeys = {
       role: '访问级别',
       roles: {
         admin: '管理员',
-        operator: '操作员',
+        operator: '成员',
         viewer: '查看者',
       },
       status: {

@@ -433,6 +433,10 @@ describe('beginner error translations', () => {
     expect(zh.gettingStarted.steps.routing.title).toBe('任务队列')
     expect(JSON.stringify(zh.gettingStarted)).not.toContain('工作通道')
     expect(zh.admin.agents.title).toBe('Agent 管理')
+    expect(en.admin.users.roles.operator).toBe('Member')
+    expect(zh.admin.users.roles.operator).toBe('成员')
+    expect(en.admin.users.roles.operator).not.toBe('Operator')
+    expect(zh.admin.users.roles.operator).not.toBe('操作员')
     expect(JSON.stringify(zh)).not.toContain('会话')
   })
 

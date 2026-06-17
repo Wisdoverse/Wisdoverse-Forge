@@ -341,6 +341,25 @@ describe('HistoryTab', () => {
     expect(screen.queryByText(/Confirm the answer matches the brief/i)).toBeNull()
   })
 
+  test('summarizes completed result files plainly', async () => {
+    getTaskRunsMock.mockResolvedValue([])
+
+    render(
+      <HistoryTab
+        task={makeTask({
+          state: 'completed',
+          progress: 100,
+          result: [{ name: 'summary.md', mimeType: 'text/markdown', data: 'Done' }],
+          completedAt: '2026-04-25T06:20:00Z',
+        })}
+      />
+    )
+
+    expect(await screen.findByText('Build Agent finished the task')).toBeInTheDocument()
+    expect(screen.getByText('1 result file ready to review.')).toBeInTheDocument()
+    expect(screen.queryByText(/result item/i)).toBeNull()
+  })
+
   test('turns canceled task history into a decision step', async () => {
     getTaskRunsMock.mockResolvedValue([])
 
