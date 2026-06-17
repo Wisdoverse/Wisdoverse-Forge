@@ -58,7 +58,7 @@ describe('SshKeysSection', () => {
     const emptyState = screen.getByTestId('ssh-access-empty-state')
     expect(within(emptyState).getAllByText(/starts with git@/i).length).toBeGreaterThan(0)
     expect(within(emptyState).getByText(/starts with https:\/\//i)).toBeDefined()
-    expect(within(emptyState).getByText(/use Code Repository Access instead/i)).toBeDefined()
+    expect(within(emptyState).getByText(/use HTTPS code access instead/i)).toBeDefined()
     expect(within(emptyState).getByText(/skip this for public projects/i)).toBeDefined()
     expect(
       within(emptyState).getByRole('button', { name: /add SSH code access/i })

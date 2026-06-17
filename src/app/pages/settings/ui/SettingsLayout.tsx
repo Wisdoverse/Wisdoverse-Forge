@@ -57,7 +57,7 @@ const SECTIONS: SectionItem[] = [
   },
   {
     id: 'git-credentials',
-    label: 'Code Repository Access',
+    label: 'HTTPS code access',
     description: 'Use this when a private code link starts with https://.',
     group: 'Work setup',
     Icon: GitBranch,

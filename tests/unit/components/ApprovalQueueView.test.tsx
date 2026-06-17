@@ -139,7 +139,7 @@ describe('ApprovalQueueView', () => {
 
     await userEvent.setup().click(screen.getByRole('button', { name: 'All saved items' }))
     await userEvent.setup().selectOptions(screen.getByLabelText('Item type'), 'skill')
-    await userEvent.setup().selectOptions(screen.getByLabelText('Sharing range'), 'team')
+    await userEvent.setup().selectOptions(screen.getByLabelText('Who can reuse it'), 'team')
 
     await waitFor(() => {
       expect(listContextCandidatesMock).toHaveBeenCalledWith(
@@ -148,7 +148,7 @@ describe('ApprovalQueueView', () => {
     })
   })
 
-  test('approves a candidate with scope, TTL, sensitivity, and note', async () => {
+  test('approves a candidate with reuse range, sharing stop time, sensitive level, and note', async () => {
     render(<ApprovalQueueView />)
     await screen.findByText('Prod deploy memory')
 
@@ -164,10 +164,12 @@ describe('ApprovalQueueView', () => {
     expect(within(dialog).getByRole('status')).toHaveTextContent(
       /confirm your team can reuse this safely/i
     )
-    await userEvent.setup().type(within(dialog).getByLabelText(/expiration/i), '2030-01-01T12:00')
     await userEvent
       .setup()
-      .selectOptions(within(dialog).getByLabelText('Sensitivity'), 'confidential')
+      .type(within(dialog).getByLabelText(/stop sharing after/i), '2030-01-01T12:00')
+    await userEvent
+      .setup()
+      .selectOptions(within(dialog).getByLabelText('Sensitive content level'), 'confidential')
     await userEvent.setup().type(within(dialog).getByLabelText('Note'), 'Approved for team reuse')
     await userEvent.setup().click(
       within(dialog).getByRole('checkbox', {
