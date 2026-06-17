@@ -843,6 +843,32 @@ impl OrchestrationService {
         }
     }
 
+    /// Load a task by id (tenant-scoped), build its summary, and broadcast a
+    /// `orchestration:task_update` frame so connected clients refresh in
+    /// realtime. Best-effort: a missing task, a summarize failure, or a NATS
+    /// hiccup is logged and swallowed — it never turns a successful mutation
+    /// into a failed request. Used by surfaces that change a task OUTSIDE the
+    /// orchestration routes (e.g. the self-fix approve→merge transition, which
+    /// flips `review_status` to `merged`) and still want every operator's board
+    /// and Review tab to reflect it without a manual refetch.
+    pub(crate) async fn broadcast_task_update_by_id(&self, scope: &TenantScope, task_id: Uuid, action: &str) {
+        let task = match self.task_repo.find_by_id(scope, task_id).await {
+            Ok(task) => task,
+            Err(err) => {
+                tracing::warn!(error = ?err, %task_id, %action, "broadcast_task_update_by_id: task load failed");
+                return;
+            }
+        };
+        let summary = match self.summarize_task(scope, task).await {
+            Ok(summary) => summary,
+            Err(err) => {
+                tracing::warn!(error = ?err, %task_id, %action, "broadcast_task_update_by_id: summarize failed");
+                return;
+            }
+        };
+        self.broadcast_task_update(scope, action, &summary).await;
+    }
+
     #[allow(clippy::too_many_arguments)]
     async fn create_task_with_assignee(
         &self,

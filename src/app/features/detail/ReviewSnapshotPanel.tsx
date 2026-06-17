@@ -63,6 +63,19 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
     }
   }, [task.id])
 
+  // Realtime sync: another operator's approve→merge (and, once the loop wires
+  // it, a PR-open) is broadcast as an `orchestration:task_update` frame →
+  // board upsert → this task prop. Reflect the new review status in the loaded
+  // snapshot WITHOUT a refetch (the full snapshot still self-heals via Refresh
+  // or remount). The functional update reads no other state, so it never loops.
+  useEffect(() => {
+    setReview((current) =>
+      current && task.reviewStatus && current.reviewStatus !== task.reviewStatus
+        ? { ...current, reviewStatus: task.reviewStatus }
+        : current
+    )
+  }, [task.reviewStatus])
+
   async function refresh() {
     setLoading(true)
     setError(null)

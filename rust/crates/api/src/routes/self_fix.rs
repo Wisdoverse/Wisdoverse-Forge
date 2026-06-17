@@ -40,6 +40,11 @@ async fn get_review(State(state): State<AppState>, auth: AuthUser, Path(id): Pat
 /// re-verified, green, unmoved head. Returns `{ ok: true, data: SelfFixMergeResult }`.
 async fn approve(State(state): State<AppState>, auth: AuthUser, Path(id): Path<Uuid>) -> AppResult<Json<Value>> {
     let result = state.self_fix_service().approve_and_merge(&auth.scope, id, &auth.claims.sub.to_string()).await?;
+    // Realtime: a confirmed merge flipped `review_status` to `merged`. Push the
+    // updated task on the org broadcast subject so every other operator's board
+    // badge and Review tab reflect it live, without polling. Best-effort: a
+    // broadcast failure never undoes the merge that already succeeded above.
+    state.orchestration_service().broadcast_task_update_by_id(&auth.scope, id, "self_fix.merged").await;
     Ok(Json(self_fix_data_response(result)))
 }
 

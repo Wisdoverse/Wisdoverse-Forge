@@ -1,11 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ReviewSnapshotPanel } from '@app/features/detail/ReviewSnapshotPanel'
-import { orchestrationApi, type SelfFixReview, type TaskSummary } from '@app/shared/api/orchestration'
+import {
+  orchestrationApi,
+  type SelfFixReview,
+  type TaskSummary,
+} from '@app/shared/api/orchestration'
 
 // The panel reads `upsertTask` off the board store; a no-op selector is enough.
 vi.mock('@app/shared/model/board.store', () => ({
-  useBoardStore: (selector: (s: { upsertTask: () => void }) => unknown) => selector({ upsertTask: () => {} }),
+  useBoardStore: (selector: (s: { upsertTask: () => void }) => unknown) =>
+    selector({ upsertTask: () => {} }),
 }))
 
 afterEach(() => {
@@ -53,7 +58,9 @@ describe('ReviewSnapshotPanel', () => {
   })
 
   it('enables Approve when checks are green and the change is not sensitive', async () => {
-    vi.spyOn(orchestrationApi, 'getSelfFixReview').mockResolvedValue(review({ checksGreen: true, sensitive: false }))
+    vi.spyOn(orchestrationApi, 'getSelfFixReview').mockResolvedValue(
+      review({ checksGreen: true, sensitive: false })
+    )
     const approveSpy = vi.spyOn(orchestrationApi, 'approveSelfFix').mockResolvedValue('merged')
     render(<ReviewSnapshotPanel task={task()} />)
 
@@ -90,5 +97,26 @@ describe('ReviewSnapshotPanel', () => {
     render(<ReviewSnapshotPanel task={task()} />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent('boom')
+  })
+
+  it('reflects a pushed review-status change on the task prop without refetching', async () => {
+    const fetchSpy = vi
+      .spyOn(orchestrationApi, 'getSelfFixReview')
+      .mockResolvedValue(review({ reviewStatus: 'in_review' }))
+    const { rerender } = render(<ReviewSnapshotPanel task={task({ reviewStatus: 'in_review' })} />)
+
+    // Initial snapshot load.
+    expect(await screen.findByText('In review')).toBeInTheDocument()
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+
+    // Another operator's approve→merge arrives as an `orchestration:task_update`
+    // frame → board upsert → this task prop flips to `merged`.
+    rerender(<ReviewSnapshotPanel task={task({ reviewStatus: 'merged' })} />)
+
+    // The panel reflects the merge live (button reads "Merged" and is disabled)
+    // and issues NO second snapshot fetch — the status syncs off the prop.
+    await waitFor(() => expect(screen.getByTestId('review-approve')).toHaveTextContent('Merged'))
+    expect(screen.getByTestId('review-approve')).toBeDisabled()
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
   })
 })
