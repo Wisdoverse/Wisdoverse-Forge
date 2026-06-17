@@ -382,7 +382,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                 )}
               >
                 <CheckCircle2 size={13} strokeWidth={2.25} aria-hidden="true" />
-                <span>{recoveryAction === 'approve' ? 'Approving…' : 'Approve and continue'}</span>
+                <span>{recoveryAction === 'approve' ? 'Allowing…' : 'Allow and continue'}</span>
               </button>
             )}
           </div>
@@ -531,7 +531,7 @@ function taskRecoveryGuidance(
     return {
       title: 'Let the task continue when it has what it needs',
       detail:
-        'Check the request first. Then use the green button to return the task to the queue for an agent to continue.',
+        'Check the request first. Then choose Allow and continue to return the task to the queue for an agent to continue.',
     }
   }
   return null

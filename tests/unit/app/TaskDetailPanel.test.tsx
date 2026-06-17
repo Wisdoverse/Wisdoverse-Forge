@@ -142,7 +142,7 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByTestId('task-updates-guide')).toBeDefined()
     expect(screen.getByText('What to check now')).toBeDefined()
     expect(screen.getAllByText(/needs your input/i).length).toBeGreaterThan(0)
-    expect(screen.getByText(/approve or update the task/i)).toBeDefined()
+    expect(screen.getByText(/allow it to continue or update the task/i)).toBeDefined()
     expect(screen.getByText('Task story')).toBeDefined()
     expect(screen.getByText('Agent work history')).toBeDefined()
     expect(await screen.findByText('Work attempt: In progress')).toBeDefined()
@@ -352,7 +352,7 @@ describe('TaskDetailPanel', () => {
     expect(screen.queryByText(/409 conflict/i)).toBeNull()
   })
 
-  test('approves blocked tasks waiting on human approval', async () => {
+  test('allows blocked tasks waiting on a human decision to continue', async () => {
     const approvedTask = { ...mockTask, state: 'queued' as const, blockedReason: undefined }
     orchestrationApiMock.approveTask.mockResolvedValue({ ok: true, task: approvedTask })
 
@@ -374,7 +374,7 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByTestId('task-recovery-guidance')).toHaveTextContent(
       'return the task to the queue'
     )
-    await userEvent.setup().click(screen.getByRole('button', { name: /approve and continue/i }))
+    await userEvent.setup().click(screen.getByRole('button', { name: /allow and continue/i }))
 
     await waitFor(() => expect(orchestrationApiMock.approveTask).toHaveBeenCalledWith('task-1'))
     expect(useBoardStore.getState().columns.queued[0]).toMatchObject({

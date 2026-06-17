@@ -11,7 +11,7 @@ export type TaskDetailErrorAction =
 
 const ACTION_FALLBACKS: Record<TaskDetailErrorAction, string> = {
   approveTask:
-    'Check that the task is still waiting for approval, then choose Approve again. The task was not approved.',
+    'Check that the task is still waiting for your decision, then choose Allow and continue again. The task did not continue.',
   blockTask:
     'Refresh the task, then choose Needs help again. The task was not marked as needing help.',
   cancelTask: 'Refresh the task, then choose Cancel again. The task was not canceled.',
@@ -153,7 +153,7 @@ function validationMessage(action: TaskDetailErrorAction, detail: string): strin
     return 'Review the selected saved notes, then try again.'
   }
   if (normalized.includes('approval') || normalized.includes('approve')) {
-    return 'Check that the task is still waiting for approval, then choose Approve again.'
+    return 'Check that the task is still waiting for your decision, then choose Allow and continue again.'
   }
   if (normalized.includes('publish')) {
     return 'Review the task details, then send again.'

@@ -477,7 +477,7 @@ function taskUpdateGuide(task: TaskSummary): string {
     case 'working':
       return 'The agent is working. Watch for requests that need your decision, then review the result when it finishes.'
     case 'blocked':
-      return 'The task needs your input. Read the reason, decide what to provide, then approve or update the task.'
+      return 'The task needs your input. Read the reason, decide what to provide, then allow it to continue or update the task.'
     case 'completed':
       return 'Open Results next. Check the answer, then accept it, save repeatable steps, or create a follow-up task.'
     case 'failed':
