@@ -262,6 +262,8 @@ describe('AgentDetailView', () => {
         "Go to Tasks to load this agent's work history and decide what to send next."
       )
     ).toBeDefined()
+    expect(screen.getByText(/review result files/)).toBeDefined()
+    expect(screen.queryByText(/review evidence/i)).toBeNull()
     expect(screen.queryByText('No task activity has been loaded yet.')).toBeNull()
   })
 

@@ -491,7 +491,7 @@ function listNextStep(
 
   return {
     title: 'Review completed work.',
-    detail: 'Open completed tasks to check the result, evidence, and anything worth reusing.',
+    detail: 'Open completed tasks to check the result, result files, and anything worth reusing.',
   }
 }
 
@@ -538,7 +538,7 @@ function taskNextAction(task: TaskSummary): string {
     case 'failed':
       return 'Open it, review the recovery note, then retry only after the next step is clear.'
     case 'completed':
-      return 'Open it to review the result and evidence.'
+      return 'Open it to review the result and result files.'
     case 'canceled':
       return 'Open it only if you need to restart or explain why it stopped.'
     default:

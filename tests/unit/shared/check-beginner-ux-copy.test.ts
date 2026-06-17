@@ -8363,6 +8363,19 @@ function ResultReviewGuide() {
   ]
 }
 `,
+      'src/app/features/list/ListView.tsx': `
+function listNextStep() {
+  return {
+    detail: 'Open completed tasks to check the result, evidence, and anything worth reusing.',
+    action: 'Open it to review the result and evidence.',
+  }
+}
+`,
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function agentNextStep() {
+  return 'You can decide whether to reuse the agent, review evidence, or assign another task.'
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
@@ -8382,6 +8395,18 @@ function ResultReviewGuide() {
           type: 'task-detail-result-review-copy',
           location: 'src/app/features/detail/TaskDetailPanel.tsx:5',
         }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/list/ListView.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/list/ListView.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:3',
+        }),
       ])
     )
   })
@@ -8399,6 +8424,19 @@ function ResultReviewGuide() {
     'Use this result to decide whether the task is done.',
     'Check result files',
   ]
+}
+`,
+      'src/app/features/list/ListView.tsx': `
+function listNextStep() {
+  return {
+    detail: 'Open completed tasks to check the result, result files, and anything worth reusing.',
+    action: 'Open it to review the result and result files.',
+  }
+}
+`,
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function agentNextStep() {
+  return 'You can decide whether to reuse the agent, review result files, or assign another task.'
 }
 `,
     })
