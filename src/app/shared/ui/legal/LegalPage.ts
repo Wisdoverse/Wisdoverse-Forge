@@ -750,7 +750,7 @@ export class LegalPage {
         <h3 class="legal-subsection-title">Data Export</h3>
         <p class="legal-text">
           You can request a copy of your personal data through the account settings page or a supported export flow.
-          The export includes your profile information, agent records, change history, and configuration settings in a
+          The export includes your profile information, agent records, change history, and settings choices in a
           file format that can be read by other tools.
         </p>
         <h3 class="legal-subsection-title">Account Deletion</h3>

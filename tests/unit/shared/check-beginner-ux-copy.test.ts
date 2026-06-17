@@ -9805,6 +9805,10 @@ function renderPrivacy() {
         }),
         expect.objectContaining({
           type: 'legal-privacy-copy',
+          sample: expect.stringContaining('configuration settings'),
+        }),
+        expect.objectContaining({
+          type: 'legal-privacy-copy',
           sample: expect.stringContaining('workspace data'),
         }),
         expect.objectContaining({
@@ -9823,7 +9827,7 @@ function renderPrivacy() {
     '<li>To show live task, agent, and saved work updates in the product interface</li>',
     '<li>IP address used to protect the Service, slow abusive requests, and record security-relevant activity</li>',
     '<li>To keep security history records for safety reviews and legal requirements</li>',
-    '<li>The export includes change history and configuration settings</li>',
+    '<li>The export includes change history and settings choices</li>',
     '<p>Review what you agree to and how your team space data is handled.</p>',
     '<li>Saved view choices, such as layout and display settings</li>',
   ].join('')

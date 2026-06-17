@@ -1079,6 +1079,7 @@ const LEGAL_PRIVACY_EVIDENCE_JARGON_PATTERNS = [
   /\baudit logging\b/i,
   /\baudit logs?\b/i,
   /\bevent history\b/i,
+  /\bconfiguration settings\b/i,
   /\bsecurity monitoring and compliance purposes\b/i,
   /\bworkspace data\b/i,
   /\bVisual workspace preferences\b/i,
