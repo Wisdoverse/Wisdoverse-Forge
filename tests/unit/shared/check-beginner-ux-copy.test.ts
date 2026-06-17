@@ -7826,6 +7826,11 @@ function renameErrorMessage() {
 export const settings = { description: 'manage workspace, agents, and access' }
 export const logout = { title: 'Logout: sign out of this workspace' }
 `,
+      'src/app/routes/__root.tsx': `
+export function AuthShellLoadingState() {
+  return 'We are confirming your session before opening the workspace.'
+}
+`,
       'src/app/shared/lib/taskFailureCopy.ts': `
 export function taskBlockedPreview() {
   return 'The workspace is busy. Retry later or ask an owner for help.'
@@ -7864,6 +7869,10 @@ export function taskBlockedPreview() {
         }),
         expect.objectContaining({
           type: 'workspace-setup-copy',
+          location: 'src/app/routes/__root.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'workspace-setup-copy',
           location: 'src/app/shared/lib/taskFailureCopy.ts:3',
         }),
       ])
@@ -7891,6 +7900,11 @@ function renameErrorMessage() {
       'src/app/layouts/sidebar/SidebarNav.tsx': `
 export const settings = { description: 'manage teams, agents, and access' }
 export const logout = { title: 'Logout: sign out of Forge' }
+`,
+      'src/app/routes/__root.tsx': `
+export function AuthShellLoadingState() {
+  return 'We are making sure you are signed in before opening your team space.'
+}
 `,
       'src/app/shared/lib/taskFailureCopy.ts': `
 export function taskBlockedPreview() {
