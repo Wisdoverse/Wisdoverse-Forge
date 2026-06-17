@@ -1,7 +1,7 @@
 const USER_ROLE_LABELS: Record<string, string> = {
   owner: 'Owner',
   admin: 'Admin',
-  operator: 'Operator',
+  operator: 'Member',
   maintainer: 'Maintainer',
   member: 'Member',
   viewer: 'Viewer',

@@ -761,7 +761,7 @@ export const en = {
       role: 'Access level',
       roles: {
         admin: 'Admin',
-        operator: 'Operator',
+        operator: 'Member',
         viewer: 'Viewer',
       },
       status: {

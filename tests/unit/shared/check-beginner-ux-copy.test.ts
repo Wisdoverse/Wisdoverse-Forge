@@ -1242,7 +1242,10 @@ export const zh = {
       'src/app/shared/i18n/locales/en.ts': `
 export const en = {
   admin: {
-    users: { role: 'Role' },
+    users: {
+      role: 'Role',
+      roles: { operator: 'Operator' },
+    },
   },
 }
 `,
@@ -1252,7 +1255,10 @@ export const zh = {
     forbidden: '你当前没有权限执行这个操作。请让所有者或管理员更新你的角色。',
   },
   admin: {
-    users: { role: '角色' },
+    users: {
+      role: '角色',
+      roles: { operator: '操作员' },
+    },
   },
 }
 `,
@@ -1265,7 +1271,7 @@ export const zh = {
       expect.arrayContaining([
         expect.objectContaining({
           type: 'locale-access-role-copy',
-          location: 'src/app/shared/i18n/locales/en.ts:4',
+          location: 'src/app/shared/i18n/locales/en.ts:5',
         }),
         expect.objectContaining({
           type: 'locale-access-role-copy',
@@ -1273,7 +1279,15 @@ export const zh = {
         }),
         expect.objectContaining({
           type: 'locale-access-role-copy',
-          location: 'src/app/shared/i18n/locales/zh.ts:7',
+          location: 'src/app/shared/i18n/locales/en.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'locale-access-role-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:8',
+        }),
+        expect.objectContaining({
+          type: 'locale-access-role-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:9',
         }),
       ])
     )
@@ -1284,7 +1298,7 @@ export const zh = {
       'src/app/shared/i18n/locales/en.ts': `
 export const en = {
   admin: {
-    users: { role: 'Access level' },
+    users: { role: 'Access level', roles: { operator: 'Member' } },
   },
 }
 `,
@@ -1294,7 +1308,7 @@ export const zh = {
     forbidden: '你当前无法执行这个操作。请让所有者或管理员检查你的团队空间访问权限。',
   },
   admin: {
-    users: { role: '访问级别' },
+    users: { role: '访问级别', roles: { operator: '成员' } },
   },
 }
 `,
@@ -2934,6 +2948,7 @@ function ProjectReadiness() {
 function userRoleLabel() {
   return 'Access level not reported'
   return 'Access level needs review'
+  return { operator: 'Operator' }
 }
 `,
     })
@@ -2950,6 +2965,10 @@ function userRoleLabel() {
         expect.objectContaining({
           type: 'access-level-copy',
           location: 'src/app/entities/user/model/roleLabels.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'access-level-copy',
+          location: 'src/app/entities/user/model/roleLabels.ts:5',
         }),
       ])
     )

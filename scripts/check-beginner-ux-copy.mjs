@@ -404,6 +404,8 @@ const ACCOUNT_PROFILE_ROLE_JARGON_PATTERNS = [/>Role</]
 const LOCALE_ACCESS_ROLE_JARGON_PATTERNS = [
   /\brole:\s*['"`]Role['"`]/,
   /\brole:\s*['"`]角色['"`]/,
+  /\boperator:\s*['"`]Operator['"`]/,
+  /\boperator:\s*['"`]操作员['"`]/,
   /更新你的角色/,
 ]
 
@@ -1078,6 +1080,7 @@ const AGENT_MODEL_DEAD_END_PATTERNS = [
 const ACCESS_LEVEL_DEAD_END_PATTERNS = [
   /\bAccess level not reported\b/i,
   /\bAccess level needs review\b/i,
+  /\boperator:\s*['"`]Operator['"`]/,
 ]
 
 const AGENT_TEMPLATE_ROLE_JARGON_PATTERNS = [/\bStart with a role\b/i, /\bAgent role templates\b/i]
