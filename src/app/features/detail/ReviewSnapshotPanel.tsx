@@ -88,7 +88,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
   }
 
   async function approve() {
-    if (!review || !review.prNumber || !review.prUrl) return
+    if (!review?.prNumber || !review.prUrl) return
     setApproving(true)
     setError(null)
     try {
