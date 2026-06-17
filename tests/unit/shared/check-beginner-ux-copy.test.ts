@@ -10436,6 +10436,38 @@ function taskNextStep() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags failed task board empty copy that uses retry-path wording', () => {
+    const cwd = fixture({
+      'src/app/features/board/KanbanColumn.tsx': `
+const COLUMN_EMPTY_STATE = {
+  failed: { title: 'Retry paths appear here after a task stops', detail: 'Review the recovery note and retry path.' },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'task-recovery-status-copy',
+        location: 'src/app/features/board/KanbanColumn.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts failed task board empty copy that uses retry-step wording', () => {
+    const cwd = fixture({
+      'src/app/features/board/KanbanColumn.tsx': `
+const COLUMN_EMPTY_STATE = {
+  failed: { title: 'Retry steps appear here after a task stops', detail: 'Review the recovery note and retry steps.' },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags failed task list and detail copy that still asks beginners to read failures', () => {
     const cwd = fixture({
       'src/app/features/list/ListView.tsx': `

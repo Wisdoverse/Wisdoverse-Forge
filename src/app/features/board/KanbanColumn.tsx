@@ -66,8 +66,9 @@ const COLUMN_EMPTY_STATE: Record<string, { title: string; detail: string }> = {
     detail: 'Completed tasks move here so you can check results and save repeatable steps.',
   },
   failed: {
-    title: 'Retry paths appear here after a task stops',
-    detail: 'If a task stops early, open its card here to review the recovery note and retry path.',
+    title: 'Retry steps appear here after a task stops',
+    detail:
+      'If a task stops early, open its card here to review the recovery note and retry steps.',
   },
   canceled: {
     title: 'Canceled tasks stay here for history',

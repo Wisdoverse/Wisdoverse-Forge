@@ -744,6 +744,7 @@ const TASK_RECOVERY_STATUS_DEAD_END_PATTERNS = [
   /\bfix the error\b/i,
   /\breview the failure\b/i,
   /\bread the failure\b/i,
+  /\bretry paths?\b/i,
   /\bTriage failure\b/,
 ]
 
