@@ -18,7 +18,7 @@ const ACTION_FALLBACKS: Record<TaskDetailErrorAction, string> = {
   loadAgents: 'Refresh this task before assigning an agent.',
   loadContext: 'Refresh the detail panel to load saved notes and work history.',
   loadRuns: 'Refresh Updates before deciding whether to retry this task.',
-  previewContext: 'Choose an available agent, then open saved item review again.',
+  previewContext: 'Choose an available agent, then open the saved notes review again.',
   publishTask:
     'Review the selected saved notes, then send the task again. The task was not sent with selected notes.',
   retryTask: 'Refresh the task, then choose Retry task again. The task was not retried.',

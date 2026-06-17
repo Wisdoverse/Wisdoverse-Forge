@@ -4,7 +4,7 @@ const ACTION_FALLBACKS: Record<ApprovalQueueErrorAction, string> = {
   approveCandidate:
     'Check who can reuse it and the original task preview, then approve the item again. The item was not approved.',
   loadQueue:
-    'Refresh the list so you see the latest saved items. The saved item review list could not load.',
+    'Refresh the list so you see the latest saved items. Saved notes review could not load.',
   rejectCandidate: 'Refresh the list, then reject the item again. The item was not rejected.',
 }
 
@@ -38,7 +38,7 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
   }
 
   if (status === 429) {
-    return 'Wait a moment, then try again. The saved item review list is busy.'
+    return 'Wait a moment, then try again. Saved notes review is busy.'
   }
 
   if (status && status >= 500) {
@@ -50,16 +50,16 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
 
 function networkRecoveryMessage(action: ApprovalQueueErrorAction): string {
   if (action === 'loadQueue') {
-    return 'Check your connection, then refresh the saved item review list. Forge could not connect while loading saved items.'
+    return 'Check your connection, then refresh saved notes review. Forge could not connect while loading saved notes and instructions.'
   }
   return 'Check your connection, then try this review action again. Forge could not connect while saving this review decision.'
 }
 
 function serviceRecoveryMessage(action: ApprovalQueueErrorAction): string {
   if (action === 'loadQueue') {
-    return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check saved item setup.`
+    return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check saved notes setup.`
   }
-  return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check saved item setup.`
+  return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check saved notes setup.`
 }
 
 function errorDetail(err: unknown): string {
@@ -122,7 +122,7 @@ function validationMessage(action: ApprovalQueueErrorAction, detail: string): st
   const normalized = detail.toLowerCase()
   if (normalized.includes('scope')) {
     return action === 'loadQueue'
-      ? 'Refresh the list, then check who can reuse the selected items. The saved item review list could not load.'
+      ? 'Refresh the list, then check who can reuse the selected items. Saved notes review could not load.'
       : 'Choose who can reuse it and review the original task preview, then try again.'
   }
   if (normalized.includes('sensitivity')) {
