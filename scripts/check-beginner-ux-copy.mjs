@@ -856,6 +856,7 @@ const CONTEXT_EVIDENCE_SOURCE_TITLE_JARGON_PATTERNS = [
 const CONTEXT_EVIDENCE_FULL_RECORD_JARGON_PATTERNS = [
   /\bShow full record\b/i,
   /\bOpen the full record\b/i,
+  /\bFull record details\b/i,
   /\bfull record only\b/i,
 ]
 

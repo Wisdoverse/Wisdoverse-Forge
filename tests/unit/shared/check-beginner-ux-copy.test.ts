@@ -6756,7 +6756,7 @@ const PROBLEM_MESSAGE =
     const cwd = fixture({
       'src/app/features/detail/ContextEvidenceList.tsx': `
 export function ContextEvidenceList() {
-  return <details><summary>Show full record</summary><p>Open the full record only when checking an unexpected result.</p></details>
+  return <details><summary>Show full record</summary><p>Open the full record only when checking an unexpected result.</p><p>Full record details were saved but could not be shown safely.</p></details>
 }
 `,
     })

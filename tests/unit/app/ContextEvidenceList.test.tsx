@@ -234,6 +234,27 @@ describe('ContextEvidenceList', () => {
     expect(screen.queryByText(/secret token/i)).toBeNull()
   })
 
+  test('uses saved-detail wording when a full record cannot be shown safely', () => {
+    const circularPayload: Record<string, unknown> = {}
+    circularPayload.self = circularPayload
+
+    render(
+      <ContextEvidenceList
+        evidence={[
+          evidence({
+            payload: circularPayload,
+          }),
+        ]}
+        revokedItems={[]}
+      />
+    )
+
+    fireEvent.click(screen.getByText('Show saved details'))
+
+    expect(screen.getByText(/Saved details were recorded but could not be shown safely/i)).toBeDefined()
+    expect(screen.queryByText(/Full record details/i)).toBeNull()
+  })
+
   test('uses a plain-language fallback for unknown evidence sources', () => {
     render(
       <ContextEvidenceList

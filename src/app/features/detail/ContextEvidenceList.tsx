@@ -143,7 +143,7 @@ function formatTechnicalDetails(payload: Record<string, unknown>): string {
   try {
     return JSON.stringify(safeEvidenceValue(payload), null, 2)
   } catch {
-    return 'Full record details were saved but could not be shown safely. Review the summary above, then ask an owner or admin to check this task if needed.'
+    return 'Saved details were recorded but could not be shown safely. Review the summary above, then ask an owner or admin to check this task if needed.'
   }
 }
 
