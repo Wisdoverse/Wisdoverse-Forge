@@ -824,7 +824,8 @@ const CONTEXT_FALLBACK_DEAD_END_PATTERNS = [
   /\bSome note limits need review\b/i,
   /\bTask type not listed\b/i,
   /\bTask type needs review\b/i,
-  /\bThe full saved note could not load\. Choose Show full saved note again\b/i,
+  /\bShow full saved note\b/i,
+  /\bfull saved note\b/i,
 ]
 
 const CONTEXT_WORK_HISTORY_JARGON_PATTERNS = [

@@ -6126,6 +6126,11 @@ function taskKindLabel(kind) {
   return kind ? 'Check task type' : 'Refresh task type'
 }
 `,
+      'src/app/features/detail/ContextAppliedList.tsx': `
+function contentLoadError() {
+  return 'Choose Show complete saved note again before relying on it. The complete saved note could not load.'
+}
+`,
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
