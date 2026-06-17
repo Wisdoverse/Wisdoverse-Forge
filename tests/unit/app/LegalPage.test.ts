@@ -29,6 +29,8 @@ describe('LegalPage', () => {
     expect(text).toContain('self-hosted governed AI workbench for teams')
     expect(text).toContain('Agent management for creating, starting, stopping, and reviewing')
     expect(text).toContain('Result records, saved notes, and saved instructions')
+    expect(text).toContain('Setup tools for troubleshooting and supported automation')
+    expect(text).not.toContain('Operator tools')
     expect(text).not.toContain('3D visualization platform')
     expect(text).not.toContain('Claude Code')
     expect(text).not.toContain('LLM gateway')

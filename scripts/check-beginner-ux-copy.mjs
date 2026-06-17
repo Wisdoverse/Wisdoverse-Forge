@@ -385,6 +385,7 @@ const SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS = [
   /\bwhile this page is visible\b/i,
   /\bHidden tabs pause checks\b/i,
   /\bChecking\.\.\./i,
+  /\bKeeps accounts,\s*tasks,\s*runs,\s*evidence,\s*and settings available\b/i,
 ]
 
 const ACCESS_KEY_LAST_USED_DEAD_END_PATTERNS = [/\bNot used yet\b/i]

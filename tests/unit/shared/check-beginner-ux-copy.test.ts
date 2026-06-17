@@ -6310,6 +6310,29 @@ function SystemHealth() {
     )
   })
 
+  it('flags saved-data health copy that exposes run and evidence jargon', () => {
+    const cwd = fixture({
+      'src/app/features/admin/SystemHealth.tsx': `
+const SERVICE_DEFINITIONS = [
+  {
+    key: 'database',
+    description: 'Keeps accounts, tasks, runs, evidence, and settings available.',
+  },
+]
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'system-health-status-copy',
+        sample: expect.stringContaining('runs, evidence'),
+      }),
+    ])
+  })
+
   it('flags app health helper text that exposes page visibility mechanics', () => {
     const cwd = fixture({
       'src/app/features/admin/SystemHealth.tsx': `
