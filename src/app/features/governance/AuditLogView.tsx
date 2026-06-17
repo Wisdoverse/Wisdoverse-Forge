@@ -71,7 +71,7 @@ const QUICK_AUDIT_VIEWS: QuickAuditView[] = [
   {
     id: 'skill-decisions',
     label: 'Saved instruction decisions',
-    description: 'Check who approved or updated saved instructions.',
+    description: 'Check who saved or updated saved instructions.',
     Icon: ClipboardCheck,
     filters: {
       eventPrefix: 'governance.context.skill.',
@@ -341,23 +341,23 @@ export function AuditLogView() {
         </div>
 
         <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_180px_180px_auto]">
-          <Field label="Work area reference">
+          <Field label="Work area ID">
             <input
               value={filters.scopeId}
               name="scopeId"
               autoComplete="off"
               onChange={(event) => updateFilter('scopeId', event.target.value)}
-              placeholder="Paste a team space, project workspace, team, or project reference"
+              placeholder="Paste a team space, project workspace, team, or project ID"
               className={INPUT_CLASS}
             />
           </Field>
-          <Field label="Person reference">
+          <Field label="Person ID">
             <input
               value={filters.userId}
               name="userId"
               autoComplete="off"
               onChange={(event) => updateFilter('userId', event.target.value)}
-              placeholder="Paste a user reference when needed"
+              placeholder="Paste a user ID when support asks for one"
               className={INPUT_CLASS}
             />
           </Field>
@@ -419,7 +419,7 @@ export function AuditLogView() {
             value={auditViewMetricLabel(data?.query.eventPrefix ?? filters.eventPrefix)}
             compact
           />
-          <Metric label="Hidden item references" value={protectedReferences} />
+          <Metric label="Hidden item IDs" value={protectedReferences} />
           <Metric label="Hidden support-note rows" value={redactedRows} />
         </div>
 
@@ -452,7 +452,7 @@ export function AuditLogView() {
                       </p>
                       <p className="mt-1 text-secondary-light dark:text-secondary-dark">
                         Show all history first, then narrow by item, area, person, or time. If this
-                        is a new team space, approve saved instructions or mark a saved note
+                        is a new team space, save a useful instruction or mark a saved note as
                         helpful, then refresh this view.
                       </p>
                       <button
@@ -544,14 +544,14 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
           <SubjectLine
             testId="governance-audit-item-reference"
             icon="visible"
-            label="Visible item reference"
+            label="Visible item ID"
             value={entry.rawItemId}
           />
         ) : (
           <SubjectLine
             testId="governance-audit-protected-reference"
             icon="hash"
-            label="Hidden item reference"
+            label="Hidden item ID"
             value={entry.auditSubjectHash}
           />
         )}
@@ -568,7 +568,7 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
       <td className="w-56 px-4 py-3">
         <div className="font-medium">{auditAreaLabel(entry.scopeKind)}</div>
         <div className="mt-1 truncate font-mono text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {entry.scopeId ? `Reference ${shortId(entry.scopeId)}` : 'No sharing reference'}
+          {entry.scopeId ? `Area ID ${shortId(entry.scopeId)}` : 'Area ID hidden'}
         </div>
       </td>
       <td className="w-48 px-4 py-3">
@@ -766,10 +766,10 @@ function formatDate(value: string): string {
 function auditEventLabel(eventType: string): string {
   const labels: Record<string, string> = {
     'governance.context.feedback.recorded': 'Feedback recorded',
-    'governance.context.skill.approved': 'Saved instruction approved',
-    'governance.context.skill.reviewed': 'Saved instruction reviewed',
+    'governance.context.skill.approved': 'Saved instruction saved',
+    'governance.context.skill.reviewed': 'Saved instruction checked',
     'governance.context.memory.updated': 'Saved note updated',
-    'governance.context.memory.rejected': 'Saved note rejected',
+    'governance.context.memory.rejected': 'Saved note not saved',
   }
   return (
     labels[eventType] ??

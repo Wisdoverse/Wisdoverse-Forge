@@ -80,7 +80,7 @@ describe('AuditLogView', () => {
     await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(1))
     expect(screen.getByText('Start with what you need to check')).toBeDefined()
     expect(screen.getByText('See every saved note and saved instruction change.')).toBeDefined()
-    expect(screen.getByText('Hidden item references')).toBeDefined()
+    expect(screen.getByText('Hidden item IDs')).toBeDefined()
     expect(screen.getByText('Selected view')).toBeDefined()
     expect(screen.getAllByText('All saved item changes').length).toBeGreaterThan(0)
 
@@ -126,20 +126,20 @@ describe('AuditLogView', () => {
     expect(
       screen.getByText('Optional. Paste this only when support asks for a specific event.')
     ).toBeDefined()
-    expect(screen.getByText('Work area reference')).toBeDefined()
+    expect(screen.getByText('Work area ID')).toBeDefined()
     expect(
-      screen.getByPlaceholderText(/team space, project workspace, team, or project reference/i)
+      screen.getByPlaceholderText(/team space, project workspace, team, or project ID/i)
     ).toBeDefined()
     expect(screen.getByRole('option', { name: 'Team space' })).toBeDefined()
     expect(screen.getByRole('option', { name: 'Project workspace' })).toBeDefined()
     expect(screen.queryByRole('option', { name: 'Workspace' })).toBeNull()
     expect(screen.queryByRole('option', { name: 'Organization' })).toBeNull()
-    expect(screen.getByText('Person reference')).toBeDefined()
-    expect(screen.getByPlaceholderText(/user reference when needed/i)).toBeDefined()
+    expect(screen.getByText('Person ID')).toBeDefined()
+    expect(screen.getByPlaceholderText(/user ID when support asks for one/i)).toBeDefined()
     expect(screen.getAllByTestId('governance-audit-row')).toHaveLength(2)
     expect(screen.getByText('Change')).toBeDefined()
     expect(screen.getByText('Feedback recorded')).toBeDefined()
-    expect(screen.getByText('Saved instruction approved')).toBeDefined()
+    expect(screen.getByText('Saved instruction saved')).toBeDefined()
     expect(screen.queryByText('Skill approved')).toBeNull()
     expect(screen.getAllByText('Show support event').length).toBeGreaterThan(0)
     expect(screen.getByText('Saved note · Saved note record')).toBeDefined()
@@ -156,19 +156,19 @@ describe('AuditLogView', () => {
     expect(screen.getByText('Support notes')).toBeDefined()
     expect(screen.getAllByText('Show support notes').length).toBeGreaterThan(0)
     expect(screen.getByTestId('governance-audit-item-reference').textContent).toContain(
-      'Visible item reference'
+      'Visible item ID'
     )
     expect(screen.getByTestId('governance-audit-item-reference').textContent).toContain('11111111')
     expect(screen.getByTestId('governance-audit-protected-reference').textContent).toContain(
-      'Hidden item reference'
+      'Hidden item ID'
     )
     expect(screen.getByTestId('governance-audit-protected-reference').textContent).toContain(
       'f9f0b5b53a'
     )
     expect(screen.getAllByText('Project').length).toBeGreaterThan(0)
-    expect(screen.getByText('Reference project-1')).toBeDefined()
-    expect(screen.queryByText(/Work area I[D]/)).toBeNull()
-    expect(screen.queryByText(/Person I[D]/)).toBeNull()
+    expect(screen.getByText('Area ID project-1')).toBeDefined()
+    expect(screen.queryByText(/Work area reference/)).toBeNull()
+    expect(screen.queryByText(/Person reference/)).toBeNull()
     expect(screen.getByTestId('governance-audit-redacted').textContent).toContain('Protected')
     expect(screen.getByText('Check proof setup')).toBeDefined()
     expect(screen.getByText('Verified')).toBeDefined()
@@ -282,7 +282,7 @@ describe('AuditLogView', () => {
     expect(await screen.findByText('Your filters may be hiding audit history')).toBeDefined()
     expect(screen.getByText(/Show all history first/i)).toBeDefined()
     expect(
-      screen.getByText(/approve saved instructions or mark a saved note helpful/i)
+      screen.getByText(/save a useful instruction or mark a saved note as helpful/i)
     ).toBeDefined()
     expect(screen.getByText(/new team space/i)).toBeDefined()
     expect(screen.queryByText(/new workspace/i)).toBeNull()
