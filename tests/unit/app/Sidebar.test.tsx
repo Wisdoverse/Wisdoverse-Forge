@@ -122,7 +122,7 @@ describe('Sidebar', () => {
     expect(screen.getByTestId('sidebar')).toBeInTheDocument()
     expect(screen.queryByText('My Org')).not.toBeInTheDocument()
     expect(screen.queryByText('Wisdoverse Forge')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Expand sidebar' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Expand left menu' })).toBeInTheDocument()
   })
 
   it('clicking nav item calls onNavigate', () => {
@@ -440,7 +440,7 @@ describe('Sidebar', () => {
     expect(
       await screen.findByText(/Ask an owner or admin to let you edit this team/i)
     ).toBeInTheDocument()
-    expect(screen.getByText(/save this team name again from the sidebar/i)).toBeInTheDocument()
+    expect(screen.getByText(/save this team name again from the left menu/i)).toBeInTheDocument()
     expect(screen.getByText(/You do not have permission to rename this team/i)).toBeInTheDocument()
     expect(screen.queryByText(/update your access/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/API 403/i)).not.toBeInTheDocument()
@@ -467,7 +467,7 @@ describe('Sidebar', () => {
     expect(
       await screen.findByText(/Ask an owner or admin to let you edit this team/i)
     ).toBeInTheDocument()
-    expect(screen.getByText(/save this team name again from the sidebar/i)).toBeInTheDocument()
+    expect(screen.getByText(/save this team name again from the left menu/i)).toBeInTheDocument()
     expect(screen.getByText(/You do not have permission to rename this team/i)).toBeInTheDocument()
     expect(screen.queryByText(/owner role required/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/403/i)).not.toBeInTheDocument()
@@ -563,7 +563,7 @@ describe('Sidebar', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'Ask an owner or admin to let you delete this team, then delete it again from the sidebar. You do not have permission to delete this team.'
+      'Ask an owner or admin to let you delete this team, then delete it again from the left menu. You do not have permission to delete this team.'
     )
     expect(alert).not.toHaveTextContent(/update your access/i)
     expect(alert).not.toHaveTextContent(/owner role required/i)
@@ -638,7 +638,7 @@ describe('Sidebar', () => {
     expect(
       await screen.findByText(/Ask an owner or admin to let you edit this project/i)
     ).toBeInTheDocument()
-    expect(screen.getByText(/save this project name again from the sidebar/i)).toBeInTheDocument()
+    expect(screen.getByText(/save this project name again from the left menu/i)).toBeInTheDocument()
     expect(
       screen.getByText(/You do not have permission to rename this project/i)
     ).toBeInTheDocument()
@@ -662,7 +662,7 @@ describe('Sidebar', () => {
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
     expect(
-      await screen.findByText(/Choose a different project name, refresh the sidebar/i)
+      await screen.findByText(/Choose a different project name, refresh the left menu/i)
     ).toBeInTheDocument()
     expect(screen.queryByText(/project name already exists/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/422/i)).not.toBeInTheDocument()
@@ -684,7 +684,7 @@ describe('Sidebar', () => {
 
     expect(
       await screen.findByText(
-        'Refresh the sidebar, then save this project name again. Forge could not save it right now. If it still fails, ask an owner or admin to check workspace setup.'
+        'Refresh the left menu, then save this project name again. Forge could not save it right now. If it still fails, ask an owner or admin to check workspace setup.'
       )
     ).toBeInTheDocument()
     expect(screen.queryByText(/API 500/i)).not.toBeInTheDocument()
@@ -762,7 +762,7 @@ describe('Sidebar', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'Ask an owner or admin to let you delete this project, then delete it again from the sidebar. You do not have permission to delete this project.'
+      'Ask an owner or admin to let you delete this project, then delete it again from the left menu. You do not have permission to delete this project.'
     )
     expect(alert).not.toHaveTextContent(/owner role required/i)
     expect(alert).not.toHaveTextContent(/API 403/i)

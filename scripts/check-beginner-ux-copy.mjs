@@ -456,6 +456,20 @@ const START_NAV_LABEL_JARGON_PATTERNS = [
   /^\s*start:\s*['"`]开始['"`]/,
 ]
 
+const SIDEBAR_LAYOUT_JARGON_PATTERNS = [
+  /\b(?:from|in|to) the sidebar\b/i,
+  /\breopen the sidebar\b/i,
+  /\bRefresh the sidebar\b/i,
+  /\brefresh the sidebar\b/i,
+  /\bThe sidebar is busy\b/i,
+  /\bleaves? the sidebar\b/i,
+  /\bdisappear from the sidebar\b/i,
+  /\bExpand sidebar\b/i,
+  /\bCollapse sidebar\b/i,
+  /\bClose sidebar\b/i,
+  /侧栏/,
+]
+
 const START_GUIDE_PATH_JARGON_PATTERNS = [
   /\bStart with one safe path\b/i,
   /\bFinish this path\b/i,
@@ -2353,6 +2367,22 @@ function hasStartNavJargonCopy(relFile, lines, index, line) {
   return isNavLabel || START_NAV_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasSidebarLayoutJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/layouts/AppLayout.tsx') &&
+    !relFile.endsWith('src/app/layouts/sidebar/SidebarHeader.tsx') &&
+    !relFile.endsWith('src/app/layouts/sidebar/ProjectTree.tsx') &&
+    !relFile.endsWith('src/app/features/manage-team/ui/EditableTeamRow.tsx') &&
+    !relFile.endsWith('src/app/features/settings/AccountSection.tsx') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SIDEBAR_LAYOUT_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasStartGuidePathJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
@@ -4121,6 +4151,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Start navigation copy must say setup checklist so beginners know this is a guide, not a launch button.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSidebarLayoutJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'left-menu-copy',
+        location,
+        message: 'User-facing navigation copy must say left menu instead of sidebar.',
         sample: line.trim(),
       })
     }

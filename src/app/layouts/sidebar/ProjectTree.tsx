@@ -194,28 +194,28 @@ function renameErrorMessage(target: RenameTarget, error: unknown): string {
   }
 
   if (status === 401) {
-    return `Sign in again, then reopen the sidebar and save this ${label} name.`
+    return `Sign in again, then reopen the left menu and save this ${label} name.`
   }
   if (status === 403) {
-    return `Ask an owner or admin to let you edit this ${label}, then save this ${label} name again from the sidebar. You do not have permission to rename this ${label}.`
+    return `Ask an owner or admin to let you edit this ${label}, then save this ${label} name again from the left menu. You do not have permission to rename this ${label}.`
   }
   if (status === 404) {
-    return `Refresh the sidebar, then choose the current ${label} again. This ${label} could not be found.`
+    return `Refresh the left menu, then choose the current ${label} again. This ${label} could not be found.`
   }
   if (status === 409) {
-    return `Refresh the sidebar, review the current name, then save this ${label} name again. This ${label} changed while you were editing.`
+    return `Refresh the left menu, review the current name, then save this ${label} name again. This ${label} changed while you were editing.`
   }
   if (status === 422) {
     return renameValidationMessage(target, detail)
   }
   if (status === 429) {
-    return `Wait a moment, then save this ${label} name again. The sidebar is busy.`
+    return `Wait a moment, then save this ${label} name again. The left menu is busy.`
   }
   if (status >= 500) {
-    return `Refresh the sidebar, then save this ${label} name again. Forge could not save it right now. If it still fails, ask an owner or admin to check workspace setup.`
+    return `Refresh the left menu, then save this ${label} name again. Forge could not save it right now. If it still fails, ask an owner or admin to check workspace setup.`
   }
 
-  return `Refresh the sidebar, then save this ${label} name again. The ${label} name was not saved.`
+  return `Refresh the left menu, then save this ${label} name again. The ${label} name was not saved.`
 }
 
 function renameValidationMessage(target: RenameTarget, detail: string | null): string {
@@ -224,13 +224,13 @@ function renameValidationMessage(target: RenameTarget, detail: string | null): s
   const normalized = detail?.toLowerCase() ?? ''
 
   if (normalized.includes('duplicate') || normalized.includes('already')) {
-    return `Choose a different ${label} name, refresh the sidebar, then save again.`
+    return `Choose a different ${label} name, refresh the left menu, then save again.`
   }
   if (normalized.includes('name')) {
     return `Enter a ${label} name, then save again.`
   }
 
-  return `Refresh the sidebar, then save this ${label} name again. The ${title.toLowerCase()} name was not saved.`
+  return `Refresh the left menu, then save this ${label} name again. The ${title.toLowerCase()} name was not saved.`
 }
 
 function deleteErrorMessage(target: RenameTarget, error: unknown): string {
@@ -240,7 +240,7 @@ function deleteErrorMessage(target: RenameTarget, error: unknown): string {
     error instanceof TypeError ||
     (error instanceof Error && /^Failed to fetch$/i.test(error.message.trim()))
   ) {
-    return `Check your connection, then delete this ${label} again from the sidebar.`
+    return `Check your connection, then delete this ${label} again from the left menu.`
   }
 
   const { status, detail } = parseApiStatus(error)
@@ -250,25 +250,25 @@ function deleteErrorMessage(target: RenameTarget, error: unknown): string {
     return deleteValidationMessage(target, normalized)
   }
   if (status === 401) {
-    return `Sign in again, then reopen the sidebar and delete this ${label} again.`
+    return `Sign in again, then reopen the left menu and delete this ${label} again.`
   }
   if (status === 403) {
-    return `Ask an owner or admin to let you delete this ${label}, then delete it again from the sidebar. You do not have permission to delete this ${label}.`
+    return `Ask an owner or admin to let you delete this ${label}, then delete it again from the left menu. You do not have permission to delete this ${label}.`
   }
   if (status === 404) {
-    return `Refresh the sidebar. This ${label} may already be gone.`
+    return `Refresh the left menu. This ${label} may already be gone.`
   }
   if (status === 409 || status === 422) {
     return deleteValidationMessage(target, normalized)
   }
   if (status === 429) {
-    return `Wait a moment, then delete this ${label} again. The sidebar is busy.`
+    return `Wait a moment, then delete this ${label} again. The left menu is busy.`
   }
   if (status >= 500) {
-    return `Refresh the sidebar, then delete this ${label} again. Forge could not delete it right now. If it still fails, ask an owner or admin to check workspace setup.`
+    return `Refresh the left menu, then delete this ${label} again. Forge could not delete it right now. If it still fails, ask an owner or admin to check workspace setup.`
   }
 
-  return `Refresh the sidebar, then delete this ${label} again.`
+  return `Refresh the left menu, then delete this ${label} again.`
 }
 
 function deleteValidationMessage(target: RenameTarget, normalized: string): string {
@@ -377,7 +377,7 @@ function DeleteConfirmationDialog({ state, onCancel, onConfirm }: DeleteConfirma
   const title = state.target === 'team' ? 'Delete this team?' : 'Delete this project?'
   const detail =
     state.target === 'team'
-      ? `Check and move or finish any work you still need from "${targetName}" before deleting. Projects in this team leave the sidebar too. Agents are not deleted.`
+      ? `Check and move or finish any work you still need from "${targetName}" before deleting. Projects in this team leave the left menu too. Agents are not deleted.`
       : `Check and move or finish any work you still need from "${targetName}" before deleting. The project leaves this workspace, and agents are moved out instead of deleted.`
   const confirmLabel = state.saving
     ? 'Deleting...'

@@ -195,7 +195,7 @@ export function AppLayout({
       {sidebarAsOverlay && (
         <button
           type="button"
-          aria-label="Close sidebar"
+          aria-label="Close left menu"
           onClick={() => useNavigationStore.setState({ sidebarExpanded: false })}
           className="absolute inset-0 z-20 bg-black/30 backdrop-blur-sm"
         />

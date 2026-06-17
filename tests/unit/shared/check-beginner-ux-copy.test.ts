@@ -6242,7 +6242,7 @@ export function approvalQueueEmptyState() {
 `,
       'src/app/features/settings/AccountSection.tsx': `
 	export function AccountSection() {
-	  return <span>The setup checklist is back in the sidebar. Open it when setup needs review.</span>
+	  return <span>Start is back in the left menu. Open it when setup needs review.</span>
 	}
 	`,
       'src/app/features/chat/ChatView.tsx': `
@@ -6301,7 +6301,7 @@ export function approvalQueueEmptyState() {
 `,
       'src/app/features/settings/AccountSection.tsx': `
 export function AccountSection() {
-  return <span>The setup checklist is back in the sidebar. Open it whenever you want to check setup again.</span>
+  return <span>Start is back in the left menu. Open the setup checklist whenever you want to check setup again.</span>
 }
 `,
     })
@@ -7480,7 +7480,7 @@ export const zh = {
 export const en = {
   nav: { start: 'Setup checklist' },
   gettingStarted: {
-    skipHint: 'This only hides the setup checklist from the sidebar. You can show it again from Settings.',
+    skipHint: 'This only hides the setup checklist from the left menu. You can show it again from Settings.',
     skipError: 'Check your connection, then choose Skip again. The setup checklist could not be hidden.',
   },
 }
@@ -7489,7 +7489,7 @@ export const en = {
 export const zh = {
   nav: { start: '设置清单' },
   gettingStarted: {
-    skipHint: '这只会隐藏侧栏里的设置清单，也可以在设置里重新显示它。',
+    skipHint: '这只会隐藏左侧菜单里的设置清单，也可以在设置里重新显示它。',
   },
 }
 `,
@@ -7499,6 +7499,55 @@ const item = { description: 'follow the setup checklist' }
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags sidebar layout wording in user-visible left-menu copy', () => {
+    const cwd = fixture({
+      'src/app/layouts/AppLayout.tsx': `
+export function AppLayout() {
+  return <button aria-label="Close sidebar" />
+}
+`,
+      'src/app/layouts/sidebar/SidebarHeader.tsx': `
+export function SidebarHeader() {
+  return <button title="Expand sidebar">Open</button>
+}
+`,
+      'src/app/layouts/sidebar/ProjectTree.tsx': `
+function renameErrorMessage() {
+  return 'Refresh the sidebar, then save this project name again.'
+}
+`,
+      'src/app/features/manage-team/ui/EditableTeamRow.tsx': `
+export function EditableTeamRow() {
+  return <p>Projects in this team will also disappear from the sidebar.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'left-menu-copy',
+          location: 'src/app/layouts/AppLayout.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'left-menu-copy',
+          location: 'src/app/layouts/sidebar/SidebarHeader.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'left-menu-copy',
+          location: 'src/app/layouts/sidebar/ProjectTree.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'left-menu-copy',
+          location: 'src/app/features/manage-team/ui/EditableTeamRow.tsx:3',
+        }),
+      ])
+    )
   })
 
   it('flags first-run guide copy that describes a path instead of the setup checklist', () => {
@@ -10064,28 +10113,28 @@ function permissionMessage() {
 `,
       'src/app/layouts/sidebar/ProjectTree.tsx': `
 function renameErrorMessage() {
-  return 'Refresh the sidebar, then save this project name again. The project name was not saved.'
+  return 'Refresh the left menu, then save this project name again. The project name was not saved.'
 }
 function projectMissingMessage() {
-  return 'Refresh the sidebar, then choose the current project again. This project could not be found.'
+  return 'Refresh the left menu, then choose the current project again. This project could not be found.'
 }
 function projectChangedMessage() {
-  return 'Refresh the sidebar, review the current name, then save this project name again. This project changed while you were editing.'
+  return 'Refresh the left menu, review the current name, then save this project name again. This project changed while you were editing.'
 }
 function renameBusyMessage() {
-  return 'Wait a moment, then save this project name again. The sidebar is busy.'
+  return 'Wait a moment, then save this project name again. The left menu is busy.'
 }
 function renameServiceMessage() {
-  return 'Refresh the sidebar, then save this project name again. Forge could not save it right now.'
+  return 'Refresh the left menu, then save this project name again. Forge could not save it right now.'
 }
 function deleteServiceMessage() {
-  return 'Refresh the sidebar, then delete this project again. Forge could not delete it right now.'
+  return 'Refresh the left menu, then delete this project again. Forge could not delete it right now.'
 }
 function permissionRenameMessage() {
-  return 'Ask an owner or admin to let you edit this project, then save this project name again from the sidebar. You do not have permission to rename this project.'
+  return 'Ask an owner or admin to let you edit this project, then save this project name again from the left menu. You do not have permission to rename this project.'
 }
 function permissionDeleteMessage() {
-  return 'Ask an owner or admin to let you delete this team, then delete it again from the sidebar. You do not have permission to delete this team.'
+  return 'Ask an owner or admin to let you delete this team, then delete it again from the left menu. You do not have permission to delete this team.'
 }
 `,
     })
@@ -10395,10 +10444,10 @@ function serviceRecoveryMessage(action) {
 `,
       'src/app/entities/navigation/model/navigation.store.ts': `
 function navigationActionErrorMessage(actionPhrase) {
-  return 'Check your connection, then refresh the sidebar to load task queues.'
+  return 'Check your connection, then refresh the left menu to load task queues.'
 }
 function serviceRecoveryMessage() {
-  return 'Refresh the sidebar to load workspace navigation. If it still fails, ask an owner or admin to check workspace navigation.'
+  return 'Refresh the left menu to load workspace navigation. If it still fails, ask an owner or admin to check workspace navigation.'
 }
 `,
     })
