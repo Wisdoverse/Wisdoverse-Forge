@@ -2606,7 +2606,7 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'empty-state-next-action',
         location,
-        message: 'Empty state copy must include a nearby next action for first-time operators.',
+        message: 'Empty state copy must include a nearby next action for first-time users.',
         sample: line.trim(),
       })
     }
@@ -2745,7 +2745,7 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'work-setup-load-next-action',
         location,
-        message: 'Work setup load failure copy must tell first-time operators how to recover.',
+        message: 'Work setup load failure copy must tell first-time users how to recover.',
         sample: line.trim(),
       })
     }

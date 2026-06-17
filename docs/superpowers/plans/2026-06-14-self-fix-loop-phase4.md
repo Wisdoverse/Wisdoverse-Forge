@@ -18,8 +18,8 @@ This plan implements `docs/superpowers/specs/2026-06-14-self-fix-loop-phase4-des
 
 These were resolved during planning from verified codebase facts. Each milestone depends on them.
 
-- **D1 — Server-side `git`, never in `/workspace`.** `agentforge-server` runs Alpine with no `git` (`rust/Dockerfile:50-51`). The Bridge needs `git` only for its **own server-owned clean clone** (clone/worktree/commit/push). We add `git` to the server image (M0). The agent's `/workspace` is read by the server as **plain files** (filesystem I/O), never via a Git command, exactly as the spec's Security §1 requires. *Rejected alternative:* delegating git to a spawned agent container (the scout's suggestion) — it runs git inside the untrusted repo, defeating the trust boundary, and there is no `docker exec` primitive anyway (`platform/src/docker.rs` exposes no exec; tasks reach agents only over NATS).
-- **D2 — The whole loop lives in `rust/crates/api` (server process).** That process uniquely has the workspace mount (`compose.yml` bind), `docker: Option<Arc<DockerClient>>` on `AppState`, config/secrets, and (new) the GitHub App client. The orchestrator's `ReviewState` aggregate (`rust/crates/orchestrator/src/review/`) is a *different process* on `:4010` with no workspace/Docker/GitHub access, so we **mirror its state vocabulary** (`in_review` → `approved` / `changes_requested`) on the `self_fix` task API-side instead of cross-process-calling it. The existing orchestration spine (spawn via NATS) is reused unchanged.
+- **D1 — Server-side `git`, never in `/workspace`.** `agentforge-server` runs Alpine with no `git` (`rust/Dockerfile:50-51`). The Bridge needs `git` only for its **own server-owned clean clone** (clone/worktree/commit/push). We add `git` to the server image (M0). The agent's `/workspace` is read by the server as **plain files** (filesystem I/O), never via a Git command, exactly as the spec's Security §1 requires. _Rejected alternative:_ delegating git to a spawned agent container (the scout's suggestion) — it runs git inside the untrusted repo, defeating the trust boundary, and there is no `docker exec` primitive anyway (`platform/src/docker.rs` exposes no exec; tasks reach agents only over NATS).
+- **D2 — The whole loop lives in `rust/crates/api` (server process).** That process uniquely has the workspace mount (`compose.yml` bind), `docker: Option<Arc<DockerClient>>` on `AppState`, config/secrets, and (new) the GitHub App client. The orchestrator's `ReviewState` aggregate (`rust/crates/orchestrator/src/review/`) is a _different process_ on `:4010` with no workspace/Docker/GitHub access, so we **mirror its state vocabulary** (`in_review` → `approved` / `changes_requested`) on the `self_fix` task API-side instead of cross-process-calling it. The existing orchestration spine (spawn via NATS) is reused unchanged.
 - **D3 — `base_commit_sha` is GitHub's `origin/main` SHA, pinned at dispatch.** The server must not trust `/workspace/.git`. At self-fix task dispatch, the orchestration assignment path resolves `origin/main` via the GitHub App client (GitHub is the source of truth) and writes `base_commit_sha`. The Bridge rebuilds the agent's file content onto that base. This makes orphan-branch / unrelated-history attacks moot (the agent's commit graph is never read).
 - **D4 — Merge approval is a NEW server-side review surface, not the `waiting_approval` button.** The existing FE "Approve" button keys on `state==='blocked' && blockedReason==='waiting_approval'`, which is a **pre-dispatch** gate (`approval_release_state` → `queued` → re-dispatch). Reusing it would re-run the agent. We add a dedicated review status + approve route that records `approved` and invokes the Merge Executor. The task stays `completed` throughout.
 - **D5 — Scope includes the human-gated merge.** Unlike the older roadmap (`docs/plans/self-iteration-roadmap.md`, draft-PR-only), this plan's spec explicitly includes the merge slice. We implement through merge. We do **not** implement auto-deploy, background dispatch, or any auto-merge tier.
@@ -27,6 +27,7 @@ These were resolved during planning from verified codebase facts. Each milestone
 ## File map (what each new/changed file is responsible for)
 
 Create:
+
 - `rust/crates/db/migrations/068_orchestration_pr_tracking.sql` — additive PR/base-SHA columns.
 - `rust/crates/api/src/domain/self_fix.rs` — pure: sensitive-path classifier, review-status vocabulary, response helpers, error helpers.
 - `rust/crates/api/src/services/github_app/mod.rs` — GitHub App client (JWT mint, installation token cache, ref resolve, draft PR, check-runs, mark-ready, guarded merge).
@@ -47,6 +48,7 @@ Modify (mechanical, idioms below): `rust/Dockerfile`, `rust/crates/db/migrations
 ## Milestone 0: `git` in the server image
 
 **Files:**
+
 - Modify: `rust/Dockerfile` (runtime stage `apk add` line, ~line 51)
 
 - [ ] **Step 1: Add git to the runtime stage**
@@ -60,10 +62,12 @@ RUN apk add --no-cache ca-certificates curl git
 - [ ] **Step 2: Verify the image has git**
 
 Run:
+
 ```bash
 cd rust && docker build -t agentforge-server:gitcheck -f Dockerfile . \
   && docker run --rm --entrypoint git agentforge-server:gitcheck --version
 ```
+
 Expected: prints `git version 2.x`. (This is a slow build on this host — background it and wait for the completion notification; do not sleep-poll.)
 
 - [ ] **Step 3: Commit**
@@ -78,6 +82,7 @@ git commit -m "build(server): install git in runtime image for the self-fix PR b
 ## Milestone 1: Data model — PR/base-SHA columns on `orchestration_tasks`
 
 **Files:**
+
 - Create: `rust/crates/db/migrations/068_orchestration_pr_tracking.sql`
 - Modify: `rust/crates/db/migrations/MANIFEST.sha256`
 - Modify: `rust/crates/db/src/pool.rs` (`MIGRATION_SOURCES` array)
@@ -108,9 +113,11 @@ ALTER TABLE orchestration_tasks
 - [ ] **Step 2: Regenerate the manifest**
 
 Run:
+
 ```bash
 cd rust/crates/db/migrations && sha256sum *.sql | sort > MANIFEST.sha256
 ```
+
 This appends the `068_orchestration_pr_tracking.sql` hash line in sorted order.
 
 - [ ] **Step 3: Add the `include_str!` entry**
@@ -124,9 +131,11 @@ In `rust/crates/db/src/pool.rs`, in the `MIGRATION_SOURCES` array (ends ~line 14
 - [ ] **Step 4: Run the manifest guard tests (expect PASS)**
 
 Run:
+
 ```bash
 cd rust && cargo test -p agentforge-db --lib migration
 ```
+
 Expected: `embedded_sources_match_manifest_exactly` and `every_migration_file_on_disk_is_embedded` PASS. If either fails you skipped the manifest regen (Step 2) or the `include_str!` entry (Step 3).
 
 - [ ] **Step 5: Extend the entity struct**
@@ -218,9 +227,11 @@ Fill in the body using the seeding helpers in the neighbouring test. Assert: `se
 - [ ] **Step 9: Run the test**
 
 Run (see `reference_sqlx_test_local_db` for the local DB setup):
+
 ```bash
 cd rust && cargo test -p agentforge-api --test self_fix_pr_columns_test
 ```
+
 Expected: PASS.
 
 - [ ] **Step 10: Commit**
@@ -241,6 +252,7 @@ git commit -m "feat(db): self-fix PR/base-sha/review-status columns on orchestra
 This is the spec's non-negotiable circuit breaker (findings #3/#4), with the **corrected repo-root-relative globs + explicit own-code list**.
 
 **Files:**
+
 - Create: `rust/crates/api/src/domain/self_fix.rs`
 - Modify: `rust/crates/api/src/domain/mod.rs` (`pub mod self_fix;`)
 
@@ -302,9 +314,11 @@ mod tests {
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run:
+
 ```bash
 cd rust && cargo test -p agentforge-api --lib domain::self_fix
 ```
+
 Expected: FAIL (`SensitivePathPolicy` not defined).
 
 - [ ] **Step 3: Implement the policy**
@@ -411,9 +425,11 @@ pub(crate) mod self_fix;
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run:
+
 ```bash
 cd rust && cargo test -p agentforge-api --lib domain::self_fix
 ```
+
 Expected: all 4 tests PASS.
 
 - [ ] **Step 6: Commit**
@@ -428,6 +444,7 @@ git commit -m "feat(self-fix): sensitive-path circuit breaker + review vocabular
 ## Milestone 3: Config — GitHub App fields + secret encryption
 
 **Files:**
+
 - Modify: `rust/crates/core/src/config.rs` (struct + `from_env` validation + test literal)
 - Modify (struct-literal fan-out — all required or it won't compile): `rust/crates/api/src/test_support.rs`, `rust/crates/infra/src/redis_client.rs`, `rust/crates/infra/src/nats.rs`, `rust/crates/api/src/routes/cli_auth_proxy.rs`, `rust/crates/api/src/services/cli_auth_proxy/mod.rs`
 
@@ -481,6 +498,7 @@ Add to each `AppConfig { .. }` literal (before its closing brace), value `None` 
 ```
 
 Sites (re-read each; counts/positions drift):
+
 - `rust/crates/core/src/config.rs` test literal (~702-758)
 - `rust/crates/api/src/test_support.rs` (~44-105)
 - `rust/crates/infra/src/redis_client.rs` (~82-140)
@@ -506,9 +524,11 @@ Implement using the module's existing env-var test harness pattern.
 - [ ] **Step 5: Compile + test**
 
 Run:
+
 ```bash
 cd rust && cargo test -p agentforge-core --lib config
 ```
+
 Expected: PASS, and the workspace compiles (the fan-out is complete).
 
 - [ ] **Step 6: Wire env into the server binary (no-op if `from_env` already reads them)**
@@ -527,6 +547,7 @@ git commit -m "feat(config): GITHUB_APP_* fields with all-or-none validation"
 ## Milestone 4: GitHub App client (`reqwest` + `jsonwebtoken`)
 
 **Files:**
+
 - Create: `rust/crates/api/src/services/github_app/mod.rs`
 - Modify: `rust/crates/api/src/services/mod.rs` (`pub mod github_app;`)
 - Modify: `rust/crates/api/Cargo.toml` (ensure `jsonwebtoken` + `reqwest` deps; add if missing)
@@ -594,22 +615,28 @@ mod tests {
 ```
 
 Create the fixture key:
+
 ```bash
 mkdir -p rust/crates/api/tests/fixtures
 openssl genrsa -out rust/crates/api/tests/fixtures/test_rsa_private_key.pem 2048
 ```
+
 (This is a throwaway test key, never a real credential — safe to commit.)
 
 - [ ] **Step 2: Run the JWT test (fails, then passes)**
 
 Run:
+
 ```bash
 cd rust && cargo test -p agentforge-api --lib services::github_app
 ```
+
 Expected first run: FAIL if `jsonwebtoken` isn't a dep of `agentforge-api`. Add to `rust/crates/api/Cargo.toml` under `[dependencies]`:
+
 ```toml
 jsonwebtoken = { workspace = true }
 ```
+
 (If the workspace doesn't expose it as `workspace = true`, mirror the exact spec from `rust/Cargo.toml` line ~61.) Re-run; expected: PASS.
 
 - [ ] **Step 3: Add the installation-token cache (unit-tested)**
@@ -695,6 +722,7 @@ Use the reqwest idiom from the scout (Bearer token, `Accept: application/vnd.git
 - [ ] **Step 5: Write the httpmock integration test for the wire shapes**
 
 Create `rust/crates/api/tests/github_app_client_test.rs` using `httpmock` (add as a `[dev-dependencies]` of `agentforge-api` if absent). Cover, with the mock server bound to `GITHUB_API_BASE`:
+
 - `create_draft_pr` POSTs `draft: true` with the `Accept` + `Authorization: Bearer` headers and parses `{number, html_url, head.sha}`.
 - `merge_with_expected_head` sends `sha=<expected>` and maps a mocked `409` to `head_moved`.
 - `all_required_checks_green` returns `false` when any check conclusion ≠ `success`.
@@ -713,6 +741,7 @@ git commit -m "feat(self-fix): GitHub App REST client (JWT mint, token cache, dr
 ## Milestone 5: Pin `base_commit_sha` at dispatch
 
 **Files:**
+
 - Modify: `rust/crates/api/src/services/orchestration.rs` (assignment/dispatch path, ~line 834 publishes `orchestration.assigned`)
 - Test: extend `rust/crates/api/tests/` with a service test using a mock GitHub client
 
@@ -739,6 +768,7 @@ git commit -m "feat(self-fix): pin base_commit_sha from origin/main at dispatch"
 The security-critical core (spec Security §1). All Git runs in the **server-owned clean clone**, never in `/workspace`.
 
 **Files:**
+
 - Create: `rust/crates/api/src/services/self_fix/mod.rs` (facade + `SelfFixService`)
 - Create: `rust/crates/api/src/services/self_fix/import.rs` (validator)
 - Create: `rust/crates/api/src/services/self_fix/bridge.rs` (orchestrates the rebuild)
@@ -809,9 +839,11 @@ mod tests {
 - [ ] **Step 2: Run the validator tests (fail → pass)**
 
 Run:
+
 ```bash
 cd rust && cargo test -p agentforge-api --lib services::self_fix::import
 ```
+
 Expected: PASS once the module compiles (register `pub(crate) mod import;` in `self_fix/mod.rs`, Step 4).
 
 - [ ] **Step 3: Write the bridge orchestration (and the gated rebuild test)**
@@ -823,9 +855,9 @@ Create `rust/crates/api/src/services/self_fix/bridge.rs`. The `run(...)` flow (e
 3. **Prepare the clean clone** in a server-owned scratch dir (e.g. `${SELF_FIX_WORK_DIR:-/tmp/agentforge-selffix}/<task-id>`): `git clone --depth 50 https://x-access-token:<token>@github.com/<repo>.git <dir>` (token from the GitHub client), then `git -C <dir> worktree add --detach <wt> <base_commit_sha>`. The token is only ever in this clone's process env — never in `/workspace`.
 4. **Import**: walk the project dir (excluding `.git/`), for each entry call `classify_entry`; on any `Err`, abort the task with a visible reason (increment `self_fix_import_rejected_total{reason}`). Mirror the worktree to match the agent's content (copy regular files; capture deletions) honouring the **base tree's** `.gitignore`. Enforce churn/deletion caps across the whole set.
 5. **Commit** in the worktree: `git -C <wt> -c user.name=... -c user.email=... checkout -b agent/<task-id>` then `add -A` + `commit -m`. Run git with `-c core.hooksPath=/dev/null` and `GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null` (defence in depth; the clone is server-owned anyway).
-6. **Object-level re-check**: `git -C <wt> diff-tree -r --raw <base_commit_sha> HEAD`; reject if any dst mode is `120000` (symlink) or `160000` (gitlink), or any path is sensitive-per-M2 is recorded (not rejected — sensitivity gates *merge*, not PR creation) — but symlink/gitlink here is a hard abort.
+6. **Object-level re-check**: `git -C <wt> diff-tree -r --raw <base_commit_sha> HEAD`; reject if any dst mode is `120000` (symlink) or `160000` (gitlink), or any path is sensitive-per-M2 is recorded (not rejected — sensitivity gates _merge_, not PR creation) — but symlink/gitlink here is a hard abort.
 7. **Push**: `git -C <wt> push origin agent/<task-id>` (idempotent: if the ref exists with the same tree, reuse).
-8. **Open draft PR** via `GithubAppClient::create_draft_pr(head="agent/<task-id>", base="main", title, body)` where `body` includes a generated `## Beginner UX / Operator Path` section (see `feedback_pr_body_edit_and_ux_gate`).
+8. **Open draft PR** via `GithubAppClient::create_draft_pr(head="agent/<task-id>", base="main", title, body)` where `body` includes a generated `## Beginner UX / First-Time User Path` section (see `feedback_pr_body_edit_and_ux_gate`).
 9. **Persist**: `set_pr_metadata(scope, task_id, pr.number, &pr.html_url, &pr.head.sha, review_status::IN_REVIEW)`. If the change set touches a sensitive path (M2), set `review_status::SENSITIVE_BLOCKED` instead.
 10. On any step error: stop the task with a visible error; never leave a half-written PR (idempotency keyed by `agent/<task-id>` + open-or-find).
 
@@ -836,6 +868,7 @@ Create `rust/crates/api/tests/self_fix_bridge_rebuild_test.rs`, **gated** like t
 - [ ] **Step 4: Register modules + build `SelfFixService` on state**
 
 `rust/crates/api/src/services/self_fix/mod.rs`:
+
 ```rust
 pub(crate) mod bridge;
 pub(crate) mod import;
@@ -844,6 +877,7 @@ pub(crate) mod merge_executor; // added in M7
 pub(crate) struct SelfFixService { /* repo, github client, container control, workspace, limits */ }
 impl SelfFixService { /* from_state-style constructor; pub(crate) async fn open_pr(...), pub(crate) async fn approve_and_merge(...) */ }
 ```
+
 Add `pub mod self_fix;` and `pub mod github_app;` to `services/mod.rs`. On `AppState` (build in `state_services.rs`): construct an `Option<GithubAppClient>` by decrypting `github_app_private_key` with `agentforge_core::crypto::decode_key_hex(LLM_ENCRYPTION_KEY)` + `decrypt_base64` (scout `cfg` card), and a `self_fix_service()` factory following the `agent_container_control_service()` pattern.
 
 - [ ] **Step 5: Run + commit**
@@ -860,6 +894,7 @@ git commit -m "feat(self-fix): PR Bridge — vetted import, server-side rebuild,
 ## Milestone 7: Merge Executor (guarded)
 
 **Files:**
+
 - Create: `rust/crates/api/src/services/self_fix/merge_executor.rs`
 - Test: `merge_executor.rs` `#[cfg(test)]` + a service test with a mock GitHub client
 
@@ -895,6 +930,7 @@ impl MergeGate {
 ```
 
 `MergeExecutor::run(scope, task)` (the atomic guarded tail, spec Security §5 + Merge race):
+
 1. Load the task; recompute the change-set sensitivity (M2) — **hard refuse** server-side regardless of any GitHub state.
 2. `all_required_checks_green(pr_head_sha)`; `head_unchanged = github.pr_head_sha(n) == task.pr_head_sha`.
 3. `MergeGate::evaluate(...)?`.
@@ -902,7 +938,7 @@ impl MergeGate {
 5. **Re-read** `head = github.pr_head_sha(n)` and re-check green (a `ready_for_review` automation could have pushed).
 6. `github.merge_with_expected_head(n, head)` — GitHub rejects (409 → `head_moved`) if it moved; that is the atomic guard.
 7. `github.comment(n, audit_body)` (approver, task id, timestamp, head sha); `set_review_status(scope, task, review_status::MERGED)`.
-Idempotent: if the PR is already merged, treat as success.
+   Idempotent: if the PR is already merged, treat as success.
 
 - [ ] **Step 3: Run + commit**
 
@@ -917,6 +953,7 @@ git commit -m "feat(self-fix): guarded Merge Executor (sensitive hard-refuse, ex
 ## Milestone 8: Review/approve routes (authed, tenant-scoped)
 
 **Files:**
+
 - Create: `rust/crates/api/src/routes/self_fix.rs`
 - Modify: `rust/crates/api/src/routes/mod.rs` (`pub mod self_fix;`)
 - Modify: `rust/crates/api/src/router.rs` (`.merge(routes::self_fix::self_fix_routes())`)
@@ -977,6 +1014,7 @@ git commit -m "feat(self-fix): authed review snapshot + approve→merge routes"
 ## Milestone 9: Frontend review surface (FSD)
 
 **Files:**
+
 - Create: `src/app/features/detail/ReviewSnapshotPanel.tsx`
 - Modify: `src/app/features/detail/TaskDetailPanel.tsx` (render the panel for `self_fix` tasks)
 - Modify: `src/app/shared/api/orchestration.ts` (`TaskSummary` PR fields + `getSelfFixReview` + `approveSelfFix`)
@@ -1009,9 +1047,11 @@ In `TaskDetailPanel.tsx`, when `task.selfFix`, render `<ReviewSnapshotPanel task
 - [ ] **Step 4: Test + checks**
 
 Add a vitest rendering test (Approve disabled when `sensitive` / red CI; enabled + calls API when green+clear). Run:
+
 ```bash
 npm run fsd:check && npm run lint && npm run typecheck && npm run test:unit -- ReviewSnapshotPanel
 ```
+
 Expected: PASS, no FSD boundary violation.
 
 - [ ] **Step 5: Commit**
@@ -1026,6 +1066,7 @@ git commit -m "feat(self-fix): in-platform PR review snapshot + approve surface"
 ## Milestone 10: End-to-end wiring, docs, validation
 
 **Files:**
+
 - Modify: WS broadcast for review-state changes (`rust/crates/api/src/.../websocket` + `src/app/hooks/useWsDispatch.ts`)
 - Create/modify: docs — `docs/guides/self-fix-loop.md`, `docs/guides/configuration.md` (`GITHUB_APP_*`, `SELF_FIX_WORK_DIR`), `docs/architecture/glossary.md`, `docs/security/` note
 - Modify: `docker/compose.yml` / `docker/.env.example` (`GITHUB_APP_*`, `SELF_FIX_WORK_DIR`)
@@ -1040,15 +1081,17 @@ When `set_review_status`/`set_pr_metadata` change a task, broadcast over the exi
 
 - [ ] **Step 3: Beginner-UX PR body**
 
-Ensure the Bridge-generated PR body includes the exact `## Beginner UX / Operator Path` H2 with plain `- Field:` bullets (6 named fields, values ≥12 chars) per `feedback_pr_body_edit_and_ux_gate`, so agent-authored PRs pass the same UX gate as human PRs.
+Ensure the Bridge-generated PR body includes the exact `## Beginner UX / First-Time User Path` H2 with plain `- Field:` bullets (6 named fields, values >=12 chars) per `feedback_pr_body_edit_and_ux_gate`, so agent-authored PRs pass the same UX gate as human PRs.
 
 - [ ] **Step 4: Full validation**
 
 Run (blast radius touches shared crates, API contracts, DB, auth-adjacent):
+
 ```bash
 cd rust && make ci
 cd .. && npm run fsd:check && npm run lint && npm run format:check && npm run typecheck && npm run test
 ```
+
 Confirm: migration-manifest CI guard, `route_ddd_boundary_test`, every new repo/route method has a tenant-boundary test, and no `clippy::unwrap_used` in handlers. If a new lazy FE route was added, apply the `waitFor({ state: 'visible' })` + `click({ timeout: 30000 })` Playwright guidance from CLAUDE.md.
 
 - [ ] **Step 5: Commit + open the feature PR**
@@ -1057,6 +1100,7 @@ Confirm: migration-manifest CI guard, `route_ddd_boundary_test`, every new repo/
 git add -A
 git commit -m "feat(self-fix): e2e wiring, realtime broadcast, operator docs"
 ```
+
 Open the PR from `docs/self-fix-loop-phase4-spec` (or a dedicated feature branch) with concrete validation evidence and the Beginner-UX body section.
 
 ---
@@ -1067,4 +1111,7 @@ Open the PR from `docs/self-fix-loop-phase4-spec` (or a dedicated feature branch
 - **Open questions from the spec** resolved here: CI-check freshness → snapshot + manual Refresh (M8/M9); `self-fix` marker → a `self_fix BOOLEAN` flag on the task (M1), not a task group.
 - **Known unknowns to confirm at execution time (do not trust planning line numbers):** the exact `CreateTaskRow` bind count (M1 Step 6); the real container-stop method name on the control service (M6 Step 3.1); whether `jsonwebtoken` is exposed as `workspace = true` (M4 Step 2); the exact WS task-projection type (M10 Step 1).
 - **Type consistency:** `review_status` string vocabulary (`in_review`/`approved`/`changes_requested`/`merged`/`sensitive_blocked`) is defined once in `domain::self_fix::review_status` (M2) and reused by M6/M7/M8 and mirrored in the FE union (M9). `SensitivePathPolicy::touches_sensitive(&[String])` signature is fixed in M2 and consumed unchanged in M6/M7/M8.
+
+```
+
 ```

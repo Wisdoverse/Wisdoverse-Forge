@@ -112,7 +112,7 @@ describe('chatStreamHttpErrorMessage', () => {
     expect(message).not.toContain('model service')
   })
 
-  it('keeps server failures actionable for first-time operators', () => {
+  it('keeps server failures actionable for first-time users', () => {
     const message = chatStreamHttpErrorMessage(503, { error: 'service unavailable' })
 
     expectBeginnerMessage(

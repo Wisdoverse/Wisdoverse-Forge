@@ -27,7 +27,7 @@
 #
 #   agentforge verify --tag v1.2.3 ./agentforge-sidecar-linux-amd64
 #
-# See docs/runbooks/host-cli-agent-enrollment.md for the full operator path.
+# See docs/runbooks/host-cli-agent-enrollment.md for the full setup path.
 # =============================================================================
 
 name: Release Supply Chain (sign + SBOM)

@@ -15,7 +15,7 @@ const completeBody = `
 ## Summary
 - Improve a visible workflow.
 
-## Beginner UX / Operator Path
+## Beginner UX / First-Time User Path
 
 - Shortest safe path: Open Settings, choose Runtime, and connect the missing credential first.
 - Prerequisites shown before action: The screen shows project, runtime, and provider readiness before submit.
@@ -30,20 +30,31 @@ describe('check-pr-beginner-ux.mjs', () => {
     const result = checkPullRequestBody(pr(completeBody))
 
     expect(result.ok).toBe(true)
+    expect(result.message).toBe('Beginner UX / First-Time User Path section is complete.')
     expect(result.errors).toEqual([])
+  })
+
+  it('rejects the old user-path heading so new PRs use beginner-facing language', () => {
+    const oldHeading = ['## Beginner UX /', 'Operator Path'].join(' ')
+    const result = checkPullRequestBody(
+      pr(completeBody.replace('## Beginner UX / First-Time User Path', oldHeading))
+    )
+
+    expect(result.ok).toBe(false)
+    expect(result.errors).toContain('Missing "## Beginner UX / First-Time User Path" section.')
   })
 
   it('fails when the section is missing', () => {
     const result = checkPullRequestBody(pr('## Summary\n- Internal change.'))
 
     expect(result.ok).toBe(false)
-    expect(result.errors).toContain('Missing "## Beginner UX / Operator Path" section.')
+    expect(result.errors).toContain('Missing "## Beginner UX / First-Time User Path" section.')
   })
 
   it('fails when fields are left as placeholders', () => {
     const result = checkPullRequestBody(
       pr(`
-## Beginner UX / Operator Path
+## Beginner UX / First-Time User Path
 
 - Shortest safe path:
 - Prerequisites shown before action: TBD
@@ -64,9 +75,9 @@ describe('check-pr-beginner-ux.mjs', () => {
   it('accepts non-user-facing changes with an explanation', () => {
     const result = checkPullRequestBody(
       pr(`
-## Beginner UX / Operator Path
+## Beginner UX / First-Time User Path
 
-Not user-facing: internal test fixture update only, no operator-visible behavior changes.
+Not user-facing: internal test fixture update only, no user-visible behavior changes.
 `)
     )
 
