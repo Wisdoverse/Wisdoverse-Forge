@@ -997,7 +997,7 @@ export function ProjectTree({
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <button
             type="button"
-            aria-label="Close project configuration"
+            aria-label="Close project settings"
             className="absolute inset-0 bg-black/40"
             onClick={() => setProjectEditor(null)}
           />

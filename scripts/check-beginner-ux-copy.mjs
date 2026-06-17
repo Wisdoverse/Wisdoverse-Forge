@@ -1284,6 +1284,8 @@ const AGENT_FILE_WORK_CONTROL_JARGON_PATTERNS = [
 
 const PROJECT_SHARE_ROLE_JARGON_PATTERNS = [/\bInvite people and choose roles\b/i]
 
+const PROJECT_SETTINGS_CONFIGURATION_PATTERNS = [/\bClose project configuration\b/i]
+
 const VAGUE_ACCESS_RECOVERY_PATTERNS = [
   /\bAsk an owner or admin to update your access\b/i,
   /\bAsk an owner or admin to update what you can do\b/i,
@@ -2237,6 +2239,12 @@ function hasProjectShareRoleJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/layouts/sidebar/ProjectTree.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return PROJECT_SHARE_ROLE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasProjectSettingsConfigurationCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/layouts/sidebar/ProjectTree.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return PROJECT_SETTINGS_CONFIGURATION_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasVagueAccessRecoveryCopy(line) {
@@ -4038,6 +4046,16 @@ function scanFile(file, relFile) {
         type: 'project-share-role-copy',
         location,
         message: 'Project sharing copy must say what people can do instead of choose roles.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasProjectSettingsConfigurationCopy(relFile, line)) {
+      findings.push({
+        type: 'project-settings-copy',
+        location,
+        message:
+          'Project settings controls must say settings instead of configuration for beginners.',
         sample: line.trim(),
       })
     }

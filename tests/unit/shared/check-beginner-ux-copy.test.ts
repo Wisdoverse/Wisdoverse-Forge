@@ -8074,6 +8074,40 @@ const ACTION_COMMANDS = [
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags project settings controls that use configuration wording', () => {
+    const cwd = fixture({
+      'src/app/layouts/sidebar/ProjectTree.tsx': `
+function ProjectTree() {
+  return <button aria-label="Close project configuration" />
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'project-settings-copy',
+          location: 'src/app/layouts/sidebar/ProjectTree.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts project settings controls that use plain settings wording', () => {
+    const cwd = fixture({
+      'src/app/layouts/sidebar/ProjectTree.tsx': `
+function ProjectTree() {
+  return <button aria-label="Close project settings" />
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags unclear project menu task action copy', () => {
     const cwd = fixture({
       'src/app/layouts/sidebar/ProjectTree.tsx': `
