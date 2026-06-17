@@ -979,7 +979,14 @@ const AUTH_FAILURE_FIRST_PATTERNS = [
 
 const AUTH_INTRO_JARGON_PATTERNS = [/\bSign in to manage\b.*\bevidence\b/i]
 
-const LEGAL_PRIVACY_EVIDENCE_JARGON_PATTERNS = [/\blive task,\s*agent,\s*and evidence updates\b/i]
+const LEGAL_PRIVACY_EVIDENCE_JARGON_PATTERNS = [
+  /\blive task,\s*agent,\s*and evidence updates\b/i,
+  /\brate limiting\b/i,
+  /\baudit logging\b/i,
+  /\baudit logs?\b/i,
+  /\bevent history\b/i,
+  /\bsecurity monitoring and compliance purposes\b/i,
+]
 
 const GETTING_STARTED_REVIEW_EVIDENCE_JARGON_PATTERNS = [
   /\breturned useful work and evidence\b/i,
@@ -3326,7 +3333,8 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'legal-privacy-copy',
         location,
-        message: 'Legal privacy copy must describe saved work updates without evidence jargon.',
+        message:
+          'Legal privacy copy must explain saved work and security records in beginner-readable language.',
         sample: line.trim(),
       })
     }

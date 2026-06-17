@@ -8526,7 +8526,12 @@ function render() {
     const cwd = fixture({
       'src/app/shared/ui/legal/LegalPage.ts': `
 function renderPrivacy() {
-  return '<li>To show live task, agent, and evidence updates in the product interface</li>'
+  return [
+    '<li>To show live task, agent, and evidence updates in the product interface</li>',
+    '<li>IP address used for rate limiting and audit logging</li>',
+    '<li>To maintain audit logs for security monitoring and compliance purposes</li>',
+    '<li>The export includes event history and configuration settings</li>',
+  ].join('')
 }
 `,
     })
@@ -8534,19 +8539,38 @@ function renderPrivacy() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'legal-privacy-copy',
-        sample: expect.stringContaining('evidence updates'),
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'legal-privacy-copy',
+          sample: expect.stringContaining('evidence updates'),
+        }),
+        expect.objectContaining({
+          type: 'legal-privacy-copy',
+          sample: expect.stringContaining('rate limiting'),
+        }),
+        expect.objectContaining({
+          type: 'legal-privacy-copy',
+          sample: expect.stringContaining('audit logs'),
+        }),
+        expect.objectContaining({
+          type: 'legal-privacy-copy',
+          sample: expect.stringContaining('event history'),
+        }),
+      ])
+    )
   })
 
   it('accepts legal privacy copy that explains saved work updates plainly', () => {
     const cwd = fixture({
       'src/app/shared/ui/legal/LegalPage.ts': `
 function renderPrivacy() {
-  return '<li>To show live task, agent, and saved work updates in the product interface</li>'
+  return [
+    '<li>To show live task, agent, and saved work updates in the product interface</li>',
+    '<li>IP address used to protect the Service, slow abusive requests, and record security-relevant activity</li>',
+    '<li>To keep security history records for safety reviews and legal requirements</li>',
+    '<li>The export includes change history and configuration settings</li>',
+  ].join('')
 }
 `,
     })
