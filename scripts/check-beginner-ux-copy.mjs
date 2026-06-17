@@ -1213,6 +1213,11 @@ const AGENT_CONFIG_DETAIL_DEAD_END_PATTERNS = [
   /\bNo instructions\b/i,
 ]
 
+const AGENT_CONFIG_SAVE_FAILURE_PATTERNS = [
+  /\bAgent instructions were not saved\. Refresh this agent/i,
+  /\bAsk an admin to check your agent access\b/i,
+]
+
 const AGENT_AI_SERVICE_DEAD_END_PATTERNS = [/\bAI service not reported\b/i]
 
 const AGENT_MODEL_DEAD_END_PATTERNS = [
@@ -2103,6 +2108,12 @@ function hasAgentConfigDetailDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return AGENT_CONFIG_DETAIL_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentConfigSaveFailureCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_CONFIG_SAVE_FAILURE_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentListSummaryDeadEndCopy(relFile, line) {
@@ -3914,6 +3925,16 @@ function scanFile(file, relFile) {
         type: 'agent-config-detail-copy',
         location,
         message: 'Agent configuration missing-detail copy must tell beginners what to refresh.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentConfigSaveFailureCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-config-save-copy',
+        location,
+        message:
+          'Agent instruction save errors must start with the next action and point to an owner or admin.',
         sample: line.trim(),
       })
     }

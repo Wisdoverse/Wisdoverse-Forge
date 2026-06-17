@@ -2902,6 +2902,40 @@ function emptyInstructionBadge() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags agent instruction save errors that hide the next step behind the failure', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentConfigTab.tsx': `
+function promptProfileSaveErrorMessage() {
+  return 'Agent instructions were not saved. Refresh this agent, confirm it is still a chat-only agent, then save again. Ask an admin to check your agent access if it keeps failing.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-config-save-copy',
+          location: 'src/app/features/agents/AgentConfigTab.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts agent instruction save errors that start with the next action', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentConfigTab.tsx': `
+function promptProfileSaveErrorMessage() {
+  return 'Refresh this agent, confirm it is still a chat-only agent, then save again. If it keeps failing, ask an owner or admin to check your agent access. Agent instructions were not saved.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags agent model fallback copy that does not tell users what to refresh', () => {
     const cwd = fixture({
       'src/app/entities/agent/model/agents.store.ts': `

@@ -271,9 +271,13 @@ describe('AgentConfigTab', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(/agent instructions were not saved/i)
     )
+    expect(screen.getByRole('alert')).toHaveTextContent(/^refresh this agent/i)
     expect(screen.getByRole('alert')).toHaveTextContent(/confirm it is still a chat-only agent/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/text-only model/i)
-    expect(screen.getByRole('alert')).toHaveTextContent(/ask an admin to check your agent access/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /ask an owner or admin to check your agent access/i
+    )
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/ask an admin/i)
   })
 
   it('empty string clears the prompt (sent as "" to backend)', async () => {

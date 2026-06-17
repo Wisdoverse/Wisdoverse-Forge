@@ -49,7 +49,7 @@ function promptStats(value: string): PromptStats {
 }
 
 function promptProfileSaveErrorMessage(): string {
-  return 'Agent instructions were not saved. Refresh this agent, confirm it is still a chat-only agent, then save again. Ask an admin to check your agent access if it keeps failing.'
+  return 'Refresh this agent, confirm it is still a chat-only agent, then save again. If it keeps failing, ask an owner or admin to check your agent access. Agent instructions were not saved.'
 }
 
 function isMissingModelLabel(label: string): boolean {
