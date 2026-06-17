@@ -234,15 +234,17 @@ describe('AgentConfigTab', () => {
     }
   })
 
-  it('uses beginner-facing wording in the triage template', () => {
+  it('uses beginner-facing wording in the sort-work template', () => {
     render(<AgentConfigTab agentId="a1" />)
-    fireEvent.click(screen.getByRole('button', { name: /triage/i }))
+    fireEvent.click(screen.getByRole('button', { name: /sort work/i }))
 
     const instructions = screen.getByLabelText(
       /instructions for this agent/i
     ) as HTMLTextAreaElement
+    expect(instructions.value).toContain('sort incoming work')
     expect(instructions.value).toContain('likely cause')
     expect(instructions.value).toContain('more information is needed')
+    expect(instructions.value).not.toMatch(/triage/i)
     expect(instructions.value).not.toMatch(/root cause/i)
     expect(instructions.value).not.toMatch(/more evidence/i)
   })

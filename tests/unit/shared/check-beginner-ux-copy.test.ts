@@ -8578,6 +8578,68 @@ function renderPrivacy() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags inbox and agent setup copy that exposes triage jargon', () => {
+    const cwd = fixture({
+      'src/app/features/inbox/InboxView.tsx': `
+function renderInboxPath() {
+  return 'Inbox triage path'
+}
+`,
+      'src/app/features/agents/AgentConfigTab.tsx': `
+function promptTemplate() {
+  return 'You are a triage agent. Reproduce the reported behavior.'
+}
+`,
+      'src/app/features/agents/AgentGroupsPanel.tsx': `
+function groupTemplate() {
+  return 'Triage Queue'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'beginner-sorting-copy',
+          sample: expect.stringContaining('Inbox triage path'),
+        }),
+        expect.objectContaining({
+          type: 'beginner-sorting-copy',
+          sample: expect.stringContaining('triage agent'),
+        }),
+        expect.objectContaining({
+          type: 'beginner-sorting-copy',
+          sample: expect.stringContaining('Triage Queue'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts inbox and agent setup copy that describes sorting work plainly', () => {
+    const cwd = fixture({
+      'src/app/features/inbox/InboxView.tsx': `
+function renderInboxPath() {
+  return 'Inbox action order'
+}
+`,
+      'src/app/features/agents/AgentConfigTab.tsx': `
+function promptTemplate() {
+  return 'You help sort incoming work. Recreate the reported behavior.'
+}
+`,
+      'src/app/features/agents/AgentGroupsPanel.tsx': `
+function groupTemplate() {
+  return 'Intake Queue'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags Getting Started review copy that exposes evidence jargon', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `

@@ -92,9 +92,9 @@ const TASK_GROUP_TEMPLATES: TaskGroupTemplate[] = [
   },
   {
     id: 'triage',
-    label: 'Triage',
+    label: 'Sort work',
     summary: 'Clarify and assign',
-    name: 'Triage Queue',
+    name: 'Intake Queue',
     description: 'Clarify incoming work, find what is missing, and send tasks to the right agent.',
     Icon: ClipboardCheck,
   },

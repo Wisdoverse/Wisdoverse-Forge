@@ -715,6 +715,12 @@ const TASK_RECOVERY_STATUS_DEAD_END_PATTERNS = [
   /\bTriage failure\b/,
 ]
 
+const BEGINNER_SORTING_JARGON_PATTERNS = [
+  /\bInbox triage path\b/i,
+  /\bTriage Queue\b/,
+  /\bYou are a triage agent\b/i,
+]
+
 const TASK_DETAIL_EMPTY_DEAD_END_PATTERNS = [
   /\bNo description provided\./i,
   /\bNo result files were attached\./i,
@@ -1757,6 +1763,18 @@ function hasLegalPrivacyEvidenceJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/shared/ui/legal/LegalPage.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return LEGAL_PRIVACY_EVIDENCE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasBeginnerSortingJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/inbox/InboxView.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentGroupsPanel.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return BEGINNER_SORTING_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasGettingStartedReviewEvidenceJargonCopy(relFile, line) {
@@ -3335,6 +3353,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Legal privacy copy must explain saved work and security records in beginner-readable language.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasBeginnerSortingJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'beginner-sorting-copy',
+        location,
+        message:
+          'Inbox and agent setup copy must describe sorting work in beginner-readable language.',
         sample: line.trim(),
       })
     }
