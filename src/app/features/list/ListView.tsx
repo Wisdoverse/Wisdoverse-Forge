@@ -240,7 +240,7 @@ export function ListView() {
           </p>
           <p className="max-w-sm text-ui-caption leading-relaxed text-secondary-light dark:text-secondary-dark">
             Use the board to create one small task first. Start with the outcome you want, then add
-            the proof you expect the agent to return.
+            whether you need files, notes, or a short answer back.
           </p>
           <button
             type="button"
@@ -463,7 +463,7 @@ function listNextStep(
   if (totalTasks === 0) {
     return {
       title: 'Create your first small task.',
-      detail: 'Use the board to give an agent one clear outcome and expected proof.',
+      detail: 'Use the board to tell an agent the outcome you want and what to send back.',
     }
   }
 

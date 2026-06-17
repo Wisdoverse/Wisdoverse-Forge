@@ -2457,11 +2457,40 @@ function EmptyList() {
     )
   })
 
+  it('flags task list empty copy that asks beginners for expected proof', () => {
+    const cwd = fixture({
+      'src/app/features/list/ListView.tsx': `
+function EmptyList() {
+  return [
+    'Use the board to give an agent one clear outcome and expected proof.',
+    'Start with the outcome you want, then add the proof you expect the agent to return.',
+  ]
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-list-empty-copy',
+          location: 'src/app/features/list/ListView.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'task-list-empty-copy',
+          location: 'src/app/features/list/ListView.tsx:5',
+        }),
+      ])
+    )
+  })
+
   it('accepts task list empty copy that points to opening the board', () => {
     const cwd = fixture({
       'src/app/features/list/ListView.tsx': `
 function EmptyList() {
-  return 'Use the board to create one small task first. Open board to create task.'
+  return 'Use the board to create one small task first. Tell the agent what to send back. Open board to create task.'
 }
 `,
     })

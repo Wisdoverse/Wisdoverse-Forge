@@ -467,7 +467,11 @@ const AGENT_TASK_QUEUE_EMPTY_DEAD_END_PATTERNS = [
 const AGENT_TASK_QUEUE_FAILURE_FIRST_PATTERNS = [
   /\bTask queue was not created\. (?:A|Ask|Check|Choose|Forge|Refresh|Sign in|Too many|Try|Use|Wait)\b/i,
 ]
-const TASK_LIST_EMPTY_DEAD_END_PATTERNS = [/\bCreate one small task from the board first\b/i]
+const TASK_LIST_EMPTY_DEAD_END_PATTERNS = [
+  /\bCreate one small task from the board first\b/i,
+  /\bexpected proof\b/i,
+  /\bproof you expect the agent to return\b/i,
+]
 const AGENT_LIST_SUMMARY_DEAD_END_PATTERNS = [/\bNo agents\b/i]
 const AGENT_TOOL_SUMMARY_DEAD_END_PATTERNS = [
   /\bNo tool summary yet\. Ask an owner what this tool lets the agent do before turning it on\./i,
