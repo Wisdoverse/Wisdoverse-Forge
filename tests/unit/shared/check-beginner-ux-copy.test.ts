@@ -6900,12 +6900,12 @@ function GettingStartedGuideRow() {
     )
   })
 
-  it('accepts Start and setup checklist errors that start with the next action', () => {
+  it('accepts setup checklist errors that start with the next action', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `
 export const en = {
   gettingStarted: {
-    skipError: 'Check your connection, then choose Skip again. Start could not be hidden.',
+    skipError: 'Check your connection, then choose Skip again. The setup checklist could not be hidden.',
   },
 }
 `,
@@ -6913,6 +6913,79 @@ export const en = {
 function GettingStartedGuideRow() {
   return 'Check your connection, then choose Show setup checklist again. The setup checklist could not be shown.'
 }
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags Start navigation copy that sounds like a launch button', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  nav: { start: 'Start' },
+  gettingStarted: {
+    skipHint: 'This only hides Start from the sidebar. You can show Start again from Settings.',
+    skipError: 'Check your connection, then choose Skip again. Start could not be hidden.',
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  nav: { start: '开始' },
+  gettingStarted: {
+    skipHint: '这只会隐藏侧栏里的 Start，也可以在设置里重新显示 Start。',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'start-nav-copy',
+          sample: expect.stringContaining("start: 'Start'"),
+        }),
+        expect.objectContaining({
+          type: 'start-nav-copy',
+          sample: expect.stringContaining('hides Start'),
+        }),
+        expect.objectContaining({
+          type: 'start-nav-copy',
+          sample: expect.stringContaining("start: '开始'"),
+        }),
+        expect.objectContaining({
+          type: 'start-nav-copy',
+          sample: expect.stringContaining('隐藏侧栏里的 Start'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts setup checklist navigation copy', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  nav: { start: 'Setup checklist' },
+  gettingStarted: {
+    skipHint: 'This only hides the setup checklist from the sidebar. You can show it again from Settings.',
+    skipError: 'Check your connection, then choose Skip again. The setup checklist could not be hidden.',
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  nav: { start: '设置清单' },
+  gettingStarted: {
+    skipHint: '这只会隐藏侧栏里的设置清单，也可以在设置里重新显示它。',
+  },
+}
+`,
+      'src/app/layouts/sidebar/SidebarNav.tsx': `
+const item = { description: 'follow the setup checklist' }
 `,
     })
 

@@ -424,6 +424,24 @@ const START_GUIDE_FAILURE_FIRST_PATTERNS = [
   /\bThe setup checklist could not be shown\. Check your connection, then try again\./i,
 ]
 
+const START_NAV_JARGON_PATTERNS = [
+  /\bnav:\s*\{[^}]*\bstart:\s*['"`]Start['"`]/,
+  /\bnav:\s*\{[^}]*\bstart:\s*['"`]开始['"`]/,
+  /\bhides Start from the sidebar\b/i,
+  /\bshow Start again from Settings\b/i,
+  /\bskipHint:\s*['"`][^'"`]*Start\b/,
+  /\bskipError:\s*['"`][^'"`]*Start\b/,
+  /\b隐藏侧栏里的 Start\b/,
+  /\b重新显示 Start\b/,
+  /\bStart could not be hidden\b/i,
+  /\b无法隐藏 Start\b/,
+]
+
+const START_NAV_LABEL_JARGON_PATTERNS = [
+  /^\s*start:\s*['"`]Start['"`]/,
+  /^\s*start:\s*['"`]开始['"`]/,
+]
+
 const TASK_VIEW_LABEL_JARGON_PATTERNS = [/\bid:\s*['"`]3d['"`]\s*,\s*label:\s*['"`]3D['"`]/]
 
 const TOP_BAR_CREATE_TASK_JARGON_PATTERNS = [/\+\s*Task\b/]
@@ -2155,6 +2173,23 @@ function hasStartGuideFailureFirstCopy(relFile, line) {
   return START_GUIDE_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasStartNavJargonCopy(relFile, lines, index, line) {
+  if (
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts') &&
+    !relFile.endsWith('src/app/layouts/sidebar/SidebarNav.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  const contextStart = Math.max(0, index - 8)
+  const context = lines.slice(contextStart, index + 1).join('\n')
+  const isNavLabel =
+    /\bnav:\s*\{/.test(context) &&
+    START_NAV_LABEL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+  return isNavLabel || START_NAV_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasTaskViewLabelJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/layouts/TopBar.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -3801,6 +3836,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Start and setup checklist errors must start with the next action, not the failure summary.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasStartNavJargonCopy(relFile, lines, index, line)) {
+      findings.push({
+        type: 'start-nav-copy',
+        location,
+        message:
+          'Start navigation copy must say setup checklist so beginners know this is a guide, not a launch button.',
         sample: line.trim(),
       })
     }

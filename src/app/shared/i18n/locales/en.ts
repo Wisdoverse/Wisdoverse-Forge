@@ -62,7 +62,7 @@ export const en = {
   // =========================================================================
   nav: {
     home: 'Home',
-    start: 'Start',
+    start: 'Setup checklist',
     dashboard: 'Dashboard',
     tasks: 'Tasks',
     inbox: 'Inbox',
@@ -90,8 +90,9 @@ export const en = {
     skip: 'Skip and open Tasks',
     skipSaving: 'Skipping...',
     skipHint:
-      'This only hides Start from the sidebar. Your projects, agents, and tasks stay the same, and you can show Start again from Settings.',
-    skipError: 'Check your connection, then choose Skip again. Start could not be hidden.',
+      'This only hides the setup checklist from the sidebar. Your projects, agents, and tasks stay the same, and you can show it again from Settings.',
+    skipError:
+      'Check your connection, then choose Skip again. The setup checklist could not be hidden.',
     progressCount: '{{complete}} of {{total}}',
     nextTitle: 'Do this next',
     readyTitle: 'Ready to run work',
