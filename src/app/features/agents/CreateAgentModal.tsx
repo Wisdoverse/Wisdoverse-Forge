@@ -462,7 +462,9 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
         return
       }
       if (!data.model.trim()) {
-        setFormError('Choose an AI service with a saved model, then create this agent.')
+        setFormError(
+          'Open AI services settings, choose Check connection for this service, then come back when it shows Ready.'
+        )
         return
       }
       await createAgent({
@@ -1090,12 +1092,13 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                       >
                         {providerOptions.map((option) => (
                           <option key={option.id} value={option.id}>
-                            {option.label} · {option.model}
+                            {option.label} · saved setup
                           </option>
                         ))}
                       </select>
                       <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                        Choose a checked AI service from Settings. The model is set by that service.
+                        Choose the AI service name you set up in Settings. Forge uses its saved
+                        setup automatically.
                       </p>
                     </div>
                     <div>
@@ -1103,15 +1106,23 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                         htmlFor="agent-model"
                         className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                       >
-                        Model used
+                        Saved AI service setup
                       </label>
                       <input
                         id="agent-model"
                         {...register('model')}
                         readOnly
+                        aria-describedby="agent-model-help"
                         className="h-10 w-full rounded-full border border-black/[0.08] bg-black/[0.025] px-4 text-ui-body text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-                        placeholder="Set by the selected AI service"
+                        placeholder="Chosen in AI services settings"
                       />
+                      <p
+                        id="agent-model-help"
+                        className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+                      >
+                        This detail comes from AI services settings. You do not need to change it
+                        here.
+                      </p>
                     </div>
                   </>
                 ) : (

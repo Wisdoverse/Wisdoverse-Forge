@@ -425,9 +425,10 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByRole('combobox', { name: /^work tool$/i })).toBeNull()
     expect(screen.queryByLabelText(/work folder/i)).toBeNull()
     expect(screen.getByLabelText(/^ai service$/i)).toHaveValue('provider-anthropic')
-    expect(screen.getByLabelText(/^model used$/i)).toHaveValue('claude-sonnet-4-6')
+    expect(screen.getByLabelText(/^saved ai service setup$/i)).toHaveValue('claude-sonnet-4-6')
     expect(screen.queryByLabelText(/^ai model$/i)).toBeNull()
-    expect(screen.getByText(/choose a checked AI service/i)).toBeInTheDocument()
+    expect(screen.getByText(/choose the AI service name you set up/i)).toBeInTheDocument()
+    expect(screen.getByText(/you do not need to change it here/i)).toBeInTheDocument()
     const review = screen.getByTestId('agent-create-review')
     expect(
       within(review).getByText(
@@ -819,7 +820,7 @@ describe('CreateAgentModal', () => {
     expect(screen.getByRole('radio', { name: /simple chat agent/i })).toBeChecked()
     expect(screen.queryByRole('combobox', { name: /^work tool$/i })).toBeNull()
     expect(screen.getByLabelText(/^ai service$/i)).toHaveValue('provider-1')
-    expect(screen.getByLabelText(/^model used$/i)).toHaveValue('gpt-5.5')
+    expect(screen.getByLabelText(/^saved ai service setup$/i)).toHaveValue('gpt-5.5')
 
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
@@ -867,11 +868,11 @@ describe('CreateAgentModal', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/^model used$/i)).toHaveValue('gpt-5.4')
+      expect(screen.getByLabelText(/^saved ai service setup$/i)).toHaveValue('gpt-5.4')
     })
   })
 
-  test('lists configured providers (including China-region) by display name and model', async () => {
+  test('lists configured providers (including China-region) by display name and saved setup', async () => {
     useSettingsStore.setState({
       providers: [
         {
@@ -902,18 +903,18 @@ describe('CreateAgentModal', () => {
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
 
     const providerSelect = screen.getByLabelText(/^ai service$/i)
-    // Each option shows the display name and the model.
+    // Each option shows the display name and says the setup is already saved.
     expect(
-      within(providerSelect).getByRole('option', { name: /zhipu glm · glm-4\.7/i })
+      within(providerSelect).getByRole('option', { name: /zhipu glm · saved setup/i })
     ).toBeInTheDocument()
     expect(
-      within(providerSelect).getByRole('option', { name: /anthropic · claude-sonnet-4-6/i })
+      within(providerSelect).getByRole('option', { name: /anthropic · saved setup/i })
     ).toBeInTheDocument()
 
     fireEvent.change(providerSelect, { target: { value: 'provider-zhipu' } })
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/^model used$/i)).toHaveValue('glm-4.7')
+      expect(screen.getByLabelText(/^saved ai service setup$/i)).toHaveValue('glm-4.7')
     })
   })
 
@@ -1015,7 +1016,7 @@ describe('CreateAgentModal', () => {
 
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Choose an AI service with a saved model, then create this agent.'
+        'Open AI services settings, choose Check connection for this service, then come back when it shows Ready.'
       )
     )
     expect(createAgent).not.toHaveBeenCalled()
