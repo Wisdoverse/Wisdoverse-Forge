@@ -211,7 +211,7 @@ describe('AgentConfigTab', () => {
 
     expect(
       (screen.getByLabelText(/instructions for this agent/i) as HTMLTextAreaElement).value
-    ).toContain('code review agent')
+    ).toContain('review work carefully')
     expect(reviewTemplate).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText('Unsaved')).toBeDefined()
     expect(screen.getByRole('status')).toHaveTextContent(/unsaved changes/i)
@@ -234,6 +234,25 @@ describe('AgentConfigTab', () => {
     }
   })
 
+  it('uses beginner-facing wording in the review template', () => {
+    render(<AgentConfigTab agentId="a1" />)
+    fireEvent.click(screen.getByRole('button', { name: /review/i }))
+
+    const instructions = screen.getByLabelText(
+      /instructions for this agent/i
+    ) as HTMLTextAreaElement
+    expect(instructions.value).toContain('review work carefully')
+    expect(instructions.value).toContain('could break the result')
+    expect(instructions.value).toContain('missing check')
+    expect(instructions.value).toContain('point to the file or behavior')
+    expect(instructions.value).not.toMatch(/code review agent/i)
+    expect(instructions.value).not.toMatch(/regressions/i)
+    expect(instructions.value).not.toMatch(/missing tests/i)
+    expect(instructions.value).not.toMatch(/unclear ownership/i)
+    expect(instructions.value).not.toMatch(/concrete findings/i)
+    expect(instructions.value).not.toMatch(/cite the exact files/i)
+  })
+
   it('uses beginner-facing wording in the sort-work template', () => {
     render(<AgentConfigTab agentId="a1" />)
     fireEvent.click(screen.getByRole('button', { name: /sort work/i }))
@@ -242,9 +261,14 @@ describe('AgentConfigTab', () => {
       /instructions for this agent/i
     ) as HTMLTextAreaElement
     expect(instructions.value).toContain('sort incoming work')
-    expect(instructions.value).toContain('likely cause')
-    expect(instructions.value).toContain('more information is needed')
+    expect(instructions.value).toContain('steps the user described')
+    expect(instructions.value).toContain('plain language')
+    expect(instructions.value).toContain("ask for more information when it's needed")
     expect(instructions.value).not.toMatch(/triage/i)
+    expect(instructions.value).not.toMatch(/reported behavior/i)
+    expect(instructions.value).not.toMatch(/symptoms/i)
+    expect(instructions.value).not.toMatch(/likely cause/i)
+    expect(instructions.value).not.toMatch(/smallest safe fix/i)
     expect(instructions.value).not.toMatch(/root cause/i)
     expect(instructions.value).not.toMatch(/more evidence/i)
   })

@@ -191,7 +191,10 @@ describe('AuditLogView', () => {
     expect(screen.getAllByText('Project').length).toBeGreaterThan(0)
     expect(screen.getByText('Area reference project-1')).toBeDefined()
     expect(screen.queryByText(new RegExp(['Area', 'ID'].join(' ')))).toBeNull()
-    expect(screen.getByTestId('governance-audit-redacted').textContent).toContain('Protected')
+    expect(screen.getByTestId('governance-audit-redacted').textContent).toContain(
+      'Review notes hidden'
+    )
+    expect(screen.queryByText('Protected')).toBeNull()
     expect(screen.getByText('Check proof setup')).toBeDefined()
     expect(screen.getByText('Verified')).toBeDefined()
 

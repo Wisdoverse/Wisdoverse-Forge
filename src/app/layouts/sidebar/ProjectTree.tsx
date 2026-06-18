@@ -852,7 +852,7 @@ export function ProjectTree({
                 </span>
               </div>
               <p className="mt-0.5 truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-                {projectMenu.team.name} team · automatic project name {projectMenu.project.slug}
+                {projectMenu.team.name} team · name used in links {projectMenu.project.slug}
               </p>
             </div>
 
@@ -908,13 +908,13 @@ export function ProjectTree({
             />
             <ProjectMenuItem
               Icon={Hash}
-              label="Copy automatic project name"
-              detail={`${projectMenu.project.slug} · Forge uses this to recognize the project in links`}
+              label="Copy name used in links"
+              detail={`${projectMenu.project.slug} · Forge uses this in project links`}
               onClick={() =>
                 void handleCopyProjectValue(
                   projectMenu.project.slug,
-                  'Automatic project name copied',
-                  'automatic project name'
+                  'Name used in links copied',
+                  'name used in links'
                 )
               }
             />

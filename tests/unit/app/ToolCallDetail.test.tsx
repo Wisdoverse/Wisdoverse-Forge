@@ -6,7 +6,7 @@ import type { ToolCall } from '@app/shared/model/chat.store'
 const baseCall: ToolCall = {
   toolUseId: 'tool-1',
   tool: 'shell',
-  input: { command: 'npm run typecheck', cwd: '/workspace/app' },
+  input: { command: 'npm run typecheck', cwd: '/workspace/app', path: 'src/app/main.tsx' },
   output: { ok: true, summary: 'Typecheck passed', durationMs: 1200 },
   success: true,
   duration: 1200,
@@ -61,7 +61,9 @@ describe('ToolCallDetail', () => {
     fireEvent.click(screen.getByRole('button', { name: /show result details/i }))
 
     expect(screen.getByText(/Project folder: \/workspace\/app/i)).toBeInTheDocument()
+    expect(screen.getByText(/File or link: src\/app\/main\.tsx/i)).toBeInTheDocument()
     expect(screen.getByText(/Duration: 1.2s/i)).toBeInTheDocument()
+    expect(screen.queryByText(/^Path:/i)).toBeNull()
     expect(screen.queryByText(/cwd/i)).toBeNull()
     expect(screen.queryByText(/durationMs/i)).toBeNull()
   })

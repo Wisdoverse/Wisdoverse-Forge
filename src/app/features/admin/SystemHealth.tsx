@@ -179,7 +179,8 @@ interface ServiceRowProps extends ServiceDefinition {
 function ServiceRow({ name, supportName, description, impact, action, health }: ServiceRowProps) {
   const status: ServiceStatus = health?.status ?? 'unknown'
   const hasIssue = status !== 'up'
-  const responseTime = health?.latencyMs !== undefined ? `responds in ${health.latencyMs} ms` : null
+  const responseTime =
+    health?.latencyMs !== undefined ? `Last check took ${health.latencyMs} ms` : null
 
   return (
     <div className={cn('grid gap-3 px-4 py-3 sm:grid-cols-[1fr_auto]', uiStyles.row)}>

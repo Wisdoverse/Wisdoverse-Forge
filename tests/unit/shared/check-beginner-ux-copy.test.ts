@@ -4352,6 +4352,8 @@ function ToolRow() {
       'src/app/features/admin/CliImagesPanel.tsx': `
 function ToolRow() {
   return <p>Check failed</p>
+  return <p>The tool updater reported a problem.</p>
+  return <p>The tool updater reported an access setup problem.</p>
 }
 `,
     })
@@ -4359,12 +4361,22 @@ function ToolRow() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'cli-image-status-copy',
-        location: 'src/app/features/admin/CliImagesPanel.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'cli-image-status-copy',
+          location: 'src/app/features/admin/CliImagesPanel.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'cli-image-status-copy',
+          sample: expect.stringContaining('reported a problem'),
+        }),
+        expect.objectContaining({
+          type: 'cli-image-status-copy',
+          sample: expect.stringContaining('reported an access setup problem'),
+        }),
+      ])
+    )
   })
 
   it('flags agent tool action errors that start with the failure', () => {
@@ -5838,6 +5850,7 @@ export function DecisionCopy({ approving }) {
       <button><span>Reject</span></button>
       <Field label="Reject reason" />
       <p>Next: switch back to Pending when you only want items waiting for a decision.</p>
+      <option>Team internal</option>
     </section>
   )
 }
@@ -5877,6 +5890,10 @@ export function DecisionCopy({ approving }) {
           type: 'review-decision-copy',
           location: 'src/app/features/context/ApprovalQueueView.tsx:17',
         }),
+        expect.objectContaining({
+          type: 'review-decision-copy',
+          location: 'src/app/features/context/ApprovalQueueView.tsx:18',
+        }),
       ])
     )
   })
@@ -5902,6 +5919,7 @@ export function DecisionCopy({ approving }) {
       <button><span>Do not save</span></button>
       <Field label="Why not save it?" />
       <p>Next: switch back to Waiting for review when you only want items waiting for a decision.</p>
+      <option>Team only</option>
     </section>
   )
 }
@@ -7388,6 +7406,10 @@ function emptyResult() {
 function toolOutcome() {
   return { label: 'Needs review' }
 }
+
+const labels = {
+  path: 'Path',
+}
 `,
     })
 
@@ -7408,6 +7430,10 @@ function toolOutcome() {
           type: 'chat-tool-step-copy',
           location: 'src/app/features/chat/ToolCallDetail.tsx:11',
         }),
+        expect.objectContaining({
+          type: 'chat-tool-step-copy',
+          location: 'src/app/features/chat/ToolCallDetail.tsx:15',
+        }),
       ])
     )
   })
@@ -7421,6 +7447,10 @@ function toolDataSummary(data) {
 
 function toolOutcome() {
   return { label: 'Check step' }
+}
+
+const labels = {
+  path: 'File or link',
 }
 `,
     })
@@ -8274,6 +8304,7 @@ function SystemHealth() {
     <section>
       <p>Checks when opened, then every 30 seconds while this page is visible. Hidden tabs pause checks.</p>
       <button>{loading ? 'Checking...' : 'Check now'}</button>
+      <span>responds in 12 ms</span>
     </section>
   )
 }
@@ -8292,6 +8323,10 @@ function SystemHealth() {
         expect.objectContaining({
           type: 'system-health-status-copy',
           sample: expect.stringContaining('Checking...'),
+        }),
+        expect.objectContaining({
+          type: 'system-health-status-copy',
+          sample: expect.stringContaining('responds in 12 ms'),
         }),
       ])
     )
@@ -10904,6 +10939,7 @@ function AuditLogView() {
     <button>Show event details</button>
     <button>Show change details</button>
     <p>Check change details</p>
+    <span>Protected</span>
   </section>
 }
 `,
@@ -10965,6 +11001,7 @@ function AuditLogView() {
     <input placeholder="Paste the exact team space, project area, team, or project reference" />
     <button aria-label="Refresh change history">Refresh</button>
     <button>Show saved change name</button>
+    <span>Review notes hidden</span>
   </section>
 }
 `,
@@ -11829,7 +11866,7 @@ function renderInboxPath() {
 `,
       'src/app/features/agents/AgentConfigTab.tsx': `
 function promptTemplate() {
-  return 'You are a triage agent. Reproduce the reported behavior.'
+  return 'You are a triage agent. Reproduce the reported behavior, separate symptoms from likely cause, identify the smallest safe fix, and then act as a code review agent. Prioritize regressions, missing tests, unclear ownership, concrete findings, and cite the exact files.'
 }
 `,
       'src/app/features/agents/AgentGroupsPanel.tsx': `
@@ -11854,6 +11891,14 @@ function groupTemplate() {
         }),
         expect.objectContaining({
           type: 'beginner-sorting-copy',
+          sample: expect.stringContaining('reported behavior'),
+        }),
+        expect.objectContaining({
+          type: 'beginner-sorting-copy',
+          sample: expect.stringContaining('code review agent'),
+        }),
+        expect.objectContaining({
+          type: 'beginner-sorting-copy',
           sample: expect.stringContaining('Triage Queue'),
         }),
       ])
@@ -11869,7 +11914,10 @@ function renderInboxPath() {
 `,
       'src/app/features/agents/AgentConfigTab.tsx': `
 function promptTemplate() {
-  return 'You help sort incoming work. Recreate the reported behavior.'
+  return [
+    "You help sort incoming work. Try the steps the user described, explain what happened in plain language, suggest the smallest safe next step, and ask for more information when it's needed.",
+    "You review work carefully. Start with anything that could break the result, create a security risk, or need a missing check. Explain the problem first, then point to the file or behavior that proves it."
+  ].join(' ')
 }
 `,
       'src/app/features/agents/AgentGroupsPanel.tsx': `
@@ -12960,7 +13008,7 @@ function CreateTeamForm() {
 `,
       'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
 function CreateProjectForm() {
-  return <><p>Project setup path</p><p>Work folder preview: /workspace/app</p><p>Project short name: app.</p></>
+  return <><p>Project setup path</p><p>Work folder preview: /workspace/app</p><summary>Show support folder path</summary><p>Project short name: app.</p></>
 }
 `,
     })
@@ -12979,6 +13027,11 @@ function CreateProjectForm() {
           type: 'team-project-create-copy',
           location: 'src/app/features/manage-project/ui/CreateProjectForm.tsx:3',
           sample: expect.stringContaining('Project setup path'),
+        }),
+        expect.objectContaining({
+          type: 'team-project-create-copy',
+          location: 'src/app/features/manage-project/ui/CreateProjectForm.tsx:3',
+          sample: expect.stringContaining('Show support folder path'),
         }),
       ])
     )
@@ -13001,16 +13054,16 @@ function CreateProjectForm() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags team and project row copy that labels generated names as addresses, link names, or short names', () => {
+  it('flags team and project row copy that labels generated names as addresses, automatic names, link names, or short names', () => {
     const cwd = fixture({
       'src/app/features/manage-team/ui/EditableTeamRow.tsx': `
 function EditableTeamRow({ team }) {
-  return <><p>Address: {team.slug}</p><p>Automatic link name: {team.slug}</p></>
+  return <><p>Address: {team.slug}</p><p>Automatic team name: {team.slug}</p><p>Automatic link name: {team.slug}</p></>
 }
 `,
       'src/app/features/manage-project/ui/EditableProjectRow.tsx': `
 function EditableProjectRow({ project }) {
-  return <><span>Address: {project.slug}</span><span>Project short name: {project.slug}</span></>
+  return <><span>Address: {project.slug}</span><span>Automatic project name: {project.slug}</span><span>Project short name: {project.slug}</span></>
 }
 `,
     })
@@ -13032,16 +13085,16 @@ function EditableProjectRow({ project }) {
     )
   })
 
-  it('accepts team and project row copy that labels generated names as automatic names', () => {
+  it('accepts team and project row copy that explains where generated names appear', () => {
     const cwd = fixture({
       'src/app/features/manage-team/ui/EditableTeamRow.tsx': `
 function EditableTeamRow({ team }) {
-  return <p>Automatic team name: {team.slug}</p>
+  return <p>Forge uses this in team links: {team.slug}</p>
 }
 `,
       'src/app/features/manage-project/ui/EditableProjectRow.tsx': `
 function EditableProjectRow({ project }) {
-  return <span>Automatic project name: {project.slug}</span>
+  return <span>Forge uses this in project links: {project.slug}</span>
 }
 `,
     })
@@ -13056,11 +13109,12 @@ function ProjectTree({ projectMenu }) {
   return <p>{projectMenu.team.name} team · link name {projectMenu.project.slug}</p>
   return <button>Copy project short name</button>
   return <p>{projectMenu.project.slug} · short name used in project links</p>
+  return <button>Copy automatic project name</button>
 }
 `,
       'src/app/features/admin/OrganizationsPanel.tsx': `
 function OrganizationsPanel({ org }) {
-  return <p>Team space short name: {org.slug}</p>
+  return <><p>Automatic team space name: {org.slug}</p><p>Team space short name: {org.slug}</p></>
 }
 `,
     })
@@ -13086,14 +13140,14 @@ function OrganizationsPanel({ org }) {
     const cwd = fixture({
       'src/app/layouts/sidebar/ProjectTree.tsx': `
 function ProjectTree({ projectMenu }) {
-  return <p>{projectMenu.team.name} team · automatic project name {projectMenu.project.slug}</p>
-  return <button>Copy automatic project name</button>
-  return <p>{projectMenu.project.slug} · Forge uses this to recognize the project in links</p>
+  return <p>{projectMenu.team.name} team · name used in links {projectMenu.project.slug}</p>
+  return <button>Copy name used in links</button>
+  return <p>{projectMenu.project.slug} · Forge uses this in project links</p>
 }
 `,
       'src/app/features/admin/OrganizationsPanel.tsx': `
 function OrganizationsPanel({ org }) {
-  return <p>Automatic team space name: {org.slug}</p>
+  return <p>Forge uses this in team space links: {org.slug}</p>
 }
 `,
     })

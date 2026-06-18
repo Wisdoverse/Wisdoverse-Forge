@@ -311,8 +311,10 @@ describe('AgentGroupsPanel', () => {
     expect(screen.queryByText(['Risk', 'and', 'readiness'].join(' '))).toBeNull()
     fireEvent.click(reviewSummary.closest('button')!)
     expect(screen.getByLabelText(/waiting place description/i)).toHaveValue(
-      'Review completed work for broken behavior, missing tests, and anything that could block release.'
+      'Review completed work for behavior that does not look right, missing checks, and anything that could stop a release.'
     )
+    expect(screen.queryByDisplayValue(/missing tests/i)).toBeNull()
+    expect(screen.queryByDisplayValue(/block release/i)).toBeNull()
     fireEvent.change(screen.getByLabelText(/waiting place name/i), { target: { value: '' } })
     fireEvent.submit(screen.getByRole('button', { name: /create waiting place/i }).closest('form')!)
 
