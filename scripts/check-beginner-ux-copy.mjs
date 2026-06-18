@@ -1191,6 +1191,7 @@ const GOVERNANCE_AUDIT_VISIBLE_JARGON_PATTERNS = [
   /\bevent category\b/i,
   /\bevent name\b/i,
   /\bevent details\b/i,
+  /\bproject workspace\b/i,
   /\bShow change details\b/i,
   /\bCheck change details\b/i,
   /\bCheck audit change\b/i,
@@ -1459,7 +1460,12 @@ const TEAM_PROJECT_CREATE_JARGON_PATTERNS = [
 
 const TEAM_PROJECT_ROW_ADDRESS_JARGON_PATTERNS = [/\bAddress:\s*\{/i]
 
-const TEAM_PROJECT_SHORT_NAME_JARGON_PATTERNS = [/\blink name\b/i, /\bURL name:\s*\{/i]
+const TEAM_PROJECT_SHORT_NAME_JARGON_PATTERNS = [
+  /\blink name\b/i,
+  /\bURL name:\s*\{/i,
+  /\bproject short name\b/i,
+  /\bshort name used in project links\b/i,
+]
 
 const CLONE_RETRY_FAILURE_FIRST_PATTERNS = [
   /\bYou do not have permission to copy code into this project\. Ask an owner or admin to let you try again\./i,
@@ -4586,7 +4592,8 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'team-project-short-name-copy',
         location,
-        message: 'Sidebar and admin labels must say short name instead of link name or URL name.',
+        message:
+          'Sidebar project labels must say automatic project name instead of project short name, link name, or URL name.',
         sample: line.trim(),
       })
     }

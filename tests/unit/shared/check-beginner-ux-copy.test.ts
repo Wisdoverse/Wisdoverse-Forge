@@ -10547,6 +10547,7 @@ function AuditLogView() {
     <p>Pick a common audit view, then narrow it.</p>
     <label>Exact event name</label>
     <input placeholder="Paste an event category only when needed" />
+    <input placeholder="Paste the exact team space, project workspace, team, or project reference" />
     <button aria-label="Refresh audit history">Refresh</button>
     <button>Show event details</button>
     <button>Show change details</button>
@@ -10609,7 +10610,7 @@ function AuditLogView() {
   return <section aria-label="Common change views">
     <p>Pick a common change view, then narrow it.</p>
     <label>Specific change name</label>
-    <input placeholder="Paste an exact change area only when needed" />
+    <input placeholder="Paste the exact team space, project area, team, or project reference" />
     <button aria-label="Refresh change history">Refresh</button>
     <button>Show saved change name</button>
   </section>
@@ -12696,11 +12697,13 @@ function EditableProjectRow({ project }) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags sidebar and admin labels that expose generated names as link or URL names', () => {
+  it('flags sidebar and admin labels that expose generated names as short, link, or URL names', () => {
     const cwd = fixture({
       'src/app/layouts/sidebar/ProjectTree.tsx': `
 function ProjectTree({ projectMenu }) {
   return <p>{projectMenu.team.name} team · link name {projectMenu.project.slug}</p>
+  return <button>Copy project short name</button>
+  return <p>{projectMenu.project.slug} · short name used in project links</p>
 }
 `,
       'src/app/features/admin/OrganizationsPanel.tsx': `
@@ -12727,11 +12730,13 @@ function OrganizationsPanel({ org }) {
     )
   })
 
-  it('accepts sidebar and admin labels that explain generated names as short names', () => {
+  it('accepts sidebar and admin labels that explain generated names in beginner language', () => {
     const cwd = fixture({
       'src/app/layouts/sidebar/ProjectTree.tsx': `
 function ProjectTree({ projectMenu }) {
-  return <p>{projectMenu.team.name} team · project short name {projectMenu.project.slug}</p>
+  return <p>{projectMenu.team.name} team · automatic project name {projectMenu.project.slug}</p>
+  return <button>Copy automatic project name</button>
+  return <p>{projectMenu.project.slug} · Forge uses this to recognize the project in links</p>
 }
 `,
       'src/app/features/admin/OrganizationsPanel.tsx': `

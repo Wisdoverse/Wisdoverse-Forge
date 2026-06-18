@@ -141,11 +141,12 @@ describe('AuditLogView', () => {
     expect(screen.getByText('Exact work area')).toBeDefined()
     expect(
       screen.getByPlaceholderText(
-        /exact team space, project workspace, team, or project reference/i
+        /exact team space, project area, team, or project reference/i
       )
     ).toBeDefined()
     expect(screen.getByRole('option', { name: 'Team space' })).toBeDefined()
-    expect(screen.getByRole('option', { name: 'Project workspace' })).toBeDefined()
+    expect(screen.getByRole('option', { name: 'Project area' })).toBeDefined()
+    expect(screen.queryByRole('option', { name: 'Project workspace' })).toBeNull()
     expect(screen.queryByRole('option', { name: 'Workspace' })).toBeNull()
     expect(screen.queryByRole('option', { name: 'Organization' })).toBeNull()
     expect(screen.getByText('Exact person')).toBeDefined()
