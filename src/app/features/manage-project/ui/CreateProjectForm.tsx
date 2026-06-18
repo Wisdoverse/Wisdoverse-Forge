@@ -18,7 +18,7 @@ const PROJECT_SETUP_STEPS = [
 ]
 
 /**
- * Validate the optional repository URL in the SUBMIT HANDLER (not via
+ * Validate the optional code link in the SUBMIT HANDLER (not via
  * `register(..., { required })`, which this codebase's modals never render —
  * the #594/#595 silent-dead-click bug class). Returns a user-facing error
  * string, or `null` when the value is acceptable (including empty, since the
@@ -36,7 +36,7 @@ export function validateRepositoryUrl(raw: string): string | null {
   try {
     parsed = new URL(value)
   } catch {
-    return 'Enter a valid code link, e.g. https://github.com/org/repo.git'
+    return 'Enter a valid code link, e.g. https://github.com/team/project.git'
   }
   if (parsed.protocol !== 'https:') {
     return 'Use a code link that starts with https://. Links that start with git@ go in SSH code access.'
@@ -196,7 +196,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
       return
     }
 
-    // Validate the optional repo URL in the handler so an invalid value shows a
+    // Validate the optional code link in the handler so an invalid value shows a
     // banner + blocks submit (no silent dead-click), instead of relying on
     // formState.errors the modal never renders.
     const repoError = validateRepositoryUrl(repositoryUrl)
@@ -326,7 +326,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
             setRepositoryUrl(e.target.value)
             if (bannerError) setBannerError(null)
           }}
-          placeholder="https://github.com/org/repo.git"
+          placeholder="https://github.com/team/project.git"
           aria-describedby="project-repo-help"
           className={inputClass}
         />
