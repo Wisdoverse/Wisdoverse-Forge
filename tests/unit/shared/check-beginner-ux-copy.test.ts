@@ -3977,11 +3977,43 @@ function completionSummary() {
     ])
   })
 
+  it('flags completed task notifications that say open details without naming task details', () => {
+    const cwd = fixture({
+      'src/app/hooks/useWsDispatch.ts': `
+function completionSummary() {
+  return 'Finished with a text result. Open details to review it.'
+}
+function safeCompletionMessage() {
+  return 'Finished with a summary you should check. Open details before using the result.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-completion-details-copy',
+          location: 'src/app/hooks/useWsDispatch.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'task-completion-details-copy',
+          location: 'src/app/hooks/useWsDispatch.ts:6',
+        }),
+      ])
+    )
+  })
+
   it('accepts completed task notifications that point users to task details', () => {
     const cwd = fixture({
       'src/app/hooks/useWsDispatch.ts': `
 function completionSummary() {
   return 'Open the task details to confirm what changed before using the result.'
+}
+function safeCompletionMessage() {
+  return 'Finished with a summary you should check. Open the task details before using the result.'
 }
 `,
     })
@@ -6727,7 +6759,7 @@ function toolOutcome() {
     const cwd = fixture({
       'src/app/hooks/useWsDispatch.ts': `
 export function safeCompletionMessage() {
-  return 'Finished with a summary that needs review. Open details before using the result.'
+  return 'Finished with a summary that needs review. Open the task details before using the result.'
 }
 `,
       'src/app/features/context/ApprovalQueueView.tsx': `
@@ -6786,7 +6818,7 @@ export function approvalQueueEmptyState() {
     const cwd = fixture({
       'src/app/hooks/useWsDispatch.ts': `
 export function safeCompletionMessage() {
-  return 'Finished with a summary you should check. Open details before using the result.'
+  return 'Finished with a summary you should check. Open the task details before using the result.'
 }
 `,
       'src/app/features/context/ApprovalQueueView.tsx': `
