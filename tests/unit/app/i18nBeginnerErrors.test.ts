@@ -80,6 +80,12 @@ describe('beginner error translations', () => {
     expect(zh.auth.fillAllFields).toContain('然后重试')
   })
 
+  test('Chinese work setup load message uses localized helper roles', () => {
+    expect(zh.settings.runtime.couldNotLoad).toContain('负责人或管理员')
+    expect(zh.settings.runtime.couldNotLoad).not.toContain('owner')
+    expect(zh.settings.runtime.couldNotLoad).not.toContain('admin')
+  })
+
   test('empty states include a next step', () => {
     expect(en.common.noResults).toBe('Try a broader search or clear the filters.')
     expect(en.common.noData).toBe('Create the first item or refresh after setup finishes.')
