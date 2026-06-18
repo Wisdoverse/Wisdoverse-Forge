@@ -1,5 +1,5 @@
 import { cn } from '@app/shared/lib/utils'
-import type { NavAgentGroup } from '@app/entities/agent-group'
+import { waitingPlaceDisplayName, type NavAgentGroup } from '@app/entities/agent-group'
 
 interface AgentGroupSelectorProps {
   groups: NavAgentGroup[]
@@ -46,7 +46,7 @@ export function AgentGroupSelector({
         )}
         {groups.map((group) => (
           <option key={group.id} value={group.id}>
-            {group.name}
+            {waitingPlaceDisplayName(group.name)}
           </option>
         ))}
       </select>

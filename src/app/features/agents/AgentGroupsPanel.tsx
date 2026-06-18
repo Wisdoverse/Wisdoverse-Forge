@@ -19,6 +19,7 @@ import { cn } from '@app/shared/lib/utils'
 import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import { useBoardStore } from '@app/shared/model/board.store'
 import type { TaskSummary } from '@app/shared/api/orchestration'
+import { waitingPlaceDisplayName } from '@app/entities/agent-group'
 import { useNavigationStore } from '@app/entities/navigation'
 import { agentGroupErrorMessage } from './model/agentGroupErrorMessage'
 
@@ -297,7 +298,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
                     )}
                   >
                     {isSelected && <Check size={13} strokeWidth={2.25} aria-hidden="true" />}
-                    <span className="truncate">{group.name}</span>
+                    <span className="truncate">{waitingPlaceDisplayName(group.name)}</span>
                   </button>
                 )
               })
@@ -319,7 +320,9 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
                     Tasks waiting here
                   </p>
                   <h3 className="truncate text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-                    {selectedGroup?.name ?? 'Select where tasks wait'}
+                    {selectedGroup
+                      ? waitingPlaceDisplayName(selectedGroup.name)
+                      : 'Select where tasks wait'}
                   </h3>
                 </div>
                 <span className="shrink-0 rounded-full bg-white px-2 py-1 text-ui-caption font-medium text-secondary-light shadow-sm dark:bg-black/20 dark:text-secondary-dark">

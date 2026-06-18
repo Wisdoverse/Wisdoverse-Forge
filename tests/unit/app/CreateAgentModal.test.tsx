@@ -6,16 +6,21 @@ import { useNavigationStore } from '@app/entities/navigation'
 import { useSettingsStore } from '@app/shared/model/settings.store'
 import { agentGroupApi } from '@app/entities/agent-group'
 
-vi.mock('@app/entities/agent-group', () => ({
-  agentGroupApi: {
-    getGroups: vi.fn().mockResolvedValue([]),
-    createGroup: vi.fn().mockResolvedValue({
-      id: 'group-new',
-      name: 'Default Waiting Place',
-      projectId: 'p1',
-    }),
-  },
-}))
+vi.mock('@app/entities/agent-group', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@app/entities/agent-group')>()
+
+  return {
+    ...actual,
+    agentGroupApi: {
+      getGroups: vi.fn().mockResolvedValue([]),
+      createGroup: vi.fn().mockResolvedValue({
+        id: 'group-new',
+        name: 'Default Waiting Place',
+        projectId: 'p1',
+      }),
+    },
+  }
+})
 
 afterEach(() => {
   cleanup()
@@ -240,11 +245,20 @@ describe('CreateAgentModal', () => {
     expect(
       within(review).getByText('Choose where tasks wait now, or set it later from Tasks.')
     ).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Review waiting place' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: /set this later/i })).toBeInTheDocument()
     expect(within(review).getByText('Where tasks wait')).toBeInTheDocument()
     expect(within(review).queryByText('No task queue selected yet')).toBeNull()
     expect(screen.queryByRole('option', { name: /^no task queue$/i })).toBeNull()
+    expect(screen.queryByRole('option', { name: 'Review Queue' })).toBeNull()
     expect(screen.queryByText('Task queue')).toBeNull()
+
+    fireEvent.change(screen.getByLabelText(/where tasks wait/i), {
+      target: { value: 'group-1' },
+    })
+
+    expect(within(review).getByText('Review waiting place')).toBeInTheDocument()
+    expect(within(review).queryByText('Review Queue')).toBeNull()
   })
 
   test('submits the selected project as the execution boundary', async () => {
@@ -450,15 +464,14 @@ describe('CreateAgentModal', () => {
 
     let alert: HTMLElement | null = null
     await waitFor(() =>
-      expect((alert = screen.getByRole('alert'))).toHaveTextContent(
-        /open ai services settings/i
-      )
+      expect((alert = screen.getByRole('alert'))).toHaveTextContent(/open ai services settings/i)
     )
     expect(alert).toHaveTextContent(/choose check connection until it says ready/i)
     expect(alert).not.toHaveTextContent(/settings > ai services/i)
     expect(alert).not.toHaveTextContent(/click check/i)
-    expect(within(alert as HTMLElement).getByRole('link', { name: /open ai services settings/i }))
-      .toHaveAttribute('href', '/settings/providers')
+    expect(
+      within(alert as HTMLElement).getByRole('link', { name: /open ai services settings/i })
+    ).toHaveAttribute('href', '/settings/providers')
     expect(createAgent).not.toHaveBeenCalled()
   })
 

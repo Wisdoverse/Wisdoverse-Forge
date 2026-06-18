@@ -60,7 +60,9 @@ describe('OrganizationsPanel', () => {
     expect(within(guide).queryByText('Readiness shows setup gaps')).toBeNull()
     expect(within(guide).getByText('People show access size')).toBeDefined()
     expect(
-      within(guide).getByText('A sudden jump can mean new people joined or access changed unexpectedly.')
+      within(guide).getByText(
+        'A sudden jump can mean new people joined or access changed unexpectedly.'
+      )
     ).toBeDefined()
     expect(within(guide).queryByText(/access needs review/i)).toBeNull()
     expect(within(guide).getByText('Teams show work areas')).toBeDefined()
@@ -70,7 +72,8 @@ describe('OrganizationsPanel', () => {
     expect(screen.getByRole('columnheader', { name: 'Setup status' })).toBeDefined()
     expect(screen.queryByRole('columnheader', { name: 'Readiness' })).toBeNull()
     expect(screen.getByText('Acme Labs')).toBeDefined()
-    expect(screen.getByText('Team space short name: acme')).toBeDefined()
+    expect(screen.getByText('Automatic team space name: acme')).toBeDefined()
+    expect(screen.queryByText(/Team space short name/i)).toBeNull()
     expect(screen.queryByText(/URL name/i)).toBeNull()
     // The backend has no plan data — the panel must not pretend it does.
     expect(screen.queryByText('Plan')).toBeNull()
@@ -101,15 +104,18 @@ describe('OrganizationsPanel', () => {
     const guide = await screen.findByTestId('admin-org-guide')
     expect(
       within(guide).getByText(
-        'Team spaces appear here after setup or sync. Create one before adding teams, projects, people, or agent work queues.'
+        'Team spaces appear here after setup or sync. Create one before adding teams, projects, people, or places where new tasks wait.'
       )
     ).toBeDefined()
 
     const emptyState = screen.getByTestId('admin-org-empty')
     expect(within(emptyState).getByText('Create or sync a team space first')).toBeDefined()
     expect(
-      within(emptyState).getByText(/Create or sync a team space before creating teams/i)
+      within(emptyState).getByText(
+        /Create or sync a team space before creating teams, projects, people, or places where new tasks wait/i
+      )
     ).toBeDefined()
+    expect(within(emptyState).queryByText(/agent work queues/i)).toBeNull()
     expect(within(emptyState).queryByText('No team spaces are visible yet')).toBeNull()
   })
 
