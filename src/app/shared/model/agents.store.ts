@@ -159,7 +159,7 @@ const initialState = {
 const AGENTS_LOAD_ERROR = 'Refresh Agents to load agents.'
 const AGENT_CREATE_ERROR = 'Agent was not created. Check the agent details, then try again.'
 const AGENT_CREATED_START_ERROR =
-  'Agent was created, but its workspace was not started. Ask an owner or admin to check Where agents work in Settings, then start this agent from the card.'
+  'Ask an owner or admin to check Where agents work in Settings, then start this agent from the card. Agent was created, but file work is not ready yet.'
 const THIS_COMPUTER_SETUP_ERROR =
   'This computer setup text could not be prepared. Check the agent name and work tool, then choose Create Agent again.'
 const AGENT_INSTRUCTIONS_ERROR =

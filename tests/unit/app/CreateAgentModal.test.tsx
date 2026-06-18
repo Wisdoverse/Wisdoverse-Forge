@@ -447,10 +447,12 @@ describe('CreateAgentModal', () => {
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
 
     const providerHint = screen.getByTestId('provider-empty-hint')
+    expect(providerHint).toHaveTextContent(/add and check an ai service first/i)
     expect(providerHint).toHaveTextContent(/open ai services settings/i)
     expect(providerHint).toHaveTextContent(/paste the service access key/i)
     expect(providerHint).toHaveTextContent(/choose check connection/i)
     expect(providerHint).toHaveTextContent(/service shows ready/i)
+    expect(providerHint).not.toHaveTextContent(/no ai service ready yet/i)
     expect(providerHint).not.toHaveTextContent(/settings > ai services/i)
     expect(providerHint).not.toHaveTextContent(/click check/i)
     expect(screen.getByRole('link', { name: /open ai services settings/i })).toHaveAttribute(

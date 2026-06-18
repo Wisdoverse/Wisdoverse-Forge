@@ -1120,7 +1120,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     className="rounded-lg border border-apple-orange/20 bg-apple-orange/[0.06] px-3 py-2.5"
                   >
                     <p className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
-                      No AI service ready yet
+                      Add and check an AI service first
                     </p>
                     <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                       Open AI services settings, add a service, paste the service access key, save
