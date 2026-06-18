@@ -121,7 +121,7 @@ interface ProviderOption {
 
 const DEFAULT_AGENT_CWD = '/workspace'
 const NO_READY_AI_SERVICE_ERROR =
-  'Open Settings > AI services, add a service, save it, then choose Check connection until it says Ready.'
+  'Open AI services settings, add a service, save it, then choose Check connection until it says Ready.'
 const NO_SELECTED_PROJECT_ERROR =
   'Open project settings, create or choose a project, then create this agent. Agents that work with files need a project first.'
 
@@ -1122,8 +1122,8 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                       No AI service ready yet
                     </p>
                     <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                      Open Settings &gt; AI services, add a service, paste the service access key,
-                      save it, then choose Check connection. Come back when the service shows Ready.
+                      Open AI services settings, add a service, paste the service access key, save
+                      it, then choose Check connection. Come back when the service shows Ready.
                     </p>
                     <a
                       href="/settings/providers"

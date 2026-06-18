@@ -19,7 +19,7 @@ const LOCAL_AGENT_CONTROL_FAILURE = {
 } as const
 
 const CHAT_ONLY_AI_SERVICE_RECOVERY_DETAIL =
-  'Open Settings > AI services, choose Check connection for this service, refresh Agents, then send messages or tasks after it shows Ready.'
+  'Open AI service settings, choose Check connection for this service, refresh Agents, then send messages or tasks after it shows Ready.'
 
 interface AgentControlPanelProps {
   agent: AgentInfo

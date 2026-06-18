@@ -32,6 +32,11 @@ const RAW_USER_VISIBLE_PATTERNS = [
   /\bdatabase unavailable\b/i,
 ]
 
+const SETTINGS_PATH_JARGON_PATTERNS = [
+  /\bOpen Settings\s*>\s*AI services\b/i,
+  /\bOpen Settings\s*&gt;\s*AI services\b/i,
+]
+
 const API_FALLBACK_FAILURE_FIRST_PATTERNS = [
   /\bForge could not finish this request\. Wait a moment, then try again\./i,
   /\bForge did not return a clear error\. Refresh, then try again\./i,
@@ -1678,6 +1683,11 @@ function isLikelyGuardOrParserLine(line) {
 function hasRawUserVisibleCopy(line) {
   if (isLikelyGuardOrParserLine(line)) return false
   return RAW_USER_VISIBLE_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasSettingsPathJargonCopy(line) {
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SETTINGS_PATH_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasApiFallbackFailureFirstCopy(relFile, line) {
@@ -3518,6 +3528,15 @@ function scanFile(file, relFile) {
         type: 'raw-error-copy',
         location,
         message: 'User-visible copy must not expose raw transport or backend failure wording.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSettingsPathJargonCopy(line)) {
+      findings.push({
+        type: 'settings-path-copy',
+        location,
+        message: 'Settings guidance must name the destination instead of using path arrows.',
         sample: line.trim(),
       })
     }
