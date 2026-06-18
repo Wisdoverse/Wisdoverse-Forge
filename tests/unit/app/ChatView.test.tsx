@@ -394,8 +394,9 @@ describe('ChatView', () => {
     fireEvent.click(within(filters).getByRole('button', { name: /you\s*0/i }))
 
     const emptyState = screen.getByTestId('conversation-filter-empty')
-    expect(emptyState).toHaveTextContent('No messages from you in this view yet')
+    expect(emptyState).toHaveTextContent('Send a message to see your requests here')
     expect(emptyState).toHaveTextContent('The You filter only shows requests you sent.')
+    expect(emptyState).not.toHaveTextContent('No messages from you in this view yet')
     expect(emptyState).not.toHaveTextContent('operator')
   })
 

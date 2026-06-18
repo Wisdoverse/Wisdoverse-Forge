@@ -6910,6 +6910,14 @@ function chatOnlyBanner() {
   it('flags chat filter empty copy that uses reported-work jargon', () => {
     const cwd = fixture({
       'src/app/features/chat/ChatView.tsx': `
+function operatorEmptyTitle() {
+  return 'No messages from you in this view yet'
+}
+
+function agentEmptyTitle() {
+  return 'No agent replies in this view yet'
+}
+
 function toolEmptyTitle() {
   return 'No work steps are showing yet'
 }
@@ -6948,6 +6956,14 @@ function toolEmptyNextStep() {
         expect.objectContaining({
           type: 'chat-filter-empty-copy',
           location: 'src/app/features/chat/ChatView.tsx:15',
+        }),
+        expect.objectContaining({
+          type: 'chat-filter-empty-copy',
+          location: 'src/app/features/chat/ChatView.tsx:19',
+        }),
+        expect.objectContaining({
+          type: 'chat-filter-empty-copy',
+          location: 'src/app/features/chat/ChatView.tsx:23',
         }),
       ])
     )
