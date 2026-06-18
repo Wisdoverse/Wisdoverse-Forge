@@ -314,7 +314,7 @@ export const zh = {
   settings: {
     runtime: {
       couldNotLoad:
-        '请刷新这个设置页来加载 Agent 在哪里工作。如果仍然无法加载，请找 owner 或 admin 检查设置里的“Agent 在哪里工作”。',
+        '请刷新这个设置页来加载 Agent 在哪里工作。如果仍然无法加载，请找负责人或管理员检查设置里的“Agent 在哪里工作”。',
     },
   },
 }
@@ -322,6 +322,33 @@ export const zh = {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags Chinese UI copy that keeps English owner or admin role words', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  settings: {
+    runtime: {
+      couldNotLoad:
+        '请刷新这个设置页来加载 Agent 在哪里工作。如果仍然无法加载，请找 owner 或 admin 检查设置里的“Agent 在哪里工作”。',
+    },
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'zh-english-role-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:6',
+        }),
+      ])
+    )
   })
 
   it('flags work setup load failures that include recovery but start with the failure', () => {

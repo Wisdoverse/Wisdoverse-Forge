@@ -440,7 +440,7 @@ export const zh: TranslationKeys = {
       saving: '保存中...',
       loading: '正在加载 Agent 在哪里工作...',
       couldNotLoad:
-        '请刷新这个设置页来加载 Agent 在哪里工作。如果仍然无法加载，请找 owner 或 admin 检查设置里的“Agent 在哪里工作”。',
+        '请刷新这个设置页来加载 Agent 在哪里工作。如果仍然无法加载，请找负责人或管理员检查设置里的“Agent 在哪里工作”。',
       defaultRuntimeLabel: '项目文件打开位置',
       defaultRuntimeDescription:
         '处理共享项目文件时，选择“项目文件”最简单。只有要把这台电脑接入为 Agent 时，才选择这台电脑。',

@@ -568,6 +568,11 @@ const LOCALE_ACCESS_ROLE_JARGON_PATTERNS = [
   /更新你的角色/,
 ]
 
+const CHINESE_LOCALE_ENGLISH_ROLE_PATTERNS = [
+  /['"`][^'"`]*[\u4e00-\u9fff][^'"`]*\b(?:owner|admin)\b[^'"`]*['"`]/i,
+  /['"`][^'"`]*\b(?:owner|admin)\b[^'"`]*[\u4e00-\u9fff][^'"`]*['"`]/i,
+]
+
 const START_GUIDE_RESET_JARGON_PATTERNS = [
   /\bOnboarding\b/,
   /\bStart guide\b/i,
@@ -3183,6 +3188,12 @@ function hasLocaleAccessRoleJargonCopy(relFile, line) {
   return LOCALE_ACCESS_ROLE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasChineseLocaleEnglishRoleCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/shared/i18n/locales/zh.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CHINESE_LOCALE_ENGLISH_ROLE_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasStartGuideResetJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/settings/AccountSection.tsx') &&
@@ -5576,6 +5587,15 @@ function scanFile(file, relFile) {
         type: 'locale-access-role-copy',
         location,
         message: 'Localized user access copy must say access level instead of role jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasChineseLocaleEnglishRoleCopy(relFile, line)) {
+      findings.push({
+        type: 'zh-english-role-copy',
+        location,
+        message: 'Chinese UI copy must localize owner/admin role words for beginner operators.',
         sample: line.trim(),
       })
     }
