@@ -19,7 +19,7 @@ const GIT_CREDENTIAL_SETUP_STEPS = [
   {
     label: 'Use the normal website by default',
     value:
-      'Leave the website address empty for github.com or gitlab.com. Add one only for a company-hosted site.',
+      'Leave the website address empty for github.com or gitlab.com. Add one only if your company uses its own GitHub or GitLab website.',
   },
 ]
 
@@ -240,7 +240,7 @@ function AddCredentialForm({
       <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label htmlFor="git-credential-provider" className={uiStyles.label}>
-            Git service
+            Code website
           </label>
           <select
             id={providerInputId}
@@ -255,7 +255,7 @@ function AddCredentialForm({
             ))}
           </select>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Choose where this code lives.
+            Choose the website where this code lives.
           </p>
         </div>
 
@@ -323,7 +323,8 @@ function AddCredentialForm({
             id={hostCompanyHelpId}
             className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            For a company-hosted Git service, enter the address you open in the browser.
+            If your company uses its own GitHub or GitLab website, enter the address you open in the
+            browser.
           </p>
         </div>
       </div>
@@ -395,7 +396,7 @@ export function GitCredentialsSection() {
   const canAddMore = existingProviders.length < 2
 
   const tableHeaders: { label: string; className?: string }[] = [
-    { label: 'Git service' },
+    { label: 'Code website' },
     { label: 'Website address' },
     { label: 'Added on' },
     { label: '', className: 'w-20' },
