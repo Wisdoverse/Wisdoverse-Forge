@@ -1890,6 +1890,9 @@ const THIS_COMPUTER_SETUP_JARGON_PATTERNS = [
   /\bpaste this command\b/i,
   /\bCopy this command and run it\b/i,
   /\bwhere you run the setup command\b/i,
+  /\bLeave the work tool as Codex\b/i,
+  /\bnew agent named This Computer Codex appears\b/i,
+  /\bThis Computer Codex appears in this list\b/i,
 ]
 
 const PLACEHOLDER_COPY_PATTERNS = [/\bUnknown\b/, /\bunknown\b/, /\bN\/A\b/, /\bTBD\b/]

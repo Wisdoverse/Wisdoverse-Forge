@@ -538,14 +538,14 @@ function HostCliEnrollmentPanel({
                 Windows. Use the folder this agent should work in.
               </p>
               <p>2. Copy the setup text and paste it into that app.</p>
-              <p>3. Leave the work tool as Codex unless your team tells you otherwise.</p>
+              <p>3. Keep the suggested setup values unless your team gives you different ones.</p>
             </div>
             <p
               data-testid="host-cli-success-hint"
               className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark"
             >
-              When it works, come back to Forge. A new agent named This Computer Codex appears in
-              this list. Keep that command app open while it works.
+              When it works, come back to Forge. The agent appears in this list as Ready. Keep that
+              command app open, then send one small task.
             </p>
           </>
         ) : (
