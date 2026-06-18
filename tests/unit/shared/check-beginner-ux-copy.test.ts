@@ -8571,7 +8571,7 @@ function GettingStartedGuideRow() {
 export const en = {
   nav: { start: 'Start' },
   gettingStarted: {
-    skipHint: 'This only hides Start from the sidebar. You can show Start again from Settings.',
+    skipHint: 'This only hides Start from the left menu. You can show Start again from Settings.',
     skipError: 'Check your connection, then choose Skip again. Start could not be hidden.',
   },
 }
@@ -8580,7 +8580,7 @@ export const en = {
 export const zh = {
   nav: { start: '开始' },
   gettingStarted: {
-    skipHint: '这只会隐藏侧栏里的 Start，也可以在设置里重新显示 Start。',
+    skipHint: '这只会隐藏左侧菜单里的 Start，也可以在设置里重新显示 Start。',
   },
 }
 `,
@@ -8605,7 +8605,7 @@ export const zh = {
         }),
         expect.objectContaining({
           type: 'start-nav-copy',
-          sample: expect.stringContaining('隐藏侧栏里的 Start'),
+          sample: expect.stringContaining('隐藏左侧菜单里的 Start'),
         }),
       ])
     )

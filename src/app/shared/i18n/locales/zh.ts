@@ -90,7 +90,7 @@ export const zh: TranslationKeys = {
     skip: '跳过并打开任务',
     skipSaving: '正在跳过...',
     skipHint:
-      '这只会隐藏左侧菜单里的 Start。项目、Agent 和任务都不会变化，也可以在设置里重新显示它。',
+      '这只会隐藏左侧菜单里的设置清单。项目、Agent 和任务都不会变化，也可以在设置里重新显示它。',
     skipError: '请检查网络，然后再点一次跳过。暂时无法隐藏设置清单。',
     progressCount: '{{complete}} / {{total}}',
     nextTitle: '下一步先做这个',

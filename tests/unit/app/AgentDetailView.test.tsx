@@ -269,6 +269,26 @@ describe('AgentDetailView', () => {
     expect(screen.queryByText('No task activity has been loaded yet.')).toBeNull()
   })
 
+  test('shows a recovery step when recent task history cannot load', async () => {
+    getTasksByAgentMock.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+
+    render(<AgentDetailView agent={{ ...containerAgent, status: 'working' }} onBack={() => {}} />)
+
+    expect(await screen.findByText('Refresh or open Tasks to check activity')).toBeDefined()
+    expect(
+      screen.getByText(
+        "This page could not load the agent's recent task history. Refresh Agents, or open Tasks to confirm what is running before assigning more work."
+      )
+    ).toBeDefined()
+    expect(
+      screen.getByText("Refresh Agents or open Tasks to check this agent's latest work.")
+    ).toBeDefined()
+    expect(screen.getByText(/latest task state before deciding/)).toBeDefined()
+    expect(screen.getByRole('button', { name: /open tasks/i })).toBeDefined()
+    expect(screen.queryByText(/failed to fetch/i)).toBeNull()
+    expect(screen.queryByText('Send a task to create the first update.')).toBeNull()
+  })
+
   test('guides pending managed workspace agents to the live work tab', () => {
     render(
       <AgentDetailView
@@ -372,7 +392,9 @@ describe('AgentDetailView', () => {
 
     expect(screen.getByText('Paste setup text on this computer again')).toBeDefined()
     expect(screen.getAllByText('Paste setup text again on this computer').length).toBeGreaterThan(0)
-    expect(screen.getByText(/open that computer's command app in the project folder/i)).toBeDefined()
+    expect(
+      screen.getByText(/open that computer's command app in the project folder/i)
+    ).toBeDefined()
     expect(screen.getAllByText(/paste the setup text again/i).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/keep that app open/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/setup command/i)).toBeNull()

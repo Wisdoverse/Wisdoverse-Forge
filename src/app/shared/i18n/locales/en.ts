@@ -90,7 +90,7 @@ export const en = {
     skip: 'Skip and open Tasks',
     skipSaving: 'Skipping...',
     skipHint:
-      'This only hides Start from the left menu. Your projects, agents, and tasks stay the same, and you can show it again from Settings.',
+      'This only hides the setup checklist from the left menu. Your projects, agents, and tasks stay the same, and you can show it again from Settings.',
     skipError:
       'Check your connection, then choose Skip again. The setup checklist could not be hidden.',
     progressCount: '{{complete}} of {{total}}',

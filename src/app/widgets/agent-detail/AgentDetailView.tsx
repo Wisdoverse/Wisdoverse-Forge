@@ -145,6 +145,7 @@ interface AgentDetailViewProps {
 export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [recentTasks, setRecentTasks] = useState<TaskSummary[]>([])
+  const [recentTasksError, setRecentTasksError] = useState<string | null>(null)
   const ratePercent = Math.round(agent.successRate * 100)
   const tabs = tabsFor(agent)
   const statusKey = agentStatusKey(agent.status)
@@ -156,13 +157,20 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
 
   useEffect(() => {
     let cancelled = false
+    setRecentTasksError(null)
     orchestrationApi
       .getTasksByAgent(agent.id, { limit: 5 })
       .then((tasks) => {
-        if (!cancelled) setRecentTasks(tasks)
+        if (!cancelled) {
+          setRecentTasks(tasks)
+          setRecentTasksError(null)
+        }
       })
       .catch(() => {
-        if (!cancelled) setRecentTasks([])
+        if (!cancelled) {
+          setRecentTasks([])
+          setRecentTasksError("Refresh Agents or open Tasks to check this agent's latest work.")
+        }
       })
     return () => {
       cancelled = true
@@ -253,10 +261,14 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
       {activeTab === 'overview' && (
         <div className="flex flex-col gap-4">
           <AgentNextStepCard
-            step={agentNextStep(agent, recentTasks)}
+            step={agentNextStep(agent, recentTasks, recentTasksError)}
             onOpenTab={(tab) => setActiveTab(tab)}
           />
-          <AssignmentFitCard agent={agent} recentTasks={recentTasks} />
+          <AssignmentFitCard
+            agent={agent}
+            recentTasks={recentTasks}
+            recentTasksError={recentTasksError}
+          />
 
           {/* Stats grid */}
           <div className="grid grid-cols-2 gap-3">
@@ -339,7 +351,11 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
   )
 }
 
-function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextStep {
+function agentNextStep(
+  agent: AgentInfo,
+  recentTasks: TaskSummary[],
+  recentTasksError: string | null
+): AgentNextStep {
   const activeTask = recentTasks.find((task) => task.state === 'working' || task.state === 'queued')
   const latestTask = recentTasks[0]
   const hostCli = isHostCliAgent(agent)
@@ -384,6 +400,18 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
       title: 'Check what this agent is doing',
       detail: `${agent.name} is already handling "${activeTask.params.task}". Go to Tasks to follow progress or handle anything that needs your help.`,
       success: 'You can see the active task state and decide whether someone needs to step in.',
+      ready: false,
+      targetTab: 'tasks',
+      actionLabel: 'Open tasks',
+    }
+  }
+
+  if (recentTasksError && agent.status !== 'idle') {
+    return {
+      title: 'Refresh or open Tasks to check activity',
+      detail:
+        "This page could not load the agent's recent task history. Refresh Agents, or open Tasks to confirm what is running before assigning more work.",
+      success: 'You can see the latest task state before deciding what to do next.',
       ready: false,
       targetTab: 'tasks',
       actionLabel: 'Open tasks',
@@ -500,9 +528,11 @@ function AgentNextStepCard({
 function AssignmentFitCard({
   agent,
   recentTasks,
+  recentTasksError,
 }: {
   agent: AgentInfo
   recentTasks: TaskSummary[]
+  recentTasksError: string | null
 }) {
   const available = agent.status === 'idle'
   const activeTask = recentTasks.find((task) => task.state === 'working' || task.state === 'queued')
@@ -564,9 +594,11 @@ function AssignmentFitCard({
         <ProfileSummaryRow
           label="Recent update"
           value={
-            latestTask
-              ? `${latestTask.params.task} updated ${formatRelativeTime(latestTask.updatedAt)}`
-              : 'Send a task to create the first update.'
+            recentTasksError
+              ? recentTasksError
+              : latestTask
+                ? `${latestTask.params.task} updated ${formatRelativeTime(latestTask.updatedAt)}`
+                : 'Send a task to create the first update.'
           }
         />
         <ProfileSummaryRow label="Where it works" value={runtime} />
