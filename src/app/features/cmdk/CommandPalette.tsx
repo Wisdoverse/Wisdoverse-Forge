@@ -62,9 +62,9 @@ const COMMAND_DISCOVERY_STEPS = [
 function commonWorkflowSuggestion(commands: typeof NAV_COMMANDS): string {
   const labels = commands.map((command) => command.label)
   if (labels.length === 0) return 'Try a shorter search, or open Settings to browse setup.'
-  if (labels.length === 1) return `Try ${labels[0]} to jump to a common workflow.`
+  if (labels.length === 1) return `Try ${labels[0]} to open a page people use often.`
   const prefix = labels.slice(0, -1).join(', ')
-  return `Try ${prefix}, or ${labels[labels.length - 1]} to jump to a common workflow.`
+  return `Try ${prefix}, or ${labels[labels.length - 1]} to open a page people use often.`
 }
 
 export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProps) {
@@ -113,7 +113,7 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
           <Command.Input
             value={search}
             onValueChange={setSearch}
-            placeholder="Search pages or actions, e.g. tasks, inbox, settings"
+            placeholder="Search pages or things to do, e.g. tasks, inbox, settings"
             className={cn(
               'w-full px-4 py-3 text-sm outline-none',
               'bg-transparent border-b border-black/[0.08] dark:border-white/[0.08]',
@@ -124,7 +124,7 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
           <Command.List className="max-h-80 overflow-y-auto py-2">
             <Command.Empty className="px-4 py-6 text-center text-sm text-secondary-light dark:text-secondary-dark">
               <p className="font-medium text-foreground-light dark:text-foreground-dark">
-                No page or action matches that search
+                No page or option matches that search
               </p>
               <p className="mt-1">{emptySearchSuggestion}</p>
               <button
@@ -161,7 +161,7 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
             </Command.Group>
 
             <Command.Group
-              heading="Start an action"
+              heading="Create or change something"
               className="[&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-secondary-light dark:[&_[cmdk-group-heading]]:text-secondary-dark"
             >
               {ACTION_COMMANDS.map((cmd) => (

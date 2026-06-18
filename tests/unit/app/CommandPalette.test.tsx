@@ -14,6 +14,7 @@ describe('CommandPalette', () => {
   const previousDiscoveryTitle = ['Command', 'discovery', 'path'].join(' ')
   const previousEmptyTitle = ['No', 'command', 'matches', 'that', 'search'].join(' ')
   const previousFullListCopy = ['full', 'command', 'list'].join(' ')
+  const previousActionHeading = ['Start', 'an', 'action'].join(' ')
   const previousSavedItemsLabel = new RegExp(`^${['Con', 'text'].join('')}$`)
   const previousSavedItemsDescription = new RegExp(
     ['Review', 'knowledge', 'before', 'agents', 'use', 'it', 'in', 'tasks'].join('\\s+'),
@@ -32,7 +33,7 @@ describe('CommandPalette', () => {
 
   test('does not render when closed', () => {
     render(<CommandPalette isOpen={false} onClose={() => {}} />)
-    expect(screen.queryByPlaceholderText(/search pages and actions/i)).toBeNull()
+    expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
   })
 
   test('shows navigation commands', () => {
@@ -75,7 +76,7 @@ describe('CommandPalette', () => {
       screen.getByText('Review setup steps again when you want a guided checklist.')
     ).toBeDefined()
 
-    fireEvent.change(screen.getByPlaceholderText(/search pages or actions/i), {
+    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
       target: { value: 'setup checklist' },
     })
 
@@ -88,9 +89,10 @@ describe('CommandPalette', () => {
 
   test('shows action commands', () => {
     render(<CommandPalette isOpen={true} onClose={() => {}} />)
-    expect(screen.getByText('Start an action')).toBeDefined()
+    expect(screen.getByText('Create or change something')).toBeDefined()
     expect(screen.getByText('New task')).toBeDefined()
     expect(screen.getByText('Create a task for an agent to finish.')).toBeDefined()
+    expect(screen.queryByText(previousActionHeading)).toBeNull()
     expect(screen.queryByText('Create task')).toBeNull()
     expect(screen.queryByText('Start a new piece of work.')).toBeNull()
   })
@@ -107,7 +109,7 @@ describe('CommandPalette', () => {
   test('searches beginner descriptions and shows an empty state', async () => {
     render(<CommandPalette isOpen={true} onClose={() => {}} />)
 
-    const input = screen.getByPlaceholderText(/search pages or actions/i)
+    const input = screen.getByPlaceholderText(/search pages or things to do/i)
     fireEvent.change(input, { target: { value: 'alerts' } })
 
     await waitFor(() => {
@@ -117,7 +119,7 @@ describe('CommandPalette', () => {
     fireEvent.change(input, { target: { value: 'zzzzzz' } })
 
     await waitFor(() => {
-      expect(screen.getByText('No page or action matches that search')).toBeDefined()
+      expect(screen.getByText('No page or option matches that search')).toBeDefined()
     })
     expect(
       screen.getByText(/try tasks, inbox, agents, saved instructions, or settings/i)
@@ -132,6 +134,7 @@ describe('CommandPalette', () => {
       expect(screen.getByText('Tasks')).toBeDefined()
     })
     expect(screen.queryByText('No page or action matches that search')).toBeNull()
+    expect(screen.queryByText(/common workflow/i)).toBeNull()
     expect(screen.queryByText(previousEmptyTitle)).toBeNull()
     expect(screen.queryByText(new RegExp(previousFullListCopy, 'i'))).toBeNull()
   })
@@ -139,14 +142,15 @@ describe('CommandPalette', () => {
   test('suggests common workflow terms when search has no matches', () => {
     render(<CommandPalette isOpen={true} onClose={() => {}} />)
 
-    fireEvent.change(screen.getByPlaceholderText(/search pages or actions/i), {
+    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
       target: { value: 'missing workflow' },
     })
 
-    expect(screen.getByText('No page or action matches that search')).toBeDefined()
+    expect(screen.getByText('No page or option matches that search')).toBeDefined()
     expect(
       screen.getByText(/try tasks, inbox, agents, saved instructions, or settings/i)
     ).toBeDefined()
+    expect(screen.getByText(/open a page people use often/i)).toBeDefined()
     expect(
       screen.queryByText(/try tasks, inbox, saved items, agents, saved instructions, or settings/i)
     ).toBeNull()
@@ -160,7 +164,7 @@ describe('CommandPalette', () => {
 
     render(<CommandPalette isOpen={true} onClose={() => {}} />)
 
-    fireEvent.change(screen.getByPlaceholderText(/search pages or actions/i), {
+    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
       target: { value: 'missing workflow' },
     })
 

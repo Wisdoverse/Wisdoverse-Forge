@@ -569,6 +569,10 @@ const TOP_BAR_CREATE_TASK_JARGON_PATTERNS = [/\+\s*Task\b/]
 const COMMAND_PALETTE_CREATE_TASK_JARGON_PATTERNS = [
   /\blabel:\s*['"`]Create task['"`]/,
   /\bStart a new piece of work\./,
+  /\bSearch pages or actions\b/i,
+  /\bNo page or action matches that search\b/i,
+  /\bStart an action\b/i,
+  /\bcommon workflow\b/i,
 ]
 
 const PROJECT_MENU_CREATE_TASK_JARGON_PATTERNS = [

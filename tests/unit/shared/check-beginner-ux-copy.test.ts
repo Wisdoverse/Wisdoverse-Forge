@@ -9053,6 +9053,15 @@ export function TopBar() {
 const ACTION_COMMANDS = [
   { id: 'action:create-task', label: 'Create task', description: 'Start a new piece of work.' },
 ]
+function SearchBox() {
+  return <input placeholder="Search pages or actions, e.g. tasks, inbox, settings" />
+}
+function EmptySearch() {
+  return <p>No page or action matches that search. Try Tasks to jump to a common workflow.</p>
+}
+function Heading() {
+  return <p>Start an action</p>
+}
 `,
     })
 
@@ -9075,6 +9084,15 @@ const ACTION_COMMANDS = [
 const ACTION_COMMANDS = [
   { id: 'action:create-task', label: 'New task', description: 'Create a task for an agent to finish.' },
 ]
+function SearchBox() {
+  return <input placeholder="Search pages or things to do, e.g. tasks, inbox, settings" />
+}
+function EmptySearch() {
+  return <p>No page or option matches that search. Try Tasks to open a page people use often.</p>
+}
+function Heading() {
+  return <p>Create or change something</p>
+}
 `,
     })
 
