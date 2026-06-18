@@ -76,7 +76,7 @@ describe('TaskCard', () => {
     expect(screen.getByText('Check task priority')).toBeDefined()
     expect(screen.getByText('Check task status')).toBeDefined()
     expect(screen.getByTestId('task-next-step').textContent).toBe(
-      'Open details to check the current status before taking action.'
+      'Open task details to check the current status before taking action.'
     )
     expect(screen.queryByText(/waiting_for_agent/i)).toBeNull()
     expect(screen.queryByText(/waiting for agent/i)).toBeNull()
@@ -213,7 +213,7 @@ describe('TaskCard', () => {
     render(<TaskCard task={{ ...mockTask, state: 'queued', progress: 0 }} />)
 
     expect(screen.getByTestId('task-next-step').textContent).toBe(
-      'Waiting for the chosen agent to start. If it stays here, open details or choose another agent.'
+      'Waiting for the chosen agent to start. If it stays here, open task details or choose another agent.'
     )
     expect(screen.getByTestId('task-next-step').textContent).not.toContain('assigned agent')
   })
@@ -245,7 +245,7 @@ describe('TaskCard', () => {
     )
 
     expect(screen.getByTestId('task-next-step').textContent).toBe(
-      'Open details, review the recovery note, then retry.'
+      'Open task details, read the recovery note, then retry.'
     )
     expect(screen.getByTestId('task-next-step').textContent).not.toContain('error')
     expect(screen.getByTestId('task-next-step').textContent).not.toContain('failure')
@@ -356,7 +356,7 @@ describe('TaskCard', () => {
     expect(count).toBeDefined()
     expect(count.textContent).toBe('2 files')
     expect(screen.getByTestId('task-next-step').textContent).toBe(
-      'Open details, review result files, then save repeatable steps or create a follow-up task.'
+      'Open task details, review result files, then save repeatable steps or create a follow-up task.'
     )
   })
 
@@ -408,7 +408,7 @@ describe('TaskCard', () => {
     render(<TaskCard task={{ ...mockTask, state: 'completed', result: [] }} />)
     expect(screen.queryByTestId('task-result-count')).toBeNull()
     expect(screen.getByTestId('task-next-step').textContent).toBe(
-      'Open details, check the final answer, then save repeatable steps or create a follow-up task.'
+      'Open task details, check the final answer, then save repeatable steps or create a follow-up task.'
     )
   })
 

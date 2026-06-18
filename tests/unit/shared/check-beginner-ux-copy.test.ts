@@ -12443,19 +12443,83 @@ function taskNextStep() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'task-recovery-status-copy',
-        location: 'src/app/features/board/TaskCard.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-recovery-status-copy',
+          location: 'src/app/features/board/TaskCard.tsx:3',
+        }),
+      ])
+    )
   })
 
-  it('accepts failed task card next steps that point to the recovery note', () => {
+  it('accepts failed task card next steps that point to task details and the recovery note', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskCard.tsx': `
+function taskNextStep() {
+  return 'Open task details, read the recovery note, then retry.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags task recovery entry points that say open details without naming task details', () => {
     const cwd = fixture({
       'src/app/features/board/TaskCard.tsx': `
 function taskNextStep() {
   return 'Open details, review the recovery note, then retry.'
+}
+`,
+      'src/app/features/feed/FeedItem.tsx': `
+function displayFeedDetail() {
+  return 'Open details to see the recovery note, then retry or choose another agent.'
+}
+`,
+      'src/app/features/feed/AttentionZone.tsx': `
+export function AttentionZone() {
+  return <button>Open details</button>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-recovery-details-copy',
+          location: 'src/app/features/board/TaskCard.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'task-recovery-details-copy',
+          location: 'src/app/features/feed/FeedItem.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'task-recovery-details-copy',
+          location: 'src/app/features/feed/AttentionZone.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts task recovery entry points that name task details', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskCard.tsx': `
+function taskNextStep() {
+  return 'Open task details, read the recovery note, then retry.'
+}
+`,
+      'src/app/features/feed/FeedItem.tsx': `
+function displayFeedDetail() {
+  return 'Open task details to read the recovery note, then retry or choose another agent.'
+}
+`,
+      'src/app/features/feed/AttentionZone.tsx': `
+export function AttentionZone() {
+  return <button>Open task details</button>
 }
 `,
     })

@@ -43,7 +43,7 @@ export function AttentionZone({ items, onApprove, onView }: AttentionZoneProps) 
                 onClick={() => onView?.(item.id)}
                 className="rounded-badge bg-black/[0.04] px-2.5 py-1 text-[9px] font-medium dark:bg-white/[0.06]"
               >
-                Open details
+                Open task details
               </button>
               <button
                 type="button"

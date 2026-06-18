@@ -892,6 +892,8 @@ const TASK_FAILURE_OPEN_DETAILS_DEAD_END_PATTERNS = [
   /\bopen details(?:,| (?:for|to|and))/i,
 ]
 
+const TASK_RECOVERY_OPEN_DETAILS_DEAD_END_PATTERNS = [/\bOpen details\b/i, /\bopen details\b/i]
+
 const BEGINNER_SORTING_JARGON_PATTERNS = [
   /\bInbox triage path\b/i,
   /\bTriage Queue\b/,
@@ -3142,6 +3144,18 @@ function hasTaskFailureOpenDetailsDeadEndCopy(relFile, line) {
   return TASK_FAILURE_OPEN_DETAILS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTaskRecoveryOpenDetailsDeadEndCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/board/TaskCard.tsx') &&
+    !relFile.endsWith('src/app/features/feed/FeedItem.tsx') &&
+    !relFile.endsWith('src/app/features/feed/AttentionZone.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_RECOVERY_OPEN_DETAILS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasTaskDetailEmptyDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/detail/DescriptionTab.tsx') &&
@@ -5129,6 +5143,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Task failure previews must name task details and the latest update instead of saying open details.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskRecoveryOpenDetailsDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'task-recovery-details-copy',
+        location,
+        message:
+          'Task recovery entry points must name task details instead of saying open details.',
         sample: line.trim(),
       })
     }

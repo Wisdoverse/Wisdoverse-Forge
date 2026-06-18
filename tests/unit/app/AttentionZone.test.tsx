@@ -47,7 +47,7 @@ describe('AttentionZone', () => {
 
     render(<AttentionZone items={[attentionItem]} onView={onView} onApprove={onApprove} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /open details/i }))
+    fireEvent.click(screen.getByRole('button', { name: /open task details/i }))
     fireEvent.click(screen.getByRole('button', { name: /allow to continue/i }))
 
     expect(onView).toHaveBeenCalledWith('attention-1')
