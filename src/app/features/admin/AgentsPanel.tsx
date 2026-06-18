@@ -118,7 +118,7 @@ function AgentKindBadge({ kind }: { kind: AgentRuntimeKind }) {
 const AGENT_GUIDANCE: { title: string; description: string; Icon: LucideIcon }[] = [
   {
     title: 'Project files',
-    description: 'Runs file and command work in a Forge project area. Best for most teams.',
+    description: 'Runs file and command work with shared project files. Best for most teams.',
     Icon: Server,
   },
   {

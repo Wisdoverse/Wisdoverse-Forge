@@ -177,7 +177,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
               <div className="flex items-start gap-1.5 text-apple-red">
                 <ShieldAlert size={13} className="mt-px shrink-0" />
                 <span>
-                  This fix changes sensitive project areas. Ask an owner or admin to review and
+                  This fix changes sensitive files or settings. Ask an owner or admin to review and
                   finish it manually.
                 </span>
               </div>

@@ -397,7 +397,10 @@ const WORKSHOP_3D_MOUSE_JARGON_PATTERNS = [
   /点击选择/,
 ]
 
-const AGENT_DETAIL_ACTIVITY_DEAD_END_PATTERNS = [/\bNo task activity has been loaded yet\b/i]
+const AGENT_DETAIL_ACTIVITY_DEAD_END_PATTERNS = [
+  /\bNo task activity has been loaded yet\b/i,
+  /\bGo to Tasks to review recent activity\b/i,
+]
 
 const AGENT_DETAIL_FILE_ACCESS_DEAD_END_PATTERNS = [/\bNo file access needed\b/i]
 
@@ -1792,6 +1795,7 @@ const AGENT_WORK_AREA_DISPLAY_JARGON_PATTERNS = [
   /\bReady in managed workspace\b/i,
   /\bmanaged workspace setup\b/i,
   /\bForge-managed project workspace\b/i,
+  /\bproject areas?\b/i,
   /\bWorkspace project folder\b/i,
   /托管工作区/,
 ]
