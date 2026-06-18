@@ -909,7 +909,7 @@ export function ProjectTree({
             <ProjectMenuItem
               Icon={Hash}
               label="Copy name used in links"
-              detail={`${projectMenu.project.slug} · Forge uses this in project links`}
+              detail={`${projectMenu.project.slug} · shown at the end of project links`}
               onClick={() =>
                 void handleCopyProjectValue(
                   projectMenu.project.slug,
