@@ -196,18 +196,20 @@ describe('beginner error translations', () => {
 
   test('agent project folder labels use location wording for beginners', () => {
     expect(en.agents.projectPath).toBe('Project folder location')
+    expect(en.agents.workingDirectory).toBe('Work folder')
     expect(en.agents.searchProjects).toContain('folder location')
     expect(en.agents.enterFolderPath).toContain('folder location')
     expect(
-      `${en.agents.projectPath} ${en.agents.searchProjects} ${en.agents.enterFolderPath}`
-    ).not.toMatch(/\b(?:Project Path|folder path)\b/i)
+      `${en.agents.projectPath} ${en.agents.workingDirectory} ${en.agents.searchProjects} ${en.agents.enterFolderPath}`
+    ).not.toMatch(/\b(?:Project Path|Working Directory|folder path)\b/i)
 
     expect(zh.agents.projectPath).toBe('项目文件夹位置')
+    expect(zh.agents.workingDirectory).toBe('工作文件夹')
     expect(zh.agents.searchProjects).toContain('文件夹位置')
     expect(zh.agents.enterFolderPath).toContain('文件夹位置')
     expect(
-      `${zh.agents.projectPath} ${zh.agents.searchProjects} ${zh.agents.enterFolderPath}`
-    ).not.toContain('路径')
+      `${zh.agents.projectPath} ${zh.agents.workingDirectory} ${zh.agents.searchProjects} ${zh.agents.enterFolderPath}`
+    ).not.toMatch(/路径|目录/)
   })
 
   test('limit and conflict messages tell beginners what to change next', () => {

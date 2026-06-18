@@ -243,7 +243,7 @@ export const zh: TranslationKeys = {
     noAgents: '先创建一个 Agent，再开始分配任务。',
     agentName: 'Agent 名称',
     projectPath: '项目文件夹位置',
-    workingDirectory: '工作目录',
+    workingDirectory: '工作文件夹',
     startAgent: '启动 Agent',
     stopAgent: '停止 Agent',
     restartAgent: '重启 Agent',

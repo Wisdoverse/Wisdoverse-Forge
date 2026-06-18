@@ -5158,6 +5158,7 @@ export const zh = {
 export const en = {
   agents: {
     projectPath: 'Project Path',
+    workingDirectory: 'Working Directory',
     searchProjects: 'Search projects or enter a folder path...',
     invalidProjectPath: 'Enter a project folder path, then try again.',
   },
@@ -5167,6 +5168,7 @@ export const en = {
 export const zh = {
   agents: {
     projectPath: '项目路径',
+    workingDirectory: '工作目录',
     enterFolderPath: '输入项目文件夹路径...',
   },
 }
@@ -5188,6 +5190,14 @@ export const zh = {
         }),
         expect.objectContaining({
           type: 'agent-project-location-copy',
+          sample: expect.stringContaining('Working Directory'),
+        }),
+        expect.objectContaining({
+          type: 'agent-project-location-copy',
+          sample: expect.stringContaining('工作目录'),
+        }),
+        expect.objectContaining({
+          type: 'agent-project-location-copy',
           sample: expect.stringContaining('文件夹路径'),
         }),
       ])
@@ -5200,6 +5210,7 @@ export const zh = {
 export const en = {
   agents: {
     projectPath: 'Project folder location',
+    workingDirectory: 'Work folder',
     searchProjects: 'Search projects or enter a folder location...',
     invalidProjectPath: 'Enter the project folder location, then try again.',
   },
@@ -5209,6 +5220,7 @@ export const en = {
 export const zh = {
   agents: {
     projectPath: '项目文件夹位置',
+    workingDirectory: '工作文件夹',
     enterFolderPath: '输入项目文件夹位置...',
   },
 }
@@ -7238,6 +7250,10 @@ function emptyFeed() {
   return 'No work has reported progress yet. Start a task or wait for an assigned agent.'
 }
 
+function needsActionEmpty() {
+  return 'Nothing is asking for your help. Use All to review work that is still moving.'
+}
+
 function filteredEmpty() {
   return 'No completed updates in this view'
 }
@@ -7269,6 +7285,10 @@ function nextStep() {
         expect.objectContaining({
           type: 'activity-feed-empty-copy',
           location: 'src/app/features/feed/ActivityFeed.tsx:11',
+        }),
+        expect.objectContaining({
+          type: 'activity-feed-empty-copy',
+          location: 'src/app/features/feed/ActivityFeed.tsx:15',
         }),
         expect.objectContaining({
           type: 'analytics-guidance-copy',

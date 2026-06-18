@@ -331,6 +331,7 @@ const ANALYTICS_EVENT_LABEL_JARGON_PATTERNS = [
 const ACTIVITY_FEED_EMPTY_DEAD_END_PATTERNS = [
   /\bNo work has reported progress yet\b/i,
   /\bNo updates need action right now\b/i,
+  /\bNothing is asking for your help\b/i,
   /\bNo task is blocked or failed in recent activity\b/i,
   /\bNo progress updates in this view\b/i,
   /\bNo completed updates in this view\b/i,
@@ -1598,8 +1599,10 @@ const CREATE_AGENT_WORK_AREA_JARGON_PATTERNS = [
 
 const AGENT_PROJECT_LOCATION_JARGON_PATTERNS = [
   /\bprojectPath:\s*['"`]Project Path['"`]/,
+  /\bworkingDirectory:\s*['"`]Working Directory['"`]/,
   /\b(?:searchProjects|enterFolderPath|invalidProjectPath):\s*['"`][^'"`]*(?:folder|project folder) path/i,
   /\bprojectPath:\s*['"`]项目路径['"`]/,
+  /\bworkingDirectory:\s*['"`]工作目录['"`]/,
   /(?:searchProjects|enterFolderPath|invalidProjectPath):\s*['"`][^'"`]*文件夹路径/,
 ]
 
