@@ -304,26 +304,26 @@ function taskNextStep(task: TaskSummary, options: TaskNextStepOptions): string |
         : 'Open this card, add details, then send it to an agent.'
     case 'queued':
       return options.hasAssignee
-        ? 'Waiting for the chosen agent to start. If it stays here, open details or choose another agent.'
+        ? 'Waiting for the chosen agent to start. If it stays here, open task details or choose another agent.'
         : 'Waiting for an available agent to start. If it stays here, choose or start an agent.'
     case 'working':
-      return 'Open details for live output and recent updates.'
+      return 'Open task details to watch live output and recent updates.'
     case 'blocked':
       if (task.blockedHint) return null
       if (task.blockedReason === 'waiting_agent') {
         return 'Attach or free an agent, then publish again.'
       }
-      return 'Open details to see what is blocking this task.'
+      return 'Open task details to read what is blocking this task.'
     case 'failed':
-      return 'Open details, review the recovery note, then retry.'
+      return 'Open task details, read the recovery note, then retry.'
     case 'completed':
       return options.resultCount > 0
-        ? 'Open details, review result files, then save repeatable steps or create a follow-up task.'
-        : 'Open details, check the final answer, then save repeatable steps or create a follow-up task.'
+        ? 'Open task details, review result files, then save repeatable steps or create a follow-up task.'
+        : 'Open task details, check the final answer, then save repeatable steps or create a follow-up task.'
     case 'canceled':
-      return 'Open details to see why it was canceled.'
+      return 'Open task details to see why it was canceled.'
     default:
-      return 'Open details to check the current status before taking action.'
+      return 'Open task details to check the current status before taking action.'
   }
 }
 

@@ -441,7 +441,7 @@ function completionSummary(task: TaskSummary): string {
     return safeCompletionMessage(result.message)
   }
   if (typeof result.stdout === 'string' && result.stdout.trim()) {
-    return 'Finished with a text result. Open details to review it.'
+    return 'Finished with a text result. Open the task details to review it before using it.'
   }
   return 'Completed'
 }
@@ -464,7 +464,7 @@ function safeCompletionMessage(message: string): string {
     lower.includes('raw command output')
 
   if (looksLikeSupportDetail) {
-    return 'Finished with a summary you should check. Open details before using the result.'
+    return 'Finished with a summary you should check. Open the task details before using the result.'
   }
 
   return trimmed

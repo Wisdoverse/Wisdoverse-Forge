@@ -135,7 +135,7 @@ function displayFeedDetail(item: FeedItemType): string {
 
   if (!isRawTaskFailureDetail(item.detail)) return item.detail
 
-  return 'Open details to see the recovery note, then retry or choose another agent.'
+  return 'Open task details to read the recovery note, then retry or choose another agent.'
 }
 
 function formatTime(ts: number): string {

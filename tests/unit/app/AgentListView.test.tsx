@@ -138,9 +138,9 @@ describe('AgentListView', () => {
     expect(enrollment.textContent).toContain('--name "This Computer Codex"')
     expect(enrollment.textContent).toContain('--tool codex')
     expect(enrollment.textContent).toContain('--project p1')
-    expect(enrollment.textContent).toContain('Open the app for your computer')
+    expect(enrollment.textContent).toContain("Open your computer's command app")
     expect(enrollment.textContent).toContain('Terminal on macOS/Linux, or PowerShell on Windows')
-    expect(enrollment.textContent).toContain('Copy the setup text and paste it into that window')
+    expect(enrollment.textContent).toContain('Copy the setup text and paste it into that app')
     expect(enrollment.textContent).not.toContain(
       'Copy this setup command and paste it into that Terminal or PowerShell window'
     )
@@ -153,6 +153,9 @@ describe('AgentListView', () => {
       /new agent named This Computer Codex appears in this list/i
     )
     expect(within(enrollment).getByTestId('host-cli-success-hint')).toHaveTextContent(
+      /Keep that command app open/i
+    )
+    expect(within(enrollment).getByTestId('host-cli-success-hint')).not.toHaveTextContent(
       /Keep Terminal or PowerShell open/i
     )
     expect(within(enrollment).getByTestId('host-cli-success-hint')).not.toHaveTextContent(

@@ -574,6 +574,14 @@ const TASK_FORM_NO_AGENT_DEAD_END_PATTERNS = [
   /\bCreate the task now, or open agent setup to (?:start or )?connect an agent first\./i,
 ]
 
+const TASK_FORM_READY_STATE_JARGON_PATTERNS = [/\bPreparing This Project\b/, /\bReady to Send\b/]
+
+const TASK_FORM_AGENT_CHOICE_JARGON_PATTERNS = [
+  /\bLet the next available agent pick it up\b/,
+  /\bKeep this choice when any available agent can do the work\b/,
+  /\b\d+\s+available\b/,
+]
+
 const QUICK_CREATE_DRAFT_TASK_JARGON_PATTERNS = [
   /\bAdd Draft Task\b/i,
   /\bdraft task\b/i,
@@ -615,6 +623,7 @@ const SKILL_MAINTAINER_FALLBACK_DEAD_END_PATTERNS = [
 const SAVED_INSTRUCTION_SUMMARY_FALLBACK_PATTERNS = [
   /\bNo summary yet\. Open details before using this saved instruction\./i,
   /\bNo summary yet\. Review the instructions below before using this saved instruction\./i,
+  /\bOpen details to check the reusable instructions before using this saved instruction\./i,
   /还没有简介。/,
 ]
 
@@ -626,6 +635,10 @@ const SAVED_INSTRUCTION_TOOL_TOOLTIP_PATTERNS = [
 const SAVED_INSTRUCTION_SOURCE_LABEL_PATTERNS = [/\bWorkspace saved instructions\b/i]
 const SAVED_INSTRUCTION_AVAILABILITY_LABEL_PATTERNS = [/\bThis workspace\b/i, /当前工作区/]
 const SAVED_INSTRUCTION_WORKSPACE_INTRO_PATTERNS = [/\bsaving it for the workspace\b/i]
+const SAVED_INSTRUCTION_DRAFT_DEAD_END_PATTERNS = [
+  /\bKeep or rewrite the reusable instructions before publishing\./i,
+  /\bReview the reusable instructions\./i,
+]
 
 const AGENT_PLUGIN_ERROR_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*Tool change was not saved\. The switch was returned to its previous setting\./i,
@@ -862,6 +875,8 @@ const TASK_STATUS_FALLBACK_DEAD_END_PATTERNS = [
 
 const TASK_COMPLETION_SUMMARY_DEAD_END_PATTERNS = [/\bNo completion summary was provided\b/i]
 
+const TASK_COMPLETION_OPEN_DETAILS_DEAD_END_PATTERNS = [/\bOpen details\b/i, /\bopen details\b/i]
+
 const TASK_OWNER_INPUT_JARGON_PATTERNS = [/\bneeds owner input\b/i]
 
 const TASK_REUSE_PATH_JARGON_PATTERNS = [/\bsave-for-next-time path\b/i]
@@ -878,6 +893,13 @@ const TASK_RECOVERY_STATUS_DEAD_END_PATTERNS = [
   /\bretry paths?\b/i,
   /\bTriage failure\b/,
 ]
+
+const TASK_FAILURE_OPEN_DETAILS_DEAD_END_PATTERNS = [
+  /\bOpen details(?:,| (?:for|to|and))/i,
+  /\bopen details(?:,| (?:for|to|and))/i,
+]
+
+const TASK_RECOVERY_OPEN_DETAILS_DEAD_END_PATTERNS = [/\bOpen details\b/i, /\bopen details\b/i]
 
 const BEGINNER_SORTING_JARGON_PATTERNS = [
   /\bInbox triage path\b/i,
@@ -1431,6 +1453,13 @@ const THIS_COMPUTER_SETUP_JARGON_PATTERNS = [
   /\bsetup command appears here\b/i,
   /\bsetup command in the box\b/i,
   /\bcommand window\b/i,
+  /\bPaste the setup text into Terminal or PowerShell\b/i,
+  /\bPaste it into Terminal or PowerShell\b/i,
+  /\bKeep Terminal or PowerShell open\b/i,
+  /\bLeave Terminal or PowerShell open\b/i,
+  /\bsame Terminal or PowerShell window\b/i,
+  /\bOne-line Windows setup text\b/i,
+  /\bpaste it into the terminal app\b/i,
   /\bRun setup command on this computer\b/,
   /\bshows a setup command\b/i,
   /\bone-line Windows setup command\b/i,
@@ -2725,6 +2754,18 @@ function hasTaskFormNoAgentDeadEndCopy(relFile, line) {
   return TASK_FORM_NO_AGENT_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTaskFormReadyStateJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/board/TaskFormModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_FORM_READY_STATE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasTaskFormAgentChoiceJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/board/TaskFormModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_FORM_AGENT_CHOICE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasQuickCreateDraftTaskJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/board/QuickCreate.tsx') &&
@@ -2828,6 +2869,12 @@ function hasSavedInstructionWorkspaceIntroCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/detail/SkillDraftModal.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return SAVED_INSTRUCTION_WORKSPACE_INTRO_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasSavedInstructionDraftDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/detail/SkillDraftModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SAVED_INSTRUCTION_DRAFT_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasSavedInstructionsLoadDeadEndCopy(relFile, line) {
@@ -3067,6 +3114,12 @@ function hasTaskCompletionSummaryDeadEndCopy(relFile, line) {
   return TASK_COMPLETION_SUMMARY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTaskCompletionOpenDetailsDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/hooks/useWsDispatch.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_COMPLETION_OPEN_DETAILS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasTaskOwnerInputJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/hooks/useWsDispatch.ts') &&
@@ -3102,6 +3155,24 @@ function hasTaskRecoveryStatusDeadEndCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return TASK_RECOVERY_STATUS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasTaskFailureOpenDetailsDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/shared/lib/taskFailureCopy.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_FAILURE_OPEN_DETAILS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasTaskRecoveryOpenDetailsDeadEndCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/board/TaskCard.tsx') &&
+    !relFile.endsWith('src/app/features/feed/FeedItem.tsx') &&
+    !relFile.endsWith('src/app/features/feed/AttentionZone.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_RECOVERY_OPEN_DETAILS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasTaskDetailEmptyDeadEndCopy(relFile, line) {
@@ -3346,7 +3417,7 @@ function scanFile(file, relFile) {
         type: 'this-computer-setup-copy',
         location,
         message:
-          'This-computer setup copy must use setup text/steps and plain Terminal or PowerShell guidance instead of command-window jargon.',
+          'This-computer setup copy must use setup text/steps and plain command-app guidance instead of command-window jargon.',
         sample: line.trim(),
       })
     }
@@ -4757,6 +4828,26 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasTaskFormReadyStateJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'task-form-ready-state-copy',
+        location,
+        message:
+          'Task creation readiness states must use sentence case instead of internal-looking status labels.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskFormAgentChoiceJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'task-form-agent-choice-copy',
+        location,
+        message:
+          'Task creation agent choice copy must use the same Ready status users see on agents.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasQuickCreateDraftTaskJargonCopy(relFile, line)) {
       findings.push({
         type: 'quick-create-draft-task-copy',
@@ -4872,6 +4963,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Saved instruction publishing copy must say team space instead of workspace for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSavedInstructionDraftDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'saved-instruction-draft-copy',
+        location,
+        message:
+          'Saved instruction draft copy must tell beginners what to add or where to review after publishing.',
         sample: line.trim(),
       })
     }
@@ -5038,6 +5139,16 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasTaskCompletionOpenDetailsDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'task-completion-details-copy',
+        location,
+        message:
+          'Completed-task notifications must name task details instead of saying open details.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasTaskOwnerInputJargonCopy(relFile, line)) {
       findings.push({
         type: 'task-owner-input-copy',
@@ -5061,6 +5172,26 @@ function scanFile(file, relFile) {
         type: 'task-recovery-status-copy',
         location,
         message: 'Failed task status copy must tell beginners to review recovery.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskFailureOpenDetailsDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'task-failure-details-copy',
+        location,
+        message:
+          'Task failure previews must name task details and the latest update instead of saying open details.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskRecoveryOpenDetailsDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'task-recovery-details-copy',
+        location,
+        message:
+          'Task recovery entry points must name task details instead of saying open details.',
         sample: line.trim(),
       })
     }

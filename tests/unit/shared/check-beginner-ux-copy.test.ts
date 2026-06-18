@@ -3977,11 +3977,43 @@ function completionSummary() {
     ])
   })
 
+  it('flags completed task notifications that say open details without naming task details', () => {
+    const cwd = fixture({
+      'src/app/hooks/useWsDispatch.ts': `
+function completionSummary() {
+  return 'Finished with a text result. Open details to review it.'
+}
+function safeCompletionMessage() {
+  return 'Finished with a summary you should check. Open details before using the result.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-completion-details-copy',
+          location: 'src/app/hooks/useWsDispatch.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'task-completion-details-copy',
+          location: 'src/app/hooks/useWsDispatch.ts:6',
+        }),
+      ])
+    )
+  })
+
   it('accepts completed task notifications that point users to task details', () => {
     const cwd = fixture({
       'src/app/hooks/useWsDispatch.ts': `
 function completionSummary() {
   return 'Open the task details to confirm what changed before using the result.'
+}
+function safeCompletionMessage() {
+  return 'Finished with a summary you should check. Open the task details before using the result.'
 }
 `,
     })
@@ -5651,6 +5683,7 @@ export function HostCliEnrollmentPanel() {
       <p>Use this backup if your browser cannot open the setup window or your team asks you to run a command.</p>
       <p>Then the setup command appears here.</p>
       <p>Keep the command window open while it works.</p>
+      <p>Keep Terminal or PowerShell open while it works.</p>
       <button>Copy setup command</button>
     </section>
   )
@@ -5663,6 +5696,10 @@ export function CreateAgentModal() {
       <p>Run setup command on this computer</p>
       <p>Forge creates the agent, then shows a setup command for this computer.</p>
       <p>One-line Windows setup command is not ready for this agent.</p>
+      <p>One-line Windows setup text is not ready for this agent.</p>
+      <p>Paste it into Terminal or PowerShell on the computer that will do the work.</p>
+      <p>Copy these backup setup values into the same Terminal or PowerShell window.</p>
+      <p>Paste it into the terminal app on the computer that will do the work.</p>
       <p>Leave blank to use the folder where you run the setup command.</p>
     </section>
   )
@@ -5693,7 +5730,7 @@ export function CreateAgentModal() {
         }),
         expect.objectContaining({
           type: 'this-computer-setup-copy',
-          location: 'src/app/features/agents/CreateAgentModal.tsx:5',
+          location: 'src/app/features/agents/AgentListView.tsx:9',
         }),
         expect.objectContaining({
           type: 'this-computer-setup-copy',
@@ -5707,6 +5744,22 @@ export function CreateAgentModal() {
           type: 'this-computer-setup-copy',
           location: 'src/app/features/agents/CreateAgentModal.tsx:8',
         }),
+        expect.objectContaining({
+          type: 'this-computer-setup-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:9',
+        }),
+        expect.objectContaining({
+          type: 'this-computer-setup-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:10',
+        }),
+        expect.objectContaining({
+          type: 'this-computer-setup-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:11',
+        }),
+        expect.objectContaining({
+          type: 'this-computer-setup-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:12',
+        }),
       ])
     )
   })
@@ -5719,7 +5772,8 @@ export function HostCliEnrollmentPanel() {
     <section>
       <p>Use this backup if the guided setup does not open.</p>
       <p>Then the setup text appears here.</p>
-      <p>Keep Terminal or PowerShell open while it works.</p>
+      <p>Open your computer's command app: Terminal on macOS/Linux, or PowerShell on Windows.</p>
+      <p>Keep that command app open while it works.</p>
       <button>Copy setup text</button>
     </section>
   )
@@ -5729,9 +5783,9 @@ export function HostCliEnrollmentPanel() {
 export function CreateAgentModal() {
   return (
     <section>
-      <p>Paste setup text on this computer</p>
+      <p>Paste setup text in this computer's command app</p>
       <p>Forge creates the agent, then shows setup steps for this computer.</p>
-      <p>One-line Windows setup text is not ready for this agent.</p>
+      <p>Windows setup needs the backup values for this agent.</p>
       <p>Leave blank to use the folder where you paste the setup text.</p>
     </section>
   )
@@ -6705,7 +6759,7 @@ function toolOutcome() {
     const cwd = fixture({
       'src/app/hooks/useWsDispatch.ts': `
 export function safeCompletionMessage() {
-  return 'Finished with a summary that needs review. Open details before using the result.'
+  return 'Finished with a summary that needs review. Open the task details before using the result.'
 }
 `,
       'src/app/features/context/ApprovalQueueView.tsx': `
@@ -6764,7 +6818,7 @@ export function approvalQueueEmptyState() {
     const cwd = fixture({
       'src/app/hooks/useWsDispatch.ts': `
 export function safeCompletionMessage() {
-  return 'Finished with a summary you should check. Open details before using the result.'
+  return 'Finished with a summary you should check. Open the task details before using the result.'
 }
 `,
       'src/app/features/context/ApprovalQueueView.tsx': `
@@ -7363,6 +7417,46 @@ export function SkillDraftModal() {
       'src/app/features/detail/SkillDraftModal.tsx': `
 export function SkillDraftModal() {
   return 'Review what should repeat before saving it for your team space.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags saved instruction draft copy that does not tell beginners the next action', () => {
+    const cwd = fixture({
+      'src/app/features/detail/SkillDraftModal.tsx': `
+export function SkillDraftModal() {
+  const error = 'Keep or rewrite the reusable instructions before publishing.'
+  return 'Review the reusable instructions.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'saved-instruction-draft-copy',
+          location: 'src/app/features/detail/SkillDraftModal.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-draft-copy',
+          location: 'src/app/features/detail/SkillDraftModal.tsx:4',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved instruction draft copy that names the field and review step', () => {
+    const cwd = fixture({
+      'src/app/features/detail/SkillDraftModal.tsx': `
+export function SkillDraftModal() {
+  const error = 'Add the repeatable steps, or keep the suggested steps, before publishing.'
+  return 'Find this instruction, then review the reusable steps before agents use them.'
 }
 `,
     })
@@ -9004,6 +9098,72 @@ function TaskFormModal() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags task form readiness and agent choice copy that uses internal status words', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskFormModal.tsx': `
+function TaskFormModal() {
+  return (
+    <div>
+      <p>Preparing This Project</p>
+      <p>Ready to Send</p>
+      <option>Let the next available agent pick it up</option>
+      <p>Keep this choice when any available agent can do the work.</p>
+      <span>2 available</span>
+    </div>
+  )
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-form-ready-state-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'task-form-ready-state-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'task-form-agent-choice-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'task-form-agent-choice-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:8',
+        }),
+        expect.objectContaining({
+          type: 'task-form-agent-choice-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:9',
+        }),
+      ])
+    )
+  })
+
+  it('accepts task form readiness and agent choice copy that uses visible Ready wording', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskFormModal.tsx': `
+function TaskFormModal() {
+  return (
+    <div>
+      <p>Preparing this project</p>
+      <p>Ready to send</p>
+      <option>Let the next ready agent pick it up</option>
+      <p>Leave automatic selection on when any ready agent can do the work.</p>
+      <span>2 ready</span>
+    </div>
+  )
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags quick task creation copy that uses draft-task jargon', () => {
     const cwd = fixture({
       'src/app/features/board/QuickCreate.tsx': `
@@ -9375,6 +9535,26 @@ export const zh = {
     )
   })
 
+  it('flags saved instruction card fallbacks that say open details without naming saved instruction details', () => {
+    const cwd = fixture({
+      'src/app/features/skills/SkillCard.tsx': `
+export function SkillCard() {
+  return 'Open details to check the reusable instructions before using this saved instruction.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'saved-instruction-summary-fallback-copy',
+        location: 'src/app/features/skills/SkillCard.tsx:3',
+      }),
+    ])
+  })
+
   it('flags saved instruction work-tool tooltips that do not say where to check setup', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `
@@ -9418,7 +9598,7 @@ export const zh = {
     const cwd = fixture({
       'src/app/features/skills/SkillCard.tsx': `
 export function SkillCard() {
-  return 'Open details to check the reusable instructions before using this saved instruction.'
+  return 'Open saved instruction details to review the reusable instructions before using it.'
 }
 `,
       'src/app/shared/i18n/locales/en.ts': `
@@ -12355,19 +12535,127 @@ function taskNextStep() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'task-recovery-status-copy',
-        location: 'src/app/features/board/TaskCard.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-recovery-status-copy',
+          location: 'src/app/features/board/TaskCard.tsx:3',
+        }),
+      ])
+    )
   })
 
-  it('accepts failed task card next steps that point to the recovery note', () => {
+  it('accepts failed task card next steps that point to task details and the recovery note', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskCard.tsx': `
+function taskNextStep() {
+  return 'Open task details, read the recovery note, then retry.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags task recovery entry points that say open details without naming task details', () => {
     const cwd = fixture({
       'src/app/features/board/TaskCard.tsx': `
 function taskNextStep() {
   return 'Open details, review the recovery note, then retry.'
+}
+`,
+      'src/app/features/feed/FeedItem.tsx': `
+function displayFeedDetail() {
+  return 'Open details to see the recovery note, then retry or choose another agent.'
+}
+`,
+      'src/app/features/feed/AttentionZone.tsx': `
+export function AttentionZone() {
+  return <button>Open details</button>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-recovery-details-copy',
+          location: 'src/app/features/board/TaskCard.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'task-recovery-details-copy',
+          location: 'src/app/features/feed/FeedItem.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'task-recovery-details-copy',
+          location: 'src/app/features/feed/AttentionZone.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts task recovery entry points that name task details', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskCard.tsx': `
+function taskNextStep() {
+  return 'Open task details, read the recovery note, then retry.'
+}
+`,
+      'src/app/features/feed/FeedItem.tsx': `
+function displayFeedDetail() {
+  return 'Open task details to read the recovery note, then retry or choose another agent.'
+}
+`,
+      'src/app/features/feed/AttentionZone.tsx': `
+export function AttentionZone() {
+  return <button>Open task details</button>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags task failure previews that say open details without naming the task details', () => {
+    const cwd = fixture({
+      'src/app/shared/lib/taskFailureCopy.ts': `
+export function taskFailurePreview() {
+  return 'Stopped before finishing. Open details to see what happened and retry.'
+}
+export function taskBlockedPreview() {
+  return 'This task needs help before it can continue. Open details, review the latest update, then retry or ask an owner for help.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-failure-details-copy',
+          location: 'src/app/shared/lib/taskFailureCopy.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'task-failure-details-copy',
+          location: 'src/app/shared/lib/taskFailureCopy.ts:6',
+        }),
+      ])
+    )
+  })
+
+  it('accepts task failure previews that name task details and latest updates', () => {
+    const cwd = fixture({
+      'src/app/shared/lib/taskFailureCopy.ts': `
+export function taskFailurePreview() {
+  return 'Stopped before finishing. Open the task details, review the latest update, then retry when ready.'
+}
+export function taskBlockedPreview() {
+  return 'This task needs help before it can continue. Open the task details, review the latest update, then retry or ask an owner for help.'
 }
 `,
     })

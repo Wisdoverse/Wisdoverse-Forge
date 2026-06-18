@@ -123,8 +123,8 @@ const DEFAULT_AGENT_CWD = '/workspace'
 
 function setupCommandPasteHint(os: 'posix' | 'windows'): string {
   return os === 'windows'
-    ? 'Open PowerShell on Windows, then paste this setup text.'
-    : 'Open Terminal on macOS or your Linux terminal, then paste this setup text.'
+    ? "Open your computer's command app (PowerShell on Windows), then paste this setup text."
+    : "Open your computer's command app (Terminal on macOS/Linux), then paste this setup text."
 }
 
 /**
@@ -182,7 +182,7 @@ function runtimeFitFor(
       items: [
         { label: 'Where it works', value: 'This computer' },
         { label: 'Files', value: 'Your chosen folder' },
-        { label: 'Before use', value: 'Paste setup text on this computer' },
+        { label: 'Before use', value: "Paste setup text in this computer's command app" },
       ],
     }
   }
@@ -246,7 +246,7 @@ function createReviewItems({
 
   const nextStep =
     kind === 'local-cli'
-      ? 'Paste the setup text on this computer and keep that window open.'
+      ? "Paste the setup text in this computer's command app and keep that app open."
       : kind === 'provider'
         ? 'Ask a first question or assign review work that does not need files.'
         : 'Wait until it shows Ready, then send one small task from Tasks.'
@@ -626,7 +626,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
               </div>
               <p className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {localEnrollment.enrollment?.joinCommand
-                  ? 'Paste the setup text into Terminal or PowerShell on the computer where this agent should work. Forge will show it as an agent here, assign tasks to it, and keep its status and history. Files stay on that computer.'
+                  ? "Open this computer's command app, paste the setup text there, and keep that app open while it works. Forge will show it as an agent here, assign tasks to it, and keep its status and history. Files stay on that computer."
                   : 'Paste this setup text on the computer where this agent should work. Forge will manage its tasks, status, and history while files stay on that computer.'}
               </p>
             </div>
@@ -678,8 +678,8 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     role="note"
                     className="rounded-[18px] border border-apple-orange/30 bg-apple-orange/10 px-4 py-3 text-ui-caption text-secondary-light dark:text-secondary-dark"
                   >
-                    One-line Windows setup text is not ready for this agent. Open the backup setup
-                    values below, copy them into PowerShell, and keep that window open.
+                    Windows setup needs the backup values for this agent. Open the backup setup
+                    values below, copy them into PowerShell, and keep that app open.
                   </div>
                 )}
                 <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -696,16 +696,13 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 </p>
                 <div className="mt-2 grid gap-1.5 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 text-ui-caption text-secondary-light dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-secondary-dark">
                   <p>1. Copy the setup text.</p>
+                  <p>2. Paste it into that command app on the computer that will do the work.</p>
                   <p>
-                    2. Paste it into Terminal or PowerShell on the computer that will do the work.
+                    3. Keep that app open. Success looks like: the agent changes from Not connected
+                    to Ready on the Agents page.
                   </p>
                   <p>
-                    3. Keep that window open. Success looks like: the agent changes from Not
-                    connected to Ready on the Agents page.
-                  </p>
-                  <p>
-                    4. Closing that window disconnects this agent until you paste the setup text
-                    again.
+                    4. Closing that app disconnects this agent until you paste the setup text again.
                   </p>
                   <p>
                     5. Come back to Forge, open Agents, and send one small task when it is Ready.
@@ -717,8 +714,8 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                   </summary>
                   <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
                     Use this backup only if the setup text above does not work on this computer.
-                    Copy these backup setup values into the same Terminal or PowerShell window, then
-                    keep that window open.
+                    Copy these backup setup values into the same command app, then keep that app
+                    open.
                   </p>
                   <textarea
                     id="local-agent-command"
@@ -761,14 +758,13 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 />
                 <div className="mt-2 grid gap-1.5 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 text-ui-caption text-secondary-light dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-secondary-dark">
                   <p>1. Copy the setup text.</p>
-                  <p>2. Paste it into the terminal app on the computer that will do the work.</p>
+                  <p>2. Paste it into the command app on the computer that will do the work.</p>
                   <p>
-                    3. Keep that window open. Success looks like: the agent changes from Not
-                    connected to Ready on the Agents page.
+                    3. Keep that app open. Success looks like: the agent changes from Not connected
+                    to Ready on the Agents page.
                   </p>
                   <p>
-                    4. Closing that window disconnects this agent until you paste the setup text
-                    again.
+                    4. Closing that app disconnects this agent until you paste the setup text again.
                   </p>
                   <p>
                     5. Come back to Forge, open Agents, and send one small task when it is Ready.

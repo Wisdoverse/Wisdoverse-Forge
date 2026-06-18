@@ -544,7 +544,7 @@ export const zh: TranslationKeys = {
         },
         stop_host_cli: {
           title: '请在这台电脑上停止连接助手',
-          detail: 'Forge 不能替你停止它。请关闭那台电脑上的 Terminal 或 PowerShell 窗口。',
+          detail: 'Forge 不能替你停止它。请关闭那台电脑上的命令应用。',
         },
         stop_api: {
           title: '请关闭聊天或等待回复结束',
