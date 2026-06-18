@@ -120,7 +120,9 @@ describe('SshKeysSection', () => {
     expect(await screen.findByRole('status')).toHaveTextContent(
       'SSH code access saved. Create a small task with a git@ code link to confirm agents can open it.'
     )
+    expect(screen.getByRole('status')).toHaveTextContent('If agents cannot open the code')
     expect(screen.getByRole('status')).toHaveTextContent('come back here and replace this key')
+    expect(screen.getByRole('status')).not.toHaveTextContent('repository')
   })
 
   test('explains the impact before removing SSH code access', async () => {
