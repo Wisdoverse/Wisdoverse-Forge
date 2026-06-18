@@ -23,7 +23,7 @@ describe('AgentKindBadge', () => {
     const badge = screen.getByText('Project files')
     expect(badge).toHaveAttribute(
       'title',
-      'Works in a Forge project area. It can change files, run checks, and save what it checked.'
+      'Works with shared project files. It can change files, run checks, and save what it checked.'
     )
   })
 

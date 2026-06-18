@@ -12,7 +12,7 @@ describe('sshKeysErrorMessage', () => {
   test('turns invalid public key errors into a clear recovery step', () => {
     expectBeginnerMessage(
       sshKeysErrorMessage('Settings could not save SSH key. Details: invalid public key'),
-      'Paste only the shareable one-line public key that starts with ssh-ed25519 or ssh-rsa, then save again. Do not paste a private key block.'
+      'Paste only the safe one-line public key from the .pub file, then save again. Do not paste a private key block.'
     )
   })
 
@@ -28,7 +28,7 @@ describe('sshKeysErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Choose the saved access or remove the old one first. This shareable public key line is already saved.'
+      'Choose the saved access or remove the old one first. This safe public key line is already saved.'
     )
     expect(message).not.toContain('could not be saved')
   })
@@ -36,7 +36,7 @@ describe('sshKeysErrorMessage', () => {
   test('explains missing fields as the next form fields to fix', () => {
     expectBeginnerMessage(
       sshKeysErrorMessage('Code: 422 Details: public key is required'),
-      'Paste the shareable public key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
+      'Paste the safe public key line from the .pub file, then save again.'
     )
   })
 

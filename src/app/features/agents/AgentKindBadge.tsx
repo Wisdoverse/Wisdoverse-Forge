@@ -17,7 +17,7 @@ export function AgentKindBadge({ cliTool, runtimeKind, className }: AgentKindBad
   const title = isHost
     ? 'Uses files and tools on this connected computer. Use it when work should stay there.'
     : isContainer
-      ? 'Works in a Forge project area. It can change files, run checks, and save what it checked.'
+      ? 'Works with shared project files. It can change files, run checks, and save what it checked.'
       : 'Answers in chat through a connected AI service. It cannot open project files on its own.'
 
   return (

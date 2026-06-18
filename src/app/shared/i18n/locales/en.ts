@@ -450,13 +450,13 @@ export const en = {
       loading: 'Loading work setup...',
       couldNotLoad:
         'Refresh this settings page to load Agent work setup. If it still does not load, ask an owner or admin to check Agent work setup in Settings.',
-      defaultRuntimeLabel: 'Default file work place',
+      defaultRuntimeLabel: 'Where project files open',
       defaultRuntimeDescription:
         'Choose Project files for the simplest shared file work. Choose This computer only when this machine should join as an agent.',
       defaultContainerCliLabel: 'Default tool for project work',
       defaultContainerCliDescription:
         'Claude Code, Codex, Gemini, or OpenCode when an agent edits files or runs commands',
-      availableRuntimesLabel: 'Places agents can edit files',
+      availableRuntimesLabel: 'Places that can open project files',
       availableRuntimesDescription: 'Where this setup can open files for hands-on agents',
       availableContainerClisLabel: 'Work tools agents can use',
       availableContainerClisDescription: 'Installed tools for file edits, commands, and live work',

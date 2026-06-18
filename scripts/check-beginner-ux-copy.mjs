@@ -756,6 +756,8 @@ const SETTINGS_RUNTIME_NAV_JARGON_PATTERNS = [
 ]
 
 const SETTINGS_RUNTIME_LOCATION_JARGON_PATTERNS = [
+  /\bDefault file work place\b/i,
+  /\bfile work place\b/i,
   /\bDefault agent location\b/i,
   /\bAgent locations available\b/i,
   /\bwhere new agents run\b/i,
@@ -785,7 +787,15 @@ const SSH_CODE_ACCESS_FAILURE_FIRST_PATTERNS = [
 ]
 
 const SSH_CODE_ACCESS_JARGON_PATTERNS = [
+  /\bName where it is used\b/i,
   /\bPaste the public line\b/i,
+  /\bPaste the shareable public key line\b/i,
+  /\bshareable one-line public key\b/i,
+  />\s*Shareable public key line\b/i,
+  /\bKeep the private key secret\b/i,
+  /\bRecommended SSH key\b/i,
+  /\bOlder SSH key\b/i,
+  /\bAsk an admin to check this SSH key\b/i,
   /\bone-line \.pub key\b/i,
   /\bPaste the public key line before saving\b/i,
   />\s*Public key line\b/i,
@@ -798,7 +808,9 @@ const SSH_CODE_ACCESS_JARGON_PATTERNS = [
   /\bPaste the public key line that starts\b/i,
   /\bpaste the public key line\b/i,
   /\bThis public key line is already saved\b/i,
+  /\bThis shareable public key line is already saved\b/i,
   /\baccess name and public key line\b/i,
+  /\baccess name and shareable public key line\b/i,
 ]
 
 const PLATFORM_KEY_FAILURE_FIRST_PATTERNS = [
@@ -1409,7 +1421,11 @@ const ACCESS_LEVEL_DEAD_END_PATTERNS = [
   /\boperator:\s*['"`]Operator['"`]/,
 ]
 
-const AGENT_TEMPLATE_ROLE_JARGON_PATTERNS = [/\bStart with a role\b/i, /\bAgent role templates\b/i]
+const AGENT_TEMPLATE_ROLE_JARGON_PATTERNS = [
+  /\bStart with a role\b/i,
+  /\bAgent role templates\b/i,
+  /\bFills in the agent name\b/i,
+]
 
 const AGENT_INSTRUCTION_TEMPLATE_JARGON_PATTERNS = [
   /\bgathering evidence first\b/i,
@@ -1429,6 +1445,8 @@ const CREATE_AGENT_PROJECT_JARGON_PATTERNS = [
 
 const CREATE_AGENT_WORK_AREA_JARGON_PATTERNS = [
   /\bAgent location\b/,
+  /\bForge project area\b/i,
+  /\bForge prepares (?:a safe )?project area\b/i,
   /\bready workspace managed by Forge\b/i,
   /\bproject workspace\b/i,
 ]
@@ -3628,8 +3646,7 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'ssh-code-access-jargon-copy',
         location,
-        message:
-          'SSH code access setup must explain the shareable public key line and supported key kind.',
+        message: 'SSH code access setup must explain the safe public key line and .pub file.',
         sample: line.trim(),
       })
     }
@@ -5114,7 +5131,7 @@ function scanFile(file, relFile) {
         type: 'runtime-default-location-copy',
         location,
         message:
-          'Default agent location copy must tell beginners to load setup before choosing a location.',
+          'Project-file setup copy must tell beginners to load setup before choosing where files open.',
         sample: line.trim(),
       })
     }
@@ -5152,7 +5169,7 @@ function scanFile(file, relFile) {
         type: 'settings-runtime-location-copy',
         location,
         message:
-          'Agent work setup must describe where files open instead of using agent location wording.',
+          'Agent work setup must describe where project files open instead of using location jargon.',
         sample: line.trim(),
       })
     }

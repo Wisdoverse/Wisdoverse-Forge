@@ -54,35 +54,33 @@ describe('SshKeysSection', () => {
   test('guides first-time SSH code access setup and saves only after required fields are filled', async () => {
     render(<SshKeysSection />)
 
-    expect(await screen.findByText('Add access for code links that start with git@')).toBeDefined()
+    expect(await screen.findByText('Add this only for git@ private code links')).toBeDefined()
     const emptyState = screen.getByTestId('ssh-access-empty-state')
-    expect(within(emptyState).getAllByText(/starts with git@/i).length).toBeGreaterThan(0)
     expect(within(emptyState).getByText(/starts with https:\/\//i)).toBeDefined()
     expect(within(emptyState).getByText(/use HTTPS code access instead/i)).toBeDefined()
     expect(within(emptyState).getByText(/skip this for public projects/i)).toBeDefined()
-    expect(
-      within(emptyState).getByRole('button', { name: /add SSH code access/i })
-    ).toBeDefined()
+    expect(within(emptyState).getByRole('button', { name: /add SSH code access/i })).toBeDefined()
     expect(within(emptyState).queryByText('No repository access yet')).toBeNull()
 
-    fireEvent.click(
-      within(emptyState).getByRole('button', { name: /add SSH code access/i })
-    )
+    fireEvent.click(within(emptyState).getByRole('button', { name: /add SSH code access/i }))
 
     expect(screen.queryByTestId('ssh-access-empty-state')).toBeNull()
-    expect(screen.getByText('Add access for code links that start with git@')).toBeDefined()
-    expect(screen.getByText('Paste the shareable public key line')).toBeDefined()
-    expect(screen.getByText(/shareable one-line public key from the \.pub file/i)).toBeDefined()
+    expect(screen.getByText('Add access for git@ code links')).toBeDefined()
+    expect(screen.getByText('Name the computer or team')).toBeDefined()
+    expect(screen.getAllByText(/Use a name people will recognize/i).length).toBeGreaterThan(0)
+    expect(screen.getByText('Paste the safe public key line')).toBeDefined()
+    expect(screen.getByText(/one-line public key from the \.pub file/i)).toBeDefined()
     expect(screen.queryByText('Paste the public line')).toBeNull()
     expect(screen.getAllByText(/starts with ssh-ed25519 or ssh-rsa/i).length).toBeGreaterThan(0)
-    expect(screen.getByText('Keep the private key secret')).toBeDefined()
+    expect(screen.getByText('Never paste the private key')).toBeDefined()
     expect(screen.getAllByText(/BEGIN PRIVATE KEY/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/copy the \.pub line instead/i).length).toBeGreaterThan(0)
     expect(
       screen.getByPlaceholderText('ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... dev@example.com')
     ).toBeDefined()
 
     const nameInput = screen.getByLabelText(/^name for this access/i)
-    const shareableLineInput = screen.getByLabelText(/^shareable public key line/i)
+    const safePublicLineInput = screen.getByLabelText(/^safe public key line/i)
     const form = nameInput.closest('form')
     expect(form).toBeTruthy()
 
@@ -100,12 +98,12 @@ describe('SshKeysSection', () => {
     fireEvent.submit(form!)
     expect(createSshKeyMock).not.toHaveBeenCalled()
     expect(screen.getByRole('alert')).toHaveTextContent(
-      /paste the shareable public key line before saving/i
+      /paste the safe public key line before saving/i
     )
-    expect(screen.getByRole('alert')).toHaveTextContent(/shareable/i)
-    expect(shareableLineInput).toHaveFocus()
+    expect(screen.getByRole('alert')).toHaveTextContent(/safe/i)
+    expect(safePublicLineInput).toHaveFocus()
 
-    fireEvent.change(shareableLineInput, {
+    fireEvent.change(safePublicLineInput, {
       target: { value: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAexample dev@example.com' },
     })
     expect(saveButton).toBeEnabled()
@@ -118,7 +116,7 @@ describe('SshKeysSection', () => {
       )
     )
     expect(await screen.findByRole('status')).toHaveTextContent(
-      'SSH code access saved. Create a small task with a git@ code link to confirm agents can open it.'
+      'SSH code access saved. Create a small task with a git@ private code link to confirm agents can open it.'
     )
     expect(screen.getByRole('status')).toHaveTextContent('If agents cannot open the code')
     expect(screen.getByRole('status')).toHaveTextContent('come back here and replace this key')
@@ -134,16 +132,14 @@ describe('SshKeysSection', () => {
     await waitFor(() => expect(loadSshKeysMock).toHaveBeenCalledTimes(1))
     expect(screen.getByText('Saved key check code')).toBeDefined()
     expect(screen.getByText('Accepted by Forge')).toBeDefined()
-    expect(screen.getByText('Recommended SSH key')).toBeDefined()
+    expect(screen.getByText('Recommended for new access')).toBeDefined()
     expect(screen.queryByText('Safety check')).toBeNull()
     expect(screen.queryByText('Key type')).toBeNull()
     expect(screen.queryByText('Modern key type')).toBeNull()
     expect(screen.queryByText('Saved key ID')).toBeNull()
     expect(screen.queryByText('Key kind')).toBeNull()
 
-    fireEvent.click(
-      screen.getByRole('button', { name: /remove work laptop SSH code access/i })
-    )
+    fireEvent.click(screen.getByRole('button', { name: /remove work laptop SSH code access/i }))
 
     expect(deleteSshKeyMock).not.toHaveBeenCalled()
     expect(
@@ -157,11 +153,9 @@ describe('SshKeysSection', () => {
     expect(screen.queryByText(/removing this access can block agents/i)).toBeNull()
     expect(deleteSshKeyMock).not.toHaveBeenCalled()
 
-    await user.click(
-      screen.getByRole('button', { name: /remove work laptop SSH code access/i })
-    )
+    await user.click(screen.getByRole('button', { name: /remove work laptop SSH code access/i }))
     const removeNowButton = screen.getByRole('button', {
-        name: /confirm removing work laptop SSH code access/i,
+      name: /confirm removing work laptop SSH code access/i,
     })
     deleteSshKeyMock.mockImplementationOnce(
       () => new Promise((resolve) => setTimeout(() => resolve(true), 20))
@@ -206,7 +200,7 @@ describe('SshKeysSection', () => {
 
     await waitFor(() => expect(loadSshKeysMock).toHaveBeenCalled())
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Paste only the shareable one-line public key that starts with ssh-ed25519 or ssh-rsa, then save again. Do not paste a private key block.'
+      'Paste only the safe one-line public key from the .pub file, then save again. Do not paste a private key block.'
     )
     expect(screen.queryByText(/Details: invalid public key/i)).toBeNull()
   })
