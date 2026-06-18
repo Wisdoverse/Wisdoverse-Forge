@@ -1283,6 +1283,8 @@ const TEAM_PROJECT_CREATE_JARGON_PATTERNS = [
   /\bWork folder preview:/i,
 ]
 
+const TEAM_PROJECT_ROW_ADDRESS_JARGON_PATTERNS = [/\bAddress:\s*\{/i]
+
 const CLONE_RETRY_FAILURE_FIRST_PATTERNS = [
   /\bYou do not have permission to copy code into this project\. Ask an owner or admin to let you try again\./i,
   /\bThis project could not be found\. Refresh Projects, then try copying code again from the current project row\./i,
@@ -2205,6 +2207,17 @@ function hasTeamProjectCreateJargonCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return TEAM_PROJECT_CREATE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasTeamProjectRowAddressJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/manage-team/ui/EditableTeamRow.tsx') &&
+    !relFile.endsWith('src/app/features/manage-project/ui/EditableProjectRow.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TEAM_PROJECT_ROW_ADDRESS_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasCloneRetryFailureFirstCopy(relFile, line) {
@@ -4108,6 +4121,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Team and project creation forms must say creation steps and short name instead of setup path or address preview.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTeamProjectRowAddressJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'team-project-row-address-copy',
+        location,
+        message: 'Team and project rows must say short name instead of address.',
         sample: line.trim(),
       })
     }
