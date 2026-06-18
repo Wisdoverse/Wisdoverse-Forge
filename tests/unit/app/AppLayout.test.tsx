@@ -290,7 +290,7 @@ describe('AppLayout', () => {
     render(<MemoryRouter />)
 
     expect(screen.queryByRole('button', { name: /new task queue/i })).toBeNull()
-    expect(screen.getByRole('combobox', { name: /task queue for new tasks/i })).toBeDisabled()
+    expect(screen.getByRole('combobox', { name: /where new tasks wait/i })).toBeDisabled()
     expect(mockCreateGroup).not.toHaveBeenCalled()
   })
 
@@ -376,7 +376,7 @@ describe('AppLayout', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'Check the project, task queue, and result, then create the task again. The task was not created.'
+      'Check the project, where tasks wait, and the result, then create the task again. The task was not created.'
     )
     expect(alert.textContent).not.toContain('API')
   })

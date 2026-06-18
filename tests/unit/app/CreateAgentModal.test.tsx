@@ -11,7 +11,7 @@ vi.mock('@app/entities/agent-group', () => ({
     getGroups: vi.fn().mockResolvedValue([]),
     createGroup: vi.fn().mockResolvedValue({
       id: 'group-new',
-      name: 'Default Task Queue',
+      name: 'Default Waiting Place',
       projectId: 'p1',
     }),
   },
@@ -33,7 +33,7 @@ beforeEach(() => {
   vi.mocked(agentGroupApi.getGroups).mockResolvedValue([])
   vi.mocked(agentGroupApi.createGroup).mockResolvedValue({
     id: 'group-new',
-    name: 'Default Task Queue',
+    name: 'Default Waiting Place',
     projectId: 'p1',
   })
   useAgentsStore.setState({
@@ -210,12 +210,12 @@ describe('CreateAgentModal', () => {
     expect(within(review).getByText('Platform')).toBeInTheDocument()
     expect(
       within(review).getByText(
-        'Create a task queue here when you want new tasks to wait in one place.'
+        'Set up where tasks wait here when you want new tasks to wait in one place.'
       )
     ).toBeInTheDocument()
   })
 
-  test('guides users when task queues exist but none is selected yet', () => {
+  test('guides users when waiting places exist but none is selected yet', () => {
     useNavigationStore.setState({
       selectedProjectId: 'p1',
       projects: {
@@ -238,11 +238,13 @@ describe('CreateAgentModal', () => {
 
     const review = screen.getByTestId('agent-create-review')
     expect(
-      within(review).getByText('Choose a task queue now, or assign one later from Tasks.')
+      within(review).getByText('Choose where tasks wait now, or set it later from Tasks.')
     ).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: /choose a task queue later/i })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /set this later/i })).toBeInTheDocument()
+    expect(within(review).getByText('Where tasks wait')).toBeInTheDocument()
     expect(within(review).queryByText('No task queue selected yet')).toBeNull()
     expect(screen.queryByRole('option', { name: /^no task queue$/i })).toBeNull()
+    expect(screen.queryByText('Task queue')).toBeNull()
   })
 
   test('submits the selected project as the execution boundary', async () => {
@@ -289,7 +291,7 @@ describe('CreateAgentModal', () => {
     expect(createAgent).not.toHaveBeenCalled()
   })
 
-  test('creates and selects a task queue for the selected project', async () => {
+  test('sets up and selects where tasks wait for the selected project', async () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
     useNavigationStore.setState({
@@ -311,26 +313,27 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
     expect(
-      screen.getByText(/starter queue for this project so new tasks have a clear place to wait/i)
+      screen.getByText(/starter place for this project so new tasks have somewhere clear to wait/i)
     ).toBeInTheDocument()
-    fireEvent.click(await screen.findByRole('button', { name: /create task queue/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /set up where tasks wait/i }))
 
     await waitFor(() =>
       expect(agentGroupApi.createGroup).toHaveBeenCalledWith({
         projectId: 'p1',
-        name: 'Default Task Queue',
+        name: 'Default Waiting Place',
         description:
-          'Starter queue for this project. New tasks wait here until an agent can take them.',
+          'Starter place for this project. New tasks wait here until an agent can take them.',
       })
     )
-    expect(screen.getByRole('combobox', { name: /task queue/i })).toHaveValue('group-new')
+    expect(screen.getByRole('combobox', { name: /where tasks wait/i })).toHaveValue('group-new')
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/project ready/i)
     expect(
-      screen.getByText(/new tasks can wait in this queue until an available agent can take them/i)
+      screen.getByText(/new tasks wait here until an available agent can take them/i)
     ).toBeInTheDocument()
     expect(
-      within(screen.getByTestId('agent-create-review')).getByText('Default Task Queue')
+      within(screen.getByTestId('agent-create-review')).getByText('Default Waiting Place')
     ).toBeInTheDocument()
+    expect(screen.queryByText('Task queue')).toBeNull()
     expect(screen.queryByText(/work a place to wait until this agent can take it/i)).toBeNull()
     expect(screen.queryByText(new RegExp('board\\s+tasks', 'i'))).toBeNull()
 
@@ -345,7 +348,7 @@ describe('CreateAgentModal', () => {
     })
   })
 
-  test('hides raw task queue creation errors while creating a default queue', async () => {
+  test('hides raw waiting-place creation errors while setting up the default place', async () => {
     vi.mocked(agentGroupApi.createGroup).mockRejectedValueOnce(
       new Error('HTTP 500: database unavailable')
     )
@@ -367,11 +370,12 @@ describe('CreateAgentModal', () => {
     })
 
     render(<CreateAgentModal />)
-    fireEvent.click(await screen.findByRole('button', { name: /create task queue/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /set up where tasks wait/i }))
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Wait a few minutes, then try creating the task queue again.')
-    expect(alert).toHaveTextContent('ask an owner or admin to check task queue setup')
+    expect(alert).toHaveTextContent('Wait a few minutes, then set up where tasks wait again.')
+    expect(alert).toHaveTextContent('ask an owner or admin to check task routing setup')
+    expect(alert).not.toHaveTextContent('task queue')
     expect(alert).not.toHaveTextContent('HTTP 500')
     expect(alert).not.toHaveTextContent('database unavailable')
   })

@@ -9,7 +9,7 @@ export type BoardErrorAction =
 
 const ACTION_FALLBACKS: Record<BoardErrorAction, string> = {
   createTask:
-    'Check the project, task queue, and result, then create the task again. The task was not created.',
+    'Check the project, where tasks wait, and the result, then create the task again. The task was not created.',
   loadReadiness: 'Refresh the board to load agent status before sending work.',
   loadTasks: 'Refresh the board to load tasks.',
   moveTask:
@@ -138,13 +138,13 @@ function validationRecovery(action: BoardErrorAction, detail: string): string {
   const normalized = detail.toLowerCase()
 
   if (normalized.includes('title') || normalized.includes('name')) {
-    return 'Add a task result, choose the project and task queue, then create the task again.'
+    return 'Add a task result, choose the project and where tasks wait, then create the task again.'
   }
   if (normalized.includes('project')) {
     return 'Choose a project you can access, then try the board action again.'
   }
   if (normalized.includes('lane') || normalized.includes('group')) {
-    return 'Choose a task queue for this project, then try the board action again.'
+    return 'Choose where tasks wait for this project, then try the board action again.'
   }
   if (normalized.includes('agent')) {
     return 'Choose an available agent, then try the board action again.'

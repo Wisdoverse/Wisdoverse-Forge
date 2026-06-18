@@ -15,7 +15,7 @@ export function AgentGroupSelector({
   onSelectGroup,
 }: AgentGroupSelectorProps) {
   const disabledHelp = !selectedProjectId
-    ? 'Choose a project before selecting a task queue.'
+    ? 'Choose a project before choosing where tasks wait.'
     : groups.length === 0
       ? 'Set up where tasks wait, then come back here.'
       : null
@@ -24,10 +24,10 @@ export function AgentGroupSelector({
   return (
     <div className="hidden items-center gap-2 rounded-full border border-black/[0.08] bg-white p-0.5 pl-3 dark:border-white/[0.1] dark:bg-white/[0.06] md:flex">
       <span className="shrink-0 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-        Task queue
+        Where tasks wait
       </span>
       <select
-        aria-label="Task queue for new tasks"
+        aria-label="Where new tasks wait"
         title={selectTitle}
         value={selectedGroupId ?? ''}
         onChange={(event) => {
