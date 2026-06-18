@@ -338,6 +338,16 @@ const TIMELINE_EMPTY_DEAD_END_PATTERNS = [
 ]
 
 const WORKSHOP_3D_EMPTY_DEAD_END_PATTERNS = [/\bNo agents on the visual map yet\b/i]
+const WORKSHOP_3D_MOUSE_JARGON_PATTERNS = [
+  /\bScroll to zoom\b/i,
+  /\bMiddle-click to pan\b/i,
+  /\bRight-click to rotate\b/i,
+  /\bClick to select\b/i,
+  /滚动缩放/,
+  /中键平移/,
+  /右键旋转/,
+  /点击选择/,
+]
 
 const AGENT_DETAIL_ACTIVITY_DEAD_END_PATTERNS = [/\bNo task activity has been loaded yet\b/i]
 
@@ -519,6 +529,8 @@ const START_NAV_LABEL_JARGON_PATTERNS = [
   /^\s*start:\s*['"`]开始['"`]/,
 ]
 
+const START_PAGE_TITLE_JARGON_PATTERNS = [/['"`]\/start['"`]\s*:\s*\{\s*title:\s*['"`]Start['"`]/]
+
 const SIDEBAR_LAYOUT_JARGON_PATTERNS = [
   /\b(?:from|in|to) the sidebar\b/i,
   /\breopen the sidebar\b/i,
@@ -555,10 +567,15 @@ const START_GUIDE_PATH_JARGON_PATTERNS = [
 const TASK_VIEW_LABEL_JARGON_PATTERNS = [/\bid:\s*['"`]3d['"`]\s*,\s*label:\s*['"`]3D['"`]/]
 
 const TOP_BAR_CREATE_TASK_JARGON_PATTERNS = [/\+\s*Task\b/]
+const TOP_BAR_SEARCH_JARGON_PATTERNS = [/\bSearch pages and actions\b/i]
 
 const COMMAND_PALETTE_CREATE_TASK_JARGON_PATTERNS = [
   /\blabel:\s*['"`]Create task['"`]/,
   /\bStart a new piece of work\./,
+  /\bSearch pages or actions\b/i,
+  /\bNo page or action matches that search\b/i,
+  /\bStart an action\b/i,
+  /\bcommon workflow\b/i,
 ]
 
 const PROJECT_MENU_CREATE_TASK_JARGON_PATTERNS = [
@@ -760,6 +777,9 @@ const RUNTIME_ERROR_FAILURE_FIRST_PATTERNS = [
 ]
 
 const SETTINGS_RUNTIME_NAV_JARGON_PATTERNS = [
+  /\blabel:\s*['"`]Agent work setup['"`]/i,
+  /\bAgent work setup:\s*Choose where agents edit files and which tool opens the work\b/i,
+  /\bChoose where agents edit files and which tool opens the work\b/i,
   /\bWhere agents run:\s*Choose where agents run and which work tool they use\b/i,
   /\bChoose where agents run and which work tool they use\b/i,
 ]
@@ -863,6 +883,11 @@ const COMMON_ERROR_FAILURE_FIRST_PATTERNS = [
   /下载没有开始。请刷新页面/,
   /请求过于频繁，请等待/,
   /\{\{resource\}\} 配额已用完。请让所有者/,
+]
+
+const COMMON_ERROR_VAGUE_SYSTEM_PATTERNS = [
+  /\bask an owner to check the system\b/i,
+  /管理员检查系统/,
 ]
 
 const SYSTEM_HEALTH_ERROR_FAILURE_FIRST_PATTERNS = [
@@ -2598,6 +2623,18 @@ function hasWorkshop3DEmptyDeadEndCopy(relFile, line) {
   return WORKSHOP_3D_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasWorkshop3DMouseJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/widgets/views/Workshop3DView.tsx') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return WORKSHOP_3D_MOUSE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasAgentDetailActivityDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -2786,6 +2823,12 @@ function hasStartNavJargonCopy(relFile, lines, index, line) {
   return isNavLabel || START_NAV_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasStartPageTitleJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/layouts/AppLayout.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return START_PAGE_TITLE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasSidebarLayoutJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/layouts/AppLayout.tsx') &&
@@ -2839,6 +2882,12 @@ function hasTopBarCreateTaskJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/layouts/TopBar.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return TOP_BAR_CREATE_TASK_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasTopBarSearchJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/layouts/TopBar.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TOP_BAR_SEARCH_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasCommandPaletteCreateTaskJargonCopy(relFile, line) {
@@ -3122,6 +3171,17 @@ function hasCommonErrorFailureFirstCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return COMMON_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasCommonErrorVagueSystemCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return COMMON_ERROR_VAGUE_SYSTEM_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasLocaleVagueErrorLabelCopy(relFile, line) {
@@ -3744,6 +3804,15 @@ function scanFile(file, relFile) {
         type: 'common-error-copy',
         location,
         message: 'Common error translations must start with the recovery action for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCommonErrorVagueSystemCopy(relFile, line)) {
+      findings.push({
+        type: 'common-error-system-copy',
+        location,
+        message: 'Common error translations must name app health instead of vague system checks.',
         sample: line.trim(),
       })
     }
@@ -4661,6 +4730,15 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasWorkshop3DMouseJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'workshop-3d-controls-copy',
+        location,
+        message: 'Visual map controls must describe the available list or map selection action.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasAgentDetailActivityDeadEndCopy(relFile, line)) {
       findings.push({
         type: 'agent-detail-activity-copy',
@@ -4898,6 +4976,15 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasStartPageTitleJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'start-page-title-copy',
+        location,
+        message: 'The Start page title must say setup checklist so beginners know this is a guide.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasSidebarLayoutJargonCopy(relFile, line)) {
       findings.push({
         type: 'left-menu-copy',
@@ -4951,6 +5038,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Top bar task creation must use a Plus icon with a clear New task label instead of a manual + Task label.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTopBarSearchJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'top-bar-search-copy',
+        location,
+        message: 'Top bar search must match the command palette and say pages and things to do.',
         sample: line.trim(),
       })
     }

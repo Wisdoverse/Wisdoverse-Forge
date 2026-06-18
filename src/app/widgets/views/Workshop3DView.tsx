@@ -604,6 +604,17 @@ export function Workshop3DStatusSummary({ totals }: { totals: Record<AgentStatus
   )
 }
 
+export function Workshop3DInteractionHint() {
+  return (
+    <p
+      data-testid="workshop-3d-interaction-hint"
+      className="mt-2 max-w-48 text-[11px] text-white/62"
+    >
+      Choose an agent from the list, or select a robot in the map.
+    </p>
+  )
+}
+
 export function Workshop3DView() {
   const containerRef = useRef<HTMLDivElement>(null)
   const runtimeRef = useRef<SceneRuntime | null>(null)
@@ -870,6 +881,7 @@ export function Workshop3DView() {
             : `${agents.length} agent${agents.length === 1 ? '' : 's'}`}
         </div>
         <Workshop3DStatusSummary totals={totals} />
+        <Workshop3DInteractionHint />
       </div>
 
       <div className="absolute inset-x-3 bottom-3 z-10 flex max-h-36 flex-col gap-2 overflow-y-auto rounded-lg border border-white/10 bg-black/35 p-2 text-white shadow-lg backdrop-blur sm:inset-x-auto sm:bottom-auto sm:right-4 sm:top-4 sm:max-h-[calc(100%-2rem)] sm:w-64">
