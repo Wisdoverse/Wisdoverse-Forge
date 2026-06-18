@@ -841,7 +841,7 @@ export function ProjectTree({
                 </span>
               </div>
               <p className="mt-0.5 truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-                {projectMenu.team.name} team · link name {projectMenu.project.slug}
+                {projectMenu.team.name} team · project short name {projectMenu.project.slug}
               </p>
             </div>
 
@@ -897,13 +897,13 @@ export function ProjectTree({
             />
             <ProjectMenuItem
               Icon={Hash}
-              label="Copy link name"
-              detail={`${projectMenu.project.slug} · appears in project links`}
+              label="Copy project short name"
+              detail={`${projectMenu.project.slug} · short name used in project links`}
               onClick={() =>
                 void handleCopyProjectValue(
                   projectMenu.project.slug,
-                  'Project link name copied',
-                  'project link name'
+                  'Project short name copied',
+                  'project short name'
                 )
               }
             />
