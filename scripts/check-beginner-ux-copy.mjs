@@ -1318,9 +1318,13 @@ const GOVERNANCE_AUDIT_VISIBLE_JARGON_PATTERNS = [
   /\bevent name\b/i,
   /\bevent details\b/i,
   /\bproject workspace\b/i,
+  /\bproject area\b/i,
   /\bShow change details\b/i,
   /\bCheck change details\b/i,
   /\bCheck audit change\b/i,
+  /\bReview proof\b/i,
+  /\bCheck proof setup\b/i,
+  /\bRequired account access is missing\b/i,
   /(?:>\s*Protected\s*<|^\s*Protected\s*$)/i,
 ]
 

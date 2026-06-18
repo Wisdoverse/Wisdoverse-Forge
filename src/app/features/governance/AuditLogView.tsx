@@ -99,7 +99,7 @@ const ITEM_KIND_OPTIONS: { value: ItemKindFilter; label: string }[] = [
 const SCOPE_KIND_OPTIONS: { value: ScopeKindFilter; label: string }[] = [
   { value: 'all', label: 'All areas' },
   { value: 'org', label: 'Team space' },
-  { value: 'workspace', label: 'Project area' },
+  { value: 'workspace', label: 'Work area' },
   { value: 'team', label: 'Team' },
   { value: 'project', label: 'Project' },
   { value: 'user', label: 'User' },
@@ -118,7 +118,7 @@ const INPUT_CLASS =
 const HIDDEN_AUDIT_DETAIL_VALUE =
   'Hidden for safety. Keep secrets hidden, refresh change history, then export again.'
 const MISSING_AUDIT_ACCESS_MESSAGE =
-  'Required account access is missing. Add or reconnect service access, then review change history again.'
+  'Reconnect the needed account access, then refresh change history again. This saved change needs access before it can be shown.'
 const REPEATED_AUDIT_DETAIL_VALUE = 'Repeated detail omitted.'
 
 export function AuditLogView() {
@@ -347,7 +347,7 @@ export function AuditLogView() {
               name="scopeId"
               autoComplete="off"
               onChange={(event) => updateFilter('scopeId', event.target.value)}
-              placeholder="Paste the exact team space, project area, team, or project reference"
+              placeholder="Paste the exact team space, work area, team, or project reference"
               className={INPUT_CLASS}
             />
           </Field>
@@ -631,13 +631,13 @@ function TamperBadge({ status }: { status: GovernanceAuditTamperStatus }) {
     invalid: {
       Icon: ShieldAlert,
       className: 'bg-apple-red/10 text-apple-red',
-      label: 'Review proof',
+      label: 'Check verification',
     },
     not_configured: {
       Icon: ShieldQuestion,
       className:
         'bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark',
-      label: 'Check proof setup',
+      label: 'Set up verification',
     },
   }[status]
   return (
@@ -810,7 +810,7 @@ function auditAreaLabel(kind: GovernanceAuditScopeKind | null | undefined): stri
     case 'org':
       return 'Team space'
     case 'workspace':
-      return 'Project area'
+      return 'Work area'
     case 'team':
       return 'Team'
     case 'project':

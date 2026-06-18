@@ -139,11 +139,11 @@ describe('AuditLogView', () => {
     expect(screen.queryByText(/exact event name/i)).toBeNull()
     expect(screen.queryByText('Support event name')).toBeNull()
     expect(screen.getByText('Exact work area')).toBeDefined()
-    expect(
-      screen.getByPlaceholderText(/exact team space, project area, team, or project reference/i)
-    ).toBeDefined()
+    expect(screen.getByPlaceholderText(/exact team space, work area, team, or project reference/i))
+      .toBeDefined()
     expect(screen.getByRole('option', { name: 'Team space' })).toBeDefined()
-    expect(screen.getByRole('option', { name: 'Project area' })).toBeDefined()
+    expect(screen.getByRole('option', { name: 'Work area' })).toBeDefined()
+    expect(screen.queryByRole('option', { name: 'Project area' })).toBeNull()
     expect(screen.queryByRole('option', { name: 'Project workspace' })).toBeNull()
     expect(screen.queryByRole('option', { name: 'Workspace' })).toBeNull()
     expect(screen.queryByRole('option', { name: 'Organization' })).toBeNull()
@@ -196,7 +196,8 @@ describe('AuditLogView', () => {
       'Review notes hidden'
     )
     expect(screen.queryByText('Protected')).toBeNull()
-    expect(screen.getByText('Check proof setup')).toBeDefined()
+    expect(screen.getByText('Set up verification')).toBeDefined()
+    expect(screen.queryByText('Check proof setup')).toBeNull()
     expect(screen.getByText('Verified')).toBeDefined()
 
     fireEvent.change(screen.getByTestId('governance-audit-filter-event-type'), {
@@ -253,13 +254,13 @@ describe('AuditLogView', () => {
     expect(screen.queryByText('Unknown')).toBeNull()
   })
 
-  test('names failed audit proof directly instead of using a vague review label', async () => {
+  test('names failed verification directly instead of using proof jargon', async () => {
     fetchGovernanceAudit.mockResolvedValueOnce({
       ...auditResponse,
       entries: [
         {
           ...auditResponse.entries[0],
-          id: 'audit-proof-invalid',
+          id: 'audit-verification-invalid',
           tamperStatus: 'invalid',
         },
       ],
@@ -267,7 +268,8 @@ describe('AuditLogView', () => {
 
     render(<AuditLogView />)
 
-    expect(await screen.findByText('Review proof')).toBeDefined()
+    expect(await screen.findByText('Check verification')).toBeDefined()
+    expect(screen.queryByText('Review proof')).toBeNull()
     expect(screen.queryByText('Needs review')).toBeNull()
   })
 
@@ -293,7 +295,8 @@ describe('AuditLogView', () => {
 
     await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(1))
     expect(screen.getAllByText(/Hidden for safety/i).length).toBeGreaterThan(0)
-    expect(screen.getByText(/Required account access is missing/i)).toBeDefined()
+    expect(screen.getByText(/Reconnect the needed account access/i)).toBeDefined()
+    expect(screen.queryByText(/Required account access is missing/i)).toBeNull()
     expect(screen.queryByText(/audit-secret-token/i)).toBeNull()
     expect(screen.queryByText(/private-audit-key/i)).toBeNull()
     expect(screen.queryByText(/Missing token/i)).toBeNull()
