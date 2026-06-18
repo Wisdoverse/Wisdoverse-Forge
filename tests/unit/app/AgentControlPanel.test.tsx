@@ -223,7 +223,7 @@ describe('AgentControlPanel', () => {
 
     expect(screen.getByText('AI service needs a check')).toBeDefined()
     expect(screen.getByText('Check AI service before sending')).toBeDefined()
-    expect(screen.getAllByText(/choose Check connection for this service/i).length).toBe(3)
+    expect(screen.getAllByText(/choose Check connection for this service/i).length).toBe(4)
     expect(screen.queryByText(/Settings > AI services/i)).toBeNull()
     expect(screen.queryByText('Ready for chat and tracked tasks')).toBeNull()
     expect(screen.queryByText('Chat-only AI service is offline')).toBeNull()
@@ -232,7 +232,13 @@ describe('AgentControlPanel', () => {
 
     const instructionInput = screen.getByLabelText(/send one instruction/i)
     expect(instructionInput).toBeDisabled()
-    expect(instructionInput).toHaveAccessibleDescription(/wait until this agent shows Ready/i)
+    expect(instructionInput).toHaveAttribute(
+      'placeholder',
+      'Check this AI service before sending an instruction.'
+    )
+    expect(instructionInput).toHaveAccessibleDescription(
+      /choose Check connection for this service/i
+    )
     expect(screen.getByRole('button', { name: /send instruction/i })).toBeDisabled()
     expect(sendPromptMock).not.toHaveBeenCalled()
   })
@@ -262,7 +268,9 @@ describe('AgentControlPanel', () => {
     render(<AgentControlPanel agent={offlineHostCliAgent} onDeleted={() => {}} />)
 
     expect(screen.getByText('This computer is offline')).toBeDefined()
-    expect(screen.getByText(/paste the setup text in that computer's command app again/i)).toBeDefined()
+    expect(
+      screen.getByText(/paste the setup text in that computer's command app again/i)
+    ).toBeDefined()
     expect(screen.getByText('Paste setup text to reconnect')).toBeDefined()
     expect(screen.getByText(/paste the setup text again, then come back here/i)).toBeDefined()
     expect(screen.queryByText(/setup command/i)).toBeNull()
