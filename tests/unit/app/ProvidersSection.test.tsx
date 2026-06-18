@@ -262,10 +262,12 @@ describe('ProvidersSection', () => {
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
       /next: paste the service access key/i
     )
-    expect(screen.getByText(/service address and model are filled in/i)).toBeDefined()
+    expect(screen.getByText(/service website address and model/i)).toBeDefined()
     expect(screen.getByText(/paste the service access key and save/i)).toBeDefined()
-    expect(screen.getByText(/After saving, click Check/i)).toBeDefined()
+    expect(screen.getByText(/After saving, choose Check connection/i)).toBeDefined()
     expect(screen.getByText(/Ready means simple chat agents can use this service/i)).toBeDefined()
+    expect(screen.queryByText(/Service address and model are filled in/i)).toBeNull()
+    expect(screen.queryByText(/After saving, click Check/i)).toBeNull()
     const saveButton = screen.getByRole('button', { name: /save AI service/i })
     expect(saveButton).toBeDisabled()
     expect(saveProviderMock).not.toHaveBeenCalled()
@@ -315,9 +317,12 @@ describe('ProvidersSection', () => {
     fireEvent.click(screen.getByRole('button', { name: /custom service address/i }))
 
     expect(screen.getByText('3 steps to connect an AI account')).toBeDefined()
-    expect(screen.getByText('Paste service access key')).toBeDefined()
-    expect(screen.getAllByText(/copy its access key/i).length).toBeGreaterThan(0)
-    expect(screen.getByText('Save and check')).toBeDefined()
+    expect(screen.getByText('Paste the service access key')).toBeDefined()
+    expect(screen.getAllByText(/copy the service access key/i).length).toBeGreaterThan(0)
+    expect(screen.getByText('Save, then check connection')).toBeDefined()
+    expect(screen.queryByText('Paste service access key')).toBeNull()
+    expect(screen.queryByText('Save and check')).toBeNull()
+    expect(screen.queryByText(/copy its access key/i)).toBeNull()
     const providerSelect = screen.getByLabelText(/^AI service$/i)
     expect(within(providerSelect).getByRole('option', { name: 'OpenAI-Compatible' })).toBeDefined()
     expect(within(providerSelect).getByRole('option', { name: 'LiteLLM Gateway' })).toBeDefined()
@@ -421,20 +426,23 @@ describe('ProvidersSection', () => {
     const serviceChoices = screen.getByRole('group', { name: /known AI services/i })
     expect(within(serviceChoices).queryByRole('button', { name: /zhipu glm coding plan/i })).toBeNull()
     const zhipuChoice = within(serviceChoices).getByRole('button', { name: /zhipu glm/i })
-    expect(within(zhipuChoice).getByText(/standard setup · coding plan · china\/global address/i))
-      .toBeDefined()
+    expect(
+      within(zhipuChoice).getByText(/standard setup · coding plan · china or global website address/i)
+    ).toBeDefined()
     expect(within(zhipuChoice).queryByText(/api · coding plan/i)).toBeNull()
     expect(within(zhipuChoice).queryByText(/cn\/global/i)).toBeNull()
+    expect(within(zhipuChoice).queryByText(/china\/global address/i)).toBeNull()
     fireEvent.click(zhipuChoice)
 
     expect(screen.getByLabelText(/^model to use$/i)).toHaveValue('glm-4.7')
     expect(screen.getByRole('group', { name: /^service plan$/i })).toBeDefined()
-    expect(screen.getByRole('group', { name: /^service address region$/i })).toBeDefined()
+    expect(screen.getByRole('group', { name: /^service website region$/i })).toBeDefined()
     expect(screen.getByRole('button', { name: /^standard$/i })).toBeDefined()
     expect(screen.getByRole('button', { name: /^coding plan$/i })).toBeDefined()
     expect(screen.getByRole('button', { name: /^china$/i })).toBeDefined()
     expect(screen.queryByRole('group', { name: /^plan$/i })).toBeNull()
     expect(screen.queryByRole('group', { name: /^region$/i })).toBeNull()
+    expect(screen.queryByRole('group', { name: /^service address region$/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /^cn$/i })).toBeNull()
 
     fireEvent.change(screen.getByLabelText(/service access key/i), {
@@ -472,7 +480,7 @@ describe('ProvidersSection', () => {
       })
     )
     fireEvent.click(
-      within(screen.getByRole('group', { name: /^service address region$/i })).getByRole('button', {
+      within(screen.getByRole('group', { name: /^service website region$/i })).getByRole('button', {
         name: /global/i,
       })
     )

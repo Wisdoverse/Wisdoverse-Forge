@@ -177,6 +177,16 @@ const PROVIDER_ADDRESS_JARGON_PATTERNS = [
   /\breturn\s+['"`]https?:\/\//i,
 ]
 
+const PROVIDER_SETUP_JARGON_PATTERNS = [
+  /\bcopy its access key\b/i,
+  /\bSave and check\b/i,
+  /\bClick Check after saving\b/i,
+  /\bAfter saving, click Check\b/i,
+  /\bService address and model are filled in for you\b/i,
+  /\bService address region\b/i,
+  /\bChina\/Global address\b/i,
+]
+
 const ADMIN_USERS_EMPTY_DEAD_END_PATTERNS = [/\bNo one is listed yet\b/i]
 
 const ADMIN_USER_ROLE_JARGON_PATTERNS = [/\bsystem configuration\b/i]
@@ -1671,6 +1681,12 @@ function hasProviderAddressJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/settings/ProvidersSection.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return PROVIDER_ADDRESS_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasProviderSetupJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/settings/ProvidersSection.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return PROVIDER_SETUP_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAdminUsersEmptyDeadEndCopy(relFile, line) {
@@ -3420,6 +3436,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'AI service address copy must avoid raw endpoint URLs and start from the safe default.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasProviderSetupJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'provider-setup-copy',
+        location,
+        message:
+          'AI service setup copy must say Check connection and service website address for beginners.',
         sample: line.trim(),
       })
     }

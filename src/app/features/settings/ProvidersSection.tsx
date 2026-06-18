@@ -101,12 +101,12 @@ const DEFAULT_FORM: AddProviderForm = {
 const PROVIDER_SETUP_STEPS = [
   { label: 'Choose AI account', value: 'Pick the service your team already pays for or runs.' },
   {
-    label: 'Paste service access key',
-    value: 'Open that account, copy its access key, and paste it here.',
+    label: 'Paste the service access key',
+    value: 'Open that account, copy the service access key, and paste it here.',
   },
   {
-    label: 'Save and check',
-    value: 'Click Check after saving. Ready means agents can use this service.',
+    label: 'Save, then check connection',
+    value: 'After saving, choose Check connection. Ready means agents can use this service.',
   },
 ]
 
@@ -421,7 +421,7 @@ function providerFormReadiness({
       ready: false,
       title: 'Next: paste the service access key',
       detail:
-        'Open your AI service account, copy its access key, and paste it here. Some services call this an API key. Forge hides it after saving.',
+        'Open your AI service account, copy the service access key, and paste it here. Some services call this an API key. Forge hides it after saving.',
       error: 'Paste the service access key before saving this AI service.',
       fieldId: apiKeyInputId,
     }
@@ -1095,8 +1095,9 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
             {vendor.displayName}
           </p>
           <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Service address and model are filled in for you. Paste the service access key and save.
-            After saving, click Check. Ready means simple chat agents can use this service.
+            Forge fills in the service website address and model for you. Paste the service access
+            key and save. After saving, choose Check connection. Ready means simple chat agents can
+            use this service.
           </p>
         </div>
         <button
@@ -1123,7 +1124,7 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
           )}
           {hasRegionToggle && (
             <SegmentedToggle<RegionVariant>
-              label="Service address region"
+              label="Service website region"
               value={region}
               onChange={setRegion}
               options={[
@@ -1305,7 +1306,7 @@ function CatalogGrid({
             <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
               {vendor.coding ? 'Standard setup · Coding plan' : 'Standard setup'}
               {vendor.api?.globalBaseUrl || vendor.coding?.globalBaseUrl
-                ? ' · China/Global address'
+                ? ' · China or global website address'
                 : ''}
             </span>
           </button>
