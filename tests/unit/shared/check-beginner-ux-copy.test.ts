@@ -9047,6 +9047,38 @@ export function TopBar() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags top bar search copy that does not match the command palette language', () => {
+    const cwd = fixture({
+      'src/app/layouts/TopBar.tsx': `
+export function TopBar() {
+  return <button aria-label="Search pages and actions" title="Search pages and actions">Search</button>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'top-bar-search-copy',
+        location: 'src/app/layouts/TopBar.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts top bar search copy that matches the command palette language', () => {
+    const cwd = fixture({
+      'src/app/layouts/TopBar.tsx': `
+export function TopBar() {
+  return <button aria-label="Search pages and things to do" title="Search pages and things to do">Search</button>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags unclear command palette task action copy', () => {
     const cwd = fixture({
       'src/app/features/cmdk/CommandPalette.tsx': `

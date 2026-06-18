@@ -565,6 +565,7 @@ const START_GUIDE_PATH_JARGON_PATTERNS = [
 const TASK_VIEW_LABEL_JARGON_PATTERNS = [/\bid:\s*['"`]3d['"`]\s*,\s*label:\s*['"`]3D['"`]/]
 
 const TOP_BAR_CREATE_TASK_JARGON_PATTERNS = [/\+\s*Task\b/]
+const TOP_BAR_SEARCH_JARGON_PATTERNS = [/\bSearch pages and actions\b/i]
 
 const COMMAND_PALETTE_CREATE_TASK_JARGON_PATTERNS = [
   /\blabel:\s*['"`]Create task['"`]/,
@@ -2875,6 +2876,12 @@ function hasTopBarCreateTaskJargonCopy(relFile, line) {
   return TOP_BAR_CREATE_TASK_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTopBarSearchJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/layouts/TopBar.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TOP_BAR_SEARCH_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasCommandPaletteCreateTaskJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/cmdk/CommandPalette.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -5014,6 +5021,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Top bar task creation must use a Plus icon with a clear New task label instead of a manual + Task label.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTopBarSearchJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'top-bar-search-copy',
+        location,
+        message: 'Top bar search must match the command palette and say pages and things to do.',
         sample: line.trim(),
       })
     }
