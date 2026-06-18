@@ -116,18 +116,18 @@ describe('InboxView', () => {
     const item = await screen.findByTestId('inbox-notification-task-owner:t-failed:failed')
     expect(item.getAttribute('data-template')).toBe('task-lifecycle')
     expect(screen.getByText('Recovery needed')).toBeDefined()
-    expect(screen.getAllByText('Review recovery').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Check retry steps').length).toBeGreaterThan(0)
     expect(screen.queryByText('Failed task')).toBeNull()
     expect(screen.queryByText('View failure')).toBeNull()
     expect(screen.getByTestId('inbox-next-step')).toHaveTextContent(
-      'Review the recovery note before retrying'
+      'Check the retry steps before retrying'
     )
-    expect(screen.getByRole('button', { name: /^review recovery$/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /^check retry steps$/i })).toBeDefined()
     expect(screen.queryByText('Open Failed Task')).toBeNull()
     expect(screen.getByText('Deploy production')).toBeDefined()
     expect(
       screen.getByText(
-        'The task stopped before finishing. Open it, review the recovery note, then retry or choose another agent.'
+        'The task stopped before finishing. Open it, read the recovery note, then retry or choose another agent.'
       )
     ).toBeDefined()
     expect(screen.queryByText(/when ready/i)).toBeNull()
@@ -156,7 +156,7 @@ describe('InboxView', () => {
     await screen.findByTestId('inbox-notification-task-owner:t-raw-failed:failed')
     expect(
       screen.getByText(
-        'The task stopped before finishing. Open it, review the recovery note, then retry or choose another agent.'
+        'The task stopped before finishing. Open it, read the recovery note, then retry or choose another agent.'
       )
     ).toBeDefined()
     expect(screen.queryByText(/provider token/i)).toBeNull()
@@ -189,7 +189,7 @@ describe('InboxView', () => {
 
     const nextStep = screen.getByTestId('inbox-next-step')
     expect(nextStep).toHaveTextContent('Do this next')
-    expect(nextStep).toHaveTextContent('Review what is stopping work')
+    expect(nextStep).toHaveTextContent('Check what is stopping work')
     expect(nextStep).toHaveTextContent('This is the only item that needs action')
     expect(screen.getByRole('button', { name: /^open task$/i })).toBeDefined()
     expect(nextStep).not.toHaveTextContent(/blocker/i)

@@ -536,9 +536,9 @@ function taskNextAction(task: TaskSummary): string {
         error: task.error,
       })}`
     case 'failed':
-      return 'Open it, review the recovery note, then retry only after the next step is clear.'
+      return 'Open it, read the recovery note, then retry only after the next step is clear.'
     case 'completed':
-      return 'Open it to review the result and result files.'
+      return 'Open it to check the result and result files.'
     case 'canceled':
       return 'Open it only if you need to restart or explain why it stopped.'
     default:

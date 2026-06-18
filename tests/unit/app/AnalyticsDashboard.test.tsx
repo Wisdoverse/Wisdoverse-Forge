@@ -90,9 +90,9 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
     render(<AnalyticsDashboard />)
 
     const nextStep = screen.getByTestId('analytics-next-step')
-    expect(nextStep).toHaveTextContent('Review Command line recovery first')
+    expect(nextStep).toHaveTextContent('Check Command line retry steps first')
     expect(nextStep).toHaveTextContent('completed cleanly only 42%')
-    expect(nextStep).toHaveTextContent('review the recovery notes')
+    expect(nextStep).toHaveTextContent('check the recovery notes')
     expect(nextStep).not.toHaveTextContent('failed tool steps')
     expect(nextStep).not.toHaveTextContent('failures first')
     expect(nextStep).not.toHaveTextContent('ended in error')

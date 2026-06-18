@@ -356,7 +356,7 @@ describe('TaskCard', () => {
     expect(count).toBeDefined()
     expect(count.textContent).toBe('2 files')
     expect(screen.getByTestId('task-next-step').textContent).toBe(
-      'Open task details, review result files, then save repeatable steps or create a follow-up task.'
+      'Open task details, check result files, then save repeatable steps or create a follow-up task.'
     )
   })
 

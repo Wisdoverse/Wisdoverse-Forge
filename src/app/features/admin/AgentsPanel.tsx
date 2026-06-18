@@ -233,7 +233,7 @@ export function AgentsPanel() {
         <div>
           <h2 className={uiStyles.sectionTitle}>Agents</h2>
           <p className={uiStyles.sectionDescription}>
-            Review agents across every team space and filter them by work location.
+            Check agents across every team space and filter them by work location.
           </p>
         </div>
         <div>

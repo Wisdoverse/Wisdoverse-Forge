@@ -277,7 +277,7 @@ describe('GettingStartedView', () => {
     expect(await screen.findByTestId('page-start')).toBeDefined()
     expect(screen.getAllByText('Team and project').length).toBeGreaterThan(0)
     expect(screen.queryByText('Workspace')).toBeNull()
-    expect(screen.getAllByText('Review team and project').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Check team and project').length).toBeGreaterThan(0)
     expect(screen.queryByText('Review workspace')).toBeNull()
     expect(screen.getAllByText('Launch Project').length).toBeGreaterThan(0)
     expect(screen.getByText(/Project files option is ready for agent work/i)).toBeDefined()
@@ -286,22 +286,20 @@ describe('GettingStartedView', () => {
     expect(screen.getByText('Starter Agent')).toBeDefined()
     expect(await screen.findByText('100%')).toBeDefined()
     expect(screen.getByText('Ready to run work')).toBeDefined()
-    expect(
-      screen.getByText(/Write one small task from Tasks, or review saved instructions/i)
-    ).toBeDefined()
+    expect(screen.getByText(/Write one small task from Tasks, or save useful steps/i)).toBeDefined()
     expect(screen.queryByText(/The basic path is complete/i)).toBeNull()
-    expect(screen.getAllByText('Reuse what worked').length).toBeGreaterThan(0)
-    expect(screen.getByText('Saved instructions are available for future tasks.')).toBeDefined()
-    expect(screen.getByText('Useful instructions are saved or were used on a task.')).toBeDefined()
+    expect(screen.getAllByText('Save useful steps').length).toBeGreaterThan(0)
+    expect(screen.getByText('Saved steps are available for future tasks.')).toBeDefined()
+    expect(screen.getByText('Useful steps are saved or were used on a task.')).toBeDefined()
     const [savedInstructionsButton] = screen.getAllByRole('button', {
-      name: /show saved instructions/i,
+      name: /show saved steps/i,
     })
     expect(savedInstructionsButton).toHaveClass('w-full')
     expect(savedInstructionsButton).toHaveClass('sm:w-auto')
     fireEvent.click(screen.getByRole('button', { name: /write one small task/i }))
     expect(navigateMock).toHaveBeenCalledWith({ to: '/tasks' })
     expect(
-      screen.getAllByRole('button', { name: /show saved instructions/i }).length
+      screen.getAllByRole('button', { name: /show saved steps/i }).length
     ).toBeGreaterThan(0)
     expect(screen.queryByText('Reusable learning')).toBeNull()
     expect(screen.queryByText(/applied skill context/i)).toBeNull()
@@ -572,7 +570,7 @@ describe('GettingStartedView', () => {
     expect(
       await screen.findByText('Local Agent is ready to run work from this computer.')
     ).toBeDefined()
-    fireEvent.click(screen.getByRole('button', { name: /review agents/i }))
+    fireEvent.click(screen.getAllByRole('button', { name: /open agents/i })[0])
     expect(navigateMock).toHaveBeenCalledWith({ to: '/agents' })
   })
 

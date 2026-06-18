@@ -112,7 +112,7 @@ describe('AgentsPanel', () => {
       'Chat-only AI service',
     ])
     expect(
-      screen.getByText('Review agents across every team space and filter them by work location.')
+      screen.getByText('Check agents across every team space and filter them by work location.')
     ).toBeDefined()
     expect(screen.queryByText(/every organization/i)).toBeNull()
     expect(loadAgentsMock).toHaveBeenCalled()

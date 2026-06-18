@@ -220,7 +220,7 @@ function runStatusLabel(status: string): string {
       return 'Waiting to start'
     case 'failed':
     case 'error':
-      return 'Review recovery'
+      return 'Check retry steps'
     case 'canceled':
     case 'cancelled':
       return 'Stopped'
