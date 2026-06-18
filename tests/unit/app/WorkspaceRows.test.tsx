@@ -28,7 +28,7 @@ afterEach(() => {
 })
 
 describe('workspace management rows', () => {
-  test('labels generated team and project short names without implementation terms', () => {
+  test('labels generated team and project link names without implementation terms', () => {
     render(
       <>
         <EditableTeamRow
@@ -45,8 +45,11 @@ describe('workspace management rows', () => {
       </>
     )
 
-    expect(screen.getByText(/Team short name:\s*product-team/i)).toBeDefined()
-    expect(screen.getByText('Project short name: website-launch')).toBeDefined()
+    expect(screen.getAllByText(/Automatic link name:/i)).toHaveLength(2)
+    expect(screen.getByText(/Automatic link name:\s*product-team/i)).toBeDefined()
+    expect(screen.getByText('Automatic link name: website-launch')).toBeDefined()
+    expect(screen.queryByText(/Team short name/i)).toBeNull()
+    expect(screen.queryByText(/Project short name/i)).toBeNull()
     expect(screen.queryByText(/Address:\s*product-team/i)).toBeNull()
     expect(screen.queryByText('Address: website-launch')).toBeNull()
     expect(screen.queryByText(/slug/i)).toBeNull()

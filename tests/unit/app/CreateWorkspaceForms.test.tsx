@@ -92,7 +92,7 @@ describe('workspace setup create forms', () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledWith('Customer Portal', 'team-1', undefined))
   })
 
-  test('shows the agent work folder once a project name is entered', () => {
+  test('explains the generated project folder before showing the support path', () => {
     render(<CreateProjectForm teams={[team]} onSave={vi.fn()} onCancel={vi.fn()} saving={false} />)
 
     expect(screen.queryByText(/\/workspace\//)).not.toBeInTheDocument()
@@ -101,7 +101,10 @@ describe('workspace setup create forms', () => {
       target: { value: 'My New Repo' },
     })
 
-    expect(screen.getByText(/Agent work folder:/)).toBeInTheDocument()
+    expect(screen.getByText(/Agents will open this project in a folder named/i)).toBeInTheDocument()
+    expect(screen.getByText('my-new-repo')).toBeInTheDocument()
+    expect(screen.getByText(/You do not need to type this/i)).toBeInTheDocument()
+    expect(screen.getByText('Show support folder path')).toBeInTheDocument()
     expect(screen.getByText('/workspace/my-new-repo')).toBeInTheDocument()
   })
 
@@ -115,6 +118,8 @@ describe('workspace setup create forms', () => {
     expect(screen.getByPlaceholderText('https://github.com/team/project.git')).toBeInTheDocument()
     expect(screen.queryByPlaceholderText('https://github.com/org/repo.git')).toBeNull()
     expect(screen.getByText(/Forge copies that code into this project/i)).toBeInTheDocument()
+    expect(screen.getByText(/Do not paste tokens or passwords into the link/i)).toBeInTheDocument()
+    expect(screen.getByText(/Do not include tokens or passwords in the link/i)).toBeInTheDocument()
     expect(screen.queryByText(/clone an existing repo/i)).toBeNull()
 
     fireEvent.change(screen.getByLabelText(/project name/i), {
