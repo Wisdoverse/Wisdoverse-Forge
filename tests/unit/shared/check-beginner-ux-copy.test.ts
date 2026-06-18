@@ -3589,6 +3589,12 @@ function validationMessage() {
 function FieldLabel() {
   return <label>AI model</label>
 }
+function OldSetupField() {
+  return <label>Model used</label>
+}
+function OldProviderSelect() {
+  return <option>{option.label} · {option.model}</option>
+}
 `,
     })
 
@@ -3613,6 +3619,14 @@ function FieldLabel() {
           type: 'create-agent-confirmation-copy',
           sample: expect.stringContaining('AI model'),
         }),
+        expect.objectContaining({
+          type: 'create-agent-confirmation-copy',
+          sample: expect.stringContaining('Model used'),
+        }),
+        expect.objectContaining({
+          type: 'create-agent-confirmation-copy',
+          sample: expect.stringContaining('option.model'),
+        }),
       ])
     )
   })
@@ -3627,10 +3641,13 @@ function runtimeFitFor() {
   return [{ label: 'Where it works', value: 'AI service only' }]
 }
 function validationMessage() {
-  return 'Choose an AI service with a saved model, then create this agent.'
+  return 'Open AI services settings, choose Check connection for this service, then come back when it shows Ready.'
 }
 function FieldLabel() {
-  return <label>Model used</label>
+  return <label>Saved AI service setup</label>
+}
+function HelpText() {
+  return <p>This detail comes from AI services settings. You do not need to change it here.</p>
 }
 `,
     })

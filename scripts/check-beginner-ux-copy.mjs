@@ -1782,7 +1782,12 @@ const CREATE_AGENT_CONFIRMATION_JARGON_PATTERNS = [
   /\bCreated state\b/i,
   /\bChat-only AI service\b/i,
   /\bChoose an AI service and AI model before creating this agent\b/i,
+  /\bChoose an AI service with a saved model\b/i,
+  /\bThe model is set by that service\b/i,
+  /\bModel used\b/i,
   />\s*AI model\s*</i,
+  />\s*Model used\s*</i,
+  /\{option\.label\}\s*·\s*\{option\.model\}/,
 ]
 
 const AGENT_PROJECT_LOCATION_JARGON_PATTERNS = [
@@ -5298,7 +5303,7 @@ function scanFile(file, relFile) {
         type: 'create-agent-confirmation-copy',
         location,
         message:
-          'Create agent review copy must explain the next state and AI service model in plain language.',
+          'Create agent review copy must explain the next state and AI service setup in plain language.',
         sample: line.trim(),
       })
     }
