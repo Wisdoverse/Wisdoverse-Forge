@@ -259,11 +259,12 @@ describe('InjectionPreviewModal', () => {
       />
     )
 
+    expect(screen.getByText('Add a saved item below, or send without notes if none fit.')).toBeDefined()
     expect(
-      screen.getByText(
-        'No saved items will be included yet. Add one below, or send without notes if none fit.'
-      )
+      screen.getByText('Choose the pin button on a saved item to keep it easy to reuse.')
     ).toBeDefined()
+    expect(screen.queryByText(/No saved items will be included yet/i)).toBeNull()
+    expect(screen.queryByText(/No saved items are pinned yet/i)).toBeNull()
     expect(screen.queryByText('No saved items are selected yet.')).toBeNull()
   })
 })
