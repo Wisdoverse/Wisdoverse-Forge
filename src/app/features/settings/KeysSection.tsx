@@ -61,7 +61,7 @@ function KeyRow({ apiKey, onRevoke }: KeyRowProps) {
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
           {formatAccessDate(apiKey.lastUsedAt, {
-            missing: 'Use this key from a trusted tool first',
+            missing: 'Use this access key from a trusted outside tool first',
             invalid: 'Refresh access keys to check last use',
           })}
         </span>
@@ -75,7 +75,7 @@ function KeyRow({ apiKey, onRevoke }: KeyRowProps) {
               disabled={removing}
               className={uiStyles.subtleButton}
             >
-              Keep key
+              Keep access key
             </button>
           )}
           <button
@@ -96,7 +96,7 @@ function KeyRow({ apiKey, onRevoke }: KeyRowProps) {
         </div>
         {confirming && (
           <p id={removeWarningId} className="ml-auto mt-1 max-w-48 text-ui-caption text-apple-red">
-            Removing this key can stop {apiKey.name} from connecting to Forge.
+            Removing this access key can stop {apiKey.name} from connecting to Forge.
           </p>
         )}
       </td>
@@ -238,7 +238,7 @@ function CreateKeyForm({ onSave, onCancel, saving }: CreateKeyFormProps) {
       className="mt-3 rounded-card border border-black/[0.08] bg-white p-3 dark:border-white/[0.1] dark:bg-[#2c2c2e]"
     >
       <label htmlFor={nameInputId} className={uiStyles.label}>
-        Which tool will use this key?
+        Which tool will use this access key?
       </label>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <input
@@ -272,7 +272,7 @@ function CreateKeyForm({ onSave, onCancel, saving }: CreateKeyFormProps) {
         id={nameHelpId}
         className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark"
       >
-        Use a clear tool or job name. This makes it easy to remove the right key later.
+        Use a clear tool or job name. This makes it easy to remove the right access key later.
       </p>
       {visibleError && (
         <p id={nameErrorId} role="alert" className="mt-1 text-ui-caption text-apple-red">
@@ -314,7 +314,7 @@ export function KeysSection() {
 
   const tableHeaders: { label: string; className?: string }[] = [
     { label: 'Name' },
-    { label: 'Saved key starts with' },
+    { label: 'Saved access starts with' },
     { label: 'Created' },
     { label: 'Last used' },
     { label: '', className: 'w-20' },

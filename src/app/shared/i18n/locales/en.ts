@@ -54,7 +54,7 @@ export const en = {
     noResults: 'Try a broader search or clear the filters.',
     noData: 'Create the first item or refresh after setup finishes.',
     optional: 'Optional',
-    required: 'Required',
+    required: 'Fill this in',
   },
 
   // =========================================================================
@@ -311,7 +311,7 @@ export const en = {
     addToGroup: 'Add to waiting place',
     removeFromGroup: 'Remove from waiting place',
     moveToGroup: 'Move to waiting place',
-    ungrouped: 'No waiting place yet',
+    ungrouped: 'Set a waiting place before sending',
     confirmDelete:
       'Delete this waiting place? Agents stay available, but tasks need another waiting place before they can be sent.',
     groupCreated: 'Waiting place created',
@@ -694,7 +694,7 @@ export const en = {
     loading: 'Loading, please wait',
     error: 'Check the message, then try again.',
     success: 'Operation successful',
-    required: 'This field is required',
+    required: 'Fill in this field, then try again',
     invalid: 'Check this field, then try again',
   },
 

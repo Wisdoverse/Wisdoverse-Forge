@@ -55,7 +55,7 @@ export const zh: TranslationKeys = {
     noResults: '可以放宽搜索条件，或清除筛选后再试。',
     noData: '可以先创建第一项，或在设置完成后刷新。',
     optional: '可选',
-    required: '必填',
+    required: '请填写',
   },
 
   // =========================================================================
@@ -304,7 +304,7 @@ export const zh: TranslationKeys = {
     addToGroup: '添加到任务等待位置',
     removeFromGroup: '从任务等待位置移除',
     moveToGroup: '移动到任务等待位置',
-    ungrouped: '暂无任务等待位置',
+    ungrouped: '请先设置任务等待位置',
     confirmDelete:
       '要删除这个任务等待位置吗？Agent 仍会保留，但任务需要选择其他等待位置后才能发送。',
     groupCreated: '任务等待位置已创建',
@@ -674,7 +674,7 @@ export const zh: TranslationKeys = {
     loading: '加载中，请稍候',
     error: '请查看提示信息，然后重试。',
     success: '操作成功',
-    required: '此字段为必填',
+    required: '请填写这个字段，然后重试',
     invalid: '请检查此字段，然后重试',
   },
 

@@ -118,8 +118,8 @@ describe('workspace setup create forms', () => {
     expect(screen.getByPlaceholderText('https://github.com/team/project.git')).toBeInTheDocument()
     expect(screen.queryByPlaceholderText('https://github.com/org/repo.git')).toBeNull()
     expect(screen.getByText(/Forge copies that code into this project/i)).toBeInTheDocument()
-    expect(screen.getByText(/Do not paste tokens or passwords into the link/i)).toBeInTheDocument()
-    expect(screen.getByText(/Do not include tokens or passwords in the link/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Never paste tokens or passwords here/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/leave this blank/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/clone an existing repo/i)).toBeNull()
 
     fireEvent.change(screen.getByLabelText(/project name/i), {
@@ -154,7 +154,10 @@ describe('workspace setup create forms', () => {
 
     // No silent dead-click: a visible banner AND no submit.
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
-    expect(screen.getByRole('alert')).toHaveTextContent('Use a code link that starts with https://')
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Paste a code link that starts with https://'
+    )
+    expect(screen.getByRole('alert')).toHaveTextContent('leave this blank')
     expect(screen.getByRole('alert')).toHaveTextContent('SSH code access')
     expect(screen.getByRole('alert')).not.toHaveTextContent('SSH keys')
     expect(onSave).not.toHaveBeenCalled()
@@ -176,6 +179,7 @@ describe('workspace setup create forms', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(/remove account details/i)
     )
+    expect(screen.getByRole('alert')).toHaveTextContent('Save code access in Settings')
     expect(onSave).not.toHaveBeenCalled()
   })
 
@@ -191,7 +195,9 @@ describe('workspace setup create forms', () => {
 
     await waitFor(() => {
       const alert = screen.getByRole('alert')
-      expect(alert).toHaveTextContent('Use an https:// code link without account details')
+      expect(alert).toHaveTextContent('Paste an https:// code link without account details')
+      expect(alert).toHaveTextContent('leave the code link blank')
+      expect(alert).toHaveTextContent('add code access in Settings')
       expect(alert).not.toHaveTextContent('repository_url')
     })
     expect(onSave).toHaveBeenCalled()
