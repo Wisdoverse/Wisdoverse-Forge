@@ -45,13 +45,13 @@ describe('AgentTasksTab', () => {
     expect(within(emptyState).getByText('Create a task for this agent')).toBeDefined()
     expect(
       within(emptyState).getByText(
-        'Send a small task to this agent, or choose a task queue it can receive, then work will appear here.'
+        'Send a small task to this agent, or choose where tasks wait so this agent can receive them. Work will appear here.'
       )
     ).toBeDefined()
     expect(within(emptyState).getByText('Create a task')).toBeDefined()
-    expect(within(emptyState).getByText('Check the task queue')).toBeDefined()
+    expect(within(emptyState).getByText('Check where tasks wait')).toBeDefined()
     expect(
-      within(emptyState).getByText('Open task queues, then make sure this agent is attached.')
+      within(emptyState).getByText('Open where tasks wait, then make sure this agent is included.')
     ).toBeDefined()
     expect(within(emptyState).getByText('Use Needs help after tasks arrive')).toBeDefined()
     expect(
@@ -66,6 +66,7 @@ describe('AgentTasksTab', () => {
     ).toBeDefined()
     expect(emptyState.textContent).not.toMatch(previousEmptyNeedsHelpCopy)
     expect(emptyState.textContent).not.toContain('Use Agents > Task Queues')
+    expect(emptyState.textContent).not.toContain('task queue')
     expect(emptyState.textContent).not.toContain('routed')
     expect(emptyState.textContent).not.toContain('routing')
     expect(emptyState.textContent).not.toContain('Needs action')

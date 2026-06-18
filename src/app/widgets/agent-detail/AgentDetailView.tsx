@@ -395,7 +395,7 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
       title: 'Send a small first task',
       detail: hostCli
         ? 'Use Tasks to send a small, low-risk task. The work window stays on this computer while Forge tracks results.'
-        : 'Use Tasks to send a small, low-risk task. Choose this agent, or choose a task queue this agent can receive.',
+        : 'Use Tasks to send a small, low-risk task. Choose this agent, or choose where tasks wait so this agent can receive them.',
       success: 'A task appears as Waiting to start or Working for this agent.',
       ready: true,
       targetTab: 'tasks',

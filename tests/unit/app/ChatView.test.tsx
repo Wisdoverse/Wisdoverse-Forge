@@ -201,7 +201,7 @@ describe('ChatView', () => {
     expect(screen.getByText('Send work to create the first update.')).toBeInTheDocument()
     expect(
       screen.getByText(
-        'Create a task and assign it to this agent or to a task queue it can receive.'
+        'Create a task and assign it to this agent, or choose where tasks wait so this agent can receive it.'
       )
     ).toBeInTheDocument()
     expect(
@@ -210,6 +210,7 @@ describe('ChatView', () => {
     const action = screen.getByRole('link', { name: /create a task/i })
     expect(action).toHaveAttribute('href', '/tasks')
     expect(screen.getByTestId('conversation-empty-state')).not.toHaveTextContent('lane')
+    expect(screen.getByTestId('conversation-empty-state')).not.toHaveTextContent('task queue')
     expect(screen.queryByText('No updates from this agent yet')).toBeNull()
     expect(screen.queryByText('No updates captured yet')).toBeNull()
     expect(screen.queryByText(previousFindHelpCopy)).toBeNull()

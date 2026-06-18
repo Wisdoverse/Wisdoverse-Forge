@@ -10,7 +10,7 @@ afterEach(() => {
 const groups: NavAgentGroup[] = [{ id: 'queue-1', name: 'Delivery Queue', projectId: 'project-1' }]
 
 describe('AgentGroupSelector', () => {
-  test('explains that a project is needed before choosing a task queue', () => {
+  test('explains that a project is needed before choosing where tasks wait', () => {
     render(
       <AgentGroupSelector
         groups={[]}
@@ -20,17 +20,18 @@ describe('AgentGroupSelector', () => {
       />
     )
 
-    expect(screen.getByText('Task queue')).toBeDefined()
+    expect(screen.getByText('Where tasks wait')).toBeDefined()
     const select = screen.getByRole('combobox', {
-      name: /task queue for new tasks/i,
+      name: /where new tasks wait/i,
     }) as HTMLSelectElement
 
     expect(select.disabled).toBe(true)
-    expect(select.title).toContain('Choose a project')
+    expect(select.title).toBe('Choose a project before choosing where tasks wait.')
     expect(screen.getByRole('option', { name: /choose a project first/i })).toBeDefined()
+    expect(screen.queryByText('Task queue')).toBeNull()
   })
 
-  test('explains how to create a task queue before sending work', () => {
+  test('explains how to set up where tasks wait before sending work', () => {
     render(
       <AgentGroupSelector
         groups={[]}
@@ -41,7 +42,7 @@ describe('AgentGroupSelector', () => {
     )
 
     const select = screen.getByRole('combobox', {
-      name: /task queue for new tasks/i,
+      name: /where new tasks wait/i,
     }) as HTMLSelectElement
 
     expect(select.disabled).toBe(true)
@@ -51,7 +52,7 @@ describe('AgentGroupSelector', () => {
     expect(screen.getByRole('option', { name: /set up where tasks wait first/i })).toBeDefined()
   })
 
-  test('selects the chosen task queue for new tasks', () => {
+  test('selects where new tasks wait', () => {
     const onSelectGroup = vi.fn()
 
     render(
@@ -64,7 +65,7 @@ describe('AgentGroupSelector', () => {
     )
 
     const select = screen.getByRole('combobox', {
-      name: /task queue for new tasks/i,
+      name: /where new tasks wait/i,
     }) as HTMLSelectElement
 
     expect(select.disabled).toBe(false)
