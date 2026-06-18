@@ -1431,6 +1431,13 @@ const THIS_COMPUTER_SETUP_JARGON_PATTERNS = [
   /\bsetup command appears here\b/i,
   /\bsetup command in the box\b/i,
   /\bcommand window\b/i,
+  /\bPaste the setup text into Terminal or PowerShell\b/i,
+  /\bPaste it into Terminal or PowerShell\b/i,
+  /\bKeep Terminal or PowerShell open\b/i,
+  /\bLeave Terminal or PowerShell open\b/i,
+  /\bsame Terminal or PowerShell window\b/i,
+  /\bOne-line Windows setup text\b/i,
+  /\bpaste it into the terminal app\b/i,
   /\bRun setup command on this computer\b/,
   /\bshows a setup command\b/i,
   /\bone-line Windows setup command\b/i,
@@ -3346,7 +3353,7 @@ function scanFile(file, relFile) {
         type: 'this-computer-setup-copy',
         location,
         message:
-          'This-computer setup copy must use setup text/steps and plain Terminal or PowerShell guidance instead of command-window jargon.',
+          'This-computer setup copy must use setup text/steps and plain command-app guidance instead of command-window jargon.',
         sample: line.trim(),
       })
     }

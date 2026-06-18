@@ -371,9 +371,9 @@ describe('AgentDetailView', () => {
 
     expect(screen.getByText('Paste setup text on this computer again')).toBeDefined()
     expect(screen.getAllByText('Paste setup text again on this computer').length).toBeGreaterThan(0)
-    expect(screen.getByText(/open Terminal or PowerShell in the project folder/i)).toBeDefined()
+    expect(screen.getByText(/open that computer's command app in the project folder/i)).toBeDefined()
     expect(screen.getAllByText(/paste the setup text again/i).length).toBeGreaterThan(0)
-    expect(screen.getByText(/keep that window open/i)).toBeDefined()
+    expect(screen.getAllByText(/keep that app open/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/setup command/i)).toBeNull()
     expect(screen.queryByText('Connected from this computer')).toBeNull()
     expect(screen.queryByText('Unavailable until restarted or reconnected')).toBeNull()

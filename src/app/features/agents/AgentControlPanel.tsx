@@ -511,7 +511,7 @@ function hostCliControlSummary(status: AgentInfo['status']): {
     return {
       title: 'This computer is offline',
       detail:
-        'Paste the setup text on that computer again. Leave Terminal or PowerShell open after it connects.',
+        "Paste the setup text in that computer's command app again. Keep that app open after it connects.",
       Icon: AlertTriangle,
     }
   }
@@ -519,7 +519,7 @@ function hostCliControlSummary(status: AgentInfo['status']): {
   return {
     title: 'This computer is connected',
     detail:
-      'This computer is already connected. Leave Terminal or PowerShell open while it works; close that window only when you want it offline.',
+      "This computer is already connected. Keep that computer's command app open while it works; close that app only when you want it offline.",
     Icon: CheckCircle2,
   }
 }
@@ -529,14 +529,14 @@ function hostCliReadyActionInfo(status: AgentInfo['status']): { title: string; d
     return {
       title: 'Paste setup text to reconnect',
       detail:
-        'Open Terminal or PowerShell in its work folder, paste the setup text again, then come back here to send messages or tasks.',
+        "Open that computer's command app in its work folder, paste the setup text again, then come back here to send messages or tasks.",
     }
   }
 
   return {
     title: 'Keep this computer online',
     detail:
-      'Leave Terminal or PowerShell open on that computer while it works. Use this page for quick messages, tracked tasks, or cleanup.',
+      "Keep that computer's command app open while it works. Use this page for quick messages, tracked tasks, or cleanup.",
   }
 }
 

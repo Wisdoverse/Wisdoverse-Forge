@@ -5651,6 +5651,7 @@ export function HostCliEnrollmentPanel() {
       <p>Use this backup if your browser cannot open the setup window or your team asks you to run a command.</p>
       <p>Then the setup command appears here.</p>
       <p>Keep the command window open while it works.</p>
+      <p>Keep Terminal or PowerShell open while it works.</p>
       <button>Copy setup command</button>
     </section>
   )
@@ -5663,6 +5664,10 @@ export function CreateAgentModal() {
       <p>Run setup command on this computer</p>
       <p>Forge creates the agent, then shows a setup command for this computer.</p>
       <p>One-line Windows setup command is not ready for this agent.</p>
+      <p>One-line Windows setup text is not ready for this agent.</p>
+      <p>Paste it into Terminal or PowerShell on the computer that will do the work.</p>
+      <p>Copy these backup setup values into the same Terminal or PowerShell window.</p>
+      <p>Paste it into the terminal app on the computer that will do the work.</p>
       <p>Leave blank to use the folder where you run the setup command.</p>
     </section>
   )
@@ -5693,7 +5698,7 @@ export function CreateAgentModal() {
         }),
         expect.objectContaining({
           type: 'this-computer-setup-copy',
-          location: 'src/app/features/agents/CreateAgentModal.tsx:5',
+          location: 'src/app/features/agents/AgentListView.tsx:9',
         }),
         expect.objectContaining({
           type: 'this-computer-setup-copy',
@@ -5707,6 +5712,22 @@ export function CreateAgentModal() {
           type: 'this-computer-setup-copy',
           location: 'src/app/features/agents/CreateAgentModal.tsx:8',
         }),
+        expect.objectContaining({
+          type: 'this-computer-setup-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:9',
+        }),
+        expect.objectContaining({
+          type: 'this-computer-setup-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:10',
+        }),
+        expect.objectContaining({
+          type: 'this-computer-setup-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:11',
+        }),
+        expect.objectContaining({
+          type: 'this-computer-setup-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:12',
+        }),
       ])
     )
   })
@@ -5719,7 +5740,8 @@ export function HostCliEnrollmentPanel() {
     <section>
       <p>Use this backup if the guided setup does not open.</p>
       <p>Then the setup text appears here.</p>
-      <p>Keep Terminal or PowerShell open while it works.</p>
+      <p>Open your computer's command app: Terminal on macOS/Linux, or PowerShell on Windows.</p>
+      <p>Keep that command app open while it works.</p>
       <button>Copy setup text</button>
     </section>
   )
@@ -5729,9 +5751,9 @@ export function HostCliEnrollmentPanel() {
 export function CreateAgentModal() {
   return (
     <section>
-      <p>Paste setup text on this computer</p>
+      <p>Paste setup text in this computer's command app</p>
       <p>Forge creates the agent, then shows setup steps for this computer.</p>
-      <p>One-line Windows setup text is not ready for this agent.</p>
+      <p>Windows setup needs the backup values for this agent.</p>
       <p>Leave blank to use the folder where you paste the setup text.</p>
     </section>
   )
