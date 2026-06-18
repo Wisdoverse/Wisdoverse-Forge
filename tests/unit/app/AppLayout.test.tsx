@@ -37,6 +37,7 @@ vi.mock('@app/entities/agent-group', () => ({
     getGroups: (...args: unknown[]) => mockGetGroups(...args),
     createGroup: (...args: unknown[]) => mockCreateGroup(...args),
   },
+  waitingPlaceDisplayName: (name: string | null | undefined) => name || 'this place',
 }))
 
 import { MemoryRouter } from './layout-test-wrapper'
