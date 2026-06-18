@@ -49,7 +49,7 @@ describe('SettingsLayout', () => {
     ).toBeInTheDocument()
     expect(
       within(desktopNav).getByRole('button', {
-        name: /Agent work setup: Choose where agents edit files and which tool opens the work/i,
+        name: /Where agents work: Choose where project files open and which work tool agents use/i,
       })
     ).toBeInTheDocument()
     expect(
@@ -72,17 +72,17 @@ describe('SettingsLayout', () => {
     expect(screen.getByRole('option', { name: 'Outside apps' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'HTTPS code access' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'SSH code access' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Work limits' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Agent work setup' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Agent size limits' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Where agents work' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Teams' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Team members' })).not.toBeInTheDocument()
     expect(screen.getByTestId('settings-mobile-section-hint')).toHaveTextContent(
-      'Check version and product information.'
+      'Check the app version and product details.'
     )
 
     fireEvent.click(
       within(desktopNav).getByRole('button', {
-        name: /Agent work setup: Choose where agents edit files and which tool opens the work/i,
+        name: /Where agents work: Choose where project files open and which work tool agents use/i,
       })
     )
 

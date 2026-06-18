@@ -770,6 +770,9 @@ const RUNTIME_ERROR_FAILURE_FIRST_PATTERNS = [
 ]
 
 const SETTINGS_RUNTIME_NAV_JARGON_PATTERNS = [
+  /\blabel:\s*['"`]Agent work setup['"`]/i,
+  /\bAgent work setup:\s*Choose where agents edit files and which tool opens the work\b/i,
+  /\bChoose where agents edit files and which tool opens the work\b/i,
   /\bWhere agents run:\s*Choose where agents run and which work tool they use\b/i,
   /\bChoose where agents run and which work tool they use\b/i,
 ]

@@ -4648,13 +4648,13 @@ const SECTIONS = [
     ])
   })
 
-  it('accepts settings runtime navigation copy that explains file-work setup', () => {
+  it('accepts settings runtime navigation copy that explains where files open', () => {
     const cwd = fixture({
       'src/app/pages/settings/ui/SettingsLayout.tsx': `
 const SECTIONS = [
   {
-    label: 'Agent work setup',
-    description: 'Choose where agents edit files and which tool opens the work.',
+    label: 'Where agents work',
+    description: 'Choose where project files open and which work tool agents use.',
   },
 ]
 `,
