@@ -164,12 +164,12 @@ export function TaskFormModal({
     ? 'Loading this project'
     : workLaneReady
       ? 'Task can be created'
-      : 'Open task queues before creating this task'
+      : 'Set up where tasks wait before creating this task'
   const readinessDetail = selectingProject
     ? 'Wait a moment while Forge finds where new tasks wait for this project.'
     : workLaneReady
       ? `New tasks will wait in ${selectedTaskGroupName ?? 'this task queue'} until a ready agent picks them up.`
-      : 'Create one task queue so new work has a place to wait, then return here.'
+      : 'Create one place for new work to wait, then return here.'
   const assignableAgents = agents.filter((agent) => agentCanTakeTask(agent.status))
   const taskWillWaitForAgent = workLaneReady && assignableAgents.length === 0
   const projectGroups = useMemo(() => groupProjectsByTeam(projects), [projects])
@@ -231,7 +231,7 @@ export function TaskFormModal({
       return
     }
     if (!selectedTaskGroupId) {
-      setSubmitError('Open task queues and create one before saving this task.')
+      setSubmitError('Set up where tasks wait before saving this task.')
       return
     }
     if (!briefReady && !confirmIncompleteBrief) {
@@ -257,7 +257,7 @@ export function TaskFormModal({
       const ok = await onProjectChange(projectId)
       if (ok === false) {
         setSubmitError(
-          'Select the project again to load task queues. If it still does not load, refresh the board or ask an owner to check task queue setup.'
+          'Select the project again to find where tasks wait. If it still does not load, refresh the board or ask an owner to check task routing setup.'
         )
       }
     } catch (err) {
@@ -491,7 +491,7 @@ export function TaskFormModal({
                 onClick={onOpenTaskRouting}
                 className="mt-3 inline-flex h-8 items-center justify-center rounded-full border border-apple-orange/30 bg-white px-3 text-ui-button font-medium text-apple-orange transition-colors hover:bg-apple-orange/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-orange/35 dark:bg-white/[0.06]"
               >
-                Open task queues
+                Set up where tasks wait
               </button>
             )}
           </div>

@@ -17,7 +17,7 @@ export function AgentGroupSelector({
   const disabledHelp = !selectedProjectId
     ? 'Choose a project before selecting a task queue.'
     : groups.length === 0
-      ? 'Open task queues to create one, then come back here.'
+      ? 'Set up where tasks wait, then come back here.'
       : null
   const selectTitle = disabledHelp ?? 'Choose where new tasks should wait.'
 
@@ -42,7 +42,7 @@ export function AgentGroupSelector({
       >
         {!selectedProjectId && <option value="">Choose a project first</option>}
         {selectedProjectId && groups.length === 0 && (
-          <option value="">Create a task queue first</option>
+          <option value="">Set up where tasks wait first</option>
         )}
         {groups.map((group) => (
           <option key={group.id} value={group.id}>

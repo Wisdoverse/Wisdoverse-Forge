@@ -251,7 +251,7 @@ describe('TaskFormModal', () => {
     expect(screen.queryByText(/Leave this unassigned/i)).toBeNull()
   })
 
-  test('explains task queue readiness before creating work', () => {
+  test('explains where tasks wait before creating work', () => {
     const openTaskRouting = vi.fn()
     renderModal(vi.fn(), {
       selectedTaskGroupId: null,
@@ -260,14 +260,17 @@ describe('TaskFormModal', () => {
     })
 
     expect(screen.getByTestId('task-work-lane-readiness')).toHaveTextContent(
-      /Open task queues before creating this task/i
+      /Set up where tasks wait before creating this task/i
     )
-    expect(screen.getByText(/Create one task queue so new work has a place to wait/i)).toBeDefined()
+    expect(screen.getByText(/Create one place for new work to wait/i)).toBeDefined()
     expect(screen.getByTestId('task-work-lane-readiness').textContent).not.toContain(
       ['agent', 'is', 'ready'].join(' ')
     )
+    expect(screen.getByTestId('task-work-lane-readiness')).not.toHaveTextContent(
+      /Open task queues before creating this task/i
+    )
 
-    fireEvent.click(screen.getByRole('button', { name: /open task queues/i }))
+    fireEvent.click(screen.getByRole('button', { name: /set up where tasks wait/i }))
 
     expect(openTaskRouting).toHaveBeenCalled()
   })
@@ -476,7 +479,7 @@ describe('TaskFormModal', () => {
     scrollSpy.mockRestore()
   })
 
-  test('a task queue load failure reported by onProjectChange starts with the next step', async () => {
+  test('a waiting-place load failure reported by onProjectChange starts with the next step', async () => {
     const onProjectChange = vi.fn().mockResolvedValue(false)
     renderModal(vi.fn(), {
       projects: [project, otherProject],
@@ -488,10 +491,11 @@ describe('TaskFormModal', () => {
     await waitFor(() => expect(onProjectChange).toHaveBeenCalledWith(otherProject.id))
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Select the project again to load task queues. If it still does not load, refresh the board or ask an owner to check task queue setup.'
+        'Select the project again to find where tasks wait. If it still does not load, refresh the board or ask an owner to check task routing setup.'
       )
     )
     expect(screen.getByRole('alert')).not.toHaveTextContent(/task queues could not load/i)
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/load task queues/i)
   })
 
   test('explains that a newly selected project is still preparing', async () => {
