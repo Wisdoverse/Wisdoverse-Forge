@@ -484,6 +484,8 @@ const START_GUIDE_RESET_JARGON_PATTERNS = [
   /\bStart guide\b/i,
   /\bReset Start guide\b/i,
   /\bReset it here\b/i,
+  /\bnothing to restore\b/i,
+  /\bStart is already visible\b/i,
 ]
 
 const START_GUIDE_FAILURE_FIRST_PATTERNS = [
@@ -738,6 +740,12 @@ const SSH_CODE_ACCESS_JARGON_PATTERNS = [
   /\bRSA key type\b/i,
   /\bSafety check\b/i,
   /\bKey type\b/i,
+  /\bcannot read the repository\b/i,
+  /\bread the repository\b/i,
+  /\bPaste the public key line that starts\b/i,
+  /\bpaste the public key line\b/i,
+  /\bThis public key line is already saved\b/i,
+  /\baccess name and public key line\b/i,
 ]
 
 const PLATFORM_KEY_FAILURE_FIRST_PATTERNS = [
@@ -2893,7 +2901,13 @@ function hasSshCodeAccessFailureFirstCopy(relFile, line) {
 }
 
 function hasSshCodeAccessJargonCopy(relFile, line) {
-  if (!relFile.endsWith('src/app/features/settings/SshKeysSection.tsx')) return false
+  if (
+    !relFile.endsWith('src/app/features/settings/SshKeysSection.tsx') &&
+    !relFile.endsWith('src/app/features/settings/sshKeysErrorMessage.ts') &&
+    !relFile.endsWith('src/app/shared/model/settings.store.ts')
+  ) {
+    return false
+  }
   if (isLikelyGuardOrParserLine(line) && !/\b(?:Modern key type|RSA key type)\b/i.test(line)) {
     return false
   }

@@ -28,7 +28,7 @@ describe('sshKeysErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Choose the saved access or remove the old one first. This public key line is already saved.'
+      'Choose the saved access or remove the old one first. This shareable public key line is already saved.'
     )
     expect(message).not.toContain('could not be saved')
   })
@@ -36,7 +36,7 @@ describe('sshKeysErrorMessage', () => {
   test('explains missing fields as the next form fields to fix', () => {
     expectBeginnerMessage(
       sshKeysErrorMessage('Code: 422 Details: public key is required'),
-      'Paste the public key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
+      'Paste the shareable public key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
     )
   })
 

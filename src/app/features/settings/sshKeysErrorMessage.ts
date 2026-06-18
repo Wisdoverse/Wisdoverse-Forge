@@ -128,7 +128,7 @@ export function sshKeysErrorMessage(error: unknown): string {
     return 'Paste only the shareable one-line public key that starts with ssh-ed25519 or ssh-rsa, then save again. Do not paste a private key block.'
   }
   if (code === 409 || lower.includes('already exists') || lower.includes('duplicate')) {
-    return 'Choose the saved access or remove the old one first. This public key line is already saved.'
+    return 'Choose the saved access or remove the old one first. This shareable public key line is already saved.'
   }
   if (
     lower.includes('shareable ssh line') ||
@@ -136,10 +136,10 @@ export function sshKeysErrorMessage(error: unknown): string {
     lower.includes('public key') ||
     lower.includes('ssh key')
   ) {
-    return 'Paste the public key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
+    return 'Paste the shareable public key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
   }
   if (code === 422 || lower.includes('required') || lower.includes('missing')) {
-    return 'Check the access name and public key line, then try again.'
+    return 'Check the access name and shareable public key line, then try again.'
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
     return 'Wait a minute, then try again. Forge is receiving too many SSH code access requests right now.'

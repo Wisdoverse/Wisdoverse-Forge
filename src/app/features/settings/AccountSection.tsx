@@ -369,10 +369,10 @@ function GettingStartedGuideRow() {
   const dismissed = preferences?.gettingStartedDismissed === true
   const canOpenChecklist = preferencesLoaded && !dismissed
   const statusLine = !preferencesLoaded
-    ? 'Checking whether Start is hidden...'
+    ? 'Checking whether Start already appears in the left menu...'
     : dismissed
       ? 'Start is hidden from the left menu right now.'
-      : 'Start is already visible in the left menu, so there is nothing to restore.'
+      : 'Start is already in the left menu.'
 
   async function handleRestore() {
     setError(null)
@@ -384,7 +384,7 @@ function GettingStartedGuideRow() {
       setRestored(true)
     } else {
       setError(
-        'Check your connection, then choose Show Start in left menu again. Start could not be shown.'
+        'Check your connection, then choose Show Start again. Start could not be added back to the left menu.'
       )
     }
   }
@@ -401,8 +401,8 @@ function GettingStartedGuideRow() {
             Setup checklist
           </p>
           <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Skipping Start only hides it from the left menu. It does not change projects, agents, or
-            tasks. Show it again here when you want the checklist back. {statusLine}
+            If you skipped Start, use this to bring the setup checklist back to the left menu.
+            Projects, agents, and tasks stay the same. {statusLine}
           </p>
         </div>
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
@@ -424,7 +424,7 @@ function GettingStartedGuideRow() {
             disabled={restoring || !preferencesLoaded || !dismissed}
             className={uiStyles.secondaryButton}
           >
-            {restoring ? 'Showing...' : 'Show Start in left menu'}
+            {restoring ? 'Showing...' : 'Show Start again'}
           </button>
         </div>
       </div>

@@ -281,14 +281,16 @@ describe('AccountSection', () => {
     expect(loadPreferencesMock).toHaveBeenCalled()
     expect(screen.getByRole('heading', { name: 'Setup checklist' })).toBeDefined()
     expect(screen.queryByText('Onboarding')).toBeNull()
-    expect(screen.getByText(/Skipping Start only hides it from the left menu/i)).toBeDefined()
-    expect(screen.getByText(/It does not change projects, agents, or tasks/i)).toBeDefined()
+    expect(screen.getByText(/If you skipped Start/i)).toBeDefined()
+    expect(screen.getByText(/bring the setup checklist back to the left menu/i)).toBeDefined()
+    expect(screen.getByText(/Projects, agents, and tasks stay the same/i)).toBeDefined()
     expect(screen.getByText(/Start is hidden from the left menu right now/i)).toBeDefined()
     expect(screen.queryByText(/Reset Start guide/i)).toBeNull()
     expect(screen.queryByText(/Reset it here/i)).toBeNull()
     expect(screen.queryByText(/sidebar shortcut/i)).toBeNull()
+    expect(screen.queryByText(/nothing to restore/i)).toBeNull()
 
-    const restoreButton = screen.getByRole('button', { name: /show start in left menu/i })
+    const restoreButton = screen.getByRole('button', { name: /show start again/i })
     expect(restoreButton).not.toBeDisabled()
     fireEvent.click(restoreButton)
 
@@ -310,8 +312,9 @@ describe('AccountSection', () => {
 
     renderAccountSection()
 
-    expect(screen.getByText(/there is nothing to restore/)).toBeDefined()
-    expect(screen.getByRole('button', { name: /show start in left menu/i })).toBeDisabled()
+    expect(screen.getByText(/Start is already in the left menu/)).toBeDefined()
+    expect(screen.queryByText(/nothing to restore/i)).toBeNull()
+    expect(screen.getByRole('button', { name: /show start again/i })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: /open setup checklist/i }))
     expect(navigateMock).toHaveBeenCalledWith({ to: '/start' })
   })
@@ -325,11 +328,11 @@ describe('AccountSection', () => {
 
     renderAccountSection()
 
-    fireEvent.click(screen.getByRole('button', { name: /show start in left menu/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show start again/i }))
 
     expect(
       await screen.findByText(
-        'Check your connection, then choose Show Start in left menu again. Start could not be shown.'
+        'Check your connection, then choose Show Start again. Start could not be added back to the left menu.'
       )
     ).toBeDefined()
     expect(
