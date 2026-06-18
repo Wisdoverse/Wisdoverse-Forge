@@ -91,7 +91,7 @@ function conversationFilterEmptyCopy(
 
   if (filter === 'attention') {
     return {
-      title: 'No help requests are open',
+      title: 'Use All if you expected a blocker',
       detail: 'No message is stuck, failed, waiting, or asking for your help in this view.',
       nextStep:
         'Next: use All to read the full conversation, or send a short follow-up if you expected a blocker.',

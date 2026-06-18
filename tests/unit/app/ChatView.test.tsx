@@ -400,6 +400,29 @@ describe('ChatView', () => {
     expect(emptyState).not.toHaveTextContent('operator')
   })
 
+  test('explains an empty Attention filter with the next place to check', () => {
+    useAgentsStore.setState({ agents: [providerAgent] })
+    seedChatState({
+      messages: [
+        message('Settings page shipped', {
+          id: 'assistant-1',
+          content: 'Settings page shipped',
+        }),
+      ],
+    })
+
+    render(<ChatView agentId={providerAgent.id} />)
+
+    const filters = screen.getByTestId('conversation-filter-group')
+    fireEvent.click(within(filters).getByRole('button', { name: /attention\s*0/i }))
+
+    const emptyState = screen.getByTestId('conversation-filter-empty')
+    expect(emptyState).toHaveTextContent('Use All if you expected a blocker')
+    expect(emptyState).toHaveTextContent('No message is stuck, failed, waiting, or asking for your help in this view.')
+    expect(emptyState).toHaveTextContent('use All to read the full conversation')
+    expect(emptyState).not.toHaveTextContent('No help requests are open')
+  })
+
   test('summarizes CLI turns with tools and failed tool attention', async () => {
     const fetchEvents = vi.fn().mockResolvedValue(undefined)
     useAgentsStore.setState({ agents: [cliAgent] })
