@@ -640,6 +640,15 @@ const SAVED_INSTRUCTION_DRAFT_DEAD_END_PATTERNS = [
   /\bReview the reusable instructions\./i,
 ]
 
+const SAVED_INSTRUCTION_DETAIL_HELPER_JARGON_PATTERNS = [
+  /\bWhen a task uses words like these, agents know this saved instruction may help\./i,
+  /\bReview this text to understand what the saved instruction adds to agent work\./i,
+  /\bNo reusable instructions have been saved yet\. Add instructions before asking agents to use this saved instruction\./i,
+  /Agent 就知道这条保存的说明可能有帮助/,
+  /了解这条保存的说明会给 Agent 工作补充什么/,
+  /请先补充说明，再让 Agent 使用这条保存的说明/,
+]
+
 const AGENT_PLUGIN_ERROR_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*Tool change was not saved\. The switch was returned to its previous setting\./i,
   /['"`]\s*Forge could not finish this tool request right now\. Wait a few minutes, then try again\./i,
@@ -2877,6 +2886,17 @@ function hasSavedInstructionDraftDeadEndCopy(relFile, line) {
   return SAVED_INSTRUCTION_DRAFT_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasSavedInstructionDetailHelperJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SAVED_INSTRUCTION_DETAIL_HELPER_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasSavedInstructionsLoadDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/skills/SkillsView.tsx') &&
@@ -4973,6 +4993,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Saved instruction draft copy must tell beginners what to add or where to review after publishing.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSavedInstructionDetailHelperJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'saved-instruction-detail-helper-copy',
+        location,
+        message:
+          'Saved instruction detail helper copy must explain when to use it and what to read next in beginner terms.',
         sample: line.trim(),
       })
     }

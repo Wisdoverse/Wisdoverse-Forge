@@ -53,16 +53,12 @@ describe('SkillDetailModal', () => {
     expect(screen.getByText('Check deployment steps before release.')).toBeInTheDocument()
     expect(screen.getByText('When this helps')).toBeInTheDocument()
     expect(
-      screen.getByText(
-        'When a task uses words like these, agents know this saved instruction may help.'
-      )
+      screen.getByText('Use this saved instruction for tasks that include words like these.')
     ).toBeInTheDocument()
     expect(screen.getByText('deploy')).toBeInTheDocument()
     expect(screen.getByText('Reusable instructions')).toBeInTheDocument()
     expect(
-      screen.getByText(
-        'Review this text to understand what the saved instruction adds to agent work.'
-      )
+      screen.getByText('Read these reusable steps before using this saved instruction.')
     ).toBeInTheDocument()
     expect(
       screen.getByText('Verify health checks, rollback notes, and user-facing release status.')
@@ -103,7 +99,7 @@ describe('SkillDetailModal', () => {
     ).toBeInTheDocument()
     expect(
       screen.getByText(
-        'No reusable instructions have been saved yet. Add instructions before asking agents to use this saved instruction.'
+        'No reusable steps are saved yet. Add the steps agents should follow before using this saved instruction.'
       )
     ).toBeInTheDocument()
   })

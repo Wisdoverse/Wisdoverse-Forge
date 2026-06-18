@@ -502,13 +502,11 @@ export const en = {
       descriptionHeading: 'What this helps with',
       noDescription: 'Check the reusable instructions below before using this saved instruction.',
       triggerHeading: 'When this helps',
-      triggerHelper:
-        'When a task uses words like these, agents know this saved instruction may help.',
+      triggerHelper: 'Use this saved instruction for tasks that include words like these.',
       detailsHeading: 'Reusable instructions',
-      detailsHelper:
-        'Review this text to understand what the saved instruction adds to agent work.',
+      detailsHelper: 'Read these reusable steps before using this saved instruction.',
       noContent:
-        'No reusable instructions have been saved yet. Add instructions before asking agents to use this saved instruction.',
+        'No reusable steps are saved yet. Add the steps agents should follow before using this saved instruction.',
       unknownAuthor: 'Refresh saved instructions to load maintainer',
       unknownSource: 'Saved instructions library',
       availabilityWorkspace: 'This team space',

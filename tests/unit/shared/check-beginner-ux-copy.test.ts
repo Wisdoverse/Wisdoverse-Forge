@@ -9628,6 +9628,98 @@ export const zh = {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags saved instruction detail helper copy that explains agent internals instead of next steps', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  skills: {
+    detail: {
+      triggerHelper:
+        'When a task uses words like these, agents know this saved instruction may help.',
+      detailsHelper:
+        'Review this text to understand what the saved instruction adds to agent work.',
+      noContent:
+        'No reusable instructions have been saved yet. Add instructions before asking agents to use this saved instruction.',
+    },
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  skills: {
+    detail: {
+      triggerHelper: '当任务里出现类似这些词时，Agent 就知道这条保存的说明可能有帮助。',
+      detailsHelper: '查看这段文字，了解这条保存的说明会给 Agent 工作补充什么。',
+      noContent: '还没有保存可复用说明。请先补充说明，再让 Agent 使用这条保存的说明。',
+    },
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'saved-instruction-detail-helper-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-detail-helper-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:8',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-detail-helper-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:10',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-detail-helper-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-detail-helper-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-detail-helper-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:7',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved instruction detail helper copy that names the use and review actions', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  skills: {
+    detail: {
+      triggerHelper: 'Use this saved instruction for tasks that include words like these.',
+      detailsHelper: 'Read these reusable steps before using this saved instruction.',
+      noContent:
+        'No reusable steps are saved yet. Add the steps agents should follow before using this saved instruction.',
+    },
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  skills: {
+    detail: {
+      triggerHelper: '任务里出现类似这些词时，可以推荐这条保存的说明。',
+      detailsHelper: '使用这条保存的说明前，请先查看这些可复用步骤。',
+      noContent: '还没有保存可复用步骤。请先补充 Agent 要遵循的步骤，再使用这条保存的说明。',
+    },
+  },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags governance audit fallbacks that leave beginners without a field to check', () => {
     const cwd = fixture({
       'src/app/features/governance/AuditLogView.tsx': `
