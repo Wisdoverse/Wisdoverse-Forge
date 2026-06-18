@@ -112,6 +112,8 @@ describe('workspace setup create forms', () => {
 
     expect(screen.getByText('Code link')).toBeInTheDocument()
     expect(screen.queryByText('Git repository URL')).toBeNull()
+    expect(screen.getByPlaceholderText('https://github.com/team/project.git')).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('https://github.com/org/repo.git')).toBeNull()
     expect(screen.getByText(/Forge copies that code into this project/i)).toBeInTheDocument()
     expect(screen.queryByText(/clone an existing repo/i)).toBeNull()
 
@@ -119,7 +121,7 @@ describe('workspace setup create forms', () => {
       target: { value: 'Cloned Project' },
     })
     fireEvent.change(screen.getByLabelText(/code link/i), {
-      target: { value: 'https://github.com/org/repo.git' },
+      target: { value: 'https://github.com/team/project.git' },
     })
     fireEvent.click(screen.getByRole('button', { name: /create project/i }))
 
@@ -127,7 +129,7 @@ describe('workspace setup create forms', () => {
       expect(onSave).toHaveBeenCalledWith(
         'Cloned Project',
         'team-1',
-        'https://github.com/org/repo.git'
+        'https://github.com/team/project.git'
       )
     )
   })

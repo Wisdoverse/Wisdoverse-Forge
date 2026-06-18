@@ -1269,6 +1269,14 @@ const PROJECT_CREATE_OVERVIEW_JARGON_PATTERNS = [
   /\breceive tasks and evidence\b/i,
 ]
 
+const PROJECT_CREATE_CODE_LINK_JARGON_PATTERNS = [
+  /\bGit repository URL\b/i,
+  /\brepository URL\b/i,
+  /\bclone an existing repo\b/i,
+  /org\/repo\.git/i,
+  /\/repo\.git/i,
+]
+
 const TEAM_PROJECT_CREATE_JARGON_PATTERNS = [
   /\b(?:Team|Project) setup path\b/i,
   /\bAddress preview:/i,
@@ -2178,6 +2186,14 @@ function hasProjectCreateOverviewJargonCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return PROJECT_CREATE_OVERVIEW_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasProjectCreateCodeLinkJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/manage-project/ui/CreateProjectForm.tsx')) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return PROJECT_CREATE_CODE_LINK_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasTeamProjectCreateJargonCopy(relFile, line) {
@@ -4073,6 +4089,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Project setup overview must explain tasks, files, and saved work records without evidence jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasProjectCreateCodeLinkJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'project-create-code-link-copy',
+        location,
+        message: 'Project creation copy must say code link, not repository URL or repo.',
         sample: line.trim(),
       })
     }

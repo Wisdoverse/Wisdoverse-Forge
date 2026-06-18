@@ -11481,6 +11481,48 @@ function ProjectSetupPath() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags project creation code-link copy that falls back to repository URL wording', () => {
+    const cwd = fixture({
+      'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
+function CreateProjectForm() {
+  return <><label>Git repository URL</label><input placeholder="https://github.com/org/repo.git" /><p>Clone an existing repo into this project.</p></>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'project-create-code-link-copy',
+          sample: expect.stringContaining('Git repository URL'),
+        }),
+        expect.objectContaining({
+          type: 'project-create-code-link-copy',
+          sample: expect.stringContaining('org/repo.git'),
+        }),
+        expect.objectContaining({
+          type: 'project-create-code-link-copy',
+          sample: expect.stringContaining('repo'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts project creation code-link copy that uses code-link wording', () => {
+    const cwd = fixture({
+      'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
+function CreateProjectForm() {
+  return <><label>Code link</label><input placeholder="https://github.com/team/project.git" /><p>Forge copies that code into this project.</p></>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags team and project creation copy that exposes setup path or address preview wording', () => {
     const cwd = fixture({
       'src/app/features/manage-team/ui/CreateTeamForm.tsx': `
