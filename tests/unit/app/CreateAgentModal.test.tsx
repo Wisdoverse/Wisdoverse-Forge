@@ -426,9 +426,15 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByLabelText(/work folder/i)).toBeNull()
     expect(screen.getByLabelText(/^ai service$/i)).toHaveValue('provider-anthropic')
     expect(screen.getByLabelText(/^saved ai service setup$/i)).toHaveValue('claude-sonnet-4-6')
+    expect(screen.getByLabelText(/^saved ai service setup$/i)).toHaveAttribute(
+      'placeholder',
+      'Filled from AI service settings'
+    )
     expect(screen.queryByLabelText(/^ai model$/i)).toBeNull()
     expect(screen.getByText(/choose the AI service name you set up/i)).toBeInTheDocument()
+    expect(screen.getByText(/comes from the checked AI service in Settings/i)).toBeInTheDocument()
     expect(screen.getByText(/you do not need to change it here/i)).toBeInTheDocument()
+    expect(screen.queryByText(/AI services settings/i)).toBeNull()
     const review = screen.getByTestId('agent-create-review')
     expect(
       within(review).getByText(
@@ -452,14 +458,15 @@ describe('CreateAgentModal', () => {
 
     const providerHint = screen.getByTestId('provider-empty-hint')
     expect(providerHint).toHaveTextContent(/add and check an ai service first/i)
-    expect(providerHint).toHaveTextContent(/open ai services settings/i)
+    expect(providerHint).toHaveTextContent(/open ai service settings/i)
     expect(providerHint).toHaveTextContent(/paste the service access key/i)
     expect(providerHint).toHaveTextContent(/choose check connection/i)
     expect(providerHint).toHaveTextContent(/service shows ready/i)
     expect(providerHint).not.toHaveTextContent(/no ai service ready yet/i)
     expect(providerHint).not.toHaveTextContent(/settings > ai services/i)
+    expect(providerHint).not.toHaveTextContent(/ai services settings/i)
     expect(providerHint).not.toHaveTextContent(/click check/i)
-    expect(screen.getByRole('link', { name: /open ai services settings/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /open ai service settings/i })).toHaveAttribute(
       'href',
       '/settings/providers'
     )
@@ -470,13 +477,14 @@ describe('CreateAgentModal', () => {
 
     let alert: HTMLElement | null = null
     await waitFor(() =>
-      expect((alert = screen.getByRole('alert'))).toHaveTextContent(/open ai services settings/i)
+      expect((alert = screen.getByRole('alert'))).toHaveTextContent(/open ai service settings/i)
     )
     expect(alert).toHaveTextContent(/choose check connection until it says ready/i)
     expect(alert).not.toHaveTextContent(/settings > ai services/i)
+    expect(alert).not.toHaveTextContent(/ai services settings/i)
     expect(alert).not.toHaveTextContent(/click check/i)
     expect(
-      within(alert as HTMLElement).getByRole('link', { name: /open ai services settings/i })
+      within(alert as HTMLElement).getByRole('link', { name: /open ai service settings/i })
     ).toHaveAttribute('href', '/settings/providers')
     expect(createAgent).not.toHaveBeenCalled()
   })
@@ -1016,7 +1024,7 @@ describe('CreateAgentModal', () => {
 
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Open AI services settings, choose Check connection for this service, then come back when it shows Ready.'
+        'Open AI service settings, choose Check connection for this service, then come back when it shows Ready.'
       )
     )
     expect(createAgent).not.toHaveBeenCalled()
