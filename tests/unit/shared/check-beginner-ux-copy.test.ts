@@ -7978,6 +7978,60 @@ const tableHeaders = [{ label: 'Website address' }]
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags HTTPS code access setup copy that falls back to repository wording', () => {
+    const cwd = fixture({
+      'src/app/features/settings/GitCredentialsSection.tsx': `
+function AddCredentialForm() {
+  return <p>Choose the site that owns the repository.</p>
+}
+function savedMessage() {
+  return 'Code access saved. Create a small task with a private repository link to confirm agents can open it. If it cannot read the repository, come back here and replace this key.'
+}
+function EmptyState() {
+  return <p>Use this for links such as https://github.com/team/repo.git.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'code-access-repository-copy',
+          sample: expect.stringContaining('owns the repository'),
+        }),
+        expect.objectContaining({
+          type: 'code-access-repository-copy',
+          sample: expect.stringContaining('private repository link'),
+        }),
+        expect.objectContaining({
+          type: 'code-access-repository-copy',
+          sample: expect.stringContaining('team/repo.git'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts HTTPS code access setup copy that talks about code links', () => {
+    const cwd = fixture({
+      'src/app/features/settings/GitCredentialsSection.tsx': `
+function AddCredentialForm() {
+  return <p>Choose where this code lives.</p>
+}
+function savedMessage() {
+  return 'Code access saved. Create a small task with a private code link to confirm agents can open it. If it cannot open the code, come back here and replace this key.'
+}
+function EmptyState() {
+  return <p>Use this for links such as https://github.com/team/project.git.</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags SSH code access setup copy that uses public-line and key-type jargon', () => {
     const cwd = fixture({
       'src/app/features/settings/SshKeysSection.tsx': `

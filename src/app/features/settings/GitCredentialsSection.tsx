@@ -255,7 +255,7 @@ function AddCredentialForm({
             ))}
           </select>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Choose the site that owns the repository.
+            Choose where this code lives.
           </p>
         </div>
 
@@ -377,7 +377,7 @@ export function GitCredentialsSection() {
     if (ok) {
       setShowForm(false)
       setSavedMessage(
-        'Code access saved. Create a small task with a private repository link to confirm agents can open it. If it cannot read the repository, come back here and replace this key.'
+        'Code access saved. Create a small task with a private code link to confirm agents can open it. If it cannot open the code, come back here and replace this key.'
       )
     }
   }
@@ -450,8 +450,8 @@ export function GitCredentialsSection() {
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
               Use this for GitHub or GitLab links that start with https://, such as
-              https://github.com/team/repo.git. If the address starts with git@, use SSH code access
-              instead.
+              https://github.com/team/project.git. If the address starts with git@, use SSH code
+              access instead.
             </p>
             {canAddMore && (
               <button
