@@ -47,7 +47,7 @@ describe('Billing beginner guidance', () => {
 
     render(<BillingPage />)
 
-    expect(screen.getByText('Billing is not ready yet')).toBeInTheDocument()
+    expect(screen.getByText('Ask an owner or admin to turn on billing')).toBeInTheDocument()
     expect(screen.getByText(/Billing is not turned on for this team yet/i)).toBeInTheDocument()
     expect(screen.getByText('What to do next')).toBeInTheDocument()
     expect(screen.getByText(/turn on billing for this team/i)).toBeInTheDocument()

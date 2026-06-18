@@ -2342,12 +2342,13 @@ function metricCopy(metric) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags billing setup copy that uses setup-path or workspace wording', () => {
+  it('flags billing setup copy that uses dead-end titles, setup-path, or workspace wording', () => {
     const cwd = fixture({
       'src/app/features/billing/BillingPage.tsx': `
 function BillingNotConfigured() {
   return (
     <div>
+      <h2>Billing is not ready yet</h2>
       <p>Billing setup path</p>
       <p>Billing setup steps</p>
       <p>Ask an owner or admin to turn on billing for this workspace.</p>
@@ -2378,6 +2379,10 @@ function BillingNotConfigured() {
         expect.objectContaining({
           type: 'billing-setup-copy',
           location: 'src/app/features/billing/BillingPage.tsx:8',
+        }),
+        expect.objectContaining({
+          type: 'billing-setup-copy',
+          location: 'src/app/features/billing/BillingPage.tsx:9',
         }),
       ])
     )

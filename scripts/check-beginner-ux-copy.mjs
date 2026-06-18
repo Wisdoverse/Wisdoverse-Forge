@@ -260,6 +260,7 @@ const BILLING_USAGE_AUDIT_JARGON_PATTERNS = [/\baudit records?\b/i]
 const BILLING_USAGE_EVENT_JARGON_PATTERNS = [/\bActivity events\b/i]
 
 const BILLING_SETUP_JARGON_PATTERNS = [
+  /\bBilling is not ready yet\b/i,
   /\bBilling setup (?:path|steps)\b/i,
   /\bfor this workspace\b/i,
   /\bthis workspace\b/i,
