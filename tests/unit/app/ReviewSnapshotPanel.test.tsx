@@ -119,7 +119,8 @@ describe('ReviewSnapshotPanel', () => {
 
     expect(await screen.findByTestId('review-approve')).toBeDisabled()
     expect(screen.getByText('Needs owner or admin review')).toBeInTheDocument()
-    expect(screen.getByText(/fix changes sensitive project areas/i)).toBeInTheDocument()
+    expect(screen.getByText(/fix changes sensitive files or settings/i)).toBeInTheDocument()
+    expect(screen.queryByText(/project areas/i)).toBeNull()
     expect(screen.queryByText(/maintainer/i)).toBeNull()
     expect(screen.queryByText(/protected files/i)).toBeNull()
   })
