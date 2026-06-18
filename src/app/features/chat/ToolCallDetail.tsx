@@ -36,7 +36,7 @@ function extraDetailLabel(key: string): string {
   const labels: Record<string, string> = {
     command: 'Command',
     cwd: 'Project folder',
-    durationms: 'Duration',
+    durationms: 'Time spent',
     ok: 'Finished cleanly',
     summary: 'Summary',
     message: 'Message',
@@ -126,7 +126,10 @@ function containsTechnicalProblemText(value: string): boolean {
 }
 
 function formatDuration(duration: number): string {
-  return duration < 1000 ? `${duration}ms` : `${(duration / 1000).toFixed(1)}s`
+  if (duration < 1000) return 'under 1 second'
+
+  const seconds = Math.max(1, Math.round(duration / 1000))
+  return `about ${seconds} ${seconds === 1 ? 'second' : 'seconds'}`
 }
 
 function toolDisplayName(tool: string): string {
@@ -287,7 +290,7 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
         </span>
         {call.duration !== undefined && (
           <span className="hidden shrink-0 text-[10px] text-secondary-light dark:text-secondary-dark sm:inline">
-            Took {formatDuration(call.duration)}
+            Finished in {formatDuration(call.duration)}
           </span>
         )}
       </button>

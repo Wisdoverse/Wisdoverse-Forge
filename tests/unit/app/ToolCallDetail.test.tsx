@@ -26,7 +26,8 @@ describe('ToolCallDetail', () => {
     expect(screen.getByText('Completed cleanly')).toBeInTheDocument()
     expect(screen.getByText(/This step finished without a problem/i)).toBeInTheDocument()
     expect(screen.queryByText(/without reporting a problem/i)).toBeNull()
-    expect(screen.getByText('Took 1.2s')).toBeInTheDocument()
+    expect(screen.getByText('Finished in about 1 second')).toBeInTheDocument()
+    expect(screen.queryByText('Took 1.2s')).toBeNull()
     expect(screen.queryByText(/Agent used/i)).toBeNull()
   })
 
@@ -62,7 +63,8 @@ describe('ToolCallDetail', () => {
 
     expect(screen.getByText(/Project folder: \/workspace\/app/i)).toBeInTheDocument()
     expect(screen.getByText(/File or link: src\/app\/main\.tsx/i)).toBeInTheDocument()
-    expect(screen.getByText(/Duration: 1.2s/i)).toBeInTheDocument()
+    expect(screen.getByText(/Time spent: about 1 second/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Duration: 1\.2s/i)).toBeNull()
     expect(screen.queryByText(/^Path:/i)).toBeNull()
     expect(screen.queryByText(/cwd/i)).toBeNull()
     expect(screen.queryByText(/durationMs/i)).toBeNull()
