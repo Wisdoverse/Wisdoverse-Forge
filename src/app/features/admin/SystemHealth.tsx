@@ -118,6 +118,14 @@ function serviceTone(status: ServiceStatus): string {
   return 'text-secondary-light dark:text-secondary-dark'
 }
 
+function healthCheckTimingText(latencyMs: number | undefined): string | null {
+  if (latencyMs === undefined) return null
+  if (latencyMs < 1000) return 'Last check finished in under 1 second'
+
+  const seconds = Math.max(1, Math.round(latencyMs / 1000))
+  return `Last check finished in about ${seconds} ${seconds === 1 ? 'second' : 'seconds'}`
+}
+
 function countAttentionServices(health: SystemHealth) {
   return SERVICE_DEFINITIONS.filter((service) => {
     const status = health.checks[service.key]?.status ?? 'unknown'
@@ -179,8 +187,7 @@ interface ServiceRowProps extends ServiceDefinition {
 function ServiceRow({ name, supportName, description, impact, action, health }: ServiceRowProps) {
   const status: ServiceStatus = health?.status ?? 'unknown'
   const hasIssue = status !== 'up'
-  const responseTime =
-    health?.latencyMs !== undefined ? `Last check took ${health.latencyMs} ms` : null
+  const responseTime = healthCheckTimingText(health?.latencyMs)
 
   return (
     <div className={cn('grid gap-3 px-4 py-3 sm:grid-cols-[1fr_auto]', uiStyles.row)}>
