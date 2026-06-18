@@ -485,9 +485,9 @@ function getMessageAvailability(
     return {
       canSend: false,
       detail:
-        'This computer is not connected. Paste the setup text there and wait for Ready before sending an instruction.',
+        'This computer is not connected. Go back to Agents, choose Connect this computer, and use the new setup text before sending an instruction.',
       placeholder: 'Reconnect this computer before sending an instruction.',
-      help: "Paste the setup text in that computer's command app, wait for Ready, then send here.",
+      help: 'Use Connect this computer on the Agents list, wait for Ready, then send here.',
     }
   }
 
@@ -516,9 +516,9 @@ function hostCliControlSummary(status: AgentInfo['status']): {
 } {
   if (status === 'offline') {
     return {
-      title: 'This computer is offline',
+      title: 'Reconnect this computer from Agents',
       detail:
-        "Paste the setup text in that computer's command app again. Keep that app open after it connects.",
+        "Use Back to return to Agents, choose Connect this computer, then paste the new setup text in that computer's command app.",
       Icon: AlertTriangle,
     }
   }
@@ -534,9 +534,9 @@ function hostCliControlSummary(status: AgentInfo['status']): {
 function hostCliReadyActionInfo(status: AgentInfo['status']): { title: string; detail: string } {
   if (status === 'offline') {
     return {
-      title: 'Paste setup text to reconnect',
+      title: 'Use Connect this computer',
       detail:
-        "Open that computer's command app in its work folder, paste the setup text again, then come back here to send messages or tasks.",
+        'Copy the new setup text from Agents, paste it in the work folder on that computer, then come back here to send messages or tasks.',
     }
   }
 

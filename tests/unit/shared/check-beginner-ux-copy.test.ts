@@ -6936,7 +6936,7 @@ export const en = {
     const cwd = fixture({
       'src/app/features/agents/AgentControlPanel.tsx': `
 export function AgentControlPanel() {
-  return <p>Paste the setup text on that computer again.</p>
+  return <p>Use Connect this computer on the Agents list, wait for Ready, then send here.</p>
 }
 `,
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
@@ -6956,6 +6956,54 @@ export const THIS_COMPUTER_SETUP_ERROR =
       'src/app/shared/i18n/locales/en.ts': `
 export const en = {
   detail: 'Setup text needs to be pasted again',
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags joined-computer reconnect copy that mentions setup text before the Agents entry point', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentControlPanel.tsx': `
+export function AgentControlPanel() {
+  return <p>Paste the setup text in that computer's command app again.</p>
+}
+`,
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+export function AgentDetailView() {
+  return <p>Paste setup text on this computer again.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'host-agent-reconnect-copy',
+          location: 'src/app/features/agents/AgentControlPanel.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'host-agent-reconnect-copy',
+          location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts joined-computer reconnect copy that starts from Agents', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentControlPanel.tsx': `
+export function AgentControlPanel() {
+  return <p>Use Back to return to Agents, choose Connect this computer, then paste the new setup text in that computer's command app.</p>
+}
+`,
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+export function AgentDetailView() {
+  return <p>Go back to Agents, choose Connect this computer, copy the new setup text, and paste it in the command app on the computer where this agent should work.</p>
 }
 `,
     })
