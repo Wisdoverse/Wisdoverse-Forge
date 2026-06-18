@@ -55,7 +55,8 @@ describe('ReviewSnapshotPanel', () => {
     expect(await screen.findByText('Code fix review')).toBeInTheDocument()
     expect(await screen.findByText('GitHub review #42')).toBeInTheDocument()
     expect(screen.getByText('Waiting for review')).toBeInTheDocument()
-    expect(screen.getByText('Build checks passed')).toBeInTheDocument()
+    expect(screen.getByText('Automated checks passed')).toBeInTheDocument()
+    expect(screen.queryByText(/Build checks/i)).toBeNull()
     expect(screen.getByLabelText('Refresh code fix review')).toBeInTheDocument()
     expect(screen.getByText('Open changed files')).toBeInTheDocument()
   })
@@ -69,37 +70,38 @@ describe('ReviewSnapshotPanel', () => {
 
     const button = await screen.findByTestId('review-approve')
     expect(button).not.toBeDisabled()
-    expect(button).toHaveTextContent('Merge this fix')
+    expect(button).toHaveTextContent('Finish this fix')
 
     fireEvent.click(button)
     await waitFor(() => expect(approveSpy).toHaveBeenCalledWith('task-1'))
-    // After merge both the status row and the button read "Merged"; target the
-    // button unambiguously by its test id.
-    await waitFor(() => expect(screen.getByTestId('review-approve')).toHaveTextContent('Merged'))
+    // After finishing both the status row and the button can show terminal
+    // wording; target the button unambiguously by its test id.
+    await waitFor(() => expect(screen.getByTestId('review-approve')).toHaveTextContent('Finished'))
     expect(screen.getByTestId('review-approve')).toBeDisabled()
   })
 
-  it('disables merge when build checks are not green', async () => {
+  it('disables finishing when automated checks are not green', async () => {
     vi.spyOn(orchestrationApi, 'getSelfFixReview').mockResolvedValue(review({ checksGreen: false }))
     render(<ReviewSnapshotPanel task={task()} />)
 
     expect(await screen.findByTestId('review-approve')).toBeDisabled()
-    expect(screen.getByText(/build checks pass/i)).toBeInTheDocument()
+    expect(screen.getByText(/automated checks pass/i)).toBeInTheDocument()
+    expect(screen.queryByText(/build checks/i)).toBeNull()
+    expect(screen.queryByText(/merge unlocks/i)).toBeNull()
   })
 
-  it('disables merge until a GitHub review exists', async () => {
+  it('disables finishing until a review page exists', async () => {
     const approveSpy = vi.spyOn(orchestrationApi, 'approveSelfFix').mockResolvedValue('merged')
     vi.spyOn(orchestrationApi, 'getSelfFixReview').mockResolvedValue(
       review({ prNumber: undefined, prUrl: undefined, diffUrl: undefined, checksGreen: true })
     )
     render(<ReviewSnapshotPanel task={task()} />)
 
-    expect(await screen.findByText(/has not opened a GitHub review/i)).toBeInTheDocument()
+    expect(await screen.findByText(/still preparing the review page/i)).toBeInTheDocument()
     const button = screen.getByTestId('review-approve')
     expect(button).toBeDisabled()
-    expect(
-      screen.getByText(/merge unlocks after the agent opens a GitHub review/i)
-    ).toBeInTheDocument()
+    expect(screen.getByText(/finish after the agent opens the review page/i)).toBeInTheDocument()
+    expect(screen.queryByText(/merge unlocks/i)).toBeNull()
 
     fireEvent.click(button)
 
@@ -125,7 +127,7 @@ describe('ReviewSnapshotPanel', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'Refresh code fix review, then try again. Forge could not load the current GitHub review status.'
+      'Refresh code fix review, then try again. Forge could not load the current review status.'
     )
     expect(alert).not.toHaveTextContent('API 500')
     expect(alert).not.toHaveTextContent('database')
@@ -167,7 +169,7 @@ describe('ReviewSnapshotPanel', () => {
     // never stale passing-check copy next to a fresh "Merged".
     rerender(<ReviewSnapshotPanel task={task({ reviewStatus: 'merged' })} />)
 
-    await waitFor(() => expect(screen.getByTestId('review-approve')).toHaveTextContent('Merged'))
+    await waitFor(() => expect(screen.getByTestId('review-approve')).toHaveTextContent('Finished'))
     expect(screen.getByTestId('review-approve')).toBeDisabled()
     expect(fetchSpy).toHaveBeenCalledTimes(2)
   })

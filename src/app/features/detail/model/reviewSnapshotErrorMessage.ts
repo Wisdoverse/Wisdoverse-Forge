@@ -4,9 +4,9 @@ const RAW_NETWORK_ERRORS = [/^Network error$/i, /^Failed to fetch$/i]
 const RAW_STATUS_ERRORS = [/^API\s+\d{3}/i, /^HTTP\s+\d{3}/i, /^Server error\s*\(\d{3}\)$/i]
 
 const ACTION_FALLBACKS: Record<ReviewSnapshotAction, string> = {
-  load: 'Refresh code fix review, then try again. Forge could not load the current GitHub review status.',
+  load: 'Refresh code fix review, then try again. Forge could not load the current review status.',
   approve:
-    'Refresh code fix review, confirm build checks passed, then merge this fix again. The fix was not merged.',
+    'Refresh code fix review, confirm automated checks passed, then finish this fix again. The fix was not finished.',
 }
 
 export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: unknown): string {
@@ -51,7 +51,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('mergeable state') ||
     text.includes('cannot be merged')
   ) {
-    return 'Refresh code fix review after the branch is updated. This fix needs the latest main branch before it can merge.'
+    return 'Refresh code fix review after the project code is updated. This fix needs the latest project code before it can finish.'
   }
 
   if (
@@ -60,7 +60,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('check_suite') ||
     text.includes('required status')
   ) {
-    return 'Wait for build checks to finish, then refresh code fix review before merging.'
+    return 'Wait for automated checks to finish, then refresh code fix review before finishing.'
   }
 
   const safeDetail = userSafeDetail(detail)

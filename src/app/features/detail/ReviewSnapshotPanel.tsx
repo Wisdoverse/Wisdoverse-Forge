@@ -24,9 +24,9 @@ interface ReviewSnapshotPanelProps {
 
 const STATUS_LABEL: Record<SelfFixReviewStatus, string> = {
   in_review: 'Waiting for review',
-  approved: 'Ready to merge',
+  approved: 'Ready to finish',
   changes_requested: 'Needs changes',
-  merged: 'Merged',
+  merged: 'Finished',
   sensitive_blocked: 'Needs maintainer review',
 }
 
@@ -154,7 +154,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
             </a>
           ) : (
             <p className="text-xs text-secondary-light dark:text-secondary-dark">
-              The agent has not opened a GitHub review for this fix yet. Refresh after it does.
+              The agent is still preparing the review page for this fix. Refresh after it appears.
             </p>
           )}
 
@@ -170,14 +170,15 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
                 <XCircle size={13} className="text-secondary-light dark:text-secondary-dark" />
               )}
               <span className="text-foreground-light dark:text-foreground-dark">
-                {review.checksGreen ? 'Build checks passed' : 'Build checks not ready yet'}
+                {review.checksGreen ? 'Automated checks passed' : 'Automated checks still running'}
               </span>
             </div>
             {review.sensitive && (
               <div className="flex items-start gap-1.5 text-apple-red">
                 <ShieldAlert size={13} className="mt-px shrink-0" />
                 <span>
-                  This fix changes protected files. A maintainer must review and merge it manually.
+                  This fix changes protected files. Ask a maintainer to review and finish it
+                  manually.
                 </span>
               </div>
             )}
@@ -209,16 +210,16 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
               )}
             >
               {approving && <Loader2 size={13} className="animate-spin" />}
-              {merged ? 'Merged' : approving ? 'Merging…' : 'Merge this fix'}
+              {merged ? 'Finished' : approving ? 'Finishing…' : 'Finish this fix'}
             </button>
             {!merged && !hasPullRequest && (
               <p className="mt-1.5 text-[10px] text-secondary-light dark:text-secondary-dark">
-                Merge unlocks after the agent opens a GitHub review. Use Refresh after it opens.
+                You can finish after the agent opens the review page. Use Refresh after it appears.
               </p>
             )}
             {!merged && hasPullRequest && !review.checksGreen && !review.sensitive && (
               <p className="mt-1.5 text-[10px] text-secondary-light dark:text-secondary-dark">
-                Merge unlocks once build checks pass. Use Refresh after checks finish.
+                You can finish after automated checks pass. Use Refresh after they finish.
               </p>
             )}
           </div>
