@@ -505,6 +505,76 @@ function serviceAddressPlaceholder(needsBaseUrl) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags AI service setup copy that uses terse check and region jargon', () => {
+    const cwd = fixture({
+      'src/app/features/settings/ProvidersSection.tsx': `
+const PROVIDER_SETUP_STEPS = [
+  { label: 'Paste service access key', value: 'Open that account, copy its access key, and paste it here.' },
+  { label: 'Save and check', value: 'Click Check after saving. Ready means agents can use this service.' },
+]
+function CatalogPanel() {
+  return 'Service address and model are filled in for you. After saving, click Check.'
+}
+function RegionToggle() {
+  return 'Service address region'
+}
+function CatalogGrid() {
+  return 'Standard setup · Coding plan · China/Global address'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'provider-setup-copy',
+          location: 'src/app/features/settings/ProvidersSection.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'provider-setup-copy',
+          location: 'src/app/features/settings/ProvidersSection.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'provider-setup-copy',
+          location: 'src/app/features/settings/ProvidersSection.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'provider-setup-copy',
+          location: 'src/app/features/settings/ProvidersSection.tsx:10',
+        }),
+        expect.objectContaining({
+          type: 'provider-setup-copy',
+          location: 'src/app/features/settings/ProvidersSection.tsx:13',
+        }),
+      ])
+    )
+  })
+
+  it('accepts AI service setup copy that names the next beginner action', () => {
+    const cwd = fixture({
+      'src/app/features/settings/ProvidersSection.tsx': `
+const PROVIDER_SETUP_STEPS = [
+  { label: 'Paste the service access key', value: 'Open that account, copy the service access key, and paste it here.' },
+  { label: 'Save, then check connection', value: 'After saving, choose Check connection. Ready means agents can use this service.' },
+]
+function CatalogPanel() {
+  return 'Forge fills in the service website address and model for you. After saving, choose Check connection.'
+}
+function RegionToggle() {
+  return 'Service website region'
+}
+function CatalogGrid() {
+  return 'Standard setup · Coding plan · China or global website address'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags user management empty states that do not point to inviting people', () => {
     const cwd = fixture({
       'src/app/features/admin/UserManagement.tsx': `
