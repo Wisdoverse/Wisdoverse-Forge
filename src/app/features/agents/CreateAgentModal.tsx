@@ -196,7 +196,7 @@ function runtimeFitFor(
     title: `${providerLabel} for chat and review`,
     detail: 'Best for questions, planning, writing, and review that do not need project files.',
     items: [
-      { label: 'Where it works', value: 'Chat-only AI service' },
+      { label: 'Where it works', value: 'AI service only' },
       { label: 'Files', value: 'Does not open project files' },
       { label: 'Before use', value: 'Check AI service in Settings' },
     ],
@@ -264,7 +264,7 @@ function createReviewItems({
     },
     { label: 'Where tasks wait', value: taskQueue },
     { label: 'Next step', value: nextStep },
-    { label: 'Created state', value: startState },
+    { label: 'After creation', value: startState },
   ]
 }
 
@@ -462,7 +462,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
         return
       }
       if (!data.model.trim()) {
-        setFormError('Choose an AI service and AI model before creating this agent.')
+        setFormError('Choose an AI service with a saved model, then create this agent.')
         return
       }
       await createAgent({
@@ -1103,7 +1103,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                         htmlFor="agent-model"
                         className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                       >
-                        AI model
+                        Model used
                       </label>
                       <input
                         id="agent-model"

@@ -1242,6 +1242,7 @@ const VAGUE_NEEDS_ATTENTION_COPY_PATTERNS = [
 const TECHNICAL_PROBLEM_JARGON_PATTERNS = [
   /\bThis step reported a technical problem\b/i,
   /\bThis record reported a technical problem\b/i,
+  /\bThis record hit a problem\b/i,
   /\btechnical problem\b/i,
   /\bReview the summary above\b/i,
 ]
@@ -1748,6 +1749,13 @@ const CREATE_AGENT_WORK_AREA_JARGON_PATTERNS = [
 ]
 
 const CREATE_AGENT_MANAGEMENT_JARGON_PATTERNS = [/\bAgent managed by Forge\b/i]
+
+const CREATE_AGENT_CONFIRMATION_JARGON_PATTERNS = [
+  /\bCreated state\b/i,
+  /\bChat-only AI service\b/i,
+  /\bChoose an AI service and AI model before creating this agent\b/i,
+  />\s*AI model\s*</i,
+]
 
 const AGENT_PROJECT_LOCATION_JARGON_PATTERNS = [
   /\bprojectPath:\s*['"`]Project Path['"`]/,
@@ -2871,6 +2879,12 @@ function hasCreateAgentManagementJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return CREATE_AGENT_MANAGEMENT_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasCreateAgentConfirmationJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CREATE_AGENT_CONFIRMATION_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentProjectLocationJargonCopy(relFile, line) {
@@ -5201,6 +5215,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Create agent setup must explain what the agent does instead of saying it is managed by Forge.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCreateAgentConfirmationJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'create-agent-confirmation-copy',
+        location,
+        message:
+          'Create agent review copy must explain the next state and AI service model in plain language.',
         sample: line.trim(),
       })
     }

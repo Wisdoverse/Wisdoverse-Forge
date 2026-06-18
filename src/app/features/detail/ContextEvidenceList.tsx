@@ -7,7 +7,7 @@ const HIDDEN_EVIDENCE_VALUE =
 const MISSING_ACCESS_MESSAGE =
   'Required account access is missing. Add or reconnect service access, then retry.'
 const TECHNICAL_EVIDENCE_MESSAGE =
-  'This record hit a problem. Ask the agent to explain what happened, then retry if the task still matters.'
+  'This saved detail hit a problem. Ask the agent to explain what happened, then retry if the task still matters.'
 
 interface ContextEvidenceListProps {
   evidence: TaskContextEvidence[]
@@ -83,7 +83,7 @@ export function ContextEvidenceList({ evidence, revokedItems }: ContextEvidenceL
                     Show saved details
                   </summary>
                   <pre className="mt-1 max-h-28 overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-white/70 p-2 leading-relaxed dark:bg-black/20">
-                    {formatTechnicalDetails(item.payload)}
+                    {formatSavedDetails(item.payload)}
                   </pre>
                 </details>
               </div>
@@ -139,12 +139,70 @@ function payloadSummary(payload: Record<string, unknown>): string {
   return 'Work details were recorded for this task.'
 }
 
-function formatTechnicalDetails(payload: Record<string, unknown>): string {
+function formatSavedDetails(payload: Record<string, unknown>): string {
   try {
-    return JSON.stringify(safeEvidenceValue(payload), null, 2)
+    const lines = savedDetailLines(safeEvidenceValue(payload))
+    return lines.length > 0
+      ? lines.join('\n')
+      : 'No saved details were available. Check the summary above, then retry if needed.'
   } catch {
     return 'Saved details were recorded but could not be shown safely. Check the summary above, then ask an owner or admin to check this task if needed.'
   }
+}
+
+function savedDetailLines(value: unknown, label = 'Saved detail'): string[] {
+  if (Array.isArray(value)) {
+    if (value.length === 0) return [`${label}: Nothing else was saved.`]
+    return value.flatMap((item, index) =>
+      savedDetailLines(item, label === 'Saved detail' ? `Saved detail ${index + 1}` : label)
+    )
+  }
+
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+    if (entries.length === 0) return [`${label}: Nothing else was saved.`]
+    return entries.flatMap(([entryKey, entryValue]) =>
+      savedDetailLines(entryValue, savedDetailLabel(entryKey))
+    )
+  }
+
+  return [`${label}: ${savedDetailValue(value, label)}`]
+}
+
+function savedDetailLabel(key: string): string {
+  if (isSensitiveEvidenceKey(key)) return 'Hidden detail'
+
+  switch (key.trim().toLowerCase()) {
+    case 'ok':
+    case 'success':
+      return 'Status'
+    case 'summary':
+      return 'Summary'
+    case 'message':
+      return 'Message'
+    case 'title':
+      return 'Title'
+    case 'description':
+      return 'Description'
+    case 'error':
+    case 'reason':
+      return 'Problem'
+    case 'retryable':
+      return 'Can retry'
+    default:
+      return 'Saved detail'
+  }
+}
+
+function savedDetailValue(value: unknown, label: string): string {
+  if (typeof value === 'boolean') {
+    if (label === 'Status') return value ? 'completed' : 'needs checking'
+    return value ? 'yes' : 'no'
+  }
+  if (typeof value === 'number') return String(value)
+  if (typeof value === 'string') return value
+  if (value == null) return 'not available'
+  return 'saved but not shown here'
 }
 
 function safeEvidenceValue(value: unknown, key = ''): unknown {
@@ -190,7 +248,7 @@ function containsSensitiveEvidenceText(value: string): boolean {
 }
 
 function containsTechnicalEvidenceText(value: string): boolean {
-  return /\b(panic|stack trace|traceback|exception|stdout|stderr|raw command output|docker socket|internal error|database (?:unavailable|timeout|error)|connection refused)\b/i.test(
+  return /\b((?:API|HTTP)\s*\d{3}|GraphQL|status code|provider|payload|endpoint|schema|panic|stack trace|traceback|exception|stdout|stderr|raw (?:command output|response|payload|event|details)|docker socket|internal error|database (?:unavailable|timeout|error)|connection refused)\b/i.test(
     value
   )
 }
