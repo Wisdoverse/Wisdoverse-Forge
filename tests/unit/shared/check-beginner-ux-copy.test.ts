@@ -2406,6 +2406,54 @@ function BillingNotConfigured() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags billing plan copy that starts from no paid plan dead ends', () => {
+    const cwd = fixture({
+      'src/app/features/billing/PlanCard.tsx': `
+function PlanCard() {
+  return (
+    <div>
+      <p>No paid plan is active yet. You can keep working until the team needs more capacity.</p>
+      <p>No paid plan is attached yet. An owner or admin must make a paid plan available before the secure payment page can open.</p>
+    </div>
+  )
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'billing-plan-copy',
+          location: 'src/app/features/billing/PlanCard.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'billing-plan-copy',
+          location: 'src/app/features/billing/PlanCard.tsx:6',
+        }),
+      ])
+    )
+  })
+
+  it('accepts billing plan copy that starts with the safe next step', () => {
+    const cwd = fixture({
+      'src/app/features/billing/PlanCard.tsx': `
+function PlanCard() {
+  return (
+    <div>
+      <p>Keep using the free plan until your team needs more capacity.</p>
+      <p>Ask an owner or admin to make a paid plan available before the secure payment page can open.</p>
+    </div>
+  )
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags invoice receipt copy that does not explain when the link appears', () => {
     const cwd = fixture({
       'src/app/features/billing/InvoiceList.tsx': `

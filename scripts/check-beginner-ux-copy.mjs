@@ -267,6 +267,11 @@ const BILLING_SETUP_JARGON_PATTERNS = [
   /\bsecret payment settings\b/i,
 ]
 
+const BILLING_PLAN_DEAD_END_PATTERNS = [
+  /\bNo paid plan is active yet\b/i,
+  /\bNo paid plan is attached yet\b/i,
+]
+
 const BILLING_RECEIPT_LINK_DEAD_END_PATTERNS = [/\bNo link\b/i]
 
 const BILLING_ERROR_FAILURE_FIRST_PATTERNS = [
@@ -2064,6 +2069,12 @@ function hasBillingSetupJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/billing/BillingPage.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return BILLING_SETUP_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasBillingPlanDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/billing/PlanCard.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return BILLING_PLAN_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasBillingReceiptLinkDeadEndCopy(relFile, line) {
@@ -4159,6 +4170,15 @@ function scanFile(file, relFile) {
         type: 'billing-setup-copy',
         location,
         message: 'Billing setup copy must say setup steps instead of setup path.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasBillingPlanDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'billing-plan-copy',
+        location,
+        message: 'Billing plan copy must start with the safe next step for beginners.',
         sample: line.trim(),
       })
     }

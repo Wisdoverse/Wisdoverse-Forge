@@ -84,9 +84,11 @@ describe('Billing beginner guidance', () => {
 
     expect(screen.getByText('Free Plan')).toBeInTheDocument()
     expect(screen.getByText('$0')).toBeInTheDocument()
-    expect(screen.getByText(/No paid plan is active yet/i)).toBeInTheDocument()
+    expect(screen.getByText(/Keep using the free plan/i)).toBeInTheDocument()
     expect(screen.getByText(/Upgrade when your team needs more agents/i)).toBeInTheDocument()
     expect(screen.getByText(/AI message use/i)).toBeInTheDocument()
+    expect(screen.queryByText(/No paid plan is active yet/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/No paid plan is attached yet/i)).not.toBeInTheDocument()
     expect(screen.queryByText(new RegExp('AI text\\s+usage', 'i'))).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /upgrade plan/i })).toHaveTextContent('Upgrade plan')
   })
