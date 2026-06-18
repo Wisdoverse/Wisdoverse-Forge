@@ -71,15 +71,15 @@ const SECTIONS: SectionItem[] = [
   },
   {
     id: 'resources',
-    label: 'Work limits',
-    description: 'Choose safe small, standard, or large work limits.',
+    label: 'Agent size limits',
+    description: 'Choose small, standard, or large limits before agents start file work.',
     group: 'Work setup',
     Icon: Gauge,
   },
   {
     id: 'runtime',
-    label: 'Agent work setup',
-    description: 'Choose where agents edit files and which tool opens the work.',
+    label: 'Where agents work',
+    description: 'Choose where project files open and which work tool agents use.',
     group: 'Work setup',
     Icon: Settings2,
   },
@@ -107,7 +107,7 @@ const SECTIONS: SectionItem[] = [
   {
     id: 'about',
     label: 'About',
-    description: 'Check version and product information.',
+    description: 'Check the app version and product details.',
     group: 'Product info',
     Icon: Info,
   },

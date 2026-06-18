@@ -1387,7 +1387,7 @@ export const zh = {
       'src/app/shared/i18n/locales/en.ts': `
 export const en = {
   errors: {
-    generic: 'Try again. If it repeats, ask an owner to check the system.',
+    generic: 'Try again after a moment. If it repeats, ask an owner to check app health.',
     notFound: 'Refresh the page, then try again. {{resource}} was not found.',
     serverError: 'Wait a moment, then try again. Forge could not finish this right now.',
     uploadError: 'Check the file and connection, then upload again. The upload did not finish.',
@@ -1398,7 +1398,7 @@ export const en = {
       'src/app/shared/i18n/locales/zh.ts': `
 export const zh = {
   errors: {
-    generic: '请重试；如果反复发生，请让管理员检查系统。',
+    generic: '请稍等一下再重试；如果反复发生，请让管理员检查应用健康状态。',
     notFound: '请刷新页面后重试。未找到 {{resource}}。',
     serverError: '请稍等片刻后重试。Forge 暂时无法完成这个操作。',
     uploadError: '请检查文件和网络后重新上传。上传没有完成。',
@@ -1409,6 +1409,41 @@ export const zh = {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags common error translations that end with vague system checks', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  errors: {
+    generic: 'Try again. If it repeats, ask an owner to check the system.',
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  errors: {
+    generic: '请重试；如果反复发生，请让管理员检查系统。',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'common-error-system-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'common-error-system-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:4',
+        }),
+      ])
+    )
   })
 
   it('flags localized user access copy that exposes role jargon', () => {
@@ -3665,6 +3700,75 @@ export function Workshop3DEmptyState() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags visual map controls that mention unsupported mouse actions', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  workshop: {
+    controls: {
+      zoom: 'Scroll to zoom',
+      pan: 'Middle-click to pan',
+      rotate: 'Right-click to rotate',
+      select: 'Click to select',
+    },
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  workshop: {
+    controls: {
+      zoom: '滚动缩放',
+      pan: '中键平移',
+      rotate: '右键旋转',
+      select: '点击选择',
+    },
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'workshop-3d-controls-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'workshop-3d-controls-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'workshop-3d-controls-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:7',
+        }),
+        expect.objectContaining({
+          type: 'workshop-3d-controls-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:8',
+        }),
+        expect.objectContaining({
+          type: 'workshop-3d-controls-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'workshop-3d-controls-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'workshop-3d-controls-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:7',
+        }),
+        expect.objectContaining({
+          type: 'workshop-3d-controls-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:8',
+        }),
+      ])
+    )
+  })
+
   it('flags agent detail activity copy that does not tell users to open Tasks', () => {
     const cwd = fixture({
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
@@ -4544,13 +4648,13 @@ const SECTIONS = [
     ])
   })
 
-  it('accepts settings runtime navigation copy that explains file-work setup', () => {
+  it('accepts settings runtime navigation copy that explains where files open', () => {
     const cwd = fixture({
       'src/app/pages/settings/ui/SettingsLayout.tsx': `
 const SECTIONS = [
   {
-    label: 'Agent work setup',
-    description: 'Choose where agents edit files and which tool opens the work.',
+    label: 'Where agents work',
+    description: 'Choose where project files open and which work tool agents use.',
   },
 ]
 `,
@@ -8658,6 +8762,38 @@ const item = { description: 'follow the setup checklist' }
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags Start page metadata that still sounds like a launch button', () => {
+    const cwd = fixture({
+      'src/app/layouts/AppLayout.tsx': `
+const PAGE_META = {
+  '/start': { title: 'Start', subtitle: 'Set up Forge and send your first task' },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'start-page-title-copy',
+        location: 'src/app/layouts/AppLayout.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts setup checklist page metadata', () => {
+    const cwd = fixture({
+      'src/app/layouts/AppLayout.tsx': `
+const PAGE_META = {
+  '/start': { title: 'Setup checklist', subtitle: 'Set up Forge and send your first task' },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags sidebar layout wording in user-visible left-menu copy', () => {
     const cwd = fixture({
       'src/app/layouts/AppLayout.tsx': `
@@ -8943,12 +9079,53 @@ export function TopBar() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags top bar search copy that does not match the command palette language', () => {
+    const cwd = fixture({
+      'src/app/layouts/TopBar.tsx': `
+export function TopBar() {
+  return <button aria-label="Search pages and actions" title="Search pages and actions">Search</button>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'top-bar-search-copy',
+        location: 'src/app/layouts/TopBar.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts top bar search copy that matches the command palette language', () => {
+    const cwd = fixture({
+      'src/app/layouts/TopBar.tsx': `
+export function TopBar() {
+  return <button aria-label="Search pages and things to do" title="Search pages and things to do">Search</button>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags unclear command palette task action copy', () => {
     const cwd = fixture({
       'src/app/features/cmdk/CommandPalette.tsx': `
 const ACTION_COMMANDS = [
   { id: 'action:create-task', label: 'Create task', description: 'Start a new piece of work.' },
 ]
+function SearchBox() {
+  return <input placeholder="Search pages or actions, e.g. tasks, inbox, settings" />
+}
+function EmptySearch() {
+  return <p>No page or action matches that search. Try Tasks to jump to a common workflow.</p>
+}
+function Heading() {
+  return <p>Start an action</p>
+}
 `,
     })
 
@@ -8971,6 +9148,15 @@ const ACTION_COMMANDS = [
 const ACTION_COMMANDS = [
   { id: 'action:create-task', label: 'New task', description: 'Create a task for an agent to finish.' },
 ]
+function SearchBox() {
+  return <input placeholder="Search pages or things to do, e.g. tasks, inbox, settings" />
+}
+function EmptySearch() {
+  return <p>No page or option matches that search. Try Tasks to open a page people use often.</p>
+}
+function Heading() {
+  return <p>Create or change something</p>
+}
 `,
     })
 

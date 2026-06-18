@@ -5,6 +5,8 @@ import { zh } from '@app/shared/i18n/locales/zh'
 describe('beginner error translations', () => {
   test('English common errors lead with recovery steps', () => {
     expect(en.errors.generic).toMatch(/^Try again/)
+    expect(en.errors.generic).toContain('check app health')
+    expect(en.errors.generic).not.toContain('check the system')
     expect(en.errors.network).toContain('Check your connection')
     expect(en.errors.timeout).toMatch(/^Wait a moment/)
     expect(en.errors.notFound).toMatch(/^Refresh the page/)
@@ -31,7 +33,9 @@ describe('beginner error translations', () => {
   })
 
   test('Chinese common errors avoid terse technical labels', () => {
-    expect(zh.errors.generic).toMatch(/^请重试/)
+    expect(zh.errors.generic).toMatch(/^请稍等/)
+    expect(zh.errors.generic).toContain('应用健康状态')
+    expect(zh.errors.generic).not.toContain('检查系统')
     expect(zh.errors.network).toMatch(/^请检查网络/)
     expect(zh.errors.timeout).toMatch(/^请稍等片刻/)
     expect(zh.errors.notFound).toMatch(/^请刷新页面/)
@@ -332,15 +336,23 @@ describe('beginner error translations', () => {
   test('visual map labels avoid old scene and draw-mode jargon', () => {
     expect(en.workshop.title).toBe('Visual map')
     expect(en.workshop.loading).toBe('Loading visual map...')
+    expect(en.workshop.controls.select).toBe('Choose an agent from the list or map')
     expect(en.workshop.shortcuts.drawMode).toBe('Press D to add drawing notes')
     expect(JSON.stringify(en.workshop)).not.toContain('Workshop')
     expect(JSON.stringify(en.workshop)).not.toContain('draw mode')
+    expect(JSON.stringify(en.workshop.controls)).not.toContain('Middle-click')
+    expect(JSON.stringify(en.workshop.controls)).not.toContain('Right-click')
+    expect(JSON.stringify(en.workshop.controls)).not.toContain('Scroll to zoom')
 
     expect(zh.workshop.title).toBe('视觉地图')
     expect(zh.workshop.loading).toBe('加载视觉地图...')
+    expect(zh.workshop.controls.select).toBe('从列表或地图中选择 Agent')
     expect(zh.workshop.shortcuts.drawMode).toBe('按 D 添加绘图备注')
     expect(JSON.stringify(zh.workshop)).not.toContain('工作坊')
     expect(JSON.stringify(zh.workshop)).not.toContain('绘图模式')
+    expect(JSON.stringify(zh.workshop.controls)).not.toContain('中键')
+    expect(JSON.stringify(zh.workshop.controls)).not.toContain('右键')
+    expect(JSON.stringify(zh.workshop.controls)).not.toContain('滚动缩放')
   })
 
   test('activity feed labels explain what happened without internal event names', () => {

@@ -144,12 +144,12 @@ describe('AppLayout', () => {
     render(<MemoryRouter />)
 
     const searchButton = screen.getByTestId('top-bar-command-search')
-    expect(searchButton).toHaveAccessibleName('Search pages and actions')
+    expect(searchButton).toHaveAccessibleName('Search pages and things to do')
     expect(screen.getByText('Search')).toBeDefined()
 
     fireEvent.click(searchButton)
 
-    expect(screen.getByPlaceholderText(/search pages or actions/i)).toBeDefined()
+    expect(screen.getByPlaceholderText(/search pages or things to do/i)).toBeDefined()
     expect(
       screen.queryByPlaceholderText(new RegExp(['search', 'commands'].join('\\s+'), 'i'))
     ).toBeNull()
@@ -167,7 +167,7 @@ describe('AppLayout', () => {
     await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
     expect(screen.getByRole('dialog')).toBeDefined()
     expect(screen.getByLabelText(/what should the agent finish/i)).toBeDefined()
-    expect(screen.queryByPlaceholderText(/search pages or actions/i)).toBeNull()
+    expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
   })
 
   test('command palette task view actions open Tasks before switching view', () => {
@@ -181,7 +181,7 @@ describe('AppLayout', () => {
 
     expect(onNavigate).toHaveBeenCalledWith('/tasks')
     expect(useBoardStore.getState().viewMode).toBe('list')
-    expect(screen.queryByPlaceholderText(/search pages or actions/i)).toBeNull()
+    expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
   })
 
   test('uses beginner-facing start page metadata', () => {
@@ -189,8 +189,9 @@ describe('AppLayout', () => {
 
     render(<MemoryRouter />)
 
-    expect(screen.getByText('Start')).toBeDefined()
+    expect(screen.getByText('Setup checklist')).toBeDefined()
     expect(screen.getByText('Set up Forge and send your first task')).toBeDefined()
+    expect(screen.queryByText(/^Start$/)).toBeNull()
     expect(screen.queryByText(/first-run setup/i)).toBeNull()
     expect(screen.queryByText(/launch checklist/i)).toBeNull()
   })

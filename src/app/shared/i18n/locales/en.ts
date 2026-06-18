@@ -392,10 +392,10 @@ export const en = {
     loading: 'Loading visual map...',
     loadError: 'Visual map could not load. Refresh after agents are available, then try again.',
     controls: {
-      zoom: 'Scroll to zoom',
-      pan: 'Middle-click to pan',
-      rotate: 'Right-click to rotate',
-      select: 'Click to select',
+      zoom: 'Use the agent list to find an agent',
+      pan: 'Select a robot in the map',
+      rotate: 'The map updates on its own',
+      select: 'Choose an agent from the list or map',
     },
     shortcuts: {
       numbers: 'Press 1-9 to select agents',
@@ -520,7 +520,7 @@ export const en = {
   // Errors
   // =========================================================================
   errors: {
-    generic: 'Try again. If it repeats, ask an owner to check the system.',
+    generic: 'Try again after a moment. If it repeats, ask an owner to check app health.',
     network: 'Check your connection, then try again. Forge could not connect.',
     timeout: 'Wait a moment, then try again. The request took too long.',
     notFound: 'Refresh the page, then try again. {{resource}} was not found.',
