@@ -202,6 +202,7 @@ const ADMIN_USER_ROLE_JARGON_PATTERNS = [/\bsystem configuration\b/i]
 const ADMIN_ORGS_EMPTY_DEAD_END_PATTERNS = [
   /\bNo team spaces are visible yet\b/i,
   /\baccess needs review\b/i,
+  /\bagent work queues\b/i,
 ]
 
 const ADMIN_AGENT_ACTIVITY_DEAD_END_PATTERNS = [
@@ -1469,6 +1470,7 @@ const TEAM_PROJECT_ROW_ADDRESS_JARGON_PATTERNS = [
 const TEAM_PROJECT_SHORT_NAME_JARGON_PATTERNS = [
   /\blink name\b/i,
   /\bURL name:\s*\{/i,
+  /\bteam space short name\b/i,
   /\bproject short name\b/i,
   /\bshort name used in project links\b/i,
 ]
