@@ -649,6 +649,20 @@ const SAVED_INSTRUCTION_DETAIL_HELPER_JARGON_PATTERNS = [
   /请先补充说明，再让 Agent 使用这条保存的说明/,
 ]
 
+const SAVED_INSTRUCTION_LIST_STATUS_JARGON_PATTERNS = [
+  /\binstalled:\s*['"`]Installed['"`]/,
+  /\bavailable:\s*['"`]Available['"`]/,
+  /<SkillStat\s+label=["']Installed["']/,
+  /<SkillStat\s+label=["']Available["']/,
+]
+
+const SAVED_INSTRUCTION_CREATE_FIELD_JARGON_PATTERNS = [
+  /\bAgent instructions\b/,
+  /\bAgent ready\b/,
+  /\bSaved instructions are reusable steps for agents\. Start with a clear name and the rules the agent should follow\./,
+  /\bAdd the steps this saved instruction should apply\./,
+]
+
 const AGENT_PLUGIN_ERROR_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*Tool change was not saved\. The switch was returned to its previous setting\./i,
   /['"`]\s*Forge could not finish this tool request right now\. Wait a few minutes, then try again\./i,
@@ -2897,6 +2911,18 @@ function hasSavedInstructionDetailHelperJargonCopy(relFile, line) {
   return SAVED_INSTRUCTION_DETAIL_HELPER_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasSavedInstructionListStatusJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/skills/SkillsView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SAVED_INSTRUCTION_LIST_STATUS_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasSavedInstructionCreateFieldJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/skills/CreateSkillModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SAVED_INSTRUCTION_CREATE_FIELD_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasSavedInstructionsLoadDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/skills/SkillsView.tsx') &&
@@ -5003,6 +5029,26 @@ function scanFile(file, relFile) {
         location,
         message:
           'Saved instruction detail helper copy must explain when to use it and what to read next in beginner terms.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSavedInstructionListStatusJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'saved-instruction-list-status-copy',
+        location,
+        message:
+          'Saved instruction list status copy must use ready/needs-install wording instead of install jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSavedInstructionCreateFieldJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'saved-instruction-create-field-copy',
+        location,
+        message:
+          'Saved instruction creation fields must use plain step-writing language for beginners.',
         sample: line.trim(),
       })
     }

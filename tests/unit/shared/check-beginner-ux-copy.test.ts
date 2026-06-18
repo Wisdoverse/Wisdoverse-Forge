@@ -9720,6 +9720,107 @@ export const zh = {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags saved instruction list and create-field copy that uses install or agent-instruction jargon', () => {
+    const cwd = fixture({
+      'src/app/features/skills/SkillsView.tsx': `
+const SKILL_FILTER_LABELS = {
+  installed: 'Installed',
+  available: 'Available',
+}
+export function SkillsView() {
+  return <>
+    <SkillStat label="Installed" />
+    <SkillStat label="Available" />
+  </>
+}
+`,
+      'src/app/features/skills/CreateSkillModal.tsx': `
+const SKILL_REVIEW_POINTS = [
+  { label: 'Agent ready', value: 'Write steps an agent can follow without extra context.' },
+]
+export function CreateSkillModal() {
+  return <>
+    <p>Saved instructions are reusable steps for agents. Start with a clear name and the rules the agent should follow.</p>
+    <label>Agent instructions</label>
+    <p>Add the steps this saved instruction should apply.</p>
+  </>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'saved-instruction-list-status-copy',
+          location: 'src/app/features/skills/SkillsView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-list-status-copy',
+          location: 'src/app/features/skills/SkillsView.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-list-status-copy',
+          location: 'src/app/features/skills/SkillsView.tsx:8',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-list-status-copy',
+          location: 'src/app/features/skills/SkillsView.tsx:9',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-create-field-copy',
+          location: 'src/app/features/skills/CreateSkillModal.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-create-field-copy',
+          location: 'src/app/features/skills/CreateSkillModal.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-create-field-copy',
+          location: 'src/app/features/skills/CreateSkillModal.tsx:8',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-create-field-copy',
+          location: 'src/app/features/skills/CreateSkillModal.tsx:9',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved instruction list and create-field copy that uses beginner action wording', () => {
+    const cwd = fixture({
+      'src/app/features/skills/SkillsView.tsx': `
+const SKILL_FILTER_LABELS = {
+  installed: 'Ready to use',
+  available: 'Needs install',
+}
+export function SkillsView() {
+  return <>
+    <SkillStat label="Ready to use" />
+    <SkillStat label="Needs install" />
+    <span>Save instruction</span>
+  </>
+}
+`,
+      'src/app/features/skills/CreateSkillModal.tsx': `
+const SKILL_REVIEW_POINTS = [
+  { label: 'Clear steps', value: 'Write steps an agent can follow without extra context.' },
+]
+export function CreateSkillModal() {
+  return <>
+    <p>Start with a clear name, matching words, and the steps the agent should follow.</p>
+    <label>Steps for the agent</label>
+    <p>Add the steps the agent should follow before saving.</p>
+  </>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags governance audit fallbacks that leave beginners without a field to check', () => {
     const cwd = fixture({
       'src/app/features/governance/AuditLogView.tsx': `
