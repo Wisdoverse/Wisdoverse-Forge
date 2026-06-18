@@ -2105,7 +2105,7 @@ export function runtimeKindLabel(kind) {
 
 export function runtimeKindShortLabel(kind) {
   if (!kind) return 'Location missing'
-  return 'Needs review'
+  return 'Review location'
 }
 `,
     })
@@ -2138,7 +2138,7 @@ export function runtimeKindLabel(kind) {
 
 export function runtimeKindShortLabel(kind) {
   if (!kind) return 'Refresh location'
-  return 'Review location'
+  return 'Check location'
 }
 `,
     })
@@ -7203,17 +7203,17 @@ const STATE_HELP = {
 `,
       'src/app/features/board/KanbanColumn.tsx': `
 const COLUMN_COPY = {
-  failed: { label: 'Needs review' },
+  failed: { label: 'Review recovery' },
 }
 `,
       'src/app/features/detail/HistoryTab.tsx': `
 export function readableRunStatus(status) {
-  return 'Needs review'
+  return 'Review recovery'
 }
 `,
       'src/app/features/inbox/InboxItem.tsx': `
 const TYPE_CONFIG = {
-  failed: { label: 'Needs review' },
+  failed: { label: 'Review recovery' },
 }
 `,
     })
@@ -7255,26 +7255,26 @@ const TYPE_CONFIG = {
     const cwd = fixture({
       'src/app/entities/task/model/taskLabels.ts': `
 const TASK_STATE_LABELS = {
-  failed: 'Review recovery',
+  failed: 'Check retry steps',
 }
 `,
       'src/app/features/agents/AgentTasksTab.tsx': `
 const STATE_LABELS = {
-  failed: 'Review recovery',
+  failed: 'Check retry steps',
 }
 
 const STATE_HELP = {
-  failed: 'Open the task, review the latest update, then retry when ready.',
+  failed: 'Open the task, check the latest update, then retry when ready.',
 }
 `,
       'src/app/features/board/KanbanColumn.tsx': `
 const COLUMN_COPY = {
-  failed: { label: 'Review recovery' },
+  failed: { label: 'Check retry steps' },
 }
 `,
       'src/app/features/detail/HistoryTab.tsx': `
 export function readableRunStatus(status) {
-  return 'Review recovery'
+  return 'Check retry steps'
 }
 `,
       'src/app/features/inbox/InboxItem.tsx': `
@@ -7598,7 +7598,7 @@ function nextStep() {
     const cwd = fixture({
       'src/app/features/analytics/AnalyticsDashboard.tsx': `
 function nextStep() {
-  return 'Review Command line recovery first. Open recent task results, review the recovery notes, then pause new work until the next step is clear.'
+  return 'Check Command line retry steps first. Open recent task results, check the recovery notes, then pause new work until the next step is clear.'
 }
 `,
     })
@@ -11835,7 +11835,7 @@ function ParticipantChip({ participant }) {
     const cwd = fixture({
       'src/app/features/detail/TaskDetailPanel.tsx': `
 function AgentChoice() {
-  return <span>Can build the task and review the result</span>
+  return <span>Can build the task and check the result</span>
 }
 `,
     })
@@ -12331,6 +12331,56 @@ export const zh = {
     )
   })
 
+  it('flags getting started action labels that use review for ordinary checks', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  gettingStarted: {
+    steps: {
+      workspace: { review: 'Review team and project' },
+      runtime: { review: 'Review work location' },
+      provider: { reviewProviders: 'Review AI services', reviewAgents: 'Review agents' },
+      routing: { review: 'Review waiting places' },
+      task: { inFlight: 'A task is assigned. Review progress from the board.' },
+    },
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'getting-started-action-copy',
+          sample: expect.stringContaining('Review team and project'),
+        }),
+        expect.objectContaining({
+          type: 'getting-started-action-copy',
+          sample: expect.stringContaining('Review work location'),
+        }),
+        expect.objectContaining({
+          type: 'getting-started-action-copy',
+          sample: expect.stringContaining('Review AI services'),
+        }),
+        expect.objectContaining({
+          type: 'getting-started-action-copy',
+          sample: expect.stringContaining('Review agents'),
+        }),
+        expect.objectContaining({
+          type: 'getting-started-action-copy',
+          sample: expect.stringContaining('Review waiting places'),
+        }),
+        expect.objectContaining({
+          type: 'getting-started-action-copy',
+          sample: expect.stringContaining('Review progress from the board'),
+        }),
+      ])
+    )
+  })
+
   it('accepts getting started setup labels that name team and project', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `
@@ -12340,8 +12390,12 @@ export const en = {
       workspace: {
         title: 'Team and project',
         create: 'Create team and project',
-        review: 'Review team and project',
+        review: 'Check team and project',
       },
+      runtime: { review: 'Check work location' },
+      provider: { reviewProviders: 'Check AI services', reviewAgents: 'Open agents' },
+      routing: { review: 'Check waiting places' },
+      task: { inFlight: 'A task is assigned. Check progress from the board.' },
     },
   },
 }
@@ -12706,13 +12760,13 @@ function ResultReviewGuide() {
 function listNextStep() {
   return {
     detail: 'Open completed tasks to check the result, result files, and anything worth reusing.',
-    action: 'Open it to review the result and result files.',
+    action: 'Open it to check the result and result files.',
   }
 }
 `,
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
 function agentNextStep() {
-  return 'You can decide whether to reuse the agent, review result files, or assign another task.'
+  return 'You can decide whether to reuse the agent, check result files, or assign another task.'
 }
 `,
     })
@@ -14624,10 +14678,10 @@ export function taskBlockedPreview() {
     const cwd = fixture({
       'src/app/shared/lib/taskFailureCopy.ts': `
 export function taskFailurePreview() {
-  return 'Stopped before finishing. Open the task details, review the latest update, then retry when ready.'
+  return 'Stopped before finishing. Open the task details, check the latest update, then retry when ready.'
 }
 export function taskBlockedPreview() {
-  return 'This task needs help before it can continue. Open the task details, review the latest update, then retry or ask an owner for help.'
+  return 'This task needs help before it can continue. Open the task details, check the latest update, then retry or ask an owner for help.'
 }
 `,
     })
@@ -14659,7 +14713,7 @@ const COLUMN_EMPTY_STATE = {
     const cwd = fixture({
       'src/app/features/board/KanbanColumn.tsx': `
 const COLUMN_EMPTY_STATE = {
-  failed: { title: 'Retry steps appear here after a task stops', detail: 'Review the recovery note and retry steps.' },
+  failed: { title: 'Retry steps appear here after a task stops', detail: 'Read the recovery note and retry steps.' },
 }
 `,
     })
@@ -14734,12 +14788,12 @@ function nextActionForTask() {
     const cwd = fixture({
       'src/app/features/list/ListView.tsx': `
 function taskNextAction() {
-  return 'Open it, review the recovery note, then retry only after the next step is clear.'
+  return 'Open it, read the recovery note, then retry only after the next step is clear.'
 }
 `,
       'src/app/features/detail/DescriptionTab.tsx': `
 function nextActionForTask() {
-  return { title: 'Review recovery' }
+  return { title: 'Check retry steps' }
 }
 `,
     })

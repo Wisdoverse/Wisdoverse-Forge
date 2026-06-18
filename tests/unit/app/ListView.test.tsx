@@ -236,7 +236,7 @@ describe('ListView', () => {
         'Open completed tasks to check the result, result files, and anything worth reusing.'
       )
     ).toBeDefined()
-    expect(screen.getByText('Open it to review the result and result files.')).toBeDefined()
+    expect(screen.getByText('Open it to check the result and result files.')).toBeDefined()
     expect(screen.queryByText(/result, evidence/i)).toBeNull()
     expect(screen.queryByText(/result and evidence/i)).toBeNull()
   })
@@ -380,7 +380,7 @@ describe('ListView', () => {
 
     expect(
       screen.getByText(
-        'Open it, review the recovery note, then retry only after the next step is clear.'
+        'Open it, read the recovery note, then retry only after the next step is clear.'
       )
     ).toBeDefined()
     expect(screen.queryByText(/read the failure/i)).toBeNull()

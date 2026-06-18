@@ -10,7 +10,7 @@ const CAPABILITY_COPY: Record<string, string> = {
   opencode: 'use OpenCode for this work',
   planning: 'plan the work',
   research: 'research the request',
-  review: 'review the result',
+  review: 'check the result',
   testing: 'check the result',
   writing: 'write or edit text',
 }

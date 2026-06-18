@@ -264,7 +264,7 @@ describe('HistoryTab', () => {
       />
     )
 
-    expect(await screen.findByText('Review recovery')).toBeInTheDocument()
+    expect(await screen.findByText('Check retry steps')).toBeInTheDocument()
     expect(screen.queryByText('Failed')).toBeNull()
     expect(await screen.findAllByText(/AI service is busy/i)).toHaveLength(2)
     expect(screen.queryByText(/model service is busy/i)).toBeNull()
@@ -375,7 +375,7 @@ describe('HistoryTab', () => {
     )
 
     expect(await screen.findByText('Build Agent finished the task')).toBeInTheDocument()
-    expect(screen.getByText('1 result file ready to review.')).toBeInTheDocument()
+    expect(screen.getByText('1 result file ready to check.')).toBeInTheDocument()
     expect(screen.queryByText(/result item/i)).toBeNull()
   })
 

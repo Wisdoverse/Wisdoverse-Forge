@@ -31,7 +31,7 @@ const TASK_STATE_LABELS: Record<TaskSummary['state'], string> = {
   working: 'Working',
   blocked: 'Needs help',
   completed: 'Done',
-  failed: 'Review recovery',
+  failed: 'Check retry steps',
   canceled: 'Canceled',
 }
 

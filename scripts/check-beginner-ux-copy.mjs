@@ -275,6 +275,7 @@ const ADMIN_STORE_ERROR_FAILURE_FIRST_PATTERNS = [
 const RUNTIME_SHORT_LABEL_JARGON_PATTERNS = [
   /\bWork location not reported\b/i,
   /\bLocation missing\b/i,
+  /\bReview location\b/i,
   /\breturn\s+['"`]Not reported['"`]/,
   /\breturn\s+['"`]Needs review['"`]/,
 ]
@@ -1079,12 +1080,15 @@ const TASK_OWNER_INPUT_JARGON_PATTERNS = [/\bneeds owner input\b/i]
 const TASK_REUSE_PATH_JARGON_PATTERNS = [/\bsave-for-next-time path\b/i]
 
 const TASK_RECOVERY_STATUS_DEAD_END_PATTERNS = [
+  /\bReview recovery\b/i,
   /\bfailed:\s*['"`]Needs review['"`]/,
   /\bfailed:\s*['"`]Stopped with an error['"`]/,
   /\blabel:\s*['"`]Needs review['"`]/,
   /\breturn\s+['"`]Needs review['"`]/,
   /\bThese tasks stopped before finishing\b/i,
   /\bfix the error\b/i,
+  /\breview the latest update\b/i,
+  /\breview the recovery notes?\b/i,
   /\breview the failure\b/i,
   /\bread the failure\b/i,
   /\bretry paths?\b/i,
@@ -1471,13 +1475,27 @@ const GETTING_STARTED_WORKSPACE_LABEL_PATTERNS = [
   /review:\s*['"`]查看工作区['"`]/,
 ]
 
+const GETTING_STARTED_REVIEW_ACTION_PATTERNS = [
+  /\bReview team and project\b/i,
+  /\bReview work location\b/i,
+  /\bReview AI services\b/i,
+  /\bReview agents\b/i,
+  /\bReview waiting places\b/i,
+  /\bReview progress from the board\b/i,
+]
+
 const TASK_DETAIL_EVIDENCE_JARGON_PATTERNS = [
   /\bResult files and evidence\b/i,
   /\bUse this result as evidence\b/i,
   /\bCheck the evidence\b/i,
   /\bresult, evidence\b/i,
+  /\breview the result before closing\b/i,
+  /\breview the result and result files\b/i,
   /\breview the result and evidence\b/i,
+  /\breview result files\b/i,
   /\breview evidence\b/i,
+  /\battached for review\b/i,
+  /\bresult file(?:s)? ready to review\b/i,
   /\bresult item(?:s)? ready to review\b/i,
 ]
 
@@ -2517,6 +2535,12 @@ function hasGettingStartedWorkspaceLabelCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return GETTING_STARTED_WORKSPACE_LABEL_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasGettingStartedReviewActionCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/shared/i18n/locales/en.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return GETTING_STARTED_REVIEW_ACTION_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasTaskDetailEvidenceJargonCopy(relFile, line) {
@@ -4806,11 +4830,20 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasGettingStartedReviewActionCopy(relFile, line)) {
+      findings.push({
+        type: 'getting-started-action-copy',
+        location,
+        message: 'Getting Started action buttons must use check or open instead of review.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasTaskDetailEvidenceJargonCopy(relFile, line)) {
       findings.push({
         type: 'task-detail-result-review-copy',
         location,
-        message: 'Task result review copy must describe result files without evidence jargon.',
+        message: 'Task result copy must describe result files without review or evidence jargon.',
         sample: line.trim(),
       })
     }
@@ -5999,7 +6032,7 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'task-recovery-status-copy',
         location,
-        message: 'Failed task status copy must tell beginners to review recovery.',
+        message: 'Failed task status copy must tell beginners to check retry steps.',
         sample: line.trim(),
       })
     }

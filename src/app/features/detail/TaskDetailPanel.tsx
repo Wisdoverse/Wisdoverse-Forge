@@ -587,7 +587,7 @@ function ResultReviewGuide({ task, artifactCount }: { task: TaskSummary; artifac
         </span>
         <div className="min-w-0">
           <h3 className="text-xs font-semibold text-foreground-light dark:text-foreground-dark">
-            Review the result before closing
+            Check the result before closing
           </h3>
           <p className="mt-1 text-[11px] leading-relaxed text-secondary-light dark:text-secondary-dark">
             {completed
@@ -605,7 +605,7 @@ function ResultReviewGuide({ task, artifactCount }: { task: TaskSummary; artifac
         <ResultReviewStep
           number="2"
           title="Check result files"
-          detail={`${artifactCount} result file${artifactCount === 1 ? '' : 's'} attached for review.`}
+          detail={`${artifactCount} result file${artifactCount === 1 ? '' : 's'} attached for checking.`}
         />
         <ResultReviewStep
           number="3"

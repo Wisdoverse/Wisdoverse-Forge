@@ -318,7 +318,7 @@ function taskNextStep(task: TaskSummary, options: TaskNextStepOptions): string |
       return 'Open task details, read the recovery note, then retry.'
     case 'completed':
       return options.resultCount > 0
-        ? 'Open task details, review result files, then save repeatable steps or create a follow-up task.'
+        ? 'Open task details, check result files, then save repeatable steps or create a follow-up task.'
         : 'Open task details, check the final answer, then save repeatable steps or create a follow-up task.'
     case 'canceled':
       return 'Open task details to see why it was canceled.'

@@ -86,7 +86,7 @@ export const en = {
     eyebrow: 'First run',
     title: 'Set up your first agent safely',
     description:
-      'Follow one step at a time. Finish this checklist to create an agent, send work, and review the result.',
+      'Follow one step at a time. Finish this checklist to create an agent, send work, and check the result.',
     skip: 'Skip and open Tasks',
     skipSaving: 'Skipping...',
     skipHint:
@@ -121,7 +121,7 @@ export const en = {
         why: 'A project gives tasks a clear home so agents know what work belongs together.',
         success: 'A team and project exist, and the project is selected.',
         create: 'Create team and project',
-        review: 'Review team and project',
+        review: 'Check team and project',
       },
       runtime: {
         title: 'Work location',
@@ -130,7 +130,7 @@ export const en = {
         why: 'Agents need a safe place to run before they can receive tasks.',
         success: 'At least one work location is ready for agent work.',
         open: 'Choose work location',
-        review: 'Review work location',
+        review: 'Check work location',
       },
       provider: {
         title: 'Give agents a way to work',
@@ -144,8 +144,8 @@ export const en = {
         create: 'Add AI service',
         connectCli: 'Join this computer',
         test: 'Check AI service',
-        reviewProviders: 'Review AI services',
-        reviewAgents: 'Review agents',
+        reviewProviders: 'Check AI services',
+        reviewAgents: 'Open agents',
       },
       agent: {
         title: 'Agent',
@@ -162,7 +162,7 @@ export const en = {
         why: 'This gives new work a place to wait until the next available agent picks it up.',
         success: 'A waiting place exists for the selected project.',
         create: 'Set up waiting place',
-        review: 'Review waiting places',
+        review: 'Check waiting places',
       },
       task: {
         title: 'First task',
@@ -178,7 +178,7 @@ export const en = {
       review: {
         title: 'Check the result',
         empty: 'Assigned task output will appear in the detail panel.',
-        inFlight: 'A task is assigned. Review progress from the board.',
+        inFlight: 'A task is assigned. Check progress from the board.',
         ready: '{{count}} completed task ready to check.',
         why: 'Checking the result helps you decide whether the agent returned useful output you can trust.',
         success: 'A task has completed output or result files you can open.',

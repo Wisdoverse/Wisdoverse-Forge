@@ -33,7 +33,7 @@ const COLUMN_CONFIG: Record<string, { label: string; dot: string; surface: strin
     surface: 'bg-apple-green/[0.035] dark:bg-apple-green/[0.06]',
   },
   failed: {
-    label: 'Review recovery',
+    label: 'Check retry steps',
     dot: 'bg-apple-red',
     surface: 'bg-apple-red/[0.04] dark:bg-apple-red/[0.07]',
   },
@@ -67,8 +67,7 @@ const COLUMN_EMPTY_STATE: Record<string, { title: string; detail: string }> = {
   },
   failed: {
     title: 'Retry steps appear here after a task stops',
-    detail:
-      'If a task stops early, open its card here to review the recovery note and retry steps.',
+    detail: 'If a task stops early, open its card here to read the recovery note and retry steps.',
   },
   canceled: {
     title: 'Canceled tasks stay here for history',

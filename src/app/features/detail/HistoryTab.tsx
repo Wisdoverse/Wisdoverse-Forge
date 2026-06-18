@@ -354,7 +354,7 @@ function taskCheckIn(task: TaskSummary): {
         title: `${agentName} is working at ${task.progress}%`,
         detail:
           task.progress >= 80
-            ? 'Prepare to review the result when the task finishes.'
+            ? 'Prepare to check the result when the task finishes.'
             : 'Progress is active. Watch for requests that need your decision.',
         tone: 'default',
         Icon: CircleDot,
@@ -375,7 +375,7 @@ function taskCheckIn(task: TaskSummary): {
         title: `${agentName} finished the task`,
         detail:
           artifactCount > 0
-            ? `${artifactCount} result file${artifactCount === 1 ? '' : 's'} ready to review.`
+            ? `${artifactCount} result file${artifactCount === 1 ? '' : 's'} ready to check.`
             : 'Review the outcome, then save repeatable steps or create a follow-up task if something is missing.',
         tone: 'success',
         Icon: CheckCircle2,
@@ -475,7 +475,7 @@ function taskUpdateGuide(task: TaskSummary): string {
         ? 'The task is waiting to begin. If it stays here, check work history below, then choose another agent if needed.'
         : 'The task is waiting for an agent. Choose or start an agent before expecting work history.'
     case 'working':
-      return 'The agent is working. Watch for requests that need your decision, then review the result when it finishes.'
+      return 'The agent is working. Watch for requests that need your decision, then check the result when it finishes.'
     case 'blocked':
       return 'The task needs your input. Read the reason, decide what to provide, then allow it to continue or update the task.'
     case 'completed':
@@ -505,7 +505,7 @@ function readableRunStatus(status: string): string {
       return 'Waiting to start'
     case 'failed':
     case 'error':
-      return 'Review recovery'
+      return 'Check retry steps'
     case 'canceled':
     case 'cancelled':
       return 'Stopped'

@@ -30,7 +30,7 @@ export const RUNTIME_KINDS: readonly AgentRuntimeKind[] = ['container', 'cli', '
 
 /**
  * Return the canonical full label for a runtime kind. Unexpected server input
- * gets a plain review label instead of exposing protocol slugs to operators.
+ * gets a plain check label instead of exposing protocol slugs to operators.
  */
 export function runtimeKindLabel(kind: AgentRuntimeKind | string | undefined): string {
   switch (kind?.trim().toLowerCase()) {
@@ -61,6 +61,6 @@ export function runtimeKindShortLabel(kind: AgentRuntimeKind | string | undefine
     case '':
       return 'Refresh location'
     default:
-      return 'Review location'
+      return 'Check location'
   }
 }

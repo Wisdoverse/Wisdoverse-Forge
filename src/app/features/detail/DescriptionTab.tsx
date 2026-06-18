@@ -391,7 +391,7 @@ function nextActionForTask(
         title: 'Monitor progress',
         detail:
           task.progress >= 80
-            ? 'Prepare to review result files when the agent finishes this task.'
+            ? 'Prepare to check result files when the agent finishes this task.'
             : 'Watch progress and use Needs help if the agent needs your input.',
         tone: 'default',
       }
@@ -418,7 +418,7 @@ function nextActionForTask(
       }
     case 'failed':
       return {
-        title: 'Review recovery',
+        title: 'Check retry steps',
         detail: taskFailurePreview(task.error),
         tone: 'warn',
       }

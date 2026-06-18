@@ -383,11 +383,11 @@ function nextStepTitle(notification: Notification): string {
     case 'credential_expired':
       return 'Reconnect account access before more agent work starts'
     case 'blocked':
-      return 'Review what is stopping work'
+      return 'Check what is stopping work'
     case 'failed':
-      return 'Review the recovery note before retrying'
+      return 'Check the retry steps before retrying'
     case 'completed':
-      return 'Review the latest completed result when you have time'
+      return 'Open the latest completed result when you have time'
     case 'assigned':
       return 'Open the newest assignment'
     case 'mentioned':
@@ -414,7 +414,7 @@ function nextStepDescription(
       : `${needsActionCount} items need action. Start with the newest item that needs help.`
   }
 
-  return 'There are no urgent items that need help. Open this update only if you need to review the latest work.'
+  return 'There are no urgent items that need help. Open this update only if you need to check the latest work.'
 }
 
 function nextStepActionLabel(notification: Notification): string {
@@ -424,7 +424,7 @@ function nextStepActionLabel(notification: Notification): string {
     case 'blocked':
       return 'Open task'
     case 'failed':
-      return 'Review recovery'
+      return 'Check retry steps'
     case 'completed':
       return 'Open result'
     case 'assigned':
