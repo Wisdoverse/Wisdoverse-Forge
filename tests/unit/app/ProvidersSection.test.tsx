@@ -142,7 +142,7 @@ describe('ProvidersSection', () => {
     expect(screen.getAllByText('Needs check').length).toBeGreaterThan(0)
     expect(screen.queryByText('Failed')).toBeNull()
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Check the service access key, the model you picked, and the service address for Anthropic Review, then save and choose Check connection again.'
+      'Check the service access key, saved setup, and service address for Anthropic Review, then save and choose Check connection again.'
     )
     expect(screen.getByRole('alert')).toHaveTextContent('service access key')
     expect(screen.queryByText('Invalid key')).toBeNull()
@@ -260,12 +260,13 @@ describe('ProvidersSection', () => {
     expect(within(serviceChoices).getByRole('button', { name: /anthropic/i })).toBeDefined()
     fireEvent.click(within(serviceChoices).getByRole('button', { name: /anthropic/i }))
 
-    expect(screen.getByLabelText(/^model to use$/i)).toHaveValue('claude-sonnet-4-20250514')
+    expect(screen.getByLabelText(/^service setup$/i)).toHaveValue('claude-sonnet-4-20250514')
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
       /next: paste the service access key/i
     )
-    expect(screen.getByText(/service website address and model/i)).toBeDefined()
+    expect(screen.getByText(/technical service details/i)).toBeDefined()
     expect(screen.getByText(/paste the service access key and save/i)).toBeDefined()
+    expect(screen.getByText(/keep the suggested setup unless your service guide/i)).toBeDefined()
     expect(screen.getByText(/some services call this an API key/i)).toBeDefined()
     expect(screen.getByText(/do not paste the sign-in password/i)).toBeDefined()
     expect(screen.getByText(/After saving, choose Check connection/i)).toBeDefined()
@@ -446,7 +447,7 @@ describe('ProvidersSection', () => {
     expect(within(zhipuChoice).queryByText(/china\/global address/i)).toBeNull()
     fireEvent.click(zhipuChoice)
 
-    expect(screen.getByLabelText(/^model to use$/i)).toHaveValue('glm-4.7')
+    expect(screen.getByLabelText(/^service setup$/i)).toHaveValue('glm-4.7')
     expect(screen.getByRole('group', { name: /^service plan$/i })).toBeDefined()
     expect(screen.getByRole('group', { name: /^service website region$/i })).toBeDefined()
     expect(screen.getByRole('button', { name: /^standard$/i })).toBeDefined()
