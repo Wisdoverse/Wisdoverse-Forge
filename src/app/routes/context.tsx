@@ -14,8 +14,8 @@ export const Route = createRoute({
       return (
         <FeatureRouteLoadingState
           testId="context-route-loading"
-          title="Checking saved notes review"
-          detail="We are checking whether saved notes review is available here. If this takes more than a moment, refresh the page or ask an owner or admin to check saved items setup."
+          title="Checking saved items"
+          detail="We are checking whether saved items are available here. If this takes more than a moment, refresh the page or ask an owner or admin to check saved items setup."
         />
       )
     }

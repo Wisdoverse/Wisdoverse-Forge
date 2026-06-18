@@ -57,12 +57,10 @@ describe('ContextCandidatesList', () => {
     expect(screen.getByText('Suggested note')).toBeInTheDocument()
     expect(screen.getByText('Waiting for review')).toBeInTheDocument()
     expect(
-      screen.getByText(
-        /open Saved notes review.*check the wording before saving it for future tasks/i
-      )
+      screen.getByText(/open Saved items.*check the wording before saving it for future tasks/i)
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('link', { name: /open saved notes review for release memory/i })
+      screen.getByRole('link', { name: /open saved items for release memory/i })
     ).toHaveAttribute('href', '/context')
     expect(screen.getByText('From this task')).toBeInTheDocument()
     expect(screen.queryByText('Suggested from this task')).toBeNull()
@@ -96,17 +94,15 @@ describe('ContextCandidatesList', () => {
     expect(screen.getByText('Suggested instruction')).toBeInTheDocument()
     expect(screen.getByText('Approved')).toBeInTheDocument()
     expect(
-      screen.getByText(/Open saved notes review and read the full suggestion before using it/i)
+      screen.getByText(/Open Saved items and read the full suggestion before using it/i)
     ).toBeInTheDocument()
     expect(screen.queryByText(/No preview yet/i)).toBeNull()
     expect(screen.queryByText(/inspect the full suggestion/i)).toBeNull()
     expect(
-      screen.getByText(
-        /open Saved notes review.*check this instruction before agents can follow it/i
-      )
+      screen.getByText(/open Saved items.*check this instruction before agents can follow it/i)
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('link', { name: /open saved notes review for release operator/i })
+      screen.getByRole('link', { name: /open saved items for release operator/i })
     ).toHaveAttribute('href', '/context')
     expect(screen.queryByText(/Context queue/i)).toBeNull()
     expect(screen.queryByText(/instruction suggestions/i)).toBeNull()
@@ -157,9 +153,7 @@ describe('ContextCandidatesList', () => {
 
     expect(screen.getAllByText('Check suggested item').length).toBeGreaterThan(0)
     expect(
-      screen.getByText(
-        /open Saved notes review.*check this suggestion before agents can reuse it/i
-      )
+      screen.getByText(/open Saved items.*check this suggestion before agents can reuse it/i)
     ).toBeInTheDocument()
     expect(screen.queryByText('Suggested context item')).toBeNull()
     expect(screen.queryByText(/future context kind/i)).toBeNull()

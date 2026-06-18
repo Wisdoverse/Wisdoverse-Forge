@@ -44,21 +44,21 @@ const NAV_ITEMS: NavItem[] = [
     id: 'tasks',
     Icon: CheckSquare,
     labelKey: 'nav.tasks',
-    description: 'see tasks and review progress',
+    description: 'see tasks and check progress',
     path: '/tasks',
   },
   {
     id: 'inbox',
     Icon: Inbox,
     labelKey: 'nav.inbox',
-    description: 'review updates that need a next step',
+    description: 'check updates that need a next step',
     path: '/inbox',
   },
   {
     id: 'context',
     Icon: ClipboardCheck,
     labelKey: 'nav.context',
-    description: 'review saved notes and instructions',
+    description: 'check saved notes and instructions',
     path: '/context',
   },
   {
@@ -89,7 +89,7 @@ const BOTTOM_ITEMS: NavItem[] = [
     id: 'billing',
     Icon: CreditCard,
     labelKey: 'nav.billing',
-    description: 'review plan, payments, and invoices',
+    description: 'check plan, payments, and invoices',
     path: '/billing',
   },
   {
