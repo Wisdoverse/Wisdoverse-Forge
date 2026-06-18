@@ -331,7 +331,7 @@ describe('GettingStartedView', () => {
     expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/providers' })
   })
 
-  test('explains task routing as a beginner-friendly queue', async () => {
+  test('explains where tasks wait without queue wording', async () => {
     useNavigationStore.setState({
       teams: [
         {
@@ -404,17 +404,19 @@ describe('GettingStartedView', () => {
     render(<GettingStartedView />)
 
     expect(await screen.findByText('Do this next')).toBeDefined()
-    expect(screen.getAllByText('Task queue').length).toBeGreaterThan(0)
-    expect(screen.getByText('Create a task queue for this project.')).toBeDefined()
+    expect(screen.getAllByText('Where tasks wait').length).toBeGreaterThan(0)
+    expect(screen.getByText('Set up where tasks wait for this project.')).toBeDefined()
     expect(
       screen.getAllByText(
-        'A task queue gives new work a place to wait for the next available agent.'
+        'This gives new work a place to wait until the next available agent picks it up.'
       ).length
     ).toBeGreaterThanOrEqual(2)
-    expect(screen.getByText('Create a task queue before the first task.')).toBeDefined()
+    expect(screen.getByText('Set up where tasks wait before the first task.')).toBeDefined()
+    expect(screen.queryByText('Task queue')).toBeNull()
+    expect(screen.queryByText(/task queue/i)).toBeNull()
   })
 
-  test('explains the first task as a small queue pickup', async () => {
+  test('explains the first task as a small waiting-place pickup', async () => {
     useNavigationStore.setState({
       teams: [
         {
@@ -490,14 +492,15 @@ describe('GettingStartedView', () => {
     expect(screen.getAllByText('First task').length).toBeGreaterThan(0)
     expect(
       screen.getByText(
-        'Write one small task. Forge adds it to the queue so the next available agent can pick it up.'
+        'Write one small task. Forge puts it where tasks wait until the next available agent picks it up.'
       )
     ).toBeDefined()
     expect(
       screen.getAllByText(
-        'The task appears on the board, either waiting in the queue or assigned to an agent.'
+        'The task appears on the board, either waiting for an agent or already assigned.'
       ).length
     ).toBeGreaterThan(0)
+    expect(screen.queryByText(/queue/i)).toBeNull()
     expect(screen.getAllByRole('button', { name: /write first task/i }).length).toBeGreaterThan(0)
     const previousTaskInstruction = ['Create a task', 'assign it', 'and watch the run start.'].join(
       ', '
