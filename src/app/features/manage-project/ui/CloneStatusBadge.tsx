@@ -57,15 +57,15 @@ const CLONE_RETRY_DEFAULT_ERROR =
 function cloneFailureMessage(clone: CloneSummary | undefined): string {
   switch (clone?.errorClass) {
     case 'auth':
-      return 'Check saved code access for this repository, then try copying code again. The repository rejected Forge access.'
+      return 'Check saved code access for this code project, then try copying code again. The code website rejected Forge access.'
     case 'not_found':
-      return 'Check the code link, then try copying code again. Forge could not find this repository.'
+      return 'Check the code link, then try copying code again. Forge could not find this code project.'
     case 'network':
-      return 'Check your connection and repository host, then try copying code again. Forge could not reach the repository.'
+      return 'Check your connection and code website address, then try copying code again. Forge could not reach this code project.'
     case 'timeout':
-      return 'Wait a few minutes, then try copying code again. The repository took too long to respond.'
+      return 'Wait a few minutes, then try copying code again. The code website took too long to respond.'
     case 'too_large':
-      return 'Ask an owner or admin to check project storage before trying again. This repository is too large to copy right now.'
+      return 'Ask an owner or admin to check project storage before trying again. This code project is too large to copy right now.'
     case 'internal':
       return 'Wait a few minutes, then try copying code again. Forge could not finish copying code.'
     default:

@@ -11812,7 +11812,7 @@ export function CloneStatusBadge({ clone }) {
       'src/app/features/manage-project/ui/CloneStatusBadge.tsx': `
 function cloneFailureMessage(clone) {
   if (clone.errorClass === 'auth') {
-    return 'Check saved code access for this repository, then try copying code again. The repository rejected Forge access.'
+    return 'Check saved code access for this code project, then try copying code again. The code website rejected Forge access.'
   }
   return 'Check the code link and saved code access, then try copying code again. Forge could not finish copying code.'
 }
@@ -11820,6 +11820,42 @@ function cloneFailureMessage(clone) {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags code copy failure summaries that fall back to repository wording', () => {
+    const cwd = fixture({
+      'src/app/features/manage-project/ui/CloneStatusBadge.tsx': `
+function authFailureMessage() {
+  return 'Check saved code access for this repository, then try copying code again.'
+}
+function networkFailureMessage() {
+  return 'Check your connection and repository host, then try copying code again.'
+}
+function timeoutFailureMessage() {
+  return 'The repository took too long to respond.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'clone-failure-repository-copy',
+          sample: expect.stringContaining('this repository'),
+        }),
+        expect.objectContaining({
+          type: 'clone-failure-repository-copy',
+          sample: expect.stringContaining('repository host'),
+        }),
+        expect.objectContaining({
+          type: 'clone-failure-repository-copy',
+          sample: expect.stringContaining('The repository'),
+        }),
+      ])
+    )
   })
 
   it('accepts recovery copy that gives one clear refresh step', () => {
