@@ -11573,6 +11573,54 @@ function CreateProjectForm() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags team and project row copy that labels generated names as addresses', () => {
+    const cwd = fixture({
+      'src/app/features/manage-team/ui/EditableTeamRow.tsx': `
+function EditableTeamRow({ team }) {
+  return <p>Address: {team.slug}</p>
+}
+`,
+      'src/app/features/manage-project/ui/EditableProjectRow.tsx': `
+function EditableProjectRow({ project }) {
+  return <span>Address: {project.slug}</span>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'team-project-row-address-copy',
+          location: 'src/app/features/manage-team/ui/EditableTeamRow.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'team-project-row-address-copy',
+          location: 'src/app/features/manage-project/ui/EditableProjectRow.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts team and project row copy that labels generated names as short names', () => {
+    const cwd = fixture({
+      'src/app/features/manage-team/ui/EditableTeamRow.tsx': `
+function EditableTeamRow({ team }) {
+  return <p>Team short name: {team.slug}</p>
+}
+`,
+      'src/app/features/manage-project/ui/EditableProjectRow.tsx': `
+function EditableProjectRow({ project }) {
+  return <span>Project short name: {project.slug}</span>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags code import retry errors that start with the failure', () => {
     const cwd = fixture({
       'src/app/features/manage-project/ui/CloneStatusBadge.tsx': `
