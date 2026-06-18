@@ -756,6 +756,8 @@ const SETTINGS_RUNTIME_NAV_JARGON_PATTERNS = [
 ]
 
 const SETTINGS_RUNTIME_LOCATION_JARGON_PATTERNS = [
+  /\bDefault file work place\b/i,
+  /\bfile work place\b/i,
   /\bDefault agent location\b/i,
   /\bAgent locations available\b/i,
   /\bwhere new agents run\b/i,
@@ -5123,7 +5125,7 @@ function scanFile(file, relFile) {
         type: 'runtime-default-location-copy',
         location,
         message:
-          'Default agent location copy must tell beginners to load setup before choosing a location.',
+          'Project-file setup copy must tell beginners to load setup before choosing where files open.',
         sample: line.trim(),
       })
     }
@@ -5161,7 +5163,7 @@ function scanFile(file, relFile) {
         type: 'settings-runtime-location-copy',
         location,
         message:
-          'Agent work setup must describe where files open instead of using agent location wording.',
+          'Agent work setup must describe where project files open instead of using location jargon.',
         sample: line.trim(),
       })
     }

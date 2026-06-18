@@ -440,14 +440,14 @@ export const zh: TranslationKeys = {
       loading: '加载工作设置...',
       couldNotLoad:
         '请刷新这个设置页来加载 Agent 工作设置。如果仍然无法加载，请找 owner 或 admin 检查 Agent 工作设置。',
-      defaultRuntimeLabel: '默认 Agent 运行位置',
+      defaultRuntimeLabel: '项目文件打开位置',
       defaultRuntimeDescription:
         '处理共享项目文件时，选择“项目文件”最简单。只有要把这台电脑接入为 Agent 时，才选择这台电脑。',
       defaultContainerCliLabel: '项目工作默认工具',
       defaultContainerCliDescription:
         'Agent 编辑文件或运行命令时使用的 Claude Code、Codex、Gemini 或 OpenCode',
-      availableRuntimesLabel: '可用的 Agent 运行位置',
-      availableRuntimesDescription: '当前安装可以在哪里运行实际操作型 Agent',
+      availableRuntimesLabel: '可打开项目文件的位置',
+      availableRuntimesDescription: '当前安装可以在哪里打开项目文件，供实际操作型 Agent 使用',
       availableContainerClisLabel: 'Agent 可使用的工作工具',
       availableContainerClisDescription: '用于编辑文件、运行命令和实时工作的已安装工具',
       runtimeLabels: {

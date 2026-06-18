@@ -2107,7 +2107,7 @@ function runSourceLabel(run) {
 `,
       'src/app/features/settings/RuntimeSection.tsx': `
 function fallbackRuntimeLabel(runtime) {
-  return runtime ? 'Check file work place' : 'Refresh file work place'
+  return runtime ? 'Check where files open' : 'Refresh where files open'
 }
 function fallbackCliToolLabel(tool) {
   return tool ? 'Check work tool setup' : 'Refresh work tool setup'
@@ -4341,11 +4341,11 @@ function CredentialStatusRow() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags default file work place copy that does not explain how to recover', () => {
+  it('flags project-file setup copy that does not explain how to recover', () => {
     const cwd = fixture({
       'src/app/features/settings/RuntimeSection.tsx': `
 export function RuntimeSection() {
-  return <RuntimeReadinessMetric label="Default file work place" value="Not set yet" />
+  return <RuntimeReadinessMetric label="Where project files open" value="Not set yet" />
 }
 `,
     })
@@ -4361,11 +4361,11 @@ export function RuntimeSection() {
     ])
   })
 
-  it('accepts default file work place copy that tells users to load setup first', () => {
+  it('accepts project-file setup copy that tells users to load setup first', () => {
     const cwd = fixture({
       'src/app/features/settings/RuntimeSection.tsx': `
 export function RuntimeSection() {
-  return <RuntimeReadinessMetric label="Default file work place" value="Load setup to choose where files open" />
+  return <RuntimeReadinessMetric label="Where project files open" value="Load setup to choose where project files open" />
 }
 `,
     })
@@ -4456,11 +4456,11 @@ function runtimeCliErrorMessage() {
 }
 
 function runtimeSettingsErrorMessage() {
-  return 'Choose an available file work place and work tool, then save again. Agent work setup could not be saved.'
+  return 'Choose where project files open and a work tool, then save again. Agent work setup could not be saved.'
 }
 
 function runtimeSettingsFallback() {
-  return 'Check the file work place and work tool choices, then save Agent work setup again. If it still fails, ask an owner or admin to check Agent work setup in Settings.'
+  return 'Check where project files open and the work tool choice, then save Agent work setup again. If it still fails, ask an owner or admin to check Agent work setup in Settings.'
 }
 `,
       'src/app/features/settings/RuntimeSection.tsx': `
@@ -4583,31 +4583,31 @@ export const en = {
     )
   })
 
-  it('accepts agent work setup labels that explain where files open', () => {
+  it('accepts agent work setup labels that explain where project files open', () => {
     const cwd = fixture({
       'src/app/features/settings/RuntimeSection.tsx': `
 export function RuntimeSection() {
   return (
     <>
-      <RuntimeReadinessMetric label="Default file work place" value="Project files" />
-      <SettingRow label="Places agents can edit files" />
-      <RuntimeChecklistRow title="Default file work place and tool" />
-      <p>Choose where new agents edit files and which tool, such as Claude or Codex, opens the work.</p>
+      <RuntimeReadinessMetric label="Where project files open" value="Project files" />
+      <SettingRow label="Places that can open project files" />
+      <RuntimeChecklistRow title="Where project files open and tool" />
+      <p>Choose where new agents open project files and which tool, such as Claude or Codex, opens the work.</p>
     </>
   )
 }
 `,
       'src/app/features/settings/runtimeErrorMessages.ts': `
 export function message() {
-  return 'Check the file work place and work tool choices, then save Agent work setup again.'
+  return 'Check where project files open and the work tool choice, then save Agent work setup again.'
 }
 `,
       'src/app/shared/i18n/locales/en.ts': `
 export const en = {
   settings: {
     runtime: {
-      defaultRuntimeLabel: 'Default file work place',
-      availableRuntimesLabel: 'Places agents can edit files',
+      defaultRuntimeLabel: 'Where project files open',
+      availableRuntimesLabel: 'Places that can open project files',
     },
   },
 }
