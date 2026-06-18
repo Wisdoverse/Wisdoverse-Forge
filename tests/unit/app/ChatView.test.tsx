@@ -168,14 +168,14 @@ describe('ChatView', () => {
 
     const emptyState = screen.getByTestId('conversation-empty-state')
     expect(emptyState).toHaveTextContent(
-      'This chat-only AI service is not ready. Open AI service settings, check this connection, then refresh Agents.'
+      'This chat-only AI service is not ready. Open AI service settings, choose Check connection, then refresh Agents.'
     )
     expect(emptyState).not.toHaveTextContent('Settings > AI services')
     expect(emptyState).not.toHaveTextContent('Start it before sending a message')
     expect(screen.getByRole('textbox', { name: /message this agent/i })).toBeDisabled()
     expect(
       screen.getByText(
-        'Open AI service settings, check this connection, then refresh Agents before sending a message.'
+        'Open AI service settings, choose Check connection, then refresh Agents before sending a message.'
       )
     ).toBeVisible()
     expect(

@@ -450,7 +450,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
       const selected = providerOptions.find((option) => option.id === data.providerId)
       if (!selected) {
         setFormError(
-          'Open Settings > AI services, add a service, save it, then click Check until it says Ready.'
+          'Open Settings > AI services, add a service, save it, then choose Check connection until it says Ready.'
         )
         return
       }
@@ -1095,8 +1095,8 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                       No AI service ready yet
                     </p>
                     <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                      Open Settings &gt; AI services, add a service, paste its access key, save it,
-                      then click Check. Come back when the service says Ready.
+                      Open Settings &gt; AI services, add a service, paste the service access key,
+                      save it, then choose Check connection. Come back when the service shows Ready.
                     </p>
                     <a
                       href="/settings/providers"
