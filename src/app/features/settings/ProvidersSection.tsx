@@ -102,7 +102,7 @@ const PROVIDER_SETUP_STEPS = [
   { label: 'Choose AI account', value: 'Pick the service your team already pays for or runs.' },
   {
     label: 'Paste the service access key',
-    value: 'Open that account, copy the service access key, and paste it here.',
+    value: 'Copy the service access key from that AI account. Do not paste the sign-in password.',
   },
   {
     label: 'Save, then check connection',
@@ -421,7 +421,7 @@ function providerFormReadiness({
       ready: false,
       title: 'Next: paste the service access key',
       detail:
-        'Open your AI service account, copy the service access key, and paste it here. Some services call this an API key. Forge hides it after saving.',
+        'Open your AI service account, copy the service access key, and paste it here. Some services call this an API key. Do not paste the sign-in password. Forge hides the key after saving.',
       error: 'Paste the service access key before saving this AI service.',
       fieldId: apiKeyInputId,
     }
@@ -1029,6 +1029,7 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
 
   const modelListId = `catalog-models-${vendor.key}`
   const apiKeyInputId = 'provider-form-api-key'
+  const apiKeyHelpId = 'provider-form-api-key-help'
   const modelInputId = 'provider-form-model'
 
   // Reset the inline config whenever the operator picks a different variant so
@@ -1198,6 +1199,13 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
             <label htmlFor={apiKeyInputId} className={uiStyles.label}>
               Service access key <span className="text-red-500">*</span>
             </label>
+            <p
+              id={apiKeyHelpId}
+              className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+            >
+              Paste the service access key from the AI account. Some services call this an API key.
+              Do not paste the sign-in password.
+            </p>
             <input
               id={apiKeyInputId}
               type="password"
@@ -1208,7 +1216,7 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
               autoComplete="off"
               spellCheck={false}
               aria-invalid={apiKeyError}
-              aria-describedby={formStatusId}
+              aria-describedby={`${formStatusId} ${apiKeyHelpId}`}
               className={uiStyles.input}
             />
             {apiKeyError && (
@@ -1583,7 +1591,7 @@ function AddProviderFormPanel({
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
             Paste the access key from your AI service account. Some services call this an API key.
-            Forge hides it after saving.
+            Do not paste the sign-in password. Forge hides the key after saving.
           </p>
           <input
             id={apiKeyInputId}

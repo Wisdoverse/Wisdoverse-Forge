@@ -264,6 +264,8 @@ describe('ProvidersSection', () => {
     )
     expect(screen.getByText(/service website address and model/i)).toBeDefined()
     expect(screen.getByText(/paste the service access key and save/i)).toBeDefined()
+    expect(screen.getByText(/some services call this an API key/i)).toBeDefined()
+    expect(screen.getByText(/do not paste the sign-in password/i)).toBeDefined()
     expect(screen.getByText(/After saving, choose Check connection/i)).toBeDefined()
     expect(screen.getByText(/Ready means simple chat agents can use this service/i)).toBeDefined()
     expect(screen.queryByText(/Service address and model are filled in/i)).toBeNull()
@@ -271,8 +273,10 @@ describe('ProvidersSection', () => {
     const saveButton = screen.getByRole('button', { name: /save AI service/i })
     expect(saveButton).toBeDisabled()
     expect(saveProviderMock).not.toHaveBeenCalled()
+    const accessKeyInput = screen.getByLabelText(/service access key/i)
+    expect(accessKeyInput.getAttribute('aria-describedby')).toContain('provider-form-api-key-help')
 
-    fireEvent.change(screen.getByLabelText(/service access key/i), {
+    fireEvent.change(accessKeyInput, {
       target: { value: 'sk-test' },
     })
 
@@ -318,7 +322,10 @@ describe('ProvidersSection', () => {
 
     expect(screen.getByText('3 steps to connect an AI account')).toBeDefined()
     expect(screen.getByText('Paste the service access key')).toBeDefined()
-    expect(screen.getAllByText(/copy the service access key/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/service access key from that AI account/i).length).toBeGreaterThan(
+      0
+    )
+    expect(screen.getAllByText(/do not paste the sign-in password/i).length).toBeGreaterThan(0)
     expect(screen.getByText('Save, then check connection')).toBeDefined()
     expect(screen.queryByText('Paste service access key')).toBeNull()
     expect(screen.queryByText('Save and check')).toBeNull()
