@@ -14,7 +14,7 @@ interface CreateProjectFormProps {
 const PROJECT_SETUP_STEPS = [
   'Choose the team that owns the work.',
   'Name the project after the product, app, or work area.',
-  'Optional: paste an https:// code link. Use SSH code access in Settings for links that start with git@.',
+  'Optional: paste the https:// code link from GitHub or GitLab. Do not include tokens or passwords in the link.',
 ]
 
 /**
@@ -174,7 +174,8 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
   const errorField = visibleError === null ? null : missingTeam ? 'team' : 'name'
   // Derive the read-only workspace path the same way the backend slugifies the
   // name. The user never types a host path; this is a non-editable preview.
-  const workspacePath = trimmedName ? `/workspace/${slugifyName(name)}` : null
+  const workspaceFolderName = trimmedName ? slugifyName(name) : null
+  const workspacePath = workspaceFolderName ? `/workspace/${workspaceFolderName}` : null
 
   useEffect(() => {
     if (!teamId && teams[0]) {
@@ -335,15 +336,27 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
           className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
           Optional — paste a GitHub or GitLab https:// link. Forge copies that code into this
-          project. If your link starts with git@, add it in SSH code access first.
+          project. Do not paste tokens or passwords into the link. If your link starts with git@,
+          add SSH code access in Settings first.
         </p>
-        {workspacePath && (
-          <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Agent work folder:{' '}
-            <span className="font-mono text-[11px] text-foreground-light dark:text-foreground-dark">
-              {workspacePath}
-            </span>
-          </p>
+        {workspaceFolderName && workspacePath && (
+          <div className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            <p>
+              Agents will open this project in a folder named{' '}
+              <span className="font-medium text-foreground-light dark:text-foreground-dark">
+                {workspaceFolderName}
+              </span>
+              . You do not need to type this.
+            </p>
+            <details className="mt-1">
+              <summary className="cursor-pointer text-apple-blue hover:underline">
+                Show support folder path
+              </summary>
+              <span className="font-mono text-[11px] text-foreground-light dark:text-foreground-dark">
+                {workspacePath}
+              </span>
+            </details>
+          </div>
         )}
       </div>
 
