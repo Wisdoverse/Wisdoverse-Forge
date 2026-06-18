@@ -252,11 +252,11 @@ export function RuntimeSection() {
 
         <div className="mt-4 grid gap-3 md:grid-cols-4">
           <RuntimeReadinessMetric
-            label="Default agent location"
+            label="Default file work place"
             value={
               runtimeSettings
                 ? runtimeLabel(runtimeSettings.defaultRuntime)
-                : 'Load setup to choose a location'
+                : 'Load setup to choose where files open'
             }
             ready={Boolean(
               runtimeSettings?.availableRuntimes.includes(runtimeSettings.defaultRuntime)
@@ -417,7 +417,7 @@ export function RuntimeSection() {
           </div>
         ) : (
           <>
-            {/* Default agent location */}
+            {/* Default place for file work */}
             <SettingRow
               label={t('settings.runtime.defaultRuntimeLabel')}
               description={t('settings.runtime.defaultRuntimeDescription')}
@@ -455,7 +455,7 @@ export function RuntimeSection() {
               </select>
             </SettingRow>
 
-            {/* Read-only: available agent locations */}
+            {/* Read-only: places where agents can work */}
             <SettingRow
               label={t('settings.runtime.availableRuntimesLabel')}
               description={t('settings.runtime.availableRuntimesDescription')}
@@ -539,7 +539,7 @@ function RuntimeNextStepPanel({
           </h3>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
             {allReady
-              ? 'The agent location, work tools, sign-ins, and online status are ready.'
+              ? 'The file work place, work tools, sign-ins, and online status are ready.'
               : item?.detail}
           </p>
           <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -747,12 +747,12 @@ function runtimeLaunchChecklistItems(
     runtimeSettings.availableCliTools.includes(runtimeSettings.defaultCliTool)
   items.push({
     id: 'defaults',
-    title: 'Default agent location and work tool',
+    title: 'Default file work place and tool',
     detail: defaultRuntimeReady
       ? `${runtimeLabel(runtimeSettings.defaultRuntime)} with ${cliToolLabel(
           runtimeSettings.defaultCliTool
         )} is selected for new agents.`
-      : 'Choose where new agents run and which tool, such as Claude or Codex, they use.',
+      : 'Choose where new agents edit files and which tool, such as Claude or Codex, opens the work.',
     ready: defaultRuntimeReady,
   })
 
@@ -874,7 +874,7 @@ function fallbackRuntimeLabel(runtime: string): string {
     case 'container':
       return 'Project files'
     default:
-      return runtime.trim() ? 'Check agent location' : 'Refresh agent location'
+      return runtime.trim() ? 'Check file work place' : 'Refresh file work place'
   }
 }
 

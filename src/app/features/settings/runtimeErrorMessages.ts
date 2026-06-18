@@ -92,7 +92,7 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
   }
 
   if (status === 422) {
-    return 'Choose an available agent location and work tool, then save again. Agent work setup could not be saved.'
+    return 'Choose an available file work place and work tool, then save again. Agent work setup could not be saved.'
   }
 
   if (status === 429) {
@@ -108,7 +108,7 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
   }
 
   return isSaveAction
-    ? 'Check the agent location and work tool choices, then save Agent work setup again. If it still fails, ask an owner or admin to check Agent work setup in Settings.'
+    ? 'Check the file work place and work tool choices, then save Agent work setup again. If it still fails, ask an owner or admin to check Agent work setup in Settings.'
     : `${loadBase} If it still fails, ask an owner or admin to check Agent work setup in Settings.`
 }
 

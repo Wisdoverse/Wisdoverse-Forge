@@ -102,7 +102,7 @@ describe('runtimeSettingsErrorMessage', () => {
         'Check the required fields for runtime setting, then try again. Code: 422. Details: default CLI tool is not available'
       )
     ).toBe(
-      'Choose an available agent location and work tool, then save again. Agent work setup could not be saved.'
+      'Choose an available file work place and work tool, then save again. Agent work setup could not be saved.'
     )
   })
 
@@ -161,7 +161,7 @@ describe('runtimeSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check the agent location and work tool choices, then save Agent work setup again. If it still fails, ask an owner or admin to check Agent work setup in Settings.'
+      'Check the file work place and work tool choices, then save Agent work setup again. If it still fails, ask an owner or admin to check Agent work setup in Settings.'
     )
     expect(message).not.toContain('unexpected')
   })

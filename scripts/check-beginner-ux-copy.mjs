@@ -691,6 +691,16 @@ const SETTINGS_RUNTIME_NAV_JARGON_PATTERNS = [
   /\bChoose where agents run and which work tool they use\b/i,
 ]
 
+const SETTINGS_RUNTIME_LOCATION_JARGON_PATTERNS = [
+  /\bDefault agent location\b/i,
+  /\bAgent locations available\b/i,
+  /\bwhere new agents run\b/i,
+  /\bavailable agent location and work tool\b/i,
+  /\bagent location and work tool choices\b/i,
+  /\bCheck agent location\b/i,
+  /\bRefresh agent location\b/i,
+]
+
 const SETTINGS_LOAD_ERROR_DEAD_END_PATTERNS = [
   /\bAI service settings could not be loaded\./i,
   /\bOutside tool access keys could not be loaded\./i,
@@ -2903,6 +2913,18 @@ function hasSettingsRuntimeNavJargonCopy(relFile, line) {
   return SETTINGS_RUNTIME_NAV_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasSettingsRuntimeLocationJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/settings/RuntimeSection.tsx') &&
+    !relFile.endsWith('src/app/features/settings/runtimeErrorMessages.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SETTINGS_RUNTIME_LOCATION_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasAgentSetupFallbackDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/entities/agent/model/display-labels.ts') &&
@@ -4795,6 +4817,16 @@ function scanFile(file, relFile) {
         type: 'settings-runtime-nav-copy',
         location,
         message: 'Settings navigation must describe agent work setup in plain file-work language.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSettingsRuntimeLocationJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'settings-runtime-location-copy',
+        location,
+        message:
+          'Agent work setup must describe where files open instead of using agent location wording.',
         sample: line.trim(),
       })
     }
