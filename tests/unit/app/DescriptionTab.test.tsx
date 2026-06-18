@@ -27,6 +27,7 @@ describe('DescriptionTab', () => {
     expect(screen.getByTestId('task-next-action').textContent).toContain(
       'Choose an available agent, review the suggested saved notes and instructions, then send the task.'
     )
+    expect(screen.getByRole('link', { name: /open agents/i })).toHaveAttribute('href', '/agents')
     expect(screen.getByTestId('task-next-action').textContent).not.toContain('when ready')
     expect(screen.getByTestId('task-next-action').textContent).not.toMatch(/suggested\s+context/)
     expect(screen.getByTestId('task-work-review').textContent).not.toContain('leave the backlog')
@@ -112,6 +113,7 @@ describe('DescriptionTab', () => {
     expect(screen.getByTestId('task-next-action').textContent).toContain(
       'If this stays here, choose or start an agent so the task has someone to begin the work.'
     )
+    expect(screen.getByRole('link', { name: /open agents/i })).toHaveAttribute('href', '/agents')
     expect(screen.getByTestId('task-next-action').textContent).not.toMatch(/queue|pick it up/i)
   })
 

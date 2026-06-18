@@ -562,6 +562,7 @@ describe('TaskDetailPanel', () => {
     expect(
       screen.getByText(/open agents to start or connect an agent, then return here and refresh/i)
     ).toBeDefined()
+    expect(screen.getByRole('link', { name: /open agents/i })).toHaveAttribute('href', '/agents')
     expect(screen.queryByText('No available agent can take this task right now.')).toBeNull()
 
     const sendButton = screen.getByRole('button', {
