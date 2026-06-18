@@ -79,7 +79,11 @@ describe('GitCredentialsSection', () => {
     expect(screen.getByText('Choose the website where this code lives.')).toBeDefined()
     expect(screen.queryByText('Git service')).toBeNull()
     expect(screen.queryByText(/owns the repository/i)).toBeNull()
-    expect(screen.getByText(/The website may call it a personal access token/i)).toBeDefined()
+    expect(
+      screen.getByText(
+        /Paste the code access key from GitHub or GitLab\. If that page says personal access token, use that value here\./i
+      )
+    ).toBeDefined()
     expect(screen.queryByText(/Paste the key you copied from GitHub or GitLab/i)).toBeNull()
     expect(screen.getByText(/Never paste your website password/i)).toBeDefined()
     expect(screen.queryByText(/Never paste your GitHub or GitLab password/i)).toBeNull()
