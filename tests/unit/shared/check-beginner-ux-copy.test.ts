@@ -10547,6 +10547,7 @@ function AuditLogView() {
     <p>Pick a common audit view, then narrow it.</p>
     <label>Exact event name</label>
     <input placeholder="Paste an event category only when needed" />
+    <input placeholder="Paste the exact team space, project workspace, team, or project reference" />
     <button aria-label="Refresh audit history">Refresh</button>
     <button>Show event details</button>
     <button>Show change details</button>
@@ -10609,7 +10610,7 @@ function AuditLogView() {
   return <section aria-label="Common change views">
     <p>Pick a common change view, then narrow it.</p>
     <label>Specific change name</label>
-    <input placeholder="Paste an exact change area only when needed" />
+    <input placeholder="Paste the exact team space, project area, team, or project reference" />
     <button aria-label="Refresh change history">Refresh</button>
     <button>Show saved change name</button>
   </section>

@@ -1191,6 +1191,7 @@ const GOVERNANCE_AUDIT_VISIBLE_JARGON_PATTERNS = [
   /\bevent category\b/i,
   /\bevent name\b/i,
   /\bevent details\b/i,
+  /\bproject workspace\b/i,
   /\bShow change details\b/i,
   /\bCheck change details\b/i,
   /\bCheck audit change\b/i,
