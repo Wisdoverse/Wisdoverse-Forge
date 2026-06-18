@@ -190,26 +190,6 @@ function authRecoveryErrorMessage(action: AuthRecoveryAction, error: unknown): s
   return 'Check that this is the email you used to create the account, then send the verification email again.'
 }
 
-/** Get SSO provider icon based on provider name */
-function getSsoIcon(name: string): string {
-  switch (name.toLowerCase()) {
-    case 'github':
-      return '🐙'
-    case 'google':
-      return '🔵'
-    case 'keycloak':
-    case 'building':
-      return '🏢'
-    case 'gitlab':
-      return '🦊'
-    case 'microsoft':
-    case 'azure':
-      return '🪟'
-    default:
-      return '🔑'
-  }
-}
-
 export class AuthPage {
   private container: HTMLDivElement | null = null
   private authManager: AuthManager
@@ -322,7 +302,7 @@ export class AuthPage {
       </div>
       <div class="auth-card">
         <div class="auth-header">
-          <div class="auth-logo">&#9881;</div>
+          <div class="auth-logo" aria-hidden="true">WF</div>
           <h1 class="auth-title">Wisdoverse Forge</h1>
           <p class="auth-subtitle">Team space access</p>
           <p class="auth-intro">
@@ -370,7 +350,6 @@ export class AuthPage {
               cursor: pointer; font-size: 14px; display: flex; align-items: center;
               justify-content: center; gap: 8px; transition: all 0.2s;
             ">
-              <span style="font-size: 18px;">${getSsoIcon(p.icon || p.name)}</span>
               <span>Continue with ${p.displayName}</span>
             </button>
           `
@@ -802,7 +781,6 @@ export class AuthPage {
     // raised against the previous template-literal interpolation.
     container.innerHTML = `
       <div style="text-align: center; padding: 40px 20px;">
-        <div style="font-size: 48px; margin-bottom: 16px;">📧</div>
         <h2 style="color: #818cf8; margin: 0 0 16px; font-size: 20px; font-weight: 600;">Check your email</h2>
         <p style="color: #94a3b8; margin: 0 0 24px; line-height: 1.6; font-size: 14px;">
           We sent a verification link to<br/>
@@ -895,7 +873,6 @@ export class AuthPage {
         <a href="#" class="auth-back-link" id="back-to-login-from-forgot">&larr; Back to sign in</a>
       </form>
       <div class="auth-form" id="forgot-success" style="display:none">
-        <div class="auth-form-icon">&#x1F4E7;</div>
         <h2 class="auth-form-heading">Check your inbox</h2>
         <p class="auth-form-desc">If an account exists for <strong class="auth-email-masked" id="forgot-email-masked"></strong>, you will receive a reset link.</p>
         <p class="auth-check-spam">Open the email and follow the link. Check spam if it is not in your inbox.</p>

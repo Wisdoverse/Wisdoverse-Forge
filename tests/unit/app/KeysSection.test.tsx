@@ -80,9 +80,10 @@ describe('KeysSection', () => {
     fireEvent.click(within(emptyState).getByRole('button', { name: /create access key/i }))
 
     expect(screen.queryByTestId('platform-key-empty-state')).toBeNull()
-    expect(screen.getByLabelText(/^which tool will use this key/i)).toBeDefined()
+    expect(screen.getByLabelText(/^which tool will use this access key/i)).toBeDefined()
+    expect(screen.queryByLabelText(/^which tool will use this key/i)).toBeNull()
     expect(screen.getByText(/use a clear tool or job name/i)).toBeDefined()
-    expect(screen.getByText(/remove the right key later/i)).toBeDefined()
+    expect(screen.getByText(/remove the right access key later/i)).toBeDefined()
   })
 
   test('explains the required key name before creating an access key', async () => {
@@ -91,7 +92,7 @@ describe('KeysSection', () => {
     await waitFor(() => expect(loadApiKeysMock).toHaveBeenCalledTimes(1))
     fireEvent.click(screen.getAllByRole('button', { name: /create access key/i })[0])
 
-    const input = screen.getByLabelText(/^which tool will use this key/i)
+    const input = screen.getByLabelText(/^which tool will use this access key/i)
     const form = input.closest('form')
     expect(form).toBeTruthy()
 
@@ -115,7 +116,7 @@ describe('KeysSection', () => {
 
     await waitFor(() => expect(loadApiKeysMock).toHaveBeenCalledTimes(1))
     fireEvent.click(screen.getAllByRole('button', { name: /create access key/i })[0])
-    fireEvent.change(screen.getByLabelText(/^which tool will use this key/i), {
+    fireEvent.change(screen.getByLabelText(/^which tool will use this access key/i), {
       target: { value: 'Production deploy pipeline' },
     })
     fireEvent.click(screen.getByRole('button', { name: /create access key/i }))
@@ -156,7 +157,7 @@ describe('KeysSection', () => {
 
     await waitFor(() => expect(loadApiKeysMock).toHaveBeenCalledTimes(1))
     fireEvent.click(screen.getAllByRole('button', { name: /create access key/i })[0])
-    fireEvent.change(screen.getByLabelText(/^which tool will use this key/i), {
+    fireEvent.change(screen.getByLabelText(/^which tool will use this access key/i), {
       target: { value: 'Production deploy pipeline' },
     })
     fireEvent.click(screen.getByRole('button', { name: /create access key/i }))
@@ -178,8 +179,10 @@ describe('KeysSection', () => {
     render(<KeysSection />)
 
     expect(await screen.findByRole('table', { name: /outside tool access keys/i })).toBeDefined()
-    expect(screen.getByText('Saved key starts with')).toBeDefined()
-    expect(screen.getByText('Use this key from a trusted tool first')).toBeDefined()
+    expect(screen.getByText('Saved access starts with')).toBeDefined()
+    expect(screen.queryByText('Saved key starts with')).toBeNull()
+    expect(screen.getByText('Use this access key from a trusted outside tool first')).toBeDefined()
+    expect(screen.queryByText('Use this key from a trusted tool first')).toBeNull()
     expect(screen.queryByText('Not used yet')).toBeNull()
     expect(screen.queryByText('Starts with')).toBeNull()
     expect(screen.queryByText('Key preview')).toBeNull()
@@ -193,18 +196,20 @@ describe('KeysSection', () => {
 
     expect(revokeApiKeyMock).not.toHaveBeenCalled()
     expect(
-      screen.getByText('Removing this key can stop Release automation from connecting to Forge.')
+      screen.getByText(
+        'Removing this access key can stop Release automation from connecting to Forge.'
+      )
     ).toBeDefined()
-    expect(screen.getByRole('button', { name: /^keep key$/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /^keep access key$/i })).toBeDefined()
     expect(
       screen.getByRole('button', {
         name: /confirm removing outside tool access key named release automation/i,
       })
     ).toHaveTextContent('Remove now')
 
-    fireEvent.click(screen.getByRole('button', { name: /^keep key$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^keep access key$/i }))
     expect(revokeApiKeyMock).not.toHaveBeenCalled()
-    expect(screen.queryByRole('button', { name: /^keep key$/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^keep access key$/i })).toBeNull()
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -245,11 +250,13 @@ describe('KeysSection', () => {
     const removingButton = await screen.findByRole('button', { name: /removing/i })
     expect(removingButton).toBeDisabled()
     expect(removingButton).toHaveAttribute('aria-busy', 'true')
-    expect(screen.getByRole('button', { name: /^keep key$/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /^keep access key$/i })).toBeDisabled()
     expect(revokeApiKeyMock).toHaveBeenCalledTimes(1)
 
     request.resolve(true)
-    await waitFor(() => expect(screen.queryByRole('button', { name: /^keep key$/i })).toBeNull())
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /^keep access key$/i })).toBeNull()
+    )
   })
 
   test('explains missing access key dates instead of showing placeholders', async () => {

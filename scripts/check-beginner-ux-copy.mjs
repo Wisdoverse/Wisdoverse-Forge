@@ -57,6 +57,13 @@ const DEAD_END_VALIDATION_PATTERNS = [
   /此字段无效/,
 ]
 
+const REQUIRED_FIELD_DEAD_END_PATTERNS = [
+  /^\s*required:\s*['"`]Required['"`]/,
+  /^\s*required:\s*['"`]This field is required['"`]/,
+  /^\s*required:\s*['"`]必填['"`]/,
+  /^\s*required:\s*['"`]此字段为必填['"`]/,
+]
+
 const DEAD_END_CONFIRMATION_PATTERNS = [
   /\bAre you sure you want to delete this(?: agent| group| user)?\??/i,
   /\bAre you sure you want to reset all settings\??/i,
@@ -235,11 +242,13 @@ const I18N_ACTION_FIRST_EMPTY_DEAD_END_PATTERNS = [
   /\bnoData:\s*['"`]Nothing to show yet\./i,
   /\bnoAgents:\s*['"`]No agents yet\./i,
   /\bnoGroups:\s*['"`]No waiting places yet\./i,
+  /\bungrouped:\s*['"`]No waiting place yet['"`]/i,
   /\bnoActivity:\s*['"`]No activity yet\./i,
   /\bnoResults:\s*['"`]没有匹配结果。/i,
   /\bnoData:\s*['"`]这里暂时没有内容。/i,
   /\bnoAgents:\s*['"`]还没有 Agent。/i,
   /\bnoGroups:\s*['"`]暂无任务等待位置。/i,
+  /\bungrouped:\s*['"`]暂无任务等待位置['"`]/i,
   /\bnoActivity:\s*['"`]暂无活动。/i,
 ]
 
@@ -511,7 +520,10 @@ const CODE_ACCESS_REPOSITORY_JARGON_PATTERNS = [
   /team\/repo\.git/i,
 ]
 
-const ACCESS_KEY_LAST_USED_DEAD_END_PATTERNS = [/\bNot used yet\b/i]
+const ACCESS_KEY_LAST_USED_DEAD_END_PATTERNS = [
+  /\bNot used yet\b/i,
+  /\bUse this key from a trusted tool first\b/i,
+]
 
 const ACCESS_KEY_SECRET_VALUE_JARGON_PATTERNS = [
   /\bCopy the new key into a password manager\b/i,
@@ -519,6 +531,10 @@ const ACCESS_KEY_SECRET_VALUE_JARGON_PATTERNS = [
   /\bCopy key\b/i,
   /\bSelect the key text\b/i,
   /\bKey preview\b/i,
+  /\bSaved key starts with\b/i,
+  /\bWhich tool will use this key\?/i,
+  /\bKeep key\b/i,
+  /\bRemoving this key can stop\b/i,
 ]
 
 const DATE_FALLBACK_DEAD_END_PATTERNS = [
@@ -1382,6 +1398,14 @@ const AUTH_INTRO_JARGON_PATTERNS = [
   /\bUse the email your workspace admin invited\b/i,
 ]
 
+const AUTH_VISIBLE_SYMBOL_PATTERNS = [
+  /\bfunction\s+getSsoIcon\b/,
+  /\bgetSsoIcon\(/,
+  /&#9881;/,
+  /&#x1F[0-9A-F]+;/i,
+  /[\u{1F300}-\u{1FAFF}]/u,
+]
+
 const LEGAL_PRIVACY_EVIDENCE_JARGON_PATTERNS = [
   /\blive task,\s*agent,\s*and evidence updates\b/i,
   /\brate limiting\b/i,
@@ -1503,6 +1527,8 @@ const PROJECT_CREATE_CODE_LINK_JARGON_PATTERNS = [
   /\bGit repository URL\b/i,
   /\brepository URL\b/i,
   /\bclone an existing repo\b/i,
+  /\bUse a code link that starts with https:\/\/\. Links that start with git@ go in SSH code access\./i,
+  /\bUse an https:\/\/ code link without account details, or leave the code link blank\./i,
   /org\/repo\.git/i,
   /\/repo\.git/i,
 ]
@@ -1907,6 +1933,17 @@ function hasRecoverableErrorCopy(line) {
 function hasDeadEndValidationCopy(line) {
   if (isLikelyGuardOrParserLine(line)) return false
   return DEAD_END_VALIDATION_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasRequiredFieldDeadEndCopy(relFile, line) {
+  if (
+    relFile !== 'src/app/shared/i18n/locales/en.ts' &&
+    relFile !== 'src/app/shared/i18n/locales/zh.ts'
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return REQUIRED_FIELD_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasDeadEndConfirmationCopy(line) {
@@ -2371,6 +2408,12 @@ function hasAuthIntroJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/auth/AuthPage.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return AUTH_INTRO_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAuthVisibleSymbolCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/auth/AuthPage.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AUTH_VISIBLE_SYMBOL_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasLegalPrivacyEvidenceJargonCopy(relFile, line) {
@@ -3861,6 +3904,15 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasRequiredFieldDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'required-field-copy',
+        location,
+        message: 'Shared required-field copy must tell beginners to fill in the field.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasDeadEndConfirmationCopy(line)) {
       findings.push({
         type: 'confirmation-impact',
@@ -4574,6 +4626,16 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasAuthVisibleSymbolCopy(relFile, line)) {
+      findings.push({
+        type: 'auth-visible-symbol-copy',
+        location,
+        message:
+          'Authentication screens must use the product brand and plain sign-in labels instead of emoji or symbol icons.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasLegalPrivacyEvidenceJargonCopy(relFile, line)) {
       findings.push({
         type: 'legal-privacy-copy',
@@ -4718,7 +4780,8 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'project-create-code-link-copy',
         location,
-        message: 'Project creation copy must say code link, not repository URL or repo.',
+        message:
+          'Project creation copy must say code link and give beginners the blank-or-Settings path instead of repository URL, repo, or rule-only errors.',
         sample: line.trim(),
       })
     }
@@ -5135,7 +5198,8 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'access-key-last-used-copy',
         location,
-        message: 'Outside tool access copy must explain that a trusted tool uses the key first.',
+        message:
+          'Outside tool access copy must say access key and explain that a trusted outside tool uses it first.',
         sample: line.trim(),
       })
     }
@@ -5144,7 +5208,8 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'access-key-secret-value-copy',
         location,
-        message: 'Outside tool access copy must tell beginners to save the one-time access value.',
+        message:
+          'Outside tool access copy must tell beginners to save the access value and avoid bare key wording.',
         sample: line.trim(),
       })
     }
