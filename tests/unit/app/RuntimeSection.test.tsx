@@ -236,7 +236,7 @@ describe('RuntimeSection', () => {
     ).toBeDefined()
     expect(screen.getByText(/1 tool sign-in is connected\. 1 agent is online/i)).toBeDefined()
     expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('Ready to give agents work')
-    expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('The agent location')
+    expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('The file work place')
     expect(screen.getByTestId('runtime-next-step')).toHaveTextContent(
       'What success looks like: Open Agents, create or select an agent, then assign work from Tasks.'
     )
@@ -284,14 +284,14 @@ describe('RuntimeSection', () => {
     render(<RuntimeSection />)
 
     const loadGuidance = await screen.findAllByText(
-      'Refresh this settings page to load Where agents run. If it still does not load, ask an owner or admin to check Where agents run.'
+      'Refresh this settings page to load Agent work setup. If it still does not load, ask an owner or admin to check Agent work setup in Settings.'
     )
     expect(loadGuidance.length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByRole('button', { name: /Check again/i }).length).toBeGreaterThanOrEqual(1)
     expect(screen.queryByText(/settings have not loaded yet/i)).toBeNull()
     expect(screen.queryByText(/check setup\. if/i)).toBeNull()
-    expect(screen.queryByText(/Where agents run could not load/i)).toBeNull()
-    expect(screen.getByText('Load setup to choose a location')).toBeDefined()
+    expect(screen.queryByText(/Agent work setup could not load/i)).toBeNull()
+    expect(screen.getByText('Load setup to choose where files open')).toBeDefined()
     expect(screen.queryByText('Not set yet')).toBeNull()
     expect(screen.queryByText('Could not load work setup')).toBeNull()
     expect(screen.queryByText('Unknown')).toBeNull()
@@ -334,7 +334,7 @@ describe('RuntimeSection', () => {
     expect(screen.queryByText(/no agents are online yet/i)).toBeNull()
   })
 
-  test('labels unknown agent location and tool values without exposing backend codes', async () => {
+  test('labels unknown file work place and tool values without exposing backend codes', async () => {
     useSettingsStore.setState({
       runtimeSettings: {
         defaultRuntime: 'future_runtime' as never,
@@ -355,7 +355,7 @@ describe('RuntimeSection', () => {
 
     render(<RuntimeSection />)
 
-    expect((await screen.findAllByText('Check agent location')).length).toBeGreaterThan(0)
+    expect((await screen.findAllByText('Check file work place')).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Check work tool setup').length).toBeGreaterThan(0)
     expect(screen.queryByText(/future_runtime/i)).toBeNull()
     expect(screen.queryByText(/future_tool/i)).toBeNull()
@@ -370,7 +370,7 @@ describe('RuntimeSection', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(/work tool sign-in could not be checked/i)
-    expect(alert).toHaveTextContent(/Forge could not connect while checking where agents run/i)
+    expect(alert).toHaveTextContent(/Forge could not connect while checking Agent work setup/i)
     expect(screen.getByText(/Choose Check again to refresh work tool sign-ins/i)).toBeDefined()
     expect(screen.queryByText(/^Work tool sign-ins could not be checked/i)).toBeNull()
     expect(screen.queryByText(/failed to fetch/i)).toBeNull()
@@ -406,7 +406,7 @@ describe('RuntimeSection', () => {
     fireEvent.click(screen.getByRole('button', { name: /Sign in to GitHub/i }))
 
     expect(
-      await screen.findByText(/do not have permission to change where agents run/i)
+      await screen.findByText(/do not have permission to change Agent work setup/i)
     ).toBeDefined()
     expect(screen.getAllByText(/owner or admin/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/403 Forbidden/)).toBeNull()
@@ -422,7 +422,7 @@ describe('RuntimeSection', () => {
 
     await screen.findByTestId('runtime-launch-checklist')
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Choose an available agent location and work tool, then save again. Where agents run could not be saved.'
+      'Choose an available file work place and work tool, then save again. Agent work setup could not be saved.'
     )
     expect(screen.queryByText(/Details: default CLI tool is not available/i)).toBeNull()
   })

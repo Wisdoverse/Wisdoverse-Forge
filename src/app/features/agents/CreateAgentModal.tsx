@@ -169,7 +169,7 @@ function runtimeFitFor(
       items: [
         { label: 'Where it works', value: 'Forge project area' },
         { label: 'Files', value: 'Project files included' },
-        { label: 'Before use', value: 'Check Where agents run in Settings' },
+        { label: 'Before use', value: 'Check Agent work setup in Settings' },
       ],
     }
   }

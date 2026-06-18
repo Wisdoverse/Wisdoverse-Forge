@@ -78,8 +78,8 @@ const SECTIONS: SectionItem[] = [
   },
   {
     id: 'runtime',
-    label: 'Where agents run',
-    description: 'Choose where agents run and which work tool they use.',
+    label: 'Agent work setup',
+    description: 'Choose where agents edit files and which tool opens the work.',
     group: 'Work setup',
     Icon: Settings2,
   },

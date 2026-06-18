@@ -686,6 +686,21 @@ const RUNTIME_ERROR_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*Too many setup requests are happening right now\. Wait/i,
 ]
 
+const SETTINGS_RUNTIME_NAV_JARGON_PATTERNS = [
+  /\bWhere agents run:\s*Choose where agents run and which work tool they use\b/i,
+  /\bChoose where agents run and which work tool they use\b/i,
+]
+
+const SETTINGS_RUNTIME_LOCATION_JARGON_PATTERNS = [
+  /\bDefault agent location\b/i,
+  /\bAgent locations available\b/i,
+  /\bwhere new agents run\b/i,
+  /\bavailable agent location and work tool\b/i,
+  /\bagent location and work tool choices\b/i,
+  /\bCheck agent location\b/i,
+  /\bRefresh agent location\b/i,
+]
+
 const SETTINGS_LOAD_ERROR_DEAD_END_PATTERNS = [
   /\bAI service settings could not be loaded\./i,
   /\bOutside tool access keys could not be loaded\./i,
@@ -810,6 +825,9 @@ const AGENT_SETUP_FALLBACK_DEAD_END_PATTERNS = [
   /\bAgent location not listed\b/i,
   /\bWork location needs review\b/i,
   /\bWork location not listed\b/i,
+  /\bcheck Where agents run\b/i,
+  /\bopen Where agents run\b/i,
+  /\bsave Where agents run\b/i,
   /\ban AI service that needs review\b/i,
   /\ba work tool that needs review\b/i,
 ]
@@ -2889,6 +2907,24 @@ function hasRuntimeErrorFailureFirstCopy(relFile, line) {
   return RUNTIME_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasSettingsRuntimeNavJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/pages/settings/ui/SettingsLayout.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SETTINGS_RUNTIME_NAV_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasSettingsRuntimeLocationJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/settings/RuntimeSection.tsx') &&
+    !relFile.endsWith('src/app/features/settings/runtimeErrorMessages.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SETTINGS_RUNTIME_LOCATION_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasAgentSetupFallbackDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/entities/agent/model/display-labels.ts') &&
@@ -2897,9 +2933,13 @@ function hasAgentSetupFallbackDeadEndCopy(relFile, line) {
     !relFile.endsWith('src/app/entities/context/ui/InjectionPreviewModal.tsx') &&
     !relFile.endsWith('src/app/features/admin/AgentsPanel.tsx') &&
     !relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentControlPanel.tsx') &&
+    !relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx') &&
     !relFile.endsWith('src/app/features/analytics/ContextUsageDashboard.tsx') &&
     !relFile.endsWith('src/app/features/detail/HistoryTab.tsx') &&
-    !relFile.endsWith('src/app/features/settings/RuntimeSection.tsx')
+    !relFile.endsWith('src/app/features/settings/RuntimeSection.tsx') &&
+    !relFile.endsWith('src/app/shared/model/agents.store.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts')
   ) {
     return false
   }
@@ -4768,6 +4808,25 @@ function scanFile(file, relFile) {
         type: 'runtime-error-copy',
         location,
         message: 'Runtime setup errors must start with the next action, not the failure summary.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSettingsRuntimeNavJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'settings-runtime-nav-copy',
+        location,
+        message: 'Settings navigation must describe agent work setup in plain file-work language.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSettingsRuntimeLocationJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'settings-runtime-location-copy',
+        location,
+        message:
+          'Agent work setup must describe where files open instead of using agent location wording.',
         sample: line.trim(),
       })
     }

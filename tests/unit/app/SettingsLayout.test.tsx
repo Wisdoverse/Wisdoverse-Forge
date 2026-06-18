@@ -49,7 +49,7 @@ describe('SettingsLayout', () => {
     ).toBeInTheDocument()
     expect(
       within(desktopNav).getByRole('button', {
-        name: /Where agents run: Choose where agents run and which work tool they use/i,
+        name: /Agent work setup: Choose where agents edit files and which tool opens the work/i,
       })
     ).toBeInTheDocument()
     expect(
@@ -73,6 +73,7 @@ describe('SettingsLayout', () => {
     expect(screen.getByRole('option', { name: 'HTTPS code access' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'SSH code access' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Work limits' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Agent work setup' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Teams' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Team members' })).not.toBeInTheDocument()
     expect(screen.getByTestId('settings-mobile-section-hint')).toHaveTextContent(
@@ -81,7 +82,7 @@ describe('SettingsLayout', () => {
 
     fireEvent.click(
       within(desktopNav).getByRole('button', {
-        name: /Where agents run: Choose where agents run and which work tool they use/i,
+        name: /Agent work setup: Choose where agents edit files and which tool opens the work/i,
       })
     )
 

@@ -597,7 +597,7 @@ function agentControlErrorMessage(error: string): string {
     return 'Refresh this agent, confirm it still shows Ready, then resend the instruction. If it still fails, create a task instead or ask an owner or admin to check agent messaging.'
   }
   if (error === LOCAL_AGENT_CONTROL_FAILURE.startWorkspace) {
-    return 'Refresh Agents, then choose Start file work again. If it still does not show Ready, ask an owner or admin to check Where agents run.'
+    return 'Refresh Agents, then choose Start file work again. If it still does not show Ready, ask an owner or admin to check Agent work setup in Settings.'
   }
   if (error === LOCAL_AGENT_CONTROL_FAILURE.restartWorkspace) {
     return 'Refresh this agent, then choose Restart agent again only if Tasks or Live work still shows no progress. If it keeps failing, ask an owner or admin to check this agent setup.'
