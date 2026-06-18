@@ -385,10 +385,10 @@ export const zh: TranslationKeys = {
     loading: '加载视觉地图...',
     loadError: '视觉地图无法加载。等 Agent 可用后刷新，再试一次。',
     controls: {
-      zoom: '滚动缩放',
-      pan: '中键平移',
-      rotate: '右键旋转',
-      select: '点击选择',
+      zoom: '使用 Agent 列表查找 Agent',
+      pan: '在地图中选择机器人',
+      rotate: '地图会自动更新',
+      select: '从列表或地图中选择 Agent',
     },
     shortcuts: {
       numbers: '按 1-9 选择 Agent',

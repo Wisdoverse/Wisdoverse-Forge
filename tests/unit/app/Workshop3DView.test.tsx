@@ -3,6 +3,7 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import type { AgentInfo } from '@app/entities/agent'
 import {
   Workshop3DEmptyState,
+  Workshop3DInteractionHint,
   Workshop3DStatusSummary,
   workshop3DAgentSubtitle,
 } from '@app/widgets/views/Workshop3DView'
@@ -41,6 +42,20 @@ describe('Workshop3DStatusSummary', () => {
     expect(screen.getByText('1 Ready')).toBeDefined()
     expect(screen.getByText('0 Not connected')).toBeDefined()
     expect(screen.queryByText(/idle/i)).toBeNull()
+  })
+})
+
+describe('Workshop3DInteractionHint', () => {
+  test('tells first-time users how to select an agent without unsupported mouse controls', () => {
+    render(<Workshop3DInteractionHint />)
+
+    const hint = screen.getByTestId('workshop-3d-interaction-hint')
+
+    expect(hint.textContent).toContain('Choose an agent from the list')
+    expect(hint.textContent).toContain('select a robot in the map')
+    expect(hint.textContent).not.toContain('Middle-click')
+    expect(hint.textContent).not.toContain('Right-click')
+    expect(hint.textContent).not.toContain('Scroll to zoom')
   })
 })
 

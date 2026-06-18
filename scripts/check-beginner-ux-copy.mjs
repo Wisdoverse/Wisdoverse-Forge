@@ -338,6 +338,16 @@ const TIMELINE_EMPTY_DEAD_END_PATTERNS = [
 ]
 
 const WORKSHOP_3D_EMPTY_DEAD_END_PATTERNS = [/\bNo agents on the visual map yet\b/i]
+const WORKSHOP_3D_MOUSE_JARGON_PATTERNS = [
+  /\bScroll to zoom\b/i,
+  /\bMiddle-click to pan\b/i,
+  /\bRight-click to rotate\b/i,
+  /\bClick to select\b/i,
+  /滚动缩放/,
+  /中键平移/,
+  /右键旋转/,
+  /点击选择/,
+]
 
 const AGENT_DETAIL_ACTIVITY_DEAD_END_PATTERNS = [/\bNo task activity has been loaded yet\b/i]
 
@@ -2603,6 +2613,18 @@ function hasWorkshop3DEmptyDeadEndCopy(relFile, line) {
   return WORKSHOP_3D_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasWorkshop3DMouseJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/widgets/views/Workshop3DView.tsx') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return WORKSHOP_3D_MOUSE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasAgentDetailActivityDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -4682,6 +4704,15 @@ function scanFile(file, relFile) {
         type: 'workshop-3d-empty-copy',
         location,
         message: 'Visual map empty states must tell beginners to open Agents first.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasWorkshop3DMouseJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'workshop-3d-controls-copy',
+        location,
+        message: 'Visual map controls must describe the available list or map selection action.',
         sample: line.trim(),
       })
     }

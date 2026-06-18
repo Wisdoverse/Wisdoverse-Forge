@@ -3700,6 +3700,75 @@ export function Workshop3DEmptyState() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags visual map controls that mention unsupported mouse actions', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  workshop: {
+    controls: {
+      zoom: 'Scroll to zoom',
+      pan: 'Middle-click to pan',
+      rotate: 'Right-click to rotate',
+      select: 'Click to select',
+    },
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  workshop: {
+    controls: {
+      zoom: '滚动缩放',
+      pan: '中键平移',
+      rotate: '右键旋转',
+      select: '点击选择',
+    },
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'workshop-3d-controls-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'workshop-3d-controls-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'workshop-3d-controls-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:7',
+        }),
+        expect.objectContaining({
+          type: 'workshop-3d-controls-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:8',
+        }),
+        expect.objectContaining({
+          type: 'workshop-3d-controls-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'workshop-3d-controls-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'workshop-3d-controls-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:7',
+        }),
+        expect.objectContaining({
+          type: 'workshop-3d-controls-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:8',
+        }),
+      ])
+    )
+  })
+
   it('flags agent detail activity copy that does not tell users to open Tasks', () => {
     const cwd = fixture({
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
