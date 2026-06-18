@@ -520,7 +520,7 @@ export const en = {
   // Errors
   // =========================================================================
   errors: {
-    generic: 'Try again. If it repeats, ask an owner to check the system.',
+    generic: 'Try again after a moment. If it repeats, ask an owner to check app health.',
     network: 'Check your connection, then try again. Forge could not connect.',
     timeout: 'Wait a moment, then try again. The request took too long.',
     notFound: 'Refresh the page, then try again. {{resource}} was not found.',

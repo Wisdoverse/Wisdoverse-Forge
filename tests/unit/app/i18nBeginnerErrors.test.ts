@@ -5,6 +5,8 @@ import { zh } from '@app/shared/i18n/locales/zh'
 describe('beginner error translations', () => {
   test('English common errors lead with recovery steps', () => {
     expect(en.errors.generic).toMatch(/^Try again/)
+    expect(en.errors.generic).toContain('check app health')
+    expect(en.errors.generic).not.toContain('check the system')
     expect(en.errors.network).toContain('Check your connection')
     expect(en.errors.timeout).toMatch(/^Wait a moment/)
     expect(en.errors.notFound).toMatch(/^Refresh the page/)
@@ -31,7 +33,9 @@ describe('beginner error translations', () => {
   })
 
   test('Chinese common errors avoid terse technical labels', () => {
-    expect(zh.errors.generic).toMatch(/^请重试/)
+    expect(zh.errors.generic).toMatch(/^请稍等/)
+    expect(zh.errors.generic).toContain('应用健康状态')
+    expect(zh.errors.generic).not.toContain('检查系统')
     expect(zh.errors.network).toMatch(/^请检查网络/)
     expect(zh.errors.timeout).toMatch(/^请稍等片刻/)
     expect(zh.errors.notFound).toMatch(/^请刷新页面/)

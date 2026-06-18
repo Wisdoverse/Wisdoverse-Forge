@@ -865,6 +865,11 @@ const COMMON_ERROR_FAILURE_FIRST_PATTERNS = [
   /\{\{resource\}\} 配额已用完。请让所有者/,
 ]
 
+const COMMON_ERROR_VAGUE_SYSTEM_PATTERNS = [
+  /\bask an owner to check the system\b/i,
+  /管理员检查系统/,
+]
+
 const SYSTEM_HEALTH_ERROR_FAILURE_FIRST_PATTERNS = [
   /\bconst\s+\w+\s*=\s*['"`]Forge could not check app health\./i,
   /^\s*return\s+['"`]Forge could not check app health\./i,
@@ -3124,6 +3129,17 @@ function hasCommonErrorFailureFirstCopy(relFile, line) {
   return COMMON_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasCommonErrorVagueSystemCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return COMMON_ERROR_VAGUE_SYSTEM_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasLocaleVagueErrorLabelCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
@@ -3744,6 +3760,15 @@ function scanFile(file, relFile) {
         type: 'common-error-copy',
         location,
         message: 'Common error translations must start with the recovery action for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCommonErrorVagueSystemCopy(relFile, line)) {
+      findings.push({
+        type: 'common-error-system-copy',
+        location,
+        message: 'Common error translations must name app health instead of vague system checks.',
         sample: line.trim(),
       })
     }

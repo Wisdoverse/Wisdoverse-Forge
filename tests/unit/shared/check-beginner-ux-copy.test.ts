@@ -1387,7 +1387,7 @@ export const zh = {
       'src/app/shared/i18n/locales/en.ts': `
 export const en = {
   errors: {
-    generic: 'Try again. If it repeats, ask an owner to check the system.',
+    generic: 'Try again after a moment. If it repeats, ask an owner to check app health.',
     notFound: 'Refresh the page, then try again. {{resource}} was not found.',
     serverError: 'Wait a moment, then try again. Forge could not finish this right now.',
     uploadError: 'Check the file and connection, then upload again. The upload did not finish.',
@@ -1398,7 +1398,7 @@ export const en = {
       'src/app/shared/i18n/locales/zh.ts': `
 export const zh = {
   errors: {
-    generic: '请重试；如果反复发生，请让管理员检查系统。',
+    generic: '请稍等一下再重试；如果反复发生，请让管理员检查应用健康状态。',
     notFound: '请刷新页面后重试。未找到 {{resource}}。',
     serverError: '请稍等片刻后重试。Forge 暂时无法完成这个操作。',
     uploadError: '请检查文件和网络后重新上传。上传没有完成。',
@@ -1409,6 +1409,41 @@ export const zh = {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags common error translations that end with vague system checks', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  errors: {
+    generic: 'Try again. If it repeats, ask an owner to check the system.',
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  errors: {
+    generic: '请重试；如果反复发生，请让管理员检查系统。',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'common-error-system-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'common-error-system-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:4',
+        }),
+      ])
+    )
   })
 
   it('flags localized user access copy that exposes role jargon', () => {
