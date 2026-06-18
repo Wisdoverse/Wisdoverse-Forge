@@ -3985,6 +3985,40 @@ function agentFolderLabel() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags agent detail folder copy that returns a bare folder path', () => {
+    const cwd = fixture({
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function agentFolderLabel(agent) {
+  return agent.cwd
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-detail-folder-path-copy',
+          location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts agent detail folder copy that explains the folder before the path', () => {
+    const cwd = fixture({
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function agentFolderLabel(agent) {
+  return \`Folder selected during setup: \${agent.cwd}\`
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags agent detail availability copy that does not tell users where to recover', () => {
     const cwd = fixture({
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
@@ -11257,6 +11291,40 @@ function AuditLogView() {
       'src/app/features/governance/governanceAuditErrorMessages.ts': `
 function message() {
   return 'Your sign-in expired. Sign in again, then retry this change-history action.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags governance history copy that shows bare person references', () => {
+    const cwd = fixture({
+      'src/app/features/governance/AuditLogView.tsx': `
+function AuditRow({ entry }) {
+  return <span>{entry.actorUserId ? shortId(entry.actorUserId) : 'System'}</span>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'governance-audit-actor-copy',
+          location: 'src/app/features/governance/AuditLogView.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts governance history copy that explains person references', () => {
+    const cwd = fixture({
+      'src/app/features/governance/AuditLogView.tsx': `
+function auditActorLabel(actorUserId) {
+  return actorUserId ? \`Person reference \${shortId(actorUserId)}\` : 'System'
 }
 `,
     })
