@@ -1421,7 +1421,11 @@ const ACCESS_LEVEL_DEAD_END_PATTERNS = [
   /\boperator:\s*['"`]Operator['"`]/,
 ]
 
-const AGENT_TEMPLATE_ROLE_JARGON_PATTERNS = [/\bStart with a role\b/i, /\bAgent role templates\b/i]
+const AGENT_TEMPLATE_ROLE_JARGON_PATTERNS = [
+  /\bStart with a role\b/i,
+  /\bAgent role templates\b/i,
+  /\bFills in the agent name\b/i,
+]
 
 const AGENT_INSTRUCTION_TEMPLATE_JARGON_PATTERNS = [
   /\bgathering evidence first\b/i,
@@ -1441,6 +1445,8 @@ const CREATE_AGENT_PROJECT_JARGON_PATTERNS = [
 
 const CREATE_AGENT_WORK_AREA_JARGON_PATTERNS = [
   /\bAgent location\b/,
+  /\bForge project area\b/i,
+  /\bForge prepares (?:a safe )?project area\b/i,
   /\bready workspace managed by Forge\b/i,
   /\bproject workspace\b/i,
 ]

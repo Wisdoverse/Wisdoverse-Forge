@@ -3214,6 +3214,38 @@ function WorkStylePicker() {
     )
   })
 
+  it('flags create-agent starter template hints that only say they fill the name', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+function TemplateHint() {
+  return <span>Fills in the agent name</span>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'agent-template-role-copy',
+        sample: expect.stringContaining('Fills in the agent name'),
+      }),
+    ])
+  })
+
+  it('accepts create-agent starter template hints that explain starter task instructions', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+function TemplateHint() {
+  return <span>Fills in name and starter task instructions</span>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('accepts create-agent labels that ask where the agent works', () => {
     const cwd = fixture({
       'src/app/features/agents/CreateAgentModal.tsx': `
@@ -3233,10 +3265,10 @@ function WorkLocationPicker() {
     const cwd = fixture({
       'src/app/features/agents/CreateAgentModal.tsx': `
 function runtimeFitFor() {
-  return [{ label: 'Agent location', value: 'Managed workspace' }]
+  return [{ label: 'Agent location', value: 'Forge project area' }]
 }
 function HelpText() {
-  return <><p>Uses a ready workspace managed by Forge for file work.</p><p>Forge prepares this project workspace for the agent.</p></>
+  return <><p>Uses a ready workspace managed by Forge for file work.</p><p>Forge prepares this project area for the agent.</p><p>Forge prepares this project workspace for the agent.</p></>
 }
 `,
     })
@@ -3252,7 +3284,15 @@ function HelpText() {
         }),
         expect.objectContaining({
           type: 'create-agent-work-area-copy',
+          sample: expect.stringContaining('Forge project area'),
+        }),
+        expect.objectContaining({
+          type: 'create-agent-work-area-copy',
           sample: expect.stringContaining('ready workspace managed by Forge'),
+        }),
+        expect.objectContaining({
+          type: 'create-agent-work-area-copy',
+          sample: expect.stringContaining('Forge prepares this project area'),
         }),
         expect.objectContaining({
           type: 'create-agent-work-area-copy',
@@ -3266,10 +3306,10 @@ function HelpText() {
     const cwd = fixture({
       'src/app/features/agents/CreateAgentModal.tsx': `
 function runtimeFitFor() {
-  return [{ label: 'Where it works', value: 'Forge project area' }]
+  return [{ label: 'Where it works', value: 'Shared project folder' }]
 }
 function HelpText() {
-  return <><p>Forge prepares a safe project area for file work.</p><p>Forge prepares this project area for the agent.</p></>
+  return <><p>Forge opens the shared project folder for file work.</p><p>Forge opens the shared project folder for the agent.</p></>
 }
 `,
     })
@@ -3407,7 +3447,7 @@ const RUNTIME_LABELS = { container: 'Project files' }
 `,
       'src/app/features/agents/AgentKindBadge.tsx': `
 export function AgentKindBadge() {
-  return <span title="Works in a Forge project area. It can change files.">Project files</span>
+  return <span title="Works with shared project files. It can change files.">Project files</span>
 }
 `,
       'src/app/features/agents/AgentConfigTab.tsx': `
