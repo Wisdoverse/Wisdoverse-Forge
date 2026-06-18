@@ -31,6 +31,8 @@ function makeMember(overrides: Partial<ResourceMember>): ResourceMember {
 }
 
 function renderMembersModal({
+  resourceLabel = 'Project',
+  resourceName = 'Launch App',
   members = [],
   users = [makeUser({})],
   loadMembersError,
@@ -39,6 +41,8 @@ function renderMembersModal({
   updateMemberError,
   removeMemberError,
 }: {
+  resourceLabel?: 'Team' | 'Project'
+  resourceName?: string
   members?: ResourceMember[]
   users?: OrgUser[]
   loadMembersError?: unknown
@@ -79,8 +83,8 @@ function renderMembersModal({
 
   render(
     <ResourceMembersModal
-      resourceLabel="Project"
-      resourceName="Launch App"
+      resourceLabel={resourceLabel}
+      resourceName={resourceName}
       loadMembers={loadMembers}
       loadUsers={loadUsers}
       addMember={addMember}
@@ -207,6 +211,28 @@ describe('ResourceMembersModal', () => {
     expect(alert.textContent).toContain('This project is no longer selected')
     expect(alert.textContent).toContain('choose the project again')
     expect(alert.textContent).not.toContain('No project selected')
+  })
+
+  test('shows recovery guidance when the selected team changes before changing access', async () => {
+    renderMembersModal({
+      resourceLabel: 'Team',
+      resourceName: 'Support Team',
+      members: [makeMember({})],
+      users: [makeUser({})],
+      updateMemberError: new Error(
+        'This team is no longer selected. Close members, choose the team again, then add or change people.'
+      ),
+    })
+
+    await screen.findByText('builder')
+    fireEvent.change(screen.getByLabelText('Access level for builder'), {
+      target: { value: 'admin' },
+    })
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('This team is no longer selected')
+    expect(alert.textContent).toContain('choose the team again')
+    expect(alert.textContent).not.toContain('No team selected')
   })
 
   test('shows refresh guidance when role changes conflict', async () => {

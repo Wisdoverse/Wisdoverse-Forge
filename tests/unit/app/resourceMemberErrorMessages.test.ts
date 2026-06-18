@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'vitest'
-import { resourceMemberErrorMessage } from '@app/features/manage-members/model/resourceMemberErrorMessages'
+import {
+  resourceMemberErrorMessage,
+  resourceMemberSelectionLostMessage,
+} from '@app/features/manage-members/model/resourceMemberErrorMessages'
 
 describe('resourceMemberErrorMessage', () => {
   function expectBeginnerMessage(actual: string, expected: string): void {
@@ -59,6 +62,15 @@ describe('resourceMemberErrorMessage', () => {
     )
     expect(message).not.toContain('owner role required')
     expect(message).not.toContain('update what you can do')
+  })
+
+  test('keeps lost selection messages safe even before modal error mapping', () => {
+    expect(resourceMemberSelectionLostMessage('Team')).toBe(
+      'This team is no longer selected. Close members, choose the team again, then add or change people.'
+    )
+    expect(resourceMemberSelectionLostMessage('Project')).toBe(
+      'This project is no longer selected. Close members, choose the project again, then add or change people.'
+    )
   })
 
   test('turns missing member lists into a refresh step first', () => {

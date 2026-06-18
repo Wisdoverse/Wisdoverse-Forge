@@ -3,7 +3,10 @@ import { FolderKanban, ShieldAlert, Users } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useAuth } from '@app/shared/model/auth.context'
-import { ResourceMembersModal } from '@app/features/manage-members'
+import {
+  ResourceMembersModal,
+  resourceMemberSelectionLostMessage,
+} from '@app/features/manage-members'
 import { CreateProjectForm, EditableProjectRow } from '@app/features/manage-project'
 import {
   projectApi,
@@ -133,7 +136,7 @@ export function ProjectsSection() {
 
   const addSelectedProjectMember = useCallback(
     async (input: Parameters<typeof projectApi.addMember>[1]) => {
-      if (!membersProject) throw new Error('No project selected')
+      if (!membersProject) throw new Error(resourceMemberSelectionLostMessage('Project'))
       return projectApi.addMember(membersProject.id, input)
     },
     [membersProject]
@@ -141,7 +144,7 @@ export function ProjectsSection() {
 
   const updateSelectedProjectMember = useCallback(
     async (userId: string, input: Parameters<typeof projectApi.updateMember>[2]) => {
-      if (!membersProject) throw new Error('No project selected')
+      if (!membersProject) throw new Error(resourceMemberSelectionLostMessage('Project'))
       return projectApi.updateMember(membersProject.id, userId, input)
     },
     [membersProject]
@@ -149,7 +152,7 @@ export function ProjectsSection() {
 
   const removeSelectedProjectMember = useCallback(
     async (userId: string) => {
-      if (!membersProject) throw new Error('No project selected')
+      if (!membersProject) throw new Error(resourceMemberSelectionLostMessage('Project'))
       return projectApi.removeMember(membersProject.id, userId)
     },
     [membersProject]
