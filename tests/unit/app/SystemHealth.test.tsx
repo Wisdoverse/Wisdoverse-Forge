@@ -37,7 +37,7 @@ describe('SystemHealth', () => {
     await waitFor(() => expect(loadHealth).toHaveBeenCalledOnce())
     expect(screen.getByText('App health check')).toBeDefined()
     expect(
-      screen.getByText(/Start with anything marked Fix first, then items marked Check soon/i)
+      screen.getByText(/Start with anything marked Fix first, then items marked Check again soon/i)
     ).toBeDefined()
     expect(screen.getByText('Some areas need a check')).toBeDefined()
     expect(
@@ -58,8 +58,9 @@ describe('SystemHealth', () => {
     expect(screen.queryByText('Last check took 12 ms')).toBeNull()
     expect(screen.queryByText('responds in 12 ms')).toBeNull()
     expect(screen.getByText('Ready')).toBeDefined()
-    expect(screen.getAllByText('Check soon').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Check again soon').length).toBeGreaterThan(0)
     expect(screen.getByText('Fix first')).toBeDefined()
+    expect(screen.queryByText('Check soon')).toBeNull()
     expect(screen.queryByText('Needs attention')).toBeNull()
     expect(screen.queryByText('Unavailable')).toBeNull()
     expect(screen.getByText('Choose Check now to confirm')).toBeDefined()
@@ -159,8 +160,9 @@ describe('SystemHealth', () => {
     render(<SystemHealth />)
 
     await waitFor(() => expect(loadHealth).toHaveBeenCalledOnce())
-    expect(screen.getByText(/Owner\/admin note:/i)).toBeDefined()
+    expect(screen.getByText(/Setup helper note:/i)).toBeDefined()
     expect(screen.getByText(/This area reported a connection problem/i)).toBeDefined()
+    expect(screen.queryByText(/Owner\/admin note:/i)).toBeNull()
     expect(screen.queryByText(/postgres\.internal/i)).toBeNull()
     expect(screen.queryByText(/5432/i)).toBeNull()
     expect(screen.queryByText(/stack trace/i)).toBeNull()

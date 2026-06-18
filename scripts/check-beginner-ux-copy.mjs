@@ -495,6 +495,7 @@ const CLI_IMAGE_RESULT_JARGON_PATTERNS = [
 ]
 
 const SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS = [
+  /\bCheck soon\b/i,
   /\bNot checked(?: yet)?\b/i,
   /\bNeeds attention\b/i,
   /\bSome areas need attention\b/i,
@@ -509,6 +510,13 @@ const SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS = [
 ]
 
 const SYSTEM_HEALTH_LIVE_UPDATE_JARGON_PATTERNS = [/\bMoves events from running agents\b/i]
+
+const SYSTEM_HEALTH_HELPER_NOTE_JARGON_PATTERNS = [/\bOwner\/admin note\b/i]
+
+const ADMIN_NAV_TECHNICAL_COPY_PATTERNS = [
+  /\bSystem health and user management\b/i,
+  /\bmanage team spaces,\s*users,\s*and system health\b/i,
+]
 
 const CODE_ACCESS_KEY_JARGON_PATTERNS = [/\bPaste the key from GitHub or GitLab\b/i]
 
@@ -3115,6 +3123,23 @@ function hasSystemHealthLiveUpdateJargonCopy(relFile, line) {
   return SYSTEM_HEALTH_LIVE_UPDATE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasSystemHealthHelperNoteJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/admin/SystemHealth.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SYSTEM_HEALTH_HELPER_NOTE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAdminNavTechnicalCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/layouts/AppLayout.tsx') &&
+    !relFile.endsWith('src/app/layouts/sidebar/SidebarNav.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ADMIN_NAV_TECHNICAL_COPY_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasSystemHealthErrorFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/admin/systemHealthErrorMessage.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -5492,6 +5517,26 @@ function scanFile(file, relFile) {
         type: 'system-health-live-update-copy',
         location,
         message: 'App health live-update copy must say progress instead of events.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSystemHealthHelperNoteJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'system-health-helper-note-copy',
+        location,
+        message:
+          'App health issue notes must use setup-helper wording instead of owner/admin slash jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAdminNavTechnicalCopy(relFile, line)) {
+      findings.push({
+        type: 'admin-nav-copy',
+        location,
+        message:
+          'Admin navigation copy must say app health and people instead of system-health/user-management jargon.',
         sample: line.trim(),
       })
     }

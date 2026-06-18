@@ -8580,6 +8580,29 @@ function serviceStatusText(status: ServiceStatus): string {
     ])
   })
 
+  it('flags app health labels that say check soon without the next action', () => {
+    const cwd = fixture({
+      'src/app/features/admin/SystemHealth.tsx': `
+function StatusBadge() {
+  return 'Check soon'
+}
+const helper = 'If it still shows Check soon, ask an owner or admin.'
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'system-health-status-copy',
+          sample: expect.stringContaining('Check soon'),
+        }),
+      ])
+    )
+  })
+
   it('accepts app health status copy that tells users to check now', () => {
     const cwd = fixture({
       'src/app/features/admin/SystemHealth.tsx': `
@@ -8588,6 +8611,38 @@ type ServiceStatus = 'ready' | 'unknown'
 function serviceStatusText(status: ServiceStatus): string {
   if (status === 'ready') return 'Ready'
   return 'Choose Check now to confirm'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags app health issue notes that use owner/admin slash jargon', () => {
+    const cwd = fixture({
+      'src/app/features/admin/SystemHealth.tsx': `
+function ServiceRow() {
+  return <p>Owner/admin note: check the service logs.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'system-health-helper-note-copy',
+        sample: expect.stringContaining('Owner/admin note'),
+      }),
+    ])
+  })
+
+  it('accepts app health issue notes that name setup helpers', () => {
+    const cwd = fixture({
+      'src/app/features/admin/SystemHealth.tsx': `
+function ServiceRow() {
+  return <p>Setup helper note: use the next step above, then choose Check now.</p>
 }
 `,
     })
@@ -8621,6 +8676,50 @@ const SERVICE_DEFINITIONS = [
 const SERVICE_DEFINITIONS = [
   { description: 'Shows progress from running agents in the browser in near real time.' },
 ]
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags Admin navigation copy that still says system health or user management', () => {
+    const cwd = fixture({
+      'src/app/layouts/AppLayout.tsx': `
+const PAGE_META = {
+  '/admin': { title: 'Admin', subtitle: 'System health and user management' },
+}
+`,
+      'src/app/layouts/sidebar/SidebarNav.tsx': `
+const item = { description: 'manage team spaces, users, and system health' }
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'admin-nav-copy',
+          sample: expect.stringContaining('System health and user management'),
+        }),
+        expect.objectContaining({
+          type: 'admin-nav-copy',
+          sample: expect.stringContaining('users, and system health'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts Admin navigation copy that says app health and people', () => {
+    const cwd = fixture({
+      'src/app/layouts/AppLayout.tsx': `
+const PAGE_META = {
+  '/admin': { title: 'Admin', subtitle: 'Check app health and manage people' },
+}
+`,
+      'src/app/layouts/sidebar/SidebarNav.tsx': `
+const item = { description: 'manage team spaces, people, and app health' }
 `,
     })
 

@@ -42,7 +42,7 @@ const SERVICE_DEFINITIONS: readonly ServiceDefinition[] = [
     description: 'Helps pages respond quickly and keeps temporary app state in sync.',
     impact: 'The app can still work, but pages and realtime updates may feel slower.',
     action:
-      'Wait a minute, then choose Check now. If it still shows Check soon, ask an owner or admin to restart fast loading.',
+      'Wait a minute, then choose Check now. If it still shows Check again soon, ask an owner or admin to restart fast loading.',
   },
   {
     key: 'nats',
@@ -87,7 +87,7 @@ function StatusBadge({ status }: { status: ServiceStatus }) {
     status === 'up'
       ? 'Ready'
       : status === 'degraded'
-        ? 'Check soon'
+        ? 'Check again soon'
         : status === 'down'
           ? 'Fix first'
           : 'Check now'
@@ -107,7 +107,7 @@ function StatusBadge({ status }: { status: ServiceStatus }) {
 
 function serviceStatusText(status: ServiceStatus): string {
   if (status === 'up') return 'Working normally'
-  if (status === 'degraded') return 'Check soon'
+  if (status === 'degraded') return 'Check again soon'
   if (status === 'down') return 'Not working'
   return 'Choose Check now to confirm'
 }
@@ -218,7 +218,7 @@ function ServiceRow({ name, supportName, description, impact, action, health }: 
               </p>
               {health?.error && (
                 <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                  Owner/admin note: {serviceIssueNote(health.error)}
+                  Setup helper note: {serviceIssueNote(health.error)}
                 </p>
               )}
             </div>
@@ -318,7 +318,7 @@ export function SystemHealth() {
           <h2 className={uiStyles.sectionTitle}>App health check</h2>
           <p className={uiStyles.sectionDescription}>
             Checks when opened, then refreshes every 30 seconds while Admin is open. Start with
-            anything marked Fix first, then items marked Check soon.
+            anything marked Fix first, then items marked Check again soon.
           </p>
         </div>
         <button
