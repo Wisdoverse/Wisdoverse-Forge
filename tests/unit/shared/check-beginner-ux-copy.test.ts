@@ -798,7 +798,7 @@ function AgentDetailView() {
 `,
       'src/app/features/chat/ChatView.tsx': `
 function ChatView() {
-  return 'Open AI service settings, choose Check connection, then refresh Agents before sending a message.'
+  return 'Open AI service settings, choose Check connection for this service, then refresh Agents before sending a message.'
 }
 `,
       'src/app/features/settings/providerTestErrorMessage.ts': `
@@ -8551,6 +8551,9 @@ function ChatView() {
 function loadingMessage() {
   return 'Loading earlier messages. You can send once loading finishes.'
 }
+function chatServiceSetup() {
+  return 'Open AI service settings, choose Check connection, then refresh Agents before sending a message.'
+}
 `,
       'src/app/features/chat/ChatComposer.tsx': `
 function ChatComposer() {
@@ -8558,6 +8561,9 @@ function ChatComposer() {
 }
 function fallbackDisabledReason() {
   return 'Chat is not ready yet. Try again when this agent is online.'
+}
+function agentInstructionPlaceholder() {
+  return 'Reconnect or start this agent before sending an instruction.'
 }
 `,
     })
@@ -8577,11 +8583,19 @@ function fallbackDisabledReason() {
         }),
         expect.objectContaining({
           type: 'chat-offline-copy',
+          location: 'src/app/features/chat/ChatView.tsx:9',
+        }),
+        expect.objectContaining({
+          type: 'chat-offline-copy',
           location: 'src/app/features/chat/ChatComposer.tsx:3',
         }),
         expect.objectContaining({
           type: 'chat-offline-copy',
           location: 'src/app/features/chat/ChatComposer.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'chat-offline-copy',
+          location: 'src/app/features/chat/ChatComposer.tsx:9',
         }),
       ])
     )
@@ -8591,7 +8605,7 @@ function fallbackDisabledReason() {
     const cwd = fixture({
       'src/app/features/chat/ChatView.tsx': `
 function ChatView() {
-  return 'Open AI service settings, choose Check connection, then refresh Agents before sending a message.'
+  return 'Open AI service settings, choose Check connection for this service, then refresh Agents before sending a message.'
 }
 function loadingMessage() {
   return 'Wait for earlier messages to finish loading, then send your message from this chat.'
@@ -8603,6 +8617,9 @@ function ChatComposer() {
 }
 function fallbackDisabledReason() {
   return 'Wait until this agent is online, then send the message again from this chat.'
+}
+function servicePlaceholder() {
+  return 'Check this AI service before sending a message.'
 }
 `,
     })

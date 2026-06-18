@@ -8,6 +8,7 @@ export interface ChatComposerProps {
   streaming: boolean
   disabled: boolean
   disabledReason?: string
+  disabledPlaceholder?: string
 }
 
 export function ChatComposer({
@@ -16,6 +17,7 @@ export function ChatComposer({
   streaming,
   disabled,
   disabledReason,
+  disabledPlaceholder,
 }: ChatComposerProps) {
   const [value, setValue] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -32,6 +34,9 @@ export function ChatComposer({
       ? (disabledReason ??
         'Wait until this agent is online, then send the message again from this chat.')
       : 'Write one clear instruction or question, then send it to this agent.'
+  const placeholderText = disabled
+    ? (disabledPlaceholder ?? 'Wait until this agent is Ready before sending.')
+    : 'Ask this agent for the next step'
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -81,7 +86,7 @@ export function ChatComposer({
             'max-h-40 flex-1 resize-none bg-transparent text-sm outline-none',
             (disabled || streaming) && 'cursor-not-allowed opacity-50'
           )}
-          placeholder="Ask this agent for the next step"
+          placeholder={placeholderText}
           value={value}
           rows={2}
           disabled={disabled || streaming}

@@ -78,14 +78,20 @@ describe('ChatComposer', () => {
         onAbort={() => {}}
         streaming={false}
         disabled={true}
-        disabledReason="Open AI service settings, choose Check connection, then refresh Agents before sending a message."
+        disabledReason="Open AI service settings, choose Check connection for this service, then refresh Agents before sending a message."
+        disabledPlaceholder="Check this AI service before sending a message."
       />
     )
-    expect(screen.getByRole('textbox')).toBeDisabled()
+    const textbox = screen.getByRole('textbox')
+    expect(textbox).toBeDisabled()
+    expect(textbox).toHaveAttribute(
+      'placeholder',
+      'Check this AI service before sending a message.'
+    )
     expect(screen.getByRole('button', { name: /send/i })).toBeDisabled()
     expect(
       screen.getByText(
-        'Open AI service settings, choose Check connection, then refresh Agents before sending a message.'
+        'Open AI service settings, choose Check connection for this service, then refresh Agents before sending a message.'
       )
     ).toBeVisible()
     expect(screen.queryByText(/Settings > AI services/)).toBeNull()
@@ -95,7 +101,9 @@ describe('ChatComposer', () => {
   it('gives a concrete send step when disabled without a custom reason', () => {
     render(<ChatComposer onSend={() => {}} onAbort={() => {}} streaming={false} disabled />)
 
-    expect(screen.getByRole('textbox')).toBeDisabled()
+    const textbox = screen.getByRole('textbox')
+    expect(textbox).toBeDisabled()
+    expect(textbox).toHaveAttribute('placeholder', 'Wait until this agent is Ready before sending.')
     expect(screen.getByRole('button', { name: /send/i })).toBeDisabled()
     expect(
       screen.getByText(
