@@ -665,7 +665,7 @@ function CatalogGrid() {
 `,
       'src/app/features/agents/CreateAgentModal.tsx': `
 function CreateAgentModal() {
-  return 'Open Settings > AI services, add a service, save it, then click Check until it says Ready.'
+  return 'Open Settings > AI services, add a service, save it, then click Check until it says Ready. Open AI services settings if the service is not ready.'
 }
 `,
       'src/app/features/agents/AgentControlPanel.tsx': `
@@ -3679,13 +3679,13 @@ function runtimeFitFor() {
   return [{ label: 'Where it works', value: 'AI service only' }]
 }
 function validationMessage() {
-  return 'Open AI services settings, choose Check connection for this service, then come back when it shows Ready.'
+  return 'Open AI service settings, choose Check connection for this service, then come back when it shows Ready.'
 }
 function FieldLabel() {
   return <label>Saved AI service setup</label>
 }
 function HelpText() {
-  return <p>This detail comes from AI services settings. You do not need to change it here.</p>
+  return <p>This comes from the checked AI service in Settings. You do not need to change it here.</p>
 }
 `,
     })
