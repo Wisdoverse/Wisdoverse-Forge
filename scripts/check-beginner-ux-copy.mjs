@@ -126,6 +126,10 @@ const AGENT_SHARED_STATUS_DEAD_END_PATTERNS = [
   /\bStatus needs review\b/i,
 ]
 
+const AGENT_STATUS_EMPTY_DEAD_END_PATTERNS = [/\bNo agents are connected yet\b/i]
+
+const AGENT_STATUS_BAR_DEAD_END_PATTERNS = [/\bStart or wake it\b/i]
+
 const REVIEW_DECISION_JARGON_PATTERNS = [
   /\bvalue:\s*['"`]pending['"`]\s*,\s*label:\s*['"`]Pending['"`]/,
   /\btitleCase\(state\)/,
@@ -224,6 +228,19 @@ const ADMIN_AGENT_STATUS_FALLBACK_DEAD_END_PATTERNS = [
 ]
 
 const ADMIN_AGENT_EMPTY_DEAD_END_PATTERNS = [/\bNo agents to show\b/i]
+
+const I18N_ACTION_FIRST_EMPTY_DEAD_END_PATTERNS = [
+  /\bnoResults:\s*['"`]No matching results\./i,
+  /\bnoData:\s*['"`]Nothing to show yet\./i,
+  /\bnoAgents:\s*['"`]No agents yet\./i,
+  /\bnoGroups:\s*['"`]No waiting places yet\./i,
+  /\bnoActivity:\s*['"`]No activity yet\./i,
+  /\bnoResults:\s*['"`]没有匹配结果。/i,
+  /\bnoData:\s*['"`]这里暂时没有内容。/i,
+  /\bnoAgents:\s*['"`]还没有 Agent。/i,
+  /\bnoGroups:\s*['"`]暂无任务等待位置。/i,
+  /\bnoActivity:\s*['"`]暂无活动。/i,
+]
 
 const ADMIN_LOAD_ERROR_DEAD_END_PATTERNS = [
   /\bThe admin [^'"`]+ could not load\./i,
@@ -327,6 +344,8 @@ const SAVED_ITEM_OPTIONAL_EMPTY_DEAD_END_PATTERNS = [/\bNo other saved items wer
 const SAVED_ITEM_SELECTION_EMPTY_DEAD_END_PATTERNS = [
   /\bNothing will be shared yet\b/i,
   /\bNothing is kept yet\b/i,
+  /\bNo saved items will be included yet\b/i,
+  /\bNo saved items are pinned yet\b/i,
   /\bNo saved items are selected yet\b/i,
 ]
 
@@ -1888,6 +1907,24 @@ function hasAgentSharedStatusDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/entities/agent/model/status-labels.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return AGENT_SHARED_STATUS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasI18nActionFirstEmptyDeadEndCopy(relFile, line) {
+  if (!/src\/app\/shared\/i18n\/locales\/(?:en|zh)\.ts$/.test(relFile)) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return I18N_ACTION_FIRST_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentStatusEmptyDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/feed/AgentStatusBar.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_STATUS_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentStatusBarDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/feed/AgentStatusBar.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_STATUS_BAR_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasReviewDecisionJargonCopy(line) {
@@ -3828,6 +3865,33 @@ function scanFile(file, relFile) {
         type: 'agent-shared-status-copy',
         location,
         message: 'Shared agent status fallbacks must tell beginners to refresh or check status.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasI18nActionFirstEmptyDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'i18n-action-first-empty-copy',
+        location,
+        message: 'Shared empty-state translations must start with the next action for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentStatusEmptyDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-status-empty-copy',
+        location,
+        message: 'Agent status empty states must start with the next action for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentStatusBarDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-status-bar-copy',
+        location,
+        message: 'Agent status bar copy must tell beginners where to start the agent.',
         sample: line.trim(),
       })
     }

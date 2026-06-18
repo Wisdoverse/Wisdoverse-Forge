@@ -32,8 +32,8 @@ const STATUS_COPY: Record<
   },
   offline: {
     label: 'Not connected',
-    description: 'This agent is not reachable right now.',
-    visibleDetail: 'Start or wake it',
+    description: 'This agent is not connected right now.',
+    visibleDetail: 'Start it in Agents',
     container: 'bg-black/[0.04] dark:bg-white/[0.06]',
   },
 }
@@ -45,7 +45,7 @@ export function AgentStatusBar({ agents }: { agents: AgentStatus[] }) {
         data-testid="agent-status-empty"
         className="rounded-lg bg-black/[0.035] px-3 py-2 text-[10px] leading-relaxed text-secondary-light dark:bg-white/[0.05] dark:text-secondary-dark"
       >
-        No agents are connected yet. Open Agents to create or start one before assigning work.
+        Open Agents to create or start one before assigning work.
       </div>
     )
   }
