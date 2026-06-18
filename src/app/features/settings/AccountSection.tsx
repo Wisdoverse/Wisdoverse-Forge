@@ -42,6 +42,8 @@ function PasswordChangeForm() {
   const hasCurrentPassword = form.currentPassword.trim().length > 0
   const hasConfirmation = form.confirmPassword.length > 0
   const newPasswordIsLongEnough = form.newPassword.length >= 8
+  const newPasswordMatchesCurrent =
+    hasCurrentPassword && form.newPassword.length > 0 && form.currentPassword === form.newPassword
   const passwordsMatch = hasConfirmation && form.newPassword === form.confirmPassword
   const passwordChecks = [
     {
@@ -53,6 +55,11 @@ function PasswordChangeForm() {
       id: 'new-password-length',
       met: newPasswordIsLongEnough,
       label: 'Use at least 8 characters for the new password.',
+    },
+    {
+      id: 'new-password-different',
+      met: !newPasswordMatchesCurrent,
+      label: 'Use a new password that is different from the current password.',
     },
     {
       id: 'confirm-password',
@@ -87,6 +94,11 @@ function PasswordChangeForm() {
     }
     if (form.newPassword.length < 8) {
       setError('Use at least 8 characters for the new password.')
+      return
+    }
+    if (form.currentPassword === form.newPassword) {
+      setError('Choose a new password that is different from the current password.')
+      document.getElementById('account-new-password')?.focus()
       return
     }
 
