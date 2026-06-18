@@ -15,7 +15,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
   const text = detail?.toLowerCase() ?? ''
 
   if (text.includes('can not approve your own pull request')) {
-    return 'Ask another maintainer to review this code fix. The code host needs someone else to review changes you opened yourself.'
+    return 'Ask another owner or admin to review this code fix. The code host needs someone else to review changes you opened yourself.'
   }
 
   if (

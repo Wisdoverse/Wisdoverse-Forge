@@ -27,7 +27,7 @@ const STATUS_LABEL: Record<SelfFixReviewStatus, string> = {
   approved: 'Ready to finish',
   changes_requested: 'Needs changes',
   merged: 'Finished',
-  sensitive_blocked: 'Needs maintainer review',
+  sensitive_blocked: 'Needs owner or admin review',
 }
 
 /**
@@ -177,8 +177,8 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
               <div className="flex items-start gap-1.5 text-apple-red">
                 <ShieldAlert size={13} className="mt-px shrink-0" />
                 <span>
-                  This fix changes sensitive project areas. Ask a maintainer to review and finish it
-                  manually.
+                  This fix changes sensitive project areas. Ask an owner or admin to review and
+                  finish it manually.
                 </span>
               </div>
             )}

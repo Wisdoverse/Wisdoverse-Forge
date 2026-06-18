@@ -117,8 +117,9 @@ describe('ReviewSnapshotPanel', () => {
     render(<ReviewSnapshotPanel task={task()} />)
 
     expect(await screen.findByTestId('review-approve')).toBeDisabled()
-    expect(screen.getByText('Needs maintainer review')).toBeInTheDocument()
+    expect(screen.getByText('Needs owner or admin review')).toBeInTheDocument()
     expect(screen.getByText(/fix changes sensitive project areas/i)).toBeInTheDocument()
+    expect(screen.queryByText(/maintainer/i)).toBeNull()
     expect(screen.queryByText(/protected files/i)).toBeNull()
   })
 
@@ -146,10 +147,11 @@ describe('ReviewSnapshotPanel', () => {
     fireEvent.click(await screen.findByTestId('review-approve'))
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Ask another maintainer to review this code fix.')
+    expect(alert).toHaveTextContent('Ask another owner or admin to review this code fix.')
     expect(alert).toHaveTextContent(
       'The code host needs someone else to review changes you opened yourself.'
     )
+    expect(alert).not.toHaveTextContent('maintainer')
     expect(alert).not.toHaveTextContent('pull request')
     expect(alert).not.toHaveTextContent('GraphQL')
     expect(alert).not.toHaveTextContent('addPullRequestReview')
