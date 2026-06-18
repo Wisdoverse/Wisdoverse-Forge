@@ -350,7 +350,7 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
       return {
         title: 'Paste setup text on this computer again',
         detail:
-          'Go to the computer where this agent was connected. Open Terminal or PowerShell in the project folder, paste the setup text again, and keep that window open.',
+          "Go to the computer where this agent was connected. Open that computer's command app in the project folder, paste the setup text again, and keep that app open.",
         success: 'The status changes from Not connected to Ready or Working now.',
         ready: false,
       }

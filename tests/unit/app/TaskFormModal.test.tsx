@@ -213,7 +213,7 @@ describe('TaskFormModal', () => {
     expect(screen.getByText(/This task will wait here until an agent is Ready/i)).toBeDefined()
     expect(screen.queryByText('No agents are available right now')).toBeNull()
     expect(
-      screen.getByRole('option', { name: /let the next available agent pick it up/i })
+      screen.getByRole('option', { name: /let the next ready agent pick it up/i })
     ).toBeDefined()
     expect(screen.queryByText(/any available agent can do the work/i)).toBeNull()
     expect(screen.queryByText(/unassigned/i)).toBeNull()
@@ -231,11 +231,13 @@ describe('TaskFormModal', () => {
     renderModal()
 
     expect(screen.getByTestId('task-work-lane-readiness').textContent).toContain(
-      'New tasks will wait in Starter Queue until an available agent picks them up.'
+      'New tasks will wait in Starter Queue until a ready agent picks them up.'
     )
+    expect(screen.getByText(/1 ready/i)).toBeDefined()
     expect(
-      screen.getByText(/Keep this choice when any available agent can do the work/i)
+      screen.getByText(/Leave automatic selection on when any ready agent can do the work/i)
     ).toBeDefined()
+    expect(screen.queryByText(/Keep this choice when any available agent/i)).toBeNull()
     expect(screen.getByTestId('task-work-lane-readiness').textContent).not.toContain('is ready')
     expect(screen.getByTestId('task-work-lane-readiness').textContent).not.toContain(
       ['Agents', 'check', 'this', 'queue'].join(' ')
@@ -498,11 +500,12 @@ describe('TaskFormModal', () => {
     await waitFor(() => expect(onProjectChange).toHaveBeenCalledWith(otherProject.id))
 
     const readiness = screen.getByTestId('task-work-lane-readiness')
-    expect(readiness).toHaveTextContent('Preparing This Project')
+    expect(readiness).toHaveTextContent('Preparing this project')
     expect(readiness).toHaveTextContent(
       'Forge is loading the task queue for this project. Wait a moment before creating the task.'
     )
     expect(readiness).not.toHaveTextContent('Create a Task Queue First')
+    expect(readiness).not.toHaveTextContent('Preparing This Project')
     expect(screen.getByRole('button', { name: /preparing project/i })).toBeDisabled()
   })
 })

@@ -538,10 +538,10 @@ function HostCliEnrollmentPanel({
 
             <div className="mt-3 grid gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
               <p>
-                1. Open the app for your computer: Terminal on macOS/Linux, or PowerShell on
+                1. Open your computer's command app: Terminal on macOS/Linux, or PowerShell on
                 Windows. Use the folder this agent should work in.
               </p>
-              <p>2. Copy the setup text and paste it into that window.</p>
+              <p>2. Copy the setup text and paste it into that app.</p>
               <p>3. Leave the work tool as Codex unless your team tells you otherwise.</p>
             </div>
             <p
@@ -549,7 +549,7 @@ function HostCliEnrollmentPanel({
               className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark"
             >
               When it works, come back to Forge. A new agent named This Computer Codex appears in
-              this list. Keep Terminal or PowerShell open while it works.
+              this list. Keep that command app open while it works.
             </p>
           </>
         ) : (

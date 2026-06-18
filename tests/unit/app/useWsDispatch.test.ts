@@ -372,7 +372,7 @@ describe('dispatchWsMessage', () => {
       ownerUserId: 'user-owner',
     })
     expect(notifications[0].message).toContain(
-      'Stopped before finishing. Open details to see what happened and retry.'
+      'Stopped before finishing. Open the task details, review the latest update, then retry when ready.'
     )
     expect(notifications[0].message).not.toContain('migration exited non-zero')
   })
@@ -498,7 +498,7 @@ describe('dispatchWsMessage', () => {
     const notifications = useFeedStore.getState().notifications
     expect(notifications).toHaveLength(1)
     expect(notifications[0].message).toContain(
-      'Finished with a text result. Open details to review it.'
+      'Finished with a text result. Open the task details to review it before using it.'
     )
     expect(notifications[0].message).not.toContain('panic')
     expect(notifications[0].message).not.toContain('stack trace')
@@ -534,7 +534,7 @@ describe('dispatchWsMessage', () => {
     const notifications = useFeedStore.getState().notifications
     expect(notifications).toHaveLength(1)
     expect(notifications[0].message).toContain(
-      'Finished with a summary you should check. Open details before using the result.'
+      'Finished with a summary you should check. Open the task details before using the result.'
     )
     expect(notifications[0].message).not.toContain('panic')
     expect(notifications[0].message).not.toContain('stack trace')

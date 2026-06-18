@@ -566,8 +566,7 @@ export const en = {
         },
         stop_host_cli: {
           title: 'Stop the connection helper on your computer',
-          detail:
-            'Forge cannot stop it for you. Close the Terminal or PowerShell window on that computer.',
+          detail: "Forge cannot stop it for you. Close that computer's command app.",
         },
         stop_api: {
           title: 'Close the chat or wait for the reply to finish',

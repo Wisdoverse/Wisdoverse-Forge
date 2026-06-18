@@ -99,6 +99,9 @@ describe('SkillDraftModal', () => {
     const chooseAgent = screen.getByRole('link', { name: /choose agent/i })
     expect(openSkills.getAttribute('href')).toBe('/skills')
     expect(chooseAgent.getAttribute('href')).toBe('/agents')
+    expect(
+      screen.getByText('Find this instruction, then review the reusable steps before agents use them.')
+    ).toBeDefined()
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -148,7 +151,7 @@ describe('SkillDraftModal', () => {
     await user.click(screen.getByRole('button', { name: /publish instruction/i }))
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Keep or rewrite the reusable instructions before publishing.'
+      'Add the repeatable steps, or keep the suggested steps, before publishing.'
     )
     expect(screen.getByLabelText(/^reusable instructions$/i)).toHaveFocus()
     expect(screen.getByLabelText(/^reusable instructions$/i)).toHaveAttribute(

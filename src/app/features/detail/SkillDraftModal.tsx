@@ -61,7 +61,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
       return
     }
     if (!content) {
-      setError('Keep or rewrite the reusable instructions before publishing.')
+      setError('Add the repeatable steps, or keep the suggested steps, before publishing.')
       setFieldError('content')
       contentInputRef.current?.focus()
       return
@@ -302,7 +302,7 @@ function SkillPublishedState({ skill, onClose }: { skill: Skill; onClose: () => 
           href="/skills"
           Icon={LibraryBig}
           title="Open saved instructions"
-          detail="Review the reusable instructions."
+          detail="Find this instruction, then review the reusable steps before agents use them."
         />
         <NextReuseLink
           href="/agents"

@@ -48,12 +48,12 @@ describe('SkillCard', () => {
 
     expect(
       screen.getByRole('button', {
-        name: /release-review\. ready to reuse\. open details to check the reusable instructions before using this saved instruction/i,
+        name: /release-review\. ready to reuse\. open saved instruction details to review the reusable instructions before using it/i,
       })
     ).toBeInTheDocument()
     expect(
       screen.getByText(
-        'Open details to check the reusable instructions before using this saved instruction.'
+        'Open saved instruction details to review the reusable instructions before using it.'
       )
     ).toBeDefined()
   })
