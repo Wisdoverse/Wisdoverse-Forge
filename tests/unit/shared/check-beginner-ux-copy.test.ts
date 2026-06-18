@@ -2887,7 +2887,7 @@ function handleProjectChange() {
     const cwd = fixture({
       'src/app/features/board/TaskFormModal.tsx': `
 function handleProjectChange() {
-  return 'Select the project again to load task queues. If it still does not load, refresh the board or ask an owner to check task queue setup.'
+  return 'Select the project again to find where tasks wait. If it still does not load, refresh the board or ask an owner to check task routing setup.'
 }
 `,
     })
@@ -9179,6 +9179,8 @@ function TaskFormModal() {
       <p>Preparing this project</p>
       <p>Ready to Send</p>
       <p>Ready to send</p>
+      <p>Open task queues before creating this task</p>
+      <p>Create one task queue so new work has a place to wait</p>
       <p>Create a task queue before sending work</p>
       <p>Forge is loading the task queue for this project. Wait a moment before creating the task.</p>
       <option>Let the next available agent pick it up</option>
@@ -9204,16 +9206,24 @@ function TaskFormModal() {
           location: 'src/app/features/board/TaskFormModal.tsx:6',
         }),
         expect.objectContaining({
-          type: 'task-form-agent-choice-copy',
-          location: 'src/app/features/board/TaskFormModal.tsx:11',
+          type: 'task-form-ready-state-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:9',
         }),
         expect.objectContaining({
-          type: 'task-form-agent-choice-copy',
-          location: 'src/app/features/board/TaskFormModal.tsx:12',
+          type: 'task-form-ready-state-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:10',
         }),
         expect.objectContaining({
           type: 'task-form-agent-choice-copy',
           location: 'src/app/features/board/TaskFormModal.tsx:13',
+        }),
+        expect.objectContaining({
+          type: 'task-form-agent-choice-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:14',
+        }),
+        expect.objectContaining({
+          type: 'task-form-agent-choice-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:15',
         }),
       ])
     )
@@ -9227,13 +9237,94 @@ function TaskFormModal() {
     <div>
       <p>Loading this project</p>
       <p>Task can be created</p>
-      <p>Open task queues before creating this task</p>
+      <p>Set up where tasks wait before creating this task</p>
+      <p>Create one place for new work to wait, then return here.</p>
       <p>Wait a moment while Forge finds where new tasks wait for this project.</p>
       <option>Let the next ready agent pick it up</option>
       <p>Leave automatic selection on when any ready agent can do the work.</p>
       <span>2 ready</span>
     </div>
   )
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags board setup copy that leads with task queue jargon', () => {
+    const cwd = fixture({
+      'src/app/features/board/BoardView.tsx': `
+function BoardView() {
+  return <><p>Create a task queue before sending work</p><p>A task queue gives new tasks a place to wait. Open task queues to create one.</p></>
+}
+`,
+      'src/app/features/board/AgentGroupSelector.tsx': `
+function AgentGroupSelector() {
+  return <option>Create a task queue first</option>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'board-waiting-place-copy',
+          location: 'src/app/features/board/BoardView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'board-waiting-place-copy',
+          location: 'src/app/features/board/AgentGroupSelector.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts board setup copy that starts with where tasks wait', () => {
+    const cwd = fixture({
+      'src/app/features/board/BoardView.tsx': `
+function BoardView() {
+  return <><p>Set up where tasks wait before sending work</p><p>New tasks need a place to wait before an agent starts them.</p></>
+}
+`,
+      'src/app/features/board/AgentGroupSelector.tsx': `
+function AgentGroupSelector() {
+  return <option>Set up where tasks wait first</option>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags assignment status metrics that say in flight', () => {
+    const cwd = fixture({
+      'src/app/features/board/AssignmentReadinessPanel.tsx': `
+function AssignmentReadinessPanel() {
+  return <span>In flight</span>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'assignment-readiness-status-copy',
+        location: 'src/app/features/board/AssignmentReadinessPanel.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts assignment status metrics that say being worked on', () => {
+    const cwd = fixture({
+      'src/app/features/board/AssignmentReadinessPanel.tsx': `
+function AssignmentReadinessPanel() {
+  return <span>Being worked on</span>
 }
 `,
     })

@@ -512,11 +512,11 @@ describe('AppLayout', () => {
     })
     await waitFor(() =>
       expect(screen.getByTestId('task-work-lane-readiness').textContent).toContain(
-        'Open task queues before creating this task'
+        'Set up where tasks wait before creating this task'
       )
     )
-    expect(screen.getByText(/Create one task queue so new work has a place to wait/i)).toBeDefined()
-    expect(screen.getByRole('button', { name: /open task queues/i })).toBeDefined()
+    expect(screen.getByText(/Create one place for new work to wait/i)).toBeDefined()
+    expect(screen.getByRole('button', { name: /set up where tasks wait/i })).toBeDefined()
     const previousQueueInstruction = ['agents', 'check', 'task', 'queues'].join(' ')
     expect(screen.queryByText(new RegExp(previousQueueInstruction, 'i'))).toBeNull()
     expect(createButton).toBeDisabled()

@@ -583,6 +583,8 @@ const TASK_FORM_READY_STATE_JARGON_PATTERNS = [
   /\bPreparing this project\b/,
   /\bReady to Send\b/,
   /\bReady to send\b/,
+  /\bOpen task queues before creating this task\b/i,
+  /\bCreate one task queue so new work has a place to wait\b/i,
   /\bCreate a task queue before sending work\b/i,
   /\bForge is loading the task queue for this project\. Wait a moment before creating the task\./i,
   /\bCreate a task queue before creating a task\./i,
@@ -1146,6 +1148,7 @@ const TASK_FORM_AGENT_STATUS_DEAD_END_PATTERNS = [/\bstatus not reported\b/i]
 
 const TASK_FORM_QUEUE_LOAD_FAILURE_FIRST_PATTERNS = [
   /\bTask queues could not load for this project\./i,
+  /\bSelect the project again to load task queues\b/i,
 ]
 
 const TASK_SUPPORT_REFERENCE_DEAD_END_PATTERNS = [
@@ -1214,6 +1217,15 @@ const BOARD_AGENT_SETUP_DEAD_END_PATTERNS = [
 ]
 
 const BOARD_CLEAR_DEAD_END_PATTERNS = [/\bTask queue is clear\./i]
+
+const BOARD_WAITING_PLACE_JARGON_PATTERNS = [
+  /\bCreate a task queue before sending work\b/i,
+  /\bA task queue gives new tasks a place to wait\b/i,
+  /\bOpen task queues to create one\b/i,
+  /\bCreate a task queue first\b/i,
+]
+
+const ASSIGNMENT_READINESS_STATUS_JARGON_PATTERNS = [/\bIn flight\b/i]
 
 const AUTH_FAILURE_FIRST_PATTERNS = [
   /\bToo many sign-in attempts\. Wait a few minutes/i,
@@ -2136,6 +2148,23 @@ function hasBoardClearDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/board/AssignmentReadinessPanel.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return BOARD_CLEAR_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasBoardWaitingPlaceJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/board/BoardView.tsx') &&
+    !relFile.endsWith('src/app/features/board/AgentGroupSelector.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return BOARD_WAITING_PLACE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAssignmentReadinessStatusJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/board/AssignmentReadinessPanel.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ASSIGNMENT_READINESS_STATUS_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAuthFailureFirstCopy(relFile, line) {
@@ -4138,6 +4167,26 @@ function scanFile(file, relFile) {
         location,
         message:
           'Board clear-state copy must tell beginners to create a task when they have work to send.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasBoardWaitingPlaceJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'board-waiting-place-copy',
+        location,
+        message:
+          'Board setup copy must explain where new tasks wait instead of leading with task-queue jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAssignmentReadinessStatusJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'assignment-readiness-status-copy',
+        location,
+        message:
+          'Agent status metrics must say being worked on instead of internal in-flight wording.',
         sample: line.trim(),
       })
     }
