@@ -687,6 +687,7 @@ const AGENT_PLUGIN_ERROR_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*Tool change was not saved\. The switch was returned to its previous setting\./i,
   /['"`]\s*Forge could not finish this tool request right now\. Wait a few minutes, then try again\./i,
   /['"`]\s*Forge could not read this agent's tool list\. Refresh the page\./i,
+  /\b`\$\{base\} (?:Another change is still being saved\. Wait a moment|Too many requests are happening right now\. Wait a minute|Forge could not finish this tool request right now\. Wait a few minutes|Forge could not connect while checking this agent's tools\. Check your connection|Try again\.)/i,
 ]
 
 const SAVED_INSTRUCTIONS_LOAD_DEAD_END_PATTERNS = [
