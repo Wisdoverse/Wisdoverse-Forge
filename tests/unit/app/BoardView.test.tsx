@@ -392,10 +392,10 @@ describe('BoardView', () => {
 
     const alert = await screen.findByTestId('board-action-error')
     expect(alert).toHaveTextContent(
-      'Check the project, task queue, and result, then create the task again. The task was not created.'
+      'Check the project, where tasks wait, and the result, then create the task again. The task was not created.'
     )
     expect(screen.getByLabelText(/task goal/i)).toHaveAccessibleDescription(
-      /check the project, task queue, and result, then create the task again/i
+      /check the project, where tasks wait, and the result, then create the task again/i
     )
     expect(alert.textContent).not.toContain('API')
   })

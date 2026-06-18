@@ -299,7 +299,7 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
           <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
             {selectedProjectId
               ? 'New tasks need a place to wait before an agent starts them. Set that up, then come back here.'
-              : 'Open project settings to create a project, or choose an existing project from the project list. A project keeps tasks, agents, and task queues together.'}
+              : 'Open project settings to create a project, or choose an existing project from the project list. A project keeps tasks, agents, and waiting places together.'}
           </p>
         </div>
         {action ? (

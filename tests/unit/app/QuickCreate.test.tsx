@@ -123,7 +123,7 @@ describe('QuickCreate', () => {
     const onSubmit = vi
       .fn()
       .mockResolvedValue(
-        'Check the project, task queue, and result, then create the task again. The task was not created.'
+        'Check the project, where tasks wait, and the result, then create the task again. The task was not created.'
       )
     render(<QuickCreate columnId="backlog" onSubmit={onSubmit} />)
 
@@ -135,7 +135,7 @@ describe('QuickCreate', () => {
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('Recover this task', 'backlog'))
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Check the project, task queue, and result, then create the task again.'
+      'Check the project, where tasks wait, and the result, then create the task again.'
     )
     expect(screen.getByRole('textbox', { name: /task goal/i })).toHaveValue('Recover this task')
     expect(screen.getByRole('textbox', { name: /task goal/i })).toHaveFocus()

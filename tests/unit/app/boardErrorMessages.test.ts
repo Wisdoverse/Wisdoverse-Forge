@@ -94,7 +94,19 @@ describe('boardActionErrorMessage', () => {
       boardActionErrorMessage('createTask', {
         error: 'Task title is required',
       }),
-      'Add a task result, choose the project and task queue, then create the task again.'
+      'Add a task result, choose the project and where tasks wait, then create the task again.'
     )
+  })
+
+  test('explains missing task waiting place without queue wording', () => {
+    const message = boardActionErrorMessage('createTask', {
+      error: 'Task group is required',
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Choose where tasks wait for this project, then try the board action again.'
+    )
+    expect(message).not.toContain('task queue')
   })
 })

@@ -171,7 +171,7 @@ export function TaskFormModal({
   const readinessDetail = selectingProject
     ? 'Wait a moment while Forge finds where new tasks wait for this project.'
     : workLaneReady
-      ? `New tasks will wait in ${selectedTaskGroupName ?? 'this task queue'} until a ready agent picks them up.`
+      ? `New tasks will wait in ${selectedTaskGroupName ?? 'this place'} until a ready agent picks them up.`
       : 'Create one place for new work to wait, then return here.'
   const assignableAgents = agents.filter((agent) => agentCanTakeTask(agent.status))
   const taskWillWaitForAgent = workLaneReady && assignableAgents.length === 0
