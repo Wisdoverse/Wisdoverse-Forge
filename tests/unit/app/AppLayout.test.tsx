@@ -122,7 +122,8 @@ describe('AppLayout', () => {
     render(<MemoryRouter />)
     const navItems = screen.getAllByTestId(/^sidebar-nav-/)
     expect(navItems.length).toBeGreaterThanOrEqual(1)
-    expect(screen.getByTestId('sidebar-nav-start')).toBeDefined()
+    expect(screen.queryByTestId('sidebar-nav-start')).toBeNull()
+    expect(screen.getByTestId('sidebar-nav-tasks')).toBeDefined()
   })
 
   test('top bar shows view toggles', () => {
@@ -468,7 +469,7 @@ describe('AppLayout', () => {
 
     const projectSelect = screen.getByLabelText(/project/i)
     const createButton = screen.getByRole('button', { name: /create task/i })
-    expect(createButton).toBeDisabled()
+    expect(createButton).toBeEnabled()
 
     fireEvent.change(projectSelect, { target: { value: 'p1' } })
     await waitFor(() => expect(mockGetGroups).toHaveBeenCalledWith('p1'))
@@ -502,7 +503,7 @@ describe('AppLayout', () => {
     fireEvent.click(screen.getByRole('button', { name: /new task/i }))
     const projectSelect = screen.getByLabelText(/project/i)
     const createButton = screen.getByRole('button', { name: /create task/i })
-    expect(createButton).toBeDisabled()
+    expect(createButton).toBeEnabled()
 
     fireEvent.change(projectSelect, { target: { value: 'p1' } })
     await waitFor(() => expect(mockGetGroups).toHaveBeenCalledWith('p1'))
@@ -519,22 +520,33 @@ describe('AppLayout', () => {
     expect(screen.getByRole('button', { name: /set up where tasks wait/i })).toBeDefined()
     const previousQueueInstruction = ['agents', 'check', 'task', 'queues'].join(' ')
     expect(screen.queryByText(new RegExp(previousQueueInstruction, 'i'))).toBeNull()
-    expect(createButton).toBeDisabled()
+    expect(createButton).toBeEnabled()
+    fireEvent.click(createButton)
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Set up where tasks wait before saving this task.')
     expect(mockCreateGroup).not.toHaveBeenCalled()
     expect(mockCreateTask).not.toHaveBeenCalled()
     expect(useBoardStore.getState().selectedGroupId).toBeNull()
   }, 20_000)
 
-  test('routes missing project setup from New Task to project settings', () => {
+  test('routes missing project setup from New Task to project settings', async () => {
     const onNavigate = vi.fn()
     render(<MemoryRouter onNavigate={onNavigate} />)
     fireEvent.click(screen.getByRole('button', { name: /new task/i }))
 
     expect(screen.getByText(/create a project before sending tasks/i)).toBeDefined()
-    expect(screen.getByRole('button', { name: /create task/i })).toBeDisabled()
+    const createButton = screen.getByRole('button', { name: /create task/i })
+    expect(createButton).toBeEnabled()
     expect(screen.queryByText(/no projects available/i)).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: /open project settings/i }))
+    fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
+      target: { value: 'Create first task' },
+    })
+    fireEvent.click(createButton)
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Open project settings before creating a task.')
+
+    fireEvent.click(screen.getAllByRole('button', { name: /open project settings/i }).at(-1)!)
 
     expect(onNavigate).toHaveBeenCalledWith('/settings/projects')
     expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()

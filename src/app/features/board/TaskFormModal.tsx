@@ -102,6 +102,9 @@ const AGENT_READY_BRIEF_POINTS = [
   { label: 'Done when', value: 'The check, screenshot, or output that proves it is done.' },
 ]
 
+const PROJECT_REQUIRED_ERROR = 'Open project settings before creating a task.'
+const TASK_WAITING_PLACE_REQUIRED_ERROR = 'Set up where tasks wait before saving this task.'
+
 interface TaskFormModalProps {
   isOpen: boolean
   onClose: () => void
@@ -227,11 +230,11 @@ export function TaskFormModal({
       return
     }
     if (!data.projectId) {
-      setSubmitError('Choose a project before creating a task.')
+      setSubmitError(PROJECT_REQUIRED_ERROR)
       return
     }
     if (!selectedTaskGroupId) {
-      setSubmitError('Set up where tasks wait before saving this task.')
+      setSubmitError(TASK_WAITING_PLACE_REQUIRED_ERROR)
       return
     }
     if (!briefReady && !confirmIncompleteBrief) {
@@ -503,7 +506,27 @@ export function TaskFormModal({
             role="alert"
             className="mb-4 rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
           >
-            {submitError}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="min-w-0 flex-1">{submitError}</span>
+              {submitError === PROJECT_REQUIRED_ERROR && onOpenProjectSettings && (
+                <button
+                  type="button"
+                  onClick={onOpenProjectSettings}
+                  className="inline-flex h-7 shrink-0 items-center justify-center rounded-full border border-apple-red/20 bg-white/70 px-2.5 text-ui-button font-medium text-apple-red transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/35 dark:bg-white/[0.08] dark:hover:bg-white/[0.12]"
+                >
+                  Open project settings
+                </button>
+              )}
+              {submitError === TASK_WAITING_PLACE_REQUIRED_ERROR && onOpenTaskRouting && (
+                <button
+                  type="button"
+                  onClick={onOpenTaskRouting}
+                  className="inline-flex h-7 shrink-0 items-center justify-center rounded-full border border-apple-red/20 bg-white/70 px-2.5 text-ui-button font-medium text-apple-red transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/35 dark:bg-white/[0.08] dark:hover:bg-white/[0.12]"
+                >
+                  Set up where tasks wait
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -727,13 +750,7 @@ export function TaskFormModal({
             </button>
             <button
               type="submit"
-              disabled={
-                isSubmitting ||
-                selectingProject ||
-                projects.length === 0 ||
-                !projectId ||
-                !selectedTaskGroupId
-              }
+              disabled={isSubmitting || selectingProject}
               aria-busy={isSubmitting || selectingProject}
               className="w-full rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >

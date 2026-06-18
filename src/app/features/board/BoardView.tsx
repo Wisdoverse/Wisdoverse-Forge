@@ -214,7 +214,7 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
     }
   }
 
-  async function handleQuickCreate(title: string): Promise<boolean> {
+  async function handleQuickCreate(title: string): Promise<boolean | string> {
     if (!selectedGroupId) return false
     setActionError(null)
     try {
@@ -226,13 +226,15 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
         upsertTask(response.task)
         return true
       } else {
-        setActionError(boardActionErrorMessage('createTask', response))
-        return false
+        const message = boardActionErrorMessage('createTask', response)
+        setActionError(message)
+        return message
       }
     } catch (err) {
-      setActionError(boardActionErrorMessage('createTask', err))
+      const message = boardActionErrorMessage('createTask', err)
+      setActionError(message)
       console.error('Failed to create task:', err)
-      return false
+      return message
     }
   }
 

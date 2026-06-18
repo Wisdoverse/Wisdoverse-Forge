@@ -60,10 +60,10 @@ describe('Routing', () => {
     expect(await screen.findByTestId('page-settings')).toBeDefined()
   })
 
-  test('redirects / to the first-run start path when the guide is still visible', async () => {
+  test('redirects / to tasks by default so setup does not block work', async () => {
     const router = createTestRouter(createMemoryHistory({ initialEntries: ['/'] }))
     render(<RouterProvider router={router} />)
-    expect(await screen.findByTestId('page-start')).toBeDefined()
+    expect(await screen.findByTestId('page-tasks')).toBeDefined()
   })
 
   test('explains the protected route sign-in check while auth is loading', () => {

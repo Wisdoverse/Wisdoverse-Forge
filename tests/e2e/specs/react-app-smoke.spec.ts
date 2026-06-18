@@ -92,9 +92,8 @@ async function gotoAndWaitForAppReady(page: Page, baseURL: string, path = ''): P
  * nav-loader race was resolved by the fixture, but the upstream vite
  * dev-server flake can still bite under heavy parallelism. The warning
  * is logged so the flake rate stays visible in CI output. */
-// Default to `/tasks`, not `/`: the `/` index route reads the saved Start-guide
-// preference and may land on `/start`, so board-centric smoke tests navigate to
-// the board route directly.
+// Default to `/tasks`, not `/`: the `/` index route still reads preferences and
+// may land on restored Start, so board-centric smoke tests navigate directly.
 async function setupAndNavigate(page: Page, baseURL: string, path = '/tasks'): Promise<void> {
   await injectAuth(page, baseURL)
   await gotoAndWaitForAppReady(page, baseURL, path)
@@ -717,7 +716,7 @@ test.describe('React App Smoke Tests', () => {
       // nav loader never auto-selects a project.
       await overrideOrgs(context, [])
 
-      // Navigate to the board route directly (`/` may land on the Start guide).
+      // Navigate to the board route directly so this test stays focused on the no-project state.
       await gotoAndWaitForAppReady(page, baseURL!, '/tasks')
 
       await expect(page.locator('[data-testid="board-no-group"]')).toBeVisible({ timeout: 10000 })
@@ -1144,16 +1143,17 @@ test.describe('React App Smoke Tests', () => {
   // 28. Deep Linking / Direct URL ────────────────────────────────────────────
 
   test.describe('28. Client-Side Routing', () => {
-    test('root URL / redirects to Start when the guide is still visible', async ({
+    test('root URL / redirects to Tasks unless Start is restored from Settings', async ({
       page,
       baseURL,
     }) => {
-      // The `/` index route sends first-time users to `/start` and skipped users to `/tasks`.
+      // The `/` index route sends users to `/tasks` by default. The setup checklist
+      // is opt-in from Settings and no longer blocks the first board visit.
       await injectAuth(page, baseURL!)
       await gotoAndWaitForAppReady(page, baseURL!, '/')
 
-      await page.waitForURL('**/start')
-      expect(page.url()).toContain('/start')
+      await page.waitForURL('**/tasks')
+      expect(page.url()).toContain('/tasks')
     })
 
     test('navigating to each page and back preserves state', async ({ page, baseURL }) => {

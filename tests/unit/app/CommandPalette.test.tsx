@@ -1,11 +1,13 @@
-import { describe, test, expect, afterEach } from 'vitest'
+import { describe, test, expect, afterEach, vi } from 'vitest'
 import { fireEvent, render, screen, cleanup, waitFor } from '@testing-library/react'
 import { CommandPalette } from '@app/features/cmdk/CommandPalette'
 import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
+import { useSettingsStore } from '@app/shared/model/settings.store'
 
 afterEach(() => {
   cleanup()
   useContextFeaturesStore.getState().reset()
+  useSettingsStore.setState({ preferences: null, preferencesLoaded: false })
 })
 
 describe('CommandPalette', () => {
@@ -45,6 +47,7 @@ describe('CommandPalette', () => {
     expect(
       screen.getByText('Review saved notes and instructions before agents reuse them.')
     ).toBeDefined()
+    expect(screen.queryByText('Setup checklist')).toBeNull()
     expect(screen.getByText('Agents')).toBeDefined()
     expect(screen.getByText('Create or check agents that handle work.')).toBeDefined()
     expect(screen.getByText('Saved instructions')).toBeDefined()
@@ -55,6 +58,32 @@ describe('CommandPalette', () => {
     expect(screen.queryByText(previousSavedItemsDescription)).toBeNull()
     expect(screen.queryByText(/^Skills$/)).toBeNull()
     expect(screen.queryByText(/tools, keys/i)).toBeNull()
+  })
+
+  test('shows the setup checklist command only after Start is restored', async () => {
+    const onSelect = vi.fn()
+    const onClose = vi.fn()
+    useSettingsStore.setState({
+      preferences: { gettingStartedDismissed: false },
+      preferencesLoaded: true,
+    })
+
+    render(<CommandPalette isOpen={true} onClose={onClose} onSelect={onSelect} />)
+
+    expect(screen.getByText('Setup checklist')).toBeDefined()
+    expect(
+      screen.getByText('Review setup steps again when you want a guided checklist.')
+    ).toBeDefined()
+
+    fireEvent.change(screen.getByPlaceholderText(/search pages or actions/i), {
+      target: { value: 'setup checklist' },
+    })
+
+    await waitFor(() => expect(screen.getByText('Setup checklist')).toBeDefined())
+    fireEvent.click(screen.getByText('Review setup steps again when you want a guided checklist.'))
+
+    expect(onSelect).toHaveBeenCalledWith('nav:start')
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 
   test('shows action commands', () => {

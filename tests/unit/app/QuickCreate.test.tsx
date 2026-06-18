@@ -112,11 +112,33 @@ describe('QuickCreate', () => {
       expect(screen.getByRole('alert')).toHaveTextContent('The task was not saved')
     )
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Check your connection, then choose Save for later again.'
+      'Check the project, where tasks wait, and your connection'
     )
     expect(input).toHaveValue('Keep this task')
     expect(input).toHaveFocus()
     expect(screen.getByRole('button', { name: /^save for later$/i })).toBeEnabled()
+  })
+
+  test('shows the specific recovery prompt returned by the board', async () => {
+    const onSubmit = vi
+      .fn()
+      .mockResolvedValue(
+        'Check the project, task queue, and result, then create the task again. The task was not created.'
+      )
+    render(<QuickCreate columnId="backlog" onSubmit={onSubmit} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /add task idea/i }))
+    fireEvent.change(screen.getByRole('textbox', { name: /task goal/i }), {
+      target: { value: 'Recover this task' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^save for later$/i }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('Recover this task', 'backlog'))
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Check the project, task queue, and result, then create the task again.'
+    )
+    expect(screen.getByRole('textbox', { name: /task goal/i })).toHaveValue('Recover this task')
+    expect(screen.getByRole('textbox', { name: /task goal/i })).toHaveFocus()
   })
 
   test('shows a safe retry prompt when quick create throws', async () => {
@@ -132,7 +154,7 @@ describe('QuickCreate', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('Retry this task', 'backlog'))
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Check your connection, then choose Save for later again. The task was not saved.'
+        'The task was not saved. Check the project, where tasks wait, and your connection, then choose Save for later again.'
       )
     )
     expect(screen.getByRole('alert')).not.toHaveTextContent('socket hang up')

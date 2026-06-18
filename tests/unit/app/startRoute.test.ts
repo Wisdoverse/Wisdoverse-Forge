@@ -44,4 +44,13 @@ describe('Start route preference', () => {
     await expect(skipDismissedStartRoute()).resolves.toBeUndefined()
     expect(globalThis.fetch).not.toHaveBeenCalled()
   })
+
+  test('skips Start when no restore preference exists yet', async () => {
+    useSettingsStore.setState({
+      preferences: {},
+      preferencesLoaded: true,
+    })
+
+    await expect(skipDismissedStartRoute()).rejects.toMatchObject({ options: { to: '/tasks' } })
+  })
 })
