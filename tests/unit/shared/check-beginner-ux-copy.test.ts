@@ -2786,6 +2786,8 @@ export function InjectionPreviewModal() {
     <div>
       <PreviewSection empty="Nothing will be shared yet." />
       <PreviewSection empty="Nothing is kept yet. Choose the pin button on a saved item to keep it easy to reuse." />
+      <PreviewSection empty="No saved items will be included yet. Add one below, or send without notes if none fit." />
+      <PreviewSection empty="No saved items are pinned yet. Choose the pin button on a saved item to keep it easy to reuse." />
       <PreviewSection empty="No saved items are selected yet." />
     </div>
   )
@@ -2810,6 +2812,14 @@ export function InjectionPreviewModal() {
           type: 'saved-item-selection-empty-copy',
           location: 'src/app/entities/context/ui/InjectionPreviewModal.tsx:7',
         }),
+        expect.objectContaining({
+          type: 'saved-item-selection-empty-copy',
+          location: 'src/app/entities/context/ui/InjectionPreviewModal.tsx:8',
+        }),
+        expect.objectContaining({
+          type: 'saved-item-selection-empty-copy',
+          location: 'src/app/entities/context/ui/InjectionPreviewModal.tsx:9',
+        }),
       ])
     )
   })
@@ -2820,8 +2830,8 @@ export function InjectionPreviewModal() {
 export function InjectionPreviewModal() {
   return (
     <div>
-      <PreviewSection empty="No saved items will be included yet. Add one below, or send without notes if none fit." />
-      <PreviewSection empty="No saved items are pinned yet. Choose the pin button on a saved item to keep it easy to reuse." />
+      <PreviewSection empty="Add a saved item below, or send without notes if none fit." />
+      <PreviewSection empty="Choose the pin button on a saved item to keep it easy to reuse." />
     </div>
   )
 }
@@ -5729,6 +5739,74 @@ export function agentStatusLabel(status) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags agent status empty states that start with a dead end', () => {
+    const cwd = fixture({
+      'src/app/features/feed/AgentStatusBar.tsx': `
+export function AgentStatusBar() {
+  return <div>No agents are connected yet. Open Agents to create or start one before assigning work.</div>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'agent-status-empty-copy',
+        location: 'src/app/features/feed/AgentStatusBar.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts agent status empty states that start with the next action', () => {
+    const cwd = fixture({
+      'src/app/features/feed/AgentStatusBar.tsx': `
+export function AgentStatusBar() {
+  return <div>Open Agents to create or start one before assigning work.</div>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags agent status bar copy that does not say where to start the agent', () => {
+    const cwd = fixture({
+      'src/app/features/feed/AgentStatusBar.tsx': `
+const STATUS_COPY = {
+  offline: {
+    visibleDetail: 'Start or wake it',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'agent-status-bar-copy',
+        location: 'src/app/features/feed/AgentStatusBar.tsx:4',
+      }),
+    ])
+  })
+
+  it('accepts agent status bar copy that names the page to use', () => {
+    const cwd = fixture({
+      'src/app/features/feed/AgentStatusBar.tsx': `
+const STATUS_COPY = {
+  offline: {
+    visibleDetail: 'Start it in Agents',
+  },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags saved-item review copy that exposes approval workflow jargon', () => {
     const cwd = fixture({
       'src/app/features/context/ApprovalQueueView.tsx': `
@@ -6005,6 +6083,134 @@ export const en = {
 export const en = {
   users: {
     noUsers: 'No users match this view. Clear search or invite a user first.',
+  },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags shared i18n empty states that do not start with the next action', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  common: {
+    noResults: 'No matching results. Try a broader search or clear the filters.',
+    noData: 'Nothing to show yet. Create the first item or refresh after setup finishes.',
+  },
+  agents: {
+    noAgents: 'No agents yet. Create one agent to start assigning work.',
+  },
+  groups: {
+    noGroups: 'No waiting places yet. Create one so new tasks have a place to wait for agents.',
+  },
+  feed: {
+    noActivity: 'No activity yet. Start a task, then updates will appear here.',
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  common: {
+    noResults: '没有匹配结果。可以放宽搜索条件，或清除筛选后再试。',
+    noData: '这里暂时没有内容。可以先创建第一项，或在设置完成后刷新。',
+  },
+  agents: {
+    noAgents: '还没有 Agent。先创建一个 Agent，再开始分配任务。',
+  },
+  groups: {
+    noGroups: '暂无任务等待位置。先创建一个，让新任务有地方等待 Agent 接手。',
+  },
+  feed: {
+    noActivity: '暂无活动。先启动一个任务，后续更新会显示在这里。',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'i18n-action-first-empty-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'i18n-action-first-empty-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'i18n-action-first-empty-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:8',
+        }),
+        expect.objectContaining({
+          type: 'i18n-action-first-empty-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:11',
+        }),
+        expect.objectContaining({
+          type: 'i18n-action-first-empty-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:14',
+        }),
+        expect.objectContaining({
+          type: 'i18n-action-first-empty-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'i18n-action-first-empty-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'i18n-action-first-empty-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:8',
+        }),
+        expect.objectContaining({
+          type: 'i18n-action-first-empty-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:11',
+        }),
+        expect.objectContaining({
+          type: 'i18n-action-first-empty-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:14',
+        }),
+      ])
+    )
+  })
+
+  it('accepts shared i18n empty states that start with the next action', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  common: {
+    noResults: 'Try a broader search or clear the filters.',
+    noData: 'Create the first item or refresh after setup finishes.',
+  },
+  agents: {
+    noAgents: 'Create one agent to start assigning work.',
+  },
+  groups: {
+    noGroups: 'Create a waiting place so new tasks have a place to wait for agents.',
+  },
+  feed: {
+    noActivity: 'Start a task, then updates will appear here.',
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  common: {
+    noResults: '可以放宽搜索条件，或清除筛选后再试。',
+    noData: '可以先创建第一项，或在设置完成后刷新。',
+  },
+  agents: {
+    noAgents: '先创建一个 Agent，再开始分配任务。',
+  },
+  groups: {
+    noGroups: '先创建一个任务等待位置，让新任务有地方等待 Agent 接手。',
+  },
+  feed: {
+    noActivity: '先启动一个任务，后续更新会显示在这里。',
   },
 }
 `,

@@ -10,8 +10,9 @@ describe('AgentStatusBar', () => {
 
     expect(screen.getByTestId('agent-status-empty')).toBeDefined()
     expect(
-      screen.getByText(/open agents to create or start one before assigning work/i)
+      screen.getByText('Open Agents to create or start one before assigning work.')
     ).toBeDefined()
+    expect(screen.queryByText(/no agents are connected yet/i)).toBeNull()
   })
 
   test('uses readable status labels instead of raw agent state values', () => {
@@ -34,7 +35,8 @@ describe('AgentStatusBar', () => {
     expect(within(statusBar).getByText('Handling a task')).toBeDefined()
     expect(within(statusBar).getByText('Waiting for work')).toBeDefined()
     expect(within(statusBar).getByText('Waiting for help')).toBeDefined()
-    expect(within(statusBar).getByText('Start or wake it')).toBeDefined()
+    expect(within(statusBar).getByText('Start it in Agents')).toBeDefined()
+    expect(within(statusBar).queryByText('Start or wake it')).toBeNull()
     expect(within(statusBar).queryByText('blocked')).toBeNull()
     expect(within(statusBar).queryByText('offline')).toBeNull()
   })
@@ -45,6 +47,7 @@ describe('AgentStatusBar', () => {
         agents={[
           { id: 'idle', name: 'Reviewer', status: 'idle' },
           { id: 'blocked', name: 'Deployer', status: 'blocked' },
+          { id: 'offline', name: 'Local host', status: 'offline' },
         ]}
       />
     )
@@ -56,6 +59,9 @@ describe('AgentStatusBar', () => {
       screen.getByLabelText(
         /deployer: needs help\. this agent is waiting for help before it can continue/i
       )
+    ).toBeDefined()
+    expect(
+      screen.getByLabelText(/local host: not connected\. this agent is not connected right now/i)
     ).toBeDefined()
     expect(screen.queryByLabelText(/clear a blocker/i)).toBeNull()
   })
