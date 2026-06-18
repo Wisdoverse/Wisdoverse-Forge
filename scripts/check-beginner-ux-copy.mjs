@@ -1341,6 +1341,7 @@ const CHAT_ERROR_FAILURE_FIRST_PATTERNS = [
   /^\s*\?\s*['"`]Forge could not load this conversation right now\./,
   /^\s*:\s*['"`]Forge could not update this chat right now\./,
   /^\s*return\s+`\$\{base\} Forge could not read this conversation\./,
+  /\b`\$\{base\} Try again\. If it still fails, ask an owner or admin to check this agent's chat setup\.`/,
 ]
 
 const SETTINGS_STORE_ERROR_FAILURE_FIRST_PATTERNS = [
