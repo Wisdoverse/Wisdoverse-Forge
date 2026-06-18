@@ -267,8 +267,8 @@ function AddCredentialForm({
             id={tokenIntroId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Paste the key you copied from the code website. The website may call it a personal
-            access token.
+            Paste the code access key from GitHub or GitLab. If that page says personal access
+            token, use that value here.
           </p>
           <input
             id="git-credential-token"

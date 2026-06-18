@@ -12603,12 +12603,12 @@ function CreateProjectForm() {
     const cwd = fixture({
       'src/app/features/manage-team/ui/CreateTeamForm.tsx': `
 function CreateTeamForm() {
-  return <><p>Team setup path</p><p>Address preview: platform-ops.</p></>
+  return <><p>Team setup path</p><p>Address preview: platform-ops.</p><p>Automatic link name: platform-ops.</p></>
 }
 `,
       'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
 function CreateProjectForm() {
-  return <><p>Project setup path</p><p>Work folder preview: /workspace/app</p></>
+  return <><p>Project setup path</p><p>Work folder preview: /workspace/app</p><p>Project short name: app.</p></>
 }
 `,
     })
@@ -12632,16 +12632,16 @@ function CreateProjectForm() {
     )
   })
 
-  it('accepts team and project creation copy that uses steps and short-name wording', () => {
+  it('accepts team and project creation copy that uses steps and automatic-name wording', () => {
     const cwd = fixture({
       'src/app/features/manage-team/ui/CreateTeamForm.tsx': `
 function CreateTeamForm() {
-  return <><p>Team creation steps</p><p>Team short name: platform-ops.</p></>
+  return <><p>Team creation steps</p><p>Automatic team name: platform-ops.</p></>
 }
 `,
       'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
 function CreateProjectForm() {
-  return <><p>Project creation steps</p><p>Project short name: app.</p><p>Agent work folder: /workspace/app</p></>
+  return <><p>Project creation steps</p><p>Automatic project name: app.</p><p>Agent work folder: /workspace/app</p></>
 }
 `,
     })
@@ -12649,16 +12649,16 @@ function CreateProjectForm() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags team and project row copy that labels generated names as addresses', () => {
+  it('flags team and project row copy that labels generated names as addresses, link names, or short names', () => {
     const cwd = fixture({
       'src/app/features/manage-team/ui/EditableTeamRow.tsx': `
 function EditableTeamRow({ team }) {
-  return <p>Address: {team.slug}</p>
+  return <><p>Address: {team.slug}</p><p>Automatic link name: {team.slug}</p></>
 }
 `,
       'src/app/features/manage-project/ui/EditableProjectRow.tsx': `
 function EditableProjectRow({ project }) {
-  return <span>Address: {project.slug}</span>
+  return <><span>Address: {project.slug}</span><span>Project short name: {project.slug}</span></>
 }
 `,
     })
@@ -12680,16 +12680,16 @@ function EditableProjectRow({ project }) {
     )
   })
 
-  it('accepts team and project row copy that labels generated names as short names', () => {
+  it('accepts team and project row copy that labels generated names as automatic names', () => {
     const cwd = fixture({
       'src/app/features/manage-team/ui/EditableTeamRow.tsx': `
 function EditableTeamRow({ team }) {
-  return <p>Team short name: {team.slug}</p>
+  return <p>Automatic team name: {team.slug}</p>
 }
 `,
       'src/app/features/manage-project/ui/EditableProjectRow.tsx': `
 function EditableProjectRow({ project }) {
-  return <span>Project short name: {project.slug}</span>
+  return <span>Automatic project name: {project.slug}</span>
 }
 `,
     })
