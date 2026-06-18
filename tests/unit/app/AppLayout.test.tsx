@@ -275,6 +275,16 @@ describe('AppLayout', () => {
     expect(screen.queryByText(/usage/i)).toBeNull()
   })
 
+  test('uses beginner-facing admin page metadata', () => {
+    routerState.path = '/admin'
+
+    render(<MemoryRouter />)
+
+    expect(screen.getByText('Admin')).toBeDefined()
+    expect(screen.getByText('Check app health and manage people')).toBeDefined()
+    expect(screen.queryByText(/System health and user management/i)).toBeNull()
+  })
+
   test('uses plain saved item history metadata', () => {
     routerState.path = '/context/audit'
 

@@ -32,7 +32,7 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   '/analytics': { title: 'Analytics', subtitle: 'See agent activity and results' },
   '/billing': { title: 'Billing', subtitle: 'Plan, payments, and invoices' },
   '/settings': { title: 'Settings', subtitle: 'Set up your account, AI services, and team' },
-  '/admin': { title: 'Admin', subtitle: 'System health and user management' },
+  '/admin': { title: 'Admin', subtitle: 'Check app health and manage people' },
 }
 
 function resolvePageMeta(path: string): { title: string; subtitle?: string } {
