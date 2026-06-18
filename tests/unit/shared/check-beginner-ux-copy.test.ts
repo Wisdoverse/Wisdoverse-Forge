@@ -7424,6 +7424,46 @@ export function SkillDraftModal() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags saved instruction draft copy that does not tell beginners the next action', () => {
+    const cwd = fixture({
+      'src/app/features/detail/SkillDraftModal.tsx': `
+export function SkillDraftModal() {
+  const error = 'Keep or rewrite the reusable instructions before publishing.'
+  return 'Review the reusable instructions.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'saved-instruction-draft-copy',
+          location: 'src/app/features/detail/SkillDraftModal.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-draft-copy',
+          location: 'src/app/features/detail/SkillDraftModal.tsx:4',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved instruction draft copy that names the field and review step', () => {
+    const cwd = fixture({
+      'src/app/features/detail/SkillDraftModal.tsx': `
+export function SkillDraftModal() {
+  const error = 'Add the repeatable steps, or keep the suggested steps, before publishing.'
+  return 'Find this instruction, then review the reusable steps before agents use them.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags saved instruction availability labels that still say workspace', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `

@@ -635,6 +635,10 @@ const SAVED_INSTRUCTION_TOOL_TOOLTIP_PATTERNS = [
 const SAVED_INSTRUCTION_SOURCE_LABEL_PATTERNS = [/\bWorkspace saved instructions\b/i]
 const SAVED_INSTRUCTION_AVAILABILITY_LABEL_PATTERNS = [/\bThis workspace\b/i, /当前工作区/]
 const SAVED_INSTRUCTION_WORKSPACE_INTRO_PATTERNS = [/\bsaving it for the workspace\b/i]
+const SAVED_INSTRUCTION_DRAFT_DEAD_END_PATTERNS = [
+  /\bKeep or rewrite the reusable instructions before publishing\./i,
+  /\bReview the reusable instructions\./i,
+]
 
 const AGENT_PLUGIN_ERROR_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*Tool change was not saved\. The switch was returned to its previous setting\./i,
@@ -2867,6 +2871,12 @@ function hasSavedInstructionWorkspaceIntroCopy(relFile, line) {
   return SAVED_INSTRUCTION_WORKSPACE_INTRO_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasSavedInstructionDraftDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/detail/SkillDraftModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SAVED_INSTRUCTION_DRAFT_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasSavedInstructionsLoadDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/skills/SkillsView.tsx') &&
@@ -4953,6 +4963,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Saved instruction publishing copy must say team space instead of workspace for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSavedInstructionDraftDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'saved-instruction-draft-copy',
+        location,
+        message:
+          'Saved instruction draft copy must tell beginners what to add or where to review after publishing.',
         sample: line.trim(),
       })
     }
