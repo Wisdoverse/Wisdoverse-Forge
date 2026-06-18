@@ -250,7 +250,7 @@ export const en = {
     noAgents: 'Create one agent to start assigning work.',
     agentName: 'Agent Name',
     projectPath: 'Project folder location',
-    workingDirectory: 'Working Directory',
+    workingDirectory: 'Work folder',
     startAgent: 'Start Agent',
     stopAgent: 'Stop Agent',
     restartAgent: 'Restart Agent',

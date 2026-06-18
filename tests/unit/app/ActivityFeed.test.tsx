@@ -170,6 +170,26 @@ describe('ActivityFeed', () => {
     expect(screen.getByText('Fix auth')).toBeDefined()
   })
 
+  test('shows action-first empty copy when needs-action updates are clear', () => {
+    useFeedStore.getState().addFeedItem({
+      id: '1',
+      type: 'task.progress',
+      agentName: 'Agent One',
+      taskTitle: 'Fix auth',
+      detail: 'Editing tests',
+      timestamp: Date.now(),
+    })
+
+    render(<ActivityFeed />)
+
+    fireEvent.click(screen.getByRole('button', { name: /needs action\s*0/i }))
+    const emptyState = screen.getByTestId('feed-filter-empty')
+    expect(within(emptyState).getByText('You are caught up on urgent updates')).toBeDefined()
+    expect(within(emptyState).getByText(/urgent updates are clear/i)).toBeDefined()
+    expect(within(emptyState).getByRole('button', { name: /show all updates/i })).toBeDefined()
+    expect(emptyState.textContent).not.toContain('Nothing is asking for your help')
+  })
+
   test('shows empty state when no feed items', () => {
     render(<ActivityFeed />)
     expect(screen.getByText(/quiet so far/i)).toBeDefined()
