@@ -14,7 +14,7 @@ interface CreateProjectFormProps {
 const PROJECT_SETUP_STEPS = [
   'Choose the team that owns the work.',
   'Name the project after the product, app, or work area.',
-  'Optional: paste the https:// code link from GitHub or GitLab. Do not include tokens or passwords in the link.',
+  'Optional: paste the GitHub or GitLab code link if it starts with https://. Leave this blank for git@ links and add SSH code access in Settings. Never paste tokens or passwords here.',
 ]
 
 /**
@@ -29,22 +29,22 @@ export function validateRepositoryUrl(raw: string): string | null {
   const value = raw.trim()
   if (!value) return null // optional — empty is valid
   if (/^(?:git@|ssh:\/\/)/i.test(value)) {
-    return 'Use a code link that starts with https://. Links that start with git@ go in SSH code access.'
+    return 'Paste a code link that starts with https://, or leave this blank and add SSH code access in Settings for git@ links.'
   }
 
   let parsed: URL
   try {
     parsed = new URL(value)
   } catch {
-    return 'Enter a valid code link, e.g. https://github.com/team/project.git'
+    return 'Paste a full GitHub or GitLab code link, for example https://github.com/team/project.git, or leave this blank.'
   }
   if (parsed.protocol !== 'https:') {
-    return 'Use a code link that starts with https://. Links that start with git@ go in SSH code access.'
+    return 'Paste a code link that starts with https://, or leave this blank and add SSH code access in Settings for git@ links.'
   }
   // No credentials embedded in the URL (user[:pass]@host) — the server rejects
   // these so a token never lands in a stored URL. `URL` also flags a bare `@`.
   if (parsed.username || parsed.password || value.includes('@')) {
-    return 'Remove account details from the code link. Connect code access in Settings instead.'
+    return 'Remove account details from the code link. Save code access in Settings instead, then create this project again.'
   }
   return null
 }
@@ -117,7 +117,7 @@ function createProjectErrorMessage(error: unknown): string {
     lower.includes('repo url') ||
     lower.includes('https url')
   ) {
-    return 'Use an https:// code link without account details, or leave the code link blank.'
+    return 'Paste an https:// code link without account details, or leave the code link blank and add code access in Settings.'
   }
   if (
     lower.includes('credential') ||
@@ -125,10 +125,10 @@ function createProjectErrorMessage(error: unknown): string {
     lower.includes('password') ||
     lower.includes('username')
   ) {
-    return 'Remove account details from the code link. Connect code access in Settings instead.'
+    return 'Remove account details from the code link. Save code access in Settings instead, then create this project again.'
   }
   if (code === 422 || lower.includes('validation') || lower.includes('invalid')) {
-    return 'Check the project name, team, and code link, then create this project again.'
+    return 'Check the project name, team, and code link. You can leave the code link blank, then create this project again.'
   }
   if (code === 429 || lower.includes('rate limit') || lower.includes('too many')) {
     return 'Wait a minute, then create this project again. Too many project changes are happening right now.'
@@ -336,9 +336,9 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
           id="project-repo-help"
           className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
-          Optional — paste a GitHub or GitLab https:// link. Forge copies that code into this
-          project. Do not paste tokens or passwords into the link. If your link starts with git@,
-          add SSH code access in Settings first.
+          Optional — paste a GitHub or GitLab link that starts with https://. Forge copies that code
+          into this project. Never paste tokens or passwords here. If your link starts with git@,
+          leave this blank and add SSH code access in Settings first.
         </p>
         {workspaceFolderName && workspacePath && (
           <div className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">

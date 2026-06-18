@@ -56,6 +56,8 @@ describe('AuthPage beginner guidance', () => {
     expect(bodyText()).toContain('New here? Create an account first.')
     expect(bodyText()).not.toContain('evidence')
     expect(bodyText()).not.toContain('Team workspace access')
+    expect(document.querySelector('.auth-logo')?.textContent).toBe('WF')
+    expect(bodyText()).not.toContain('\u2699')
     expect(document.querySelector('#login-submit')?.textContent).toContain('Sign in')
     expect(document.querySelector('#forgot-password-link')?.textContent).toContain(
       'I cannot access my password'
@@ -75,6 +77,10 @@ describe('AuthPage beginner guidance', () => {
 
     expect(bodyText()).toContain('Continue with GitHub')
     expect(bodyText()).toContain('or use your email address')
+    expect(document.querySelector<HTMLButtonElement>('.sso-btn')?.textContent?.trim()).toBe(
+      'Continue with GitHub'
+    )
+    expect(bodyText()).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u)
     expect(document.querySelector<HTMLFormElement>('#register-form')?.style.display).toBe('')
     expect(document.querySelector('#register-form')?.textContent).toContain(
       'Create your first team space account.'
@@ -222,6 +228,7 @@ describe('AuthPage beginner guidance', () => {
     expect(bodyText()).toContain('Check your email')
     expect(bodyText()).toContain('Open that email to finish creating your account.')
     expect(bodyText()).toContain('Back to sign in')
+    expect(bodyText()).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u)
   })
 
   test('turns duplicate account registration failures into a next step', async () => {
@@ -340,6 +347,7 @@ describe('AuthPage beginner guidance', () => {
     )
     expect(bodyText()).not.toContain('Failed to fetch')
     expect(bodyText()).not.toContain('could not reach the service')
+    expect(bodyText()).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u)
   })
 
   test('explains expired reset links without showing raw backend text', async () => {

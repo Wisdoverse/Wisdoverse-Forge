@@ -105,6 +105,72 @@ export const en = {
     ])
   })
 
+  it('flags shared required-field copy that gives beginners no next step', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  common: {
+    required: 'Required',
+  },
+  a11y: {
+    required: 'This field is required',
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  common: {
+    required: '必填',
+  },
+  a11y: {
+    required: '此字段为必填',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'required-field-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'required-field-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:7',
+        }),
+        expect.objectContaining({
+          type: 'required-field-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'required-field-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:7',
+        }),
+      ])
+    )
+  })
+
+  it('accepts shared required-field copy that tells beginners what to do', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  common: {
+    required: 'Fill this in',
+  },
+  a11y: {
+    required: 'Fill in this field, then try again',
+  },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags system-style permission copy in user-visible text', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `
@@ -6091,6 +6157,7 @@ export function AgentSummary() {
 export const en = {
   groups: {
     noGroups: 'No groups yet',
+    ungrouped: 'No waiting place yet',
   },
 }
 `,
@@ -6099,12 +6166,18 @@ export const en = {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'empty-state-next-action',
-        location: 'src/app/shared/i18n/locales/en.ts:4',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'empty-state-next-action',
+          location: 'src/app/shared/i18n/locales/en.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'i18n-action-first-empty-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:5',
+        }),
+      ])
+    )
   })
 
   it('accepts i18n empty-state keys with a clear next action', () => {
@@ -6134,6 +6207,7 @@ export const en = {
   },
   groups: {
     noGroups: 'No waiting places yet. Create one so new tasks have a place to wait for agents.',
+    ungrouped: 'No waiting place yet',
   },
   feed: {
     noActivity: 'No activity yet. Start a task, then updates will appear here.',
@@ -6151,6 +6225,7 @@ export const zh = {
   },
   groups: {
     noGroups: '暂无任务等待位置。先创建一个，让新任务有地方等待 Agent 接手。',
+    ungrouped: '暂无任务等待位置',
   },
   feed: {
     noActivity: '暂无活动。先启动一个任务，后续更新会显示在这里。',
@@ -6182,7 +6257,11 @@ export const zh = {
         }),
         expect.objectContaining({
           type: 'i18n-action-first-empty-copy',
-          location: 'src/app/shared/i18n/locales/en.ts:14',
+          location: 'src/app/shared/i18n/locales/en.ts:12',
+        }),
+        expect.objectContaining({
+          type: 'i18n-action-first-empty-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:15',
         }),
         expect.objectContaining({
           type: 'i18n-action-first-empty-copy',
@@ -6202,7 +6281,11 @@ export const zh = {
         }),
         expect.objectContaining({
           type: 'i18n-action-first-empty-copy',
-          location: 'src/app/shared/i18n/locales/zh.ts:14',
+          location: 'src/app/shared/i18n/locales/zh.ts:12',
+        }),
+        expect.objectContaining({
+          type: 'i18n-action-first-empty-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:15',
         }),
       ])
     )
@@ -6221,6 +6304,7 @@ export const en = {
   },
   groups: {
     noGroups: 'Create a waiting place so new tasks have a place to wait for agents.',
+    ungrouped: 'Set a waiting place before sending',
   },
   feed: {
     noActivity: 'Start a task, then updates will appear here.',
@@ -6238,6 +6322,7 @@ export const zh = {
   },
   groups: {
     noGroups: '先创建一个任务等待位置，让新任务有地方等待 Agent 接手。',
+    ungrouped: '请先设置任务等待位置',
   },
   feed: {
     noActivity: '先启动一个任务，后续更新会显示在这里。',
@@ -8663,7 +8748,7 @@ const PROMPT_TEMPLATES = [{
     const cwd = fixture({
       'src/app/features/settings/KeysSection.tsx': `
 function KeyRow() {
-  return <span>Not used yet</span>
+  return <><span>Not used yet</span><span>Use this key from a trusted tool first</span></>
 }
 `,
     })
@@ -8671,19 +8756,25 @@ function KeyRow() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'access-key-last-used-copy',
-        location: 'src/app/features/settings/KeysSection.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'access-key-last-used-copy',
+          sample: expect.stringContaining('Not used yet'),
+        }),
+        expect.objectContaining({
+          type: 'access-key-last-used-copy',
+          sample: expect.stringContaining('Use this key'),
+        }),
+      ])
+    )
   })
 
   it('accepts access key last-used copy that explains trusted tool use', () => {
     const cwd = fixture({
       'src/app/features/settings/KeysSection.tsx': `
 function KeyRow() {
-  return <span>Use this key from a trusted tool first</span>
+  return <span>Use this access key from a trusted outside tool first</span>
 }
 `,
     })
@@ -8698,8 +8789,12 @@ function NewKeyBanner() {
   return (
     <section>
       <p>This is the only time the full key is shown. Copy it into a password manager before choosing I saved it.</p>
+      <label>Which tool will use this key?</label>
       <button>Copy key</button>
+      <button>Keep key</button>
+      <p>Removing this key can stop the tool from connecting to Forge.</p>
       <p>Forge cannot copy from this browser. Select the key text, then copy it manually before choosing I saved it.</p>
+      <th>Saved key starts with</th>
       <th>Key preview</th>
     </section>
   )
@@ -8723,7 +8818,23 @@ const ACCESS_KEY_EMPTY_STEPS = ['Copy the new key into a password manager before
         }),
         expect.objectContaining({
           type: 'access-key-secret-value-copy',
+          sample: expect.stringContaining('Which tool will use this key'),
+        }),
+        expect.objectContaining({
+          type: 'access-key-secret-value-copy',
+          sample: expect.stringContaining('Keep key'),
+        }),
+        expect.objectContaining({
+          type: 'access-key-secret-value-copy',
+          sample: expect.stringContaining('Removing this key'),
+        }),
+        expect.objectContaining({
+          type: 'access-key-secret-value-copy',
           sample: expect.stringContaining('Select the key text'),
+        }),
+        expect.objectContaining({
+          type: 'access-key-secret-value-copy',
+          sample: expect.stringContaining('Saved key starts with'),
         }),
         expect.objectContaining({
           type: 'access-key-secret-value-copy',
@@ -8744,9 +8855,12 @@ function NewKeyBanner() {
   return (
     <section>
       <p>This full access value is shown only once. Save it in a password manager before choosing I saved this value.</p>
+      <label>Which tool will use this access key?</label>
       <button>Copy access value</button>
+      <button>Keep access key</button>
+      <p>Removing this access key can stop the tool from connecting to Forge.</p>
       <p>Forge cannot copy from this browser. Select the access value text, then copy it manually before choosing I saved this value.</p>
-      <th>Saved key starts with</th>
+      <th>Saved access starts with</th>
     </section>
   )
 }
@@ -11734,6 +11848,48 @@ function renderLoginForm() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags authentication emoji and symbol icons in visible copy', () => {
+    const cwd = fixture({
+      'src/app/features/auth/AuthPage.ts': `
+function getSsoIcon() {
+  return 'icon'
+}
+
+export function render() {
+  return '<div class="auth-logo">&#9881;</div><div class="auth-form-icon">&#x1F4E7;</div>'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'auth-visible-symbol-copy',
+          location: 'src/app/features/auth/AuthPage.ts:2',
+        }),
+        expect.objectContaining({
+          type: 'auth-visible-symbol-copy',
+          location: 'src/app/features/auth/AuthPage.ts:7',
+        }),
+      ])
+    )
+  })
+
+  it('accepts authentication sign-in copy without visible symbol icons', () => {
+    const cwd = fixture({
+      'src/app/features/auth/AuthPage.ts': `
+export function render() {
+  return '<div class="auth-logo" aria-hidden="true">WF</div><span>Continue with GitHub</span>'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags getting started setup labels that still say workspace', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `
@@ -13006,7 +13162,7 @@ function ProjectSetupPath() {
     const cwd = fixture({
       'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
 function CreateProjectForm() {
-  return <><label>Git repository URL</label><input placeholder="https://github.com/org/repo.git" /><p>Clone an existing repo into this project.</p></>
+  return <><label>Git repository URL</label><input placeholder="https://github.com/org/repo.git" /><p>Clone an existing repo into this project.</p><p>Use a code link that starts with https://. Links that start with git@ go in SSH code access.</p><p>Use an https:// code link without account details, or leave the code link blank.</p></>
 }
 `,
     })
@@ -13028,6 +13184,14 @@ function CreateProjectForm() {
           type: 'project-create-code-link-copy',
           sample: expect.stringContaining('repo'),
         }),
+        expect.objectContaining({
+          type: 'project-create-code-link-copy',
+          sample: expect.stringContaining('Links that start with git@'),
+        }),
+        expect.objectContaining({
+          type: 'project-create-code-link-copy',
+          sample: expect.stringContaining('without account details'),
+        }),
       ])
     )
   })
@@ -13036,7 +13200,7 @@ function CreateProjectForm() {
     const cwd = fixture({
       'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
 function CreateProjectForm() {
-  return <><label>Code link</label><input placeholder="https://github.com/team/project.git" /><p>Forge copies that code into this project.</p></>
+  return <><label>Code link</label><input placeholder="https://github.com/team/project.git" /><p>Forge copies that code into this project.</p><p>Paste a code link that starts with https://, or leave this blank and add SSH code access in Settings for git@ links.</p><p>Paste an https:// code link without account details, or leave the code link blank and add code access in Settings.</p></>
 }
 `,
     })

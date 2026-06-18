@@ -134,10 +134,21 @@
 }
 
 .auth-logo {
-  font-size: 28px;
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(129, 140, 248, 0.35);
+  border-radius: 12px;
+  background: rgba(129, 140, 248, 0.12);
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 700;
   color: var(--color-accent);
   margin-bottom: 8px;
   filter: none;
+  letter-spacing: 0;
 }
 
 .auth-title {
