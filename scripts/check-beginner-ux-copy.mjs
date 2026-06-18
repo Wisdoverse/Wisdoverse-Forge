@@ -1456,9 +1456,15 @@ const TEAM_PROJECT_CREATE_JARGON_PATTERNS = [
   /\b(?:Team|Project) setup path\b/i,
   /\bAddress preview:/i,
   /\bWork folder preview:/i,
+  /\bAutomatic link name\b/i,
+  /\b(?:Team|Project) short name\b/i,
 ]
 
-const TEAM_PROJECT_ROW_ADDRESS_JARGON_PATTERNS = [/\bAddress:\s*\{/i]
+const TEAM_PROJECT_ROW_ADDRESS_JARGON_PATTERNS = [
+  /\bAddress:\s*\{/i,
+  /\bAutomatic link name\b/i,
+  /\b(?:Team|Project) short name\b/i,
+]
 
 const TEAM_PROJECT_SHORT_NAME_JARGON_PATTERNS = [
   /\blink name\b/i,
@@ -2453,7 +2459,11 @@ function hasTeamProjectRowAddressJargonCopy(relFile, line) {
 function hasTeamProjectShortNameJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/layouts/sidebar/ProjectTree.tsx') &&
-    !relFile.endsWith('src/app/features/admin/OrganizationsPanel.tsx')
+    !relFile.endsWith('src/app/features/admin/OrganizationsPanel.tsx') &&
+    !relFile.endsWith('src/app/features/manage-team/ui/CreateTeamForm.tsx') &&
+    !relFile.endsWith('src/app/features/manage-project/ui/CreateProjectForm.tsx') &&
+    !relFile.endsWith('src/app/features/manage-team/ui/EditableTeamRow.tsx') &&
+    !relFile.endsWith('src/app/features/manage-project/ui/EditableProjectRow.tsx')
   ) {
     return false
   }
@@ -4574,7 +4584,7 @@ function scanFile(file, relFile) {
         type: 'team-project-create-copy',
         location,
         message:
-          'Team and project creation forms must say creation steps and short name instead of setup path or address preview.',
+          'Team and project creation forms must say creation steps and automatic names instead of setup path, link name, short name, or address preview.',
         sample: line.trim(),
       })
     }
@@ -4583,7 +4593,8 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'team-project-row-address-copy',
         location,
-        message: 'Team and project rows must say short name instead of address.',
+        message:
+          'Team and project rows must say automatic names instead of address, link name, or short name.',
         sample: line.trim(),
       })
     }
@@ -4593,7 +4604,7 @@ function scanFile(file, relFile) {
         type: 'team-project-short-name-copy',
         location,
         message:
-          'Sidebar project labels must say automatic project name instead of project short name, link name, or URL name.',
+          'Team and project generated-name labels must say automatic team or project name instead of short name, link name, or URL name.',
         sample: line.trim(),
       })
     }
