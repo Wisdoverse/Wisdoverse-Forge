@@ -409,7 +409,7 @@ describe('AgentListView', () => {
     expect(screen.queryByText(/^New Agent$/i)).toBeNull()
   })
 
-  test('creates a task queue from the selected project context', async () => {
+  test('creates a waiting place from the selected project context', async () => {
     const createAgentGroup = vi.fn(
       async (projectId: string, input: { name: string; description?: string }) => {
         const group = { id: 'g-new', name: input.name, projectId }
@@ -438,21 +438,21 @@ describe('AgentListView', () => {
 
     render(<AgentListView />)
 
-    expect(screen.getByText('Task Queues')).toBeDefined()
-    expect(screen.getByText(/task queues are shared lists where new tasks wait/i)).toBeDefined()
+    expect(screen.getByText('Where Tasks Wait')).toBeDefined()
+    expect(screen.getByText(/shared waiting places tell agents where to pick up/i)).toBeDefined()
     expect(screen.queryByText(/agents check for tasks/i)).toBeNull()
-    fireEvent.change(screen.getByLabelText(/task queue name/i), {
+    expect(screen.queryByText(/task queues/i)).toBeNull()
+    fireEvent.change(screen.getByLabelText(/waiting place name/i), {
       target: { value: 'Frontend Delivery' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /^create task queue$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^create waiting place$/i }))
 
     await waitFor(() =>
       expect(createAgentGroup).toHaveBeenCalledWith(
         'p1',
         expect.objectContaining({
           name: 'Frontend Delivery',
-          description:
-            'This task queue gives project tasks a place to wait for an available agent.',
+          description: 'Project tasks wait here until an available agent picks them up.',
         })
       )
     )
@@ -463,7 +463,7 @@ describe('AgentListView', () => {
     )
   })
 
-  test('applies a task queue template before creating routing', async () => {
+  test('applies a waiting place template before creating where tasks wait', async () => {
     const createAgentGroup = vi.fn(
       async (projectId: string, input: { name: string; description?: string }) => {
         const group = { id: 'g-review', name: input.name, projectId }
@@ -492,21 +492,21 @@ describe('AgentListView', () => {
 
     render(<AgentListView />)
 
-    const templates = screen.getByRole('group', { name: /task queue templates/i })
+    const templates = screen.getByRole('group', { name: /waiting place templates/i })
     fireEvent.click(within(templates).getByRole('button', { name: /review/i }))
 
-    expect(screen.getByLabelText(/task queue name/i)).toHaveValue('Review Queue')
-    expect((screen.getByLabelText(/task queue description/i) as HTMLInputElement).value).toContain(
+    expect(screen.getByLabelText(/waiting place name/i)).toHaveValue('Review Tasks')
+    expect((screen.getByLabelText(/waiting place description/i) as HTMLInputElement).value).toContain(
       'block release'
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /^create task queue$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^create waiting place$/i }))
 
     await waitFor(() =>
       expect(createAgentGroup).toHaveBeenCalledWith(
         'p1',
         expect.objectContaining({
-          name: 'Review Queue',
+          name: 'Review Tasks',
           description: expect.stringContaining('block release'),
         })
       )

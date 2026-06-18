@@ -4,7 +4,7 @@ import { agentGroupErrorMessage } from '@app/features/agents/model/agentGroupErr
 describe('agentGroupErrorMessage', () => {
   test('turns permission failures into an owner or admin next step', () => {
     expect(agentGroupErrorMessage(new Error('HTTP 403: Forbidden'))).toBe(
-      'Ask an owner or admin to let you create and manage task queues in this project. Task queue was not created.'
+      'Ask an owner or admin to let you set up where tasks wait in this project. The waiting place was not created.'
     )
   })
 
@@ -15,14 +15,14 @@ describe('agentGroupErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Ask an owner or admin to let you create and manage task queues in this project. Task queue was not created.'
+      'Ask an owner or admin to let you set up where tasks wait in this project. The waiting place was not created.'
     )
     expect(message).not.toContain('owner role required')
   })
 
   test('explains naming conflicts without leaking raw API wording', () => {
     expect(agentGroupErrorMessage(new Error('API 409 lane conflict'))).toBe(
-      'Use a different name, then try creating the queue again. A queue with this name may already exist.'
+      'Use a different name, then try creating the waiting place again. A waiting place with this name may already exist.'
     )
   })
 
@@ -33,7 +33,7 @@ describe('agentGroupErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Use a different name, then try creating the queue again. A queue with this name may already exist.'
+      'Use a different name, then try creating the waiting place again. A waiting place with this name may already exist.'
     )
     expect(message).not.toContain('lane conflict')
   })
@@ -42,7 +42,7 @@ describe('agentGroupErrorMessage', () => {
     const message = agentGroupErrorMessage(new TypeError('Failed to fetch'))
 
     expect(message).toBe(
-      'Check your connection, then try creating the task queue again. Forge could not connect while creating the task queue.'
+      'Check your connection, then try creating the waiting place again. Forge could not connect while setting up where tasks wait.'
     )
     expect(message).not.toContain('Failed to fetch')
   })
@@ -51,7 +51,7 @@ describe('agentGroupErrorMessage', () => {
     const message = agentGroupErrorMessage(new Error('Server error 503: database unavailable'))
 
     expect(message).toBe(
-      'Wait a few minutes, then try creating the task queue again. Forge could not create the task queue right now. If it still fails, ask an owner or admin to check task queue setup.'
+      'Wait a few minutes, then try setting up where tasks wait again. Forge could not create the waiting place right now. If it still fails, ask an owner or admin to check where tasks wait in this project.'
     )
     expect(message).not.toContain('Server error')
     expect(message).not.toContain('platform')
@@ -64,7 +64,7 @@ describe('agentGroupErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Wait a few minutes, then try creating the task queue again. Forge could not create the task queue right now. If it still fails, ask an owner or admin to check task queue setup.'
+      'Wait a few minutes, then try setting up where tasks wait again. Forge could not create the waiting place right now. If it still fails, ask an owner or admin to check where tasks wait in this project.'
     )
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('503')

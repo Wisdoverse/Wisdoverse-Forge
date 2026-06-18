@@ -485,7 +485,7 @@ function listNextStep(
     const pronoun = workload.backlog === 1 ? 'it' : 'they'
     return {
       title: `Send ${workload.backlog} task${workload.backlog === 1 ? '' : 's'} after choosing where ${pronoun} should run.`,
-      detail: 'Choose an agent or task queue, then send the work.',
+      detail: 'Choose an agent or where tasks should wait, then send the work.',
     }
   }
 
@@ -524,7 +524,7 @@ function taskNextAction(task: TaskSummary): string {
     case 'backlog':
       return task.assignedAgentName || task.assignedTo
         ? 'Review the task, then send it to the agent.'
-        : 'Choose an agent or task queue, then send it.'
+        : 'Choose an agent or where this task should wait, then send it.'
     case 'queued':
       return 'Wait for an available agent to start it; check again if it stays here.'
     case 'working':
