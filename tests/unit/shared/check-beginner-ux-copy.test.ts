@@ -8149,15 +8149,19 @@ function EmptyState() {
 function describeKeyType(keyType) {
   if (keyType === 'ssh-ed25519') return 'Modern key type'
   if (keyType === 'ssh-rsa') return 'RSA key type'
+  return 'Ask an admin to check this SSH key'
 }
 const SSH_KEY_SETUP_STEPS = [
+  { label: 'Name where it is used', value: 'Use a device, team, or code project name.' },
+  { label: 'Paste the shareable public key line', value: 'Copy only the shareable one-line public key from the .pub file.' },
+  { label: 'Keep the private key secret', value: 'Never paste a private key file.' },
   { label: 'Paste the public line', value: 'Copy only the one-line .pub key that starts with ssh-ed25519 or ssh-rsa.' },
 ]
 function AddSshKeyForm() {
-  return <label>Public key line</label>
+  return <label>Shareable public key line</label>
 }
 function validation() {
-  return 'Paste the public key line before saving.'
+  return 'Paste the shareable public key line before saving.'
 }
 function savedMessage() {
   return 'SSH code access saved. Create a small task with a git@ code link to confirm agents can open it. If it cannot read the repository, come back here and replace this key.'
@@ -8166,18 +8170,18 @@ const tableHeaders = [{ label: 'Safety check' }, { label: 'Key type' }]
 `,
       'src/app/features/settings/sshKeysErrorMessage.ts': `
 export function sshKeysErrorMessage() {
-  return 'Paste the public key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
+  return 'Paste the shareable public key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
 }
 export function duplicateMessage() {
-  return 'Choose the saved access or remove the old one first. This public key line is already saved.'
+  return 'Choose the saved access or remove the old one first. This shareable public key line is already saved.'
 }
 export function requiredMessage() {
-  return 'Check the access name and public key line, then try again.'
+  return 'Check the access name and shareable public key line, then try again.'
 }
 `,
       'src/app/shared/model/settings.store.ts': `
 export function settingsActionErrorMessage() {
-  return 'Add a name for this access, paste the public key line, then save again.'
+  return 'Add a name for this access, paste the shareable public key line, then save again.'
 }
 `,
     })
@@ -8197,6 +8201,22 @@ export function settingsActionErrorMessage() {
         }),
         expect.objectContaining({
           type: 'ssh-code-access-jargon-copy',
+          sample: expect.stringContaining('Ask an admin to check this SSH key'),
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-jargon-copy',
+          sample: expect.stringContaining('Name where it is used'),
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-jargon-copy',
+          sample: expect.stringContaining('Paste the shareable public key line'),
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-jargon-copy',
+          sample: expect.stringContaining('Keep the private key secret'),
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-jargon-copy',
           sample: expect.stringContaining('Paste the public line'),
         }),
         expect.objectContaining({
@@ -8205,11 +8225,11 @@ export function settingsActionErrorMessage() {
         }),
         expect.objectContaining({
           type: 'ssh-code-access-jargon-copy',
-          sample: expect.stringContaining('Public key line'),
+          sample: expect.stringContaining('Shareable public key line'),
         }),
         expect.objectContaining({
           type: 'ssh-code-access-jargon-copy',
-          sample: expect.stringContaining('Paste the public key line'),
+          sample: expect.stringContaining('Paste the shareable public key line'),
         }),
         expect.objectContaining({
           type: 'ssh-code-access-jargon-copy',
@@ -8225,60 +8245,62 @@ export function settingsActionErrorMessage() {
         }),
         expect.objectContaining({
           type: 'ssh-code-access-jargon-copy',
-          sample: expect.stringContaining('Paste the public key line that starts'),
+          sample: expect.stringContaining('Paste the shareable public key line that starts'),
         }),
         expect.objectContaining({
           type: 'ssh-code-access-jargon-copy',
-          sample: expect.stringContaining('This public key line'),
+          sample: expect.stringContaining('This shareable public key line'),
         }),
         expect.objectContaining({
           type: 'ssh-code-access-jargon-copy',
-          sample: expect.stringContaining('access name and public key line'),
+          sample: expect.stringContaining('access name and shareable public key line'),
         }),
         expect.objectContaining({
           type: 'ssh-code-access-jargon-copy',
-          sample: expect.stringContaining('paste the public key line'),
+          sample: expect.stringContaining('paste the shareable public key line'),
         }),
       ])
     )
   })
 
-  it('accepts SSH code access setup copy that explains the shareable public key line', () => {
+  it('accepts SSH code access setup copy that explains the safe public key line', () => {
     const cwd = fixture({
       'src/app/features/settings/SshKeysSection.tsx': `
 function describeKeyType(keyType) {
-  if (keyType === 'ssh-ed25519') return 'Recommended SSH key'
-  if (keyType === 'ssh-rsa') return 'Older SSH key'
-  return 'Ask an admin to check this SSH key'
+  if (keyType === 'ssh-ed25519') return 'Recommended for new access'
+  if (keyType === 'ssh-rsa') return 'Works, but older'
+  return 'Ask an admin to check this saved key'
 }
 const SSH_KEY_SETUP_STEPS = [
-  { label: 'Paste the shareable public key line', value: 'Copy only the shareable one-line public key from the .pub file. It starts with ssh-ed25519 or ssh-rsa.' },
+  { label: 'Name the computer or team', value: 'Use a name people will recognize, like Work laptop.' },
+  { label: 'Paste the safe public key line', value: 'Copy the one-line public key from the .pub file. It usually starts with ssh-ed25519 or ssh-rsa.' },
+  { label: 'Never paste the private key', value: 'If the text says BEGIN PRIVATE KEY, stop and copy the .pub line instead.' },
 ]
 function AddSshKeyForm() {
-  return <label>Shareable public key line</label>
+  return <label>Safe public key line</label>
 }
 function validation() {
-  return 'Paste the shareable public key line before saving.'
+  return 'Paste the safe public key line before saving.'
 }
 function savedMessage() {
-  return 'SSH code access saved. Create a small task with a git@ code link to confirm agents can open it. If agents cannot open the code, come back here and replace this key.'
+  return 'SSH code access saved. Create a small task with a git@ private code link to confirm agents can open it. If agents cannot open the code, come back here and replace this key.'
 }
 const tableHeaders = [{ label: 'Saved key check code' }, { label: 'Accepted by Forge' }]
 `,
       'src/app/features/settings/sshKeysErrorMessage.ts': `
 export function sshKeysErrorMessage() {
-  return 'Paste the shareable public key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
+  return 'Paste the safe public key line from the .pub file, then save again.'
 }
 export function duplicateMessage() {
-  return 'Choose the saved access or remove the old one first. This shareable public key line is already saved.'
+  return 'Choose the saved access or remove the old one first. This safe public key line is already saved.'
 }
 export function requiredMessage() {
-  return 'Check the access name and shareable public key line, then try again.'
+  return 'Check the access name and safe public key line, then try again.'
 }
 `,
       'src/app/shared/model/settings.store.ts': `
 export function settingsActionErrorMessage() {
-  return 'Add a name for this access, paste the shareable public key line, then save again.'
+  return 'Add a name for this access, paste the safe public key line, then save again.'
 }
 `,
     })

@@ -785,7 +785,15 @@ const SSH_CODE_ACCESS_FAILURE_FIRST_PATTERNS = [
 ]
 
 const SSH_CODE_ACCESS_JARGON_PATTERNS = [
+  /\bName where it is used\b/i,
   /\bPaste the public line\b/i,
+  /\bPaste the shareable public key line\b/i,
+  /\bshareable one-line public key\b/i,
+  />\s*Shareable public key line\b/i,
+  /\bKeep the private key secret\b/i,
+  /\bRecommended SSH key\b/i,
+  /\bOlder SSH key\b/i,
+  /\bAsk an admin to check this SSH key\b/i,
   /\bone-line \.pub key\b/i,
   /\bPaste the public key line before saving\b/i,
   />\s*Public key line\b/i,
@@ -798,7 +806,9 @@ const SSH_CODE_ACCESS_JARGON_PATTERNS = [
   /\bPaste the public key line that starts\b/i,
   /\bpaste the public key line\b/i,
   /\bThis public key line is already saved\b/i,
+  /\bThis shareable public key line is already saved\b/i,
   /\baccess name and public key line\b/i,
+  /\baccess name and shareable public key line\b/i,
 ]
 
 const PLATFORM_KEY_FAILURE_FIRST_PATTERNS = [
@@ -3628,8 +3638,7 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'ssh-code-access-jargon-copy',
         location,
-        message:
-          'SSH code access setup must explain the shareable public key line and supported key kind.',
+        message: 'SSH code access setup must explain the safe public key line and .pub file.',
         sample: line.trim(),
       })
     }

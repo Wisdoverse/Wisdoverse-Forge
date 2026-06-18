@@ -7,21 +7,24 @@ import { formatAccessDate } from './formatAccessDate'
 import { sshKeysErrorMessage } from './sshKeysErrorMessage'
 
 function describeKeyType(keyType: string): string {
-  if (keyType === 'ssh-ed25519') return 'Recommended SSH key'
-  if (keyType === 'ssh-rsa') return 'Older SSH key'
-  return 'Ask an admin to check this SSH key'
+  if (keyType === 'ssh-ed25519') return 'Recommended for new access'
+  if (keyType === 'ssh-rsa') return 'Works, but older'
+  return 'Ask an admin to check this saved key'
 }
 
 const SSH_KEY_SETUP_STEPS = [
-  { label: 'Name where it is used', value: 'Use a device, team, or code project name.' },
   {
-    label: 'Paste the shareable public key line',
-    value:
-      'Copy only the shareable one-line public key from the .pub file. It starts with ssh-ed25519 or ssh-rsa.',
+    label: 'Name the computer or team',
+    value: 'Use a name people will recognize, like Work laptop.',
   },
   {
-    label: 'Keep the private key secret',
-    value: 'Never paste a private key file or anything that says BEGIN PRIVATE KEY.',
+    label: 'Paste the safe public key line',
+    value:
+      'Copy the one-line public key from the .pub file. It usually starts with ssh-ed25519 or ssh-rsa.',
+  },
+  {
+    label: 'Never paste the private key',
+    value: 'If the text says BEGIN PRIVATE KEY, stop and copy the .pub line instead.',
   },
 ]
 
@@ -141,7 +144,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
     submitAttempted && missingField === 'label'
       ? 'Add a name your team will recognize before saving.'
       : submitAttempted && missingField === 'publicKey'
-        ? 'Paste the shareable public key line before saving.'
+        ? 'Paste the safe public key line before saving.'
         : null
 
   async function handleSubmit(e: FormEvent) {
@@ -165,7 +168,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
     >
       <div className="mb-3 rounded-lg border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
         <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-          Add access for code links that start with git@
+          Add access for git@ code links
         </div>
         <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
           {SSH_KEY_SETUP_STEPS.map((step) => (
@@ -193,7 +196,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
             id={labelHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Use a device, team, or code project name, for example Work laptop.
+            Use a name people will recognize, for example Work laptop.
           </p>
           <input
             id={labelInputId}
@@ -212,14 +215,14 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
 
         <div>
           <label htmlFor="ssh-public-key" className={uiStyles.label}>
-            Shareable public key line <span className="text-red-500">*</span>
+            Safe public key line <span className="text-red-500">*</span>
           </label>
           <p
             id={publicKeyHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Paste the one-line public key from your .pub file. This public line is safe to share and
-            usually starts with ssh-ed25519 or ssh-rsa.
+            Paste the one-line public key from your .pub file. This is the safe line you add to
+            Forge.
           </p>
           <textarea
             id={publicKeyInputId}
@@ -237,7 +240,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
             id={publicKeySafetyId}
             className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Do not paste the private key file. Private keys often include BEGIN PRIVATE KEY.
+            If the text says BEGIN PRIVATE KEY, stop and copy the .pub line instead.
           </p>
         </div>
       </div>
@@ -291,7 +294,7 @@ export function SshKeysSection() {
     if (ok) {
       setShowForm(false)
       setSavedMessage(
-        'SSH code access saved. Create a small task with a git@ code link to confirm agents can open it. If agents cannot open the code, come back here and replace this key.'
+        'SSH code access saved. Create a small task with a git@ private code link to confirm agents can open it. If agents cannot open the code, come back here and replace this key.'
       )
     }
   }
@@ -360,14 +363,13 @@ export function SshKeysSection() {
         ) : sshKeys.length === 0 && !showForm ? (
           <div className="px-4 py-6 text-center" data-testid="ssh-access-empty-state">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              Add access for code links that start with git@
+              Add this only for git@ private code links
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              If the code link starts with git@, add this. If it starts with https://, use HTTPS
-              code access instead.
+              If your code link starts with https://, use HTTPS code access instead.
             </p>
             <p className="mx-auto mt-2 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
-              You can skip this for public projects or normal https:// code links.
+              You can skip this for public projects and normal https:// code links.
             </p>
             <button
               type="button"
