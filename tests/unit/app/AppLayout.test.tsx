@@ -477,7 +477,9 @@ describe('AppLayout', () => {
       target: { value: 'Project-scoped task' },
     })
     await waitFor(() => expect(createButton).toBeEnabled())
-    expect(screen.getByTestId('task-work-lane-readiness').textContent).toContain('Ready to Send')
+    expect(screen.getByTestId('task-work-lane-readiness').textContent).toContain(
+      'Task can be created'
+    )
     fireEvent.click(createButton)
     await screen.findByTestId('task-brief-confirmation')
     fireEvent.click(screen.getByRole('button', { name: /create task anyway/i }))
@@ -510,10 +512,10 @@ describe('AppLayout', () => {
     })
     await waitFor(() =>
       expect(screen.getByTestId('task-work-lane-readiness').textContent).toContain(
-        'Create a task queue before sending work'
+        'Open task queues before creating this task'
       )
     )
-    expect(screen.getByText(/a task queue gives new work a place to wait/i)).toBeDefined()
+    expect(screen.getByText(/Create one task queue so new work has a place to wait/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /open task queues/i })).toBeDefined()
     const previousQueueInstruction = ['agents', 'check', 'task', 'queues'].join(' ')
     expect(screen.queryByText(new RegExp(previousQueueInstruction, 'i'))).toBeNull()
