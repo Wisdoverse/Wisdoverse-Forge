@@ -52,15 +52,15 @@ const skillTemplates = [
     },
   },
   {
-    id: 'ci-status',
-    label: 'Check review status',
-    description: 'Check review and builds once',
+    id: 'work-status',
+    label: 'Check work status',
+    description: 'Check review and automated checks once',
     form: {
-      name: 'pr-status-check',
-      description: 'Summarize review and build status from one fresh check',
-      triggerPattern: 'review status, build status, checks',
+      name: 'work-status-check',
+      description: 'Summarize review and automated check status from one fresh check',
+      triggerPattern: 'review status, check status, ready to finish',
       content:
-        'Check the code review page once and summarize only the review result, merge readiness, and build result needed for the next step. If the project already has a recent status summary, reuse it instead of refreshing.\nStart with one plain result: Needs a fix, Waiting, or Done.\nFor Needs a fix, open only the failed build or review item needed to make the fix.\nFor Waiting, stop checking in chat. Tell the user when one later check is useful, or point to the project background watcher if one exists.\nFor Done, report the final status and stop.',
+        'Check the review page once and summarize only the review result, ready-to-finish status, and automated check result needed for the next step. If the project already has a recent status summary, reuse it instead of refreshing.\nStart with one plain result: Needs a fix, Waiting, or Done.\nFor Needs a fix, open only the failed check or review item needed to make the fix.\nFor Waiting, stop checking in chat. Tell the user when one later check is useful, or point to the project background watcher if one exists.\nFor Done, report the final status and stop.',
     },
   },
   {

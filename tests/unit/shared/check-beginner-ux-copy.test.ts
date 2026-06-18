@@ -7797,7 +7797,11 @@ function busy() {
     const cwd = fixture({
       'src/app/features/skills/CreateSkillModal.tsx': `
 const skillTemplates = [{
-  content: 'Check GitHub or GitLab once and summarize a recent PR or CI summary. Classify the result as ACTION, WAIT, or DONE. For ACTION, inspect only the failed check or job details. For WAIT, stop monitoring in chat and suggest a background monitor. For DONE, report final status.'
+  id: 'ci-status',
+  form: {
+    name: 'pr-status-check',
+    content: 'Check GitHub or GitLab once and summarize a recent PR or CI summary, merge readiness, and build result. Classify the result as ACTION, WAIT, or DONE. For ACTION, inspect only the failed check or job details. For WAIT, stop monitoring in chat and suggest a background monitor. For DONE, report final status.'
+  }
 }]
 `,
     })
@@ -7839,7 +7843,11 @@ const skillTemplates = [{
     const cwd = fixture({
       'src/app/features/skills/CreateSkillModal.tsx': `
 const skillTemplates = [{
-  content: 'Check the code review page once and summarize review result, merge readiness, and build result. Start with one plain result: Needs a fix, Waiting, or Done. For Needs a fix, open only the failed build or review item. For Waiting, stop checking in chat.'
+  id: 'work-status',
+  form: {
+    name: 'work-status-check',
+    content: 'Check the review page once and summarize review result, ready-to-finish status, and automated check result. Start with one plain result: Needs a fix, Waiting, or Done. For Needs a fix, open only the failed check or review item. For Waiting, stop checking in chat.'
+  }
 }]
 `,
     })

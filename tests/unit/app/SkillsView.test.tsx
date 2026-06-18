@@ -83,28 +83,32 @@ describe('SkillsView', () => {
     expect(instructions.value).not.toContain('link evidence')
   })
 
-  test('offers a review status instruction that avoids repeated waiting', async () => {
+  test('offers a work status instruction that avoids repeated waiting', async () => {
     const user = userEvent.setup()
     render(<SkillsView />)
 
     await user.click(screen.getAllByRole('button', { name: /save instruction/i })[0])
     const templates = screen.getByRole('group', { name: /instruction templates/i })
-    await user.click(within(templates).getByRole('button', { name: /check review status/i }))
+    await user.click(within(templates).getByRole('button', { name: /check work status/i }))
 
-    expect(screen.getByLabelText(/^instruction name$/i)).toHaveValue('pr-status-check')
+    expect(screen.getByLabelText(/^instruction name$/i)).toHaveValue('work-status-check')
     expect(screen.getByLabelText(/^short description$/i)).toHaveValue(
-      'Summarize review and build status from one fresh check'
+      'Summarize review and automated check status from one fresh check'
     )
     expect(screen.getByLabelText(/^matching words for future tasks$/i)).toHaveValue(
-      'review status, build status, checks'
+      'review status, check status, ready to finish'
     )
     const instructions = screen.getByLabelText(/^steps for the agent$/i) as HTMLTextAreaElement
-    expect(instructions.value).toContain('Check the code review page once')
+    expect(instructions.value).toContain('Check the review page once')
     expect(instructions.value).toContain('reuse it instead of refreshing')
     expect(instructions.value).toContain('Needs a fix, Waiting, or Done')
-    expect(instructions.value).toContain('open only the failed build or review item')
+    expect(instructions.value).toContain('open only the failed check or review item')
     expect(instructions.value).toContain('stop checking in chat')
     expect(instructions.value).toContain('project background watcher')
+    expect(instructions.value).not.toContain('merge readiness')
+    expect(instructions.value).not.toContain('PR')
+    expect(instructions.value).not.toContain('CI')
+    expect(instructions.value).not.toContain('build status')
     expect(instructions.value).not.toContain('ACTION')
     expect(instructions.value).not.toContain('GitHub or GitLab')
     expect(instructions.value).not.toContain('npm run')

@@ -689,8 +689,13 @@ const SAVED_INSTRUCTION_CREATE_FAILURE_FIRST_PATTERNS = [
 ]
 
 const SAVED_INSTRUCTION_TEMPLATE_JARGON_PATTERNS = [
+  /\bid:\s*['"`]ci-status['"`]/i,
+  /\bname:\s*['"`]pr-status-check['"`]/i,
   /\bCheck GitHub or GitLab once\b/i,
+  /\bPR\b/,
+  /\bCI\b/,
   /\bPR or CI summary\b/i,
+  /\bmerge readiness\b/i,
   /\bClassify the result as ACTION, WAIT, or DONE\b/i,
   /\bFor ACTION\b/,
   /\bFor WAIT\b/,
