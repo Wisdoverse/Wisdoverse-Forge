@@ -319,7 +319,7 @@ describe('AgentControlPanel', () => {
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('Action did not finish')
     expect(alert).toHaveTextContent(/Refresh Agents, then choose Start file work again/i)
-    expect(alert).toHaveTextContent(/ask an owner or admin to check Agent work setup/i)
+    expect(alert).toHaveTextContent(/ask an owner or admin to check Where agents work/i)
     expect(alert).not.toHaveTextContent(/agent control action failed/i)
     expect(screen.queryByRole('status')).toBeNull()
     expect(screen.getByRole('button', { name: /start file work/i })).toBeEnabled()

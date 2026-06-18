@@ -257,7 +257,7 @@ describe('InboxView', () => {
     expect(screen.getByText('Account access needs reconnecting')).toBeDefined()
     expect(screen.queryByText(/runtime access/i)).toBeNull()
     expect(screen.queryByText(/credential expired/i)).toBeNull()
-    expect(screen.getByRole('button', { name: /open agent work settings/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /open where agents work/i })).toBeDefined()
     expect(screen.queryByRole('button', { name: /^open settings$/i })).toBeNull()
   })
 
@@ -516,7 +516,7 @@ describe('InboxView', () => {
     expect(item).toHaveTextContent('Account access')
     expect(item).toHaveTextContent('Reconnect work access')
     expect(item).toHaveTextContent(
-      'Open agent work settings and reconnect the account agents use for file work.'
+      'Open Where agents work and reconnect the account agents use for file work.'
     )
     expect(screen.getByText('Codex account access needs reconnecting')).toBeDefined()
     expect(screen.getByText('Codex work account needs reconnecting')).toBeDefined()
