@@ -1392,6 +1392,12 @@ const CLONE_RETRY_FAILURE_FIRST_PATTERNS = [
   /\bCould not copy code into the project\. Check the code link and saved code access, then try again\./i,
 ]
 
+const CLONE_RETRY_BUTTON_GENERIC_PATTERNS = [
+  /\?\s*['"`]Trying…['"`]\s*:\s*['"`]Try again['"`]/,
+  />\s*Try again\s*</i,
+  /\baria-label=["'`]Try again["'`]/i,
+]
+
 const CLONE_STATUS_IMPORT_LABEL_PATTERNS = [
   /\bCode import (?:queued|failed)\b/i,
   /\bCode ready\b/i,
@@ -2371,6 +2377,14 @@ function hasCloneRetryFailureFirstCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return CLONE_RETRY_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasCloneRetryButtonGenericCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/manage-project/ui/CloneStatusBadge.tsx')) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CLONE_RETRY_BUTTON_GENERIC_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasCloneStatusImportLabelCopy(relFile, line) {
@@ -4391,6 +4405,15 @@ function scanFile(file, relFile) {
         type: 'clone-retry-error-copy',
         location,
         message: 'Code import retry errors must start with the next action for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCloneRetryButtonGenericCopy(relFile, line)) {
+      findings.push({
+        type: 'clone-retry-button-copy',
+        location,
+        message: 'Code copy retry buttons must name the copy action for beginners.',
         sample: line.trim(),
       })
     }

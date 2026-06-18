@@ -12330,6 +12330,40 @@ function fallbackCloneRetryErrorMessage() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags generic code copy retry button labels', () => {
+    const cwd = fixture({
+      'src/app/features/manage-project/ui/CloneStatusBadge.tsx': `
+export function CloneStatusBadge({ retrying }) {
+  return <button>{retrying ? 'Trying…' : 'Try again'}</button>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'clone-retry-button-copy',
+          location: 'src/app/features/manage-project/ui/CloneStatusBadge.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts code copy retry buttons that name the copy action', () => {
+    const cwd = fixture({
+      'src/app/features/manage-project/ui/CloneStatusBadge.tsx': `
+export function CloneStatusBadge({ retrying }) {
+  return <button>{retrying ? 'Copying code…' : 'Copy code again'}</button>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags code import status and recovery labels that do not match copy wording', () => {
     const cwd = fixture({
       'src/app/features/manage-project/ui/CloneStatusBadge.tsx': `

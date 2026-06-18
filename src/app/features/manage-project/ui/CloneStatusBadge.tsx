@@ -145,9 +145,9 @@ function visualFor(status: CloneStatus | undefined): Visual | null {
  * Clone lifecycle badge for a project's optional git repository. Renders the
  * status as an Apple-style pill (queued / cloning with spinner / ready / failed),
  * and — in the `detail` variant — the resolved branch + short HEAD on success,
- * beginner recovery guidance plus a Retry action on failure. Retry is enabled
- * only for `failed`; permission is enforced server-side (a 403 surfaces as an
- * inline message rather than being pre-guarded in the client).
+ * beginner recovery guidance plus a copy-again action on failure. The action
+ * is enabled only for `failed`; permission is enforced server-side (a 403
+ * surfaces as an inline message rather than being pre-guarded in the client).
  */
 export function CloneStatusBadge({
   projectId,
@@ -261,7 +261,7 @@ export function CloneStatusBadge({
               aria-hidden="true"
               className={cn(retrying && 'animate-spin')}
             />
-            {retrying ? 'Trying…' : 'Try again'}
+            {retrying ? 'Copying code…' : 'Copy code again'}
           </button>
         )}
       </div>
