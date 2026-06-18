@@ -1285,6 +1285,8 @@ const CHAT_OFFLINE_DEAD_END_PATTERNS = [
   /\bStart it before sending a message\b/i,
   /\bChat is not ready yet\. Try again when this agent is online\./i,
   /\bLoading earlier messages\. You can send once loading finishes\./i,
+  /\bReconnect or start this agent before sending an instruction\./i,
+  /\bOpen AI service settings, choose Check connection, then refresh Agents before sending a message\./i,
 ]
 
 const CHAT_STREAM_FAILURE_FIRST_PATTERNS = [

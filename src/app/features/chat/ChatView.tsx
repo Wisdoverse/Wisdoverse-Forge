@@ -145,7 +145,7 @@ export function ChatView({ agentId }: ChatViewProps) {
   const isProviderAgent = agent != null && !agent.cliTool
   const offline = agent?.status === 'offline'
   const offlineRecoveryDetail = isProviderAgent
-    ? 'This chat-only AI service is not ready. Open AI service settings, choose Check connection, then refresh Agents.'
+    ? 'This chat-only AI service is not ready. Open AI service settings, choose Check connection for this service, then refresh Agents. Ready means this agent can answer in chat.'
     : 'This agent is not ready. Open Agents, start or reconnect it, then return here when it shows Ready.'
   const emptyAction: ConversationEmptyAction | undefined = isProviderAgent
     ? offline
@@ -155,9 +155,16 @@ export function ChatView({ agentId }: ChatViewProps) {
       ? { label: 'Open Agents', href: '/agents' }
       : { label: 'Create a task', href: '/tasks' }
   const composerDisabledReason = offline
-    ? 'Open AI service settings, choose Check connection, then refresh Agents before sending a message.'
+    ? 'Open AI service settings, choose Check connection for this service, then refresh Agents before sending a message.'
     : messagesLoading
       ? 'Wait for earlier messages to finish loading, then send your message from this chat.'
+      : undefined
+  const composerDisabledPlaceholder = offline
+    ? isProviderAgent
+      ? 'Check this AI service before sending a message.'
+      : 'Open Agents before sending a message.'
+    : messagesLoading
+      ? 'Wait for earlier messages to load.'
       : undefined
   const [conversationFilter, setConversationFilter] = useState<ConversationFilter>('all')
   const [conversationSearch, setConversationSearch] = useState('')
@@ -467,6 +474,7 @@ export function ChatView({ agentId }: ChatViewProps) {
           streaming={streaming}
           disabled={offline || messagesLoading || streaming}
           disabledReason={composerDisabledReason}
+          disabledPlaceholder={composerDisabledPlaceholder}
         />
       )}
     </div>

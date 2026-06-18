@@ -221,11 +221,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
             'w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark',
             !messageAvailability.canSend && 'cursor-not-allowed opacity-60'
           )}
-          placeholder={
-            messageAvailability.canSend
-              ? 'Example: Check the latest run and tell me the next safe step.'
-              : 'Reconnect or start this agent before sending an instruction.'
-          }
+          placeholder={messageAvailability.placeholder}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
               e.preventDefault()
@@ -242,9 +238,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
           id={promptHelpId}
           className="text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
-          {messageAvailability.canSend
-            ? "Send one concrete instruction, then watch this agent's history for progress."
-            : 'Wait until this agent shows Ready before sending an instruction here.'}
+          {messageAvailability.help}
         </p>
         <div className="flex justify-end">
           <button
@@ -467,17 +461,24 @@ function getMessageAvailability(
     canStartContainer: boolean
     hostCli: boolean
   }
-): { canSend: boolean; detail: string } {
+): { canSend: boolean; detail: string; placeholder: string; help: string } {
   if (canStartContainer) {
     return {
       canSend: false,
       detail:
         'Start file work first. When this agent shows Ready, you can send an instruction or create a task.',
+      placeholder: 'Start file work before sending an instruction.',
+      help: 'Use Start file work, wait for Ready, then send an instruction here.',
     }
   }
 
   if (agent.status !== 'offline') {
-    return { canSend: true, detail: '' }
+    return {
+      canSend: true,
+      detail: '',
+      placeholder: 'Example: Check the latest run and tell me the next safe step.',
+      help: "Send one concrete instruction, then watch this agent's history for progress.",
+    }
   }
 
   if (hostCli) {
@@ -485,6 +486,8 @@ function getMessageAvailability(
       canSend: false,
       detail:
         'This computer is not connected. Paste the setup text there and wait for Ready before sending an instruction.',
+      placeholder: 'Reconnect this computer before sending an instruction.',
+      help: "Paste the setup text in that computer's command app, wait for Ready, then send here.",
     }
   }
 
@@ -493,12 +496,16 @@ function getMessageAvailability(
       canSend: false,
       detail:
         'File work is not connected. Refresh Agents or start file work before sending an instruction.',
+      placeholder: 'Start or refresh file work before sending an instruction.',
+      help: 'Refresh Agents or start file work, wait for Ready, then send an instruction here.',
     }
   }
 
   return {
     canSend: false,
     detail: CHAT_ONLY_AI_SERVICE_RECOVERY_DETAIL,
+    placeholder: 'Check this AI service before sending an instruction.',
+    help: 'Open AI service settings, choose Check connection for this service, then refresh Agents.',
   }
 }
 

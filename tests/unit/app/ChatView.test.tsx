@@ -173,14 +173,19 @@ describe('ChatView', () => {
 
     const emptyState = screen.getByTestId('conversation-empty-state')
     expect(emptyState).toHaveTextContent(
-      'This chat-only AI service is not ready. Open AI service settings, choose Check connection, then refresh Agents.'
+      'This chat-only AI service is not ready. Open AI service settings, choose Check connection for this service, then refresh Agents. Ready means this agent can answer in chat.'
     )
     expect(emptyState).not.toHaveTextContent('Settings > AI services')
     expect(emptyState).not.toHaveTextContent('Start it before sending a message')
-    expect(screen.getByRole('textbox', { name: /message this agent/i })).toBeDisabled()
+    const textbox = screen.getByRole('textbox', { name: /message this agent/i })
+    expect(textbox).toBeDisabled()
+    expect(textbox).toHaveAttribute(
+      'placeholder',
+      'Check this AI service before sending a message.'
+    )
     expect(
       screen.getByText(
-        'Open AI service settings, choose Check connection, then refresh Agents before sending a message.'
+        'Open AI service settings, choose Check connection for this service, then refresh Agents before sending a message.'
       )
     ).toBeVisible()
     const action = screen.getByRole('link', { name: /open ai services/i })
@@ -199,7 +204,9 @@ describe('ChatView', () => {
 
     render(<ChatView agentId={providerAgent.id} />)
 
-    expect(screen.getByRole('textbox', { name: /message this agent/i })).toBeDisabled()
+    const textbox = screen.getByRole('textbox', { name: /message this agent/i })
+    expect(textbox).toBeDisabled()
+    expect(textbox).toHaveAttribute('placeholder', 'Wait for earlier messages to load.')
     expect(screen.getByRole('button', { name: /send/i })).toBeDisabled()
     expect(
       screen.getByText(
@@ -418,7 +425,9 @@ describe('ChatView', () => {
 
     const emptyState = screen.getByTestId('conversation-filter-empty')
     expect(emptyState).toHaveTextContent('Use All if you expected a blocker')
-    expect(emptyState).toHaveTextContent('No message is stuck, failed, waiting, or asking for your help in this view.')
+    expect(emptyState).toHaveTextContent(
+      'No message is stuck, failed, waiting, or asking for your help in this view.'
+    )
     expect(emptyState).toHaveTextContent('use All to read the full conversation')
     expect(emptyState).not.toHaveTextContent('No help requests are open')
   })
