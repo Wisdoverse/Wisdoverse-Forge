@@ -686,6 +686,11 @@ const RUNTIME_ERROR_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*Too many setup requests are happening right now\. Wait/i,
 ]
 
+const SETTINGS_RUNTIME_NAV_JARGON_PATTERNS = [
+  /\bWhere agents run:\s*Choose where agents run and which work tool they use\b/i,
+  /\bChoose where agents run and which work tool they use\b/i,
+]
+
 const SETTINGS_LOAD_ERROR_DEAD_END_PATTERNS = [
   /\bAI service settings could not be loaded\./i,
   /\bOutside tool access keys could not be loaded\./i,
@@ -2889,6 +2894,12 @@ function hasRuntimeErrorFailureFirstCopy(relFile, line) {
   return RUNTIME_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasSettingsRuntimeNavJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/pages/settings/ui/SettingsLayout.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SETTINGS_RUNTIME_NAV_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasAgentSetupFallbackDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/entities/agent/model/display-labels.ts') &&
@@ -4768,6 +4779,15 @@ function scanFile(file, relFile) {
         type: 'runtime-error-copy',
         location,
         message: 'Runtime setup errors must start with the next action, not the failure summary.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSettingsRuntimeNavJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'settings-runtime-nav-copy',
+        location,
+        message: 'Settings navigation must describe agent work setup in plain file-work language.',
         sample: line.trim(),
       })
     }

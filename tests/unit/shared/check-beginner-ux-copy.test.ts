@@ -4449,6 +4449,44 @@ function heartbeatStatusCopy() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags settings runtime navigation copy that explains internal run and tool choices', () => {
+    const cwd = fixture({
+      'src/app/pages/settings/ui/SettingsLayout.tsx': `
+const SECTIONS = [
+  {
+    label: 'Where agents run',
+    description: 'Choose where agents run and which work tool they use.',
+  },
+]
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'settings-runtime-nav-copy',
+        location: 'src/app/pages/settings/ui/SettingsLayout.tsx:5',
+      }),
+    ])
+  })
+
+  it('accepts settings runtime navigation copy that explains file-work setup', () => {
+    const cwd = fixture({
+      'src/app/pages/settings/ui/SettingsLayout.tsx': `
+const SECTIONS = [
+  {
+    label: 'Agent work setup',
+    description: 'Choose where agents edit files and which tool opens the work.',
+  },
+]
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags runtime setup status copy that only says what is missing', () => {
     const cwd = fixture({
       'src/app/features/settings/RuntimeSection.tsx': `
