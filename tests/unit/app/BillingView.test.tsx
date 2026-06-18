@@ -30,7 +30,7 @@ describe('Billing views', () => {
     render(<BillingPage />)
 
     await waitFor(() => expect(loadAll).toHaveBeenCalledOnce())
-    expect(screen.getByText('Billing is not ready yet')).toBeDefined()
+    expect(screen.getByText('Ask an owner or admin to turn on billing')).toBeDefined()
     expect(
       screen.getByText(/connect billing before changing plans or payment methods/i)
     ).toBeDefined()
