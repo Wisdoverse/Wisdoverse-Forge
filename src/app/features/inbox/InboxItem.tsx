@@ -41,8 +41,8 @@ const TYPE_CONFIG: Record<
     unreadBg: 'bg-apple-blue/[0.04]',
     dot: 'bg-apple-blue',
     label: 'Completed task',
-    actionLabel: 'Review result',
-    guidance: 'Open the result when you need to review, share, or reuse the work.',
+    actionLabel: 'Open result',
+    guidance: 'Open the result when you need to check, share, or reuse the work.',
     template: 'task-lifecycle',
   },
   failed: {
@@ -51,8 +51,8 @@ const TYPE_CONFIG: Record<
     unreadBg: 'bg-apple-red/[0.05]',
     dot: 'bg-apple-red',
     label: 'Recovery needed',
-    actionLabel: 'Review recovery',
-    guidance: 'Open the task, review the recovery note, then retry or choose another agent.',
+    actionLabel: 'Check retry steps',
+    guidance: 'Open the task, read the recovery note, then retry or choose another agent.',
     template: 'task-lifecycle',
   },
   assigned: {
@@ -194,7 +194,7 @@ function failedNotificationMessage(message: string): string {
     return message
   }
 
-  return 'The task stopped before finishing. Open it, review the recovery note, then retry or choose another agent.'
+  return 'The task stopped before finishing. Open it, read the recovery note, then retry or choose another agent.'
 }
 
 function displayNotificationTitle(notification: Notification): string {

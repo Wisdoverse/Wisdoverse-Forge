@@ -331,7 +331,7 @@ describe('dispatchWsMessage', () => {
     })
     expect(notifications[0].message).toContain('Reconnect sign-in or service access, then retry.')
     expect(notifications[0].message).toContain(
-      'stopped before finishing. Open the task, review the recovery note, then retry or choose another agent.'
+      'stopped before finishing. Open the task, read the recovery note, then retry or choose another agent.'
     )
     expect(notifications[0].message).not.toContain('when ready')
     expect(notifications[0].message).not.toContain('reassign')
@@ -372,7 +372,7 @@ describe('dispatchWsMessage', () => {
       ownerUserId: 'user-owner',
     })
     expect(notifications[0].message).toContain(
-      'Stopped before finishing. Open the task details, review the latest update, then retry when ready.'
+      'Stopped before finishing. Open the task details, check the latest update, then retry when ready.'
     )
     expect(notifications[0].message).not.toContain('migration exited non-zero')
   })

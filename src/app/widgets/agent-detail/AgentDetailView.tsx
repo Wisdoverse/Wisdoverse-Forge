@@ -439,7 +439,7 @@ function agentNextStep(
       ? `The latest task was "${latestTask.params.task}" updated ${formatRelativeTime(latestTask.updatedAt)}.`
       : "Go to Tasks to load this agent's work history and decide what to send next.",
     success:
-      'You can decide whether to reuse the agent, review result files, or assign another task.',
+      'You can decide whether to reuse the agent, check result files, or assign another task.',
     ready: true,
     targetTab: 'tasks',
     actionLabel: 'Open tasks',

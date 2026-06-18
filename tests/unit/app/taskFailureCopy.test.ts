@@ -10,7 +10,7 @@ describe('taskFailureCopy', () => {
     const message = taskFailurePreview('panic: stack trace line 7')
 
     expect(message).toBe(
-      'Stopped before finishing. Open the task details, review the latest update, then retry when ready.'
+      'Stopped before finishing. Open the task details, check the latest update, then retry when ready.'
     )
     expect(message).not.toContain('Open details')
     expect(message).not.toContain('panic')
@@ -24,7 +24,7 @@ describe('taskFailureCopy', () => {
     })
 
     expect(message).toBe(
-      'This task needs help before it can continue. Open the task details, review the latest update, then retry or ask an owner for help.'
+      'This task needs help before it can continue. Open the task details, check the latest update, then retry or ask an owner for help.'
     )
     expect(message).not.toContain('Open details')
     expect(message).not.toContain('stdout')

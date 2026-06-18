@@ -1,14 +1,14 @@
 export function taskFailurePreview(error?: string | null): string {
   const message = error?.trim() ?? ''
   if (!message)
-    return 'Stopped before finishing. Open the task details, review the latest update, then retry when ready.'
+    return 'Stopped before finishing. Open the task details, check the latest update, then retry when ready.'
 
   const lowerMessage = message.toLowerCase()
   if (lowerMessage.includes('rate limit') || /\b429\b/.test(message)) {
     return 'Stopped because the AI service is busy. Wait a minute, then open the task details and retry.'
   }
   if (lowerMessage.includes('timeout') || lowerMessage.includes('timed out')) {
-    return 'Stopped because the task took too long. Open the task details, review the latest update, then retry when ready.'
+    return 'Stopped because the task took too long. Open the task details, check the latest update, then retry when ready.'
   }
   if (
     lowerMessage.includes('permission') ||
@@ -21,7 +21,7 @@ export function taskFailurePreview(error?: string | null): string {
     return 'Reconnect sign-in or service access, then retry.'
   }
 
-  return 'Stopped before finishing. Open the task details, review the latest update, then retry when ready.'
+  return 'Stopped before finishing. Open the task details, check the latest update, then retry when ready.'
 }
 
 export function isRawTaskFailureDetail(message: string): boolean {
@@ -83,7 +83,7 @@ function beginnerBlockedHint(hint: string): string {
     return 'Waiting for account access. Add or reconnect the required service access, then retry.'
   }
   if (containsTechnicalBlockedHint(hint)) {
-    return 'This task needs help before it can continue. Open the task details, review the latest update, then retry or ask an owner for help.'
+    return 'This task needs help before it can continue. Open the task details, check the latest update, then retry or ask an owner for help.'
   }
   return hint
 }
