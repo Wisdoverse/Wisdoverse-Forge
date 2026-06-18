@@ -387,9 +387,10 @@ describe('CreateAgentModal', () => {
 
     const providerHint = screen.getByTestId('provider-empty-hint')
     expect(providerHint).toHaveTextContent(/open settings > ai services/i)
-    expect(providerHint).toHaveTextContent(/paste its access key/i)
-    expect(providerHint).toHaveTextContent(/click check/i)
-    expect(providerHint).toHaveTextContent(/service says ready/i)
+    expect(providerHint).toHaveTextContent(/paste the service access key/i)
+    expect(providerHint).toHaveTextContent(/choose check connection/i)
+    expect(providerHint).toHaveTextContent(/service shows ready/i)
+    expect(providerHint).not.toHaveTextContent(/click check/i)
     expect(screen.getByRole('link', { name: /open ai services settings/i })).toHaveAttribute(
       'href',
       '/settings/providers'
@@ -402,7 +403,10 @@ describe('CreateAgentModal', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(/open settings > ai services/i)
     )
-    expect(screen.getByRole('alert')).toHaveTextContent(/click check until it says ready/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /choose check connection until it says ready/i
+    )
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/click check/i)
     expect(createAgent).not.toHaveBeenCalled()
   })
 

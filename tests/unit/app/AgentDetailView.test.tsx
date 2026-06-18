@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { useAgentsStore } from '@app/entities/agent'
 import {
   agentDetailHeaderSubtitle,
@@ -383,16 +383,18 @@ describe('AgentDetailView', () => {
   test('guides offline chat-only agents to AI service settings', () => {
     render(<AgentDetailView agent={{ ...providerAgent, status: 'offline' }} onBack={() => {}} />)
 
+    const nextStep = screen.getByTestId('agent-next-step')
     expect(screen.getByText('Check the AI service before sending work')).toBeDefined()
-    expect(screen.getByText('Open AI service settings and click Check')).toBeDefined()
-    expect(screen.getByText(/click Check for this connection/i)).toBeDefined()
-    expect(screen.getByText(/refresh Agents before sending chat work/i)).toBeDefined()
+    expect(screen.getByText('Open AI service settings and choose Check connection')).toBeDefined()
+    expect(within(nextStep).getByText(/choose Check connection for this service/i)).toBeDefined()
+    expect(within(nextStep).getByText(/refresh Agents before sending chat work/i)).toBeDefined()
     expect(screen.getByText(/returns to Ready and can answer in chat/i)).toBeDefined()
     expect(screen.getByRole('link', { name: /open AI service settings/i })).toHaveAttribute(
       'href',
       '/settings/providers'
     )
     expect(screen.queryByText('Unavailable until restarted or reconnected')).toBeNull()
+    expect(screen.queryByText(/click Check/i)).toBeNull()
   })
 
   test('explains workspace access and primary project context', () => {

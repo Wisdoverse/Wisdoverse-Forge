@@ -223,10 +223,11 @@ describe('AgentControlPanel', () => {
 
     expect(screen.getByText('AI service needs a check')).toBeDefined()
     expect(screen.getByText('Check AI service before sending')).toBeDefined()
-    expect(screen.getAllByText(/Open Settings > AI services, click Check/i).length).toBe(3)
+    expect(screen.getAllByText(/choose Check connection for this service/i).length).toBe(3)
     expect(screen.queryByText('Ready for chat and tracked tasks')).toBeNull()
     expect(screen.queryByText('Chat-only AI service is offline')).toBeNull()
     expect(screen.queryByText(/This chat-only agent is not connected/i)).toBeNull()
+    expect(screen.queryByText(/click Check/i)).toBeNull()
 
     const instructionInput = screen.getByLabelText(/send one instruction/i)
     expect(instructionInput).toBeDisabled()

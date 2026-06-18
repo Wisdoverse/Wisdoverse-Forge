@@ -78,14 +78,14 @@ describe('ChatComposer', () => {
         onAbort={() => {}}
         streaming={false}
         disabled={true}
-        disabledReason="Open AI service settings, check this connection, then refresh Agents before sending a message."
+        disabledReason="Open AI service settings, choose Check connection, then refresh Agents before sending a message."
       />
     )
     expect(screen.getByRole('textbox')).toBeDisabled()
     expect(screen.getByRole('button', { name: /send/i })).toBeDisabled()
     expect(
       screen.getByText(
-        'Open AI service settings, check this connection, then refresh Agents before sending a message.'
+        'Open AI service settings, choose Check connection, then refresh Agents before sending a message.'
       )
     ).toBeVisible()
     expect(screen.queryByText(/Settings > AI services/)).toBeNull()

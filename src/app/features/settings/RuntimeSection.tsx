@@ -839,14 +839,18 @@ function runtimeReadinessSummary(
   credentialStatusCount: number,
   onlineAgentCount: number
 ): string {
-  const locations = countPhrase(runtimeSettings.availableRuntimes.length, 'agent location')
-  const tools = countPhrase(runtimeSettings.availableCliTools.length, 'work tool')
+  const locations = countPhrase(runtimeSettings.availableRuntimes.length, 'place')
+  const tools = countPhrase(
+    runtimeSettings.availableCliTools.length,
+    'tool for file work',
+    'tools for file work'
+  )
   const signIns =
     credentialStatusCount === 0
-      ? 'No extra work tool sign-ins are needed'
+      ? 'No extra tool sign-ins are needed'
       : connectedCredentialCount === 0
-        ? 'Sign in to a work tool before starting agents that need one'
-        : `${countPhrase(connectedCredentialCount, 'work tool sign-in')} ${
+        ? 'Sign in to a tool for file work before starting agents that need one'
+        : `${countPhrase(connectedCredentialCount, 'tool sign-in')} ${
             connectedCredentialCount === 1 ? 'is' : 'are'
           } connected`
   const onlineAgents =
@@ -854,11 +858,11 @@ function runtimeReadinessSummary(
       ? 'Start or wake an agent to bring one online'
       : `${countPhrase(onlineAgentCount, 'agent')} ${onlineAgentCount === 1 ? 'is' : 'are'} online`
 
-  return `Setup has ${locations} and ${tools} like Claude or Codex. ${signIns}. ${onlineAgents}.`
+  return `Forge can run agents in ${locations} and use ${tools}, such as Claude or Codex. ${signIns}. ${onlineAgents}.`
 }
 
-function countPhrase(count: number, singular: string): string {
-  return `${count} ${singular}${count === 1 ? '' : 's'}`
+function countPhrase(count: number, singular: string, plural = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : plural}`
 }
 
 function fallbackRuntimeLabel(runtime: string): string {
