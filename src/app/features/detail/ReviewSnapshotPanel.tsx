@@ -111,7 +111,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
     <div className="py-3 space-y-3" data-testid="review-snapshot-panel">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-medium uppercase text-secondary-light dark:text-secondary-dark">
-          Code fix review
+          Fix review
         </span>
         <button
           onClick={refresh}
@@ -120,7 +120,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
             'flex items-center gap-1 text-[10px] text-secondary-light dark:text-secondary-dark',
             'hover:text-foreground-light dark:hover:text-foreground-dark transition-colors disabled:opacity-50'
           )}
-          aria-label="Refresh code fix review"
+          aria-label="Refresh fix review"
         >
           <RefreshCw size={11} className={loading ? 'animate-spin' : undefined} />
           Refresh

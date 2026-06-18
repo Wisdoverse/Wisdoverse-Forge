@@ -52,13 +52,14 @@ describe('ReviewSnapshotPanel', () => {
     vi.spyOn(orchestrationApi, 'getSelfFixReview').mockResolvedValue(review())
     render(<ReviewSnapshotPanel task={task()} />)
 
-    expect(await screen.findByText('Code fix review')).toBeInTheDocument()
+    expect(await screen.findByText('Fix review')).toBeInTheDocument()
+    expect(screen.queryByText(/code fix review/i)).toBeNull()
     expect(await screen.findByText('Review page #42')).toBeInTheDocument()
     expect(screen.queryByText(/GitHub review/i)).toBeNull()
     expect(screen.getByText('Waiting for review')).toBeInTheDocument()
     expect(screen.getByText('Automated checks passed')).toBeInTheDocument()
     expect(screen.queryByText(/Build checks/i)).toBeNull()
-    expect(screen.getByLabelText('Refresh code fix review')).toBeInTheDocument()
+    expect(screen.getByLabelText('Refresh fix review')).toBeInTheDocument()
     expect(screen.getByText('Review the changes')).toBeInTheDocument()
     expect(screen.queryByText(/changed files/i)).toBeNull()
   })
@@ -131,8 +132,9 @@ describe('ReviewSnapshotPanel', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'Refresh code fix review, then try again. Forge could not load the current review status.'
+      'Refresh fix review, then try again. Forge could not load the current review status.'
     )
+    expect(alert).not.toHaveTextContent('code fix review')
     expect(alert).not.toHaveTextContent('API 500')
     expect(alert).not.toHaveTextContent('database')
   })
@@ -147,10 +149,11 @@ describe('ReviewSnapshotPanel', () => {
     fireEvent.click(await screen.findByTestId('review-approve'))
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Ask another owner or admin to review this code fix.')
+    expect(alert).toHaveTextContent('Ask another owner or admin to review this fix.')
     expect(alert).toHaveTextContent(
-      'The code host needs someone else to review changes you opened yourself.'
+      'The review system needs someone else to review changes you opened yourself.'
     )
+    expect(alert).not.toHaveTextContent('code host')
     expect(alert).not.toHaveTextContent('maintainer')
     expect(alert).not.toHaveTextContent('pull request')
     expect(alert).not.toHaveTextContent('GraphQL')

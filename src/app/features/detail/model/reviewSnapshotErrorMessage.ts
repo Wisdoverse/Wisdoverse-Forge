@@ -4,9 +4,9 @@ const RAW_NETWORK_ERRORS = [/^Network error$/i, /^Failed to fetch$/i]
 const RAW_STATUS_ERRORS = [/^API\s+\d{3}/i, /^HTTP\s+\d{3}/i, /^Server error\s*\(\d{3}\)$/i]
 
 const ACTION_FALLBACKS: Record<ReviewSnapshotAction, string> = {
-  load: 'Refresh code fix review, then try again. Forge could not load the current review status.',
+  load: 'Refresh fix review, then try again. Forge could not load the current review status.',
   approve:
-    'Refresh code fix review, confirm automated checks passed, then finish this fix again. The fix was not finished.',
+    'Refresh fix review, confirm automated checks passed, then finish this fix again. The fix was not finished.',
 }
 
 export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: unknown): string {
@@ -15,7 +15,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
   const text = detail?.toLowerCase() ?? ''
 
   if (text.includes('can not approve your own pull request')) {
-    return 'Ask another owner or admin to review this code fix. The code host needs someone else to review changes you opened yourself.'
+    return 'Ask another owner or admin to review this fix. The review system needs someone else to review changes you opened yourself.'
   }
 
   if (
@@ -24,7 +24,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('bad credentials') ||
     text.includes('sign in again')
   ) {
-    return 'Sign in again, then refresh code fix review. Forge could not confirm your code review access.'
+    return 'Sign in again, then refresh fix review. Forge could not confirm your review access.'
   }
 
   if (
@@ -51,7 +51,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('mergeable state') ||
     text.includes('cannot be merged')
   ) {
-    return 'Refresh code fix review after the project code is updated. This fix needs the latest project code before it can finish.'
+    return 'Refresh fix review after the project code is updated. This fix needs the latest project code before it can finish.'
   }
 
   if (
@@ -60,7 +60,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('check_suite') ||
     text.includes('required status')
   ) {
-    return 'Wait for automated checks to finish, then refresh code fix review before finishing.'
+    return 'Wait for automated checks to finish, then refresh fix review before finishing.'
   }
 
   const safeDetail = userSafeDetail(detail)
