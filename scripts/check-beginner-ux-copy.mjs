@@ -1306,6 +1306,12 @@ const CLONE_STATUS_IMPORT_LABEL_PATTERNS = [
 
 const CLONE_FAILURE_RAW_MESSAGE_PATTERNS = [/\bclone\?\.errorMessage\b/, /\bclone\.errorMessage\b/]
 
+const CLONE_FAILURE_REPOSITORY_JARGON_PATTERNS = [
+  /\bthis repository\b/i,
+  /\bthe repository\b/i,
+  /\brepository host\b/i,
+]
+
 const AGENT_CONFIG_DETAIL_DEAD_END_PATTERNS = [
   /\bAI model not reported\b/i,
   /\bModel not reported\b/i,
@@ -2257,6 +2263,14 @@ function hasCloneFailureRawMessageCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return CLONE_FAILURE_RAW_MESSAGE_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasCloneFailureRepositoryJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/manage-project/ui/CloneStatusBadge.tsx')) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CLONE_FAILURE_REPOSITORY_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentConfigDetailDeadEndCopy(relFile, line) {
@@ -4182,6 +4196,16 @@ function scanFile(file, relFile) {
         type: 'clone-failure-message-copy',
         location,
         message: 'Code import failure details must use beginner-safe recovery copy.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCloneFailureRepositoryJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'clone-failure-repository-copy',
+        location,
+        message:
+          'Code copy failure details must say code project or code website instead of repository.',
         sample: line.trim(),
       })
     }
