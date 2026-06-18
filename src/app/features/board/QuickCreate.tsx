@@ -4,7 +4,10 @@ import { cn } from '@app/shared/lib/utils'
 
 interface QuickCreateProps {
   columnId: string
-  onSubmit: (title: string, columnId: string) => void | boolean | Promise<void | boolean>
+  onSubmit: (
+    title: string,
+    columnId: string
+  ) => void | boolean | string | Promise<void | boolean | string>
 }
 
 const QUICK_TASK_EXAMPLES = [
@@ -12,6 +15,8 @@ const QUICK_TASK_EXAMPLES = [
   'Fix the login error and show how to test it',
   'Summarize the latest result with next actions',
 ]
+const QUICK_CREATE_SAVE_ERROR =
+  'The task was not saved. Check the project, where tasks wait, and your connection, then choose Save for later again.'
 
 export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
   const [isOpen, setIsOpen] = useState(false)
@@ -43,9 +48,15 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
     setSubmitting(true)
     try {
       const result = await onSubmit(trimmedTitle, columnId)
+      if (typeof result === 'string') {
+        submittedRef.current = false
+        setError(result)
+        inputRef.current?.focus()
+        return
+      }
       if (result === false) {
         submittedRef.current = false
-        setError('Check your connection, then choose Save for later again. The task was not saved.')
+        setError(QUICK_CREATE_SAVE_ERROR)
         inputRef.current?.focus()
         return
       }
@@ -54,7 +65,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
       setIsOpen(false)
     } catch {
       submittedRef.current = false
-      setError('Check your connection, then choose Save for later again. The task was not saved.')
+      setError(QUICK_CREATE_SAVE_ERROR)
       inputRef.current?.focus()
     } finally {
       setSubmitting(false)

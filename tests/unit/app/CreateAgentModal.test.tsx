@@ -53,6 +53,25 @@ describe('CreateAgentModal', () => {
     'i'
   )
 
+  function selectProject() {
+    useNavigationStore.setState({
+      selectedProjectId: 'p1',
+      projects: {
+        t1: [
+          {
+            id: 'p1',
+            teamId: 't1',
+            workspaceId: 'w1',
+            name: 'Platform',
+            slug: 'platform',
+            color: '#007AFF',
+            description: '',
+          },
+        ],
+      },
+    })
+  }
+
   test('renders project-file fields by default', () => {
     render(<CreateAgentModal />)
 
@@ -93,7 +112,10 @@ describe('CreateAgentModal', () => {
     expect(screen.getAllByText(/project for new tasks/i).length).toBeGreaterThan(0)
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/open project settings/i)
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(
-      /open project settings to create or choose a project/i
+      /open project settings to create or choose a project before creating this file-working agent/i
+    )
+    expect(screen.getByTestId('agent-work-readiness')).not.toHaveTextContent(
+      /agent can still be created first/i
     )
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/choose a project later/i)
     expect(screen.getByTestId('agent-work-readiness')).not.toHaveTextContent(/no primary project/i)
@@ -139,6 +161,26 @@ describe('CreateAgentModal', () => {
     expect(onOpenProjectsSetup).toHaveBeenCalledTimes(1)
     expect(useAgentsStore.getState().createModalOpen).toBe(false)
     expect(screen.queryByRole('dialog', { name: /create an agent/i })).toBeNull()
+  })
+
+  test('blocks project-file agent creation until a project is selected', async () => {
+    const createAgent = vi.fn().mockResolvedValue(true)
+    const onOpenProjectsSetup = vi.fn()
+    useAgentsStore.setState({ createAgent } as never)
+
+    render(<CreateAgentModal onOpenProjectsSetup={onOpenProjectsSetup} />)
+    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'CLI Worker' } })
+    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(/open project settings, create or choose a project/i)
+    expect(alert).toHaveTextContent(/agents that work with files need a project first/i)
+    expect(createAgent).not.toHaveBeenCalled()
+
+    fireEvent.click(within(alert).getByRole('button', { name: /open project settings/i }))
+
+    expect(onOpenProjectsSetup).toHaveBeenCalledTimes(1)
+    expect(useAgentsStore.getState().createModalOpen).toBe(false)
   })
 
   test('shows selected project as the project for new tasks', () => {
@@ -401,13 +443,16 @@ describe('CreateAgentModal', () => {
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
+    let alert: HTMLElement | null = null
     await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent(/open settings > ai services/i)
+      expect((alert = screen.getByRole('alert'))).toHaveTextContent(
+        /open settings > ai services/i
+      )
     )
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      /choose check connection until it says ready/i
-    )
-    expect(screen.getByRole('alert')).not.toHaveTextContent(/click check/i)
+    expect(alert).toHaveTextContent(/choose check connection until it says ready/i)
+    expect(alert).not.toHaveTextContent(/click check/i)
+    expect(within(alert as HTMLElement).getByRole('link', { name: /open ai services settings/i }))
+      .toHaveAttribute('href', '/settings/providers')
     expect(createAgent).not.toHaveBeenCalled()
   })
 
@@ -489,6 +534,7 @@ describe('CreateAgentModal', () => {
   })
 
   test('enrolls an agent on this computer and shows the setup text', async () => {
+    selectProject()
     const enrollLocalAgent = vi.fn().mockResolvedValue({
       ok: true,
       agent: {
@@ -529,6 +575,8 @@ describe('CreateAgentModal', () => {
       name: 'Laptop Worker',
       cliTool: 'codex',
       cwd: '/Users/me/project',
+      workspaceId: 'w1',
+      projectId: 'p1',
     })
     expect(await screen.findByLabelText(/setup text/i)).toHaveValue(
       "export AGENT_ID='a-local'\nagentforge-sidecar"
@@ -558,6 +606,7 @@ describe('CreateAgentModal', () => {
   })
 
   test('shows the setup command with an OS toggle when the server mints a join code', async () => {
+    selectProject()
     const joinCommand =
       'curl -fsSL https://forge.example.com/api/v1/agents/local-join/script | sh -s -- --code afj_test'
     const joinCommandPowershell =
@@ -637,6 +686,7 @@ describe('CreateAgentModal', () => {
   })
 
   test('guides Windows users to backup setup values when the one-line command is missing', async () => {
+    selectProject()
     const joinCommand =
       'curl -fsSL https://forge.example.com/api/v1/agents/local-join/script | sh -s -- --code afj_test'
     const enrollLocalAgent = vi.fn().mockResolvedValue({
@@ -689,6 +739,7 @@ describe('CreateAgentModal', () => {
   })
 
   test('uses a beginner fallback name when the setup response has no agent name', async () => {
+    selectProject()
     const enrollLocalAgent = vi.fn().mockResolvedValue({
       ok: true,
       agent: {
@@ -840,6 +891,7 @@ describe('CreateAgentModal', () => {
   })
 
   test('submits cli kind without provider/model fields', async () => {
+    selectProject()
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
 
@@ -854,6 +906,8 @@ describe('CreateAgentModal', () => {
       name: 'CLI Worker',
       cliTool: 'claude',
       cwd: '/workspace',
+      workspaceId: 'w1',
+      projectId: 'p1',
     })
     expect(payload).not.toHaveProperty('provider')
     expect(payload).not.toHaveProperty('model')
@@ -964,6 +1018,7 @@ describe('CreateAgentModal', () => {
   })
 
   test('clipboard failure on the join screen shows a manual-copy message', async () => {
+    selectProject()
     const enrollLocalAgent = vi.fn().mockResolvedValue({
       ok: true,
       agent: { id: 'a1', name: 'Local Worker' },

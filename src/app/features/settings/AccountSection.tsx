@@ -9,6 +9,7 @@ import { useSettingsStore } from '@app/shared/model/settings.store'
 import { getUserApi } from '@app/shared/api/legacy'
 import { useNavigationStore } from '@app/entities/navigation'
 import { userRoleLabel } from '@app/entities/user'
+import { shouldShowGettingStarted } from '@app/shared/lib/gettingStartedPreference'
 import { accountErrorMessage } from './accountErrorMessages'
 
 function reportedAccountValue(value: string | null | undefined, fallback: string): string {
@@ -366,11 +367,12 @@ function GettingStartedGuideRow() {
     void loadPreferences()
   }, [loadPreferences])
 
-  const dismissed = preferences?.gettingStartedDismissed === true
-  const canOpenChecklist = preferencesLoaded && !dismissed
+  const showChecklist = shouldShowGettingStarted(preferences)
+  const hidden = !showChecklist
+  const canOpenChecklist = preferencesLoaded && showChecklist
   const statusLine = !preferencesLoaded
     ? 'Checking whether Start already appears in the left menu...'
-    : dismissed
+    : hidden
       ? 'Start is hidden from the left menu right now.'
       : 'Start is already in the left menu.'
 
@@ -401,8 +403,8 @@ function GettingStartedGuideRow() {
             Setup checklist
           </p>
           <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            If you skipped Start, use this to bring the setup checklist back to the left menu.
-            Projects, agents, and tasks stay the same. {statusLine}
+            If you skipped Start, use this to bring the setup checklist back to the left menu. New
+            sign-ins open Tasks by default. Projects, agents, and tasks stay the same. {statusLine}
           </p>
         </div>
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
@@ -421,7 +423,7 @@ function GettingStartedGuideRow() {
           <button
             type="button"
             onClick={handleRestore}
-            disabled={restoring || !preferencesLoaded || !dismissed}
+            disabled={restoring || !preferencesLoaded || !hidden}
             className={uiStyles.secondaryButton}
           >
             {restoring ? 'Showing...' : 'Show Start again'}

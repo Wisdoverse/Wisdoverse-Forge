@@ -394,6 +394,9 @@ describe('BoardView', () => {
     expect(alert).toHaveTextContent(
       'Check the project, task queue, and result, then create the task again. The task was not created.'
     )
+    expect(screen.getByLabelText(/task goal/i)).toHaveAccessibleDescription(
+      /check the project, task queue, and result, then create the task again/i
+    )
     expect(alert.textContent).not.toContain('API')
   })
 

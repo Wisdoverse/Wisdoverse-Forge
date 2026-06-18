@@ -20,6 +20,7 @@ import { useAuth } from '@app/shared/model/auth.context'
 import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
 import { useContextStore } from '@app/shared/model/context.store'
 import { useSettingsStore } from '@app/shared/model/settings.store'
+import { shouldShowGettingStarted } from '@app/shared/lib/gettingStartedPreference'
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement> & { size?: number | string }>
 
@@ -122,12 +123,9 @@ export function SidebarNav({
   const isAdmin = user?.role === 'admin' || user?.role === 'owner'
   const contextGovernanceEnabled = useContextFeaturesStore((s) => s.governance)
   const pendingContextCount = useContextStore((s) => s.pendingCandidateCount)
-  // Hide the Getting Started entry only on a confirmed dismissal. While the
-  // preferences request is still in flight this is false, so the entry stays
-  // visible — a brief flash for dismissed users beats a blank nav slot.
-  const gettingStartedDismissed = useSettingsStore(
-    (s) => s.preferences?.gettingStartedDismissed === true
-  )
+  // Start is opt-in from Settings. Unknown or missing preferences keep the
+  // sidebar task-first instead of showing a tutorial link by default.
+  const showGettingStarted = useSettingsStore((s) => shouldShowGettingStarted(s.preferences))
 
   const handleLogout = useCallback(() => {
     authManager.logout()
@@ -176,7 +174,7 @@ export function SidebarNav({
   if (section === 'primary') {
     const items = NAV_ITEMS.filter((item) => {
       if (item.id === 'context' && !contextGovernanceEnabled) return false
-      if (item.id === 'start' && gettingStartedDismissed) return false
+      if (item.id === 'start' && !showGettingStarted) return false
       return true
     })
     return (

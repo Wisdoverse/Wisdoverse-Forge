@@ -183,7 +183,34 @@ describe('TaskFormModal', () => {
     expect(onOpenAgentSetup).toHaveBeenCalledTimes(1)
   })
 
-  test('guides project setup before the first task', () => {
+  test('guides project setup before the first task', async () => {
+    const onOpenProjectSettings = vi.fn()
+    const { onSubmit } = renderModal(vi.fn(), {
+      projects: [],
+      selectedProjectId: null,
+      selectedTaskGroupId: null,
+      selectedTaskGroupName: null,
+      onOpenProjectSettings,
+    })
+
+    expect(screen.getByText('Create a project before sending tasks')).toBeDefined()
+    expect(screen.getByText(/projects keep each task/i)).toBeDefined()
+    expect(screen.queryByText(/No projects available/i)).toBeNull()
+
+    fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
+      target: { value: 'Ship the fix' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^create task$/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Open project settings before creating a task.')
+    fireEvent.click(screen.getAllByRole('button', { name: /open project settings/i }).at(-1)!)
+
+    expect(onOpenProjectSettings).toHaveBeenCalledTimes(1)
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  test('shows project setup card action before the first task', () => {
     const onOpenProjectSettings = vi.fn()
     renderModal(vi.fn(), {
       projects: [],
@@ -251,9 +278,9 @@ describe('TaskFormModal', () => {
     expect(screen.queryByText(/Leave this unassigned/i)).toBeNull()
   })
 
-  test('explains where tasks wait before creating work', () => {
+  test('explains where tasks wait before creating work', async () => {
     const openTaskRouting = vi.fn()
-    renderModal(vi.fn(), {
+    const { onSubmit } = renderModal(vi.fn(), {
       selectedTaskGroupId: null,
       selectedTaskGroupName: null,
       onOpenTaskRouting: openTaskRouting,
@@ -273,6 +300,18 @@ describe('TaskFormModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /set up where tasks wait/i }))
 
     expect(openTaskRouting).toHaveBeenCalled()
+
+    fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
+      target: { value: 'Ship the fix' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^create task$/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Set up where tasks wait before saving this task.')
+    fireEvent.click(screen.getAllByRole('button', { name: /set up where tasks wait/i }).at(-1)!)
+
+    expect(openTaskRouting).toHaveBeenCalledTimes(2)
+    expect(onSubmit).not.toHaveBeenCalled()
   })
 
   test('labels unknown agent states without exposing backend status values', () => {

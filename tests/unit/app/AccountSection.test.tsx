@@ -283,6 +283,7 @@ describe('AccountSection', () => {
     expect(screen.queryByText('Onboarding')).toBeNull()
     expect(screen.getByText(/If you skipped Start/i)).toBeDefined()
     expect(screen.getByText(/bring the setup checklist back to the left menu/i)).toBeDefined()
+    expect(screen.getByText(/New sign-ins open Tasks by default/i)).toBeDefined()
     expect(screen.getByText(/Projects, agents, and tasks stay the same/i)).toBeDefined()
     expect(screen.getByText(/Start is hidden from the left menu right now/i)).toBeDefined()
     expect(screen.queryByText(/Reset Start guide/i)).toBeNull()
@@ -307,8 +308,21 @@ describe('AccountSection', () => {
     expect(navigateMock).toHaveBeenCalledWith({ to: '/start' })
   })
 
-  test('keeps the restore action honest while the guide is already visible', () => {
+  test('lets users restore Start when no preference exists yet', () => {
     useSettingsStore.setState({ preferences: {}, preferencesLoaded: true })
+
+    renderAccountSection()
+
+    expect(screen.getByText(/Start is hidden from the left menu right now/i)).toBeDefined()
+    expect(screen.getByRole('button', { name: /show start again/i })).not.toBeDisabled()
+    expect(screen.queryByRole('button', { name: /open setup checklist/i })).toBeNull()
+  })
+
+  test('keeps the restore action honest while the guide is already visible', () => {
+    useSettingsStore.setState({
+      preferences: { gettingStartedDismissed: false },
+      preferencesLoaded: true,
+    })
 
     renderAccountSection()
 
