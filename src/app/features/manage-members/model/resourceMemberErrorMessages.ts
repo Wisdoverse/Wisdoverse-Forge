@@ -5,6 +5,13 @@ const RAW_NETWORK_ERRORS = [/^Network error$/i, /^Failed to fetch$/i]
 const RAW_STATUS_ERRORS = [/^API\s+\d{3}/i, /^HTTP\s+\d{3}/i, /^Server error\s*\(\d{3}\)$/i]
 const GENERIC_BODY_TEXT = /^(Unauthorized|Forbidden|Not Found|Internal Server Error)$/i
 
+export function resourceMemberSelectionLostMessage(
+  resourceLabel: ResourceMemberResourceLabel
+): string {
+  const resource = resourceLabel.toLowerCase()
+  return `This ${resource} is no longer selected. Close members, choose the ${resource} again, then add or change people.`
+}
+
 export function resourceMemberErrorMessage(
   action: ResourceMemberErrorAction,
   resourceLabel: ResourceMemberResourceLabel,
@@ -94,8 +101,11 @@ function validationMessage(
   detail?: string | null
 ): string {
   const normalized = detail?.toLowerCase() ?? ''
-  if (normalized.includes(`no ${resource} selected`)) {
-    return `This ${resource} is no longer selected. Close members, choose the ${resource} again, then add or change people.`
+  if (
+    normalized.includes(`no ${resource} selected`) ||
+    normalized.includes(`this ${resource} is no longer selected`)
+  ) {
+    return resourceMemberSelectionLostMessage(resource === 'team' ? 'Team' : 'Project')
   }
 
   switch (action) {

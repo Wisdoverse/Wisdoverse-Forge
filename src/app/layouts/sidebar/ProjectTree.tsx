@@ -13,7 +13,10 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
-import { ResourceMembersModal } from '@app/features/manage-members'
+import {
+  ResourceMembersModal,
+  resourceMemberSelectionLostMessage,
+} from '@app/features/manage-members'
 import { CloneStatusBadge } from '@app/features/manage-project'
 import type { NavProject } from '@app/entities/project'
 import { projectApi } from '@app/entities/project'
@@ -496,7 +499,7 @@ export function ProjectTree({
 
   const addSelectedProjectMember = useCallback(
     async (input: Parameters<typeof projectApi.addMember>[1]) => {
-      if (!membersProject) throw new Error('No project selected')
+      if (!membersProject) throw new Error(resourceMemberSelectionLostMessage('Project'))
       return projectApi.addMember(membersProject.id, input)
     },
     [membersProject]
@@ -504,7 +507,7 @@ export function ProjectTree({
 
   const updateSelectedProjectMember = useCallback(
     async (userId: string, input: Parameters<typeof projectApi.updateMember>[2]) => {
-      if (!membersProject) throw new Error('No project selected')
+      if (!membersProject) throw new Error(resourceMemberSelectionLostMessage('Project'))
       return projectApi.updateMember(membersProject.id, userId, input)
     },
     [membersProject]
@@ -512,7 +515,7 @@ export function ProjectTree({
 
   const removeSelectedProjectMember = useCallback(
     async (userId: string) => {
-      if (!membersProject) throw new Error('No project selected')
+      if (!membersProject) throw new Error(resourceMemberSelectionLostMessage('Project'))
       return projectApi.removeMember(membersProject.id, userId)
     },
     [membersProject]
