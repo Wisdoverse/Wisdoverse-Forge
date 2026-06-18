@@ -65,7 +65,7 @@ describe('SkillsView', () => {
       'Draft release notes from accepted work'
     )
     expect(screen.getByLabelText(/^matching words for future tasks$/i)).toHaveValue('release')
-    expect((screen.getByLabelText(/^agent instructions$/i) as HTMLTextAreaElement).value).toContain(
+    expect((screen.getByLabelText(/^steps for the agent$/i) as HTMLTextAreaElement).value).toContain(
       'Group user-facing updates'
     )
   })
@@ -78,33 +78,37 @@ describe('SkillsView', () => {
     const templates = screen.getByRole('group', { name: /instruction templates/i })
     await user.click(within(templates).getByRole('button', { name: /review checklist/i }))
 
-    const instructions = screen.getByLabelText(/^agent instructions$/i) as HTMLTextAreaElement
+    const instructions = screen.getByLabelText(/^steps for the agent$/i) as HTMLTextAreaElement
     expect(instructions.value).toContain('link the file or page you checked')
     expect(instructions.value).not.toContain('link evidence')
   })
 
-  test('offers a review status instruction that avoids repeated waiting', async () => {
+  test('offers a work status instruction that avoids repeated waiting', async () => {
     const user = userEvent.setup()
     render(<SkillsView />)
 
     await user.click(screen.getAllByRole('button', { name: /save instruction/i })[0])
     const templates = screen.getByRole('group', { name: /instruction templates/i })
-    await user.click(within(templates).getByRole('button', { name: /check review status/i }))
+    await user.click(within(templates).getByRole('button', { name: /check work status/i }))
 
-    expect(screen.getByLabelText(/^instruction name$/i)).toHaveValue('pr-status-check')
+    expect(screen.getByLabelText(/^instruction name$/i)).toHaveValue('work-status-check')
     expect(screen.getByLabelText(/^short description$/i)).toHaveValue(
-      'Summarize review and build status from one fresh check'
+      'Summarize review and automated check status from one fresh check'
     )
     expect(screen.getByLabelText(/^matching words for future tasks$/i)).toHaveValue(
-      'review status, build status, checks'
+      'review status, check status, ready to finish'
     )
-    const instructions = screen.getByLabelText(/^agent instructions$/i) as HTMLTextAreaElement
-    expect(instructions.value).toContain('Check the code review page once')
+    const instructions = screen.getByLabelText(/^steps for the agent$/i) as HTMLTextAreaElement
+    expect(instructions.value).toContain('Check the review page once')
     expect(instructions.value).toContain('reuse it instead of refreshing')
     expect(instructions.value).toContain('Needs a fix, Waiting, or Done')
-    expect(instructions.value).toContain('open only the failed build or review item')
+    expect(instructions.value).toContain('open only the failed check or review item')
     expect(instructions.value).toContain('stop checking in chat')
     expect(instructions.value).toContain('project background watcher')
+    expect(instructions.value).not.toContain('merge readiness')
+    expect(instructions.value).not.toContain('PR')
+    expect(instructions.value).not.toContain('CI')
+    expect(instructions.value).not.toContain('build status')
     expect(instructions.value).not.toContain('ACTION')
     expect(instructions.value).not.toContain('GitHub or GitLab')
     expect(instructions.value).not.toContain('npm run')
@@ -244,8 +248,8 @@ describe('SkillsView', () => {
 
     const summary = await screen.findByTestId('skill-reuse-summary')
     expect(within(summary).getByText('Total')).toBeDefined()
-    expect(within(summary).getAllByText('Installed').length).toBeGreaterThan(0)
-    expect(within(summary).getAllByText('Available').length).toBeGreaterThan(0)
+    expect(within(summary).getAllByText('Ready to use').length).toBeGreaterThan(0)
+    expect(within(summary).getAllByText('Needs install').length).toBeGreaterThan(0)
     expect(within(summary).getAllByText('For one work tool').length).toBeGreaterThan(0)
     expect(within(summary).getByText('Show saved instructions')).toBeDefined()
     expect(within(summary).queryByText('Show skills')).toBeNull()
@@ -302,7 +306,7 @@ describe('SkillsView', () => {
     await user.type(screen.getByLabelText(/^short description$/i), 'Review frontend flows')
     await user.type(screen.getByLabelText(/^matching words for future tasks$/i), 'frontend')
     await user.type(
-      screen.getByLabelText(/^agent instructions$/i),
+      screen.getByLabelText(/^steps for the agent$/i),
       'Check UI states and regressions'
     )
     await user.click(within(dialog).getByRole('button', { name: /save instruction/i }))
@@ -355,9 +359,9 @@ describe('SkillsView', () => {
     await user.click(within(dialog).getByRole('button', { name: /save instruction/i }))
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Add the steps this saved instruction should apply.'
+      'Add the steps the agent should follow before saving.'
     )
-    expect(screen.getByLabelText(/^agent instructions$/i)).toHaveFocus()
+    expect(screen.getByLabelText(/^steps for the agent$/i)).toHaveFocus()
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
@@ -424,7 +428,7 @@ describe('SkillsView', () => {
     const dialog = screen.getByRole('dialog', { name: /save a reusable instruction/i })
     await user.type(screen.getByLabelText(/^instruction name$/i), 'frontend-review')
     await user.type(
-      screen.getByLabelText(/^agent instructions$/i),
+      screen.getByLabelText(/^steps for the agent$/i),
       'Check UI states and regressions'
     )
     await user.click(within(dialog).getByRole('button', { name: /save instruction/i }))

@@ -161,15 +161,15 @@ export function TaskFormModal({
   const projectSelectionSettled = Boolean(projectId && selectedProjectId === projectId)
   const workLaneReady = Boolean(projectSelectionSettled && selectedTaskGroupId)
   const readinessTitle = selectingProject
-    ? 'Preparing this project'
+    ? 'Loading this project'
     : workLaneReady
-      ? 'Ready to send'
-      : 'Create a task queue before sending work'
+      ? 'Task can be created'
+      : 'Open task queues before creating this task'
   const readinessDetail = selectingProject
-    ? 'Forge is loading the task queue for this project. Wait a moment before creating the task.'
+    ? 'Wait a moment while Forge finds where new tasks wait for this project.'
     : workLaneReady
       ? `New tasks will wait in ${selectedTaskGroupName ?? 'this task queue'} until a ready agent picks them up.`
-      : 'A task queue gives new work a place to wait. Create one once, then return here.'
+      : 'Create one task queue so new work has a place to wait, then return here.'
   const assignableAgents = agents.filter((agent) => agentCanTakeTask(agent.status))
   const taskWillWaitForAgent = workLaneReady && assignableAgents.length === 0
   const projectGroups = useMemo(() => groupProjectsByTeam(projects), [projects])
@@ -231,7 +231,7 @@ export function TaskFormModal({
       return
     }
     if (!selectedTaskGroupId) {
-      setSubmitError('Create a task queue before creating a task.')
+      setSubmitError('Open task queues and create one before saving this task.')
       return
     }
     if (!briefReady && !confirmIncompleteBrief) {
@@ -404,8 +404,8 @@ export function TaskFormModal({
               <div className="min-w-0 flex-1">
                 <p className="font-semibold">Connect an agent before this task can start</p>
                 <p className="mt-0.5">
-                  Save the task now. It will wait until an agent is Ready, or you can open agent
-                  setup first.
+                  Save the task now. It will wait here until an agent is ready. To start it sooner,
+                  open agent setup.
                 </p>
               </div>
             </div>
@@ -435,8 +435,8 @@ export function TaskFormModal({
                   Start or connect an agent before this task can start
                 </p>
                 <p className="mt-0.5">
-                  Save the task now. It will wait until one of your agents is Ready, or you can open
-                  agent setup first.
+                  Save the task now. It will wait here until one of your agents is ready. To start
+                  it sooner, open agent setup.
                 </p>
               </div>
             </div>
@@ -711,7 +711,7 @@ export function TaskFormModal({
               </select>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {taskWillWaitForAgent
-                  ? 'This task will wait here until an agent is Ready.'
+                  ? 'This task will wait here until an agent is ready.'
                   : 'Leave automatic selection on when any ready agent can do the work.'}
               </p>
             </div>
