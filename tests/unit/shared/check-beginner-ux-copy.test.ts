@@ -13217,7 +13217,7 @@ function CreateTeamForm() {
 `,
       'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
 function CreateProjectForm() {
-  return <><p>Project setup path</p><p>Work folder preview: /workspace/app</p><summary>Show support folder path</summary><p>Project short name: app.</p></>
+  return <><p>Project setup path</p><p>Work folder preview: /workspace/app</p><summary>Show support folder path</summary><p>Automatic project name: app.</p><p>Project short name: app.</p></>
 }
 `,
     })
@@ -13242,20 +13242,25 @@ function CreateProjectForm() {
           location: 'src/app/features/manage-project/ui/CreateProjectForm.tsx:3',
           sample: expect.stringContaining('Show support folder path'),
         }),
+        expect.objectContaining({
+          type: 'team-project-create-copy',
+          location: 'src/app/features/manage-project/ui/CreateProjectForm.tsx:3',
+          sample: expect.stringContaining('Automatic project name'),
+        }),
       ])
     )
   })
 
-  it('accepts team and project creation copy that uses steps and automatic-name wording', () => {
+  it('accepts team and project creation copy that uses steps and link-ending wording', () => {
     const cwd = fixture({
       'src/app/features/manage-team/ui/CreateTeamForm.tsx': `
 function CreateTeamForm() {
-  return <><p>Team creation steps</p><p>Automatic team name: platform-ops.</p></>
+  return <><p>Team creation steps</p><p>Shown at the end of team links: platform-ops.</p></>
 }
 `,
       'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
 function CreateProjectForm() {
-  return <><p>Project creation steps</p><p>Automatic project name: app.</p><p>Agent work folder: /workspace/app</p></>
+  return <><p>Project creation steps</p><p>Shown at the end of project links: app.</p><p>Agent work folder: /workspace/app</p></>
 }
 `,
     })
@@ -13267,12 +13272,12 @@ function CreateProjectForm() {
     const cwd = fixture({
       'src/app/features/manage-team/ui/EditableTeamRow.tsx': `
 function EditableTeamRow({ team }) {
-  return <><p>Address: {team.slug}</p><p>Automatic team name: {team.slug}</p><p>Automatic link name: {team.slug}</p></>
+  return <><p>Address: {team.slug}</p><p>Automatic team name: {team.slug}</p><p>Automatic link name: {team.slug}</p><p>Forge uses this in team links: {team.slug}</p></>
 }
 `,
       'src/app/features/manage-project/ui/EditableProjectRow.tsx': `
 function EditableProjectRow({ project }) {
-  return <><span>Address: {project.slug}</span><span>Automatic project name: {project.slug}</span><span>Project short name: {project.slug}</span></>
+  return <><span>Address: {project.slug}</span><span>Automatic project name: {project.slug}</span><span>Project short name: {project.slug}</span><span>Forge uses this in project links: {project.slug}</span></>
 }
 `,
     })
@@ -13290,20 +13295,28 @@ function EditableProjectRow({ project }) {
           type: 'team-project-row-address-copy',
           location: 'src/app/features/manage-project/ui/EditableProjectRow.tsx:3',
         }),
+        expect.objectContaining({
+          type: 'team-project-short-name-copy',
+          location: 'src/app/features/manage-team/ui/EditableTeamRow.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'team-project-short-name-copy',
+          location: 'src/app/features/manage-project/ui/EditableProjectRow.tsx:3',
+        }),
       ])
     )
   })
 
-  it('accepts team and project row copy that explains where generated names appear', () => {
+  it('accepts team and project row copy that explains where generated names appear in links', () => {
     const cwd = fixture({
       'src/app/features/manage-team/ui/EditableTeamRow.tsx': `
 function EditableTeamRow({ team }) {
-  return <p>Forge uses this in team links: {team.slug}</p>
+  return <p>Shown at the end of team links: {team.slug}</p>
 }
 `,
       'src/app/features/manage-project/ui/EditableProjectRow.tsx': `
 function EditableProjectRow({ project }) {
-  return <span>Forge uses this in project links: {project.slug}</span>
+  return <span>Shown at the end of project links: {project.slug}</span>
 }
 `,
     })
@@ -13318,12 +13331,13 @@ function ProjectTree({ projectMenu }) {
   return <p>{projectMenu.team.name} team · link name {projectMenu.project.slug}</p>
   return <button>Copy project short name</button>
   return <p>{projectMenu.project.slug} · short name used in project links</p>
+  return <p>{projectMenu.project.slug} · Forge uses this in project links</p>
   return <button>Copy automatic project name</button>
 }
 `,
       'src/app/features/admin/OrganizationsPanel.tsx': `
 function OrganizationsPanel({ org }) {
-  return <><p>Automatic team space name: {org.slug}</p><p>Team space short name: {org.slug}</p></>
+  return <><p>Automatic team space name: {org.slug}</p><p>Team space short name: {org.slug}</p><p>Forge uses this in team space links: {org.slug}</p></>
 }
 `,
     })
@@ -13351,12 +13365,12 @@ function OrganizationsPanel({ org }) {
 function ProjectTree({ projectMenu }) {
   return <p>{projectMenu.team.name} team · name used in links {projectMenu.project.slug}</p>
   return <button>Copy name used in links</button>
-  return <p>{projectMenu.project.slug} · Forge uses this in project links</p>
+  return <p>{projectMenu.project.slug} · shown at the end of project links</p>
 }
 `,
       'src/app/features/admin/OrganizationsPanel.tsx': `
 function OrganizationsPanel({ org }) {
-  return <p>Forge uses this in team space links: {org.slug}</p>
+  return <p>Shown at the end of team space links: {org.slug}</p>
 }
 `,
     })

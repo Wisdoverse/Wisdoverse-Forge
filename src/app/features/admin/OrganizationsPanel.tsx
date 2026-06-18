@@ -197,7 +197,7 @@ export function OrganizationsPanel() {
                           {org.name}
                         </p>
                         <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                          Forge uses this in team space links: {org.slug}
+                          Shown at the end of team space links: {org.slug}
                         </p>
                       </div>
                     </td>
