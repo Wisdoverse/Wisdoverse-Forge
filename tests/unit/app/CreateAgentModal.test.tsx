@@ -71,7 +71,7 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText('Project files included')).toBeInTheDocument()
     expect(screen.getAllByText('Where it works').length).toBeGreaterThan(0)
     expect(screen.getByText('Forge project area')).toBeInTheDocument()
-    expect(screen.getByText('Check Where agents run in Settings')).toBeInTheDocument()
+    expect(screen.getByText('Check Agent work setup in Settings')).toBeInTheDocument()
     expect(screen.getByText('Can edit files')).toBeInTheDocument()
     expect(
       screen.getByText(

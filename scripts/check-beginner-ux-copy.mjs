@@ -815,6 +815,9 @@ const AGENT_SETUP_FALLBACK_DEAD_END_PATTERNS = [
   /\bAgent location not listed\b/i,
   /\bWork location needs review\b/i,
   /\bWork location not listed\b/i,
+  /\bcheck Where agents run\b/i,
+  /\bopen Where agents run\b/i,
+  /\bsave Where agents run\b/i,
   /\ban AI service that needs review\b/i,
   /\ba work tool that needs review\b/i,
 ]
@@ -2908,9 +2911,13 @@ function hasAgentSetupFallbackDeadEndCopy(relFile, line) {
     !relFile.endsWith('src/app/entities/context/ui/InjectionPreviewModal.tsx') &&
     !relFile.endsWith('src/app/features/admin/AgentsPanel.tsx') &&
     !relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentControlPanel.tsx') &&
+    !relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx') &&
     !relFile.endsWith('src/app/features/analytics/ContextUsageDashboard.tsx') &&
     !relFile.endsWith('src/app/features/detail/HistoryTab.tsx') &&
-    !relFile.endsWith('src/app/features/settings/RuntimeSection.tsx')
+    !relFile.endsWith('src/app/features/settings/RuntimeSection.tsx') &&
+    !relFile.endsWith('src/app/shared/model/agents.store.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts')
   ) {
     return false
   }

@@ -4424,16 +4424,16 @@ function runtimeCliErrorMessage() {
 }
 
 function runtimeSettingsErrorMessage() {
-  return 'Choose an available agent location and work tool, then save again. Where agents run could not be saved.'
+  return 'Choose an available agent location and work tool, then save again. Agent work setup could not be saved.'
 }
 
 function runtimeSettingsFallback() {
-  return 'Check the agent location and work tool choices, then save Where agents run again. If it still fails, ask an owner or admin to check Where agents run.'
+  return 'Check the agent location and work tool choices, then save Agent work setup again. If it still fails, ask an owner or admin to check Agent work setup in Settings.'
 }
 `,
       'src/app/features/settings/RuntimeSection.tsx': `
 function runtimeChecklistCopy() {
-  return 'Refresh this settings page to load Where agents run. If it still does not load, ask an owner or admin to check Where agents run.'
+  return 'Refresh this settings page to load Agent work setup. If it still does not load, ask an owner or admin to check Agent work setup in Settings.'
 }
 
 function credentialStatusCopy() {
@@ -4441,7 +4441,7 @@ function credentialStatusCopy() {
 }
 
 function heartbeatStatusCopy() {
-  return 'Choose Check again to refresh agent online status. If it still cannot be checked, ask an owner or admin to check Where agents run.'
+  return 'Choose Check again to refresh agent online status. If it still cannot be checked, ask an owner or admin to check Agent work setup in Settings.'
 }
 `,
     })
@@ -5846,7 +5846,7 @@ function agentServerMessage() {
 }
 
 function agentRuntimeMessage() {
-  return 'Ask an owner or admin to check Where agents run, then start this agent from the card. The place where this agent runs is not ready.'
+  return 'Ask an owner or admin to check Agent work setup in Settings, then start this agent from the card. The place where this agent runs is not ready.'
 }
 
 function agentUnknownMessage(actionPhrase) {
@@ -5854,7 +5854,7 @@ function agentUnknownMessage(actionPhrase) {
 }
 
 function agentCreatedStartFailureMessage() {
-  return 'Ask an owner or admin to check Where agents run, then start this agent from the card. Agent was created, but it could not start yet.'
+  return 'Ask an owner or admin to check Agent work setup in Settings, then start this agent from the card. Agent was created, but it could not start yet.'
 }
 `,
     })

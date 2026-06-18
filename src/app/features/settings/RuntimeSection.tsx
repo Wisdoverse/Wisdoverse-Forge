@@ -32,7 +32,7 @@ interface RuntimeChecklistItem {
 }
 
 const RUNTIME_SETTINGS_LOAD_GUIDANCE =
-  'Refresh this settings page to load Where agents run. If it still does not load, ask an owner or admin to check Where agents run.'
+  'Refresh this settings page to load Agent work setup. If it still does not load, ask an owner or admin to check Agent work setup in Settings.'
 
 function SettingRow({ label, description, children }: SettingRowProps) {
   return (
@@ -731,7 +731,7 @@ function runtimeLaunchChecklistItems(
     return [
       {
         id: 'runtime-api',
-        title: 'Where agents run status',
+        title: 'Agent work setup status',
         detail: RUNTIME_SETTINGS_LOAD_GUIDANCE,
         ready: false,
         action: 'refresh',
@@ -815,7 +815,7 @@ function runtimeLaunchChecklistItems(
     id: 'heartbeats',
     title: 'Agent online status',
     detail: participantsError
-      ? 'Choose Check again to refresh agent online status. If it still cannot be checked, ask an owner or admin to check Where agents run.'
+      ? 'Choose Check again to refresh agent online status. If it still cannot be checked, ask an owner or admin to check Agent work setup in Settings.'
       : latestHeartbeat
         ? `An agent was online ${formatRelativeTime(latestHeartbeat)}.`
         : 'Start or wake an agent, then choose Check again.',

@@ -443,13 +443,13 @@ export const en = {
     reset: 'Reset to defaults',
     resetConfirm: 'Reset all settings? This restores defaults and replaces your current choices.',
     runtime: {
-      title: 'Where agents run',
+      title: 'Agent work setup',
       description:
         'Choose where hands-on agents work, then check tools and sign-ins before assigning tasks.',
       saving: 'Saving...',
       loading: 'Loading work setup...',
       couldNotLoad:
-        'Refresh this settings page to load the Where agents run settings. If they still do not load, ask an owner or admin to check agent setup.',
+        'Refresh this settings page to load Agent work setup. If it still does not load, ask an owner or admin to check Agent work setup in Settings.',
       defaultRuntimeLabel: 'Default agent location',
       defaultRuntimeDescription:
         'Choose Project files for the simplest shared file work. Choose This computer only when this machine should join as an agent.',
@@ -599,7 +599,7 @@ export const en = {
         missing_idempotency_key: {
           title: 'Setup text needs to be pasted again',
           detail:
-            'Paste the setup text on this computer again. If this repeats, ask an owner to check Where agents run for this computer.',
+            'Paste the setup text on this computer again. If this repeats, ask an owner to check Agent work setup for this computer.',
         },
         plaintext_nats_blocked: {
           title: 'Secure connection required for this computer',

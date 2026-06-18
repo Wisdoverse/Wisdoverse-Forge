@@ -15,23 +15,23 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   const status = errorStatus(err, normalized)
 
   if (isNetworkError(normalized)) {
-    return `${ACTION_FALLBACKS[action]} Check your connection, then refresh Settings. Forge could not connect while checking where agents run.`
+    return `${ACTION_FALLBACKS[action]} Check your connection, then refresh Settings. Forge could not connect while checking Agent work setup.`
   }
 
   if (status === 401) {
-    return 'Sign in again, then open Where agents run and try again. Your sign-in expired.'
+    return 'Sign in again, then open Agent work setup and try again. Your sign-in expired.'
   }
 
   if (status === 403) {
-    return 'Ask an owner or admin to update your team space access before changing where agents run. You do not have permission to change where agents run.'
+    return 'Ask an owner or admin to update your team space access before changing Agent work setup. You do not have permission to change Agent work setup.'
   }
 
   if (status === 404) {
-    return 'Refresh Settings. Where agents run is not available yet. If it still does not load, ask an owner or admin to check it.'
+    return 'Refresh Settings. Agent work setup is not available yet. If it still does not load, ask an owner or admin to check it.'
   }
 
   if (status === 409) {
-    return 'Refresh this page, review the current status, then try again. The Where agents run choices changed while you were working.'
+    return 'Refresh this page, review the current status, then try again. The Agent work setup choices changed while you were working.'
   }
 
   if (status === 422) {
@@ -43,7 +43,7 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   }
 
   if (status && status >= 500) {
-    return 'Refresh this page, then try again. Forge could not check where agents run right now. If it still fails, ask an owner or admin to check Where agents run.'
+    return 'Refresh this page, then try again. Forge could not check Agent work setup right now. If it still fails, ask an owner or admin to check Agent work setup in Settings.'
   }
 
   return runtimeValidationMessage(action, detail)
@@ -59,57 +59,57 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
     normalized.includes('default cli tool') ||
     normalized.includes('default runtime') ||
     normalized.includes('not available')
-  const loadBase = 'Refresh Settings to load Where agents run.'
+  const loadBase = 'Refresh Settings to load Agent work setup.'
 
   if (isNetworkError(normalized)) {
     return isSaveAction
-      ? 'Check your connection, then save Where agents run again. Forge could not connect while saving where agents run.'
-      : 'Check your connection, then refresh Settings to load Where agents run.'
+      ? 'Check your connection, then save Agent work setup again. Forge could not connect while saving Agent work setup.'
+      : 'Check your connection, then refresh Settings to load Agent work setup.'
   }
 
   if (status === 401) {
     return isSaveAction
-      ? 'Sign in again, then save Where agents run again. Your sign-in expired.'
-      : 'Sign in again, then open Where agents run. Your sign-in expired.'
+      ? 'Sign in again, then save Agent work setup again. Your sign-in expired.'
+      : 'Sign in again, then open Agent work setup. Your sign-in expired.'
   }
 
   if (status === 403) {
     return isSaveAction
-      ? 'Ask an owner or admin for access to change where agents run, then save again. Where agents run could not be saved.'
-      : 'Ask an owner or admin for access to change where agents run.'
+      ? 'Ask an owner or admin for access to change Agent work setup, then save again. Agent work setup could not be saved.'
+      : 'Ask an owner or admin for access to change Agent work setup.'
   }
 
   if (status === 404) {
     return isSaveAction
-      ? 'Refresh Settings, then save after Where agents run is available. Where agents run could not be saved.'
-      : 'Refresh Settings after the Where agents run settings are available.'
+      ? 'Refresh Settings, then save after Agent work setup is available. Agent work setup could not be saved.'
+      : 'Refresh Settings after Agent work setup is available.'
   }
 
   if (status === 409) {
     return isSaveAction
-      ? 'Refresh Settings, review the current choices, then save again. The Where agents run choices changed while you were working.'
-      : 'Refresh Settings, review the current choices, then try again. The Where agents run choices changed while you were working.'
+      ? 'Refresh Settings, review the current choices, then save again. The Agent work setup choices changed while you were working.'
+      : 'Refresh Settings, review the current choices, then try again. The Agent work setup choices changed while you were working.'
   }
 
   if (status === 422) {
-    return 'Choose an available agent location and work tool, then save again. Where agents run could not be saved.'
+    return 'Choose an available agent location and work tool, then save again. Agent work setup could not be saved.'
   }
 
   if (status === 429) {
     return isSaveAction
-      ? 'Wait a minute, then save Where agents run again. Too many setup requests are happening right now.'
+      ? 'Wait a minute, then save Agent work setup again. Too many setup requests are happening right now.'
       : 'Wait a minute, then refresh Settings. Too many setup requests are happening right now.'
   }
 
   if (status && status >= 500) {
     return isSaveAction
-      ? 'Refresh Settings, then save again. Where agents run could not be saved. If it still fails, ask an owner or admin to check Where agents run.'
-      : `${loadBase} If it still fails, ask an owner or admin to check Where agents run.`
+      ? 'Refresh Settings, then save again. Agent work setup could not be saved. If it still fails, ask an owner or admin to check Agent work setup in Settings.'
+      : `${loadBase} If it still fails, ask an owner or admin to check Agent work setup in Settings.`
   }
 
   return isSaveAction
-    ? 'Check the agent location and work tool choices, then save Where agents run again. If it still fails, ask an owner or admin to check Where agents run.'
-    : `${loadBase} If it still fails, ask an owner or admin to check Where agents run.`
+    ? 'Check the agent location and work tool choices, then save Agent work setup again. If it still fails, ask an owner or admin to check Agent work setup in Settings.'
+    : `${loadBase} If it still fails, ask an owner or admin to check Agent work setup in Settings.`
 }
 
 function errorDetail(err: unknown): string {
