@@ -9495,6 +9495,26 @@ export const zh = {
     )
   })
 
+  it('flags saved instruction card fallbacks that say open details without naming saved instruction details', () => {
+    const cwd = fixture({
+      'src/app/features/skills/SkillCard.tsx': `
+export function SkillCard() {
+  return 'Open details to check the reusable instructions before using this saved instruction.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'saved-instruction-summary-fallback-copy',
+        location: 'src/app/features/skills/SkillCard.tsx:3',
+      }),
+    ])
+  })
+
   it('flags saved instruction work-tool tooltips that do not say where to check setup', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `
@@ -9538,7 +9558,7 @@ export const zh = {
     const cwd = fixture({
       'src/app/features/skills/SkillCard.tsx': `
 export function SkillCard() {
-  return 'Open details to check the reusable instructions before using this saved instruction.'
+  return 'Open saved instruction details to review the reusable instructions before using it.'
 }
 `,
       'src/app/shared/i18n/locales/en.ts': `

@@ -623,6 +623,7 @@ const SKILL_MAINTAINER_FALLBACK_DEAD_END_PATTERNS = [
 const SAVED_INSTRUCTION_SUMMARY_FALLBACK_PATTERNS = [
   /\bNo summary yet\. Open details before using this saved instruction\./i,
   /\bNo summary yet\. Review the instructions below before using this saved instruction\./i,
+  /\bOpen details to check the reusable instructions before using this saved instruction\./i,
   /还没有简介。/,
 ]
 
