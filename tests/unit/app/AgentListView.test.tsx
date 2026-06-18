@@ -145,15 +145,22 @@ describe('AgentListView', () => {
       'Copy this setup command and paste it into that Terminal or PowerShell window'
     )
     expect(enrollment.textContent).not.toContain('paste it there')
-    expect(enrollment.textContent).toContain('Leave the work tool as Codex unless')
+    expect(enrollment.textContent).toContain('Keep the suggested setup values')
+    expect(enrollment.textContent).not.toContain('Leave the work tool as Codex unless')
     expect(within(enrollment).getByTestId('host-cli-success-hint')).toHaveTextContent(
       /come back to Forge/i
     )
     expect(within(enrollment).getByTestId('host-cli-success-hint')).toHaveTextContent(
-      /new agent named This Computer Codex appears in this list/i
+      /agent appears in this list as Ready/i
+    )
+    expect(within(enrollment).getByTestId('host-cli-success-hint')).toHaveTextContent(
+      /send one small task/i
     )
     expect(within(enrollment).getByTestId('host-cli-success-hint')).toHaveTextContent(
       /Keep that command app open/i
+    )
+    expect(within(enrollment).getByTestId('host-cli-success-hint')).not.toHaveTextContent(
+      /This Computer Codex/i
     )
     expect(within(enrollment).getByTestId('host-cli-success-hint')).not.toHaveTextContent(
       /Keep Terminal or PowerShell open/i
