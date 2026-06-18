@@ -75,12 +75,12 @@ const TASK_FILTERS: { value: AgentTaskFilter; label: string }[] = [
 const AGENT_TASK_EMPTY_STEPS: { title: string; description: string; Icon: LucideIcon }[] = [
   {
     title: 'Create a task',
-    description: 'Choose this agent, or choose a task queue it can receive.',
+    description: 'Choose this agent, or choose where tasks wait so this agent can receive them.',
     Icon: ListFilter,
   },
   {
-    title: 'Check the task queue',
-    description: 'Open task queues, then make sure this agent is attached.',
+    title: 'Check where tasks wait',
+    description: 'Open where tasks wait, then make sure this agent is included.',
     Icon: CircleDot,
   },
   {
@@ -325,8 +325,8 @@ function AgentTasksEmptyState() {
         <div className="min-w-0">
           <h3 className="text-ui-section font-semibold">Create a task for this agent</h3>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-            Send a small task to this agent, or choose a task queue it can receive, then work will
-            appear here.
+            Send a small task to this agent, or choose where tasks wait so this agent can receive
+            them. Work will appear here.
           </p>
         </div>
       </div>
