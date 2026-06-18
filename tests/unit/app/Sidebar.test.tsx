@@ -234,6 +234,10 @@ describe('Sidebar', () => {
     expect(screen.getByTestId('team-t1-empty-projects')).toHaveTextContent(
       "Add this team's first project"
     )
+    expect(screen.getByTestId('team-t1-empty-projects')).toHaveTextContent(
+      'Projects hold tasks, agents, and the places where new tasks wait.'
+    )
+    expect(screen.getByTestId('team-t1-empty-projects')).not.toHaveTextContent(/task queues/i)
     fireEvent.click(screen.getByRole('button', { name: /open project settings/i }))
     expect(onNavigate).toHaveBeenCalledWith('/settings/projects')
   })

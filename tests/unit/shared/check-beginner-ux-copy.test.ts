@@ -322,17 +322,28 @@ export function providerReadinessSummary() {
   return 'No AI services are ready to use yet'
 }
 `,
+      'src/app/features/agents/CreateAgentModal.tsx': `
+export function CreateAgentModal() {
+  return <p>No AI service ready yet</p>
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'provider-zero-ready-copy',
-        location: 'src/app/features/settings/ProvidersSection.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'provider-zero-ready-copy',
+          location: 'src/app/features/settings/ProvidersSection.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'provider-zero-ready-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:3',
+        }),
+      ])
+    )
   })
 
   it('accepts AI service zero-ready summaries that tell users what to do next', () => {
@@ -4829,7 +4840,7 @@ export function agentServerMessage() {
 `,
       'src/app/shared/model/agents.store.ts': `
 export const AGENT_CREATED_START_ERROR =
-  'Agent was created, but its workspace was not started. Ask an owner or admin to check Where agents work in Settings, then start this agent from the card.'
+  'Ask an owner or admin to check Where agents work in Settings, then start this agent from the card. Agent was created, but file work is not ready yet.'
 `,
       'src/app/shared/model/settings.store.ts': `
 export function settingsActionErrorMessage() {
@@ -9821,17 +9832,28 @@ function AgentGroupsPanel() {
   return <p>Task queues are simple places agents check for tasks. Create a queue, add agents, then send tasks to it.</p>
 }
 `,
+      'src/app/layouts/sidebar/ProjectTree.tsx': `
+function ProjectTree() {
+  return <p>Projects hold tasks, agents, and task queues for the team.</p>
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'agent-task-queue-overview-copy',
-        location: 'src/app/features/agents/AgentGroupsPanel.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-task-queue-overview-copy',
+          location: 'src/app/features/agents/AgentGroupsPanel.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-task-queue-overview-copy',
+          location: 'src/app/layouts/sidebar/ProjectTree.tsx:3',
+        }),
+      ])
+    )
   })
 
   it('accepts task queue overview copy that explains where new tasks wait', () => {
