@@ -3513,6 +3513,70 @@ function WorkLocationPicker() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags create-agent confirmation copy that exposes setup state and model jargon', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+function createReviewItems() {
+  return [{ label: 'Created state', value: 'Ready for chat and review after the AI service is connected.' }]
+}
+function runtimeFitFor() {
+  return [{ label: 'Where it works', value: 'Chat-only AI service' }]
+}
+function validationMessage() {
+  return 'Choose an AI service and AI model before creating this agent.'
+}
+function FieldLabel() {
+  return <label>AI model</label>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'create-agent-confirmation-copy',
+          sample: expect.stringContaining('Created state'),
+        }),
+        expect.objectContaining({
+          type: 'create-agent-confirmation-copy',
+          sample: expect.stringContaining('Chat-only AI service'),
+        }),
+        expect.objectContaining({
+          type: 'create-agent-confirmation-copy',
+          sample: expect.stringContaining('Choose an AI service and AI model'),
+        }),
+        expect.objectContaining({
+          type: 'create-agent-confirmation-copy',
+          sample: expect.stringContaining('AI model'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts create-agent confirmation copy that explains the next state plainly', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+function createReviewItems() {
+  return [{ label: 'After creation', value: 'Ready for chat and review after the AI service is connected.' }]
+}
+function runtimeFitFor() {
+  return [{ label: 'Where it works', value: 'AI service only' }]
+}
+function validationMessage() {
+  return 'Choose an AI service with a saved model, then create this agent.'
+}
+function FieldLabel() {
+  return <label>Model used</label>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags create-agent work-area copy that exposes workspace internals', () => {
     const cwd = fixture({
       'src/app/features/agents/CreateAgentModal.tsx': `
@@ -8235,7 +8299,7 @@ const TECHNICAL_PROBLEM_MESSAGE =
 `,
       'src/app/features/detail/ContextEvidenceList.tsx': `
 const TECHNICAL_EVIDENCE_MESSAGE =
-  'This record reported a technical problem. Ask the agent to explain it in plain language, then retry if the task still matters.'
+  'This record hit a problem. Ask the agent to explain what happened, then retry if the task still matters.'
 `,
     })
 
@@ -8293,7 +8357,7 @@ const PROBLEM_MESSAGE =
 `,
       'src/app/features/detail/ContextEvidenceList.tsx': `
 const PROBLEM_MESSAGE =
-  'This record hit a problem. Ask the agent to explain what happened, then retry if the task still matters.'
+  'This saved detail hit a problem. Ask the agent to explain what happened, then retry if the task still matters.'
 `,
     })
 
