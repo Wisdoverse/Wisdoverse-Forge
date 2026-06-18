@@ -65,6 +65,8 @@ describe('GitCredentialsSection', () => {
     expect(screen.queryByText(/look for a personal access token/i)).toBeNull()
     expect(screen.queryByText(/paste the key from GitHub or GitLab/i)).toBeNull()
     expect(screen.queryByLabelText(/^repository access token/i)).toBeNull()
+    expect(screen.getByText('Choose where this code lives.')).toBeDefined()
+    expect(screen.queryByText(/owns the repository/i)).toBeNull()
     expect(screen.getByText(/If that page says personal access token/i)).toBeDefined()
     expect(screen.getByText(/do not paste your GitHub or GitLab password/i)).toBeDefined()
     expect(screen.getByText(/leave this empty if you use github.com or gitlab.com/i)).toBeDefined()
@@ -103,8 +105,11 @@ describe('GitCredentialsSection', () => {
       expect(saveGitCredentialMock).toHaveBeenCalledWith('github', 'ghp_example_token', undefined)
     )
     expect(await screen.findByRole('status')).toHaveTextContent(
-      'Code access saved. Create a small task with a private repository link to confirm agents can open it.'
+      'Code access saved. Create a small task with a private code link to confirm agents can open it.'
     )
+    expect(screen.getByRole('status')).toHaveTextContent('If it cannot open the code')
+    expect(screen.getByRole('status')).not.toHaveTextContent('private repository link')
+    expect(screen.getByRole('status')).not.toHaveTextContent('read the repository')
     expect(screen.getByRole('status')).toHaveTextContent('come back here and replace this key')
   })
 

@@ -440,6 +440,13 @@ const CODE_ACCESS_ADDRESS_JARGON_PATTERNS = [
   /\bOnly enter an address when your company hosts its own GitHub or GitLab\b/i,
 ]
 
+const CODE_ACCESS_REPOSITORY_JARGON_PATTERNS = [
+  /\bowns the repository\b/i,
+  /\bprivate repository link\b/i,
+  /\bread the repository\b/i,
+  /team\/repo\.git/i,
+]
+
 const ACCESS_KEY_LAST_USED_DEAD_END_PATTERNS = [/\bNot used yet\b/i]
 
 const ACCESS_KEY_SECRET_VALUE_JARGON_PATTERNS = [
@@ -2485,6 +2492,12 @@ function hasCodeAccessAddressJargonCopy(relFile, line) {
   return CODE_ACCESS_ADDRESS_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasCodeAccessRepositoryJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/settings/GitCredentialsSection.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CODE_ACCESS_REPOSITORY_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasDateFallbackDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/settings/GitCredentialsSection.tsx') &&
@@ -4447,6 +4460,15 @@ function scanFile(file, relFile) {
         type: 'code-access-address-copy',
         location,
         message: 'Code access address copy must tell beginners when to leave the address empty.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCodeAccessRepositoryJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'code-access-repository-copy',
+        location,
+        message: 'Code access setup must describe code links and code projects for beginners.',
         sample: line.trim(),
       })
     }
