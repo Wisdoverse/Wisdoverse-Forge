@@ -87,7 +87,7 @@ const TASK_GROUP_TEMPLATES: TaskGroupTemplate[] = [
     summary: 'Check before release',
     name: 'Review Tasks',
     description:
-      'Review completed work for broken behavior, missing tests, and anything that could block release.',
+      'Review completed work for behavior that does not look right, missing checks, and anything that could stop a release.',
     Icon: ShieldCheck,
   },
   {

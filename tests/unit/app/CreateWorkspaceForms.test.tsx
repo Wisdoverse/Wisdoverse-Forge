@@ -92,7 +92,7 @@ describe('workspace setup create forms', () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledWith('Customer Portal', 'team-1', undefined))
   })
 
-  test('explains the generated project folder before showing the support path', () => {
+  test('explains the generated project folder before showing the support folder', () => {
     render(<CreateProjectForm teams={[team]} onSave={vi.fn()} onCancel={vi.fn()} saving={false} />)
 
     expect(screen.queryByText(/\/workspace\//)).not.toBeInTheDocument()
@@ -104,7 +104,7 @@ describe('workspace setup create forms', () => {
     expect(screen.getByText(/Agents will open this project in a folder named/i)).toBeInTheDocument()
     expect(screen.getByText('my-new-repo')).toBeInTheDocument()
     expect(screen.getByText(/You do not need to type this/i)).toBeInTheDocument()
-    expect(screen.getByText('Show support folder path')).toBeInTheDocument()
+    expect(screen.getByText('Show support folder')).toBeInTheDocument()
     expect(screen.getByText('/workspace/my-new-repo')).toBeInTheDocument()
   })
 

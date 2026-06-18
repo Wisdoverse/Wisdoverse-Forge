@@ -351,7 +351,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
             </p>
             <details className="mt-1">
               <summary className="cursor-pointer text-apple-blue hover:underline">
-                Show support folder path
+                Show support folder
               </summary>
               <span className="font-mono text-[11px] text-foreground-light dark:text-foreground-dark">
                 {workspacePath}

@@ -260,9 +260,7 @@ describe('Sidebar', () => {
 
     expect(menu).toHaveAttribute('role', 'menu')
     expect(menu).toHaveAttribute('aria-label', 'Project X project menu')
-    expect(
-      menuScope.getByText('Team Alpha team · automatic project name proj-x')
-    ).toBeInTheDocument()
+    expect(menuScope.getByText('Team Alpha team · name used in links proj-x')).toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /open project board/i })).toBeInTheDocument()
     expect(
       menuScope.getByRole('menuitem', { name: /new task for this project/i })
@@ -277,9 +275,7 @@ describe('Sidebar', () => {
     expect(
       menuScope.queryByRole('menuitem', { name: /copy support reference/i })
     ).not.toBeInTheDocument()
-    expect(
-      menuScope.getByRole('menuitem', { name: /copy automatic project name/i })
-    ).toBeInTheDocument()
+    expect(menuScope.getByRole('menuitem', { name: /copy name used in links/i })).toBeInTheDocument()
     expect(menuScope.getByText(/another page asks for the project reference/i)).toBeInTheDocument()
     expect(menuScope.queryByText(/only share this if support asks/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText('p1')).not.toBeInTheDocument()
@@ -287,7 +283,7 @@ describe('Sidebar', () => {
     expect(menuScope.queryByText(/link name/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/project short name/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/short name used in project links/i)).not.toBeInTheDocument()
-    expect(menuScope.getByText(/Forge uses this to recognize the project in links/i)).toBeInTheDocument()
+    expect(menuScope.getByText(/Forge uses this in project links/i)).toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /delete project/i })).toBeInTheDocument()
   })
 

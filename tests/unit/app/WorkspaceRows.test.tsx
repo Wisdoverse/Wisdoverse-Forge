@@ -45,8 +45,10 @@ describe('workspace management rows', () => {
       </>
     )
 
-    expect(screen.getByText(/Automatic team name:\s*product-team/i)).toBeDefined()
-    expect(screen.getByText('Automatic project name: website-launch')).toBeDefined()
+    expect(screen.getByText(/Forge uses this in team links:\s*product-team/i)).toBeDefined()
+    expect(screen.getByText('Forge uses this in project links: website-launch')).toBeDefined()
+    expect(screen.queryByText(/Automatic team name/i)).toBeNull()
+    expect(screen.queryByText(/Automatic project name/i)).toBeNull()
     expect(screen.queryByText(/Automatic link name/i)).toBeNull()
     expect(screen.queryByText(/Team short name/i)).toBeNull()
     expect(screen.queryByText(/Project short name/i)).toBeNull()

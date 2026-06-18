@@ -69,7 +69,7 @@ const SCOPE_FILTERS: Array<{ value: ScopeFilter; label: string }> = [
 
 const SENSITIVITIES: Array<{ value: ContextSensitivity; label: string }> = [
   { value: 'public', label: 'Safe to share' },
-  { value: 'internal', label: 'Team internal' },
+  { value: 'internal', label: 'Team only' },
   { value: 'confidential', label: 'Confidential' },
   { value: 'secret_detected', label: 'May contain secrets' },
 ]
