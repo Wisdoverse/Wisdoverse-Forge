@@ -737,7 +737,7 @@ export function ProjectTree({
                     testId={`team-${team.id}-empty-projects`}
                     Icon={FolderPlus}
                     title="Add this team's first project"
-                    detail="Projects hold tasks, agents, and task queues for the team."
+                    detail="Projects hold tasks, agents, and the places where new tasks wait."
                     actionLabel="Open Project Settings"
                     onAction={onNavigate ? () => onNavigate('/settings/projects') : undefined}
                   />
