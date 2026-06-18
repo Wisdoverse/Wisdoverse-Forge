@@ -36,8 +36,8 @@ function seedRoutingState(tasks: TaskSummary[]) {
       ],
     },
     agentGroups: [
-      { id: 'group-delivery', projectId: 'project-1', name: 'Delivery Queue' },
-      { id: 'group-review', projectId: 'project-1', name: 'Review Queue' },
+      { id: 'group-delivery', projectId: 'project-1', name: 'Delivery Tasks' },
+      { id: 'group-review', projectId: 'project-1', name: 'Review Tasks' },
     ],
   } as never)
   useBoardStore.getState().setSelectedGroupId('group-delivery')
@@ -54,13 +54,15 @@ describe('AgentGroupsPanel', () => {
   const previousBlockedLabel = ['Block', 'ed'].join('')
   const previousBlockingCopy = new RegExp(['what', 'is', 'blocking'].join('\\s+'), 'i')
 
-  test('routes users to project settings before creating task queues', () => {
+  test('routes users to project settings before setting up where tasks wait', () => {
     const onOpenProjectsSetup = vi.fn()
 
     render(<AgentGroupsPanel onOpenProjectsSetup={onOpenProjectsSetup} />)
 
     const panel = screen.getByTestId('agent-groups-panel')
-    expect(panel).toHaveTextContent(/shared lists where new tasks wait/i)
+    expect(panel).toHaveTextContent(/where tasks wait/i)
+    expect(panel).toHaveTextContent(/shared waiting places tell agents where to pick up/i)
+    expect(panel).not.toHaveTextContent(/task queues/i)
     expect(panel).not.toHaveTextContent(/agents check for tasks/i)
     expect(panel).toHaveTextContent(/open project settings to create a project/i)
     expect(panel).not.toHaveTextContent(/select a project from the sidebar/i)
@@ -70,7 +72,7 @@ describe('AgentGroupsPanel', () => {
     expect(onOpenProjectsSetup).toHaveBeenCalledTimes(1)
   })
 
-  test('summarizes the selected task queue workload', () => {
+  test('summarizes the selected waiting place workload', () => {
     seedRoutingState([
       makeTask({
         id: 'backlog-1',
@@ -119,6 +121,7 @@ describe('AgentGroupsPanel', () => {
     render(<AgentGroupsPanel />)
 
     expect(screen.getByTestId('task-routing-workload')).toBeInTheDocument()
+    expect(screen.getByText('Tasks waiting here')).toBeInTheDocument()
     expect(screen.getByText('6 tasks here')).toBeInTheDocument()
     expect(within(screen.getByTestId('routing-metric-active')).getByText('2')).toBeInTheDocument()
     expect(
@@ -220,7 +223,7 @@ describe('AgentGroupsPanel', () => {
     expect(screen.queryByText(/git provider/i)).toBeNull()
   })
 
-  test('filters the routed work queue by search', () => {
+  test('filters the waiting place by search', () => {
     seedRoutingState([
       makeTask({
         id: 'auth-1',
@@ -249,40 +252,42 @@ describe('AgentGroupsPanel', () => {
     })
 
     const emptyState = screen.getByTestId('task-routing-filter-empty')
-    expect(within(emptyState).getByText('Search is hiding tasks in this queue')).toBeInTheDocument()
-    expect(within(emptyState).getByText(/this task queue still has tasks/i)).toBeInTheDocument()
-    expect(within(emptyState).getByText(/before assuming the queue is empty/i)).toBeInTheDocument()
+    expect(
+      within(emptyState).getByText('Search is hiding tasks in this waiting place')
+    ).toBeInTheDocument()
+    expect(within(emptyState).getByText(/this waiting place still has tasks/i)).toBeInTheDocument()
+    expect(within(emptyState).getByText(/before assuming this place is empty/i)).toBeInTheDocument()
     expect(emptyState.textContent).not.toContain('No tasks in this task queue match this search.')
     expect(within(emptyState).queryByRole('button', { name: /^clear$/i })).toBeNull()
 
-    fireEvent.click(within(emptyState).getByRole('button', { name: /show all queue tasks/i }))
+    fireEvent.click(within(emptyState).getByRole('button', { name: /show all tasks here/i }))
     expect(screen.getByTestId('task-routing-search')).toHaveValue('')
     expect(screen.getByText('Build settings page')).toBeInTheDocument()
   })
 
-  test('explains the next step when a task queue has no routed tasks', () => {
+  test('explains the next step when a waiting place has no routed tasks', () => {
     seedRoutingState([])
 
     render(<AgentGroupsPanel />)
 
     const emptyState = screen.getByTestId('task-routing-empty')
-    expect(emptyState).toHaveTextContent('Create the first task for this queue')
-    expect(emptyState).toHaveTextContent('then choose this task queue')
+    expect(emptyState).toHaveTextContent('Create the first task for this waiting place')
+    expect(emptyState).toHaveTextContent('then choose it')
     expect(emptyState).toHaveTextContent(
       'Success looks like a task showing Waiting to start or Working here.'
     )
     expect(emptyState).not.toHaveTextContent('No tasks are in this task queue yet')
   })
 
-  test('guides blank task queue names with examples', () => {
+  test('guides blank waiting place names with examples', () => {
     seedRoutingState([])
 
     render(<AgentGroupsPanel />)
 
-    fireEvent.click(screen.getByRole('button', { name: /^create task queue$/i }))
-    expect(screen.getByRole('group', { name: /task queue templates/i })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /^set up waiting place$/i }))
+    expect(screen.getByRole('group', { name: /waiting place templates/i })).toBeInTheDocument()
     fireEvent.click(screen.getByText('Build and verify').closest('button')!)
-    expect(screen.getByLabelText(/task queue description/i)).toHaveValue(
+    expect(screen.getByLabelText(/waiting place description/i)).toHaveValue(
       'Build the requested changes, keep work moving, and run checks before sharing results.'
     )
     expect(screen.queryByDisplayValue(/scoped changes/i)).toBeNull()
@@ -291,56 +296,57 @@ describe('AgentGroupsPanel', () => {
     const triageSummary = screen.getByText('Clarify and assign')
     fireEvent.click(triageSummary.closest('button')!)
     expect(screen.getByRole('button', { name: /sort work/i })).toBeInTheDocument()
-    expect(screen.getByLabelText(/task queue name/i)).toHaveValue('Intake Queue')
-    expect(screen.getByLabelText(/task queue description/i)).toHaveValue(
+    expect(screen.getByLabelText(/waiting place name/i)).toHaveValue('Intake Tasks')
+    expect(screen.getByLabelText(/waiting place description/i)).toHaveValue(
       'Clarify incoming work, find what is missing, and send tasks to the right agent.'
     )
+    expect(screen.queryByDisplayValue(/queue/i)).toBeNull()
     expect(screen.queryByDisplayValue(/triage/i)).toBeNull()
     expect(screen.queryByDisplayValue(previousBlockingCopy)).toBeNull()
     fireEvent.click(reviewSummary.closest('button')!)
     expect(reviewSummary).toBeInTheDocument()
     expect(screen.queryByText(['Risk', 'and', 'readiness'].join(' '))).toBeNull()
     fireEvent.click(reviewSummary.closest('button')!)
-    expect(screen.getByLabelText(/task queue description/i)).toHaveValue(
+    expect(screen.getByLabelText(/waiting place description/i)).toHaveValue(
       'Review completed work for broken behavior, missing tests, and anything that could block release.'
     )
-    fireEvent.change(screen.getByLabelText(/task queue name/i), { target: { value: '' } })
-    fireEvent.submit(screen.getByRole('button', { name: /create task queue/i }).closest('form')!)
+    fireEvent.change(screen.getByLabelText(/waiting place name/i), { target: { value: '' } })
+    fireEvent.submit(screen.getByRole('button', { name: /create waiting place/i }).closest('form')!)
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Name this task queue before creating it. Examples: Intake, Review, or Delivery.'
+      'Name this waiting place before creating it. Examples: Intake, Review, or Delivery.'
     )
-    expect(screen.getByLabelText(/task queue name/i)).toHaveFocus()
+    expect(screen.getByLabelText(/waiting place name/i)).toHaveFocus()
 
-    fireEvent.change(screen.getByLabelText(/task queue name/i), {
-      target: { value: 'Intake Queue' },
+    fireEvent.change(screen.getByLabelText(/waiting place name/i), {
+      target: { value: 'Intake Tasks' },
     })
     expect(screen.queryByRole('alert')).toBeNull()
   })
 
-  test('explains task queue creation permission failures with a next step', async () => {
+  test('explains waiting place creation permission failures with a next step', async () => {
     seedRoutingState([])
     const createAgentGroup = vi.fn().mockRejectedValue(new Error('HTTP 403: Forbidden'))
     useNavigationStore.setState({ createAgentGroup } as never)
 
     render(<AgentGroupsPanel />)
 
-    fireEvent.click(screen.getByRole('button', { name: /^create task queue$/i }))
-    expect(screen.getByRole('button', { name: 'Create task queue' })).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: /^set up waiting place$/i }))
+    expect(screen.getByRole('button', { name: 'Create waiting place' })).toBeDefined()
     expect(screen.queryByRole('button', { name: 'Create Task Queue' })).toBeNull()
-    fireEvent.change(screen.getByLabelText(/task queue name/i), {
-      target: { value: 'Delivery Queue' },
+    fireEvent.change(screen.getByLabelText(/waiting place name/i), {
+      target: { value: 'Delivery Tasks' },
     })
-    fireEvent.change(screen.getByLabelText(/task queue description/i), {
+    fireEvent.change(screen.getByLabelText(/waiting place description/i), {
       target: { value: 'Keep delivery tasks moving.' },
     })
-    fireEvent.submit(screen.getByRole('button', { name: /create task queue/i }).closest('form')!)
+    fireEvent.submit(screen.getByRole('button', { name: /create waiting place/i }).closest('form')!)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Ask an owner or admin to let you create and manage task queues in this project. Task queue was not created.'
+      'Ask an owner or admin to let you set up where tasks wait in this project. The waiting place was not created.'
     )
-    expect(screen.getByLabelText(/task queue name/i)).toHaveValue('Delivery Queue')
-    expect(screen.getByLabelText(/task queue description/i)).toHaveValue(
+    expect(screen.getByLabelText(/waiting place name/i)).toHaveValue('Delivery Tasks')
+    expect(screen.getByLabelText(/waiting place description/i)).toHaveValue(
       'Keep delivery tasks moving.'
     )
     expect(screen.queryByText(/HTTP 403/i)).toBeNull()

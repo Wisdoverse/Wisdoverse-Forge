@@ -156,23 +156,22 @@ export const en = {
         review: 'Open agents',
       },
       routing: {
-        title: 'Task queue',
-        emptyWithProject: 'Create a task queue for this project.',
-        emptyWithoutProject: 'Select a project, then create a task queue.',
-        why: 'A task queue gives new work a place to wait for the next available agent.',
-        success: 'A task queue exists for the selected project.',
-        create: 'Create task queue',
-        review: 'Review task queues',
+        title: 'Where tasks wait',
+        emptyWithProject: 'Set up where tasks wait for this project.',
+        emptyWithoutProject: 'Select a project, then set up where tasks wait.',
+        why: 'This gives new work a place to wait until the next available agent picks it up.',
+        success: 'A waiting place exists for the selected project.',
+        create: 'Set up waiting place',
+        review: 'Review waiting places',
       },
       task: {
         title: 'First task',
         emptyWithRouting:
-          'Write one small task. Forge adds it to the queue so the next available agent can pick it up.',
-        emptyWithoutRouting: 'Create a task queue before the first task.',
+          'Write one small task. Forge puts it where tasks wait until the next available agent picks it up.',
+        emptyWithoutRouting: 'Set up where tasks wait before the first task.',
         ready: '{{count}} task on the board.',
         why: 'A small first task proves the setup works before you depend on it for real work.',
-        success:
-          'The task appears on the board, either waiting in the queue or assigned to an agent.',
+        success: 'The task appears on the board, either waiting for an agent or already assigned.',
         create: 'Write first task',
         open: 'Open board',
       },
@@ -298,26 +297,26 @@ export const en = {
   },
 
   // =========================================================================
-  // Task queues
+  // Where tasks wait
   // =========================================================================
   groups: {
-    title: 'Task queues',
-    newGroup: 'New task queue',
-    createGroup: 'Create task queue',
-    editGroup: 'Edit task queue',
-    deleteGroup: 'Delete task queue',
-    noGroups: 'No task queues yet. Create one so new tasks have a place to wait for agents.',
-    groupName: 'Task queue name',
-    groupColor: 'Task queue color',
-    addToGroup: 'Add to task queue',
-    removeFromGroup: 'Remove from task queue',
-    moveToGroup: 'Move to task queue',
-    ungrouped: 'No task queue yet',
+    title: 'Where tasks wait',
+    newGroup: 'New waiting place',
+    createGroup: 'Create waiting place',
+    editGroup: 'Edit waiting place',
+    deleteGroup: 'Delete waiting place',
+    noGroups: 'No waiting places yet. Create one so new tasks have a place to wait for agents.',
+    groupName: 'Waiting place name',
+    groupColor: 'Waiting place color',
+    addToGroup: 'Add to waiting place',
+    removeFromGroup: 'Remove from waiting place',
+    moveToGroup: 'Move to waiting place',
+    ungrouped: 'No waiting place yet',
     confirmDelete:
-      'Delete this task queue? Agents stay available, but tasks will need another task queue before they can be sent.',
-    groupCreated: 'Task queue created',
-    groupDeleted: 'Task queue deleted',
-    groupUpdated: 'Task queue updated',
+      'Delete this waiting place? Agents stay available, but tasks need another waiting place before they can be sent.',
+    groupCreated: 'Waiting place created',
+    groupDeleted: 'Waiting place deleted',
+    groupUpdated: 'Waiting place updated',
   },
 
   // =========================================================================

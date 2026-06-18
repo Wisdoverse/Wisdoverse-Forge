@@ -60,26 +60,26 @@ export function agentGroupErrorMessage(err: unknown): string {
   const text = errorText(err).toLowerCase()
 
   if (code === 401 || text.includes('unauthorized')) {
-    return 'Sign in again, choose the project, and try creating the queue again. Task queue was not created.'
+    return 'Sign in again, choose the project, and try setting up where tasks wait again. The waiting place was not created.'
   }
   if (code === 403 || text.includes('forbidden')) {
-    return 'Ask an owner or admin to let you create and manage task queues in this project. Task queue was not created.'
+    return 'Ask an owner or admin to let you set up where tasks wait in this project. The waiting place was not created.'
   }
   if (code === 404) {
-    return 'Refresh this page, then choose the project again. Task queue was not created because the selected project may have changed or been removed.'
+    return 'Refresh this page, then choose the project again. The waiting place was not created because the selected project may have changed or been removed.'
   }
   if (code === 409) {
-    return 'Use a different name, then try creating the queue again. A queue with this name may already exist.'
+    return 'Use a different name, then try creating the waiting place again. A waiting place with this name may already exist.'
   }
   if (code === 429 || text.includes('rate limit') || text.includes('too many')) {
-    return 'Wait a minute, then try creating the queue again. Too many queue changes are happening right now.'
+    return 'Wait a minute, then try creating the waiting place again. Too many waiting-place changes are happening right now.'
   }
   if (code != null && code >= 500) {
-    return 'Wait a few minutes, then try creating the task queue again. Forge could not create the task queue right now. If it still fails, ask an owner or admin to check task queue setup.'
+    return 'Wait a few minutes, then try setting up where tasks wait again. Forge could not create the waiting place right now. If it still fails, ask an owner or admin to check where tasks wait in this project.'
   }
   if (isNetworkError(err)) {
-    return 'Check your connection, then try creating the task queue again. Forge could not connect while creating the task queue.'
+    return 'Check your connection, then try creating the waiting place again. Forge could not connect while setting up where tasks wait.'
   }
 
-  return "Try creating the task queue again. If it still fails, ask an owner or admin to check this project's task queue setup. Task queue was not created."
+  return 'Try creating the waiting place again. If it still fails, ask an owner or admin to check where tasks wait in this project. The waiting place was not created.'
 }

@@ -109,7 +109,7 @@ export function AppLayout({
 
   // Refresh the participant list every time the modal opens so a newly
   // registered agent shows up without a page reload. Failures are ignored —
-  // the dropdown then renders the "no online agents, will queue" hint.
+  // the dropdown then renders the "no online agents" hint.
   useEffect(() => {
     if (!taskFormOpen) return
     let cancelled = false
@@ -157,7 +157,7 @@ export function AppLayout({
     async (projectId: string) => {
       if (!(await selectProject(projectId))) {
         // One retry: the common cause is a transient fetch failure, and the
-        // task form would otherwise claim the project has no task queues.
+        // task form would otherwise claim the project has nowhere tasks can wait.
         await selectProject(projectId)
       }
       handleNavigate('/tasks')
@@ -305,12 +305,12 @@ export function AppLayout({
           }
           if (!groupId && !lanesLoaded) {
             throw new Error(
-              'Task queues could not load for this project. Select the project again, then create the task.'
+              'Forge could not load where tasks wait for this project. Select the project again, then create the task.'
             )
           }
           if (!groupId) {
             throw new Error(
-              'Create a task queue before creating a task. A task queue gives new work a place to wait. Open task queues to create one, then come back here.'
+              'Set up where tasks wait before creating a task. This gives new work a place to wait for an agent. Open Agents to set it up, then come back here.'
             )
           }
           const response = await orchestrationApi.createTask({

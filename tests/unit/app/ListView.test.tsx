@@ -41,7 +41,10 @@ describe('ListView', () => {
     render(<ListView />)
     expect(screen.getByText('Task A')).toBeDefined()
     expect(screen.getByText('Task B')).toBeDefined()
-    expect(screen.getByText('Choose an agent or task queue, then send it.')).toBeDefined()
+    expect(
+      screen.getByText('Choose an agent or where this task should wait, then send it.')
+    ).toBeDefined()
+    expect(screen.queryByText(/task queue/i)).toBeNull()
   })
 
   test('explains task agent fallbacks without placeholder symbols or raw ids', () => {
@@ -203,7 +206,10 @@ describe('ListView', () => {
     expect(screen.getByTestId('list-next-step')).toHaveTextContent(
       'Send 1 task after choosing where it should run.'
     )
-    expect(screen.getByText(/Choose an agent or task queue, then send the work/i)).toBeDefined()
+    expect(
+      screen.getByText(/Choose an agent or where tasks should wait, then send the work/i)
+    ).toBeDefined()
+    expect(screen.queryByText(/task queue/i)).toBeNull()
     expect(screen.getByTestId('list-next-step').textContent).not.toContain('when ready')
     expect(screen.getByTestId('list-work-register').textContent).not.toContain('backlog task')
     expect(screen.getByTestId('list-work-register').textContent).not.toContain('next lane')

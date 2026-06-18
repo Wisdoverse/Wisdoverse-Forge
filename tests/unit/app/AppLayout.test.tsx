@@ -495,7 +495,7 @@ describe('AppLayout', () => {
     expect(useNavigationStore.getState().selectedProjectId).toBe('p1')
   })
 
-  test('requires a task queue instead of initializing one from New Task', async () => {
+  test('requires a waiting place instead of initializing one from New Task', async () => {
     seedProjectNavigation(null)
     mockGetGroups.mockResolvedValue([])
 
@@ -520,6 +520,7 @@ describe('AppLayout', () => {
     expect(screen.getByRole('button', { name: /set up where tasks wait/i })).toBeDefined()
     const previousQueueInstruction = ['agents', 'check', 'task', 'queues'].join(' ')
     expect(screen.queryByText(new RegExp(previousQueueInstruction, 'i'))).toBeNull()
+    expect(screen.queryByText(/task queue/i)).toBeNull()
     expect(createButton).toBeEnabled()
     fireEvent.click(createButton)
     const alert = await screen.findByRole('alert')
