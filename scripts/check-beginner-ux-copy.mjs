@@ -498,11 +498,11 @@ const START_GUIDE_FAILURE_FIRST_PATTERNS = [
 const START_NAV_JARGON_PATTERNS = [
   /\bnav:\s*\{[^}]*\bstart:\s*['"`]Start['"`]/,
   /\bnav:\s*\{[^}]*\bstart:\s*['"`]开始['"`]/,
-  /\bhides Start from the sidebar\b/i,
+  /\bhides Start from the (?:left menu|sidebar)\b/i,
   /\bshow Start again from Settings\b/i,
   /\bskipHint:\s*['"`][^'"`]*Start\b/,
   /\bskipError:\s*['"`][^'"`]*Start\b/,
-  /\b隐藏侧栏里的 Start\b/,
+  /\b隐藏(?:左侧菜单|侧栏)里的 Start\b/,
   /\b重新显示 Start\b/,
   /\bStart could not be hidden\b/i,
   /\b无法隐藏 Start\b/,
