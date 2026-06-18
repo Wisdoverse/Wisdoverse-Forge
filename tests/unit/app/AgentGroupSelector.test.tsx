@@ -70,6 +70,8 @@ describe('AgentGroupSelector', () => {
 
     expect(select.disabled).toBe(false)
     expect(select.title).toContain('where new tasks should wait')
+    expect(screen.getByRole('option', { name: 'Delivery waiting place' })).toBeDefined()
+    expect(screen.queryByRole('option', { name: 'Delivery Queue' })).toBeNull()
 
     fireEvent.change(select, { target: { value: 'queue-1' } })
 

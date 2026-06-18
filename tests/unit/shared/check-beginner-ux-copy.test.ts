@@ -723,6 +723,10 @@ function OrganizationsEmptyState() {
 function PeopleGuide() {
   return 'A sudden jump can mean onboarding succeeded or access needs review.'
 }
+
+function OrganizationsGuide() {
+  return 'Create one before adding teams, projects, people, or agent work queues.'
+}
 `,
     })
 
@@ -738,6 +742,10 @@ function PeopleGuide() {
         expect.objectContaining({
           type: 'admin-orgs-empty-copy',
           location: 'src/app/features/admin/OrganizationsPanel.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'admin-orgs-empty-copy',
+          location: 'src/app/features/admin/OrganizationsPanel.tsx:11',
         }),
       ])
     )
@@ -12708,7 +12716,7 @@ function ProjectTree({ projectMenu }) {
 `,
       'src/app/features/admin/OrganizationsPanel.tsx': `
 function OrganizationsPanel({ org }) {
-  return <p>URL name: {org.slug}</p>
+  return <p>Team space short name: {org.slug}</p>
 }
 `,
     })
@@ -12741,7 +12749,7 @@ function ProjectTree({ projectMenu }) {
 `,
       'src/app/features/admin/OrganizationsPanel.tsx': `
 function OrganizationsPanel({ org }) {
-  return <p>Team space short name: {org.slug}</p>
+  return <p>Automatic team space name: {org.slug}</p>
 }
 `,
     })

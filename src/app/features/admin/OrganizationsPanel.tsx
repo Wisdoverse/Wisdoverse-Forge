@@ -61,7 +61,7 @@ const ORG_GUIDANCE: { title: string; description: string; Icon: LucideIcon }[] =
 
 function organizationSummary(orgs: AdminOrg[]): string {
   if (orgs.length === 0) {
-    return 'Team spaces appear here after setup or sync. Create one before adding teams, projects, people, or agent work queues.'
+    return 'Team spaces appear here after setup or sync. Create one before adding teams, projects, people, or places where new tasks wait.'
   }
   const members = orgs.reduce((total, org) => total + org.membersCount, 0)
   const teams = orgs.reduce((total, org) => total + org.teamsCount, 0)
@@ -120,8 +120,9 @@ function OrganizationsEmptyState() {
         Create or sync a team space first
       </p>
       <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
-        Create or sync a team space before creating teams, projects, people, or agent work queues.
-        If you expected data here, confirm your admin access and refresh after Forge is ready.
+        Create or sync a team space before creating teams, projects, people, or places where new
+        tasks wait. If you expected data here, confirm your admin access and refresh after Forge is
+        ready.
       </p>
     </div>
   )
@@ -196,7 +197,7 @@ export function OrganizationsPanel() {
                           {org.name}
                         </p>
                         <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                          Team space short name: {org.slug}
+                          Automatic team space name: {org.slug}
                         </p>
                       </div>
                     </td>

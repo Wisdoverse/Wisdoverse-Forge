@@ -36,8 +36,8 @@ function seedRoutingState(tasks: TaskSummary[]) {
       ],
     },
     agentGroups: [
-      { id: 'group-delivery', projectId: 'project-1', name: 'Delivery Tasks' },
-      { id: 'group-review', projectId: 'project-1', name: 'Review Tasks' },
+      { id: 'group-delivery', projectId: 'project-1', name: 'Delivery Queue' },
+      { id: 'group-review', projectId: 'project-1', name: 'Review Queue' },
     ],
   } as never)
   useBoardStore.getState().setSelectedGroupId('group-delivery')
@@ -122,6 +122,8 @@ describe('AgentGroupsPanel', () => {
 
     expect(screen.getByTestId('task-routing-workload')).toBeInTheDocument()
     expect(screen.getByText('Tasks waiting here')).toBeInTheDocument()
+    expect(screen.getAllByText('Delivery waiting place').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Delivery Queue')).toBeNull()
     expect(screen.getByText('6 tasks here')).toBeInTheDocument()
     expect(within(screen.getByTestId('routing-metric-active')).getByText('2')).toBeInTheDocument()
     expect(
