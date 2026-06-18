@@ -214,7 +214,8 @@ describe('AppLayout', () => {
     render(<MemoryRouter />)
 
     expect(screen.getByText('Inbox')).toBeDefined()
-    expect(screen.getByText('See what needs your attention')).toBeDefined()
+    expect(screen.getByText('Review updates that need a next step')).toBeDefined()
+    expect(screen.queryByText('See what needs your attention')).toBeNull()
     expect(screen.queryByText(/notifications and updates/i)).toBeNull()
   })
 

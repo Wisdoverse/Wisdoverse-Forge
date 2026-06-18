@@ -21,7 +21,7 @@ interface AppLayoutProps {
 const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   '/start': { title: 'Setup checklist', subtitle: 'Set up Forge and send your first task' },
   '/tasks': { title: 'Tasks', subtitle: 'Create tasks and follow agent progress' },
-  '/inbox': { title: 'Inbox', subtitle: 'See what needs your attention' },
+  '/inbox': { title: 'Inbox', subtitle: 'Review updates that need a next step' },
   '/context/audit': { title: 'Review history', subtitle: 'See what was reviewed or reused' },
   '/context': {
     title: 'Saved notes and instructions',

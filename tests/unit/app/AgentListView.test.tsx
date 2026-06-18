@@ -496,9 +496,12 @@ describe('AgentListView', () => {
     fireEvent.click(within(templates).getByRole('button', { name: /review/i }))
 
     expect(screen.getByLabelText(/waiting place name/i)).toHaveValue('Review Tasks')
-    expect((screen.getByLabelText(/waiting place description/i) as HTMLInputElement).value).toContain(
-      'block release'
-    )
+    expect(
+      (screen.getByLabelText(/waiting place description/i) as HTMLInputElement).value
+    ).toContain('stop a release')
+    expect(
+      (screen.getByLabelText(/waiting place description/i) as HTMLInputElement).value
+    ).not.toContain('block release')
 
     fireEvent.click(screen.getByRole('button', { name: /^create waiting place$/i }))
 
@@ -507,7 +510,7 @@ describe('AgentListView', () => {
         'p1',
         expect.objectContaining({
           name: 'Review Tasks',
-          description: expect.stringContaining('block release'),
+          description: expect.stringContaining('stop a release'),
         })
       )
     )

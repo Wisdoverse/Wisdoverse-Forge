@@ -319,7 +319,7 @@ function skillToolbarStatus({
   error: string | null
 }) {
   if (loading) return 'Checking saved instructions'
-  if (error) return 'Saved instructions need attention'
+  if (error) return 'Refresh saved instructions to continue.'
   if (visibleCount > 0) {
     return `${visibleCount} saved instruction${visibleCount === 1 ? '' : 's'}`
   }

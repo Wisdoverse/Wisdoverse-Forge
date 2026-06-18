@@ -51,7 +51,7 @@ const NAV_ITEMS: NavItem[] = [
     id: 'inbox',
     Icon: Inbox,
     labelKey: 'nav.inbox',
-    description: 'review items needing attention',
+    description: 'review updates that need a next step',
     path: '/inbox',
   },
   {
