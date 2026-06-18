@@ -372,7 +372,7 @@ describe('dispatchWsMessage', () => {
       ownerUserId: 'user-owner',
     })
     expect(notifications[0].message).toContain(
-      'Stopped before finishing. Open details to see what happened and retry.'
+      'Stopped before finishing. Open the task details, review the latest update, then retry when ready.'
     )
     expect(notifications[0].message).not.toContain('migration exited non-zero')
   })

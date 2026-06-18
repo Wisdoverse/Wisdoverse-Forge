@@ -12463,6 +12463,50 @@ function taskNextStep() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags task failure previews that say open details without naming the task details', () => {
+    const cwd = fixture({
+      'src/app/shared/lib/taskFailureCopy.ts': `
+export function taskFailurePreview() {
+  return 'Stopped before finishing. Open details to see what happened and retry.'
+}
+export function taskBlockedPreview() {
+  return 'This task needs help before it can continue. Open details, review the latest update, then retry or ask an owner for help.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-failure-details-copy',
+          location: 'src/app/shared/lib/taskFailureCopy.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'task-failure-details-copy',
+          location: 'src/app/shared/lib/taskFailureCopy.ts:6',
+        }),
+      ])
+    )
+  })
+
+  it('accepts task failure previews that name task details and latest updates', () => {
+    const cwd = fixture({
+      'src/app/shared/lib/taskFailureCopy.ts': `
+export function taskFailurePreview() {
+  return 'Stopped before finishing. Open the task details, review the latest update, then retry when ready.'
+}
+export function taskBlockedPreview() {
+  return 'This task needs help before it can continue. Open the task details, review the latest update, then retry or ask an owner for help.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags failed task board empty copy that uses retry-path wording', () => {
     const cwd = fixture({
       'src/app/features/board/KanbanColumn.tsx': `

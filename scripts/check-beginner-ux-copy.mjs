@@ -887,6 +887,11 @@ const TASK_RECOVERY_STATUS_DEAD_END_PATTERNS = [
   /\bTriage failure\b/,
 ]
 
+const TASK_FAILURE_OPEN_DETAILS_DEAD_END_PATTERNS = [
+  /\bOpen details(?:,| (?:for|to|and))/i,
+  /\bopen details(?:,| (?:for|to|and))/i,
+]
+
 const BEGINNER_SORTING_JARGON_PATTERNS = [
   /\bInbox triage path\b/i,
   /\bTriage Queue\b/,
@@ -3131,6 +3136,12 @@ function hasTaskRecoveryStatusDeadEndCopy(relFile, line) {
   return TASK_RECOVERY_STATUS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTaskFailureOpenDetailsDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/shared/lib/taskFailureCopy.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_FAILURE_OPEN_DETAILS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasTaskDetailEmptyDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/detail/DescriptionTab.tsx') &&
@@ -5108,6 +5119,16 @@ function scanFile(file, relFile) {
         type: 'task-recovery-status-copy',
         location,
         message: 'Failed task status copy must tell beginners to review recovery.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskFailureOpenDetailsDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'task-failure-details-copy',
+        location,
+        message:
+          'Task failure previews must name task details and the latest update instead of saying open details.',
         sample: line.trim(),
       })
     }

@@ -1,13 +1,14 @@
 export function taskFailurePreview(error?: string | null): string {
   const message = error?.trim() ?? ''
-  if (!message) return 'Stopped before finishing. Open details for next steps.'
+  if (!message)
+    return 'Stopped before finishing. Open the task details, review the latest update, then retry when ready.'
 
   const lowerMessage = message.toLowerCase()
   if (lowerMessage.includes('rate limit') || /\b429\b/.test(message)) {
-    return 'Stopped because the AI service is busy. Wait a minute, then open details and retry.'
+    return 'Stopped because the AI service is busy. Wait a minute, then open the task details and retry.'
   }
   if (lowerMessage.includes('timeout') || lowerMessage.includes('timed out')) {
-    return 'Stopped because the task took too long. Open details to retry.'
+    return 'Stopped because the task took too long. Open the task details, review the latest update, then retry when ready.'
   }
   if (
     lowerMessage.includes('permission') ||
@@ -20,7 +21,7 @@ export function taskFailurePreview(error?: string | null): string {
     return 'Reconnect sign-in or service access, then retry.'
   }
 
-  return 'Stopped before finishing. Open details to see what happened and retry.'
+  return 'Stopped before finishing. Open the task details, review the latest update, then retry when ready.'
 }
 
 export function isRawTaskFailureDetail(message: string): boolean {
@@ -48,7 +49,7 @@ interface TaskBlockedPreviewInput {
 }
 
 const GENERIC_BLOCKED_PREVIEW =
-  'This task needs your input before it can continue. Open details for next steps.'
+  'This task needs your input before it can continue. Open the task details, read the latest update, then add the missing answer or ask an owner for help.'
 
 export function taskBlockedPreview({
   blockedHint,
@@ -82,7 +83,7 @@ function beginnerBlockedHint(hint: string): string {
     return 'Waiting for account access. Add or reconnect the required service access, then retry.'
   }
   if (containsTechnicalBlockedHint(hint)) {
-    return 'This task needs help before it can continue. Open details, review the latest update, then retry or ask an owner for help.'
+    return 'This task needs help before it can continue. Open the task details, review the latest update, then retry or ask an owner for help.'
   }
   return hint
 }
@@ -114,7 +115,7 @@ function blockedErrorPreview(error?: string | null): string {
     return 'Too much work is running right now. Wait a bit, then retry or ask an owner for help.'
   }
   if (detail.includes('timeout') || detail.includes('timed out')) {
-    return 'A required service did not answer in time. Open details and retry when it is ready.'
+    return 'A required service did not answer in time. Open the task details and retry when it is ready.'
   }
 
   return GENERIC_BLOCKED_PREVIEW

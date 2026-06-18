@@ -153,7 +153,7 @@ describe('TaskMetadata', () => {
     expect(screen.getByText('High')).toBeDefined()
     expect(screen.getByTestId('task-metadata-guidance').textContent).toContain('AI service is busy')
     expect(screen.getByTestId('task-metadata-guidance').textContent).toContain(
-      'Wait a minute, then open details and retry'
+      'Wait a minute, then open the task details and retry'
     )
     expect(screen.getByTestId('task-metadata-guidance').textContent).not.toContain('when ready')
     expect(screen.getByTestId('task-metadata-guidance').textContent).not.toMatch(
