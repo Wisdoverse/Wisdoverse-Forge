@@ -1108,6 +1108,7 @@ const CHAT_OPERATOR_JARGON_PATTERNS = [
 
 const CHAT_FILTER_EMPTY_DEAD_END_PATTERNS = [
   /\bNothing is marked blocked, failed, waiting, or needing review in this view\./i,
+  /\bNo work steps are showing yet\b/i,
   /\bNo work steps have been reported yet\b/i,
   /\bworkspace agent reports commands or tool runs\b/i,
   /\bassign a workspace task to create work steps\b/i,

@@ -116,7 +116,7 @@ function conversationFilterEmptyCopy(
 
   if (filter === 'tool') {
     return {
-      title: 'No work steps are showing yet',
+      title: 'Assign a task to see work steps',
       detail: 'Work steps appear when an agent shares commands or tool results.',
       nextStep: 'Next: use All to see chat updates, or assign a task so work steps can appear.',
     }

@@ -6911,6 +6911,10 @@ function chatOnlyBanner() {
     const cwd = fixture({
       'src/app/features/chat/ChatView.tsx': `
 function toolEmptyTitle() {
+  return 'No work steps are showing yet'
+}
+
+function toolEmptyFallbackTitle() {
   return 'No work steps have been reported yet'
 }
 
@@ -6940,6 +6944,10 @@ function toolEmptyNextStep() {
         expect.objectContaining({
           type: 'chat-filter-empty-copy',
           location: 'src/app/features/chat/ChatView.tsx:11',
+        }),
+        expect.objectContaining({
+          type: 'chat-filter-empty-copy',
+          location: 'src/app/features/chat/ChatView.tsx:15',
         }),
       ])
     )
