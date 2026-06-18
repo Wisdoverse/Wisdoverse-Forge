@@ -260,11 +260,11 @@ describe('TaskFormModal', () => {
     expect(onOpenAgentSetup).toHaveBeenCalledTimes(1)
   })
 
-  test('explains a ready task queue without internal checking language', () => {
+  test('explains a ready waiting place without internal checking language', () => {
     renderModal()
 
     expect(screen.getByTestId('task-work-lane-readiness').textContent).toContain(
-      'New tasks will wait in Starter Queue until a ready agent picks them up.'
+      'New tasks will wait in Starter waiting place until a ready agent picks them up.'
     )
     expect(screen.getByText(/1 ready/i)).toBeDefined()
     expect(
@@ -275,6 +275,7 @@ describe('TaskFormModal', () => {
     expect(screen.getByTestId('task-work-lane-readiness').textContent).not.toContain(
       ['Agents', 'check', 'this', 'queue'].join(' ')
     )
+    expect(screen.getByTestId('task-work-lane-readiness')).not.toHaveTextContent('Starter Queue')
     expect(screen.queryByText(/Leave this unassigned/i)).toBeNull()
   })
 

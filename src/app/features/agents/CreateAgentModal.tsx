@@ -12,6 +12,7 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react'
+import { waitingPlaceDisplayName } from '@app/entities/agent-group'
 import { cn } from '@app/shared/lib/utils'
 import { useAgentsStore } from '@app/entities/agent'
 import { useNavigationStore } from '@app/entities/navigation'
@@ -241,7 +242,7 @@ function createReviewItems({
         : 'Forge starts it after the project file area is ready.'
 
   const taskQueue = selectedGroupName
-    ? selectedGroupName
+    ? waitingPlaceDisplayName(selectedGroupName)
     : hasSelectedProject
       ? hasGroups
         ? 'Choose where tasks wait now, or set it later from Tasks.'
@@ -1192,7 +1193,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                       <option value="">Set this later</option>
                       {groups.map((g) => (
                         <option key={g.id} value={g.id}>
-                          {g.name}
+                          {waitingPlaceDisplayName(g.name)}
                         </option>
                       ))}
                     </select>
