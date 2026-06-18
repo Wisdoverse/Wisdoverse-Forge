@@ -436,6 +436,8 @@ const CODE_ACCESS_ADDRESS_JARGON_PATTERNS = [
   /\bLeave address blank for cloud\b/i,
   /\bDefault cloud address\b/i,
   /\bGit address\b/i,
+  /\bGit service\b/i,
+  /\bcompany-hosted Git service\b/i,
   /\bGitHub or GitLab address\b/i,
   /\bOnly enter an address when your company hosts its own GitHub or GitLab\b/i,
 ]
@@ -4528,7 +4530,8 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'code-access-address-copy',
         location,
-        message: 'Code access address copy must tell beginners when to leave the address empty.',
+        message:
+          'Code access address copy must say code website and tell beginners when to leave the address empty.',
         sample: line.trim(),
       })
     }
