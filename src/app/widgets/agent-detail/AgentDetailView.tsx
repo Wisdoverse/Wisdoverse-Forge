@@ -81,9 +81,9 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
         </p>
       ) : agent.cliTool ? (
         <p>
-          This agent can edit files in a shared project area, which can include several projects.
-          The selected project is just where new tasks begin. Use a separate project area when files
-          must be kept apart.
+          This agent can edit shared project files, which may include several projects. The selected
+          project is just where new tasks begin. Use a separate set of project files when files must
+          be kept apart.
         </p>
       ) : (
         <p>
@@ -295,8 +295,8 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
               <DetailRow label="Where it works" value={agentRuntimeLabel(agent)} />
               <DetailRow label="Status" value={statusLabel} />
               <DetailRow
-                label="Project area it can use"
-                value={agent.workspaceName ?? 'Default project area'}
+                label="Project files it can use"
+                value={agent.workspaceName ?? 'Shared project files'}
               />
               <DetailRow
                 label="Starting project for tasks"
@@ -434,7 +434,7 @@ function agentNextStep(
   }
 
   return {
-    title: 'Go to Tasks to review recent activity',
+    title: 'Go to Tasks to check recent activity',
     detail: latestTask
       ? `The latest task was "${latestTask.params.task}" updated ${formatRelativeTime(latestTask.updatedAt)}.`
       : "Go to Tasks to load this agent's work history and decide what to send next.",

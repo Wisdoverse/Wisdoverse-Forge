@@ -272,7 +272,8 @@ describe('AgentDetailView', () => {
   test('guides agents without loaded task history into the Tasks tab', async () => {
     render(<AgentDetailView agent={{ ...containerAgent, status: 'working' }} onBack={() => {}} />)
 
-    expect(await screen.findByText('Go to Tasks to review recent activity')).toBeDefined()
+    expect(await screen.findByText('Go to Tasks to check recent activity')).toBeDefined()
+    expect(screen.queryByText('Go to Tasks to review recent activity')).toBeNull()
     expect(
       screen.getByText(
         "Go to Tasks to load this agent's work history and decide what to send next."
@@ -447,13 +448,16 @@ describe('AgentDetailView', () => {
     expect(screen.queryByText('opencode managed workspace')).toBeNull()
     expect(screen.queryByText('Workspace project folder')).toBeNull()
     expect(screen.queryByText('Ready in managed workspace')).toBeNull()
-    expect(screen.getByText('Project area it can use')).toBeDefined()
+    expect(screen.getByText('Project files it can use')).toBeDefined()
+    expect(screen.queryByText('Project area it can use')).toBeNull()
     expect(screen.getByText('Engineering')).toBeDefined()
     expect(screen.getByText('Starting project for tasks')).toBeDefined()
     expect(screen.getByText('Platform')).toBeDefined()
-    expect(screen.getByText(/can include several projects/i)).toBeDefined()
+    expect(screen.getByText(/may include several projects/i)).toBeDefined()
     expect(screen.getByText(/where new tasks begin/i)).toBeDefined()
+    expect(screen.getByText(/separate set of project files/i)).toBeDefined()
     expect(screen.getByText(/files must be kept apart/i)).toBeDefined()
+    expect(screen.queryByText(/shared project area/i)).toBeNull()
   })
 
   test('explains chat-only agents do not open workspace files', () => {

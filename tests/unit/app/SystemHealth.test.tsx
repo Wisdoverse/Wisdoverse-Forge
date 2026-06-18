@@ -96,6 +96,8 @@ describe('SystemHealth', () => {
     render(<SystemHealth />)
 
     expect(screen.getByText('All areas are ready')).toBeDefined()
+    expect(screen.getByText(/prepared project files agents use for file work/i)).toBeDefined()
+    expect(screen.queryByText(/prepared project areas/i)).toBeNull()
     expect(screen.getAllByText('Ready').length).toBe(4)
     expect(screen.queryByText('Not checked')).toBeNull()
     expect(screen.queryByText('Choose Check now to confirm')).toBeNull()

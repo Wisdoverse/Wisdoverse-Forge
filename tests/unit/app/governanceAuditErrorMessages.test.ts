@@ -110,8 +110,10 @@ describe('governanceAuditErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check the selected team space, project area, user, or task reference, then apply the change filters again.'
+      'Check the selected team space, work area, person, or task reference, then apply the change filters again.'
     )
+    expect(message).not.toContain('project area')
+    expect(message).not.toContain('user, or task')
     expect(message).not.toContain('project workspace')
     expect(message).not.toContain('selected organization')
     expect(message).not.toMatch(/task I[D]/)

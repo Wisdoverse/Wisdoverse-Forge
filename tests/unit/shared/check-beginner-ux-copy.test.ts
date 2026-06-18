@@ -3765,6 +3765,9 @@ export const zh = {
 function agentFolderLabel() {
   return 'Workspace project folder'
 }
+function AgentOverview() {
+  return <><p>Project area it can use</p><p>Default project area</p><p>This agent can edit files in a shared project area.</p></>
+}
 `,
     })
 
@@ -3800,6 +3803,18 @@ function agentFolderLabel() {
         expect.objectContaining({
           type: 'agent-work-area-display-copy',
           sample: expect.stringContaining('Workspace project folder'),
+        }),
+        expect.objectContaining({
+          type: 'agent-work-area-display-copy',
+          sample: expect.stringContaining('Project area it can use'),
+        }),
+        expect.objectContaining({
+          type: 'agent-work-area-display-copy',
+          sample: expect.stringContaining('Default project area'),
+        }),
+        expect.objectContaining({
+          type: 'agent-work-area-display-copy',
+          sample: expect.stringContaining('shared project area'),
         }),
       ])
     )
@@ -3858,6 +3873,9 @@ export const zh = {
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
 function agentFolderLabel() {
   return 'Default project folder'
+}
+function AgentOverview() {
+  return <><p>Project files it can use</p><p>Shared project files</p><p>This agent can edit shared project files.</p></>
 }
 `,
     })
@@ -4115,6 +4133,9 @@ export const zh = {
 function agentNextStep() {
   return { detail: 'No task activity has been loaded yet. Open Tasks to see this agent history.' }
 }
+function nextTitle() {
+  return 'Go to Tasks to review recent activity'
+}
 `,
     })
 
@@ -4127,6 +4148,10 @@ function agentNextStep() {
           type: 'agent-detail-activity-copy',
           location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:3',
         }),
+        expect.objectContaining({
+          type: 'agent-detail-activity-copy',
+          location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:6',
+        }),
       ])
     )
   })
@@ -4136,6 +4161,9 @@ function agentNextStep() {
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
 function agentNextStep() {
   return { detail: "Go to Tasks to load this agent's work history and decide what to send next." }
+}
+function nextTitle() {
+  return 'Go to Tasks to check recent activity'
 }
 `,
     })

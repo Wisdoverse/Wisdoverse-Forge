@@ -114,6 +114,8 @@ describe('AgentsPanel', () => {
     expect(
       screen.getByText('Check agents across every team space and filter them by work location.')
     ).toBeDefined()
+    expect(screen.getByText(/shared project files/i)).toBeDefined()
+    expect(screen.queryByText(/Forge project area/i)).toBeNull()
     expect(screen.queryByText(/every organization/i)).toBeNull()
     expect(loadAgentsMock).toHaveBeenCalled()
   })
