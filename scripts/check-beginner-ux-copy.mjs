@@ -263,6 +263,7 @@ const BILLING_ERROR_FAILURE_FIRST_PATTERNS = [
   /\bForge could not connect while loading billing\. Check your connection, then refresh Billing again\./i,
   /\bThe secure payment page did not open\. Try again\b/i,
   /\bThe billing management page did not open\. Try again\b/i,
+  /\bTry again later or ask an owner or admin to check billing access\./i,
 ]
 
 const ANALYTICS_CHART_DEAD_END_PATTERNS = [/\bNo activity data\b/i, /\bNo tool usage data\b/i]
@@ -1964,7 +1965,8 @@ function hasBillingReceiptLinkDeadEndCopy(relFile, line) {
 function hasBillingErrorFailureFirstCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/model/billing.store.ts') &&
-    !relFile.endsWith('src/app/features/billing/BillingPage.tsx')
+    !relFile.endsWith('src/app/features/billing/BillingPage.tsx') &&
+    !relFile.endsWith('src/app/features/billing/InvoiceList.tsx')
   ) {
     return false
   }
