@@ -61,7 +61,9 @@ describe('CloneStatusBadge', () => {
       />
     )
     expect(screen.getByText('Code copy needs help')).toBeInTheDocument()
-    expect(screen.getByText(/Check saved code access for this repository/)).toBeInTheDocument()
+    expect(screen.getByText(/Check saved code access for this code project/)).toBeInTheDocument()
+    expect(screen.getByText(/code website rejected Forge access/)).toBeInTheDocument()
+    expect(screen.queryByText(/repository/i)).not.toBeInTheDocument()
     expect(screen.queryByText('authentication failed')).not.toBeInTheDocument()
     expect(screen.queryByText(/Code import/i)).not.toBeInTheDocument()
   })
@@ -81,7 +83,40 @@ describe('CloneStatusBadge', () => {
     )
 
     expect(screen.getByText(/Check the code link, then try copying code again/)).toBeInTheDocument()
+    expect(screen.getByText(/could not find this code project/)).toBeInTheDocument()
     expect(screen.queryByText('repository not found')).not.toBeInTheDocument()
+    expect(screen.queryByText(/could not find this repository/i)).not.toBeInTheDocument()
+  })
+
+  it('renders network, timeout, and size failures with code-project wording', () => {
+    const cases: Array<{ errorClass: CloneSummary['errorClass']; expected: RegExp }> = [
+      {
+        errorClass: 'network',
+        expected: /Check your connection and code website address, then try copying code again/i,
+      },
+      {
+        errorClass: 'timeout',
+        expected: /The code website took too long to respond/i,
+      },
+      {
+        errorClass: 'too_large',
+        expected: /This code project is too large to copy right now/i,
+      },
+    ]
+
+    for (const item of cases) {
+      const { unmount } = render(
+        <CloneStatusBadge
+          projectId="p1"
+          status="failed"
+          variant="detail"
+          clone={summary({ status: 'failed', errorClass: item.errorClass })}
+        />
+      )
+      expect(screen.getByText(item.expected)).toBeInTheDocument()
+      expect(screen.queryByText(/repository/i)).not.toBeInTheDocument()
+      unmount()
+    }
   })
 
   it('renders failed unknown imports with a safe fallback instead of raw details', () => {
