@@ -122,7 +122,7 @@ interface ProviderOption {
 
 const DEFAULT_AGENT_CWD = '/workspace'
 const NO_READY_AI_SERVICE_ERROR =
-  'Open AI services settings, add a service, save it, then choose Check connection until it says Ready.'
+  'Open AI service settings, add a service, save it, then choose Check connection until it says Ready.'
 const NO_SELECTED_PROJECT_ERROR =
   'Open project settings, create or choose a project, then create this agent. Agents that work with files need a project first.'
 
@@ -463,7 +463,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
       }
       if (!data.model.trim()) {
         setFormError(
-          'Open AI services settings, choose Check connection for this service, then come back when it shows Ready.'
+          'Open AI service settings, choose Check connection for this service, then come back when it shows Ready.'
         )
         return
       }
@@ -622,7 +622,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                   href="/settings/providers"
                   className="inline-flex h-7 shrink-0 items-center justify-center gap-1 rounded-full border border-apple-red/20 bg-white/70 px-2.5 text-ui-button font-medium text-apple-red transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/35 dark:bg-white/[0.08] dark:hover:bg-white/[0.12]"
                 >
-                  <span>Open AI services settings</span>
+                  <span>Open AI service settings</span>
                   <ArrowRight size={12} strokeWidth={2.25} aria-hidden="true" />
                 </a>
               )}
@@ -1114,14 +1114,14 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                         readOnly
                         aria-describedby="agent-model-help"
                         className="h-10 w-full rounded-full border border-black/[0.08] bg-black/[0.025] px-4 text-ui-body text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-                        placeholder="Chosen in AI services settings"
+                        placeholder="Filled from AI service settings"
                       />
                       <p
                         id="agent-model-help"
                         className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
                       >
-                        This detail comes from AI services settings. You do not need to change it
-                        here.
+                        This comes from the checked AI service in Settings. You do not need to
+                        change it here.
                       </p>
                     </div>
                   </>
@@ -1134,14 +1134,14 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                       Add and check an AI service first
                     </p>
                     <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                      Open AI services settings, add a service, paste the service access key, save
+                      Open AI service settings, add a service, paste the service access key, save
                       it, then choose Check connection. Come back when the service shows Ready.
                     </p>
                     <a
                       href="/settings/providers"
                       className="mt-2 inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-apple-blue/20 bg-apple-blue/[0.08] px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35"
                     >
-                      <span>Open AI services settings</span>
+                      <span>Open AI service settings</span>
                       <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
                     </a>
                   </div>

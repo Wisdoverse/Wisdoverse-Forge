@@ -225,6 +225,7 @@ const PROVIDER_SETUP_JARGON_PATTERNS = [
   /\bservice (?:website )?address and model\b/i,
   /\bService address region\b/i,
   /\bChina\/Global address\b/i,
+  /\bAI services settings\b/i,
 ]
 
 const ADMIN_USERS_EMPTY_DEAD_END_PATTERNS = [/\bNo one is listed yet\b/i]
