@@ -383,10 +383,10 @@ function GettingStartedGuideRow() {
   const hidden = !showChecklist
   const canOpenChecklist = preferencesLoaded && showChecklist
   const statusLine = !preferencesLoaded
-    ? 'Checking whether Start already appears in the left menu...'
+    ? 'Checking whether the setup checklist already appears in the left menu...'
     : hidden
-      ? 'Start is hidden from the left menu right now.'
-      : 'Start is already in the left menu.'
+      ? 'The setup checklist is hidden from the left menu right now.'
+      : 'The setup checklist is already in the left menu.'
 
   async function handleRestore() {
     setError(null)
@@ -398,7 +398,7 @@ function GettingStartedGuideRow() {
       setRestored(true)
     } else {
       setError(
-        'Check your connection, then choose Show Start again. Start could not be added back to the left menu.'
+        'Check your connection, then choose Show setup checklist. The setup checklist could not be added back to the left menu.'
       )
     }
   }
@@ -415,7 +415,7 @@ function GettingStartedGuideRow() {
             Setup checklist
           </p>
           <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            If you skipped Start, use this to bring the setup checklist back to the left menu. New
+            If you skipped the setup checklist, use this to bring it back to the left menu. New
             sign-ins open Tasks by default. Projects, agents, and tasks stay the same. {statusLine}
           </p>
         </div>
@@ -438,7 +438,7 @@ function GettingStartedGuideRow() {
             disabled={restoring || !preferencesLoaded || !hidden}
             className={uiStyles.secondaryButton}
           >
-            {restoring ? 'Showing...' : 'Show Start again'}
+            {restoring ? 'Showing...' : 'Show setup checklist'}
           </button>
         </div>
       </div>
@@ -454,8 +454,8 @@ function GettingStartedGuideRow() {
           className="flex flex-col gap-2 rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue sm:flex-row sm:items-center sm:justify-between"
         >
           <span>
-            Start is back in the left menu. Open the setup checklist whenever you want to check
-            setup again. Your projects, agents, and tasks were not changed.
+            The setup checklist is back in the left menu. Open it whenever you want to check setup
+            again. Your projects, agents, and tasks were not changed.
           </span>
           <button
             type="button"

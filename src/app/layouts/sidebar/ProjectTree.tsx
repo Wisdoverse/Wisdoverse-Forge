@@ -83,6 +83,10 @@ type DeleteTargetState =
 interface CopyFeedback {
   message: string
   tone: 'success' | 'error'
+  manualValue?: {
+    label: string
+    value: string
+  }
 }
 
 interface ProjectMenuItemProps {
@@ -614,7 +618,11 @@ export function ProjectTree({
       setCopyFeedback({ message: successMessage, tone: 'success' })
     } catch {
       setCopyFeedback({
-        message: `Forge cannot copy from this browser. Select this ${valueLabel}, then copy it manually: ${value}`,
+        message: `Copy did not work. Select the ${valueLabel} below and copy it yourself.`,
+        manualValue: {
+          label: valueLabel,
+          value,
+        },
         tone: 'error',
       })
     }
@@ -1080,7 +1088,18 @@ export function ProjectTree({
               : 'rounded-full bg-foreground-light text-white dark:bg-foreground-dark dark:text-black'
           )}
         >
-          {copyFeedback.message}
+          <span>{copyFeedback.message}</span>
+          {copyFeedback.manualValue && (
+            <span className="mt-1 block">
+              <span className="sr-only">{copyFeedback.manualValue.label}: </span>
+              <span
+                data-testid="project-copy-manual-value"
+                className="block select-all rounded-md bg-apple-red/5 px-2 py-1 font-mono text-ui-caption text-foreground-light dark:bg-white/[0.08] dark:text-foreground-dark"
+              >
+                {copyFeedback.manualValue.value}
+              </span>
+            </span>
+          )}
         </div>
       )}
     </div>
