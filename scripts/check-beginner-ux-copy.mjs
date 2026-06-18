@@ -1285,6 +1285,8 @@ const TEAM_PROJECT_CREATE_JARGON_PATTERNS = [
 
 const TEAM_PROJECT_ROW_ADDRESS_JARGON_PATTERNS = [/\bAddress:\s*\{/i]
 
+const TEAM_PROJECT_SHORT_NAME_JARGON_PATTERNS = [/\blink name\b/i, /\bURL name:\s*\{/i]
+
 const CLONE_RETRY_FAILURE_FIRST_PATTERNS = [
   /\bYou do not have permission to copy code into this project\. Ask an owner or admin to let you try again\./i,
   /\bThis project could not be found\. Refresh Projects, then try copying code again from the current project row\./i,
@@ -2218,6 +2220,17 @@ function hasTeamProjectRowAddressJargonCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return TEAM_PROJECT_ROW_ADDRESS_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasTeamProjectShortNameJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/layouts/sidebar/ProjectTree.tsx') &&
+    !relFile.endsWith('src/app/features/admin/OrganizationsPanel.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TEAM_PROJECT_SHORT_NAME_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasCloneRetryFailureFirstCopy(relFile, line) {
@@ -4130,6 +4143,15 @@ function scanFile(file, relFile) {
         type: 'team-project-row-address-copy',
         location,
         message: 'Team and project rows must say short name instead of address.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTeamProjectShortNameJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'team-project-short-name-copy',
+        location,
+        message: 'Sidebar and admin labels must say short name instead of link name or URL name.',
         sample: line.trim(),
       })
     }
