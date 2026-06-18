@@ -45,9 +45,9 @@ describe('workspace management rows', () => {
       </>
     )
 
-    expect(screen.getAllByText(/Automatic link name:/i)).toHaveLength(2)
-    expect(screen.getByText(/Automatic link name:\s*product-team/i)).toBeDefined()
-    expect(screen.getByText('Automatic link name: website-launch')).toBeDefined()
+    expect(screen.getByText(/Automatic team name:\s*product-team/i)).toBeDefined()
+    expect(screen.getByText('Automatic project name: website-launch')).toBeDefined()
+    expect(screen.queryByText(/Automatic link name/i)).toBeNull()
     expect(screen.queryByText(/Team short name/i)).toBeNull()
     expect(screen.queryByText(/Project short name/i)).toBeNull()
     expect(screen.queryByText(/Address:\s*product-team/i)).toBeNull()

@@ -205,7 +205,7 @@ describe('AgentGroupsPanel', () => {
     expect(screen.queryByText(/unassigned/i)).toBeNull()
   })
 
-  test('hides sensitive blocked hints in routed task next steps', () => {
+  test('shows code access wording and hides sensitive blocked hints in routed task next steps', () => {
     seedRoutingState([
       makeTask({
         id: 'blocked-credentials',
@@ -217,7 +217,8 @@ describe('AgentGroupsPanel', () => {
 
     render(<AgentGroupsPanel />)
 
-    expect(screen.getByText('Connect repository access')).toBeInTheDocument()
+    expect(screen.getByText('Connect code access')).toBeInTheDocument()
+    expect(screen.queryByText('Connect repository access')).toBeNull()
     expect(screen.getByText(/needs agent .* waiting for account access/i)).toBeInTheDocument()
     expect(screen.queryByText(/token secret/i)).toBeNull()
     expect(screen.queryByText(/git provider/i)).toBeNull()

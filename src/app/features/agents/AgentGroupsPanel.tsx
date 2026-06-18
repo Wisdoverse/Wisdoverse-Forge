@@ -572,6 +572,7 @@ function RoutingMetric({
 }
 
 function RoutedTaskRow({ task }: { task: TaskSummary }) {
+  const title = routedTaskTitle(task)
   const assignment = routedTaskAssignment(task)
   const nextStep = routedTaskNextStep(task)
 
@@ -591,7 +592,7 @@ function RoutedTaskRow({ task }: { task: TaskSummary }) {
             {TASK_STATE_LABELS[task.state]}
           </span>
           <p className="truncate text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-            {task.params.task}
+            {title}
           </p>
         </div>
         <p className="mt-1 truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -602,6 +603,15 @@ function RoutedTaskRow({ task }: { task: TaskSummary }) {
         {Math.round(task.progress)}%
       </span>
     </li>
+  )
+}
+
+function routedTaskTitle(task: TaskSummary): string {
+  const rawTitle = task.params.task.trim()
+  if (!rawTitle) return 'Untitled task'
+
+  return rawTitle.replace(/\brepository access\b/gi, (match) =>
+    match[0] === 'R' ? 'Code access' : 'code access'
   )
 }
 
@@ -676,6 +686,7 @@ function filterAndSortGroupTasks(tasks: TaskSummary[], query: string): TaskSumma
 
 function groupTaskSearchText(task: TaskSummary): string {
   return [
+    routedTaskTitle(task),
     task.params.task,
     task.params.message,
     task.assignedAgentName,
