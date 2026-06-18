@@ -295,9 +295,9 @@ function settingsValidationMessage(
       normalized.includes('ssh key') ||
       normalized.includes('key')
     ) {
-      return 'Paste the public key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
+      return 'Paste the shareable public key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
     }
-    return 'Add a name for this access, paste the public key line, then save again.'
+    return 'Add a name for this access, paste the shareable public key line, then save again.'
   }
 
   if (area === 'resourceProfiles') {

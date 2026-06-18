@@ -291,7 +291,7 @@ export function SshKeysSection() {
     if (ok) {
       setShowForm(false)
       setSavedMessage(
-        'SSH code access saved. Create a small task with a git@ code link to confirm agents can open it. If it cannot read the repository, come back here and replace this key.'
+        'SSH code access saved. Create a small task with a git@ code link to confirm agents can open it. If agents cannot open the code, come back here and replace this key.'
       )
     }
   }
