@@ -566,11 +566,10 @@ export function CliImagesPanel() {
                 className="px-4 py-6 text-center text-ui-body"
               >
                 <p className="font-medium text-foreground-light dark:text-foreground-dark">
-                  No agent tools are ready for update checks
+                  Open Agents to add or enable a work tool
                 </p>
                 <p className="mx-auto mt-1 max-w-xl text-secondary-light dark:text-secondary-dark">
-                  Open Agents to add or enable a work tool, then return here and choose Check now
-                  before restarting agents.
+                  Then return here and choose Check now before restarting agents.
                 </p>
               </div>
             ) : (

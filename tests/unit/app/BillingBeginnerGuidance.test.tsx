@@ -47,7 +47,7 @@ describe('Billing beginner guidance', () => {
 
     render(<BillingPage />)
 
-    expect(screen.getByText('Billing is not ready yet')).toBeInTheDocument()
+    expect(screen.getByText('Ask an owner or admin to turn on billing')).toBeInTheDocument()
     expect(screen.getByText(/Billing is not turned on for this team yet/i)).toBeInTheDocument()
     expect(screen.getByText('What to do next')).toBeInTheDocument()
     expect(screen.getByText(/turn on billing for this team/i)).toBeInTheDocument()
@@ -84,9 +84,11 @@ describe('Billing beginner guidance', () => {
 
     expect(screen.getByText('Free Plan')).toBeInTheDocument()
     expect(screen.getByText('$0')).toBeInTheDocument()
-    expect(screen.getByText(/No paid plan is active yet/i)).toBeInTheDocument()
+    expect(screen.getByText(/Keep using the free plan/i)).toBeInTheDocument()
     expect(screen.getByText(/Upgrade when your team needs more agents/i)).toBeInTheDocument()
     expect(screen.getByText(/AI message use/i)).toBeInTheDocument()
+    expect(screen.queryByText(/No paid plan is active yet/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/No paid plan is attached yet/i)).not.toBeInTheDocument()
     expect(screen.queryByText(new RegExp('AI text\\s+usage', 'i'))).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /upgrade plan/i })).toHaveTextContent('Upgrade plan')
   })

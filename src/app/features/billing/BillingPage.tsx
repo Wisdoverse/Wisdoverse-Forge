@@ -30,7 +30,7 @@ function BillingNotConfigured() {
         <CreditCard size={20} strokeWidth={2} aria-hidden="true" />
       </div>
       <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-        Billing is not ready yet
+        Ask an owner or admin to turn on billing
       </h2>
       <p className="max-w-sm text-ui-body text-secondary-light dark:text-secondary-dark">
         Billing is not turned on for this team yet. Ask an owner or admin to connect billing before

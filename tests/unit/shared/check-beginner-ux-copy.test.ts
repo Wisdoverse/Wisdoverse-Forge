@@ -2342,12 +2342,13 @@ function metricCopy(metric) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags billing setup copy that uses setup-path or workspace wording', () => {
+  it('flags billing setup copy that uses dead-end titles, setup-path, or workspace wording', () => {
     const cwd = fixture({
       'src/app/features/billing/BillingPage.tsx': `
 function BillingNotConfigured() {
   return (
     <div>
+      <h2>Billing is not ready yet</h2>
       <p>Billing setup path</p>
       <p>Billing setup steps</p>
       <p>Ask an owner or admin to turn on billing for this workspace.</p>
@@ -2379,6 +2380,10 @@ function BillingNotConfigured() {
           type: 'billing-setup-copy',
           location: 'src/app/features/billing/BillingPage.tsx:8',
         }),
+        expect.objectContaining({
+          type: 'billing-setup-copy',
+          location: 'src/app/features/billing/BillingPage.tsx:9',
+        }),
       ])
     )
   })
@@ -2392,6 +2397,54 @@ function BillingNotConfigured() {
       <p>What to do next</p>
       <p>Ask an owner or admin to turn on billing for this team.</p>
       <p>Do not enter payment account passwords or keys on this page.</p>
+    </div>
+  )
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags billing plan copy that starts from no paid plan dead ends', () => {
+    const cwd = fixture({
+      'src/app/features/billing/PlanCard.tsx': `
+function PlanCard() {
+  return (
+    <div>
+      <p>No paid plan is active yet. You can keep working until the team needs more capacity.</p>
+      <p>No paid plan is attached yet. An owner or admin must make a paid plan available before the secure payment page can open.</p>
+    </div>
+  )
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'billing-plan-copy',
+          location: 'src/app/features/billing/PlanCard.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'billing-plan-copy',
+          location: 'src/app/features/billing/PlanCard.tsx:6',
+        }),
+      ])
+    )
+  })
+
+  it('accepts billing plan copy that starts with the safe next step', () => {
+    const cwd = fixture({
+      'src/app/features/billing/PlanCard.tsx': `
+function PlanCard() {
+  return (
+    <div>
+      <p>Keep using the free plan until your team needs more capacity.</p>
+      <p>Ask an owner or admin to make a paid plan available before the secure payment page can open.</p>
     </div>
   )
 }
@@ -4326,11 +4379,16 @@ function ToolUpdateError() {
     )
   })
 
-  it('flags agent tool update empty copy that gives no setup path', () => {
+  it('flags agent tool update empty copy that gives no setup path or starts with a dead end', () => {
     const cwd = fixture({
       'src/app/features/admin/CliImagesPanel.tsx': `
 function ToolUpdateEmpty() {
-  return <p>No agent tools are configured for update checks.</p>
+  return (
+    <div>
+      <p>No agent tools are configured for update checks.</p>
+      <p>No agent tools are ready for update checks</p>
+    </div>
+  )
 }
 `,
     })
@@ -4338,12 +4396,18 @@ function ToolUpdateEmpty() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'cli-image-status-copy',
-        location: 'src/app/features/admin/CliImagesPanel.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'cli-image-status-copy',
+          location: 'src/app/features/admin/CliImagesPanel.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'cli-image-status-copy',
+          location: 'src/app/features/admin/CliImagesPanel.tsx:6',
+        }),
+      ])
+    )
   })
 
   it('flags agent tool version copy that leaves beginners waiting', () => {
@@ -6894,7 +6958,23 @@ function chatOnlyBanner() {
   it('flags chat filter empty copy that uses reported-work jargon', () => {
     const cwd = fixture({
       'src/app/features/chat/ChatView.tsx': `
+function attentionEmptyTitle() {
+  return 'No help requests are open'
+}
+
+function operatorEmptyTitle() {
+  return 'No messages from you in this view yet'
+}
+
+function agentEmptyTitle() {
+  return 'No agent replies in this view yet'
+}
+
 function toolEmptyTitle() {
+  return 'No work steps are showing yet'
+}
+
+function toolEmptyFallbackTitle() {
   return 'No work steps have been reported yet'
 }
 
@@ -6924,6 +7004,22 @@ function toolEmptyNextStep() {
         expect.objectContaining({
           type: 'chat-filter-empty-copy',
           location: 'src/app/features/chat/ChatView.tsx:11',
+        }),
+        expect.objectContaining({
+          type: 'chat-filter-empty-copy',
+          location: 'src/app/features/chat/ChatView.tsx:15',
+        }),
+        expect.objectContaining({
+          type: 'chat-filter-empty-copy',
+          location: 'src/app/features/chat/ChatView.tsx:19',
+        }),
+        expect.objectContaining({
+          type: 'chat-filter-empty-copy',
+          location: 'src/app/features/chat/ChatView.tsx:23',
+        }),
+        expect.objectContaining({
+          type: 'chat-filter-empty-copy',
+          location: 'src/app/features/chat/ChatView.tsx:27',
         }),
       ])
     )

@@ -368,12 +368,13 @@ describe('ChatView', () => {
     expect(screen.getByText('Settings page shipped')).toBeInTheDocument()
 
     fireEvent.click(within(filters).getByRole('button', { name: /work steps\s*0/i }))
-    expect(screen.getByText('No work steps are showing yet')).toBeInTheDocument()
+    expect(screen.getByText('Assign a task to see work steps')).toBeInTheDocument()
     expect(
       screen.getByText('Work steps appear when an agent shares commands or tool results.')
     ).toBeInTheDocument()
     expect(screen.getByText(/assign a task so work steps can appear/i)).toBeInTheDocument()
     expect(screen.queryByText('No work steps have been reported yet')).toBeNull()
+    expect(screen.queryByText('No work steps are showing yet')).toBeNull()
   })
 
   test('explains an empty You filter without operator jargon', () => {
@@ -393,9 +394,33 @@ describe('ChatView', () => {
     fireEvent.click(within(filters).getByRole('button', { name: /you\s*0/i }))
 
     const emptyState = screen.getByTestId('conversation-filter-empty')
-    expect(emptyState).toHaveTextContent('No messages from you in this view yet')
+    expect(emptyState).toHaveTextContent('Send a message to see your requests here')
     expect(emptyState).toHaveTextContent('The You filter only shows requests you sent.')
+    expect(emptyState).not.toHaveTextContent('No messages from you in this view yet')
     expect(emptyState).not.toHaveTextContent('operator')
+  })
+
+  test('explains an empty Attention filter with the next place to check', () => {
+    useAgentsStore.setState({ agents: [providerAgent] })
+    seedChatState({
+      messages: [
+        message('Settings page shipped', {
+          id: 'assistant-1',
+          content: 'Settings page shipped',
+        }),
+      ],
+    })
+
+    render(<ChatView agentId={providerAgent.id} />)
+
+    const filters = screen.getByTestId('conversation-filter-group')
+    fireEvent.click(within(filters).getByRole('button', { name: /attention\s*0/i }))
+
+    const emptyState = screen.getByTestId('conversation-filter-empty')
+    expect(emptyState).toHaveTextContent('Use All if you expected a blocker')
+    expect(emptyState).toHaveTextContent('No message is stuck, failed, waiting, or asking for your help in this view.')
+    expect(emptyState).toHaveTextContent('use All to read the full conversation')
+    expect(emptyState).not.toHaveTextContent('No help requests are open')
   })
 
   test('summarizes CLI turns with tools and failed tool attention', async () => {

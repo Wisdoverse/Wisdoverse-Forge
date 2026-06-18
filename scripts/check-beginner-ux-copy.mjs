@@ -260,10 +260,16 @@ const BILLING_USAGE_AUDIT_JARGON_PATTERNS = [/\baudit records?\b/i]
 const BILLING_USAGE_EVENT_JARGON_PATTERNS = [/\bActivity events\b/i]
 
 const BILLING_SETUP_JARGON_PATTERNS = [
+  /\bBilling is not ready yet\b/i,
   /\bBilling setup (?:path|steps)\b/i,
   /\bfor this workspace\b/i,
   /\bthis workspace\b/i,
   /\bsecret payment settings\b/i,
+]
+
+const BILLING_PLAN_DEAD_END_PATTERNS = [
+  /\bNo paid plan is active yet\b/i,
+  /\bNo paid plan is attached yet\b/i,
 ]
 
 const BILLING_RECEIPT_LINK_DEAD_END_PATTERNS = [/\bNo link\b/i]
@@ -422,6 +428,7 @@ const CLI_IMAGE_STATUS_DEAD_END_PATTERNS = [
   /\bTool for new agents:/i,
   /\bLatest tool found:/i,
   /\bNo agent tools are configured for update checks\b/i,
+  /\bNo agent tools are ready for update checks\b/i,
   /\bNo result yet\b/i,
   /\bNot downloaded yet\b/i,
   /\bNot checked yet\b/i,
@@ -1106,6 +1113,10 @@ const CHAT_OPERATOR_JARGON_PATTERNS = [
 
 const CHAT_FILTER_EMPTY_DEAD_END_PATTERNS = [
   /\bNothing is marked blocked, failed, waiting, or needing review in this view\./i,
+  /\bNo help requests are open\b/i,
+  /\bNo messages from you in this view yet\b/i,
+  /\bNo agent replies in this view yet\b/i,
+  /\bNo work steps are showing yet\b/i,
   /\bNo work steps have been reported yet\b/i,
   /\bworkspace agent reports commands or tool runs\b/i,
   /\bassign a workspace task to create work steps\b/i,
@@ -2058,6 +2069,12 @@ function hasBillingSetupJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/billing/BillingPage.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return BILLING_SETUP_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasBillingPlanDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/billing/PlanCard.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return BILLING_PLAN_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasBillingReceiptLinkDeadEndCopy(relFile, line) {
@@ -4153,6 +4170,15 @@ function scanFile(file, relFile) {
         type: 'billing-setup-copy',
         location,
         message: 'Billing setup copy must say setup steps instead of setup path.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasBillingPlanDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'billing-plan-copy',
+        location,
+        message: 'Billing plan copy must start with the safe next step for beginners.',
         sample: line.trim(),
       })
     }
