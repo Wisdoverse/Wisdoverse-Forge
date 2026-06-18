@@ -156,14 +156,13 @@ export function PlanCard({
           </div>
 
           <p className="max-w-2xl text-ui-body text-secondary-light dark:text-secondary-dark">
-            {plan?.description ??
-              'No paid plan is active yet. You can keep working until the team needs more capacity.'}
+            {plan?.description ?? 'Keep using the free plan until your team needs more capacity.'}
           </p>
 
           {!plan && !subscription && (
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              No paid plan is attached yet. An owner or admin must make a paid plan available before
-              the secure payment page can open.
+              Ask an owner or admin to make a paid plan available before the secure payment page can
+              open.
             </p>
           )}
 

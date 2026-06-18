@@ -91,7 +91,7 @@ function conversationFilterEmptyCopy(
 
   if (filter === 'attention') {
     return {
-      title: 'No help requests are open',
+      title: 'Use All if you expected a blocker',
       detail: 'No message is stuck, failed, waiting, or asking for your help in this view.',
       nextStep:
         'Next: use All to read the full conversation, or send a short follow-up if you expected a blocker.',
@@ -100,7 +100,7 @@ function conversationFilterEmptyCopy(
 
   if (filter === 'operator') {
     return {
-      title: 'No messages from you in this view yet',
+      title: 'Send a message to see your requests here',
       detail: 'The You filter only shows requests you sent.',
       nextStep: 'Next: use All to review every update, or send a message below to add a request.',
     }
@@ -108,7 +108,7 @@ function conversationFilterEmptyCopy(
 
   if (filter === 'agent') {
     return {
-      title: 'No agent replies in this view yet',
+      title: 'Wait for the agent reply, or use All',
       detail: 'The Agent filter only shows answers or progress notes from the agent.',
       nextStep: 'Next: use All to see the full history, or wait for the agent to report progress.',
     }
@@ -116,7 +116,7 @@ function conversationFilterEmptyCopy(
 
   if (filter === 'tool') {
     return {
-      title: 'No work steps are showing yet',
+      title: 'Assign a task to see work steps',
       detail: 'Work steps appear when an agent shares commands or tool results.',
       nextStep: 'Next: use All to see chat updates, or assign a task so work steps can appear.',
     }
