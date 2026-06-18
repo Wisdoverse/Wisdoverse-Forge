@@ -164,6 +164,8 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('Connection')).toBeDefined()
     expect(screen.getByText('Connected from this computer')).toBeDefined()
     expect(screen.queryByText('host-aabbccdd')).toBeNull()
+    expect(screen.getByText('Folder selected during setup: /home/operator/project')).toBeDefined()
+    expect(screen.queryByText('/home/operator/project')).toBeNull()
     expect(screen.getByText(/this computer does the work/i)).toBeDefined()
     expect(screen.getByText(/folder where you pasted the setup text/i)).toBeDefined()
     expect(screen.queryByText(/setup command/i)).toBeNull()
@@ -225,6 +227,18 @@ describe('AgentDetailView', () => {
     expect(screen.queryByText('No recent task updates')).toBeNull()
     expect(screen.queryByText(/unassigned/i)).toBeNull()
     expect(screen.getByRole('button', { name: /open tasks/i })).toBeDefined()
+  })
+
+  test('explains custom file folders before showing the folder path', () => {
+    render(
+      <AgentDetailView
+        agent={{ ...containerAgent, cwd: '/workspace/projects/platform' }}
+        onBack={() => {}}
+      />
+    )
+
+    expect(screen.getByText('Agent work folder: /workspace/projects/platform')).toBeDefined()
+    expect(screen.queryByText('/workspace/projects/platform')).toBeNull()
   })
 
   test('guides active work into the Tasks tab', async () => {
