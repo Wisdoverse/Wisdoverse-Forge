@@ -434,6 +434,8 @@ const CODE_ACCESS_KEY_JARGON_PATTERNS = [/\bPaste the key from GitHub or GitLab\
 
 const CODE_ACCESS_ADDRESS_JARGON_PATTERNS = [
   /\bLeave address blank for cloud\b/i,
+  /\bUse the normal website by default\b/i,
+  /\bAdd one only if your company uses its own GitHub or GitLab website\b/i,
   /\bDefault cloud address\b/i,
   /\bGit address\b/i,
   /\bGit service\b/i,
