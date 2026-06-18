@@ -92,7 +92,7 @@ export function InjectionPreviewModal({
       <button
         type="button"
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        aria-label="Close saved notes review"
+        aria-label="Close saved items check"
         onClick={() => {
           if (!publishing) onClose()
         }}
@@ -112,7 +112,7 @@ export function InjectionPreviewModal({
               id="context-preview-title"
               className="text-ui-title font-semibold text-foreground-light dark:text-foreground-dark"
             >
-              Review saved notes before sending
+              Check saved items before sending
             </h2>
             <p
               className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
@@ -129,7 +129,7 @@ export function InjectionPreviewModal({
             type="button"
             onClick={onClose}
             disabled={publishing}
-            aria-label="Close saved notes review"
+            aria-label="Close saved items check"
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-secondary-light transition-colors hover:bg-black/[0.04] hover:text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
           >
             <X size={15} strokeWidth={2} aria-hidden="true" />
@@ -140,7 +140,7 @@ export function InjectionPreviewModal({
           {loading ? (
             <div className="flex items-center gap-2 py-8 text-ui-body text-secondary-light dark:text-secondary-dark">
               <RefreshCw size={14} strokeWidth={2} className="animate-spin" aria-hidden="true" />
-              Loading saved notes review…
+              Checking saved items…
             </div>
           ) : preview ? (
             <div className="space-y-4">
@@ -225,7 +225,7 @@ export function InjectionPreviewModal({
                 </div>
               )}
               <p>
-                Saved notes review is not ready yet. Close this window, choose an available agent,
+                Saved items check is not ready yet. Close this window, choose an available agent,
                 then try sending again.
               </p>
             </div>

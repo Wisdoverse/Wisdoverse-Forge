@@ -602,6 +602,22 @@ const START_NAV_LABEL_JARGON_PATTERNS = [
 
 const START_PAGE_TITLE_JARGON_PATTERNS = [/['"`]\/start['"`]\s*:\s*\{\s*title:\s*['"`]Start['"`]/]
 
+const NAVIGATION_REVIEW_ACTION_JARGON_PATTERNS = [
+  /\bsee tasks and review progress\b/i,
+  /\breview updates that need a next step\b/i,
+  /\breview saved notes and instructions\b/i,
+  /\breview plan, payments, and invoices\b/i,
+  /\bReview setup steps again\b/i,
+  /\bReview alerts that may need a person\b/i,
+  /\bReview saved notes and instructions before agents reuse them\b/i,
+  /\bUse Inbox to review updates\b/i,
+  /\bReview history\b/i,
+  /\bSee what was reviewed or reused\b/i,
+  /\bReview what agents may reuse later\b/i,
+  /\bChecking saved notes review\b/i,
+  /\bsaved notes review is available here\b/i,
+]
+
 const SIDEBAR_LAYOUT_JARGON_PATTERNS = [
   /\b(?:from|in|to) the sidebar\b/i,
   /\breopen the sidebar\b/i,
@@ -1337,6 +1353,24 @@ const CONTEXT_CANDIDATE_PREVIEW_DEAD_END_PATTERNS = [
   /\bNo preview yet\b/i,
   /\bNo preview is available yet\b/i,
   /\binspect the full suggestion\b/i,
+]
+
+const SAVED_ITEMS_CHECK_JARGON_PATTERNS = [
+  /\bReview saved notes before sending\b/i,
+  /\bClose saved notes review\b/i,
+  /\bLoading saved notes review\b/i,
+  /\bSaved notes review is not ready yet\b/i,
+  /\bNo saved notes review is available yet\b/i,
+  /\bOpen saved notes review\b/i,
+  /\bopen Saved notes review\b/i,
+  /\bsaved notes review right now\b/i,
+  /\bopen the saved notes review again\b/i,
+  /\brefresh saved notes review\b/i,
+  /\bSaved notes review could not load\b/i,
+  /\bSaved notes review is busy\b/i,
+  /\breview saved notes and instructions\b/i,
+  /\bReview the saved notes\b/i,
+  /\bReview the selected saved notes\b/i,
 ]
 
 const TASK_AGENT_CAPABILITY_JARGON_PATTERNS = [
@@ -2394,6 +2428,21 @@ function hasContextCandidatePreviewDeadEndCopy(relFile, line) {
   return CONTEXT_CANDIDATE_PREVIEW_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasSavedItemsCheckJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/entities/context/ui/InjectionPreviewModal.tsx') &&
+    !relFile.endsWith('src/app/features/detail/ContextCandidatesList.tsx') &&
+    !relFile.endsWith('src/app/features/board/boardErrorMessages.ts') &&
+    !relFile.endsWith('src/app/features/detail/taskDetailErrorMessages.ts') &&
+    !relFile.endsWith('src/app/features/context/approvalQueueErrorMessages.ts') &&
+    !relFile.endsWith('src/app/features/detail/TaskDetailPanel.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SAVED_ITEMS_CHECK_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasTaskAgentCapabilityJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/detail/TaskDetailPanel.tsx') &&
@@ -3163,6 +3212,19 @@ function hasStartPageTitleJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/layouts/AppLayout.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return START_PAGE_TITLE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasNavigationReviewActionJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/layouts/sidebar/SidebarNav.tsx') &&
+    !relFile.endsWith('src/app/layouts/AppLayout.tsx') &&
+    !relFile.endsWith('src/app/features/cmdk/CommandPalette.tsx') &&
+    !relFile.endsWith('src/app/routes/context.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return NAVIGATION_REVIEW_ACTION_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasSidebarLayoutJargonCopy(relFile, line) {
@@ -4677,6 +4739,16 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasSavedItemsCheckJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'saved-items-check-copy',
+        location,
+        message:
+          'Task-send saved item checks must say Saved items/check instead of saved notes review.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasTaskAgentCapabilityJargonCopy(relFile, line)) {
       findings.push({
         type: 'task-agent-capability-copy',
@@ -5519,6 +5591,16 @@ function scanFile(file, relFile) {
         type: 'start-page-title-copy',
         location,
         message: 'The Start page title must say setup checklist so beginners know this is a guide.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasNavigationReviewActionJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'navigation-action-copy',
+        location,
+        message:
+          'Navigation and loading copy must use check/open wording for ordinary actions instead of review.',
         sample: line.trim(),
       })
     }

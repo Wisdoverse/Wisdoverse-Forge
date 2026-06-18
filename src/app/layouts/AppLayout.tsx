@@ -21,11 +21,11 @@ interface AppLayoutProps {
 const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   '/start': { title: 'Setup checklist', subtitle: 'Set up Forge and send your first task' },
   '/tasks': { title: 'Tasks', subtitle: 'Create tasks and follow agent progress' },
-  '/inbox': { title: 'Inbox', subtitle: 'Review updates that need a next step' },
-  '/context/audit': { title: 'Review history', subtitle: 'See what was reviewed or reused' },
+  '/inbox': { title: 'Inbox', subtitle: 'Check updates that need a next step' },
+  '/context/audit': { title: 'Saved item history', subtitle: 'See what was checked or reused' },
   '/context': {
     title: 'Saved notes and instructions',
-    subtitle: 'Review what agents may reuse later',
+    subtitle: 'Check what agents may reuse later',
   },
   '/agents': { title: 'Agents', subtitle: 'Create and manage agents that handle tasks' },
   '/skills': { title: 'Saved instructions', subtitle: 'Instructions agents can follow again' },
