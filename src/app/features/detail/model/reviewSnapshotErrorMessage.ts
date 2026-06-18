@@ -4,9 +4,9 @@ const RAW_NETWORK_ERRORS = [/^Network error$/i, /^Failed to fetch$/i]
 const RAW_STATUS_ERRORS = [/^API\s+\d{3}/i, /^HTTP\s+\d{3}/i, /^Server error\s*\(\d{3}\)$/i]
 
 const ACTION_FALLBACKS: Record<ReviewSnapshotAction, string> = {
-  load: 'Refresh code fix review, then try again. Forge could not load the current GitHub review status.',
+  load: 'Refresh fix review, then try again. Forge could not load the current review status.',
   approve:
-    'Refresh code fix review, confirm build checks passed, then merge this fix again. The fix was not merged.',
+    'Refresh fix review, confirm automated checks passed, then finish this fix again. The fix was not finished.',
 }
 
 export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: unknown): string {
@@ -15,7 +15,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
   const text = detail?.toLowerCase() ?? ''
 
   if (text.includes('can not approve your own pull request')) {
-    return 'Ask another maintainer to review this code fix. GitHub needs someone else to review changes you opened yourself.'
+    return 'Ask another owner or admin to review this fix. The review system needs someone else to review changes you opened yourself.'
   }
 
   if (
@@ -24,7 +24,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('bad credentials') ||
     text.includes('sign in again')
   ) {
-    return 'Sign in again, then refresh code fix review. Forge could not confirm your GitHub access.'
+    return 'Sign in again, then refresh fix review. Forge could not confirm your review access.'
   }
 
   if (
@@ -33,7 +33,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('permission') ||
     text.includes('resource not accessible')
   ) {
-    return 'Ask an owner or admin to check GitHub access for this repository, then try again.'
+    return 'Ask an owner or admin to check code review access for this code project, then try again.'
   }
 
   if (
@@ -42,7 +42,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('no pull request') ||
     text.includes('pull request could not be found')
   ) {
-    return 'Refresh this task, then open the GitHub review again. Forge could not find the review for this task.'
+    return 'Refresh this task, then open the review page again. Forge could not find the review for this task.'
   }
 
   if (
@@ -51,7 +51,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('mergeable state') ||
     text.includes('cannot be merged')
   ) {
-    return 'Refresh code fix review after the branch is updated. This fix needs the latest main branch before it can merge.'
+    return 'Refresh fix review after the project code is updated. This fix needs the latest project code before it can finish.'
   }
 
   if (
@@ -60,7 +60,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('check_suite') ||
     text.includes('required status')
   ) {
-    return 'Wait for build checks to finish, then refresh code fix review before merging.'
+    return 'Wait for automated checks to finish, then refresh fix review before finishing.'
   }
 
   const safeDetail = userSafeDetail(detail)

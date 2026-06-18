@@ -138,6 +138,33 @@ describe('AccountSection', () => {
     ).toBeDefined()
   })
 
+  test('stops users from reusing the current password as the new password', async () => {
+    renderAccountSection()
+
+    fireEvent.change(screen.getByLabelText('Current Password'), {
+      target: { value: 'same-password' },
+    })
+    fireEvent.change(screen.getByLabelText('New Password'), {
+      target: { value: 'same-password' },
+    })
+    fireEvent.change(screen.getByLabelText('Confirm New Password'), {
+      target: { value: 'same-password' },
+    })
+
+    expect(
+      screen.getByText('Needed: Use a new password that is different from the current password.')
+    ).toBeDefined()
+    expect(screen.getByRole('button', { name: /update password/i })).toBeDisabled()
+
+    fireEvent.submit(screen.getByLabelText('Current Password').closest('form')!)
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Choose a new password that is different from the current password.'
+    )
+    expect(screen.getByLabelText('New Password')).toHaveFocus()
+    expect(changePasswordMock).not.toHaveBeenCalled()
+  })
+
   test('makes team space rename consequences and the save action explicit', async () => {
     const updateOrg = vi.fn().mockResolvedValue(undefined)
     useNavigationStore.setState({ updateOrg })

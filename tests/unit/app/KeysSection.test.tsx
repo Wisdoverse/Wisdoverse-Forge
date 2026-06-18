@@ -126,8 +126,20 @@ describe('KeysSection', () => {
     expect(screen.queryByText(/full key is shown/i)).toBeNull()
     expect(screen.getByRole('button', { name: /copy access value/i })).toBeDefined()
     expect(screen.queryByRole('button', { name: /copy key/i })).toBeNull()
-    expect(screen.getByRole('button', { name: /i saved this value/i })).toBeDefined()
+    const savedButton = screen.getByRole('button', { name: /i saved this value/i })
+    expect(savedButton).toBeDefined()
     expect(screen.getByText('af_test_key_value')).toBeDefined()
+
+    fireEvent.click(savedButton)
+
+    expect(screen.getByText('af_test_key_value')).toBeDefined()
+    expect(screen.getByText(/This value disappears after you hide it/i)).toBeDefined()
+    expect(screen.getByText(/Save it in a password manager first/i)).toBeDefined()
+    expect(screen.getByRole('button', { name: /hide saved value now/i })).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: /hide saved value now/i }))
+
+    expect(screen.queryByText('af_test_key_value')).toBeNull()
   })
 
   test('shows manual save guidance when copying the one-time key fails', async () => {
