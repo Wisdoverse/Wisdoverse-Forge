@@ -25,7 +25,7 @@ function feedFilteredEmptyCopy(filter: FeedFilter): FeedFilteredEmptyCopy {
   if (filter === 'needs-action') {
     return {
       title: 'You are caught up on urgent updates',
-      detail: 'Nothing is asking for your help. Use All to review work that is still moving.',
+      detail: 'Urgent updates are clear. Use All to review work that is still moving.',
       nextStep: 'Next: show all updates before starting more work.',
     }
   }
