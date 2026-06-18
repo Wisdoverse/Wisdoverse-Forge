@@ -3,7 +3,10 @@ import { Plus } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useAuth } from '@app/shared/model/auth.context'
-import { ResourceMembersModal } from '@app/features/manage-members'
+import {
+  ResourceMembersModal,
+  resourceMemberSelectionLostMessage,
+} from '@app/features/manage-members'
 import { CreateTeamForm, EditableTeamRow } from '@app/features/manage-team'
 import { userApi } from '@app/entities/user'
 import { teamApi, type NavTeam, type UpdateTeamInput } from '@app/entities/team'
@@ -79,7 +82,7 @@ export function TeamsSection() {
   const addSelectedTeamMember = useCallback(
     async (input: Parameters<typeof teamApi.addMember>[2]) => {
       const orgId = user?.orgId
-      if (!orgId || !membersTeam) throw new Error('No team selected')
+      if (!orgId || !membersTeam) throw new Error(resourceMemberSelectionLostMessage('Team'))
       return teamApi.addMember(orgId, membersTeam.id, input)
     },
     [membersTeam, user?.orgId]
@@ -88,7 +91,7 @@ export function TeamsSection() {
   const updateSelectedTeamMember = useCallback(
     async (userId: string, input: Parameters<typeof teamApi.updateMember>[3]) => {
       const orgId = user?.orgId
-      if (!orgId || !membersTeam) throw new Error('No team selected')
+      if (!orgId || !membersTeam) throw new Error(resourceMemberSelectionLostMessage('Team'))
       return teamApi.updateMember(orgId, membersTeam.id, userId, input)
     },
     [membersTeam, user?.orgId]
@@ -97,7 +100,7 @@ export function TeamsSection() {
   const removeSelectedTeamMember = useCallback(
     async (userId: string) => {
       const orgId = user?.orgId
-      if (!orgId || !membersTeam) throw new Error('No team selected')
+      if (!orgId || !membersTeam) throw new Error(resourceMemberSelectionLostMessage('Team'))
       return teamApi.removeMember(orgId, membersTeam.id, userId)
     },
     [membersTeam, user?.orgId]
