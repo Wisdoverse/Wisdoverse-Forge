@@ -166,9 +166,14 @@ describe('TaskFormModal', () => {
 
     expect(screen.getByText('Connect an agent before this task can start')).toBeDefined()
     expect(screen.getByText(/save the task now/i)).toBeDefined()
-    expect(screen.getByText(/wait until an agent is Ready/i)).toBeDefined()
+    expect(
+      screen.getByText(
+        'Save the task now. It will wait here until an agent is ready. To start it sooner, open agent setup.'
+      )
+    ).toBeDefined()
+    expect(screen.getByText(/to start it sooner, open agent setup/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /save task to wait/i })).toBeDefined()
-    expect(screen.getByText(/This task will wait here until an agent is Ready/i)).toBeDefined()
+    expect(screen.getByText(/This task will wait here until an agent is ready/i)).toBeDefined()
     expect(screen.queryByText('No agents are online')).toBeNull()
     expect(screen.queryByText(/Create the task now/i)).toBeNull()
     expect(screen.queryByText(/dispatched?/i)).toBeNull()
@@ -208,9 +213,10 @@ describe('TaskFormModal', () => {
     })
 
     expect(screen.getByText('Start or connect an agent before this task can start')).toBeDefined()
-    expect(screen.getByText(/wait until one of your agents is Ready/i)).toBeDefined()
+    expect(screen.getByText(/wait here until one of your agents is ready/i)).toBeDefined()
+    expect(screen.getByText(/to start it sooner, open agent setup/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /save task to wait/i })).toBeDefined()
-    expect(screen.getByText(/This task will wait here until an agent is Ready/i)).toBeDefined()
+    expect(screen.getByText(/This task will wait here until an agent is ready/i)).toBeDefined()
     expect(screen.queryByText('No agents are available right now')).toBeNull()
     expect(
       screen.getByRole('option', { name: /let the next ready agent pick it up/i })
@@ -254,9 +260,9 @@ describe('TaskFormModal', () => {
     })
 
     expect(screen.getByTestId('task-work-lane-readiness')).toHaveTextContent(
-      /Create a task queue before sending work/i
+      /Open task queues before creating this task/i
     )
-    expect(screen.getByText(/A task queue gives new work a place to wait/i)).toBeDefined()
+    expect(screen.getByText(/Create one task queue so new work has a place to wait/i)).toBeDefined()
     expect(screen.getByTestId('task-work-lane-readiness').textContent).not.toContain(
       ['agent', 'is', 'ready'].join(' ')
     )
@@ -500,9 +506,9 @@ describe('TaskFormModal', () => {
     await waitFor(() => expect(onProjectChange).toHaveBeenCalledWith(otherProject.id))
 
     const readiness = screen.getByTestId('task-work-lane-readiness')
-    expect(readiness).toHaveTextContent('Preparing this project')
+    expect(readiness).toHaveTextContent('Loading this project')
     expect(readiness).toHaveTextContent(
-      'Forge is loading the task queue for this project. Wait a moment before creating the task.'
+      'Wait a moment while Forge finds where new tasks wait for this project.'
     )
     expect(readiness).not.toHaveTextContent('Create a Task Queue First')
     expect(readiness).not.toHaveTextContent('Preparing This Project')

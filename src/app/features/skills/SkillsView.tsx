@@ -11,8 +11,8 @@ type SkillFilter = 'all' | 'installed' | 'available' | 'cli'
 
 const SKILL_FILTER_LABELS: Record<SkillFilter, string> = {
   all: 'All',
-  installed: 'Installed',
-  available: 'Available',
+  installed: 'Ready to use',
+  available: 'Needs install',
   cli: 'For one work tool',
 }
 
@@ -102,7 +102,7 @@ export function SkillsView() {
             className={uiStyles.primaryButton}
           >
             <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
-            <span>Save Instruction</span>
+            <span>Save instruction</span>
           </button>
         </div>
       </div>
@@ -116,8 +116,8 @@ export function SkillsView() {
           >
             <div className="grid gap-2 sm:grid-cols-4">
               <SkillStat label="Total" value={stats.total} Icon={BrainCircuit} />
-              <SkillStat label="Installed" value={stats.installed} Icon={CheckCircle2} />
-              <SkillStat label="Available" value={stats.available} Icon={Circle} />
+              <SkillStat label="Ready to use" value={stats.installed} Icon={CheckCircle2} />
+              <SkillStat label="Needs install" value={stats.available} Icon={Circle} />
               <SkillStat label="For one work tool" value={stats.cliScoped} Icon={Terminal} />
             </div>
             <div className="rounded-card border border-black/[0.08] bg-white p-3 dark:border-white/[0.1] dark:bg-[#2a2a2c]">
@@ -194,7 +194,7 @@ export function SkillsView() {
               className={uiStyles.primaryButton}
             >
               <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
-              <span>Save Instruction</span>
+              <span>Save instruction</span>
             </button>
           </div>
         )}
@@ -264,13 +264,13 @@ function savedInstructionsEmptyState({
     return {
       title: 'Clear search or create a saved instruction',
       detail:
-        'There are no saved instructions yet. Clear search, then choose Save Instruction to save reusable steps.',
+        'There are no saved instructions yet. Clear search, then choose Save instruction to save reusable steps.',
     }
   }
 
   return {
     title: 'Create your first saved instruction',
-    detail: 'Saved instructions are reusable steps that agents can apply during task work.',
+    detail: 'Save steps your agents should repeat, like review checklists or release-note rules.',
   }
 }
 
@@ -321,10 +321,10 @@ function skillToolbarStatus({
   if (visibleCount > 0) {
     return `${visibleCount} saved instruction${visibleCount === 1 ? '' : 's'}`
   }
-  if (totalCount === 0) return 'Choose Save Instruction to start.'
+  if (totalCount === 0) return 'Choose Save instruction to start.'
   if (searchQuery.trim()) return 'Clear search to see saved instructions.'
   if (filter !== 'all') return 'Change filter to see saved instructions.'
-  return 'Choose Save Instruction or refresh this page.'
+  return 'Choose Save instruction or refresh this page.'
 }
 
 function SkillStat({

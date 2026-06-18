@@ -7797,7 +7797,11 @@ function busy() {
     const cwd = fixture({
       'src/app/features/skills/CreateSkillModal.tsx': `
 const skillTemplates = [{
-  content: 'Check GitHub or GitLab once and summarize a recent PR or CI summary. Classify the result as ACTION, WAIT, or DONE. For ACTION, inspect only the failed check or job details. For WAIT, stop monitoring in chat and suggest a background monitor. For DONE, report final status.'
+  id: 'ci-status',
+  form: {
+    name: 'pr-status-check',
+    content: 'Check GitHub or GitLab once and summarize a recent PR or CI summary, merge readiness, and build result. Classify the result as ACTION, WAIT, or DONE. For ACTION, inspect only the failed check or job details. For WAIT, stop monitoring in chat and suggest a background monitor. For DONE, report final status.'
+  }
 }]
 `,
     })
@@ -7839,7 +7843,11 @@ const skillTemplates = [{
     const cwd = fixture({
       'src/app/features/skills/CreateSkillModal.tsx': `
 const skillTemplates = [{
-  content: 'Check the code review page once and summarize review result, merge readiness, and build result. Start with one plain result: Needs a fix, Waiting, or Done. For Needs a fix, open only the failed build or review item. For Waiting, stop checking in chat.'
+  id: 'work-status',
+  form: {
+    name: 'work-status-check',
+    content: 'Check the review page once and summarize review result, ready-to-finish status, and automated check result. Start with one plain result: Needs a fix, Waiting, or Done. For Needs a fix, open only the failed check or review item. For Waiting, stop checking in chat.'
+  }
 }]
 `,
     })
@@ -9090,7 +9098,7 @@ function TaskFormModal() {
     const cwd = fixture({
       'src/app/features/board/TaskFormModal.tsx': `
 function TaskFormModal() {
-  return <div><p>Connect an agent before this task can start</p><p>Save the task now. It will wait until an agent is Ready, or you can open agent setup first.</p><button>Open agent setup</button></div>
+  return <div><p>Connect an agent before this task can start</p><p>Save the task now. It will wait here until an agent is ready. To start it sooner, open agent setup.</p><button>Open agent setup</button></div>
 }
 `,
     })
@@ -9105,7 +9113,11 @@ function TaskFormModal() {
   return (
     <div>
       <p>Preparing This Project</p>
+      <p>Preparing this project</p>
       <p>Ready to Send</p>
+      <p>Ready to send</p>
+      <p>Create a task queue before sending work</p>
+      <p>Forge is loading the task queue for this project. Wait a moment before creating the task.</p>
       <option>Let the next available agent pick it up</option>
       <p>Keep this choice when any available agent can do the work.</p>
       <span>2 available</span>
@@ -9130,28 +9142,30 @@ function TaskFormModal() {
         }),
         expect.objectContaining({
           type: 'task-form-agent-choice-copy',
-          location: 'src/app/features/board/TaskFormModal.tsx:7',
+          location: 'src/app/features/board/TaskFormModal.tsx:11',
         }),
         expect.objectContaining({
           type: 'task-form-agent-choice-copy',
-          location: 'src/app/features/board/TaskFormModal.tsx:8',
+          location: 'src/app/features/board/TaskFormModal.tsx:12',
         }),
         expect.objectContaining({
           type: 'task-form-agent-choice-copy',
-          location: 'src/app/features/board/TaskFormModal.tsx:9',
+          location: 'src/app/features/board/TaskFormModal.tsx:13',
         }),
       ])
     )
   })
 
-  it('accepts task form readiness and agent choice copy that uses visible Ready wording', () => {
+  it('accepts task form readiness and agent choice copy that uses next-action wording', () => {
     const cwd = fixture({
       'src/app/features/board/TaskFormModal.tsx': `
 function TaskFormModal() {
   return (
     <div>
-      <p>Preparing this project</p>
-      <p>Ready to send</p>
+      <p>Loading this project</p>
+      <p>Task can be created</p>
+      <p>Open task queues before creating this task</p>
+      <p>Wait a moment while Forge finds where new tasks wait for this project.</p>
       <option>Let the next ready agent pick it up</option>
       <p>Leave automatic selection on when any ready agent can do the work.</p>
       <span>2 ready</span>
@@ -9621,6 +9635,199 @@ export const zh = {
       unknownToolTooltip: '打开设置检查工作工具，再使用这条保存的说明。',
     },
   },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags saved instruction detail helper copy that explains agent internals instead of next steps', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  skills: {
+    detail: {
+      triggerHelper:
+        'When a task uses words like these, agents know this saved instruction may help.',
+      detailsHelper:
+        'Review this text to understand what the saved instruction adds to agent work.',
+      noContent:
+        'No reusable instructions have been saved yet. Add instructions before asking agents to use this saved instruction.',
+    },
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  skills: {
+    detail: {
+      triggerHelper: '当任务里出现类似这些词时，Agent 就知道这条保存的说明可能有帮助。',
+      detailsHelper: '查看这段文字，了解这条保存的说明会给 Agent 工作补充什么。',
+      noContent: '还没有保存可复用说明。请先补充说明，再让 Agent 使用这条保存的说明。',
+    },
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'saved-instruction-detail-helper-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-detail-helper-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:8',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-detail-helper-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:10',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-detail-helper-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-detail-helper-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-detail-helper-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:7',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved instruction detail helper copy that names the use and review actions', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  skills: {
+    detail: {
+      triggerHelper: 'Use this saved instruction for tasks that include words like these.',
+      detailsHelper: 'Read these reusable steps before using this saved instruction.',
+      noContent:
+        'No reusable steps are saved yet. Add the steps agents should follow before using this saved instruction.',
+    },
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  skills: {
+    detail: {
+      triggerHelper: '任务里出现类似这些词时，可以推荐这条保存的说明。',
+      detailsHelper: '使用这条保存的说明前，请先查看这些可复用步骤。',
+      noContent: '还没有保存可复用步骤。请先补充 Agent 要遵循的步骤，再使用这条保存的说明。',
+    },
+  },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags saved instruction list and create-field copy that uses install or agent-instruction jargon', () => {
+    const cwd = fixture({
+      'src/app/features/skills/SkillsView.tsx': `
+const SKILL_FILTER_LABELS = {
+  installed: 'Installed',
+  available: 'Available',
+}
+export function SkillsView() {
+  return <>
+    <SkillStat label="Installed" />
+    <SkillStat label="Available" />
+  </>
+}
+`,
+      'src/app/features/skills/CreateSkillModal.tsx': `
+const SKILL_REVIEW_POINTS = [
+  { label: 'Agent ready', value: 'Write steps an agent can follow without extra context.' },
+]
+export function CreateSkillModal() {
+  return <>
+    <p>Saved instructions are reusable steps for agents. Start with a clear name and the rules the agent should follow.</p>
+    <label>Agent instructions</label>
+    <p>Add the steps this saved instruction should apply.</p>
+  </>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'saved-instruction-list-status-copy',
+          location: 'src/app/features/skills/SkillsView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-list-status-copy',
+          location: 'src/app/features/skills/SkillsView.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-list-status-copy',
+          location: 'src/app/features/skills/SkillsView.tsx:8',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-list-status-copy',
+          location: 'src/app/features/skills/SkillsView.tsx:9',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-create-field-copy',
+          location: 'src/app/features/skills/CreateSkillModal.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-create-field-copy',
+          location: 'src/app/features/skills/CreateSkillModal.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-create-field-copy',
+          location: 'src/app/features/skills/CreateSkillModal.tsx:8',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-create-field-copy',
+          location: 'src/app/features/skills/CreateSkillModal.tsx:9',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved instruction list and create-field copy that uses beginner action wording', () => {
+    const cwd = fixture({
+      'src/app/features/skills/SkillsView.tsx': `
+const SKILL_FILTER_LABELS = {
+  installed: 'Ready to use',
+  available: 'Needs install',
+}
+export function SkillsView() {
+  return <>
+    <SkillStat label="Ready to use" />
+    <SkillStat label="Needs install" />
+    <span>Save instruction</span>
+  </>
+}
+`,
+      'src/app/features/skills/CreateSkillModal.tsx': `
+const SKILL_REVIEW_POINTS = [
+  { label: 'Clear steps', value: 'Write steps an agent can follow without extra context.' },
+]
+export function CreateSkillModal() {
+  return <>
+    <p>Start with a clear name, matching words, and the steps the agent should follow.</p>
+    <label>Steps for the agent</label>
+    <p>Add the steps the agent should follow before saving.</p>
+  </>
 }
 `,
     })

@@ -23,7 +23,7 @@ const SKILL_REVIEW_POINTS = [
     label: 'Safe to share',
     value: 'Leave out secret keys, private notes, and one-time project details.',
   },
-  { label: 'Agent ready', value: 'Write steps an agent can follow without extra context.' },
+  { label: 'Clear steps', value: 'Write steps an agent can follow without extra context.' },
 ]
 
 const skillTemplates = [
@@ -52,15 +52,15 @@ const skillTemplates = [
     },
   },
   {
-    id: 'ci-status',
-    label: 'Check review status',
-    description: 'Check review and builds once',
+    id: 'work-status',
+    label: 'Check work status',
+    description: 'Check review and automated checks once',
     form: {
-      name: 'pr-status-check',
-      description: 'Summarize review and build status from one fresh check',
-      triggerPattern: 'review status, build status, checks',
+      name: 'work-status-check',
+      description: 'Summarize review and automated check status from one fresh check',
+      triggerPattern: 'review status, check status, ready to finish',
       content:
-        'Check the code review page once and summarize only the review result, merge readiness, and build result needed for the next step. If the project already has a recent status summary, reuse it instead of refreshing.\nStart with one plain result: Needs a fix, Waiting, or Done.\nFor Needs a fix, open only the failed build or review item needed to make the fix.\nFor Waiting, stop checking in chat. Tell the user when one later check is useful, or point to the project background watcher if one exists.\nFor Done, report the final status and stop.',
+        'Check the review page once and summarize only the review result, ready-to-finish status, and automated check result needed for the next step. If the project already has a recent status summary, reuse it instead of refreshing.\nStart with one plain result: Needs a fix, Waiting, or Done.\nFor Needs a fix, open only the failed check or review item needed to make the fix.\nFor Waiting, stop checking in chat. Tell the user when one later check is useful, or point to the project background watcher if one exists.\nFor Done, report the final status and stop.',
     },
   },
   {
@@ -123,7 +123,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
       return
     }
     if (!content) {
-      setError('Add the steps this saved instruction should apply.')
+      setError('Add the steps the agent should follow before saving.')
       contentInputRef.current?.focus()
       return
     }
@@ -189,8 +189,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
         </div>
 
         <p className="mb-4 text-ui-body text-secondary-light dark:text-secondary-dark">
-          Saved instructions are reusable steps for agents. Start with a clear name and the rules
-          the agent should follow.
+          Start with a clear name, matching words, and the steps the agent should follow.
         </p>
 
         {error && (
@@ -326,7 +325,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
 
           <div>
             <label htmlFor="skill-content" className={uiStyles.label}>
-              Agent instructions
+              Steps for the agent
             </label>
             <textarea
               id="skill-content"
@@ -336,7 +335,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
               className={cn(
                 'min-h-36 w-full resize-y rounded-[18px] border border-black/[0.08] bg-white px-3 py-2 font-mono text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70'
               )}
-              placeholder="Steps the agent should follow when this instruction is selected"
+              placeholder="Write each step the agent should follow"
             />
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
               Plain steps work best. Include what success should look like.
