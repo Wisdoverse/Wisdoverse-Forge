@@ -177,6 +177,12 @@ const PROVIDER_ZERO_READY_DEAD_END_PATTERNS = [
   /\bNo AI service ready yet\b/i,
 ]
 
+const PROVIDER_DEFAULT_DEAD_END_PATTERNS = [
+  /\bDefault AI service\b/i,
+  /\bDefault:\s*(?:choose|add)/i,
+  /\bChoose a default\b/i,
+]
+
 const PROVIDER_TEST_FAILURE_FIRST_PATTERNS = [
   /\bconnection check needs attention\. Forge could not (?:check|connect to) this AI service/i,
   /\bconnection check needs attention\. This AI service is receiving too many checks/i,
@@ -2175,6 +2181,12 @@ function hasProviderZeroReadyDeadEndCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return PROVIDER_ZERO_READY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasProviderDefaultDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/settings/ProvidersSection.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return PROVIDER_DEFAULT_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasProviderTestFailureFirstCopy(relFile, line) {
@@ -4302,6 +4314,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'AI service setup summaries must tell beginners to check, enable, or add a service.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasProviderDefaultDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'provider-default-copy',
+        location,
+        message:
+          'AI service setup copy must not send beginners looking for a default-service control.',
         sample: line.trim(),
       })
     }

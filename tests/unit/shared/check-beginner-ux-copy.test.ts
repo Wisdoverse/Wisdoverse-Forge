@@ -451,6 +451,40 @@ export function providerReadinessSummary() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags AI service setup copy that points beginners at a missing default-service control', () => {
+    const cwd = fixture({
+      'src/app/features/settings/ProvidersSection.tsx': `
+function ProviderReadinessPanel() {
+  return ['Default: choose a ready AI service', 'Default AI service', 'Choose a default']
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'provider-default-copy',
+          location: 'src/app/features/settings/ProvidersSection.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts AI service setup copy that tells users where the service is selected', () => {
+    const cwd = fixture({
+      'src/app/features/settings/ProvidersSection.tsx': `
+function ProviderReadinessPanel() {
+  return ['Chat agents: choose a ready service when creating an agent', 'Chat agent choice', 'Choose in Create Agent']
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags AI service connection check errors that start with the failure', () => {
     const cwd = fixture({
       'src/app/features/settings/providerTestErrorMessage.ts': `
