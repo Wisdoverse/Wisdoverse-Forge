@@ -46,6 +46,7 @@ interface AgentNextStep {
   ready: boolean
   targetTab?: Tab
   targetHref?: string
+  targetBack?: boolean
   actionLabel?: string
 }
 
@@ -121,11 +122,9 @@ export function agentDetailHeaderSubtitle(agent: AgentInfo): string {
 function agentConnectionStatus(agent: AgentInfo): string {
   if (isHostCliAgent(agent)) {
     if (agent.status === 'offline') {
-      return 'Paste setup text again on this computer'
+      return 'Reconnect from Agents'
     }
-    return agent.runtimeId
-      ? 'Connected from this computer'
-      : 'Paste setup text on this computer again'
+    return agent.runtimeId ? 'Connected from this computer' : 'Connect from Agents'
   }
   if (agent.cliTool) return agent.containerId ? 'Ready with project files' : 'Waiting to start'
   return 'AI service is ready for chat'
@@ -134,7 +133,7 @@ function agentConnectionStatus(agent: AgentInfo): string {
 function agentAvailabilityLabel(agent: AgentInfo): string {
   if (agent.status === 'idle') return 'Can be assigned now'
   if (agent.status === 'working') return 'Already working'
-  if (isHostCliAgent(agent)) return 'Paste setup text again on this computer'
+  if (isHostCliAgent(agent)) return 'Reconnect from Agents first'
   if (agent.cliTool) return 'Open Live work and start file work'
   return 'Open AI service settings and choose Check connection'
 }
@@ -265,6 +264,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
           <AgentNextStepCard
             step={agentNextStep(agent, recentTasks, recentTasksError)}
             onOpenTab={(tab) => setActiveTab(tab)}
+            onBack={onBack}
           />
           <AssignmentFitCard
             agent={agent}
@@ -366,11 +366,13 @@ function agentNextStep(
   if (agent.status === 'offline') {
     if (hostCli) {
       return {
-        title: 'Paste setup text on this computer again',
+        title: 'Reconnect this computer from Agents',
         detail:
-          "Go to the computer where this agent was connected. Open that computer's command app in the project folder, paste the setup text again, and keep that app open.",
+          'Go back to Agents, choose Connect this computer, copy the new setup text, and paste it in the command app on the computer where this agent should work.',
         success: 'The status changes from Not connected to Ready or Working now.',
         ready: false,
+        targetBack: true,
+        actionLabel: 'Back to Agents',
       }
     }
 
@@ -449,12 +451,15 @@ function agentNextStep(
 function AgentNextStepCard({
   step,
   onOpenTab,
+  onBack,
 }: {
   step: AgentNextStep
   onOpenTab: (tab: Tab) => void
+  onBack: () => void
 }) {
   const targetTab = step.targetTab
   const targetHref = step.targetHref
+  const targetBack = step.targetBack
   const actionLabel = step.actionLabel
 
   return (
@@ -521,6 +526,18 @@ function AgentNextStepCard({
             <span>{actionLabel}</span>
             <ArrowRight size={13} strokeWidth={2} aria-hidden="true" />
           </a>
+        )}
+        {targetBack && actionLabel && (
+          <button
+            type="button"
+            onClick={onBack}
+            className={cn(
+              'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.08]'
+            )}
+          >
+            <span>{actionLabel}</span>
+            <ArrowRight size={13} strokeWidth={2} aria-hidden="true" />
+          </button>
         )}
       </div>
     </section>

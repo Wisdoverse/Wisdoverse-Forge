@@ -436,6 +436,16 @@ const AGENT_DETAIL_GENERIC_HEADING_PATTERNS = [
 
 const AGENT_DETAIL_START_FAILURE_FIRST_PATTERNS = [/\bStart did not finish\b/i]
 
+const HOST_AGENT_RECONNECT_DEAD_END_PATTERNS = [
+  /\bThis computer is offline\b/i,
+  /\bPaste setup text on this computer again\b/i,
+  /\bPaste setup text again on this computer\b/i,
+  /\bPaste setup text to reconnect\b/i,
+  /\bpaste the setup text in that computer's command app again\b/i,
+  /\bpaste the setup text on that computer again\b/i,
+  /\bpaste the setup text again,? then come back here\b/i,
+]
+
 const AGENT_STORE_ERROR_FAILURE_FIRST_PATTERNS = [
   /^\s*return\s+['"`]Forge could not prepare the setup text for this computer\. Check/,
   /^\s*return\s+`Forge could not \$\{actionPhrase\}\. It could not connect/,
@@ -3114,6 +3124,17 @@ function hasAgentDetailStartFailureFirstCopy(relFile, line) {
   return AGENT_DETAIL_START_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasHostAgentReconnectDeadEndCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/agents/AgentControlPanel.tsx') &&
+    !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return HOST_AGENT_RECONNECT_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasAgentStoreErrorFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/entities/agent/model/agents.store.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -5501,6 +5522,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Agent detail start failure copy must start with the recovery action, not the failure result.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasHostAgentReconnectDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'host-agent-reconnect-copy',
+        location,
+        message:
+          'Agent reconnect copy must point beginners back to Agents and Connect this computer before mentioning setup text.',
         sample: line.trim(),
       })
     }
