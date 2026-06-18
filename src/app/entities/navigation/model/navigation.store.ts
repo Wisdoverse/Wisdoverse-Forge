@@ -62,8 +62,8 @@ interface NavigationState {
    * because the project list fetch already carries `cloneStatus`/`clone`.
    */
   applyCloneStatusUpdate: (update: CloneStatusUpdate) => void
-  /** Resolves `false` when the project was selected but its task queues
-   * failed to load; callers that need task queues show a retry
+  /** Resolves `false` when the project was selected but its waiting places
+   * failed to load; callers that need them show a retry
    * message instead of wrongly telling the user to create a new one. */
   selectProject: (projectId: string) => Promise<boolean>
   createAgentGroup: (
@@ -86,8 +86,8 @@ type NavigationErrorAction = 'load' | 'create'
 const NAVIGATION_AREA_LABELS: Record<NavigationErrorArea, string> = {
   organizations: 'team spaces',
   teamProjects: 'teams and projects',
-  workLanes: 'task queues',
-  workLane: 'task queue',
+  workLanes: 'waiting places',
+  workLane: 'waiting place',
 }
 
 function navigationActionPhrase(area: NavigationErrorArea, action: NavigationErrorAction): string {
@@ -248,14 +248,14 @@ function navigationValidationMessage(
 
   if (area === 'workLane' || area === 'workLanes') {
     if (normalized.includes('name') || normalized.includes('title')) {
-      return 'Name this task queue, choose its project, then create it again.'
+      return 'Name this waiting place, choose its project, then create it again.'
     }
     if (normalized.includes('project')) {
-      return 'Choose the project that should hold this task queue, then try again.'
+      return 'Choose the project where tasks should wait, then try again.'
     }
     return action === 'create'
-      ? 'Check the task queue name and project, then create it again.'
-      : 'Refresh the selected project, then load task queues again.'
+      ? 'Check the waiting place name and project, then create it again.'
+      : 'Refresh the selected project, then load where tasks wait again.'
   }
 
   if (area === 'teamProjects') {
