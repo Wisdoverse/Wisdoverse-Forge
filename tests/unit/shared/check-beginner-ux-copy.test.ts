@@ -10937,7 +10937,7 @@ function TaskFormModal() {
     const cwd = fixture({
       'src/app/features/board/TaskFormModal.tsx': `
 function TaskFormModal() {
-  return <div><p>Connect an agent before this task can start</p><p>Save the task now. It will wait here until an agent is ready. To start it sooner, open agent setup.</p><button>Open agent setup</button></div>
+  return <div><p>Connect an agent before this task can start</p><p>Save the task now. It will wait here until an agent is ready. To start it sooner, open Agents.</p><button>Open Agents</button></div>
 }
 `,
     })

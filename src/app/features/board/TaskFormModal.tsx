@@ -409,7 +409,7 @@ export function TaskFormModal({
                 <p className="font-semibold">Connect an agent before this task can start</p>
                 <p className="mt-0.5">
                   Save the task now. It will wait here until an agent is ready. To start it sooner,
-                  open agent setup.
+                  open Agents.
                 </p>
               </div>
             </div>
@@ -419,7 +419,7 @@ export function TaskFormModal({
                 onClick={onOpenAgentSetup}
                 className="mt-3 inline-flex h-8 items-center justify-center rounded-full border border-apple-orange/30 bg-white px-3 text-ui-button font-medium text-apple-orange transition-colors hover:bg-apple-orange/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-orange/35 dark:bg-white/[0.06]"
               >
-                Open agent setup
+                Open Agents
               </button>
             )}
           </div>
@@ -440,7 +440,7 @@ export function TaskFormModal({
                 </p>
                 <p className="mt-0.5">
                   Save the task now. It will wait here until one of your agents is ready. To start
-                  it sooner, open agent setup.
+                  it sooner, open Agents.
                 </p>
               </div>
             </div>
@@ -450,7 +450,7 @@ export function TaskFormModal({
                 onClick={onOpenAgentSetup}
                 className="mt-3 inline-flex h-8 items-center justify-center rounded-full border border-apple-orange/30 bg-white px-3 text-ui-button font-medium text-apple-orange transition-colors hover:bg-apple-orange/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-orange/35 dark:bg-white/[0.06]"
               >
-                Open agent setup
+                Open Agents
               </button>
             )}
           </div>

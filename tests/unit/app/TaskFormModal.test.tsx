@@ -168,17 +168,18 @@ describe('TaskFormModal', () => {
     expect(screen.getByText(/save the task now/i)).toBeDefined()
     expect(
       screen.getByText(
-        'Save the task now. It will wait here until an agent is ready. To start it sooner, open agent setup.'
+        'Save the task now. It will wait here until an agent is ready. To start it sooner, open Agents.'
       )
     ).toBeDefined()
-    expect(screen.getByText(/to start it sooner, open agent setup/i)).toBeDefined()
-    expect(screen.getByRole('button', { name: /save task to wait/i })).toBeDefined()
+    expect(screen.getByText(/to start it sooner, open Agents/i)).toBeDefined()
+    expect(screen.getByRole('button', { name: /open agents/i })).toBeDefined()
     expect(screen.getByText(/This task will wait here until an agent is ready/i)).toBeDefined()
     expect(screen.queryByText('No agents are online')).toBeNull()
+    expect(screen.queryByText(/open agent setup/i)).toBeNull()
     expect(screen.queryByText(/Create the task now/i)).toBeNull()
     expect(screen.queryByText(/dispatched?/i)).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: /open agent setup/i }))
+    fireEvent.click(screen.getByRole('button', { name: /open agents/i }))
 
     expect(onOpenAgentSetup).toHaveBeenCalledTimes(1)
   })
@@ -241,8 +242,9 @@ describe('TaskFormModal', () => {
 
     expect(screen.getByText('Start or connect an agent before this task can start')).toBeDefined()
     expect(screen.getByText(/wait here until one of your agents is ready/i)).toBeDefined()
-    expect(screen.getByText(/to start it sooner, open agent setup/i)).toBeDefined()
+    expect(screen.getByText(/to start it sooner, open Agents/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /save task to wait/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /open agents/i })).toBeDefined()
     expect(screen.getByText(/This task will wait here until an agent is ready/i)).toBeDefined()
     expect(screen.queryByText('No agents are available right now')).toBeNull()
     expect(
@@ -254,8 +256,9 @@ describe('TaskFormModal', () => {
     expect(screen.queryByText(/dispatch/i)).toBeNull()
     expect(screen.queryByText(/Keep the default choice so the next available agent/i)).toBeNull()
     expect(screen.queryByText(/Create the task now/i)).toBeNull()
+    expect(screen.queryByText(/open agent setup/i)).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: /open agent setup/i }))
+    fireEvent.click(screen.getByRole('button', { name: /open agents/i }))
 
     expect(onOpenAgentSetup).toHaveBeenCalledTimes(1)
   })
