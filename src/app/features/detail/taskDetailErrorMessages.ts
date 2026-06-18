@@ -18,9 +18,9 @@ const ACTION_FALLBACKS: Record<TaskDetailErrorAction, string> = {
   loadAgents: 'Refresh this task before assigning an agent.',
   loadContext: 'Refresh the detail panel to load saved notes and work history.',
   loadRuns: 'Refresh Updates before deciding whether to retry this task.',
-  previewContext: 'Choose an available agent, then open the saved notes review again.',
+  previewContext: 'Choose an available agent, then check saved items again.',
   publishTask:
-    'Review the selected saved notes, then send the task again. The task was not sent with selected notes.',
+    'Check the selected saved notes, then send the task again. The task was not sent with selected notes.',
   retryTask: 'Refresh the task, then choose Retry task again. The task was not retried.',
 }
 
@@ -150,13 +150,13 @@ function validationMessage(action: TaskDetailErrorAction, detail: string): strin
     return 'Choose an available agent, then try again.'
   }
   if (normalized.includes('context')) {
-    return 'Review the selected saved notes, then try again.'
+    return 'Check the selected saved notes, then try again.'
   }
   if (normalized.includes('approval') || normalized.includes('approve')) {
     return 'Check that the task is still waiting for your decision, then choose Allow and continue again.'
   }
   if (normalized.includes('publish')) {
-    return 'Review the task details, then send again.'
+    return 'Check the task details, then send again.'
   }
   return ACTION_FALLBACKS[action]
 }

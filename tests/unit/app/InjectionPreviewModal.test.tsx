@@ -30,12 +30,12 @@ const preview: ContextPreviewResponse = {
 }
 
 describe('InjectionPreviewModal', () => {
-  test('uses send wording for the saved notes review', () => {
+  test('uses send wording for the saved items check', () => {
     render(
       <InjectionPreviewModal isOpen preview={preview} onClose={() => {}} onConfirm={() => {}} />
     )
 
-    expect(screen.getByText('Review saved notes before sending')).toBeDefined()
+    expect(screen.getByText('Check saved items before sending')).toBeDefined()
     expect(
       screen.getByText('Checked items will be shared with the agent when you send the task.')
     ).toBeDefined()
@@ -47,7 +47,7 @@ describe('InjectionPreviewModal', () => {
     expect(screen.queryByText('No other saved items were found.')).toBeNull()
     expect(screen.getByRole('button', { name: 'Back to task' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Send task with selected notes' })).toBeDefined()
-    expect(screen.getAllByLabelText('Close saved notes review')).toHaveLength(2)
+    expect(screen.getAllByLabelText('Close saved items check')).toHaveLength(2)
     expect(screen.queryByRole('button', { name: /^Cancel$/ })).toBeNull()
     expect(screen.queryByText(/publish/i)).toBeNull()
     expect(screen.queryByText(/selected context/i)).toBeNull()
@@ -132,7 +132,7 @@ describe('InjectionPreviewModal', () => {
       />
     )
 
-    expect(screen.getByText('Loading saved notes review…')).toBeDefined()
+    expect(screen.getByText('Checking saved items…')).toBeDefined()
     expect(screen.queryByText(new RegExp(['Loading', 'context', 'review'].join('\\s+')))).toBeNull()
 
     cleanup()
@@ -141,25 +141,25 @@ describe('InjectionPreviewModal', () => {
 
     expect(
       screen.getByText(
-        'Saved notes review is not ready yet. Close this window, choose an available agent, then try sending again.'
+        'Saved items check is not ready yet. Close this window, choose an available agent, then try sending again.'
       )
     ).toBeDefined()
     expect(screen.queryByText(new RegExp(['No', 'context', 'review'].join('\\s+')))).toBeNull()
   })
 
-  test('shows the recovery reason when saved notes review cannot be prepared', () => {
+  test('shows the recovery reason when saved items cannot be checked', () => {
     render(
       <InjectionPreviewModal
         isOpen
         preview={null}
-        error="No agent can prepare the saved notes review right now. Open Agents to start or connect an agent, then return to the board and refresh."
+        error="No agent can check saved items right now. Open Agents to start or connect an agent, then return to the board and refresh."
         onClose={() => {}}
         onConfirm={() => {}}
       />
     )
 
     const alert = screen.getByRole('alert')
-    expect(alert.textContent).toContain('No agent can prepare the saved notes review right now')
+    expect(alert.textContent).toContain('No agent can check saved items right now')
     expect(alert.textContent).toContain('Open Agents to start or connect an agent')
     expect(screen.getByText(/choose an available agent, then try sending again/i)).toBeDefined()
     expect(screen.queryByText('No saved notes review is available yet.')).toBeNull()

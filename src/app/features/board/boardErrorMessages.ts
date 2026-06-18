@@ -14,9 +14,9 @@ const ACTION_FALLBACKS: Record<BoardErrorAction, string> = {
   loadTasks: 'Refresh the board to load tasks.',
   moveTask:
     'Refresh the board, then move the task again. The task was moved back because the board change was not saved.',
-  previewContext: 'Choose an available agent, then open the saved notes review again.',
+  previewContext: 'Choose an available agent, then check saved items again.',
   publishTask:
-    'Review the saved notes, then send the task with selected saved notes again. The task was not sent.',
+    'Check the saved notes, then send the task with selected saved notes again. The task was not sent.',
   selectProject: 'Choose the project again, then create the task. The project was not selected.',
 }
 
@@ -26,7 +26,7 @@ export function boardActionErrorMessage(action: BoardErrorAction, err: unknown):
   const status = errorStatus(err, normalized)
 
   if (/no available agent|no agent.*available/.test(normalized)) {
-    return 'No agent can prepare the saved notes review right now. Open Agents to start or connect an agent, then return to the board and refresh.'
+    return 'No agent can check saved items right now. Open Agents to start or connect an agent, then return to the board and refresh.'
   }
 
   if (isNetworkError(normalized)) {

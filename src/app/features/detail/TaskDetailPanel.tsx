@@ -269,7 +269,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                 </div>
                 <p className="mb-2 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
                   Use this result to decide whether the task is done. If it does not answer the
-                  brief, go back to Work and decide whether to retry, review saved notes and
+                  brief, go back to Work and decide whether to retry, check saved notes and
                   instructions, or create a follow-up task.
                 </p>
                 <pre className="text-xs text-foreground-light dark:text-foreground-dark whitespace-pre-wrap break-words font-mono leading-relaxed max-h-[300px] overflow-y-auto">
