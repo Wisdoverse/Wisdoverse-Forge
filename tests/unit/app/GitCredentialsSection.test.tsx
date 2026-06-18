@@ -54,16 +54,23 @@ describe('GitCredentialsSection', () => {
     fireEvent.click(within(emptyState).getByRole('button', { name: /add HTTPS code access/i }))
 
     expect(screen.getByText('Add code access')).toBeDefined()
-    expect(screen.getByText('Choose where your code lives')).toBeDefined()
-    expect(screen.getByText('Create a code access key')).toBeDefined()
-    expect(screen.getByText(/allow it to read the code agents need/i)).toBeDefined()
-    expect(screen.getByText('Use the normal website by default')).toBeDefined()
-    expect(screen.getByText(/leave the website address empty for github.com or gitlab.com/i)).toBeDefined()
+    expect(screen.getByText('Pick the code website')).toBeDefined()
+    expect(screen.getByText('Copy a code access key')).toBeDefined()
     expect(
-      screen.getByText(/add one only if your company uses its own GitHub or GitLab website/i)
+      screen.getByText(
+        'Create a key that can read the code projects agents need, then copy it once.'
+      )
     ).toBeDefined()
+    expect(screen.getByText('Leave the address empty for normal sites')).toBeDefined()
+    expect(screen.getByText(/Use the website address field only when/i)).toBeDefined()
+    expect(screen.queryByText('Use the normal website by default')).toBeNull()
     expect(screen.queryByText(/leave address blank for cloud/i)).toBeNull()
-    expect(screen.getByText(/next: create a code access key/i)).toBeDefined()
+    expect(screen.getByText(/next: paste the code access key/i)).toBeDefined()
+    expect(
+      screen.getByText(
+        /Open GitHub or GitLab, create a key that can read the code projects agents need, then paste it below\./i
+      )
+    ).toBeDefined()
     expect(screen.queryByText('Paste the access token')).toBeNull()
     expect(screen.queryByText(/look for a personal access token/i)).toBeNull()
     expect(screen.queryByText(/paste the key from GitHub or GitLab/i)).toBeNull()
@@ -72,11 +79,12 @@ describe('GitCredentialsSection', () => {
     expect(screen.getByText('Choose the website where this code lives.')).toBeDefined()
     expect(screen.queryByText('Git service')).toBeNull()
     expect(screen.queryByText(/owns the repository/i)).toBeNull()
-    expect(screen.getByText(/If that page says personal access token/i)).toBeDefined()
-    expect(screen.getByText(/do not paste your GitHub or GitLab password/i)).toBeDefined()
+    expect(screen.getByText(/Some pages call it a personal access token/i)).toBeDefined()
+    expect(screen.getByText(/Never paste your GitHub or GitLab password/i)).toBeDefined()
+    expect(screen.getByText(/Forge hides the key after saving/i)).toBeDefined()
     expect(screen.getByText(/leave this empty if you use github.com or gitlab.com/i)).toBeDefined()
-    expect(screen.getByLabelText(/^company GitHub or GitLab website/i)).toBeDefined()
-    expect(screen.getAllByText(/if your company uses its own GitHub or GitLab website/i).length).toBeGreaterThan(0)
+    expect(screen.getByLabelText(/^company code website address/i)).toBeDefined()
+    expect(screen.getByText(/Otherwise leave this empty/i)).toBeDefined()
     expect(screen.queryByText(/company-hosted Git service/i)).toBeNull()
     expect(screen.getByPlaceholderText('e.g. gitlab.example.com')).toBeDefined()
 
@@ -112,7 +120,7 @@ describe('GitCredentialsSection', () => {
       expect(saveGitCredentialMock).toHaveBeenCalledWith('github', 'ghp_example_token', undefined)
     )
     expect(await screen.findByRole('status')).toHaveTextContent(
-      'Code access saved. Create a small task with a private code link to confirm agents can open it.'
+      'Code access saved. Create a small task with an https:// private code link to confirm agents can open it.'
     )
     expect(screen.getByRole('status')).toHaveTextContent('If it cannot open the code')
     expect(screen.getByRole('status')).not.toHaveTextContent('private repository link')
