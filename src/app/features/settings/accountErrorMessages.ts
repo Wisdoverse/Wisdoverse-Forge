@@ -66,7 +66,7 @@ function conflictMessage(action: AccountErrorAction): string {
   if (action === 'changePassword') {
     return 'Refresh the page, then try again. Your account changed while this form was open.'
   }
-  return 'Refresh team space settings, review the current name, then try again. This team space changed while you were editing.'
+  return 'Refresh team space settings, check the current name, then try again. This team space changed while you were editing.'
 }
 
 function validationMessage(action: AccountErrorAction, detail?: string | null): string {

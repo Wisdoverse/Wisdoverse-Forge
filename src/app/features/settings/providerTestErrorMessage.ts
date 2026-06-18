@@ -62,7 +62,7 @@ export function providerTestErrorMessage(error: unknown, providerName = 'AI serv
   const code = statusCode(error)
 
   if (code === 401 || code === 403 || text.includes('unauthorized') || text.includes('forbidden')) {
-    return `Confirm the saved service access key can use the selected model for ${providerLabel}, then save and choose Check connection again.`
+    return `Check that the saved service access key can use the model you picked for ${providerLabel}, then save and choose Check connection again.`
   }
   if (
     code === 400 ||
@@ -71,10 +71,10 @@ export function providerTestErrorMessage(error: unknown, providerName = 'AI serv
     text.includes('api key') ||
     text.includes('authentication')
   ) {
-    return `Check the service access key, model, and service address for ${providerLabel}, then save and choose Check connection again.`
+    return `Check the service access key, the model you picked, and the service address for ${providerLabel}, then save and choose Check connection again.`
   }
   if (code === 404 || text.includes('not found')) {
-    return `Check the model name and service address for ${providerLabel}, then check again. The model or service address was not found.`
+    return `Check the model you picked and the service address for ${providerLabel}, then check again. The model or service address was not found.`
   }
   if (code === 408 || code === 429 || text.includes('rate limit') || text.includes('too many')) {
     return `Wait a minute, then check ${providerLabel} again. This AI service is receiving too many checks right now.`
@@ -86,5 +86,5 @@ export function providerTestErrorMessage(error: unknown, providerName = 'AI serv
     return `Check the service address and your connection, then check ${providerLabel} again. Forge could not connect to this AI service.`
   }
 
-  return `Review the AI service settings, then check ${providerLabel} again. If it still cannot be checked, ask an owner or admin to check AI service settings.`
+  return `Check the saved AI service settings, then choose Check connection for ${providerLabel} again. If it still cannot be checked, ask an owner or admin to check AI service settings.`
 }

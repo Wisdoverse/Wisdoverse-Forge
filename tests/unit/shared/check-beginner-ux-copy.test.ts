@@ -480,7 +480,7 @@ function rateLimitMessage() {
   return 'Wait a minute, then check OpenAI Production again. This AI service is receiving too many checks right now.'
 }
 function unknownMessage() {
-  return 'Review the AI service settings, then check this AI service again.'
+  return 'Check the saved AI service settings, then choose Check connection for this AI service again.'
 }
 `,
     })
@@ -621,7 +621,7 @@ function ChatView() {
 `,
       'src/app/features/settings/providerTestErrorMessage.ts': `
 function providerTestErrorMessage() {
-  return 'Check the service access key, model, and service address, then save and check again.'
+  return 'Review the AI service settings. Confirm the saved service access key can use the selected model, then save and check again.'
 }
 `,
     })
@@ -714,7 +714,7 @@ function ChatView() {
 `,
       'src/app/features/settings/providerTestErrorMessage.ts': `
 function providerTestErrorMessage() {
-  return 'Check the service access key, model, and service address, then save and choose Check connection again.'
+  return 'Check the service access key, the model you picked, and the service address, then save and choose Check connection again.'
 }
 `,
     })
@@ -1965,6 +1965,10 @@ function resourceMemberErrorMessage() {
   return 'You do not have permission to manage people for this team. Ask an owner or admin to give you access.'
 }
 
+function selectionLostMessage() {
+  return 'This team is no longer selected. Close members, choose the team again, then add or change people.'
+}
+
 function memberLoadError() {
   return 'People access is busy. Wait a moment, then try again.'
 }
@@ -2000,6 +2004,10 @@ function validationMessage() {
           type: 'resource-member-error-copy',
           location: 'src/app/features/manage-members/model/resourceMemberErrorMessages.ts:15',
         }),
+        expect.objectContaining({
+          type: 'resource-member-error-copy',
+          location: 'src/app/features/manage-members/model/resourceMemberErrorMessages.ts:19',
+        }),
       ])
     )
   })
@@ -2008,7 +2016,7 @@ function validationMessage() {
     const cwd = fixture({
       'src/app/features/manage-members/model/resourceMemberErrorMessages.ts': `
 function resourceMemberErrorMessage() {
-  return 'Ask an owner or admin to give you access, then reopen members for this team.'
+  return 'Ask an owner or admin to give you access, then open Members for this team.'
 }
 
 function memberLoadError() {
@@ -2406,6 +2414,67 @@ function metricCopy(metric) {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags billing agent usage descriptions that expose work-actor jargon', () => {
+    const cwd = fixture({
+      'src/app/features/billing/UsageMeter.tsx': `
+function metricCopy(metric) {
+  return { description: 'Managed work actors your team can run.' }
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'billing-usage-agent-copy',
+        location: 'src/app/features/billing/UsageMeter.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts billing agent usage descriptions that explain agents handle tasks', () => {
+    const cwd = fixture({
+      'src/app/features/billing/UsageMeter.tsx': `
+function metricCopy(metric) {
+  return { description: 'Agents your team can use to handle tasks.' }
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags billing usage actions that say review instead of check', () => {
+    const cwd = fixture({
+      'src/app/features/billing/UsageMeter.tsx': `
+function metricCopy() {
+  return {
+    highAction: 'Review this limit before starting more work.',
+    tokenAction: 'Review busy agents or upgrade before more agent work is blocked.',
+  }
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'billing-usage-action-copy',
+          location: 'src/app/features/billing/UsageMeter.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'billing-usage-action-copy',
+          location: 'src/app/features/billing/UsageMeter.tsx:5',
+        }),
+      ])
+    )
   })
 
   it('flags billing setup copy that uses dead-end titles, setup-path, or workspace wording', () => {
@@ -3493,6 +3562,38 @@ function runtimeFitFor() {
 }
 function HelpText() {
   return <><p>Forge opens the shared project folder for file work.</p><p>Forge opens the shared project folder for the agent.</p></>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags create-agent management copy that hides the task outcome', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+export function CreateAgentModal() {
+  return <p>Agent managed by Forge</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'create-agent-management-copy',
+        location: 'src/app/features/agents/CreateAgentModal.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts create-agent management copy that explains the task outcome', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+export function CreateAgentModal() {
+  return <p>This computer handles tasks</p>
 }
 `,
     })
@@ -6760,7 +6861,7 @@ function agentConflictMessage() {
 }
 
 function agentChangedMessage() {
-  return 'Refresh the Agents page, review its current status, then try again. This agent changed while you were working.'
+  return 'Refresh the Agents page, check its current status, then try again. This agent changed while you were working.'
 }
 
 function agentServerMessage() {
@@ -6782,6 +6883,64 @@ function agentCreatedStartFailureMessage() {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags recovery errors that say review the current value instead of check it', () => {
+    const cwd = fixture({
+      'src/app/entities/agent/model/agents.store.ts': `
+function agentChangedMessage() {
+  return 'Refresh the Agents page, review its current status, then try again. This agent changed while you were working.'
+}
+`,
+      'src/app/entities/navigation/model/navigation.store.ts': `
+function navigationChangedMessage() {
+  return 'The left menu changed while you were working. Refresh it, review the current teams and projects, then try again.'
+}
+`,
+      'src/app/features/settings/accountErrorMessages.ts': `
+function conflictMessage() {
+  return 'Refresh team space settings, review the current name, then try again. This team space changed while you were editing.'
+}
+`,
+      'src/app/features/settings/runtimeErrorMessages.ts': `
+function runtimeChangedMessage() {
+  return 'Refresh Settings, review the current choices, then save again. The choices in Where agents work changed while you were working.'
+}
+`,
+      'src/app/shared/model/settings.store.ts': `
+function settingsChangedMessage() {
+  return 'Refresh the list, review the current value, then try again.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'recovery-review-current-copy',
+          location: 'src/app/entities/agent/model/agents.store.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'recovery-review-current-copy',
+          location: 'src/app/entities/navigation/model/navigation.store.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'recovery-review-current-copy',
+          location: 'src/app/features/settings/accountErrorMessages.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'recovery-review-current-copy',
+          location: 'src/app/features/settings/runtimeErrorMessages.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'recovery-review-current-copy',
+          location: 'src/app/shared/model/settings.store.ts:3',
+        }),
+      ])
+    )
   })
 
   it('flags raw CLI tool id lists in user-visible copy', () => {
@@ -7977,6 +8136,35 @@ const TECHNICAL_PROBLEM_MESSAGE =
       'src/app/features/detail/ContextEvidenceList.tsx': `
 const TECHNICAL_EVIDENCE_MESSAGE =
   'This record reported a technical problem. Ask the agent to explain it in plain language, then retry if the task still matters.'
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'technical-problem-copy',
+          location: 'src/app/features/chat/ToolCallDetail.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'technical-problem-copy',
+          location: 'src/app/features/detail/ContextEvidenceList.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('flags detail fallback copy that sends beginners into review language', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ToolCallDetail.tsx': `
+const DETAIL_FALLBACK =
+  'Extra details were recorded but could not be shown safely. Review the summary above, then ask an owner or admin to check this task if needed.'
+`,
+      'src/app/features/detail/ContextEvidenceList.tsx': `
+const DETAIL_FALLBACK =
+  'Saved details were recorded but could not be shown safely. Review the summary above, then ask an owner or admin to check this task if needed.'
 `,
     })
 
@@ -9603,6 +9791,38 @@ export const zh = {
 `,
       'src/app/layouts/sidebar/SidebarNav.tsx': `
 const item = { description: 'follow the setup checklist' }
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags icon rail agent navigation that does not explain the task action', () => {
+    const cwd = fixture({
+      'src/app/layouts/IconRail.tsx': `
+const NAV_ITEMS = [
+  { id: 'agents', label: 'Managed agents', path: '/agents' },
+]
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'icon-rail-agent-nav-copy',
+        location: 'src/app/layouts/IconRail.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts icon rail agent navigation that tells beginners what agents do', () => {
+    const cwd = fixture({
+      'src/app/layouts/IconRail.tsx': `
+const NAV_ITEMS = [
+  { id: 'agents', label: 'Agents that handle tasks', path: '/agents' },
+]
 `,
     })
 
@@ -12153,8 +12373,15 @@ function renderPrivacy() {
     '<li>IP address used for rate limiting and audit logging</li>',
     '<li>To maintain audit logs for security monitoring and compliance purposes</li>',
     '<li>The export includes event history and configuration settings</li>',
+    '<li>Agent management for creating, starting, stopping, and reviewing managed AI agents</li>',
+    '<li>To coordinate team workflows across managed agents</li>',
+    '<li>Sign-in provider identifiers (if you sign in through GitHub, Google, or another supported option)</li>',
+    '<li>To authenticate your identity and authorize access to protected resources</li>',
+    '<li>Team, project, and workspace controls for keeping work separated by organization</li>',
+    '<li>To provide the core Wisdoverse Forge agent, task, context, and workspace functionality</li>',
     '<p>Review what you agree to and how your workspace data is handled.</p>',
     '<li>Visual workspace preferences, such as saved view settings</li>',
+    '<p>essential login cookies strictly necessary for authentication and security purposes.</p>',
   ].join('')
 }
 `,
@@ -12187,6 +12414,42 @@ function renderPrivacy() {
         }),
         expect.objectContaining({
           type: 'legal-privacy-copy',
+          sample: expect.stringContaining('managed AI agents'),
+        }),
+        expect.objectContaining({
+          type: 'legal-privacy-copy',
+          sample: expect.stringContaining('managed agents'),
+        }),
+        expect.objectContaining({
+          type: 'legal-privacy-copy',
+          sample: expect.stringContaining('Sign-in provider identifiers'),
+        }),
+        expect.objectContaining({
+          type: 'legal-privacy-copy',
+          sample: expect.stringContaining('authenticate your identity'),
+        }),
+        expect.objectContaining({
+          type: 'legal-privacy-copy',
+          sample: expect.stringContaining('authorize access to protected resources'),
+        }),
+        expect.objectContaining({
+          type: 'legal-privacy-copy',
+          sample: expect.stringContaining('essential login cookies'),
+        }),
+        expect.objectContaining({
+          type: 'legal-privacy-copy',
+          sample: expect.stringContaining('authentication and security purposes'),
+        }),
+        expect.objectContaining({
+          type: 'legal-privacy-copy',
+          sample: expect.stringContaining('workspace controls'),
+        }),
+        expect.objectContaining({
+          type: 'legal-privacy-copy',
+          sample: expect.stringContaining('workspace functionality'),
+        }),
+        expect.objectContaining({
+          type: 'legal-privacy-copy',
           sample: expect.stringContaining('workspace data'),
         }),
         expect.objectContaining({
@@ -12206,8 +12469,15 @@ function renderPrivacy() {
     '<li>IP address used to protect the Service, slow abusive requests, and record security-relevant activity</li>',
     '<li>To keep security history records for safety reviews and legal requirements</li>',
     '<li>The export includes change history and settings choices</li>',
+    '<li>Agent controls for creating, starting, stopping, and reviewing agents that handle team tasks</li>',
+    '<li>To coordinate team workflows across agents that handle team tasks</li>',
+    '<li>Sign-in option details (if you sign in through GitHub, Google, or another supported option)</li>',
+    '<li>To confirm who you are and let you open the parts of the Service your role allows</li>',
+    '<li>Team and project controls for keeping each organization&apos;s work separated</li>',
+    '<li>To provide the core Wisdoverse Forge agent, task, saved work, and team space features</li>',
     '<p>Review what you agree to and how your team space data is handled.</p>',
     '<li>Saved view choices, such as layout and display settings</li>',
+    '<p>required login cookies needed to keep you signed in and protect your account.</p>',
   ].join('')
 }
 `,
@@ -12294,14 +12564,14 @@ function groupTemplate() {
       'src/app/shared/i18n/locales/en.ts': `
 export const en = {
   gettingStarted: {
-    steps: { review: { why: 'Reviewing the result confirms the agent returned useful work and evidence.' } },
+    steps: { review: { title: 'Review output', ready: '1 completed task ready for acceptance.', why: 'Reviewing the result confirms the agent returned useful work and evidence.' } },
   },
 }
 `,
       'src/app/shared/i18n/locales/zh.ts': `
 export const zh = {
   gettingStarted: {
-    steps: { review: { success: '任务已经完成，并且能看到输出或证据。' } },
+    steps: { review: { title: '验收输出', ready: '1 个已完成任务等待验收。', why: '验收结果能确认 Agent 返回了可采用的输出。', success: '任务已经完成，并且能看到输出或证据。' } },
   },
 }
 `,
@@ -12329,14 +12599,14 @@ export const zh = {
       'src/app/shared/i18n/locales/en.ts': `
 export const en = {
   gettingStarted: {
-    steps: { review: { success: 'A task has completed output or result files you can open.' } },
+    steps: { review: { title: 'Check the result', ready: '1 completed task ready to check.', why: 'Checking the result helps you decide whether the agent returned useful output you can trust.', success: 'A task has completed output or result files you can open.' } },
   },
 }
 `,
       'src/app/shared/i18n/locales/zh.ts': `
 export const zh = {
   gettingStarted: {
-    steps: { review: { success: '任务已经完成，并且能看到输出或结果文件。' } },
+    steps: { review: { title: '检查结果', ready: '1 个已完成任务可以检查。', why: '检查结果能帮你判断 Agent 是否返回了可以使用的输出。', success: '任务已经完成，并且能看到输出或结果文件。' } },
   },
 }
 `,
@@ -12798,6 +13068,9 @@ function agentControlErrorMessage() {
 function localActionError() {
   return 'agent control action failed'
 }
+function actionAlert() {
+  return 'Review the recovery step below, then try again.'
+}
 `,
     })
 
@@ -12813,6 +13086,10 @@ function localActionError() {
         expect.objectContaining({
           type: 'agent-control-error-copy',
           location: 'src/app/features/agents/AgentControlPanel.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'agent-control-error-copy',
+          location: 'src/app/features/agents/AgentControlPanel.tsx:9',
         }),
       ])
     )
@@ -13123,6 +13400,10 @@ function permissionDeleteMessage() {
           type: 'workspace-resource-copy',
           location: 'src/app/layouts/sidebar/ProjectTree.tsx:24',
         }),
+        expect.objectContaining({
+          type: 'workspace-resource-jargon-copy',
+          location: 'src/app/layouts/sidebar/ProjectTree.tsx:9',
+        }),
       ])
     )
   })
@@ -13151,7 +13432,7 @@ function projectMissingMessage() {
   return 'Refresh the left menu, then choose the current project again. This project could not be found.'
 }
 function projectChangedMessage() {
-  return 'Refresh the left menu, review the current name, then save this project name again. This project changed while you were editing.'
+  return 'Refresh the left menu, check the current name, then save this project name again. This project changed while you were editing.'
 }
 function renameBusyMessage() {
   return 'Wait a moment, then save this project name again. The left menu is busy.'
@@ -13172,6 +13453,42 @@ function permissionDeleteMessage() {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags team and project setting errors that use unclear resource wording', () => {
+    const cwd = fixture({
+      'src/app/shared/lib/workspaceResourceErrorMessage.ts': `
+function conflictMessage() {
+  return 'Refresh Settings, review the current project, then try again.'
+}
+function projectDeleteMessage() {
+  return 'Check whether agents or tasks still depend on this project, then delete it again.'
+}
+function teamDeleteMessage() {
+  return 'Check whether this team still owns projects or required access, then delete it again.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'workspace-resource-jargon-copy',
+          location: 'src/app/shared/lib/workspaceResourceErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'workspace-resource-jargon-copy',
+          location: 'src/app/shared/lib/workspaceResourceErrorMessage.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'workspace-resource-jargon-copy',
+          location: 'src/app/shared/lib/workspaceResourceErrorMessage.ts:9',
+        }),
+      ])
+    )
   })
 
   it('flags AuthManager fallbacks that stop at a failure label', () => {
@@ -14015,7 +14332,7 @@ function nextStepDescription() {
 `,
       'src/app/features/billing/UsageMeter.tsx': `
 function highAction() {
-  return 'Review busy agents before more agent work is blocked.'
+  return 'Check busy agents before more agent work is blocked.'
 }
 `,
       'src/app/features/analytics/AnalyticsDashboard.tsx': `

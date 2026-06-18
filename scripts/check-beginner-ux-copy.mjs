@@ -203,6 +203,8 @@ const PROVIDER_SETUP_JARGON_PATTERNS = [
   /\bsave and check again\b/i,
   /\bclick Check\b/i,
   /\bcheck this connection\b/i,
+  /\bselected model\b/i,
+  /\bReview the AI service settings\b/i,
   /\bClick Check after saving\b/i,
   /\bAfter saving, click Check\b/i,
   /\bService address and model are filled in for you\b/i,
@@ -285,6 +287,11 @@ const BILLING_USAGE_DEAD_END_PATTERNS = [/\bNo usage reported yet\b/i, /\busage 
 
 const BILLING_USAGE_AUDIT_JARGON_PATTERNS = [/\baudit records?\b/i]
 const BILLING_USAGE_EVENT_JARGON_PATTERNS = [/\bActivity events\b/i]
+const BILLING_USAGE_AGENT_JARGON_PATTERNS = [/\bManaged work actors?\b/i]
+const BILLING_USAGE_ACTION_JARGON_PATTERNS = [
+  /\bReview (?:this limit|busy agents) before\b/i,
+  /\bReview busy agents or upgrade\b/i,
+]
 
 const BILLING_SETUP_JARGON_PATTERNS = [
   /\bBilling is not ready yet\b/i,
@@ -628,6 +635,8 @@ const START_GUIDE_PATH_JARGON_PATTERNS = [
 ]
 
 const TASK_VIEW_LABEL_JARGON_PATTERNS = [/\bid:\s*['"`]3d['"`]\s*,\s*label:\s*['"`]3D['"`]/]
+
+const ICON_RAIL_AGENT_NAV_JARGON_PATTERNS = [/\bManaged agents\b/i]
 
 const TOP_BAR_CREATE_TASK_JARGON_PATTERNS = [/\+\s*Task\b/]
 const TOP_BAR_SEARCH_JARGON_PATTERNS = [/\bSearch pages and actions\b/i]
@@ -1015,6 +1024,8 @@ const RESOURCE_MEMBER_FAILURE_FIRST_PATTERNS = [
   /\breturn\s+['"`]You do not have permission to manage people/i,
   /\breturn\s+['"`]People for this\b/i,
   /\breturn\s+['"`]People access is busy\./i,
+  /\breopen members for this\b/i,
+  /\bClose members,\s*choose\b/,
   /\breturn\s+['"`]Forge could not (?:update people access|load people|add this person|change what this person|remove this person)/i,
   /\breturn\s+`Forge could not \$\{(?:actionSummary|operation)\}/i,
   /\breturn\s+['"`]This person could not be removed\./i,
@@ -1212,6 +1223,7 @@ const TECHNICAL_PROBLEM_JARGON_PATTERNS = [
   /\bThis step reported a technical problem\b/i,
   /\bThis record reported a technical problem\b/i,
   /\btechnical problem\b/i,
+  /\bReview the summary above\b/i,
 ]
 
 const CHAT_OFFLINE_DEAD_END_PATTERNS = [
@@ -1237,6 +1249,7 @@ const CHAT_STREAM_FAILURE_FIRST_PATTERNS = [
 
 const AGENT_CONTROL_ERROR_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*You do not have permission to change this agent\. Ask an owner/i,
+  /\bReview the recovery step below\b/i,
   /['"`]\s*agent control action failed['"`]/i,
 ]
 
@@ -1425,6 +1438,15 @@ const LEGAL_PRIVACY_EVIDENCE_JARGON_PATTERNS = [
   /\bevent history\b/i,
   /\bconfiguration settings\b/i,
   /\bsecurity monitoring and compliance purposes\b/i,
+  /\bmanaged AI agents?\b/i,
+  /\bmanaged agents?\b/i,
+  /\bSign-in provider identifiers\b/i,
+  /\bauthenticate your identity\b/i,
+  /\bauthorize access to protected resources\b/i,
+  /\bessential login cookies\b/i,
+  /\bauthentication and security purposes\b/i,
+  /\bworkspace controls?\b/i,
+  /\bworkspace functionality\b/i,
   /\bworkspace data\b/i,
   /\bVisual workspace preferences\b/i,
 ]
@@ -1432,8 +1454,12 @@ const LEGAL_PRIVACY_EVIDENCE_JARGON_PATTERNS = [
 const GETTING_STARTED_REVIEW_EVIDENCE_JARGON_PATTERNS = [
   /\breturned useful work and evidence\b/i,
   /\bcompleted output or attached evidence\b/i,
+  /\bready for acceptance\b/i,
+  /\bReview output\b/i,
   /有用输出和证据/,
   /输出或证据/,
+  /验收/,
+  /可采用/,
 ]
 
 const GETTING_STARTED_WORKSPACE_LABEL_PATTERNS = [
@@ -1510,6 +1536,10 @@ const SETTINGS_STORE_ERROR_FAILURE_FIRST_PATTERNS = [
   /^\s*return\s+`You do not have permission to \$\{actionPhrase\}\. Ask an owner/i,
 ]
 
+const RECOVERY_REVIEW_CURRENT_PATTERNS = [
+  /\breview (?:the|its) current (?:status|value|choices|name|teams and projects)\b/i,
+]
+
 const WORKSPACE_RESOURCE_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*You do not have permission to (?:rename|delete) this (?:\$\{label\}|team|project)\. Ask an owner/i,
   /['"`]\s*You do not have permission to (?:save|delete) this (?:\$\{resource\}|team|project)\. Ask an owner/i,
@@ -1521,6 +1551,12 @@ const WORKSPACE_RESOURCE_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*(?:Team|Project) could not be (?:saved|deleted)\./i,
   /['"`]\s*This (?:team|project) could not be found\./i,
   /['"`]\s*Forge could not (?:save workspace settings|delete this (?:team|project)) right now\./i,
+]
+
+const WORKSPACE_RESOURCE_JARGON_PATTERNS = [
+  /\breview the current (?:\$\{resource\}|name|team|project)\b/i,
+  /\b(?:agents|tasks|agents or tasks) still depend on this project\b/i,
+  /\bthis team still owns projects or required access\b/i,
 ]
 
 const PROJECT_CREATE_FAILURE_FIRST_PATTERNS = [
@@ -1658,6 +1694,8 @@ const CREATE_AGENT_WORK_AREA_JARGON_PATTERNS = [
   /\bready workspace managed by Forge\b/i,
   /\bproject workspace\b/i,
 ]
+
+const CREATE_AGENT_MANAGEMENT_JARGON_PATTERNS = [/\bAgent managed by Forge\b/i]
 
 const AGENT_PROJECT_LOCATION_JARGON_PATTERNS = [
   /\bprojectPath:\s*['"`]Project Path['"`]/,
@@ -2178,6 +2216,18 @@ function hasBillingUsageEventJargonCopy(relFile, line) {
   return BILLING_USAGE_EVENT_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasBillingUsageAgentJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/billing/UsageMeter.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return BILLING_USAGE_AGENT_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasBillingUsageActionJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/billing/UsageMeter.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return BILLING_USAGE_ACTION_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasBillingSetupJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/billing/BillingPage.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -2539,6 +2589,20 @@ function hasSettingsStoreErrorFailureFirstCopy(relFile, line) {
   return SETTINGS_STORE_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasRecoveryReviewCurrentCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/entities/agent/model/agents.store.ts') &&
+    !relFile.endsWith('src/app/entities/navigation/model/navigation.store.ts') &&
+    !relFile.endsWith('src/app/features/settings/accountErrorMessages.ts') &&
+    !relFile.endsWith('src/app/features/settings/runtimeErrorMessages.ts') &&
+    !relFile.endsWith('src/app/shared/model/settings.store.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return RECOVERY_REVIEW_CURRENT_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasWorkspaceResourceFailureFirstCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/lib/workspaceResourceErrorMessage.ts') &&
@@ -2548,6 +2612,17 @@ function hasWorkspaceResourceFailureFirstCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return WORKSPACE_RESOURCE_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasWorkspaceResourceJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/shared/lib/workspaceResourceErrorMessage.ts') &&
+    !relFile.endsWith('src/app/layouts/sidebar/ProjectTree.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return WORKSPACE_RESOURCE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasResourceMemberFailureFirstCopy(relFile, line) {
@@ -2717,6 +2792,12 @@ function hasCreateAgentWorkAreaJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return CREATE_AGENT_WORK_AREA_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasCreateAgentManagementJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CREATE_AGENT_MANAGEMENT_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentProjectLocationJargonCopy(relFile, line) {
@@ -3107,6 +3188,12 @@ function hasTaskViewLabelJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/layouts/TopBar.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return TASK_VIEW_LABEL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasIconRailAgentNavJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/layouts/IconRail.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ICON_RAIL_AGENT_NAV_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasTopBarCreateTaskJargonCopy(relFile, line) {
@@ -4343,6 +4430,25 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasBillingUsageAgentJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'billing-usage-agent-copy',
+        location,
+        message:
+          'Billing agent usage copy must explain that agents handle tasks instead of using work-actor jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasBillingUsageActionJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'billing-usage-action-copy',
+        location,
+        message: 'Billing usage actions must say check the limit or agents instead of review.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasBillingSetupJargonCopy(relFile, line)) {
       findings.push({
         type: 'billing-setup-copy',
@@ -4764,11 +4870,31 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasRecoveryReviewCurrentCopy(relFile, line)) {
+      findings.push({
+        type: 'recovery-review-current-copy',
+        location,
+        message:
+          'Error recovery copy must say check the current value or status instead of review the current value.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasWorkspaceResourceFailureFirstCopy(relFile, line)) {
       findings.push({
         type: 'workspace-resource-copy',
         location,
         message: 'Team and project setting errors must start with the next action for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasWorkspaceResourceJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'workspace-resource-jargon-copy',
+        location,
+        message:
+          'Team and project setting errors must use plain check, using, and access wording for beginners.',
         sample: line.trim(),
       })
     }
@@ -4960,6 +5086,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Create agent setup must explain the project area in beginner-facing words, not workspace internals.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCreateAgentManagementJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'create-agent-management-copy',
+        location,
+        message:
+          'Create agent setup must explain what the agent does instead of saying it is managed by Forge.',
         sample: line.trim(),
       })
     }
@@ -5397,6 +5533,16 @@ function scanFile(file, relFile) {
         type: 'task-view-label-copy',
         location,
         message: 'Task view labels must use beginner-facing names such as Map instead of bare 3D.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasIconRailAgentNavJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'icon-rail-agent-nav-copy',
+        location,
+        message:
+          'Agent navigation must describe the work users can send to agents instead of managed-agent jargon.',
         sample: line.trim(),
       })
     }

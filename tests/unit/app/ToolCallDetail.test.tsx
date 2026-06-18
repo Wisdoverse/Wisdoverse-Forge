@@ -141,6 +141,20 @@ describe('ToolCallDetail', () => {
     expect(screen.queryByText(/raw command output/i)).toBeNull()
   })
 
+  test('uses check wording when saved setup details cannot be shown safely', () => {
+    const circularInput: Record<string, unknown> = { summary: 'Setup details were saved' }
+    circularInput.self = circularInput
+
+    render(<ToolCallDetail call={{ ...baseCall, input: circularInput }} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /show step details for command runner/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show setup details/i }))
+
+    expect(screen.getByText(/Extra details were recorded but could not be shown safely/i)).toBeDefined()
+    expect(screen.getByText(/Check the summary above/i)).toBeDefined()
+    expect(screen.queryByText(/Review the summary above/i)).toBeNull()
+  })
+
   test('turns failed boolean results into an action before users trust the answer', () => {
     render(
       <ToolCallDetail

@@ -644,7 +644,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                    Agent managed by Forge
+                    This computer handles tasks
                   </div>
                   <div className="mt-1 text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
                     {localEnrollment.agent?.name ?? 'This computer agent'}

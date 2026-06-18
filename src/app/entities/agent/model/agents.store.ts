@@ -278,9 +278,9 @@ function agentConflictMessage(action: AgentErrorAction, detail: string | null): 
     return 'Wait for the current work to finish, refresh the Agents page, then try again. This agent is already working.'
   }
   if (action === 'delete') {
-    return 'Refresh the Agents page, review the current status, then try again. This agent changed while you were deleting it.'
+    return 'Refresh the Agents page, check the current status, then try again. This agent changed while you were deleting it.'
   }
-  return 'Refresh the Agents page, review its current status, then try again. This agent changed while you were working.'
+  return 'Refresh the Agents page, check its current status, then try again. This agent changed while you were working.'
 }
 
 function agentServerMessage(action: AgentErrorAction): string {

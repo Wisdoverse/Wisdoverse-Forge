@@ -92,9 +92,37 @@ describe('workspaceResourceErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check whether agents or tasks still depend on this project, then delete it again.'
+      'Check whether agents or tasks are still using this project, then delete it again.'
     )
     expect(message).not.toContain('cannot delete')
+    expect(message).not.toContain('depend')
+  })
+
+  test('turns generic team delete blockers into project and owner access guidance', () => {
+    const message = workspaceResourceErrorMessage('team', 'delete', {
+      status: 422,
+      reason: 'cannot delete',
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Check whether this team still has projects or required owner access, then delete it again.'
+    )
+    expect(message).not.toContain('cannot delete')
+    expect(message).not.toContain('owns')
+  })
+
+  test('turns edit conflicts into a current-resource check step', () => {
+    const message = workspaceResourceErrorMessage('project', 'update', {
+      status: 409,
+      detail: 'conflict',
+    })
+
+    expectBeginnerMessage(
+      message,
+      'This project changed while you were editing. Refresh Settings, check the current project, then try again.'
+    )
+    expect(message).not.toContain('review the current')
   })
 
   test('turns server failures into a team space setup recovery step', () => {

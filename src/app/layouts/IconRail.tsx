@@ -11,7 +11,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { id: 'tasks', Icon: ClipboardList, label: 'Task board', path: '/tasks' },
   { id: 'inbox', Icon: Inbox, label: 'Updates inbox', path: '/inbox' },
-  { id: 'agents', Icon: Bot, label: 'Managed agents', path: '/agents' },
+  { id: 'agents', Icon: Bot, label: 'Agents that handle tasks', path: '/agents' },
   { id: 'skills', Icon: Brain, label: 'Saved instructions', path: '/skills' },
 ]
 

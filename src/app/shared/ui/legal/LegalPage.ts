@@ -243,10 +243,10 @@ export class LegalPage {
           Wisdoverse Forge is a self-hosted governed AI workbench for teams. The Service provides:
         </p>
         <ul class="legal-list">
-          <li>Agent management for creating, starting, stopping, and reviewing managed AI agents</li>
+          <li>Agent controls for creating, starting, stopping, and reviewing agents that handle team tasks</li>
           <li>Task boards and work history so teams can track what each agent is doing</li>
           <li>Result records, saved notes, and saved instructions that help you understand agent results</li>
-          <li>Team, project, and workspace controls for keeping work separated by organization</li>
+          <li>Team and project controls for keeping each organization&apos;s work separated</li>
           <li>Connections to supported AI services and work tools chosen by your organization</li>
           <li>Live activity updates and notifications for important task and agent changes</li>
           <li>Setup tools for troubleshooting and supported automation</li>
@@ -548,7 +548,7 @@ export class LegalPage {
           <li>Email address (used as your primary identifier and for account communications)</li>
           <li>Display name (shown within the Service interface)</li>
           <li>Password (stored as a protected password hash; we never store plaintext passwords)</li>
-          <li>Sign-in provider identifiers (if you sign in through GitHub, Google, or another supported option)</li>
+          <li>Sign-in option details (if you sign in through GitHub, Google, or another supported option)</li>
           <li>Organization membership and role information (if applicable)</li>
         </ul>
         <h3 class="legal-subsection-title">Usage Data</h3>
@@ -591,10 +591,10 @@ export class LegalPage {
         <h3 class="legal-subsection-title">Service Delivery</h3>
         <ul class="legal-list">
           <li>To create and manage your account</li>
-          <li>To provide the core Wisdoverse Forge agent, task, context, and workspace functionality</li>
+          <li>To provide the core Wisdoverse Forge agent, task, saved work, and team space features</li>
           <li>To show live task, agent, and saved work updates in the product interface</li>
-          <li>To coordinate team workflows across managed agents</li>
-          <li>To authenticate your identity and authorize access to protected resources</li>
+          <li>To coordinate team workflows across agents that handle team tasks</li>
+          <li>To confirm who you are and let you open the parts of the Service your role allows</li>
           <li>To process payments and manage subscriptions</li>
         </ul>
         <h3 class="legal-subsection-title">Service Improvement</h3>
@@ -796,7 +796,7 @@ export class LegalPage {
         <h3 class="legal-subsection-title">Cookies</h3>
         <p class="legal-text">
           We do not use tracking cookies, advertising cookies, or third-party analytics cookies. The Service may use
-          essential login cookies strictly necessary for authentication and security purposes.
+          required login cookies needed to keep you signed in and protect your account.
         </p>
       </div>
 

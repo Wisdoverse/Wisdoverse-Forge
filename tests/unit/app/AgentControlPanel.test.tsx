@@ -82,7 +82,7 @@ describe('AgentControlPanel', () => {
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
 
     expect(screen.getByRole('alert')).toHaveTextContent(/refresh this agent/i)
-    expect(screen.getByRole('alert')).toHaveTextContent(/Review the recovery step below/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/Use the recovery step below/i)
     expect(screen.getByRole('alert')).toHaveTextContent(/forge could not update this agent/i)
     expect(screen.getByRole('alert')).toHaveTextContent(
       /ask an owner or admin to check this agent setup/i
@@ -179,7 +179,7 @@ describe('AgentControlPanel', () => {
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('Action did not finish')
-    expect(alert).toHaveTextContent(/Review the recovery step below/i)
+    expect(alert).toHaveTextContent(/Use the recovery step below/i)
     expect(alert).toHaveTextContent(/Refresh this agent, confirm it still shows Ready/i)
     expect(alert).toHaveTextContent(/create a task instead/i)
     expect(alert).toHaveTextContent(/ask an owner or admin to check agent messaging/i)

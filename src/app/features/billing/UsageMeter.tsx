@@ -25,7 +25,7 @@ function metricCopy(metric: string): { label: string; description: string; highA
     case 'agents':
       return {
         label: 'Agents',
-        description: 'Managed work actors your team can run.',
+        description: 'Agents your team can use to handle tasks.',
         highAction: 'Archive unused agents or upgrade before creating more.',
       }
     case 'events':
@@ -38,13 +38,13 @@ function metricCopy(metric: string): { label: string; description: string; highA
       return {
         label: 'AI message use',
         description: 'Messages and replies processed while agents work.',
-        highAction: 'Review busy agents or upgrade before more agent work is blocked.',
+        highAction: 'Check busy agents or upgrade before more agent work is blocked.',
       }
     default:
       return {
         label: readableMetric(metric),
         description: 'Usage tracked by this plan.',
-        highAction: 'Review this limit before starting more work.',
+        highAction: 'Check this limit before starting more work.',
       }
   }
 }
