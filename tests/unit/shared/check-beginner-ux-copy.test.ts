@@ -322,17 +322,28 @@ export function providerReadinessSummary() {
   return 'No AI services are ready to use yet'
 }
 `,
+      'src/app/features/agents/CreateAgentModal.tsx': `
+export function CreateAgentModal() {
+  return <p>No AI service ready yet</p>
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'provider-zero-ready-copy',
-        location: 'src/app/features/settings/ProvidersSection.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'provider-zero-ready-copy',
+          location: 'src/app/features/settings/ProvidersSection.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'provider-zero-ready-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:3',
+        }),
+      ])
+    )
   })
 
   it('accepts AI service zero-ready summaries that tell users what to do next', () => {

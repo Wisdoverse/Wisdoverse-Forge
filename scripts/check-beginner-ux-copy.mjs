@@ -160,7 +160,10 @@ const PROVIDER_CHECK_JARGON_PATTERNS = [
   /\bstill need Check\b/,
 ]
 
-const PROVIDER_ZERO_READY_DEAD_END_PATTERNS = [/\bNo AI services are ready to use yet\b/i]
+const PROVIDER_ZERO_READY_DEAD_END_PATTERNS = [
+  /\bNo AI services are ready to use yet\b/i,
+  /\bNo AI service ready yet\b/i,
+]
 
 const PROVIDER_TEST_FAILURE_FIRST_PATTERNS = [
   /\bconnection check needs attention\. Forge could not (?:check|connect to) this AI service/i,
@@ -1919,7 +1922,12 @@ function hasProviderCheckJargonCopy(line) {
 }
 
 function hasProviderZeroReadyDeadEndCopy(relFile, line) {
-  if (!relFile.endsWith('src/app/features/settings/ProvidersSection.tsx')) return false
+  if (
+    !relFile.endsWith('src/app/features/settings/ProvidersSection.tsx') &&
+    !relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx')
+  ) {
+    return false
+  }
   if (isLikelyGuardOrParserLine(line)) return false
   return PROVIDER_ZERO_READY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
