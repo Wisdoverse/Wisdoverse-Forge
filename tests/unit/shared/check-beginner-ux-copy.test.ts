@@ -9026,6 +9026,72 @@ function TaskFormModal() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags task form readiness and agent choice copy that uses internal status words', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskFormModal.tsx': `
+function TaskFormModal() {
+  return (
+    <div>
+      <p>Preparing This Project</p>
+      <p>Ready to Send</p>
+      <option>Let the next available agent pick it up</option>
+      <p>Keep this choice when any available agent can do the work.</p>
+      <span>2 available</span>
+    </div>
+  )
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-form-ready-state-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'task-form-ready-state-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'task-form-agent-choice-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'task-form-agent-choice-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:8',
+        }),
+        expect.objectContaining({
+          type: 'task-form-agent-choice-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:9',
+        }),
+      ])
+    )
+  })
+
+  it('accepts task form readiness and agent choice copy that uses visible Ready wording', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskFormModal.tsx': `
+function TaskFormModal() {
+  return (
+    <div>
+      <p>Preparing this project</p>
+      <p>Ready to send</p>
+      <option>Let the next ready agent pick it up</option>
+      <p>Leave automatic selection on when any ready agent can do the work.</p>
+      <span>2 ready</span>
+    </div>
+  )
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags quick task creation copy that uses draft-task jargon', () => {
     const cwd = fixture({
       'src/app/features/board/QuickCreate.tsx': `

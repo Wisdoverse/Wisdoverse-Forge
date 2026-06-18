@@ -574,6 +574,14 @@ const TASK_FORM_NO_AGENT_DEAD_END_PATTERNS = [
   /\bCreate the task now, or open agent setup to (?:start or )?connect an agent first\./i,
 ]
 
+const TASK_FORM_READY_STATE_JARGON_PATTERNS = [/\bPreparing This Project\b/, /\bReady to Send\b/]
+
+const TASK_FORM_AGENT_CHOICE_JARGON_PATTERNS = [
+  /\bLet the next available agent pick it up\b/,
+  /\bKeep this choice when any available agent can do the work\b/,
+  /\b\d+\s+available\b/,
+]
+
 const QUICK_CREATE_DRAFT_TASK_JARGON_PATTERNS = [
   /\bAdd Draft Task\b/i,
   /\bdraft task\b/i,
@@ -2732,6 +2740,18 @@ function hasTaskFormNoAgentDeadEndCopy(relFile, line) {
   return TASK_FORM_NO_AGENT_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTaskFormReadyStateJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/board/TaskFormModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_FORM_READY_STATE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasTaskFormAgentChoiceJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/board/TaskFormModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_FORM_AGENT_CHOICE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasQuickCreateDraftTaskJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/board/QuickCreate.tsx') &&
@@ -4760,6 +4780,26 @@ function scanFile(file, relFile) {
         location,
         message:
           'Task creation with no online agents must offer agent setup while still explaining that the task can wait.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskFormReadyStateJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'task-form-ready-state-copy',
+        location,
+        message:
+          'Task creation readiness states must use sentence case instead of internal-looking status labels.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskFormAgentChoiceJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'task-form-agent-choice-copy',
+        location,
+        message:
+          'Task creation agent choice copy must use the same Ready status users see on agents.',
         sample: line.trim(),
       })
     }

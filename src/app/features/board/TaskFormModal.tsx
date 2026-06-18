@@ -161,14 +161,14 @@ export function TaskFormModal({
   const projectSelectionSettled = Boolean(projectId && selectedProjectId === projectId)
   const workLaneReady = Boolean(projectSelectionSettled && selectedTaskGroupId)
   const readinessTitle = selectingProject
-    ? 'Preparing This Project'
+    ? 'Preparing this project'
     : workLaneReady
-      ? 'Ready to Send'
+      ? 'Ready to send'
       : 'Create a task queue before sending work'
   const readinessDetail = selectingProject
     ? 'Forge is loading the task queue for this project. Wait a moment before creating the task.'
     : workLaneReady
-      ? `New tasks will wait in ${selectedTaskGroupName ?? 'this task queue'} until an available agent picks them up.`
+      ? `New tasks will wait in ${selectedTaskGroupName ?? 'this task queue'} until a ready agent picks them up.`
       : 'A task queue gives new work a place to wait. Create one once, then return here.'
   const assignableAgents = agents.filter((agent) => agentCanTakeTask(agent.status))
   const taskWillWaitForAgent = workLaneReady && assignableAgents.length === 0
@@ -694,7 +694,7 @@ export function TaskFormModal({
                   Who should pick it up?
                 </label>
                 <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                  {assignableAgents.length} available
+                  {assignableAgents.length} ready
                 </span>
               </div>
               <select
@@ -702,7 +702,7 @@ export function TaskFormModal({
                 {...register('assignedTo')}
                 className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
               >
-                <option value="">Let the next available agent pick it up</option>
+                <option value="">Let the next ready agent pick it up</option>
                 {agents.map((a) => (
                   <option key={a.id} value={a.id} disabled={!agentCanTakeTask(a.status)}>
                     {a.name} ({agentStatusLabel(a.status)})
@@ -712,7 +712,7 @@ export function TaskFormModal({
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {taskWillWaitForAgent
                   ? 'This task will wait here until an agent is Ready.'
-                  : 'Keep this choice when any available agent can do the work.'}
+                  : 'Leave automatic selection on when any ready agent can do the work.'}
               </p>
             </div>
           </div>
