@@ -395,7 +395,7 @@ describe('beginner error translations', () => {
 
     expect(englishJoin.title).toContain('Setup text needs to be pasted again')
     expect(englishJoin.detail).toContain('Paste the setup text on this computer again')
-    expect(englishJoin.detail).toContain('Agent work setup')
+    expect(englishJoin.detail).toContain('Where agents work')
     expect(englishJoin.title).not.toContain('Setup command')
     expect(englishJoin.detail).not.toContain('setup command')
     expect(englishJoin.title).not.toContain('Idempotency-Key')
@@ -410,7 +410,7 @@ describe('beginner error translations', () => {
 
     expect(chineseJoin.title).toContain('重新运行设置命令')
     expect(chineseJoin.detail).toContain('在这台电脑上重新运行设置命令')
-    expect(chineseJoin.detail).toContain('Agent 工作设置')
+    expect(chineseJoin.detail).toContain('Agent 在哪里工作')
     expect(chineseJoin.title).not.toContain('Idempotency-Key')
     expect(chineseJoin.detail).not.toContain('UUID')
     expect(chineseJoin.detail).not.toContain('本地 Agent')

@@ -442,13 +442,13 @@ export const en = {
     reset: 'Reset to defaults',
     resetConfirm: 'Reset all settings? This restores defaults and replaces your current choices.',
     runtime: {
-      title: 'Agent work setup',
+      title: 'Where agents work',
       description:
-        'Choose where hands-on agents work, then check tools and sign-ins before assigning tasks.',
+        'Choose where agents can open files, then check tools and sign-ins before assigning tasks.',
       saving: 'Saving...',
-      loading: 'Loading work setup...',
+      loading: 'Loading where agents work...',
       couldNotLoad:
-        'Refresh this settings page to load Agent work setup. If it still does not load, ask an owner or admin to check Agent work setup in Settings.',
+        'Refresh this settings page to load Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.',
       defaultRuntimeLabel: 'Where project files open',
       defaultRuntimeDescription:
         'Choose Project files for the simplest shared file work. Choose This computer only when this machine should join as an agent.',
@@ -456,7 +456,7 @@ export const en = {
       defaultContainerCliDescription:
         'Claude Code, Codex, Gemini, or OpenCode when an agent edits files or runs commands',
       availableRuntimesLabel: 'Places that can open project files',
-      availableRuntimesDescription: 'Where this setup can open files for hands-on agents',
+      availableRuntimesDescription: 'Places where agents can open project files',
       availableContainerClisLabel: 'Work tools agents can use',
       availableContainerClisDescription: 'Installed tools for file edits, commands, and live work',
       runtimeLabels: {
@@ -596,7 +596,7 @@ export const en = {
         missing_idempotency_key: {
           title: 'Setup text needs to be pasted again',
           detail:
-            'Paste the setup text on this computer again. If this repeats, ask an owner to check Agent work setup for this computer.',
+            'Paste the setup text on this computer again. If this repeats, ask an owner to check Where agents work for this computer.',
         },
         plaintext_nats_blocked: {
           title: 'Secure connection required for this computer',

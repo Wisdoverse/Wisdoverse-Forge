@@ -123,7 +123,7 @@ describe('RuntimeSection', () => {
     expect(nextStep).not.toHaveTextContent('Success:')
     expect(screen.getByText('Before assigning work')).toBeDefined()
     expect(screen.getByText('2/4 ready')).toBeDefined()
-    expect(within(readiness).getByText('Finish agent work setup')).toBeDefined()
+    expect(within(readiness).getByText('Finish where agents work')).toBeDefined()
     expect(
       screen.getByText(
         /Forge can run agents in 2 places and use 2 tools for file work, such as Claude or Codex/i
@@ -147,7 +147,7 @@ describe('RuntimeSection', () => {
       )
     ).toBeDefined()
     expect(screen.queryByText(new RegExp(['unless', 'owner', 'tells'].join('.*'), 'i'))).toBeNull()
-    expect(screen.getAllByText(/work tool setup/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Work tools/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/tool install status/i)).toBeNull()
     expect(screen.getAllByText('Project files').length).toBeGreaterThan(0)
     expect(screen.queryByText('Managed workspace')).toBeNull()
@@ -168,7 +168,7 @@ describe('RuntimeSection', () => {
     expect(screen.getByText('Check tool version')).toBeDefined()
     expect(screen.queryByText('Needs attention')).toBeNull()
     expect(screen.getByText('Setup needed')).toBeDefined()
-    expect(screen.getByText('check setup')).toBeDefined()
+    expect(screen.getByText('check tool')).toBeDefined()
     expect(screen.getByText('Installed and ready')).toBeDefined()
     expect(screen.getAllByText(/work tool sign-ins/i).length).toBeGreaterThan(0)
     expect(screen.getByText(/1\/2 work tool sign-ins ready/i)).toBeDefined()
@@ -177,7 +177,7 @@ describe('RuntimeSection', () => {
     ).toBeDefined()
     expect(screen.queryByText(/No work tool sign-in saved/i)).toBeNull()
     expect(screen.getByRole('button', { name: /Sign in to GitHub/i })).toBeDefined()
-    expect(screen.getByRole('button', { name: /Check setup/i })).toBeDefined()
+    expect(screen.getAllByRole('button', { name: /Check again/i }).length).toBeGreaterThan(0)
     expect(
       screen.queryByRole('button', { name: new RegExp(['Check', 'status'].join(' '), 'i') })
     ).toBeNull()
@@ -284,7 +284,7 @@ describe('RuntimeSection', () => {
     render(<RuntimeSection />)
 
     const loadGuidance = await screen.findAllByText(
-      'Refresh this settings page to load Agent work setup. If it still does not load, ask an owner or admin to check Agent work setup in Settings.'
+      'Refresh this settings page to load Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.'
     )
     expect(loadGuidance.length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByRole('button', { name: /Check again/i }).length).toBeGreaterThanOrEqual(1)
@@ -317,11 +317,12 @@ describe('RuntimeSection', () => {
 
     expect(
       await screen.findAllByText(
-        'Check setup after tools finish. If this stays here, ask an owner to finish tool setup.'
+        'Check again after tools finish. If this stays here, ask an owner to finish adding the tools.'
       )
     ).toHaveLength(3)
-    expect(screen.getByText('Start or wake an agent, then choose Check setup.')).toBeDefined()
-    expect(screen.getByText('Start or wake an agent, then choose Check again.')).toBeDefined()
+    expect(screen.getAllByText('Start or wake an agent, then choose Check again.').length).toBe(
+      2
+    )
     expect(screen.getByText(/No extra tool sign-ins are needed/i)).toBeDefined()
     expect(screen.getByText(/Start or wake an agent to bring one online/i)).toBeDefined()
     expect(
@@ -356,7 +357,7 @@ describe('RuntimeSection', () => {
     render(<RuntimeSection />)
 
     expect((await screen.findAllByText('Check where files open')).length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Check work tool setup').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Check work tool').length).toBeGreaterThan(0)
     expect(screen.queryByText(/future_runtime/i)).toBeNull()
     expect(screen.queryByText(/future_tool/i)).toBeNull()
     expect(screen.queryByText('Unknown')).toBeNull()
@@ -370,7 +371,7 @@ describe('RuntimeSection', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(/work tool sign-in could not be checked/i)
-    expect(alert).toHaveTextContent(/Forge could not connect while checking Agent work setup/i)
+    expect(alert).toHaveTextContent(/Forge could not connect while checking Where agents work/i)
     expect(screen.getByText(/Choose Check again to refresh work tool sign-ins/i)).toBeDefined()
     expect(screen.queryByText(/^Work tool sign-ins could not be checked/i)).toBeNull()
     expect(screen.queryByText(/failed to fetch/i)).toBeNull()
@@ -406,7 +407,7 @@ describe('RuntimeSection', () => {
     fireEvent.click(screen.getByRole('button', { name: /Sign in to GitHub/i }))
 
     expect(
-      await screen.findByText(/do not have permission to change Agent work setup/i)
+      await screen.findByText(/do not have permission to change Where agents work/i)
     ).toBeDefined()
     expect(screen.getAllByText(/owner or admin/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/403 Forbidden/)).toBeNull()
@@ -422,7 +423,7 @@ describe('RuntimeSection', () => {
 
     await screen.findByTestId('runtime-launch-checklist')
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Choose where project files open and a work tool, then save again. Agent work setup could not be saved.'
+      'Choose where project files open and a work tool, then save again. Where agents work could not be saved.'
     )
     expect(screen.queryByText(/Details: default CLI tool is not available/i)).toBeNull()
   })

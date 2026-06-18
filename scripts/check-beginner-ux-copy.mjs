@@ -792,6 +792,19 @@ const SETTINGS_RUNTIME_NAV_JARGON_PATTERNS = [
   /\bChoose where agents run and which work tool they use\b/i,
 ]
 
+const SETTINGS_RUNTIME_SETUP_JARGON_PATTERNS = [
+  /\btitle:\s*['"`]Agent work setup['"`]/i,
+  /\bAgent work setup is ready\b/i,
+  /\bFinish agent work setup\b/i,
+  /\bAgent work setup status\b/i,
+  /\bRefresh this settings page to load Agent work setup\b/i,
+  /\bForge could not connect while checking Agent work setup\b/i,
+  /\bWork tool setup\b/i,
+  /\bCheck setup\b/i,
+  /title:\s*['"`]Agent 工作设置/,
+  /加载 Agent 工作设置/,
+]
+
 const SETTINGS_RUNTIME_LOCATION_JARGON_PATTERNS = [
   /\bDefault file work place\b/i,
   /\bfile work place\b/i,
@@ -3291,11 +3304,25 @@ function hasSettingsRuntimeNavJargonCopy(relFile, line) {
   return SETTINGS_RUNTIME_NAV_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasSettingsRuntimeSetupJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/settings/RuntimeSection.tsx') &&
+    !relFile.endsWith('src/app/features/settings/runtimeErrorMessages.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SETTINGS_RUNTIME_SETUP_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasSettingsRuntimeLocationJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/settings/RuntimeSection.tsx') &&
     !relFile.endsWith('src/app/features/settings/runtimeErrorMessages.ts') &&
-    !relFile.endsWith('src/app/shared/i18n/locales/en.ts')
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
   ) {
     return false
   }
@@ -5419,6 +5446,16 @@ function scanFile(file, relFile) {
         type: 'settings-runtime-nav-copy',
         location,
         message: 'Settings navigation must describe agent work setup in plain file-work language.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSettingsRuntimeSetupJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'settings-runtime-setup-copy',
+        location,
+        message:
+          'Where agents work copy must avoid setup jargon and use the same beginner-facing page name.',
         sample: line.trim(),
       })
     }

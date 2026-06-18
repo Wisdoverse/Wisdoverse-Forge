@@ -32,7 +32,7 @@ interface RuntimeChecklistItem {
 }
 
 const RUNTIME_SETTINGS_LOAD_GUIDANCE =
-  'Refresh this settings page to load Agent work setup. If it still does not load, ask an owner or admin to check Agent work setup in Settings.'
+  'Refresh this settings page to load Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.'
 
 function SettingRow({ label, description, children }: SettingRowProps) {
   return (
@@ -220,7 +220,7 @@ export function RuntimeSection() {
                 <AlertTriangle size={17} strokeWidth={2.25} className="text-apple-orange" />
               )}
               <h3 className={uiStyles.sectionTitle}>
-                {setupReady ? 'Agent work setup is ready' : 'Finish agent work setup'}
+                {setupReady ? 'Where agents work is ready' : 'Finish where agents work'}
               </h3>
             </div>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
@@ -246,7 +246,7 @@ export function RuntimeSection() {
               className={cn(cliStatusLoading && 'animate-spin')}
               aria-hidden="true"
             />
-            <span>{cliStatusLoading ? 'Checking setup' : 'Check setup'}</span>
+            <span>{cliStatusLoading ? 'Checking now' : 'Check again'}</span>
           </button>
         </div>
 
@@ -263,11 +263,11 @@ export function RuntimeSection() {
             )}
           />
           <RuntimeReadinessMetric
-            label="Work tool setup"
+            label="Work tools"
             value={
               cliToolDetails.length > 0
                 ? `${reportedVersionCount}/${cliToolDetails.length} work tools ready`
-                : 'Check setup after tools finish. If this stays here, ask an owner to finish tool setup.'
+                : 'Check again after tools finish. If this stays here, ask an owner to finish adding the tools.'
             }
             ready={cliToolDetails.length > 0 && reportedVersionCount === cliToolDetails.length}
           />
@@ -276,7 +276,7 @@ export function RuntimeSection() {
             value={
               latestHeartbeat
                 ? formatRelativeTime(latestHeartbeat)
-                : 'Start or wake an agent, then choose Check setup.'
+                : 'Start or wake an agent, then choose Check again.'
             }
             ready={Boolean(latestHeartbeat)}
           />
@@ -309,7 +309,7 @@ export function RuntimeSection() {
           <div className="mt-4 space-y-2" data-testid="runtime-cli-versions">
             <div className="flex items-center justify-between gap-2">
               <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                Work tool setup
+                Work tools
               </p>
               <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {reportedVersionCount} work tool{reportedVersionCount === 1 ? '' : 's'} ready
@@ -731,7 +731,7 @@ function runtimeLaunchChecklistItems(
     return [
       {
         id: 'runtime-api',
-        title: 'Agent work setup status',
+        title: 'Where agents work status',
         detail: RUNTIME_SETTINGS_LOAD_GUIDANCE,
         ready: false,
         action: 'refresh',
@@ -771,7 +771,7 @@ function runtimeLaunchChecklistItems(
       'Enable at least one tool before giving agents tasks that need project files, commands, or live work access.'
   } else if (runtimeSettings.cliToolDetails.length === 0) {
     imageDetail =
-      'Check setup after tools finish. If this stays here, ask an owner to finish tool setup.'
+      'Check again after tools finish. If this stays here, ask an owner to finish adding the tools.'
   } else if (missingImages.length > 0) {
     imageDetail = `${missingImages.length} tool${
       missingImages.length === 1 ? '' : 's'
@@ -815,7 +815,7 @@ function runtimeLaunchChecklistItems(
     id: 'heartbeats',
     title: 'Agent online status',
     detail: participantsError
-      ? 'Choose Check again to refresh agent online status. If it still cannot be checked, ask an owner or admin to check Agent work setup in Settings.'
+      ? 'Choose Check again to refresh agent online status. If it still cannot be checked, ask an owner or admin to check Where agents work in Settings.'
       : latestHeartbeat
         ? `An agent was online ${formatRelativeTime(latestHeartbeat)}.`
         : 'Start or wake an agent, then choose Check again.',
@@ -829,8 +829,8 @@ function runtimeLaunchChecklistItems(
 
 function versionSourceLabel(source: string, imagePresent: boolean): string {
   if (source === 'docker-label') return 'ready'
-  if (source === 'image-tag') return imagePresent ? 'ready' : 'check setup'
-  return 'check setup'
+  if (source === 'image-tag') return imagePresent ? 'ready' : 'check tool'
+  return 'check tool'
 }
 
 function runtimeReadinessSummary(
@@ -889,7 +889,7 @@ function fallbackCliToolLabel(tool: string): string {
     case 'opencode':
       return 'OpenCode'
     default:
-      return tool.trim() ? 'Check work tool setup' : 'Refresh work tool setup'
+      return tool.trim() ? 'Check work tool' : 'Refresh work tools'
   }
 }
 

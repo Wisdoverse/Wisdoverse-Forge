@@ -435,12 +435,12 @@ export const zh: TranslationKeys = {
     reset: '恢复默认',
     resetConfirm: '要恢复所有设置吗？这会使用默认值替换当前选择。',
     runtime: {
-      title: 'Agent 工作设置',
-      description: '选择实际操作型 Agent 在哪里工作，并在分配任务前检查工具和登录状态。',
+      title: 'Agent 在哪里工作',
+      description: '选择 Agent 可以在哪里打开文件，并在分配任务前检查工具和登录状态。',
       saving: '保存中...',
-      loading: '加载工作设置...',
+      loading: '正在加载 Agent 在哪里工作...',
       couldNotLoad:
-        '请刷新这个设置页来加载 Agent 工作设置。如果仍然无法加载，请找 owner 或 admin 检查 Agent 工作设置。',
+        '请刷新这个设置页来加载 Agent 在哪里工作。如果仍然无法加载，请找 owner 或 admin 检查设置里的“Agent 在哪里工作”。',
       defaultRuntimeLabel: '项目文件打开位置',
       defaultRuntimeDescription:
         '处理共享项目文件时，选择“项目文件”最简单。只有要把这台电脑接入为 Agent 时，才选择这台电脑。',
@@ -448,7 +448,7 @@ export const zh: TranslationKeys = {
       defaultContainerCliDescription:
         'Agent 编辑文件或运行命令时使用的 Claude Code、Codex、Gemini 或 OpenCode',
       availableRuntimesLabel: '可打开项目文件的位置',
-      availableRuntimesDescription: '当前安装可以在哪里打开项目文件，供实际操作型 Agent 使用',
+      availableRuntimesDescription: 'Agent 可以打开项目文件的位置',
       availableContainerClisLabel: 'Agent 可使用的工作工具',
       availableContainerClisDescription: '用于编辑文件、运行命令和实时工作的已安装工具',
       runtimeLabels: {
@@ -576,7 +576,7 @@ export const zh: TranslationKeys = {
         missing_idempotency_key: {
           title: '需要重新运行设置命令',
           detail:
-            '请在这台电脑上重新运行设置命令。如果反复出现，请让管理员检查这台电脑的 Agent 工作设置。',
+            '请在这台电脑上重新运行设置命令。如果反复出现，请让管理员检查这台电脑的“Agent 在哪里工作”。',
         },
         plaintext_nats_blocked: {
           title: '这台电脑的连接需要安全通道',

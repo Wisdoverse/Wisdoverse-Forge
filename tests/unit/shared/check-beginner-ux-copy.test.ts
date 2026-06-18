@@ -248,7 +248,7 @@ export const zh = {
   settings: {
     runtime: {
       couldNotLoad:
-        '请刷新这个设置页来加载 Agent 工作设置。如果仍然无法加载，请找 owner 或 admin 检查 Agent 工作设置。',
+        '请刷新这个设置页来加载 Agent 在哪里工作。如果仍然无法加载，请找 owner 或 admin 检查设置里的“Agent 在哪里工作”。',
     },
   },
 }
@@ -2145,7 +2145,7 @@ function fallbackRuntimeLabel(runtime) {
   return runtime ? 'Check where files open' : 'Refresh where files open'
 }
 function fallbackCliToolLabel(tool) {
-  return tool ? 'Check work tool setup' : 'Refresh work tool setup'
+  return tool ? 'Check work tool' : 'Refresh work tools'
 }
 `,
     })
@@ -4600,16 +4600,16 @@ function runtimeCliErrorMessage() {
 }
 
 function runtimeSettingsErrorMessage() {
-  return 'Choose where project files open and a work tool, then save again. Agent work setup could not be saved.'
+  return 'Choose where project files open and a work tool, then save again. Where agents work could not be saved.'
 }
 
 function runtimeSettingsFallback() {
-  return 'Check where project files open and the work tool choice, then save Agent work setup again. If it still fails, ask an owner or admin to check Agent work setup in Settings.'
+  return 'Check where project files open and the work tool choice, then save Where agents work again. If it still fails, ask an owner or admin to check Where agents work in Settings.'
 }
 `,
       'src/app/features/settings/RuntimeSection.tsx': `
 function runtimeChecklistCopy() {
-  return 'Refresh this settings page to load Agent work setup. If it still does not load, ask an owner or admin to check Agent work setup in Settings.'
+  return 'Refresh this settings page to load Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.'
 }
 
 function credentialStatusCopy() {
@@ -4617,7 +4617,7 @@ function credentialStatusCopy() {
 }
 
 function heartbeatStatusCopy() {
-  return 'Choose Check again to refresh agent online status. If it still cannot be checked, ask an owner or admin to check Agent work setup in Settings.'
+  return 'Choose Check again to refresh agent online status. If it still cannot be checked, ask an owner or admin to check Where agents work in Settings.'
 }
 `,
     })
@@ -4657,6 +4657,102 @@ const SECTIONS = [
     description: 'Choose where project files open and which work tool agents use.',
   },
 ]
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags Where agents work copy that falls back to setup wording', () => {
+    const cwd = fixture({
+      'src/app/features/settings/RuntimeSection.tsx': `
+export function RuntimeSection() {
+  return (
+    <>
+      <h3>Finish agent work setup</h3>
+      <RuntimeReadinessMetric label="Work tool setup" value="Check setup after tools finish." />
+      <RuntimeChecklistRow title="Agent work setup status" />
+    </>
+  )
+}
+`,
+      'src/app/features/settings/runtimeErrorMessages.ts': `
+export function message() {
+  return 'Forge could not connect while checking Agent work setup.'
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  settings: { runtime: { title: 'Agent work setup' } },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  settings: { runtime: { title: 'Agent 工作设置' } },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'settings-runtime-setup-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'settings-runtime-setup-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'settings-runtime-setup-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'settings-runtime-setup-copy',
+          location: 'src/app/features/settings/runtimeErrorMessages.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'settings-runtime-setup-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'settings-runtime-setup-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts Where agents work copy that uses the same page name and next action', () => {
+    const cwd = fixture({
+      'src/app/features/settings/RuntimeSection.tsx': `
+export function RuntimeSection() {
+  return (
+    <>
+      <h3>Finish where agents work</h3>
+      <RuntimeReadinessMetric label="Work tools" value="Check again after tools finish." />
+      <RuntimeChecklistRow title="Where agents work status" />
+    </>
+  )
+}
+`,
+      'src/app/features/settings/runtimeErrorMessages.ts': `
+export function message() {
+  return 'Forge could not connect while checking Where agents work.'
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  settings: { runtime: { title: 'Where agents work' } },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  settings: { runtime: { title: 'Agent 在哪里工作' } },
+}
 `,
     })
 
@@ -4743,7 +4839,7 @@ export function RuntimeSection() {
 `,
       'src/app/features/settings/runtimeErrorMessages.ts': `
 export function message() {
-  return 'Check where project files open and the work tool choice, then save Agent work setup again.'
+  return 'Check where project files open and the work tool choice, then save Where agents work again.'
 }
 `,
       'src/app/shared/i18n/locales/en.ts': `
@@ -7096,7 +7192,7 @@ export function AgentTasksTab() {
 `,
       'src/app/features/settings/RuntimeSection.tsx': `
 export function RuntimeSection() {
-  return <h3>Finish agent work setup</h3>
+  return <h3>Finish where agents work</h3>
 }
 `,
       'src/app/features/settings/ProvidersSection.tsx': `
