@@ -8020,6 +8020,7 @@ function AddCredentialForm() {
     const cwd = fixture({
       'src/app/features/settings/GitCredentialsSection.tsx': `
 const GIT_CREDENTIAL_SETUP_STEPS = [
+  { label: 'Use the normal website by default', value: 'Add one only if your company uses its own GitHub or GitLab website.' },
   { label: 'Leave address blank for cloud', value: 'Only enter an address when your company hosts its own GitHub or GitLab.' },
 ]
 function CredentialRow() {
@@ -8073,13 +8074,13 @@ const tableHeaders = [{ label: 'Git address' }]
     const cwd = fixture({
       'src/app/features/settings/GitCredentialsSection.tsx': `
 const GIT_CREDENTIAL_SETUP_STEPS = [
-  { label: 'Use the normal website by default', value: 'Leave the website address empty for github.com or gitlab.com. Add one only if your company uses its own GitHub or GitLab website.' },
+  { label: 'Leave the address empty for normal sites', value: 'Use the website address field only when your company has its own GitHub or GitLab website.' },
 ]
 function CredentialRow({ provider }) {
   return <span>{provider === 'github' ? 'github.com' : 'gitlab.com'}</span>
 }
 function AddCredentialForm() {
-  return <label>Company GitHub or GitLab website</label>
+  return <label>Company code website address</label>
 }
 const tableHeaders = [{ label: 'Code website' }, { label: 'Website address' }]
 `,

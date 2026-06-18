@@ -11,15 +11,15 @@ const PROVIDER_LABELS: Record<GitProvider, string> = {
 }
 
 const GIT_CREDENTIAL_SETUP_STEPS = [
-  { label: 'Choose where your code lives', value: 'Pick GitHub or GitLab.' },
+  { label: 'Pick the code website', value: 'Choose GitHub or GitLab.' },
   {
-    label: 'Create a code access key',
-    value: 'Create an access key on GitHub or GitLab and allow it to read the code agents need.',
+    label: 'Copy a code access key',
+    value: 'Create a key that can read the code projects agents need, then copy it once.',
   },
   {
-    label: 'Use the normal website by default',
+    label: 'Leave the address empty for normal sites',
     value:
-      'Leave the website address empty for github.com or gitlab.com. Add one only if your company uses its own GitHub or GitLab website.',
+      'Use the website address field only when your company has its own GitHub or GitLab website.',
   },
 ]
 
@@ -41,9 +41,9 @@ function credentialFormReadiness({
   if (!token.trim()) {
     return {
       ready: false,
-      title: 'Next: Create a code access key',
+      title: 'Next: paste the code access key',
       detail:
-        'Create the key in GitHub or GitLab, paste it here, then agents can open the code you allow.',
+        'Open GitHub or GitLab, create a key that can read the code projects agents need, then paste it below.',
       error: 'Paste the code access key from GitHub or GitLab before saving.',
       fieldId: tokenInputId,
     }
@@ -51,8 +51,9 @@ function credentialFormReadiness({
 
   return {
     ready: true,
-    title: 'Ready to save',
-    detail: 'Save code access, then use a small agent task to confirm it works.',
+    title: 'Key can be saved',
+    detail:
+      'Save code access, then create a small task with a private code link to confirm it works.',
     error: null,
     fieldId: null,
   }
@@ -267,8 +268,8 @@ function AddCredentialForm({
             id={tokenIntroId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Paste the code access key from GitHub or GitLab. If that page says personal access
-            token, use that value here.
+            Paste the key you copied from GitHub or GitLab. Some pages call it a personal access
+            token.
           </p>
           <input
             id="git-credential-token"
@@ -286,8 +287,8 @@ function AddCredentialForm({
             id={tokenSafetyId}
             className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            It lets agents open only the code projects you allow. Do not paste your GitHub or GitLab
-            password. This key is hidden after saving.
+            Forge hides the key after saving. It should read only the code projects you want agents
+            to open. Never paste your GitHub or GitLab password.
           </p>
           {visibleError && (
             <p id={tokenErrorId} role="alert" className="mt-1 text-ui-caption text-apple-red">
@@ -298,7 +299,7 @@ function AddCredentialForm({
 
         <div className="sm:col-span-2">
           <label htmlFor="git-credential-host" className={uiStyles.label}>
-            Company GitHub or GitLab website{' '}
+            Company code website address{' '}
             <span className="text-secondary-light dark:text-secondary-dark font-normal">
               (optional)
             </span>
@@ -323,8 +324,8 @@ function AddCredentialForm({
             id={hostCompanyHelpId}
             className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            If your company uses its own GitHub or GitLab website, enter the address you open in the
-            browser.
+            If your company has its own GitHub or GitLab website, enter the address you open in the
+            browser. Otherwise leave this empty.
           </p>
         </div>
       </div>
@@ -378,7 +379,7 @@ export function GitCredentialsSection() {
     if (ok) {
       setShowForm(false)
       setSavedMessage(
-        'Code access saved. Create a small task with a private code link to confirm agents can open it. If it cannot open the code, come back here and replace this key.'
+        'Code access saved. Create a small task with an https:// private code link to confirm agents can open it. If it cannot open the code, come back here and replace this key.'
       )
     }
   }
