@@ -4297,7 +4297,7 @@ function CredentialStatusRow() {
     const cwd = fixture({
       'src/app/features/settings/RuntimeSection.tsx': `
 function runtimeReadinessSummary() {
-  return 'Sign in to a work tool before starting agents that need one'
+  return 'Sign in to a tool for file work before starting agents that need one'
 }
 
 function CredentialStatusRow() {
