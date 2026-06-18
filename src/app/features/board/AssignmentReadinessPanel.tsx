@@ -109,7 +109,11 @@ export function AssignmentReadinessPanel({
           value={workload.unassigned}
           testId="assignment-metric-unassigned"
         />
-        <MetricPill label="In flight" value={workload.inFlight} />
+        <MetricPill
+          label="Being worked on"
+          value={workload.inFlight}
+          testId="assignment-metric-working"
+        />
         <MetricPill
           label="Needs help"
           value={workload.blocked}
@@ -132,8 +136,8 @@ export function AssignmentReadinessPanel({
             Connect an agent before sending work
           </p>
           <p className="mt-0.5 text-ui-caption leading-snug text-secondary-light dark:text-secondary-dark">
-            Open task queues, choose this task queue, and add an available agent to it. Until then,
-            tasks that are not sent yet will wait here.
+            Set up where tasks wait, choose that place for this project, and add an available agent.
+            Until then, tasks that are not sent yet will wait here.
           </p>
         </div>
       ) : participants.length > 0 ? (

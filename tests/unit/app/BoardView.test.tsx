@@ -59,16 +59,17 @@ describe('BoardView', () => {
     expect(onOpenProjectsSetup).toHaveBeenCalledTimes(1)
   })
 
-  test('explains missing task queue when a project is selected', () => {
+  test('explains missing task waiting place when a project is selected', () => {
     useNavigationStore.setState({ selectedProjectId: 'p1' })
     const onOpenTaskQueues = vi.fn()
 
     render(<BoardView onOpenTaskQueues={onOpenTaskQueues} />)
 
-    expect(screen.getByText(/create a task queue before sending work/i)).toBeDefined()
-    expect(screen.getByText(/a task queue gives new tasks a place to wait/i)).toBeDefined()
-    expect(screen.getByText(/open task queues to create one/i)).toBeDefined()
-    fireEvent.click(screen.getByRole('button', { name: /set up task queues/i }))
+    expect(screen.getByText(/set up where tasks wait before sending work/i)).toBeDefined()
+    expect(screen.getByText(/new tasks need a place to wait/i)).toBeDefined()
+    expect(screen.queryByText(/create a task queue before sending work/i)).toBeNull()
+    expect(screen.queryByText(/open task queues to create one/i)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /set up where tasks wait/i }))
     expect(onOpenTaskQueues).toHaveBeenCalledTimes(1)
   })
 
@@ -236,7 +237,9 @@ describe('BoardView', () => {
     expect(screen.getByTestId('assignment-metric-backlog').textContent).toContain('2')
     expect(screen.getByTestId('assignment-metric-unassigned').textContent).toContain('2')
     expect(screen.getByTestId('assignment-metric-unassigned').textContent).toContain('Needs agent')
-    expect(screen.getByTestId('assignment-metric-in-flight').textContent).toContain('1')
+    expect(screen.getByTestId('assignment-metric-working').textContent).toContain('1')
+    expect(screen.getByTestId('assignment-metric-working').textContent).toContain('Being worked on')
+    expect(screen.queryByTestId('assignment-metric-in-flight')).toBeNull()
     expect(screen.getByTestId('assignment-metric-blocked').textContent).toContain('1')
     expect(screen.getByTestId('assignment-metric-blocked').textContent).toContain('Needs help')
     expect(screen.getByTestId('assignment-metric-review').textContent).toContain('1')

@@ -277,7 +277,7 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
   }
 
   if (!selectedGroupId) {
-    const actionLabel = selectedProjectId ? 'Set up task queues' : 'Open project settings'
+    const actionLabel = selectedProjectId ? 'Set up where tasks wait' : 'Open project settings'
     const action = selectedProjectId ? onOpenTaskQueues : onOpenProjectsSetup
 
     return (
@@ -291,12 +291,12 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
         <div className="space-y-1">
           <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
             {selectedProjectId
-              ? 'Create a task queue before sending work'
+              ? 'Set up where tasks wait before sending work'
               : 'Create or choose a project before creating tasks'}
           </p>
           <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
             {selectedProjectId
-              ? 'A task queue gives new tasks a place to wait. Open task queues to create one, then come back here.'
+              ? 'New tasks need a place to wait before an agent starts them. Set that up, then come back here.'
               : 'Open project settings to create a project, or choose an existing project from the project list. A project keeps tasks, agents, and task queues together.'}
           </p>
         </div>
