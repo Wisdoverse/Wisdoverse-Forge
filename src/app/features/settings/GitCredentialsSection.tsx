@@ -14,12 +14,11 @@ const GIT_CREDENTIAL_SETUP_STEPS = [
   { label: 'Pick the code website', value: 'Choose GitHub or GitLab.' },
   {
     label: 'Copy a code access key',
-    value: 'Create a key that can read the code projects agents need, then copy it once.',
+    value: 'Create a read-only key for the code projects agents need, then copy it once.',
   },
   {
-    label: 'Leave the address empty for normal sites',
-    value:
-      'Use the website address field only when your company has its own GitHub or GitLab website.',
+    label: 'Leave the address empty for github.com or gitlab.com',
+    value: 'Only fill it in when your company uses a private code website like gitlab.example.com.',
   },
 ]
 
@@ -43,7 +42,7 @@ function credentialFormReadiness({
       ready: false,
       title: 'Next: paste the code access key',
       detail:
-        'Open GitHub or GitLab, create a key that can read the code projects agents need, then paste it below.',
+        'Open the code website, create a read-only key for the code projects agents need, then paste it below.',
       error: 'Paste the code access key from GitHub or GitLab before saving.',
       fieldId: tokenInputId,
     }
@@ -268,8 +267,8 @@ function AddCredentialForm({
             id={tokenIntroId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Paste the key you copied from GitHub or GitLab. Some pages call it a personal access
-            token.
+            Paste the key you copied from the code website. The website may call it a personal
+            access token.
           </p>
           <input
             id="git-credential-token"
@@ -287,8 +286,8 @@ function AddCredentialForm({
             id={tokenSafetyId}
             className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Forge hides the key after saving. It should read only the code projects you want agents
-            to open. Never paste your GitHub or GitLab password.
+            Forge hides the key after saving. Give it read-only access to the code agents should
+            open. Never paste your website password.
           </p>
           {visibleError && (
             <p id={tokenErrorId} role="alert" className="mt-1 text-ui-caption text-apple-red">
@@ -299,7 +298,7 @@ function AddCredentialForm({
 
         <div className="sm:col-span-2">
           <label htmlFor="git-credential-host" className={uiStyles.label}>
-            Company code website address{' '}
+            Private code website address{' '}
             <span className="text-secondary-light dark:text-secondary-dark font-normal">
               (optional)
             </span>
@@ -324,8 +323,8 @@ function AddCredentialForm({
             id={hostCompanyHelpId}
             className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            If your company has its own GitHub or GitLab website, enter the address you open in the
-            browser. Otherwise leave this empty.
+            Only enter an address when your company uses its own code website. For github.com or
+            gitlab.com, leave this empty.
           </p>
         </div>
       </div>

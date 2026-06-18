@@ -116,6 +116,8 @@ interface NewKeyBannerProps {
 function NewKeyBanner({ keyValue, onDismiss }: NewKeyBannerProps) {
   const [copied, setCopied] = useState(false)
   const [copyError, setCopyError] = useState<string | null>(null)
+  const [confirmingHide, setConfirmingHide] = useState(false)
+  const hideWarningId = 'new-platform-key-hide-warning'
 
   async function handleCopy() {
     setCopyError(null)
@@ -134,6 +136,14 @@ function NewKeyBanner({ keyValue, onDismiss }: NewKeyBannerProps) {
         'Forge cannot copy from this browser. Select the access value text, then copy it manually before choosing I saved this value.'
       )
     }
+  }
+
+  function handleDismiss() {
+    if (!confirmingHide) {
+      setConfirmingHide(true)
+      return
+    }
+    onDismiss()
   }
 
   return (
@@ -157,6 +167,11 @@ function NewKeyBanner({ keyValue, onDismiss }: NewKeyBannerProps) {
               {copyError}
             </p>
           )}
+          {confirmingHide && (
+            <p id={hideWarningId} className="mt-2 text-ui-caption font-medium text-apple-red">
+              This value disappears after you hide it. Save it in a password manager first.
+            </p>
+          )}
         </div>
         <div className="flex gap-2 sm:shrink-0">
           <button
@@ -171,10 +186,14 @@ function NewKeyBanner({ keyValue, onDismiss }: NewKeyBannerProps) {
           </button>
           <button
             type="button"
-            onClick={onDismiss}
-            className={cn(uiStyles.subtleButton, 'flex-1 sm:flex-none')}
+            onClick={handleDismiss}
+            aria-describedby={confirmingHide ? hideWarningId : undefined}
+            className={cn(
+              confirmingHide ? uiStyles.dangerConfirmButton : uiStyles.subtleButton,
+              'flex-1 sm:flex-none'
+            )}
           >
-            I saved this value
+            {confirmingHide ? 'Hide saved value now' : 'I saved this value'}
           </button>
         </div>
       </div>

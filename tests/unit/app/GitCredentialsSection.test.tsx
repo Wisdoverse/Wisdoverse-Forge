@@ -58,17 +58,17 @@ describe('GitCredentialsSection', () => {
     expect(screen.getByText('Copy a code access key')).toBeDefined()
     expect(
       screen.getByText(
-        'Create a key that can read the code projects agents need, then copy it once.'
+        'Create a read-only key for the code projects agents need, then copy it once.'
       )
     ).toBeDefined()
-    expect(screen.getByText('Leave the address empty for normal sites')).toBeDefined()
-    expect(screen.getByText(/Use the website address field only when/i)).toBeDefined()
+    expect(screen.getByText('Leave the address empty for github.com or gitlab.com')).toBeDefined()
+    expect(screen.getByText(/Only fill it in when your company uses a private code website/i)).toBeDefined()
     expect(screen.queryByText('Use the normal website by default')).toBeNull()
     expect(screen.queryByText(/leave address blank for cloud/i)).toBeNull()
     expect(screen.getByText(/next: paste the code access key/i)).toBeDefined()
     expect(
       screen.getByText(
-        /Open GitHub or GitLab, create a key that can read the code projects agents need, then paste it below\./i
+        /Open the code website, create a read-only key for the code projects agents need, then paste it below\./i
       )
     ).toBeDefined()
     expect(screen.queryByText('Paste the access token')).toBeNull()
@@ -79,12 +79,15 @@ describe('GitCredentialsSection', () => {
     expect(screen.getByText('Choose the website where this code lives.')).toBeDefined()
     expect(screen.queryByText('Git service')).toBeNull()
     expect(screen.queryByText(/owns the repository/i)).toBeNull()
-    expect(screen.getByText(/Some pages call it a personal access token/i)).toBeDefined()
-    expect(screen.getByText(/Never paste your GitHub or GitLab password/i)).toBeDefined()
+    expect(screen.getByText(/The website may call it a personal access token/i)).toBeDefined()
+    expect(screen.queryByText(/Paste the key you copied from GitHub or GitLab/i)).toBeNull()
+    expect(screen.getByText(/Never paste your website password/i)).toBeDefined()
+    expect(screen.queryByText(/Never paste your GitHub or GitLab password/i)).toBeNull()
     expect(screen.getByText(/Forge hides the key after saving/i)).toBeDefined()
     expect(screen.getByText(/leave this empty if you use github.com or gitlab.com/i)).toBeDefined()
-    expect(screen.getByLabelText(/^company code website address/i)).toBeDefined()
-    expect(screen.getByText(/Otherwise leave this empty/i)).toBeDefined()
+    expect(screen.getByLabelText(/^private code website address/i)).toBeDefined()
+    expect(screen.queryByLabelText(/^company code website address/i)).toBeNull()
+    expect(screen.getByText(/For github.com or gitlab.com, leave this empty/i)).toBeDefined()
     expect(screen.queryByText(/company-hosted Git service/i)).toBeNull()
     expect(screen.getByPlaceholderText('e.g. gitlab.example.com')).toBeDefined()
 
