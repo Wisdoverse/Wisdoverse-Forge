@@ -522,6 +522,31 @@ function CatalogGrid() {
   return 'Standard setup · Coding plan · China/Global address'
 }
 `,
+      'src/app/features/agents/CreateAgentModal.tsx': `
+function CreateAgentModal() {
+  return 'Open Settings > AI services, add a service, save it, then click Check until it says Ready.'
+}
+`,
+      'src/app/features/agents/AgentControlPanel.tsx': `
+function AgentControlPanel() {
+  return 'Open Settings > AI services, click Check on this service, refresh Agents, then send messages after it shows Ready.'
+}
+`,
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function AgentDetailView() {
+  return 'Open AI service settings, click Check for this connection, then refresh Agents before sending chat work.'
+}
+`,
+      'src/app/features/chat/ChatView.tsx': `
+function ChatView() {
+  return 'Open AI service settings, check this connection, then refresh Agents before sending a message.'
+}
+`,
+      'src/app/features/settings/providerTestErrorMessage.ts': `
+function providerTestErrorMessage() {
+  return 'Check the service access key, model, and service address, then save and check again.'
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
@@ -549,6 +574,26 @@ function CatalogGrid() {
           type: 'provider-setup-copy',
           location: 'src/app/features/settings/ProvidersSection.tsx:13',
         }),
+        expect.objectContaining({
+          type: 'provider-setup-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'provider-setup-copy',
+          location: 'src/app/features/agents/AgentControlPanel.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'provider-setup-copy',
+          location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'provider-setup-copy',
+          location: 'src/app/features/chat/ChatView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'provider-setup-copy',
+          location: 'src/app/features/settings/providerTestErrorMessage.ts:3',
+        }),
       ])
     )
   })
@@ -568,6 +613,31 @@ function RegionToggle() {
 }
 function CatalogGrid() {
   return 'Standard setup · Coding plan · China or global website address'
+}
+`,
+      'src/app/features/agents/CreateAgentModal.tsx': `
+function CreateAgentModal() {
+  return 'Open Settings > AI services, add a service, save it, then choose Check connection until it says Ready.'
+}
+`,
+      'src/app/features/agents/AgentControlPanel.tsx': `
+function AgentControlPanel() {
+  return 'Open Settings > AI services, choose Check connection for this service, refresh Agents, then send messages after it shows Ready.'
+}
+`,
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function AgentDetailView() {
+  return 'Open AI service settings, choose Check connection for this service, then refresh Agents before sending chat work.'
+}
+`,
+      'src/app/features/chat/ChatView.tsx': `
+function ChatView() {
+  return 'Open AI service settings, choose Check connection, then refresh Agents before sending a message.'
+}
+`,
+      'src/app/features/settings/providerTestErrorMessage.ts': `
+function providerTestErrorMessage() {
+  return 'Check the service access key, model, and service address, then save and choose Check connection again.'
 }
 `,
     })
@@ -4227,7 +4297,7 @@ function CredentialStatusRow() {
     const cwd = fixture({
       'src/app/features/settings/RuntimeSection.tsx': `
 function runtimeReadinessSummary() {
-  return 'Sign in to a work tool before starting agents that need one'
+  return 'Sign in to a tool for file work before starting agents that need one'
 }
 
 function CredentialStatusRow() {
@@ -6896,7 +6966,7 @@ function ChatComposer() {
     const cwd = fixture({
       'src/app/features/chat/ChatView.tsx': `
 function ChatView() {
-  return 'Open Settings > AI services, check this connection, then refresh Agents before sending a message.'
+  return 'Open AI service settings, choose Check connection, then refresh Agents before sending a message.'
 }
 `,
       'src/app/features/chat/ChatComposer.tsx': `

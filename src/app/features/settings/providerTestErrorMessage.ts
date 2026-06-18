@@ -62,7 +62,7 @@ export function providerTestErrorMessage(error: unknown, providerName = 'AI serv
   const code = statusCode(error)
 
   if (code === 401 || code === 403 || text.includes('unauthorized') || text.includes('forbidden')) {
-    return `Confirm the saved service access key can use the selected model for ${providerLabel}, then save and check again.`
+    return `Confirm the saved service access key can use the selected model for ${providerLabel}, then save and choose Check connection again.`
   }
   if (
     code === 400 ||
@@ -71,7 +71,7 @@ export function providerTestErrorMessage(error: unknown, providerName = 'AI serv
     text.includes('api key') ||
     text.includes('authentication')
   ) {
-    return `Check the service access key, model, and service address for ${providerLabel}, then save and check again.`
+    return `Check the service access key, model, and service address for ${providerLabel}, then save and choose Check connection again.`
   }
   if (code === 404 || text.includes('not found')) {
     return `Check the model name and service address for ${providerLabel}, then check again. The model or service address was not found.`

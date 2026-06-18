@@ -134,7 +134,7 @@ function agentAvailabilityLabel(agent: AgentInfo): string {
   if (agent.status === 'working') return 'Already working'
   if (isHostCliAgent(agent)) return 'Paste setup text again on this computer'
   if (agent.cliTool) return 'Open Live work and start file work'
-  return 'Open AI service settings and click Check'
+  return 'Open AI service settings and choose Check connection'
 }
 
 interface AgentDetailViewProps {
@@ -371,7 +371,7 @@ function agentNextStep(agent: AgentInfo, recentTasks: TaskSummary[]): AgentNextS
     return {
       title: 'Check the AI service before sending work',
       detail:
-        'Open AI service settings, click Check for this connection, then refresh Agents before sending chat work.',
+        'Open AI service settings, choose Check connection for this service, then refresh Agents before sending chat work.',
       success: 'The agent returns to Ready and can answer in chat.',
       ready: false,
       targetHref: '/settings/providers',

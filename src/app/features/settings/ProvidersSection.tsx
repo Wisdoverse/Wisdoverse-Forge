@@ -441,7 +441,8 @@ function providerFormReadiness({
   return {
     ready: true,
     title: 'Ready to save this service',
-    detail: 'Save it. When it appears in the list, click Check; Ready means agents can use it.',
+    detail:
+      'Save it. When it appears in the list, choose Check connection; Ready means agents can use it.',
     error: null,
     fieldId: null,
   }
@@ -515,7 +516,7 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
     return {
       title: 'Add your first AI service',
       detail:
-        'An AI service is the account agents use to answer. Pick a service, paste the service access key, save it, then click Check.',
+        'An AI service is the account agents use to answer. Pick a service, paste the service access key, save it, then choose Check connection.',
       success: 'At least 1 AI service is saved and ready for a connection check.',
       ready: false,
       action: 'add-provider',
@@ -527,7 +528,7 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
     const firstProvider = needsTestProviders[0]
     return {
       title: 'Check the AI service connection',
-      detail: `Click Check for ${firstProvider.displayName} before assigning work so agents do not fail on the first answer.`,
+      detail: `Choose Check connection for ${firstProvider.displayName} before assigning work so agents do not fail on the first answer.`,
       success: 'The AI service shows Ready and can be used by simple chat agents.',
       ready: false,
       action: 'show-needs-test',
@@ -539,7 +540,7 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
     return {
       title: 'Turn on or replace an AI service',
       detail:
-        'All saved AI services are disabled. Show the disabled list, turn on one service if this account should still be used, then click Check. Add a new service only if none of these accounts should be used.',
+        'All saved AI services are disabled. Show the disabled list, turn on one service if this account should still be used, then choose Check connection. Add a new service only if none of these accounts should be used.',
       success: 'At least 1 enabled AI service is checked and marked Ready.',
       ready: false,
       action: 'show-disabled',
@@ -1960,8 +1961,8 @@ export function ProvidersSection() {
               Add your first AI service
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Use the step above to add one AI account, then click Check so agents can answer
-              without setup surprises.
+              Use the step above to add one AI account, then choose Check connection so agents can
+              answer without setup surprises.
             </p>
           </div>
         ) : filteredProviders.length === 0 && !showForm ? (

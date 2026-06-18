@@ -125,9 +125,11 @@ describe('RuntimeSection', () => {
     expect(screen.getByText('2/4 ready')).toBeDefined()
     expect(within(readiness).getByText('Finish agent work setup')).toBeDefined()
     expect(
-      screen.getByText(/Setup has 2 agent locations and 2 work tools like Claude or Codex/i)
+      screen.getByText(
+        /Forge can run agents in 2 places and use 2 tools for file work, such as Claude or Codex/i
+      )
     ).toBeDefined()
-    expect(screen.getByText(/1 work tool sign-in is connected\. 1 agent is online/i)).toBeDefined()
+    expect(screen.getByText(/1 tool sign-in is connected\. 1 agent is online/i)).toBeDefined()
     expect(
       within(readiness).queryByText(new RegExp('agent locations\\s+available', 'i'))
     ).toBeNull()
@@ -228,9 +230,11 @@ describe('RuntimeSection', () => {
 
     expect(await screen.findByText('4/4 ready')).toBeDefined()
     expect(
-      screen.getByText(/Setup has 1 agent location and 1 work tool like Claude or Codex/i)
+      screen.getByText(
+        /Forge can run agents in 1 place and use 1 tool for file work, such as Claude or Codex/i
+      )
     ).toBeDefined()
-    expect(screen.getByText(/1 work tool sign-in is connected\. 1 agent is online/i)).toBeDefined()
+    expect(screen.getByText(/1 tool sign-in is connected\. 1 agent is online/i)).toBeDefined()
     expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('Ready to give agents work')
     expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('The agent location')
     expect(screen.getByTestId('runtime-next-step')).toHaveTextContent(
@@ -262,7 +266,7 @@ describe('RuntimeSection', () => {
 
     expect(await screen.findByTestId('runtime-launch-checklist')).toBeDefined()
     expect(
-      screen.getByText(/Sign in to a work tool before starting agents that need one/i)
+      screen.getByText(/Sign in to a tool for file work before starting agents that need one/i)
     ).toBeDefined()
     expect(screen.queryByText(/No work tool sign-ins are connected yet/i)).toBeNull()
     expect(screen.getByText(/Sign in before starting agents that use this tool/i)).toBeDefined()
@@ -318,10 +322,10 @@ describe('RuntimeSection', () => {
     ).toHaveLength(2)
     expect(screen.getByText('Start an agent, then check again.')).toBeDefined()
     expect(screen.getByText('Start or wake an agent, then choose Check again.')).toBeDefined()
-    expect(screen.getByText(/No extra work tool sign-ins are needed/i)).toBeDefined()
+    expect(screen.getByText(/No extra tool sign-ins are needed/i)).toBeDefined()
     expect(screen.getByText(/Start or wake an agent to bring one online/i)).toBeDefined()
     expect(
-      screen.queryByText(/Sign in to a work tool before starting agents that need one/i)
+      screen.queryByText(/Sign in to a tool for file work before starting agents that need one/i)
     ).toBeNull()
     expect(screen.queryByText('No work tool status yet')).toBeNull()
     expect(screen.queryByText('No agent seen online yet')).toBeNull()

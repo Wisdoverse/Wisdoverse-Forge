@@ -180,6 +180,9 @@ const PROVIDER_ADDRESS_JARGON_PATTERNS = [
 const PROVIDER_SETUP_JARGON_PATTERNS = [
   /\bcopy its access key\b/i,
   /\bSave and check\b/i,
+  /\bsave and check again\b/i,
+  /\bclick Check\b/i,
+  /\bcheck this connection\b/i,
   /\bClick Check after saving\b/i,
   /\bAfter saving, click Check\b/i,
   /\bService address and model are filled in for you\b/i,
@@ -662,6 +665,7 @@ const RUNTIME_SETUP_STATUS_DEAD_END_PATTERNS = [
   /\bNo work tool setup status yet\b/i,
   /\bNo agent has been seen online yet\b/i,
   /\bno agents are online yet\b/i,
+  /\bSetup has \d+ agent locations? and \d+ work tools? like Claude or Codex\b/i,
 ]
 
 const RUNTIME_ERROR_FAILURE_FIRST_PATTERNS = [
@@ -1684,7 +1688,17 @@ function hasProviderAddressJargonCopy(relFile, line) {
 }
 
 function hasProviderSetupJargonCopy(relFile, line) {
-  if (!relFile.endsWith('src/app/features/settings/ProvidersSection.tsx')) return false
+  if (
+    !relFile.endsWith('src/app/features/settings/ProvidersSection.tsx') &&
+    !relFile.endsWith('src/app/features/settings/providerTestErrorMessage.ts') &&
+    !relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentControlPanel.tsx') &&
+    !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx') &&
+    !relFile.endsWith('src/app/features/chat/ChatView.tsx') &&
+    !relFile.endsWith('src/app/features/chat/ChatComposer.tsx')
+  ) {
+    return false
+  }
   if (isLikelyGuardOrParserLine(line)) return false
   return PROVIDER_SETUP_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
