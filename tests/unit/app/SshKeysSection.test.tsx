@@ -104,6 +104,18 @@ describe('SshKeysSection', () => {
     expect(safePublicLineInput).toHaveFocus()
 
     fireEvent.change(safePublicLineInput, {
+      target: {
+        value: '-----BEGIN OPENSSH PRIVATE KEY-----\nprivate-key-body\n-----END OPENSSH PRIVATE KEY-----',
+      },
+    })
+    expect(saveButton).toBeEnabled()
+    fireEvent.click(saveButton)
+    expect(createSshKeyMock).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert')).toHaveTextContent(/looks like a private key/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/copy the one-line \.pub public key/i)
+    expect(safePublicLineInput).toHaveFocus()
+
+    fireEvent.change(safePublicLineInput, {
       target: { value: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAexample dev@example.com' },
     })
     expect(saveButton).toBeEnabled()

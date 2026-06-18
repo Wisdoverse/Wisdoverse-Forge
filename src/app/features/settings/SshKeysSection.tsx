@@ -28,6 +28,10 @@ const SSH_KEY_SETUP_STEPS = [
   },
 ]
 
+function containsPrivateKeyBlock(value: string): boolean {
+  return /\bBEGIN(?:\s+[A-Z0-9]+)?\s+PRIVATE KEY\b/i.test(value)
+}
+
 // ============================================================================
 // SSH Key Row
 // ============================================================================
@@ -139,13 +143,16 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
   const trimmedLabel = label.trim()
   const trimmedPublicKey = publicKey.trim()
   const missingField = !trimmedLabel ? 'label' : !trimmedPublicKey ? 'publicKey' : null
-  const isReady = missingField === null
+  const privateKeyPasted = containsPrivateKeyBlock(trimmedPublicKey)
+  const isReady = missingField === null && !privateKeyPasted
   const visibleError =
     submitAttempted && missingField === 'label'
       ? 'Add a name your team will recognize before saving.'
       : submitAttempted && missingField === 'publicKey'
         ? 'Paste the safe public key line before saving.'
-        : null
+        : submitAttempted && privateKeyPasted
+          ? 'This looks like a private key. Do not save it. Copy the one-line .pub public key instead.'
+          : null
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
