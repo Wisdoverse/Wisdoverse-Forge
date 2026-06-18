@@ -407,7 +407,7 @@ describe('AppLayout', () => {
     expect(screen.getByText('Connect an agent before this task can start')).toBeDefined()
     expect(screen.queryByText('No agents are online')).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: /open agent setup/i }))
+    fireEvent.click(screen.getByRole('button', { name: /open agents/i }))
 
     expect(onNavigate).toHaveBeenCalledWith('/agents')
     expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
@@ -428,7 +428,7 @@ describe('AppLayout', () => {
     expect(screen.getByText('Start or connect an agent before this task can start')).toBeDefined()
     expect(screen.queryByText('No agents are available right now')).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: /open agent setup/i }))
+    fireEvent.click(screen.getByRole('button', { name: /open agents/i }))
 
     expect(onNavigate).toHaveBeenCalledWith('/agents')
     expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
