@@ -30,6 +30,11 @@ const cliAgent: AgentInfo = {
   containerId: 'container-1',
 }
 
+const offlineCliAgent: AgentInfo = {
+  ...cliAgent,
+  status: 'offline',
+}
+
 function message(content: string, overrides: Partial<AgentMessageRow> = {}): AgentMessageRow {
   return {
     id: overrides.id ?? 'msg-1',
@@ -178,6 +183,8 @@ describe('ChatView', () => {
         'Open AI service settings, choose Check connection, then refresh Agents before sending a message.'
       )
     ).toBeVisible()
+    const action = screen.getByRole('link', { name: /open ai services/i })
+    expect(action).toHaveAttribute('href', '/settings/providers')
     expect(
       screen.queryByText('This agent is offline. Start it before sending a message.')
     ).toBeNull()
@@ -200,10 +207,27 @@ describe('ChatView', () => {
     expect(
       screen.getByText('Check Attention once work starts to see what needs help.')
     ).toBeVisible()
+    const action = screen.getByRole('link', { name: /create a task/i })
+    expect(action).toHaveAttribute('href', '/tasks')
     expect(screen.getByTestId('conversation-empty-state')).not.toHaveTextContent('lane')
     expect(screen.queryByText('No updates from this agent yet')).toBeNull()
     expect(screen.queryByText('No updates captured yet')).toBeNull()
     expect(screen.queryByText(previousFindHelpCopy)).toBeNull()
+  })
+
+  test('gives offline managed workspace agents a direct Agents setup action', () => {
+    useAgentsStore.setState({ agents: [offlineCliAgent] })
+    seedChatState({ turns: [] })
+
+    render(<ChatView agentId={offlineCliAgent.id} />)
+
+    const emptyState = screen.getByTestId('conversation-empty-state')
+    expect(emptyState).toHaveTextContent(
+      'This agent is not ready. Open Agents, start or reconnect it, then return here when it shows Ready.'
+    )
+    const action = screen.getByRole('link', { name: /open agents/i })
+    expect(action).toHaveAttribute('href', '/agents')
+    expect(emptyState).not.toHaveTextContent('Start it before sending a message')
   })
 
   test('shows a clear retry path when workspace conversation history cannot load', () => {

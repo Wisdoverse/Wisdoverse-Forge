@@ -28,6 +28,7 @@ describe('AssignmentReadinessPanel', () => {
     const emptyState = screen.getByTestId('assignment-readiness-empty')
     expect(screen.getByRole('heading', { name: 'Agent status' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Refresh agent status' })).toBeDefined()
+    expect(screen.getByRole('link', { name: /open agents/i })).toHaveAttribute('href', '/agents')
     expect(screen.getByText('Connect an agent before sending work.')).toBeDefined()
     expect(within(emptyState).getByText('Connect an agent before sending work')).toBeDefined()
     expect(within(emptyState).getByText(/Set up where tasks wait/)).toBeDefined()
@@ -109,6 +110,7 @@ describe('AssignmentReadinessPanel', () => {
     expect(readiness.textContent).toContain(
       '1 task needs an agent. Open Agents to start or connect an agent, or wait for one to finish.'
     )
+    expect(screen.getByRole('link', { name: /open agents/i })).toHaveAttribute('href', '/agents')
     expect(screen.getByText('Already working · Can use Codex for this work')).toBeDefined()
     expect(readiness.textContent).not.toContain('codex')
     expect(readiness.textContent).not.toContain('unassigned tasks')
@@ -139,6 +141,7 @@ describe('AssignmentReadinessPanel', () => {
     )
 
     expect(screen.queryByTestId('assignment-readiness-empty')).toBeNull()
+    expect(screen.queryByRole('link', { name: /open agents/i })).toBeNull()
     expect(screen.getByText('Ready Agent')).toBeDefined()
     expect(screen.getAllByText('Can take work').length).toBeGreaterThan(0)
     expect(screen.getByText('Can use Codex for this work')).toBeDefined()
