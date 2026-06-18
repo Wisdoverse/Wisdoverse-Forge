@@ -617,12 +617,12 @@ function CatalogGrid() {
 `,
       'src/app/features/agents/CreateAgentModal.tsx': `
 function CreateAgentModal() {
-  return 'Open Settings > AI services, add a service, save it, then choose Check connection until it says Ready.'
+  return 'Open AI service settings, add a service, save it, then choose Check connection until it says Ready.'
 }
 `,
       'src/app/features/agents/AgentControlPanel.tsx': `
 function AgentControlPanel() {
-  return 'Open Settings > AI services, choose Check connection for this service, refresh Agents, then send messages after it shows Ready.'
+  return 'Open AI service settings, choose Check connection for this service, refresh Agents, then send messages after it shows Ready.'
 }
 `,
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
