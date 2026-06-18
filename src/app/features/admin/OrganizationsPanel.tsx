@@ -196,7 +196,7 @@ export function OrganizationsPanel() {
                           {org.name}
                         </p>
                         <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                          URL name: {org.slug}
+                          Team space short name: {org.slug}
                         </p>
                       </div>
                     </td>

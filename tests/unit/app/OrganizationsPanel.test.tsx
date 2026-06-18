@@ -70,6 +70,8 @@ describe('OrganizationsPanel', () => {
     expect(screen.getByRole('columnheader', { name: 'Setup status' })).toBeDefined()
     expect(screen.queryByRole('columnheader', { name: 'Readiness' })).toBeNull()
     expect(screen.getByText('Acme Labs')).toBeDefined()
+    expect(screen.getByText('Team space short name: acme')).toBeDefined()
+    expect(screen.queryByText(/URL name/i)).toBeNull()
     // The backend has no plan data — the panel must not pretend it does.
     expect(screen.queryByText('Plan')).toBeNull()
     expect(screen.queryByText('Enterprise')).toBeNull()

@@ -11621,6 +11621,54 @@ function EditableProjectRow({ project }) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags sidebar and admin labels that expose generated names as link or URL names', () => {
+    const cwd = fixture({
+      'src/app/layouts/sidebar/ProjectTree.tsx': `
+function ProjectTree({ projectMenu }) {
+  return <p>{projectMenu.team.name} team · link name {projectMenu.project.slug}</p>
+}
+`,
+      'src/app/features/admin/OrganizationsPanel.tsx': `
+function OrganizationsPanel({ org }) {
+  return <p>URL name: {org.slug}</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'team-project-short-name-copy',
+          location: 'src/app/layouts/sidebar/ProjectTree.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'team-project-short-name-copy',
+          location: 'src/app/features/admin/OrganizationsPanel.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts sidebar and admin labels that explain generated names as short names', () => {
+    const cwd = fixture({
+      'src/app/layouts/sidebar/ProjectTree.tsx': `
+function ProjectTree({ projectMenu }) {
+  return <p>{projectMenu.team.name} team · project short name {projectMenu.project.slug}</p>
+}
+`,
+      'src/app/features/admin/OrganizationsPanel.tsx': `
+function OrganizationsPanel({ org }) {
+  return <p>Team space short name: {org.slug}</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags code import retry errors that start with the failure', () => {
     const cwd = fixture({
       'src/app/features/manage-project/ui/CloneStatusBadge.tsx': `
