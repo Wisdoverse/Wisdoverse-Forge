@@ -12696,11 +12696,13 @@ function EditableProjectRow({ project }) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags sidebar and admin labels that expose generated names as link or URL names', () => {
+  it('flags sidebar and admin labels that expose generated names as short, link, or URL names', () => {
     const cwd = fixture({
       'src/app/layouts/sidebar/ProjectTree.tsx': `
 function ProjectTree({ projectMenu }) {
   return <p>{projectMenu.team.name} team · link name {projectMenu.project.slug}</p>
+  return <button>Copy project short name</button>
+  return <p>{projectMenu.project.slug} · short name used in project links</p>
 }
 `,
       'src/app/features/admin/OrganizationsPanel.tsx': `
@@ -12727,11 +12729,13 @@ function OrganizationsPanel({ org }) {
     )
   })
 
-  it('accepts sidebar and admin labels that explain generated names as short names', () => {
+  it('accepts sidebar and admin labels that explain generated names in beginner language', () => {
     const cwd = fixture({
       'src/app/layouts/sidebar/ProjectTree.tsx': `
 function ProjectTree({ projectMenu }) {
-  return <p>{projectMenu.team.name} team · project short name {projectMenu.project.slug}</p>
+  return <p>{projectMenu.team.name} team · automatic project name {projectMenu.project.slug}</p>
+  return <button>Copy automatic project name</button>
+  return <p>{projectMenu.project.slug} · Forge uses this to recognize the project in links</p>
 }
 `,
       'src/app/features/admin/OrganizationsPanel.tsx': `
