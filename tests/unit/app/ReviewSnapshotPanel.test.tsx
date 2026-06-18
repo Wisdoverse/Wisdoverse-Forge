@@ -53,7 +53,8 @@ describe('ReviewSnapshotPanel', () => {
     render(<ReviewSnapshotPanel task={task()} />)
 
     expect(await screen.findByText('Code fix review')).toBeInTheDocument()
-    expect(await screen.findByText('GitHub review #42')).toBeInTheDocument()
+    expect(await screen.findByText('Review page #42')).toBeInTheDocument()
+    expect(screen.queryByText(/GitHub review/i)).toBeNull()
     expect(screen.getByText('Waiting for review')).toBeInTheDocument()
     expect(screen.getByText('Automated checks passed')).toBeInTheDocument()
     expect(screen.queryByText(/Build checks/i)).toBeNull()
@@ -145,8 +146,9 @@ describe('ReviewSnapshotPanel', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('Ask another maintainer to review this code fix.')
     expect(alert).toHaveTextContent(
-      'GitHub needs someone else to review changes you opened yourself.'
+      'The code host needs someone else to review changes you opened yourself.'
     )
+    expect(alert).not.toHaveTextContent('pull request')
     expect(alert).not.toHaveTextContent('GraphQL')
     expect(alert).not.toHaveTextContent('addPullRequestReview')
   })

@@ -149,7 +149,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
               className="flex items-center gap-2 text-xs font-medium text-apple-blue hover:underline"
             >
               <GitPullRequest size={14} />
-              GitHub review #{review.prNumber}
+              Review page #{review.prNumber}
               <ExternalLink size={11} />
             </a>
           ) : (

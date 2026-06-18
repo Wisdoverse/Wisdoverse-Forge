@@ -15,7 +15,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
   const text = detail?.toLowerCase() ?? ''
 
   if (text.includes('can not approve your own pull request')) {
-    return 'Ask another maintainer to review this code fix. GitHub needs someone else to review changes you opened yourself.'
+    return 'Ask another maintainer to review this code fix. The code host needs someone else to review changes you opened yourself.'
   }
 
   if (
@@ -24,7 +24,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('bad credentials') ||
     text.includes('sign in again')
   ) {
-    return 'Sign in again, then refresh code fix review. Forge could not confirm your GitHub access.'
+    return 'Sign in again, then refresh code fix review. Forge could not confirm your code review access.'
   }
 
   if (
@@ -33,7 +33,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('permission') ||
     text.includes('resource not accessible')
   ) {
-    return 'Ask an owner or admin to check GitHub access for this repository, then try again.'
+    return 'Ask an owner or admin to check code review access for this code project, then try again.'
   }
 
   if (
@@ -42,7 +42,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('no pull request') ||
     text.includes('pull request could not be found')
   ) {
-    return 'Refresh this task, then open the GitHub review again. Forge could not find the review for this task.'
+    return 'Refresh this task, then open the review page again. Forge could not find the review for this task.'
   }
 
   if (
