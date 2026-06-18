@@ -177,7 +177,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
               <div className="flex items-start gap-1.5 text-apple-red">
                 <ShieldAlert size={13} className="mt-px shrink-0" />
                 <span>
-                  This fix changes protected files. Ask a maintainer to review and finish it
+                  This fix changes sensitive project areas. Ask a maintainer to review and finish it
                   manually.
                 </span>
               </div>
@@ -191,7 +191,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-[11px] text-secondary-light dark:text-secondary-dark hover:text-apple-blue transition-colors"
             >
-              Open changed files
+              Review the changes
               <ExternalLink size={10} />
             </a>
           )}

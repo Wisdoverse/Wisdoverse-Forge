@@ -59,7 +59,8 @@ describe('ReviewSnapshotPanel', () => {
     expect(screen.getByText('Automated checks passed')).toBeInTheDocument()
     expect(screen.queryByText(/Build checks/i)).toBeNull()
     expect(screen.getByLabelText('Refresh code fix review')).toBeInTheDocument()
-    expect(screen.getByText('Open changed files')).toBeInTheDocument()
+    expect(screen.getByText('Review the changes')).toBeInTheDocument()
+    expect(screen.queryByText(/changed files/i)).toBeNull()
   })
 
   it('enables Approve when checks are green and the change is not sensitive', async () => {
@@ -117,7 +118,8 @@ describe('ReviewSnapshotPanel', () => {
 
     expect(await screen.findByTestId('review-approve')).toBeDisabled()
     expect(screen.getByText('Needs maintainer review')).toBeInTheDocument()
-    expect(screen.getByText(/fix changes protected files/i)).toBeInTheDocument()
+    expect(screen.getByText(/fix changes sensitive project areas/i)).toBeInTheDocument()
+    expect(screen.queryByText(/protected files/i)).toBeNull()
   })
 
   it('surfaces a beginner-safe fetch error instead of raw API details', async () => {
