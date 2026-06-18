@@ -60,13 +60,13 @@ export function createAgentWorkLaneErrorMessage(error: unknown): string {
   const code = statusCode(error)
 
   if (code === 401 || text.includes('unauthorized') || text.includes('sign in again')) {
-    return 'Sign in again, reopen Create Agent, and try creating the queue again. Task queue was not created.'
+    return 'Sign in again, reopen Create Agent, and set up where tasks wait again. The waiting place was not created.'
   }
   if (code === 403 || text.includes('forbidden') || text.includes('permission')) {
-    return 'Ask an owner or admin to let you create and manage task queues in this project. Task queue was not created.'
+    return 'Ask an owner or admin to let you set up where tasks wait in this project. The waiting place was not created.'
   }
   if (code === 404) {
-    return 'Refresh this page, then choose the project again. Task queue was not created because the selected project may have changed or been removed.'
+    return 'Refresh this page, then choose the project again. The waiting place was not created because the selected project may have changed or been removed.'
   }
   if (
     code === 409 ||
@@ -74,20 +74,20 @@ export function createAgentWorkLaneErrorMessage(error: unknown): string {
     text.includes('already exist') ||
     text.includes('duplicate')
   ) {
-    return 'Refresh the project, then choose the existing starter queue. Task queue was not created because a starter queue may already exist.'
+    return 'Refresh the project, then choose the existing waiting place. A starter waiting place may already exist.'
   }
   if (code === 422 || text.includes('validation')) {
-    return 'Choose a project first, then try creating the queue again. Task queue was not created.'
+    return 'Choose a project first, then set up where tasks wait again. The waiting place was not created.'
   }
   if (code === 429 || text.includes('rate limit') || text.includes('too many')) {
-    return 'Wait a minute, then try creating the queue again. Too many queue changes are happening right now.'
+    return 'Wait a minute, then set up where tasks wait again. Too many changes are happening right now.'
   }
   if (code != null && code >= 500) {
-    return 'Wait a few minutes, then try creating the task queue again. Forge could not create the task queue right now. If it still fails, ask an owner or admin to check task queue setup.'
+    return 'Wait a few minutes, then set up where tasks wait again. Forge could not create the waiting place right now. If it still fails, ask an owner or admin to check task routing setup.'
   }
   if (isNetworkError(error)) {
-    return 'Check your connection, then try creating the task queue again. Forge could not connect while creating the task queue.'
+    return 'Check your connection, then set up where tasks wait again. Forge could not connect while creating the waiting place.'
   }
 
-  return "Try creating the task queue again. If it still fails, ask an owner or admin to check this project's task queue setup. Task queue was not created."
+  return "Set up where tasks wait again. If it still fails, ask an owner or admin to check this project's task routing setup. The waiting place was not created."
 }

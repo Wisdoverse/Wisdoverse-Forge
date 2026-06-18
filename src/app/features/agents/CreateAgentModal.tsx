@@ -244,8 +244,8 @@ function createReviewItems({
     ? selectedGroupName
     : hasSelectedProject
       ? hasGroups
-        ? 'Choose a task queue now, or assign one later from Tasks.'
-        : 'Create a task queue here when you want new tasks to wait in one place.'
+        ? 'Choose where tasks wait now, or set it later from Tasks.'
+        : 'Set up where tasks wait here when you want new tasks to wait in one place.'
       : 'Choose a project later before assigning tasks.'
 
   const nextStep =
@@ -261,7 +261,7 @@ function createReviewItems({
       label: 'Project for new tasks',
       value: projectName ?? 'Choose a project before assigning tasks.',
     },
-    { label: 'Task queue', value: taskQueue },
+    { label: 'Where tasks wait', value: taskQueue },
     { label: 'Next step', value: nextStep },
     { label: 'Created state', value: startState },
   ]
@@ -490,7 +490,9 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
 
   async function handleCreateDefaultGroup() {
     if (!selectedProjectId) {
-      setError('Select a project before creating a task queue. Task queues belong to one project.')
+      setError(
+        'Select a project before setting up where tasks wait. Each waiting place belongs to one project.'
+      )
       return
     }
 
@@ -498,9 +500,9 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
     setError(null)
     try {
       const group = await createAgentGroup(selectedProjectId, {
-        name: 'Default Task Queue',
+        name: 'Default Waiting Place',
         description:
-          'Starter queue for this project. New tasks wait here until an agent can take them.',
+          'Starter place for this project. New tasks wait here until an agent can take them.',
       })
       setValue('groupId', group.id, { shouldDirty: true })
     } catch (err) {
@@ -1178,7 +1180,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                   htmlFor="agent-group"
                   className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                 >
-                  Task queue
+                  Where tasks wait
                 </label>
                 {groups.length > 0 ? (
                   <>
@@ -1187,7 +1189,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                       {...register('groupId')}
                       className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                     >
-                      <option value="">Choose a task queue later</option>
+                      <option value="">Set this later</option>
                       {groups.map((g) => (
                         <option key={g.id} value={g.id}>
                           {g.name}
@@ -1195,7 +1197,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                       ))}
                     </select>
                     <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                      New tasks can wait in this queue until an available agent can take them.
+                      New tasks wait here until an available agent can take them.
                     </p>
                   </>
                 ) : (
@@ -1212,11 +1214,11 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                       )}
                     >
                       <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
-                      {creatingGroup ? 'Creating…' : 'Create task queue'}
+                      {creatingGroup ? 'Creating…' : 'Set up where tasks wait'}
                     </button>
                     <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                      This creates a starter queue for this project so new tasks have a clear place
-                      to wait.
+                      This creates a starter place for this project so new tasks have somewhere
+                      clear to wait.
                     </p>
                   </div>
                 )}
