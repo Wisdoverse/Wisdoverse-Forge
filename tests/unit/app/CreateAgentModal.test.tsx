@@ -132,7 +132,9 @@ describe('CreateAgentModal', () => {
     const review = screen.getByTestId('agent-create-review')
     expect(within(review).getByText('Before you create')).toBeInTheDocument()
     expect(within(review).getByText('Where it works')).toBeInTheDocument()
+    expect(within(review).getByText('After creation')).toBeInTheDocument()
     expect(within(review).queryByText('Work style')).toBeNull()
+    expect(within(review).queryByText('Created state')).toBeNull()
     expect(within(review).getByText(/claude with project files/i)).toBeInTheDocument()
     expect(within(review).getByText('Choose a project before assigning tasks.')).toBeInTheDocument()
     expect(within(review).queryByText('No project selected yet')).toBeNull()
@@ -423,7 +425,8 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByRole('combobox', { name: /^work tool$/i })).toBeNull()
     expect(screen.queryByLabelText(/work folder/i)).toBeNull()
     expect(screen.getByLabelText(/^ai service$/i)).toHaveValue('provider-anthropic')
-    expect(screen.getByLabelText(/^ai model$/i)).toHaveValue('claude-sonnet-4-6')
+    expect(screen.getByLabelText(/^model used$/i)).toHaveValue('claude-sonnet-4-6')
+    expect(screen.queryByLabelText(/^ai model$/i)).toBeNull()
     expect(screen.getByText(/choose a checked AI service/i)).toBeInTheDocument()
     const review = screen.getByTestId('agent-create-review')
     expect(
@@ -547,7 +550,7 @@ describe('CreateAgentModal', () => {
     await waitFor(() => {
       expect(screen.getAllByText(/google for chat and review/i).length).toBeGreaterThan(0)
     })
-    expect(screen.getByText('Chat-only AI service')).toBeInTheDocument()
+    expect(screen.getByText('AI service only')).toBeInTheDocument()
     expect(screen.getByText('Check AI service in Settings')).toBeInTheDocument()
     expect(
       screen.queryByText(new RegExp(['AI service', 'must be checked'].join('.*'), 'i'))
@@ -816,7 +819,7 @@ describe('CreateAgentModal', () => {
     expect(screen.getByRole('radio', { name: /simple chat agent/i })).toBeChecked()
     expect(screen.queryByRole('combobox', { name: /^work tool$/i })).toBeNull()
     expect(screen.getByLabelText(/^ai service$/i)).toHaveValue('provider-1')
-    expect(screen.getByLabelText(/^ai model$/i)).toHaveValue('gpt-5.5')
+    expect(screen.getByLabelText(/^model used$/i)).toHaveValue('gpt-5.5')
 
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
@@ -864,7 +867,7 @@ describe('CreateAgentModal', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/^ai model$/i)).toHaveValue('gpt-5.4')
+      expect(screen.getByLabelText(/^model used$/i)).toHaveValue('gpt-5.4')
     })
   })
 
@@ -910,7 +913,7 @@ describe('CreateAgentModal', () => {
     fireEvent.change(providerSelect, { target: { value: 'provider-zhipu' } })
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/^ai model$/i)).toHaveValue('glm-4.7')
+      expect(screen.getByLabelText(/^model used$/i)).toHaveValue('glm-4.7')
     })
   })
 
@@ -1012,7 +1015,7 @@ describe('CreateAgentModal', () => {
 
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Choose an AI service and AI model before creating this agent.'
+        'Choose an AI service with a saved model, then create this agent.'
       )
     )
     expect(createAgent).not.toHaveBeenCalled()
@@ -1032,8 +1035,8 @@ describe('CreateAgentModal', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent('Name this agent before creating it.')
     )
+    await waitFor(() => expect(scrollSpy.mock.calls.length).toBeGreaterThan(0))
     const callsAfterFirst = scrollSpy.mock.calls.length
-    expect(callsAfterFirst).toBeGreaterThan(0)
 
     fireEvent.click(submit)
     await waitFor(() => expect(scrollSpy.mock.calls.length).toBeGreaterThan(callsAfterFirst))

@@ -198,6 +198,40 @@ describe('ContextEvidenceList', () => {
     expect(screen.queryByText(/Missing token/i)).toBeNull()
   })
 
+  test('turns technical saved-detail summaries into plain next steps', () => {
+    render(
+      <ContextEvidenceList
+        evidence={[
+          evidence({
+            payload: {
+              ok: false,
+              summary: 'HTTP 500 from provider payload validation endpoint',
+              payload: 'raw payload shape mismatch',
+              provider: 'internal-provider-name',
+            },
+          }),
+        ]}
+        revokedItems={[]}
+      />
+    )
+
+    expect(
+      screen.getByText(
+        'This saved detail hit a problem. Ask the agent to explain what happened, then retry if the task still matters.'
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/HTTP 500/i)).toBeNull()
+    expect(screen.queryByText(/provider/i)).toBeNull()
+    expect(screen.queryByText(/payload/i)).toBeNull()
+
+    fireEvent.click(screen.getByText('Show saved details'))
+
+    expect(screen.getAllByText(/This saved detail hit a problem/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/Status: needs checking/i)).toBeInTheDocument()
+    expect(screen.queryByText(/raw payload/i)).toBeNull()
+    expect(screen.queryByText(/internal-provider-name/i)).toBeNull()
+  })
+
   test('hides raw technical evidence failures from summaries and full records', () => {
     render(
       <ContextEvidenceList
@@ -217,7 +251,7 @@ describe('ContextEvidenceList', () => {
 
     expect(
       screen.getByText(
-        'This record hit a problem. Ask the agent to explain what happened, then retry if the task still matters.'
+        'This saved detail hit a problem. Ask the agent to explain what happened, then retry if the task still matters.'
       )
     ).toBeInTheDocument()
     expect(screen.queryByText(/panic/i)).toBeNull()
