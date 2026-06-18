@@ -103,7 +103,9 @@ function agentFolderLabel(agent: AgentInfo): string {
       ? 'Folder where you pasted the setup text'
       : 'Default project folder'
   }
-  return agent.cwd
+  return isHostCliAgent(agent)
+    ? `Folder selected during setup: ${agent.cwd}`
+    : `Agent work folder: ${agent.cwd}`
 }
 
 function agentSetupSummary(agent: AgentInfo): string {

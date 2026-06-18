@@ -573,7 +573,7 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
       </td>
       <td className="w-48 px-4 py-3">
         <span className="block truncate font-mono text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {entry.actorUserId ? shortId(entry.actorUserId) : 'System'}
+          {auditActorLabel(entry.actorUserId)}
         </span>
       </td>
       <td className="w-44 px-4 py-3">
@@ -820,6 +820,10 @@ function auditAreaLabel(kind: GovernanceAuditScopeKind | null | undefined): stri
     default:
       return 'Area hidden for safety'
   }
+}
+
+function auditActorLabel(actorUserId: string | null | undefined): string {
+  return actorUserId ? `Person reference ${shortId(actorUserId)}` : 'System'
 }
 
 function readableCodeLabel(value: string, options: { fallback: string }): string {

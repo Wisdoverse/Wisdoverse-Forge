@@ -393,6 +393,8 @@ const AGENT_DETAIL_ACTIVITY_DEAD_END_PATTERNS = [/\bNo task activity has been lo
 
 const AGENT_DETAIL_FILE_ACCESS_DEAD_END_PATTERNS = [/\bNo file access needed\b/i]
 
+const AGENT_DETAIL_BARE_FOLDER_PATH_PATTERNS = [/\breturn\s+agent\.cwd\b/]
+
 const AGENT_DETAIL_AVAILABILITY_DEAD_END_PATTERNS = [
   /\bUnavailable until restarted or reconnected\b/i,
 ]
@@ -1271,6 +1273,10 @@ const GOVERNANCE_AUDIT_VISIBLE_JARGON_PATTERNS = [
   /\bCheck change details\b/i,
   /\bCheck audit change\b/i,
   /(?:>\s*Protected\s*<|^\s*Protected\s*$)/i,
+]
+
+const GOVERNANCE_AUDIT_BARE_ACTOR_REFERENCE_PATTERNS = [
+  /entry\.actorUserId\s*\?\s*shortId\(entry\.actorUserId\)\s*:/,
 ]
 
 const APPROVAL_QUEUE_ERROR_FAILURE_FIRST_PATTERNS = [
@@ -2854,6 +2860,12 @@ function hasAgentDetailFileAccessDeadEndCopy(relFile, line) {
   return AGENT_DETAIL_FILE_ACCESS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAgentDetailBareFolderPathCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_DETAIL_BARE_FOLDER_PATH_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasAgentDetailAvailabilityDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -3801,6 +3813,12 @@ function hasGovernanceAuditVisibleJargonCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return GOVERNANCE_AUDIT_VISIBLE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasGovernanceAuditBareActorReferenceCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/governance/AuditLogView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return GOVERNANCE_AUDIT_BARE_ACTOR_REFERENCE_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasApprovalQueueErrorFailureFirstCopy(relFile, line) {
@@ -5087,6 +5105,16 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasAgentDetailBareFolderPathCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-detail-folder-path-copy',
+        location,
+        message:
+          'Agent detail folder copy must explain what the folder path means before showing it.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasAgentDetailAvailabilityDeadEndCopy(relFile, line)) {
       findings.push({
         type: 'agent-detail-availability-copy',
@@ -6010,6 +6038,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Governance history copy must say change history and change details instead of audit or event jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasGovernanceAuditBareActorReferenceCopy(relFile, line)) {
+      findings.push({
+        type: 'governance-audit-actor-copy',
+        location,
+        message:
+          'Governance change history must explain person references instead of showing a bare user reference.',
         sample: line.trim(),
       })
     }

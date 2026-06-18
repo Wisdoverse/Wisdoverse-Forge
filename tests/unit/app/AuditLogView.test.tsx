@@ -140,9 +140,7 @@ describe('AuditLogView', () => {
     expect(screen.queryByText('Support event name')).toBeNull()
     expect(screen.getByText('Exact work area')).toBeDefined()
     expect(
-      screen.getByPlaceholderText(
-        /exact team space, project area, team, or project reference/i
-      )
+      screen.getByPlaceholderText(/exact team space, project area, team, or project reference/i)
     ).toBeDefined()
     expect(screen.getByRole('option', { name: 'Team space' })).toBeDefined()
     expect(screen.getByRole('option', { name: 'Project area' })).toBeDefined()
@@ -173,6 +171,9 @@ describe('AuditLogView', () => {
     expect(screen.queryByText('Saved instruction · Skill')).toBeNull()
     expect(screen.getAllByText('Changed item').length).toBeGreaterThan(0)
     expect(screen.getByText('Changed by')).toBeDefined()
+    expect(screen.getByText('Person reference user-1')).toBeDefined()
+    expect(screen.getByText('Person reference user-2')).toBeDefined()
+    expect(screen.queryByText('user-1')).toBeNull()
     expect(screen.getByText('Verification')).toBeDefined()
     expect(screen.getByText('Review notes')).toBeDefined()
     expect(screen.getAllByText('Show review notes').length).toBeGreaterThan(0)
