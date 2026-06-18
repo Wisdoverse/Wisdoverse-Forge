@@ -137,10 +137,10 @@ describe('Agents Store', () => {
     expect(message).not.toContain('teapot')
   })
 
-  test('starts delete conflicts with the review step', () => {
+  test('starts delete conflicts with a current-status check step', () => {
     expectBeginnerError(
       agentActionErrorMessage('delete', apiError(409, { message: 'version changed' })),
-      'Refresh the Agents page, review the current status, then try again. This agent changed while you were deleting it.'
+      'Refresh the Agents page, check the current status, then try again. This agent changed while you were deleting it.'
     )
   })
 

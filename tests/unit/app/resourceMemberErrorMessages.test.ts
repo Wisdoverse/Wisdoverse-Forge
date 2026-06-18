@@ -14,7 +14,7 @@ describe('resourceMemberErrorMessage', () => {
   test('turns network failures into reachable next steps', () => {
     const message = resourceMemberErrorMessage('load', 'Project', new Error('Failed to fetch'))
 
-    expect(message).toBe('Check your connection, then reopen members for this project.')
+    expect(message).toBe('Check your connection, then open Members for this project.')
     expect(message).toContain('Check your connection')
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('service')
@@ -37,7 +37,7 @@ describe('resourceMemberErrorMessage', () => {
       new Error('API 401: {"message":"token expired"}')
     )
 
-    expectBeginnerMessage(message, 'Sign in again, then reopen members for this team.')
+    expectBeginnerMessage(message, 'Sign in again, then open Members for this team.')
     expect(message).not.toContain('API 401')
   })
 
@@ -58,7 +58,7 @@ describe('resourceMemberErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Ask an owner or admin to give you access to manage people here, then reopen members for this team. You do not have permission right now.'
+      'Ask an owner or admin to give you access to manage people here, then open Members for this team. You do not have permission right now.'
     )
     expect(message).not.toContain('owner role required')
     expect(message).not.toContain('update what you can do')
@@ -66,10 +66,10 @@ describe('resourceMemberErrorMessage', () => {
 
   test('keeps lost selection messages safe even before modal error mapping', () => {
     expect(resourceMemberSelectionLostMessage('Team')).toBe(
-      'This team is no longer selected. Close members, choose the team again, then add or change people.'
+      'This team is no longer selected. Close Members, choose the team again, then add or change people.'
     )
     expect(resourceMemberSelectionLostMessage('Project')).toBe(
-      'This project is no longer selected. Close members, choose the project again, then add or change people.'
+      'This project is no longer selected. Close Members, choose the project again, then add or change people.'
     )
   })
 

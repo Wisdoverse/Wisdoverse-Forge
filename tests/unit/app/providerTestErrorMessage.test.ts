@@ -13,14 +13,14 @@ describe('providerTestErrorMessage', () => {
   test('turns invalid key details into setup guidance', () => {
     expectBeginnerMessage(
       providerTestErrorMessage('Invalid key', 'Anthropic Review'),
-      'Check the service access key, model, and service address for Anthropic Review, then save and choose Check connection again.'
+      'Check the service access key, the model you picked, and the service address for Anthropic Review, then save and choose Check connection again.'
     )
   })
 
   test('turns permission failures into access key and model guidance', () => {
     expectBeginnerMessage(
       providerTestErrorMessage(new Error('HTTP 403: Forbidden'), 'OpenAI Production'),
-      'Confirm the saved service access key can use the selected model for OpenAI Production, then save and choose Check connection again.'
+      'Check that the saved service access key can use the model you picked for OpenAI Production, then save and choose Check connection again.'
     )
   })
 
@@ -59,9 +59,11 @@ describe('providerTestErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Review the AI service settings, then check this AI service again. If it still cannot be checked, ask an owner or admin to check AI service settings.'
+      'Check the saved AI service settings, then choose Check connection for this AI service again. If it still cannot be checked, ask an owner or admin to check AI service settings.'
     )
     expect(message).not.toContain('needs attention')
     expect(message).not.toContain('gateway')
+    expect(message).not.toContain('Review the AI service settings')
+    expect(message).not.toContain('selected model')
   })
 })

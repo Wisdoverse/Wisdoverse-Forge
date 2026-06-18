@@ -219,7 +219,7 @@ export function settingsActionErrorMessage(
     return `Settings for ${SETTINGS_AREA_LABELS[area]} are not ready yet. Refresh Settings, then try again.`
   }
   if (status === 409) {
-    return `This ${SETTINGS_ITEM_LABELS[area]} changed or already exists. Refresh the list, review the current value, then try again.`
+    return `This ${SETTINGS_ITEM_LABELS[area]} changed or already exists. Refresh the list, check the current value, then try again.`
   }
   if (status === 422) {
     return settingsValidationMessage(area, action, detail)

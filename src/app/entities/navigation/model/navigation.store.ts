@@ -224,7 +224,7 @@ export function navigationActionErrorMessage(
     return `The left menu is not ready for ${NAVIGATION_AREA_LABELS[area]} yet. Refresh it, then try again.`
   }
   if (status === 409) {
-    return 'The left menu changed while you were working. Refresh it, review the current teams and projects, then try again.'
+    return 'The left menu changed while you were working. Refresh it, check the current teams and projects, then try again.'
   }
   if (status === 422) {
     return navigationValidationMessage(area, action, detail)

@@ -88,6 +88,13 @@ describe('navigation.store', () => {
     expect(message).not.toContain('sidebar')
   })
 
+  it('turns navigation conflicts into a current teams and projects check step', () => {
+    expectBeginnerError(
+      navigationActionErrorMessage('teamProjects', 'load', apiError(409, { message: 'conflict' })),
+      'The left menu changed while you were working. Refresh it, check the current teams and projects, then try again.'
+    )
+  })
+
   it('turns raw network failures into connection guidance', () => {
     const message = navigationActionErrorMessage(
       'workLanes',

@@ -604,7 +604,8 @@ describe('CreateAgentModal', () => {
     )
     expect(screen.queryByLabelText(/setup command/i)).toBeNull()
     expect(screen.getByText('Connect this computer')).toBeInTheDocument()
-    expect(screen.getByText(/agent managed by forge/i)).toBeInTheDocument()
+    expect(screen.getByText('This computer handles tasks')).toBeInTheDocument()
+    expect(screen.queryByText(/agent managed by forge/i)).not.toBeInTheDocument()
     expect(
       screen.getByText(/Forge will manage its tasks, status, and history/i)
     ).toBeInTheDocument()
@@ -787,6 +788,8 @@ describe('CreateAgentModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
 
     expect(await screen.findByText('This computer agent')).toBeInTheDocument()
+    expect(screen.getByText('This computer handles tasks')).toBeInTheDocument()
+    expect(screen.queryByText('Agent managed by Forge')).not.toBeInTheDocument()
     expect(screen.queryByText(new RegExp(['Local', 'agent'].join(' '), 'i'))).toBeNull()
   })
 

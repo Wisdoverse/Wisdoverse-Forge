@@ -30,7 +30,7 @@ export function workspaceResourceErrorMessage(
     return `Refresh Settings, then choose an existing ${resource}.`
   }
   if (status === 409) {
-    return `This ${resource} changed while you were editing. Refresh Settings, review the current ${resource}, then try again.`
+    return `This ${resource} changed while you were editing. Refresh Settings, check the current ${resource}, then try again.`
   }
   if (status === 400 || status === 422) {
     return validationMessage(resource, action, detail)
@@ -94,8 +94,8 @@ function validationMessage(
     return "Move or finish this project's tasks first, then delete the project again."
   }
   return resource === 'team'
-    ? 'Check whether this team still owns projects or required access, then delete it again.'
-    : 'Check whether agents or tasks still depend on this project, then delete it again.'
+    ? 'Check whether this team still has projects or required owner access, then delete it again.'
+    : 'Check whether agents or tasks are still using this project, then delete it again.'
 }
 
 function statusFromError(error: unknown): number | null {

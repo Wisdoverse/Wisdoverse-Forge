@@ -210,7 +210,7 @@ function renameErrorMessage(target: RenameTarget, error: unknown): string {
     return `Refresh the left menu, then choose the current ${label} again. This ${label} could not be found.`
   }
   if (status === 409) {
-    return `Refresh the left menu, review the current name, then save this ${label} name again. This ${label} changed while you were editing.`
+    return `Refresh the left menu, check the current name, then save this ${label} name again. This ${label} changed while you were editing.`
   }
   if (status === 422) {
     return renameValidationMessage(target, detail)
@@ -289,8 +289,8 @@ function deleteValidationMessage(target: RenameTarget, normalized: string): stri
     return "Move or finish this project's tasks first, then delete the project again."
   }
   return target === 'team'
-    ? 'Check whether this team still has projects or required access, then delete it again.'
-    : 'Check whether agents or tasks still depend on this project, then delete it again.'
+    ? 'Check whether this team still has projects or required owner access, then delete it again.'
+    : 'Check whether agents or tasks are still using this project, then delete it again.'
 }
 
 function getMenuPosition(

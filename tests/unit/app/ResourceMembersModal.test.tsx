@@ -220,7 +220,7 @@ describe('ResourceMembersModal', () => {
       members: [makeMember({})],
       users: [makeUser({})],
       updateMemberError: new Error(
-        'This team is no longer selected. Close members, choose the team again, then add or change people.'
+        'This team is no longer selected. Close Members, choose the team again, then add or change people.'
       ),
     })
 
