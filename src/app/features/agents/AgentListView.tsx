@@ -413,9 +413,7 @@ function HostCliEnrollmentPanel({
     if (!commandReady) return
     setCopyError(null)
     if (!navigator.clipboard?.writeText) {
-      setCopyError(
-        'Forge cannot copy from this browser. Select the setup text in the box, then copy it manually.'
-      )
+      setCopyError('Copy did not work. Select the setup text in the box, then copy it yourself.')
       return
     }
     try {
@@ -423,9 +421,7 @@ function HostCliEnrollmentPanel({
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1800)
     } catch {
-      setCopyError(
-        'Forge cannot copy from this browser. Select the setup text in the box, then copy it manually.'
-      )
+      setCopyError('Copy did not work. Select the setup text in the box, then copy it yourself.')
     }
   }
 
