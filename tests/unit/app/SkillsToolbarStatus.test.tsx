@@ -25,9 +25,9 @@ describe('Skills toolbar status', () => {
     render(<SkillsView />)
 
     await waitFor(() =>
-      expect(screen.getByText('Choose Save Instruction to start.')).toBeInTheDocument()
+      expect(screen.getByText('Choose Save instruction to start.')).toBeInTheDocument()
     )
-    expect(screen.getByText(/saved instructions are reusable steps/i)).toBeInTheDocument()
+    expect(screen.getByText(/Save steps your agents should repeat/i)).toBeInTheDocument()
     expect(screen.queryByText('No saved instructions yet')).toBeNull()
   })
 

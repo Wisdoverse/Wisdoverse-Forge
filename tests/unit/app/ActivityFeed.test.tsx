@@ -29,7 +29,7 @@ describe('ActivityFeed', () => {
     expect(screen.getByText(/open the details before choosing what happens next/i)).toBeDefined()
     expect(screen.getByText(/Agent Two is waiting: Waiting for account access/i)).toBeDefined()
     expect(screen.queryByText(/Needs SSH key/i)).toBeNull()
-    expect(screen.getByRole('button', { name: /open details/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /open task details/i })).toBeDefined()
     expect(screen.getByRole('button', { name: /allow to continue/i })).toBeDefined()
   })
 
