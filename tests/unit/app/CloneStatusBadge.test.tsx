@@ -135,7 +135,7 @@ describe('CloneStatusBadge', () => {
     expect(screen.queryByText('unexpected git stderr')).not.toBeInTheDocument()
   })
 
-  it('shows the Retry button only for the failed status', () => {
+  it('shows the copy-again button only for the failed status', () => {
     const { rerender } = render(
       <CloneStatusBadge projectId="p1" status="ready" variant="detail" clone={summary()} />
     )
@@ -150,6 +150,8 @@ describe('CloneStatusBadge', () => {
       />
     )
     expect(screen.getByTestId('clone-retry-p1')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /copy code again/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^try again$/i })).not.toBeInTheDocument()
   })
 
   it('calls retryClone and reports the new attempt via onRetried', async () => {
@@ -173,10 +175,10 @@ describe('CloneStatusBadge', () => {
     await waitFor(() => expect(onRetried).toHaveBeenCalledWith(next))
   })
 
-  it('disables Try again while the request is in flight (no double-click)', async () => {
+  it('disables Copy code again while the request is in flight (no double-click)', async () => {
     // A deferred promise that never resolves keeps the retry in flight, so the
     // double-click guard (`disabled={retrying}`) must hold the button disabled
-    // with a `Trying…` label until it settles.
+    // with a `Copying code…` label until it settles.
     vi.spyOn(projectApi, 'retryClone').mockReturnValue(new Promise<CloneSummary>(() => {}))
 
     render(
@@ -192,7 +194,7 @@ describe('CloneStatusBadge', () => {
     fireEvent.click(retryButton)
 
     await waitFor(() => expect(retryButton).toBeDisabled())
-    expect(retryButton).toHaveTextContent('Trying…')
+    expect(retryButton).toHaveTextContent('Copying code…')
   })
 
   it('surfaces a retry permission failure as a beginner-safe inline message', async () => {

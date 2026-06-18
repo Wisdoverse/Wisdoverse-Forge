@@ -59,7 +59,7 @@ describe('agentPluginErrorMessage', () => {
     const message = agentPluginErrorMessage('load', new TypeError('Failed to fetch'))
 
     expect(message).toBe(
-      "Refresh this agent page to load tools. Forge could not connect while checking this agent's tools. Check your connection, then refresh this agent page again."
+      "Refresh this agent page to load tools. Check your connection, then refresh this agent page again. Forge could not connect while checking this agent's tools."
     )
     expect(message).not.toContain('Failed to fetch')
   })
@@ -73,6 +73,16 @@ describe('agentPluginErrorMessage', () => {
     expect(message).not.toContain('ok: false')
     expect(message).not.toContain('workspace tools')
     expect(message).not.toContain('platform')
+  })
+
+  test('uses refresh guidance for unknown tool load failures', () => {
+    const message = agentPluginErrorMessage('load', new Error('plugin registry mismatch'))
+
+    expect(message).toBe(
+      "Refresh this agent page to load tools. If it still fails, ask an owner or admin to check this agent's tool setup."
+    )
+    expect(message).not.toContain('plugin registry mismatch')
+    expect(message).not.toContain('Try again.')
   })
 
   test('explains unusable save responses with team space tool guidance', () => {

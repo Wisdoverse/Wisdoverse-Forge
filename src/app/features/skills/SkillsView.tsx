@@ -170,7 +170,7 @@ export function SkillsView() {
               onClick={() => void loadSkills()}
               className={uiStyles.primaryButton}
             >
-              Retry
+              Refresh saved instructions
             </button>
           </div>
         )}
@@ -227,14 +227,16 @@ function savedInstructionsLoadErrorMessage(error: string): string {
 
 function savedInstructionsLoadRecoveryMessage(error: string): string {
   const normalized = error.toLowerCase()
-  if (normalized.includes('sign in')) return 'After signing in, choose Retry.'
+  if (normalized.includes('sign in')) {
+    return 'After signing in, choose Refresh saved instructions.'
+  }
   if (normalized.includes('permission') || normalized.includes('access')) {
-    return 'After an owner or admin updates your access, choose Retry.'
+    return 'After an owner or admin updates your access, choose Refresh saved instructions.'
   }
   if (normalized.includes('connect') || normalized.includes('connection')) {
-    return 'Check your connection, then choose Retry.'
+    return 'Check your connection, then choose Refresh saved instructions.'
   }
-  return 'Choose Retry to refresh Saved instructions.'
+  return 'Choose Refresh saved instructions to load the list again.'
 }
 
 function savedInstructionsEmptyState({

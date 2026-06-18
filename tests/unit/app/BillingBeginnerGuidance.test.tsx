@@ -223,6 +223,11 @@ describe('Billing beginner guidance', () => {
     expect(
       within(alert).getByText('Refresh Billing to load invoices. Ask an owner or admin for access.')
     ).toBeInTheDocument()
-    expect(within(alert).getByText(/ask an owner or admin to check billing access/i)).toBeDefined()
+    expect(
+      within(alert).getByText(
+        /Refresh Billing to load invoices\. If it still fails, ask an owner or admin to check billing access\./i
+      )
+    ).toBeDefined()
+    expect(within(alert).queryByText(/try again later/i)).not.toBeInTheDocument()
   })
 })
