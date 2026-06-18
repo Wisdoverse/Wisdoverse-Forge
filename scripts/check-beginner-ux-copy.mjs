@@ -1065,6 +1065,8 @@ const TECHNICAL_PROBLEM_JARGON_PATTERNS = [
 const CHAT_OFFLINE_DEAD_END_PATTERNS = [
   /\bThis agent is offline\. Start it before sending a message\./i,
   /\bStart it before sending a message\b/i,
+  /\bChat is not ready yet\. Try again when this agent is online\./i,
+  /\bLoading earlier messages\. You can send once loading finishes\./i,
 ]
 
 const CHAT_STREAM_FAILURE_FIRST_PATTERNS = [
@@ -5498,8 +5500,7 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'chat-offline-copy',
         location,
-        message:
-          'Chat offline copy must route beginners to the correct setup area instead of saying to start it.',
+        message: 'Chat unavailable copy must route beginners to setup or the exact send step.',
         sample: line.trim(),
       })
     }

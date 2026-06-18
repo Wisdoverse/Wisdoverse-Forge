@@ -92,6 +92,20 @@ describe('ChatComposer', () => {
     expect(screen.queryByText(/start it before sending/i)).toBeNull()
   })
 
+  it('gives a concrete send step when disabled without a custom reason', () => {
+    render(<ChatComposer onSend={() => {}} onAbort={() => {}} streaming={false} disabled />)
+
+    expect(screen.getByRole('textbox')).toBeDisabled()
+    expect(screen.getByRole('button', { name: /send/i })).toBeDisabled()
+    expect(
+      screen.getByText(
+        'Wait until this agent is online, then send the message again from this chat.'
+      )
+    ).toBeVisible()
+    expect(screen.queryByText(/chat is not ready yet/i)).toBeNull()
+    expect(screen.queryByText(/try again when this agent is online/i)).toBeNull()
+  })
+
   it('textarea is disabled while streaming', () => {
     render(<ChatComposer onSend={() => {}} onAbort={() => {}} streaming={true} disabled={false} />)
     expect(screen.getByRole('textbox')).toBeDisabled()

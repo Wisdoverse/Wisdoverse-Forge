@@ -190,6 +190,25 @@ describe('ChatView', () => {
     ).toBeNull()
   })
 
+  test('tells users when they can send while earlier messages load', () => {
+    useAgentsStore.setState({ agents: [providerAgent] })
+    seedChatState({
+      messages: [message('Earlier reply')],
+      messagesLoading: true,
+    })
+
+    render(<ChatView agentId={providerAgent.id} />)
+
+    expect(screen.getByRole('textbox', { name: /message this agent/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /send/i })).toBeDisabled()
+    expect(
+      screen.getByText(
+        'Wait for earlier messages to finish loading, then send your message from this chat.'
+      )
+    ).toBeVisible()
+    expect(screen.queryByText(/You can send once loading finishes/i)).toBeNull()
+  })
+
   test('guides empty managed workspace history toward routed work', () => {
     useAgentsStore.setState({ agents: [cliAgent] })
     seedChatState({ turns: [] })

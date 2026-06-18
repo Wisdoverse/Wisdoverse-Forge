@@ -29,7 +29,8 @@ export function ChatComposer({
   const statusText = streaming
     ? 'Agent is responding. Stop it if you need to change the message.'
     : disabled
-      ? (disabledReason ?? 'Chat is not ready yet. Try again when this agent is online.')
+      ? (disabledReason ??
+        'Wait until this agent is online, then send the message again from this chat.')
       : 'Write one clear instruction or question, then send it to this agent.'
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {

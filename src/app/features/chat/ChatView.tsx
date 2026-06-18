@@ -157,7 +157,7 @@ export function ChatView({ agentId }: ChatViewProps) {
   const composerDisabledReason = offline
     ? 'Open AI service settings, choose Check connection, then refresh Agents before sending a message.'
     : messagesLoading
-      ? 'Loading earlier messages. You can send once loading finishes.'
+      ? 'Wait for earlier messages to finish loading, then send your message from this chat.'
       : undefined
   const [conversationFilter, setConversationFilter] = useState<ConversationFilter>('all')
   const [conversationSearch, setConversationSearch] = useState('')
