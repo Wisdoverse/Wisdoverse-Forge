@@ -29,6 +29,9 @@ describe('Editable resource rows', () => {
   test('uses purpose-focused team edit and delete copy', () => {
     render(<EditableTeamRow team={team} onUpdate={vi.fn()} onDelete={vi.fn()} />)
 
+    expect(screen.getByText('Forge uses this in team links: platform')).toBeDefined()
+    expect(screen.queryByText(/Automatic team name/i)).toBeNull()
+
     fireEvent.click(screen.getByRole('button', { name: 'Edit Platform' }))
     expect(screen.getByPlaceholderText('What this team owns')).toBeDefined()
 
@@ -48,6 +51,9 @@ describe('Editable resource rows', () => {
         onDelete={vi.fn()}
       />
     )
+
+    expect(screen.getByText('Forge uses this in project links: web-app')).toBeDefined()
+    expect(screen.queryByText(/Automatic project name/i)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit Web App' }))
     expect(screen.getByPlaceholderText('What work belongs here')).toBeDefined()

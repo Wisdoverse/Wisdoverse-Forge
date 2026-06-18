@@ -29,13 +29,13 @@ const PROMPT_TEMPLATES = [
     id: 'review',
     label: 'Review',
     value:
-      'You are a code review agent. Prioritize correctness, regressions, security, missing tests, and unclear ownership. Lead with concrete findings and cite the exact files or behavior that prove each issue.',
+      'You review work carefully. Start with anything that could break the result, create a security risk, or need a missing check. Explain the problem first, then point to the file or behavior that proves it.',
   },
   {
     id: 'triage',
     label: 'Sort work',
     value:
-      'You help sort incoming work. Recreate the reported behavior, separate symptoms from likely cause, identify the smallest safe fix, and leave a clear next action when more information is needed.',
+      "You help sort incoming work. Try the steps the user described, explain what happened in plain language, suggest the smallest safe next step, and ask for more information when it's needed.",
   },
 ]
 

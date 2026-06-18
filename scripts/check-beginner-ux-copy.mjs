@@ -143,6 +143,7 @@ const REVIEW_DECISION_JARGON_PATTERNS = [
   /\bswitch back to Pending\b/,
   /\boriginal task preview (?:is )?unavailable\b/i,
   /\bThis cannot be saved because the original task preview is unavailable\./i,
+  /\bTeam internal\b/i,
 ]
 
 const REVIEW_HISTORY_DEAD_END_PATTERNS = [/\bNo saved item history yet\b/i]
@@ -445,6 +446,9 @@ const TITLE_STYLE_GUIDANCE_PATTERNS = [
 
 const CLI_IMAGE_STATUS_DEAD_END_PATTERNS = [
   /\bCheck failed\b/i,
+  /\bThe tool updater reported\b/i,
+  /\breported an access setup problem\b/i,
+  /\breported a problem\b/i,
   /\bTool for new agents:/i,
   /\bLatest tool found:/i,
   /\bNo agent tools are configured for update checks\b/i,
@@ -480,6 +484,7 @@ const SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS = [
   /\bwhile this page is visible\b/i,
   /\bHidden tabs pause checks\b/i,
   /\bChecking\.\.\./i,
+  /\bresponds in \{?[^.!?\n]{0,40}\}?\s*ms\b/i,
   /\bKeeps accounts,\s*tasks,\s*runs,\s*evidence,\s*and settings available\b/i,
 ]
 
@@ -1067,6 +1072,16 @@ const BEGINNER_SORTING_JARGON_PATTERNS = [
   /\bInbox triage path\b/i,
   /\bTriage Queue\b/,
   /\bYou are a triage agent\b/i,
+  /\bcode review agent\b/i,
+  /\bregressions\b/i,
+  /\bmissing tests\b/i,
+  /\bunclear ownership\b/i,
+  /\bconcrete findings\b/i,
+  /\bcite the exact files\b/i,
+  /\breported behavior\b/i,
+  /\bseparate symptoms from likely cause\b/i,
+  /\blikely cause\b/i,
+  /\bsmallest safe fix\b/i,
 ]
 
 const TASK_DETAIL_EMPTY_DEAD_END_PATTERNS = [
@@ -1146,6 +1161,7 @@ const CHAT_TOOL_STEP_DEAD_END_PATTERNS = [
   /\bThis step needs review\b/i,
   /\bThis step has not reported a result yet\b/i,
   /\blabel:\s*['"`]Needs review['"`]/i,
+  /\bpath:\s*['"`]Path['"`]/,
 ]
 
 const VAGUE_NEEDS_REVIEW_COPY_PATTERNS = [
@@ -1232,6 +1248,7 @@ const GOVERNANCE_AUDIT_VISIBLE_JARGON_PATTERNS = [
   /\bShow change details\b/i,
   /\bCheck change details\b/i,
   /\bCheck audit change\b/i,
+  /(?:>\s*Protected\s*<|^\s*Protected\s*$)/i,
 ]
 
 const APPROVAL_QUEUE_ERROR_FAILURE_FIRST_PATTERNS = [
@@ -1493,6 +1510,7 @@ const TEAM_PROJECT_CREATE_JARGON_PATTERNS = [
   /\b(?:Team|Project) setup path\b/i,
   /\bAddress preview:/i,
   /\bWork folder preview:/i,
+  /\bShow support folder path\b/i,
   /\bAutomatic link name\b/i,
   /\b(?:Team|Project) short name\b/i,
 ]
@@ -1500,16 +1518,20 @@ const TEAM_PROJECT_CREATE_JARGON_PATTERNS = [
 const TEAM_PROJECT_ROW_ADDRESS_JARGON_PATTERNS = [
   /\bAddress:\s*\{/i,
   /\bAutomatic link name\b/i,
+  /\bAutomatic (?:team|project) name\b/i,
   /\b(?:Team|Project) short name\b/i,
 ]
 
 const TEAM_PROJECT_SHORT_NAME_JARGON_PATTERNS = [
   /\blink name\b/i,
   /\bURL name:\s*\{/i,
+  /\bAutomatic team space name\b/i,
   /\bteam space short name\b/i,
   /\bproject short name\b/i,
   /\bshort name used in project links\b/i,
 ]
+
+const SIDEBAR_PROJECT_MENU_GENERATED_NAME_JARGON_PATTERNS = [/\bautomatic project name\b/i]
 
 const CLONE_RETRY_FAILURE_FIRST_PATTERNS = [
   /\bYou do not have permission to copy code into this project\. Ask an owner or admin to let you try again\./i,
@@ -2537,7 +2559,13 @@ function hasTeamProjectShortNameJargonCopy(relFile, line) {
     return false
   }
   if (isLikelyGuardOrParserLine(line)) return false
-  return TEAM_PROJECT_SHORT_NAME_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+  const hasGenericJargon = TEAM_PROJECT_SHORT_NAME_JARGON_PATTERNS.some((pattern) =>
+    pattern.test(line)
+  )
+  const hasSidebarGeneratedNameJargon =
+    relFile.endsWith('src/app/layouts/sidebar/ProjectTree.tsx') &&
+    SIDEBAR_PROJECT_MENU_GENERATED_NAME_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+  return hasGenericJargon || hasSidebarGeneratedNameJargon
 }
 
 function hasCloneRetryFailureFirstCopy(relFile, line) {
@@ -4704,7 +4732,7 @@ function scanFile(file, relFile) {
         type: 'team-project-row-address-copy',
         location,
         message:
-          'Team and project rows must say automatic names instead of address, link name, or short name.',
+          'Team and project rows must explain where the generated name appears instead of address, automatic name, link name, or short name.',
         sample: line.trim(),
       })
     }
@@ -4714,7 +4742,7 @@ function scanFile(file, relFile) {
         type: 'team-project-short-name-copy',
         location,
         message:
-          'Team and project generated-name labels must say automatic team or project name instead of short name, link name, or URL name.',
+          'Team and project generated-name labels must explain where the name appears instead of automatic name, short name, link name, or URL name.',
         sample: line.trim(),
       })
     }

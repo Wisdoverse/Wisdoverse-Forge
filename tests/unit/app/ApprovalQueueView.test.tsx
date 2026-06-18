@@ -110,7 +110,7 @@ describe('ApprovalQueueView', () => {
     expect(within(dialog).getByText('Who can reuse it')).toBeDefined()
     expect(within(dialog).getByText(/team or project reference from Settings/i)).toBeDefined()
     expect(within(dialog).queryByText(/support reference from Settings/i)).toBeNull()
-    expect(within(dialog).getByText('Team internal')).toBeDefined()
+    expect(within(dialog).getByText('Team only')).toBeDefined()
     expect(within(dialog).getByRole('button', { name: 'Review later' })).toBeDefined()
     expect(within(dialog).queryByRole('button', { name: /^Cancel$/ })).toBeNull()
 

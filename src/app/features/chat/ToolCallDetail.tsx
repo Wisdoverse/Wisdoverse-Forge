@@ -43,7 +43,7 @@ function extraDetailLabel(key: string): string {
     description: 'Description',
     title: 'Title',
     query: 'Search text',
-    path: 'Path',
+    path: 'File or link',
     file: 'File',
     url: 'Address',
     target: 'Target',

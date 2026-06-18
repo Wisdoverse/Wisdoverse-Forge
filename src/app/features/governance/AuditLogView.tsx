@@ -561,7 +561,7 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
             className="mt-2 inline-flex items-center gap-1 rounded-full bg-black/[0.04] px-2 py-0.5 text-ui-caption font-medium text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark"
           >
             <EyeOff size={12} aria-hidden="true" />
-            Protected
+            Review notes hidden
           </div>
         )}
       </td>
