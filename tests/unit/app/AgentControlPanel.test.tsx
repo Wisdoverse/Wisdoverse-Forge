@@ -267,12 +267,18 @@ describe('AgentControlPanel', () => {
   test('explains how to reconnect a joined-computer agent when it is offline', () => {
     render(<AgentControlPanel agent={offlineHostCliAgent} onDeleted={() => {}} />)
 
-    expect(screen.getByText('This computer is offline')).toBeDefined()
+    expect(screen.getByText('Reconnect this computer from Agents')).toBeDefined()
+    expect(screen.getByText(/use Back to return to Agents/i)).toBeDefined()
+    expect(screen.getAllByText(/choose Connect this computer/i).length).toBeGreaterThan(0)
+    expect(screen.getByText('Use Connect this computer')).toBeDefined()
+    expect(screen.getByText(/copy the new setup text from Agents/i)).toBeDefined()
+    expect(screen.getByText(/come back here to send messages or tasks/i)).toBeDefined()
+    expect(screen.queryByText('This computer is offline')).toBeNull()
     expect(
-      screen.getByText(/paste the setup text in that computer's command app again/i)
-    ).toBeDefined()
-    expect(screen.getByText('Paste setup text to reconnect')).toBeDefined()
-    expect(screen.getByText(/paste the setup text again, then come back here/i)).toBeDefined()
+      screen.queryByText(/paste the setup text in that computer's command app again/i)
+    ).toBeNull()
+    expect(screen.queryByText('Paste setup text to reconnect')).toBeNull()
+    expect(screen.queryByText(/paste the setup text again, then come back here/i)).toBeNull()
     expect(screen.queryByText(/setup command/i)).toBeNull()
     expect(screen.queryByText(/already connected/i)).toBeNull()
     expect(screen.queryByRole('button', { name: /start agent/i })).toBeNull()
