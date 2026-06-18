@@ -11502,6 +11502,80 @@ function agentNextStep() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags generic agent detail headings that do not name the useful content', () => {
+    const cwd = fixture({
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function AgentDetailView() {
+  return <span>Details</span>
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  agents: { agentDetails: 'Agent Details' },
+  feed: { viewDetails: 'View details' },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  agents: { agentDetails: 'Agent 详情' },
+  feed: { viewDetails: '查看详情' },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-detail-heading-copy',
+          location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-detail-heading-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-detail-heading-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'agent-detail-heading-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-detail-heading-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:4',
+        }),
+      ])
+    )
+  })
+
+  it('accepts agent overview and update labels that name the useful content', () => {
+    const cwd = fixture({
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function AgentDetailView() {
+  return <span>Agent overview</span>
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  agents: { agentDetails: 'Agent overview' },
+  feed: { viewDetails: 'View update' },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  agents: { agentDetails: 'Agent 概览' },
+  feed: { viewDetails: '查看这条更新' },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags authentication network copy that starts with the failure instead of the next step', () => {
     const cwd = fixture({
       'src/app/features/auth/AuthPage.ts': `

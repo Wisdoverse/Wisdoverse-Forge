@@ -257,7 +257,7 @@ export const en = {
     duplicateAgent: 'Duplicate Agent',
     exportAgent: 'Export Agent',
     importAgent: 'Import Agent',
-    agentDetails: 'Agent Details',
+    agentDetails: 'Agent overview',
     agentSettings: 'Agent Settings',
     agentHistory: 'Agent History',
     activeAgent: 'Active Agent',
@@ -351,7 +351,7 @@ export const en = {
     expandAll: 'Expand all',
     collapseAll: 'Collapse all',
     copyContent: 'Copy content',
-    viewDetails: 'View details',
+    viewDetails: 'View update',
     timestamp: '{{time}}',
   },
 

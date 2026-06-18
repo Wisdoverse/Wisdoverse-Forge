@@ -357,6 +357,14 @@ const AGENT_DETAIL_AVAILABILITY_DEAD_END_PATTERNS = [
   /\bUnavailable until restarted or reconnected\b/i,
 ]
 
+const AGENT_DETAIL_GENERIC_HEADING_PATTERNS = [
+  />\s*Details\s*</,
+  /\bagentDetails:\s*['"`]Agent Details['"`]/,
+  /\bviewDetails:\s*['"`]View details['"`]/,
+  /\bagentDetails:\s*['"`]Agent 详情['"`]/,
+  /\bviewDetails:\s*['"`]查看详情['"`]/,
+]
+
 const AGENT_DETAIL_START_FAILURE_FIRST_PATTERNS = [/\bStart did not finish\b/i]
 
 const AGENT_STORE_ERROR_FAILURE_FIRST_PATTERNS = [
@@ -2668,6 +2676,18 @@ function hasAgentDetailAvailabilityDeadEndCopy(relFile, line) {
   return AGENT_DETAIL_AVAILABILITY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAgentDetailGenericHeadingCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_DETAIL_GENERIC_HEADING_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasAgentDetailStartFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -4800,6 +4820,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Agent detail availability copy must tell beginners which page or control to use next.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentDetailGenericHeadingCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-detail-heading-copy',
+        location,
+        message:
+          'Agent detail headings and labels must name the useful content, such as overview or update.',
         sample: line.trim(),
       })
     }

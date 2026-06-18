@@ -250,7 +250,7 @@ export const zh: TranslationKeys = {
     duplicateAgent: '复制 Agent',
     exportAgent: '导出 Agent',
     importAgent: '导入 Agent',
-    agentDetails: 'Agent 详情',
+    agentDetails: 'Agent 概览',
     agentSettings: 'Agent 设置',
     agentHistory: 'Agent 历史',
     activeAgent: '活跃 Agent',
@@ -344,7 +344,7 @@ export const zh: TranslationKeys = {
     expandAll: '全部展开',
     collapseAll: '全部折叠',
     copyContent: '复制内容',
-    viewDetails: '查看详情',
+    viewDetails: '查看这条更新',
     timestamp: '{{time}}',
   },
 
