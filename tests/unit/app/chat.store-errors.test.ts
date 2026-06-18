@@ -96,6 +96,26 @@ describe('chatErrorMessage', () => {
     )
     expect(message).not.toContain('ok: false')
   })
+
+  test('uses the visible retry action for unknown conversation load failures', () => {
+    const message = chatErrorMessage('load', new Error('chat storage mismatch'))
+
+    expect(message).toBe(
+      "Retry conversation to load conversation history. Choose Retry conversation again. If it still fails, ask an owner or admin to check this agent's chat setup."
+    )
+    expect(message).not.toContain('chat storage mismatch')
+    expect(message).not.toContain('Try again.')
+  })
+
+  test('uses the clear chat action for unknown clear failures', () => {
+    const message = chatErrorMessage('clear', new Error('chat delete failed'))
+
+    expect(message).toBe(
+      "Chat was not cleared. Clear chat again if you still want to remove the messages. If it still fails, ask an owner or admin to check this agent's chat setup."
+    )
+    expect(message).not.toContain('chat delete failed')
+    expect(message).not.toContain('Try again.')
+  })
 })
 
 describe('useChatStore beginner errors', () => {

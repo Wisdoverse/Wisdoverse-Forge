@@ -617,12 +617,12 @@ function CatalogGrid() {
 `,
       'src/app/features/agents/CreateAgentModal.tsx': `
 function CreateAgentModal() {
-  return 'Open Settings > AI services, add a service, save it, then choose Check connection until it says Ready.'
+  return 'Open AI service settings, add a service, save it, then choose Check connection until it says Ready.'
 }
 `,
       'src/app/features/agents/AgentControlPanel.tsx': `
 function AgentControlPanel() {
-  return 'Open Settings > AI services, choose Check connection for this service, refresh Agents, then send messages after it shows Ready.'
+  return 'Open AI service settings, choose Check connection for this service, refresh Agents, then send messages after it shows Ready.'
 }
 `,
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
@@ -7161,16 +7161,22 @@ export function ContextEvidenceList() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags chat offline copy that tells users to start an agent without a setup path', () => {
+  it('flags chat unavailable copy without a setup or send step', () => {
     const cwd = fixture({
       'src/app/features/chat/ChatView.tsx': `
 function ChatView() {
   return 'This agent is offline. Start it before sending a message.'
 }
+function loadingMessage() {
+  return 'Loading earlier messages. You can send once loading finishes.'
+}
 `,
       'src/app/features/chat/ChatComposer.tsx': `
 function ChatComposer() {
   return 'Start it before sending a message'
+}
+function fallbackDisabledReason() {
+  return 'Chat is not ready yet. Try again when this agent is online.'
 }
 `,
     })
@@ -7186,22 +7192,36 @@ function ChatComposer() {
         }),
         expect.objectContaining({
           type: 'chat-offline-copy',
+          location: 'src/app/features/chat/ChatView.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'chat-offline-copy',
           location: 'src/app/features/chat/ChatComposer.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'chat-offline-copy',
+          location: 'src/app/features/chat/ChatComposer.tsx:6',
         }),
       ])
     )
   })
 
-  it('accepts chat offline copy that points to the right setup area', () => {
+  it('accepts chat unavailable copy that points to setup or the send step', () => {
     const cwd = fixture({
       'src/app/features/chat/ChatView.tsx': `
 function ChatView() {
   return 'Open AI service settings, choose Check connection, then refresh Agents before sending a message.'
 }
+function loadingMessage() {
+  return 'Wait for earlier messages to finish loading, then send your message from this chat.'
+}
 `,
       'src/app/features/chat/ChatComposer.tsx': `
 function ChatComposer() {
   return 'This agent is not ready. Open Agents, start or reconnect it, then return here when it shows Ready.'
+}
+function fallbackDisabledReason() {
+  return 'Wait until this agent is online, then send the message again from this chat.'
 }
 `,
     })
@@ -12323,6 +12343,40 @@ function busyCloneRetryErrorMessage() {
 }
 function fallbackCloneRetryErrorMessage() {
   return 'Check the code link and saved code access, then try copying code again. Forge could not copy code into the project.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags generic code copy retry button labels', () => {
+    const cwd = fixture({
+      'src/app/features/manage-project/ui/CloneStatusBadge.tsx': `
+export function CloneStatusBadge({ retrying }) {
+  return <button>{retrying ? 'Trying…' : 'Try again'}</button>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'clone-retry-button-copy',
+          location: 'src/app/features/manage-project/ui/CloneStatusBadge.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts code copy retry buttons that name the copy action', () => {
+    const cwd = fixture({
+      'src/app/features/manage-project/ui/CloneStatusBadge.tsx': `
+export function CloneStatusBadge({ retrying }) {
+  return <button>{retrying ? 'Copying code…' : 'Copy code again'}</button>
 }
 `,
     })

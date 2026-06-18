@@ -59,6 +59,12 @@ function networkRecoveryMessage(action: ChatErrorAction): string {
     : 'Check your connection, then clear chat again. Forge could not connect while clearing this chat.'
 }
 
+function fallbackRecoveryMessage(action: ChatErrorAction): string {
+  return action === 'load'
+    ? "Choose Retry conversation again. If it still fails, ask an owner or admin to check this agent's chat setup."
+    : "Clear chat again if you still want to remove the messages. If it still fails, ask an owner or admin to check this agent's chat setup."
+}
+
 export function chatErrorMessage(action: ChatErrorAction, err: unknown): string {
   const base = baseMessage(action)
   const code = statusCode(err)
@@ -89,5 +95,5 @@ export function chatErrorMessage(action: ChatErrorAction, err: unknown): string 
     return `${base} Refresh the chat, then try again. Forge could not read this conversation.`
   }
 
-  return `${base} Try again. If it still fails, ask an owner or admin to check this agent's chat setup.`
+  return `${base} ${fallbackRecoveryMessage(action)}`
 }

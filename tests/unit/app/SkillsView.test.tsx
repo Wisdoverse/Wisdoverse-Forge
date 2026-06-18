@@ -376,10 +376,11 @@ describe('SkillsView', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('Refresh Saved instructions to load the list.')
-    expect(alert).toHaveTextContent('Choose Retry to refresh Saved instructions.')
+    expect(alert).toHaveTextContent('Choose Refresh saved instructions to load the list again.')
     expect(alert).not.toHaveTextContent('HTTP 500')
     expect(alert).not.toHaveTextContent('database unavailable')
-    expect(screen.getByRole('button', { name: /^retry$/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /refresh saved instructions/i })).toBeDefined()
+    expect(screen.queryByRole('button', { name: /^retry$/i })).toBeNull()
   })
 
   test('turns raw saved-instruction load errors into retry guidance', async () => {
@@ -400,7 +401,7 @@ describe('SkillsView', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('Saved instructions need a refresh.')
-    expect(alert).toHaveTextContent('Choose Retry to refresh Saved instructions.')
+    expect(alert).toHaveTextContent('Choose Refresh saved instructions to load the list again.')
     expect(alert).not.toHaveTextContent('HTTP 500')
     expect(alert).not.toHaveTextContent('database unavailable')
   })

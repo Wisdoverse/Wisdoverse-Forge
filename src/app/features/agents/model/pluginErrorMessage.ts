@@ -76,7 +76,7 @@ export function agentPluginErrorMessage(action: AgentPluginErrorAction, err: unk
   }
   if (code === 409) {
     return action === 'load'
-      ? `${base} Another change is still being saved. Wait a moment, then try again.`
+      ? `${base} Wait a moment, then refresh this agent page again. Another change is still being saved.`
       : saveMessage(
           'Wait a moment, then try the tool change again.',
           'Another change is still being saved.'
@@ -84,7 +84,7 @@ export function agentPluginErrorMessage(action: AgentPluginErrorAction, err: unk
   }
   if (code === 429) {
     return action === 'load'
-      ? `${base} Too many requests are happening right now. Wait a minute, then try again.`
+      ? `${base} Wait a minute, then refresh this agent page again. Too many requests are happening right now.`
       : saveMessage(
           'Wait a minute, then try the tool change again.',
           'Too many requests are happening right now.'
@@ -92,7 +92,7 @@ export function agentPluginErrorMessage(action: AgentPluginErrorAction, err: unk
   }
   if (code != null && code >= 500) {
     return action === 'load'
-      ? `${base} Forge could not finish this tool request right now. Wait a few minutes, then try again. If it still fails, ask an owner or admin to check this agent's tool setup.`
+      ? `${base} Wait a few minutes, then refresh this agent page again. Forge could not finish this tool request right now. If it still fails, ask an owner or admin to check this agent's tool setup.`
       : saveMessage(
           'Wait a few minutes, then try the tool change again.',
           "Forge could not finish this tool request right now. If it still fails, ask an owner or admin to check this agent's tool setup."
@@ -100,7 +100,7 @@ export function agentPluginErrorMessage(action: AgentPluginErrorAction, err: unk
   }
   if (isNetworkError(err)) {
     return action === 'load'
-      ? `${base} Forge could not connect while checking this agent's tools. Check your connection, then refresh this agent page again.`
+      ? `${base} Check your connection, then refresh this agent page again. Forge could not connect while checking this agent's tools.`
       : saveMessage(
           'Check your connection, then try the tool change again.',
           "Forge could not connect while checking this agent's tools."
@@ -116,7 +116,7 @@ export function agentPluginErrorMessage(action: AgentPluginErrorAction, err: unk
   }
 
   return action === 'load'
-    ? `${base} Try again. If it still fails, ask an owner or admin to check this agent's tool setup.`
+    ? `${base} If it still fails, ask an owner or admin to check this agent's tool setup.`
     : saveMessage(
         'Refresh this agent page, then try the tool change again.',
         "If it still fails, ask an owner or admin to check this agent's tool setup."

@@ -32,6 +32,11 @@ const RAW_USER_VISIBLE_PATTERNS = [
   /\bdatabase unavailable\b/i,
 ]
 
+const SETTINGS_PATH_JARGON_PATTERNS = [
+  /\bOpen Settings\s*>\s*AI services\b/i,
+  /\bOpen Settings\s*&gt;\s*AI services\b/i,
+]
+
 const API_FALLBACK_FAILURE_FIRST_PATTERNS = [
   /\bForge could not finish this request\. Wait a moment, then try again\./i,
   /\bForge did not return a clear error\. Refresh, then try again\./i,
@@ -263,6 +268,7 @@ const BILLING_ERROR_FAILURE_FIRST_PATTERNS = [
   /\bForge could not connect while loading billing\. Check your connection, then refresh Billing again\./i,
   /\bThe secure payment page did not open\. Try again\b/i,
   /\bThe billing management page did not open\. Try again\b/i,
+  /\bTry again later or ask an owner or admin to check billing access\./i,
 ]
 
 const ANALYTICS_CHART_DEAD_END_PATTERNS = [/\bNo activity data\b/i, /\bNo tool usage data\b/i]
@@ -681,6 +687,7 @@ const AGENT_PLUGIN_ERROR_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*Tool change was not saved\. The switch was returned to its previous setting\./i,
   /['"`]\s*Forge could not finish this tool request right now\. Wait a few minutes, then try again\./i,
   /['"`]\s*Forge could not read this agent's tool list\. Refresh the page\./i,
+  /\b`\$\{base\} (?:Another change is still being saved\. Wait a moment|Too many requests are happening right now\. Wait a minute|Forge could not finish this tool request right now\. Wait a few minutes|Forge could not connect while checking this agent's tools\. Check your connection|Try again\.)/i,
 ]
 
 const SAVED_INSTRUCTIONS_LOAD_DEAD_END_PATTERNS = [
@@ -1065,6 +1072,8 @@ const TECHNICAL_PROBLEM_JARGON_PATTERNS = [
 const CHAT_OFFLINE_DEAD_END_PATTERNS = [
   /\bThis agent is offline\. Start it before sending a message\./i,
   /\bStart it before sending a message\b/i,
+  /\bChat is not ready yet\. Try again when this agent is online\./i,
+  /\bLoading earlier messages\. You can send once loading finishes\./i,
 ]
 
 const CHAT_STREAM_FAILURE_FIRST_PATTERNS = [
@@ -1333,6 +1342,7 @@ const CHAT_ERROR_FAILURE_FIRST_PATTERNS = [
   /^\s*\?\s*['"`]Forge could not load this conversation right now\./,
   /^\s*:\s*['"`]Forge could not update this chat right now\./,
   /^\s*return\s+`\$\{base\} Forge could not read this conversation\./,
+  /\b`\$\{base\} Try again\. If it still fails, ask an owner or admin to check this agent's chat setup\.`/,
 ]
 
 const SETTINGS_STORE_ERROR_FAILURE_FIRST_PATTERNS = [
@@ -1390,6 +1400,12 @@ const CLONE_RETRY_FAILURE_FIRST_PATTERNS = [
   /\bToo many code import retries are happening right now\. Wait a minute, then try again\./i,
   /\bForge could not copy code right now\. Wait a few minutes, then try again\./i,
   /\bCould not copy code into the project\. Check the code link and saved code access, then try again\./i,
+]
+
+const CLONE_RETRY_BUTTON_GENERIC_PATTERNS = [
+  /\?\s*['"`]Trying…['"`]\s*:\s*['"`]Try again['"`]/,
+  />\s*Try again\s*</i,
+  /\baria-label=["'`]Try again["'`]/i,
 ]
 
 const CLONE_STATUS_IMPORT_LABEL_PATTERNS = [
@@ -1669,6 +1685,11 @@ function isLikelyGuardOrParserLine(line) {
 function hasRawUserVisibleCopy(line) {
   if (isLikelyGuardOrParserLine(line)) return false
   return RAW_USER_VISIBLE_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasSettingsPathJargonCopy(line) {
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SETTINGS_PATH_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasApiFallbackFailureFirstCopy(relFile, line) {
@@ -1956,7 +1977,8 @@ function hasBillingReceiptLinkDeadEndCopy(relFile, line) {
 function hasBillingErrorFailureFirstCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/model/billing.store.ts') &&
-    !relFile.endsWith('src/app/features/billing/BillingPage.tsx')
+    !relFile.endsWith('src/app/features/billing/BillingPage.tsx') &&
+    !relFile.endsWith('src/app/features/billing/InvoiceList.tsx')
   ) {
     return false
   }
@@ -2371,6 +2393,14 @@ function hasCloneRetryFailureFirstCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return CLONE_RETRY_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasCloneRetryButtonGenericCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/manage-project/ui/CloneStatusBadge.tsx')) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CLONE_RETRY_BUTTON_GENERIC_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasCloneStatusImportLabelCopy(relFile, line) {
@@ -3504,6 +3534,15 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasSettingsPathJargonCopy(line)) {
+      findings.push({
+        type: 'settings-path-copy',
+        location,
+        message: 'Settings guidance must name the destination instead of using path arrows.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasApiFallbackFailureFirstCopy(relFile, line)) {
       findings.push({
         type: 'api-fallback-error-copy',
@@ -4391,6 +4430,15 @@ function scanFile(file, relFile) {
         type: 'clone-retry-error-copy',
         location,
         message: 'Code import retry errors must start with the next action for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCloneRetryButtonGenericCopy(relFile, line)) {
+      findings.push({
+        type: 'clone-retry-button-copy',
+        location,
+        message: 'Code copy retry buttons must name the copy action for beginners.',
         sample: line.trim(),
       })
     }
@@ -5475,8 +5523,7 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'chat-offline-copy',
         location,
-        message:
-          'Chat offline copy must route beginners to the correct setup area instead of saying to start it.',
+        message: 'Chat unavailable copy must route beginners to setup or the exact send step.',
         sample: line.trim(),
       })
     }
