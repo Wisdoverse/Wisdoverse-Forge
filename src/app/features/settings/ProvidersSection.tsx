@@ -780,11 +780,11 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
     (provider) => providerConnectionState(provider) === 'needs-test'
   ).length
   const defaultProvider = providers.find((provider) => provider.isDefault)
-  const defaultProviderLabel =
+  const chatChoiceLabel =
     defaultProvider?.displayName ??
-    (total === 0 ? 'add an AI service first' : 'choose a ready AI service')
-  const defaultProviderMetric =
-    defaultProvider?.displayName ?? (total === 0 ? 'Add first service' : 'Choose a default')
+    (total === 0 ? 'add an AI service first' : 'choose a ready service when creating an agent')
+  const chatChoiceMetric =
+    defaultProvider?.displayName ?? (total === 0 ? 'Add first service' : 'Choose in Create Agent')
   const allReady = ready > 0 && ready === total - disabled && needsTest === 0
 
   return (
@@ -821,7 +821,7 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-black/[0.04] px-2.5 py-1 text-ui-caption font-semibold text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-          Default: {defaultProviderLabel}
+          Chat agents: {chatChoiceLabel}
         </span>
       </div>
 
@@ -834,9 +834,9 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
         />
         <ProviderReadinessMetric label="Disabled" value={String(disabled)} ready={disabled === 0} />
         <ProviderReadinessMetric
-          label="Default AI service"
-          value={defaultProviderMetric}
-          ready={Boolean(defaultProvider)}
+          label="Chat agent choice"
+          value={chatChoiceMetric}
+          ready={ready > 0}
         />
       </div>
     </section>
