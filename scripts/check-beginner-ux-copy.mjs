@@ -890,6 +890,21 @@ const COMMON_ERROR_VAGUE_SYSTEM_PATTERNS = [
   /管理员检查系统/,
 ]
 
+const COMMON_CONNECTION_STATUS_DEAD_END_PATTERNS = [
+  /\bconnectionLost:\s*['"`]Connection lost\. Reconnecting\.\.\.['"`]/,
+  /\breconnecting:\s*['"`]Reconnecting\.\.\.['"`]/,
+  /\breconnected:\s*['"`]Connection restored['"`]/,
+  /\bconnectionLost:\s*['"`]连接断开，正在重连\.\.\.['"`]/,
+  /\breconnecting:\s*['"`]重新连接中\.\.\.['"`]/,
+  /\breconnected:\s*['"`]连接已恢复['"`]/,
+  /['"`]Connection lost\. Reconnecting\.\.\.['"`]/,
+  /['"`]Reconnecting\.\.\.['"`]/,
+  /['"`]Connection restored['"`]/,
+  /['"`]连接断开，正在重连\.\.\.['"`]/,
+  /['"`]重新连接中\.\.\.['"`]/,
+  /['"`]连接已恢复['"`]/,
+]
+
 const SYSTEM_HEALTH_ERROR_FAILURE_FIRST_PATTERNS = [
   /\bconst\s+\w+\s*=\s*['"`]Forge could not check app health\./i,
   /^\s*return\s+['"`]Forge could not check app health\./i,
@@ -3184,6 +3199,17 @@ function hasCommonErrorVagueSystemCopy(relFile, line) {
   return COMMON_ERROR_VAGUE_SYSTEM_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasCommonConnectionStatusDeadEndCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return COMMON_CONNECTION_STATUS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasLocaleVagueErrorLabelCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
@@ -3813,6 +3839,16 @@ function scanFile(file, relFile) {
         type: 'common-error-system-copy',
         location,
         message: 'Common error translations must name app health instead of vague system checks.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCommonConnectionStatusDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'common-connection-status-copy',
+        location,
+        message:
+          'Connection status copy must tell beginners that Forge is trying to reconnect and when to refresh.',
         sample: line.trim(),
       })
     }

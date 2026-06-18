@@ -529,9 +529,10 @@ export const en = {
       'You do not have access for this action. Ask an owner or admin to check your team space access.',
     validation: 'Check the highlighted fields, then try again.',
     serverError: 'Wait a moment, then try again. Forge could not finish this right now.',
-    connectionLost: 'Connection lost. Reconnecting...',
-    reconnecting: 'Reconnecting...',
-    reconnected: 'Connection restored',
+    connectionLost:
+      'Forge is trying to reconnect. Keep this page open; refresh only if updates do not return.',
+    reconnecting: 'Still reconnecting. Keep this page open.',
+    reconnected: 'Live updates are back. New progress will appear here again.',
     agentError:
       'Try this step again, then check the agent status if it repeats. The agent could not finish this step.',
     fileError: 'Check the file, then try again. Forge could not handle it.',

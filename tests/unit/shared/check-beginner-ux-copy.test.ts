@@ -13468,4 +13468,76 @@ export function cleanMessage(value: string) {
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
+
+  it('flags connection status copy that only reports a disconnected state', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  errors: {
+    connectionLost: 'Connection lost. Reconnecting...',
+    reconnecting: 'Reconnecting...',
+    reconnected: 'Connection restored',
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  errors: {
+    connectionLost: '连接断开，正在重连...',
+    reconnecting: '重新连接中...',
+    reconnected: '连接已恢复',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'common-connection-status-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'common-connection-status-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'common-connection-status-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'common-connection-status-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'common-connection-status-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'common-connection-status-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:6',
+        }),
+      ])
+    )
+  })
+
+  it('accepts connection status copy that explains recovery and refresh timing', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  errors: {
+    connectionLost:
+      'Forge is trying to reconnect. Keep this page open; refresh only if updates do not return.',
+    reconnecting: 'Still reconnecting. Keep this page open.',
+    reconnected: 'Live updates are back. New progress will appear here again.',
+  },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
 })
