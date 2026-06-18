@@ -653,6 +653,9 @@ const PROVIDER_SETUP_STEPS = [
 function CatalogPanel() {
   return 'Service address and model are filled in for you. After saving, click Check.'
 }
+function ModelField() {
+  return 'Model to use. Next: choose the model. Add a model before saving this AI service.'
+}
 function RegionToggle() {
   return 'Service address region'
 }
@@ -685,6 +688,16 @@ function providerTestErrorMessage() {
   return 'Review the AI service settings. Confirm the saved service access key can use the selected model, then save and check again.'
 }
 `,
+      'src/app/features/settings/providerSettingsErrorMessage.ts': `
+function providerSettingsErrorMessage() {
+  return 'Keep the suggested model or choose a supported model, then save again.'
+}
+`,
+      'src/app/shared/model/settings.store.ts': `
+function settingsValidationMessage() {
+  return 'Choose the AI service, confirm the model, add the service access key if needed, then save again.'
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
@@ -714,6 +727,10 @@ function providerTestErrorMessage() {
         }),
         expect.objectContaining({
           type: 'provider-setup-copy',
+          location: 'src/app/features/settings/ProvidersSection.tsx:16',
+        }),
+        expect.objectContaining({
+          type: 'provider-setup-copy',
           location: 'src/app/features/agents/CreateAgentModal.tsx:3',
         }),
         expect.objectContaining({
@@ -732,6 +749,14 @@ function providerTestErrorMessage() {
           type: 'provider-setup-copy',
           location: 'src/app/features/settings/providerTestErrorMessage.ts:3',
         }),
+        expect.objectContaining({
+          type: 'provider-setup-copy',
+          location: 'src/app/features/settings/providerSettingsErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'provider-setup-copy',
+          location: 'src/app/shared/model/settings.store.ts:3',
+        }),
       ])
     )
   })
@@ -744,7 +769,10 @@ const PROVIDER_SETUP_STEPS = [
   { label: 'Save, then check connection', value: 'After saving, choose Check connection. Ready means agents can use this service.' },
 ]
 function CatalogPanel() {
-  return 'Forge fills in the service website address and model for you. After saving, choose Check connection.'
+  return 'Forge fills in the technical service details for you. After saving, choose Check connection.'
+}
+function ModelField() {
+  return 'Service setup. Keep the suggested setup unless your service guide gives you a different model name.'
 }
 function RegionToggle() {
   return 'Service website region'
@@ -775,7 +803,17 @@ function ChatView() {
 `,
       'src/app/features/settings/providerTestErrorMessage.ts': `
 function providerTestErrorMessage() {
-  return 'Check the service access key, the model you picked, and the service address, then save and choose Check connection again.'
+  return 'Check the service access key, saved setup, and service address, then save and choose Check connection again.'
+}
+`,
+      'src/app/features/settings/providerSettingsErrorMessage.ts': `
+function providerSettingsErrorMessage() {
+  return 'Keep the suggested service setup or choose the model name from your service guide, then save again.'
+}
+`,
+      'src/app/shared/model/settings.store.ts': `
+function settingsValidationMessage() {
+  return 'Choose the AI service, keep the suggested setup, add the service access key if needed, then save again.'
 }
 `,
     })

@@ -408,10 +408,10 @@ function providerFormReadiness({
   if (!form.model.trim()) {
     return {
       ready: false,
-      title: 'Next: choose the model to use',
+      title: 'Next: choose the service setup',
       detail:
-        'The suggested model is safe to start with. Change it only if your service guide gave you another model name.',
-      error: 'Choose the model to use before saving this AI service.',
+        'Keep the suggested setup unless your service guide gives you a different model name.',
+      error: 'Choose the service setup before saving this AI service.',
       fieldId: modelInputId,
     }
   }
@@ -1044,7 +1044,7 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
   const missingApiKey = needsApiKey && !apiKey.trim()
   const ready = Boolean(variant) && !missingModel && !missingApiKey
   const statusTitle = missingModel
-    ? 'Next: add model'
+    ? 'Next: choose the service setup'
     : missingApiKey
       ? 'Next: paste the service access key'
       : 'Ready to save this service'
@@ -1097,9 +1097,9 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
             {vendor.displayName}
           </p>
           <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Forge fills in the service website address and model for you. Paste the service access
-            key and save. After saving, choose Check connection. Ready means simple chat agents can
-            use this service.
+            Forge fills in the technical service details for you. Paste the service access key and
+            save. After saving, choose Check connection. Ready means simple chat agents can use this
+            service.
           </p>
         </div>
         <button
@@ -1142,8 +1142,11 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
         {/* Model */}
         <div>
           <label htmlFor={modelInputId} className={uiStyles.label}>
-            Model to use
+            Service setup
           </label>
+          <p className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            Keep the suggested setup unless your service guide gives you a different model name.
+          </p>
           {allowCustomModels ? (
             <>
               <input
@@ -1188,7 +1191,7 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
           )}
           {modelError && (
             <p className="mt-1 text-ui-caption text-apple-red">
-              Add a model before saving this AI service.
+              Choose the service setup before saving this AI service.
             </p>
           )}
         </div>
@@ -1467,14 +1470,13 @@ function AddProviderFormPanel({
         {/* Model */}
         <div>
           <label htmlFor={modelInputId} className={uiStyles.label}>
-            Model to use
+            Service setup
           </label>
           <p
             id={modelHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            The suggested model is safe to start with. Change it only if your service guide gave you
-            another model name.
+            Keep the suggested setup unless your service guide gives you a different model name.
           </p>
           {(selectedProvider?.allowCustomModels ?? true) ? (
             <>
@@ -1763,7 +1765,7 @@ function AddProviderPanel({
         ) : (
           <>
             <p className="px-4 pt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Pick a known AI service. Forge fills in the service address and model for you. If your
+              Pick a known AI service. Forge fills in the technical service details for you. If your
               setup guide gives you a private address, choose Custom service address.
             </p>
             <CatalogGrid

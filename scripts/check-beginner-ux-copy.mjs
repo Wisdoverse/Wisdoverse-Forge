@@ -209,11 +209,20 @@ const PROVIDER_SETUP_JARGON_PATTERNS = [
   /\bsave and check again\b/i,
   /\bclick Check\b/i,
   /\bcheck this connection\b/i,
+  /\bModel to use\b/i,
+  /\bNext: (?:add|choose the) model\b/i,
+  /\bChoose the model to use\b/i,
+  /\bAdd a model before saving this AI service\b/i,
+  /\bmodel you picked\b/i,
   /\bselected model\b/i,
+  /\bconfirm the model\b/i,
+  /\bKeep the suggested model\b/i,
+  /\bchoose a supported model\b/i,
   /\bReview the AI service settings\b/i,
   /\bClick Check after saving\b/i,
   /\bAfter saving, click Check\b/i,
   /\bService address and model are filled in for you\b/i,
+  /\bservice (?:website )?address and model\b/i,
   /\bService address region\b/i,
   /\bChina\/Global address\b/i,
 ]
@@ -2218,6 +2227,8 @@ function hasProviderSetupJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/settings/ProvidersSection.tsx') &&
     !relFile.endsWith('src/app/features/settings/providerTestErrorMessage.ts') &&
+    !relFile.endsWith('src/app/features/settings/providerSettingsErrorMessage.ts') &&
+    !relFile.endsWith('src/app/shared/model/settings.store.ts') &&
     !relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx') &&
     !relFile.endsWith('src/app/features/agents/AgentControlPanel.tsx') &&
     !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx') &&
