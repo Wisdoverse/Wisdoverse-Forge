@@ -727,6 +727,8 @@ const QUICK_CREATE_DRAFT_TASK_JARGON_PATTERNS = [
   /\bcreating the draft task\b/i,
 ]
 
+const QUICK_CREATE_EXAMPLE_REVIEW_JARGON_PATTERNS = [/\bReview setup\b/i]
+
 const AGENT_TASK_QUEUE_SUBMIT_LABEL_JARGON_PATTERNS = [/\bCreate Task Queue\b/]
 const AGENT_TASK_QUEUE_OVERVIEW_JARGON_PATTERNS = [
   /\bTask queues are simple places agents check for tasks\b/i,
@@ -3397,6 +3399,12 @@ function hasQuickCreateDraftTaskJargonCopy(relFile, line) {
   return QUICK_CREATE_DRAFT_TASK_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasQuickCreateExampleReviewJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/board/QuickCreate.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return QUICK_CREATE_EXAMPLE_REVIEW_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasAgentTaskQueueSubmitLabelJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/agents/AgentGroupsPanel.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -5846,6 +5854,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Quick task creation must say Add Task or Save Task and explain Not sent yet instead of draft-task jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasQuickCreateExampleReviewJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'quick-create-example-copy',
+        location,
+        message: 'Quick task examples must say check setup instead of review setup.',
         sample: line.trim(),
       })
     }

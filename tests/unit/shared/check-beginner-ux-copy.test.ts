@@ -11022,6 +11022,38 @@ function KanbanColumn() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags quick task examples that say review setup', () => {
+    const cwd = fixture({
+      'src/app/features/board/QuickCreate.tsx': `
+const QUICK_TASK_EXAMPLES = [
+  'Review setup and list the next safe step',
+]
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'quick-create-example-copy',
+        location: 'src/app/features/board/QuickCreate.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts quick task examples that say check setup', () => {
+    const cwd = fixture({
+      'src/app/features/board/QuickCreate.tsx': `
+const QUICK_TASK_EXAMPLES = [
+  'Check setup and list the next safe step',
+]
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags title-case task queue submit labels', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentGroupsPanel.tsx': `
