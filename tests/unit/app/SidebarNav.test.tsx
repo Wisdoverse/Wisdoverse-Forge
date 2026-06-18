@@ -58,10 +58,10 @@ describe('SidebarNav', () => {
       screen.queryByRole('button', { name: /setup checklist: follow the setup checklist/i })
     ).not.toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: /tasks: see tasks and review progress/i })
+      screen.getByRole('button', { name: /tasks: see tasks and check progress/i })
     ).toHaveAttribute('aria-current', 'page')
     expect(
-      screen.getByRole('button', { name: /saved items: review saved notes and instructions/i })
+      screen.getByRole('button', { name: /saved items: check saved notes and instructions/i })
     ).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /context: review saved guidance/i })).toBeNull()
     expect(screen.queryByRole('button', { name: previousSavedItemNavCopy })).toBeNull()
@@ -151,7 +151,7 @@ describe('SidebarNav', () => {
     expect(screen.queryByRole('button', startItem)).not.toBeInTheDocument()
     // The rest of the primary navigation is unaffected.
     expect(
-      screen.getByRole('button', { name: /tasks: see tasks and review progress/i })
+      screen.getByRole('button', { name: /tasks: see tasks and check progress/i })
     ).toBeInTheDocument()
   })
 
@@ -181,7 +181,7 @@ describe('SidebarNav', () => {
 
     expect(screen.queryByRole('button', startItem)).not.toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: /tasks: see tasks and review progress/i })
+      screen.getByRole('button', { name: /tasks: see tasks and check progress/i })
     ).toBeInTheDocument()
   })
 

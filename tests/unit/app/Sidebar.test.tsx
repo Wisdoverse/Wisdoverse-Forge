@@ -153,7 +153,7 @@ describe('Sidebar', () => {
     render(<Sidebar activePath="/agents" onNavigate={vi.fn()} />)
 
     expect(
-      screen.getByRole('button', { name: 'nav.tasks: see tasks and review progress' })
+      screen.getByRole('button', { name: 'nav.tasks: see tasks and check progress' })
     ).toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: /create tasks and review progress/i })
@@ -192,7 +192,7 @@ describe('Sidebar', () => {
     render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
 
     expect(
-      screen.getByRole('button', { name: 'nav.billing: review plan, payments, and invoices' })
+      screen.getByRole('button', { name: 'nav.billing: check plan, payments, and invoices' })
     ).toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: /review plan and invoices/i })

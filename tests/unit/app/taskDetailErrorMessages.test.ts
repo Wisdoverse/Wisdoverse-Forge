@@ -48,10 +48,10 @@ describe('taskDetailErrorMessage', () => {
     )
   })
 
-  test('uses saved notes wording when the review preview cannot load', () => {
+  test('uses saved items wording when the saved item check cannot load', () => {
     const message = taskDetailErrorMessage('previewContext', new Error('HTTP 500'))
 
-    expect(message).toContain('Choose an available agent, then open the saved notes review again.')
+    expect(message).toContain('Choose an available agent, then check saved items again.')
     expect(message).not.toMatch(new RegExp(['context', 'review'].join('\\s+'), 'i'))
   })
 
@@ -101,7 +101,7 @@ describe('taskDetailErrorMessage', () => {
   test('describes context send failures without publish wording', () => {
     const message = taskDetailErrorMessage('publishTask', new Error('HTTP 500'))
 
-    expect(message).toContain('Review the selected saved notes, then send the task again.')
+    expect(message).toContain('Check the selected saved notes, then send the task again.')
     expect(message).toContain('The task was not sent with selected notes.')
     expect(message).not.toMatch(
       new RegExp(['published', 'publish', ['selected', 'context'].join('\\s+')].join('|'), 'i')

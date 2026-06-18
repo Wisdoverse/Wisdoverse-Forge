@@ -7670,6 +7670,106 @@ function candidatePreview() {
     )
   })
 
+  it('flags task-send saved item checks that still say saved notes review', () => {
+    const cwd = fixture({
+      'src/app/entities/context/ui/InjectionPreviewModal.tsx': `
+export function InjectionPreviewModal() {
+  return <div aria-label="Close saved notes review">Review saved notes before sending. Loading saved notes review...</div>
+}
+`,
+      'src/app/features/detail/ContextCandidatesList.tsx': `
+export function CandidateLink() {
+  return <a aria-label="Open saved notes review">Open saved notes review</a>
+}
+`,
+      'src/app/features/board/boardErrorMessages.ts': `
+const ACTION_FALLBACKS = {
+  previewContext: 'Choose an available agent, then open the saved notes review again.',
+}
+`,
+      'src/app/features/detail/taskDetailErrorMessages.ts': `
+const ACTION_FALLBACKS = {
+  publishTask: 'Review the selected saved notes, then send the task again.',
+}
+`,
+      'src/app/features/context/approvalQueueErrorMessages.ts': `
+const ACTION_FALLBACKS = {
+  loadQueue: 'Refresh the list so you see the latest saved items. Saved notes review could not load.',
+}
+`,
+      'src/app/features/detail/TaskDetailPanel.tsx': `
+export function ResultHelp() {
+  return <p>Go back to Work and decide whether to retry, review saved notes and instructions, or create a follow-up task.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'saved-items-check-copy',
+          sample: expect.stringContaining('Review saved notes before sending'),
+        }),
+        expect.objectContaining({
+          type: 'saved-items-check-copy',
+          sample: expect.stringContaining('Open saved notes review'),
+        }),
+        expect.objectContaining({
+          type: 'saved-items-check-copy',
+          sample: expect.stringContaining('open the saved notes review again'),
+        }),
+        expect.objectContaining({
+          type: 'saved-items-check-copy',
+          sample: expect.stringContaining('Saved notes review could not load'),
+        }),
+        expect.objectContaining({
+          type: 'saved-items-check-copy',
+          sample: expect.stringContaining('review saved notes and instructions'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts task-send saved item checks that use Saved items and check wording', () => {
+    const cwd = fixture({
+      'src/app/entities/context/ui/InjectionPreviewModal.tsx': `
+export function InjectionPreviewModal() {
+  return <div aria-label="Close saved items check">Check saved items before sending. Checking saved items...</div>
+}
+`,
+      'src/app/features/detail/ContextCandidatesList.tsx': `
+export function CandidateLink() {
+  return <a aria-label="Open Saved items">Open Saved items</a>
+}
+`,
+      'src/app/features/board/boardErrorMessages.ts': `
+const ACTION_FALLBACKS = {
+  previewContext: 'Choose an available agent, then check saved items again.',
+}
+`,
+      'src/app/features/detail/taskDetailErrorMessages.ts': `
+const ACTION_FALLBACKS = {
+  publishTask: 'Check the selected saved notes, then send the task again.',
+}
+`,
+      'src/app/features/context/approvalQueueErrorMessages.ts': `
+const ACTION_FALLBACKS = {
+  loadQueue: 'Refresh the list so you see the latest saved items. Saved items could not load.',
+}
+`,
+      'src/app/features/detail/TaskDetailPanel.tsx': `
+export function ResultHelp() {
+  return <p>Go back to Work and decide whether to retry, check saved notes and instructions, or create a follow-up task.</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags chat tool step fallback copy that does not tell users how to use the result', () => {
     const cwd = fixture({
       'src/app/features/chat/ToolCallDetail.tsx': `
@@ -9861,6 +9961,85 @@ const PAGE_META = {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags navigation copy that says review for ordinary checks', () => {
+    const cwd = fixture({
+      'src/app/layouts/sidebar/SidebarNav.tsx': `
+const NAV_ITEMS = [
+  { id: 'tasks', description: 'see tasks and review progress' },
+  { id: 'context', description: 'review saved notes and instructions' },
+]
+`,
+      'src/app/layouts/AppLayout.tsx': `
+const PAGE_META = {
+  '/context/audit': { title: 'Review history', subtitle: 'See what was reviewed or reused' },
+}
+`,
+      'src/app/features/cmdk/CommandPalette.tsx': `
+const NAV_COMMANDS = [
+  { id: 'nav:start', description: 'Review setup steps again when you want a guided checklist.' },
+]
+const COMMAND_DISCOVERY_STEPS = ['Use Inbox to review updates that need a next step.']
+`,
+      'src/app/routes/context.tsx': `
+export const title = 'Checking saved notes review'
+export const detail = 'We are checking whether saved notes review is available here.'
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'navigation-action-copy',
+          sample: expect.stringContaining('see tasks and review progress'),
+        }),
+        expect.objectContaining({
+          type: 'navigation-action-copy',
+          sample: expect.stringContaining('Review history'),
+        }),
+        expect.objectContaining({
+          type: 'navigation-action-copy',
+          sample: expect.stringContaining('Review setup steps again'),
+        }),
+        expect.objectContaining({
+          type: 'navigation-action-copy',
+          sample: expect.stringContaining('Checking saved notes review'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts navigation copy that uses check and open for ordinary actions', () => {
+    const cwd = fixture({
+      'src/app/layouts/sidebar/SidebarNav.tsx': `
+const NAV_ITEMS = [
+  { id: 'tasks', description: 'see tasks and check progress' },
+  { id: 'context', description: 'check saved notes and instructions' },
+]
+`,
+      'src/app/layouts/AppLayout.tsx': `
+const PAGE_META = {
+  '/context/audit': { title: 'Saved item history', subtitle: 'See what was checked or reused' },
+  '/context': { title: 'Saved notes and instructions', subtitle: 'Check what agents may reuse later' },
+}
+`,
+      'src/app/features/cmdk/CommandPalette.tsx': `
+const NAV_COMMANDS = [
+  { id: 'nav:start', description: 'Open setup steps again when you want a guided checklist.' },
+]
+const COMMAND_DISCOVERY_STEPS = ['Use Inbox to check updates that need a next step.']
+`,
+      'src/app/routes/context.tsx': `
+export const title = 'Checking saved items'
+export const detail = 'We are checking whether saved items are available here.'
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags sidebar layout wording in user-visible left-menu copy', () => {
     const cwd = fixture({
       'src/app/layouts/AppLayout.tsx': `
@@ -9988,7 +10167,7 @@ export function taskBlockedPreview() {
   it('accepts concrete setup wording for beginner-facing recovery copy', () => {
     const cwd = fixture({
       'src/app/routes/context.tsx': `
-export const detail = 'Saved notes review is available here. Ask an owner to check saved items setup.'
+export const detail = 'Saved items are available here. Ask an owner to check saved items setup.'
 `,
       'src/app/routes/context-audit.tsx': `
 export const detail = 'Audit history is available here. Ask an owner to check audit setup.'
@@ -11791,7 +11970,7 @@ const ACTION_FALLBACKS = {
   approveTask: 'Check that the task is still waiting for approval, then choose Approve again. The task was not approved.',
   blockTask: 'Refresh the task, then choose Needs help again. The task was not marked as needing help.',
   cancelTask: 'Refresh the task, then choose Cancel again. The task was not canceled.',
-  publishTask: 'Review the selected saved notes, then send the task again. The task was not sent with selected notes.',
+  publishTask: 'Check the selected saved notes, then send the task again. The task was not sent with selected notes.',
   retryTask: 'Refresh the task, then choose Retry task again. The task was not retried.',
 }
 `,

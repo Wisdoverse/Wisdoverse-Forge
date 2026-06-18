@@ -214,7 +214,7 @@ describe('AppLayout', () => {
     render(<MemoryRouter />)
 
     expect(screen.getByText('Inbox')).toBeDefined()
-    expect(screen.getByText('Review updates that need a next step')).toBeDefined()
+    expect(screen.getByText('Check updates that need a next step')).toBeDefined()
     expect(screen.queryByText('See what needs your attention')).toBeNull()
     expect(screen.queryByText(/notifications and updates/i)).toBeNull()
   })
@@ -237,7 +237,7 @@ describe('AppLayout', () => {
     render(<MemoryRouter />)
 
     expect(screen.getByText('Saved notes and instructions')).toBeDefined()
-    expect(screen.getByText('Review what agents may reuse later')).toBeDefined()
+    expect(screen.getByText('Check what agents may reuse later')).toBeDefined()
     expect(screen.queryByText(/Saved\s+memories/i)).toBeNull()
     expect(screen.queryByText('Saved guidance')).toBeNull()
     expect(screen.queryByText(/approval queue/i)).toBeNull()
@@ -275,13 +275,13 @@ describe('AppLayout', () => {
     expect(screen.queryByText(/usage/i)).toBeNull()
   })
 
-  test('uses plain review history metadata', () => {
+  test('uses plain saved item history metadata', () => {
     routerState.path = '/context/audit'
 
     render(<MemoryRouter />)
 
-    expect(screen.getByText('Review history')).toBeDefined()
-    expect(screen.getByText('See what was reviewed or reused')).toBeDefined()
+    expect(screen.getByText('Saved item history')).toBeDefined()
+    expect(screen.getByText('See what was checked or reused')).toBeDefined()
     expect(screen.queryByText(/exports/i)).toBeNull()
     expect(screen.queryByText(/governance event/i)).toBeNull()
   })

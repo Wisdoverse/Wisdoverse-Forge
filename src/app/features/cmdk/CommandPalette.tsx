@@ -15,14 +15,14 @@ const NAV_COMMANDS = [
   {
     id: 'nav:start',
     label: 'Setup checklist',
-    description: 'Review setup steps again when you want a guided checklist.',
+    description: 'Open setup steps again when you want a guided checklist.',
   },
   { id: 'nav:tasks', label: 'Tasks', description: 'See work that is planned, active, or done.' },
-  { id: 'nav:inbox', label: 'Inbox', description: 'Review alerts that may need a person.' },
+  { id: 'nav:inbox', label: 'Inbox', description: 'Check alerts that may need a person.' },
   {
     id: 'nav:context',
     label: 'Saved items',
-    description: 'Review saved notes and instructions before agents reuse them.',
+    description: 'Check saved notes and instructions before agents reuse them.',
   },
   { id: 'nav:agents', label: 'Agents', description: 'Create or check agents that handle work.' },
   {
@@ -55,7 +55,7 @@ const VIEW_COMMANDS = [
 
 const COMMAND_DISCOVERY_STEPS = [
   'Use Tasks when you want to plan or inspect work.',
-  'Use Inbox to review updates that need a next step.',
+  'Use Inbox to check updates that need a next step.',
   'Use Settings when setup, account access, or agent work status is blocking work.',
 ]
 

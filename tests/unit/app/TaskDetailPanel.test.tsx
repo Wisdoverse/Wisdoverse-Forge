@@ -459,7 +459,7 @@ describe('TaskDetailPanel', () => {
     expect(screen.queryByText(previousResultReuseCopy)).toBeNull()
     expect(screen.getByText(/use this result to decide whether the task is done/i)).toBeDefined()
     expect(screen.getByText(/if it does not answer the brief/i)).toBeDefined()
-    expect(screen.getByText(/review saved notes and instructions/i)).toBeDefined()
+    expect(screen.getByText(/check saved notes and instructions/i)).toBeDefined()
     expect(screen.queryByText(/use this result as evidence/i)).toBeNull()
     expect(screen.queryByText(/check the evidence/i)).toBeNull()
     expect(screen.queryByText(previousAddContextCopy)).toBeNull()

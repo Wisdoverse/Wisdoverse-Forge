@@ -26,7 +26,7 @@ describe('CommandPalette', () => {
     expect(screen.getByPlaceholderText(/search/i)).toBeDefined()
     expect(screen.getByText('Find what you need')).toBeDefined()
     expect(screen.getByText(/use tasks when you want to plan or inspect work/i)).toBeDefined()
-    expect(screen.getByText(/use inbox to review updates that need a next step/i)).toBeDefined()
+    expect(screen.getByText(/use inbox to check updates that need a next step/i)).toBeDefined()
     expect(screen.getByText(/use settings when setup, account access/i)).toBeDefined()
     expect(screen.queryByText(/something needs your attention/i)).toBeNull()
     expect(screen.queryByText(/runtime status/i)).toBeNull()
@@ -48,7 +48,7 @@ describe('CommandPalette', () => {
     expect(screen.getByText('Inbox')).toBeDefined()
     expect(screen.getByText('Saved items')).toBeDefined()
     expect(
-      screen.getByText('Review saved notes and instructions before agents reuse them.')
+      screen.getByText('Check saved notes and instructions before agents reuse them.')
     ).toBeDefined()
     expect(screen.queryByText('Setup checklist')).toBeNull()
     expect(screen.getByText('Agents')).toBeDefined()
@@ -75,7 +75,7 @@ describe('CommandPalette', () => {
 
     expect(screen.getByText('Setup checklist')).toBeDefined()
     expect(
-      screen.getByText('Review setup steps again when you want a guided checklist.')
+      screen.getByText('Open setup steps again when you want a guided checklist.')
     ).toBeDefined()
 
     fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
@@ -83,7 +83,7 @@ describe('CommandPalette', () => {
     })
 
     await waitFor(() => expect(screen.getByText('Setup checklist')).toBeDefined())
-    fireEvent.click(screen.getByText('Review setup steps again when you want a guided checklist.'))
+    fireEvent.click(screen.getByText('Open setup steps again when you want a guided checklist.'))
 
     expect(onSelect).toHaveBeenCalledWith('nav:start')
     expect(onClose).toHaveBeenCalledTimes(1)
