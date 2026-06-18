@@ -529,6 +529,8 @@ const START_NAV_LABEL_JARGON_PATTERNS = [
   /^\s*start:\s*['"`]开始['"`]/,
 ]
 
+const START_PAGE_TITLE_JARGON_PATTERNS = [/['"`]\/start['"`]\s*:\s*\{\s*title:\s*['"`]Start['"`]/]
+
 const SIDEBAR_LAYOUT_JARGON_PATTERNS = [
   /\b(?:from|in|to) the sidebar\b/i,
   /\breopen the sidebar\b/i,
@@ -2821,6 +2823,12 @@ function hasStartNavJargonCopy(relFile, lines, index, line) {
   return isNavLabel || START_NAV_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasStartPageTitleJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/layouts/AppLayout.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return START_PAGE_TITLE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasSidebarLayoutJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/layouts/AppLayout.tsx') &&
@@ -4964,6 +4972,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Start navigation copy must say setup checklist so beginners know this is a guide, not a launch button.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasStartPageTitleJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'start-page-title-copy',
+        location,
+        message: 'The Start page title must say setup checklist so beginners know this is a guide.',
         sample: line.trim(),
       })
     }

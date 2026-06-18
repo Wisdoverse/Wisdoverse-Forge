@@ -8762,6 +8762,38 @@ const item = { description: 'follow the setup checklist' }
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags Start page metadata that still sounds like a launch button', () => {
+    const cwd = fixture({
+      'src/app/layouts/AppLayout.tsx': `
+const PAGE_META = {
+  '/start': { title: 'Start', subtitle: 'Set up Forge and send your first task' },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'start-page-title-copy',
+        location: 'src/app/layouts/AppLayout.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts setup checklist page metadata', () => {
+    const cwd = fixture({
+      'src/app/layouts/AppLayout.tsx': `
+const PAGE_META = {
+  '/start': { title: 'Setup checklist', subtitle: 'Set up Forge and send your first task' },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags sidebar layout wording in user-visible left-menu copy', () => {
     const cwd = fixture({
       'src/app/layouts/AppLayout.tsx': `

@@ -189,8 +189,9 @@ describe('AppLayout', () => {
 
     render(<MemoryRouter />)
 
-    expect(screen.getByText('Start')).toBeDefined()
+    expect(screen.getByText('Setup checklist')).toBeDefined()
     expect(screen.getByText('Set up Forge and send your first task')).toBeDefined()
+    expect(screen.queryByText(/^Start$/)).toBeNull()
     expect(screen.queryByText(/first-run setup/i)).toBeNull()
     expect(screen.queryByText(/launch checklist/i)).toBeNull()
   })
