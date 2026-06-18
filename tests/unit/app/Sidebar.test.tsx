@@ -275,7 +275,9 @@ describe('Sidebar', () => {
     expect(
       menuScope.queryByRole('menuitem', { name: /copy support reference/i })
     ).not.toBeInTheDocument()
-    expect(menuScope.getByRole('menuitem', { name: /copy name used in links/i })).toBeInTheDocument()
+    expect(
+      menuScope.getByRole('menuitem', { name: /copy name used in links/i })
+    ).toBeInTheDocument()
     expect(menuScope.getByText(/another page asks for the project reference/i)).toBeInTheDocument()
     expect(menuScope.queryByText(/only share this if support asks/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText('p1')).not.toBeInTheDocument()
@@ -283,7 +285,8 @@ describe('Sidebar', () => {
     expect(menuScope.queryByText(/link name/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/project short name/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/short name used in project links/i)).not.toBeInTheDocument()
-    expect(menuScope.getByText(/Forge uses this in project links/i)).toBeInTheDocument()
+    expect(menuScope.getByText(/shown at the end of project links/i)).toBeInTheDocument()
+    expect(menuScope.queryByText(/Forge uses this in project links/i)).not.toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /delete project/i })).toBeInTheDocument()
   })
 

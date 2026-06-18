@@ -1539,6 +1539,7 @@ const TEAM_PROJECT_CREATE_JARGON_PATTERNS = [
   /\bWork folder preview:/i,
   /\bShow support folder path\b/i,
   /\bAutomatic link name\b/i,
+  /\bAutomatic (?:team|project) name\b/i,
   /\b(?:Team|Project) short name\b/i,
 ]
 
@@ -1552,6 +1553,7 @@ const TEAM_PROJECT_ROW_ADDRESS_JARGON_PATTERNS = [
 const TEAM_PROJECT_SHORT_NAME_JARGON_PATTERNS = [
   /\blink name\b/i,
   /\bURL name:\s*\{/i,
+  /\bForge uses this in (?:team|project|team space) links\b/i,
   /\bAutomatic team space name\b/i,
   /\bteam space short name\b/i,
   /\bproject short name\b/i,
@@ -4791,7 +4793,7 @@ function scanFile(file, relFile) {
         type: 'team-project-create-copy',
         location,
         message:
-          'Team and project creation forms must say creation steps and automatic names instead of setup path, link name, short name, or address preview.',
+          'Team and project creation forms must say creation steps and link-ending names instead of setup path, automatic name, link name, short name, or address preview.',
         sample: line.trim(),
       })
     }
@@ -4811,7 +4813,7 @@ function scanFile(file, relFile) {
         type: 'team-project-short-name-copy',
         location,
         message:
-          'Team and project generated-name labels must explain where the name appears instead of automatic name, short name, link name, or URL name.',
+          'Team and project generated-name labels must explain where the name appears in plain link-ending language.',
         sample: line.trim(),
       })
     }

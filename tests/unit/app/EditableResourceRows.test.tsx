@@ -29,7 +29,8 @@ describe('Editable resource rows', () => {
   test('uses purpose-focused team edit and delete copy', () => {
     render(<EditableTeamRow team={team} onUpdate={vi.fn()} onDelete={vi.fn()} />)
 
-    expect(screen.getByText('Forge uses this in team links: platform')).toBeDefined()
+    expect(screen.getByText('Shown at the end of team links: platform')).toBeDefined()
+    expect(screen.queryByText(/Forge uses this in team links/i)).toBeNull()
     expect(screen.queryByText(/Automatic team name/i)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit Platform' }))
@@ -52,7 +53,8 @@ describe('Editable resource rows', () => {
       />
     )
 
-    expect(screen.getByText('Forge uses this in project links: web-app')).toBeDefined()
+    expect(screen.getByText('Shown at the end of project links: web-app')).toBeDefined()
+    expect(screen.queryByText(/Forge uses this in project links/i)).toBeNull()
     expect(screen.queryByText(/Automatic project name/i)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit Web App' }))
