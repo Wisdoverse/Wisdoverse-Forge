@@ -287,7 +287,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
             )}
           >
             <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-              Details
+              Agent overview
             </span>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-ui-caption">
               <DetailRow label="Where it works" value={agentRuntimeLabel(agent)} />

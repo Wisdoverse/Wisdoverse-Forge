@@ -252,7 +252,7 @@ test.describe('Mobile WebUI', () => {
     await expect(page.locator('[data-testid="agent-back"]')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Codex Container' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Console' })).toBeVisible()
-    await expect(page.getByText('Details')).toBeVisible()
+    await expect(page.getByText('Agent overview')).toBeVisible()
     await expectNoHorizontalOverflow(page)
     await page.screenshot({
       path: testInfo.outputPath('mobile-agent-detail-430x932.png'),
