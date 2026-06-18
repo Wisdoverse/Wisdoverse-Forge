@@ -541,14 +541,14 @@ function taskRecoveryGuidance(
     return {
       title: 'Try the task again when the request is still useful',
       detail:
-        'Use Retry task after checking the brief. The task goes back to the queue so an agent can make another attempt.',
+        'Use Retry task after checking the brief. The task returns to where tasks wait so an agent can make another attempt.',
     }
   }
   if (canApprove) {
     return {
       title: 'Let the task continue when it has what it needs',
       detail:
-        'Check the request first. Then choose Allow and continue to return the task to the queue for an agent to continue.',
+        'Check the request first. Then choose Allow and continue to send the task back where tasks wait for an agent to continue.',
     }
   }
   return null

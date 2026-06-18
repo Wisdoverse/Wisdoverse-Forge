@@ -301,7 +301,10 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByTestId('task-recovery-guidance')).toHaveTextContent(
       'Try the task again when the request is still useful'
     )
-    expect(screen.getByTestId('task-recovery-guidance')).toHaveTextContent('goes back to the queue')
+    expect(screen.getByTestId('task-recovery-guidance')).toHaveTextContent(
+      'returns to where tasks wait'
+    )
+    expect(screen.getByTestId('task-recovery-guidance')).not.toHaveTextContent('queue')
     await userEvent.setup().click(screen.getByRole('button', { name: /retry task/i }))
 
     await waitFor(() => expect(orchestrationApiMock.retryTask).toHaveBeenCalledWith('task-1'))
@@ -370,8 +373,9 @@ describe('TaskDetailPanel', () => {
       'Let the task continue when it has what it needs'
     )
     expect(screen.getByTestId('task-recovery-guidance')).toHaveTextContent(
-      'return the task to the queue'
+      'send the task back where tasks wait'
     )
+    expect(screen.getByTestId('task-recovery-guidance')).not.toHaveTextContent('queue')
     await userEvent.setup().click(screen.getByRole('button', { name: /allow and continue/i }))
 
     await waitFor(() => expect(orchestrationApiMock.approveTask).toHaveBeenCalledWith('task-1'))
