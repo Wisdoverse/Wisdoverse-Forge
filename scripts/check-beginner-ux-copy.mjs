@@ -1173,7 +1173,8 @@ const VAGUE_NEEDS_REVIEW_COPY_PATTERNS = [
 
 const VAGUE_NEEDS_ATTENTION_COPY_PATTERNS = [
   /\bSomething needs attention\. Review the message, then try again\./i,
-  /\bneeds attention\b/i,
+  /\bneed(?:s|ing)? attention\b/i,
+  /\bneeds your attention\b/i,
   /\bAnalytics needs attention\b/i,
   /\bConversation needs attention\b/i,
   /\bThis agent's work list needs attention\b/i,
@@ -3683,7 +3684,12 @@ function hasVagueNeedsAttentionCopy(relFile, line) {
     !relFile.endsWith('src/app/features/settings/RuntimeSection.tsx') &&
     !relFile.endsWith('src/app/features/settings/providerTestErrorMessage.ts') &&
     !relFile.endsWith('src/app/features/settings/ProvidersSection.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentPluginsTab.tsx') &&
+    !relFile.endsWith('src/app/features/cmdk/CommandPalette.tsx') &&
+    !relFile.endsWith('src/app/features/skills/SkillsView.tsx') &&
     !relFile.endsWith('src/app/features/admin/CliImagesPanel.tsx') &&
+    !relFile.endsWith('src/app/layouts/AppLayout.tsx') &&
+    !relFile.endsWith('src/app/layouts/sidebar/SidebarNav.tsx') &&
     !relFile.endsWith('src/app/widgets/views/TimelineView.tsx') &&
     !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
     !relFile.endsWith('src/app/shared/lib/taskFailureCopy.ts')

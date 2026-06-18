@@ -777,7 +777,7 @@ function runtimeLaunchChecklistItems(
       missingImages.length === 1 ? '' : 's'
     } need setup. Ask an owner to finish setting up the tools, then check again.`
   } else if (reportedVersionCount !== runtimeSettings.cliToolDetails.length) {
-    imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} work tools are ready. Ask an owner to finish setting up the tools that still need attention.`
+    imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} work tools are ready. Ask an owner to finish setting up the tools without a version yet, then check again.`
   }
   items.push({
     id: 'images',

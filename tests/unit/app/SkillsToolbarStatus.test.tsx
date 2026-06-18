@@ -21,6 +21,19 @@ afterEach(() => {
 })
 
 describe('Skills toolbar status', () => {
+  test('starts load errors with the recovery action', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: async () => ({ ok: false, error: 'API 500' }),
+    })
+
+    render(<SkillsView />)
+
+    expect(await screen.findByText('Refresh saved instructions to continue.')).toBeDefined()
+    expect(screen.queryByText('Saved instructions need attention')).toBeNull()
+  })
+
   test('keeps the empty catalog status visible for first-time users', async () => {
     render(<SkillsView />)
 
