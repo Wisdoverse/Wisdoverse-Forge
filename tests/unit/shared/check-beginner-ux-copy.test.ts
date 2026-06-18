@@ -7924,7 +7924,7 @@ function CredentialRow() {
   return <span>Default cloud address</span>
 }
 function AddCredentialForm() {
-  return <label>GitHub or GitLab address</label>
+  return <><label>Git service</label><p>For a company-hosted Git service, enter the address.</p><label>GitHub or GitLab address</label></>
 }
 const tableHeaders = [{ label: 'Git address' }]
 `,
@@ -7949,6 +7949,14 @@ const tableHeaders = [{ label: 'Git address' }]
         }),
         expect.objectContaining({
           type: 'code-access-address-copy',
+          sample: expect.stringContaining('Git service'),
+        }),
+        expect.objectContaining({
+          type: 'code-access-address-copy',
+          sample: expect.stringContaining('company-hosted Git service'),
+        }),
+        expect.objectContaining({
+          type: 'code-access-address-copy',
           sample: expect.stringContaining('GitHub or GitLab address'),
         }),
         expect.objectContaining({
@@ -7963,7 +7971,7 @@ const tableHeaders = [{ label: 'Git address' }]
     const cwd = fixture({
       'src/app/features/settings/GitCredentialsSection.tsx': `
 const GIT_CREDENTIAL_SETUP_STEPS = [
-  { label: 'Use the normal website by default', value: 'Leave the website address empty for github.com or gitlab.com. Add one only for a company-hosted site.' },
+  { label: 'Use the normal website by default', value: 'Leave the website address empty for github.com or gitlab.com. Add one only if your company uses its own GitHub or GitLab website.' },
 ]
 function CredentialRow({ provider }) {
   return <span>{provider === 'github' ? 'github.com' : 'gitlab.com'}</span>
@@ -7971,7 +7979,7 @@ function CredentialRow({ provider }) {
 function AddCredentialForm() {
   return <label>Company GitHub or GitLab website</label>
 }
-const tableHeaders = [{ label: 'Website address' }]
+const tableHeaders = [{ label: 'Code website' }, { label: 'Website address' }]
 `,
     })
 
