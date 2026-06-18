@@ -529,7 +529,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
   }
 
   const CLIPBOARD_UNAVAILABLE =
-    'Forge cannot copy from this browser. Select the setup text in the box, then copy it manually.'
+    'Copy did not work. Select the setup text in the box, then copy it yourself.'
 
   async function handleCopyCommand() {
     const command = localEnrollment?.enrollment?.shellExports

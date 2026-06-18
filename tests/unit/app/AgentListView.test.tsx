@@ -199,7 +199,7 @@ describe('AgentListView', () => {
     fireEvent.click(within(enrollment).getByRole('button', { name: /copy setup text/i }))
 
     expect(await within(enrollment).findByRole('alert')).toHaveTextContent(
-      'Select the setup text in the box, then copy it manually.'
+      'Copy did not work. Select the setup text in the box, then copy it yourself.'
     )
     expect(within(enrollment).getByRole('alert')).not.toHaveTextContent(/clipboard access/i)
 

@@ -1046,7 +1046,9 @@ describe('CreateAgentModal', () => {
     fireEvent.click(copyButton)
 
     await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent(/select the setup text/i)
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Copy did not work. Select the setup text in the box, then copy it yourself.'
+      )
     )
     expect(screen.getByRole('alert')).not.toHaveTextContent(/clipboard access/i)
   })

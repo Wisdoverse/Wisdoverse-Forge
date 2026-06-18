@@ -123,7 +123,7 @@ function NewKeyBanner({ keyValue, onDismiss }: NewKeyBannerProps) {
     setCopyError(null)
     if (!navigator.clipboard?.writeText) {
       setCopyError(
-        'Forge cannot copy from this browser. Select the access value text, then copy it manually before choosing I saved this value.'
+        'Copy did not work. Select the access value text, copy it yourself, then choose I saved this value.'
       )
       return
     }
@@ -133,7 +133,7 @@ function NewKeyBanner({ keyValue, onDismiss }: NewKeyBannerProps) {
       setTimeout(() => setCopied(false), 2000)
     } catch {
       setCopyError(
-        'Forge cannot copy from this browser. Select the access value text, then copy it manually before choosing I saved this value.'
+        'Copy did not work. Select the access value text, copy it yourself, then choose I saved this value.'
       )
     }
   }

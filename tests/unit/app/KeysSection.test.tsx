@@ -165,7 +165,7 @@ describe('KeysSection', () => {
     fireEvent.click(screen.getByRole('button', { name: /copy access value/i }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Select the access value text, then copy it manually before choosing I saved this value.'
+      'Copy did not work. Select the access value text, copy it yourself, then choose I saved this value.'
     )
     expect(screen.getByRole('alert')).not.toHaveTextContent(/clipboard access/i)
   })
