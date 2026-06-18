@@ -92,7 +92,7 @@ describe('InjectionPreviewModal', () => {
       <InjectionPreviewModal isOpen preview={review} onClose={() => {}} onConfirm={() => {}} />
     )
 
-    expect(screen.getByRole('dialog', { name: 'Review saved notes before sending' })).toBeDefined()
+    expect(screen.getByRole('dialog', { name: 'Check saved items before sending' })).toBeDefined()
     expect(
       screen.getByText(/saved notes and saved instructions the agent will see next/i)
     ).toBeDefined()
