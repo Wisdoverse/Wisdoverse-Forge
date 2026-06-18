@@ -494,6 +494,7 @@ const SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS = [
   /\bHidden tabs pause checks\b/i,
   /\bChecking\.\.\./i,
   /\bresponds in \{?[^.!?\n]{0,40}\}?\s*ms\b/i,
+  /\bLast check took\b[^\n]*\bms\b/i,
   /\bKeeps accounts,\s*tasks,\s*runs,\s*evidence,\s*and settings available\b/i,
 ]
 
@@ -1176,6 +1177,10 @@ const CHAT_FILTER_EMPTY_DEAD_END_PATTERNS = [
 const CHAT_TOOL_STEP_DEAD_END_PATTERNS = [
   /\bThis step needs review\b/i,
   /\bThis step has not reported a result yet\b/i,
+  /\bTook\s+\{?formatDuration\b/i,
+  /\bTook\s+\{?[^\n]{0,80}(?:ms|s)\b/i,
+  /\bDuration:\s*\{?[^\n]{0,80}(?:ms|s)\b/i,
+  /\$\{[^}\n]*duration[^}\n]*\}\s*ms\b/i,
   /\blabel:\s*['"`]Needs review['"`]/i,
   /\bpath:\s*['"`]Path['"`]/,
 ]

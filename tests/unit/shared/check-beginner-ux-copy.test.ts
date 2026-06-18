@@ -7543,6 +7543,64 @@ const labels = {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags chat tool step timing copy that exposes raw duration units', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ToolCallDetail.tsx': `
+function formatDuration(duration) {
+  return duration < 1000 ? \`\${duration}ms\` : \`\${(duration / 1000).toFixed(1)}s\`
+}
+
+function ToolCallDetail({ call }) {
+  return <span>Took {formatDuration(call.duration)}</span>
+}
+
+function DetailRow() {
+  return 'Duration: 1.2s'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'chat-tool-step-copy',
+          sample: expect.stringContaining('${duration}ms'),
+        }),
+        expect.objectContaining({
+          type: 'chat-tool-step-copy',
+          sample: expect.stringContaining('Took'),
+        }),
+        expect.objectContaining({
+          type: 'chat-tool-step-copy',
+          sample: expect.stringContaining('Duration: 1.2s'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts chat tool step timing copy that describes elapsed time plainly', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ToolCallDetail.tsx': `
+function formatDuration(duration) {
+  return duration < 1000 ? 'under 1 second' : 'about 1 second'
+}
+
+function ToolCallDetail({ call }) {
+  return <span>Finished in {formatDuration(call.duration)}</span>
+}
+
+function DetailRow() {
+  return 'Time spent: about 1 second'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags vague needs-review copy in user-visible recovery messages', () => {
     const cwd = fixture({
       'src/app/hooks/useWsDispatch.ts': `
@@ -8460,6 +8518,38 @@ function SystemHealth() {
         }),
       ])
     )
+  })
+
+  it('flags app health timing copy that exposes raw milliseconds', () => {
+    const cwd = fixture({
+      'src/app/features/admin/SystemHealth.tsx': `
+function ServiceRow({ health }) {
+  return <span>{\`Last check took \${health.latencyMs} ms\`}</span>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'system-health-status-copy',
+        sample: expect.stringContaining('Last check took'),
+      }),
+    ])
+  })
+
+  it('accepts app health timing copy that explains the completed check', () => {
+    const cwd = fixture({
+      'src/app/features/admin/SystemHealth.tsx': `
+function ServiceRow() {
+  return <span>Last check finished in under 1 second</span>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
   it('flags saved instruction load copy that hides the retry action', () => {
