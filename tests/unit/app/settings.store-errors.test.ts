@@ -198,9 +198,23 @@ describe('settingsActionErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'The Settings page is busy. Wait a moment, then try to update agent work settings again.'
+      'The Settings page is busy. Wait a moment, then try to update Where agents work again.'
     )
     expect(message).not.toContain('runtime writes')
+  })
+
+  test('uses the Where agents work page name for runtime validation failures', () => {
+    const message = settingsActionErrorMessage('runtime', 'update', {
+      status: 422,
+      detail: 'runtime option missing',
+    })
+
+    expectBeginnerError(
+      message,
+      'Choose where project files open and a work tool, then save Where agents work again.'
+    )
+    expect(message).not.toContain('agent work settings')
+    expect(message).not.toContain('runtime option')
   })
 
   test('starts Settings server failures with the retry step', () => {

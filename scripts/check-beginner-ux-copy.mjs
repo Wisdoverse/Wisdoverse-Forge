@@ -799,6 +799,13 @@ const SETTINGS_RUNTIME_SETUP_JARGON_PATTERNS = [
   /\bAgent work setup status\b/i,
   /\bRefresh this settings page to load Agent work setup\b/i,
   /\bForge could not connect while checking Agent work setup\b/i,
+  /\bCheck Agent work setup in Settings\b/i,
+  /\bcheck Agent work setup in Settings\b/i,
+  /\bOpen agent work settings\b/i,
+  /\bagent work settings\b/i,
+  /\bagent work setting\b/i,
+  /\bcould not prepare agent work setup\b/i,
+  /\bFile work setup is not ready\b/i,
   /\bWork tool setup\b/i,
   /\bCheck setup\b/i,
   /title:\s*['"`]Agent 工作设置/,
@@ -3308,6 +3315,13 @@ function hasSettingsRuntimeSetupJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/settings/RuntimeSection.tsx') &&
     !relFile.endsWith('src/app/features/settings/runtimeErrorMessages.ts') &&
+    !relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentControlPanel.tsx') &&
+    !relFile.endsWith('src/app/entities/agent/model/agents.store.ts') &&
+    !relFile.endsWith('src/app/shared/model/agents.store.ts') &&
+    !relFile.endsWith('src/app/shared/model/settings.store.ts') &&
+    !relFile.endsWith('src/app/features/inbox/InboxView.tsx') &&
+    !relFile.endsWith('src/app/features/inbox/InboxItem.tsx') &&
     !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
     !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
   ) {

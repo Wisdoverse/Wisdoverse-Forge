@@ -78,7 +78,7 @@ const SETTINGS_AREA_LABELS: Record<SettingsErrorArea, string> = {
   gitCredentials: 'code access',
   sshKeys: 'SSH code access',
   resourceProfiles: 'work capacity',
-  runtime: 'agent work settings',
+  runtime: 'Where agents work',
 }
 
 const SETTINGS_ITEM_LABELS: Record<SettingsErrorArea, string> = {
@@ -87,7 +87,7 @@ const SETTINGS_ITEM_LABELS: Record<SettingsErrorArea, string> = {
   gitCredentials: 'code access',
   sshKeys: 'SSH code access',
   resourceProfiles: 'agent size',
-  runtime: 'agent work setting',
+  runtime: 'Where agents work choice',
 }
 
 function settingsActionPhrase(area: SettingsErrorArea, action: SettingsErrorAction): string {
@@ -304,7 +304,7 @@ function settingsValidationMessage(
     return 'Ask an owner or admin to add an agent size, then refresh Settings.'
   }
 
-  return 'Choose an available work location and local tool, then save agent work settings again.'
+  return 'Choose where project files open and a work tool, then save Where agents work again.'
 }
 
 interface SettingsState {

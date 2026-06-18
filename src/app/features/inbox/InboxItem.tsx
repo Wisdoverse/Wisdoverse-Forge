@@ -82,7 +82,7 @@ const TYPE_CONFIG: Record<
     dot: 'bg-apple-blue',
     label: 'Account access',
     actionLabel: 'Reconnect work access',
-    guidance: 'Open agent work settings and reconnect the account agents use for file work.',
+    guidance: 'Open Where agents work and reconnect the account agents use for file work.',
     template: 'credential-action',
   },
   cli_image_updated: {
