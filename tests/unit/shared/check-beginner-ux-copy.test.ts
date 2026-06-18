@@ -11839,10 +11839,14 @@ function AuditLogView() {
     <label>Exact event name</label>
     <input placeholder="Paste an event category only when needed" />
     <input placeholder="Paste the exact team space, project workspace, team, or project reference" />
+    <option>Project area</option>
     <button aria-label="Refresh audit history">Refresh</button>
     <button>Show event details</button>
     <button>Show change details</button>
     <p>Check change details</p>
+    <p>Review proof</p>
+    <p>Check proof setup</p>
+    <p>Required account access is missing. Add or reconnect service access.</p>
     <span>Protected</span>
   </section>
 }
@@ -11902,9 +11906,11 @@ function AuditLogView() {
   return <section aria-label="Common change views">
     <p>Pick a common change view, then narrow it.</p>
     <label>Specific change name</label>
-    <input placeholder="Paste the exact team space, project area, team, or project reference" />
+    <input placeholder="Paste the exact team space, work area, team, or project reference" />
     <button aria-label="Refresh change history">Refresh</button>
     <button>Show saved change name</button>
+    <span>Set up verification</span>
+    <span>Check verification</span>
     <span>Review notes hidden</span>
   </section>
 }
