@@ -1,4 +1,4 @@
-import { RefreshCw, UserCheck } from 'lucide-react'
+import { ArrowRight, RefreshCw, UserCheck } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { agentCapabilitySummary } from '@app/shared/lib/agentCapabilityCopy'
@@ -42,6 +42,8 @@ export function AssignmentReadinessPanel({
   const available = participants.filter((participant) => participant.status === 'available')
   const busy = participants.filter((participant) => participant.status === 'busy')
   const offline = participants.filter((participant) => participant.status === 'offline')
+  const needsAgentSetup =
+    participants.length === 0 || (available.length === 0 && workload.unassigned > 0)
   const summary =
     participants.length === 0
       ? 'Connect an agent before sending work.'
@@ -77,6 +79,15 @@ export function AssignmentReadinessPanel({
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {needsAgentSetup && (
+            <a
+              href="/agents"
+              className="inline-flex h-8 items-center gap-1.5 rounded-full bg-apple-blue/10 px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+            >
+              <span>Open Agents</span>
+              <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
+            </a>
+          )}
           <MetricPill label="Can take work" value={available.length} />
           <MetricPill label="Working now" value={busy.length} />
           <MetricPill label="Not connected" value={offline.length} />

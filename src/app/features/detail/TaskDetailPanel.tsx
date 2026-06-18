@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Bot, CheckCircle2, ListChecks, RotateCcw, Send, X } from 'lucide-react'
+import {
+  AlertTriangle,
+  ArrowRight,
+  Bot,
+  CheckCircle2,
+  ListChecks,
+  RotateCcw,
+  Send,
+  X,
+} from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import { agentCapabilitySummary } from '@app/shared/lib/agentCapabilityCopy'
@@ -238,6 +247,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
             onOpenResult={hasResult ? () => setActiveTab('result') : undefined}
             onOpenContext={contextVisible ? () => setActiveTab('context') : undefined}
             onDraftSkill={task.state === 'completed' ? () => setSkillDraftOpen(true) : undefined}
+            showAssignmentAction={!canAssign}
           />
         )}
         {contextVisible && activeTab === 'context' && <ContextTab taskId={task.id} />}
@@ -303,6 +313,13 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
               <p className="mt-1 leading-relaxed text-secondary-light dark:text-secondary-dark">
                 Open Agents to start or connect an agent, then return here and refresh this task.
               </p>
+              <a
+                href="/agents"
+                className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-full bg-apple-blue/10 px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+              >
+                <span>Open Agents</span>
+                <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
+              </a>
             </div>
           )}
           <div className="flex justify-end">

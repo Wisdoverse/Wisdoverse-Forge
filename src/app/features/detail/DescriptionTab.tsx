@@ -19,6 +19,7 @@ interface DescriptionTabProps {
   onOpenContext?: () => void
   onOpenResult?: () => void
   onDraftSkill?: () => void
+  showAssignmentAction?: boolean
 }
 
 const HANDOFF_REVIEW_POINTS = [
@@ -35,6 +36,7 @@ export function DescriptionTab({
   onOpenContext,
   onOpenResult,
   onDraftSkill,
+  showAssignmentAction = true,
 }: DescriptionTabProps) {
   const resultArtifacts = taskResultArtifacts(task.result)
   const contextTotal = task.contextCounts?.total ?? 0
@@ -120,6 +122,15 @@ export function DescriptionTab({
           >
             {assignment.detail}
           </p>
+          {!assignment.hasAgent && showAssignmentAction && (
+            <a
+              href="/agents"
+              className="inline-flex h-8 w-fit items-center gap-1.5 rounded-full bg-apple-blue/10 px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+            >
+              <span>Open Agents</span>
+              <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
+            </a>
+          )}
           {blockedPreview && (
             <p
               data-testid="task-assignment-blocked-guidance"

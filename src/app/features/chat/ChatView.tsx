@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
+  ArrowRight,
   Bot,
   CheckCircle2,
   ListChecks,
@@ -56,6 +57,11 @@ interface ConversationFilterEmptyCopy {
   title: string
   detail: string
   nextStep: string
+}
+
+interface ConversationEmptyAction {
+  label: string
+  href: string
 }
 
 function conversationFilterEmptyCopy(
@@ -141,6 +147,13 @@ export function ChatView({ agentId }: ChatViewProps) {
   const offlineRecoveryDetail = isProviderAgent
     ? 'This chat-only AI service is not ready. Open AI service settings, choose Check connection, then refresh Agents.'
     : 'This agent is not ready. Open Agents, start or reconnect it, then return here when it shows Ready.'
+  const emptyAction: ConversationEmptyAction | undefined = isProviderAgent
+    ? offline
+      ? { label: 'Open AI services', href: '/settings/providers' }
+      : undefined
+    : offline
+      ? { label: 'Open Agents', href: '/agents' }
+      : { label: 'Create a task', href: '/tasks' }
   const composerDisabledReason = offline
     ? 'Open AI service settings, choose Check connection, then refresh Agents before sending a message.'
     : messagesLoading
@@ -389,6 +402,7 @@ export function ChatView({ agentId }: ChatViewProps) {
                 copy={PROVIDER_EMPTY_COPY}
                 offline={offline}
                 offlineDetail={offlineRecoveryDetail}
+                action={emptyAction}
                 testId="conversation-empty-state"
               />
             ) : visibleMessages.length === 0 ? (
@@ -431,6 +445,7 @@ export function ChatView({ agentId }: ChatViewProps) {
               copy={WORKSPACE_AGENT_EMPTY_COPY}
               offline={offline}
               offlineDetail={offlineRecoveryDetail}
+              action={emptyAction}
               testId="conversation-empty-state"
             />
           ) : visibleTurns.length === 0 ? (
@@ -536,11 +551,13 @@ function ConversationEmptyState({
   copy,
   offline,
   offlineDetail,
+  action,
   testId,
 }: {
   copy: typeof PROVIDER_EMPTY_COPY
   offline: boolean
   offlineDetail: string
+  action?: ConversationEmptyAction
   testId: string
 }) {
   return (
@@ -580,6 +597,16 @@ function ConversationEmptyState({
         <p className="rounded-lg bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange">
           {offlineDetail}
         </p>
+      )}
+      {action && (
+        <a
+          data-testid="conversation-empty-action"
+          href={action.href}
+          className="inline-flex h-9 w-fit items-center gap-1.5 rounded-full bg-apple-blue px-3 text-ui-button font-medium text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+        >
+          <span>{action.label}</span>
+          <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
+        </a>
       )}
     </div>
   )
