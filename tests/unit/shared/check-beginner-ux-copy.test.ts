@@ -9098,7 +9098,7 @@ function TaskFormModal() {
     const cwd = fixture({
       'src/app/features/board/TaskFormModal.tsx': `
 function TaskFormModal() {
-  return <div><p>Connect an agent before this task can start</p><p>Save the task now. It will wait until an agent is Ready, or you can open agent setup first.</p><button>Open agent setup</button></div>
+  return <div><p>Connect an agent before this task can start</p><p>Save the task now. It will wait here until an agent is ready. To start it sooner, open agent setup.</p><button>Open agent setup</button></div>
 }
 `,
     })
@@ -9113,7 +9113,11 @@ function TaskFormModal() {
   return (
     <div>
       <p>Preparing This Project</p>
+      <p>Preparing this project</p>
       <p>Ready to Send</p>
+      <p>Ready to send</p>
+      <p>Create a task queue before sending work</p>
+      <p>Forge is loading the task queue for this project. Wait a moment before creating the task.</p>
       <option>Let the next available agent pick it up</option>
       <p>Keep this choice when any available agent can do the work.</p>
       <span>2 available</span>
@@ -9138,28 +9142,30 @@ function TaskFormModal() {
         }),
         expect.objectContaining({
           type: 'task-form-agent-choice-copy',
-          location: 'src/app/features/board/TaskFormModal.tsx:7',
+          location: 'src/app/features/board/TaskFormModal.tsx:11',
         }),
         expect.objectContaining({
           type: 'task-form-agent-choice-copy',
-          location: 'src/app/features/board/TaskFormModal.tsx:8',
+          location: 'src/app/features/board/TaskFormModal.tsx:12',
         }),
         expect.objectContaining({
           type: 'task-form-agent-choice-copy',
-          location: 'src/app/features/board/TaskFormModal.tsx:9',
+          location: 'src/app/features/board/TaskFormModal.tsx:13',
         }),
       ])
     )
   })
 
-  it('accepts task form readiness and agent choice copy that uses visible Ready wording', () => {
+  it('accepts task form readiness and agent choice copy that uses next-action wording', () => {
     const cwd = fixture({
       'src/app/features/board/TaskFormModal.tsx': `
 function TaskFormModal() {
   return (
     <div>
-      <p>Preparing this project</p>
-      <p>Ready to send</p>
+      <p>Loading this project</p>
+      <p>Task can be created</p>
+      <p>Open task queues before creating this task</p>
+      <p>Wait a moment while Forge finds where new tasks wait for this project.</p>
       <option>Let the next ready agent pick it up</option>
       <p>Leave automatic selection on when any ready agent can do the work.</p>
       <span>2 ready</span>

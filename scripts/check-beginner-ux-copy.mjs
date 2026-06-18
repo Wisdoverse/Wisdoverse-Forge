@@ -572,9 +572,19 @@ const TASK_FORM_NO_AGENT_DEAD_END_PATTERNS = [
   /\bNo agents are online\. You can create the task now; it will wait here until an agent comes online\./i,
   /\bNo agents are available right now\. Keep the default choice so the next available agent can pick it up\./i,
   /\bCreate the task now, or open agent setup to (?:start or )?connect an agent first\./i,
+  /\bSave the task now\. It will wait until (?:an agent|one of your agents) is Ready, or you can open agent setup first\./i,
+  /\bThis task will wait here until an agent is Ready\./,
 ]
 
-const TASK_FORM_READY_STATE_JARGON_PATTERNS = [/\bPreparing This Project\b/, /\bReady to Send\b/]
+const TASK_FORM_READY_STATE_JARGON_PATTERNS = [
+  /\bPreparing This Project\b/,
+  /\bPreparing this project\b/,
+  /\bReady to Send\b/,
+  /\bReady to send\b/,
+  /\bCreate a task queue before sending work\b/i,
+  /\bForge is loading the task queue for this project\. Wait a moment before creating the task\./i,
+  /\bCreate a task queue before creating a task\./i,
+]
 
 const TASK_FORM_AGENT_CHOICE_JARGON_PATTERNS = [
   /\bLet the next available agent pick it up\b/,
