@@ -183,6 +183,7 @@ describe('RuntimeSection', () => {
     ).toBeNull()
     expect(screen.queryByRole('button', { name: /^Refresh$/i })).toBeNull()
     expect(screen.queryByText('Needs action')).toBeNull()
+    expect(screen.queryByText(/still need attention/i)).toBeNull()
     expect(screen.getAllByText('Needs setup').length).toBeGreaterThan(0)
 
     fireEvent.click(screen.getByRole('button', { name: /Sign in to GitHub/i }))
@@ -320,9 +321,7 @@ describe('RuntimeSection', () => {
         'Check again after tools finish. If this stays here, ask an owner to finish adding the tools.'
       )
     ).toHaveLength(3)
-    expect(screen.getAllByText('Start or wake an agent, then choose Check again.').length).toBe(
-      2
-    )
+    expect(screen.getAllByText('Start or wake an agent, then choose Check again.').length).toBe(2)
     expect(screen.getByText(/No extra tool sign-ins are needed/i)).toBeDefined()
     expect(screen.getByText(/Start or wake an agent to bring one online/i)).toBeDefined()
     expect(

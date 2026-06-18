@@ -255,7 +255,9 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
   if (error) {
     return (
       <div role="alert" className="flex flex-col items-center justify-center py-8 text-center">
-        <p className="text-ui-body font-medium text-apple-red">Agent tools need attention.</p>
+        <p className="text-ui-body font-medium text-apple-red">
+          Refresh this agent page to load tools.
+        </p>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           {error}
         </p>

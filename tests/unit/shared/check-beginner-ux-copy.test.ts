@@ -7571,6 +7571,31 @@ export function stateLabel() {
   return 'Check needs attention'
 }
 `,
+      'src/app/features/agents/AgentPluginsTab.tsx': `
+export function AgentPluginsTab() {
+  return <p>Agent tools need attention.</p>
+}
+`,
+      'src/app/features/skills/SkillsView.tsx': `
+export function skillToolbarStatus() {
+  return 'Saved instructions need attention'
+}
+`,
+      'src/app/features/cmdk/CommandPalette.tsx': `
+export function discoveryStep() {
+  return 'Use Inbox when something needs your attention.'
+}
+`,
+      'src/app/layouts/AppLayout.tsx': `
+export function pageMeta() {
+  return 'See what needs your attention'
+}
+`,
+      'src/app/layouts/sidebar/SidebarNav.tsx': `
+export function sidebarDescription() {
+  return 'review items needing attention'
+}
+`,
       'src/app/features/detail/ContextEvidenceList.tsx': `
 export function payloadSummary() {
   return 'The recorded result needs attention.'
@@ -7593,7 +7618,7 @@ export function taskFailurePreview() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toHaveLength(9)
+    expect(result.findings).toHaveLength(14)
     expect(result.findings).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -7619,6 +7644,26 @@ export function taskFailurePreview() {
         expect.objectContaining({
           type: 'vague-needs-attention-copy',
           location: 'src/app/features/admin/CliImagesPanel.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'vague-needs-attention-copy',
+          location: 'src/app/features/agents/AgentPluginsTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'vague-needs-attention-copy',
+          location: 'src/app/features/skills/SkillsView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'vague-needs-attention-copy',
+          location: 'src/app/features/cmdk/CommandPalette.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'vague-needs-attention-copy',
+          location: 'src/app/layouts/AppLayout.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'vague-needs-attention-copy',
+          location: 'src/app/layouts/sidebar/SidebarNav.tsx:3',
         }),
         expect.objectContaining({
           type: 'vague-needs-attention-copy',
