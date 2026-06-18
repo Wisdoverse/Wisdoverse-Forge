@@ -2107,7 +2107,7 @@ function runSourceLabel(run) {
 `,
       'src/app/features/settings/RuntimeSection.tsx': `
 function fallbackRuntimeLabel(runtime) {
-  return runtime ? 'Check agent location' : 'Refresh agent location'
+  return runtime ? 'Check file work place' : 'Refresh file work place'
 }
 function fallbackCliToolLabel(tool) {
   return tool ? 'Check work tool setup' : 'Refresh work tool setup'
@@ -4309,11 +4309,11 @@ function CredentialStatusRow() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags default agent location copy that does not explain how to recover', () => {
+  it('flags default file work place copy that does not explain how to recover', () => {
     const cwd = fixture({
       'src/app/features/settings/RuntimeSection.tsx': `
 export function RuntimeSection() {
-  return <RuntimeReadinessMetric label="Default agent location" value="Not set yet" />
+  return <RuntimeReadinessMetric label="Default file work place" value="Not set yet" />
 }
 `,
     })
@@ -4329,11 +4329,11 @@ export function RuntimeSection() {
     ])
   })
 
-  it('accepts default agent location copy that tells users to load setup first', () => {
+  it('accepts default file work place copy that tells users to load setup first', () => {
     const cwd = fixture({
       'src/app/features/settings/RuntimeSection.tsx': `
 export function RuntimeSection() {
-  return <RuntimeReadinessMetric label="Default agent location" value="Load setup to choose a location" />
+  return <RuntimeReadinessMetric label="Default file work place" value="Load setup to choose where files open" />
 }
 `,
     })
@@ -4424,16 +4424,16 @@ function runtimeCliErrorMessage() {
 }
 
 function runtimeSettingsErrorMessage() {
-  return 'Choose an available agent location and work tool, then save again. Where agents run could not be saved.'
+  return 'Choose an available file work place and work tool, then save again. Agent work setup could not be saved.'
 }
 
 function runtimeSettingsFallback() {
-  return 'Check the agent location and work tool choices, then save Where agents run again. If it still fails, ask an owner or admin to check Where agents run.'
+  return 'Check the file work place and work tool choices, then save Agent work setup again. If it still fails, ask an owner or admin to check Agent work setup in Settings.'
 }
 `,
       'src/app/features/settings/RuntimeSection.tsx': `
 function runtimeChecklistCopy() {
-  return 'Refresh this settings page to load Where agents run. If it still does not load, ask an owner or admin to check Where agents run.'
+  return 'Refresh this settings page to load Agent work setup. If it still does not load, ask an owner or admin to check Agent work setup in Settings.'
 }
 
 function credentialStatusCopy() {
@@ -4441,7 +4441,143 @@ function credentialStatusCopy() {
 }
 
 function heartbeatStatusCopy() {
-  return 'Choose Check again to refresh agent online status. If it still cannot be checked, ask an owner or admin to check Where agents run.'
+  return 'Choose Check again to refresh agent online status. If it still cannot be checked, ask an owner or admin to check Agent work setup in Settings.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags settings runtime navigation copy that explains internal run and tool choices', () => {
+    const cwd = fixture({
+      'src/app/pages/settings/ui/SettingsLayout.tsx': `
+const SECTIONS = [
+  {
+    label: 'Where agents run',
+    description: 'Choose where agents run and which work tool they use.',
+  },
+]
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'settings-runtime-nav-copy',
+        location: 'src/app/pages/settings/ui/SettingsLayout.tsx:5',
+      }),
+    ])
+  })
+
+  it('accepts settings runtime navigation copy that explains file-work setup', () => {
+    const cwd = fixture({
+      'src/app/pages/settings/ui/SettingsLayout.tsx': `
+const SECTIONS = [
+  {
+    label: 'Agent work setup',
+    description: 'Choose where agents edit files and which tool opens the work.',
+  },
+]
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags agent work setup labels that use agent location wording', () => {
+    const cwd = fixture({
+      'src/app/features/settings/RuntimeSection.tsx': `
+export function RuntimeSection() {
+  return (
+    <>
+      <RuntimeReadinessMetric label="Default agent location" value="Project files" />
+      <SettingRow label="Agent locations available" />
+      <RuntimeChecklistRow title="Default agent location and work tool" />
+      <p>Choose where new agents run and which tool, such as Claude or Codex, they use.</p>
+    </>
+  )
+}
+`,
+      'src/app/features/settings/runtimeErrorMessages.ts': `
+export function message() {
+  return 'Check the agent location and work tool choices, then save Agent work setup again.'
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  settings: {
+    runtime: {
+      defaultRuntimeLabel: 'Default agent location',
+      availableRuntimesLabel: 'Agent locations available',
+    },
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'settings-runtime-location-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'settings-runtime-location-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'settings-runtime-location-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'settings-runtime-location-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:8',
+        }),
+        expect.objectContaining({
+          type: 'settings-runtime-location-copy',
+          location: 'src/app/features/settings/runtimeErrorMessages.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'settings-runtime-location-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:5',
+        }),
+      ])
+    )
+  })
+
+  it('accepts agent work setup labels that explain where files open', () => {
+    const cwd = fixture({
+      'src/app/features/settings/RuntimeSection.tsx': `
+export function RuntimeSection() {
+  return (
+    <>
+      <RuntimeReadinessMetric label="Default file work place" value="Project files" />
+      <SettingRow label="Places agents can edit files" />
+      <RuntimeChecklistRow title="Default file work place and tool" />
+      <p>Choose where new agents edit files and which tool, such as Claude or Codex, opens the work.</p>
+    </>
+  )
+}
+`,
+      'src/app/features/settings/runtimeErrorMessages.ts': `
+export function message() {
+  return 'Check the file work place and work tool choices, then save Agent work setup again.'
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  settings: {
+    runtime: {
+      defaultRuntimeLabel: 'Default file work place',
+      availableRuntimesLabel: 'Places agents can edit files',
+    },
+  },
 }
 `,
     })
@@ -5808,7 +5944,7 @@ function agentServerMessage() {
 }
 
 function agentRuntimeMessage() {
-  return 'Ask an owner or admin to check Where agents run, then start this agent from the card. The place where this agent runs is not ready.'
+  return 'Ask an owner or admin to check Agent work setup in Settings, then start this agent from the card. The place where this agent runs is not ready.'
 }
 
 function agentUnknownMessage(actionPhrase) {
@@ -5816,7 +5952,7 @@ function agentUnknownMessage(actionPhrase) {
 }
 
 function agentCreatedStartFailureMessage() {
-  return 'Ask an owner or admin to check Where agents run, then start this agent from the card. Agent was created, but it could not start yet.'
+  return 'Ask an owner or admin to check Agent work setup in Settings, then start this agent from the card. Agent was created, but it could not start yet.'
 }
 `,
     })

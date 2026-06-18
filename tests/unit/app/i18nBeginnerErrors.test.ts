@@ -375,7 +375,7 @@ describe('beginner error translations', () => {
 
     expect(englishJoin.title).toContain('Setup text needs to be pasted again')
     expect(englishJoin.detail).toContain('Paste the setup text on this computer again')
-    expect(englishJoin.detail).toContain('Where agents run')
+    expect(englishJoin.detail).toContain('Agent work setup')
     expect(englishJoin.title).not.toContain('Setup command')
     expect(englishJoin.detail).not.toContain('setup command')
     expect(englishJoin.title).not.toContain('Idempotency-Key')

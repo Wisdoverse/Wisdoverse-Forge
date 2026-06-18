@@ -285,37 +285,37 @@ function agentConflictMessage(action: AgentErrorAction, detail: string | null): 
 
 function agentServerMessage(action: AgentErrorAction): string {
   if (action === 'enrollLocal') {
-    return 'Wait a moment, then choose Create Agent again. Forge could not prepare the setup text for this computer right now. If it still fails, ask an owner or admin to check Where agents run.'
+    return 'Wait a moment, then choose Create Agent again. Forge could not prepare the setup text for this computer right now. If it still fails, ask an owner or admin to check Agent work setup in Settings.'
   }
   if (action === 'load') {
-    return 'Refresh Agents to load agents. If it still fails, ask an owner or admin to check Where agents run.'
+    return 'Refresh Agents to load agents. If it still fails, ask an owner or admin to check Agent work setup in Settings.'
   }
   if (action === 'start' || action === 'restart' || action === 'create') {
-    return 'Wait a moment, then try again. Forge could not prepare where this agent runs right now. If it still fails, ask an owner or admin to check Where agents run.'
+    return 'Wait a moment, then try again. Forge could not prepare agent work setup right now. If it still fails, ask an owner or admin to check Agent work setup in Settings.'
   }
-  return `Refresh Agents, then try to ${agentActionPhrase(action)} again. If it still fails, ask an owner or admin to check Where agents run.`
+  return `Refresh Agents, then try to ${agentActionPhrase(action)} again. If it still fails, ask an owner or admin to check Agent work setup in Settings.`
 }
 
 function agentRuntimeRecoveryMessage(detail: string | null): string {
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('docker')) {
-    return 'Ask an owner or admin to check Where agents run, then start this agent from the agent card. File work setup is not ready.'
+    return 'Ask an owner or admin to check Agent work setup in Settings, then start this agent from the agent card. File work setup is not ready.'
   }
-  return 'Ask an owner or admin to check Where agents run, then start this agent from the agent card. File work setup is not ready.'
+  return 'Ask an owner or admin to check Agent work setup in Settings, then start this agent from the agent card. File work setup is not ready.'
 }
 
 function agentCreatedStartFailureMessage(error?: unknown): string {
   const detail = agentErrorDetail(error)
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('docker')) {
-    return 'Ask an owner or admin to check Where agents run, then start this agent from the card. Agent was created, but file work setup is not ready yet. It will stay in the list.'
+    return 'Ask an owner or admin to check Agent work setup in Settings, then start this agent from the card. Agent was created, but file work setup is not ready yet. It will stay in the list.'
   }
   if (
     normalized.includes('runtime') ||
     normalized.includes('container') ||
     normalized.includes('image')
   ) {
-    return 'Ask an owner or admin to check Where agents run, then start this agent from the card. Agent was created, but it could not start yet. It will stay in the list.'
+    return 'Ask an owner or admin to check Agent work setup in Settings, then start this agent from the card. Agent was created, but it could not start yet. It will stay in the list.'
   }
   return 'Refresh the Agents page, then start this agent from the card after the place where it runs is ready. Agent was created, but it could not start yet. It will stay in the list.'
 }
