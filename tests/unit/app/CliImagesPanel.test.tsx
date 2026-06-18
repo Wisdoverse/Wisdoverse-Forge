@@ -172,10 +172,11 @@ describe('CliImagesPanel', () => {
     render(<CliImagesPanel />)
 
     const emptyState = screen.getByTestId('cli-images-empty-tools')
-    expect(within(emptyState).getByText('No agent tools are ready for update checks')).toBeDefined()
+    expect(within(emptyState).getByText('Open Agents to add or enable a work tool')).toBeDefined()
     expect(within(emptyState).getByText(/open agents to add or enable a work tool/i)).toBeDefined()
     expect(within(emptyState).getByText(/choose check now before restarting agents/i)).toBeDefined()
     expect(screen.queryByText('No agent tools are configured for update checks.')).toBeNull()
+    expect(screen.queryByText('No agent tools are ready for update checks')).toBeNull()
   })
 
   test('shows the prune sweep summary when pruning is enabled', () => {

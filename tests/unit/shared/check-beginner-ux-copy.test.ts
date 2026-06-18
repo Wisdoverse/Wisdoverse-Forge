@@ -4331,11 +4331,16 @@ function ToolUpdateError() {
     )
   })
 
-  it('flags agent tool update empty copy that gives no setup path', () => {
+  it('flags agent tool update empty copy that gives no setup path or starts with a dead end', () => {
     const cwd = fixture({
       'src/app/features/admin/CliImagesPanel.tsx': `
 function ToolUpdateEmpty() {
-  return <p>No agent tools are configured for update checks.</p>
+  return (
+    <div>
+      <p>No agent tools are configured for update checks.</p>
+      <p>No agent tools are ready for update checks</p>
+    </div>
+  )
 }
 `,
     })
@@ -4343,12 +4348,18 @@ function ToolUpdateEmpty() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'cli-image-status-copy',
-        location: 'src/app/features/admin/CliImagesPanel.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'cli-image-status-copy',
+          location: 'src/app/features/admin/CliImagesPanel.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'cli-image-status-copy',
+          location: 'src/app/features/admin/CliImagesPanel.tsx:6',
+        }),
+      ])
+    )
   })
 
   it('flags agent tool version copy that leaves beginners waiting', () => {

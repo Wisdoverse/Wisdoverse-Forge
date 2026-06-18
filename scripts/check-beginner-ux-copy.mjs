@@ -423,6 +423,7 @@ const CLI_IMAGE_STATUS_DEAD_END_PATTERNS = [
   /\bTool for new agents:/i,
   /\bLatest tool found:/i,
   /\bNo agent tools are configured for update checks\b/i,
+  /\bNo agent tools are ready for update checks\b/i,
   /\bNo result yet\b/i,
   /\bNot downloaded yet\b/i,
   /\bNot checked yet\b/i,
