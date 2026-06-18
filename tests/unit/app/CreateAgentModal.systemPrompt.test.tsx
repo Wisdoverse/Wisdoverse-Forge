@@ -27,6 +27,25 @@ const CONFIGURED_PROVIDERS = [
   },
 ]
 
+function selectProject() {
+  useNavigationStore.setState({
+    selectedProjectId: 'p1',
+    projects: {
+      t1: [
+        {
+          id: 'p1',
+          teamId: 't1',
+          workspaceId: 'w1',
+          name: 'Platform',
+          slug: 'platform',
+          color: '#007AFF',
+          description: '',
+        },
+      ],
+    },
+  })
+}
+
 beforeEach(() => {
   useAgentsStore.setState({
     createModalOpen: true,
@@ -49,6 +68,7 @@ describe('CreateAgentModal agent instructions', () => {
   })
 
   it('defaults project-file work directory to /workspace', async () => {
+    selectProject()
     const createAgent = vi.fn().mockResolvedValue(true)
     useAgentsStore.setState({ createAgent } as never)
 

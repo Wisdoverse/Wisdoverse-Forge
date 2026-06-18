@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Command } from 'cmdk'
 import { cn } from '@app/shared/lib/utils'
 import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
+import { useSettingsStore } from '@app/shared/model/settings.store'
+import { shouldShowGettingStarted } from '@app/shared/lib/gettingStartedPreference'
 
 interface CommandPaletteProps {
   isOpen: boolean
@@ -10,6 +12,11 @@ interface CommandPaletteProps {
 }
 
 const NAV_COMMANDS = [
+  {
+    id: 'nav:start',
+    label: 'Setup checklist',
+    description: 'Review setup steps again when you want a guided checklist.',
+  },
   { id: 'nav:tasks', label: 'Tasks', description: 'See work that is planned, active, or done.' },
   { id: 'nav:inbox', label: 'Inbox', description: 'Review alerts that may need a person.' },
   {
@@ -62,10 +69,13 @@ function commonWorkflowSuggestion(commands: typeof NAV_COMMANDS): string {
 
 export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProps) {
   const contextGovernanceEnabled = useContextFeaturesStore((s) => s.governance)
+  const showGettingStarted = useSettingsStore((s) => shouldShowGettingStarted(s.preferences))
   const [search, setSearch] = useState('')
   if (!isOpen) return null
   const navCommands = NAV_COMMANDS.filter(
-    (cmd) => cmd.id !== 'nav:context' || contextGovernanceEnabled
+    (cmd) =>
+      (cmd.id !== 'nav:context' || contextGovernanceEnabled) &&
+      (cmd.id !== 'nav:start' || showGettingStarted)
   )
   const emptySearchSuggestion = commonWorkflowSuggestion(navCommands)
 

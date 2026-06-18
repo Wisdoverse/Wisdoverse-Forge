@@ -81,7 +81,10 @@ interface KanbanColumnProps {
   tasks: TaskSummary[]
   onTaskClick?: (taskId: string) => void
   onTaskPublish?: (task: TaskSummary) => void
-  onQuickCreate?: (title: string, columnId: string) => void | boolean | Promise<void | boolean>
+  onQuickCreate?: (
+    title: string,
+    columnId: string
+  ) => void | boolean | string | Promise<void | boolean | string>
   displayMode?: BoardDisplayMode
 }
 

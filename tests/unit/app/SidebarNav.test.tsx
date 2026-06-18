@@ -55,8 +55,8 @@ describe('SidebarNav', () => {
     render(<SidebarNav expanded={false} activePath="/tasks" onNavigate={() => {}} />)
 
     expect(
-      screen.getByRole('button', { name: /setup checklist: follow the setup checklist/i })
-    ).toHaveAttribute('title', 'Setup checklist: follow the setup checklist')
+      screen.queryByRole('button', { name: /setup checklist: follow the setup checklist/i })
+    ).not.toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: /tasks: see tasks and review progress/i })
     ).toHaveAttribute('aria-current', 'page')
@@ -175,14 +175,17 @@ describe('SidebarNav', () => {
     expect(screen.queryByRole('button', startItem)).not.toBeInTheDocument()
   })
 
-  test('keeps showing the Getting Started entry while preferences are unknown', () => {
-    // preferences: null (request not finished) — do not blank the nav slot.
+  test('keeps the Getting Started entry hidden while preferences are unknown', () => {
+    // preferences: null (request not finished) — keep the app task-first.
     render(<SidebarNav expanded={true} activePath="/tasks" onNavigate={() => {}} />)
 
-    expect(screen.getByRole('button', startItem)).toBeInTheDocument()
+    expect(screen.queryByRole('button', startItem)).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /tasks: see tasks and review progress/i })
+    ).toBeInTheDocument()
   })
 
-  test('keeps showing the Getting Started entry when the stored preference is false', () => {
+  test('shows the Getting Started entry only when the stored preference is false', () => {
     useSettingsStore.setState({
       preferences: { gettingStartedDismissed: false },
       preferencesLoaded: true,

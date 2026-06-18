@@ -120,6 +120,10 @@ interface ProviderOption {
 }
 
 const DEFAULT_AGENT_CWD = '/workspace'
+const NO_READY_AI_SERVICE_ERROR =
+  'Open Settings > AI services, add a service, save it, then choose Check connection until it says Ready.'
+const NO_SELECTED_PROJECT_ERROR =
+  'Open project settings, create or choose a project, then create this agent. Agents that work with files need a project first.'
 
 function setupCommandPasteHint(os: 'posix' | 'windows'): string {
   return os === 'windows'
@@ -440,6 +444,10 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
       setFormError('Name this agent before creating it.')
       return
     }
+    if (data.kind !== 'provider' && !selectedProject) {
+      setFormError(NO_SELECTED_PROJECT_ERROR)
+      return
+    }
     const base = {
       name: data.name.trim(),
       workspaceId: selectedProject?.workspaceId,
@@ -449,9 +457,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
     if (data.kind === 'provider') {
       const selected = providerOptions.find((option) => option.id === data.providerId)
       if (!selected) {
-        setFormError(
-          'Open Settings > AI services, add a service, save it, then choose Check connection until it says Ready.'
-        )
+        setFormError(NO_READY_AI_SERVICE_ERROR)
         return
       }
       if (!data.model.trim()) {
@@ -604,7 +610,28 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
             aria-live="polite"
             className="mb-4 rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
           >
-            {displayedError}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="min-w-0 flex-1">{displayedError}</span>
+              {displayedError === NO_READY_AI_SERVICE_ERROR && (
+                <a
+                  href="/settings/providers"
+                  className="inline-flex h-7 shrink-0 items-center justify-center gap-1 rounded-full border border-apple-red/20 bg-white/70 px-2.5 text-ui-button font-medium text-apple-red transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/35 dark:bg-white/[0.08] dark:hover:bg-white/[0.12]"
+                >
+                  <span>Open AI services settings</span>
+                  <ArrowRight size={12} strokeWidth={2.25} aria-hidden="true" />
+                </a>
+              )}
+              {displayedError === NO_SELECTED_PROJECT_ERROR && onOpenProjectsSetup && (
+                <button
+                  type="button"
+                  onClick={handleOpenProjectsSetup}
+                  className="inline-flex h-7 shrink-0 items-center justify-center gap-1 rounded-full border border-apple-red/20 bg-white/70 px-2.5 text-ui-button font-medium text-apple-red transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/35 dark:bg-white/[0.08] dark:hover:bg-white/[0.12]"
+                >
+                  <span>Open project settings</span>
+                  <ArrowRight size={12} strokeWidth={2.25} aria-hidden="true" />
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -1004,7 +1031,9 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                   ? kind === 'local-cli'
                     ? 'Project ready. Tasks default to this project. File access stays on the joined computer.'
                     : 'Project ready. Tasks default to this project. Forge opens the shared project folder for this agent.'
-                  : 'Open project settings to create or choose a project before assigning tasks. The agent can still be created first.'}
+                  : kind === 'provider'
+                    ? 'You can create this chat-only agent now. Choose a project later before assigning tasks.'
+                    : 'Open project settings to create or choose a project before creating this file-working agent.'}
               </p>
               {!selectedProject && onOpenProjectsSetup ? (
                 <button

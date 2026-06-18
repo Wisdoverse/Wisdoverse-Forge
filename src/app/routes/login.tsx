@@ -56,8 +56,8 @@ function LoginPage() {
       if (cancelled) return
       // Full page reload after login — cleanest way to transition from
       // vanilla JS AuthPage to React app. Navigate to root '/' which
-      // serves index.html (SPA); the index route then lands on /start, or
-      // on /tasks once the Getting Started guide was skipped or completed.
+      // serves index.html (SPA); the index route opens Tasks by default,
+      // or Start only after the setup checklist is restored from Settings.
       window.location.href = '/'
     })
 
