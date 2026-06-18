@@ -141,7 +141,7 @@ describe('ProvidersSection', () => {
     expect(screen.getAllByText('Needs check').length).toBeGreaterThan(0)
     expect(screen.queryByText('Failed')).toBeNull()
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Check the service access key, model, and service address for Anthropic Review'
+      'Check the service access key, the model you picked, and the service address for Anthropic Review, then save and choose Check connection again.'
     )
     expect(screen.getByRole('alert')).toHaveTextContent('service access key')
     expect(screen.queryByText('Invalid key')).toBeNull()
