@@ -4681,6 +4681,25 @@ export function message() {
   return 'Forge could not connect while checking Agent work setup.'
 }
 `,
+      'src/app/features/agents/CreateAgentModal.tsx': `
+export function CreateAgentModal() {
+  return 'Check Agent work setup in Settings'
+}
+`,
+      'src/app/features/agents/AgentControlPanel.tsx': `
+export function agentControlErrorMessage() {
+  return 'Refresh Agents, then choose Start file work again. If it still does not show Ready, ask an owner or admin to check Agent work setup in Settings.'
+}
+`,
+      'src/app/entities/agent/model/agents.store.ts': `
+export function agentServerMessage() {
+  return 'Wait a moment, then try again. Forge could not prepare agent work setup right now. If it still fails, ask an owner or admin to check Agent work setup in Settings.'
+}
+`,
+      'src/app/shared/model/agents.store.ts': `
+export const AGENT_CREATED_START_ERROR =
+  'Agent was created, but its workspace was not started. Ask an owner or admin to check Agent work setup in Settings, then start this agent from the card.'
+`,
       'src/app/shared/i18n/locales/en.ts': `
 export const en = {
   settings: { runtime: { title: 'Agent work setup' } },
@@ -4716,6 +4735,22 @@ export const zh = {
         }),
         expect.objectContaining({
           type: 'settings-runtime-setup-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'settings-runtime-setup-copy',
+          location: 'src/app/features/agents/AgentControlPanel.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'settings-runtime-setup-copy',
+          location: 'src/app/entities/agent/model/agents.store.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'settings-runtime-setup-copy',
+          location: 'src/app/shared/model/agents.store.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'settings-runtime-setup-copy',
           location: 'src/app/shared/i18n/locales/en.ts:3',
         }),
         expect.objectContaining({
@@ -4743,6 +4778,25 @@ export function RuntimeSection() {
 export function message() {
   return 'Forge could not connect while checking Where agents work.'
 }
+`,
+      'src/app/features/agents/CreateAgentModal.tsx': `
+export function CreateAgentModal() {
+  return 'Check Where agents work in Settings'
+}
+`,
+      'src/app/features/agents/AgentControlPanel.tsx': `
+export function agentControlErrorMessage() {
+  return 'Refresh Agents, then choose Start file work again. If it still does not show Ready, ask an owner or admin to check Where agents work in Settings.'
+}
+`,
+      'src/app/entities/agent/model/agents.store.ts': `
+export function agentServerMessage() {
+  return 'Wait a moment, then try again. Forge could not prepare file work for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+}
+`,
+      'src/app/shared/model/agents.store.ts': `
+export const AGENT_CREATED_START_ERROR =
+  'Agent was created, but its workspace was not started. Ask an owner or admin to check Where agents work in Settings, then start this agent from the card.'
 `,
       'src/app/shared/i18n/locales/en.ts': `
 export const en = {
@@ -6238,7 +6292,7 @@ function agentServerMessage() {
 }
 
 function agentRuntimeMessage() {
-  return 'Ask an owner or admin to check Agent work setup in Settings, then start this agent from the card. The place where this agent runs is not ready.'
+  return 'Ask an owner or admin to check Where agents work in Settings, then start this agent from the card. File work is not ready.'
 }
 
 function agentUnknownMessage(actionPhrase) {
@@ -6246,7 +6300,7 @@ function agentUnknownMessage(actionPhrase) {
 }
 
 function agentCreatedStartFailureMessage() {
-  return 'Ask an owner or admin to check Agent work setup in Settings, then start this agent from the card. Agent was created, but it could not start yet.'
+  return 'Ask an owner or admin to check Where agents work in Settings, then start this agent from the card. Agent was created, but it could not start yet.'
 }
 `,
     })

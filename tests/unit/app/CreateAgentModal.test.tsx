@@ -90,7 +90,7 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText('Project files are included')).toBeInTheDocument()
     expect(screen.getAllByText('Where it works').length).toBeGreaterThan(0)
     expect(screen.getByText('Shared project folder')).toBeInTheDocument()
-    expect(screen.getByText('Check Agent work setup in Settings')).toBeInTheDocument()
+    expect(screen.getByText('Check Where agents work in Settings')).toBeInTheDocument()
     expect(screen.getByText('Can edit files')).toBeInTheDocument()
     expect(
       screen.getByText(

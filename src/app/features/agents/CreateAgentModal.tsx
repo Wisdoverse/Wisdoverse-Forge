@@ -173,7 +173,7 @@ function runtimeFitFor(
       items: [
         { label: 'Where it works', value: 'Shared project folder' },
         { label: 'Files', value: 'Project files are included' },
-        { label: 'Before use', value: 'Check Agent work setup in Settings' },
+        { label: 'Before use', value: 'Check Where agents work in Settings' },
       ],
     }
   }
