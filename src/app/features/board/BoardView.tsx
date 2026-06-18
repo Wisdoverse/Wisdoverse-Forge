@@ -341,7 +341,7 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
               onClick={() => void loadTasksForGroup(selectedGroupId, true)}
               className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-apple-red/20 bg-white px-3 text-ui-button font-medium text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30 dark:bg-white/[0.04]"
             >
-              Try Again
+              Refresh tasks
             </button>
           ) : null}
         </div>

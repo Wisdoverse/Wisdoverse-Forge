@@ -102,7 +102,8 @@ describe('BoardView', () => {
     expect(error.textContent).toContain('Sign in again')
     expect(error.textContent).not.toContain('Code:')
     expect(error.textContent).not.toContain('401 Unauthorized')
-    expect(within(error).getByRole('button', { name: /try again/i })).toBeDefined()
+    expect(within(error).getByRole('button', { name: /refresh tasks/i })).toBeDefined()
+    expect(within(error).queryByRole('button', { name: /try again/i })).toBeNull()
   })
 
   test('lets users retry when tasks fail to load', async () => {
@@ -112,7 +113,7 @@ describe('BoardView', () => {
     render(<BoardView />)
 
     const error = await screen.findByTestId('board-error')
-    fireEvent.click(within(error).getByRole('button', { name: /try again/i }))
+    fireEvent.click(within(error).getByRole('button', { name: /refresh tasks/i }))
 
     await waitFor(() => expect(mockGetTasks).toHaveBeenCalledTimes(2))
     await waitFor(() => expect(screen.queryByTestId('board-error')).toBeNull())
