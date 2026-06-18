@@ -236,7 +236,7 @@ describe('RuntimeSection', () => {
     ).toBeDefined()
     expect(screen.getByText(/1 tool sign-in is connected\. 1 agent is online/i)).toBeDefined()
     expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('Ready to give agents work')
-    expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('The file work place')
+    expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('Where project files open')
     expect(screen.getByTestId('runtime-next-step')).toHaveTextContent(
       'What success looks like: Open Agents, create or select an agent, then assign work from Tasks.'
     )
@@ -291,7 +291,7 @@ describe('RuntimeSection', () => {
     expect(screen.queryByText(/settings have not loaded yet/i)).toBeNull()
     expect(screen.queryByText(/check setup\. if/i)).toBeNull()
     expect(screen.queryByText(/Agent work setup could not load/i)).toBeNull()
-    expect(screen.getByText('Load setup to choose where files open')).toBeDefined()
+    expect(screen.getByText('Load setup to choose where project files open')).toBeDefined()
     expect(screen.queryByText('Not set yet')).toBeNull()
     expect(screen.queryByText('Could not load work setup')).toBeNull()
     expect(screen.queryByText('Unknown')).toBeNull()
@@ -319,8 +319,8 @@ describe('RuntimeSection', () => {
       await screen.findAllByText(
         'Check setup after tools finish. If this stays here, ask an owner to finish tool setup.'
       )
-    ).toHaveLength(2)
-    expect(screen.getByText('Start an agent, then check again.')).toBeDefined()
+    ).toHaveLength(3)
+    expect(screen.getByText('Start or wake an agent, then choose Check setup.')).toBeDefined()
     expect(screen.getByText('Start or wake an agent, then choose Check again.')).toBeDefined()
     expect(screen.getByText(/No extra tool sign-ins are needed/i)).toBeDefined()
     expect(screen.getByText(/Start or wake an agent to bring one online/i)).toBeDefined()
@@ -334,7 +334,7 @@ describe('RuntimeSection', () => {
     expect(screen.queryByText(/no agents are online yet/i)).toBeNull()
   })
 
-  test('labels unknown file work place and tool values without exposing backend codes', async () => {
+  test('labels unknown project-file and tool values without exposing backend codes', async () => {
     useSettingsStore.setState({
       runtimeSettings: {
         defaultRuntime: 'future_runtime' as never,
@@ -355,7 +355,7 @@ describe('RuntimeSection', () => {
 
     render(<RuntimeSection />)
 
-    expect((await screen.findAllByText('Check file work place')).length).toBeGreaterThan(0)
+    expect((await screen.findAllByText('Check where files open')).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Check work tool setup').length).toBeGreaterThan(0)
     expect(screen.queryByText(/future_runtime/i)).toBeNull()
     expect(screen.queryByText(/future_tool/i)).toBeNull()
@@ -422,7 +422,7 @@ describe('RuntimeSection', () => {
 
     await screen.findByTestId('runtime-launch-checklist')
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Choose an available file work place and work tool, then save again. Agent work setup could not be saved.'
+      'Choose where project files open and a work tool, then save again. Agent work setup could not be saved.'
     )
     expect(screen.queryByText(/Details: default CLI tool is not available/i)).toBeNull()
   })

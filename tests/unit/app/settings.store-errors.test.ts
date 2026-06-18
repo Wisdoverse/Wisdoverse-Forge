@@ -148,10 +148,10 @@ describe('settingsActionErrorMessage', () => {
     )
   })
 
-  test('turns public key validation into shareable-line guidance', () => {
+  test('turns public key validation into safe public line guidance', () => {
     expectBeginnerError(
       settingsActionErrorMessage('sshKeys', 'create', statusError(422, 'public key is invalid')),
-      'Paste the shareable public key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
+      'Paste the safe public key line from the .pub file, then save again.'
     )
   })
 

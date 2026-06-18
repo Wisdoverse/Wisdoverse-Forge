@@ -2107,7 +2107,7 @@ function runSourceLabel(run) {
 `,
       'src/app/features/settings/RuntimeSection.tsx': `
 function fallbackRuntimeLabel(runtime) {
-  return runtime ? 'Check file work place' : 'Refresh file work place'
+  return runtime ? 'Check where files open' : 'Refresh where files open'
 }
 function fallbackCliToolLabel(tool) {
   return tool ? 'Check work tool setup' : 'Refresh work tool setup'
@@ -3214,6 +3214,38 @@ function WorkStylePicker() {
     )
   })
 
+  it('flags create-agent starter template hints that only say they fill the name', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+function TemplateHint() {
+  return <span>Fills in the agent name</span>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'agent-template-role-copy',
+        sample: expect.stringContaining('Fills in the agent name'),
+      }),
+    ])
+  })
+
+  it('accepts create-agent starter template hints that explain starter task instructions', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+function TemplateHint() {
+  return <span>Fills in name and starter task instructions</span>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('accepts create-agent labels that ask where the agent works', () => {
     const cwd = fixture({
       'src/app/features/agents/CreateAgentModal.tsx': `
@@ -3233,10 +3265,10 @@ function WorkLocationPicker() {
     const cwd = fixture({
       'src/app/features/agents/CreateAgentModal.tsx': `
 function runtimeFitFor() {
-  return [{ label: 'Agent location', value: 'Managed workspace' }]
+  return [{ label: 'Agent location', value: 'Forge project area' }]
 }
 function HelpText() {
-  return <><p>Uses a ready workspace managed by Forge for file work.</p><p>Forge prepares this project workspace for the agent.</p></>
+  return <><p>Uses a ready workspace managed by Forge for file work.</p><p>Forge prepares this project area for the agent.</p><p>Forge prepares this project workspace for the agent.</p></>
 }
 `,
     })
@@ -3252,7 +3284,15 @@ function HelpText() {
         }),
         expect.objectContaining({
           type: 'create-agent-work-area-copy',
+          sample: expect.stringContaining('Forge project area'),
+        }),
+        expect.objectContaining({
+          type: 'create-agent-work-area-copy',
           sample: expect.stringContaining('ready workspace managed by Forge'),
+        }),
+        expect.objectContaining({
+          type: 'create-agent-work-area-copy',
+          sample: expect.stringContaining('Forge prepares this project area'),
         }),
         expect.objectContaining({
           type: 'create-agent-work-area-copy',
@@ -3266,10 +3306,10 @@ function HelpText() {
     const cwd = fixture({
       'src/app/features/agents/CreateAgentModal.tsx': `
 function runtimeFitFor() {
-  return [{ label: 'Where it works', value: 'Forge project area' }]
+  return [{ label: 'Where it works', value: 'Shared project folder' }]
 }
 function HelpText() {
-  return <><p>Forge prepares a safe project area for file work.</p><p>Forge prepares this project area for the agent.</p></>
+  return <><p>Forge opens the shared project folder for file work.</p><p>Forge opens the shared project folder for the agent.</p></>
 }
 `,
     })
@@ -3407,7 +3447,7 @@ const RUNTIME_LABELS = { container: 'Project files' }
 `,
       'src/app/features/agents/AgentKindBadge.tsx': `
 export function AgentKindBadge() {
-  return <span title="Works in a Forge project area. It can change files.">Project files</span>
+  return <span title="Works with shared project files. It can change files.">Project files</span>
 }
 `,
       'src/app/features/agents/AgentConfigTab.tsx': `
@@ -4341,11 +4381,11 @@ function CredentialStatusRow() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags default file work place copy that does not explain how to recover', () => {
+  it('flags project-file setup copy that does not explain how to recover', () => {
     const cwd = fixture({
       'src/app/features/settings/RuntimeSection.tsx': `
 export function RuntimeSection() {
-  return <RuntimeReadinessMetric label="Default file work place" value="Not set yet" />
+  return <RuntimeReadinessMetric label="Where project files open" value="Not set yet" />
 }
 `,
     })
@@ -4361,11 +4401,11 @@ export function RuntimeSection() {
     ])
   })
 
-  it('accepts default file work place copy that tells users to load setup first', () => {
+  it('accepts project-file setup copy that tells users to load setup first', () => {
     const cwd = fixture({
       'src/app/features/settings/RuntimeSection.tsx': `
 export function RuntimeSection() {
-  return <RuntimeReadinessMetric label="Default file work place" value="Load setup to choose where files open" />
+  return <RuntimeReadinessMetric label="Where project files open" value="Load setup to choose where project files open" />
 }
 `,
     })
@@ -4456,11 +4496,11 @@ function runtimeCliErrorMessage() {
 }
 
 function runtimeSettingsErrorMessage() {
-  return 'Choose an available file work place and work tool, then save again. Agent work setup could not be saved.'
+  return 'Choose where project files open and a work tool, then save again. Agent work setup could not be saved.'
 }
 
 function runtimeSettingsFallback() {
-  return 'Check the file work place and work tool choices, then save Agent work setup again. If it still fails, ask an owner or admin to check Agent work setup in Settings.'
+  return 'Check where project files open and the work tool choice, then save Agent work setup again. If it still fails, ask an owner or admin to check Agent work setup in Settings.'
 }
 `,
       'src/app/features/settings/RuntimeSection.tsx': `
@@ -4583,31 +4623,31 @@ export const en = {
     )
   })
 
-  it('accepts agent work setup labels that explain where files open', () => {
+  it('accepts agent work setup labels that explain where project files open', () => {
     const cwd = fixture({
       'src/app/features/settings/RuntimeSection.tsx': `
 export function RuntimeSection() {
   return (
     <>
-      <RuntimeReadinessMetric label="Default file work place" value="Project files" />
-      <SettingRow label="Places agents can edit files" />
-      <RuntimeChecklistRow title="Default file work place and tool" />
-      <p>Choose where new agents edit files and which tool, such as Claude or Codex, opens the work.</p>
+      <RuntimeReadinessMetric label="Where project files open" value="Project files" />
+      <SettingRow label="Places that can open project files" />
+      <RuntimeChecklistRow title="Where project files open and tool" />
+      <p>Choose where new agents open project files and which tool, such as Claude or Codex, opens the work.</p>
     </>
   )
 }
 `,
       'src/app/features/settings/runtimeErrorMessages.ts': `
 export function message() {
-  return 'Check the file work place and work tool choices, then save Agent work setup again.'
+  return 'Check where project files open and the work tool choice, then save Agent work setup again.'
 }
 `,
       'src/app/shared/i18n/locales/en.ts': `
 export const en = {
   settings: {
     runtime: {
-      defaultRuntimeLabel: 'Default file work place',
-      availableRuntimesLabel: 'Places agents can edit files',
+      defaultRuntimeLabel: 'Where project files open',
+      availableRuntimesLabel: 'Places that can open project files',
     },
   },
 }
@@ -8149,15 +8189,19 @@ function EmptyState() {
 function describeKeyType(keyType) {
   if (keyType === 'ssh-ed25519') return 'Modern key type'
   if (keyType === 'ssh-rsa') return 'RSA key type'
+  return 'Ask an admin to check this SSH key'
 }
 const SSH_KEY_SETUP_STEPS = [
+  { label: 'Name where it is used', value: 'Use a device, team, or code project name.' },
+  { label: 'Paste the shareable public key line', value: 'Copy only the shareable one-line public key from the .pub file.' },
+  { label: 'Keep the private key secret', value: 'Never paste a private key file.' },
   { label: 'Paste the public line', value: 'Copy only the one-line .pub key that starts with ssh-ed25519 or ssh-rsa.' },
 ]
 function AddSshKeyForm() {
-  return <label>Public key line</label>
+  return <label>Shareable public key line</label>
 }
 function validation() {
-  return 'Paste the public key line before saving.'
+  return 'Paste the shareable public key line before saving.'
 }
 function savedMessage() {
   return 'SSH code access saved. Create a small task with a git@ code link to confirm agents can open it. If it cannot read the repository, come back here and replace this key.'
@@ -8166,18 +8210,18 @@ const tableHeaders = [{ label: 'Safety check' }, { label: 'Key type' }]
 `,
       'src/app/features/settings/sshKeysErrorMessage.ts': `
 export function sshKeysErrorMessage() {
-  return 'Paste the public key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
+  return 'Paste the shareable public key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
 }
 export function duplicateMessage() {
-  return 'Choose the saved access or remove the old one first. This public key line is already saved.'
+  return 'Choose the saved access or remove the old one first. This shareable public key line is already saved.'
 }
 export function requiredMessage() {
-  return 'Check the access name and public key line, then try again.'
+  return 'Check the access name and shareable public key line, then try again.'
 }
 `,
       'src/app/shared/model/settings.store.ts': `
 export function settingsActionErrorMessage() {
-  return 'Add a name for this access, paste the public key line, then save again.'
+  return 'Add a name for this access, paste the shareable public key line, then save again.'
 }
 `,
     })
@@ -8197,6 +8241,22 @@ export function settingsActionErrorMessage() {
         }),
         expect.objectContaining({
           type: 'ssh-code-access-jargon-copy',
+          sample: expect.stringContaining('Ask an admin to check this SSH key'),
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-jargon-copy',
+          sample: expect.stringContaining('Name where it is used'),
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-jargon-copy',
+          sample: expect.stringContaining('Paste the shareable public key line'),
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-jargon-copy',
+          sample: expect.stringContaining('Keep the private key secret'),
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-jargon-copy',
           sample: expect.stringContaining('Paste the public line'),
         }),
         expect.objectContaining({
@@ -8205,11 +8265,11 @@ export function settingsActionErrorMessage() {
         }),
         expect.objectContaining({
           type: 'ssh-code-access-jargon-copy',
-          sample: expect.stringContaining('Public key line'),
+          sample: expect.stringContaining('Shareable public key line'),
         }),
         expect.objectContaining({
           type: 'ssh-code-access-jargon-copy',
-          sample: expect.stringContaining('Paste the public key line'),
+          sample: expect.stringContaining('Paste the shareable public key line'),
         }),
         expect.objectContaining({
           type: 'ssh-code-access-jargon-copy',
@@ -8225,60 +8285,62 @@ export function settingsActionErrorMessage() {
         }),
         expect.objectContaining({
           type: 'ssh-code-access-jargon-copy',
-          sample: expect.stringContaining('Paste the public key line that starts'),
+          sample: expect.stringContaining('Paste the shareable public key line that starts'),
         }),
         expect.objectContaining({
           type: 'ssh-code-access-jargon-copy',
-          sample: expect.stringContaining('This public key line'),
+          sample: expect.stringContaining('This shareable public key line'),
         }),
         expect.objectContaining({
           type: 'ssh-code-access-jargon-copy',
-          sample: expect.stringContaining('access name and public key line'),
+          sample: expect.stringContaining('access name and shareable public key line'),
         }),
         expect.objectContaining({
           type: 'ssh-code-access-jargon-copy',
-          sample: expect.stringContaining('paste the public key line'),
+          sample: expect.stringContaining('paste the shareable public key line'),
         }),
       ])
     )
   })
 
-  it('accepts SSH code access setup copy that explains the shareable public key line', () => {
+  it('accepts SSH code access setup copy that explains the safe public key line', () => {
     const cwd = fixture({
       'src/app/features/settings/SshKeysSection.tsx': `
 function describeKeyType(keyType) {
-  if (keyType === 'ssh-ed25519') return 'Recommended SSH key'
-  if (keyType === 'ssh-rsa') return 'Older SSH key'
-  return 'Ask an admin to check this SSH key'
+  if (keyType === 'ssh-ed25519') return 'Recommended for new access'
+  if (keyType === 'ssh-rsa') return 'Works, but older'
+  return 'Ask an admin to check this saved key'
 }
 const SSH_KEY_SETUP_STEPS = [
-  { label: 'Paste the shareable public key line', value: 'Copy only the shareable one-line public key from the .pub file. It starts with ssh-ed25519 or ssh-rsa.' },
+  { label: 'Name the computer or team', value: 'Use a name people will recognize, like Work laptop.' },
+  { label: 'Paste the safe public key line', value: 'Copy the one-line public key from the .pub file. It usually starts with ssh-ed25519 or ssh-rsa.' },
+  { label: 'Never paste the private key', value: 'If the text says BEGIN PRIVATE KEY, stop and copy the .pub line instead.' },
 ]
 function AddSshKeyForm() {
-  return <label>Shareable public key line</label>
+  return <label>Safe public key line</label>
 }
 function validation() {
-  return 'Paste the shareable public key line before saving.'
+  return 'Paste the safe public key line before saving.'
 }
 function savedMessage() {
-  return 'SSH code access saved. Create a small task with a git@ code link to confirm agents can open it. If agents cannot open the code, come back here and replace this key.'
+  return 'SSH code access saved. Create a small task with a git@ private code link to confirm agents can open it. If agents cannot open the code, come back here and replace this key.'
 }
 const tableHeaders = [{ label: 'Saved key check code' }, { label: 'Accepted by Forge' }]
 `,
       'src/app/features/settings/sshKeysErrorMessage.ts': `
 export function sshKeysErrorMessage() {
-  return 'Paste the shareable public key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
+  return 'Paste the safe public key line from the .pub file, then save again.'
 }
 export function duplicateMessage() {
-  return 'Choose the saved access or remove the old one first. This shareable public key line is already saved.'
+  return 'Choose the saved access or remove the old one first. This safe public key line is already saved.'
 }
 export function requiredMessage() {
-  return 'Check the access name and shareable public key line, then try again.'
+  return 'Check the access name and safe public key line, then try again.'
 }
 `,
       'src/app/shared/model/settings.store.ts': `
 export function settingsActionErrorMessage() {
-  return 'Add a name for this access, paste the shareable public key line, then save again.'
+  return 'Add a name for this access, paste the safe public key line, then save again.'
 }
 `,
     })

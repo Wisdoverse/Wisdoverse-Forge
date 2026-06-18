@@ -288,16 +288,16 @@ function settingsValidationMessage(
       return 'Add a name for this SSH code access, then save again.'
     }
     if (normalized.includes('private key') || normalized.includes('begin private key')) {
-      return 'Paste only the shareable one-line public key that starts with ssh-ed25519 or ssh-rsa, then save again. Do not paste a private key block.'
+      return 'Paste only the safe one-line public key from the .pub file, then save again. Do not paste a private key block.'
     }
     if (
       normalized.includes('public key') ||
       normalized.includes('ssh key') ||
       normalized.includes('key')
     ) {
-      return 'Paste the shareable public key line that starts with ssh-ed25519 or ssh-rsa, then save again.'
+      return 'Paste the safe public key line from the .pub file, then save again.'
     }
-    return 'Add a name for this access, paste the shareable public key line, then save again.'
+    return 'Add a name for this access, paste the safe public key line, then save again.'
   }
 
   if (area === 'resourceProfiles') {

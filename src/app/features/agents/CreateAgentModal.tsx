@@ -167,8 +167,8 @@ function runtimeFitFor(
       title: `${cliToolLabel(cliTool)} with project files`,
       detail: 'Best when the task needs project files or work tools prepared by Forge.',
       items: [
-        { label: 'Where it works', value: 'Forge project area' },
-        { label: 'Files', value: 'Project files included' },
+        { label: 'Where it works', value: 'Shared project folder' },
+        { label: 'Files', value: 'Project files are included' },
         { label: 'Before use', value: 'Check Agent work setup in Settings' },
       ],
     }
@@ -843,7 +843,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
                   {kind === 'provider'
                     ? 'Fills in name and instructions'
-                    : 'Fills in the agent name'}
+                    : 'Fills in name and starter task instructions'}
                 </span>
               </div>
               <div
@@ -939,7 +939,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {kind === 'cli'
-                  ? 'Forge prepares a safe project area for file and command work.'
+                  ? 'Forge opens the shared project folder for file and command work.'
                   : kind === 'local-cli'
                     ? 'Uses files and commands on your computer. Forge still manages the agent here with tasks, status, and history.'
                     : 'Uses a connected AI service for planning, writing, and review. It does not open files or run commands.'}
@@ -1003,7 +1003,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 {selectedProject
                   ? kind === 'local-cli'
                     ? 'Project ready. Tasks default to this project. File access stays on the joined computer.'
-                    : 'Project ready. Tasks default to this project. Forge prepares this project area for the agent.'
+                    : 'Project ready. Tasks default to this project. Forge opens the shared project folder for this agent.'
                   : 'Open project settings to create or choose a project before assigning tasks. The agent can still be created first.'}
               </p>
               {!selectedProject && onOpenProjectsSetup ? (

@@ -252,11 +252,11 @@ export function RuntimeSection() {
 
         <div className="mt-4 grid gap-3 md:grid-cols-4">
           <RuntimeReadinessMetric
-            label="Default file work place"
+            label="Where project files open"
             value={
               runtimeSettings
                 ? runtimeLabel(runtimeSettings.defaultRuntime)
-                : 'Load setup to choose where files open'
+                : 'Load setup to choose where project files open'
             }
             ready={Boolean(
               runtimeSettings?.availableRuntimes.includes(runtimeSettings.defaultRuntime)
@@ -267,7 +267,7 @@ export function RuntimeSection() {
             value={
               cliToolDetails.length > 0
                 ? `${reportedVersionCount}/${cliToolDetails.length} work tools ready`
-                : 'Check setup after tools finish.'
+                : 'Check setup after tools finish. If this stays here, ask an owner to finish tool setup.'
             }
             ready={cliToolDetails.length > 0 && reportedVersionCount === cliToolDetails.length}
           />
@@ -276,7 +276,7 @@ export function RuntimeSection() {
             value={
               latestHeartbeat
                 ? formatRelativeTime(latestHeartbeat)
-                : 'Start an agent, then check again.'
+                : 'Start or wake an agent, then choose Check setup.'
             }
             ready={Boolean(latestHeartbeat)}
           />
@@ -285,7 +285,7 @@ export function RuntimeSection() {
             value={
               cliStatuses.length > 0
                 ? `${connectedCredentialCount}/${cliStatuses.length} signed in`
-                : 'No sign-ins needed'
+                : 'No extra sign-ins needed'
             }
             ready={cliStatuses.length === 0 || disconnectedCredentials.length === 0}
           />
@@ -539,7 +539,7 @@ function RuntimeNextStepPanel({
           </h3>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
             {allReady
-              ? 'The file work place, work tools, sign-ins, and online status are ready.'
+              ? 'Where project files open, work tools, sign-ins, and online status are ready.'
               : item?.detail}
           </p>
           <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -747,12 +747,12 @@ function runtimeLaunchChecklistItems(
     runtimeSettings.availableCliTools.includes(runtimeSettings.defaultCliTool)
   items.push({
     id: 'defaults',
-    title: 'Default file work place and tool',
+    title: 'Where project files open and tool',
     detail: defaultRuntimeReady
       ? `${runtimeLabel(runtimeSettings.defaultRuntime)} with ${cliToolLabel(
           runtimeSettings.defaultCliTool
         )} is selected for new agents.`
-      : 'Choose where new agents edit files and which tool, such as Claude or Codex, opens the work.',
+      : 'Choose where new agents open project files and which tool, such as Claude or Codex, opens the work.',
     ready: defaultRuntimeReady,
   })
 
@@ -874,7 +874,7 @@ function fallbackRuntimeLabel(runtime: string): string {
     case 'container':
       return 'Project files'
     default:
-      return runtime.trim() ? 'Check file work place' : 'Refresh file work place'
+      return runtime.trim() ? 'Check where files open' : 'Refresh where files open'
   }
 }
 
