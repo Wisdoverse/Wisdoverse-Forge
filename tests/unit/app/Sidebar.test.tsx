@@ -390,7 +390,10 @@ describe('Sidebar', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: /copy project reference/i }))
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Select this project reference, then copy it manually: p1')
+    expect(alert).toHaveTextContent(
+      'Copy did not work. Select the project reference below and copy it yourself.'
+    )
+    expect(screen.getByTestId('project-copy-manual-value')).toHaveTextContent('p1')
     expect(alert).not.toHaveTextContent(/support reference/i)
     expect(alert).not.toHaveTextContent(/clipboard access/i)
     expect(alert).not.toHaveTextContent(/open project settings and copy it from there/i)
