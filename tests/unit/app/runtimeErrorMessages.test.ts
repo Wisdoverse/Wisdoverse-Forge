@@ -93,6 +93,13 @@ describe('runtimeErrorMessage', () => {
       'Wait a moment, then try again. Forge is receiving too many setup requests right now.'
     )
   })
+
+  test('turns changed setup status into a current-status check step', () => {
+    expectBeginnerMessage(
+      runtimeErrorMessage('loadAgentSignals', { statusCode: 409 }),
+      'Refresh this page, check the current status, then try again. The choices in Where agents work changed while you were working.'
+    )
+  })
 })
 
 describe('runtimeSettingsErrorMessage', () => {
@@ -164,5 +171,15 @@ describe('runtimeSettingsErrorMessage', () => {
       'Check where project files open and the work tool choice, then save Where agents work again. If it still fails, ask an owner or admin to check Where agents work in Settings.'
     )
     expect(message).not.toContain('unexpected')
+  })
+
+  test('turns changed work choices into a current-choices check step', () => {
+    expectBeginnerMessage(
+      runtimeSettingsErrorMessage({
+        status: 409,
+        reason: 'update runtime settings conflict',
+      }),
+      'Refresh Settings, check the current choices, then save again. The choices in Where agents work changed while you were working.'
+    )
   })
 })

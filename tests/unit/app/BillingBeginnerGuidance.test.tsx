@@ -130,11 +130,13 @@ describe('Billing beginner guidance', () => {
       { metric: 'agents', current: 9, limit: 10, percentUsed: 90 },
       { metric: 'events', current: 40, limit: 100, percentUsed: 40 },
       { metric: 'tokens', current: 1200, limit: 0, percentUsed: 0 },
+      { metric: 'custom_limit', current: 85, limit: 100, percentUsed: 85 },
     ]
 
     render(<UsageMeter metrics={metrics} />)
 
     expect(screen.getByText('Agents')).toBeInTheDocument()
+    expect(screen.getByText(/Agents your team can use to handle tasks/i)).toBeInTheDocument()
     expect(screen.getByText('Almost full')).toBeInTheDocument()
     expect(screen.getByText(/Archive unused agents or upgrade/i)).toBeInTheDocument()
     expect(screen.getByText('Work update history')).toBeInTheDocument()
@@ -147,7 +149,11 @@ describe('Billing beginner guidance', () => {
     expect(screen.getByText(/Messages and replies processed/i)).toBeInTheDocument()
     expect(screen.getByText('No limit set')).toBeInTheDocument()
     expect(screen.getByText('1.2K used')).toBeInTheDocument()
+    expect(screen.getByText('Custom Limit')).toBeInTheDocument()
+    expect(screen.getByText(/Check this limit before starting more work/i)).toBeInTheDocument()
     expect(screen.queryByText(/tokens/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/managed work actors/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Review this limit/i)).not.toBeInTheDocument()
   })
 
   test('gives invoices beginner-safe status descriptions and record links', () => {

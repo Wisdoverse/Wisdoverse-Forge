@@ -22,7 +22,7 @@ function formatExtraDetails(data: Record<string, unknown>): string {
     )
     return lines.length > 0 ? lines.join('\n') : 'No extra details were recorded.'
   } catch {
-    return 'Extra details were recorded but could not be shown safely. Review the summary above, then ask an owner or admin to check this task if needed.'
+    return 'Extra details were recorded but could not be shown safely. Check the summary above, then ask an owner or admin to check this task if needed.'
   }
 }
 

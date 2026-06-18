@@ -9,7 +9,7 @@ export function resourceMemberSelectionLostMessage(
   resourceLabel: ResourceMemberResourceLabel
 ): string {
   const resource = resourceLabel.toLowerCase()
-  return `This ${resource} is no longer selected. Close members, choose the ${resource} again, then add or change people.`
+  return `This ${resource} is no longer selected. Close Members, choose the ${resource} again, then add or change people.`
 }
 
 export function resourceMemberErrorMessage(
@@ -29,10 +29,10 @@ export function resourceMemberErrorMessage(
   }
 
   if (status === 401) {
-    return `Sign in again, then reopen members for this ${resource}.`
+    return `Sign in again, then open Members for this ${resource}.`
   }
   if (status === 403) {
-    return `Ask an owner or admin to give you access to manage people here, then reopen members for this ${resource}. You do not have permission right now.`
+    return `Ask an owner or admin to give you access to manage people here, then open Members for this ${resource}. You do not have permission right now.`
   }
   if (status === 404) {
     return `Refresh members or choose another ${resource}. People for this ${resource} are not available.`
@@ -55,7 +55,7 @@ export function resourceMemberErrorMessage(
 
 function memberConnectionMessage(action: ResourceMemberErrorAction, resource: string): string {
   if (action === 'load') {
-    return `Check your connection, then reopen members for this ${resource}.`
+    return `Check your connection, then open Members for this ${resource}.`
   }
   const operation = 'updating people access'
   return `Check your connection, then ${retrySummary(action, resource)}. Forge could not connect while ${operation}.`
@@ -85,7 +85,7 @@ function actionSummary(action: ResourceMemberErrorAction, resource: string): str
 function retrySummary(action: ResourceMemberErrorAction, resource: string): string {
   switch (action) {
     case 'load':
-      return `reopen members for this ${resource}`
+      return `open Members for this ${resource}`
     case 'add':
       return `add the person again`
     case 'updateRole':

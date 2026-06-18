@@ -252,6 +252,8 @@ describe('ContextEvidenceList', () => {
     fireEvent.click(screen.getByText('Show saved details'))
 
     expect(screen.getByText(/Saved details were recorded but could not be shown safely/i)).toBeDefined()
+    expect(screen.getByText(/Check the summary above/i)).toBeDefined()
+    expect(screen.queryByText(/Review the summary above/i)).toBeNull()
     expect(screen.queryByText(/Full record details/i)).toBeNull()
   })
 

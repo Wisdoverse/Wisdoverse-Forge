@@ -203,6 +203,13 @@ describe('settingsActionErrorMessage', () => {
     expect(message).not.toContain('runtime writes')
   })
 
+  test('turns settings conflicts into a current-value check step', () => {
+    expectBeginnerError(
+      settingsActionErrorMessage('providers', 'save', statusError(409, 'conflict')),
+      'This AI service changed or already exists. Refresh the list, check the current value, then try again.'
+    )
+  })
+
   test('uses the Where agents work page name for runtime validation failures', () => {
     const message = settingsActionErrorMessage('runtime', 'update', {
       status: 422,

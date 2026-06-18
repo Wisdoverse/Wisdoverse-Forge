@@ -31,7 +31,7 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   }
 
   if (status === 409) {
-    return 'Refresh this page, review the current status, then try again. The choices in Where agents work changed while you were working.'
+    return 'Refresh this page, check the current status, then try again. The choices in Where agents work changed while you were working.'
   }
 
   if (status === 422) {
@@ -87,8 +87,8 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
 
   if (status === 409) {
     return isSaveAction
-      ? 'Refresh Settings, review the current choices, then save again. The choices in Where agents work changed while you were working.'
-      : 'Refresh Settings, review the current choices, then try again. The choices in Where agents work changed while you were working.'
+      ? 'Refresh Settings, check the current choices, then save again. The choices in Where agents work changed while you were working.'
+      : 'Refresh Settings, check the current choices, then try again. The choices in Where agents work changed while you were working.'
   }
 
   if (status === 422) {

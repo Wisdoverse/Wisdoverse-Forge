@@ -250,7 +250,7 @@ export function ResourceMembersModal({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close members dialog"
+            aria-label="Close Members dialog"
             title="Close"
             className="flex h-8 w-8 shrink-0 touch-manipulation items-center justify-center rounded-lg text-secondary-light transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/40 dark:text-secondary-dark dark:hover:bg-white/5"
           >

@@ -28,9 +28,15 @@ describe('LegalPage', () => {
 
     const text = document.body.textContent ?? ''
     expect(text).toContain('self-hosted governed AI workbench for teams')
-    expect(text).toContain('Agent management for creating, starting, stopping, and reviewing')
+    expect(text).toContain(
+      'Agent controls for creating, starting, stopping, and reviewing agents that handle team tasks'
+    )
     expect(text).toContain('Result records, saved notes, and saved instructions')
+    expect(text).toContain("Team and project controls for keeping each organization's work separated")
     expect(text).toContain('Setup tools for troubleshooting and supported automation')
+    expect(text).not.toContain('managed AI agents')
+    expect(text).not.toContain('managed agents')
+    expect(text).not.toContain('workspace controls')
     expect(text).not.toContain('Operator tools')
     expect(text).not.toContain('3D visualization platform')
     expect(text).not.toContain('Claude Code')
@@ -44,12 +50,21 @@ describe('LegalPage', () => {
     page.show('privacy')
 
     const text = document.body.textContent ?? ''
+    expect(text).toContain('Sign-in option details')
     expect(text).toContain(
       'Service request records, such as the action requested, status, and time'
     )
     expect(text).toContain('Login sessions are signed and expire automatically')
     expect(text).toContain('Saved login sessions and access keys are revoked')
+    expect(text).toContain(
+      'core Wisdoverse Forge agent, task, saved work, and team space features'
+    )
+    expect(text).toContain(
+      'confirm who you are and let you open the parts of the Service your role allows'
+    )
     expect(text).toContain('live task, agent, and saved work updates')
+    expect(text).toContain('team workflows across agents that handle team tasks')
+    expect(text).toContain('required login cookies needed to keep you signed in')
     expect(text).toContain('slow abusive requests')
     expect(text).toContain('security history records')
     expect(text).toContain('change history')
@@ -58,8 +73,10 @@ describe('LegalPage', () => {
     expect(text).toContain('Navigation and layout preferences')
     expect(text).toContain('Login session data that keeps you signed in')
     expect(text).not.toContain('Visual workspace preferences')
+    expect(text).not.toContain('workspace functionality')
     expect(text).not.toContain('rate limiting')
     expect(text).not.toContain('configuration settings')
+    expect(text).not.toContain('managed agents')
     expect(text).not.toContain('audit logging')
     expect(text).not.toContain('audit logs')
     expect(text.toLowerCase()).not.toContain('event history')
@@ -76,5 +93,10 @@ describe('LegalPage', () => {
     expect(text).not.toContain('Refresh tokens')
     expect(text).not.toContain('SSO')
     expect(text).not.toContain('evidence updates')
+    expect(text).not.toContain('Sign-in provider identifiers')
+    expect(text).not.toContain('authenticate your identity')
+    expect(text).not.toContain('authorize access to protected resources')
+    expect(text).not.toContain('essential login cookies')
+    expect(text).not.toContain('authentication and security purposes')
   })
 })

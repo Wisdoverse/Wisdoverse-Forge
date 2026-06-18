@@ -105,6 +105,13 @@ describe('accountErrorMessage', () => {
     expect(message).not.toContain('Details:')
   })
 
+  test('turns team space conflicts into a current-name check step', () => {
+    expectBeginnerMessage(
+      accountErrorMessage('renameOrganization', { statusCode: 409 }),
+      'Refresh team space settings, check the current name, then try again. This team space changed while you were editing.'
+    )
+  })
+
   test('turns account rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       accountErrorMessage('changePassword', { statusCode: 429 }),
