@@ -250,7 +250,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
           Project creation steps
         </p>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Use projects to keep one work area&apos;s tasks, files, and saved work records together.
+          Use projects to keep one work area&apos;s tasks, files, and saved work together.
         </p>
         <ol className="mt-2 list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
           {PROJECT_SETUP_STEPS.map((step) => (

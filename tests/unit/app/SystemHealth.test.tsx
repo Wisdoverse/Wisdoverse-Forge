@@ -46,8 +46,9 @@ describe('SystemHealth', () => {
     expect(screen.getByText('Saved Data')).toBeDefined()
     expect(screen.getByText('Keeps saved work available')).toBeDefined()
     expect(
-      screen.getByText(/Keeps accounts, tasks, work history, saved work records, and settings/i)
+      screen.getByText(/Keeps accounts, tasks, work history, saved work, and settings/i)
     ).toBeDefined()
+    expect(screen.queryByText(/saved work records/i)).toBeNull()
     expect(screen.getByText('Helps pages load quickly')).toBeDefined()
     expect(screen.getByText('Shows new progress in the browser')).toBeDefined()
     expect(screen.getByText(/Shows progress from running agents in the browser/i)).toBeDefined()

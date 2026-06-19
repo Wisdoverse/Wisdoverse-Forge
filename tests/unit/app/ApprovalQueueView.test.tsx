@@ -140,7 +140,7 @@ describe('ApprovalQueueView', () => {
     expect(screen.getByText('Use stable credentials')).toBeDefined()
   })
 
-  test('labels recorded saved-item decisions without approval jargon', async () => {
+  test('labels saved-item decisions without approval jargon', async () => {
     listContextCandidates.mockResolvedValue([
       { ...candidate, id: 'candidate-saved', state: 'approved' },
       { ...candidate, id: 'candidate-not-saved', state: 'rejected' },
@@ -152,6 +152,8 @@ describe('ApprovalQueueView', () => {
     expect(await screen.findByText('Saved')).toBeDefined()
     expect(screen.getByText('Not saved')).toBeDefined()
     expect(screen.getByText('Replaced')).toBeDefined()
+    expect(screen.getAllByText('Decision saved').length).toBe(3)
+    expect(screen.queryByText('Decision recorded')).toBeNull()
     expect(screen.queryByText('Approved')).toBeNull()
     expect(screen.queryByText('Rejected')).toBeNull()
   })

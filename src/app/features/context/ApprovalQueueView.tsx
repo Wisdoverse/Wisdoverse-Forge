@@ -512,7 +512,7 @@ function CandidateRow({
           </>
         ) : (
           <span className="inline-flex h-9 items-center rounded-full bg-black/[0.04] px-3 text-ui-body font-medium text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-            Decision recorded
+            Decision saved
           </span>
         )}
       </div>

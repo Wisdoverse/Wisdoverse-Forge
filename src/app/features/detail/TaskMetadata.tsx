@@ -127,7 +127,7 @@ function taskMetadataGuidance(task: TaskSummary, hasAssignee: boolean): string {
     case 'failed':
       return taskFailurePreview(task.error)
     case 'canceled':
-      return 'The task was stopped intentionally. Open Updates to see the last recorded activity.'
+      return 'The task was stopped intentionally. Open Updates to see the latest saved activity.'
     default:
       return 'Open Updates to review the latest task activity.'
   }

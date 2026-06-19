@@ -70,8 +70,9 @@ describe('workspace setup create forms', () => {
     render(<CreateProjectForm teams={[]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
 
     expect(
-      screen.getByText(/keep one work area's tasks, files, and saved work records together/i)
+      screen.getByText(/keep one work area's tasks, files, and saved work together/i)
     ).toBeInTheDocument()
+    expect(screen.queryByText(/saved work records/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/receive tasks and evidence/i)).toBeNull()
     const status = screen.getByTestId('create-project-status')
     expect(within(status).getByText('Next: create a team first')).toBeInTheDocument()
