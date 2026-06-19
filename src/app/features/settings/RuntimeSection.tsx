@@ -7,7 +7,7 @@ import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
 import { getAgentApi } from '@app/shared/api/legacy'
 import { orchestrationApi, type ParticipantSummary } from '@app/shared/api/orchestration'
-import type { CliAuthProxyStatusEntry } from '@app/entities/agent'
+import type { CliAuthProxyProvider, CliAuthProxyStatusEntry } from '@app/entities/agent'
 import type { RuntimeSettings, RuntimeType, CliTool } from '@app/shared/api/legacy/settingsApi'
 import { runtimeErrorMessage, runtimeSettingsErrorMessage } from './runtimeErrorMessages'
 
@@ -30,6 +30,8 @@ interface RuntimeChecklistItem {
   actionLabel?: string
   provider?: string
 }
+
+type RuntimeSectionFocus = 'overview' | 'sign-ins'
 
 const RUNTIME_SETTINGS_LOAD_GUIDANCE =
   'Refresh this settings page to load Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.'
@@ -63,7 +65,7 @@ function SettingRow({ label, description, children }: SettingRowProps) {
 // RuntimeSection
 // ============================================================================
 
-export function RuntimeSection() {
+export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionFocus } = {}) {
   const { t } = useTranslation()
   const {
     runtimeSettings,
@@ -84,9 +86,18 @@ export function RuntimeSection() {
     setCliStatusLoading(true)
     setCliStatusError(null)
     try {
-      const response = await getAgentApi().getCliAuthProxyStatus()
-      setCliStatuses(response.ok ? response.statuses : [])
-      if (!response.ok) setCliStatusError(runtimeErrorMessage('loadCliSignIn', response))
+      const [statusResponse, providersResponse] = await Promise.all([
+        getAgentApi().getCliAuthProxyStatus(),
+        getAgentApi().getCliAuthProxyProviders(),
+      ])
+      const statuses = statusResponse.ok ? statusResponse.statuses : []
+      const providers = providersResponse.ok ? providersResponse.providers : []
+      setCliStatuses(mergeCliAuthProxyStatuses(providers, statuses))
+      if (!statusResponse.ok) {
+        setCliStatusError(runtimeErrorMessage('loadCliSignIn', statusResponse))
+      } else if (!providersResponse.ok && statuses.length === 0) {
+        setCliStatusError(runtimeErrorMessage('loadCliSignIn', providersResponse))
+      }
     } catch (err) {
       setCliStatuses([])
       setCliStatusError(runtimeErrorMessage('loadCliSignIn', err))
@@ -207,6 +218,26 @@ export function RuntimeSection() {
         <div role="alert" aria-live="polite" className={uiStyles.error}>
           {participantsError}
         </div>
+      )}
+
+      {focus === 'sign-ins' && (
+        <section
+          data-testid="runtime-sign-in-entry"
+          className="mb-4 rounded-lg border border-apple-blue/20 bg-apple-blue/[0.04] p-4"
+        >
+          <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+            Sign in to Codex and work tools
+          </h3>
+          <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
+            Start here when Codex asks for login, or when an agent says its work account needs
+            reconnecting. Choose Sign in next to OpenAI (Codex), finish the browser login, then
+            return here and choose Check again.
+          </p>
+          <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            If OpenAI (Codex) does not appear, choose Check again. If it still does not appear, ask
+            an owner or admin to check work tool sign-ins.
+          </p>
+        </section>
       )}
 
       <section
@@ -489,6 +520,23 @@ export function RuntimeSection() {
       </div>
     </div>
   )
+}
+
+function mergeCliAuthProxyStatuses(
+  providers: CliAuthProxyProvider[],
+  statuses: CliAuthProxyStatusEntry[]
+): CliAuthProxyStatusEntry[] {
+  const byProvider = new Map(statuses.map((status) => [status.provider, status]))
+  for (const provider of providers) {
+    if (byProvider.has(provider.name)) continue
+    byProvider.set(provider.name, {
+      provider: provider.name,
+      displayName: provider.displayName,
+      cliTool: provider.cliTool,
+      connected: false,
+    })
+  }
+  return Array.from(byProvider.values())
 }
 
 function RuntimeNextStepPanel({
