@@ -328,9 +328,10 @@ describe('UserManagement', () => {
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent('Refresh Admin to reload the user list.')
     expect(alert).toHaveTextContent(
-      'Refresh Admin, then try again. If it still fails, ask an owner or admin to check Admin setup and your Admin access.'
+      'Refresh Admin, then try again. If it still fails, ask an owner or admin to check your Admin access and this Admin page.'
     )
     expect(alert).not.toHaveTextContent('HTTP 503')
+    expect(alert).not.toHaveTextContent('Admin setup')
   })
 
   test('search submits a fresh first-page lookup', async () => {

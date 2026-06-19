@@ -130,7 +130,7 @@ function cliImageIssueNote(error: string, context: CliImageIssueContext): string
     detail.includes('permission') ||
     detail.includes('auth')
   ) {
-    return 'Ask an owner or admin to check tool package access, then choose Check now. Tool package access needs setup.'
+    return 'Ask an owner or admin to check tool package access in Admin, then choose Check now. This can block agent tool updates.'
   }
   if (
     detail.includes('connection') ||
@@ -165,7 +165,7 @@ function cliImageIssueNote(error: string, context: CliImageIssueContext): string
     return 'Old package cleanup could not finish. Ask an owner or admin to check tool package cleanup, then choose Check now.'
   }
 
-  return 'Choose Check now again. If it still fails, ask an owner or admin to check tool update setup.'
+  return 'Choose Check now again. If it still fails, ask an owner or admin to check Tool updates in Admin.'
 }
 
 function StateBadge({ state, label }: { state: CliImageToolState; label?: string }) {

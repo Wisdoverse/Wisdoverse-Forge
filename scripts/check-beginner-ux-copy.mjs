@@ -294,6 +294,16 @@ const ADMIN_STORE_ERROR_FAILURE_FIRST_PATTERNS = [
   /^\s*return\s+`The \$\{adminUserActionLabel\(action\)\} could not reach the server\b/,
 ]
 
+const ADMIN_SETUP_JARGON_PATTERNS = [
+  /\bcheck Admin setup\b/i,
+  /\bcheck setup\b/i,
+  /\bcheck app setup\b/i,
+  /\bapp health setup\b/i,
+  /\btool update setup\b/i,
+  /\bProject files setup\b/i,
+  /\bTool package access needs setup\b/i,
+]
+
 const RUNTIME_SHORT_LABEL_JARGON_PATTERNS = [
   /\bWork location not reported\b/i,
   /\bLocation missing\b/i,
@@ -2345,6 +2355,21 @@ function hasAdminLoadErrorDeadEndCopy(relFile, line) {
 function hasAdminStoreErrorFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/shared/model/admin.store.ts')) return false
   return ADMIN_STORE_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAdminSetupJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/admin/adminErrorCopy.ts') &&
+    !relFile.endsWith('src/app/features/admin/CliImagesPanel.tsx') &&
+    !relFile.endsWith('src/app/features/admin/SystemHealth.tsx') &&
+    !relFile.endsWith('src/app/features/admin/systemHealthErrorMessage.ts') &&
+    !relFile.endsWith('src/app/features/admin/OrganizationsPanel.tsx') &&
+    !relFile.endsWith('src/app/shared/model/admin.store.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ADMIN_SETUP_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasRuntimeShortLabelJargonCopy(relFile, line) {
@@ -4667,6 +4692,15 @@ function scanFile(file, relFile) {
         type: 'admin-store-error-copy',
         location,
         message: 'Admin store error copy must start with the next step for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAdminSetupJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'admin-setup-copy',
+        location,
+        message: 'Admin recovery copy must name the concrete Admin page instead of saying setup.',
         sample: line.trim(),
       })
     }

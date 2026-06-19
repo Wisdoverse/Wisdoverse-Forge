@@ -180,10 +180,11 @@ describe('AgentsPanel', () => {
     expect(within(error).queryByText('HTTP 503')).toBeNull()
     expect(
       within(error).getByText(
-        'Refresh Admin, then try again. If it still fails, ask an owner or admin to check Admin setup and your Admin access.'
+        'Refresh Admin, then try again. If it still fails, ask an owner or admin to check your Admin access and this Admin page.'
       )
     ).toBeDefined()
     expect(within(error).queryByText(/admin service/i)).toBeNull()
+    expect(within(error).queryByText(/Admin setup/i)).toBeNull()
   })
 
   test('guides admins when no agents exist yet', async () => {
