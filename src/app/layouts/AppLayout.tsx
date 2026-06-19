@@ -100,9 +100,8 @@ export function AppLayout({
     [navTeams, navProjects]
   )
 
-  // Auto-open the right panel when a task is selected — otherwise clicking a
-  // task card appears to do nothing (the detail panel only renders when the
-  // panel is expanded, and it defaults to collapsed on first load).
+  // Auto-open task details when a task is selected; the updates area starts
+  // collapsed on first load, so selecting a card must reveal the task.
   useEffect(() => {
     if (selectedTaskId) setPanelCollapsed(false)
   }, [selectedTaskId])
@@ -241,9 +240,9 @@ export function AppLayout({
           type="button"
           data-testid="activity-panel-toggle"
           onClick={() => setPanelCollapsed(false)}
-          aria-label="Show activity panel"
+          aria-label="Show live task updates"
           className="mt-2 flex h-9 items-center gap-2 self-start whitespace-nowrap rounded-full border border-black/[0.08] bg-white px-3 text-ui-caption font-medium text-secondary-light transition-colors hover:bg-black/[0.04] hover:text-foreground-light dark:border-white/[0.1] dark:bg-surface-dark dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
-          title="Show activity panel"
+          title="Show live task updates"
         >
           <PanelRightOpen size={15} strokeWidth={2} aria-hidden="true" />
           <span>Activity</span>

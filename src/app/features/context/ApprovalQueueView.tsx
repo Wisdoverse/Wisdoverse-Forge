@@ -571,7 +571,7 @@ function DecisionPanel({
     <div className="fixed inset-0 z-50 flex justify-end bg-black/35 backdrop-blur-sm">
       <button
         type="button"
-        aria-label="Close review panel"
+        aria-label="Close saved item review"
         className="hidden flex-1 md:block"
         onClick={onClose}
       />

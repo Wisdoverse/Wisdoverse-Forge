@@ -112,6 +112,8 @@ describe('ApprovalQueueView', () => {
     expect(within(dialog).queryByText(/support reference from Settings/i)).toBeNull()
     expect(within(dialog).getByText('Team only')).toBeDefined()
     expect(within(dialog).getByRole('button', { name: 'Review later' })).toBeDefined()
+    expect(screen.getByLabelText('Close saved item review')).toBeDefined()
+    expect(screen.queryByLabelText(/review panel/i)).toBeNull()
     expect(within(dialog).queryByRole('button', { name: /^Cancel$/ })).toBeNull()
 
     await userEvent.setup().selectOptions(screen.getByTestId('context-approval-scope-kind'), 'team')
