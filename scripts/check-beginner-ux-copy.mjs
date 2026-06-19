@@ -1902,6 +1902,7 @@ const NETWORK_FAILURE_FIRST_PATTERNS = [
 ]
 
 const FEEDBACK_FAILURE_FIRST_PATTERNS = [
+  /\bRefresh the task\b/i,
   /['"`]\s*You do not have permission to save feedback for this saved item\. Ask an owner/i,
   /['"`]\s*This saved item could not be found\. Refresh the task/i,
   /['"`]\s*This saved item changed while you were giving feedback\. Refresh the task/i,

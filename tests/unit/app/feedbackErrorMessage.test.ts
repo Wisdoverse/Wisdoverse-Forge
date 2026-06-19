@@ -54,18 +54,39 @@ describe('feedbackErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh the task, then save feedback again. Forge could not save feedback right now. If it still fails, ask an owner or admin to check saved item feedback access.'
+      'Open task details again, then save feedback again. Forge could not save feedback right now. If it still fails, ask an owner or admin to check saved item feedback access.'
     )
     expect(message).not.toContain('HTTP 503')
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('temporarily unavailable')
+    expect(message).not.toContain('Refresh the task')
   })
 
-  test('turns changed saved items into a refresh and retry step', () => {
+  test('turns changed saved items into a task details retry step', () => {
     expectBeginnerMessage(
       feedbackErrorMessage({ status: 409 }),
-      'Refresh the task, review this saved item, then save feedback again. This saved item changed while you were giving feedback.'
+      'Open task details again, check this saved item, then save feedback again. This saved item changed while you were giving feedback.'
     )
+  })
+
+  test('turns missing saved items into a task details step', () => {
+    const message = feedbackErrorMessage({ statusCode: 404 })
+
+    expectBeginnerMessage(
+      message,
+      'Open task details again, then choose this saved item again. This saved item could not be found.'
+    )
+    expect(message).not.toContain('Refresh the task')
+  })
+
+  test('turns missing saved-item context into a task details step', () => {
+    const message = feedbackErrorMessage(new Error('HTTP 422: {"message":"context missing"}'))
+
+    expectBeginnerMessage(
+      message,
+      'Open task details again, choose the saved item again, then save feedback.'
+    )
+    expect(message).not.toContain('Refresh the task')
   })
 
   test('turns busy feedback into a wait step', () => {
@@ -78,7 +99,7 @@ describe('feedbackErrorMessage', () => {
   test('keeps unknown save failures actionable', () => {
     expectBeginnerMessage(
       feedbackErrorMessage({ status: 418 }),
-      'Refresh the task, then save feedback again. Feedback could not be saved.'
+      'Open task details again, then save feedback again. Feedback could not be saved.'
     )
   })
 })

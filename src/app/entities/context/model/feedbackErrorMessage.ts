@@ -20,10 +20,10 @@ export function feedbackErrorMessage(error?: unknown): string {
     return 'Ask an owner or admin to give you access to this saved item, then save feedback again. You do not have permission to save feedback for this saved item.'
   }
   if (status === 404) {
-    return 'Refresh the task, then choose this saved item again. This saved item could not be found.'
+    return 'Open task details again, then choose this saved item again. This saved item could not be found.'
   }
   if (status === 409) {
-    return 'Refresh the task, review this saved item, then save feedback again. This saved item changed while you were giving feedback.'
+    return 'Open task details again, check this saved item, then save feedback again. This saved item changed while you were giving feedback.'
   }
   if (status === 400 || status === 422) {
     return validationMessage(detail)
@@ -32,10 +32,10 @@ export function feedbackErrorMessage(error?: unknown): string {
     return 'Wait a moment, then save this feedback again. Feedback is busy.'
   }
   if (status >= 500) {
-    return 'Refresh the task, then save feedback again. Forge could not save feedback right now. If it still fails, ask an owner or admin to check saved item feedback access.'
+    return 'Open task details again, then save feedback again. Forge could not save feedback right now. If it still fails, ask an owner or admin to check saved item feedback access.'
   }
 
-  return 'Refresh the task, then save feedback again. Feedback could not be saved.'
+  return 'Open task details again, then save feedback again. Feedback could not be saved.'
 }
 
 function statusFromError(error: unknown): number | null {
@@ -130,7 +130,7 @@ function validationMessage(detail: string | null): string {
     return 'Choose one feedback option for this saved item, then try again.'
   }
   if (normalized.includes('context')) {
-    return 'Refresh the task, choose the saved item again, then save feedback.'
+    return 'Open task details again, choose the saved item again, then save feedback.'
   }
   return 'Choose one feedback option for this saved item, then try again.'
 }

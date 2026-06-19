@@ -15156,6 +15156,9 @@ function service() {
 function fallback() {
   return 'Feedback could not be saved. Refresh the task and try again.'
 }
+function refreshFirst() {
+  return 'Refresh the task, then save feedback again. Feedback could not be saved.'
+}
 `,
     })
 
@@ -15188,6 +15191,10 @@ function fallback() {
           type: 'feedback-error-copy',
           location: 'src/app/entities/context/model/feedbackErrorMessage.ts:18',
         }),
+        expect.objectContaining({
+          type: 'feedback-error-copy',
+          location: 'src/app/entities/context/model/feedbackErrorMessage.ts:21',
+        }),
       ])
     )
   })
@@ -15199,19 +15206,19 @@ function permission() {
   return 'Ask an owner or admin to give you access to this saved item, then save feedback again. You do not have permission to save feedback for this saved item.'
 }
 function missing() {
-  return 'Refresh the task, then choose this saved item again. This saved item could not be found.'
+  return 'Open task details again, then choose this saved item again. This saved item could not be found.'
 }
 function changed() {
-  return 'Refresh the task, review this saved item, then save feedback again. This saved item changed while you were giving feedback.'
+  return 'Open task details again, check this saved item, then save feedback again. This saved item changed while you were giving feedback.'
 }
 function busy() {
   return 'Wait a moment, then save this feedback again. Feedback is busy.'
 }
 function service() {
-  return 'Refresh the task, then save feedback again. Forge could not save feedback right now.'
+  return 'Open task details again, then save feedback again. Forge could not save feedback right now.'
 }
 function fallback() {
-  return 'Refresh the task, then save feedback again. Feedback could not be saved.'
+  return 'Open task details again, then save feedback again. Feedback could not be saved.'
 }
 `,
     })
