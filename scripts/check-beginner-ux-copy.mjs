@@ -642,6 +642,11 @@ const START_NAV_LABEL_JARGON_PATTERNS = [
   /^\s*start:\s*['"`]开始['"`]/,
 ]
 
+const START_SETUP_EYEBROW_JARGON_PATTERNS = [
+  /^\s*eyebrow:\s*['"`]First run['"`]/,
+  /^\s*eyebrow:\s*['"`]首次使用['"`]/,
+]
+
 const START_PAGE_TITLE_JARGON_PATTERNS = [/['"`]\/start['"`]\s*:\s*\{\s*title:\s*['"`]Start['"`]/]
 
 const NAVIGATION_REVIEW_ACTION_JARGON_PATTERNS = [
@@ -3331,6 +3336,17 @@ function hasStartPageTitleJargonCopy(relFile, line) {
   return START_PAGE_TITLE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasStartSetupEyebrowJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return START_SETUP_EYEBROW_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasNavigationReviewActionJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/layouts/sidebar/SidebarNav.tsx') &&
@@ -5773,6 +5789,16 @@ function scanFile(file, relFile) {
         type: 'start-page-title-copy',
         location,
         message: 'The Start page title must say setup checklist so beginners know this is a guide.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasStartSetupEyebrowJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'start-setup-eyebrow-copy',
+        location,
+        message:
+          'The setup checklist eyebrow must not imply this is only a first-run tutorial after users can restore it from Settings.',
         sample: line.trim(),
       })
     }

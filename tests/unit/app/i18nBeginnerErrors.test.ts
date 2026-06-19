@@ -342,17 +342,25 @@ describe('beginner error translations', () => {
   })
 
   test('getting started first-run copy uses checklist wording', () => {
+    expect(en.gettingStarted.eyebrow).toBe('Setup checklist')
+    expect(en.gettingStarted.eyebrow).not.toBe('First run')
     expect(en.gettingStarted.title).toBe('Set up your first agent safely')
     expect(en.gettingStarted.description).toContain('Finish this checklist')
-    expect(`${en.gettingStarted.title} ${en.gettingStarted.description}`).not.toMatch(/\bpath\b/i)
+    expect(
+      `${en.gettingStarted.eyebrow} ${en.gettingStarted.title} ${en.gettingStarted.description}`
+    ).not.toMatch(/\b(first-run|first run|path|tutorial)\b/i)
     expect(en.gettingStarted.steps.workspace.title).toBe('Team and project')
     expect(en.gettingStarted.steps.workspace.create).toBe('Create team and project')
     expect(en.gettingStarted.steps.workspace.review).toBe('Check team and project')
     expect(JSON.stringify(en.gettingStarted.steps.workspace)).not.toContain('Workspace')
 
+    expect(zh.gettingStarted.eyebrow).toBe('设置清单')
+    expect(zh.gettingStarted.eyebrow).not.toBe('首次使用')
     expect(zh.gettingStarted.title).toBe('按清单安全设置第一个 Agent')
     expect(zh.gettingStarted.description).toContain('这份设置清单')
-    expect(`${zh.gettingStarted.title} ${zh.gettingStarted.description}`).not.toContain('路径')
+    expect(
+      `${zh.gettingStarted.eyebrow} ${zh.gettingStarted.title} ${zh.gettingStarted.description}`
+    ).not.toMatch(/首次使用|教程|路径/)
     expect(zh.gettingStarted.steps.workspace.title).toBe('团队和项目')
     expect(zh.gettingStarted.steps.workspace.create).toBe('创建团队和项目')
     expect(zh.gettingStarted.steps.workspace.review).toBe('查看团队和项目')

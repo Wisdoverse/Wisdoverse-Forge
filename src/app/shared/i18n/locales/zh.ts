@@ -84,7 +84,7 @@ export const zh: TranslationKeys = {
   // 新手开始
   // =========================================================================
   gettingStarted: {
-    eyebrow: '首次使用',
+    eyebrow: '设置清单',
     title: '按清单安全设置第一个 Agent',
     description: '一次只做一步。按这份设置清单创建 Agent、发送任务、检查结果。',
     skip: '跳过并打开任务',

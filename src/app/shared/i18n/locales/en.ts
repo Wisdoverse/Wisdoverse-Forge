@@ -83,7 +83,7 @@ export const en = {
   // Getting Started
   // =========================================================================
   gettingStarted: {
-    eyebrow: 'First run',
+    eyebrow: 'Setup checklist',
     title: 'Set up your first agent safely',
     description:
       'Follow one step at a time. Finish this checklist to create an agent, send work, and check the result.',
