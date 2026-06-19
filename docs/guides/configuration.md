@@ -166,15 +166,17 @@ Prerequisites: set `CLI_IMAGE_AUTO_UPDATE_ENABLED=true` and make Docker availabl
 to the Rust API service (the same requirement as `MCP_ENABLED=true`). The updater
 is deployment-global and has no tenant scope, because image state is per host.
 
-| Variable                              | Default                               | Purpose                                                                                                                                                  |
-| ------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CLI_IMAGE_AUTO_UPDATE_ENABLED`       | `false`                               | Enables the background CLI agent-image auto-updater                                                                                                      |
-| `CLI_IMAGE_AUTO_UPDATE_INTERVAL_SECS` | `900`                                 | Registry poll interval in seconds (15 min); clamped to a 60-second minimum                                                                               |
-| `CLI_IMAGE_PRUNE_ENABLED`             | `false`                               | Prunes superseded dangling agent overlays after each sweep; only runs when auto-update is on                                                             |
-| `CLI_IMAGE_CLAUDE_AUTO_BUILD`         | `false`                               | Builds the local `claude` image automatically when npm publishes a newer Claude Code; off = detect-only with a one-click Build button in the admin panel |
-| `CLI_IMAGE_NPM_REGISTRY`              | `https://registry.npmjs.org`          | npm registry base for the claude version check and build; point at a mirror (e.g. `https://registry.npmmirror.com`) behind restrictive networks          |
-| `AGENT_REGISTRY`                      | `ghcr.io/wisdoverse/wisdoverse-forge` | Registry base the updater pulls overlays from, as `${AGENT_REGISTRY}/agent-<tool>:<tag>`                                                                 |
-| `AGENT_CLI_IMAGE_TAG`                 | `latest`                              | Image tag the updater tracks, used as the `<tag>` in the remote ref above                                                                                |
+| Variable                                  | Default                               | Purpose                                                                                                                                                  |
+| ----------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CLI_IMAGE_AUTO_UPDATE_ENABLED`           | `false`                               | Enables the background CLI agent-image auto-updater                                                                                                      |
+| `CLI_IMAGE_AUTO_UPDATE_INTERVAL_SECS`     | `900`                                 | Registry poll interval in seconds (15 min); clamped to a 60-second minimum                                                                               |
+| `CLI_IMAGE_PRUNE_ENABLED`                 | `false`                               | Prunes superseded dangling agent overlays after each sweep; only runs when auto-update is on                                                             |
+| `CLI_IMAGE_CLAUDE_AUTO_BUILD`             | `false`                               | Builds the local `claude` image automatically when npm publishes a newer Claude Code; off = detect-only with a one-click Build button in the admin panel |
+| `CLI_IMAGE_NPM_REGISTRY`                  | `https://registry.npmjs.org`          | npm registry base for the claude version check and build; point at a mirror (e.g. `https://registry.npmmirror.com`) behind restrictive networks          |
+| `AGENT_REGISTRY`                          | `ghcr.io/wisdoverse/wisdoverse-forge` | Registry base the updater pulls overlays from, as `${AGENT_REGISTRY}/agent-<tool>:<tag>`                                                                 |
+| `AGENT_CLI_IMAGE_TAG`                     | `latest`                              | Image tag the updater tracks, used as the `<tag>` in the remote ref above                                                                                |
+| `AGENT_CONTAINER_RECONCILE_ENABLED`       | `true`                                | Periodic backstop that clears `agents.container_id` references whose container has vanished; no-ops without a Docker runtime                             |
+| `AGENT_CONTAINER_RECONCILE_INTERVAL_SECS` | `300`                                 | Reconcile sweep interval in seconds; must be greater than 0                                                                                              |
 
 Success looks like newly spawned agents picking up the current CLI overlay
 without an operator running `make update-agents` by hand. Confirm status at the

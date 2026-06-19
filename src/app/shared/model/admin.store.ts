@@ -123,18 +123,26 @@ export interface CliImagePruneStatus {
   lastError: string | null
 }
 
+/**
+ * The verified post-condition of rolling one agent. The stop path now inspects
+ * the container's real state, so these are facts, not guesses:
+ * - `respawned`: stopped, removed, and back up on the new image.
+ * - `respawn_failed`: confirmed stopped, but the restart failed (agent is DOWN).
+ * - `still_running`: confirmed still up on the previous image; nothing changed,
+ *   safe to retry.
+ * - `unconfirmed`: state could not be confirmed; the server reconcile backstop
+ *   converges it automatically.
+ */
+export type RollOutcome = 'respawned' | 'respawn_failed' | 'still_running' | 'unconfirmed'
+
 /** Per-agent outcome of a roll. */
 export interface RollAgentResult {
   agentId: string
   ok: boolean
-  /**
-   * Only meaningful when `ok` is false: `true` = container confirmed
-   * stopped+removed but the respawn failed (agent is DOWN — restart it);
-   * `false` = the stop did not complete cleanly, so the post-condition is
-   * UNCONFIRMED (may still be running on the previous image, or already down
-   * from a partial stop) — check the Agents view.
-   */
+  /** Backward-compatible flag: `true` only for `respawn_failed`. Prefer `outcome`. */
   stopped: boolean
+  /** The precise, verified post-condition. */
+  outcome: RollOutcome
   error?: string
 }
 

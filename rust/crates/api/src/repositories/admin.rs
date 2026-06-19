@@ -528,6 +528,35 @@ impl AdminRepository {
         .await?;
         Ok(rows)
     }
+
+    /// Every container-runtime agent that still references a container, with its
+    /// OWN tenant axes. The reconcile backstop inspects each against Docker and
+    /// clears the reference when the container is actually gone — converging rows
+    /// left stale by an unverified or partial stop. The
+    /// `runtime_kind = 'container'` filter mirrors the roll query so a cli/api
+    /// agent with an incidental `container_id` is never touched.
+    pub async fn container_agents_with_reference(&self) -> AppResult<Vec<ContainerAgentRef>> {
+        let rows = sqlx::query_as::<_, ContainerAgentRef>(
+            "SELECT id, organization_id, user_id, workspace_id, container_id \
+             FROM agents \
+             WHERE container_id IS NOT NULL AND runtime_kind = 'container'",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
+    }
+}
+
+/// One container-runtime agent that references a container, plus its OWN tenant
+/// axes, for the reconcile backstop. `container_id` is non-null by query
+/// construction.
+#[derive(Debug, Clone, FromRow)]
+pub struct ContainerAgentRef {
+    pub id: Uuid,
+    pub organization_id: Uuid,
+    pub user_id: Uuid,
+    pub workspace_id: Option<Uuid>,
+    pub container_id: String,
 }
 
 /// One roll target: a running container agent plus its OWN tenant axes, so the

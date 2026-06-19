@@ -14,8 +14,8 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::agent::{
-    AgentContainerEnvInput, AgentContainerEnvPolicy, AgentContainerImagePolicy, AgentContainerLifecyclePolicy,
-    AgentContainerRuntimePolicy, AgentContainerStartOutcome, ContainerAgent,
+    AgentContainerEnvInput, AgentContainerEnvPolicy, AgentContainerImagePolicy, AgentContainerRuntimePolicy,
+    AgentContainerStartOutcome, AgentContainerStopOutcome, ContainerAgent,
 };
 use crate::domain::context::{ContextFeature, ContextFeatureFlags};
 use crate::repositories::agent::AgentRepository;
@@ -271,6 +271,36 @@ impl AgentContainerControlService {
     }
 
     pub(crate) async fn stop(&self, scope: &TenantScope, agent_id: AgentId) -> AppResult<()> {
+        match self.stop_with_outcome(scope, agent_id).await? {
+            AgentContainerStopOutcome::Stopped => Ok(()),
+            AgentContainerStopOutcome::StillRunning => {
+                Err(AgentContainerRuntimePolicy::container_still_running_after_stop().into())
+            }
+            AgentContainerStopOutcome::Unconfirmed => {
+                Err(AgentContainerRuntimePolicy::stop_post_condition_unverified().into())
+            }
+        }
+    }
+
+    /// Stop and remove an agent's container, idempotently and with a verified
+    /// post-condition, then reconcile the DB row to match reality.
+    ///
+    /// FAANG-grade rollout safety: the previous implementation chained
+    /// `stop_container` → `remove_container` → `clear_container` with `?`, so
+    /// the first error aborted and left `agents.container_id` advertising a
+    /// container that might be gone, half-removed, or still running. Here each
+    /// Docker mutation is idempotent (a `NotFound`/404 means the desired
+    /// post-condition — the container's absence — already holds), each gets one
+    /// bounded retry to absorb transient daemon hiccups, and a final `inspect`
+    /// confirms the real state. The DB row is cleared whenever the container is
+    /// confirmed absent (including "already gone"); it is left untouched only
+    /// when the container is confirmed still running or its state is
+    /// unverifiable, in which case the reconcile backstop converges it later.
+    pub(crate) async fn stop_with_outcome(
+        &self,
+        scope: &TenantScope,
+        agent_id: AgentId,
+    ) -> AppResult<AgentContainerStopOutcome> {
         let docker = self.docker.as_ref().ok_or_else(AgentContainerRuntimePolicy::control_docker_unavailable)?;
         let aggregate = self.agents.find_aggregate(scope, agent_id.as_uuid()).await?;
         let kind = aggregate.runtime_kind();
@@ -284,18 +314,97 @@ impl AgentContainerControlService {
             r.into_app_error("Stop")
         })?;
         let inner = container.inner();
-        let container_id = AgentContainerLifecyclePolicy::running_container_id(inner.container_id.as_deref())?;
 
-        docker.stop_container(container_id, 30).await.map_err(AgentContainerRuntimePolicy::stop_container_failed)?;
+        // No container reference: nothing to stop. The row is already in the
+        // desired post-condition, so just reconcile defensively and report it.
+        let Some(container_id) = inner.container_id.as_deref() else {
+            self.reconcile_stopped_agent(scope, agent_id).await?;
+            return Ok(AgentContainerStopOutcome::Stopped);
+        };
+
+        // Step 1: stop (idempotent + one retry). A NotFound means it is already
+        // gone, which satisfies the post-condition.
+        idempotent_container_op(|| docker.stop_container(container_id, 30)).await;
 
         let container_name = format!("agentforge-agent-{}", agent_id.as_uuid());
         self.credentials.cleanup_oauth_mount_best_effort(agent_id.as_uuid(), &container_name).await;
 
-        docker
-            .remove_container(container_id, true)
-            .await
-            .map_err(AgentContainerRuntimePolicy::remove_container_after_stop_failed)?;
+        // Step 2: remove (idempotent + one retry).
+        idempotent_container_op(|| docker.remove_container(container_id, true)).await;
 
+        // Step 3: verify the post-condition by inspecting. NotFound = absent
+        // (success); Ok = still present (genuinely still running); other daemon
+        // error = unverifiable.
+        let outcome = match docker.inspect_container(container_id).await {
+            Err(err) if err.is_not_found() => AgentContainerStopOutcome::Stopped,
+            Ok(info) => {
+                tracing::warn!(
+                    agent_id = %agent_id,
+                    container_id = %container_id,
+                    status = ?info.status,
+                    "agent container still present after stop+remove; leaving DB row for reconciliation"
+                );
+                AgentContainerStopOutcome::StillRunning
+            }
+            Err(err) => {
+                tracing::warn!(
+                    error = %err,
+                    agent_id = %agent_id,
+                    container_id = %container_id,
+                    "could not verify agent container stopped; leaving DB row for reconciliation"
+                );
+                AgentContainerStopOutcome::Unconfirmed
+            }
+        };
+
+        // Step 4: reconcile the DB only when the container is confirmed absent.
+        if outcome == AgentContainerStopOutcome::Stopped {
+            self.reconcile_stopped_agent(scope, agent_id).await?;
+        }
+        Ok(outcome)
+    }
+
+    /// Reconcile backstop primitive: if `container_id` is absent from Docker,
+    /// clear the agent's stale reference and mark it offline; returns `true` when
+    /// it reconciled. A still-present container, an inspect error (transient
+    /// daemon issue — try again next sweep), or no Docker runtime all leave the
+    /// row untouched and return `false`. This converges rows left behind by an
+    /// `Unconfirmed`/`StillRunning` stop once the container actually goes away.
+    pub(crate) async fn reconcile_agent_if_container_absent(
+        &self,
+        scope: &TenantScope,
+        agent_id: AgentId,
+        container_id: &str,
+    ) -> AppResult<bool> {
+        let Some(docker) = self.docker.as_ref() else { return Ok(false) };
+        match docker.inspect_container(container_id).await {
+            Err(err) if err.is_not_found() => {
+                self.reconcile_stopped_agent(scope, agent_id).await?;
+                tracing::info!(
+                    agent_id = %agent_id,
+                    container_id = %container_id,
+                    "reconcile: cleared stale container reference for a vanished container"
+                );
+                Ok(true)
+            }
+            Ok(_) => Ok(false),
+            Err(err) => {
+                tracing::debug!(
+                    error = %err,
+                    agent_id = %agent_id,
+                    container_id = %container_id,
+                    "reconcile: inspect failed; leaving reference for the next sweep"
+                );
+                Ok(false)
+            }
+        }
+    }
+
+    /// Drive the DB + side-effect cleanup for an agent whose container is gone:
+    /// clear the container reference, mark the participant offline, and revoke
+    /// the agent's connection. Idempotent — safe to call from both the stop path
+    /// and the reconcile backstop.
+    async fn reconcile_stopped_agent(&self, scope: &TenantScope, agent_id: AgentId) -> AppResult<()> {
         self.agents.clear_container(scope, agent_id).await?;
         self.mark_participant_offline_best_effort(scope, agent_id).await;
         self.revoke_agent_connection(agent_id.as_uuid()).await;
@@ -357,6 +466,38 @@ impl AgentContainerControlService {
                 %agent_id,
                 "stop_agent: auth callout disabled — revocation falls back to JWT TTL (dev profile or NATS unconfigured)"
             ),
+        }
+    }
+}
+
+/// Run an idempotent Docker container mutation whose desired post-condition is
+/// "the container is absent". A `NotFound`/404 is treated as success (the
+/// post-condition already holds), and a transient daemon error gets one bounded
+/// retry after a short backoff. Errors are intentionally not propagated: the
+/// caller verifies the real state with a follow-up `inspect`, so a swallowed
+/// error here cannot mask an unconverged state — it only avoids aborting the
+/// stop sequence midway (the original non-atomic bug).
+async fn idempotent_container_op<F, Fut>(mut op: F)
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = Result<(), agentforge_platform::PlatformError>>,
+{
+    match op().await {
+        Ok(()) => {}
+        Err(err) if err.is_not_found() => {}
+        Err(first) => {
+            tracing::warn!(error = %first, "transient docker error during stop; retrying once");
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            match op().await {
+                Ok(()) => {}
+                Err(err) if err.is_not_found() => {}
+                Err(second) => {
+                    tracing::warn!(
+                        error = %second,
+                        "docker op still failing after retry; the post-condition inspect decides the outcome"
+                    );
+                }
+            }
         }
     }
 }

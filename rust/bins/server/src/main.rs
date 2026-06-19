@@ -638,6 +638,24 @@ async fn main() -> Result<()> {
         None
     };
 
+    // Agent container reconcile backstop — default-ON when a Docker runtime is
+    // present. Periodically clears `agents.container_id` references whose
+    // container has vanished (e.g. a roll stop that ended UNCONFIRMED),
+    // converging the DB with Docker reality so no agent is stranded as
+    // "still running" indefinitely. No-ops without a Docker daemon.
+    let agent_reconcile_handle = if env_flag("AGENT_CONTAINER_RECONCILE_ENABLED", true)? && state.docker.is_some() {
+        let interval = std::time::Duration::from_secs(env_secs("AGENT_CONTAINER_RECONCILE_INTERVAL_SECS", 300)?);
+        let worker = agentforge_api::services::agent_reconcile_worker::AgentContainerReconcileWorker::new(
+            state.clone(),
+            interval,
+        );
+        let worker_shutdown = shutdown_rx.clone();
+        Some(tokio::spawn(async move { worker.run(worker_shutdown).await }))
+    } else {
+        tracing::info!("agent container reconcile worker disabled (flag off or no Docker runtime)");
+        None
+    };
+
     let app = create_router(state);
 
     // 9. Bind and serve with graceful shutdown.
@@ -715,6 +733,12 @@ async fn main() -> Result<()> {
     match dependency_reconcile_handle.await {
         Ok(()) => {}
         Err(err) => tracing::warn!(error = %err, "dependency reconcile worker join failed"),
+    }
+    if let Some(handle) = agent_reconcile_handle {
+        match handle.await {
+            Ok(()) => {}
+            Err(err) => tracing::warn!(error = %err, "agent container reconcile worker join failed"),
+        }
     }
 
     tracing::info!("Server shut down gracefully");
