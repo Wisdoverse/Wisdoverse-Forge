@@ -188,8 +188,8 @@ export function EditableTeamRow({
                 setConfirmingDelete(false)
               }}
               disabled={saving || !onManageMembers}
-              aria-label={`Manage members for ${team.name}`}
-              title="Members"
+              aria-label={`Manage people and access for ${team.name}`}
+              title="Manage people and access"
               className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-lg text-ui-button text-secondary-light transition-colors hover:bg-apple-blue/10 hover:text-apple-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-apple-blue/15 dark:hover:text-apple-blue"
             >
               <Users size={14} strokeWidth={2} aria-hidden="true" />
@@ -202,7 +202,7 @@ export function EditableTeamRow({
               }}
               disabled={saving}
               aria-label={`Edit ${team.name}`}
-              title="Edit"
+              title="Rename team"
               className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-lg text-ui-button text-secondary-light transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/5"
             >
               <Pencil size={14} strokeWidth={2} aria-hidden="true" />
@@ -215,7 +215,7 @@ export function EditableTeamRow({
             onClick={() => void handleDelete()}
             disabled={saving}
             aria-label={`Delete ${team.name}`}
-            title="Delete"
+            title="Delete team"
             className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-lg text-ui-button text-secondary-light transition-colors hover:bg-apple-red/10 hover:text-apple-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-apple-red/10 dark:hover:text-apple-red"
           >
             <Trash2 size={14} strokeWidth={2} aria-hidden="true" />
