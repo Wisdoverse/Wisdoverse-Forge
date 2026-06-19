@@ -327,6 +327,8 @@ describe('ProvidersSection', () => {
     fireEvent.click(screen.getByRole('button', { name: /custom service address/i }))
 
     expect(screen.getByText('3 steps to connect an AI account')).toBeDefined()
+    expect(screen.getByText(/Use this only when an owner or service guide/i)).toBeDefined()
+    expect(screen.getByText(/go back to Known AI services/i)).toBeDefined()
     expect(screen.getByText('Paste the service access key')).toBeDefined()
     expect(screen.getAllByText(/service access key from that AI account/i).length).toBeGreaterThan(
       0
@@ -345,6 +347,7 @@ describe('ProvidersSection', () => {
     expect(screen.getByLabelText(/service address/i)).toBeDefined()
     expect(screen.queryByLabelText(/^private key/i)).toBeNull()
     expect(screen.queryByText(/gateway setup path/i)).toBeNull()
+    expect(screen.queryByText(/bring-your-own endpoint/i)).toBeNull()
   })
 
   test('does not treat disabled-only providers as ready', async () => {
