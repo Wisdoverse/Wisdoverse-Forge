@@ -1751,6 +1751,7 @@ const TEAM_PROJECT_CREATE_JARGON_PATTERNS = [
   /\b(?:Team|Project) setup path\b/i,
   /\bAddress preview:/i,
   /\bWork folder preview:/i,
+  /\bShow support folder\b/i,
   /\bShow support folder path\b/i,
   /\bAutomatic link name\b/i,
   /\bAutomatic (?:team|project) name\b/i,

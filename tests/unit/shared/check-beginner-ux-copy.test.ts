@@ -14678,7 +14678,7 @@ function CreateTeamForm() {
 `,
       'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
 function CreateProjectForm() {
-  return <><p>Project setup path</p><p>Work folder preview: /workspace/app</p><summary>Show support folder path</summary><p>Automatic project name: app.</p><p>Project short name: app.</p></>
+  return <><p>Project setup path</p><p>Work folder preview: /workspace/app</p><summary>Show support folder</summary><summary>Show support folder path</summary><p>Automatic project name: app.</p><p>Project short name: app.</p></>
 }
 `,
     })
@@ -14721,7 +14721,7 @@ function CreateTeamForm() {
 `,
       'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
 function CreateProjectForm() {
-  return <><p>Project creation steps</p><p>Shown at the end of project links: app.</p><p>Agent work folder: /workspace/app</p></>
+  return <><p>Project creation steps</p><p>Shown at the end of project links: app.</p><summary>Show exact folder for troubleshooting</summary><p>Use this only if an owner, admin, or support message asks for the exact folder.</p><p>Exact folder: /workspace/app</p></>
 }
 `,
     })
