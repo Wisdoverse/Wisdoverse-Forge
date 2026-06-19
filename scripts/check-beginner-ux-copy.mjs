@@ -37,9 +37,10 @@ const SETTINGS_PATH_JARGON_PATTERNS = [
   /\bOpen Settings\s*&gt;\s*AI services\b/i,
 ]
 
-const API_FALLBACK_FAILURE_FIRST_PATTERNS = [
+const API_FALLBACK_UNHELPFUL_PATTERNS = [
   /\bForge could not finish this request\. Wait a moment, then try again\./i,
   /\bForge did not return a clear error\. Refresh, then try again\./i,
+  /\bRefresh, then try again\. Forge did not return a clear error\./i,
 ]
 
 const RECOVERABLE_ERROR_PATTERNS = [
@@ -2350,7 +2351,7 @@ function hasSettingsPathJargonCopy(line) {
   return SETTINGS_PATH_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
-function hasApiFallbackFailureFirstCopy(relFile, line) {
+function hasApiFallbackUnhelpfulCopy(relFile, line) {
   if (
     relFile !== 'src/app/shared/api/legacy/AgentAPI.ts' &&
     relFile !== 'src/app/shared/api/agent-api-types.ts'
@@ -2358,7 +2359,7 @@ function hasApiFallbackFailureFirstCopy(relFile, line) {
     return false
   }
   if (isLikelyGuardOrParserLine(line)) return false
-  return API_FALLBACK_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+  return API_FALLBACK_UNHELPFUL_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasBeginnerJargon(line) {
@@ -4699,11 +4700,11 @@ function scanFile(file, relFile) {
       })
     }
 
-    if (hasApiFallbackFailureFirstCopy(relFile, line)) {
+    if (hasApiFallbackUnhelpfulCopy(relFile, line)) {
       findings.push({
         type: 'api-fallback-error-copy',
         location,
-        message: 'Shared API fallback errors must start with the recovery action.',
+        message: 'Shared API fallback errors must start with a concrete recovery action.',
         sample: line.trim(),
       })
     }

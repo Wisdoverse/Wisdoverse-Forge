@@ -233,7 +233,7 @@ export async function saveThing() {
     ])
   })
 
-  it('flags shared API fallbacks that explain the failure before recovery', () => {
+  it('flags shared API fallbacks that are failure-first or use vague refresh recovery', () => {
     const cwd = fixture({
       'src/app/shared/api/legacy/AgentAPI.ts': `
 const LEGACY_API_REQUEST_ERROR =
@@ -242,6 +242,10 @@ const LEGACY_API_REQUEST_ERROR =
       'src/app/shared/api/agent-api-types.ts': `
 export function extractApiError(
   fallback = 'Forge did not return a clear error. Refresh, then try again.'
+) {}
+
+export function oldRecoveryFirstFallback(
+  fallback = 'Refresh, then try again. Forge did not return a clear error.'
 ) {
   return fallback
 }
@@ -261,6 +265,10 @@ export function extractApiError(
           type: 'api-fallback-error-copy',
           location: 'src/app/shared/api/agent-api-types.ts:3',
         }),
+        expect.objectContaining({
+          type: 'api-fallback-error-copy',
+          location: 'src/app/shared/api/agent-api-types.ts:7',
+        }),
       ])
     )
   })
@@ -273,7 +281,7 @@ const LEGACY_API_REQUEST_ERROR =
 `,
       'src/app/shared/api/agent-api-types.ts': `
 export function extractApiError(
-  fallback = 'Refresh, then try again. Forge did not return a clear error.'
+  fallback = 'Open this page again, then try again. Forge did not return a clear error. If it still fails, ask an owner or admin to check the service connection.'
 ) {
   return fallback
 }
