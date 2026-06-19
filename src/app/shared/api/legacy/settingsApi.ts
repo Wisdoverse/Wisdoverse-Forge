@@ -59,6 +59,24 @@ export interface CreateProviderInput {
   baseUrl?: string
 }
 
+/** Input for live model discovery (before a provider is saved). */
+export interface DiscoverModelsInput {
+  provider: LlmProvider
+  baseUrl?: string
+  apiKey?: string
+}
+
+/**
+ * Result of a live model-discovery call. `source` is `'live'` when the list
+ * came from the provider's API, or `'curated'` when discovery fell back to the
+ * built-in registry list (provider unreachable, keyless, or blocked).
+ */
+export interface DiscoveredModels {
+  provider: string
+  source: 'live' | 'curated'
+  models: { model: string; displayName: string }[]
+}
+
 export interface GatewaySettings {
   routingStrategy: RoutingStrategy
   circuitBreakerThreshold: number
@@ -225,6 +243,23 @@ function mapProviderInfo(value: unknown): ProviderInfo {
   }
 }
 
+function mapDiscoveredModels(value: unknown): DiscoveredModels {
+  const data = asRecord(value)
+  const models = payloadArray(data, 'models').map((model) => {
+    const modelRecord = asRecord(model)
+    return {
+      model: stringField(modelRecord, 'model') ?? '',
+      displayName: stringField(modelRecord, 'displayName', 'display_name') ?? '',
+    }
+  })
+  const source = stringField(data, 'source') === 'live' ? 'live' : 'curated'
+  return {
+    provider: stringField(data, 'provider') ?? '',
+    source,
+    models: models.filter((m) => m.model !== ''),
+  }
+}
+
 function mapTestConnectionResult(value: unknown): TestConnectionResult {
   const data = asRecord(value)
   return {
@@ -375,6 +410,20 @@ export function createSettingsAPI(
       return parseResponse(response, (data) =>
         payloadArray(data, 'providers').map((provider) => mapProviderInfo(provider))
       )
+    },
+
+    /**
+     * Discover a provider's live model list from form input, before the
+     * provider is saved. Never throws on provider error -- the backend returns
+     * the curated fallback list with `source: 'curated'`.
+     */
+    async discoverModels(input: DiscoverModelsInput): Promise<DiscoveredModels> {
+      const response = await fetchFn(`${apiUrl}/llm-providers/discover-models`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify(input),
+      })
+      return parseResponse(response, (data) => mapDiscoveredModels(data))
     },
 
     async getProviders(): Promise<LlmProviderConfig[]> {

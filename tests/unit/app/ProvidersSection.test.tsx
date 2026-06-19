@@ -7,6 +7,7 @@ import type { LlmProviderConfig } from '@app/shared/api/legacy/settingsApi'
 const settingsApiMock = vi.hoisted(() => ({
   getSupportedProviders: vi.fn(),
   testProvider: vi.fn(),
+  discoverModels: vi.fn(),
 }))
 
 vi.mock('@app/shared/api/legacy', () => ({
@@ -26,6 +27,7 @@ const originalDeleteProvider = useSettingsStore.getState().deleteProvider
 beforeEach(() => {
   settingsApiMock.getSupportedProviders.mockResolvedValue([])
   settingsApiMock.testProvider.mockResolvedValue({ ok: true, latencyMs: 42 })
+  settingsApiMock.discoverModels.mockReset()
   loadProvidersMock.mockClear()
   saveProviderMock.mockClear()
   setProviderEnabledMock.mockReset()
@@ -509,6 +511,34 @@ describe('ProvidersSection', () => {
 
     expect(screen.getByLabelText(/^service setup$/i)).toHaveValue(modelId)
     expect(target).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  test('Find available models swaps curated chips for the live list', async () => {
+    useSettingsStore.setState({ providers: [] })
+    settingsApiMock.discoverModels.mockResolvedValue({
+      provider: 'anthropic',
+      source: 'live',
+      models: [{ model: 'claude-live-xyz', displayName: 'Claude Live XYZ' }],
+    })
+
+    render(<ProvidersSection />)
+
+    const nextStep = await screen.findByTestId('provider-next-step')
+    fireEvent.click(within(nextStep).getByRole('button', { name: /add AI service/i }))
+
+    const serviceChoices = screen.getByRole('group', { name: /known AI services/i })
+    fireEvent.click(within(serviceChoices).getByRole('button', { name: /anthropic/i }))
+
+    fireEvent.click(screen.getByRole('button', { name: /find available models/i }))
+
+    await waitFor(() => expect(settingsApiMock.discoverModels).toHaveBeenCalledWith({ provider: 'anthropic', baseUrl: undefined, apiKey: undefined }))
+
+    // The live model now appears as a clickable chip and fills the field.
+    const chips = screen.getByRole('group', { name: /common models/i })
+    const liveChip = await within(chips).findByRole('button', { name: /claude live xyz/i })
+    fireEvent.click(liveChip)
+    expect(screen.getByLabelText(/^service setup$/i)).toHaveValue('claude-live-xyz')
+    expect(screen.getByText(/live list from the service/i)).toBeDefined()
   })
 
   test('Region=Global switches a vendor to its global endpoint on save', async () => {

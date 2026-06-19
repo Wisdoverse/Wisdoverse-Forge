@@ -259,6 +259,66 @@ pub(crate) fn supported_providers_response() -> serde_json::Value {
     })
 }
 
+/// One model in a live-discovery result. Owned (unlike the `'static`
+/// [`ProviderModelInfo`]) because discovered models come from a provider API at
+/// runtime. Serializes to the same `{ model, displayName }` shape the UI's
+/// curated list already uses, so the frontend renders both identically.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct DiscoveredModelView {
+    pub(crate) model: String,
+    pub(crate) display_name: String,
+}
+
+/// Where a model list came from: a live call to the provider, or the curated
+/// registry fallback (provider unreachable, keyless, blocked host, or empty).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ModelDiscoverySource {
+    Live,
+    Curated,
+}
+
+impl ModelDiscoverySource {
+    fn as_str(self) -> &'static str {
+        match self {
+            ModelDiscoverySource::Live => "live",
+            ModelDiscoverySource::Curated => "curated",
+        }
+    }
+}
+
+pub(crate) struct DiscoveredModelsResult {
+    pub(crate) provider: String,
+    pub(crate) source: ModelDiscoverySource,
+    pub(crate) models: Vec<DiscoveredModelView>,
+}
+
+/// The curated model list for a provider key, as the discovery fallback. Empty
+/// for unknown providers or those with no curated entries (e.g. a bare
+/// OpenAI-compatible gateway).
+pub(crate) fn curated_models(provider_key: &str) -> Vec<DiscoveredModelView> {
+    provider_spec(provider_key)
+        .map(|spec| {
+            spec.models
+                .iter()
+                .map(|model| DiscoveredModelView {
+                    model: model.model.to_string(),
+                    display_name: model.display_name.to_string(),
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+pub(crate) fn discovered_models_response(result: &DiscoveredModelsResult) -> serde_json::Value {
+    serde_json::json!({
+        "ok": true,
+        "provider": result.provider,
+        "source": result.source.as_str(),
+        "models": result.models,
+    })
+}
+
 pub(crate) fn llm_provider_list_response(providers: &[LlmProviderConfigResponse]) -> serde_json::Value {
     serde_json::json!({
         "ok": true,
