@@ -445,7 +445,7 @@ describe('AgentDetailView', () => {
 
   test('explains workspace access and primary project context', () => {
     render(<AgentDetailView agent={{ ...containerAgent, cwd: '/workspace' }} onBack={() => {}} />)
-    expect(screen.getByText('Starting folder')).toBeDefined()
+    expect(screen.getByText('Folder agents open')).toBeDefined()
     expect(screen.getByText('Default project folder')).toBeDefined()
     expect(screen.getByText('Connection')).toBeDefined()
     expect(screen.getByText('Ready with project files')).toBeDefined()
@@ -459,18 +459,20 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('Project files it can use')).toBeDefined()
     expect(screen.queryByText('Project area it can use')).toBeNull()
     expect(screen.getByText('Engineering')).toBeDefined()
-    expect(screen.getByText('Starting project for tasks')).toBeDefined()
+    expect(screen.getByText('Project for new tasks')).toBeDefined()
     expect(screen.getByText('Platform')).toBeDefined()
     expect(screen.getByText(/may include several projects/i)).toBeDefined()
     expect(screen.getByText(/where new tasks begin/i)).toBeDefined()
     expect(screen.getByText(/separate set of project files/i)).toBeDefined()
     expect(screen.getByText(/files must be kept apart/i)).toBeDefined()
     expect(screen.queryByText(/shared project area/i)).toBeNull()
+    expect(screen.queryByText('Starting folder')).toBeNull()
+    expect(screen.queryByText('Starting project for tasks')).toBeNull()
   })
 
   test('explains chat-only agents do not open workspace files', () => {
     render(<AgentDetailView agent={providerAgent} onBack={() => {}} />)
-    expect(screen.getByText('Starting folder')).toBeDefined()
+    expect(screen.getByText('Folder agents open')).toBeDefined()
     expect(screen.getAllByText('Use another agent for file work').length).toBeGreaterThan(0)
     expect(screen.queryByText('No file access needed')).toBeNull()
     expect(screen.getByText('Connection')).toBeDefined()

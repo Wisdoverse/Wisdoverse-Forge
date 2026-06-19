@@ -4328,6 +4328,40 @@ function agentFolderLabel(agent) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags agent detail setup labels that sound like startup state', () => {
+    const cwd = fixture({
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function AgentDetailView() {
+  return <><DetailRow label="Starting project for tasks" /><DetailRow label="Starting folder" /></>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-detail-starting-label-copy',
+          location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts agent detail setup labels that explain the project and folder agents use', () => {
+    const cwd = fixture({
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function AgentDetailView() {
+  return <><DetailRow label="Project for new tasks" /><DetailRow label="Folder agents open" /></>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags agent detail availability copy that does not tell users where to recover', () => {
     const cwd = fixture({
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
