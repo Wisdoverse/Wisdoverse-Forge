@@ -209,6 +209,7 @@ const PROVIDER_SETUP_JARGON_PATTERNS = [
   /\bsave and check again\b/i,
   /\bclick Check\b/i,
   /\bcheck this connection\b/i,
+  /\btechnical service details\b/i,
   /\bModel to use\b/i,
   /\bNext: (?:add|choose the) model\b/i,
   /\bChoose the model to use\b/i,

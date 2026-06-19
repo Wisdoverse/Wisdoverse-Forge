@@ -264,7 +264,10 @@ describe('ProvidersSection', () => {
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
       /next: paste the service access key/i
     )
-    expect(screen.getByText(/technical service details/i)).toBeDefined()
+    expect(screen.getAllByText(/Forge fills in the setup choices for you/i).length).toBeGreaterThan(
+      0
+    )
+    expect(screen.queryByText(/technical service details/i)).toBeNull()
     expect(screen.getByText(/paste the service access key and save/i)).toBeDefined()
     expect(screen.getByText(/keep the suggested setup unless your service guide/i)).toBeDefined()
     expect(screen.getByText(/some services call this an API key/i)).toBeDefined()
@@ -437,10 +440,14 @@ describe('ProvidersSection', () => {
     fireEvent.click(within(nextStep).getByRole('button', { name: /add AI service/i }))
 
     const serviceChoices = screen.getByRole('group', { name: /known AI services/i })
-    expect(within(serviceChoices).queryByRole('button', { name: /zhipu glm coding plan/i })).toBeNull()
+    expect(
+      within(serviceChoices).queryByRole('button', { name: /zhipu glm coding plan/i })
+    ).toBeNull()
     const zhipuChoice = within(serviceChoices).getByRole('button', { name: /zhipu glm/i })
     expect(
-      within(zhipuChoice).getByText(/standard setup · coding plan · china or global website address/i)
+      within(zhipuChoice).getByText(
+        /standard setup · coding plan · china or global website address/i
+      )
     ).toBeDefined()
     expect(within(zhipuChoice).queryByText(/api · coding plan/i)).toBeNull()
     expect(within(zhipuChoice).queryByText(/cn\/global/i)).toBeNull()
@@ -549,9 +556,9 @@ describe('ProvidersSection', () => {
     expect(screen.getByRole('note')).toHaveTextContent(
       'Removing this service stops agents from using Anthropic Review.'
     )
-    expect(screen.getByRole('button', { name: /keep anthropic review AI service/i })).toHaveTextContent(
-      'Keep service'
-    )
+    expect(
+      screen.getByRole('button', { name: /keep anthropic review AI service/i })
+    ).toHaveTextContent('Keep service')
     expect(
       screen.getByRole('button', { name: /remove anthropic review AI service now/i })
     ).toHaveTextContent('Remove now')
