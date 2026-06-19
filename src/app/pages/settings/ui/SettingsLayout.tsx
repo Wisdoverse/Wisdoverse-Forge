@@ -6,6 +6,7 @@ import {
   GitBranch,
   Info,
   Key,
+  LogIn,
   Settings2,
   Terminal,
   User,
@@ -84,6 +85,13 @@ const SECTIONS: SectionItem[] = [
     Icon: Settings2,
   },
   {
+    id: 'work-tool-sign-ins',
+    label: 'Work tool sign-ins',
+    description: 'Sign in to Codex and other tools agents use for file work.',
+    group: 'Agent work',
+    Icon: LogIn,
+  },
+  {
     id: 'account',
     label: 'Account',
     description: 'Update profile, password, and show the setup checklist again.',
@@ -136,6 +144,8 @@ function SectionContent({ section }: { section: SettingsSection }) {
       return <ResourcesSection />
     case 'runtime':
       return <RuntimeSection />
+    case 'work-tool-sign-ins':
+      return <RuntimeSection focus="sign-ins" />
     case 'teams':
       return <TeamsSection />
     case 'projects':

@@ -54,6 +54,11 @@ describe('SettingsLayout', () => {
     ).toBeInTheDocument()
     expect(
       within(desktopNav).getByRole('button', {
+        name: /Work tool sign-ins: Sign in to Codex and other tools agents use for file work/i,
+      })
+    ).toBeInTheDocument()
+    expect(
+      within(desktopNav).getByRole('button', {
         name: /Account: Update profile, password, and show the setup checklist again/i,
       })
     ).toBeInTheDocument()
@@ -74,6 +79,7 @@ describe('SettingsLayout', () => {
     expect(screen.getByRole('option', { name: 'SSH code access' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Agent size limits' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Where agents work' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Work tool sign-ins' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Teams' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Team members' })).not.toBeInTheDocument()
     expect(screen.getByTestId('settings-mobile-section-hint')).toHaveTextContent(
@@ -87,5 +93,13 @@ describe('SettingsLayout', () => {
     )
 
     expect(onSectionChange).toHaveBeenCalledWith('runtime')
+
+    fireEvent.click(
+      within(desktopNav).getByRole('button', {
+        name: /Work tool sign-ins: Sign in to Codex and other tools agents use for file work/i,
+      })
+    )
+
+    expect(onSectionChange).toHaveBeenCalledWith('work-tool-sign-ins')
   })
 })
