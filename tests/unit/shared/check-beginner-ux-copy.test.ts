@@ -9835,6 +9835,16 @@ function AddCredentialForm() {
 }
 const tableHeaders = [{ label: 'Git address' }]
 `,
+      'src/app/features/settings/gitCredentialsErrorMessage.ts': `
+function validationGuidance() {
+  return 'Check the GitHub or GitLab address. Leave it blank for github.com or gitlab.com, then save again.'
+}
+`,
+      'src/app/shared/model/settings.store.ts': `
+function settingsActionErrorMessage() {
+  return 'Check the GitHub or GitLab address. Leave it blank for github.com or gitlab.com, then save again.'
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
@@ -9870,6 +9880,14 @@ const tableHeaders = [{ label: 'Git address' }]
           type: 'code-access-address-copy',
           sample: expect.stringContaining('Git address'),
         }),
+        expect.objectContaining({
+          type: 'code-access-address-copy',
+          location: 'src/app/features/settings/gitCredentialsErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'code-access-address-copy',
+          location: 'src/app/shared/model/settings.store.ts:3',
+        }),
       ])
     )
   })
@@ -9887,6 +9905,16 @@ function AddCredentialForm() {
   return <label>Company code website address</label>
 }
 const tableHeaders = [{ label: 'Code website' }, { label: 'Website address' }]
+`,
+      'src/app/features/settings/gitCredentialsErrorMessage.ts': `
+function validationGuidance() {
+  return 'Check the code website address. Leave it blank for github.com or gitlab.com, then save again.'
+}
+`,
+      'src/app/shared/model/settings.store.ts': `
+function settingsActionErrorMessage() {
+  return 'Check the code website address. Leave it blank for github.com or gitlab.com, then save again.'
+}
 `,
     })
 

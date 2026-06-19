@@ -3360,7 +3360,13 @@ function hasCodeAccessKeyJargonCopy(relFile, line) {
 }
 
 function hasCodeAccessAddressJargonCopy(relFile, line) {
-  if (!relFile.endsWith('src/app/features/settings/GitCredentialsSection.tsx')) return false
+  if (
+    !relFile.endsWith('src/app/features/settings/GitCredentialsSection.tsx') &&
+    !relFile.endsWith('src/app/features/settings/gitCredentialsErrorMessage.ts') &&
+    !relFile.endsWith('src/app/shared/model/settings.store.ts')
+  ) {
+    return false
+  }
   if (isLikelyGuardOrParserLine(line)) return false
   return CODE_ACCESS_ADDRESS_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }

@@ -96,9 +96,9 @@ function validationGuidance(lower: string): string {
     return 'Choose GitHub or GitLab, then save code access again.'
   }
   if (lower.includes('invalid host')) {
-    return 'Check the GitHub or GitLab address. Leave it blank for github.com or gitlab.com, then save again.'
+    return 'Check the code website address. Leave it blank for github.com or gitlab.com, then save again.'
   }
-  return 'Check the selected site, code access key, and GitHub or GitLab address, then save again.'
+  return 'Check the selected site, code access key, and code website address, then save again.'
 }
 
 export function gitCredentialsErrorMessage(error: unknown): string {
