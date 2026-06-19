@@ -45,7 +45,7 @@ describe('ContextUsageDashboard', () => {
     expect(screen.getByText('Saved item reuse')).toBeDefined()
     expect(
       screen.getByText(
-        'Use this panel to keep saved notes and instructions that help work finish, and check items that may be outdated, incorrect, or too sensitive before agents reuse them.'
+        'Use this view to keep saved notes and instructions that help work finish, and check items that may be outdated, incorrect, or too sensitive before agents reuse them.'
       )
     ).toBeDefined()
     expect(
