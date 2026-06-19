@@ -12077,6 +12077,54 @@ export function CreateSkillModal() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags saved instruction review points that use secrets or one-time path jargon', () => {
+    const cwd = fixture({
+      'src/app/features/detail/SkillDraftModal.tsx': `
+const SKILL_REVIEW_POINTS = [
+  { label: 'No secrets', value: 'Remove secret keys, customer data, one-time paths, and private notes.' },
+]
+`,
+      'src/app/features/skills/CreateSkillModal.tsx': `
+const SKILL_REVIEW_POINTS = [
+  { label: 'Safe to share', value: 'Leave out secret keys, private notes, and one-time project details.' },
+]
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'saved-instruction-private-detail-copy',
+          location: 'src/app/features/detail/SkillDraftModal.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-private-detail-copy',
+          location: 'src/app/features/skills/CreateSkillModal.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved instruction review points that name private details plainly', () => {
+    const cwd = fixture({
+      'src/app/features/detail/SkillDraftModal.tsx': `
+const SKILL_REVIEW_POINTS = [
+  { label: 'Keep private details out', value: 'Remove passwords, access keys, customer data, temporary file locations, and private notes.' },
+]
+`,
+      'src/app/features/skills/CreateSkillModal.tsx': `
+const SKILL_REVIEW_POINTS = [
+  { label: 'Keep private details out', value: 'Leave out passwords, access keys, private notes, and temporary project details.' },
+]
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags governance audit fallbacks that leave beginners without a field to check', () => {
     const cwd = fixture({
       'src/app/features/governance/AuditLogView.tsx': `

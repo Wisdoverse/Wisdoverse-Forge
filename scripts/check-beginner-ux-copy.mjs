@@ -875,6 +875,13 @@ const SAVED_INSTRUCTION_CREATE_FIELD_JARGON_PATTERNS = [
   /\bAdd the steps this saved instruction should apply\./,
 ]
 
+const SAVED_INSTRUCTION_PRIVATE_DETAIL_JARGON_PATTERNS = [
+  /\bNo secrets\b/i,
+  /\bsecret keys\b/i,
+  /\bone-time paths\b/i,
+  /\bone-time project details\b/i,
+]
+
 const AGENT_PLUGIN_ERROR_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*Tool change was not saved\. The switch was returned to its previous setting\./i,
   /['"`]\s*Forge could not finish this tool request right now\. Wait a few minutes, then try again\./i,
@@ -3736,6 +3743,17 @@ function hasSavedInstructionCreateFieldJargonCopy(relFile, line) {
   return SAVED_INSTRUCTION_CREATE_FIELD_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasSavedInstructionPrivateDetailJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/detail/SkillDraftModal.tsx') &&
+    !relFile.endsWith('src/app/features/skills/CreateSkillModal.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SAVED_INSTRUCTION_PRIVATE_DETAIL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasSavedInstructionsLoadDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/skills/SkillsView.tsx') &&
@@ -6315,6 +6333,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Saved instruction creation fields must use plain step-writing language for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSavedInstructionPrivateDetailJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'saved-instruction-private-detail-copy',
+        location,
+        message:
+          'Saved instruction review points must name private details plainly instead of secrets or one-time path jargon.',
         sample: line.trim(),
       })
     }
