@@ -643,7 +643,7 @@ function agentControlErrorMessage(error: string): string {
     return "Open Agents, choose this agent again, then try again. If it keeps failing, ask an owner or admin to check this agent's connection and access in Agents. Forge could not finish the change right now."
   }
 
-  return "Open Agents, choose this agent again, and confirm the latest status before trying once more. For Start or Restart, wait for Ready or Working. If it keeps failing, ask an owner or admin to check what you can do and this agent's connection and access in Agents."
+  return "Open Agents, choose this agent again, and confirm the latest status before trying once more. If you started or restarted file work, wait for Ready or Working. If it keeps failing, ask an owner or admin to check your agent access and this agent's connection in Agents."
 }
 
 interface ConfirmActionProps {

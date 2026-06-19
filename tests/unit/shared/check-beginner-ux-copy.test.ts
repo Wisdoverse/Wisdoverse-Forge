@@ -7753,6 +7753,26 @@ export function AgentDetailView() {
     )
   })
 
+  it('flags vague agent access recovery copy', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentControlPanel.tsx': `
+function agentControlErrorMessage() {
+  return "If it keeps failing, ask an owner or admin to check what you can do and this agent's connection."
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'vague-access-recovery-copy',
+        location: 'src/app/features/agents/AgentControlPanel.tsx:3',
+      }),
+    ])
+  })
+
   it('accepts joined-computer reconnect copy that starts from Agents', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentControlPanel.tsx': `

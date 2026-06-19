@@ -137,7 +137,9 @@ describe('AgentControlPanel', () => {
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
 
     expect(screen.getByRole('alert')).toHaveTextContent(/wait for Ready or Working/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/check your agent access/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/wait for Idle/i)
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/check what you can do/i)
   })
 
   test('explains quick messages and sends trimmed text', async () => {

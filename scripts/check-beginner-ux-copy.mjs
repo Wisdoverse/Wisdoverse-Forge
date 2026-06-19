@@ -2183,6 +2183,7 @@ const VAGUE_ACCESS_RECOVERY_PATTERNS = [
   /\bAsk an owner or admin to update your access\b/i,
   /\bAsk an owner or admin to update what you can do\b/i,
   /\bAsk an owner or admin to update project access\b/i,
+  /\bcheck what you can do\b/i,
 ]
 
 const BEGINNER_JARGON_PATTERNS = [
