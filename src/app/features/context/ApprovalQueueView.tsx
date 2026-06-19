@@ -548,7 +548,7 @@ function DecisionPanel({
     : !requiresScopeId
       ? 'Ready to save for your own account.'
       : !form.scopeId.trim()
-        ? `Paste the ${scopeTargetCodeLabel(form.scopeKind)} before saving.`
+        ? `Paste the ${scopeSharingCodeLabel(form.scopeKind)} before saving.`
         : !form.confirmExpansion
           ? `Confirm ${reuseAudienceLabel(form.scopeKind)} can reuse this safely before saving.`
           : `Ready to save for ${reuseAudienceLabel(form.scopeKind)}.`
@@ -609,7 +609,8 @@ function DecisionPanel({
               <>
                 <div className="rounded-card bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue">
                   Choose who can reuse it. Only me is the safest choice. My team or This project
-                  shares it more broadly and needs the team or project code from Settings.
+                  shares it more broadly. Copy the team or project sharing code from Settings under
+                  Teams or Projects.
                 </div>
 
                 {!candidate.source_available && (
@@ -646,12 +647,12 @@ function DecisionPanel({
                 </Field>
 
                 {requiresScopeId && (
-                  <Field label={scopeTargetCodeLabel(form.scopeKind)}>
+                  <Field label={scopeSharingCodeLabel(form.scopeKind)}>
                     <input
                       value={form.scopeId}
                       onChange={(event) => updateForm('scopeId', event.target.value)}
                       className={fieldClassName}
-                      placeholder={`Paste the ${scopeTargetCodeLabel(form.scopeKind)} from Settings…`}
+                      placeholder={`Paste the ${scopeSharingCodeLabel(form.scopeKind)} from Settings…`}
                       name="scopeId"
                       autoComplete="off"
                       data-testid="context-approval-scope-id"
@@ -993,8 +994,10 @@ function reuseAudienceLabel(value: ContextCandidateSummary['proposed_scope_kind'
   return `the selected ${value}`
 }
 
-function scopeTargetCodeLabel(value: ContextScopeKind): string {
-  return `${titleCase(value)} code`
+function scopeSharingCodeLabel(value: ContextScopeKind): string {
+  if (value === 'team') return 'team sharing code'
+  if (value === 'project') return 'project sharing code'
+  return `${titleCase(value)} sharing code`
 }
 
 function candidatePreview(candidate: ContextCandidateSummary): string {

@@ -6364,6 +6364,8 @@ export function DecisionCopy({ approving }) {
       <button><span>Reject</span></button>
       <Field label="Reject reason" />
       <p>Next: switch back to Pending when you only want items waiting for a decision.</p>
+      <Field label="Team code" />
+      <p>My team or This project shares it more broadly and needs the team or project code from Settings.</p>
       <option>Team internal</option>
     </section>
   )
@@ -6405,12 +6407,16 @@ export function DecisionCopy({ approving }) {
           location: 'src/app/features/context/ApprovalQueueView.tsx:17',
         }),
         expect.objectContaining({
-          type: 'review-decision-copy',
-          location: 'src/app/features/context/ApprovalQueueView.tsx:18',
+          type: 'approval-queue-check-copy',
+          sample: expect.stringContaining('Approve and save'),
         }),
         expect.objectContaining({
           type: 'approval-queue-check-copy',
-          sample: expect.stringContaining('Approve and save'),
+          sample: expect.stringContaining('Team code'),
+        }),
+        expect.objectContaining({
+          type: 'approval-queue-check-copy',
+          sample: expect.stringContaining('team or project code from Settings'),
         }),
       ])
     )
@@ -6437,6 +6443,8 @@ export function DecisionCopy({ approving }) {
       <button><span>Do not save</span></button>
       <Field label="Why not save it?" />
       <p>Next: switch back to Needs your check when you only want items waiting for a decision.</p>
+      <Field label="team sharing code" />
+      <p>My team or This project shares it more broadly. Copy the team or project sharing code from Settings under Teams or Projects.</p>
       <option>Team only</option>
     </section>
   )

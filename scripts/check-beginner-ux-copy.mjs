@@ -1454,6 +1454,8 @@ const APPROVAL_QUEUE_CHECK_JARGON_PATTERNS = [
   /\breview everything first\b/i,
   /\bReview the first saved item\b/i,
   /\bNo saved items need review\b/i,
+  /\b(?:Team|Project) code\b/,
+  /\bteam or project code from Settings\b/i,
   /\bThe saved item review list\b/i,
   /\bretry this review action\b/i,
   /\bsaving this review decision\b/i,
