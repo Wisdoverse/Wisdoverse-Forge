@@ -485,6 +485,32 @@ describe('ProvidersSection', () => {
     )
   })
 
+  test('common-model chips fill the service setup field from the curated list', async () => {
+    useSettingsStore.setState({ providers: [] })
+
+    render(<ProvidersSection />)
+
+    const nextStep = await screen.findByTestId('provider-next-step')
+    fireEvent.click(within(nextStep).getByRole('button', { name: /add AI service/i }))
+
+    const serviceChoices = screen.getByRole('group', { name: /known AI services/i })
+    fireEvent.click(within(serviceChoices).getByRole('button', { name: /anthropic/i }))
+
+    const chips = screen.getByRole('group', { name: /common models/i })
+    const chipButtons = within(chips).getAllByRole('button')
+    expect(chipButtons.length).toBeGreaterThan(0)
+
+    // Click the last chip and confirm it fills the free-text model field with
+    // that chip's exact model id (the chip title) and marks itself selected.
+    const target = chipButtons[chipButtons.length - 1]
+    const modelId = target.getAttribute('title') ?? ''
+    expect(modelId).not.toBe('')
+    fireEvent.click(target)
+
+    expect(screen.getByLabelText(/^service setup$/i)).toHaveValue(modelId)
+    expect(target).toHaveAttribute('aria-pressed', 'true')
+  })
+
   test('Region=Global switches a vendor to its global endpoint on save', async () => {
     useSettingsStore.setState({ providers: [] })
 
