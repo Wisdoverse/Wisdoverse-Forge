@@ -32,7 +32,7 @@ function metricCopy(metric: string): { label: string; description: string; highA
       return {
         label: 'Work update history',
         description: 'Work updates, change history, and timeline messages.',
-        highAction: 'Export old records or plan for more capacity.',
+        highAction: 'Export older history or plan for more capacity.',
       }
     case 'tokens':
       return {

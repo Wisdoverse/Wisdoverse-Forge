@@ -24,7 +24,7 @@ export function ContextEvidenceList({ evidence, revokedItems }: ContextEvidenceL
           What helped produce this result
         </h3>
         <p className="mt-0.5 text-[11px] leading-relaxed text-secondary-light dark:text-secondary-dark">
-          These records show the answers, steps, and files used or saved so you can understand the
+          These details show the answers, steps, and files used or saved so you can understand the
           result before taking the next step.
         </p>
       </div>
@@ -65,7 +65,7 @@ export function ContextEvidenceList({ evidence, revokedItems }: ContextEvidenceL
                     {evidenceTitle(item)}
                   </p>
                   <span className="text-[10px] text-secondary-light dark:text-secondary-dark">
-                    Recorded {formatRelativeTime(item.createdAt)}
+                    Saved {formatRelativeTime(item.createdAt)}
                   </span>
                 </div>
                 <p className="mt-1 text-[11px] leading-relaxed text-secondary-light dark:text-secondary-dark">
@@ -124,9 +124,7 @@ function payloadSummary(payload: Record<string, unknown>): string {
   if (summary) return safeEvidenceString(summary)
 
   if (typeof payload.ok === 'boolean') {
-    return payload.ok
-      ? 'The recorded result succeeded.'
-      : 'Check the recorded result before reusing it.'
+    return payload.ok ? 'The saved result succeeded.' : 'Check the saved result before reusing it.'
   }
 
   const keys = Object.keys(payload)
@@ -136,7 +134,7 @@ function payloadSummary(payload: Record<string, unknown>): string {
     } of information.`
   }
 
-  return 'Work details were recorded for this task.'
+  return 'Work details were saved for this task.'
 }
 
 function formatSavedDetails(payload: Record<string, unknown>): string {
@@ -146,7 +144,7 @@ function formatSavedDetails(payload: Record<string, unknown>): string {
       ? lines.join('\n')
       : 'No saved details were available. Check the summary above, then retry if needed.'
   } catch {
-    return 'Saved details were recorded but could not be shown safely. Check the summary above, then ask an owner or admin to check this task if needed.'
+    return 'Saved details could not be shown safely. Check the summary above, then ask an owner or admin to check this task if needed.'
   }
 }
 

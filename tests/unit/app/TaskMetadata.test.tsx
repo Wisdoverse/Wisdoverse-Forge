@@ -179,4 +179,15 @@ describe('TaskMetadata', () => {
     expect(screen.queryByText(/future_priority/i)).toBeNull()
     expect(screen.queryByText(/future priority/i)).toBeNull()
   })
+
+  test('explains canceled tasks with saved activity wording', () => {
+    render(<TaskMetadata task={{ ...mockTask, state: 'canceled' }} />)
+
+    expect(screen.getByTestId('task-metadata-guidance').textContent).toContain(
+      'Open Updates to see the latest saved activity.'
+    )
+    expect(screen.getByTestId('task-metadata-guidance').textContent).not.toContain(
+      'last recorded activity'
+    )
+  })
 })

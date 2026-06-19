@@ -245,7 +245,7 @@ export class LegalPage {
         <ul class="legal-list">
           <li>Agent controls for creating, starting, stopping, and reviewing agents that handle team tasks</li>
           <li>Task boards and work history so teams can track what each agent is doing</li>
-          <li>Result records, saved notes, and saved instructions that help you understand agent results</li>
+          <li>Saved results, saved notes, and saved instructions that help you understand agent results</li>
           <li>Team and project controls for keeping each organization&apos;s work separated</li>
           <li>Connections to supported AI services and work tools chosen by your organization</li>
           <li>Live activity updates and notifications for important task and agent changes</li>
@@ -556,19 +556,19 @@ export class LegalPage {
           We automatically collect information about how you interact with the Service:
         </p>
         <ul class="legal-list">
-          <li>Agent records, including when an agent was created and whether it is ready, working, or unavailable</li>
-          <li>Tool activity records, such as which kind of action ran and whether it succeeded</li>
+          <li>Agent history, including when an agent was created and whether it is ready, working, or unavailable</li>
+          <li>Tool activity history, such as which kind of action ran and whether it succeeded</li>
           <li>Project repository details, such as branch names, commit hashes, and file change counts; we do not collect the content of your code files</li>
           <li>Feature usage patterns, such as views opened, settings changed, and features enabled</li>
-          <li>Service request records, such as the action requested, status, and time</li>
-          <li>Live update connection records, such as connection status and message type</li>
+          <li>Service request history, such as the action requested, status, and time</li>
+          <li>Live update connection history, such as connection status and message type</li>
         </ul>
         <h3 class="legal-subsection-title">Device & Technical Data</h3>
         <p class="legal-text">
           We may collect technical information about the devices you use to access the Service:
         </p>
         <ul class="legal-list">
-          <li>IP address (used to protect the Service, slow abusive requests, and record security-relevant activity)</li>
+          <li>IP address (used to protect the Service, slow abusive requests, and save security-relevant activity)</li>
           <li>Browser type and version</li>
           <li>Operating system</li>
           <li>User-agent string</li>
@@ -578,7 +578,7 @@ export class LegalPage {
         <p class="legal-text">
           If you subscribe to a paid plan, payment information (credit card number, billing address) is collected and
           processed directly by Stripe, Inc. We receive only limited payment metadata (last four digits of your card,
-          card brand, expiration date, billing country) from Stripe for record-keeping purposes. We do not store full
+          card brand, expiration date, billing country) from Stripe for billing history. We do not store full
           credit card numbers on our servers.
         </p>
       </div>
@@ -621,7 +621,7 @@ export class LegalPage {
           <li>To detect, prevent, and respond to fraud, abuse, security incidents, and other harmful activity</li>
           <li>To enforce our Terms of Service and other applicable policies</li>
           <li>To comply with legal obligations and respond to lawful requests from public authorities</li>
-          <li>To keep security history records for safety reviews and legal requirements</li>
+          <li>To keep security history for safety reviews and legal requirements</li>
         </ul>
       </div>
 
@@ -650,7 +650,7 @@ export class LegalPage {
           <li>Sensitive data filtering in error tracking to reduce accidental exposure of passwords, access keys, and credit card numbers</li>
           <li>Safe database query practices to reduce injection risk</li>
           <li>Browser access policies that limit which sites can call the Service</li>
-          <li>Security review supported by security history records</li>
+          <li>Security review supported by security history</li>
         </ul>
       </div>
 
@@ -750,7 +750,7 @@ export class LegalPage {
         <h3 class="legal-subsection-title">Data Export</h3>
         <p class="legal-text">
           You can request a copy of your personal data through the account settings page or a supported export flow.
-          The export includes your profile information, agent records, change history, and settings choices in a
+          The export includes your profile information, agent history, change history, and settings choices in a
           file format that can be read by other tools.
         </p>
         <h3 class="legal-subsection-title">Account Deletion</h3>
@@ -763,8 +763,8 @@ export class LegalPage {
           <li>Active agents are stopped</li>
           <li>Change history and agent data are deleted</li>
           <li>Saved login sessions and access keys are revoked</li>
-          <li>Security history records referencing your account are anonymized (the records are kept for legal requirements but your personal identifiers are removed)</li>
-          <li>Payment records are retained as required by applicable tax and financial regulations</li>
+          <li>Security history referencing your account is anonymized (the history is kept for legal requirements but your personal identifiers are removed)</li>
+          <li>Payment history is retained as required by applicable tax and financial regulations</li>
         </ul>
         <p class="legal-text">
           Account deletion is permanent and irreversible. We recommend exporting your data before requesting deletion.
@@ -809,11 +809,11 @@ export class LegalPage {
         <ul class="legal-list">
           <li><strong>Tool events and agent data:</strong> 90 days from creation, after which events are automatically purged by our cleanup workers</li>
           <li><strong>Account information:</strong> Retained until you delete your account or request data erasure</li>
-          <li><strong>Security history records:</strong> 1 year from creation, retained for safety reviews and legal requirements (anonymized upon account deletion)</li>
+          <li><strong>Security history:</strong> 1 year from creation, retained for safety reviews and legal requirements (anonymized upon account deletion)</li>
           <li><strong>Image attachments (prompt images):</strong> 7 days (automatic lifecycle policy)</li>
           <li><strong>Image attachments (general):</strong> 30 days (automatic lifecycle policy)</li>
           <li><strong>Saved login sessions:</strong> Automatically expired and cleaned up according to their configured lifetime</li>
-          <li><strong>Payment records:</strong> Retained as required by applicable tax and financial regulations (typically 7 years)</li>
+          <li><strong>Payment history:</strong> Retained as required by applicable tax and financial regulations (typically 7 years)</li>
           <li><strong>Error tracking data (Sentry):</strong> Subject to Sentry's retention policies (typically 90 days)</li>
         </ul>
         <p class="legal-text">

@@ -128,7 +128,7 @@ describe('Billing beginner guidance', () => {
   test('translates usage metrics into plain-language capacity signals', () => {
     const metrics: UsageMetric[] = [
       { metric: 'agents', current: 9, limit: 10, percentUsed: 90 },
-      { metric: 'events', current: 40, limit: 100, percentUsed: 40 },
+      { metric: 'events', current: 85, limit: 100, percentUsed: 85 },
       { metric: 'tokens', current: 1200, limit: 0, percentUsed: 0 },
       { metric: 'custom_limit', current: 85, limit: 100, percentUsed: 85 },
     ]
@@ -143,6 +143,8 @@ describe('Billing beginner guidance', () => {
     expect(
       screen.getByText(/Work updates, change history, and timeline messages/i)
     ).toBeInTheDocument()
+    expect(screen.getByText(/Export older history or plan for more capacity/i)).toBeInTheDocument()
+    expect(screen.queryByText(/old records/i)).not.toBeInTheDocument()
     expect(screen.queryByText('Activity events')).not.toBeInTheDocument()
     expect(screen.queryByText(/audit records/i)).not.toBeInTheDocument()
     expect(screen.getByText('AI message use')).toBeInTheDocument()

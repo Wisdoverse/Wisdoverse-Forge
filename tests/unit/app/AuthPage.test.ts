@@ -47,9 +47,8 @@ describe('AuthPage beginner guidance', () => {
     await page.show()
 
     expect(bodyText()).toContain('Team space access')
-    expect(bodyText()).toContain(
-      'Sign in to manage agents, tasks, saved work records, and team settings'
-    )
+    expect(bodyText()).toContain('Sign in to manage agents, tasks, saved work, and team settings')
+    expect(bodyText()).not.toContain('saved work records')
     expect(bodyText()).toContain('from one team space')
     expect(bodyText()).toContain('Use the email address from your invitation')
     expect(bodyText()).not.toContain('workspace admin invited')
