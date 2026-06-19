@@ -173,7 +173,7 @@ describe('BillingPage', () => {
 
     await waitFor(() => expect(createCheckoutMock).toHaveBeenCalled())
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Try opening the secure payment page again. If it still does not open, ask an owner or admin to check billing.'
+      'Try opening the secure payment page again. If it still fails, ask an owner or admin to check billing.'
     )
   })
 
@@ -186,7 +186,7 @@ describe('BillingPage', () => {
 
     await waitFor(() => expect(openPortalMock).toHaveBeenCalled())
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Try opening the billing management page again. If it still does not open, ask an owner or admin to check access.'
+      'Try opening the billing management page again. If it still fails, ask an owner or admin to check billing access.'
     )
   })
 })

@@ -110,4 +110,10 @@ describe('billingActionErrorMessage', () => {
       'Try opening the secure payment page again. If it still fails, ask an owner or admin to check billing.'
     )
   })
+
+  test('uses an access-focused portal fallback when no action error is available', () => {
+    expect(billingActionErrorMessage(null, 'portal')).toBe(
+      'Try opening the billing management page again. If it still fails, ask an owner or admin to check billing access.'
+    )
+  })
 })
