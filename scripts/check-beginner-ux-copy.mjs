@@ -255,6 +255,11 @@ const ADMIN_AGENT_STATUS_FALLBACK_DEAD_END_PATTERNS = [
 
 const ADMIN_AGENT_EMPTY_DEAD_END_PATTERNS = [/\bNo agents to show\b/i]
 
+const ADMIN_AGENT_REVIEW_ACTION_PATTERNS = [
+  /\breturn here to review it across team spaces\b/i,
+  /\breview it across team spaces\b/i,
+]
+
 const I18N_ACTION_FIRST_EMPTY_DEAD_END_PATTERNS = [
   /\bnoResults:\s*['"`]No matching results\./i,
   /\bnoData:\s*['"`]Nothing to show yet\./i,
@@ -2321,6 +2326,12 @@ function hasAdminAgentEmptyDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/admin/AgentsPanel.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return ADMIN_AGENT_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAdminAgentReviewActionJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/admin/AgentsPanel.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ADMIN_AGENT_REVIEW_ACTION_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAdminLoadErrorDeadEndCopy(relFile, line) {
@@ -4623,6 +4634,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Admin agent empty states must tell beginners to create, connect, or clear filters.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAdminAgentReviewActionJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'admin-agent-review-action-copy',
+        location,
+        message:
+          'Admin agent empty-state copy must say check for ordinary agent status checks instead of review.',
         sample: line.trim(),
       })
     }

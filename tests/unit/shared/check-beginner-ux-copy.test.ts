@@ -1043,6 +1043,50 @@ function AgentsEmptyState() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags admin agent empty guidance that uses review for ordinary checking', () => {
+    const cwd = fixture({
+      'src/app/features/admin/AgentsPanel.tsx': `
+function agentsSummary() {
+  return 'Create the first agent from Agents, then return here to review it across team spaces.'
+}
+function AgentsEmptyState() {
+  return <p>Confirm it becomes Ready, then return here to review it across team spaces.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'admin-agent-review-action-copy',
+          location: 'src/app/features/admin/AgentsPanel.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'admin-agent-review-action-copy',
+          location: 'src/app/features/admin/AgentsPanel.tsx:6',
+        }),
+      ])
+    )
+  })
+
+  it('accepts admin agent empty guidance that uses check for ordinary status checks', () => {
+    const cwd = fixture({
+      'src/app/features/admin/AgentsPanel.tsx': `
+function agentsSummary() {
+  return 'Create the first agent from Agents, then return here to check it across team spaces.'
+}
+function AgentsEmptyState() {
+  return <p>Confirm it becomes Ready, then return here to check it across team spaces.</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags admin load error titles that do not tell users what to refresh or check', () => {
     const cwd = fixture({
       'src/app/features/admin/adminErrorCopy.ts': `
