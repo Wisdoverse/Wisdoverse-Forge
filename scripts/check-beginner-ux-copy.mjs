@@ -457,6 +457,7 @@ const AGENT_DETAIL_GENERIC_HEADING_PATTERNS = [
 ]
 
 const AGENT_DETAIL_STARTING_LABEL_PATTERNS = [
+  /\bStarting project\b/i,
   /\bStarting project for tasks\b/i,
   /\bStarting folder\b/i,
   /\bFolder selected during setup\b/i,
@@ -3288,7 +3289,12 @@ function hasAgentDetailGenericHeadingCopy(relFile, line) {
 }
 
 function hasAgentDetailStartingLabelCopy(relFile, line) {
-  if (!relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')) return false
+  if (
+    !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx')
+  ) {
+    return false
+  }
   if (isLikelyGuardOrParserLine(line)) return false
   return AGENT_DETAIL_STARTING_LABEL_PATTERNS.some((pattern) => pattern.test(line))
 }
@@ -5802,7 +5808,7 @@ function scanFile(file, relFile) {
         type: 'agent-detail-starting-label-copy',
         location,
         message:
-          'Agent detail setup labels must explain the project and folder agents use instead of saying Starting.',
+          'Agent setup labels must explain the project and folder agents use instead of saying Starting.',
         sample: line.trim(),
       })
     }

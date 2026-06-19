@@ -4398,6 +4398,11 @@ function AgentDetailView() {
   return <><DetailRow label="Starting project for tasks" /><DetailRow label="Starting folder" /><StatCard label="Work setup" /></>
 }
 `,
+      'src/app/features/agents/AgentConfigTab.tsx': `
+function AgentConfigTab() {
+  return <><RuntimeRow label="Starting project" /><RuntimeRow label="Starting folder" /></>
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
@@ -4409,6 +4414,10 @@ function AgentDetailView() {
           type: 'agent-detail-starting-label-copy',
           location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:3',
         }),
+        expect.objectContaining({
+          type: 'agent-detail-starting-label-copy',
+          location: 'src/app/features/agents/AgentConfigTab.tsx:3',
+        }),
       ])
     )
   })
@@ -4418,6 +4427,11 @@ function AgentDetailView() {
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
 function AgentDetailView() {
   return <><DetailRow label="Project for new tasks" /><DetailRow label="Folder agents open" /></>
+}
+`,
+      'src/app/features/agents/AgentConfigTab.tsx': `
+function AgentConfigTab() {
+  return <><RuntimeRow label="Project for new tasks" /><RuntimeRow label="Folder agents open" /></>
 }
 `,
     })
