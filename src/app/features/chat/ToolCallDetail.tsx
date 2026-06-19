@@ -20,9 +20,9 @@ function formatExtraDetails(data: Record<string, unknown>): string {
     const lines = Object.entries(safeData as Record<string, unknown>).map(
       ([key, value]) => `${extraDetailLabel(key)}: ${formatExtraValue(value, key)}`
     )
-    return lines.length > 0 ? lines.join('\n') : 'No extra details were recorded.'
+    return lines.length > 0 ? lines.join('\n') : 'No extra details were saved.'
   } catch {
-    return 'Extra details were recorded but could not be shown safely. Check the summary above, then ask an owner or admin to check this task if needed.'
+    return 'Extra details were saved but could not be shown safely. Check the summary above, then ask an owner or admin to check this task if needed.'
   }
 }
 
@@ -75,7 +75,7 @@ function formatExtraValue(value: unknown, key = ''): string {
   }
   if (typeof value === 'boolean') return value ? 'Yes' : 'No'
   if (typeof value === 'string') return value
-  if (value === null || value === undefined) return 'Not recorded'
+  if (value === null || value === undefined) return 'Not shown yet'
   if (typeof value === 'number') return String(value)
   return JSON.stringify(value, null, 2)
 }
@@ -270,7 +270,7 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
         />
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-medium text-foreground-light dark:text-foreground-dark">
-            Agent recorded a work step
+            Agent saved a work step
           </p>
           <p className="truncate text-[10px] text-secondary-light dark:text-secondary-dark">
             Work step: {readableTool}. {outcome.helper}
@@ -299,7 +299,7 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
       {expanded && (
         <div className="px-3 pb-3 flex flex-col gap-2">
           <div className="rounded-md border border-black/[0.06] bg-white/60 px-3 py-2 text-[11px] leading-relaxed text-secondary-light dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-secondary-dark">
-            This is a read-only record of one step the agent took. Check the result, then decide
+            This is a read-only summary of one step the agent took. Check the result, then decide
             whether to continue, retry, or ask the agent to explain it.
           </div>
 
@@ -349,7 +349,7 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
                 After this step
               </span>
               <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
-                What the agent reported after this step finished.
+                What the agent showed after this step finished.
               </p>
               <p className="mt-1 rounded-md bg-black/[0.035] px-3 py-2 text-[11px] leading-relaxed text-foreground-light dark:bg-white/[0.04] dark:text-foreground-dark">
                 {outputSummary}
@@ -382,7 +382,7 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
                       onClick={() => setShowFullOutput(true)}
                       className="text-[10px] text-apple-blue hover:underline mt-1"
                     >
-                      Show all recorded result details ({outputLines.length} lines)
+                      Show all result details ({outputLines.length} lines)
                     </button>
                   )}
                 </>

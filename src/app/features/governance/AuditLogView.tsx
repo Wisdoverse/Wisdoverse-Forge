@@ -347,7 +347,7 @@ export function AuditLogView() {
               name="scopeId"
               autoComplete="off"
               onChange={(event) => updateFilter('scopeId', event.target.value)}
-              placeholder="Paste the exact team space, work area, team, or project reference"
+              placeholder="Paste the exact team space, work area, team, or project ID from Settings"
               className={INPUT_CLASS}
             />
           </Field>
@@ -357,7 +357,7 @@ export function AuditLogView() {
               name="userId"
               autoComplete="off"
               onChange={(event) => updateFilter('userId', event.target.value)}
-              placeholder="Paste the exact person reference only when needed"
+              placeholder="Paste the exact person ID only when needed"
               className={INPUT_CLASS}
             />
           </Field>
@@ -419,7 +419,7 @@ export function AuditLogView() {
             value={auditViewMetricLabel(data?.query.eventPrefix ?? filters.eventPrefix)}
             compact
           />
-          <Metric label="Hidden item references" value={protectedReferences} />
+          <Metric label="Hidden item IDs" value={protectedReferences} />
           <Metric label="Hidden review-note rows" value={redactedRows} />
         </div>
 
@@ -544,14 +544,14 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
           <SubjectLine
             testId="governance-audit-item-reference"
             icon="visible"
-            label="Visible item reference"
+            label="Visible item ID"
             value={entry.rawItemId}
           />
         ) : (
           <SubjectLine
             testId="governance-audit-protected-reference"
             icon="hash"
-            label="Hidden item reference"
+            label="Hidden item ID"
             value={entry.auditSubjectHash}
           />
         )}
@@ -568,7 +568,7 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
       <td className="w-56 px-4 py-3">
         <div className="font-medium">{auditAreaLabel(entry.scopeKind)}</div>
         <div className="mt-1 truncate font-mono text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {entry.scopeId ? `Area reference ${shortId(entry.scopeId)}` : 'Area reference hidden'}
+          {entry.scopeId ? `Area ID ${shortId(entry.scopeId)}` : 'Area ID hidden'}
         </div>
       </td>
       <td className="w-48 px-4 py-3">
@@ -799,10 +799,10 @@ function auditItemKindLabel(kind: GovernanceAuditItemKind | null | undefined): s
 function resourceTypeLabel(value: string): string {
   const normalized = value.trim().toLowerCase()
   if (normalized === 'memory' || normalized === 'memories' || normalized === 'memory_item') {
-    return 'Saved note record'
+    return 'Saved note details'
   }
-  if (normalized === 'skill' || normalized === 'skills') return 'Instruction record'
-  return readableCodeLabel(value, { fallback: 'Check record type' })
+  if (normalized === 'skill' || normalized === 'skills') return 'Instruction details'
+  return readableCodeLabel(value, { fallback: 'Check item type' })
 }
 
 function auditAreaLabel(kind: GovernanceAuditScopeKind | null | undefined): string {
@@ -823,7 +823,7 @@ function auditAreaLabel(kind: GovernanceAuditScopeKind | null | undefined): stri
 }
 
 function auditActorLabel(actorUserId: string | null | undefined): string {
-  return actorUserId ? `Person reference ${shortId(actorUserId)}` : 'System'
+  return actorUserId ? `Person ID ${shortId(actorUserId)}` : 'System'
 }
 
 function readableCodeLabel(value: string, options: { fallback: string }): string {

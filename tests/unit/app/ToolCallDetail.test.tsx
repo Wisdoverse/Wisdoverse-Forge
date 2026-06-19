@@ -20,7 +20,7 @@ describe('ToolCallDetail', () => {
   test('summarizes a completed tool step in operator language', () => {
     render(<ToolCallDetail call={baseCall} />)
 
-    expect(screen.getByText(/Agent recorded a work step/i)).toBeInTheDocument()
+    expect(screen.getByText(/Agent saved a work step/i)).toBeInTheDocument()
     expect(screen.getByText(/Work step: Command runner/i)).toBeInTheDocument()
     expect(screen.queryByText(/Step type: shell/i)).toBeNull()
     expect(screen.getByText('Completed cleanly')).toBeInTheDocument()
@@ -38,7 +38,7 @@ describe('ToolCallDetail', () => {
 
     expect(
       screen.getByText(
-        /this is a read-only record of one step the agent took.*whether to continue, retry, or ask the agent to explain it/i
+        /this is a read-only summary of one step the agent took.*whether to continue, retry, or ask the agent to explain it/i
       )
     ).toBeInTheDocument()
     expect(screen.getByText('Before this step')).toBeInTheDocument()
@@ -47,7 +47,7 @@ describe('ToolCallDetail', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('After this step')).toBeInTheDocument()
     expect(
-      screen.getByText('What the agent reported after this step finished.')
+      screen.getByText('What the agent showed after this step finished.')
     ).toBeInTheDocument()
     expect(screen.getByText('Command the agent used: npm run typecheck')).toBeInTheDocument()
     expect(screen.getByText(/Typecheck passed/)).toBeInTheDocument()
@@ -150,7 +150,7 @@ describe('ToolCallDetail', () => {
     fireEvent.click(screen.getByRole('button', { name: /show step details for command runner/i }))
     fireEvent.click(screen.getByRole('button', { name: /show setup details/i }))
 
-    expect(screen.getByText(/Extra details were recorded but could not be shown safely/i)).toBeDefined()
+    expect(screen.getByText(/Extra details were saved but could not be shown safely/i)).toBeDefined()
     expect(screen.getByText(/Check the summary above/i)).toBeDefined()
     expect(screen.queryByText(/Review the summary above/i)).toBeNull()
   })

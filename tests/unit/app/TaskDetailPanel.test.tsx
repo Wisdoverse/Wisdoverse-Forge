@@ -77,15 +77,15 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByTestId('detail-close')).toBeDefined()
   })
 
-  test('labels the task reference instead of showing a bare task id', () => {
+  test('labels the task ID instead of showing a bare task id', () => {
     render(<TaskDetailPanel task={mockTask} onClose={() => {}} />)
 
-    expect(screen.getByText('Task reference task-1')).toBeDefined()
+    expect(screen.getByText('Task ID task-1')).toBeDefined()
     expect(screen.queryByText(/^task-1$/)).toBeNull()
     expect(screen.queryByText(/Support reference task-1/i)).toBeNull()
   })
 
-  test('tells users to refresh when the task reference is missing', () => {
+  test('tells users to refresh when the task ID is missing', () => {
     render(<TaskDetailPanel task={{ ...mockTask, id: ' ' }} onClose={() => {}} />)
 
     expect(screen.getByText('Refresh task details')).toBeDefined()
@@ -148,7 +148,7 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByText('Agent work history')).toBeDefined()
     expect(await screen.findByText('Work attempt: In progress')).toBeDefined()
     expect(screen.getByText(/used a work tool you should check/i)).toBeDefined()
-    expect(screen.getByText(/work attempt reference run-1234/i)).toBeDefined()
+    expect(screen.getByText(/work attempt ID run-1234/i)).toBeDefined()
     expect(screen.queryByText(/support reference run-1234/i)).toBeNull()
     expect(screen.getAllByText(/waiting for account access/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/waiting for api credentials/i)).toBeNull()

@@ -108,7 +108,7 @@ describe('ApprovalQueueView', () => {
     expect(within(dialog).getByText(/only the right people can reuse it/i)).toBeDefined()
     expect(within(dialog).getByText(/sensitive details are hidden before saving/i)).toBeDefined()
     expect(within(dialog).getByText('Who can reuse it')).toBeDefined()
-    expect(within(dialog).getByText(/team or project reference from Settings/i)).toBeDefined()
+    expect(within(dialog).getByText(/team or project ID from Settings/i)).toBeDefined()
     expect(within(dialog).queryByText(/support reference from Settings/i)).toBeNull()
     expect(within(dialog).getByText('Team only')).toBeDefined()
     expect(within(dialog).getByRole('button', { name: 'Review later' })).toBeDefined()
@@ -116,11 +116,11 @@ describe('ApprovalQueueView', () => {
 
     await userEvent.setup().selectOptions(screen.getByTestId('context-approval-scope-kind'), 'team')
 
-    expect(within(dialog).getByText('Team reference')).toBeDefined()
-    expect(within(dialog).getByPlaceholderText(/Team reference from Settings/i)).toBeDefined()
-    expect(within(dialog).getByText(/Paste the Team reference before saving/i)).toBeDefined()
+    expect(within(dialog).getByText('Team ID')).toBeDefined()
+    expect(within(dialog).getByPlaceholderText(/Team ID from Settings/i)).toBeDefined()
+    expect(within(dialog).getByText(/Paste the Team ID before saving/i)).toBeDefined()
     expect(within(dialog).queryByText('Team support reference')).toBeNull()
-    expect(within(dialog).queryByText(/exact I[D] from settings/i)).toBeNull()
+    expect(within(dialog).queryByText(/exact support reference from settings/i)).toBeNull()
   })
 
   test('review later closes the decision panel without saving or rejecting', async () => {
