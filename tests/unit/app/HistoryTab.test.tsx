@@ -247,7 +247,8 @@ describe('HistoryTab', () => {
 
     expect(await screen.findByText('Work attempt: Waiting to start')).toBeInTheDocument()
     expect(screen.getByText('Work attempt: Check task status')).toBeInTheDocument()
-    expect(screen.getByText('Work attempt: Refresh task status')).toBeInTheDocument()
+    expect(screen.getByText('Work attempt: Open task details to check status')).toBeInTheDocument()
+    expect(screen.queryByText('Work attempt: Refresh task status')).toBeNull()
     expect(screen.queryByText('Work attempt: Status not reported')).toBeNull()
     expect(screen.queryByText(/waiting_for_result/i)).toBeNull()
     expect(screen.queryByText('Unknown')).toBeNull()

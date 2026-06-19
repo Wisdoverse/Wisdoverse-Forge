@@ -1307,13 +1307,18 @@ const LIVE_WORK_STATUS_DEAD_END_PATTERNS = [
   /\bRefresh this page first\b/i,
 ]
 
-const TASK_DETAIL_RUN_STATUS_DEAD_END_PATTERNS = [/\bStatus not reported\b/i]
+const TASK_DETAIL_RUN_STATUS_DEAD_END_PATTERNS = [
+  /\bStatus not reported\b/i,
+  /\bRefresh task status\b/i,
+]
 
 const TASK_STATUS_FALLBACK_DEAD_END_PATTERNS = [
   /\bStatus not listed\b/i,
   /\bStatus needs review\b/i,
+  /\bRefresh task status\b/i,
   /\bPriority not listed\b/i,
   /\bPriority needs review\b/i,
+  /\bRefresh task priority\b/i,
 ]
 
 const TASK_COMPLETION_SUMMARY_DEAD_END_PATTERNS = [/\bNo completion summary was provided\b/i]
@@ -6927,7 +6932,7 @@ function scanFile(file, relFile) {
         type: 'task-detail-run-status-copy',
         location,
         message:
-          'Task detail run status copy must tell beginners to refresh task status before deciding.',
+          'Task detail run status copy must tell beginners to open task details before deciding.',
         sample: line.trim(),
       })
     }
@@ -6937,7 +6942,7 @@ function scanFile(file, relFile) {
         type: 'task-status-fallback-copy',
         location,
         message:
-          'Task status and priority fallback copy must tell beginners to refresh or check the task field.',
+          'Task status and priority fallback copy must tell beginners to open task details or check the task field.',
         sample: line.trim(),
       })
     }

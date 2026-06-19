@@ -180,6 +180,23 @@ describe('TaskMetadata', () => {
     expect(screen.queryByText(/future priority/i)).toBeNull()
   })
 
+  test('labels missing task status and priority with a task details step', () => {
+    render(
+      <TaskMetadata
+        task={{
+          ...mockTask,
+          state: ' ' as never,
+          priority: ' ' as never,
+        }}
+      />
+    )
+
+    expect(screen.getByText('Open task details to check status')).toBeDefined()
+    expect(screen.getByText('Open task details to check priority')).toBeDefined()
+    expect(screen.queryByText('Refresh task status')).toBeNull()
+    expect(screen.queryByText('Refresh task priority')).toBeNull()
+  })
+
   test('explains canceled tasks with saved activity wording', () => {
     render(<TaskMetadata task={{ ...mockTask, state: 'canceled' }} />)
 

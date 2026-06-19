@@ -8031,16 +8031,22 @@ const LIVE_WORK_CONNECTION_NOTICE = 'Live work notice: Connection dropped. Open 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags task detail run status copy that does not tell users to refresh task status', () => {
+  it('flags task detail run status copy that does not tell users to open task details', () => {
     const cwd = fixture({
       'src/app/features/detail/HistoryTab.tsx': `
 export function readableRunStatus() {
   return 'Status not reported'
 }
+export function emptyRunStatus() {
+  return 'Refresh task status'
+}
 `,
       'src/app/features/detail/ContextTab.tsx': `
 export function runStatusLabel() {
   return 'Status not reported'
+}
+export function emptyRunStatus() {
+  return 'Refresh task status'
 }
 `,
     })
@@ -8056,22 +8062,30 @@ export function runStatusLabel() {
         }),
         expect.objectContaining({
           type: 'task-detail-run-status-copy',
+          location: 'src/app/features/detail/HistoryTab.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-run-status-copy',
           location: 'src/app/features/detail/ContextTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-run-status-copy',
+          location: 'src/app/features/detail/ContextTab.tsx:6',
         }),
       ])
     )
   })
 
-  it('accepts task detail run status copy that tells users to refresh task status', () => {
+  it('accepts task detail run status copy that tells users to open task details', () => {
     const cwd = fixture({
       'src/app/features/detail/HistoryTab.tsx': `
 export function readableRunStatus() {
-  return 'Refresh task status'
+  return 'Open task details to check status'
 }
 `,
       'src/app/features/detail/ContextTab.tsx': `
 export function runStatusLabel() {
-  return 'Refresh task status'
+  return 'Open task details to check status'
 }
 `,
     })
@@ -8083,12 +8097,12 @@ export function runStatusLabel() {
     const cwd = fixture({
       'src/app/entities/task/model/taskLabels.ts': `
 export function taskStateLabel(status) {
-  if (!status) return 'Status not listed'
+  if (!status) return 'Refresh task status'
   return 'Status needs review'
 }
 
 export function taskPriorityLabel(priority) {
-  if (!priority) return 'Priority not listed'
+  if (!priority) return 'Refresh task priority'
   return 'Priority needs review'
 }
 `,
@@ -8141,23 +8155,23 @@ export function runStatusLabel(status) {
     const cwd = fixture({
       'src/app/entities/task/model/taskLabels.ts': `
 export function taskStateLabel(status) {
-  if (!status) return 'Refresh task status'
+  if (!status) return 'Open task details to check status'
   return 'Check task status'
 }
 
 export function taskPriorityLabel(priority) {
-  if (!priority) return 'Refresh task priority'
+  if (!priority) return 'Open task details to check priority'
   return 'Check task priority'
 }
 `,
       'src/app/features/detail/HistoryTab.tsx': `
 export function readableRunStatus(status) {
-  return status ? 'Check task status' : 'Refresh task status'
+  return status ? 'Check task status' : 'Open task details to check status'
 }
 `,
       'src/app/features/detail/ContextTab.tsx': `
 export function runStatusLabel(status) {
-  return status ? 'Check task status' : 'Refresh task status'
+  return status ? 'Check task status' : 'Open task details to check status'
 }
 `,
     })

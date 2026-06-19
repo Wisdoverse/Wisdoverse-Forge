@@ -225,7 +225,7 @@ function runStatusLabel(status: string): string {
     case 'cancelled':
       return 'Stopped'
     default:
-      return normalized ? 'Check task status' : 'Refresh task status'
+      return normalized ? 'Check task status' : 'Open task details to check status'
   }
 }
 
