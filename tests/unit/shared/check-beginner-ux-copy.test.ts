@@ -5520,6 +5520,9 @@ function runtimeReadinessSummary() {
 function CredentialStatusRow() {
   return <p>No work tool sign-in saved</p>
 }
+function ConnectButton() {
+  return <button>{opening ? 'Opening' : 'Sign in'}</button>
+}
 `,
     })
 
@@ -5535,6 +5538,10 @@ function CredentialStatusRow() {
         type: 'runtime-sign-in-copy',
         location: 'src/app/features/settings/RuntimeSection.tsx:7',
       }),
+      expect.objectContaining({
+        type: 'runtime-sign-in-copy',
+        location: 'src/app/features/settings/RuntimeSection.tsx:10',
+      }),
     ])
   })
 
@@ -5546,7 +5553,10 @@ function runtimeReadinessSummary() {
 }
 
 function CredentialStatusRow() {
-  return <p>Sign in before starting agents that use this tool</p>
+  return <p>Choose Sign in to OpenAI (Codex). The browser login page opens, then return here and choose Check again.</p>
+}
+function ConnectButton() {
+  return <button>Sign in to OpenAI (Codex)</button>
 }
 `,
     })

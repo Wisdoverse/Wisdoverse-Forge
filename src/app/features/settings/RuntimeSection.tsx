@@ -728,9 +728,8 @@ function CredentialStatusRow({
     ? status.lastRefresh
       ? `Last checked ${formatRelativeTime(status.lastRefresh)}`
       : 'Work tool signed in'
-    : status.revokeReason || status.revokedAt
-      ? 'Sign in again before starting agents that use this tool'
-      : 'Sign in before starting agents that use this tool'
+    : `Choose Sign in to ${status.displayName}. The browser login page opens, then return here and choose Check again.`
+  const actionLabel = opening ? `Opening ${status.displayName}` : `Sign in to ${status.displayName}`
 
   return (
     <div className="flex flex-col gap-2 rounded-lg bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04] sm:flex-row sm:items-center sm:justify-between">
@@ -758,9 +757,13 @@ function CredentialStatusRow({
           type="button"
           onClick={onConnect}
           disabled={opening}
-          className={cn(uiStyles.secondaryButton, 'shrink-0')}
+          title={`Open the ${status.displayName} browser login page`}
+          className={cn(
+            uiStyles.secondaryButton,
+            'h-auto min-h-9 w-full whitespace-normal py-2 text-center leading-tight sm:w-auto sm:shrink-0 sm:whitespace-nowrap'
+          )}
         >
-          {opening ? 'Opening' : 'Sign in'}
+          {actionLabel}
         </button>
       )}
     </div>

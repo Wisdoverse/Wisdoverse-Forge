@@ -1017,6 +1017,7 @@ const SAVED_INSTRUCTION_TEMPLATE_JARGON_PATTERNS = [
 const RUNTIME_SIGN_IN_DEAD_END_PATTERNS = [
   /\bNo work tool sign-ins are connected yet\b/i,
   /\bNo work tool sign-in saved\b/i,
+  /['"`]Sign in['"`]/,
 ]
 
 const RUNTIME_DEFAULT_LOCATION_DEAD_END_PATTERNS = [/\bNot set yet\b/i]
