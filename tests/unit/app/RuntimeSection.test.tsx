@@ -340,7 +340,7 @@ describe('RuntimeSection', () => {
     render(<RuntimeSection focus="sign-ins" />)
 
     expect(await screen.findByTestId('runtime-sign-in-entry')).toHaveTextContent(
-      'Sign in to Codex and work tools'
+      'Sign in to Codex CLI and work tools'
     )
     expect(screen.getByText('OpenAI (Codex)')).toBeDefined()
     expect(screen.getAllByText('Codex').length).toBeGreaterThan(0)

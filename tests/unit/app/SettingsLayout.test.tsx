@@ -54,7 +54,7 @@ describe('SettingsLayout', () => {
     ).toBeInTheDocument()
     expect(
       within(desktopNav).getByRole('button', {
-        name: /Work tool sign-ins: Sign in to Codex and other tools agents use for file work/i,
+        name: /Codex CLI sign-in: Sign in to Codex and other CLI tools agents use for file work/i,
       })
     ).toBeInTheDocument()
     expect(
@@ -79,7 +79,7 @@ describe('SettingsLayout', () => {
     expect(screen.getByRole('option', { name: 'SSH code access' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Agent size limits' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Where agents work' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Work tool sign-ins' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Codex CLI sign-in' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Teams' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Team members' })).not.toBeInTheDocument()
     expect(screen.getByTestId('settings-mobile-section-hint')).toHaveTextContent(
@@ -96,7 +96,7 @@ describe('SettingsLayout', () => {
 
     fireEvent.click(
       within(desktopNav).getByRole('button', {
-        name: /Work tool sign-ins: Sign in to Codex and other tools agents use for file work/i,
+        name: /Codex CLI sign-in: Sign in to Codex and other CLI tools agents use for file work/i,
       })
     )
 

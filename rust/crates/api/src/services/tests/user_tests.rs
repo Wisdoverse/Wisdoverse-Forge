@@ -40,13 +40,13 @@ fn test_email_long_is_ok() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_password_exactly_8() {
-    assert!(UserPassword::parse("12345678").is_ok());
+fn test_password_exactly_12() {
+    assert!(UserPassword::parse("123456789012").is_ok());
 }
 
 #[test]
-fn test_password_7_chars() {
-    assert!(UserPassword::parse("1234567").is_err());
+fn test_password_11_chars() {
+    assert!(UserPassword::parse("12345678901").is_err());
 }
 
 #[test]
