@@ -58,7 +58,7 @@ describe('ToolCallDetail', () => {
     expect(screen.queryByText(/support details/i)).toBeNull()
     expect(screen.queryByText(/support review/i)).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: /show setup details/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show what the agent received/i }))
     fireEvent.click(screen.getByRole('button', { name: /show result details/i }))
 
     expect(screen.getByText(/Project folder: \/workspace\/app/i)).toBeInTheDocument()
@@ -96,7 +96,7 @@ describe('ToolCallDetail', () => {
     ).toBeInTheDocument()
     expect(screen.getByText(/Required account access is missing/i)).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /show setup details/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show what the agent received/i }))
 
     expect(screen.getByText(/Hidden for safety/i)).toBeInTheDocument()
     expect(screen.getByText(/Account access:/i)).toBeInTheDocument()
@@ -148,7 +148,7 @@ describe('ToolCallDetail', () => {
     render(<ToolCallDetail call={{ ...baseCall, input: circularInput }} />)
 
     fireEvent.click(screen.getByRole('button', { name: /show step details for command runner/i }))
-    fireEvent.click(screen.getByRole('button', { name: /show setup details/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show what the agent received/i }))
 
     expect(screen.getByText(/Extra details were saved but could not be shown safely/i)).toBeDefined()
     expect(screen.getByText(/Check the summary above/i)).toBeDefined()

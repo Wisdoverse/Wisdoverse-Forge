@@ -84,8 +84,10 @@ describe('SkillDraftModal', () => {
 
     expect(screen.getByLabelText(/^use when$/i)).toBeDefined()
     expect(screen.getByText(/check before publishing/i)).toBeDefined()
-    expect(screen.getByText('No secrets')).toBeDefined()
-    expect(screen.getByText(/remove secret keys/i)).toBeDefined()
+    expect(screen.getByText('Keep private details out')).toBeDefined()
+    expect(screen.getByText(/remove passwords, access keys/i)).toBeDefined()
+    expect(screen.queryByText('No secrets')).toBeNull()
+    expect(screen.queryByText(/secret keys/i)).toBeNull()
     expect(screen.queryByText(/tokens/i)).toBeNull()
     expect(screen.getByText(/choose the agents that should follow it/i)).toBeDefined()
 

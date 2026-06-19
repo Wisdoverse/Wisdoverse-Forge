@@ -155,6 +155,12 @@ const REVIEW_DECISION_JARGON_PATTERNS = [
 
 const REVIEW_HISTORY_DEAD_END_PATTERNS = [/\bNo saved item history yet\b/i]
 
+const REVIEW_STATUS_JARGON_PATTERNS = [
+  /\bFix review\b/i,
+  /\bRefresh fix review\b/i,
+  /\bcode fix review\b/i,
+]
+
 const NOTE_SPACE_JARGON_PATTERNS = [
   /\bunits of note space\b/i,
   /\bunits available\b/i,
@@ -451,8 +457,11 @@ const AGENT_DETAIL_GENERIC_HEADING_PATTERNS = [
 ]
 
 const AGENT_DETAIL_STARTING_LABEL_PATTERNS = [
+  /\bStarting project\b/i,
   /\bStarting project for tasks\b/i,
   /\bStarting folder\b/i,
+  /\bFolder selected during setup\b/i,
+  /\bWork setup\b/i,
 ]
 
 const AGENT_DETAIL_START_FAILURE_FIRST_PATTERNS = [/\bStart did not finish\b/i]
@@ -561,7 +570,10 @@ const SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS = [
 
 const SYSTEM_HEALTH_LIVE_UPDATE_JARGON_PATTERNS = [/\bMoves events from running agents\b/i]
 
-const SYSTEM_HEALTH_HELPER_NOTE_JARGON_PATTERNS = [/\bOwner\/admin note\b/i]
+const SYSTEM_HEALTH_HELPER_NOTE_JARGON_PATTERNS = [
+  /\bOwner\/admin note\b/i,
+  /\bSetup helper note\b/i,
+]
 
 const ADMIN_NAV_TECHNICAL_COPY_PATTERNS = [
   /\bSystem health and user management\b/i,
@@ -638,6 +650,8 @@ const START_GUIDE_RESET_JARGON_PATTERNS = [
   /\bReset it here\b/i,
   /\bnothing to restore\b/i,
   /\bStart is already visible\b/i,
+  /\bIf Start is hidden\b/i,
+  /\bNew sign-ins still open Tasks by default\b/i,
 ]
 
 const START_GUIDE_FAILURE_FIRST_PATTERNS = [
@@ -869,6 +883,13 @@ const SAVED_INSTRUCTION_CREATE_FIELD_JARGON_PATTERNS = [
   /\bAdd the steps this saved instruction should apply\./,
 ]
 
+const SAVED_INSTRUCTION_PRIVATE_DETAIL_JARGON_PATTERNS = [
+  /\bNo secrets\b/i,
+  /\bsecret keys\b/i,
+  /\bone-time paths\b/i,
+  /\bone-time project details\b/i,
+]
+
 const AGENT_PLUGIN_ERROR_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*Tool change was not saved\. The switch was returned to its previous setting\./i,
   /['"`]\s*Forge could not finish this tool request right now\. Wait a few minutes, then try again\./i,
@@ -924,11 +945,13 @@ const RUNTIME_SETUP_STATUS_DEAD_END_PATTERNS = [
   /\bNo work tool setup status yet\b/i,
   /\bNo agent has been seen online yet\b/i,
   /\bno agents are online yet\b/i,
+  /\bStart or wake an agent\b/i,
   /\bSetup has \d+ agent locations? and \d+ work tools? like Claude or Codex\b/i,
 ]
 
 const RUNTIME_ERROR_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*Agent connection status could not load\. Start or wake an agent/i,
+  /\bStart or wake an agent\b/i,
   /['"`]\s*Work tool sign-in could not be checked\. Refresh this page/i,
   /['"`]\s*Work tool sign-ins could not be checked\. Check setup/i,
   /['"`]\s*Agent online status could not be checked\. Check setup/i,
@@ -1289,6 +1312,7 @@ const CHAT_FILTER_EMPTY_DEAD_END_PATTERNS = [
 const CHAT_TOOL_STEP_DEAD_END_PATTERNS = [
   /\bThis step needs review\b/i,
   /\bThis step has not reported a result yet\b/i,
+  /\b(?:Show|Hide) setup details\b/i,
   /\bTook\s+\{?formatDuration\b/i,
   /\bTook\s+\{?[^\n]{0,80}(?:ms|s)\b/i,
   /\bDuration:\s*\{?[^\n]{0,80}(?:ms|s)\b/i,
@@ -1351,6 +1375,8 @@ const CHAT_STREAM_FAILURE_FIRST_PATTERNS = [
 
 const AGENT_CONTROL_ERROR_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*You do not have permission to change this agent\. Ask an owner/i,
+  /['"`]\s*Forge could not update this agent right now\. Refresh this agent/i,
+  /\bUse the recovery step below\b/i,
   /\bReview the recovery step below\b/i,
   /['"`]\s*agent control action failed['"`]/i,
 ]
@@ -1398,6 +1424,17 @@ const GOVERNANCE_AUDIT_BARE_ACTOR_REFERENCE_PATTERNS = [
   /entry\.actorUserId\s*\?\s*shortId\(entry\.actorUserId\)\s*:/,
 ]
 
+const GOVERNANCE_AUDIT_REFERENCE_JARGON_PATTERNS = [
+  /\bHidden item codes\b/i,
+  /\bVisible item code\b/i,
+  /\bHidden item code\b/i,
+  /\bArea code\b/i,
+  /\bexact change area\b/i,
+  /\bexact team space,\s*work area,\s*team,\s*or project code\b/i,
+  /\bexact person code\b/i,
+  /`Person code \$\{shortId\(actorUserId\)\}`/,
+]
+
 const APPROVAL_QUEUE_ERROR_FAILURE_FIRST_PATTERNS = [
   /^\s*(?:return\s+|(?:approveCandidate|rejectCandidate)\s*:\s*)['"`]The item was not (?:approved|rejected)\./i,
   /^\s*(?:return\s+|loadQueue\s*:\s*)['"`]The saved item review list could not load\./i,
@@ -1406,6 +1443,29 @@ const APPROVAL_QUEUE_ERROR_FAILURE_FIRST_PATTERNS = [
   /^\s*return\s+['"`]This item changed while you were reviewing it\./i,
   /^\s*return\s+['"`]The saved item review list is busy\./i,
   /^\s*return\s+['"`]Forge could not connect while (?:loading saved items|saving this review decision)\./i,
+]
+
+const APPROVAL_QUEUE_CHECK_JARGON_PATTERNS = [
+  /\bWaiting for review\b/i,
+  /\bpending item(?:s)?\b/i,
+  /\bShow pending reviews\b/i,
+  /\bSaved notes review\b/i,
+  /\bReview what agents can save\b/i,
+  /\bRefresh review list\b/i,
+  /\bReview steps\b/i,
+  /\bReview later\b/i,
+  /\bApprove and save\b/i,
+  /\bready to review\b/i,
+  /\breview everything first\b/i,
+  /\bReview the first saved item\b/i,
+  /\bNo saved items need review\b/i,
+  /\b(?:Team|Project) code\b/,
+  /\bteam or project code from Settings\b/i,
+  /\bThe saved item review list\b/i,
+  /\bretry this review action\b/i,
+  /\bsaving this review decision\b/i,
+  /\bwhile you were reviewing it\b/i,
+  /\bsaved item review access\b/i,
 ]
 
 const DUPLICATE_RECOVERY_COPY_PATTERNS = [
@@ -1436,6 +1496,7 @@ const TASK_FORM_QUEUE_LOAD_FAILURE_FIRST_PATTERNS = [
 
 const TASK_SUPPORT_REFERENCE_DEAD_END_PATTERNS = [
   /\bSupport reference not (?:reported|listed)\b/i,
+  /\bTask ID\b/i,
   /\breturn\s+['"`]not listed['"`]/i,
 ]
 
@@ -1736,7 +1797,9 @@ const TEAM_PROJECT_CREATE_JARGON_PATTERNS = [
   /\b(?:Team|Project) setup path\b/i,
   /\bAddress preview:/i,
   /\bWork folder preview:/i,
+  /\bShow support folder\b/i,
   /\bShow support folder path\b/i,
+  /\bLink ending people may see\b/i,
   /\bAutomatic link name\b/i,
   /\bAutomatic (?:team|project) name\b/i,
   /\b(?:Team|Project) short name\b/i,
@@ -1744,12 +1807,14 @@ const TEAM_PROJECT_CREATE_JARGON_PATTERNS = [
 
 const TEAM_PROJECT_ROW_ADDRESS_JARGON_PATTERNS = [
   /\bAddress:\s*\{/i,
+  /\bLink ending people may see\b/i,
   /\bAutomatic link name\b/i,
   /\bAutomatic (?:team|project) name\b/i,
   /\b(?:Team|Project) short name\b/i,
 ]
 
 const TEAM_PROJECT_SHORT_NAME_JARGON_PATTERNS = [
+  /\bLink ending people may see\b/i,
   /\blink name\b/i,
   /\bURL name:\s*\{/i,
   /\bForge uses this in (?:team|project|team space) links\b/i,
@@ -1762,6 +1827,7 @@ const TEAM_PROJECT_SHORT_NAME_JARGON_PATTERNS = [
 const SIDEBAR_PROJECT_MENU_GENERATED_NAME_JARGON_PATTERNS = [
   /\bautomatic project name\b/i,
   /\bname used in links\b/i,
+  /\bpeople may see this at the end of project links\b/i,
 ]
 
 const CLONE_RETRY_FAILURE_FIRST_PATTERNS = [
@@ -2221,6 +2287,17 @@ function hasReviewHistoryDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/context/ApprovalQueueView.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return REVIEW_HISTORY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasReviewStatusJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/detail/ReviewSnapshotPanel.tsx') &&
+    !relFile.endsWith('src/app/features/detail/model/reviewSnapshotErrorMessage.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return REVIEW_STATUS_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasNoteSpaceJargonCopy(line) {
@@ -3212,7 +3289,12 @@ function hasAgentDetailGenericHeadingCopy(relFile, line) {
 }
 
 function hasAgentDetailStartingLabelCopy(relFile, line) {
-  if (!relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')) return false
+  if (
+    !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx')
+  ) {
+    return false
+  }
   if (isLikelyGuardOrParserLine(line)) return false
   return AGENT_DETAIL_STARTING_LABEL_PATTERNS.some((pattern) => pattern.test(line))
 }
@@ -3328,7 +3410,13 @@ function hasCodeAccessKeyJargonCopy(relFile, line) {
 }
 
 function hasCodeAccessAddressJargonCopy(relFile, line) {
-  if (!relFile.endsWith('src/app/features/settings/GitCredentialsSection.tsx')) return false
+  if (
+    !relFile.endsWith('src/app/features/settings/GitCredentialsSection.tsx') &&
+    !relFile.endsWith('src/app/features/settings/gitCredentialsErrorMessage.ts') &&
+    !relFile.endsWith('src/app/shared/model/settings.store.ts')
+  ) {
+    return false
+  }
   if (isLikelyGuardOrParserLine(line)) return false
   return CODE_ACCESS_ADDRESS_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
@@ -3711,6 +3799,17 @@ function hasSavedInstructionCreateFieldJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/skills/CreateSkillModal.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return SAVED_INSTRUCTION_CREATE_FIELD_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasSavedInstructionPrivateDetailJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/detail/SkillDraftModal.tsx') &&
+    !relFile.endsWith('src/app/features/skills/CreateSkillModal.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SAVED_INSTRUCTION_PRIVATE_DETAIL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasSavedInstructionsLoadDeadEndCopy(relFile, line) {
@@ -4232,12 +4331,29 @@ function hasGovernanceAuditBareActorReferenceCopy(relFile, line) {
   return GOVERNANCE_AUDIT_BARE_ACTOR_REFERENCE_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasGovernanceAuditReferenceJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/governance/AuditLogView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return GOVERNANCE_AUDIT_REFERENCE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasApprovalQueueErrorFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/context/approvalQueueErrorMessages.ts')) {
     return false
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return APPROVAL_QUEUE_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasApprovalQueueCheckJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/context/ApprovalQueueView.tsx') &&
+    !relFile.endsWith('src/app/features/context/approvalQueueErrorMessages.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return APPROVAL_QUEUE_CHECK_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasDuplicateRecoveryDeadEndCopy(relFile, line) {
@@ -4441,6 +4557,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Saved-item review history empty states must tell beginners to review the first suggestion.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasReviewStatusJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'review-status-copy',
+        location,
+        message: 'Review status copy must say review status instead of fix review jargon.',
         sample: line.trim(),
       })
     }
@@ -5683,7 +5808,7 @@ function scanFile(file, relFile) {
         type: 'agent-detail-starting-label-copy',
         location,
         message:
-          'Agent detail setup labels must explain the project and folder agents use instead of saying Starting.',
+          'Agent setup labels must explain the project and folder agents use instead of saying Starting.',
         sample: line.trim(),
       })
     }
@@ -5788,7 +5913,7 @@ function scanFile(file, relFile) {
         type: 'system-health-helper-note-copy',
         location,
         message:
-          'App health issue notes must use setup-helper wording instead of owner/admin slash jargon.',
+          'App health issue notes must say what to check next instead of setup-helper or owner/admin slash jargon.',
         sample: line.trim(),
       })
     }
@@ -6290,6 +6415,16 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasSavedInstructionPrivateDetailJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'saved-instruction-private-detail-copy',
+        location,
+        message:
+          'Saved instruction review points must name private details plainly instead of secrets or one-time path jargon.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasSavedInstructionsLoadDeadEndCopy(relFile, line)) {
       findings.push({
         type: 'saved-instructions-load-copy',
@@ -6693,12 +6828,32 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasGovernanceAuditReferenceJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'governance-audit-reference-copy',
+        location,
+        message:
+          'Governance change history must label saved items, work areas, and people with product words instead of item, area, or person code labels.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasApprovalQueueErrorFailureFirstCopy(relFile, line)) {
       findings.push({
         type: 'approval-queue-error-copy',
         location,
         message:
           'Saved item review errors must start with the next action, not the failure summary.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasApprovalQueueCheckJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'approval-queue-check-copy',
+        location,
+        message:
+          'Saved items checking copy must say check, save, or do not save instead of review, pending, or approve jargon.',
         sample: line.trim(),
       })
     }

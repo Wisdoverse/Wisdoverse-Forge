@@ -283,8 +283,8 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
           </p>
           {trimmedName && (
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Link ending people may see: {slugifyName(name)}. Forge creates it automatically from
-              the project name.
+              Shown at the end of project links: {slugifyName(name)}. Forge creates it automatically
+              from the project name.
             </p>
           )}
         </div>
@@ -366,10 +366,13 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
             </p>
             <details className="mt-1">
               <summary className="cursor-pointer text-apple-blue hover:underline">
-                Show support folder
+                Show exact folder for troubleshooting
               </summary>
+              <p className="mt-1">
+                Use this only if an owner, admin, or support message asks for the exact folder.
+              </p>
               <span className="font-mono text-[11px] text-foreground-light dark:text-foreground-dark">
-                {workspacePath}
+                Exact folder: {workspacePath}
               </span>
             </details>
           </div>

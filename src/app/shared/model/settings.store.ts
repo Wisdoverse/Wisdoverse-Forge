@@ -275,7 +275,7 @@ function settingsValidationMessage(
       return 'Choose GitHub or GitLab, then save code access again.'
     }
     if (normalized.includes('host')) {
-      return 'Check the GitHub or GitLab address. Leave it blank for github.com or gitlab.com, then save again.'
+      return 'Check the code website address. Leave it blank for github.com or gitlab.com, then save again.'
     }
     if (normalized.includes('token') || normalized.includes('key')) {
       return 'Paste the code access key from GitHub or GitLab, then save again.'

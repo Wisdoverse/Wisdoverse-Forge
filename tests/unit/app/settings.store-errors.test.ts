@@ -137,7 +137,7 @@ describe('settingsActionErrorMessage', () => {
   test('turns GitHub or GitLab address validation into an address step', () => {
     expectBeginnerError(
       settingsActionErrorMessage('gitCredentials', 'save', statusError(422, 'invalid host')),
-      'Check the GitHub or GitLab address. Leave it blank for github.com or gitlab.com, then save again.'
+      'Check the code website address. Leave it blank for github.com or gitlab.com, then save again.'
     )
   })
 

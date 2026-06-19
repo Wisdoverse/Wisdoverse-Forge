@@ -2,7 +2,7 @@ export type RuntimeErrorAction = 'loadAgentSignals' | 'loadCliSignIn' | 'startCl
 
 const ACTION_FALLBACKS: Record<RuntimeErrorAction, string> = {
   loadAgentSignals:
-    'Start or wake an agent, then refresh this page. Agent connection status could not load.',
+    'Open Agents and make sure one agent shows Ready, then refresh this page. Agent connection status could not load.',
   loadCliSignIn:
     'Refresh this page before starting agents that use work tools. Work tool sign-in could not be checked.',
   startCliSignIn:
@@ -185,5 +185,5 @@ function runtimeValidationMessage(action: RuntimeErrorAction, detail: string): s
     return 'Refresh this page, then reconnect the work tool sign-in. Work tool sign-in could not be checked.'
   }
 
-  return 'Start or wake an agent, then refresh this page. Agent connection status could not load.'
+  return 'Open Agents and make sure one agent shows Ready, then refresh this page. Agent connection status could not load.'
 }

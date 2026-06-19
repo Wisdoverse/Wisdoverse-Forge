@@ -45,42 +45,42 @@ const SECTIONS: SectionItem[] = [
     id: 'providers',
     label: 'AI services',
     description: 'Connect the AI accounts agents use to think and write.',
-    group: 'AI setup',
+    group: 'AI services',
     Icon: Bot,
   },
   {
     id: 'keys',
     label: 'Outside apps',
     description: 'Add keys agents need to use apps and services outside Forge.',
-    group: 'Work setup',
+    group: 'Agent work',
     Icon: Key,
   },
   {
     id: 'git-credentials',
     label: 'HTTPS code access',
     description: 'Use this when a private code link starts with https://.',
-    group: 'Work setup',
+    group: 'Agent work',
     Icon: GitBranch,
   },
   {
     id: 'ssh-keys',
     label: 'SSH code access',
     description: 'Use this when a private code link starts with git@.',
-    group: 'Work setup',
+    group: 'Agent work',
     Icon: Terminal,
   },
   {
     id: 'resources',
     label: 'Agent size limits',
     description: 'Choose small, standard, or large limits before agents start file work.',
-    group: 'Work setup',
+    group: 'Agent work',
     Icon: Gauge,
   },
   {
     id: 'runtime',
     label: 'Where agents work',
     description: 'Choose where project files open and which work tool agents use.',
-    group: 'Work setup',
+    group: 'Agent work',
     Icon: Settings2,
   },
   {
@@ -113,7 +113,7 @@ const SECTIONS: SectionItem[] = [
   },
 ]
 
-const GROUPS = ['AI setup', 'Work setup', 'People', 'Product info']
+const GROUPS = ['AI services', 'Agent work', 'People', 'Product info']
 const SECTION_BY_ID = new Map(SECTIONS.map((section) => [section.id, section]))
 
 // ============================================================================

@@ -52,14 +52,15 @@ describe('ReviewSnapshotPanel', () => {
     vi.spyOn(orchestrationApi, 'getSelfFixReview').mockResolvedValue(review())
     render(<ReviewSnapshotPanel task={task()} />)
 
-    expect(await screen.findByText('Fix review')).toBeInTheDocument()
+    expect(await screen.findByText('Review status')).toBeInTheDocument()
+    expect(screen.queryByText('Fix review')).toBeNull()
     expect(screen.queryByText(/code fix review/i)).toBeNull()
     expect(await screen.findByText('Review page #42')).toBeInTheDocument()
     expect(screen.queryByText(/GitHub review/i)).toBeNull()
     expect(screen.getByText('Waiting for review')).toBeInTheDocument()
     expect(screen.getByText('Automated checks passed')).toBeInTheDocument()
     expect(screen.queryByText(/Build checks/i)).toBeNull()
-    expect(screen.getByLabelText('Refresh fix review')).toBeInTheDocument()
+    expect(screen.getByLabelText('Refresh review status')).toBeInTheDocument()
     expect(screen.getByText('Review the changes')).toBeInTheDocument()
     expect(screen.queryByText(/changed files/i)).toBeNull()
   })
@@ -133,8 +134,9 @@ describe('ReviewSnapshotPanel', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'Refresh fix review, then try again. Forge could not load the current review status.'
+      'Refresh review status, then try again. Forge could not load the current review status.'
     )
+    expect(alert).not.toHaveTextContent('Refresh fix review')
     expect(alert).not.toHaveTextContent('code fix review')
     expect(alert).not.toHaveTextContent('API 500')
     expect(alert).not.toHaveTextContent('database')
