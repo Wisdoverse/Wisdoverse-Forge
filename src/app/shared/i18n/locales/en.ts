@@ -177,7 +177,7 @@ export const en = {
       },
       review: {
         title: 'Check the result',
-        empty: 'Assigned task output will appear in the detail panel.',
+        empty: 'After an agent picks up a task, open it to see progress and results.',
         inFlight: 'A task is assigned. Check progress from the board.',
         ready: '{{count}} completed task ready to check.',
         why: 'Checking the result helps you decide whether the agent returned useful output you can trust.',

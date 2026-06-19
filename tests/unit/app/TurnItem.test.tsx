@@ -46,9 +46,10 @@ describe('TurnItem', () => {
     expect(screen.getByLabelText('Work steps used by the agent')).toBeDefined()
     expect(
       screen.getByText(
-        /the agent recorded work steps during this turn.*open a step to see what happened before choosing the next move/i
+        /the agent saved step-by-step notes for this turn.*open a step to see what happened before choosing the next move/i
       )
     ).toBeDefined()
+    expect(screen.queryByText(/recorded work steps/i)).toBeNull()
     expect(
       screen.getByRole('button', { name: /show step details for check deployment/i })
     ).toBeDefined()

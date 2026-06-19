@@ -298,9 +298,7 @@ describe('GettingStartedView', () => {
     expect(savedInstructionsButton).toHaveClass('sm:w-auto')
     fireEvent.click(screen.getByRole('button', { name: /write one small task/i }))
     expect(navigateMock).toHaveBeenCalledWith({ to: '/tasks' })
-    expect(
-      screen.getAllByRole('button', { name: /show saved steps/i }).length
-    ).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: /show saved steps/i }).length).toBeGreaterThan(0)
     expect(screen.queryByText('Reusable learning')).toBeNull()
     expect(screen.queryByText(/applied skill context/i)).toBeNull()
     expect(screen.queryByText(/skill candidates/i)).toBeNull()
@@ -504,6 +502,102 @@ describe('GettingStartedView', () => {
       ', '
     )
     expect(screen.queryByText(previousTaskInstruction)).toBeNull()
+  })
+
+  test('explains result review without detail panel wording', async () => {
+    useNavigationStore.setState({
+      teams: [
+        {
+          id: 'team-1',
+          orgId: 'org-1',
+          name: 'Launch Team',
+          slug: 'launch-team',
+          visibility: 'open',
+          description: '',
+        },
+      ],
+      projects: {
+        'team-1': [
+          {
+            id: 'project-1',
+            teamId: 'team-1',
+            name: 'Launch Project',
+            slug: 'launch-project',
+            color: '#007AFF',
+            description: '',
+          },
+        ],
+      },
+      selectedProjectId: 'project-1',
+      agentGroups: [{ id: 'group-1', projectId: 'project-1', name: 'Default' }],
+    })
+    useSettingsStore.setState({
+      providers: [
+        {
+          id: 'provider-1',
+          provider: 'model-service',
+          displayName: 'Model Service',
+          model: 'general-model',
+          isEnabled: true,
+          isDefault: true,
+          lastTestStatus: 'passed',
+        } as any,
+      ],
+      runtimeSettings: {
+        defaultRuntime: 'container',
+        availableRuntimes: ['container'],
+        defaultCliTool: 'workspace-tool',
+        availableCliTools: ['workspace-tool'],
+        cliToolDetails: [
+          {
+            cliTool: 'workspace-tool',
+            image: 'agentforge-agent:workspace-tool',
+            version: '1.0.0',
+            imagePresent: true,
+            versionSource: 'docker-label',
+          },
+        ],
+      },
+    })
+    useAgentsStore.setState({
+      agents: [
+        {
+          id: 'agent-1',
+          name: 'Starter Agent',
+          provider: 'model-service',
+          model: 'general-model',
+          status: 'idle',
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+        },
+      ],
+    })
+    getTasksMock.mockResolvedValueOnce([
+      {
+        id: 'task-1',
+        groupId: 'group-1',
+        state: 'pending',
+        method: 'tasks/send',
+        params: { task: 'Ship first flow', message: 'Review output' },
+        priority: 'normal',
+        progress: 0,
+        result: null,
+        contextCounts: { appliedMemories: 0, appliedSkills: 0, total: 0 },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ])
+
+    render(<GettingStartedView />)
+
+    expect(await screen.findByText('Do this next')).toBeDefined()
+    expect(screen.getAllByText('Check the result').length).toBeGreaterThan(0)
+    expect(
+      screen.getByText('After an agent picks up a task, open it to see progress and results.')
+    ).toBeDefined()
+    expect(screen.queryByText('Assigned task output will appear in the detail panel.')).toBeNull()
+    expect(screen.queryByText(/detail panel/i)).toBeNull()
   })
 
   test('does not expose raw AI service keys in the first-run checklist', async () => {
