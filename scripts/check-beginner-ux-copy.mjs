@@ -434,6 +434,11 @@ const AGENT_DETAIL_GENERIC_HEADING_PATTERNS = [
   /\bviewDetails:\s*['"`]查看详情['"`]/,
 ]
 
+const AGENT_DETAIL_STARTING_LABEL_PATTERNS = [
+  /\bStarting project for tasks\b/i,
+  /\bStarting folder\b/i,
+]
+
 const AGENT_DETAIL_START_FAILURE_FIRST_PATTERNS = [/\bStart did not finish\b/i]
 
 const HOST_AGENT_RECONNECT_DEAD_END_PATTERNS = [
@@ -3143,6 +3148,12 @@ function hasAgentDetailGenericHeadingCopy(relFile, line) {
   return AGENT_DETAIL_GENERIC_HEADING_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAgentDetailStartingLabelCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_DETAIL_STARTING_LABEL_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasAgentDetailStartFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -5564,6 +5575,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Agent detail headings and labels must name the useful content, such as overview or update.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentDetailStartingLabelCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-detail-starting-label-copy',
+        location,
+        message:
+          'Agent detail setup labels must explain the project and folder agents use instead of saying Starting.',
         sample: line.trim(),
       })
     }
