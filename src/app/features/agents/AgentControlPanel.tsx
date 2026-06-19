@@ -172,7 +172,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
           <AlertTriangle size={16} strokeWidth={2} aria-hidden="true" className="mt-0.5 shrink-0" />
           <div className="flex flex-col gap-1">
             <span className="font-medium">Action did not finish</span>
-            <span>Use the recovery step below, then try again.</span>
+            <span>Follow the step below, then try again.</span>
             <span>{agentControlErrorMessage(controlError)}</span>
           </div>
         </div>
@@ -639,7 +639,7 @@ function agentControlErrorMessage(error: string): string {
     return 'Check your connection, refresh this agent, then try again. Forge could not connect while changing this agent.'
   }
   if (/\b5\d\d\b/.test(error)) {
-    return "Forge could not update this agent right now. Refresh this agent and try again. If it keeps failing, ask an owner or admin to check this agent's connection and access in Agents."
+    return "Refresh this agent, then try again. If it keeps failing, ask an owner or admin to check this agent's connection and access in Agents. Forge could not finish the change right now."
   }
 
   return "Refresh this agent and confirm the latest status before trying once more. For Start or Restart, wait for Ready or Working. If it keeps failing, ask an owner or admin to check what you can do and this agent's connection and access in Agents."

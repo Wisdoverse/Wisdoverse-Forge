@@ -1367,6 +1367,8 @@ const CHAT_STREAM_FAILURE_FIRST_PATTERNS = [
 
 const AGENT_CONTROL_ERROR_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*You do not have permission to change this agent\. Ask an owner/i,
+  /['"`]\s*Forge could not update this agent right now\. Refresh this agent/i,
+  /\bUse the recovery step below\b/i,
   /\bReview the recovery step below\b/i,
   /['"`]\s*agent control action failed['"`]/i,
 ]

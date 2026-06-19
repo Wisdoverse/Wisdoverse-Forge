@@ -14086,7 +14086,10 @@ function localActionError() {
   return 'agent control action failed'
 }
 function actionAlert() {
-  return 'Review the recovery step below, then try again.'
+  return 'Use the recovery step below, then try again.'
+}
+function serviceError() {
+  return 'Forge could not update this agent right now. Refresh this agent and try again.'
 }
 `,
     })
@@ -14108,15 +14111,25 @@ function actionAlert() {
           type: 'agent-control-error-copy',
           location: 'src/app/features/agents/AgentControlPanel.tsx:9',
         }),
+        expect.objectContaining({
+          type: 'agent-control-error-copy',
+          location: 'src/app/features/agents/AgentControlPanel.tsx:12',
+        }),
       ])
     )
   })
 
-  it('accepts agent control permission errors that start with the next step', () => {
+  it('accepts agent control errors that start with the next step', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentControlPanel.tsx': `
 function agentControlErrorMessage() {
   return 'Ask an owner or admin to let you manage this agent, then try again. You do not have permission to change this agent.'
+}
+function actionAlert() {
+  return 'Follow the step below, then try again.'
+}
+function serviceError() {
+  return "Refresh this agent, then try again. If it keeps failing, ask an owner or admin to check this agent's connection and access in Agents. Forge could not finish the change right now."
 }
 `,
     })
