@@ -54,11 +54,19 @@ describe('SshKeysSection', () => {
   test('guides first-time SSH code access setup and saves only after required fields are filled', async () => {
     render(<SshKeysSection />)
 
-    expect(await screen.findByText('Add this only for git@ private code links')).toBeDefined()
+    expect(await screen.findByText('Prepare SSH code access for git@ private code links')).toBeDefined()
     const emptyState = screen.getByTestId('ssh-access-empty-state')
     expect(within(emptyState).getByText(/starts with https:\/\//i)).toBeDefined()
     expect(within(emptyState).getByText(/use HTTPS code access instead/i)).toBeDefined()
     expect(within(emptyState).getByText(/skip this for public projects/i)).toBeDefined()
+    expect(within(emptyState).getByText('Name the computer or team')).toBeDefined()
+    expect(within(emptyState).getAllByText(/Use a name people will recognize/i).length).toBeGreaterThan(
+      0
+    )
+    expect(within(emptyState).getByText('Paste the safe public key line')).toBeDefined()
+    expect(within(emptyState).getByText(/public key from the \.pub file/i)).toBeDefined()
+    expect(within(emptyState).getByText('Never paste the private key')).toBeDefined()
+    expect(within(emptyState).getByText(/copy the \.pub line instead/i)).toBeDefined()
     expect(within(emptyState).getByRole('button', { name: /add SSH code access/i })).toBeDefined()
     expect(within(emptyState).queryByText('No repository access yet')).toBeNull()
 

@@ -368,16 +368,42 @@ export function SshKeysSection() {
             Loading SSH code access...
           </div>
         ) : sshKeys.length === 0 && !showForm ? (
-          <div className="px-4 py-6 text-center" data-testid="ssh-access-empty-state">
-            <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              Add this only for git@ private code links
-            </p>
-            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              If your code link starts with https://, use HTTPS code access instead.
-            </p>
-            <p className="mx-auto mt-2 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
-              You can skip this for public projects and normal https:// code links.
-            </p>
+          <div
+            className="px-4 py-6"
+            data-testid="ssh-access-empty-state"
+            aria-labelledby="ssh-access-empty-title"
+          >
+            <div className="mx-auto flex max-w-2xl flex-col gap-3 text-left">
+              <div className="text-center">
+                <p
+                  id="ssh-access-empty-title"
+                  className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark"
+                >
+                  Prepare SSH code access for git@ private code links
+                </p>
+                <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  If your code link starts with https://, use HTTPS code access instead.
+                </p>
+                <p className="mx-auto mt-2 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  You can skip this for public projects and normal https:// code links.
+                </p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {SSH_KEY_SETUP_STEPS.map((step) => (
+                  <div
+                    key={step.label}
+                    className="min-h-20 rounded-lg bg-black/[0.025] px-3 py-2 dark:bg-white/[0.05]"
+                  >
+                    <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+                      {step.label}
+                    </p>
+                    <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                      {step.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
             <button
               type="button"
               onClick={() => {
