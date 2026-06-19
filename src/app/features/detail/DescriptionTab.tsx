@@ -316,15 +316,14 @@ function assignmentSummary(task: TaskSummary): {
   if (task.assignedAgentName) {
     return {
       label: task.assignedAgentName,
-      detail: 'This agent will handle the next step for this task.',
+      detail: assignedAgentDetail(task),
       hasAgent: true,
     }
   }
   if (task.assignedTo) {
     return {
       label: 'Agent details loading',
-      detail:
-        'An agent was chosen, but its name has not loaded yet. Refresh this task so you can confirm the right agent before sending it.',
+      detail: assignedAgentLoadingDetail(task),
       hasAgent: true,
     }
   }
@@ -332,6 +331,36 @@ function assignmentSummary(task: TaskSummary): {
     label: 'Needs agent',
     detail: 'Choose an agent before this task can start.',
     hasAgent: false,
+  }
+}
+
+function assignedAgentDetail(task: TaskSummary): string {
+  switch (task.state) {
+    case 'working':
+      return 'This agent is working on this task now.'
+    case 'blocked':
+      return 'This agent needs your answer before it can continue.'
+    case 'completed':
+      return 'This agent finished this task. Review the result before accepting it.'
+    case 'failed':
+      return 'This agent tried this task. Check retry steps before trying again.'
+    case 'canceled':
+      return 'This agent was chosen before the task stopped.'
+    default:
+      return 'This agent will handle the next step for this task.'
+  }
+}
+
+function assignedAgentLoadingDetail(task: TaskSummary): string {
+  switch (task.state) {
+    case 'working':
+      return 'An agent is working on this task, but its name has not loaded yet. Refresh this task so you can confirm the right agent.'
+    case 'completed':
+      return 'An agent finished this task, but its name has not loaded yet. Refresh this task so you can confirm who handled it.'
+    case 'failed':
+      return 'An agent tried this task, but its name has not loaded yet. Refresh this task so you can confirm who to retry with.'
+    default:
+      return 'An agent was chosen, but its name has not loaded yet. Refresh this task so you can confirm the right agent before sending it.'
   }
 }
 
