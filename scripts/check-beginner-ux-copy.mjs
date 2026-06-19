@@ -1256,6 +1256,7 @@ const WORKSPACE_SETTINGS_FAILURE_FIRST_PATTERNS = [
 const RESOURCE_MEMBER_FAILURE_FIRST_PATTERNS = [
   /\breturn\s+['"`]You do not have permission to manage people/i,
   /\breturn\s+['"`]People for this\b/i,
+  /\bPeople for this [^'"`.]+ are not available\b/i,
   /\breturn\s+['"`]People access is busy\./i,
   /\breopen members for this\b/i,
   /\bClose members,\s*choose\b/,

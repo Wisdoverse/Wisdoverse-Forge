@@ -78,10 +78,11 @@ describe('resourceMemberErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Members for this project again, or choose another project. People for this project are not available.'
+      'Open Members for this project again, or choose another project. This project may have changed or been removed.'
     )
     expect(message).not.toContain('HTTP 404')
     expect(message).not.toContain('Not Found')
+    expect(message).not.toContain('People for this project are not available')
   })
 
   test('uses structured validation details to explain missing access choices', () => {

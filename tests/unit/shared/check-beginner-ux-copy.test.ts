@@ -2362,6 +2362,10 @@ function memberLoadError() {
   return 'People access is busy. Wait a moment, then try again.'
 }
 
+function memberMissingError() {
+  return 'Open Members for this project again, or choose another project. People for this project are not available.'
+}
+
 function memberUnavailableMessage() {
   return 'Forge could not update people access right now. Refresh members, then try again.'
 }
@@ -2405,6 +2409,10 @@ function oldMembersListMessage() {
           type: 'resource-member-error-copy',
           location: 'src/app/features/manage-members/model/resourceMemberErrorMessages.ts:23',
         }),
+        expect.objectContaining({
+          type: 'resource-member-error-copy',
+          location: 'src/app/features/manage-members/model/resourceMemberErrorMessages.ts:27',
+        }),
       ])
     )
   })
@@ -2418,6 +2426,10 @@ function resourceMemberErrorMessage() {
 
 function memberLoadError() {
   return 'Wait a moment, then try again. People access is busy right now.'
+}
+
+function memberMissingError() {
+  return 'Open Members for this project again, or choose another project. This project may have changed or been removed.'
 }
 
 function memberUnavailableMessage() {

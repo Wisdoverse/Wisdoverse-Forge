@@ -35,7 +35,7 @@ export function resourceMemberErrorMessage(
     return `Ask an owner or admin to give you access to manage people here, then open Members for this ${resource}. You do not have permission right now.`
   }
   if (status === 404) {
-    return `Open Members for this ${resource} again, or choose another ${resource}. People for this ${resource} are not available.`
+    return `Open Members for this ${resource} again, or choose another ${resource}. This ${resource} may have changed or been removed.`
   }
   if (status === 409) {
     return `Open Members for this ${resource} again, check who has access, then try again. This person's access changed while you were editing.`
