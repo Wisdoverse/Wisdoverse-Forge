@@ -86,6 +86,9 @@ describe('workspace setup create forms', () => {
     fireEvent.change(nameInput, { target: { value: 'Customer Portal' } })
 
     expect(within(status).getByText('Ready to create project')).toBeInTheDocument()
+    expect(screen.getByTestId('create-project-code-link-status')).toHaveTextContent(
+      'No code link added. Create the project now, then add code access later if agents need files.'
+    )
     fireEvent.click(createButton)
 
     // Empty optional repo URL → submits WITHOUT a repositoryUrl (third arg undefined).
@@ -117,9 +120,12 @@ describe('workspace setup create forms', () => {
     expect(screen.queryByText('Git repository URL')).toBeNull()
     expect(screen.getByPlaceholderText('https://github.com/team/project.git')).toBeInTheDocument()
     expect(screen.queryByPlaceholderText('https://github.com/org/repo.git')).toBeNull()
-    expect(screen.getByText(/Forge copies that code into this project/i)).toBeInTheDocument()
+    expect(screen.getByText(/when you want Forge to copy code now/i)).toBeInTheDocument()
     expect(screen.getAllByText(/Never paste tokens or passwords here/i).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/leave this blank/i).length).toBeGreaterThan(0)
+    expect(screen.getByTestId('create-project-code-link-status')).toHaveTextContent(
+      'No code link added. Create the project now, then add code access later if agents need files.'
+    )
     expect(screen.queryByText(/clone an existing repo/i)).toBeNull()
 
     fireEvent.change(screen.getByLabelText(/project name/i), {
@@ -128,6 +134,9 @@ describe('workspace setup create forms', () => {
     fireEvent.change(screen.getByLabelText(/code link/i), {
       target: { value: 'https://github.com/team/project.git' },
     })
+    expect(screen.getByTestId('create-project-code-link-status')).toHaveTextContent(
+      'Code copy requested. After creation, Forge will try to copy code from this link into the project.'
+    )
     fireEvent.click(screen.getByRole('button', { name: /create project/i }))
 
     await waitFor(() =>

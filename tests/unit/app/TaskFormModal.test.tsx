@@ -88,12 +88,39 @@ describe('TaskFormModal', () => {
     expect(description.value).toContain('Where to work:')
     expect(description.value).toContain('What to avoid:')
     expect(description.value).toContain('Done when:')
+    expect(description.value).toContain('Describe the screen, command, or behavior to add.')
+    expect(description.value).toContain('Say what should be visible, passing, or ready to review.')
+    expect(description.value).not.toMatch(/^-\s*$/m)
     expect(description.value).not.toContain('Scope:')
     expect(description.value).not.toContain('Constraints:')
     expect(description.value).not.toContain('Evidence:')
+
+    fireEvent.click(screen.getByRole('button', { name: /bug/i }))
+    expect(
+      (screen.getByLabelText(/details the agent should know/i) as HTMLTextAreaElement).value
+    ).toContain('Say how to confirm the fix.')
+    expect(
+      (screen.getByLabelText(/details the agent should know/i) as HTMLTextAreaElement).value
+    ).not.toMatch(/^-\s*$/m)
+
+    fireEvent.click(screen.getByRole('button', { name: /investigate/i }))
+    expect(
+      (screen.getByLabelText(/details the agent should know/i) as HTMLTextAreaElement).value
+    ).toContain('Say what answer or recommendation you need.')
+    expect(
+      (screen.getByLabelText(/details the agent should know/i) as HTMLTextAreaElement).value
+    ).not.toMatch(/^-\s*$/m)
+
+    fireEvent.click(screen.getByRole('button', { name: /review/i }))
+    expect(
+      (screen.getByLabelText(/details the agent should know/i) as HTMLTextAreaElement).value
+    ).toContain('Ask for a short verdict, issues, and final recommendation.')
+    expect(
+      (screen.getByLabelText(/details the agent should know/i) as HTMLTextAreaElement).value
+    ).not.toMatch(/^-\s*$/m)
   })
 
-  test('does not treat blank template prompts as finished task details', () => {
+  test('does not treat template helper prompts as finished task details', () => {
     renderModal()
 
     fireEvent.click(screen.getByRole('button', { name: /feature/i }))
