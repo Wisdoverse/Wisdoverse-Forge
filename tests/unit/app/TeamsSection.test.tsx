@@ -36,6 +36,14 @@ vi.mock('@app/entities/team', () => ({
 
 const getTeams = vi.mocked(teamApi.getTeams)
 const createTeam = vi.mocked(teamApi.createTeam)
+const existingTeam = {
+  id: 'team-1',
+  orgId: 'org-1',
+  name: 'Platform',
+  slug: 'platform',
+  visibility: 'private',
+  description: '',
+} as const
 
 afterEach(() => {
   cleanup()
@@ -74,6 +82,19 @@ describe('TeamsSection', () => {
     expect(screen.getByText('Choose a team space first')).toBeDefined()
     expect(screen.getByText(/Select or create one before adding people/i)).toBeDefined()
     expect(screen.queryByText(/Choose an organization first/i)).toBeNull()
+  })
+
+  test('explains why members cannot create another team when teams already exist', async () => {
+    authState.user = { id: 'user-1', role: 'member', orgId: 'org-1' }
+    getTeams.mockResolvedValue([existingTeam])
+
+    render(<TeamsSection />)
+
+    await waitFor(() => expect(getTeams).toHaveBeenCalledWith('org-1'))
+    expect(screen.getByText(/Only owners and admins can create another team/i)).toBeDefined()
+    expect(screen.getByText(/ask one of them if you need a new team here/i)).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'New team' })).toBeNull()
+    expect(screen.queryByText(/access groups/i)).toBeNull()
   })
 
   test('shows a beginner recovery step when teams cannot load', async () => {

@@ -52,7 +52,8 @@ export function TeamsSection() {
       setTeams((prev) => [...prev, team])
       setShowForm(false)
     } catch (err) {
-      setError(workspaceSettingsErrorMessage('team', 'create', err))
+      const message = workspaceSettingsErrorMessage('team', 'create', err)
+      throw new Error(message, { cause: err })
     } finally {
       setSaving(false)
     }
@@ -116,6 +117,12 @@ export function TeamsSection() {
             together inside this team space. Open Manage people on a team to add people or change
             access.
           </p>
+          {!canCreateTeam && teams.length > 0 && (
+            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              Only owners and admins can create another team. Ask one of them if you need a new team
+              here.
+            </p>
+          )}
         </div>
         {!showForm && canCreateTeam && (
           <button

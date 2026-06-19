@@ -169,6 +169,14 @@ export function CloneStatusBadge({
   const shortSha = clone?.headSha ? clone.headSha.slice(0, 7) : null
   const branch = clone?.resolvedBranch ?? null
   const failureMessage = isFailed ? cloneFailureMessage(clone) : null
+  const progressMessage =
+    status === 'queued'
+      ? 'Forge will start copying code soon. You can keep this page open; the status updates automatically.'
+      : status === 'cloning'
+        ? 'Forge is copying code now. You can keep working while it finishes.'
+        : status === 'ready'
+          ? 'Agents can use this copied code for tasks in this project.'
+          : null
 
   const pill = (
     <span
@@ -269,6 +277,11 @@ export function CloneStatusBadge({
       {failureMessage && (
         <p className="text-ui-caption text-apple-red" role="status">
           {failureMessage}
+        </p>
+      )}
+      {progressMessage && (
+        <p className="text-ui-caption text-secondary-light dark:text-secondary-dark" role="status">
+          {progressMessage}
         </p>
       )}
       {retryError && (

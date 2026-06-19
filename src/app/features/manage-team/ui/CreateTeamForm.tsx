@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { slugifyName } from '@app/shared/lib/slugify'
@@ -15,12 +15,112 @@ const TEAM_SETUP_STEPS = [
   'Open the team after creation to invite people.',
 ]
 
+function rawTeamCreateError(error: unknown): string {
+  if (error instanceof Error) return error.message.trim()
+  if (typeof error === 'string') return error.trim()
+  if (!error || typeof error !== 'object') return ''
+
+  const value = error as {
+    serverError?: unknown
+    detail?: unknown
+    error?: unknown
+    message?: unknown
+    reason?: unknown
+  }
+
+  for (const candidate of [
+    value.serverError,
+    value.detail,
+    value.error,
+    value.message,
+    value.reason,
+  ]) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
+  }
+
+  return ''
+}
+
+function teamCreateStatusCode(error: unknown): number | null {
+  if (error && typeof error === 'object') {
+    const value = error as { status?: unknown; statusCode?: unknown; code?: unknown }
+    for (const candidate of [value.status, value.statusCode, value.code]) {
+      if (typeof candidate === 'number' && Number.isFinite(candidate)) return candidate
+      if (typeof candidate === 'string' && /^\d{3}$/.test(candidate.trim())) {
+        return Number.parseInt(candidate, 10)
+      }
+    }
+  }
+
+  const match = rawTeamCreateError(error).match(/\b(?:HTTP|API|Server error|Code:)\s*\(?(\d{3})\b/i)
+  if (!match) return null
+  const code = Number.parseInt(match[1] ?? '', 10)
+  return Number.isFinite(code) ? code : null
+}
+
+function createTeamErrorMessage(error: unknown): string {
+  const raw = rawTeamCreateError(error)
+  const lower = raw.toLowerCase()
+  const code = teamCreateStatusCode(error)
+
+  if (
+    code == null &&
+    (lower.startsWith('sign in again') ||
+      lower.startsWith('ask an owner or admin') ||
+      lower.startsWith('refresh settings') ||
+      lower.startsWith('use a different name') ||
+      lower.startsWith('enter a team name') ||
+      lower.startsWith('wait a minute') ||
+      lower.startsWith('check your connection') ||
+      lower.startsWith('try to create this team'))
+  ) {
+    return raw
+  }
+
+  if (code === 401 || lower.includes('unauthorized') || lower.includes('sign in again')) {
+    return 'Sign in again, then create this team.'
+  }
+  if (code === 403 || lower.includes('forbidden') || lower.includes('permission')) {
+    return 'Ask an owner or admin to let you create teams in this team space.'
+  }
+  if (code === 404) {
+    return 'Refresh Settings, then create this team again. The team space may have changed.'
+  }
+  if (code === 409 || lower.includes('already exists') || lower.includes('duplicate')) {
+    return 'Use a different team name, then create this team again.'
+  }
+  if (code === 422 || lower.includes('validation') || lower.includes('invalid')) {
+    return lower.includes('name')
+      ? 'Enter a team name, then create this team again.'
+      : 'Check the team name, then create this team again.'
+  }
+  if (code === 429 || lower.includes('rate limit') || lower.includes('too many')) {
+    return 'Wait a minute, then create this team again. Too many setup changes are happening right now.'
+  }
+  if (code != null && code >= 500) {
+    return 'Refresh Settings, then create this team again. If it still fails, ask an owner or admin to check team space setup.'
+  }
+  if (
+    error instanceof TypeError ||
+    lower.includes('failed to fetch') ||
+    lower.includes('network') ||
+    lower.includes('load failed')
+  ) {
+    return 'Check your connection, then create this team again.'
+  }
+
+  return 'Check the team name, then create this team again. Forge could not create the team.'
+}
+
 export function CreateTeamForm({ onSave, onCancel, saving }: CreateTeamFormProps) {
   const [name, setName] = useState('')
   const [submitAttempted, setSubmitAttempted] = useState(false)
+  const [bannerError, setBannerError] = useState<string | null>(null)
+  const formRef = useRef<HTMLFormElement>(null)
   const nameInputId = 'team-name'
   const statusId = 'create-team-status'
   const errorId = 'create-team-name-error'
+  const bannerId = 'create-team-banner'
   const trimmedName = name.trim()
   const isReady = Boolean(trimmedName)
   const visibleError = submitAttempted && !isReady ? 'Enter a team name before creating it.' : null
@@ -32,11 +132,18 @@ export function CreateTeamForm({ onSave, onCancel, saving }: CreateTeamFormProps
       document.getElementById(nameInputId)?.focus()
       return
     }
-    await onSave(trimmedName)
+    setBannerError(null)
+    try {
+      await onSave(trimmedName)
+    } catch (err) {
+      setBannerError(createTeamErrorMessage(err))
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
   }
 
   return (
     <form
+      ref={formRef}
       onSubmit={handleSubmit}
       noValidate
       className={cn(
@@ -44,6 +151,12 @@ export function CreateTeamForm({ onSave, onCancel, saving }: CreateTeamFormProps
         'bg-black/[0.015] dark:bg-white/[0.025]'
       )}
     >
+      {bannerError && (
+        <div id={bannerId} role="alert" className={uiStyles.error}>
+          {bannerError}
+        </div>
+      )}
+
       <div className="mb-4 border-l-2 border-apple-blue/40 pl-3">
         <p className="text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
           Team creation steps
@@ -66,7 +179,10 @@ export function CreateTeamForm({ onSave, onCancel, saving }: CreateTeamFormProps
           id={nameInputId}
           type="text"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value)
+            if (bannerError) setBannerError(null)
+          }}
           placeholder="e.g. Frontend"
           autoFocus
           aria-invalid={visibleError !== null}

@@ -179,8 +179,11 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
   const workspacePath = workspaceFolderName ? `/workspace/${workspaceFolderName}` : null
   const trimmedRepositoryUrl = repositoryUrl.trim()
   const codeLinkStatus = trimmedRepositoryUrl
-    ? 'Code copy requested. After creation, Forge will try to copy code from this link into the project.'
+    ? 'Code copy requested. After creation, watch the project row for Code copy waiting, Copying code, or Code copied. If it needs help, choose Copy code again.'
     : 'No code link added. Create the project now, then add code access later if agents need files.'
+  const readyStatus = trimmedRepositoryUrl
+    ? 'Ready to create project and copy code'
+    : 'Ready to create project'
 
   useEffect(() => {
     if (!teamId && teams[0]) {
@@ -390,7 +393,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
           className="text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
           {isReady
-            ? 'Ready to create project'
+            ? readyStatus
             : missingTeam
               ? 'Next: create a team first'
               : 'Next: name the project'}

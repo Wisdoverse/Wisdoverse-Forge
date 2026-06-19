@@ -44,9 +44,11 @@ describe('settings delete guidance', () => {
 
     expect(onDelete).not.toHaveBeenCalled()
     expect(screen.getByText('Delete team')).toBeInTheDocument()
+    expect(screen.getByText(/Delete this team from Settings and the left menu/i)).toBeInTheDocument()
     expect(
       screen.getByText(/projects in this team will also disappear from the left menu/i)
     ).toBeInTheDocument()
+    expect(screen.getByText(/Choose Keep if you are not sure/i)).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Confirm delete Platform Team' }))
 
@@ -71,8 +73,10 @@ describe('settings delete guidance', () => {
     expect(onDelete).not.toHaveBeenCalled()
     expect(screen.getByText('Delete project')).toBeInTheDocument()
     expect(
-      screen.getByText(/agents assigned here will be moved out of this project/i)
+      screen.getByText(/Delete this project from Settings and the left menu/i)
     ).toBeInTheDocument()
+    expect(screen.getByText(/Agents assigned here will be moved out of this project/i)).toBeInTheDocument()
+    expect(screen.getByText(/Choose Keep if you are not sure/i)).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Confirm delete Launch Project' }))
 
