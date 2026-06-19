@@ -443,7 +443,7 @@ export const zh: TranslationKeys = {
         '请刷新这个设置页来加载 Agent 在哪里工作。如果仍然无法加载，请找负责人或管理员检查设置里的“Agent 在哪里工作”。',
       defaultRuntimeLabel: '项目文件打开位置',
       defaultRuntimeDescription:
-        '处理共享项目文件时，选择“项目文件”最简单。只有要把这台电脑接入为 Agent 时，才选择这台电脑。',
+        '处理共享项目文件时，选择“项目文件”最简单。只有要把这台电脑接入为可在 Forge 里管理的 Agent 时，才选择这台电脑。',
       defaultContainerCliLabel: '项目工作默认工具',
       defaultContainerCliDescription:
         'Agent 编辑文件或运行命令时使用的 Claude Code、Codex、Gemini 或 OpenCode',
