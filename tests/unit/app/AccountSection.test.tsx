@@ -112,7 +112,7 @@ describe('AccountSection', () => {
 
     expect(
       screen.getByText(
-        'Enter your current password, then choose a new password with at least 8 characters.'
+        'Enter your current password, then choose a new password with at least 12 characters.'
       )
     ).toBeDefined()
 
@@ -163,6 +163,33 @@ describe('AccountSection', () => {
     )
     expect(screen.getByLabelText('New Password')).toHaveFocus()
     expect(changePasswordMock).not.toHaveBeenCalled()
+  })
+
+  test('shows the same 12-character password rule used by sign-up and reset', async () => {
+    renderAccountSection()
+
+    fireEvent.change(screen.getByLabelText('Current Password'), {
+      target: { value: 'old-password' },
+    })
+    fireEvent.change(screen.getByLabelText('New Password'), {
+      target: { value: 'elevenchars' },
+    })
+    fireEvent.change(screen.getByLabelText('Confirm New Password'), {
+      target: { value: 'elevenchars' },
+    })
+
+    expect(screen.getByText('Needed: Use at least 12 characters for the new password.')).toBeDefined()
+    expect(screen.getByRole('button', { name: /update password/i })).toBeDisabled()
+
+    fireEvent.change(screen.getByLabelText('New Password'), {
+      target: { value: 'twelve-chars' },
+    })
+    fireEvent.change(screen.getByLabelText('Confirm New Password'), {
+      target: { value: 'twelve-chars' },
+    })
+
+    expect(screen.getByText('Done: Use at least 12 characters for the new password.')).toBeDefined()
+    expect(screen.getByRole('button', { name: /update password/i })).toBeEnabled()
   })
 
   test('makes team space rename consequences and the save action explicit', async () => {

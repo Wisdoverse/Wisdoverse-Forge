@@ -32,6 +32,7 @@ const DEFAULT_PW_FORM: PasswordFormState = {
   newPassword: '',
   confirmPassword: '',
 }
+const MIN_PASSWORD_LENGTH = 12
 
 function PasswordChangeForm() {
   const [form, setForm] = useState<PasswordFormState>(DEFAULT_PW_FORM)
@@ -41,7 +42,7 @@ function PasswordChangeForm() {
 
   const hasCurrentPassword = form.currentPassword.trim().length > 0
   const hasConfirmation = form.confirmPassword.length > 0
-  const newPasswordIsLongEnough = form.newPassword.length >= 8
+  const newPasswordIsLongEnough = form.newPassword.length >= MIN_PASSWORD_LENGTH
   const newPasswordMatchesCurrent =
     hasCurrentPassword && form.newPassword.length > 0 && form.currentPassword === form.newPassword
   const passwordsMatch = hasConfirmation && form.newPassword === form.confirmPassword
@@ -54,7 +55,7 @@ function PasswordChangeForm() {
     {
       id: 'new-password-length',
       met: newPasswordIsLongEnough,
-      label: 'Use at least 8 characters for the new password.',
+      label: `Use at least ${MIN_PASSWORD_LENGTH} characters for the new password.`,
     },
     {
       id: 'new-password-different',
@@ -92,8 +93,8 @@ function PasswordChangeForm() {
       setError('The two new passwords do not match. Re-enter them and try again.')
       return
     }
-    if (form.newPassword.length < 8) {
-      setError('Use at least 8 characters for the new password.')
+    if (form.newPassword.length < MIN_PASSWORD_LENGTH) {
+      setError(`Use at least ${MIN_PASSWORD_LENGTH} characters for the new password.`)
       return
     }
     if (form.currentPassword === form.newPassword) {
@@ -137,7 +138,8 @@ function PasswordChangeForm() {
         </div>
       )}
       <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-        Enter your current password, then choose a new password with at least 8 characters.
+        Enter your current password, then choose a new password with at least {MIN_PASSWORD_LENGTH}{' '}
+        characters.
       </p>
       <div className="grid grid-cols-1 gap-3">
         <div>
