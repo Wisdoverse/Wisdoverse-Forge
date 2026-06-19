@@ -10281,6 +10281,62 @@ const item = { description: 'follow the setup checklist' }
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags setup checklist eyebrow copy that still sounds like a first-run tutorial', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  gettingStarted: {
+    eyebrow: 'First run',
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  gettingStarted: {
+    eyebrow: '首次使用',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'start-setup-eyebrow-copy',
+          sample: expect.stringContaining("eyebrow: 'First run'"),
+        }),
+        expect.objectContaining({
+          type: 'start-setup-eyebrow-copy',
+          sample: expect.stringContaining("eyebrow: '首次使用'"),
+        }),
+      ])
+    )
+  })
+
+  it('accepts setup checklist eyebrow copy that matches the restored guide behavior', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  gettingStarted: {
+    eyebrow: 'Setup checklist',
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  gettingStarted: {
+    eyebrow: '设置清单',
+  },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags icon rail agent navigation that does not explain the task action', () => {
     const cwd = fixture({
       'src/app/layouts/IconRail.tsx': `
