@@ -715,12 +715,12 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
           {agent.cliTool
             ? `${agentToolLabel(agent.cliTool)} is ready. Start file work before this agent works on files.`
-            : 'This agent does not need file-work setup.'}
+            : 'This agent does not use file work.'}
         </span>
         {agent.cliTool && (
           <span className="max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
             Success looks like the agent status changing to Ready or Working now. If it stays stuck,
-            ask an owner or admin to check this agent setup.
+            ask an owner or admin to check this agent's connection and access in Agents.
           </span>
         )}
       </div>
@@ -731,7 +731,7 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
           className="rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
         >
           Check the agent status, then choose Start file work again. If it keeps failing, ask an
-          owner or admin to check this agent setup.
+          owner or admin to check this agent's connection and access in Agents.
         </div>
       )}
       {agent.cliTool && (
