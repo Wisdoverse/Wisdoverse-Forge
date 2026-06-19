@@ -28,9 +28,10 @@ describe('boardActionErrorMessage', () => {
   test('explains network failures without exposing only a transport error', () => {
     const message = boardActionErrorMessage('loadReadiness', new TypeError('Failed to fetch'))
 
-    expect(message).toContain('Choose Refresh agent status before sending work.')
+    expect(message).toContain('Choose Check agent status before sending work.')
     expect(message).toContain('If it still does not load, check your connection')
-    expect(message).toContain('choose Refresh agent status')
+    expect(message).toContain('choose Check agent status')
+    expect(message).not.toContain('Refresh agent status')
     expect(message).not.toContain('refresh the page')
     const previousActionPhrase = ['assigning', 'or', 'publishing', 'work'].join(' ')
     expect(message).not.toContain(previousActionPhrase)

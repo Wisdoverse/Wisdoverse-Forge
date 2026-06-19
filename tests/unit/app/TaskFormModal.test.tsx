@@ -364,7 +364,7 @@ describe('TaskFormModal', () => {
       name: 'Starting Agent (not ready)',
     }) as HTMLOptionElement
     const missingStatusOption = screen.getByRole('option', {
-      name: 'Missing Status Agent (refresh agent status)',
+      name: 'Missing Status Agent (check agent status)',
     }) as HTMLOptionElement
 
     expect(readyOption.disabled).toBe(false)

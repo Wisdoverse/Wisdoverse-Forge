@@ -128,10 +128,10 @@ describe('BoardView', () => {
 
     const readiness = await screen.findByTestId('assignment-readiness')
     expect(readiness.textContent).toContain(
-      'Choose Refresh agent status before sending work.'
+      'Choose Check agent status before sending work.'
     )
     expect(readiness.textContent).toContain(
-      'If it still does not load, check your connection, then choose Refresh agent status.'
+      'If it still does not load, check your connection, then choose Check agent status.'
     )
     expect(screen.queryByText(/failed to fetch/i)).toBeNull()
   })

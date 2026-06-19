@@ -27,7 +27,7 @@ describe('AssignmentReadinessPanel', () => {
 
     const emptyState = screen.getByTestId('assignment-readiness-empty')
     expect(screen.getByRole('heading', { name: 'Agent status' })).toBeDefined()
-    expect(screen.getByRole('button', { name: 'Refresh agent status' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Check agent status' })).toBeDefined()
     expect(screen.getByRole('link', { name: /open agents/i })).toHaveAttribute('href', '/agents')
     expect(screen.getByText('Connect an agent before sending work.')).toBeDefined()
     expect(within(emptyState).getByText('Connect an agent before sending work')).toBeDefined()
@@ -48,6 +48,7 @@ describe('AssignmentReadinessPanel', () => {
     expect(
       screen.queryByRole('button', { name: ['Refresh', 'agent', 'readiness'].join(' ') })
     ).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Refresh agent status' })).toBeNull()
     expect(screen.queryByText('No agents are connected to this task queue yet.')).toBeNull()
     expect(emptyState.textContent).not.toContain('backlog')
     expect(emptyState.textContent).not.toContain('dispatch')

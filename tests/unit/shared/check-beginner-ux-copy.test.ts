@@ -3569,7 +3569,7 @@ function taskAgentLabel(task) {
     )
   })
 
-  it('flags task form agent status copy that does not tell users to refresh agent status', () => {
+  it('flags task form agent status copy that does not tell users to check agent status', () => {
     const cwd = fixture({
       'src/app/features/board/TaskFormModal.tsx': `
 function agentStatusLabel() {
@@ -3589,11 +3589,31 @@ function agentStatusLabel() {
     ])
   })
 
-  it('accepts task form agent status copy that tells users to refresh agent status', () => {
+  it('flags task form agent status copy that uses refresh wording', () => {
     const cwd = fixture({
       'src/app/features/board/TaskFormModal.tsx': `
 function agentStatusLabel() {
   return 'refresh agent status'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'task-form-agent-status-copy',
+        location: 'src/app/features/board/TaskFormModal.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts task form agent status copy that tells users to check agent status', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskFormModal.tsx': `
+function agentStatusLabel() {
+  return 'check agent status'
 }
 `,
     })
@@ -13834,7 +13854,7 @@ function networkRecoveryMessage() {
     const cwd = fixture({
       'src/app/features/board/boardErrorMessages.ts': `
 const ACTION_FALLBACKS = {
-  loadReadiness: 'Choose Refresh agent status before sending work.',
+  loadReadiness: 'Choose Check agent status before sending work.',
   loadTasks: 'Choose Refresh tasks to load tasks.',
   previewContext: 'Choose an available agent, then open the saved item preview again.',
 }

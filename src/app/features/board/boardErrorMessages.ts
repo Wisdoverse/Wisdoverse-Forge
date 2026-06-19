@@ -10,7 +10,7 @@ export type BoardErrorAction =
 const ACTION_FALLBACKS: Record<BoardErrorAction, string> = {
   createTask:
     'Check the project, where tasks wait, and the result, then create the task again. The task was not created.',
-  loadReadiness: 'Choose Refresh agent status before sending work.',
+  loadReadiness: 'Choose Check agent status before sending work.',
   loadTasks: 'Choose Refresh tasks to load tasks.',
   moveTask:
     'Choose Refresh tasks, then move the task again. The task was moved back because the board change was not saved.',
@@ -66,7 +66,7 @@ export function boardActionErrorMessage(action: BoardErrorAction, err: unknown):
 
 function networkRecoveryMessage(action: BoardErrorAction): string {
   if (action === 'loadReadiness') {
-    return 'If it still does not load, check your connection, then choose Refresh agent status.'
+    return 'If it still does not load, check your connection, then choose Check agent status.'
   }
   if (action === 'loadTasks') {
     return 'If it still does not load, check your connection, then choose Refresh tasks.'

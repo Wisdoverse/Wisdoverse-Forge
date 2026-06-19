@@ -1661,7 +1661,10 @@ const NAVIGATION_ERROR_FAILURE_FIRST_PATTERNS = [
   /\bRefresh it,\s*check the current teams and projects\b/i,
 ]
 
-const TASK_FORM_AGENT_STATUS_DEAD_END_PATTERNS = [/\bstatus not reported\b/i]
+const TASK_FORM_AGENT_STATUS_DEAD_END_PATTERNS = [
+  /\bstatus not reported\b/i,
+  /\brefresh agent status\b/i,
+]
 
 const TASK_FORM_QUEUE_LOAD_FAILURE_FIRST_PATTERNS = [
   /\bTask queues could not load for this project\./i,
@@ -1737,6 +1740,7 @@ const BOARD_LOAD_FAILURE_FIRST_PATTERNS = [
   /\bAgent status could not load\./i,
   /\bThe task board could not load\./i,
   /\bThe saved item preview could not load\./i,
+  /\bRefresh agent status\b/i,
   /\bRefresh the board to load\b/i,
   /\bRefresh the board, then choose\b/i,
   /\bIf it still does not load, check your connection and refresh the page\b/i,

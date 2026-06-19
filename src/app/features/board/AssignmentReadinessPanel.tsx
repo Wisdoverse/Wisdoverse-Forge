@@ -96,8 +96,8 @@ export function AssignmentReadinessPanel({
             onClick={onRefresh}
             disabled={loading}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-secondary-light transition-colors hover:bg-black/[0.05] hover:text-foreground-light disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
-            aria-label="Refresh agent status"
-            title="Refresh agent status"
+            aria-label="Check agent status"
+            title="Check agent status"
           >
             <RefreshCw
               size={14}
