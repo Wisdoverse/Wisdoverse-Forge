@@ -122,6 +122,11 @@ describe('ApprovalQueueView', () => {
     render(<ApprovalQueueView />)
 
     expect(await screen.findByText('Prod deploy memory')).toBeDefined()
+    expect(screen.getByText('Check what agents can save')).toBeDefined()
+    expect(screen.getByText('3 items to check')).toBeDefined()
+    expect(screen.getAllByText('Needs your check').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Waiting for review')).toBeNull()
+    expect(screen.queryByText('Saved notes review')).toBeNull()
     expect(screen.getByText('Team space reuse memory')).toBeDefined()
     expect(screen.getAllByText('Team space').length).toBeGreaterThan(0)
     expect(screen.getByText('Who can reuse it: Team space')).toBeDefined()

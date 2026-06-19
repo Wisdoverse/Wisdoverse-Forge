@@ -6408,6 +6408,10 @@ export function DecisionCopy({ approving }) {
           type: 'review-decision-copy',
           location: 'src/app/features/context/ApprovalQueueView.tsx:18',
         }),
+        expect.objectContaining({
+          type: 'approval-queue-check-copy',
+          sample: expect.stringContaining('Approve and save'),
+        }),
       ])
     )
   })
@@ -6416,11 +6420,11 @@ export function DecisionCopy({ approving }) {
     const cwd = fixture({
       'src/app/features/context/ApprovalQueueView.tsx': `
 const STATE_FILTERS = [
-  { value: 'pending', label: 'Waiting for review' },
+  { value: 'pending', label: 'Needs your check' },
 ]
 
 const STATUS_LABELS = {
-  pending: 'Waiting for review',
+  pending: 'Needs your check',
   approved: 'Saved',
   rejected: 'Not saved',
 }
@@ -6432,7 +6436,7 @@ export function DecisionCopy({ approving }) {
       <button title="Save this item for future work"><span>Save</span></button>
       <button><span>Do not save</span></button>
       <Field label="Why not save it?" />
-      <p>Next: switch back to Waiting for review when you only want items waiting for a decision.</p>
+      <p>Next: switch back to Needs your check when you only want items waiting for a decision.</p>
       <option>Team only</option>
     </section>
   )
@@ -6511,13 +6515,13 @@ const EMPTY_HISTORY = {
     ])
   })
 
-  it('accepts saved-item history empty copy that points to the first review', () => {
+  it('accepts saved-item history empty copy that points to the first check', () => {
     const cwd = fixture({
       'src/app/features/context/ApprovalQueueView.tsx': `
 const EMPTY_HISTORY = {
-  title: 'Review the first saved item to start history',
+  title: 'Check the first saved item to start history',
   detail:
-    'Saved and not-saved notes or instructions appear here after someone reviews the first suggestion.',
+    'Saved and not-saved notes or instructions appear here after someone checks the first suggestion.',
 }
 `,
     })
@@ -15275,7 +15279,7 @@ function serviceRecoveryMessage(action) {
 `,
       'src/app/features/context/approvalQueueErrorMessages.ts': `
 function serviceRecoveryMessage(action) {
-  return 'Refresh the list so you see the latest saved items. The saved item review list could not load. If it still fails, ask an owner or admin to check saved item review access.'
+  return 'Refresh the list so you see the latest saved items. Saved items could not load. If it still fails, ask an owner or admin to check Saved items access.'
 }
 `,
       'src/app/entities/navigation/model/navigation.store.ts': `
@@ -15362,24 +15366,24 @@ function network() {
     const cwd = fixture({
       'src/app/features/context/approvalQueueErrorMessages.ts': `
 const ACTION_FALLBACKS = {
-  approveCandidate: 'Check who can reuse it and the original task preview, then approve the item again. The item was not approved.',
-  loadQueue: 'Refresh the list so you see the latest saved items. The saved item review list could not load.',
-  rejectCandidate: 'Refresh the list, then reject the item again. The item was not rejected.',
+  approveCandidate: 'Check who can reuse it and the original task details, then save the item again. The item was not saved.',
+  loadQueue: 'Refresh the list so you see the latest saved items. Saved items could not load.',
+  rejectCandidate: 'Refresh the list, then choose Do not save again. The item stayed on the list.',
 }
 function forbidden() {
-  return 'Ask an owner or admin to let you approve saved notes and instructions, then retry this review action. You do not have permission right now.'
+  return 'Ask an owner or admin to let you save or skip saved notes and instructions, then retry this saved item action. You do not have permission right now.'
 }
 function missing() {
   return 'Refresh the list so you see the latest saved items. This item was not found.'
 }
 function conflict() {
-  return 'Refresh the list, then open this item again. It changed while you were reviewing it.'
+  return 'Refresh the list, then open this item again. It changed while you were checking it.'
 }
 function busy() {
-  return 'Wait a moment, then try again. The saved item review list is busy.'
+  return 'Wait a moment, then try again. Saved items are busy.'
 }
 function network() {
-  return 'Check your connection, then try this review action again. Forge could not connect while saving this review decision.'
+  return 'Check your connection, then try this saved item action again. Forge could not connect while saving your choice.'
 }
 `,
     })

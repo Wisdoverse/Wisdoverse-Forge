@@ -1440,6 +1440,27 @@ const APPROVAL_QUEUE_ERROR_FAILURE_FIRST_PATTERNS = [
   /^\s*return\s+['"`]Forge could not connect while (?:loading saved items|saving this review decision)\./i,
 ]
 
+const APPROVAL_QUEUE_CHECK_JARGON_PATTERNS = [
+  /\bWaiting for review\b/i,
+  /\bpending item(?:s)?\b/i,
+  /\bShow pending reviews\b/i,
+  /\bSaved notes review\b/i,
+  /\bReview what agents can save\b/i,
+  /\bRefresh review list\b/i,
+  /\bReview steps\b/i,
+  /\bReview later\b/i,
+  /\bApprove and save\b/i,
+  /\bready to review\b/i,
+  /\breview everything first\b/i,
+  /\bReview the first saved item\b/i,
+  /\bNo saved items need review\b/i,
+  /\bThe saved item review list\b/i,
+  /\bretry this review action\b/i,
+  /\bsaving this review decision\b/i,
+  /\bwhile you were reviewing it\b/i,
+  /\bsaved item review access\b/i,
+]
+
 const DUPLICATE_RECOVERY_COPY_PATTERNS = [
   /\bForge could not load the board right now\. Refresh the board, then try again\./i,
   /\bForge could not finish this board action right now\. Refresh the board, then try again\./i,
@@ -4312,6 +4333,17 @@ function hasApprovalQueueErrorFailureFirstCopy(relFile, line) {
   return APPROVAL_QUEUE_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasApprovalQueueCheckJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/context/ApprovalQueueView.tsx') &&
+    !relFile.endsWith('src/app/features/context/approvalQueueErrorMessages.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return APPROVAL_QUEUE_CHECK_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasDuplicateRecoveryDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/board/boardErrorMessages.ts') &&
@@ -6800,6 +6832,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Saved item review errors must start with the next action, not the failure summary.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasApprovalQueueCheckJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'approval-queue-check-copy',
+        location,
+        message:
+          'Saved items checking copy must say check, save, or do not save instead of review, pending, or approve jargon.',
         sample: line.trim(),
       })
     }
