@@ -27,11 +27,31 @@ const project: NavProject = {
 
 describe('Editable resource rows', () => {
   test('uses purpose-focused team edit and delete copy', () => {
-    render(<EditableTeamRow team={team} onUpdate={vi.fn()} onDelete={vi.fn()} />)
+    render(
+      <EditableTeamRow
+        team={team}
+        onUpdate={vi.fn()}
+        onDelete={vi.fn()}
+        onManageMembers={vi.fn()}
+      />
+    )
 
     expect(screen.getByText('Shown at the end of team links: platform')).toBeDefined()
     expect(screen.queryByText(/Forge uses this in team links/i)).toBeNull()
     expect(screen.queryByText(/Automatic team name/i)).toBeNull()
+    expect(screen.queryByTitle('Members')).toBeNull()
+    expect(screen.queryByTitle('Edit')).toBeNull()
+    expect(screen.queryByTitle('Delete')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Manage people and access for Platform' }))
+      .toHaveAttribute('title', 'Manage people and access')
+    expect(screen.getByRole('button', { name: 'Edit Platform' })).toHaveAttribute(
+      'title',
+      'Rename team'
+    )
+    expect(screen.getByRole('button', { name: 'Delete Platform' })).toHaveAttribute(
+      'title',
+      'Delete team'
+    )
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit Platform' }))
     expect(screen.getByPlaceholderText('What this team owns')).toBeDefined()
