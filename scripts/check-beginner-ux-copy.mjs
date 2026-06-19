@@ -1756,6 +1756,7 @@ const TEAM_PROJECT_CREATE_JARGON_PATTERNS = [
   /\bWork folder preview:/i,
   /\bShow support folder\b/i,
   /\bShow support folder path\b/i,
+  /\bLink ending people may see\b/i,
   /\bAutomatic link name\b/i,
   /\bAutomatic (?:team|project) name\b/i,
   /\b(?:Team|Project) short name\b/i,
@@ -1763,12 +1764,14 @@ const TEAM_PROJECT_CREATE_JARGON_PATTERNS = [
 
 const TEAM_PROJECT_ROW_ADDRESS_JARGON_PATTERNS = [
   /\bAddress:\s*\{/i,
+  /\bLink ending people may see\b/i,
   /\bAutomatic link name\b/i,
   /\bAutomatic (?:team|project) name\b/i,
   /\b(?:Team|Project) short name\b/i,
 ]
 
 const TEAM_PROJECT_SHORT_NAME_JARGON_PATTERNS = [
+  /\bLink ending people may see\b/i,
   /\blink name\b/i,
   /\bURL name:\s*\{/i,
   /\bForge uses this in (?:team|project|team space) links\b/i,
@@ -1781,6 +1784,7 @@ const TEAM_PROJECT_SHORT_NAME_JARGON_PATTERNS = [
 const SIDEBAR_PROJECT_MENU_GENERATED_NAME_JARGON_PATTERNS = [
   /\bautomatic project name\b/i,
   /\bname used in links\b/i,
+  /\bpeople may see this at the end of project links\b/i,
 ]
 
 const CLONE_RETRY_FAILURE_FIRST_PATTERNS = [

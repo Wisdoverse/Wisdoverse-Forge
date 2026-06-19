@@ -14751,12 +14751,12 @@ function CreateProjectForm() {
     const cwd = fixture({
       'src/app/features/manage-team/ui/EditableTeamRow.tsx': `
 function EditableTeamRow({ team }) {
-  return <><p>Address: {team.slug}</p><p>Automatic team name: {team.slug}</p><p>Automatic link name: {team.slug}</p><p>Forge uses this in team links: {team.slug}</p></>
+  return <><p>Address: {team.slug}</p><p>Link ending people may see: {team.slug}</p><p>Automatic team name: {team.slug}</p><p>Automatic link name: {team.slug}</p><p>Forge uses this in team links: {team.slug}</p></>
 }
 `,
       'src/app/features/manage-project/ui/EditableProjectRow.tsx': `
 function EditableProjectRow({ project }) {
-  return <><span>Address: {project.slug}</span><span>Automatic project name: {project.slug}</span><span>Project short name: {project.slug}</span><span>Forge uses this in project links: {project.slug}</span></>
+  return <><span>Address: {project.slug}</span><span>Link ending people may see: {project.slug}</span><span>Automatic project name: {project.slug}</span><span>Project short name: {project.slug}</span><span>Forge uses this in project links: {project.slug}</span></>
 }
 `,
     })
@@ -14813,12 +14813,13 @@ function ProjectTree({ projectMenu }) {
   return <button>Copy project short name</button>
   return <p>{projectMenu.project.slug} · short name used in project links</p>
   return <p>{projectMenu.project.slug} · Forge uses this in project links</p>
+  return <p>{projectMenu.project.slug} · people may see this at the end of project links</p>
   return <button>Copy automatic project name</button>
 }
 `,
       'src/app/features/admin/OrganizationsPanel.tsx': `
 function OrganizationsPanel({ org }) {
-  return <><p>Automatic team space name: {org.slug}</p><p>Team space short name: {org.slug}</p><p>Forge uses this in team space links: {org.slug}</p></>
+  return <><p>Link ending people may see: {org.slug}</p><p>Automatic team space name: {org.slug}</p><p>Team space short name: {org.slug}</p><p>Forge uses this in team space links: {org.slug}</p></>
 }
 `,
     })
@@ -14857,6 +14858,55 @@ function OrganizationsPanel({ org }) {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags old link-ending copy that says people may see it', () => {
+    const cwd = fixture({
+      'src/app/features/manage-team/ui/CreateTeamForm.tsx': `
+function CreateTeamForm({ team }) {
+  return <p>Link ending people may see: {team.slug}</p>
+}
+`,
+      'src/app/features/manage-project/ui/EditableProjectRow.tsx': `
+function EditableProjectRow({ project }) {
+  return <span>Link ending people may see: {project.slug}</span>
+}
+`,
+      'src/app/layouts/sidebar/ProjectTree.tsx': `
+function ProjectTree({ projectMenu }) {
+  return <p>{projectMenu.project.slug} · people may see this at the end of project links</p>
+}
+`,
+      'src/app/features/admin/OrganizationsPanel.tsx': `
+function OrganizationsPanel({ org }) {
+  return <p>Link ending people may see: {org.slug}</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'team-project-create-copy',
+          location: 'src/app/features/manage-team/ui/CreateTeamForm.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'team-project-row-address-copy',
+          location: 'src/app/features/manage-project/ui/EditableProjectRow.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'team-project-short-name-copy',
+          location: 'src/app/layouts/sidebar/ProjectTree.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'team-project-short-name-copy',
+          location: 'src/app/features/admin/OrganizationsPanel.tsx:3',
+        }),
+      ])
+    )
   })
 
   it('flags code import retry errors that start with the failure', () => {
