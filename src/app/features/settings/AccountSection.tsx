@@ -383,10 +383,10 @@ function GettingStartedGuideRow() {
   const hidden = !showChecklist
   const canOpenChecklist = preferencesLoaded && showChecklist
   const statusLine = !preferencesLoaded
-    ? 'Checking whether the setup checklist already appears in the left menu...'
+    ? 'Wait a moment while Forge checks whether the setup checklist is shown.'
     : hidden
-      ? 'The setup checklist is hidden from the left menu right now.'
-      : 'The setup checklist is already in the left menu.'
+      ? 'Next step: choose Show setup checklist to add it back.'
+      : 'It is available now. Choose Open setup checklist to review setup.'
   const restoreButtonLabel = restoring
     ? 'Showing...'
     : !preferencesLoaded
@@ -405,7 +405,7 @@ function GettingStartedGuideRow() {
       setRestored(true)
     } else {
       setError(
-        'Check your connection, then choose Show setup checklist. The setup checklist could not be added back to the left menu.'
+        'Check your connection, then choose Show setup checklist again. Forge could not add it back to the left menu.'
       )
     }
   }
@@ -422,9 +422,9 @@ function GettingStartedGuideRow() {
             Setup checklist
           </p>
           <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            If you skipped the setup checklist, choose Show setup checklist to bring it back to the
-            left menu. New sign-ins open Tasks by default. Projects, agents, and tasks stay the
-            same. {statusLine}
+            If Start is hidden, choose Show setup checklist to add Setup checklist back to the left
+            menu. New sign-ins still open Tasks by default, and your projects, agents, and tasks
+            stay the same. {statusLine}
           </p>
         </div>
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
@@ -462,8 +462,8 @@ function GettingStartedGuideRow() {
           className="flex flex-col gap-2 rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue sm:flex-row sm:items-center sm:justify-between"
         >
           <span>
-            The setup checklist is back in the left menu. Open it whenever you want to check setup
-            again. Your projects, agents, and tasks were not changed.
+            Setup checklist is back in the left menu. Choose Open setup checklist to review setup.
+            Your projects, agents, and tasks were not changed.
           </span>
           <button
             type="button"
