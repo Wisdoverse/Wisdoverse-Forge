@@ -1112,6 +1112,12 @@ describe('CreateAgentModal', () => {
     expect((screen.getByLabelText(/agent instructions/i) as HTMLTextAreaElement).value).toContain(
       'confusing behavior'
     )
+    expect((screen.getByLabelText(/agent instructions/i) as HTMLTextAreaElement).value).toContain(
+      'clear use, fix, or wait recommendation'
+    )
+    expect((screen.getByLabelText(/agent instructions/i) as HTMLTextAreaElement).value).not.toMatch(
+      /cite files|tradeoffs/i
+    )
     expect(screen.queryByText(/^Reviewer$/)).toBeNull()
     expect(screen.queryByText(/prompt work/i)).toBeNull()
     expect(screen.queryByRole('group', { name: /agent role templates/i })).toBeNull()
@@ -1124,7 +1130,7 @@ describe('CreateAgentModal', () => {
       name: 'Review Helper',
       provider: 'anthropic',
       model: 'claude-sonnet-4-6',
-      systemPrompt: expect.stringContaining('confusing behavior'),
+      systemPrompt: expect.stringContaining('clear use, fix, or wait recommendation'),
     })
   })
 
@@ -1150,8 +1156,48 @@ describe('CreateAgentModal', () => {
     fireEvent.click(within(templateGroup).getByRole('button', { name: /find the cause/i }))
 
     const instructions = screen.getByLabelText(/agent instructions/i) as HTMLTextAreaElement
-    expect(instructions.value).toContain('checking what is known first')
-    expect(instructions.value).toContain('confirmed facts from guesses')
+    expect(instructions.value).toContain('what the user already knows')
+    expect(instructions.value).toContain('what is confirmed from what is only a guess')
+    expect(instructions.value).toContain('next action that can confirm the answer')
     expect(instructions.value).not.toContain('gathering evidence first')
+    expect(instructions.value).not.toContain('confirmed facts from guesses')
+  })
+
+  test('uses beginner-readable instructions in every starter template', () => {
+    useSettingsStore.setState({
+      providers: [
+        {
+          id: 'provider-anthropic',
+          provider: 'anthropic',
+          displayName: 'Anthropic',
+          model: 'claude-sonnet-4-6',
+          priority: 1,
+          isEnabled: true,
+          isDefault: true,
+          lastTestStatus: 'passed',
+        },
+      ],
+    })
+
+    render(<CreateAgentModal />)
+    fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
+    const templateGroup = screen.getByRole('group', { name: /agent starter templates/i })
+    const instructions = screen.getByLabelText(/agent instructions/i) as HTMLTextAreaElement
+
+    fireEvent.click(within(templateGroup).getByRole('button', { name: /make a change/i }))
+    expect(instructions.value).toContain('what changed and what to try next')
+    expect(instructions.value).not.toMatch(/tradeoffs|edits narrow|handing work back/i)
+
+    fireEvent.click(within(templateGroup).getByRole('button', { name: /review work/i }))
+    expect(instructions.value).toContain('Explain each concern in plain language')
+    expect(instructions.value).not.toMatch(/cite files|concrete risks/i)
+
+    fireEvent.click(within(templateGroup).getByRole('button', { name: /find the cause/i }))
+    expect(instructions.value).toContain('check the smallest useful clue next')
+    expect(instructions.value).not.toContain('unclear failures')
+
+    fireEvent.click(within(templateGroup).getByRole('button', { name: /fix a bug/i }))
+    expect(instructions.value).toContain('what the user should try next')
+    expect(instructions.value).not.toMatch(/fix the defect|failing case/i)
   })
 })
