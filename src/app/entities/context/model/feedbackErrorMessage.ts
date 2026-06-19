@@ -32,7 +32,7 @@ export function feedbackErrorMessage(error?: unknown): string {
     return 'Wait a moment, then save this feedback again. Feedback is busy.'
   }
   if (status >= 500) {
-    return 'Refresh the task, then save feedback again. Forge could not save feedback right now. If it still fails, ask an owner or admin to check feedback setup.'
+    return 'Refresh the task, then save feedback again. Forge could not save feedback right now. If it still fails, ask an owner or admin to check saved item feedback access.'
   }
 
   return 'Refresh the task, then save feedback again. Feedback could not be saved.'

@@ -59,7 +59,7 @@ export function skillDraftErrorMessage(error: unknown): string {
     return `Ask an owner or admin to let you create saved instructions, then publish again. ${failure}`
   }
   if (code === 404) {
-    return `Refresh the task, then publish the instruction again. ${failure} Instruction publishing setup may have changed.`
+    return `Refresh the task, then publish the instruction again. ${failure} Saved instruction access may have changed.`
   }
   if (
     code === 409 ||
@@ -76,11 +76,11 @@ export function skillDraftErrorMessage(error: unknown): string {
     return `Wait a minute, then publish again. Too many instruction changes are happening right now. ${failure}`
   }
   if (code != null && code >= 500) {
-    return 'Wait a few minutes, then publish again. Forge could not publish this instruction right now. If it still fails, ask an owner or admin to check instruction setup.'
+    return 'Wait a few minutes, then publish again. Forge could not publish this instruction right now. If it still fails, ask an owner or admin to check Saved instructions access.'
   }
   if (isNetworkError(error)) {
     return 'Check your connection, then publish again. Forge could not connect while publishing this instruction.'
   }
 
-  return `Review the draft, then publish again. ${failure} If it still fails, ask an owner or admin to check instruction setup.`
+  return `Review the draft, then publish again. ${failure} If it still fails, ask an owner or admin to check Saved instructions access.`
 }

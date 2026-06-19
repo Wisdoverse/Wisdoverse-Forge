@@ -56,11 +56,11 @@ export function agentTasksErrorMessage(err: unknown): string {
     return 'Too many task requests are happening right now. Wait a minute, then refresh this agent to load its work list.'
   }
   if (code != null && code >= 500) {
-    return "Refresh this agent to load its work list. If it still fails, ask an owner or admin to check this agent's task setup."
+    return "Refresh this agent to load its work list. If it still fails, ask an owner or admin to check this agent's work list."
   }
   if (isNetworkError(err)) {
     return 'Check your connection, then refresh this agent to load its work list.'
   }
 
-  return "Refresh this agent to load its work list. If it still fails, ask an owner or admin to check this agent's task setup."
+  return "Refresh this agent to load its work list. If it still fails, ask an owner or admin to check this agent's work list."
 }

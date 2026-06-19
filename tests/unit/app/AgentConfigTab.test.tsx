@@ -371,7 +371,7 @@ describe('AgentConfigTab', () => {
     render(<AgentConfigTab agentId="future-tool" />)
 
     expect(screen.getByTestId('agent-cli-config-summary')).toBeInTheDocument()
-    expect(screen.getByText('Check work tool setup')).toBeInTheDocument()
+    expect(screen.getByText('Check work tool settings')).toBeInTheDocument()
     expect(screen.queryByText('future_tool')).toBeNull()
     expect(screen.queryByText('Unknown')).toBeNull()
   })
@@ -380,7 +380,7 @@ describe('AgentConfigTab', () => {
     render(<AgentConfigTab agentId="missing-tool" />)
 
     expect(screen.getByTestId('agent-cli-config-summary')).toBeInTheDocument()
-    expect(screen.getByText('Refresh work tool setup')).toBeInTheDocument()
+    expect(screen.getByText('Refresh work tool settings')).toBeInTheDocument()
     expect(screen.queryByText('Work tool not reported')).toBeNull()
   })
 

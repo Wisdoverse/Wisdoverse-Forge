@@ -117,7 +117,7 @@ describe('chatStreamHttpErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Wait a few minutes, then resend the message. Forge could not send this chat message right now. If it still fails, ask an owner or admin to check chat and agent setup.'
+      'Wait a few minutes, then resend the message. Forge could not send this chat message right now. If it still fails, ask an owner or admin to check this agent chat and agent status.'
     )
     expect(message).not.toContain('service unavailable')
   })
@@ -172,7 +172,7 @@ describe('chatStreamEventErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Resend the message. The agent could not finish this reply. If it still fails, ask an owner or admin to check chat setup.'
+      'Resend the message. The agent could not finish this reply. If it still fails, ask an owner or admin to check this agent chat.'
     )
     expect(message).not.toContain('stream error')
   })

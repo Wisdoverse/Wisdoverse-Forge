@@ -80,9 +80,9 @@ function networkRecoveryMessage(action: TaskDetailErrorAction): string {
 
 function serviceRecoveryMessage(action: TaskDetailErrorAction): string {
   if (action === 'loadAgents' || action === 'loadContext' || action === 'loadRuns') {
-    return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check task setup.`
+    return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check task details access.`
   }
-  return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check task setup.`
+  return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check task action access.`
 }
 
 function errorDetail(err: unknown): string {

@@ -54,7 +54,7 @@ describe('feedbackErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh the task, then save feedback again. Forge could not save feedback right now. If it still fails, ask an owner or admin to check feedback setup.'
+      'Refresh the task, then save feedback again. Forge could not save feedback right now. If it still fails, ask an owner or admin to check saved item feedback access.'
     )
     expect(message).not.toContain('HTTP 503')
     expect(message).not.toContain('database unavailable')

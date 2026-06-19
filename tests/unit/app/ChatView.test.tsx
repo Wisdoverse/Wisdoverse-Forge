@@ -283,14 +283,14 @@ describe('ChatView', () => {
     seedChatState({
       messages: [message('Earlier answer')],
       error:
-        'Retry conversation to load conversation history. Wait a few minutes, then choose Retry conversation again. Forge could not load this conversation right now. If it still fails, ask an owner or admin to check chat setup.',
+        'Retry conversation to load conversation history. Wait a few minutes, then choose Retry conversation again. Forge could not load this conversation right now. If it still fails, ask an owner or admin to check this agent chat.',
     })
 
     render(<ChatView agentId={providerAgent.id} />)
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('Check this conversation')
-    expect(alert).toHaveTextContent('ask an owner or admin to check chat setup')
+    expect(alert).toHaveTextContent('ask an owner or admin to check this agent chat')
     expect(alert).not.toHaveTextContent('HTTP 500')
     expect(alert).not.toHaveTextContent('Server error')
     expect(screen.getByText('Earlier answer')).toBeInTheDocument()

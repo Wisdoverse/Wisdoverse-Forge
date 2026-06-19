@@ -56,9 +56,9 @@ function networkRecoveryMessage(action: ApprovalQueueErrorAction): string {
 
 function serviceRecoveryMessage(action: ApprovalQueueErrorAction): string {
   if (action === 'loadQueue') {
-    return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check saved notes setup.`
+    return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check Saved items access.`
   }
-  return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check saved notes setup.`
+  return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check saved item review access.`
 }
 
 function errorDetail(err: unknown): string {

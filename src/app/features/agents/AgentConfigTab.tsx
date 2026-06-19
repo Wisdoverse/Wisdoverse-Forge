@@ -330,9 +330,9 @@ function cliToolLabel(tool?: AgentInfo['cliTool'] | string): string {
       return 'OpenCode'
     case undefined:
     case '':
-      return 'Refresh work tool setup'
+      return 'Refresh work tool settings'
     default:
-      return 'Check work tool setup'
+      return 'Check work tool settings'
   }
 }
 
