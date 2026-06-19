@@ -10700,7 +10700,7 @@ export function ResourcesSection() {
 `,
       'src/app/layouts/sidebar/ProjectTree.tsx': `
 function renameErrorMessage() {
-  return 'Refresh the left menu, then save this project name again. If it still fails, ask an owner or admin to check team and project setup.'
+  return 'Refresh the left menu, then save this project name again. If it still fails, ask an owner or admin to check team and project settings.'
 }
 `,
       'src/app/layouts/sidebar/SidebarNav.tsx': `
@@ -12918,7 +12918,7 @@ function authRecoveryErrorMessage(action) {
     const cwd = fixture({
       'src/app/features/auth/AuthPage.ts': `
 function authLoginErrorMessage() {
-  return 'Try signing in again in a minute. If it still fails, ask an owner or admin to check sign-in setup.'
+  return 'Try signing in again in a minute. If it still fails, ask an owner or admin to check the sign-in option for this page.'
 }
 function authRegisterErrorMessage() {
   return 'Sign in instead, or reset the password if you cannot access it. An account may already exist for this email.'
@@ -12939,6 +12939,33 @@ function authRecoveryErrorMessage(action) {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags auth recovery copy that says setup instead of the exact recovery step', () => {
+    const cwd = fixture({
+      'src/app/features/auth/AuthPage.ts': `
+function authLoginErrorMessage() {
+  return 'Try signing in again in a minute. If it still fails, ask an owner or admin to check sign-in setup.'
+}
+`,
+      'src/app/shared/auth/AuthManager.ts': `
+const REGISTER_FALLBACK = 'Check the account details, then create the account again. Forge could not finish account setup.'
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'auth-setup-copy',
+        location: 'src/app/features/auth/AuthPage.ts:3',
+      }),
+      expect.objectContaining({
+        type: 'auth-setup-copy',
+        location: 'src/app/shared/auth/AuthManager.ts:2',
+      }),
+    ])
   })
 
   it('flags sign-in orientation that exposes evidence jargon', () => {
@@ -14239,7 +14266,7 @@ function workspaceResourceConnectionMessage() {
   return 'Check your connection, then save the team again in Settings.'
 }
 function workspaceResourceUnavailableMessage() {
-  return 'Refresh Settings, then save the project again. If it still fails, ask an owner or admin to check workspace setup.'
+  return 'Refresh Settings, then save the project again. If it still fails, ask an owner or admin to check team and project settings.'
 }
 function notFoundMessage() {
   return 'Refresh Settings, then choose an existing project.'
@@ -14364,7 +14391,7 @@ const RESET_FALLBACK = 'Failed to reset password'
     const cwd = fixture({
       'src/app/shared/auth/AuthManager.ts': `
 const LOGIN_FALLBACK = 'Check your email and password, then try signing in again. Forge could not finish sign-in.'
-const REGISTER_FALLBACK = 'Check the account details, then create the account again. Forge could not finish account setup.'
+const REGISTER_FALLBACK = 'Check the account details, then create the account again. Forge could not finish account creation.'
 const SSO_FALLBACK = 'Start sign-in again from this page. Forge could not finish this sign-in link.'
 const RESEND_FALLBACK = 'Check the email address, then send the verification email again. Forge could not finish sending it.'
 const FORGOT_FALLBACK = 'Check the email address, then request the reset email again. Forge could not finish sending it.'
@@ -14951,7 +14978,7 @@ function navigationActionErrorMessage(actionPhrase) {
   return 'Check your connection, then refresh the left menu to load task queues.'
 }
 function serviceRecoveryMessage() {
-  return 'Refresh the left menu to load workspace navigation. If it still fails, ask an owner or admin to check workspace navigation.'
+  return 'Refresh the left menu to load team and project links. If it still fails, ask an owner or admin to check the left menu.'
 }
 `,
     })
