@@ -695,6 +695,8 @@ const WORKSPACE_SETUP_JARGON_PATTERNS = [
   /\bsign out of this workspace\b/i,
   /\bmanage workspace, agents, and access\b/i,
   /\bworkspace setup\b/i,
+  /\bteam space setup\b/i,
+  /\bteam and project setup\b/i,
   /\bworkspace settings\b/i,
   /\bworkspace navigation\b/i,
   /\bopening the workspace\b/i,
@@ -3424,9 +3426,11 @@ function hasWorkspaceSetupJargonCopy(relFile, line) {
     !relFile.endsWith('src/app/routes/context.tsx') &&
     !relFile.endsWith('src/app/routes/context-audit.tsx') &&
     !relFile.endsWith('src/app/features/settings/ResourcesSection.tsx') &&
+    !relFile.endsWith('src/app/entities/navigation/model/navigation.store.ts') &&
     !relFile.endsWith('src/app/layouts/sidebar/ProjectTree.tsx') &&
     !relFile.endsWith('src/app/layouts/sidebar/SidebarNav.tsx') &&
     !relFile.endsWith('src/app/routes/__root.tsx') &&
+    !relFile.endsWith('src/app/shared/lib/workspaceResourceErrorMessage.ts') &&
     !relFile.endsWith('src/app/shared/lib/taskFailureCopy.ts')
   ) {
     return false

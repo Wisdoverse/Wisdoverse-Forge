@@ -117,7 +117,10 @@ describe('navigation.store', () => {
       details: { reason: 'name is required' },
     })
 
-    expectBeginnerError(message, 'Name this waiting place, choose its project, then create it again.')
+    expectBeginnerError(
+      message,
+      'Name this waiting place, choose its project, then create it again.'
+    )
     expect(message).not.toContain('name is required')
     expect(message).not.toContain('task queue')
   })
@@ -334,11 +337,12 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       useNavigationStore.getState().error,
-      'Refresh the left menu to load teams and projects. If it still fails, ask an owner or admin to check team space setup.'
+      'Refresh the left menu to load teams and projects. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
     )
     expect(useNavigationStore.getState().error).not.toContain('temporarily unavailable')
     expect(useNavigationStore.getState().error).not.toContain('organization')
     expect(useNavigationStore.getState().error).not.toContain('workspace navigation')
+    expect(useNavigationStore.getState().error).not.toContain('team space setup')
     expect(useNavigationStore.getState().loading).toBe(false)
   })
 
