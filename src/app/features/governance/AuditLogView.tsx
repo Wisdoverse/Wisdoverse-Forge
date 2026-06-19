@@ -419,7 +419,7 @@ export function AuditLogView() {
             value={auditViewMetricLabel(data?.query.eventPrefix ?? filters.eventPrefix)}
             compact
           />
-          <Metric label="Hidden item codes" value={protectedReferences} />
+          <Metric label="Protected saved items" value={protectedReferences} />
           <Metric label="Hidden review-note rows" value={redactedRows} />
         </div>
 
@@ -544,14 +544,14 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
           <SubjectLine
             testId="governance-audit-item-reference"
             icon="visible"
-            label="Visible item code"
+            label="Visible saved item"
             value={entry.rawItemId}
           />
         ) : (
           <SubjectLine
             testId="governance-audit-protected-reference"
             icon="hash"
-            label="Hidden item code"
+            label="Protected saved item"
             value={entry.auditSubjectHash}
           />
         )}
@@ -568,7 +568,7 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
       <td className="w-56 px-4 py-3">
         <div className="font-medium">{auditAreaLabel(entry.scopeKind)}</div>
         <div className="mt-1 truncate font-mono text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {entry.scopeId ? `Area code ${shortId(entry.scopeId)}` : 'Area code hidden'}
+          {entry.scopeId ? `Work area ${shortId(entry.scopeId)}` : 'Work area hidden'}
         </div>
       </td>
       <td className="w-48 px-4 py-3">
@@ -823,7 +823,7 @@ function auditAreaLabel(kind: GovernanceAuditScopeKind | null | undefined): stri
 }
 
 function auditActorLabel(actorUserId: string | null | undefined): string {
-  return actorUserId ? `Person code ${shortId(actorUserId)}` : 'System'
+  return actorUserId ? `Person reference ${shortId(actorUserId)}` : 'System'
 }
 
 function readableCodeLabel(value: string, options: { fallback: string }): string {

@@ -80,7 +80,8 @@ describe('AuditLogView', () => {
     await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(1))
     expect(screen.getByText('Start with what you need to check')).toBeDefined()
     expect(screen.getByText('See every saved note and saved instruction change.')).toBeDefined()
-    expect(screen.getByText('Hidden item codes')).toBeDefined()
+    expect(screen.getByText('Protected saved items')).toBeDefined()
+    expect(screen.queryByText('Hidden item codes')).toBeNull()
     expect(screen.queryByText('Hidden item IDs')).toBeNull()
     expect(screen.getByText('Selected view')).toBeDefined()
     expect(screen.getAllByText('All saved item changes').length).toBeGreaterThan(0)
@@ -179,8 +180,9 @@ describe('AuditLogView', () => {
     expect(screen.queryByText('Saved instruction · Skill')).toBeNull()
     expect(screen.getAllByText('Changed item').length).toBeGreaterThan(0)
     expect(screen.getByText('Changed by')).toBeDefined()
-    expect(screen.getByText('Person code user-1')).toBeDefined()
-    expect(screen.getByText('Person code user-2')).toBeDefined()
+    expect(screen.getByText('Person reference user-1')).toBeDefined()
+    expect(screen.getByText('Person reference user-2')).toBeDefined()
+    expect(screen.queryByText('Person code user-1')).toBeNull()
     expect(screen.queryByText('Person ID user-1')).toBeNull()
     expect(screen.queryByText('user-1')).toBeNull()
     expect(screen.getByText('Verification')).toBeDefined()
@@ -189,6 +191,9 @@ describe('AuditLogView', () => {
     expect(screen.queryByText('Support notes')).toBeNull()
     expect(screen.queryByText('Show support notes')).toBeNull()
     expect(screen.getByTestId('governance-audit-item-reference').textContent).toContain(
+      'Visible saved item'
+    )
+    expect(screen.getByTestId('governance-audit-item-reference').textContent).not.toContain(
       'Visible item code'
     )
     expect(screen.getByTestId('governance-audit-item-reference').textContent).not.toContain(
@@ -196,6 +201,9 @@ describe('AuditLogView', () => {
     )
     expect(screen.getByTestId('governance-audit-item-reference').textContent).toContain('11111111')
     expect(screen.getByTestId('governance-audit-protected-reference').textContent).toContain(
+      'Protected saved item'
+    )
+    expect(screen.getByTestId('governance-audit-protected-reference').textContent).not.toContain(
       'Hidden item code'
     )
     expect(screen.getByTestId('governance-audit-protected-reference').textContent).not.toContain(
@@ -205,7 +213,8 @@ describe('AuditLogView', () => {
       'f9f0b5b53a'
     )
     expect(screen.getAllByText('Project').length).toBeGreaterThan(0)
-    expect(screen.getByText('Area code project-1')).toBeDefined()
+    expect(screen.getByText('Work area project-1')).toBeDefined()
+    expect(screen.queryByText('Area code project-1')).toBeNull()
     expect(screen.queryByText('Area ID project-1')).toBeNull()
     expect(screen.queryByText(/Area support reference/i)).toBeNull()
     expect(screen.getByTestId('governance-audit-redacted').textContent).toContain(

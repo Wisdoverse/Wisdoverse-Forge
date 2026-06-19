@@ -1404,6 +1404,14 @@ const GOVERNANCE_AUDIT_BARE_ACTOR_REFERENCE_PATTERNS = [
   /entry\.actorUserId\s*\?\s*shortId\(entry\.actorUserId\)\s*:/,
 ]
 
+const GOVERNANCE_AUDIT_REFERENCE_JARGON_PATTERNS = [
+  /\bHidden item codes\b/i,
+  /\bVisible item code\b/i,
+  /\bHidden item code\b/i,
+  /\bArea code\b/i,
+  /`Person code \$\{shortId\(actorUserId\)\}`/,
+]
+
 const APPROVAL_QUEUE_ERROR_FAILURE_FIRST_PATTERNS = [
   /^\s*(?:return\s+|(?:approveCandidate|rejectCandidate)\s*:\s*)['"`]The item was not (?:approved|rejected)\./i,
   /^\s*(?:return\s+|loadQueue\s*:\s*)['"`]The saved item review list could not load\./i,
@@ -4238,6 +4246,12 @@ function hasGovernanceAuditBareActorReferenceCopy(relFile, line) {
   return GOVERNANCE_AUDIT_BARE_ACTOR_REFERENCE_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasGovernanceAuditReferenceJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/governance/AuditLogView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return GOVERNANCE_AUDIT_REFERENCE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasApprovalQueueErrorFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/context/approvalQueueErrorMessages.ts')) {
     return false
@@ -6695,6 +6709,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Governance change history must explain person references instead of showing a bare user reference.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasGovernanceAuditReferenceJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'governance-audit-reference-copy',
+        location,
+        message:
+          'Governance change history must label saved items, work areas, and people with product words instead of item, area, or person code labels.',
         sample: line.trim(),
       })
     }

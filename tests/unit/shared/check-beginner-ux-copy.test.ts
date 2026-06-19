@@ -12294,6 +12294,10 @@ function AuditLogView() {
     <input placeholder="Paste the exact team space, work area, team, or project reference" />
     <button aria-label="Refresh change history">Refresh</button>
     <button>Show saved change name</button>
+    <Metric label="Protected saved items" />
+    <SubjectLine label="Visible saved item" />
+    <SubjectLine label="Protected saved item" />
+    <span>{entry.scopeId ? \`Work area \${shortId(entry.scopeId)}\` : 'Work area hidden'}</span>
     <span>Set up verification</span>
     <span>Check verification</span>
     <span>Review notes hidden</span>
@@ -12342,6 +12346,54 @@ function auditActorLabel(actorUserId) {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags governance history references that use item, area, or person code labels', () => {
+    const cwd = fixture({
+      'src/app/features/governance/AuditLogView.tsx': `
+function AuditRow({ entry }) {
+  return <>
+    <Metric label="Hidden item codes" />
+    <SubjectLine label="Visible item code" />
+    <SubjectLine label="Hidden item code" />
+    <span>{entry.scopeId ? \`Area code \${shortId(entry.scopeId)}\` : 'Area code hidden'}</span>
+  </>
+}
+
+function auditActorLabel(actorUserId) {
+  return actorUserId ? \`Person code \${shortId(actorUserId)}\` : 'System'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'governance-audit-reference-copy',
+          sample: '<Metric label="Hidden item codes" />',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-reference-copy',
+          sample: '<SubjectLine label="Visible item code" />',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-reference-copy',
+          sample: '<SubjectLine label="Hidden item code" />',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-reference-copy',
+          sample:
+            "<span>{entry.scopeId ? `Area code ${shortId(entry.scopeId)}` : 'Area code hidden'}</span>",
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-reference-copy',
+          sample: "return actorUserId ? `Person code ${shortId(actorUserId)}` : 'System'",
+        }),
+      ])
+    )
   })
 
   it('flags recovery copy that repeats the same refresh step', () => {
