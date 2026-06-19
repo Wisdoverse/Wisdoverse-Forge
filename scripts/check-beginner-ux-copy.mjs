@@ -578,6 +578,11 @@ const TITLE_STYLE_GUIDANCE_PATTERNS = [
   /\bOpen Team Members\b/,
 ]
 
+const OUTSIDE_TOOL_ACCESS_NAV_JARGON_PATTERNS = [
+  /\blabel:\s*['"`]Outside apps['"`]/,
+  /\bAdd keys agents need to use apps and services outside Forge\b/i,
+]
+
 const CLI_IMAGE_STATUS_DEAD_END_PATTERNS = [
   /\bCheck failed\b/i,
   /\bThe tool updater reported\b/i,
@@ -3578,6 +3583,12 @@ function hasTitleStyleGuidanceCopy(line) {
   return TITLE_STYLE_GUIDANCE_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasOutsideToolAccessNavJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/pages/settings/ui/SettingsLayout.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return OUTSIDE_TOOL_ACCESS_NAV_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasCliImageStatusDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/admin/CliImagesPanel.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -6208,6 +6219,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Beginner guidance must use action-first sentences instead of title-style menu labels.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasOutsideToolAccessNavJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'outside-tool-access-nav-copy',
+        location,
+        message:
+          'Outside tool access navigation must say outside tools connect to Forge, not that agents need app keys.',
         sample: line.trim(),
       })
     }

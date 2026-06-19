@@ -51,8 +51,8 @@ const SECTIONS: SectionItem[] = [
   },
   {
     id: 'keys',
-    label: 'Outside apps',
-    description: 'Add keys agents need to use apps and services outside Forge.',
+    label: 'Outside tool access',
+    description: 'Let trusted outside tools connect to Forge without a person signing in.',
     group: 'Agent work',
     Icon: Key,
   },

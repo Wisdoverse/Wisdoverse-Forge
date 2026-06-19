@@ -34,7 +34,7 @@ describe('SettingsLayout', () => {
     ).toBeInTheDocument()
     expect(
       within(desktopNav).getByRole('button', {
-        name: /Outside apps: Add keys agents need to use apps and services outside Forge/i,
+        name: /Outside tool access: Let trusted outside tools connect to Forge without a person signing in/i,
       })
     ).toBeInTheDocument()
     expect(
@@ -74,7 +74,8 @@ describe('SettingsLayout', () => {
     expect(screen.getByRole('group', { name: 'Agent work' })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'People' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'AI services' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Outside apps' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Outside tool access' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Outside apps' })).not.toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'HTTPS code access' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'SSH code access' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Agent size limits' })).toBeInTheDocument()

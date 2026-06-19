@@ -5100,6 +5100,36 @@ const teamNextStep = 'Open Team Members after creation to invite people.'
     )
   })
 
+  it('flags outside tool access navigation that sounds like agent app keys', () => {
+    const cwd = fixture({
+      'src/app/pages/settings/ui/SettingsLayout.tsx': `
+const SECTIONS = [
+  {
+    id: 'keys',
+    label: 'Outside apps',
+    description: 'Add keys agents need to use apps and services outside Forge.',
+  },
+]
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'outside-tool-access-nav-copy',
+          location: 'src/app/pages/settings/ui/SettingsLayout.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'outside-tool-access-nav-copy',
+          location: 'src/app/pages/settings/ui/SettingsLayout.tsx:6',
+        }),
+      ])
+    )
+  })
+
   it('accepts action-first beginner guidance', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentTasksTab.tsx': `
