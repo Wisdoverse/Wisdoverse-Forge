@@ -3305,6 +3305,9 @@ function handleProjectChange() {
 function taskSupportReference() {
   return 'Support reference not reported'
 }
+function taskReferenceLabel(id) {
+  return \`Task ID \${id}\`
+}
 `,
       'src/app/features/detail/HistoryTab.tsx': `
 function supportRunReference(id) {
@@ -3324,6 +3327,10 @@ function supportRunReference(id) {
         }),
         expect.objectContaining({
           type: 'task-support-reference-copy',
+          location: 'src/app/features/detail/TaskDetailPanel.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'task-support-reference-copy',
           location: 'src/app/features/detail/HistoryTab.tsx:3',
         }),
       ])
@@ -3335,6 +3342,9 @@ function supportRunReference(id) {
       'src/app/features/detail/TaskDetailPanel.tsx': `
 function taskSupportReference() {
   return 'Refresh task details'
+}
+function taskReferenceLabel(id) {
+  return \`Task reference \${id}\`
 }
 `,
     })

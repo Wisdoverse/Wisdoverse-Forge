@@ -1451,6 +1451,7 @@ const TASK_FORM_QUEUE_LOAD_FAILURE_FIRST_PATTERNS = [
 
 const TASK_SUPPORT_REFERENCE_DEAD_END_PATTERNS = [
   /\bSupport reference not (?:reported|listed)\b/i,
+  /\bTask ID\b/i,
   /\breturn\s+['"`]not listed['"`]/i,
 ]
 
