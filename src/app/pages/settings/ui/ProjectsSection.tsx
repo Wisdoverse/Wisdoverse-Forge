@@ -165,7 +165,8 @@ export function ProjectsSection() {
           <h2 className={uiStyles.sectionTitle}>Projects</h2>
           <p className={uiStyles.sectionDescription}>
             {projectsWithTeam.length} {projectsWithTeam.length === 1 ? 'project' : 'projects'}{' '}
-            across {teams.length} {teams.length === 1 ? 'team' : 'teams'}
+            across {teams.length} {teams.length === 1 ? 'team' : 'teams'}. Open Manage people on a
+            project to add people or change access.
           </p>
         </div>
         {!showForm && canCreateProject && projectsWithTeam.length > 0 && (

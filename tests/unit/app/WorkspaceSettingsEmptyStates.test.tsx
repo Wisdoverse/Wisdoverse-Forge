@@ -194,6 +194,28 @@ describe('workspace settings empty states', () => {
     expect(screen.getByText('Project form ready')).toBeInTheDocument()
   })
 
+  it('explains where to manage project people and access', async () => {
+    mocks.getTeams.mockResolvedValue([{ ...teamAlpha, canCreateProject: true }])
+    mocks.getProjects.mockResolvedValue([
+      {
+        id: 'project-1',
+        teamId: 'team-1',
+        name: 'Website',
+        slug: 'website',
+        color: '#007AFF',
+        description: '',
+      },
+    ])
+
+    render(<ProjectsSection />)
+
+    await waitFor(() => expect(mocks.getProjects).toHaveBeenCalledWith('team-1'))
+    expect(screen.getByText(/1 project across 1 team/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Open Manage people on a project to add people or change access/i)
+    ).toBeInTheDocument()
+  })
+
   it('shows who to ask when teams exist but project creation is unavailable', async () => {
     mocks.getTeams.mockResolvedValue([{ ...teamAlpha, canCreateProject: false }])
     mocks.getProjects.mockResolvedValue([])
