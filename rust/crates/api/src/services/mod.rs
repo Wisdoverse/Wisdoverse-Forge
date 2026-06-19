@@ -10,6 +10,7 @@ pub(crate) mod agent_enrollment;
 pub mod agent_message;
 pub mod agent_prompt;
 pub mod agent_query;
+pub mod agent_reconcile_worker;
 pub mod agent_workspace;
 pub mod analytics;
 pub mod api_key;

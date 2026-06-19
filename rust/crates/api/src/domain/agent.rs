@@ -1148,10 +1148,6 @@ impl AgentContainerLifecyclePolicy {
         container_id.ok_or_else(|| ErrorKind::Validation("agent has no container to resume".into()).into())
     }
 
-    pub(crate) fn running_container_id(container_id: Option<&str>) -> AppResult<&str> {
-        container_id.ok_or_else(|| ErrorKind::Validation("agent has no running container".into()).into())
-    }
-
     pub(crate) fn stale_container_reference_error() -> ErrorKind {
         ErrorKind::Validation("agent container is no longer available; start the agent again".into())
     }
@@ -1162,6 +1158,21 @@ impl AgentContainerLifecyclePolicy {
             AgentContainerRuntimeState::NotRunning => AgentRestartPlan::StartOnly,
         }
     }
+}
+
+/// Result of an idempotent container stop, used to classify roll outcomes and
+/// drive honest operator messaging.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AgentContainerStopOutcome {
+    /// The container is confirmed absent (stopped + removed, or already gone).
+    /// The DB row has been reconciled (`container_id` cleared).
+    Stopped,
+    /// The post-stop inspect still shows the container present — genuinely still
+    /// running on its previous image. The DB row is left untouched.
+    StillRunning,
+    /// The container's final state could not be confirmed (daemon error on the
+    /// verifying inspect). The DB row is left for the reconcile backstop.
+    Unconfirmed,
 }
 
 pub(crate) struct AgentContainerRuntimePolicy;
@@ -1194,12 +1205,16 @@ impl AgentContainerRuntimePolicy {
         ErrorKind::Internal(anyhow::anyhow!("Failed to start container: {err}"))
     }
 
-    pub(crate) fn stop_container_failed(err: impl std::fmt::Display) -> ErrorKind {
-        ErrorKind::Internal(anyhow::anyhow!("Failed to stop container: {err}"))
+    /// The post-stop inspect still shows the container present: it is genuinely
+    /// still running, so we did NOT reconcile the DB row.
+    pub(crate) fn container_still_running_after_stop() -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("container is still running after stop attempt"))
     }
 
-    pub(crate) fn remove_container_after_stop_failed(err: impl std::fmt::Display) -> ErrorKind {
-        ErrorKind::Internal(anyhow::anyhow!("Failed to remove container after stop: {err}"))
+    /// The Docker daemon errored on the post-stop inspect, so the container's
+    /// final state could not be confirmed. The reconcile backstop converges it.
+    pub(crate) fn stop_post_condition_unverified() -> ErrorKind {
+        ErrorKind::Internal(anyhow::anyhow!("could not confirm container stopped; pending reconciliation"))
     }
 
     pub(crate) fn prepare_workspace_failed(path: impl std::fmt::Display, err: impl std::fmt::Display) -> ErrorKind {
@@ -1574,8 +1589,6 @@ mod tests {
         assert!(AgentContainerLifecyclePolicy::restart_container_id(None).is_err());
         assert_eq!(AgentContainerLifecyclePolicy::resume_container_id(Some("ctr-2")).unwrap(), "ctr-2");
         assert!(AgentContainerLifecyclePolicy::resume_container_id(None).is_err());
-        assert_eq!(AgentContainerLifecyclePolicy::running_container_id(Some("ctr-3")).unwrap(), "ctr-3");
-        assert!(AgentContainerLifecyclePolicy::running_container_id(None).is_err());
     }
 
     #[test]
@@ -1608,12 +1621,12 @@ mod tests {
                 .contains("Failed to start container")
         );
         assert!(
-            format!("{:?}", AgentContainerRuntimePolicy::stop_container_failed("bad"))
-                .contains("Failed to stop container")
+            format!("{:?}", AgentContainerRuntimePolicy::container_still_running_after_stop())
+                .contains("still running after stop")
         );
         assert!(
-            format!("{:?}", AgentContainerRuntimePolicy::remove_container_after_stop_failed("bad"))
-                .contains("Failed to remove container after stop")
+            format!("{:?}", AgentContainerRuntimePolicy::stop_post_condition_unverified())
+                .contains("could not confirm container stopped")
         );
         assert!(
             format!("{:?}", AgentContainerRuntimePolicy::prepare_workspace_failed("/tmp/ws", "bad"))

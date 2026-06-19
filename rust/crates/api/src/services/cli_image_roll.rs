@@ -31,6 +31,7 @@ use agentforge_core::{AgentId, AgentStatus, AppConfig, AppResult, OrgId, TenantS
 use agentforge_platform::DockerClient;
 use sqlx::PgPool;
 
+use crate::domain::agent::AgentContainerStopOutcome;
 use crate::domain::context::ContextFeatureFlags;
 use crate::repositories::admin::AdminRepository;
 use crate::services::agent_container_control::AgentContainerControlService;
@@ -159,24 +160,39 @@ impl CliImageRollService {
         Ok(report)
     }
 
-    /// Stop then start one agent. Reports the post-condition honestly: a stop
-    /// failure leaves the agent in an UNCONFIRMED state — `stop` is not atomic
-    /// (stop → remove → clear container_id), so an error can mean the container
-    /// is still running on the old image OR was already brought down by a
-    /// partial stop. Either way we did not confirm a clean stop, so `stopped` is
-    /// false and the operator is told to check the Agents view. A start failure
-    /// (after a confirmed stop) leaves it down. Full error to the server log; a
-    /// client-safe message in the report.
+    /// Stop then start one agent, reporting the VERIFIED post-condition. The
+    /// stop path confirms the container's real state (idempotent stop + remove +
+    /// a follow-up inspect that checks the container is actually gone) and
+    /// reconciles the DB row, so each branch reflects what truly happened:
+    /// - `Stopped` → respawn → `respawned`, or `RespawnFailed` if the start fails.
+    /// - `StillRunning` → confirmed up on the old image; nothing changed, so the
+    ///   operator can simply retry the roll.
+    /// - `Unconfirmed` (or a pre-Docker error) → state unverifiable; the
+    ///   reconcile backstop converges it. Full error to the server log; a
+    ///   client-safe message in the report.
     async fn roll_one(&self, scope: &TenantScope, agent_id: AgentId, id: Uuid, tool: &str) -> RollAgentResult {
-        if let Err(err) = self.control.stop(scope, agent_id).await {
-            tracing::warn!(agent_id = %id, tool, error = %err, "cli image roll: stop did not complete cleanly; post-condition unconfirmed");
-            return RollAgentResult::failed_still_running(id, client_safe_roll_error(&err));
-        }
-        match self.control.start(scope, agent_id).await {
-            Ok(_) => RollAgentResult::respawned(id),
+        match self.control.stop_with_outcome(scope, agent_id).await {
+            Ok(AgentContainerStopOutcome::Stopped) => match self.control.start(scope, agent_id).await {
+                Ok(_) => RollAgentResult::respawned(id),
+                Err(err) => {
+                    tracing::warn!(agent_id = %id, tool, error = %err, "cli image roll: respawn failed; agent now stopped");
+                    RollAgentResult::failed_now_stopped(id, client_safe_roll_error(&err))
+                }
+            },
+            Ok(AgentContainerStopOutcome::StillRunning) => {
+                tracing::warn!(agent_id = %id, tool, "cli image roll: container still running on previous image after stop");
+                RollAgentResult::still_running(id)
+            }
+            Ok(AgentContainerStopOutcome::Unconfirmed) => {
+                tracing::warn!(agent_id = %id, tool, "cli image roll: stop post-condition unverified; pending reconciliation");
+                RollAgentResult::unconfirmed(
+                    id,
+                    "could not confirm the agent stopped; it will be reconciled".to_string(),
+                )
+            }
             Err(err) => {
-                tracing::warn!(agent_id = %id, tool, error = %err, "cli image roll: respawn failed; agent now stopped");
-                RollAgentResult::failed_now_stopped(id, client_safe_roll_error(&err))
+                tracing::warn!(agent_id = %id, tool, error = %err, "cli image roll: stop could not be attempted");
+                RollAgentResult::unconfirmed(id, client_safe_roll_error(&err))
             }
         }
     }
