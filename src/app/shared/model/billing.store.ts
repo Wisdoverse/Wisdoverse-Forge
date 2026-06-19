@@ -59,6 +59,11 @@ const BILLING_ACTION_LABEL: Record<BillingActionArea, string> = {
   portal: 'billing management page',
 }
 
+const BILLING_ACTION_OWNER_CHECK: Record<BillingActionArea, string> = {
+  checkout: 'billing',
+  portal: 'billing access',
+}
+
 function isBillingNotConfigured(err: unknown): boolean {
   const code = statusCode(err)
   if (code === 404 || code === 501 || code === 503) {
@@ -160,7 +165,7 @@ export function billingActionErrorMessage(err: unknown, action: BillingActionAre
     return `Check your connection, then ${retry}. Forge could not connect while opening billing.`
   }
 
-  return `Try opening the ${target} again. If it still fails, ask an owner or admin to check billing.`
+  return `Try opening the ${target} again. If it still fails, ask an owner or admin to check ${BILLING_ACTION_OWNER_CHECK[action]}.`
 }
 
 // ============================================================================
