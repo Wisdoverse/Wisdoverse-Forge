@@ -10754,16 +10754,39 @@ function EmptyState() {
     )
   })
 
+  it('flags HTTPS code access empty copy that only names the capability', () => {
+    const cwd = fixture({
+      'src/app/features/settings/GitCredentialsSection.tsx': `
+function EmptyState() {
+  return <p>Let agents open private HTTPS code links</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'code-access-empty-copy',
+        location: 'src/app/features/settings/GitCredentialsSection.tsx:3',
+      }),
+    ])
+  })
+
   it('accepts HTTPS code access setup copy that talks about code links', () => {
     const cwd = fixture({
       'src/app/features/settings/GitCredentialsSection.tsx': `
+function EmptyState() {
+  return <p>Prepare HTTPS code access for private code links</p>
+}
 function AddCredentialForm() {
   return <p>Choose where this code lives.</p>
 }
 function savedMessage() {
-  return 'Code access saved. Create a small task with a private code link to confirm agents can open it. If it cannot open the code, come back here and replace this key.'
+  return 'Code access saved. Create a small task with a private code link to confirm agents can open it. If agents cannot open the code, come back here and replace this key.'
 }
-function EmptyState() {
+function Example() {
   return <p>Use this for links such as https://github.com/team/project.git.</p>
 }
 `,

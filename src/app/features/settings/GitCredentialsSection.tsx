@@ -378,7 +378,7 @@ export function GitCredentialsSection() {
     if (ok) {
       setShowForm(false)
       setSavedMessage(
-        'Code access saved. Create a small task with an https:// private code link to confirm agents can open it. If it cannot open the code, come back here and replace this key.'
+        'Code access saved. Create a small task with an https:// private code link to confirm agents can open it. If agents cannot open the code, come back here and replace this key.'
       )
     }
   }
@@ -445,15 +445,41 @@ export function GitCredentialsSection() {
             Loading code access...
           </div>
         ) : gitCredentials.length === 0 && !showForm ? (
-          <div className="px-4 py-6 text-center" data-testid="code-access-empty-state">
-            <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              Let agents open private HTTPS code links
-            </p>
-            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Use this for GitHub or GitLab links that start with https://, such as
-              https://github.com/team/project.git. If the address starts with git@, use SSH code
-              access instead.
-            </p>
+          <div
+            className="px-4 py-6"
+            data-testid="code-access-empty-state"
+            aria-labelledby="code-access-empty-title"
+          >
+            <div className="mx-auto flex max-w-2xl flex-col gap-3 text-left">
+              <div className="text-center">
+                <p
+                  id="code-access-empty-title"
+                  className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark"
+                >
+                  Prepare HTTPS code access for private code links
+                </p>
+                <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  Use this for GitHub or GitLab links that start with https://, such as
+                  https://github.com/team/project.git. If the address starts with git@, use SSH code
+                  access instead.
+                </p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {GIT_CREDENTIAL_SETUP_STEPS.map((step) => (
+                  <div
+                    key={step.label}
+                    className="min-h-20 rounded-lg bg-black/[0.025] px-3 py-2 dark:bg-white/[0.05]"
+                  >
+                    <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+                      {step.label}
+                    </p>
+                    <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                      {step.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
             {canAddMore && (
               <button
                 type="button"

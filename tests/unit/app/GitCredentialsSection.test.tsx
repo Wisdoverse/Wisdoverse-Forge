@@ -44,13 +44,25 @@ describe('GitCredentialsSection', () => {
     const user = userEvent.setup()
     render(<GitCredentialsSection />)
 
-    expect(await screen.findByText('Let agents open private HTTPS code links')).toBeDefined()
-    expect(screen.getByText(/links that start with https:\/\//i)).toBeDefined()
-    expect(screen.getAllByText(/use SSH code access instead/i).length).toBeGreaterThan(0)
-    expect(screen.queryByText('No repository access saved yet')).toBeNull()
-    expect(screen.queryByText(/default cloud address/i)).toBeNull()
-
+    expect(await screen.findByText('Prepare HTTPS code access for private code links')).toBeDefined()
     const emptyState = screen.getByTestId('code-access-empty-state')
+    expect(within(emptyState).getByText(/links that start with https:\/\//i)).toBeDefined()
+    expect(within(emptyState).getAllByText(/use SSH code access instead/i).length).toBeGreaterThan(
+      0
+    )
+    expect(within(emptyState).getByText('Pick the code website')).toBeDefined()
+    expect(within(emptyState).getByText('Choose GitHub or GitLab.')).toBeDefined()
+    expect(within(emptyState).getByText('Copy a code access key')).toBeDefined()
+    expect(
+      within(emptyState).getByText(
+        'Create a read-only key for the code projects agents need, then copy it once.'
+      )
+    ).toBeDefined()
+    expect(within(emptyState).getByText('Leave the address empty for github.com or gitlab.com')).toBeDefined()
+    expect(within(emptyState).getByText(/private code website like gitlab\.example\.com/i)).toBeDefined()
+    expect(within(emptyState).queryByText('No repository access saved yet')).toBeNull()
+    expect(within(emptyState).queryByText(/default cloud address/i)).toBeNull()
+
     fireEvent.click(within(emptyState).getByRole('button', { name: /add HTTPS code access/i }))
 
     expect(screen.getByText('Add code access')).toBeDefined()
@@ -129,7 +141,7 @@ describe('GitCredentialsSection', () => {
     expect(await screen.findByRole('status')).toHaveTextContent(
       'Code access saved. Create a small task with an https:// private code link to confirm agents can open it.'
     )
-    expect(screen.getByRole('status')).toHaveTextContent('If it cannot open the code')
+    expect(screen.getByRole('status')).toHaveTextContent('If agents cannot open the code')
     expect(screen.getByRole('status')).not.toHaveTextContent('private repository link')
     expect(screen.getByRole('status')).not.toHaveTextContent('read the repository')
     expect(screen.getByRole('status')).toHaveTextContent('come back here and replace this key')

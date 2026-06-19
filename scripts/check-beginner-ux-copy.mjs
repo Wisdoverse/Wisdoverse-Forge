@@ -662,6 +662,8 @@ const CODE_ACCESS_REPOSITORY_JARGON_PATTERNS = [
   /team\/repo\.git/i,
 ]
 
+const CODE_ACCESS_EMPTY_DEAD_END_PATTERNS = [/\bLet agents open private HTTPS code links\b/i]
+
 const ACCESS_KEY_LAST_USED_DEAD_END_PATTERNS = [
   /\bNot used yet\b/i,
   /\bUse this key from a trusted tool first\b/i,
@@ -3665,6 +3667,12 @@ function hasCodeAccessRepositoryJargonCopy(relFile, line) {
   return CODE_ACCESS_REPOSITORY_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasCodeAccessEmptyDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/settings/GitCredentialsSection.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CODE_ACCESS_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasDateFallbackDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/settings/GitCredentialsSection.tsx') &&
@@ -6324,6 +6332,16 @@ function scanFile(file, relFile) {
         type: 'code-access-repository-copy',
         location,
         message: 'Code access setup must describe code links and code projects for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCodeAccessEmptyDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'code-access-empty-copy',
+        location,
+        message:
+          'Code access empty states must start with preparation steps, not only the capability.',
         sample: line.trim(),
       })
     }
