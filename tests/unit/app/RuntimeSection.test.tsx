@@ -7,6 +7,7 @@ import { useSettingsStore } from '@app/shared/model/settings.store'
 const { agentApiMock, orchestrationApiMock } = vi.hoisted(() => ({
   agentApiMock: {
     getCliAuthProxyStatus: vi.fn(),
+    getCliAuthProxyProviders: vi.fn(),
     startCliAuthProxyLogin: vi.fn(),
   },
   orchestrationApiMock: {
@@ -49,6 +50,13 @@ beforeEach(() => {
         connected: true,
         lastRefresh: '2026-05-20T12:00:00.000Z',
       },
+    ],
+  })
+  agentApiMock.getCliAuthProxyProviders.mockResolvedValue({
+    ok: true,
+    providers: [
+      { name: 'github', displayName: 'GitHub', cliTool: 'codex' },
+      { name: 'gitlab', displayName: 'GitLab', cliTool: 'claude' },
     ],
   })
   agentApiMock.startCliAuthProxyLogin.mockResolvedValue({
@@ -209,6 +217,10 @@ describe('RuntimeSection', () => {
         },
       ],
     })
+    agentApiMock.getCliAuthProxyProviders.mockResolvedValueOnce({
+      ok: true,
+      providers: [{ name: 'github', displayName: 'GitHub', cliTool: 'codex' }],
+    })
     useSettingsStore.setState({
       runtimeSettings: {
         defaultRuntime: 'container',
@@ -254,6 +266,10 @@ describe('RuntimeSection', () => {
     agentApiMock.getCliAuthProxyStatus.mockResolvedValueOnce({
       ok: true,
       statuses: [],
+    })
+    agentApiMock.getCliAuthProxyProviders.mockResolvedValueOnce({
+      ok: true,
+      providers: [],
     })
     useSettingsStore.setState({
       runtimeSettings: {
@@ -303,9 +319,44 @@ describe('RuntimeSection', () => {
       screen.getByText(/Sign in to a tool for file work before starting agents that need one/i)
     ).toBeDefined()
     expect(screen.queryByText(/No work tool sign-ins are connected yet/i)).toBeNull()
-    expect(screen.getByText(/Sign in before starting agents that use this tool/i)).toBeDefined()
+    expect(
+      screen.getAllByText(/Sign in before starting agents that use this tool/i).length
+    ).toBeGreaterThan(0)
     expect(screen.queryByText(/No work tool sign-in saved/i)).toBeNull()
     expect(screen.getByRole('button', { name: /Sign in to GitHub/i })).toBeDefined()
+  })
+
+  test('keeps the Codex sign-in entry visible when status rows have not been created yet', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
+    agentApiMock.getCliAuthProxyStatus.mockResolvedValueOnce({
+      ok: true,
+      statuses: [],
+    })
+    agentApiMock.getCliAuthProxyProviders.mockResolvedValueOnce({
+      ok: true,
+      providers: [{ name: 'openai', displayName: 'OpenAI (Codex)', cliTool: 'codex' }],
+    })
+
+    render(<RuntimeSection focus="sign-ins" />)
+
+    expect(await screen.findByTestId('runtime-sign-in-entry')).toHaveTextContent(
+      'Sign in to Codex and work tools'
+    )
+    expect(screen.getByText('OpenAI (Codex)')).toBeDefined()
+    expect(screen.getAllByText('Codex').length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText(/Sign in before starting agents that use this tool/i).length
+    ).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: /Sign in to OpenAI \(Codex\)/i })).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: /Sign in to OpenAI \(Codex\)/i }))
+
+    await waitFor(() => expect(agentApiMock.startCliAuthProxyLogin).toHaveBeenCalledWith('openai'))
+    expect(openSpy).toHaveBeenCalledWith(
+      'https://auth.example.test/start',
+      '_blank',
+      'noopener,noreferrer'
+    )
   })
 
   test('labels missing work setup clearly instead of Unknown', async () => {
@@ -335,6 +386,10 @@ describe('RuntimeSection', () => {
     agentApiMock.getCliAuthProxyStatus.mockResolvedValueOnce({
       ok: true,
       statuses: [],
+    })
+    agentApiMock.getCliAuthProxyProviders.mockResolvedValueOnce({
+      ok: true,
+      providers: [],
     })
     orchestrationApiMock.getParticipants.mockResolvedValueOnce([])
     useSettingsStore.setState({

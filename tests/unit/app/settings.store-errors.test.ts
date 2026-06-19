@@ -15,7 +15,11 @@ vi.mock('@app/shared/api/legacy', () => ({
   getAgentApi: () => agentApiMock,
 }))
 
-import { settingsActionErrorMessage, useSettingsStore } from '@app/shared/model/settings.store'
+import {
+  normalizeSettingsSection,
+  settingsActionErrorMessage,
+  useSettingsStore,
+} from '@app/shared/model/settings.store'
 
 function resetSettingsState() {
   useSettingsStore.setState({
@@ -57,6 +61,13 @@ beforeEach(() => {
 })
 
 describe('settingsActionErrorMessage', () => {
+  test('routes Codex sign-in aliases to the work tool sign-ins settings page', () => {
+    expect(normalizeSettingsSection('work-tool-sign-ins')).toBe('work-tool-sign-ins')
+    expect(normalizeSettingsSection('codex-login')).toBe('work-tool-sign-ins')
+    expect(normalizeSettingsSection('codex')).toBe('work-tool-sign-ins')
+    expect(normalizeSettingsSection('cli-login')).toBe('work-tool-sign-ins')
+  })
+
   test('turns expired auth into a sign-in step', () => {
     expectBeginnerError(
       settingsActionErrorMessage('providers', 'load', statusError(401, 'HTTP 401')),
