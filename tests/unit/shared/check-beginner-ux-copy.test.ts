@@ -653,6 +653,9 @@ const PROVIDER_SETUP_STEPS = [
 function CatalogPanel() {
   return 'Service address and model are filled in for you. After saving, click Check.'
 }
+function CatalogIntro() {
+  return 'Forge fills in the technical service details for you.'
+}
 function ModelField() {
   return 'Model to use. Next: choose the model. Add a model before saving this AI service.'
 }
@@ -769,7 +772,7 @@ const PROVIDER_SETUP_STEPS = [
   { label: 'Save, then check connection', value: 'After saving, choose Check connection. Ready means agents can use this service.' },
 ]
 function CatalogPanel() {
-  return 'Forge fills in the technical service details for you. After saving, choose Check connection.'
+  return 'Forge fills in the setup choices for you. After saving, choose Check connection.'
 }
 function ModelField() {
   return 'Service setup. Keep the suggested setup unless your service guide gives you a different model name.'

@@ -1097,9 +1097,8 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
             {vendor.displayName}
           </p>
           <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Forge fills in the technical service details for you. Paste the service access key and
-            save. After saving, choose Check connection. Ready means simple chat agents can use this
-            service.
+            Forge fills in the setup choices for you. Paste the service access key and save. After
+            saving, choose Check connection. Ready means simple chat agents can use this service.
           </p>
         </div>
         <button
@@ -1765,8 +1764,8 @@ function AddProviderPanel({
         ) : (
           <>
             <p className="px-4 pt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Pick a known AI service. Forge fills in the technical service details for you. If your
-              setup guide gives you a private address, choose Custom service address.
+              Pick a known AI service. Forge fills in the setup choices for you. If your setup guide
+              gives you a private address, choose Custom service address.
             </p>
             <CatalogGrid
               vendors={vendors}
