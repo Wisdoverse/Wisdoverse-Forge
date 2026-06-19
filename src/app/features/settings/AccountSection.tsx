@@ -387,6 +387,13 @@ function GettingStartedGuideRow() {
     : hidden
       ? 'The setup checklist is hidden from the left menu right now.'
       : 'The setup checklist is already in the left menu.'
+  const restoreButtonLabel = restoring
+    ? 'Showing...'
+    : !preferencesLoaded
+      ? 'Checking...'
+      : hidden
+        ? 'Show setup checklist'
+        : 'Setup checklist already shown'
 
   async function handleRestore() {
     setError(null)
@@ -415,8 +422,9 @@ function GettingStartedGuideRow() {
             Setup checklist
           </p>
           <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            If you skipped the setup checklist, use this to bring it back to the left menu. New
-            sign-ins open Tasks by default. Projects, agents, and tasks stay the same. {statusLine}
+            If you skipped the setup checklist, choose Show setup checklist to bring it back to the
+            left menu. New sign-ins open Tasks by default. Projects, agents, and tasks stay the
+            same. {statusLine}
           </p>
         </div>
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
@@ -438,7 +446,7 @@ function GettingStartedGuideRow() {
             disabled={restoring || !preferencesLoaded || !hidden}
             className={uiStyles.secondaryButton}
           >
-            {restoring ? 'Showing...' : 'Show setup checklist'}
+            {restoreButtonLabel}
           </button>
         </div>
       </div>
@@ -487,7 +495,9 @@ export function AccountSection() {
       {/* Section header */}
       <div>
         <h2 className={uiStyles.sectionTitle}>Account</h2>
-        <p className={uiStyles.sectionDescription}>Manage your account settings and appearance</p>
+        <p className={uiStyles.sectionDescription}>
+          Check your profile, team space, appearance, setup checklist, and password.
+        </p>
       </div>
 
       {/* Profile info */}

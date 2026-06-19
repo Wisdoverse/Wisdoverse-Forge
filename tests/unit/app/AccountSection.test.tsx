@@ -309,6 +309,7 @@ describe('AccountSection', () => {
     expect(screen.getByRole('heading', { name: 'Setup checklist' })).toBeDefined()
     expect(screen.queryByText('Onboarding')).toBeNull()
     expect(screen.getByText(/If you skipped the setup checklist/i)).toBeDefined()
+    expect(screen.getByText(/choose Show setup checklist/i)).toBeDefined()
     expect(screen.getByText(/bring it back to the left menu/i)).toBeDefined()
     expect(screen.getByText(/New sign-ins open Tasks by default/i)).toBeDefined()
     expect(screen.getByText(/Projects, agents, and tasks stay the same/i)).toBeDefined()
@@ -345,6 +346,19 @@ describe('AccountSection', () => {
     expect(screen.queryByRole('button', { name: /open setup checklist/i })).toBeNull()
   })
 
+  test('keeps the restore action clear while checklist preference is loading', () => {
+    useSettingsStore.setState({ preferences: null, preferencesLoaded: false })
+
+    renderAccountSection()
+
+    expect(
+      screen.getByText(/Checking whether the setup checklist already appears in the left menu/i)
+    ).toBeDefined()
+    expect(screen.getByRole('button', { name: /checking/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /show setup checklist/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /open setup checklist/i })).toBeNull()
+  })
+
   test('keeps the restore action honest while the guide is already visible', () => {
     useSettingsStore.setState({
       preferences: { gettingStartedDismissed: false },
@@ -355,7 +369,8 @@ describe('AccountSection', () => {
 
     expect(screen.getByText(/The setup checklist is already in the left menu/)).toBeDefined()
     expect(screen.queryByText(/nothing to restore/i)).toBeNull()
-    expect(screen.getByRole('button', { name: /show setup checklist/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /setup checklist already shown/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /^show setup checklist$/i })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /open setup checklist/i }))
     expect(navigateMock).toHaveBeenCalledWith({ to: '/start' })
   })
