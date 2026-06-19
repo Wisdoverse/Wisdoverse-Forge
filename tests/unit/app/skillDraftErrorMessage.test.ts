@@ -86,7 +86,7 @@ describe('skillDraftErrorMessage', () => {
     const message = skillDraftErrorMessage(new Error('HTTP 500'))
 
     expect(message).toBe(
-      'Wait a few minutes, then publish again. Forge could not publish this instruction right now. If it still fails, ask an owner or admin to check instruction setup.'
+      'Wait a few minutes, then publish again. Forge could not publish this instruction right now. If it still fails, ask an owner or admin to check Saved instructions access.'
     )
     expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('service is temporarily unavailable')

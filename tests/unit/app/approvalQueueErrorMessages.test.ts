@@ -57,7 +57,7 @@ describe('approvalQueueErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh the list so you see the latest saved items. Saved items could not load. If it still fails, ask an owner or admin to check saved notes setup.'
+      'Refresh the list so you see the latest saved items. Saved items could not load. If it still fails, ask an owner or admin to check Saved items access.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('temporarily unavailable')

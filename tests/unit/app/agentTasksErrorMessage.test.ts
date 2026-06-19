@@ -14,9 +14,7 @@ describe('agentTasksErrorMessage', () => {
       status: '403',
     })
 
-    expect(message).toBe(
-      "Ask an owner or admin to give you access to this agent's work list."
-    )
+    expect(message).toBe("Ask an owner or admin to give you access to this agent's work list.")
     expect(message).not.toContain('policy denied')
   })
 
@@ -27,7 +25,7 @@ describe('agentTasksErrorMessage', () => {
     })
 
     expect(message).toBe(
-      "Too many task requests are happening right now. Wait a minute, then refresh this agent to load its work list."
+      'Too many task requests are happening right now. Wait a minute, then refresh this agent to load its work list.'
     )
     expect(message).not.toContain('task query requests')
   })
@@ -39,7 +37,7 @@ describe('agentTasksErrorMessage', () => {
     })
 
     expect(message).toBe(
-      "Too many task requests are happening right now. Wait a minute, then refresh this agent to load its work list."
+      'Too many task requests are happening right now. Wait a minute, then refresh this agent to load its work list.'
     )
     expect(message).not.toContain('task query requests')
   })
@@ -48,7 +46,7 @@ describe('agentTasksErrorMessage', () => {
     const message = agentTasksErrorMessage('Server error (503)')
 
     expect(message).toBe(
-      "Refresh this agent to load its work list. If it still fails, ask an owner or admin to check this agent's task setup."
+      "Refresh this agent to load its work list. If it still fails, ask an owner or admin to check this agent's work list."
     )
     expect(message).not.toContain('503')
     expect(message).not.toContain('platform')
@@ -61,7 +59,7 @@ describe('agentTasksErrorMessage', () => {
     })
 
     expect(message).toBe(
-      "Refresh this agent to load its work list. If it still fails, ask an owner or admin to check this agent's task setup."
+      "Refresh this agent to load its work list. If it still fails, ask an owner or admin to check this agent's work list."
     )
     expect(message).not.toContain('database timeout')
   })
@@ -69,9 +67,7 @@ describe('agentTasksErrorMessage', () => {
   test('maps network failures to retryable guidance', () => {
     const message = agentTasksErrorMessage(new TypeError('Failed to fetch'))
 
-    expect(message).toBe(
-      'Check your connection, then refresh this agent to load its work list.'
-    )
+    expect(message).toBe('Check your connection, then refresh this agent to load its work list.')
     expect(message).not.toContain('Failed to fetch')
   })
 })

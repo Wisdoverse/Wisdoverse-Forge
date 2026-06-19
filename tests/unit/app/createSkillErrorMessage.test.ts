@@ -87,7 +87,7 @@ describe('createSkillErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Saved instructions, then create the instruction again. If it still fails, ask an owner or admin to check instruction setup.'
+      'Refresh Saved instructions, then create the instruction again. If it still fails, ask an owner or admin to check Saved instructions access.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('service is temporarily unavailable')

@@ -11,7 +11,7 @@ const CREATE_CONFLICT_MESSAGE =
 const CREATE_RATE_LIMIT_MESSAGE =
   'Wait a moment, then create the instruction again. Instruction setup is busy right now.'
 const CREATE_SERVICE_MESSAGE =
-  'Refresh Saved instructions, then create the instruction again. If it still fails, ask an owner or admin to check instruction setup.'
+  'Refresh Saved instructions, then create the instruction again. If it still fails, ask an owner or admin to check Saved instructions access.'
 const CREATE_DEFAULT_MESSAGE = 'Review the fields, then create the instruction again.'
 
 const USER_FACING_STARTS = [

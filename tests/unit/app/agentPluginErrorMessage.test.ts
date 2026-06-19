@@ -36,7 +36,7 @@ describe('agentPluginErrorMessage', () => {
     const message = agentPluginErrorMessage('save', new Error('HTTP 500'))
 
     expect(message).toBe(
-      "Wait a few minutes, then try the tool change again. The switch was returned to its previous setting. Forge could not finish this tool request right now. If it still fails, ask an owner or admin to check this agent's tool setup."
+      "Wait a few minutes, then try the tool change again. The switch was returned to its previous setting. Forge could not finish this tool request right now. If it still fails, ask an owner or admin to check this agent's tool list."
     )
     expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('platform')
@@ -49,7 +49,7 @@ describe('agentPluginErrorMessage', () => {
     })
 
     expect(message).toBe(
-      "Wait a few minutes, then try the tool change again. The switch was returned to its previous setting. Forge could not finish this tool request right now. If it still fails, ask an owner or admin to check this agent's tool setup."
+      "Wait a few minutes, then try the tool change again. The switch was returned to its previous setting. Forge could not finish this tool request right now. If it still fails, ask an owner or admin to check this agent's tool list."
     )
     expect(message).not.toContain('gateway stack trace')
     expect(message).not.toContain('platform')
@@ -79,7 +79,7 @@ describe('agentPluginErrorMessage', () => {
     const message = agentPluginErrorMessage('load', new Error('plugin registry mismatch'))
 
     expect(message).toBe(
-      "Refresh this agent page to load tools. If it still fails, ask an owner or admin to check this agent's tool setup."
+      "Refresh this agent page to load tools. If it still fails, ask an owner or admin to check this agent's tool list."
     )
     expect(message).not.toContain('plugin registry mismatch')
     expect(message).not.toContain('Try again.')

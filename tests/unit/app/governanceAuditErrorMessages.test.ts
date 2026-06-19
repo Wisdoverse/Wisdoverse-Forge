@@ -60,7 +60,7 @@ describe('governanceAuditErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh change history, then apply the filters again. If it still fails, ask an owner or admin to check change history setup.'
+      'Refresh change history, then apply the filters again. If it still fails, ask an owner or admin to check change history access.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('temporarily unavailable')

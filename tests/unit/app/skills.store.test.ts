@@ -67,7 +67,7 @@ describe('useSkillsStore errors', () => {
     await useSkillsStore.getState().loadSkills()
 
     expect(useSkillsStore.getState().error).toBe(
-      'Refresh Saved instructions to load the list. If it still fails, ask an owner or admin to check instruction setup.'
+      'Refresh Saved instructions to load the list. If it still fails, ask an owner or admin to check Saved instructions access.'
     )
     expect(useSkillsStore.getState().error).not.toContain('service is temporarily unavailable')
   })
