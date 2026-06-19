@@ -14344,6 +14344,41 @@ function createProjectErrorMessage(code) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags Settings project creation errors that hide the field to fix', () => {
+    const cwd = fixture({
+      'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts': `
+function workspaceSettingsErrorMessage() {
+  return 'Check the name and required fields, then try again.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'workspace-project-create-error-copy',
+        location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:3',
+      }),
+    ])
+  })
+
+  it('accepts Settings project creation errors that name the field and recovery path', () => {
+    const cwd = fixture({
+      'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts': `
+function workspaceSettingsErrorMessage() {
+  return 'Check the project name, team, and code link. You can leave the code link blank, then create this project again.'
+}
+function codeLinkErrorMessage() {
+  return 'Paste an https:// code link without account details, or leave the code link blank and add code access in Settings.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags project setup overview copy that exposes evidence jargon', () => {
     const cwd = fixture({
       'src/app/features/manage-project/ui/CreateProjectForm.tsx': `

@@ -127,6 +127,30 @@ function permissionMessage(
   return `Ask an owner or admin to update your team space access, then ${retry}. You do not have access to these ${resourceLabel(resource)} settings right now.`
 }
 
+function projectCodeLinkValidationMessage(detail: string): string | null {
+  if (
+    detail.includes('credential') ||
+    detail.includes('token') ||
+    detail.includes('password') ||
+    detail.includes('username')
+  ) {
+    return 'Remove account details from the code link. Save code access in Settings instead, then create this project again.'
+  }
+
+  if (
+    detail.includes('repository_url') ||
+    detail.includes('repository url') ||
+    detail.includes('repo url') ||
+    detail.includes('https url') ||
+    detail.includes('code link') ||
+    detail.includes('url')
+  ) {
+    return 'Paste an https:// code link without account details, or leave the code link blank and add code access in Settings.'
+  }
+
+  return null
+}
+
 export function workspaceSettingsErrorMessage(
   resource: WorkspaceSettingsResource,
   action: WorkspaceSettingsAction,
@@ -155,10 +179,16 @@ export function workspaceSettingsErrorMessage(
       : `${load} Another setup change is still saving. Wait a moment, then refresh Settings again.`
   }
   if (code === 422 || text.includes('invalid')) {
+    if (resource === 'project' && action === 'create') {
+      const codeLinkMessage = projectCodeLinkValidationMessage(detail)
+      if (codeLinkMessage) return codeLinkMessage
+      if (detail.includes('name')) return 'Enter a project name, then try again.'
+      return 'Check the project name, team, and code link. You can leave the code link blank, then create this project again.'
+    }
     if (detail.includes('name')) {
       return `Enter a ${resourceLabel(resource)} name, then try again.`
     }
-    return 'Check the name and required fields, then try again.'
+    return `Check the ${resourceLabel(resource)} name, then try again.`
   }
   if (code === 429 || text.includes('busy') || text.includes('too many')) {
     return action === 'load'
