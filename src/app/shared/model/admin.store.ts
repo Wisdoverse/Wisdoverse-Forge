@@ -345,7 +345,7 @@ export function adminHttpErrorMessage(
     return `Ask an owner or admin to give you Admin access, then reload Admin. You do not have access to the admin ${label}.`
   }
   if (status === 404) {
-    return `Refresh Admin, then try again. The admin ${label} is not available from this Admin view. If it still fails, ask an owner or admin to check setup.`
+    return `Refresh Admin, then try again. The admin ${label} is not available from this Admin view. If it still fails, ask an owner or admin to check this Admin page.`
   }
   if (status === 409) {
     return resource === 'cli-images'
@@ -356,10 +356,10 @@ export function adminHttpErrorMessage(
     return `Forge is receiving too many Admin requests right now. Wait a moment, then reload the ${label}.`
   }
   if (status >= 500) {
-    return `Reload the ${label}, then try again. Forge could not load the admin ${label} right now. If it still fails, ask an owner or admin to check Admin setup.`
+    return `Reload the ${label}, then try again. Forge could not load the admin ${label} right now. If it still fails, ask an owner or admin to check ${label} in Admin.`
   }
 
-  return `Refresh Admin, then try again. The admin ${label} could not load. If it still fails, ask an owner or admin to check Admin setup.`
+  return `Refresh Admin, then try again. The admin ${label} could not load. If it still fails, ask an owner or admin to check ${label} in Admin.`
 }
 
 function adminNetworkErrorMessage(resource: AdminResource): string {
@@ -415,7 +415,7 @@ export function adminUserActionErrorMessage(
     return 'This user is no longer in the list. Reload the user list to see the latest accounts.'
   }
   if (status >= 500) {
-    return `Reload the user list, then try again. Forge could not finish ${adminUserActionRecovery(action)} right now. If it still fails, ask an owner or admin to check Admin setup.`
+    return `Reload the user list, then try again. Forge could not finish ${adminUserActionRecovery(action)} right now. If it still fails, ask an owner or admin to check User access in Admin.`
   }
   return `Refresh the user list, then try again. The ${label} did not go through.`
 }

@@ -125,20 +125,21 @@ describe('workspaceResourceErrorMessage', () => {
     expect(message).not.toContain('review the current')
   })
 
-  test('turns server failures into a team space setup recovery step', () => {
+  test('turns server failures into a concrete team and project recovery step', () => {
     const message = workspaceResourceErrorMessage('project', 'update', new Error('HTTP 500'))
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings, then save the project again. If it still fails, ask an owner or admin to check team space setup.'
+      'Refresh Settings, then save the project again. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
     )
     expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('temporarily unavailable')
     expect(message).not.toContain('service')
     expect(message).not.toContain('workspace setup')
+    expect(message).not.toContain('team space setup')
   })
 
-  test('turns structured server failures into team space setup recovery', () => {
+  test('turns structured server failures into concrete team and project recovery', () => {
     const message = workspaceResourceErrorMessage('team', 'delete', {
       statusCode: '503',
       message: 'database unavailable',
@@ -146,10 +147,11 @@ describe('workspaceResourceErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings, then delete the team again. If it still fails, ask an owner or admin to check team space setup.'
+      'Refresh Settings, then delete the team again. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
     )
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('503')
     expect(message).not.toContain('workspace setup')
+    expect(message).not.toContain('team space setup')
   })
 })

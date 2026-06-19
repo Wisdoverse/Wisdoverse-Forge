@@ -30,10 +30,11 @@ describe('systemHealthErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Admin, then choose Check now. App health checks are not available from this Admin view. If it still fails, ask an owner or admin to check setup.'
+      'Refresh Admin, then choose Check now. App health checks are not available from this Admin view. If it still fails, ask an owner or admin to check System health in Admin.'
     )
     expect(message).not.toContain('endpoint')
     expect(message).not.toContain('route')
+    expect(message).not.toContain('check setup')
   })
 
   test('turns rate limits into a wait and retry step', () => {
@@ -43,15 +44,16 @@ describe('systemHealthErrorMessage', () => {
     )
   })
 
-  test('turns server failures into a setup recovery step', () => {
+  test('turns server failures into a concrete Admin health recovery step', () => {
     const message = systemHealthErrorMessage('HTTP 500')
 
     expectBeginnerMessage(
       message,
-      'Refresh Admin, then choose Check now. Forge could not check app health. If it still fails, ask an owner or admin to check app health setup.'
+      'Refresh Admin, then choose Check now. Forge could not check app health. If it still fails, ask an owner or admin to check System health in Admin.'
     )
     expect(message).not.toContain('temporarily unavailable')
     expect(message).not.toContain('admin service')
+    expect(message).not.toContain('app health setup')
   })
 
   test('turns network failures into a connection next step', () => {
@@ -71,8 +73,9 @@ describe('systemHealthErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Choose Check now again. Forge could not check app health. If it still fails, ask an owner or admin to check app health setup.'
+      'Choose Check now again. Forge could not check app health. If it still fails, ask an owner or admin to check System health in Admin.'
     )
     expect(message).not.toContain('parser')
+    expect(message).not.toContain('app health setup')
   })
 })

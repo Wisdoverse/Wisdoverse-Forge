@@ -708,12 +708,13 @@ describe('Sidebar', () => {
 
     expect(
       await screen.findByText(
-        'Refresh the left menu, then save this project name again. Forge could not save it right now. If it still fails, ask an owner or admin to check team and project setup.'
+        'Refresh the left menu, then save this project name again. Forge could not save it right now. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
       )
     ).toBeInTheDocument()
     expect(screen.queryByText(/API 500/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/database unavailable/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/temporarily unavailable/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/team and project setup/i)).not.toBeInTheDocument()
   })
 
   it('guides project rename when the name is empty', async () => {

@@ -40,7 +40,7 @@ const AUTH_NETWORK_ERROR = 'Check your connection, then try again. Forge could n
 const AUTH_LOGIN_FALLBACK =
   'Check your email and password, then try signing in again. Forge could not finish sign-in.'
 const AUTH_REGISTER_FALLBACK =
-  'Check the account details, then create the account again. Forge could not finish account setup.'
+  'Check the account details, then create the account again. Forge could not finish account creation.'
 const AUTH_SSO_EXCHANGE_FALLBACK =
   'Start sign-in again from this page. Forge could not finish this sign-in link.'
 const AUTH_RESEND_VERIFICATION_FALLBACK =

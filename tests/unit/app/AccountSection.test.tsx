@@ -308,12 +308,13 @@ describe('AccountSection', () => {
     expect(loadPreferencesMock).toHaveBeenCalled()
     expect(screen.getByRole('heading', { name: 'Setup checklist' })).toBeDefined()
     expect(screen.queryByText('Onboarding')).toBeNull()
-    expect(screen.getByText(/If you skipped the setup checklist/i)).toBeDefined()
+    expect(screen.getByText(/If Start is hidden/i)).toBeDefined()
     expect(screen.getByText(/choose Show setup checklist/i)).toBeDefined()
-    expect(screen.getByText(/bring it back to the left menu/i)).toBeDefined()
-    expect(screen.getByText(/New sign-ins open Tasks by default/i)).toBeDefined()
-    expect(screen.getByText(/Projects, agents, and tasks stay the same/i)).toBeDefined()
-    expect(screen.getByText(/The setup checklist is hidden from the left menu right now/i)).toBeDefined()
+    expect(screen.getByText(/add Setup checklist back to the left menu/i)).toBeDefined()
+    expect(screen.getByText(/New sign-ins still open Tasks by default/i)).toBeDefined()
+    expect(screen.getByText(/projects, agents, and tasks stay the same/i)).toBeDefined()
+    expect(screen.getByText(/Next step: choose Show setup checklist/i)).toBeDefined()
+    expect(screen.queryByText(/hidden from the left menu right now/i)).toBeNull()
     expect(screen.queryByText(/Reset Start guide/i)).toBeNull()
     expect(screen.queryByText(/Reset it here/i)).toBeNull()
     expect(screen.queryByText(/sidebar shortcut/i)).toBeNull()
@@ -325,11 +326,11 @@ describe('AccountSection', () => {
 
     await waitFor(() => expect(setGettingStartedDismissedMock).toHaveBeenCalledWith(false))
     expect(await screen.findByRole('status')).toHaveTextContent(
-      'The setup checklist is back in the left menu. Open it whenever you want to check setup again. Your projects, agents, and tasks were not changed.'
+      'Setup checklist is back in the left menu. Choose Open setup checklist to review setup. Your projects, agents, and tasks were not changed.'
     )
     expect(
       screen.getByText(
-        'The setup checklist is back in the left menu. Open it whenever you want to check setup again. Your projects, agents, and tasks were not changed.'
+        'Setup checklist is back in the left menu. Choose Open setup checklist to review setup. Your projects, agents, and tasks were not changed.'
       )
     ).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: /open setup checklist/i }))
@@ -341,7 +342,8 @@ describe('AccountSection', () => {
 
     renderAccountSection()
 
-    expect(screen.getByText(/The setup checklist is hidden from the left menu right now/i)).toBeDefined()
+    expect(screen.getByText(/Next step: choose Show setup checklist to add it back/i)).toBeDefined()
+    expect(screen.queryByText(/hidden from the left menu right now/i)).toBeNull()
     expect(screen.getByRole('button', { name: /show setup checklist/i })).not.toBeDisabled()
     expect(screen.queryByRole('button', { name: /open setup checklist/i })).toBeNull()
   })
@@ -351,9 +353,8 @@ describe('AccountSection', () => {
 
     renderAccountSection()
 
-    expect(
-      screen.getByText(/Checking whether the setup checklist already appears in the left menu/i)
-    ).toBeDefined()
+    expect(screen.getByText(/Wait a moment while Forge checks/i)).toBeDefined()
+    expect(screen.queryByText(/already appears in the left menu/i)).toBeNull()
     expect(screen.getByRole('button', { name: /checking/i })).toBeDisabled()
     expect(screen.queryByRole('button', { name: /show setup checklist/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /open setup checklist/i })).toBeNull()
@@ -367,7 +368,10 @@ describe('AccountSection', () => {
 
     renderAccountSection()
 
-    expect(screen.getByText(/The setup checklist is already in the left menu/)).toBeDefined()
+    expect(
+      screen.getByText(/It is available now. Choose Open setup checklist to review setup/i)
+    ).toBeDefined()
+    expect(screen.queryByText(/already in the left menu/)).toBeNull()
     expect(screen.queryByText(/nothing to restore/i)).toBeNull()
     expect(screen.getByRole('button', { name: /setup checklist already shown/i })).toBeDisabled()
     expect(screen.queryByRole('button', { name: /^show setup checklist$/i })).toBeNull()
@@ -388,12 +392,12 @@ describe('AccountSection', () => {
 
     expect(
       await screen.findByText(
-        'Check your connection, then choose Show setup checklist. The setup checklist could not be added back to the left menu.'
+        'Check your connection, then choose Show setup checklist again. Forge could not add it back to the left menu.'
       )
     ).toBeDefined()
     expect(
       screen.queryByText(
-        'The setup checklist is back in the left menu. Open it whenever you want to check setup again.'
+        'Setup checklist is back in the left menu. Choose Open setup checklist to review setup.'
       )
     ).toBeNull()
     expect(screen.queryByRole('button', { name: /open setup checklist/i })).toBeNull()

@@ -52,7 +52,8 @@ describe('OrganizationsPanel', () => {
     render(<OrganizationsPanel />)
 
     const guide = await screen.findByTestId('admin-org-guide')
-    expect(within(guide).getByText('Use team spaces to check setup at a glance')).toBeDefined()
+    expect(within(guide).getByText('Use team spaces to spot missing first steps')).toBeDefined()
+    expect(within(guide).queryByText(/check setup at a glance/i)).toBeNull()
     expect(
       within(guide).getByText('8 people and 3 teams are spread across 2 team spaces.')
     ).toBeDefined()
@@ -131,9 +132,10 @@ describe('OrganizationsPanel', () => {
     expect(within(error).getByText('Refresh Admin to reload the team space list.')).toBeDefined()
     expect(
       within(error).getByText(
-        'Refresh Admin, then try again. If it still fails, ask an owner or admin to check Admin setup and your Admin access.'
+        'Refresh Admin, then try again. If it still fails, ask an owner or admin to check your Admin access and this Admin page.'
       )
     ).toBeDefined()
     expect(within(error).queryByText('HTTP 503')).toBeNull()
+    expect(within(error).queryByText(/Admin setup/i)).toBeNull()
   })
 })

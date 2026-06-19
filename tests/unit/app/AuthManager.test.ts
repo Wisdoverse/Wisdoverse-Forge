@@ -70,8 +70,9 @@ describe('AuthManager beginner-safe errors', () => {
     const result = await manager.register('dev@example.com', 'password')
 
     expect(result.error).toBe(
-      'Check the account details, then create the account again. Forge could not finish account setup.'
+      'Check the account details, then create the account again. Forge could not finish account creation.'
     )
+    expect(result.error).not.toContain('account setup')
     expect(result.error).not.toContain('Registration failed')
     manager.dispose()
   })

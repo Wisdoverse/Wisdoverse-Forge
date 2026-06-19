@@ -59,7 +59,7 @@ const SERVICE_DEFINITIONS: readonly ServiceDefinition[] = [
     description: 'Starts and manages the prepared project files agents use for file work.',
     impact: 'Starting new file-work agents may fail; agents already running may stop reporting.',
     action:
-      'Ask an owner or admin to check Project files setup before sending new file work to agents.',
+      'Ask an owner or admin to check Project files in Admin before sending new file work to agents.',
   },
 ]
 
@@ -145,7 +145,7 @@ function serviceIssueNote(error: string): string {
     detail.includes('forbidden') ||
     detail.includes('permission')
   ) {
-    return 'This area reported an access setup problem. Ask an owner or admin to check saved data access, then choose Check now.'
+    return 'This area reported an access problem. Ask an owner or admin to check Saved Data in Admin, then choose Check now.'
   }
   if (
     detail.includes('connection') ||
@@ -162,7 +162,7 @@ function serviceIssueNote(error: string): string {
     detail.includes('configuration') ||
     detail.includes('config')
   ) {
-    return 'A required setting may be missing. Ask an owner or admin to check app setup, then choose Check now.'
+    return 'A required setting may be missing. Ask an owner or admin to check System health in Admin, then choose Check now.'
   }
   if (
     detail.includes('rate limit') ||
