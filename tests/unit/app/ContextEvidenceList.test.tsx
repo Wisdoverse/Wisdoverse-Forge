@@ -62,7 +62,9 @@ describe('ContextEvidenceList', () => {
     render(<ContextEvidenceList evidence={[evidence()]} revokedItems={[]} />)
 
     expect(screen.getByText('What helped produce this result')).toBeInTheDocument()
-    expect(screen.getByText(/answers, steps, and files used or saved/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/details show the answers, steps, and files used or saved/i)
+    ).toBeInTheDocument()
     expect(screen.getByText('Final answer')).toBeInTheDocument()
     expect(
       screen.getByText(/agent's final answer or saved status for this task/i)
@@ -77,6 +79,8 @@ describe('ContextEvidenceList', () => {
       )
     ).toBeInTheDocument()
     expect(screen.queryByText(/Open the full record/i)).toBeNull()
+    expect(screen.queryByText(/These records show/i)).toBeNull()
+    expect(screen.queryByText(/^Recorded /i)).toBeNull()
     expect(screen.queryByText(/sharing run details with support/i)).toBeNull()
     expect(screen.queryByText(/support details/i)).toBeNull()
     expect(screen.queryByText(/details with support/i)).toBeNull()
@@ -285,8 +289,9 @@ describe('ContextEvidenceList', () => {
 
     fireEvent.click(screen.getByText('Show saved details'))
 
-    expect(screen.getByText(/Saved details were recorded but could not be shown safely/i)).toBeDefined()
+    expect(screen.getByText(/Saved details could not be shown safely/i)).toBeDefined()
     expect(screen.getByText(/Check the summary above/i)).toBeDefined()
+    expect(screen.queryByText(/Saved details were recorded/i)).toBeNull()
     expect(screen.queryByText(/Review the summary above/i)).toBeNull()
     expect(screen.queryByText(/Full record details/i)).toBeNull()
   })
@@ -309,7 +314,8 @@ describe('ContextEvidenceList', () => {
       screen.getByText('Extra information saved while the work was running.')
     ).toBeInTheDocument()
     expect(screen.queryByText('Extra information recorded while the task ran.')).toBeNull()
-    expect(screen.getByText('Check the recorded result before reusing it.')).toBeInTheDocument()
+    expect(screen.getByText('Check the saved result before reusing it.')).toBeInTheDocument()
+    expect(screen.queryByText('Check the recorded result before reusing it.')).toBeNull()
     expect(screen.queryByText('Run details')).toBeNull()
     expect(screen.queryByText('Run evidence')).toBeNull()
     expect(screen.queryByText('Custom Probe')).toBeNull()
