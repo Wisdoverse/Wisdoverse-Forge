@@ -143,7 +143,7 @@ describe('RuntimeSection', () => {
     ).toBeGreaterThan(0)
     expect(
       screen.getByText(
-        'Choose Project files for the simplest shared file work. Choose This computer only when this machine should join as an agent.'
+        'Choose Project files for the simplest shared file work. Choose This computer only when this machine should join as an agent that Forge can manage here.'
       )
     ).toBeDefined()
     expect(screen.queryByText(new RegExp(['unless', 'owner', 'tells'].join('.*'), 'i'))).toBeNull()
