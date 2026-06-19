@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { billingErrorMessage } from '@app/shared/model/billing.store'
+import { billingActionErrorMessage, billingErrorMessage } from '@app/shared/model/billing.store'
 
 describe('billingErrorMessage', () => {
   test('turns permission failures into a billing access next step', () => {
@@ -80,5 +80,34 @@ describe('billingErrorMessage', () => {
     )
     expect(message).not.toContain('database timeout')
     expect(message).not.toContain('shard')
+  })
+})
+
+describe('billingActionErrorMessage', () => {
+  test('turns checkout network failures into a payment-page recovery step', () => {
+    const message = billingActionErrorMessage(new TypeError('Failed to fetch'), 'checkout')
+
+    expect(message).toBe(
+      'Check your connection, then try opening the secure payment page again. Forge could not connect while opening billing.'
+    )
+    expect(message).not.toContain('Failed to fetch')
+  })
+
+  test('turns portal permission failures into an owner or admin step', () => {
+    const message = billingActionErrorMessage(
+      { statusCode: 403, detail: 'billing portal forbidden' },
+      'portal'
+    )
+
+    expect(message).toBe(
+      'Ask an owner or admin to give you billing access, then try opening the billing management page again.'
+    )
+    expect(message).not.toContain('forbidden')
+  })
+
+  test('uses a safe checkout fallback when no action error is available', () => {
+    expect(billingActionErrorMessage(null, 'checkout')).toBe(
+      'Try opening the secure payment page again. If it still fails, ask an owner or admin to check billing.'
+    )
   })
 })
