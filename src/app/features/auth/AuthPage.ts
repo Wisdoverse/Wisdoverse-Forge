@@ -61,7 +61,7 @@ function authLoginErrorMessage(result: AuthFailure): string {
     return 'Ask an owner or admin to check your access. This account is not allowed to sign in here.'
   }
 
-  return 'Try signing in again in a minute. If it still fails, ask an owner or admin to check sign-in setup.'
+  return 'Try signing in again in a minute. If it still fails, ask an owner or admin to check the sign-in option for this page.'
 }
 
 function authRegisterErrorMessage(result: AuthFailure): string {
@@ -73,7 +73,7 @@ function authRegisterErrorMessage(result: AuthFailure): string {
     lowerDetail.includes('load failed')
 
   if (networkFailed) {
-    return 'Check your connection, then create the account again. Forge could not reach account setup.'
+    return 'Check your connection, then create the account again. Forge could not reach account creation.'
   }
   if (
     code.includes('RATE') ||
@@ -110,7 +110,7 @@ function authRegisterErrorMessage(result: AuthFailure): string {
     return 'Enter a valid email address, then try creating the account again.'
   }
 
-  return 'Check the fields, then create the account again. If it still fails, ask an owner or admin to check account setup.'
+  return 'Check the fields, then create the account again. If it still fails, ask an owner or admin to check account creation settings.'
 }
 
 function authSignInErrorMessage(error: unknown): string {
@@ -151,10 +151,10 @@ function authSignInErrorMessage(error: unknown): string {
     lowerDetail.includes('client') ||
     lowerDetail.includes('not configured')
   ) {
-    return 'Ask an owner or admin to check sign-in setup. This sign-in option is not ready.'
+    return 'Ask an owner or admin to check the sign-in option for this page. This sign-in option is not ready.'
   }
 
-  return 'Choose a sign-in option and try again. If it still fails, ask an owner or admin to check sign-in setup.'
+  return 'Choose a sign-in option and try again. If it still fails, ask an owner or admin to check the sign-in option for this page.'
 }
 
 function authRecoveryErrorMessage(action: AuthRecoveryAction, error: unknown): string {

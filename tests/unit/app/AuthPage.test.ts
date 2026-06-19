@@ -132,8 +132,9 @@ describe('AuthPage beginner guidance', () => {
     await page.show()
 
     expect(bodyText()).toContain(
-      'Ask an owner or admin to check sign-in setup. This sign-in option is not ready.'
+      'Ask an owner or admin to check the sign-in option for this page. This sign-in option is not ready.'
     )
+    expect(bodyText()).not.toContain('sign-in setup')
     expect(bodyText()).not.toContain('provider_not_configured')
     expect(bodyText()).not.toContain('Sign-in provider')
     expect(window.location.search).toBe('')
@@ -160,8 +161,9 @@ describe('AuthPage beginner guidance', () => {
     await flushAsyncWork()
 
     expect(bodyText()).toContain(
-      'Try signing in again in a minute. If it still fails, ask an owner or admin to check sign-in setup.'
+      'Try signing in again in a minute. If it still fails, ask an owner or admin to check the sign-in option for this page.'
     )
+    expect(bodyText()).not.toContain('sign-in setup')
     expect(bodyText()).not.toContain('database unavailable')
     expect(bodyText()).not.toContain('HTTP 500')
   })

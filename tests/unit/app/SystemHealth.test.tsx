@@ -54,7 +54,8 @@ describe('SystemHealth', () => {
     expect(screen.getByText(/Shows progress from running agents in the browser/i)).toBeDefined()
     expect(screen.getByText('Agent Work Starter')).toBeDefined()
     expect(screen.getByText('Starts file-work agents')).toBeDefined()
-    expect(screen.getByText(/ask an owner or admin to check Project files setup/i)).toBeDefined()
+    expect(screen.getByText(/ask an owner or admin to check Project files in Admin/i)).toBeDefined()
+    expect(screen.queryByText(/Project files setup/i)).toBeNull()
     expect(screen.getByText('Last check finished in under 1 second')).toBeDefined()
     expect(screen.queryByText('Last check took 12 ms')).toBeNull()
     expect(screen.queryByText('responds in 12 ms')).toBeNull()
@@ -193,7 +194,8 @@ describe('SystemHealth', () => {
     render(<SystemHealth />)
 
     await waitFor(() => expect(loadHealth).toHaveBeenCalledOnce())
-    expect(screen.getByText(/Ask an owner or admin to check app setup/i)).toBeDefined()
+    expect(screen.getByText(/Ask an owner or admin to check System health in Admin/i)).toBeDefined()
+    expect(screen.queryByText(/check app setup/i)).toBeNull()
     expect(screen.queryByText(/runtime configuration/i)).toBeNull()
   })
 
@@ -227,13 +229,14 @@ describe('SystemHealth', () => {
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
-      'Refresh Admin, then choose Check now. Forge could not check app health. If it still fails, ask an owner or admin to check app health setup.'
+      'Refresh Admin, then choose Check now. Forge could not check app health. If it still fails, ask an owner or admin to check System health in Admin.'
     )
     expect(screen.queryByText('HTTP 500')).toBeNull()
     expect(screen.queryByText(/temporarily unavailable/i)).toBeNull()
     expect(screen.queryByText(/admin service/i)).toBeNull()
     expect(screen.queryByText(/service readiness/i)).toBeNull()
     expect(screen.queryByText(new RegExp(['app', 'readiness'].join(' '), 'i'))).toBeNull()
+    expect(screen.queryByText(/app health setup/i)).toBeNull()
     expect(screen.getByRole('button', { name: 'Check now' })).toBeDefined()
   })
 })

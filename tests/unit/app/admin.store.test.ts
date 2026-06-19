@@ -80,20 +80,22 @@ describe('adminHttpErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'Reload the system health, then try again. Forge could not load the admin system health right now. If it still fails, ask an owner or admin to check Admin setup.'
+      'Reload the system health, then try again. Forge could not load the admin system health right now. If it still fails, ask an owner or admin to check system health in Admin.'
     )
     expect(message).not.toContain('temporarily unavailable')
     expect(message).not.toContain('admin service')
+    expect(message).not.toContain('Admin setup')
   })
 
-  test('turns missing admin resources into an Admin setup step', () => {
+  test('turns missing admin resources into a concrete Admin page step', () => {
     const message = adminHttpErrorMessage('agents', 404)
 
     expectBeginnerError(
       message,
-      'Refresh Admin, then try again. The admin agent list is not available from this Admin view. If it still fails, ask an owner or admin to check setup.'
+      'Refresh Admin, then try again. The admin agent list is not available from this Admin view. If it still fails, ask an owner or admin to check this Admin page.'
     )
     expect(message).not.toContain('service')
+    expect(message).not.toContain('check setup')
   })
 
   test('turns admin rate limits into a wait and reload step', () => {
@@ -148,9 +150,10 @@ describe('useAdminStore loading errors', () => {
 
     expectBeginnerError(
       useAdminStore.getState().healthError,
-      'Reload the system health, then try again. Forge could not load the admin system health right now. If it still fails, ask an owner or admin to check Admin setup.'
+      'Reload the system health, then try again. Forge could not load the admin system health right now. If it still fails, ask an owner or admin to check system health in Admin.'
     )
     expect(useAdminStore.getState().healthError).not.toContain('temporarily unavailable')
+    expect(useAdminStore.getState().healthError).not.toContain('Admin setup')
   })
 
   test('loads the CLI image status report on success', async () => {
@@ -586,7 +589,7 @@ describe('useAdminStore loading errors', () => {
       'This user is no longer in the list. Reload the user list to see the latest accounts.'
     )
     expect(adminUserActionErrorMessage('change-role', 500, { error: 'db down' })).toBe(
-      'Reload the user list, then try again. Forge could not finish the access change right now. If it still fails, ask an owner or admin to check Admin setup.'
+      'Reload the user list, then try again. Forge could not finish the access change right now. If it still fails, ask an owner or admin to check User access in Admin.'
     )
     // 422 without a usable detail falls back to the generic retry step.
     expect(adminUserActionErrorMessage('change-role', 422)).toBe(

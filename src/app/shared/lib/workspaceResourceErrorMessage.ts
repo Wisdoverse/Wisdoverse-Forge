@@ -56,7 +56,7 @@ function workspaceResourceUnavailableMessage(
   resource: WorkspaceResourceKind,
   action: WorkspaceResourceAction
 ): string {
-  return `Refresh Settings, then ${retryPhrase(resource, action)}. If it still fails, ask an owner or admin to check team space setup.`
+  return `Refresh Settings, then ${retryPhrase(resource, action)}. If it still fails, ask an owner or admin to check Teams and Projects in Settings.`
 }
 
 function permissionAction(action: WorkspaceResourceAction): string {

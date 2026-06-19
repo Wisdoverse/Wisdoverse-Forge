@@ -294,6 +294,16 @@ const ADMIN_STORE_ERROR_FAILURE_FIRST_PATTERNS = [
   /^\s*return\s+`The \$\{adminUserActionLabel\(action\)\} could not reach the server\b/,
 ]
 
+const ADMIN_SETUP_JARGON_PATTERNS = [
+  /\bcheck Admin setup\b/i,
+  /\bcheck setup\b/i,
+  /\bcheck app setup\b/i,
+  /\bapp health setup\b/i,
+  /\btool update setup\b/i,
+  /\bProject files setup\b/i,
+  /\bTool package access needs setup\b/i,
+]
+
 const RUNTIME_SHORT_LABEL_JARGON_PATTERNS = [
   /\bWork location not reported\b/i,
   /\bLocation missing\b/i,
@@ -695,6 +705,8 @@ const WORKSPACE_SETUP_JARGON_PATTERNS = [
   /\bsign out of this workspace\b/i,
   /\bmanage workspace, agents, and access\b/i,
   /\bworkspace setup\b/i,
+  /\bteam space setup\b/i,
+  /\bteam and project setup\b/i,
   /\bworkspace settings\b/i,
   /\bworkspace navigation\b/i,
   /\bopening the workspace\b/i,
@@ -1534,6 +1546,12 @@ const AUTH_INTRO_JARGON_PATTERNS = [
   /\bUse the email your workspace admin invited\b/i,
 ]
 
+const AUTH_SETUP_JARGON_PATTERNS = [
+  /\bsign-in setup\b/i,
+  /\baccount setup\b/i,
+  /\baccount creation setup\b/i,
+]
+
 const AUTH_VISIBLE_SYMBOL_PATTERNS = [
   /\bfunction\s+getSsoIcon\b/,
   /\bgetSsoIcon\(/,
@@ -2345,6 +2363,21 @@ function hasAdminStoreErrorFailureFirstCopy(relFile, line) {
   return ADMIN_STORE_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAdminSetupJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/admin/adminErrorCopy.ts') &&
+    !relFile.endsWith('src/app/features/admin/CliImagesPanel.tsx') &&
+    !relFile.endsWith('src/app/features/admin/SystemHealth.tsx') &&
+    !relFile.endsWith('src/app/features/admin/systemHealthErrorMessage.ts') &&
+    !relFile.endsWith('src/app/features/admin/OrganizationsPanel.tsx') &&
+    !relFile.endsWith('src/app/shared/model/admin.store.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ADMIN_SETUP_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasRuntimeShortLabelJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/entities/agent/model/runtime-kind.ts')) return false
   return RUNTIME_SHORT_LABEL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
@@ -2649,6 +2682,17 @@ function hasAuthIntroJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/auth/AuthPage.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return AUTH_INTRO_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAuthSetupJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/auth/AuthPage.ts') &&
+    !relFile.endsWith('src/app/shared/auth/AuthManager.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AUTH_SETUP_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAuthVisibleSymbolCopy(relFile, line) {
@@ -3424,9 +3468,11 @@ function hasWorkspaceSetupJargonCopy(relFile, line) {
     !relFile.endsWith('src/app/routes/context.tsx') &&
     !relFile.endsWith('src/app/routes/context-audit.tsx') &&
     !relFile.endsWith('src/app/features/settings/ResourcesSection.tsx') &&
+    !relFile.endsWith('src/app/entities/navigation/model/navigation.store.ts') &&
     !relFile.endsWith('src/app/layouts/sidebar/ProjectTree.tsx') &&
     !relFile.endsWith('src/app/layouts/sidebar/SidebarNav.tsx') &&
     !relFile.endsWith('src/app/routes/__root.tsx') &&
+    !relFile.endsWith('src/app/shared/lib/workspaceResourceErrorMessage.ts') &&
     !relFile.endsWith('src/app/shared/lib/taskFailureCopy.ts')
   ) {
     return false
@@ -4667,6 +4713,15 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasAdminSetupJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'admin-setup-copy',
+        location,
+        message: 'Admin recovery copy must name the concrete Admin page instead of saying setup.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasRuntimeShortLabelJargonCopy(relFile, line)) {
       findings.push({
         type: 'runtime-short-label-copy',
@@ -5057,6 +5112,16 @@ function scanFile(file, relFile) {
         type: 'auth-intro-copy',
         location,
         message: 'Sign-in orientation must describe saved work records, not evidence.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAuthSetupJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'auth-setup-copy',
+        location,
+        message:
+          'Auth recovery copy must name the sign-in option or account creation step instead of saying setup.',
         sample: line.trim(),
       })
     }

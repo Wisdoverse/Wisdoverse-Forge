@@ -81,7 +81,7 @@ function OrganizationsGuide({ orgs }: { orgs: AdminOrg[] }) {
           Admin view
         </p>
         <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-          Use team spaces to check setup at a glance
+          Use team spaces to spot missing first steps
         </h3>
         <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
           {organizationSummary(orgs)}
