@@ -14,7 +14,8 @@ interface CreateProjectFormProps {
 const PROJECT_SETUP_STEPS = [
   'Choose the team that owns the work.',
   'Name the project after the product, app, or work area.',
-  'Optional: paste the GitHub or GitLab code link if it starts with https://. Leave this blank for git@ links and add SSH code access in Settings. Never paste tokens or passwords here.',
+  'Code link is optional. Leave it blank if you only want a place for tasks right now.',
+  'Use only https:// GitHub or GitLab code links here. For git@ links, add SSH code access in Settings first. Never paste tokens or passwords here.',
 ]
 
 /**
@@ -176,6 +177,10 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
   // name. The user never types a host path; this is a non-editable preview.
   const workspaceFolderName = trimmedName ? slugifyName(name) : null
   const workspacePath = workspaceFolderName ? `/workspace/${workspaceFolderName}` : null
+  const trimmedRepositoryUrl = repositoryUrl.trim()
+  const codeLinkStatus = trimmedRepositoryUrl
+    ? 'Code copy requested. After creation, Forge will try to copy code from this link into the project.'
+    : 'No code link added. Create the project now, then add code access later if agents need files.'
 
   useEffect(() => {
     if (!teamId && teams[0]) {
@@ -329,16 +334,23 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
             if (bannerError) setBannerError(null)
           }}
           placeholder="https://github.com/team/project.git"
-          aria-describedby="project-repo-help"
+          aria-describedby="project-repo-help project-repo-status"
           className={inputClass}
         />
         <p
           id="project-repo-help"
           className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
-          Optional — paste a GitHub or GitLab link that starts with https://. Forge copies that code
-          into this project. Never paste tokens or passwords here. If your link starts with git@,
-          leave this blank and add SSH code access in Settings first.
+          Paste a GitHub or GitLab link only when you want Forge to copy code now. Use https://
+          links here. If your link starts with git@, leave this blank and add SSH code access in
+          Settings first. Never paste tokens or passwords here.
+        </p>
+        <p
+          id="project-repo-status"
+          data-testid="create-project-code-link-status"
+          className="mt-1 rounded-md bg-black/[0.025] px-2 py-1 text-ui-caption text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark"
+        >
+          {codeLinkStatus}
         </p>
         {workspaceFolderName && workspacePath && (
           <div className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
