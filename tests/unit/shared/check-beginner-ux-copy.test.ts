@@ -3667,7 +3667,7 @@ function handleProjectChange() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags task support reference copy that does not tell users to refresh task details', () => {
+  it('flags task support reference copy that does not tell users where to reopen the task', () => {
     const cwd = fixture({
       'src/app/features/detail/TaskDetailPanel.tsx': `
 function taskSupportReference() {
@@ -3679,7 +3679,7 @@ function taskReferenceLabel(id) {
 `,
       'src/app/features/detail/HistoryTab.tsx': `
 function supportRunReference(id) {
-  return 'not listed'
+  return 'refresh task details to check'
 }
 `,
     })
@@ -3705,14 +3705,19 @@ function supportRunReference(id) {
     )
   })
 
-  it('accepts task support reference copy that tells users to refresh task details', () => {
+  it('accepts task support reference copy that tells users where to reopen the task', () => {
     const cwd = fixture({
       'src/app/features/detail/TaskDetailPanel.tsx': `
 function taskSupportReference() {
-  return 'Refresh task details'
+  return 'Open this task again from the Tasks page to check the task reference.'
 }
 function taskReferenceLabel(id) {
   return \`Task reference \${id}\`
+}
+`,
+      'src/app/features/detail/HistoryTab.tsx': `
+function workAttemptReferenceLabel(id) {
+  return 'Open this task again from the Tasks page to check the work attempt code.'
 }
 `,
     })

@@ -88,10 +88,13 @@ describe('TaskDetailPanel', () => {
     expect(screen.queryByText(/Support reference task-1/i)).toBeNull()
   })
 
-  test('tells users to refresh when the task ID is missing', () => {
+  test('tells users where to reopen the task when the task reference is missing', () => {
     render(<TaskDetailPanel task={{ ...mockTask, id: ' ' }} onClose={() => {}} />)
 
-    expect(screen.getByText('Refresh task details')).toBeDefined()
+    expect(
+      screen.getByText('Open this task again from the Tasks page to check the task reference.')
+    ).toBeDefined()
+    expect(screen.queryByText('Refresh task details')).toBeNull()
     expect(screen.queryByText('Support reference not reported')).toBeNull()
   })
 

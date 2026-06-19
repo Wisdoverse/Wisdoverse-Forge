@@ -1671,6 +1671,8 @@ const TASK_FORM_QUEUE_LOAD_FAILURE_FIRST_PATTERNS = [
 const TASK_SUPPORT_REFERENCE_DEAD_END_PATTERNS = [
   /\bSupport reference not (?:reported|listed)\b/i,
   /\bTask ID\b/i,
+  /\bRefresh task details\b/i,
+  /\brefresh task details to check\b/i,
   /\breturn\s+['"`]not listed['"`]/i,
 ]
 
@@ -5444,7 +5446,8 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'task-support-reference-copy',
         location,
-        message: 'Task support reference fallback must tell beginners to refresh task details.',
+        message:
+          'Task support reference fallback must tell beginners to reopen the task from the Tasks page.',
         sample: line.trim(),
       })
     }

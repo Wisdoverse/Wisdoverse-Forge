@@ -520,7 +520,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
 
 function taskReferenceLabel(id: string): string {
   const trimmed = id.trim()
-  if (!trimmed) return 'Refresh task details'
+  if (!trimmed) return 'Open this task again from the Tasks page to check the task reference.'
   return `Task reference ${trimmed.length > 8 ? trimmed.slice(0, 8) : trimmed}`
 }
 

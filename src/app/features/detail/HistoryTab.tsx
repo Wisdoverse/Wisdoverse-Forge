@@ -217,7 +217,7 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
           </p>
           {showWorkAttemptReference && (
             <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
-              Work attempt code {workAttemptReference(run.id)}
+              {workAttemptReferenceLabel(run.id)}
             </p>
           )}
         </div>
@@ -229,10 +229,12 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
   )
 }
 
-function workAttemptReference(id: string): string {
+function workAttemptReferenceLabel(id: string): string {
   const trimmed = id.trim()
-  if (!trimmed) return 'refresh task details to check'
-  return trimmed.length > 8 ? trimmed.slice(0, 8) : trimmed
+  if (!trimmed) {
+    return 'Open this task again from the Tasks page to check the work attempt code.'
+  }
+  return `Work attempt code ${trimmed.length > 8 ? trimmed.slice(0, 8) : trimmed}`
 }
 
 function runSourceNeedsCheck(runSource: string): boolean {

@@ -163,6 +163,30 @@ describe('HistoryTab', () => {
     expect(screen.queryByText('Unknown')).toBeNull()
   })
 
+  test('tells users where to reopen the task when a work attempt code is missing', async () => {
+    getTaskRunsMock.mockResolvedValue([
+      {
+        id: ' ',
+        taskId: 'task-1',
+        agentId: 'agent-1',
+        status: 'running',
+        startedAt: '2026-04-25T06:06:00Z',
+        runtimeKind: 'container',
+        cliTool: 'future_tool',
+      },
+    ])
+
+    render(<HistoryTab task={makeTask()} />)
+
+    expect(await screen.findByText('Agent work history')).toBeInTheDocument()
+    expect(
+      screen.getByText('Open this task again from the Tasks page to check the work attempt code.')
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/refresh task details/i)).toBeNull()
+    expect(screen.queryByText(/Work attempt code refresh/i)).toBeNull()
+    expect(screen.queryByText(/Support reference not listed/i)).toBeNull()
+  })
+
   test('labels chat-only work history with AI service language', async () => {
     getTaskRunsMock.mockResolvedValue([
       {
