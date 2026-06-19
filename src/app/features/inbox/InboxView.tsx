@@ -29,6 +29,9 @@ const INBOX_ACTION_STEPS = [
   'Mark items read after the task or setting has been handled.',
 ]
 
+const READ_STATUS_SAVE_ERROR =
+  'Check your connection, then reload the inbox. Some updates may appear unread again because Forge could not save the read status.'
+
 function InboxLoadError({ loading, onRetry }: { loading: boolean; onRetry: () => void }) {
   return (
     <div
@@ -59,18 +62,25 @@ export function InboxView() {
   const navigate = useNavigate()
   const [activeFilter, setActiveFilter] = useState<InboxFilter>('all')
   const [loadError, setLoadError] = useState(false)
+  const [readError, setReadError] = useState<string | null>(null)
   const [loadingSavedNotifications, setLoadingSavedNotifications] = useState(false)
   const unreadCount = notifications.filter((n) => !n.read).length
   const orderedNotifications = useMemo(
     () => [...notifications].sort((a, b) => b.timestamp - a.timestamp),
     [notifications]
   )
-  const needsActionCount = useMemo(
-    () => notifications.filter((notification) => isActionNotification(notification)).length,
+  const unreadNeedsActionCount = useMemo(
+    () =>
+      notifications.filter(
+        (notification) => !notification.read && isActionNotification(notification)
+      ).length,
     [notifications]
   )
-  const credentialCount = useMemo(
-    () => notifications.filter((notification) => notification.type === 'credential_expired').length,
+  const unreadCredentialCount = useMemo(
+    () =>
+      notifications.filter(
+        (notification) => !notification.read && notification.type === 'credential_expired'
+      ).length,
     [notifications]
   )
   const filteredNotifications = useMemo(
@@ -91,15 +101,16 @@ export function InboxView() {
       ),
     [notifications]
   )
-  const nextStepNotification = useMemo(
-    () =>
-      orderedNotifications.find((notification) => notification.type === 'credential_expired') ??
-      orderedNotifications.find((notification) => notification.type === 'blocked') ??
-      orderedNotifications.find((notification) => notification.type === 'failed') ??
-      orderedNotifications.find((notification) => !notification.read) ??
-      orderedNotifications[0],
-    [orderedNotifications]
-  )
+  const nextStepNotification = useMemo(() => {
+    const unreadNotifications = orderedNotifications.filter((notification) => !notification.read)
+    return (
+      unreadNotifications.find((notification) => notification.type === 'credential_expired') ??
+      unreadNotifications.find((notification) => notification.type === 'blocked') ??
+      unreadNotifications.find((notification) => notification.type === 'failed') ??
+      unreadNotifications[0] ??
+      orderedNotifications[0]
+    )
+  }, [orderedNotifications])
   const loadNotifications = useCallback(() => {
     let cancelled = false
     setLoadingSavedNotifications(true)
@@ -127,9 +138,11 @@ export function InboxView() {
   useEffect(() => loadNotifications(), [loadNotifications])
 
   function handleOpenNotification(notification: (typeof notifications)[number]) {
+    setReadError(null)
     markRead(notification.id)
     void orchestrationApi.markInboxNotificationRead(notification.id).catch((error) => {
       console.warn('Failed to mark inbox notification read', error)
+      setReadError(READ_STATUS_SAVE_ERROR)
     })
     if (notification.taskHref === '/tasks') {
       setSelectedTask(notification.taskId)
@@ -146,9 +159,11 @@ export function InboxView() {
   }
 
   function handleMarkAllRead() {
+    setReadError(null)
     markAllRead()
     void orchestrationApi.markAllInboxNotificationsRead().catch((error) => {
       console.warn('Failed to mark inbox notifications read', error)
+      setReadError(READ_STATUS_SAVE_ERROR)
     })
   }
 
@@ -216,7 +231,11 @@ export function InboxView() {
                   {nextStepTitle(nextStepNotification)}
                 </p>
                 <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                  {nextStepDescription(nextStepNotification, needsActionCount, credentialCount)}
+                  {nextStepDescription(
+                    nextStepNotification,
+                    unreadNeedsActionCount,
+                    unreadCredentialCount
+                  )}
                 </p>
               </div>
               <button
@@ -234,12 +253,30 @@ export function InboxView() {
             <InboxLoadError loading={loadingSavedNotifications} onRetry={loadNotifications} />
           </div>
         )}
+        {readError && (
+          <div
+            role="alert"
+            className="mb-3 rounded-card border border-apple-orange/25 bg-apple-orange/10 px-3 py-2 text-ui-body text-secondary-light dark:text-secondary-dark"
+          >
+            {readError}
+          </div>
+        )}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
               {filteredNotifications.length} of {notifications.length}{' '}
               {notifications.length === 1 ? 'notification' : 'notifications'}
             </p>
+            {loadingSavedNotifications && !loadError && (
+              <span
+                role="status"
+                aria-live="polite"
+                className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.08] bg-white px-2 py-0.5 text-ui-caption font-medium text-secondary-light dark:border-white/[0.1] dark:bg-white/[0.06] dark:text-secondary-dark"
+              >
+                <RefreshCw size={12} className="animate-spin" aria-hidden="true" />
+                Checking older saved updates...
+              </span>
+            )}
             {unreadCount > 0 && (
               <span
                 data-testid="unread-count"
@@ -379,6 +416,10 @@ function matchesFilter(notification: Notification, filter: InboxFilter): boolean
 }
 
 function nextStepTitle(notification: Notification): string {
+  if (notification.read && isActionNotification(notification)) {
+    return 'No unread action items'
+  }
+
   switch (notification.type) {
     case 'credential_expired':
       return 'Reconnect account access before more agent work starts'
@@ -402,6 +443,10 @@ function nextStepDescription(
   needsActionCount: number,
   credentialCount: number
 ): string {
+  if (notification.read && isActionNotification(notification)) {
+    return 'Everything that needed help is marked read. Open this older item only if you still need to check it.'
+  }
+
   if (notification.type === 'credential_expired') {
     return credentialCount === 1
       ? 'One account connection needs reconnecting. Fixing it keeps future agent work from failing.'

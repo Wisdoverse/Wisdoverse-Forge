@@ -76,6 +76,31 @@ describe('InboxView', () => {
     expect(await screen.findByText(/all caught up/i)).toBeDefined()
   })
 
+  test('keeps existing updates visible while checking older saved updates', async () => {
+    const request = deferred<never[]>()
+    orchestrationApiMock.fetchInboxNotifications.mockReturnValueOnce(request.promise)
+    useFeedStore.getState().addNotification({
+      id: 'n-live',
+      type: 'completed',
+      taskId: 't-live',
+      taskTitle: 'Finished setup check',
+      message: 'Ready for review',
+      read: false,
+      timestamp: Date.now(),
+    })
+
+    render(<InboxView />)
+
+    expect(screen.getByText('Finished setup check')).toBeDefined()
+    expect(screen.getByRole('status')).toHaveTextContent('Checking older saved updates...')
+    expect(screen.getByText(/1 of 1 notification/i)).toBeDefined()
+    expect(screen.queryByText(/Forge is checking older notifications/i)).toBeNull()
+
+    request.resolve([])
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull())
+    expect(screen.getByText('Finished setup check')).toBeDefined()
+  })
+
   test('renders notification items', () => {
     useFeedStore.getState().addNotification({
       id: 'n1',
@@ -223,6 +248,58 @@ describe('InboxView', () => {
     expect(nextStep).toHaveTextContent('2 items need action')
     expect(nextStep).toHaveTextContent('Start with the newest item that needs help.')
     expect(nextStep).not.toHaveTextContent(/recovery item/i)
+  })
+
+  test('does not let a read action item hide an unread update', () => {
+    const store = useFeedStore.getState()
+    store.addNotification({
+      id: 'n-read-failed',
+      type: 'failed',
+      taskId: 't-failed',
+      taskTitle: 'Already checked failure',
+      message: 'The task stopped before finishing.',
+      read: true,
+      timestamp: Date.now(),
+    })
+    store.addNotification({
+      id: 'n-unread-done',
+      type: 'completed',
+      taskId: 't-done',
+      taskTitle: 'Fresh completed result',
+      message: 'Ready for review',
+      read: false,
+      timestamp: Date.now() - 1000,
+    })
+
+    render(<InboxView />)
+
+    const nextStep = screen.getByTestId('inbox-next-step')
+    expect(nextStep).toHaveTextContent('Open the latest completed result when you have time')
+    expect(nextStep).toHaveTextContent('There are no urgent items that need help')
+    expect(nextStep).not.toHaveTextContent('Check the retry steps before retrying')
+  })
+
+  test('summarizes all-read action items as history instead of urgent work', () => {
+    useFeedStore.getState().addNotification({
+      id: 'n-read-credential',
+      type: 'credential_expired',
+      taskId: 'credential:codex',
+      taskTitle: 'Codex account access needs reconnecting',
+      message: 'Codex account access needs reconnecting',
+      taskHref: '/settings',
+      read: true,
+      timestamp: Date.now(),
+    })
+
+    render(<InboxView />)
+
+    const nextStep = screen.getByTestId('inbox-next-step')
+    expect(nextStep).toHaveTextContent('No unread action items')
+    expect(nextStep).toHaveTextContent(
+      'Everything that needed help is marked read. Open this older item only if you still need to check it.'
+    )
+    expect(nextStep).not.toHaveTextContent('Reconnect account access before more agent work starts')
+    expect(nextStep).not.toHaveTextContent('keeps future agent work from failing')
   })
 
   test('prioritizes expired account access because it can block future work', () => {
@@ -492,6 +569,70 @@ describe('InboxView', () => {
     )
     expect(useBoardStore.getState().selectedTaskId).toBe('t1')
     expect(navigateMock).toHaveBeenCalledWith({ to: '/tasks' })
+  })
+
+  test('shows a recovery note when opening an item cannot save read status', async () => {
+    orchestrationApiMock.markInboxNotificationRead.mockRejectedValueOnce(new Error('offline'))
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    useFeedStore.getState().addNotification({
+      id: 'task-owner:t1:blocked',
+      type: 'blocked',
+      taskId: 't1',
+      taskTitle: 'Task A',
+      message: 'Blocked',
+      taskHref: '/tasks',
+      read: false,
+      timestamp: Date.now(),
+    })
+
+    render(<InboxView />)
+    await userEvent.setup().click(screen.getByTestId('inbox-notification-task-owner:t1:blocked'))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Check your connection, then reload the inbox. Some updates may appear unread again because Forge could not save the read status.'
+    )
+    expect(alert.textContent).not.toContain('Failed to mark')
+    expect(useFeedStore.getState().notifications[0].read).toBe(true)
+
+    warnSpy.mockRestore()
+  })
+
+  test('shows a recovery note when mark all read cannot save status', async () => {
+    orchestrationApiMock.markAllInboxNotificationsRead.mockRejectedValueOnce(new Error('offline'))
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    useFeedStore.getState().addNotification({
+      id: 'task-owner:t1:blocked',
+      type: 'blocked',
+      taskId: 't1',
+      taskTitle: 'Task A',
+      message: 'Blocked',
+      read: false,
+      timestamp: Date.now(),
+    })
+    useFeedStore.getState().addNotification({
+      id: 'task-owner:t2:completed',
+      type: 'completed',
+      taskId: 't2',
+      taskTitle: 'Task B',
+      message: 'Done',
+      read: false,
+      timestamp: Date.now() - 1000,
+    })
+
+    render(<InboxView />)
+    await userEvent.setup().click(screen.getByRole('button', { name: /mark all as read/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Check your connection, then reload the inbox. Some updates may appear unread again because Forge could not save the read status.'
+    )
+    expect(alert.textContent).not.toContain('Failed to mark')
+    expect(useFeedStore.getState().notifications.every((notification) => notification.read)).toBe(
+      true
+    )
+
+    warnSpy.mockRestore()
   })
 
   test('renders account access notifications with action styling and opens settings', async () => {
