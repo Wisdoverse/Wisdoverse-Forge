@@ -54,9 +54,11 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
 
     const nextStep = screen.getByTestId('analytics-next-step')
     expect(nextStep).toHaveTextContent('Start a task to create activity data')
+    expect(nextStep).toHaveTextContent('this time range has no work updates yet')
     expect(nextStep).toHaveTextContent('Create one simple task')
     expect(screen.getByText('Run a task to fill this chart')).toBeDefined()
     expect(screen.getByText('Tool use appears after an agent finishes a task')).toBeDefined()
+    expect(nextStep).not.toHaveTextContent('work updates were recorded')
     expect(screen.queryByText('Tool use appears after an agent runs a task')).toBeNull()
     expect(screen.queryByText('No activity data')).toBeNull()
     expect(screen.queryByText('No tool usage data')).toBeNull()
@@ -79,6 +81,20 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
     )
     expect(nextStep).toHaveTextContent('Open Agents, add one agent')
     expect(nextStep).not.toHaveTextContent('No agents are reporting status yet')
+  })
+
+  test('uses plain activity wording while work is running', () => {
+    useAnalyticsStore.setState({
+      summary: { totalEvents: 4, toolCalls: 2, prompts: 1, responses: 1 },
+      agentStats: { total: 2, online: 2, offline: 0, working: 1 },
+    })
+
+    render(<AnalyticsDashboard />)
+
+    const nextStep = screen.getByTestId('analytics-next-step')
+    expect(nextStep).toHaveTextContent('Work is running now')
+    expect(nextStep).toHaveTextContent('recent activity is showing up here')
+    expect(nextStep).not.toHaveTextContent('activity is being recorded')
   })
 
   test('points beginners at the busiest low-success tool first', () => {

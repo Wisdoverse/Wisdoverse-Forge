@@ -75,6 +75,8 @@ describe('TaskDetailPanel', () => {
   test('shows close button', () => {
     render(<TaskDetailPanel task={mockTask} onClose={() => {}} />)
     expect(screen.getByTestId('detail-close')).toBeDefined()
+    expect(screen.getByRole('button', { name: /close task details/i })).toBeDefined()
+    expect(screen.queryByRole('button', { name: /close detail panel/i })).toBeNull()
   })
 
   test('labels the task ID instead of showing a bare task id', () => {

@@ -765,8 +765,8 @@ function formatDate(value: string): string {
 
 function auditEventLabel(eventType: string): string {
   const labels: Record<string, string> = {
-    'governance.context.feedback.recorded': 'Feedback recorded',
-    'governance.context.skill.approved': 'Saved instruction saved',
+    'governance.context.feedback.recorded': 'Feedback saved',
+    'governance.context.skill.approved': 'Saved instruction approved for reuse',
     'governance.context.skill.reviewed': 'Saved instruction checked',
     'governance.context.memory.updated': 'Saved note updated',
     'governance.context.memory.rejected': 'Saved note not saved',

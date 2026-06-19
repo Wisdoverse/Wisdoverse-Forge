@@ -118,7 +118,7 @@ function buildAnalyticsGuidance({
   if (totalEvents === 0) {
     return {
       title: 'Start a task to create activity data',
-      detail: `${onlineAgents} agent${onlineAgents === 1 ? ' is' : 's are'} online, but no work updates were recorded in this time range.`,
+      detail: `${onlineAgents} agent${onlineAgents === 1 ? ' is' : 's are'} online, but this time range has no work updates yet.`,
       action: 'Create one simple task, wait for it to finish, then return here to read the trend.',
       tone: 'watch',
     }
@@ -137,7 +137,7 @@ function buildAnalyticsGuidance({
   if (workingAgents > 0) {
     return {
       title: 'Work is running now',
-      detail: `${workingAgents} agent${workingAgents === 1 ? ' is' : 's are'} working and recent activity is being recorded.`,
+      detail: `${workingAgents} agent${workingAgents === 1 ? ' is' : 's are'} working and recent activity is showing up here.`,
       action:
         'Wait for the current tasks to finish, then compare instructions sent with replies received.',
       tone: 'ready',
@@ -146,7 +146,7 @@ function buildAnalyticsGuidance({
 
   return {
     title: 'Agents are ready for the next task',
-    detail: `${onlineAgents} agent${onlineAgents === 1 ? ' is' : 's are'} online and this range has recorded activity.`,
+    detail: `${onlineAgents} agent${onlineAgents === 1 ? ' is' : 's are'} online and this time range includes activity.`,
     action: 'Use the activity and tool sections below to choose what to improve next.',
     tone: 'ready',
   }

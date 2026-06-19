@@ -172,7 +172,7 @@ export const zh: TranslationKeys = {
       },
       review: {
         title: '检查结果',
-        empty: '已分配任务的输出会出现在详情面板。',
+        empty: 'Agent 领取任务后，打开任务就能查看进度和结果。',
         inFlight: '已有任务被分配，可从看板查看进度。',
         ready: '{{count}} 个已完成任务可以检查。',
         why: '检查结果能帮你判断 Agent 是否返回了可以使用的输出。',

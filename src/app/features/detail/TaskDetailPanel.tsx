@@ -195,7 +195,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
             'hover:bg-black/[0.06] dark:hover:bg-white/[0.06]',
             'transition-colors'
           )}
-          aria-label="Close detail panel"
+          aria-label="Close task details"
         >
           <X size={15} strokeWidth={2} />
         </button>
