@@ -115,11 +115,12 @@ describe('workspaceSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load teams. If it still fails, ask an owner or admin to check team space setup.'
+      'Refresh Settings to load teams. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
     )
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('temporarily unavailable')
     expect(message).not.toContain('service')
+    expect(message).not.toContain('team space setup')
     expect(message).not.toContain('workspace setup')
   })
 
@@ -131,10 +132,11 @@ describe('workspaceSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load projects. If it still fails, ask an owner or admin to check team space setup.'
+      'Refresh Settings to load projects. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
     )
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('503')
+    expect(message).not.toContain('team space setup')
     expect(message).not.toContain('workspace projects')
   })
 

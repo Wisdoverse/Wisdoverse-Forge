@@ -607,7 +607,7 @@ function agentControlErrorMessage(error: string): string {
     return 'Refresh Agents, then choose Start file work again. If it still does not show Ready, ask an owner or admin to check Where agents work in Settings.'
   }
   if (error === LOCAL_AGENT_CONTROL_FAILURE.restartWorkspace) {
-    return 'Refresh this agent, then choose Restart agent again only if Tasks or Live work still shows no progress. If it keeps failing, ask an owner or admin to check this agent setup.'
+    return "Refresh this agent, then choose Restart agent again only if Tasks or Live work still shows no progress. If it keeps failing, ask an owner or admin to check this agent's connection and access in Agents."
   }
   if (error === LOCAL_AGENT_CONTROL_FAILURE.removeAgent) {
     return 'Refresh this agent, then choose Remove agent again. If it keeps failing, ask an owner or admin to check your agent access.'
@@ -639,10 +639,10 @@ function agentControlErrorMessage(error: string): string {
     return 'Check your connection, refresh this agent, then try again. Forge could not connect while changing this agent.'
   }
   if (/\b5\d\d\b/.test(error)) {
-    return 'Forge could not update this agent right now. Refresh this agent and try again. If it keeps failing, ask an owner or admin to check this agent setup.'
+    return "Forge could not update this agent right now. Refresh this agent and try again. If it keeps failing, ask an owner or admin to check this agent's connection and access in Agents."
   }
 
-  return 'Refresh this agent and confirm the latest status before trying once more. For Start or Restart, wait for Ready or Working. If it keeps failing, ask an owner or admin to check what you can do and this agent setup.'
+  return "Refresh this agent and confirm the latest status before trying once more. For Start or Restart, wait for Ready or Working. If it keeps failing, ask an owner or admin to check what you can do and this agent's connection and access in Agents."
 }
 
 interface ConfirmActionProps {

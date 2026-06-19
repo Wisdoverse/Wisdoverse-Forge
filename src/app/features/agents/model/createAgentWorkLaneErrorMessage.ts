@@ -83,11 +83,11 @@ export function createAgentWorkLaneErrorMessage(error: unknown): string {
     return 'Wait a minute, then set up where tasks wait again. Too many changes are happening right now.'
   }
   if (code != null && code >= 500) {
-    return 'Wait a few minutes, then set up where tasks wait again. Forge could not create the waiting place right now. If it still fails, ask an owner or admin to check task routing setup.'
+    return 'Wait a few minutes, then set up where tasks wait again. Forge could not create the waiting place right now. If it still fails, ask an owner or admin to check where tasks wait in this project.'
   }
   if (isNetworkError(error)) {
     return 'Check your connection, then set up where tasks wait again. Forge could not connect while creating the waiting place.'
   }
 
-  return "Set up where tasks wait again. If it still fails, ask an owner or admin to check this project's task routing setup. The waiting place was not created."
+  return 'Set up where tasks wait again. If it still fails, ask an owner or admin to check where tasks wait in this project. The waiting place was not created.'
 }

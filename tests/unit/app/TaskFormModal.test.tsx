@@ -568,9 +568,10 @@ describe('TaskFormModal', () => {
     await waitFor(() => expect(onProjectChange).toHaveBeenCalledWith(otherProject.id))
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Select the project again to find where tasks wait. If it still does not load, refresh the board or ask an owner to check task routing setup.'
+        'Select the project again to find where tasks wait. If it still does not load, refresh the board or ask an owner to check where tasks wait in this project.'
       )
     )
+    expect(screen.getByRole('alert')).not.toHaveTextContent('task routing setup')
     expect(screen.getByRole('alert')).not.toHaveTextContent(/task queues could not load/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/load task queues/i)
   })
