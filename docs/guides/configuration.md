@@ -334,6 +334,30 @@ Notes:
   to `hunyuan`. The same aliases with a `_coding` suffix resolve to the
   matching Coding Plan entry.
 
+## Choosing a Model (Live Discovery)
+
+When you add or edit an AI service in Settings → AI services, the model field
+offers the provider's common models as clickable chips, and you can always type
+any model name yourself.
+
+To pull the provider's current model list instead of the built-in one:
+
+1. Pick the AI service and paste the service access key (and Base URL, if your
+   service uses a custom one).
+2. Select **Find available models**.
+3. The chips refresh with the live list and the form shows "Live list from the
+   service". The model field still accepts any custom name.
+
+What success looks like: the chips update to the provider's current models and
+the note reads "Live list from the service".
+
+If discovery cannot reach the provider (no key yet, an unreachable or private
+Base URL, or a provider that does not publish a model list), the form keeps the
+built-in list and shows a short "Showing the built-in models" note — adding the
+service still works normally. Discovery only contacts public HTTPS endpoints;
+private, loopback, and metadata addresses are refused. Results are cached
+briefly so repeated lookups are fast.
+
 ## Guidance
 
 - Keep `MCP_TOKEN`, `ORCHESTRATOR_MCP_TOKEN`, and `ORCHESTRATOR_INTERNAL_TOKEN` aligned in trusted deployments.

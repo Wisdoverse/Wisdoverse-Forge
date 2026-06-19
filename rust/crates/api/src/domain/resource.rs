@@ -255,6 +255,16 @@ impl ProjectRepositoryUrl {
     }
 }
 
+/// SSRF guard for an operator-supplied outbound HTTPS endpoint (e.g. an LLM
+/// provider base URL used for live model discovery). Reuses the clone-URL
+/// validator wholesale — https-only, no embedded credentials, no control
+/// characters, and a private/loopback/metadata host deny-list — so there is a
+/// single hardened guard for all operator-supplied egress targets. Returns
+/// `true` only when the URL is well-formed and the host is public.
+pub(crate) fn is_outbound_https_host_allowed(base_url: &str) -> bool {
+    ProjectRepositoryUrl::parse(base_url).is_ok()
+}
+
 /// Best-effort literal-IP / name deny-list for clone targets (SSRF
 /// defense-in-depth; M4 egress filtering is the authoritative control).
 ///
