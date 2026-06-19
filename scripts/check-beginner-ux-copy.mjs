@@ -650,6 +650,7 @@ const START_GUIDE_RESET_JARGON_PATTERNS = [
   /\bnothing to restore\b/i,
   /\bStart is already visible\b/i,
   /\bIf Start is hidden\b/i,
+  /\bNew sign-ins still open Tasks by default\b/i,
 ]
 
 const START_GUIDE_FAILURE_FIRST_PATTERNS = [

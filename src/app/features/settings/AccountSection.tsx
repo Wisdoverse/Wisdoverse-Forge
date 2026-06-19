@@ -387,6 +387,11 @@ function GettingStartedGuideRow() {
     : hidden
       ? 'Next step: choose Show setup checklist to add it back.'
       : 'It is available now. Choose Open setup checklist to review setup.'
+  const visibilityDetail = !preferencesLoaded
+    ? 'Forge is checking whether the setup checklist is shown. Your projects, agents, and tasks stay the same.'
+    : hidden
+      ? 'It is hidden from the left menu, so new sign-ins open Tasks by default. Choose Show setup checklist to add it back to the left menu. Your projects, agents, and tasks stay the same.'
+      : 'It is shown in the left menu. New sign-ins can open the setup checklist until you hide it again. Your projects, agents, and tasks stay the same.'
   const restoreButtonLabel = restoring
     ? 'Showing...'
     : !preferencesLoaded
@@ -422,9 +427,7 @@ function GettingStartedGuideRow() {
             Setup checklist
           </p>
           <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            If the setup checklist is hidden, choose Show setup checklist to add it back to the left
-            menu. New sign-ins still open Tasks by default, and your projects, agents, and tasks
-            stay the same. {statusLine}
+            {visibilityDetail} {statusLine}
           </p>
         </div>
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
