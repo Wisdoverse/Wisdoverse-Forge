@@ -14616,6 +14616,8 @@ function EditableProjectRow({ project }) {
       'src/app/layouts/sidebar/ProjectTree.tsx': `
 function ProjectTree({ projectMenu }) {
   return <p>{projectMenu.team.name} team · link name {projectMenu.project.slug}</p>
+  return <p>{projectMenu.team.name} team · name used in links {projectMenu.project.slug}</p>
+  return <button>Copy name used in links</button>
   return <button>Copy project short name</button>
   return <p>{projectMenu.project.slug} · short name used in project links</p>
   return <p>{projectMenu.project.slug} · Forge uses this in project links</p>
@@ -14650,8 +14652,8 @@ function OrganizationsPanel({ org }) {
     const cwd = fixture({
       'src/app/layouts/sidebar/ProjectTree.tsx': `
 function ProjectTree({ projectMenu }) {
-  return <p>{projectMenu.team.name} team · name used in links {projectMenu.project.slug}</p>
-  return <button>Copy name used in links</button>
+  return <p>{projectMenu.team.name} team · project link ending {projectMenu.project.slug}</p>
+  return <button>Copy project link ending</button>
   return <p>{projectMenu.project.slug} · shown at the end of project links</p>
 }
 `,
