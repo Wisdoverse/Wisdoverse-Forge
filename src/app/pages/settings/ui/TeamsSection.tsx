@@ -113,7 +113,8 @@ export function TeamsSection() {
           <h2 className={uiStyles.sectionTitle}>Teams and access</h2>
           <p className={uiStyles.sectionDescription}>
             {teams.length} {teams.length === 1 ? 'team keeps' : 'teams keep'} people and projects
-            together inside this team space
+            together inside this team space. Open Manage people on a team to add people or change
+            access.
           </p>
         </div>
         {!showForm && canCreateTeam && (

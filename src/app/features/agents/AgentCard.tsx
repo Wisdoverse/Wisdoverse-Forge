@@ -30,10 +30,18 @@ const STATUS_HELP: Record<string, string> = {
 }
 
 export function agentCardStatusHelp(
-  status: AgentInfo['status'] | string | null | undefined
+  status: AgentInfo['status'] | string | null | undefined,
+  agent?: AgentInfo
 ): string {
   const statusKey = agentStatusKey(status)
   if (!statusKey) return 'Check this agent before sending work'
+  if (statusKey === 'offline' && agent) {
+    if (isHostCliAgent(agent)) {
+      return 'Open this agent, then start or reconnect the command app on that computer.'
+    }
+    if (agent.cliTool) return 'Open this agent and start it before sending file work.'
+    return 'Open this agent and check its AI service before sending chat work.'
+  }
   return STATUS_HELP[statusKey] ?? 'Check this agent before sending work'
 }
 
@@ -53,7 +61,7 @@ export function AgentCard({ agent, onClick }: AgentCardProps) {
   const ratePercent = Math.round(agent.successRate * 100)
   const statusKey = agentStatusKey(agent.status)
   const statusLabel = agentStatusLabel(agent.status)
-  const statusHelp = agentCardStatusHelp(agent.status)
+  const statusHelp = agentCardStatusHelp(agent.status, agent)
   const runtimeLabel = isHostCliAgent(agent)
     ? 'This computer'
     : agent.cliTool

@@ -54,6 +54,9 @@ describe('TeamsSection', () => {
     expect(
       screen.getByText(/teams keep people and projects together inside this team space/i)
     ).toBeDefined()
+    expect(
+      screen.getByText(/Open Manage people on a team to add people or change access/i)
+    ).toBeDefined()
     expect(screen.queryByText(/access groups/i)).toBeNull()
     expect(screen.getByRole('button', { name: 'New team' })).toBeDefined()
     expect(screen.getByText('Create a team first')).toBeDefined()

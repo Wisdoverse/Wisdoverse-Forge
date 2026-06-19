@@ -265,7 +265,9 @@ describe('HistoryTab', () => {
     )
 
     expect(await screen.findByText('Check retry steps')).toBeInTheDocument()
+    expect(screen.getByText('This agent tried the task.')).toBeInTheDocument()
     expect(screen.queryByText('Failed')).toBeNull()
+    expect(screen.queryByText('This agent will handle the next step.')).toBeNull()
     expect(await screen.findAllByText(/AI service is busy/i)).toHaveLength(2)
     expect(screen.queryByText(/model service is busy/i)).toBeNull()
     expect(screen.queryByText(/429/)).toBeNull()
@@ -354,8 +356,10 @@ describe('HistoryTab', () => {
     )
 
     expect(await screen.findByText('Build Agent finished the task')).toBeInTheDocument()
+    expect(screen.getByText('This agent finished the task.')).toBeInTheDocument()
     expect(screen.getByText(/Review the outcome, then save repeatable steps/i)).toBeInTheDocument()
     expect(screen.getByText(/Open Results next. Check the answer/i)).toBeInTheDocument()
+    expect(screen.queryByText('This agent will handle the next step.')).toBeNull()
     expect(screen.queryByText(/saved guidance/i)).toBeNull()
     expect(screen.queryByText(/Confirm the answer matches the brief/i)).toBeNull()
   })
