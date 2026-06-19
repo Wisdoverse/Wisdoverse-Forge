@@ -164,6 +164,11 @@ export interface MockContextFeatureSnapshot {
   analytics: boolean
 }
 
+export interface MockUserPreferences {
+  gettingStartedDismissed?: boolean
+  [key: string]: unknown
+}
+
 export const MOCK_CONTEXT_FEATURES_ENABLED: MockContextFeatureSnapshot = {
   governance: true,
   preview: true,
@@ -491,4 +496,22 @@ export async function mockContextFeatures(
   await context.route('**/api/v1/context/features', (route) =>
     json(route, { ok: true, data: features })
   )
+}
+
+export async function mockUserPreferences(
+  context: BrowserContext,
+  initialPreferences: MockUserPreferences = {}
+): Promise<{ current: () => MockUserPreferences }> {
+  let preferences = { ...initialPreferences }
+  await context.route('**/api/v1/users/me/preferences', async (route) => {
+    if (route.request().method() === 'PATCH') {
+      const body = JSON.parse(route.request().postData() || '{}') as MockUserPreferences
+      preferences = { ...preferences, ...body }
+    }
+    return json(route, { ok: true, preferences })
+  })
+
+  return {
+    current: () => ({ ...preferences }),
+  }
 }

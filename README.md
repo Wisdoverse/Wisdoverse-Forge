@@ -1,32 +1,67 @@
 # Wisdoverse Forge
 
-Wisdoverse Forge turns team work into auditable tasks, runs, and evidence — operated by AI agents inside isolated container, host-CLI, or provider runtimes under one governed control plane.
+Wisdoverse Forge helps a team turn requests into managed AI work. You create
+tasks, assign agents, watch progress, review results, and keep evidence in one
+governed workspace.
 
 > [!WARNING]
-> Wisdoverse Forge is a low-key engineering preview for trusted self-hosted environments. The active backend is Rust-owned; legacy TypeScript server paths are not part of the current runtime. Capabilities outside the [Runtime Validation](docs/runbooks/runtime-validation.md) boundary remain preview work.
+> Wisdoverse Forge is an engineering preview for trusted self-hosted
+> environments. Start with the local trial below, then use
+> [Runtime Validation](docs/runbooks/runtime-validation.md) before treating a
+> deployment as ready for regular team use.
 
 ## Running Wisdoverse Forge
 
-### Requirements
+### What you need first
 
 - Docker and Docker Compose v2
 - Node.js 24+
 - Make, Git
-- Resources for PostgreSQL, Redis, NATS, Temporal, and Docker-backed agent containers
+- Enough local resources to run the browser app, backend services, and agent
+  work area together
 
-### Option 1. Implement your own service
+### Option 1. Try it locally
 
-Point your coding agent at the spec:
+Use this path when you want to see the product in a browser on your machine.
 
-> Implement a Wisdoverse Forge-compatible service according to `SPEC.md` (and the protocol contracts in `shared/types/`). Match the runtime boundary documented in `docs/runbooks/runtime-validation.md`.
+1. Install dependencies:
 
-### Option 2. Run this reference implementation
+   ```bash
+   npm install
+   ```
+
+2. Start the local backend stack:
+
+   ```bash
+   make quickstart-local
+   ```
+
+3. Start the browser app:
+
+   ```bash
+   npm run dev
+   ```
+
+4. Open `http://localhost:4002`.
+
+Success looks like this:
+
+- You can register the first account.
+- Settings lets you add an AI service and choose **Check connection**.
+- The Start setup checklist points you to create an agent and one small task.
+
+The full first-run guide is [Getting Started](docs/guides/getting-started.md).
+
+### Option 2. Ask an agent to set it up
 
 Tell your coding agent to set up this repository against your machine:
 
-> Set up Wisdoverse Forge from `docs/guides/getting-started.md`. Run `npm install`, then `make quickstart-local`, then `npm run dev`. Open `http://localhost:4002`, register the first account, add a provider in Settings, and create an agent from the Start page. If a single-host VPS deployment is needed, follow the prebuilt-image path `make quickstart-selfhost-pull DOMAIN=<domain>` from the same guide.
+> Set up Wisdoverse Forge from `docs/guides/getting-started.md`. Run `npm install`, then `make quickstart-local`, then `npm run dev`. Open `http://localhost:4002`, register the first account, add an AI service in Settings, and create an agent from the Start page. If a single-host VPS deployment is needed, follow the prebuilt-image path `make quickstart-selfhost-pull DOMAIN=<domain>` from the same guide.
 
-For Host CLI enrollment (operator-managed CLI joins the platform), follow `docs/runbooks/host-cli-agent-enrollment.md`. For the migration 062-065 `runtime_kind` discriminator deployment, follow `docs/runbooks/migration-062-runtime-kind.md`.
+To connect this computer as a managed agent, follow
+[Host CLI Agent Enrollment](docs/runbooks/host-cli-agent-enrollment.md). For
+multi-platform CLI expectations, see
+[CLI Platform Support](docs/guides/cli-platform-support.md).
 
 ### Option 3. Work on this repository
 
@@ -34,24 +69,38 @@ Brief the agent with the repository contracts before editing:
 
 > Work on Wisdoverse Forge from repository truth. Read `AGENTS.md`, `SPEC.md`, `CLAUDE.md`, `docs/README.md`, `docs/architecture/ddd-contract.md`, and `CONTRIBUTING.md` before changing code. Keep backend changes in `rust/`, frontend changes in `src/app/` (Feature-Sliced Design layers) and `shared/`, and deployment changes in `docker/` plus the matching runbook. Run `npm run fsd:check`, `npm run lint`, `npm run typecheck`, and `cd rust && make ci` against any change. Use `gh` for GitHub PRs and `glab` for GitLab.
 
+### Option 4. Implement a compatible service
+
+Point your coding agent at the service contract:
+
+> Implement a Wisdoverse Forge-compatible service according to `SPEC.md` and
+> the protocol contracts in `shared/types/`. Match the proven boundary in
+> `docs/runbooks/runtime-validation.md`.
+
 ---
 
 ## What It Provides
 
-- **Rust API + WebSocket gateway** for work state, agent lifecycle, auth, telemetry, internal MCP bridge
-- **Rust orchestrator + Temporal workflow runtime**
-- **Three first-class agent runtimes** governed by `agents.runtime_kind` (`container | cli | api`) with DB CHECK invariants on `(runtime_kind, cli_tool, container_id)`:
-  - **Container Runtime** — platform-spawned Docker container running a Container CLI (`claude` / `codex` / `gemini` / `opencode`) plus sidecar
-    - Default-off CLI agent-image auto-update (`CLI_IMAGE_AUTO_UPDATE_ENABLED`) keeps newly spawned agents on current images without touching running agents; an optional superseded-overlay prune (`CLI_IMAGE_PRUNE_ENABLED`) reclaims dangling agent images, and the admin **CLI Images** panel reports per-tool status and offers an idle-only operator roll
-  - **Host CLI Runtime** — operator-managed CLI on the operator's machine that enrolls via sidecar and NATS, idempotent (`Idempotency-Key`), atomic `agent.enrolled` audit event
-  - **API Runtime** — provider-backed prompt agent (Anthropic / OpenAI / Google) with no shell, no container
-- **Task, run, review, event, evidence surfaces** for governed execution
-- **Skills, plugins, prompts, credentials, runtime configuration primitives**
-- **Per-agent NATS auth via callout** with HMAC-signed result envelopes, per-agent scoped pub/sub permissions, zero shared agent credentials
-- **PostgreSQL + Redis + NATS + MinIO + Docker** integrations with online-safe migration patterns
-- **React/Vite/Three.js browser UI** under strict Feature-Sliced Design boundaries (`app → pages → widgets → features → entities → shared`), gated by `npm run fsd:check`
-- **Rust Platform CLI (`agentforge`)** with `migrate doctor` pre-flight, `agents enroll-local` host-CLI enrollment, ops subcommands
-- **Multi-locale operator UI** (English + Chinese) with i18n error codes on every user-facing rejection
+- **Tasks and runs** so teams can see what agents are doing and what happened.
+- **Agents that fit different work styles**:
+  - **Project files** for agents that edit shared project files.
+  - **This computer** for agents that work from a local machine.
+  - **Simple chat agents** for planning, writing, and review without file access.
+- **Review and evidence views** so people can check important work before using
+  it.
+- **Skills, plugins, prompts, and saved access** so repeat work is easier to set
+  up.
+- **Admin health and update pages** with plain-language next steps for common
+  setup problems.
+- **Platform CLI (`agentforge`)** for operators who want to run migrations,
+  check setup, or connect a local machine as a managed agent.
+- **English and Chinese UI copy** with user-safe error messages.
+
+For technical readers, the current implementation uses a Rust API and
+WebSocket gateway, a Rust orchestrator, PostgreSQL, Redis, NATS, MinIO, Docker,
+Temporal, and a React/Vite/Three.js browser app. The frontend follows strict
+Feature-Sliced Design boundaries (`app -> pages -> widgets -> features ->
+entities -> shared`) checked by `npm run fsd:check`.
 
 ## Repository Map (for agents)
 
