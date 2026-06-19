@@ -18,7 +18,7 @@ describe('taskDetailErrorMessage', () => {
   test('describes read permission failures as view access problems', () => {
     expectBeginnerMessage(
       taskDetailErrorMessage('loadRuns', new Error('HTTP 403')),
-      'Ask an owner or admin to give you access to this task, then refresh the task detail panel. You do not have permission to view this task.'
+      'Ask an owner or admin to give you access to this task, then refresh the task details. You do not have permission to view this task.'
     )
   })
 
@@ -28,7 +28,7 @@ describe('taskDetailErrorMessage', () => {
         statusCode: '403',
         serverError: 'owner role required',
       }),
-      'Ask an owner or admin to let you update this task, then refresh the task detail panel and try again. You do not have permission to change this task.'
+      'Ask an owner or admin to let you update this task, then refresh the task details and try again. You do not have permission to change this task.'
     )
   })
 
@@ -60,7 +60,7 @@ describe('taskDetailErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh the detail panel to load saved notes and work history. If it still fails, ask an owner or admin to check task setup.'
+      'Refresh task details to load saved notes and work history. If it still fails, ask an owner or admin to check task setup.'
     )
     expect(message).not.toContain('run details')
     expect(message).not.toMatch(new RegExp(['task', 'context'].join('\\s+'), 'i'))
@@ -132,7 +132,7 @@ describe('taskDetailErrorMessage', () => {
     )
     expectBeginnerMessage(
       taskDetailErrorMessage('retryTask', new Error('HTTP 409')),
-      'Refresh the detail panel, then try again. This task changed while you were working.'
+      'Refresh task details, then try again. This task changed while you were working.'
     )
     expectBeginnerMessage(
       taskDetailErrorMessage('retryTask', new Error('HTTP 429')),

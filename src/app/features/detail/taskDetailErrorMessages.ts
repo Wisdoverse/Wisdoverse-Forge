@@ -16,7 +16,7 @@ const ACTION_FALLBACKS: Record<TaskDetailErrorAction, string> = {
     'Refresh the task, then choose Needs help again. The task was not marked as needing help.',
   cancelTask: 'Refresh the task, then choose Cancel again. The task was not canceled.',
   loadAgents: 'Refresh this task before assigning an agent.',
-  loadContext: 'Refresh the detail panel to load saved notes and work history.',
+  loadContext: 'Refresh task details to load saved notes and work history.',
   loadRuns: 'Refresh Updates before deciding whether to retry this task.',
   previewContext: 'Choose an available agent, then check saved items again.',
   publishTask:
@@ -43,9 +43,9 @@ export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unkno
 
   if (status === 403) {
     if (action === 'loadAgents' || action === 'loadContext' || action === 'loadRuns') {
-      return 'Ask an owner or admin to give you access to this task, then refresh the task detail panel. You do not have permission to view this task.'
+      return 'Ask an owner or admin to give you access to this task, then refresh the task details. You do not have permission to view this task.'
     }
-    return 'Ask an owner or admin to let you update this task, then refresh the task detail panel and try again. You do not have permission to change this task.'
+    return 'Ask an owner or admin to let you update this task, then refresh the task details and try again. You do not have permission to change this task.'
   }
 
   if (status === 404) {
@@ -53,7 +53,7 @@ export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unkno
   }
 
   if (status === 409) {
-    return 'Refresh the detail panel, then try again. This task changed while you were working.'
+    return 'Refresh task details, then try again. This task changed while you were working.'
   }
 
   if (status === 422) {
