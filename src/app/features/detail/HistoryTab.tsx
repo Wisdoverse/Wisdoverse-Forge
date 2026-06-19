@@ -419,7 +419,7 @@ function taskHistoryEvents(task: TaskSummary): { id: string; title: string; deta
     events.push({
       id: 'assigned',
       title: `Agent chosen: ${task.assignedAgentName}`,
-      detail: 'This agent will handle the next step.',
+      detail: assignedAgentStoryDetail(task),
     })
   }
 
@@ -462,6 +462,23 @@ function taskHistoryEvents(task: TaskSummary): { id: string; title: string; deta
   }
 
   return events
+}
+
+function assignedAgentStoryDetail(task: TaskSummary): string {
+  switch (task.state) {
+    case 'working':
+      return 'This agent is working on the task now.'
+    case 'blocked':
+      return 'This agent needs your answer before it can continue.'
+    case 'completed':
+      return 'This agent finished the task.'
+    case 'failed':
+      return 'This agent tried the task.'
+    case 'canceled':
+      return 'This agent was chosen before the task stopped.'
+    default:
+      return 'This agent will handle the next step.'
+  }
 }
 
 function taskUpdateGuide(task: TaskSummary): string {
