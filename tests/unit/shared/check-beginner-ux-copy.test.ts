@@ -3305,6 +3305,9 @@ function handleProjectChange() {
 function taskSupportReference() {
   return 'Support reference not reported'
 }
+function taskReferenceLabel(id) {
+  return \`Task ID \${id}\`
+}
 `,
       'src/app/features/detail/HistoryTab.tsx': `
 function supportRunReference(id) {
@@ -3324,6 +3327,10 @@ function supportRunReference(id) {
         }),
         expect.objectContaining({
           type: 'task-support-reference-copy',
+          location: 'src/app/features/detail/TaskDetailPanel.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'task-support-reference-copy',
           location: 'src/app/features/detail/HistoryTab.tsx:3',
         }),
       ])
@@ -3335,6 +3342,9 @@ function supportRunReference(id) {
       'src/app/features/detail/TaskDetailPanel.tsx': `
 function taskSupportReference() {
   return 'Refresh task details'
+}
+function taskReferenceLabel(id) {
+  return \`Task reference \${id}\`
 }
 `,
     })
@@ -4373,7 +4383,7 @@ function agentFolderLabel(agent) {
     const cwd = fixture({
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
 function agentFolderLabel(agent) {
-  return \`Folder selected during setup: \${agent.cwd}\`
+  return \`Selected work folder: \${agent.cwd}\`
 }
 `,
     })
@@ -4385,7 +4395,12 @@ function agentFolderLabel(agent) {
     const cwd = fixture({
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
 function AgentDetailView() {
-  return <><DetailRow label="Starting project for tasks" /><DetailRow label="Starting folder" /></>
+  return <><DetailRow label="Starting project for tasks" /><DetailRow label="Starting folder" /><StatCard label="Work setup" /></>
+}
+`,
+      'src/app/features/agents/AgentConfigTab.tsx': `
+function AgentConfigTab() {
+  return <><RuntimeRow label="Starting project" /><RuntimeRow label="Starting folder" /></>
 }
 `,
     })
@@ -4399,6 +4414,10 @@ function AgentDetailView() {
           type: 'agent-detail-starting-label-copy',
           location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:3',
         }),
+        expect.objectContaining({
+          type: 'agent-detail-starting-label-copy',
+          location: 'src/app/features/agents/AgentConfigTab.tsx:3',
+        }),
       ])
     )
   })
@@ -4408,6 +4427,11 @@ function AgentDetailView() {
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
 function AgentDetailView() {
   return <><DetailRow label="Project for new tasks" /><DetailRow label="Folder agents open" /></>
+}
+`,
+      'src/app/features/agents/AgentConfigTab.tsx': `
+function AgentConfigTab() {
+  return <><RuntimeRow label="Project for new tasks" /><RuntimeRow label="Folder agents open" /></>
 }
 `,
     })
@@ -5193,7 +5217,7 @@ function heartbeatStatusCopy() {
     const cwd = fixture({
       'src/app/features/settings/runtimeErrorMessages.ts': `
 function runtimeErrorMessage() {
-  return 'Start or wake an agent, then refresh this page. Agent connection status could not load.'
+  return 'Open Agents and make sure one agent shows Ready, then refresh this page. Agent connection status could not load.'
 }
 
 function runtimeCliErrorMessage() {
@@ -5561,6 +5585,10 @@ function heartbeatCopy() {
   return 'No agent has been seen online yet. Start or wake an agent, then check again.'
 }
 
+function wakeActionCopy() {
+  return 'Start or wake an agent, then choose Check again.'
+}
+
 function runtimeReadinessSummary() {
   return 'Setup has 1 agent location and 1 work tool like Claude or Codex. No extra work tool sign-ins are needed, and no agents are online yet.'
 }
@@ -5583,6 +5611,10 @@ function runtimeReadinessSummary() {
         expect.objectContaining({
           type: 'runtime-setup-status-copy',
           location: 'src/app/features/settings/RuntimeSection.tsx:11',
+        }),
+        expect.objectContaining({
+          type: 'runtime-setup-status-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:15',
         }),
       ])
     )
@@ -6346,6 +6378,8 @@ export function DecisionCopy({ approving }) {
       <button><span>Reject</span></button>
       <Field label="Reject reason" />
       <p>Next: switch back to Pending when you only want items waiting for a decision.</p>
+      <Field label="Team code" />
+      <p>My team or This project shares it more broadly and needs the team or project code from Settings.</p>
       <option>Team internal</option>
     </section>
   )
@@ -6387,8 +6421,16 @@ export function DecisionCopy({ approving }) {
           location: 'src/app/features/context/ApprovalQueueView.tsx:17',
         }),
         expect.objectContaining({
-          type: 'review-decision-copy',
-          location: 'src/app/features/context/ApprovalQueueView.tsx:18',
+          type: 'approval-queue-check-copy',
+          sample: expect.stringContaining('Approve and save'),
+        }),
+        expect.objectContaining({
+          type: 'approval-queue-check-copy',
+          sample: expect.stringContaining('Team code'),
+        }),
+        expect.objectContaining({
+          type: 'approval-queue-check-copy',
+          sample: expect.stringContaining('team or project code from Settings'),
         }),
       ])
     )
@@ -6398,11 +6440,11 @@ export function DecisionCopy({ approving }) {
     const cwd = fixture({
       'src/app/features/context/ApprovalQueueView.tsx': `
 const STATE_FILTERS = [
-  { value: 'pending', label: 'Waiting for review' },
+  { value: 'pending', label: 'Needs your check' },
 ]
 
 const STATUS_LABELS = {
-  pending: 'Waiting for review',
+  pending: 'Needs your check',
   approved: 'Saved',
   rejected: 'Not saved',
 }
@@ -6414,10 +6456,60 @@ export function DecisionCopy({ approving }) {
       <button title="Save this item for future work"><span>Save</span></button>
       <button><span>Do not save</span></button>
       <Field label="Why not save it?" />
-      <p>Next: switch back to Waiting for review when you only want items waiting for a decision.</p>
+      <p>Next: switch back to Needs your check when you only want items waiting for a decision.</p>
+      <Field label="team sharing code" />
+      <p>My team or This project shares it more broadly. Copy the team or project sharing code from Settings under Teams or Projects.</p>
       <option>Team only</option>
     </section>
   )
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags review status copy that uses fix review jargon', () => {
+    const cwd = fixture({
+      'src/app/features/detail/ReviewSnapshotPanel.tsx': `
+function ReviewSnapshotPanel() {
+  return <><span>Fix review</span><button aria-label="Refresh fix review">Refresh</button></>
+}
+`,
+      'src/app/features/detail/model/reviewSnapshotErrorMessage.ts': `
+const ACTION_FALLBACKS = {
+  load: 'Refresh fix review, then try again. Forge could not load the current review status.',
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'review-status-copy',
+          location: 'src/app/features/detail/ReviewSnapshotPanel.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'review-status-copy',
+          location: 'src/app/features/detail/model/reviewSnapshotErrorMessage.ts:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts review status copy that names the status plainly', () => {
+    const cwd = fixture({
+      'src/app/features/detail/ReviewSnapshotPanel.tsx': `
+function ReviewSnapshotPanel() {
+  return <><span>Review status</span><button aria-label="Refresh review status">Refresh</button></>
+}
+`,
+      'src/app/features/detail/model/reviewSnapshotErrorMessage.ts': `
+const ACTION_FALLBACKS = {
+  load: 'Refresh review status, then try again. Forge could not load the current review status.',
 }
 `,
     })
@@ -6445,13 +6537,13 @@ const EMPTY_HISTORY = {
     ])
   })
 
-  it('accepts saved-item history empty copy that points to the first review', () => {
+  it('accepts saved-item history empty copy that points to the first check', () => {
     const cwd = fixture({
       'src/app/features/context/ApprovalQueueView.tsx': `
 const EMPTY_HISTORY = {
-  title: 'Review the first saved item to start history',
+  title: 'Check the first saved item to start history',
   detail:
-    'Saved and not-saved notes or instructions appear here after someone reviews the first suggestion.',
+    'Saved and not-saved notes or instructions appear here after someone checks the first suggestion.',
 }
 `,
     })
@@ -8143,6 +8235,8 @@ function toolOutcome() {
 const labels = {
   path: 'Path',
 }
+
+const requestToggle = 'Show setup details'
 `,
     })
 
@@ -8166,6 +8260,10 @@ const labels = {
         expect.objectContaining({
           type: 'chat-tool-step-copy',
           location: 'src/app/features/chat/ToolCallDetail.tsx:15',
+        }),
+        expect.objectContaining({
+          type: 'chat-tool-step-copy',
+          location: 'src/app/features/chat/ToolCallDetail.tsx:18',
         }),
       ])
     )
@@ -8905,25 +9003,35 @@ function serviceStatusText(status: ServiceStatus): string {
 function ServiceRow() {
   return <p>Owner/admin note: check the service logs.</p>
 }
+
+function HelperNote() {
+  return <p>Setup helper note: use the next step above, then choose Check now.</p>
+}
 `,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'system-health-helper-note-copy',
-        sample: expect.stringContaining('Owner/admin note'),
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'system-health-helper-note-copy',
+          sample: expect.stringContaining('Owner/admin note'),
+        }),
+        expect.objectContaining({
+          type: 'system-health-helper-note-copy',
+          sample: expect.stringContaining('Setup helper note'),
+        }),
+      ])
+    )
   })
 
-  it('accepts app health issue notes that name setup helpers', () => {
+  it('accepts app health issue notes that say what to check next', () => {
     const cwd = fixture({
       'src/app/features/admin/SystemHealth.tsx': `
 function ServiceRow() {
-  return <p>Setup helper note: use the next step above, then choose Check now.</p>
+  return <p>What to check next: use the next step above, then choose Check now.</p>
 }
 `,
     })
@@ -9801,6 +9909,16 @@ function AddCredentialForm() {
 }
 const tableHeaders = [{ label: 'Git address' }]
 `,
+      'src/app/features/settings/gitCredentialsErrorMessage.ts': `
+function validationGuidance() {
+  return 'Check the GitHub or GitLab address. Leave it blank for github.com or gitlab.com, then save again.'
+}
+`,
+      'src/app/shared/model/settings.store.ts': `
+function settingsActionErrorMessage() {
+  return 'Check the GitHub or GitLab address. Leave it blank for github.com or gitlab.com, then save again.'
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
@@ -9836,6 +9954,14 @@ const tableHeaders = [{ label: 'Git address' }]
           type: 'code-access-address-copy',
           sample: expect.stringContaining('Git address'),
         }),
+        expect.objectContaining({
+          type: 'code-access-address-copy',
+          location: 'src/app/features/settings/gitCredentialsErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'code-access-address-copy',
+          location: 'src/app/shared/model/settings.store.ts:3',
+        }),
       ])
     )
   })
@@ -9853,6 +9979,16 @@ function AddCredentialForm() {
   return <label>Company code website address</label>
 }
 const tableHeaders = [{ label: 'Code website' }, { label: 'Website address' }]
+`,
+      'src/app/features/settings/gitCredentialsErrorMessage.ts': `
+function validationGuidance() {
+  return 'Check the code website address. Leave it blank for github.com or gitlab.com, then save again.'
+}
+`,
+      'src/app/shared/model/settings.store.ts': `
+function settingsActionErrorMessage() {
+  return 'Check the code website address. Leave it blank for github.com or gitlab.com, then save again.'
+}
 `,
     })
 
@@ -10204,7 +10340,7 @@ function ProfileRow() {
     const cwd = fixture({
       'src/app/features/settings/AccountSection.tsx': `
 function GettingStartedGuideRow() {
-  return <section><h3>Onboarding</h3><p>Start is already visible in the left menu, so there is nothing to restore.</p><button>Reset Start guide</button></section>
+  return <section><h3>Onboarding</h3><p>If Start is hidden, choose Show setup checklist. Start is already visible in the left menu, so there is nothing to restore. New sign-ins still open Tasks by default.</p><button>Reset Start guide</button></section>
 }
 `,
       'src/app/pages/settings/ui/SettingsLayout.tsx': `
@@ -10235,7 +10371,7 @@ export const item = {
     const cwd = fixture({
       'src/app/features/settings/AccountSection.tsx': `
 function GettingStartedGuideRow() {
-  return <button>Show setup checklist</button>
+  return <section><p>It is hidden from the left menu, so new sign-ins open Tasks by default. Choose Show setup checklist to add it back. Your projects, agents, and tasks stay the same.</p><p>It is shown in the left menu. New sign-ins can open the setup checklist until you hide it again. Your projects, agents, and tasks stay the same.</p></section>
 }
 `,
     })
@@ -12043,6 +12179,54 @@ export function CreateSkillModal() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags saved instruction review points that use secrets or one-time path jargon', () => {
+    const cwd = fixture({
+      'src/app/features/detail/SkillDraftModal.tsx': `
+const SKILL_REVIEW_POINTS = [
+  { label: 'No secrets', value: 'Remove secret keys, customer data, one-time paths, and private notes.' },
+]
+`,
+      'src/app/features/skills/CreateSkillModal.tsx': `
+const SKILL_REVIEW_POINTS = [
+  { label: 'Safe to share', value: 'Leave out secret keys, private notes, and one-time project details.' },
+]
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'saved-instruction-private-detail-copy',
+          location: 'src/app/features/detail/SkillDraftModal.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-private-detail-copy',
+          location: 'src/app/features/skills/CreateSkillModal.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved instruction review points that name private details plainly', () => {
+    const cwd = fixture({
+      'src/app/features/detail/SkillDraftModal.tsx': `
+const SKILL_REVIEW_POINTS = [
+  { label: 'Keep private details out', value: 'Remove passwords, access keys, customer data, temporary file locations, and private notes.' },
+]
+`,
+      'src/app/features/skills/CreateSkillModal.tsx': `
+const SKILL_REVIEW_POINTS = [
+  { label: 'Keep private details out', value: 'Leave out passwords, access keys, private notes, and temporary project details.' },
+]
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags governance audit fallbacks that leave beginners without a field to check', () => {
     const cwd = fixture({
       'src/app/features/governance/AuditLogView.tsx': `
@@ -12275,9 +12459,13 @@ function AuditLogView() {
   return <section aria-label="Common change views">
     <p>Pick a common change view, then narrow it.</p>
     <label>Specific change name</label>
-    <input placeholder="Paste the exact team space, work area, team, or project reference" />
+    <input placeholder="Paste a team space, work area, team, or project reference only when an owner or admin gives you one" />
     <button aria-label="Refresh change history">Refresh</button>
     <button>Show saved change name</button>
+    <Metric label="Protected saved items" />
+    <SubjectLine label="Visible saved item" />
+    <SubjectLine label="Protected saved item" />
+    <span>{entry.scopeId ? \`Work area \${shortId(entry.scopeId)}\` : 'Work area hidden'}</span>
     <span>Set up verification</span>
     <span>Check verification</span>
     <span>Review notes hidden</span>
@@ -12326,6 +12514,70 @@ function auditActorLabel(actorUserId) {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags governance history references that use item, area, person, or exact-code copy', () => {
+    const cwd = fixture({
+      'src/app/features/governance/AuditLogView.tsx': `
+function AuditRow({ entry }) {
+  return <>
+    <Metric label="Hidden item codes" />
+    <SubjectLine label="Visible item code" />
+    <SubjectLine label="Hidden item code" />
+    <span>{entry.scopeId ? \`Area code \${shortId(entry.scopeId)}\` : 'Area code hidden'}</span>
+    <p>Paste an exact change area only when needed</p>
+    <input placeholder="Paste the exact team space, work area, team, or project code from Settings" />
+    <input placeholder="Paste the exact person code only when needed" />
+  </>
+}
+
+function auditActorLabel(actorUserId) {
+  return actorUserId ? \`Person code \${shortId(actorUserId)}\` : 'System'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'governance-audit-reference-copy',
+          sample: '<Metric label="Hidden item codes" />',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-reference-copy',
+          sample: '<SubjectLine label="Visible item code" />',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-reference-copy',
+          sample: '<SubjectLine label="Hidden item code" />',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-reference-copy',
+          sample:
+            "<span>{entry.scopeId ? `Area code ${shortId(entry.scopeId)}` : 'Area code hidden'}</span>",
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-reference-copy',
+          sample: '<p>Paste an exact change area only when needed</p>',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-reference-copy',
+          sample:
+            '<input placeholder="Paste the exact team space, work area, team, or project code from Settings" />',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-reference-copy',
+          sample: '<input placeholder="Paste the exact person code only when needed" />',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-reference-copy',
+          sample: "return actorUserId ? `Person code ${shortId(actorUserId)}` : 'System'",
+        }),
+      ])
+    )
   })
 
   it('flags recovery copy that repeats the same refresh step', () => {
@@ -13952,7 +14204,10 @@ function localActionError() {
   return 'agent control action failed'
 }
 function actionAlert() {
-  return 'Review the recovery step below, then try again.'
+  return 'Use the recovery step below, then try again.'
+}
+function serviceError() {
+  return 'Forge could not update this agent right now. Refresh this agent and try again.'
 }
 `,
     })
@@ -13974,15 +14229,25 @@ function actionAlert() {
           type: 'agent-control-error-copy',
           location: 'src/app/features/agents/AgentControlPanel.tsx:9',
         }),
+        expect.objectContaining({
+          type: 'agent-control-error-copy',
+          location: 'src/app/features/agents/AgentControlPanel.tsx:12',
+        }),
       ])
     )
   })
 
-  it('accepts agent control permission errors that start with the next step', () => {
+  it('accepts agent control errors that start with the next step', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentControlPanel.tsx': `
 function agentControlErrorMessage() {
   return 'Ask an owner or admin to let you manage this agent, then try again. You do not have permission to change this agent.'
+}
+function actionAlert() {
+  return 'Follow the step below, then try again.'
+}
+function serviceError() {
+  return "Refresh this agent, then try again. If it keeps failing, ask an owner or admin to check this agent's connection and access in Agents. Forge could not finish the change right now."
 }
 `,
     })
@@ -14610,7 +14875,7 @@ function CreateTeamForm() {
 `,
       'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
 function CreateProjectForm() {
-  return <><p>Project setup path</p><p>Work folder preview: /workspace/app</p><summary>Show support folder path</summary><p>Automatic project name: app.</p><p>Project short name: app.</p></>
+  return <><p>Project setup path</p><p>Work folder preview: /workspace/app</p><summary>Show support folder</summary><summary>Show support folder path</summary><p>Automatic project name: app.</p><p>Project short name: app.</p></>
 }
 `,
     })
@@ -14653,7 +14918,7 @@ function CreateTeamForm() {
 `,
       'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
 function CreateProjectForm() {
-  return <><p>Project creation steps</p><p>Shown at the end of project links: app.</p><p>Agent work folder: /workspace/app</p></>
+  return <><p>Project creation steps</p><p>Shown at the end of project links: app.</p><summary>Show exact folder for troubleshooting</summary><p>Use this only if an owner, admin, or support message asks for the exact folder.</p><p>Exact folder: /workspace/app</p></>
 }
 `,
     })
@@ -14665,12 +14930,12 @@ function CreateProjectForm() {
     const cwd = fixture({
       'src/app/features/manage-team/ui/EditableTeamRow.tsx': `
 function EditableTeamRow({ team }) {
-  return <><p>Address: {team.slug}</p><p>Automatic team name: {team.slug}</p><p>Automatic link name: {team.slug}</p><p>Forge uses this in team links: {team.slug}</p></>
+  return <><p>Address: {team.slug}</p><p>Link ending people may see: {team.slug}</p><p>Automatic team name: {team.slug}</p><p>Automatic link name: {team.slug}</p><p>Forge uses this in team links: {team.slug}</p></>
 }
 `,
       'src/app/features/manage-project/ui/EditableProjectRow.tsx': `
 function EditableProjectRow({ project }) {
-  return <><span>Address: {project.slug}</span><span>Automatic project name: {project.slug}</span><span>Project short name: {project.slug}</span><span>Forge uses this in project links: {project.slug}</span></>
+  return <><span>Address: {project.slug}</span><span>Link ending people may see: {project.slug}</span><span>Automatic project name: {project.slug}</span><span>Project short name: {project.slug}</span><span>Forge uses this in project links: {project.slug}</span></>
 }
 `,
     })
@@ -14727,12 +14992,13 @@ function ProjectTree({ projectMenu }) {
   return <button>Copy project short name</button>
   return <p>{projectMenu.project.slug} · short name used in project links</p>
   return <p>{projectMenu.project.slug} · Forge uses this in project links</p>
+  return <p>{projectMenu.project.slug} · people may see this at the end of project links</p>
   return <button>Copy automatic project name</button>
 }
 `,
       'src/app/features/admin/OrganizationsPanel.tsx': `
 function OrganizationsPanel({ org }) {
-  return <><p>Automatic team space name: {org.slug}</p><p>Team space short name: {org.slug}</p><p>Forge uses this in team space links: {org.slug}</p></>
+  return <><p>Link ending people may see: {org.slug}</p><p>Automatic team space name: {org.slug}</p><p>Team space short name: {org.slug}</p><p>Forge uses this in team space links: {org.slug}</p></>
 }
 `,
     })
@@ -14771,6 +15037,55 @@ function OrganizationsPanel({ org }) {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags old link-ending copy that says people may see it', () => {
+    const cwd = fixture({
+      'src/app/features/manage-team/ui/CreateTeamForm.tsx': `
+function CreateTeamForm({ team }) {
+  return <p>Link ending people may see: {team.slug}</p>
+}
+`,
+      'src/app/features/manage-project/ui/EditableProjectRow.tsx': `
+function EditableProjectRow({ project }) {
+  return <span>Link ending people may see: {project.slug}</span>
+}
+`,
+      'src/app/layouts/sidebar/ProjectTree.tsx': `
+function ProjectTree({ projectMenu }) {
+  return <p>{projectMenu.project.slug} · people may see this at the end of project links</p>
+}
+`,
+      'src/app/features/admin/OrganizationsPanel.tsx': `
+function OrganizationsPanel({ org }) {
+  return <p>Link ending people may see: {org.slug}</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'team-project-create-copy',
+          location: 'src/app/features/manage-team/ui/CreateTeamForm.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'team-project-row-address-copy',
+          location: 'src/app/features/manage-project/ui/EditableProjectRow.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'team-project-short-name-copy',
+          location: 'src/app/layouts/sidebar/ProjectTree.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'team-project-short-name-copy',
+          location: 'src/app/features/admin/OrganizationsPanel.tsx:3',
+        }),
+      ])
+    )
   })
 
   it('flags code import retry errors that start with the failure', () => {
@@ -15002,7 +15317,7 @@ function serviceRecoveryMessage(action) {
 `,
       'src/app/features/context/approvalQueueErrorMessages.ts': `
 function serviceRecoveryMessage(action) {
-  return 'Refresh the list so you see the latest saved items. The saved item review list could not load. If it still fails, ask an owner or admin to check saved item review access.'
+  return 'Refresh the list so you see the latest saved items. Saved items could not load. If it still fails, ask an owner or admin to check Saved items access.'
 }
 `,
       'src/app/entities/navigation/model/navigation.store.ts': `
@@ -15089,24 +15404,24 @@ function network() {
     const cwd = fixture({
       'src/app/features/context/approvalQueueErrorMessages.ts': `
 const ACTION_FALLBACKS = {
-  approveCandidate: 'Check who can reuse it and the original task preview, then approve the item again. The item was not approved.',
-  loadQueue: 'Refresh the list so you see the latest saved items. The saved item review list could not load.',
-  rejectCandidate: 'Refresh the list, then reject the item again. The item was not rejected.',
+  approveCandidate: 'Check who can reuse it and the original task details, then save the item again. The item was not saved.',
+  loadQueue: 'Refresh the list so you see the latest saved items. Saved items could not load.',
+  rejectCandidate: 'Refresh the list, then choose Do not save again. The item stayed on the list.',
 }
 function forbidden() {
-  return 'Ask an owner or admin to let you approve saved notes and instructions, then retry this review action. You do not have permission right now.'
+  return 'Ask an owner or admin to let you save or skip saved notes and instructions, then retry this saved item action. You do not have permission right now.'
 }
 function missing() {
   return 'Refresh the list so you see the latest saved items. This item was not found.'
 }
 function conflict() {
-  return 'Refresh the list, then open this item again. It changed while you were reviewing it.'
+  return 'Refresh the list, then open this item again. It changed while you were checking it.'
 }
 function busy() {
-  return 'Wait a moment, then try again. The saved item review list is busy.'
+  return 'Wait a moment, then try again. Saved items are busy.'
 }
 function network() {
-  return 'Check your connection, then try this review action again. Forge could not connect while saving this review decision.'
+  return 'Check your connection, then try this saved item action again. Forge could not connect while saving your choice.'
 }
 `,
     })

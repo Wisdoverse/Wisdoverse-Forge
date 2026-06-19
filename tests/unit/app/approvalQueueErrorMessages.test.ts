@@ -11,7 +11,7 @@ describe('approvalQueueErrorMessage', () => {
   test('turns auth failures into a sign-in instruction', () => {
     expectBeginnerMessage(
       approvalQueueErrorMessage('loadQueue', new Error('401 Unauthorized')),
-      'Sign in again, then retry this review action.'
+      'Sign in again, then retry this saved item action.'
     )
   })
 
@@ -33,7 +33,7 @@ describe('approvalQueueErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then try this review action again. Forge could not connect while saving this review decision.'
+      'Check your connection, then try this saved item action again. Forge could not connect while saving your choice.'
     )
     expect(message).not.toContain('NetworkError')
   })
@@ -41,7 +41,7 @@ describe('approvalQueueErrorMessage', () => {
   test('gives a clear conflict recovery step', () => {
     expectBeginnerMessage(
       approvalQueueErrorMessage('approveCandidate', new Error('409 conflict')),
-      'Refresh the list, then open this item again. It changed while you were reviewing it.'
+      'Refresh the list, then open this item again. It changed while you were checking it.'
     )
   })
 
@@ -67,8 +67,8 @@ describe('approvalQueueErrorMessage', () => {
     const message = approvalQueueErrorMessage('rejectCandidate', new Error('403 Forbidden'))
 
     expect(message).toContain('Ask an owner or admin')
-    expect(message).toContain('approve saved notes and instructions')
-    expect(message).toContain('then retry this review action')
+    expect(message).toContain('save or skip saved notes and instructions')
+    expect(message).toContain('then retry this saved item action')
     expect(message).not.toContain('403 Forbidden')
     expect(message).not.toContain(['saved', 'memories'].join(' '))
   })
@@ -78,7 +78,7 @@ describe('approvalQueueErrorMessage', () => {
       approvalQueueErrorMessage('approveCandidate', {
         error: 'Scope ID is required',
       }),
-      'Choose who can reuse it and review the original task preview, then try again.'
+      'Choose who can reuse it and check the original task details, then try again.'
     )
   })
 

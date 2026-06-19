@@ -79,10 +79,11 @@ describe('TaskDetailPanel', () => {
     expect(screen.queryByRole('button', { name: /close detail panel/i })).toBeNull()
   })
 
-  test('labels the task ID instead of showing a bare task id', () => {
+  test('labels the task reference instead of showing a bare task id', () => {
     render(<TaskDetailPanel task={mockTask} onClose={() => {}} />)
 
-    expect(screen.getByText('Task ID task-1')).toBeDefined()
+    expect(screen.getByText('Task reference task-1')).toBeDefined()
+    expect(screen.queryByText('Task ID task-1')).toBeNull()
     expect(screen.queryByText(/^task-1$/)).toBeNull()
     expect(screen.queryByText(/Support reference task-1/i)).toBeNull()
   })

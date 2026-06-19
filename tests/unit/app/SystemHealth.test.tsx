@@ -164,8 +164,9 @@ describe('SystemHealth', () => {
     render(<SystemHealth />)
 
     await waitFor(() => expect(loadHealth).toHaveBeenCalledOnce())
-    expect(screen.getByText(/Setup helper note:/i)).toBeDefined()
+    expect(screen.getByText(/What to check next:/i)).toBeDefined()
     expect(screen.getByText(/This area reported a connection problem/i)).toBeDefined()
+    expect(screen.queryByText(/Setup helper note:/i)).toBeNull()
     expect(screen.queryByText(/Owner\/admin note:/i)).toBeNull()
     expect(screen.queryByText(/postgres\.internal/i)).toBeNull()
     expect(screen.queryByText(/5432/i)).toBeNull()

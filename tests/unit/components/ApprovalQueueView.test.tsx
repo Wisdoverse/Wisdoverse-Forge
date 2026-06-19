@@ -122,6 +122,11 @@ describe('ApprovalQueueView', () => {
     render(<ApprovalQueueView />)
 
     expect(await screen.findByText('Prod deploy memory')).toBeDefined()
+    expect(screen.getByText('Check what agents can save')).toBeDefined()
+    expect(screen.getByText('3 items to check')).toBeDefined()
+    expect(screen.getAllByText('Needs your check').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Waiting for review')).toBeNull()
+    expect(screen.queryByText('Saved notes review')).toBeNull()
     expect(screen.getByText('Team space reuse memory')).toBeDefined()
     expect(screen.getAllByText('Team space').length).toBeGreaterThan(0)
     expect(screen.getByText('Who can reuse it: Team space')).toBeDefined()
@@ -160,8 +165,12 @@ describe('ApprovalQueueView', () => {
       .setup()
       .selectOptions(within(dialog).getByTestId('context-approval-scope-kind'), 'team')
     expect(within(dialog).getByRole('status')).toHaveTextContent(
-      /paste the team code before saving/i
+      /paste the team sharing code before saving/i
     )
+    expect(within(dialog).getByLabelText(/team sharing code/i)).toBeInTheDocument()
+    expect(within(dialog).getByText(/settings under teams or projects/i)).toBeInTheDocument()
+    expect(within(dialog).queryByText(/team or project code from settings/i)).toBeNull()
+    expect(within(dialog).queryByLabelText(/^team code$/i)).toBeNull()
     await userEvent.setup().type(screen.getByTestId('context-approval-scope-id'), 'team-1')
     expect(within(dialog).getByRole('status')).toHaveTextContent(
       /confirm your team can reuse this safely/i

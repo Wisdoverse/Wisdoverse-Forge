@@ -197,8 +197,8 @@ export function CreateTeamForm({ onSave, onCancel, saving }: CreateTeamFormProps
         </p>
         {name.trim() && (
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Link ending people may see: {slugifyName(name)}. Forge creates it automatically from the
-            team name.
+            Shown at the end of team links: {slugifyName(name)}. Forge creates it automatically from
+            the team name.
           </p>
         )}
       </div>

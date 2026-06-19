@@ -194,7 +194,7 @@ export function skillHttpErrorMessage(
   if (status >= 500) {
     return action === 'create'
       ? createServiceMessage
-      : 'Refresh Saved instructions to load the list. If it still fails, ask an owner or admin to check Saved instructions access.'
+      : 'Refresh Saved instructions to load the list.'
   }
 
   return action === 'create' ? createDefaultMessage : 'Refresh Saved instructions to load the list.'

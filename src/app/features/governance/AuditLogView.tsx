@@ -231,7 +231,7 @@ export function AuditLogView() {
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_160px_160px_160px_auto]">
           <Field
             label="Change area"
-            help="Use the default for normal review. Paste an exact change area only when an owner or admin gives you one."
+            help="Use the default for normal checks. Paste a change area only when an owner or admin gives you one."
           >
             <input
               data-testid="governance-audit-filter-event-prefix"
@@ -239,7 +239,7 @@ export function AuditLogView() {
               autoComplete="off"
               value={filters.eventPrefix}
               onChange={(event) => updateFilter('eventPrefix', event.target.value)}
-              placeholder="Paste an exact change area only when needed"
+              placeholder="Paste a change area only when needed"
               className={INPUT_CLASS}
             />
           </Field>
@@ -347,7 +347,7 @@ export function AuditLogView() {
               name="scopeId"
               autoComplete="off"
               onChange={(event) => updateFilter('scopeId', event.target.value)}
-              placeholder="Paste the exact team space, work area, team, or project code from Settings"
+              placeholder="Paste a team space, work area, team, or project reference only when an owner or admin gives you one"
               className={INPUT_CLASS}
             />
           </Field>
@@ -357,7 +357,7 @@ export function AuditLogView() {
               name="userId"
               autoComplete="off"
               onChange={(event) => updateFilter('userId', event.target.value)}
-              placeholder="Paste the exact person code only when needed"
+              placeholder="Paste a person reference only when an owner or admin gives you one"
               className={INPUT_CLASS}
             />
           </Field>
@@ -419,7 +419,7 @@ export function AuditLogView() {
             value={auditViewMetricLabel(data?.query.eventPrefix ?? filters.eventPrefix)}
             compact
           />
-          <Metric label="Hidden item codes" value={protectedReferences} />
+          <Metric label="Protected saved items" value={protectedReferences} />
           <Metric label="Hidden review-note rows" value={redactedRows} />
         </div>
 
@@ -544,14 +544,14 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
           <SubjectLine
             testId="governance-audit-item-reference"
             icon="visible"
-            label="Visible item code"
+            label="Visible saved item"
             value={entry.rawItemId}
           />
         ) : (
           <SubjectLine
             testId="governance-audit-protected-reference"
             icon="hash"
-            label="Hidden item code"
+            label="Protected saved item"
             value={entry.auditSubjectHash}
           />
         )}
@@ -568,7 +568,7 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
       <td className="w-56 px-4 py-3">
         <div className="font-medium">{auditAreaLabel(entry.scopeKind)}</div>
         <div className="mt-1 truncate font-mono text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {entry.scopeId ? `Area code ${shortId(entry.scopeId)}` : 'Area code hidden'}
+          {entry.scopeId ? `Work area ${shortId(entry.scopeId)}` : 'Work area hidden'}
         </div>
       </td>
       <td className="w-48 px-4 py-3">
@@ -823,7 +823,7 @@ function auditAreaLabel(kind: GovernanceAuditScopeKind | null | undefined): stri
 }
 
 function auditActorLabel(actorUserId: string | null | undefined): string {
-  return actorUserId ? `Person code ${shortId(actorUserId)}` : 'System'
+  return actorUserId ? `Person reference ${shortId(actorUserId)}` : 'System'
 }
 
 function readableCodeLabel(value: string, options: { fallback: string }): string {

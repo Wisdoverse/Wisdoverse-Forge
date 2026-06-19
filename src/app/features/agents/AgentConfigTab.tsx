@@ -381,12 +381,12 @@ function CliRuntimeConfig({ agent }: { agent: AgentInfo }) {
           }
         />
         <RuntimeRow
-          label="Starting project"
+          label="Project for new tasks"
           value={agent.projectName ?? 'Open project settings first.'}
         />
         <RuntimeRow
-          label="Starting folder"
-          value={agent.cwd ?? (hostCli ? 'Folder selected during setup' : 'Default project folder')}
+          label="Folder agents open"
+          value={agent.cwd ?? (hostCli ? 'Selected work folder' : 'Default project folder')}
         />
       </div>
     </div>

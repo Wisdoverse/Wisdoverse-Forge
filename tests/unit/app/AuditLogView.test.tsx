@@ -80,7 +80,8 @@ describe('AuditLogView', () => {
     await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(1))
     expect(screen.getByText('Start with what you need to check')).toBeDefined()
     expect(screen.getByText('See every saved note and saved instruction change.')).toBeDefined()
-    expect(screen.getByText('Hidden item codes')).toBeDefined()
+    expect(screen.getByText('Protected saved items')).toBeDefined()
+    expect(screen.queryByText('Hidden item codes')).toBeNull()
     expect(screen.queryByText('Hidden item IDs')).toBeNull()
     expect(screen.getByText('Selected view')).toBeDefined()
     expect(screen.getAllByText('All saved item changes').length).toBeGreaterThan(0)
@@ -123,9 +124,10 @@ describe('AuditLogView', () => {
     expect(screen.queryByLabelText('Export audit history')).toBeNull()
     expect(screen.getByText('Change area')).toBeDefined()
     expect(
-      screen.getByText(/Paste an exact change area only when an owner or admin gives you one/i)
+      screen.getByText(/Paste a change area only when an owner or admin gives you one/i)
     ).toBeDefined()
-    expect(screen.getByPlaceholderText(/exact change area only when needed/i)).toBeDefined()
+    expect(screen.getByPlaceholderText(/Paste a change area only when needed/i)).toBeDefined()
+    expect(screen.queryByText(/exact change area/i)).toBeNull()
     expect(screen.queryByText('Change category')).toBeNull()
     expect(screen.queryByText(/event category/i)).toBeNull()
     expect(screen.queryByText('Change group')).toBeNull()
@@ -141,10 +143,12 @@ describe('AuditLogView', () => {
     expect(screen.queryByText('Support event name')).toBeNull()
     expect(screen.getByText('Exact work area')).toBeDefined()
     expect(
-      screen.getByPlaceholderText(/exact team space, work area, team, or project code/i)
+      screen.getByPlaceholderText(
+        /team space, work area, team, or project reference only when an owner or admin gives you one/i
+      )
     ).toBeDefined()
     expect(
-      screen.queryByPlaceholderText(/exact team space, work area, team, or project ID/i)
+      screen.queryByPlaceholderText(/exact team space, work area, team, or project/i)
     ).toBeNull()
     expect(screen.getByRole('option', { name: 'Team space' })).toBeDefined()
     expect(screen.getByRole('option', { name: 'Work area' })).toBeDefined()
@@ -153,8 +157,10 @@ describe('AuditLogView', () => {
     expect(screen.queryByRole('option', { name: 'Workspace' })).toBeNull()
     expect(screen.queryByRole('option', { name: 'Organization' })).toBeNull()
     expect(screen.getByText('Exact person')).toBeDefined()
-    expect(screen.getByPlaceholderText(/exact person code only when needed/i)).toBeDefined()
-    expect(screen.queryByPlaceholderText(/exact person ID only when needed/i)).toBeNull()
+    expect(
+      screen.getByPlaceholderText(/Paste a person reference only when an owner or admin gives you one/i)
+    ).toBeDefined()
+    expect(screen.queryByPlaceholderText(/exact person (?:code|ID) only when needed/i)).toBeNull()
     expect(screen.queryByText(/work area support reference/i)).toBeNull()
     expect(screen.queryByText(/person support reference/i)).toBeNull()
     expect(screen.queryByPlaceholderText(/user ID when support asks for one/i)).toBeNull()
@@ -179,8 +185,9 @@ describe('AuditLogView', () => {
     expect(screen.queryByText('Saved instruction · Skill')).toBeNull()
     expect(screen.getAllByText('Changed item').length).toBeGreaterThan(0)
     expect(screen.getByText('Changed by')).toBeDefined()
-    expect(screen.getByText('Person code user-1')).toBeDefined()
-    expect(screen.getByText('Person code user-2')).toBeDefined()
+    expect(screen.getByText('Person reference user-1')).toBeDefined()
+    expect(screen.getByText('Person reference user-2')).toBeDefined()
+    expect(screen.queryByText('Person code user-1')).toBeNull()
     expect(screen.queryByText('Person ID user-1')).toBeNull()
     expect(screen.queryByText('user-1')).toBeNull()
     expect(screen.getByText('Verification')).toBeDefined()
@@ -189,6 +196,9 @@ describe('AuditLogView', () => {
     expect(screen.queryByText('Support notes')).toBeNull()
     expect(screen.queryByText('Show support notes')).toBeNull()
     expect(screen.getByTestId('governance-audit-item-reference').textContent).toContain(
+      'Visible saved item'
+    )
+    expect(screen.getByTestId('governance-audit-item-reference').textContent).not.toContain(
       'Visible item code'
     )
     expect(screen.getByTestId('governance-audit-item-reference').textContent).not.toContain(
@@ -196,6 +206,9 @@ describe('AuditLogView', () => {
     )
     expect(screen.getByTestId('governance-audit-item-reference').textContent).toContain('11111111')
     expect(screen.getByTestId('governance-audit-protected-reference').textContent).toContain(
+      'Protected saved item'
+    )
+    expect(screen.getByTestId('governance-audit-protected-reference').textContent).not.toContain(
       'Hidden item code'
     )
     expect(screen.getByTestId('governance-audit-protected-reference').textContent).not.toContain(
@@ -205,7 +218,8 @@ describe('AuditLogView', () => {
       'f9f0b5b53a'
     )
     expect(screen.getAllByText('Project').length).toBeGreaterThan(0)
-    expect(screen.getByText('Area code project-1')).toBeDefined()
+    expect(screen.getByText('Work area project-1')).toBeDefined()
+    expect(screen.queryByText('Area code project-1')).toBeNull()
     expect(screen.queryByText('Area ID project-1')).toBeNull()
     expect(screen.queryByText(/Area support reference/i)).toBeNull()
     expect(screen.getByTestId('governance-audit-redacted').textContent).toContain(

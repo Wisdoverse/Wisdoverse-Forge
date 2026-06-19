@@ -354,9 +354,14 @@ describe('RuntimeSection', () => {
         'Check again after tools finish. If this stays here, ask an owner to finish adding the tools.'
       )
     ).toHaveLength(3)
-    expect(screen.getAllByText('Start or wake an agent, then choose Check again.').length).toBe(2)
+    expect(
+      screen.getAllByText(
+        'Open Agents and make sure one agent shows Ready, then choose Check again.'
+      ).length
+    ).toBe(2)
     expect(screen.getByText(/No extra tool sign-ins are needed/i)).toBeDefined()
-    expect(screen.getByText(/Start or wake an agent to bring one online/i)).toBeDefined()
+    expect(screen.getAllByText(/Open Agents and make sure one agent shows Ready/i).length).toBe(3)
+    expect(screen.queryByText(/wake an agent/i)).toBeNull()
     expect(
       screen.queryByText(/Sign in to a tool for file work before starting agents that need one/i)
     ).toBeNull()

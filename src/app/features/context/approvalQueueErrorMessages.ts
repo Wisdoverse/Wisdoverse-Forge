@@ -2,9 +2,9 @@ export type ApprovalQueueErrorAction = 'approveCandidate' | 'loadQueue' | 'rejec
 
 const ACTION_FALLBACKS: Record<ApprovalQueueErrorAction, string> = {
   approveCandidate:
-    'Check who can reuse it and the original task preview, then approve the item again. The item was not approved.',
+    'Check who can reuse it and the original task details, then save the item again. The item was not saved.',
   loadQueue: 'Refresh the list so you see the latest saved items. Saved items could not load.',
-  rejectCandidate: 'Refresh the list, then reject the item again. The item was not rejected.',
+  rejectCandidate: 'Refresh the list, then choose Do not save again. The item stayed on the list.',
 }
 
 export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err: unknown): string {
@@ -17,11 +17,11 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
   }
 
   if (status === 401) {
-    return 'Sign in again, then retry this review action.'
+    return 'Sign in again, then retry this saved item action.'
   }
 
   if (status === 403) {
-    return 'Ask an owner or admin to let you approve saved notes and instructions, then retry this review action. You do not have permission right now.'
+    return 'Ask an owner or admin to let you save or skip saved notes and instructions, then retry this saved item action. You do not have permission right now.'
   }
 
   if (status === 404) {
@@ -29,7 +29,7 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
   }
 
   if (status === 409) {
-    return 'Refresh the list, then open this item again. It changed while you were reviewing it.'
+    return 'Refresh the list, then open this item again. It changed while you were checking it.'
   }
 
   if (status === 422) {
@@ -51,14 +51,14 @@ function networkRecoveryMessage(action: ApprovalQueueErrorAction): string {
   if (action === 'loadQueue') {
     return 'Check your connection, then refresh Saved items. Forge could not connect while loading saved notes and instructions.'
   }
-  return 'Check your connection, then try this review action again. Forge could not connect while saving this review decision.'
+  return 'Check your connection, then try this saved item action again. Forge could not connect while saving your choice.'
 }
 
 function serviceRecoveryMessage(action: ApprovalQueueErrorAction): string {
   if (action === 'loadQueue') {
     return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check Saved items access.`
   }
-  return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check saved item review access.`
+  return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check Saved items access.`
 }
 
 function errorDetail(err: unknown): string {
@@ -122,7 +122,7 @@ function validationMessage(action: ApprovalQueueErrorAction, detail: string): st
   if (normalized.includes('scope')) {
     return action === 'loadQueue'
       ? 'Refresh the list, then check who can reuse the selected items. Saved items could not load.'
-      : 'Choose who can reuse it and review the original task preview, then try again.'
+      : 'Choose who can reuse it and check the original task details, then try again.'
   }
   if (normalized.includes('sensitivity')) {
     return 'Choose the sensitivity level, then try again.'

@@ -50,7 +50,7 @@ interface WsContextCandidateMessage {
 }
 
 const STATE_FILTERS: Array<{ value: StateFilter; label: string }> = [
-  { value: 'pending', label: 'Waiting for review' },
+  { value: 'pending', label: 'Needs your check' },
   { value: 'all', label: 'All saved items' },
 ]
 
@@ -88,7 +88,7 @@ const APPROVE_CHECKLIST = [
 
 const REJECT_CHECKLIST = [
   'Do not save it when the item is wrong, duplicated, unsafe, or too narrow to help later.',
-  'Add a short reason so the next reviewer knows what happened.',
+  'Add a short reason so the next person knows what happened.',
 ]
 
 const SOURCE_MISSING_LABEL = 'Task details need to load'
@@ -117,24 +117,24 @@ function approvalQueueEmptyState({
       title: 'Filters are hiding saved items',
       detail:
         'This view only shows the selected item type and reuse option. Clear filters before assuming there is nothing to check.',
-      nextStep: 'Next: review everything first, then narrow the list again only if it is long.',
+      nextStep: 'Next: check the full list first, then narrow it again only if it is long.',
       actionLabel: 'Clear filters',
     }
   }
 
   if (stateFilter === 'all') {
     return {
-      title: 'Review the first saved item to start history',
+      title: 'Check the first saved item to start history',
       detail:
-        'Saved and not-saved notes or instructions appear here after someone reviews the first suggestion.',
+        'Saved and not-saved notes or instructions appear here after someone checks the first suggestion.',
       nextStep:
-        'Next: switch back to Waiting for review when you only want items waiting for a decision.',
-      actionLabel: 'Show pending reviews',
+        'Next: switch back to Needs your check when you only want items waiting for a decision.',
+      actionLabel: 'Show items to check',
     }
   }
 
   return {
-    title: 'No saved items need review',
+    title: 'No saved items need checking',
     detail:
       'When an agent suggests a saved note or saved instruction, it will appear here before anyone can reuse it.',
     nextStep: 'Next: finish a task, then come back here if you want agents to reuse what worked.',
@@ -192,7 +192,7 @@ export function ApprovalQueueView() {
   )
 
   const totalLabel = useMemo(() => {
-    const suffix = pendingCandidateCount === 1 ? 'pending item' : 'pending items'
+    const suffix = pendingCandidateCount === 1 ? 'item to check' : 'items to check'
     return `${pendingCandidateCount} ${suffix}`
   }, [pendingCandidateCount])
 
@@ -271,9 +271,9 @@ export function ApprovalQueueView() {
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-ui-caption font-semibold text-apple-blue">
               <ShieldCheck size={14} strokeWidth={2} aria-hidden="true" />
-              <span>Saved notes review</span>
+              <span>Saved items</span>
             </div>
-            <h1 className="mt-1 text-ui-title font-semibold">Review what agents can save</h1>
+            <h1 className="mt-1 text-ui-title font-semibold">Check what agents can save</h1>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
               {totalLabel}
             </p>
@@ -282,7 +282,7 @@ export function ApprovalQueueView() {
             type="button"
             onClick={() => void loadCandidates()}
             className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.08]"
-            title="Refresh review list"
+            title="Refresh saved items"
           >
             <RefreshCw
               size={15}
@@ -301,7 +301,7 @@ export function ApprovalQueueView() {
           <div className="grid gap-3 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)] md:items-start">
             <div>
               <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
-                Review steps
+                Check steps
               </p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 Decide which saved notes or instructions are useful and safe to save for future
@@ -548,7 +548,7 @@ function DecisionPanel({
     : !requiresScopeId
       ? 'Ready to save for your own account.'
       : !form.scopeId.trim()
-        ? `Paste the ${scopeTargetCodeLabel(form.scopeKind)} before saving.`
+        ? `Paste the ${scopeSharingCodeLabel(form.scopeKind)} before saving.`
         : !form.confirmExpansion
           ? `Confirm ${reuseAudienceLabel(form.scopeKind)} can reuse this safely before saving.`
           : `Ready to save for ${reuseAudienceLabel(form.scopeKind)}.`
@@ -571,7 +571,7 @@ function DecisionPanel({
     <div className="fixed inset-0 z-50 flex justify-end bg-black/35 backdrop-blur-sm">
       <button
         type="button"
-        aria-label="Close saved item review"
+        aria-label="Close saved item check"
         className="hidden flex-1 md:block"
         onClick={onClose}
       />
@@ -609,7 +609,8 @@ function DecisionPanel({
               <>
                 <div className="rounded-card bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue">
                   Choose who can reuse it. Only me is the safest choice. My team or This project
-                  shares it more broadly and needs the team or project code from Settings.
+                  shares it more broadly. Copy the team or project sharing code from Settings under
+                  Teams or Projects.
                 </div>
 
                 {!candidate.source_available && (
@@ -646,12 +647,12 @@ function DecisionPanel({
                 </Field>
 
                 {requiresScopeId && (
-                  <Field label={scopeTargetCodeLabel(form.scopeKind)}>
+                  <Field label={scopeSharingCodeLabel(form.scopeKind)}>
                     <input
                       value={form.scopeId}
                       onChange={(event) => updateForm('scopeId', event.target.value)}
                       className={fieldClassName}
-                      placeholder={`Paste the ${scopeTargetCodeLabel(form.scopeKind)} from Settings…`}
+                      placeholder={`Paste the ${scopeSharingCodeLabel(form.scopeKind)} from Settings…`}
                       name="scopeId"
                       autoComplete="off"
                       data-testid="context-approval-scope-id"
@@ -746,7 +747,7 @@ function DecisionPanel({
                 onClick={onClose}
                 className="inline-flex h-9 items-center justify-center rounded-full px-3 text-ui-button font-medium text-secondary-light transition-colors hover:bg-black/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:text-secondary-dark dark:hover:bg-white/[0.08]"
               >
-                Review later
+                Check later
               </button>
               <button
                 type="submit"
@@ -763,7 +764,7 @@ function DecisionPanel({
                 {loading ? (
                   <Loader2 size={15} strokeWidth={2} className="animate-spin" aria-hidden="true" />
                 ) : null}
-                <span>{approving ? 'Approve and save' : 'Do not save'}</span>
+                <span>{approving ? 'Save item' : 'Do not save'}</span>
               </button>
             </div>
           </div>
@@ -921,7 +922,7 @@ function StatusPill({ state }: { state: ContextCandidateState }) {
       'bg-black/[0.06] text-secondary-light dark:bg-white/[0.08] dark:text-secondary-dark',
   }
   const labels: Record<ContextCandidateState, string> = {
-    pending: 'Waiting for review',
+    pending: 'Needs your check',
     approved: 'Saved',
     rejected: 'Not saved',
     superseded: 'Replaced',
@@ -969,7 +970,7 @@ function candidateTitle(candidate: ContextCandidateSummary): string {
     previewString(candidate, 'title') ||
     previewString(candidate, 'name') ||
     previewString(candidate, 'description') ||
-    `${contextItemKindLabel(candidate.item_kind)} ready to review`
+    `${contextItemKindLabel(candidate.item_kind)} ready to check`
   )
 }
 
@@ -993,8 +994,10 @@ function reuseAudienceLabel(value: ContextCandidateSummary['proposed_scope_kind'
   return `the selected ${value}`
 }
 
-function scopeTargetCodeLabel(value: ContextScopeKind): string {
-  return `${titleCase(value)} code`
+function scopeSharingCodeLabel(value: ContextScopeKind): string {
+  if (value === 'team') return 'team sharing code'
+  if (value === 'project') return 'project sharing code'
+  return `${titleCase(value)} sharing code`
 }
 
 function candidatePreview(candidate: ContextCandidateSummary): string {

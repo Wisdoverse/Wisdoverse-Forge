@@ -23,8 +23,9 @@ interface DraftForm {
 const SKILL_REVIEW_POINTS = [
   { label: 'Saved instruction', value: 'Keep only instructions future work should repeat.' },
   {
-    label: 'No secrets',
-    value: 'Remove secret keys, customer data, one-time paths, and private notes.',
+    label: 'Keep private details out',
+    value:
+      'Remove passwords, access keys, customer data, temporary file locations, and private notes.',
   },
   { label: 'Next owner', value: 'After publishing, choose the agents that should follow it.' },
 ]

@@ -218,7 +218,7 @@ function ServiceRow({ name, supportName, description, impact, action, health }: 
               </p>
               {health?.error && (
                 <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                  Setup helper note: {serviceIssueNote(health.error)}
+                  What to check next: {serviceIssueNote(health.error)}
                 </p>
               )}
             </div>
