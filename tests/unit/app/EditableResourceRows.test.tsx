@@ -27,11 +27,31 @@ const project: NavProject = {
 
 describe('Editable resource rows', () => {
   test('uses purpose-focused team edit and delete copy', () => {
-    render(<EditableTeamRow team={team} onUpdate={vi.fn()} onDelete={vi.fn()} />)
+    render(
+      <EditableTeamRow
+        team={team}
+        onUpdate={vi.fn()}
+        onDelete={vi.fn()}
+        onManageMembers={vi.fn()}
+      />
+    )
 
     expect(screen.getByText('Shown at the end of team links: platform')).toBeDefined()
     expect(screen.queryByText(/Forge uses this in team links/i)).toBeNull()
     expect(screen.queryByText(/Automatic team name/i)).toBeNull()
+    expect(screen.queryByTitle('Members')).toBeNull()
+    expect(screen.queryByTitle('Edit')).toBeNull()
+    expect(screen.queryByTitle('Delete')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Manage people and access for Platform' }))
+      .toHaveAttribute('title', 'Manage people and access')
+    expect(screen.getByRole('button', { name: 'Edit Platform' })).toHaveAttribute(
+      'title',
+      'Rename team'
+    )
+    expect(screen.getByRole('button', { name: 'Delete Platform' })).toHaveAttribute(
+      'title',
+      'Delete team'
+    )
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit Platform' }))
     expect(screen.getByPlaceholderText('What this team owns')).toBeDefined()
@@ -50,12 +70,26 @@ describe('Editable resource rows', () => {
         teamName="Platform"
         onUpdate={vi.fn()}
         onDelete={vi.fn()}
+        onManageMembers={vi.fn()}
       />
     )
 
     expect(screen.getByText('Shown at the end of project links: web-app')).toBeDefined()
     expect(screen.queryByText(/Forge uses this in project links/i)).toBeNull()
     expect(screen.queryByText(/Automatic project name/i)).toBeNull()
+    expect(screen.queryByTitle('Members')).toBeNull()
+    expect(screen.queryByTitle('Edit')).toBeNull()
+    expect(screen.queryByTitle('Delete')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Manage people and access for Web App' }))
+      .toHaveAttribute('title', 'Manage people and access')
+    expect(screen.getByRole('button', { name: 'Edit Web App' })).toHaveAttribute(
+      'title',
+      'Rename project'
+    )
+    expect(screen.getByRole('button', { name: 'Delete Web App' })).toHaveAttribute(
+      'title',
+      'Delete project'
+    )
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit Web App' }))
     expect(screen.getByPlaceholderText('What work belongs here')).toBeDefined()

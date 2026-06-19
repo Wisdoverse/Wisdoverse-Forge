@@ -138,8 +138,9 @@ describe('DescriptionTab', () => {
     )
 
     expect(screen.getByTestId('task-assignment-guidance').textContent).toBe(
-      'This agent will handle the next step for this task.'
+      'This agent finished this task. Review the result before accepting it.'
     )
+    expect(screen.queryByText('This agent will handle the next step for this task.')).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /open result files/i }))
     fireEvent.click(screen.getByRole('button', { name: /^review what was used/i }))
@@ -246,14 +247,19 @@ describe('DescriptionTab', () => {
         task={{
           ...mockTask,
           state: 'failed',
+          assignedAgentName: 'Review Agent',
           error: 'Rate limit exceeded: 429 from provider',
         }}
       />
     )
 
+    expect(screen.getByTestId('task-assignment-guidance').textContent).toBe(
+      'This agent tried this task. Check retry steps before trying again.'
+    )
     expect(screen.getAllByText('Check retry steps').length).toBeGreaterThan(1)
     expect(screen.queryByText('Triage failure')).toBeNull()
     expect(screen.queryByText('Failed')).toBeNull()
+    expect(screen.queryByText('This agent will handle the next step for this task.')).toBeNull()
     expect(screen.getAllByText(/AI service is busy/i).length).toBeGreaterThan(0)
     expect(
       screen.getAllByText(/Wait a minute, then open the task details and retry/i).length
