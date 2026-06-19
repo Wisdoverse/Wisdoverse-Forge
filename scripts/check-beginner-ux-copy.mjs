@@ -155,6 +155,12 @@ const REVIEW_DECISION_JARGON_PATTERNS = [
 
 const REVIEW_HISTORY_DEAD_END_PATTERNS = [/\bNo saved item history yet\b/i]
 
+const REVIEW_STATUS_JARGON_PATTERNS = [
+  /\bFix review\b/i,
+  /\bRefresh fix review\b/i,
+  /\bcode fix review\b/i,
+]
+
 const NOTE_SPACE_JARGON_PATTERNS = [
   /\bunits of note space\b/i,
   /\bunits available\b/i,
@@ -2253,6 +2259,17 @@ function hasReviewHistoryDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/context/ApprovalQueueView.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return REVIEW_HISTORY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasReviewStatusJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/detail/ReviewSnapshotPanel.tsx') &&
+    !relFile.endsWith('src/app/features/detail/model/reviewSnapshotErrorMessage.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return REVIEW_STATUS_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasNoteSpaceJargonCopy(line) {
@@ -4496,6 +4513,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Saved-item review history empty states must tell beginners to review the first suggestion.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasReviewStatusJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'review-status-copy',
+        location,
+        message: 'Review status copy must say review status instead of fix review jargon.',
         sample: line.trim(),
       })
     }

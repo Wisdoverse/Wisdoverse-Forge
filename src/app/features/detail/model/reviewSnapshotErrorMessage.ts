@@ -4,9 +4,9 @@ const RAW_NETWORK_ERRORS = [/^Network error$/i, /^Failed to fetch$/i]
 const RAW_STATUS_ERRORS = [/^API\s+\d{3}/i, /^HTTP\s+\d{3}/i, /^Server error\s*\(\d{3}\)$/i]
 
 const ACTION_FALLBACKS: Record<ReviewSnapshotAction, string> = {
-  load: 'Refresh fix review, then try again. Forge could not load the current review status.',
+  load: 'Refresh review status, then try again. Forge could not load the current review status.',
   approve:
-    'Refresh fix review, confirm automated checks passed, then finish this fix again. The fix was not finished.',
+    'Refresh review status, confirm automated checks passed, then finish this fix again. The fix was not finished.',
 }
 
 export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: unknown): string {
@@ -24,7 +24,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('bad credentials') ||
     text.includes('sign in again')
   ) {
-    return 'Sign in again, then refresh fix review. Forge could not confirm your review access.'
+    return 'Sign in again, then refresh review status. Forge could not confirm your review access.'
   }
 
   if (
@@ -51,7 +51,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('mergeable state') ||
     text.includes('cannot be merged')
   ) {
-    return 'Refresh fix review after the project code is updated. This fix needs the latest project code before it can finish.'
+    return 'Refresh review status after the project code is updated. This fix needs the latest project code before it can finish.'
   }
 
   if (
@@ -60,7 +60,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('check_suite') ||
     text.includes('required status')
   ) {
-    return 'Wait for automated checks to finish, then refresh fix review before finishing.'
+    return 'Wait for automated checks to finish, then refresh review status before finishing.'
   }
 
   const safeDetail = userSafeDetail(detail)
