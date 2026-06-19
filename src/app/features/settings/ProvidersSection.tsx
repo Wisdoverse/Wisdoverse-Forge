@@ -1069,10 +1069,14 @@ function useModelDiscovery() {
       const result = await getSettingsApi().discoverModels(input)
       setDiscovered(result)
       if (result.source === 'curated' || result.models.length === 0) {
-        setError('Could not load a live list from the service. Showing the built-in models.')
+        setError(
+          'Could not load a live list from the service. Showing the built-in models — pick one below, or type your model name in the field.'
+        )
       }
     } catch {
-      setError('Could not reach the service to list models. Showing the built-in models.')
+      setError(
+        'Could not reach the service to list models. Check the access key, then choose Find available models again — or pick a built-in model below.'
+      )
     } finally {
       setDiscovering(false)
     }
