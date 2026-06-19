@@ -138,7 +138,7 @@ const AGENT_GUIDANCE: { title: string; description: string; Icon: LucideIcon }[]
 function agentsSummary(agents: AdminAgent[], filter: AdminAgentRuntimeKindFilter): string {
   if (agents.length === 0) {
     return filter === 'all'
-      ? 'Create the first agent from Agents, then return here to review it across team spaces.'
+      ? 'Create the first agent from Agents, then return here to check it across team spaces.'
       : `No ${runtimeKindLabel(filter)} agents are present right now.`
   }
   const scope = filter === 'all' ? 'all work locations' : runtimeKindLabel(filter)
@@ -202,7 +202,7 @@ function AgentsEmptyState({ filter }: { filter: AdminAgentRuntimeKindFilter }) {
       </p>
       <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
         {filter === 'all'
-          ? 'Create the first agent from Agents, confirm it becomes Ready or Working, then return here to review it across team spaces. If you just created one, refresh Admin and check again.'
+          ? 'Create the first agent from Agents, confirm it becomes Ready or Working, then return here to check it across team spaces. If you just created one, refresh Admin and check again.'
           : `No ${runtimeKindLabel(filter)} agents match this filter. Choose "All work locations" before assuming the agent is missing.`}
       </p>
     </div>

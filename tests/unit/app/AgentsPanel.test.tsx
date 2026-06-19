@@ -194,7 +194,7 @@ describe('AgentsPanel', () => {
     const guide = await screen.findByTestId('admin-agents-guide')
     expect(
       within(guide).getByText(
-        'Create the first agent from Agents, then return here to review it across team spaces.'
+        'Create the first agent from Agents, then return here to check it across team spaces.'
       )
     ).toBeDefined()
     expect(
@@ -205,7 +205,8 @@ describe('AgentsPanel', () => {
     expect(within(emptyState).getByText('Create or connect an agent first')).toBeDefined()
     expect(within(emptyState).getByText(/create the first agent from agents/i)).toBeDefined()
     expect(within(emptyState).getByText(/confirm it becomes ready or working/i)).toBeDefined()
-    expect(within(emptyState).getByText(/review it across team spaces/i)).toBeDefined()
+    expect(within(emptyState).getByText(/check it across team spaces/i)).toBeDefined()
+    expect(within(emptyState).queryByText(/review it across team spaces/i)).toBeNull()
     expect(within(emptyState).getByText(/refresh admin and check again/i)).toBeDefined()
     expect(within(emptyState).queryByText('No agents to show')).toBeNull()
     expect(within(emptyState).queryByText(/organizations/i)).toBeNull()
