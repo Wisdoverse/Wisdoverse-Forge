@@ -61,7 +61,7 @@ const TASK_BRIEF_TEMPLATES: TaskBriefTemplate[] = [
     summary: 'Build a contained change',
     title: 'Build a focused feature',
     description:
-      'What should change:\n- \n\nWhere to work:\n- \n\nWhat to avoid:\n- \n\nDone when:\n- ',
+      'What should change:\n- Describe the screen, command, or behavior to add.\n\nWhere to work:\n- Name the page, folder, or files if you know them.\n\nWhat to avoid:\n- List anything that should stay unchanged.\n\nDone when:\n- Say what should be visible, passing, or ready to review.',
     priority: 'normal',
     Icon: ClipboardCheck,
   },
@@ -71,7 +71,7 @@ const TASK_BRIEF_TEMPLATES: TaskBriefTemplate[] = [
     summary: 'Reproduce and fix',
     title: 'Fix a reproducible defect',
     description:
-      'What is broken:\n- \n\nWhat should happen:\n- \n\nWhere to look first:\n- \n\nDone when:\n- ',
+      'What is broken:\n- Describe what you see now.\n\nWhat should happen:\n- Describe the correct result.\n\nWhere to look first:\n- Add the page, command, log, or file if you know it.\n\nDone when:\n- Say how to confirm the fix.',
     priority: 'high',
     Icon: Bug,
   },
@@ -81,7 +81,7 @@ const TASK_BRIEF_TEMPLATES: TaskBriefTemplate[] = [
     summary: 'Find the reason',
     title: 'Investigate an unclear issue',
     description:
-      'Question to answer:\n- \n\nWhat to inspect:\n- \n\nWhat is already known:\n- \n\nDecision needed:\n- ',
+      'Question to answer:\n- Write the question in one sentence.\n\nWhat to inspect:\n- Add pages, files, logs, or recent changes if you know them.\n\nWhat is already known:\n- Add clues, links, or screenshots.\n\nDecision needed:\n- Say what answer or recommendation you need.',
     priority: 'normal',
     Icon: Search,
   },
@@ -91,7 +91,7 @@ const TASK_BRIEF_TEMPLATES: TaskBriefTemplate[] = [
     summary: 'Check before release',
     title: 'Review a change for release readiness',
     description:
-      'Change to review:\n- \n\nWhat could go wrong:\n- \n\nChecks to run:\n- \n\nAnswer format:\n- ',
+      'Change to review:\n- Name the PR, branch, files, or behavior.\n\nWhat could go wrong:\n- List the risks you care about.\n\nChecks to run:\n- Add tests, commands, or manual checks.\n\nAnswer format:\n- Ask for a short verdict, issues, and final recommendation.',
     priority: 'normal',
     Icon: ShieldCheck,
   },
@@ -864,7 +864,7 @@ function meaningfulBriefText(description: string): string {
   return description
     .split(/\r?\n/)
     .map(cleanBriefLine)
-    .filter((line) => line.length > 0 && !isTemplateCueLabel(line))
+    .filter((line) => line.length > 0 && !isTemplateCueLabel(line) && !isTemplateHelperLine(line))
     .join('\n')
     .toLowerCase()
 }
@@ -882,6 +882,8 @@ function hasBriefSectionContent(description: string, labels: string[]): boolean 
       inSection = normalizedLabels.has(cueLabel)
       continue
     }
+
+    if (isTemplateHelperLine(line)) continue
 
     if (inSection) return true
   }
@@ -902,6 +904,10 @@ function isTemplateCueLabel(line: string): boolean {
   return TEMPLATE_CUE_LABELS.has(line.trim().replace(/:$/, '').toLowerCase())
 }
 
+function isTemplateHelperLine(line: string): boolean {
+  return TEMPLATE_HELPER_LINES.has(line.trim().toLowerCase())
+}
+
 const TEMPLATE_CUE_LABELS = new Set([
   'what should change',
   'where to work',
@@ -918,6 +924,25 @@ const TEMPLATE_CUE_LABELS = new Set([
   'what could go wrong',
   'checks to run',
   'answer format',
+])
+
+const TEMPLATE_HELPER_LINES = new Set([
+  'describe the screen, command, or behavior to add.',
+  'name the page, folder, or files if you know them.',
+  'list anything that should stay unchanged.',
+  'say what should be visible, passing, or ready to review.',
+  'describe what you see now.',
+  'describe the correct result.',
+  'add the page, command, log, or file if you know it.',
+  'say how to confirm the fix.',
+  'write the question in one sentence.',
+  'add pages, files, logs, or recent changes if you know them.',
+  'add clues, links, or screenshots.',
+  'say what answer or recommendation you need.',
+  'name the pr, branch, files, or behavior.',
+  'list the risks you care about.',
+  'add tests, commands, or manual checks.',
+  'ask for a short verdict, issues, and final recommendation.',
 ])
 
 function formatBriefCueList(labels: string[]): string {
