@@ -131,7 +131,7 @@ export function RuntimeSection() {
   const cliToolLabel = (tool: CliTool | string): string =>
     t(`settings.runtime.cliToolLabels.${tool}`, { defaultValue: fallbackCliToolLabel(tool) })
   const cliToolDetails = runtimeSettings?.cliToolDetails ?? []
-  const reportedVersionCount = cliToolDetails.filter((detail) => detail.version).length
+  const installedToolCount = cliToolDetails.filter((detail) => detail.imagePresent).length
   const connectedCredentialCount = cliStatuses.filter((status) => status.connected).length
   const disconnectedCredentials = cliStatuses.filter((status) => !status.connected)
   const latestHeartbeat = latestParticipantHeartbeat(participants)
@@ -266,10 +266,10 @@ export function RuntimeSection() {
             label="Work tools"
             value={
               cliToolDetails.length > 0
-                ? `${reportedVersionCount}/${cliToolDetails.length} work tools ready`
+                ? `${installedToolCount}/${cliToolDetails.length} work tools ready`
                 : 'Check again after tools finish. If this stays here, ask an owner to finish adding the tools.'
             }
-            ready={cliToolDetails.length > 0 && reportedVersionCount === cliToolDetails.length}
+            ready={cliToolDetails.length > 0 && installedToolCount === cliToolDetails.length}
           />
           <RuntimeReadinessMetric
             label="Last agent online"
@@ -312,7 +312,7 @@ export function RuntimeSection() {
                 Work tools
               </p>
               <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                {reportedVersionCount} work tool{reportedVersionCount === 1 ? '' : 's'} ready
+                {installedToolCount} work tool{installedToolCount === 1 ? '' : 's'} ready
               </p>
             </div>
             {cliToolDetails.map((detail) => (
@@ -325,7 +325,9 @@ export function RuntimeSection() {
                     {cliToolLabel(detail.cliTool)}
                   </span>
                   <span className="block truncate text-secondary-light dark:text-secondary-dark">
-                    {detail.version ?? 'Check tool version'}
+                    {detail.imagePresent
+                      ? (detail.version ?? 'Version not shown yet')
+                      : 'Install this work tool'}
                   </span>
                 </div>
                 <span
@@ -757,15 +759,12 @@ function runtimeLaunchChecklistItems(
   })
 
   const missingImages = runtimeSettings.cliToolDetails.filter((detail) => !detail.imagePresent)
-  const reportedVersionCount = runtimeSettings.cliToolDetails.filter(
-    (detail) => detail.version
-  ).length
+  const installedToolCount = runtimeSettings.cliToolDetails.length - missingImages.length
   const imageInventoryReady =
     runtimeSettings.availableCliTools.length > 0 &&
     runtimeSettings.cliToolDetails.length > 0 &&
-    missingImages.length === 0 &&
-    reportedVersionCount === runtimeSettings.cliToolDetails.length
-  let imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} work tools are ready.`
+    missingImages.length === 0
+  let imageDetail = `${installedToolCount}/${runtimeSettings.cliToolDetails.length} work tools are ready.`
   if (runtimeSettings.availableCliTools.length === 0) {
     imageDetail =
       'Enable at least one tool before giving agents tasks that need project files, commands, or live work access.'
@@ -776,8 +775,6 @@ function runtimeLaunchChecklistItems(
     imageDetail = `${missingImages.length} tool${
       missingImages.length === 1 ? '' : 's'
     } need setup. Ask an owner to finish setting up the tools, then check again.`
-  } else if (reportedVersionCount !== runtimeSettings.cliToolDetails.length) {
-    imageDetail = `${reportedVersionCount}/${runtimeSettings.cliToolDetails.length} work tools are ready. Ask an owner to finish setting up the tools without a version yet, then check again.`
   }
   items.push({
     id: 'images',

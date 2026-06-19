@@ -165,7 +165,7 @@ describe('RuntimeSection', () => {
     expect(screen.queryByText(/agent check-in/i)).toBeNull()
     expect(screen.queryByText(/tool check|not reported|not checked/i)).toBeNull()
     expect(screen.queryByText(/package check/i)).toBeNull()
-    expect(screen.getByText('Check tool version')).toBeDefined()
+    expect(screen.getByText('Install this work tool')).toBeDefined()
     expect(screen.queryByText('Needs attention')).toBeNull()
     expect(screen.getByText('Setup needed')).toBeDefined()
     expect(screen.getByText('check tool')).toBeDefined()
@@ -248,6 +248,39 @@ describe('RuntimeSection', () => {
     expect(screen.getAllByText(/agent online status/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/agent tools are checked/i)).toBeNull()
     expect(screen.queryByText(/agent check-ins/i)).toBeNull()
+  })
+
+  test('treats installed work tools without a shown version as ready', async () => {
+    agentApiMock.getCliAuthProxyStatus.mockResolvedValueOnce({
+      ok: true,
+      statuses: [],
+    })
+    useSettingsStore.setState({
+      runtimeSettings: {
+        defaultRuntime: 'container',
+        availableRuntimes: ['container'],
+        defaultCliTool: 'codex',
+        availableCliTools: ['codex'],
+        cliToolDetails: [
+          {
+            cliTool: 'codex',
+            image: 'agentforge-agent',
+            imagePresent: true,
+            versionSource: 'not-reported',
+          },
+        ],
+      },
+    })
+
+    render(<RuntimeSection />)
+
+    expect(await screen.findByText('4/4 ready')).toBeDefined()
+    expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('Ready to give agents work')
+    expect(screen.getAllByText(/1\/1 work tools ready/i).length).toBeGreaterThan(0)
+    expect(screen.getByText('Version not shown yet')).toBeDefined()
+    expect(screen.getByText('Installed and ready')).toBeDefined()
+    expect(screen.queryByText(/without a version yet/i)).toBeNull()
+    expect(screen.queryByText(/finish setting up the tools without a version/i)).toBeNull()
   })
 
   test('tells users to sign in before starting agents when no work tool sign-ins are connected', async () => {
