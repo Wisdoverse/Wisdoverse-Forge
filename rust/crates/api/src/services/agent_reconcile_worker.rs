@@ -23,12 +23,16 @@ use crate::repositories::admin::AdminRepository;
 /// Periodic reconcile sweep over container-runtime agents.
 pub struct AgentContainerReconcileWorker {
     state: AppState,
+    repo: AdminRepository,
     interval: Duration,
 }
 
 impl AgentContainerReconcileWorker {
     pub fn new(state: AppState, interval: Duration) -> Self {
-        Self { state, interval }
+        // Repository + service wiring lives in the constructor (DDD boundary):
+        // service methods must not build repositories from `self`-held infra.
+        let repo = AdminRepository::new(state.pool.clone());
+        Self { state, repo, interval }
     }
 
     /// Run until `shutdown` flips to `true`. The first sweep waits one interval
@@ -59,8 +63,7 @@ impl AgentContainerReconcileWorker {
             return;
         }
 
-        let admin = AdminRepository::new(self.state.pool.clone());
-        let refs = match admin.container_agents_with_reference().await {
+        let refs = match self.repo.container_agents_with_reference().await {
             Ok(refs) => refs,
             Err(err) => {
                 tracing::warn!(error = ?err, "agent container reconcile: failed to list agents");
