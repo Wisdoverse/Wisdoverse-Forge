@@ -20,7 +20,8 @@ describe('RightPanel', () => {
     expect(screen.getByRole('heading', { name: /live task updates/i })).toBeDefined()
     expect(screen.getByText(/agent progress, help needed, and finished work/i)).toBeDefined()
     expect(screen.queryByText(/blockers/i)).toBeNull()
-    expect(screen.getByLabelText(/hide live task updates panel/i)).toBeDefined()
+    expect(screen.getByLabelText(/hide live task updates/i)).toBeDefined()
+    expect(screen.queryByLabelText(/panel/i)).toBeNull()
   })
 
   test('calls the toggle handler from the readable hide control', async () => {
@@ -33,7 +34,7 @@ describe('RightPanel', () => {
       </RightPanel>
     )
 
-    await user.click(screen.getByLabelText(/hide live task updates panel/i))
+    await user.click(screen.getByLabelText(/hide live task updates/i))
 
     expect(onToggle).toHaveBeenCalledTimes(1)
   })

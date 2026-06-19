@@ -50,7 +50,7 @@ export function RightPanel({ collapsed, onToggle, children, variant = 'side' }: 
             </div>
             <button
               onClick={onToggle}
-              aria-label="Hide live task updates panel"
+              aria-label="Hide live task updates"
               className="w-6 h-6 flex items-center justify-center rounded-md text-secondary-light dark:text-secondary-dark hover:bg-black/[0.06] dark:hover:bg-white/[0.08] hover:text-foreground-light dark:hover:text-foreground-dark transition-colors"
             >
               <X size={14} strokeWidth={2} />

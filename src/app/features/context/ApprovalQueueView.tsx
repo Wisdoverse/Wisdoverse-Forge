@@ -548,7 +548,7 @@ function DecisionPanel({
     : !requiresScopeId
       ? 'Ready to save for your own account.'
       : !form.scopeId.trim()
-        ? `Paste the ${scopeTargetIdLabel(form.scopeKind)} before saving.`
+        ? `Paste the ${scopeTargetCodeLabel(form.scopeKind)} before saving.`
         : !form.confirmExpansion
           ? `Confirm ${reuseAudienceLabel(form.scopeKind)} can reuse this safely before saving.`
           : `Ready to save for ${reuseAudienceLabel(form.scopeKind)}.`
@@ -571,7 +571,7 @@ function DecisionPanel({
     <div className="fixed inset-0 z-50 flex justify-end bg-black/35 backdrop-blur-sm">
       <button
         type="button"
-        aria-label="Close review panel"
+        aria-label="Close saved item review"
         className="hidden flex-1 md:block"
         onClick={onClose}
       />
@@ -609,7 +609,7 @@ function DecisionPanel({
               <>
                 <div className="rounded-card bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue">
                   Choose who can reuse it. Only me is the safest choice. My team or This project
-                  shares it more broadly and needs the team or project ID from Settings.
+                  shares it more broadly and needs the team or project code from Settings.
                 </div>
 
                 {!candidate.source_available && (
@@ -646,12 +646,12 @@ function DecisionPanel({
                 </Field>
 
                 {requiresScopeId && (
-                  <Field label={scopeTargetIdLabel(form.scopeKind)}>
+                  <Field label={scopeTargetCodeLabel(form.scopeKind)}>
                     <input
                       value={form.scopeId}
                       onChange={(event) => updateForm('scopeId', event.target.value)}
                       className={fieldClassName}
-                      placeholder={`Paste the ${scopeTargetIdLabel(form.scopeKind)} from Settings…`}
+                      placeholder={`Paste the ${scopeTargetCodeLabel(form.scopeKind)} from Settings…`}
                       name="scopeId"
                       autoComplete="off"
                       data-testid="context-approval-scope-id"
@@ -993,8 +993,8 @@ function reuseAudienceLabel(value: ContextCandidateSummary['proposed_scope_kind'
   return `the selected ${value}`
 }
 
-function scopeTargetIdLabel(value: ContextScopeKind): string {
-  return `${titleCase(value)} ID`
+function scopeTargetCodeLabel(value: ContextScopeKind): string {
+  return `${titleCase(value)} code`
 }
 
 function candidatePreview(candidate: ContextCandidateSummary): string {

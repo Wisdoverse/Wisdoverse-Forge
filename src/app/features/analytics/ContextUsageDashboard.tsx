@@ -93,7 +93,7 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
             {data ? updatedAtLabel(data.lastRefreshedAt) : 'Updated when data is available'}
           </p>
           <p className="mt-1 max-w-2xl text-ui-body text-secondary-light dark:text-secondary-dark">
-            Use this panel to keep saved notes and instructions that help work finish, and check
+            Use this view to keep saved notes and instructions that help work finish, and check
             items that may be outdated, incorrect, or too sensitive before agents reuse them.
           </p>
         </div>

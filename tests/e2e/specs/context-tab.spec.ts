@@ -12,7 +12,7 @@ async function setupAndNavigate(page: Page, baseURL: string): Promise<void> {
   await page.locator('#root > *').first().waitFor({ state: 'attached', timeout: 30000 })
   await page.locator('[data-testid="main-content"]').waitFor({ state: 'attached', timeout: 15000 })
 
-  const expand = page.getByRole('button', { name: 'Show activity panel' })
+  const expand = page.getByRole('button', { name: 'Show live task updates' })
   if (await expand.isVisible().catch(() => false)) {
     await expand.click()
   }

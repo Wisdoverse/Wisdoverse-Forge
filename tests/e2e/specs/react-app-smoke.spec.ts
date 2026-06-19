@@ -101,7 +101,7 @@ async function setupAndNavigate(page: Page, baseURL: string, path = '/tasks'): P
   // open/closed state. Expand it once post-mount so downstream tests that
   // read `[data-testid="right-panel"]` see a mounted element. The dedicated
   // toggle test re-collapses explicitly.
-  const expand = page.getByRole('button', { name: 'Show activity panel' })
+  const expand = page.getByRole('button', { name: 'Show live task updates' })
   if (await expand.isVisible().catch(() => false)) {
     await expand.click()
   }
@@ -640,13 +640,13 @@ test.describe('React App Smoke Tests', () => {
 
       await expect(page.locator('[data-testid="right-panel"]')).toBeVisible()
 
-      // Close button carries aria-label="Hide activity panel"; icon is an SVG
+      // Close button carries a readable aria-label; icon is an SVG
       // (lucide X) with no text content, so text-filter locators miss it.
-      await page.getByRole('button', { name: 'Hide live task updates panel' }).click()
+      await page.getByRole('button', { name: 'Hide live task updates' }).click()
 
       // Panel collapses — expand button appears
       await expect(page.locator('[data-testid="right-panel"]')).toBeHidden({ timeout: 3000 })
-      const expandBtn = page.getByRole('button', { name: 'Show activity panel' })
+      const expandBtn = page.getByRole('button', { name: 'Show live task updates' })
       await expect(expandBtn).toBeVisible()
 
       // Click expand to restore
