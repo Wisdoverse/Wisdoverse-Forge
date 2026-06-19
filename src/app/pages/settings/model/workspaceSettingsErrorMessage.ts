@@ -113,10 +113,10 @@ function unavailableMessage(
   action: WorkspaceSettingsAction
 ): string {
   if (action === 'load') {
-    return `${loadMessage(resource)} If it still fails, ask an owner or admin to check team space setup.`
+    return `${loadMessage(resource)} If it still fails, ask an owner or admin to check Teams and Projects in Settings.`
   }
 
-  return `Refresh Settings, then ${retryPhrase(resource, action)}. If it still fails, ask an owner or admin to check team space setup.`
+  return `Refresh Settings, then ${retryPhrase(resource, action)}. If it still fails, ask an owner or admin to check Teams and Projects in Settings.`
 }
 
 function permissionMessage(
@@ -203,6 +203,6 @@ export function workspaceSettingsErrorMessage(
   }
 
   return action === 'load'
-    ? `${load} If it still fails, ask an owner or admin to check team space setup.`
-    : `Try to ${retry}. If it still fails, ask an owner or admin to check team space setup.`
+    ? `${load} If it still fails, ask an owner or admin to check Teams and Projects in Settings.`
+    : `Try to ${retry}. If it still fails, ask an owner or admin to check Teams and Projects in Settings.`
 }

@@ -98,7 +98,7 @@ function createTeamErrorMessage(error: unknown): string {
     return 'Wait a minute, then create this team again. Too many setup changes are happening right now.'
   }
   if (code != null && code >= 500) {
-    return 'Refresh Settings, then create this team again. If it still fails, ask an owner or admin to check team space setup.'
+    return 'Refresh Settings, then create this team again. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
   }
   if (
     error instanceof TypeError ||

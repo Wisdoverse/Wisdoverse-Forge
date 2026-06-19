@@ -135,7 +135,7 @@ function createProjectErrorMessage(error: unknown): string {
     return 'Wait a minute, then create this project again. Too many project changes are happening right now.'
   }
   if (code != null && code >= 500) {
-    return 'Wait a few minutes, then create this project again. Forge could not create the project right now. If it still fails, ask an owner or admin to check project setup.'
+    return 'Wait a few minutes, then create this project again. Forge could not create the project right now. If it still fails, ask an owner or admin to check Projects in Settings.'
   }
   if (
     error instanceof TypeError ||

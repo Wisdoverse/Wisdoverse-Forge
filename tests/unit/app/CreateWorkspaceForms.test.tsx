@@ -56,7 +56,10 @@ describe('workspace setup create forms', () => {
     await waitFor(() => {
       const alert = screen.getByRole('alert')
       expect(alert).toHaveTextContent('Refresh Settings, then create this team again.')
-      expect(alert).toHaveTextContent('ask an owner or admin to check team space setup')
+      expect(alert).toHaveTextContent(
+        'ask an owner or admin to check Teams and Projects in Settings'
+      )
+      expect(alert).not.toHaveTextContent('team space setup')
       expect(alert).not.toHaveTextContent('API 500')
       expect(alert).not.toHaveTextContent('database unavailable')
     })
@@ -253,6 +256,8 @@ describe('workspace setup create forms', () => {
       const alert = screen.getByRole('alert')
       expect(alert).toHaveTextContent('Wait a few minutes, then create this project again.')
       expect(alert).toHaveTextContent('Forge could not create the project right now')
+      expect(alert).toHaveTextContent('ask an owner or admin to check Projects in Settings')
+      expect(alert).not.toHaveTextContent('project setup')
       expect(alert).not.toHaveTextContent('API 500')
       expect(alert).not.toHaveTextContent('database unavailable')
     })
