@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { BillingPage } from '@app/features/billing/BillingPage'
 import { InvoiceList } from '@app/features/billing/InvoiceList'
 import { PlanCard } from '@app/features/billing/PlanCard'
@@ -91,5 +91,74 @@ describe('Billing views', () => {
 
     expect(screen.getByText('Payment due')).toBeDefined()
     expect(screen.getByRole('button', { name: 'Manage billing' })).toBeDefined()
+  })
+
+  test('shows a connection recovery step when the payment page cannot open', async () => {
+    const plan: BillingPlan = {
+      id: 'pro',
+      name: 'Pro',
+      description: 'For teams running managed agents',
+      features: {},
+      limits: {},
+      price: { monthly: 4900, yearly: 49000, currency: 'usd' },
+    }
+    const createCheckout = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
+    useBillingStore.setState({
+      ...originalBillingState,
+      plan,
+      subscription: null,
+      usage: [],
+      invoices: [],
+      loadAll: vi.fn(),
+      createCheckout,
+    })
+
+    render(<BillingPage />)
+    fireEvent.click(screen.getByRole('button', { name: /upgrade plan/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Check your connection, then try opening the secure payment page again.'
+    )
+    expect(alert).toHaveTextContent('Forge could not connect while opening billing.')
+    expect(alert).not.toHaveTextContent('Failed to fetch')
+  })
+
+  test('shows a billing access step when billing management cannot open', async () => {
+    const plan: BillingPlan = {
+      id: 'pro',
+      name: 'Pro',
+      description: 'For teams running managed agents',
+      features: {},
+      limits: {},
+      price: { monthly: 4900, yearly: 49000, currency: 'usd' },
+    }
+    const subscription: BillingSubscription = {
+      id: 'sub-1',
+      planId: 'pro',
+      status: 'active',
+      currentPeriodStart: '2026-05-01T00:00:00.000Z',
+      currentPeriodEnd: '2026-06-01T00:00:00.000Z',
+      cancelAtPeriodEnd: false,
+    }
+    const openPortal = vi.fn().mockRejectedValue({ statusCode: 403, detail: 'portal forbidden' })
+    useBillingStore.setState({
+      ...originalBillingState,
+      plan,
+      subscription,
+      usage: [],
+      invoices: [],
+      loadAll: vi.fn(),
+      openPortal,
+    })
+
+    render(<BillingPage />)
+    fireEvent.click(screen.getByRole('button', { name: /manage billing/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Ask an owner or admin to give you billing access, then try opening the billing management page again.'
+    )
+    expect(alert).not.toHaveTextContent('portal forbidden')
   })
 })

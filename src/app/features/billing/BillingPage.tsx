@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { CreditCard } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import { useBillingStore } from '@app/shared/model/billing.store'
+import { billingActionErrorMessage, useBillingStore } from '@app/shared/model/billing.store'
 import { PlanCard } from './PlanCard'
 import { UsageMeter } from './UsageMeter'
 import { InvoiceList } from './InvoiceList'
@@ -161,9 +161,9 @@ export function BillingPage() {
         window.location.href = url
         return
       }
-      setActionError(
-        'Try opening the secure payment page again. If it still does not open, ask an owner or admin to check billing.'
-      )
+      setActionError(billingActionErrorMessage(null, 'checkout'))
+    } catch (err) {
+      setActionError(billingActionErrorMessage(err, 'checkout'))
     } finally {
       setBillingAction(null)
     }
@@ -178,9 +178,9 @@ export function BillingPage() {
         window.open(url, '_blank', 'noopener,noreferrer')
         return
       }
-      setActionError(
-        'Try opening the billing management page again. If it still does not open, ask an owner or admin to check access.'
-      )
+      setActionError(billingActionErrorMessage(null, 'portal'))
+    } catch (err) {
+      setActionError(billingActionErrorMessage(err, 'portal'))
     } finally {
       setBillingAction(null)
     }
