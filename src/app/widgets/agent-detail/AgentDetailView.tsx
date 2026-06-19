@@ -105,7 +105,7 @@ function agentFolderLabel(agent: AgentInfo): string {
       : 'Default project folder'
   }
   return isHostCliAgent(agent)
-    ? `Folder selected during setup: ${agent.cwd}`
+    ? `Selected work folder: ${agent.cwd}`
     : `Agent work folder: ${agent.cwd}`
 }
 
@@ -277,7 +277,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
             <StatCard label="Tasks done" value={String(agent.tasksCompleted)} />
             <StatCard label="In progress" value={String(agent.tasksInProgress)} />
             <StatCard label="Finished cleanly" value={`${ratePercent}%`} />
-            <StatCard label="Work setup" value={agentSetupSummary(agent)} />
+            <StatCard label="Work type" value={agentSetupSummary(agent)} />
           </div>
 
           {/* Agent info */}

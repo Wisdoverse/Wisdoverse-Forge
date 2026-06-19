@@ -326,7 +326,7 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
               onClick={() => setShowRequestDetails((visible) => !visible)}
               className="mt-1 text-[10px] font-medium text-apple-blue hover:underline"
             >
-              {showRequestDetails ? 'Hide setup details' : 'Show setup details'}
+              {showRequestDetails ? 'Hide what the agent received' : 'Show what the agent received'}
             </button>
             {showRequestDetails && (
               <pre

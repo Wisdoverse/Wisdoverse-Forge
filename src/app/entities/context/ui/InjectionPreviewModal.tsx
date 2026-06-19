@@ -463,7 +463,7 @@ function degradationLabel(reason: string): string {
     case 'budget_truncated':
       return 'Some notes will be left out because this agent has limited note space'
     case 'runtime_capability_fallback':
-      return 'Using safe defaults because agent setup details were incomplete'
+      return "Using safe defaults because this agent's work details were incomplete"
     case 'no_subagents':
       return 'Notes meant only for helper agents will be skipped'
     default:

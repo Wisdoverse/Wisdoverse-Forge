@@ -121,6 +121,22 @@ describe('InjectionPreviewModal', () => {
     ).toBeNull()
   })
 
+  test('explains incomplete agent work details without setup-detail jargon', () => {
+    render(
+      <InjectionPreviewModal
+        isOpen
+        preview={{ ...preview, degradation: ['runtime_capability_fallback'] }}
+        onClose={() => {}}
+        onConfirm={() => {}}
+      />
+    )
+
+    expect(
+      screen.getByText("Using safe defaults because this agent's work details were incomplete")
+    ).toBeDefined()
+    expect(screen.queryByText(/agent setup details/i)).toBeNull()
+  })
+
   test('uses plain saved-notes wording for loading and empty states', () => {
     render(
       <InjectionPreviewModal

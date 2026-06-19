@@ -23,8 +23,8 @@ describe('SettingsLayout', () => {
     render(<SettingsLayout routeSection="about" onSectionChange={onSectionChange} />)
 
     const desktopNav = screen.getByTestId('settings-desktop-nav')
-    expect(within(desktopNav).getByText('AI setup')).toBeInTheDocument()
-    expect(within(desktopNav).getByText('Work setup')).toBeInTheDocument()
+    expect(within(desktopNav).getAllByText('AI services').length).toBeGreaterThanOrEqual(2)
+    expect(within(desktopNav).getByText('Agent work')).toBeInTheDocument()
     expect(within(desktopNav).getByText('People')).toBeInTheDocument()
     expect(within(desktopNav).getByText('Product info')).toBeInTheDocument()
     expect(
@@ -65,8 +65,8 @@ describe('SettingsLayout', () => {
     expect(within(desktopNav).queryByText('Team members')).not.toBeInTheDocument()
     expect(screen.queryByText(/Start guide reset/i)).toBeNull()
 
-    expect(screen.getByRole('group', { name: 'AI setup' })).toBeInTheDocument()
-    expect(screen.getByRole('group', { name: 'Work setup' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'AI services' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Agent work' })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'People' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'AI services' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Outside apps' })).toBeInTheDocument()

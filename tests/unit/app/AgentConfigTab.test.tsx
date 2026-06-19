@@ -353,7 +353,7 @@ describe('AgentConfigTab', () => {
     expect(screen.getByText('Starting project')).toBeInTheDocument()
     expect(screen.getByText('Platform')).toBeInTheDocument()
     expect(screen.getByText('Starting folder')).toBeInTheDocument()
-    expect(screen.getByText('Folder selected during setup')).toBeInTheDocument()
+    expect(screen.getByText('Selected work folder')).toBeInTheDocument()
     expect(screen.queryByText(/ran the command/i)).toBeNull()
     expect(screen.queryByText('host-local-123')).toBeNull()
     expect(screen.queryByText(/runtime/i)).toBeNull()

@@ -453,6 +453,8 @@ const AGENT_DETAIL_GENERIC_HEADING_PATTERNS = [
 const AGENT_DETAIL_STARTING_LABEL_PATTERNS = [
   /\bStarting project for tasks\b/i,
   /\bStarting folder\b/i,
+  /\bFolder selected during setup\b/i,
+  /\bWork setup\b/i,
 ]
 
 const AGENT_DETAIL_START_FAILURE_FIRST_PATTERNS = [/\bStart did not finish\b/i]
@@ -561,7 +563,10 @@ const SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS = [
 
 const SYSTEM_HEALTH_LIVE_UPDATE_JARGON_PATTERNS = [/\bMoves events from running agents\b/i]
 
-const SYSTEM_HEALTH_HELPER_NOTE_JARGON_PATTERNS = [/\bOwner\/admin note\b/i]
+const SYSTEM_HEALTH_HELPER_NOTE_JARGON_PATTERNS = [
+  /\bOwner\/admin note\b/i,
+  /\bSetup helper note\b/i,
+]
 
 const ADMIN_NAV_TECHNICAL_COPY_PATTERNS = [
   /\bSystem health and user management\b/i,
@@ -1289,6 +1294,7 @@ const CHAT_FILTER_EMPTY_DEAD_END_PATTERNS = [
 const CHAT_TOOL_STEP_DEAD_END_PATTERNS = [
   /\bThis step needs review\b/i,
   /\bThis step has not reported a result yet\b/i,
+  /\b(?:Show|Hide) setup details\b/i,
   /\bTook\s+\{?formatDuration\b/i,
   /\bTook\s+\{?[^\n]{0,80}(?:ms|s)\b/i,
   /\bDuration:\s*\{?[^\n]{0,80}(?:ms|s)\b/i,
@@ -5788,7 +5794,7 @@ function scanFile(file, relFile) {
         type: 'system-health-helper-note-copy',
         location,
         message:
-          'App health issue notes must use setup-helper wording instead of owner/admin slash jargon.',
+          'App health issue notes must say what to check next instead of setup-helper or owner/admin slash jargon.',
         sample: line.trim(),
       })
     }

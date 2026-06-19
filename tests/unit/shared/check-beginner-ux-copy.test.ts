@@ -4373,7 +4373,7 @@ function agentFolderLabel(agent) {
     const cwd = fixture({
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
 function agentFolderLabel(agent) {
-  return \`Folder selected during setup: \${agent.cwd}\`
+  return \`Selected work folder: \${agent.cwd}\`
 }
 `,
     })
@@ -4385,7 +4385,7 @@ function agentFolderLabel(agent) {
     const cwd = fixture({
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
 function AgentDetailView() {
-  return <><DetailRow label="Starting project for tasks" /><DetailRow label="Starting folder" /></>
+  return <><DetailRow label="Starting project for tasks" /><DetailRow label="Starting folder" /><StatCard label="Work setup" /></>
 }
 `,
     })
@@ -8143,6 +8143,8 @@ function toolOutcome() {
 const labels = {
   path: 'Path',
 }
+
+const requestToggle = 'Show setup details'
 `,
     })
 
@@ -8166,6 +8168,10 @@ const labels = {
         expect.objectContaining({
           type: 'chat-tool-step-copy',
           location: 'src/app/features/chat/ToolCallDetail.tsx:15',
+        }),
+        expect.objectContaining({
+          type: 'chat-tool-step-copy',
+          location: 'src/app/features/chat/ToolCallDetail.tsx:18',
         }),
       ])
     )
@@ -8905,25 +8911,35 @@ function serviceStatusText(status: ServiceStatus): string {
 function ServiceRow() {
   return <p>Owner/admin note: check the service logs.</p>
 }
+
+function HelperNote() {
+  return <p>Setup helper note: use the next step above, then choose Check now.</p>
+}
 `,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'system-health-helper-note-copy',
-        sample: expect.stringContaining('Owner/admin note'),
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'system-health-helper-note-copy',
+          sample: expect.stringContaining('Owner/admin note'),
+        }),
+        expect.objectContaining({
+          type: 'system-health-helper-note-copy',
+          sample: expect.stringContaining('Setup helper note'),
+        }),
+      ])
+    )
   })
 
-  it('accepts app health issue notes that name setup helpers', () => {
+  it('accepts app health issue notes that say what to check next', () => {
     const cwd = fixture({
       'src/app/features/admin/SystemHealth.tsx': `
 function ServiceRow() {
-  return <p>Setup helper note: use the next step above, then choose Check now.</p>
+  return <p>What to check next: use the next step above, then choose Check now.</p>
 }
 `,
     })
