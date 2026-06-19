@@ -1546,6 +1546,12 @@ const AUTH_INTRO_JARGON_PATTERNS = [
   /\bUse the email your workspace admin invited\b/i,
 ]
 
+const AUTH_SETUP_JARGON_PATTERNS = [
+  /\bsign-in setup\b/i,
+  /\baccount setup\b/i,
+  /\baccount creation setup\b/i,
+]
+
 const AUTH_VISIBLE_SYMBOL_PATTERNS = [
   /\bfunction\s+getSsoIcon\b/,
   /\bgetSsoIcon\(/,
@@ -2676,6 +2682,17 @@ function hasAuthIntroJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/auth/AuthPage.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return AUTH_INTRO_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAuthSetupJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/auth/AuthPage.ts') &&
+    !relFile.endsWith('src/app/shared/auth/AuthManager.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AUTH_SETUP_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAuthVisibleSymbolCopy(relFile, line) {
@@ -5095,6 +5112,16 @@ function scanFile(file, relFile) {
         type: 'auth-intro-copy',
         location,
         message: 'Sign-in orientation must describe saved work records, not evidence.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAuthSetupJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'auth-setup-copy',
+        location,
+        message:
+          'Auth recovery copy must name the sign-in option or account creation step instead of saying setup.',
         sample: line.trim(),
       })
     }
