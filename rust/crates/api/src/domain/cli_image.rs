@@ -199,6 +199,25 @@ impl RollToolPolicy {
     }
 }
 
+/// The precise post-condition of rolling one agent. Replaces the old binary
+/// "stopped" guess: the stop path now verifies the container's real state, so
+/// the UI can state what actually happened instead of "it may be X or Y".
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RollOutcome {
+    /// Stopped, removed, and successfully respawned on the new image.
+    Respawned,
+    /// Container confirmed stopped+removed, but the respawn failed — agent is
+    /// now DOWN; restart it.
+    RespawnFailed,
+    /// Container is confirmed still running on its previous image (the stop did
+    /// not take effect). Nothing was changed; safe to retry the roll.
+    StillRunning,
+    /// The container's final state could not be confirmed (daemon error, or the
+    /// roll could not be attempted). The reconcile backstop will converge it.
+    Unconfirmed,
+}
+
 /// Per-agent outcome of a roll. `error` is a client-safe message (never an
 /// internal error), present only when `ok` is false.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -206,31 +225,36 @@ impl RollToolPolicy {
 pub struct RollAgentResult {
     pub agent_id: Uuid,
     pub ok: bool,
-    /// Only meaningful when `ok == false`: `true` means the agent's container was
-    /// confirmed stopped+removed but the respawn failed (so it is now DOWN —
-    /// restart it); `false` means the stop itself did not complete cleanly, so the
-    /// post-condition is UNCONFIRMED (the agent may still be running on the
-    /// previous image, or a partial stop may have already brought it down). The
-    /// UI tells the operator to check the Agents view rather than asserting either.
+    /// Whether the agent's container is confirmed stopped+removed. `true` only
+    /// for `RespawnFailed` (stopped, but down). `false` for every other state.
+    /// Retained for backward compatibility; prefer `outcome` for new UI.
     pub stopped: bool,
+    /// The precise, verified post-condition. The UI keys its messaging off this.
+    pub outcome: RollOutcome,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
 
 impl RollAgentResult {
     pub(crate) fn respawned(agent_id: Uuid) -> Self {
-        Self { agent_id, ok: true, stopped: false, error: None }
+        Self { agent_id, ok: true, stopped: false, outcome: RollOutcome::Respawned, error: None }
     }
 
     /// Respawn failed after the container was stopped+removed → agent is now down.
     pub(crate) fn failed_now_stopped(agent_id: Uuid, error: String) -> Self {
-        Self { agent_id, ok: false, stopped: true, error: Some(error) }
+        Self { agent_id, ok: false, stopped: true, outcome: RollOutcome::RespawnFailed, error: Some(error) }
     }
 
-    /// Stop did not complete cleanly → post-condition unconfirmed (may still be
-    /// running on the previous image, or already down from a partial stop).
-    pub(crate) fn failed_still_running(agent_id: Uuid, error: String) -> Self {
-        Self { agent_id, ok: false, stopped: false, error: Some(error) }
+    /// Container confirmed still running on the previous image — the stop did not
+    /// take effect. Nothing changed; the operator can simply retry.
+    pub(crate) fn still_running(agent_id: Uuid) -> Self {
+        Self { agent_id, ok: false, stopped: false, outcome: RollOutcome::StillRunning, error: None }
+    }
+
+    /// The stop could not be confirmed (daemon error, or the roll could not be
+    /// attempted). The reconcile backstop converges the DB state.
+    pub(crate) fn unconfirmed(agent_id: Uuid, error: String) -> Self {
+        Self { agent_id, ok: false, stopped: false, outcome: RollOutcome::Unconfirmed, error: Some(error) }
     }
 }
 
@@ -375,17 +399,19 @@ mod tests {
             vec![
                 RollAgentResult::respawned(a),
                 RollAgentResult::failed_now_stopped(b, "boom".into()),
-                RollAgentResult::failed_still_running(c, "stop failed".into()),
+                RollAgentResult::unconfirmed(c, "stop failed".into()),
             ],
             3,
         );
         assert_eq!((report.total, report.succeeded, report.failed, report.skipped_busy), (6, 1, 2, 3));
         // The two failure modes carry the truthful post-condition: start-fail →
-        // confirmed stopped; stop-fail → unconfirmed (stopped = false).
+        // confirmed stopped (RespawnFailed); stop-unconfirmed → not stopped.
         let now_stopped = report.results.iter().find(|r| r.agent_id == b).unwrap();
         assert!(now_stopped.stopped && now_stopped.error.as_deref() == Some("boom"));
-        let still_running = report.results.iter().find(|r| r.agent_id == c).unwrap();
-        assert!(!still_running.stopped && still_running.error.as_deref() == Some("stop failed"));
+        assert_eq!(now_stopped.outcome, RollOutcome::RespawnFailed);
+        let unconfirmed = report.results.iter().find(|r| r.agent_id == c).unwrap();
+        assert!(!unconfirmed.stopped && unconfirmed.error.as_deref() == Some("stop failed"));
+        assert_eq!(unconfirmed.outcome, RollOutcome::Unconfirmed);
     }
 
     #[test]

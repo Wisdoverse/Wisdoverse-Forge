@@ -624,10 +624,14 @@ function RollResultBlock({
     )
   }
   if (!result) return null
-  const nowStopped = result.results.filter((r) => !r.ok && r.stopped)
-  const stillRunning = result.results.filter((r) => !r.ok && !r.stopped)
+  // Bucket by the verified post-condition the backend now reports.
+  const respawnFailed = result.results.filter((r) => r.outcome === 'respawn_failed')
+  const stillRunning = result.results.filter((r) => r.outcome === 'still_running')
+  const unconfirmed = result.results.filter((r) => r.outcome === 'unconfirmed')
   const firstError =
-    nowStopped.find((r) => r.error)?.error ?? stillRunning.find((r) => r.error)?.error
+    respawnFailed.find((r) => r.error)?.error ??
+    unconfirmed.find((r) => r.error)?.error ??
+    stillRunning.find((r) => r.error)?.error
   return (
     <div className="mt-4 rounded-card border border-black/[0.06] bg-black/[0.02] px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.03]">
       <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
@@ -644,20 +648,28 @@ function RollResultBlock({
           once they show Ready.
         </p>
       )}
-      {(nowStopped.length > 0 || stillRunning.length > 0) && (
+      {(respawnFailed.length > 0 || stillRunning.length > 0 || unconfirmed.length > 0) && (
         <div className="mt-2 rounded-card border border-apple-red/20 bg-apple-red/[0.04] px-3 py-2">
-          {nowStopped.length > 0 && (
+          {respawnFailed.length > 0 && (
             <p className="text-ui-caption text-foreground-light dark:text-foreground-dark">
-              {nowStopped.length} {nowStopped.length === 1 ? 'agent' : 'agents'} did not restart and{' '}
-              {nowStopped.length === 1 ? 'is' : 'are'} now stopped — restart from the Agents view.
+              {respawnFailed.length} {respawnFailed.length === 1 ? 'agent' : 'agents'} did not
+              restart and {respawnFailed.length === 1 ? 'is' : 'are'} now stopped — restart from the
+              Agents view.
             </p>
           )}
           {stillRunning.length > 0 && (
             <p className="text-ui-caption text-foreground-light dark:text-foreground-dark">
-              {stillRunning.length} {stillRunning.length === 1 ? 'agent' : 'agents'} could not be
-              stopped cleanly — {stillRunning.length === 1 ? 'it' : 'they'} may still be running on
-              the previous tool version, or may have stopped without restarting. Check the Agents
-              view and restart if needed.
+              {stillRunning.length} {stillRunning.length === 1 ? 'agent' : 'agents'}{' '}
+              {stillRunning.length === 1 ? 'is' : 'are'} still running on the previous tool version
+              — the stop did not take effect, so nothing changed. Choose Restart again to retry.
+            </p>
+          )}
+          {unconfirmed.length > 0 && (
+            <p className="text-ui-caption text-foreground-light dark:text-foreground-dark">
+              {unconfirmed.length} {unconfirmed.length === 1 ? 'agent' : 'agents'} could not be
+              confirmed stopped. The server is reconciling{' '}
+              {unconfirmed.length === 1 ? 'it' : 'them'} automatically — recheck in a minute, no
+              action needed.
             </p>
           )}
           {firstError && (
