@@ -271,7 +271,8 @@ describe('Sidebar', () => {
     expect(menuScope.queryByText(/choose roles/i)).not.toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /rename project/i })).toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /all project settings/i })).toBeInTheDocument()
-    expect(menuScope.getByRole('menuitem', { name: /copy project id/i })).toBeInTheDocument()
+    expect(menuScope.getByRole('menuitem', { name: /copy project code/i })).toBeInTheDocument()
+    expect(menuScope.queryByRole('menuitem', { name: /copy project id/i })).not.toBeInTheDocument()
     expect(
       menuScope.queryByRole('menuitem', { name: /copy support reference/i })
     ).not.toBeInTheDocument()
@@ -279,8 +280,9 @@ describe('Sidebar', () => {
       menuScope.getByRole('menuitem', { name: /copy project link ending/i })
     ).toBeInTheDocument()
     expect(
-      menuScope.getByText(/another page or support asks for this project ID/i)
+      menuScope.getByText(/another page or support asks for this project code/i)
     ).toBeInTheDocument()
+    expect(menuScope.queryByText(/another page or support asks for this project ID/i)).toBeNull()
     expect(menuScope.queryByText(/project reference/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/only share this if support asks/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText('p1')).not.toBeInTheDocument()
@@ -289,7 +291,9 @@ describe('Sidebar', () => {
     expect(menuScope.queryByText(/link name/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/project short name/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/short name used in project links/i)).not.toBeInTheDocument()
-    expect(menuScope.getByText(/people may see this at the end of project links/i)).toBeInTheDocument()
+    expect(
+      menuScope.getByText(/people may see this at the end of project links/i)
+    ).toBeInTheDocument()
     expect(menuScope.queryByText(/Forge uses this in project links/i)).not.toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /delete project/i })).toBeInTheDocument()
   })
@@ -335,7 +339,8 @@ describe('Sidebar', () => {
 
     expect(screen.getByRole('menu', { name: /project x project menu/i })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /open project board/i })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: /copy project id/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /copy project code/i })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /copy project id/i })).not.toBeInTheDocument()
     expect(
       screen.queryByRole('menuitem', { name: /copy support reference/i })
     ).not.toBeInTheDocument()
@@ -383,14 +388,15 @@ describe('Sidebar', () => {
 
     render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
     fireEvent.contextMenu(screen.getByTestId('project-p1'))
-    fireEvent.click(screen.getByRole('menuitem', { name: /copy project id/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /copy project code/i }))
 
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('p1'))
-    expect(screen.getByTestId('project-copy-status')).toHaveTextContent('Project ID copied')
+    expect(screen.getByTestId('project-copy-status')).toHaveTextContent('Project code copied')
+    expect(screen.getByTestId('project-copy-status')).not.toHaveTextContent('Project ID copied')
     expect(screen.getByTestId('project-copy-status')).not.toHaveTextContent(/support reference/i)
   })
 
-  it('shows a manual project ID when browser copy fails', async () => {
+  it('shows a manual project code when browser copy fails', async () => {
     seedProjectTree()
     const writeText = vi.fn().mockRejectedValue(new Error('denied'))
     Object.defineProperty(navigator, 'clipboard', {
@@ -400,12 +406,13 @@ describe('Sidebar', () => {
 
     render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
     fireEvent.contextMenu(screen.getByTestId('project-p1'))
-    fireEvent.click(screen.getByRole('menuitem', { name: /copy project id/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /copy project code/i }))
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'Copy did not work. Select the project ID below and copy it yourself.'
+      'Copy did not work. Select the project code below and copy it yourself.'
     )
+    expect(alert).not.toHaveTextContent(/project ID/i)
     expect(screen.getByTestId('project-copy-manual-value')).toHaveTextContent('p1')
     expect(alert).not.toHaveTextContent(/support reference/i)
     expect(alert).not.toHaveTextContent(/clipboard access/i)

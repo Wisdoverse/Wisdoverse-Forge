@@ -896,13 +896,13 @@ export function ProjectTree({
             <div className="my-1 h-px bg-black/[0.06] dark:bg-white/[0.08]" />
             <ProjectMenuItem
               Icon={Copy}
-              label="Copy project ID"
-              detail="Use this only when another page or support asks for this project ID"
+              label="Copy project code"
+              detail="Use this only when another page or support asks for this project code"
               onClick={() =>
                 void handleCopyProjectValue(
                   projectMenu.project.id,
-                  'Project ID copied',
-                  'project ID'
+                  'Project code copied',
+                  'project code'
                 )
               }
             />
