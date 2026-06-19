@@ -1414,6 +1414,12 @@ const CONTEXT_EVIDENCE_FULL_RECORD_JARGON_PATTERNS = [
   /\bfull record only\b/i,
 ]
 
+const CONTEXT_EVIDENCE_EMPTY_DETAIL_DEAD_END_PATTERNS = [
+  /\bNo saved details were available\b/i,
+  /\bretry if needed\b/i,
+  /\breturn\s+['"`]not available['"`]/i,
+]
+
 const CHAT_MESSAGE_FALLBACK_DEAD_END_PATTERNS = [
   /\bMessage needs review\b/i,
   /\bMessage sender not reported\b/i,
@@ -4461,6 +4467,12 @@ function hasContextEvidenceFullRecordJargonCopy(relFile, line) {
   return CONTEXT_EVIDENCE_FULL_RECORD_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasContextEvidenceEmptyDetailDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/detail/ContextEvidenceList.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CONTEXT_EVIDENCE_EMPTY_DETAIL_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasChatMessageFallbackDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/chat/ChatView.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -7107,6 +7119,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Saved detail copy must say saved details instead of full record for first-time users.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasContextEvidenceEmptyDetailDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'context-evidence-empty-detail-copy',
+        location,
+        message:
+          'Saved detail empty values must explain what was saved and what beginners can ask next.',
         sample: line.trim(),
       })
     }

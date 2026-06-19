@@ -9327,6 +9327,50 @@ export function ContextEvidenceList() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags saved detail empty values that leave beginners at unavailable or retry copy', () => {
+    const cwd = fixture({
+      'src/app/features/detail/ContextEvidenceList.tsx': `
+function formatSavedDetails() {
+  return 'No saved details were available. Check the summary above, then retry if needed.'
+}
+function savedDetailValue() {
+  return 'not available'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'context-evidence-empty-detail-copy',
+          location: 'src/app/features/detail/ContextEvidenceList.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'context-evidence-empty-detail-copy',
+          location: 'src/app/features/detail/ContextEvidenceList.tsx:6',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved detail empty values that explain what users can do next', () => {
+    const cwd = fixture({
+      'src/app/features/detail/ContextEvidenceList.tsx': `
+function formatSavedDetails() {
+  return 'The summary above is all that was saved for this item. Ask the agent to explain the result if something looks wrong.'
+}
+function savedDetailValue() {
+  return 'not saved for this item'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags chat unavailable copy without a setup or send step', () => {
     const cwd = fixture({
       'src/app/features/chat/ChatView.tsx': `

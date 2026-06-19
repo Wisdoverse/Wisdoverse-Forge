@@ -296,6 +296,28 @@ describe('ContextEvidenceList', () => {
     expect(screen.queryByText(/Full record details/i)).toBeNull()
   })
 
+  test('explains empty saved-detail values without unavailable dead ends', () => {
+    render(
+      <ContextEvidenceList
+        evidence={[
+          evidence({
+            payload: {
+              title: 'Release check',
+              result: null,
+            },
+          }),
+        ]}
+        revokedItems={[]}
+      />
+    )
+
+    fireEvent.click(screen.getByText('Show saved details'))
+
+    expect(screen.getByText(/Saved detail: not saved for this item/i)).toBeInTheDocument()
+    expect(screen.queryByText(/not available/i)).toBeNull()
+    expect(screen.queryByText(/retry if needed/i)).toBeNull()
+  })
+
   test('uses a plain-language fallback for unknown evidence sources', () => {
     render(
       <ContextEvidenceList
