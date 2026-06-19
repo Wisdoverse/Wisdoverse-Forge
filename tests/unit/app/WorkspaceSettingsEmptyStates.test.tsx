@@ -140,6 +140,13 @@ describe('workspace settings empty states', () => {
 
     expect(await screen.findByText('Create a team before adding projects')).toBeInTheDocument()
     expect(screen.getByText(/Projects live inside teams/i)).toBeInTheDocument()
+    expect(screen.getByText('Choose Open Teams.')).toBeInTheDocument()
+    expect(
+      screen.getByText('Create one team for the people who share this work.')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('Come back to Projects and choose New Project.')
+    ).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /new project/i })).not.toBeInTheDocument()
     const openTeams = screen.getByRole('link', { name: /open teams/i })
     expect(openTeams).toHaveAttribute('href', '/settings/teams')
@@ -153,6 +160,9 @@ describe('workspace settings empty states', () => {
     expect(mocks.getTeams).not.toHaveBeenCalled()
     expect(screen.getByText('Choose a team space first')).toBeInTheDocument()
     expect(screen.getByText(/Projects belong to teams inside a team space/i)).toBeInTheDocument()
+    expect(screen.getByText('Choose a team space from the account menu.')).toBeInTheDocument()
+    expect(screen.getByText('Open Settings and Teams and Projects again.')).toBeInTheDocument()
+    expect(screen.getByText('Choose Projects, then create the project.')).toBeInTheDocument()
     expect(screen.queryByText(/Choose an organization first/i)).not.toBeInTheDocument()
   })
 
@@ -195,6 +205,11 @@ describe('workspace settings empty states', () => {
 
     await waitFor(() => expect(mocks.getProjects).toHaveBeenCalledWith('team-1'))
     expect(await screen.findByText('Create your first project')).toBeInTheDocument()
+    expect(screen.getByText('Choose New Project.')).toBeInTheDocument()
+    expect(screen.getByText('Name it after the app, product, or work area.')).toBeInTheDocument()
+    expect(
+      screen.getByText('Add a code link only when agents need files right away.')
+    ).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /new project/i }))
     expect(screen.getByText('Project form ready')).toBeInTheDocument()
@@ -232,6 +247,13 @@ describe('workspace settings empty states', () => {
     expect(
       await screen.findByText('Ask a team admin to let you create projects')
     ).toBeInTheDocument()
+    expect(
+      screen.getByText('Ask a team admin which team should own this project.')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('Ask them to let you create projects in that team.')
+    ).toBeInTheDocument()
+    expect(screen.getByText('Come back to Projects after access is updated.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /new project/i })).not.toBeInTheDocument()
   })
 

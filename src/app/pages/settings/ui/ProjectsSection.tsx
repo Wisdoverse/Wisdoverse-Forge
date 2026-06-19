@@ -49,6 +49,29 @@ export function ProjectsSection() {
       : canCreateProject
         ? 'Projects keep tasks, agents, and members together for one area of work.'
         : 'You can see teams, but none of them allow you to create projects yet.'
+  const projectEmptySteps = !user?.orgId
+    ? [
+        'Choose a team space from the account menu.',
+        'Open Settings and Teams and Projects again.',
+        'Choose Projects, then create the project.',
+      ]
+    : !hasTeams
+      ? [
+          'Choose Open Teams.',
+          'Create one team for the people who share this work.',
+          'Come back to Projects and choose New Project.',
+        ]
+      : canCreateProject
+        ? [
+            'Choose New Project.',
+            'Name it after the app, product, or work area.',
+            'Add a code link only when agents need files right away.',
+          ]
+        : [
+            'Ask a team admin which team should own this project.',
+            'Ask them to let you create projects in that team.',
+            'Come back to Projects after access is updated.',
+          ]
 
   const loadOrgUsers = useCallback(() => userApi.getUsers(), [])
 
@@ -197,6 +220,7 @@ export function ProjectsSection() {
             icon={<ShieldAlert size={18} strokeWidth={2} aria-hidden="true" />}
             title={projectEmptyTitle}
             description={projectEmptyDescription}
+            steps={projectEmptySteps}
           />
         ) : projectsWithTeam.length === 0 && !showForm ? (
           <WorkspaceEmptyState
@@ -209,6 +233,7 @@ export function ProjectsSection() {
             }
             title={projectEmptyTitle}
             description={projectEmptyDescription}
+            steps={projectEmptySteps}
             action={
               canCreateProject ? (
                 <button
@@ -271,11 +296,13 @@ function WorkspaceEmptyState({
   icon,
   title,
   description,
+  steps,
   action,
 }: {
   icon: ReactNode
   title: string
   description: string
+  steps?: string[]
   action?: ReactNode
 }) {
   return (
@@ -293,6 +320,13 @@ function WorkspaceEmptyState({
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           {description}
         </p>
+        {steps && steps.length > 0 && (
+          <ol className="mt-3 list-decimal space-y-1 pl-4 text-left text-ui-caption text-secondary-light dark:text-secondary-dark">
+            {steps.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+        )}
       </div>
       {action}
     </div>
