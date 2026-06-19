@@ -299,10 +299,10 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
                 value={agent.workspaceName ?? 'Shared project files'}
               />
               <DetailRow
-                label="Starting project for tasks"
+                label="Project for new tasks"
                 value={agent.projectName ?? 'Choose when assigning work'}
               />
-              <DetailRow label="Starting folder" value={agentFolderLabel(agent)} />
+              <DetailRow label="Folder agents open" value={agentFolderLabel(agent)} />
               <DetailRow label="Connection" value={agentConnectionStatus(agent)} />
             </div>
             <WorkspaceBoundaryNote agent={agent} />
