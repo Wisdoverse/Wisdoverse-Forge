@@ -912,8 +912,10 @@ const CREATE_AGENT_OPTIONAL_CONTEXT_DEAD_END_PATTERNS = [
 const SKILL_MAINTAINER_FALLBACK_DEAD_END_PATTERNS = [
   /\bMaintainer not listed yet\b/i,
   /\bRefresh saved instructions to load maintainer\b/i,
+  /\bOpen Saved instructions again to load maintainer\b/i,
   /暂未列出维护者/,
   /刷新保存的说明以加载维护者/,
+  /加载维护者/,
 ]
 
 const SAVED_INSTRUCTION_SUMMARY_FALLBACK_PATTERNS = [
@@ -924,11 +926,17 @@ const SAVED_INSTRUCTION_SUMMARY_FALLBACK_PATTERNS = [
 ]
 
 const SAVED_INSTRUCTION_TOOL_TOOLTIP_PATTERNS = [
+  /\bCheck this work tool before using\b/i,
   /\bWork tool setup needs review\./i,
+  /使用前先检查这个工作工具/,
   /工作工具设置需要检查。/,
 ]
 
-const SAVED_INSTRUCTION_SOURCE_LABEL_PATTERNS = [/\bWorkspace saved instructions\b/i]
+const SAVED_INSTRUCTION_SOURCE_LABEL_PATTERNS = [
+  /\bWorkspace saved instructions\b/i,
+  /\bSaved instructions library\b/i,
+  /保存的说明库/,
+]
 const SAVED_INSTRUCTION_AVAILABILITY_LABEL_PATTERNS = [/\bThis workspace\b/i, /当前工作区/]
 const SAVED_INSTRUCTION_WORKSPACE_INTRO_PATTERNS = [/\bsaving it for the workspace\b/i]
 const SAVED_INSTRUCTION_DRAFT_DEAD_END_PATTERNS = [
@@ -4005,7 +4013,9 @@ function hasSavedInstructionSourceLabelCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/skills/SkillCard.tsx') &&
     !relFile.endsWith('src/app/features/skills/SkillDetailModal.tsx') &&
-    !relFile.endsWith('src/app/features/skills/model/savedInstructionLabels.ts')
+    !relFile.endsWith('src/app/features/skills/model/savedInstructionLabels.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
   ) {
     return false
   }
@@ -6711,7 +6721,7 @@ function scanFile(file, relFile) {
         type: 'saved-instruction-source-label-copy',
         location,
         message:
-          'Saved instruction source labels must say team space instead of workspace for beginners.',
+          'Saved instruction source labels must use plain source names instead of workspace or library wording.',
         sample: line.trim(),
       })
     }

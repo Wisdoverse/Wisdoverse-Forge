@@ -213,7 +213,7 @@ describe('SkillsView', () => {
     render(<SkillsView />)
 
     await screen.findByText('handoff-check')
-    expect(screen.getByText('Saved in saved instructions library')).toBeDefined()
+    expect(screen.getByText('Saved in saved instructions')).toBeDefined()
     expect(screen.queryByText('@example/team_skill_pack')).toBeNull()
     expect(screen.queryByText('team_skill_pack')).toBeNull()
   })

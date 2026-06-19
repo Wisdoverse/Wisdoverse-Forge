@@ -13,7 +13,7 @@ export function SkillCard({ skill, onClick }: SkillCardProps) {
   const summary =
     skill.description ||
     'Open saved instruction details to review the reusable instructions before using it.'
-  const source = savedInstructionSourceLabel(skill.plugin, 'saved instructions library')
+  const source = savedInstructionSourceLabel(skill.plugin, 'saved instructions')
   const author = skill.pluginAuthor.trim()
   const savedInLabel = author ? `Saved in ${source} by ${author}` : `Saved in ${source}`
   return (

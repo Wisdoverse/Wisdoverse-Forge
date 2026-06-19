@@ -12622,6 +12622,7 @@ export const en = {
     detail: {
       unknownAuthor: 'Maintainer not listed yet',
       oldUnknownAuthor: 'Refresh saved instructions to load maintainer',
+      currentUnknownAuthor: 'Open Saved instructions again to load maintainer',
     },
   },
 }
@@ -12632,6 +12633,7 @@ export const zh = {
     detail: {
       unknownAuthor: '暂未列出维护者',
       oldUnknownAuthor: '刷新保存的说明以加载维护者',
+      currentUnknownAuthor: '请重新打开保存的说明，以加载维护者',
     },
   },
 }
@@ -12658,6 +12660,14 @@ export const zh = {
         expect.objectContaining({
           type: 'skill-maintainer-fallback-copy',
           location: 'src/app/shared/i18n/locales/zh.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'skill-maintainer-fallback-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:7',
+        }),
+        expect.objectContaining({
+          type: 'skill-maintainer-fallback-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:7',
         }),
       ])
     )
@@ -12703,7 +12713,7 @@ export function CreateAgentModal() {
 export const en = {
   skills: {
     detail: {
-      unknownAuthor: 'Open Saved instructions again to load maintainer',
+      unknownAuthor: 'Open Saved instructions again to show who keeps this updated',
     },
   },
 }
@@ -12712,7 +12722,7 @@ export const en = {
 export const zh = {
   skills: {
     detail: {
-      unknownAuthor: '请重新打开保存的说明，以加载维护者',
+      unknownAuthor: '请重新打开保存的说明，查看谁负责更新它',
     },
   },
 }
@@ -12797,6 +12807,7 @@ export function SkillCard() {
 export const en = {
   skills: {
     detail: {
+      unknownToolFit: 'Check this work tool before using',
       unknownToolTooltip: 'Work tool setup needs review.',
     },
   },
@@ -12806,6 +12817,7 @@ export const en = {
 export const zh = {
   skills: {
     detail: {
+      unknownToolFit: '使用前先检查这个工作工具',
       unknownToolTooltip: '工作工具设置需要检查。',
     },
   },
@@ -12824,7 +12836,15 @@ export const zh = {
         }),
         expect.objectContaining({
           type: 'saved-instruction-tool-tooltip-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-tool-tooltip-copy',
           location: 'src/app/shared/i18n/locales/zh.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-tool-tooltip-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:6',
         }),
       ])
     )
@@ -12844,7 +12864,7 @@ export const en = {
       noDescription:
         'Check the reusable instructions below before using this saved instruction.',
       unknownToolTooltip:
-        'Open Settings and check the work tool before using this saved instruction.',
+        'Open Settings, check the work tool, then use this saved instruction.',
     },
   },
 }
@@ -12854,7 +12874,7 @@ export const zh = {
   skills: {
     detail: {
       noDescription: '使用这条保存的说明前，请先查看下面的可复用说明。',
-      unknownToolTooltip: '打开设置检查工作工具，再使用这条保存的说明。',
+      unknownToolTooltip: '打开设置，检查工作工具，然后再使用这条保存的说明。',
     },
   },
 }

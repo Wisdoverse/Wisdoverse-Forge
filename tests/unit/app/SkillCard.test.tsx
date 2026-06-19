@@ -63,7 +63,7 @@ describe('SkillCard', () => {
       <SkillCard skill={{ ...baseSkill, plugin: '   ', pluginAuthor: '   ' }} onClick={() => {}} />
     )
 
-    expect(screen.getByText('Saved in saved instructions library')).toBeInTheDocument()
+    expect(screen.getByText('Saved in saved instructions')).toBeInTheDocument()
     expect(screen.queryByText(/Saved in\s*$/)).toBeNull()
     expect(screen.queryByText(/by\s*$/)).toBeNull()
   })
