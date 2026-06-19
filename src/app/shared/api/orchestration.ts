@@ -562,10 +562,13 @@ export const orchestrationApi = {
     status: 'available' | 'busy' | 'offline' | 'all' = 'all'
   ): Promise<ParticipantSummary[]> => {
     const qs = status === 'all' ? '' : `?status=${status}`
-    const res = await apiFetch<{ ok: boolean; participants: ParticipantSummary[] }>(
+    const res = await apiFetch<{ ok: boolean; participants?: ParticipantSummary[] }>(
       `/participants${qs}`
     )
-    return res.participants
+    // A list accessor must never return undefined: a response that omits
+    // `participants` (an empty or partial payload) would otherwise flow into
+    // component state and crash list renderers such as AssignmentReadinessPanel.
+    return res.participants ?? []
   },
 }
 
