@@ -42,7 +42,10 @@ describe('workspaceSettingsErrorMessage', () => {
   test('maps validation failures to beginner-safe create guidance', () => {
     const message = workspaceSettingsErrorMessage('project', 'create', new Error('API 422'))
 
-    expectBeginnerMessage(message, 'Check the name and required fields, then try again.')
+    expectBeginnerMessage(
+      message,
+      'Check the project name, team, and code link. You can leave the code link blank, then create this project again.'
+    )
     expect(message).not.toContain('The project was not created')
   })
 
@@ -55,6 +58,34 @@ describe('workspaceSettingsErrorMessage', () => {
     expectBeginnerMessage(message, 'Enter a project name, then try again.')
     expect(message).not.toContain('The project was not created')
     expect(message).not.toContain('name is required')
+  })
+
+  test('uses structured validation details to explain code link fixes', () => {
+    const message = workspaceSettingsErrorMessage('project', 'create', {
+      status: 422,
+      detail: 'repository_url must be an HTTPS URL',
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Paste an https:// code link without account details, or leave the code link blank and add code access in Settings.'
+    )
+    expect(message).not.toContain('repository_url')
+    expect(message).not.toContain('required fields')
+  })
+
+  test('uses structured validation details to explain account detail fixes', () => {
+    const message = workspaceSettingsErrorMessage('project', 'create', {
+      status: 422,
+      detail: 'repository url includes username or token',
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Remove account details from the code link. Save code access in Settings instead, then create this project again.'
+    )
+    expect(message).not.toContain('username')
+    expect(message).not.toContain('token')
   })
 
   test('maps duplicate create failures to a name change next step', () => {
