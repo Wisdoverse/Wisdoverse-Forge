@@ -407,8 +407,12 @@ describe('TaskFormModal', () => {
     expect(onSubmit).not.toHaveBeenCalled()
     expect(onClose).not.toHaveBeenCalled()
     const confirmation = await screen.findByTestId('task-brief-confirmation')
-    expect(confirmation).toHaveTextContent('This task may be hard for an agent to finish.')
-    expect(confirmation).toHaveTextContent('Add where to work and done when')
+    expect(confirmation).toHaveTextContent('Add missing details before this task starts.')
+    expect(confirmation).toHaveTextContent('Missing: where to work and done when')
+    expect(confirmation).toHaveTextContent(
+      'You can still choose Create task anyway, but the agent may need to ask what to check or where to work.'
+    )
+    expect(confirmation).not.toHaveTextContent('This task may be hard for an agent to finish.')
     expect(screen.getByRole('button', { name: /^create task anyway$/i })).toBeDefined()
     expect(screen.queryByRole('button', { name: /^create anyway$/i })).toBeNull()
 
@@ -432,9 +436,12 @@ describe('TaskFormModal', () => {
 
     expect(onSubmit).not.toHaveBeenCalled()
     expect(onClose).not.toHaveBeenCalled()
-    expect(await screen.findByTestId('task-brief-confirmation')).toHaveTextContent(
-      'This task may be hard for an agent to finish.'
+    const confirmation = await screen.findByTestId('task-brief-confirmation')
+    expect(confirmation).toHaveTextContent('Add missing details before this task starts.')
+    expect(confirmation).toHaveTextContent(
+      'You can still choose Save task anyway, but the agent may need to ask what to check or where to work.'
     )
+    expect(confirmation).not.toHaveTextContent('This task may be hard for an agent to finish.')
     expect(screen.getByRole('button', { name: /^save task anyway$/i })).toBeDefined()
     expect(screen.queryByRole('button', { name: /^create task anyway$/i })).toBeNull()
 
