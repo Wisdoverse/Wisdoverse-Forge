@@ -78,13 +78,13 @@ describe('ApprovalQueueView', () => {
     render(<ApprovalQueueView />)
 
     expect(await screen.findByTestId('context-approval-path')).toBeDefined()
-    expect(screen.getByText('Review what agents can save')).toBeDefined()
-    expect(screen.getByText('Review steps')).toBeDefined()
+    expect(screen.getByText('Check what agents can save')).toBeDefined()
+    expect(screen.getByText('Check steps')).toBeDefined()
     expect(screen.getByText(/saved notes or instructions are useful/i)).toBeDefined()
     expect(screen.getByText(/choose who can reuse it/i)).toBeDefined()
     expect(await screen.findByText('Use stable credentials')).toBeDefined()
     expect(screen.getByText('Saved note')).toBeDefined()
-    expect(screen.getAllByText('Waiting for review').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Needs your check').length).toBeGreaterThan(0)
     expect(screen.queryByText(/Saved\s+memory/i)).toBeNull()
     expect(screen.queryByText('Pending')).toBeNull()
     expect(screen.getAllByText('Only me').length).toBeGreaterThan(0)
@@ -108,20 +108,20 @@ describe('ApprovalQueueView', () => {
     expect(within(dialog).getByText(/only the right people can reuse it/i)).toBeDefined()
     expect(within(dialog).getByText(/sensitive details are hidden before saving/i)).toBeDefined()
     expect(within(dialog).getByText('Who can reuse it')).toBeDefined()
-    expect(within(dialog).getByText(/team or project code from Settings/i)).toBeDefined()
+    expect(within(dialog).getByText(/team or project sharing code from Settings/i)).toBeDefined()
     expect(within(dialog).queryByText(/team or project ID from Settings/i)).toBeNull()
     expect(within(dialog).queryByText(/support reference from Settings/i)).toBeNull()
     expect(within(dialog).getByText('Team only')).toBeDefined()
-    expect(within(dialog).getByRole('button', { name: 'Review later' })).toBeDefined()
-    expect(screen.getByLabelText('Close saved item review')).toBeDefined()
+    expect(within(dialog).getByRole('button', { name: 'Check later' })).toBeDefined()
+    expect(screen.getByLabelText('Close saved item check')).toBeDefined()
     expect(screen.queryByLabelText(/review panel/i)).toBeNull()
     expect(within(dialog).queryByRole('button', { name: /^Cancel$/ })).toBeNull()
 
     await userEvent.setup().selectOptions(screen.getByTestId('context-approval-scope-kind'), 'team')
 
-    expect(within(dialog).getByText('Team code')).toBeDefined()
-    expect(within(dialog).getByPlaceholderText(/Team code from Settings/i)).toBeDefined()
-    expect(within(dialog).getByText(/Paste the Team code before saving/i)).toBeDefined()
+    expect(within(dialog).getAllByText(/team sharing code/i).length).toBeGreaterThan(0)
+    expect(within(dialog).getByPlaceholderText(/team sharing code from Settings/i)).toBeDefined()
+    expect(within(dialog).getByText(/Paste the team sharing code before saving/i)).toBeDefined()
     expect(within(dialog).queryByText('Team ID')).toBeNull()
     expect(within(dialog).queryByPlaceholderText(/Team ID from Settings/i)).toBeNull()
     expect(within(dialog).queryByText('Team support reference')).toBeNull()
@@ -137,7 +137,7 @@ describe('ApprovalQueueView', () => {
     await user.click(screen.getByTestId('context-approve-candidate-1'))
     expect(screen.getByTestId('context-decision-checklist')).toBeDefined()
 
-    await user.click(screen.getByRole('button', { name: 'Review later' }))
+    await user.click(screen.getByRole('button', { name: 'Check later' }))
 
     expect(approveContextCandidate).not.toHaveBeenCalled()
     expect(rejectContextCandidate).not.toHaveBeenCalled()
@@ -196,7 +196,7 @@ describe('ApprovalQueueView', () => {
 
     await waitFor(() => expect(listContextCandidates).toHaveBeenCalled())
     const emptyState = await screen.findByTestId('context-approval-empty')
-    expect(within(emptyState).getByText('No saved items need review')).toBeDefined()
+    expect(within(emptyState).getByText('No saved items need checking')).toBeDefined()
     expect(
       within(emptyState).getByText(
         /when an agent suggests a saved note or saved instruction, it will appear here/i
@@ -225,7 +225,7 @@ describe('ApprovalQueueView', () => {
     expect(
       within(emptyState).getByText(/clear filters before assuming there is nothing to check/i)
     ).toBeDefined()
-    expect(within(emptyState).getByText(/review everything first/i)).toBeDefined()
+    expect(within(emptyState).getByText(/check the full list first/i)).toBeDefined()
     expect(emptyState.textContent).not.toContain('No saved items match these filters')
 
     await user.click(within(emptyState).getByRole('button', { name: /clear filters/i }))
@@ -245,12 +245,12 @@ describe('ApprovalQueueView', () => {
 
     const emptyState = await screen.findByTestId('context-approval-empty')
     expect(
-      within(emptyState).getByText('Review the first saved item to start history')
+      within(emptyState).getByText('Check the first saved item to start history')
     ).toBeDefined()
     expect(
-      within(emptyState).getByText(/appear here after someone reviews the first suggestion/i)
+      within(emptyState).getByText(/appear here after someone checks the first suggestion/i)
     ).toBeDefined()
-    expect(within(emptyState).getByText(/switch back to Waiting for review/i)).toBeDefined()
+    expect(within(emptyState).getByText(/switch back to Needs your check/i)).toBeDefined()
     expect(within(emptyState).queryByText('No saved item history yet')).toBeNull()
   })
 
@@ -278,7 +278,7 @@ describe('ApprovalQueueView', () => {
 
     const error = await screen.findByTestId('context-approval-error')
     expect(error.textContent).toContain('Refresh the list, then open this item again')
-    expect(error.textContent).toContain('It changed while you were reviewing it')
+    expect(error.textContent).toContain('It changed while you were checking it')
     expect(error.textContent).not.toContain('Code:')
     expect(error.textContent).not.toContain('409 conflict')
   })
