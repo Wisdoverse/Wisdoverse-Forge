@@ -86,6 +86,15 @@ describe('beginner error translations', () => {
     expect(zh.settings.runtime.couldNotLoad).not.toContain('admin')
   })
 
+  test('work location copy explains this-computer agents are managed in Forge', () => {
+    expect(en.settings.runtime.defaultRuntimeDescription).toContain(
+      'agent that Forge can manage here'
+    )
+    expect(zh.settings.runtime.defaultRuntimeDescription).toContain('可在 Forge 里管理的 Agent')
+    expect(en.settings.runtime.defaultRuntimeDescription).not.toContain('managed workspace')
+    expect(zh.settings.runtime.defaultRuntimeDescription).not.toContain('工作区')
+  })
+
   test('empty states include a next step', () => {
     expect(en.common.noResults).toBe('Try a broader search or clear the filters.')
     expect(en.common.noData).toBe('Create the first item or refresh after setup finishes.')

@@ -1428,6 +1428,10 @@ function AddProviderFormPanel({
         <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
           3 steps to connect an AI account
         </div>
+        <p className="mt-1 text-ui-caption text-foreground-light dark:text-foreground-dark">
+          Use this only when an owner or service guide gives you a private service address. If not,
+          go back to Known AI services and pick the service name there.
+        </p>
         <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
           {PROVIDER_SETUP_STEPS.map((step) => (
             <div

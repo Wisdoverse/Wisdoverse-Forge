@@ -451,7 +451,7 @@ export const en = {
         'Refresh this settings page to load Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.',
       defaultRuntimeLabel: 'Where project files open',
       defaultRuntimeDescription:
-        'Choose Project files for the simplest shared file work. Choose This computer only when this machine should join as an agent.',
+        'Choose Project files for the simplest shared file work. Choose This computer only when this machine should join as an agent that Forge can manage here.',
       defaultContainerCliLabel: 'Default tool for project work',
       defaultContainerCliDescription:
         'Claude Code, Codex, Gemini, or OpenCode when an agent edits files or runs commands',
