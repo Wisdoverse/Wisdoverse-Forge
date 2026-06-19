@@ -260,7 +260,7 @@ describe('Sidebar', () => {
 
     expect(menu).toHaveAttribute('role', 'menu')
     expect(menu).toHaveAttribute('aria-label', 'Project X project menu')
-    expect(menuScope.getByText('Team Alpha team · name used in links proj-x')).toBeInTheDocument()
+    expect(menuScope.getByText('Team Alpha team · project link ending proj-x')).toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /open project board/i })).toBeInTheDocument()
     expect(
       menuScope.getByRole('menuitem', { name: /new task for this project/i })
@@ -276,12 +276,13 @@ describe('Sidebar', () => {
       menuScope.queryByRole('menuitem', { name: /copy support reference/i })
     ).not.toBeInTheDocument()
     expect(
-      menuScope.getByRole('menuitem', { name: /copy name used in links/i })
+      menuScope.getByRole('menuitem', { name: /copy project link ending/i })
     ).toBeInTheDocument()
     expect(menuScope.getByText(/another page asks for the project reference/i)).toBeInTheDocument()
     expect(menuScope.queryByText(/only share this if support asks/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText('p1')).not.toBeInTheDocument()
     expect(menuScope.queryByText(/admin asks/i)).not.toBeInTheDocument()
+    expect(menuScope.queryByText(/name used in links/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/link name/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/project short name/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/short name used in project links/i)).not.toBeInTheDocument()
