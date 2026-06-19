@@ -201,16 +201,16 @@ function renameErrorMessage(target: RenameTarget, error: unknown): string {
   }
 
   if (status === 401) {
-    return `Sign in again, then reopen the left menu and save this ${label} name.`
+    return `Sign in again, then open the left menu and save this ${label} name again.`
   }
   if (status === 403) {
     return `Ask an owner or admin to let you edit this ${label}, then save this ${label} name again from the left menu. You do not have permission to rename this ${label}.`
   }
   if (status === 404) {
-    return `Refresh the left menu, then choose the current ${label} again. This ${label} could not be found.`
+    return `Open the left menu, choose the current ${label}, then try again. This ${label} could not be found.`
   }
   if (status === 409) {
-    return `Refresh the left menu, check the current name, then save this ${label} name again. This ${label} changed while you were editing.`
+    return `Open the left menu, choose the current ${label}, then save this ${label} name again. This ${label} changed while you were editing.`
   }
   if (status === 422) {
     return renameValidationMessage(target, detail)
@@ -219,10 +219,10 @@ function renameErrorMessage(target: RenameTarget, error: unknown): string {
     return `Wait a moment, then save this ${label} name again. The left menu is busy.`
   }
   if (status >= 500) {
-    return `Refresh the left menu, then save this ${label} name again. Forge could not save it right now. If it still fails, ask an owner or admin to check Teams and Projects in Settings.`
+    return `Open the left menu, choose the current ${label}, then save this ${label} name again. Forge could not save it right now. If it still fails, ask an owner or admin to check Teams and Projects in Settings.`
   }
 
-  return `Refresh the left menu, then save this ${label} name again. The ${label} name was not saved.`
+  return `Open the left menu, choose the current ${label}, then save this ${label} name again. The ${label} name was not saved.`
 }
 
 function renameValidationMessage(target: RenameTarget, detail: string | null): string {
@@ -231,13 +231,13 @@ function renameValidationMessage(target: RenameTarget, detail: string | null): s
   const normalized = detail?.toLowerCase() ?? ''
 
   if (normalized.includes('duplicate') || normalized.includes('already')) {
-    return `Choose a different ${label} name, refresh the left menu, then save again.`
+    return `Choose a different ${label} name, then open the left menu and save again.`
   }
   if (normalized.includes('name')) {
     return `Enter a ${label} name, then save again.`
   }
 
-  return `Refresh the left menu, then save this ${label} name again. The ${title.toLowerCase()} name was not saved.`
+  return `Open the left menu, choose the current ${label}, then save this ${label} name again. The ${title.toLowerCase()} name was not saved.`
 }
 
 function deleteErrorMessage(target: RenameTarget, error: unknown): string {
@@ -257,13 +257,13 @@ function deleteErrorMessage(target: RenameTarget, error: unknown): string {
     return deleteValidationMessage(target, normalized)
   }
   if (status === 401) {
-    return `Sign in again, then reopen the left menu and delete this ${label} again.`
+    return `Sign in again, then open the left menu and delete this ${label} again.`
   }
   if (status === 403) {
     return `Ask an owner or admin to let you delete this ${label}, then delete it again from the left menu. You do not have permission to delete this ${label}.`
   }
   if (status === 404) {
-    return `Refresh the left menu. This ${label} may already be gone.`
+    return `Open the left menu and check the current ${label} list. This ${label} may already be gone.`
   }
   if (status === 409 || status === 422) {
     return deleteValidationMessage(target, normalized)
@@ -272,10 +272,10 @@ function deleteErrorMessage(target: RenameTarget, error: unknown): string {
     return `Wait a moment, then delete this ${label} again. The left menu is busy.`
   }
   if (status >= 500) {
-    return `Refresh the left menu, then delete this ${label} again. Forge could not delete it right now. If it still fails, ask an owner or admin to check Teams and Projects in Settings.`
+    return `Open the left menu, choose the current ${label}, then delete it again. Forge could not delete it right now. If it still fails, ask an owner or admin to check Teams and Projects in Settings.`
   }
 
-  return `Refresh the left menu, then delete this ${label} again.`
+  return `Open the left menu, choose the current ${label}, then delete it again.`
 }
 
 function deleteValidationMessage(target: RenameTarget, normalized: string): string {

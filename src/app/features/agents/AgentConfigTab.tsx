@@ -49,7 +49,7 @@ function promptStats(value: string): PromptStats {
 }
 
 function promptProfileSaveErrorMessage(): string {
-  return 'Refresh this agent, confirm it is still a chat-only agent, then save again. If it keeps failing, ask an owner or admin to check your agent access. Agent instructions were not saved.'
+  return 'Open Agents, choose this chat-only agent again, then save again. If it keeps failing, ask an owner or admin to check your agent access. Agent instructions were not saved.'
 }
 
 function isMissingModelLabel(label: string): boolean {
@@ -62,7 +62,7 @@ function isMissingModelLabel(label: string): boolean {
 
 function modelLabel(model?: string | null): string {
   const label = model?.trim()
-  return label && !isMissingModelLabel(label) ? 'AI model selected' : 'Refresh AI model'
+  return label && !isMissingModelLabel(label) ? 'AI model selected' : 'Check AI model setup'
 }
 
 export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
@@ -330,7 +330,7 @@ function cliToolLabel(tool?: AgentInfo['cliTool'] | string): string {
       return 'OpenCode'
     case undefined:
     case '':
-      return 'Refresh work tool settings'
+      return 'Check work tool settings'
     default:
       return 'Check work tool settings'
   }

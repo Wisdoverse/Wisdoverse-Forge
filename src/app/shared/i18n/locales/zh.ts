@@ -53,7 +53,7 @@ export const zh: TranslationKeys = {
     select: '选择',
     selected: '已选择 {{count}} 项',
     noResults: '可以放宽搜索条件，或清除筛选后再试。',
-    noData: '可以先创建第一项，或在设置完成后刷新。',
+    noData: '可以先创建第一项；设置完成后，请重新打开当前页面。',
     optional: '可选',
     required: '请填写',
   },
@@ -383,7 +383,7 @@ export const zh: TranslationKeys = {
   workshop: {
     title: '视觉地图',
     loading: '加载视觉地图...',
-    loadError: '视觉地图无法加载。等 Agent 可用后刷新，再试一次。',
+    loadError: '请打开 Agent，等其中一个显示可接收任务后，再重新打开视觉地图。',
     controls: {
       zoom: '使用 Agent 列表查找 Agent',
       pan: '在地图中选择机器人',
@@ -440,7 +440,7 @@ export const zh: TranslationKeys = {
       saving: '保存中...',
       loading: '正在加载 Agent 在哪里工作...',
       couldNotLoad:
-        '请刷新这个设置页来加载 Agent 在哪里工作。如果仍然无法加载，请找负责人或管理员检查设置里的“Agent 在哪里工作”。',
+        '请打开设置，然后打开“Agent 在哪里工作”。如果仍然无法加载，请找负责人或管理员检查设置里的“Agent 在哪里工作”。',
       defaultRuntimeLabel: '项目文件打开位置',
       defaultRuntimeDescription:
         '处理共享项目文件时，选择“项目文件”最简单。只有要把这台电脑接入为可在 Forge 里管理的 Agent 时，才选择这台电脑。',
@@ -494,7 +494,7 @@ export const zh: TranslationKeys = {
       detailsHeading: '可复用说明',
       detailsHelper: '使用这条保存的说明前，请先查看这些可复用步骤。',
       noContent: '还没有保存可复用步骤。请先补充 Agent 要遵循的步骤，再使用这条保存的说明。',
-      unknownAuthor: '刷新保存的说明以加载维护者',
+      unknownAuthor: '请重新打开保存的说明，以加载维护者',
       unknownSource: '保存的说明库',
       availabilityWorkspace: '当前团队空间',
       availabilityGlobal: '保存的说明库',
@@ -511,7 +511,7 @@ export const zh: TranslationKeys = {
     generic: '请稍等一下再重试；如果反复发生，请让管理员检查应用健康状态。',
     network: '请检查网络，然后重试。Forge 暂时无法连接。',
     timeout: '请稍等片刻后重试。请求时间太长。',
-    notFound: '请刷新页面后重试。未找到 {{resource}}。',
+    notFound: '请重新打开当前页面后重试。未找到 {{resource}}。',
     unauthorized: '请重新登录，然后再试一次。',
     forbidden: '你当前无法执行这个操作。请让所有者或管理员检查你的团队空间访问权限。',
     validation: '请检查高亮字段，然后重试。',
@@ -522,7 +522,7 @@ export const zh: TranslationKeys = {
     agentError: '请重试这一步；如果反复出现，请检查 Agent 状态。Agent 没有完成这一步。',
     fileError: '请检查文件后重试。Forge 暂时无法处理这个文件。',
     uploadError: '请检查文件和网络后重新上传。上传没有完成。',
-    downloadError: '请刷新页面后重新下载。下载没有开始。',
+    downloadError: '请重新打开当前页面后再次下载。下载没有开始。',
     rateLimited: '请等待 {{seconds}} 秒后重试。请求过于频繁。',
     quotaExceeded: '请让所有者提高额度，或释放一些容量。{{resource}} 配额已用完。',
     agent: {

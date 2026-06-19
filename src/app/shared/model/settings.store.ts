@@ -97,6 +97,15 @@ const SETTINGS_ITEM_LABELS: Record<SettingsErrorArea, string> = {
   runtime: 'Where agents work choice',
 }
 
+const SETTINGS_SECTION_LABELS: Record<SettingsErrorArea, string> = {
+  providers: 'AI services',
+  apiKeys: 'Outside tool access keys',
+  gitCredentials: 'Code access',
+  sshKeys: 'SSH code access',
+  resourceProfiles: 'Work capacity',
+  runtime: 'Where agents work',
+}
+
 function settingsActionPhrase(area: SettingsErrorArea, action: SettingsErrorAction): string {
   const areaLabel = SETTINGS_AREA_LABELS[area]
   const itemLabel = SETTINGS_ITEM_LABELS[area]
@@ -172,16 +181,37 @@ function isRawSettingsFailure(detail: string | null): boolean {
   )
 }
 
-function settingsConnectionMessage(actionPhrase: string, action: SettingsErrorAction): string {
+function settingsOpenSectionStep(area: SettingsErrorArea): string {
+  return `open Settings and ${SETTINGS_SECTION_LABELS[area]} again`
+}
+
+function startSettingsOpenSectionStep(area: SettingsErrorArea): string {
+  const step = settingsOpenSectionStep(area)
+  return `${step.charAt(0).toUpperCase()}${step.slice(1)}`
+}
+
+function settingsConnectionMessage(
+  area: SettingsErrorArea,
+  actionPhrase: string,
+  action: SettingsErrorAction
+): string {
   if (action === 'load') {
-    return `Check your connection, then refresh Settings to ${actionPhrase}. Forge could not connect while loading Settings.`
+    return `Check your connection, then ${settingsOpenSectionStep(area)}. Forge could not connect while loading Settings.`
   }
   return `Check your connection, then try to ${actionPhrase} again. Forge could not connect while updating Settings.`
 }
 
-function settingsUnavailableMessage(actionPhrase: string, action: SettingsErrorAction): string {
+function settingsUnavailableMessage(
+  area: SettingsErrorArea,
+  actionPhrase: string,
+  action: SettingsErrorAction
+): string {
   const operation = action === 'load' ? 'load Settings' : 'update Settings'
-  return `Refresh Settings, then try to ${actionPhrase} again. Forge could not ${operation} right now. If it still fails, ask an owner or admin to check Settings.`
+  const retryStep =
+    action === 'load'
+      ? startSettingsOpenSectionStep(area)
+      : `${startSettingsOpenSectionStep(area)}, then try to ${actionPhrase} again`
+  return `${retryStep}. Forge could not ${operation} right now. If it still fails, ask an owner or admin to check Settings.`
 }
 
 function settingsPermissionMessage(area: SettingsErrorArea, actionPhrase: string): string {
@@ -208,12 +238,12 @@ export function settingsActionErrorMessage(
 
   if (!status) {
     if (isSettingsConnectionFailure(detail)) {
-      return settingsConnectionMessage(actionPhrase, action)
+      return settingsConnectionMessage(area, actionPhrase, action)
     }
     if (!isRawSettingsFailure(detail)) {
       return settingsValidationMessage(area, action, detail)
     }
-    return settingsConnectionMessage(actionPhrase, action)
+    return settingsConnectionMessage(area, actionPhrase, action)
   }
 
   if (status === 401) {
@@ -223,10 +253,10 @@ export function settingsActionErrorMessage(
     return settingsPermissionMessage(area, actionPhrase)
   }
   if (status === 404) {
-    return `Settings for ${SETTINGS_AREA_LABELS[area]} are not ready yet. Refresh Settings, then try again.`
+    return `${startSettingsOpenSectionStep(area)}. If it still does not show up, ask an owner or admin to check Settings.`
   }
   if (status === 409) {
-    return `This ${SETTINGS_ITEM_LABELS[area]} changed or already exists. Refresh the list, check the current value, then try again.`
+    return `This ${SETTINGS_ITEM_LABELS[area]} changed or already exists. ${startSettingsOpenSectionStep(area)}, check the current value, then try to ${actionPhrase} again.`
   }
   if (status === 422) {
     return settingsValidationMessage(area, action, detail)
@@ -235,10 +265,14 @@ export function settingsActionErrorMessage(
     return `The Settings page is busy. Wait a moment, then try to ${actionPhrase} again.`
   }
   if (status >= 500) {
-    return settingsUnavailableMessage(actionPhrase, action)
+    return settingsUnavailableMessage(area, actionPhrase, action)
   }
 
-  return `Refresh Settings, then try to ${actionPhrase} again. Settings could not ${actionPhrase}.`
+  const retryStep =
+    action === 'load'
+      ? startSettingsOpenSectionStep(area)
+      : `${startSettingsOpenSectionStep(area)}, then try to ${actionPhrase} again`
+  return `${retryStep}. Settings could not ${actionPhrase}.`
 }
 
 function settingsValidationMessage(
@@ -270,13 +304,13 @@ function settingsValidationMessage(
 
   if (area === 'apiKeys') {
     return action === 'load'
-      ? 'Refresh outside tool access keys. If they still do not load, ask an owner or admin for access.'
+      ? 'Open Settings and Outside tool access keys again. If they still do not load, ask an owner or admin for access.'
       : 'Name this outside tool access key, choose the allowed access, then create it again.'
   }
 
   if (area === 'gitCredentials') {
     if (normalized.includes('not configured')) {
-      return 'Code access is not configured yet. Ask an owner or admin to finish GitHub or GitLab setup, then refresh code access.'
+      return 'Code access is not configured yet. Ask an owner or admin to finish GitHub or GitLab setup, then open Code access again.'
     }
     if (normalized.includes('provider')) {
       return 'Choose GitHub or GitLab, then save code access again.'
@@ -308,7 +342,7 @@ function settingsValidationMessage(
   }
 
   if (area === 'resourceProfiles') {
-    return 'Ask an owner or admin to add an agent size, then refresh Settings.'
+    return 'Ask an owner or admin to add an agent size, then open Settings and Work capacity again.'
   }
 
   return 'Choose where project files open and a work tool, then save Where agents work again.'

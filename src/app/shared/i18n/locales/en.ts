@@ -52,7 +52,7 @@ export const en = {
     select: 'Select',
     selected: '{{count}} selected',
     noResults: 'Try a broader search or clear the filters.',
-    noData: 'Create the first item or refresh after setup finishes.',
+    noData: 'Create the first item, or open this page again after setup finishes.',
     optional: 'Optional',
     required: 'Fill this in',
   },
@@ -390,7 +390,7 @@ export const en = {
   workshop: {
     title: 'Visual map',
     loading: 'Loading visual map...',
-    loadError: 'Visual map could not load. Refresh after agents are available, then try again.',
+    loadError: 'Open Agents, wait until one shows Ready, then open Visual map again.',
     controls: {
       zoom: 'Use the agent list to find an agent',
       pan: 'Select a robot in the map',
@@ -448,7 +448,7 @@ export const en = {
       saving: 'Saving...',
       loading: 'Loading where agents work...',
       couldNotLoad:
-        'Refresh this settings page to load Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.',
+        'Open Settings, then open Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.',
       defaultRuntimeLabel: 'Where project files open',
       defaultRuntimeDescription:
         'Choose Project files for the simplest shared file work. Choose This computer only when this machine should join as an agent that Forge can manage here.',
@@ -506,7 +506,7 @@ export const en = {
       detailsHelper: 'Read these reusable steps before using this saved instruction.',
       noContent:
         'No reusable steps are saved yet. Add the steps agents should follow before using this saved instruction.',
-      unknownAuthor: 'Refresh saved instructions to load maintainer',
+      unknownAuthor: 'Open Saved instructions again to load maintainer',
       unknownSource: 'Saved instructions library',
       availabilityWorkspace: 'This team space',
       availabilityGlobal: 'Saved instructions library',
@@ -523,7 +523,7 @@ export const en = {
     generic: 'Try again after a moment. If it repeats, ask an owner to check app health.',
     network: 'Check your connection, then try again. Forge could not connect.',
     timeout: 'Wait a moment, then try again. The request took too long.',
-    notFound: 'Refresh the page, then try again. {{resource}} was not found.',
+    notFound: 'Open this page again, then try again. {{resource}} was not found.',
     unauthorized: 'Sign in again, then retry this action.',
     forbidden:
       'You do not have access for this action. Ask an owner or admin to check your team space access.',
@@ -537,7 +537,7 @@ export const en = {
       'Try this step again, then check the agent status if it repeats. The agent could not finish this step.',
     fileError: 'Check the file, then try again. Forge could not handle it.',
     uploadError: 'Check the file and connection, then upload again. The upload did not finish.',
-    downloadError: 'Refresh the page, then download again. The download did not start.',
+    downloadError: 'Open this page again, then download again. The download did not start.',
     rateLimited:
       'Wait {{seconds}} seconds, then try again. Too many requests are happening right now.',
     quotaExceeded:

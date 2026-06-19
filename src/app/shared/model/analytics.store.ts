@@ -69,11 +69,11 @@ const initialState = {
 }
 
 export function analyticsUnavailableMessage(): string {
-  return 'Refresh the dashboard. If this is a new team space, run an agent task first so live activity has data to report. Analytics could not load live activity.'
+  return 'Open Analytics again. If this is a new team space, run an agent task first so live activity has data to report.'
 }
 
 export function analyticsNetworkErrorMessage(): string {
-  return 'Check your connection, then refresh the dashboard. Analytics could not connect.'
+  return 'Check your connection, then open Analytics again. Analytics could not connect.'
 }
 
 export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({

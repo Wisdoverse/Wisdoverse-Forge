@@ -76,7 +76,7 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check the connected AI service, then reconnect the account. Work tool sign-in did not start. Check your connection, then refresh Settings. Forge could not connect while checking Where agents work.'
+      'Check the connected AI service, then reconnect the account. Work tool sign-in did not start. Check your connection, then open Settings and Where agents work again. Forge could not connect while checking Where agents work.'
     )
     expect(message).not.toContain('provider')
     expect(message).not.toContain('Failed to fetch')
@@ -88,7 +88,7 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh this page, then try again. Forge could not check Where agents work right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+      'Open Settings and Where agents work again, then try again. Forge could not check Where agents work right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('worker')
@@ -106,7 +106,7 @@ describe('runtimeErrorMessage', () => {
   test('turns changed setup status into a current-status check step', () => {
     expectBeginnerMessage(
       runtimeErrorMessage('loadAgentSignals', { statusCode: 409 }),
-      'Refresh this page, check the current status, then try again. The choices in Where agents work changed while you were working.'
+      'Open Settings and Where agents work again, check the current status, then try again. The choices in Where agents work changed while you were working.'
     )
   })
 })
@@ -137,9 +137,10 @@ describe('runtimeSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then refresh Settings to load Where agents work.'
+      'Check your connection, then open Settings and Where agents work again.'
     )
     expect(message).not.toContain('app could not reach')
+    expect(message).not.toContain('refresh Settings')
   })
 
   test('turns temporary run-setting failures into a settings recovery step', () => {
@@ -147,7 +148,7 @@ describe('runtimeSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load Where agents work. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+      'Open Settings and Where agents work again. If it still fails, ask an owner or admin to check Where agents work in Settings.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('temporarily unavailable')
@@ -156,7 +157,7 @@ describe('runtimeSettingsErrorMessage', () => {
   test('turns work settings rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       runtimeSettingsErrorMessage({ statusCode: '429' }),
-      'Wait a minute, then refresh Settings. Too many setup requests are happening right now.'
+      'Wait a minute, then open Settings and Where agents work again. Too many setup requests are happening right now.'
     )
   })
 
@@ -165,7 +166,7 @@ describe('runtimeSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load Where agents work. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+      'Open Settings and Where agents work again. If it still fails, ask an owner or admin to check Where agents work in Settings.'
     )
     expect(message).not.toContain('parser')
   })
@@ -188,7 +189,7 @@ describe('runtimeSettingsErrorMessage', () => {
         status: 409,
         reason: 'update runtime settings conflict',
       }),
-      'Refresh Settings, check the current choices, then save again. The choices in Where agents work changed while you were working.'
+      'Open Settings and Where agents work again, check the current choices, then save again. The choices in Where agents work changed while you were working.'
     )
   })
 })

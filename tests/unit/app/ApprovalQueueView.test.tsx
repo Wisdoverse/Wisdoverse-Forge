@@ -185,7 +185,7 @@ describe('ApprovalQueueView', () => {
     expect(saveButton).toBeDisabled()
     expect(saveButton).toHaveAttribute(
       'title',
-      'Refresh saved items, then save after the original task details load.'
+      'Load saved items again, then save after the original task details load.'
     )
   })
 
@@ -260,10 +260,11 @@ describe('ApprovalQueueView', () => {
     render(<ApprovalQueueView />)
 
     const error = await screen.findByTestId('context-approval-error')
-    expect(error.textContent).toContain('Check your connection, then refresh Saved items')
+    expect(error.textContent).toContain('Check your connection, then choose Load saved items again')
     expect(error.textContent).toContain(
       'Forge could not connect while loading saved notes and instructions'
     )
+    expect(error.textContent).not.toContain('refresh Saved items')
     expect(error.textContent).not.toMatch(/failed to fetch/i)
   })
 
@@ -277,8 +278,9 @@ describe('ApprovalQueueView', () => {
     await userEvent.setup().click(screen.getByTestId('context-approval-submit'))
 
     const error = await screen.findByTestId('context-approval-error')
-    expect(error.textContent).toContain('Refresh the list, then open this item again')
+    expect(error.textContent).toContain('Choose Load saved items again, then open this item')
     expect(error.textContent).toContain('It changed while you were checking it')
+    expect(error.textContent).not.toContain('Refresh the list')
     expect(error.textContent).not.toContain('Code:')
     expect(error.textContent).not.toContain('409 conflict')
   })

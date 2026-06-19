@@ -21,15 +21,17 @@ describe('boardActionErrorMessage', () => {
         status: '403',
         serverError: 'missing board policy',
       }),
-      'Ask an owner or admin to give you access to this board, then refresh the board and try again. You do not have permission to change this board.'
+      'Ask an owner or admin to give you access to the Tasks page, then open it and try again. You do not have permission to change this board.'
     )
   })
 
   test('explains network failures without exposing only a transport error', () => {
     const message = boardActionErrorMessage('loadReadiness', new TypeError('Failed to fetch'))
 
-    expect(message).toContain('Refresh the board to load agent status before sending work.')
+    expect(message).toContain('Choose Refresh agent status before sending work.')
     expect(message).toContain('If it still does not load, check your connection')
+    expect(message).toContain('choose Refresh agent status')
+    expect(message).not.toContain('refresh the page')
     const previousActionPhrase = ['assigning', 'or', 'publishing', 'work'].join(' ')
     expect(message).not.toContain(previousActionPhrase)
     expect(message).not.toContain('API')
@@ -39,7 +41,7 @@ describe('boardActionErrorMessage', () => {
 
   test('gives a clear next step when no agent can preview context', () => {
     expect(boardActionErrorMessage('previewContext', new Error('No available agent'))).toBe(
-      'No agent can check saved items right now. Open Agents to start or connect an agent, then return to the board and refresh.'
+      'No agent can check saved items right now. Open Agents to start or connect an agent, then open the Tasks page and check saved items again.'
     )
   })
 
@@ -68,7 +70,7 @@ describe('boardActionErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh the board to load tasks. If it still fails, ask an owner or admin to check task board access.'
+      'Choose Refresh tasks to load tasks. If it still fails, ask an owner or admin to check task board access.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('temporarily unavailable')
@@ -85,7 +87,7 @@ describe('boardActionErrorMessage', () => {
   test('keeps moved-back task failures actionable without repeating the refresh step', () => {
     expectBeginnerMessage(
       boardActionErrorMessage('moveTask', new Error('HTTP 500')),
-      'Refresh the board, then move the task again. The task was moved back because the board change was not saved. If it still fails, ask an owner or admin to check task board actions.'
+      'Choose Refresh tasks, then move the task again. The task was moved back because the board change was not saved. If it still fails, ask an owner or admin to check task board actions.'
     )
   })
 

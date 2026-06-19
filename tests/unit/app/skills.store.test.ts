@@ -32,7 +32,7 @@ describe('skillHttpErrorMessage', () => {
   test('turns unauthorized catalog loads into a sign-in step', () => {
     expectBeginnerMessage(
       skillHttpErrorMessage('load', 401),
-      'Sign in again, then refresh Saved instructions.'
+      'Sign in again, then open Saved instructions again.'
     )
   })
 
@@ -47,7 +47,7 @@ describe('skillHttpErrorMessage', () => {
   test('turns catalog permission failures into team space access guidance', () => {
     expectBeginnerMessage(
       skillHttpErrorMessage('load', 403),
-      'Ask an owner or admin to update your team space access, then refresh Saved instructions. You do not have access to saved instructions for this team space.'
+      'Ask an owner or admin to update your team space access, then open Saved instructions again. You do not have access to saved instructions for this team space.'
     )
     expect(skillHttpErrorMessage('load', 403)).not.toContain('workspace instructions')
   })
@@ -66,7 +66,9 @@ describe('useSkillsStore errors', () => {
 
     await useSkillsStore.getState().loadSkills()
 
-    expect(useSkillsStore.getState().error).toBe('Refresh Saved instructions to load the list.')
+    expect(useSkillsStore.getState().error).toBe(
+      'Open Saved instructions again to load the list.'
+    )
     expect(useSkillsStore.getState().error).not.toContain('service is temporarily unavailable')
     expect(useSkillsStore.getState().error).not.toContain('database unavailable')
   })
@@ -77,7 +79,7 @@ describe('useSkillsStore errors', () => {
     await useSkillsStore.getState().loadSkills()
 
     expect(useSkillsStore.getState().error).toBe(
-      'Check your connection, then refresh Saved instructions to load the list.'
+      'Check your connection, then open Saved instructions again to load the list.'
     )
     expect(useSkillsStore.getState().error).not.toContain('Failed to fetch')
   })
@@ -87,7 +89,9 @@ describe('useSkillsStore errors', () => {
 
     await useSkillsStore.getState().loadSkills()
 
-    expect(useSkillsStore.getState().error).toBe('Refresh Saved instructions to load the list.')
+    expect(useSkillsStore.getState().error).toBe(
+      'Open Saved instructions again to load the list.'
+    )
     expect(useSkillsStore.getState().error).not.toContain('database parser detail')
   })
 

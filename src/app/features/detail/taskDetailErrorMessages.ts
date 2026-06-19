@@ -13,15 +13,17 @@ const ACTION_FALLBACKS: Record<TaskDetailErrorAction, string> = {
   approveTask:
     'Check that the task is still waiting for your decision, then choose Allow and continue again. The task did not continue.',
   blockTask:
-    'Refresh the task, then choose Needs help again. The task was not marked as needing help.',
-  cancelTask: 'Refresh the task, then choose Cancel again. The task was not canceled.',
-  loadAgents: 'Refresh this task before assigning an agent.',
-  loadContext: 'Refresh task details to load saved notes and work history.',
-  loadRuns: 'Refresh Updates before deciding whether to retry this task.',
+    'Open this task again from the Tasks page, then choose Needs help again. The task was not marked as needing help.',
+  cancelTask:
+    'Open this task again from the Tasks page, then choose Cancel again. The task was not canceled.',
+  loadAgents: 'Open this task again from the Tasks page before assigning an agent.',
+  loadContext: 'Open this task again from the Tasks page to load saved notes and work history.',
+  loadRuns: 'Open Updates for this task again before deciding whether to retry this task.',
   previewContext: 'Choose an available agent, then check saved items again.',
   publishTask:
     'Check the selected saved notes, then send the task again. The task was not sent with selected notes.',
-  retryTask: 'Refresh the task, then choose Retry task again. The task was not retried.',
+  retryTask:
+    'Open this task again from the Tasks page, then choose Retry task again. The task was not retried.',
 }
 
 export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unknown): string {
@@ -30,7 +32,7 @@ export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unkno
   const status = errorStatus(err, normalized)
 
   if (/no available agent|no agent.*available/.test(normalized)) {
-    return 'No agent can take this task right now. Open Agents to start or connect an agent, then refresh this task and try again.'
+    return 'No agent can take this task right now. Open Agents to start or connect an agent, then open this task again from the Tasks page.'
   }
 
   if (isNetworkError(normalized)) {
@@ -43,17 +45,17 @@ export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unkno
 
   if (status === 403) {
     if (action === 'loadAgents' || action === 'loadContext' || action === 'loadRuns') {
-      return 'Ask an owner or admin to give you access to this task, then refresh the task details. You do not have permission to view this task.'
+      return 'Ask an owner or admin to give you access to this task, then open it again from the Tasks page. You do not have permission to view this task.'
     }
-    return 'Ask an owner or admin to let you update this task, then refresh the task details and try again. You do not have permission to change this task.'
+    return 'Ask an owner or admin to let you update this task, then open it again from the Tasks page and try again. You do not have permission to change this task.'
   }
 
   if (status === 404) {
-    return 'Refresh the board, then open the task again. This task was not found.'
+    return 'Open the Tasks page, then choose the current task again. This task was not found.'
   }
 
   if (status === 409) {
-    return 'Refresh task details, then try again. This task changed while you were working.'
+    return 'Open this task again from the Tasks page, then try again. This task changed while you were working.'
   }
 
   if (status === 422) {
@@ -73,7 +75,7 @@ export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unkno
 
 function networkRecoveryMessage(action: TaskDetailErrorAction): string {
   if (action === 'loadAgents' || action === 'loadContext' || action === 'loadRuns') {
-    return 'If it still does not load, check your connection and refresh the page.'
+    return 'If it still does not load, check your connection, then open this task again from the Tasks page.'
   }
   return 'If it still does not update, check your connection and try again.'
 }
@@ -144,7 +146,7 @@ function isNetworkError(normalizedDetail: string): boolean {
 function validationMessage(action: TaskDetailErrorAction, detail: string): string {
   const normalized = detail.toLowerCase()
   if (normalized.includes('already running')) {
-    return 'This task is already in progress. Wait for the current work to finish, then refresh the task.'
+    return 'This task is already in progress. Wait for the current work to finish, then open this task again from the Tasks page.'
   }
   if (normalized.includes('agent')) {
     return 'Choose an available agent, then try again.'

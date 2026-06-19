@@ -55,7 +55,9 @@ describe('workspace setup create forms', () => {
 
     await waitFor(() => {
       const alert = screen.getByRole('alert')
-      expect(alert).toHaveTextContent('Refresh Settings, then create this team again.')
+      expect(alert).toHaveTextContent(
+        'Open Settings and Teams and Projects again, then create this team.'
+      )
       expect(alert).toHaveTextContent(
         'ask an owner or admin to check Teams and Projects in Settings'
       )
@@ -150,7 +152,11 @@ describe('workspace setup create forms', () => {
     expect(screen.getByPlaceholderText('https://github.com/team/project.git')).toBeInTheDocument()
     expect(screen.queryByPlaceholderText('https://github.com/org/repo.git')).toBeNull()
     expect(screen.getByText(/when you want Forge to copy code now/i)).toBeInTheDocument()
-    expect(screen.getAllByText(/Never paste tokens or passwords here/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Never paste passwords or access keys here/i).length).toBeGreaterThan(
+      0
+    )
+    expect(screen.getByText(/copy from your browser/i)).toBeInTheDocument()
+    expect(screen.queryByText(/for git@ links/i)).toBeNull()
     expect(screen.getAllByText(/leave this blank/i).length).toBeGreaterThan(0)
     expect(screen.getByTestId('create-project-code-link-status')).toHaveTextContent(
       'No code link added. Create the project now, then add code access later if agents need files.'
@@ -196,10 +202,11 @@ describe('workspace setup create forms', () => {
     // No silent dead-click: a visible banner AND no submit.
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Paste a code link that starts with https://'
+      'Paste the https:// code link from your browser'
     )
     expect(screen.getByRole('alert')).toHaveTextContent('leave this blank')
     expect(screen.getByRole('alert')).toHaveTextContent('SSH code access')
+    expect(screen.getByRole('alert')).not.toHaveTextContent('for git@ links')
     expect(screen.getByRole('alert')).not.toHaveTextContent('SSH keys')
     expect(onSave).not.toHaveBeenCalled()
   })
@@ -240,6 +247,27 @@ describe('workspace setup create forms', () => {
       expect(alert).toHaveTextContent('leave the code link blank')
       expect(alert).toHaveTextContent('add code access in Settings')
       expect(alert).not.toHaveTextContent('repository_url')
+    })
+    expect(onSave).toHaveBeenCalled()
+  })
+
+  test('reopens Settings when the selected team is no longer available for project creation', async () => {
+    const onSave = vi.fn().mockRejectedValue(new Error('HTTP 404: team not found'))
+
+    render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Moved Team' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create project/i }))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent(
+        'Open Settings and Teams and Projects again, choose the team, then create this project.'
+      )
+      expect(alert).not.toHaveTextContent('Refresh Settings')
+      expect(alert).not.toHaveTextContent('HTTP 404')
     })
     expect(onSave).toHaveBeenCalled()
   })

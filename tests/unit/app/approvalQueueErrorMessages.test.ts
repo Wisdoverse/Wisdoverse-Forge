@@ -18,8 +18,9 @@ describe('approvalQueueErrorMessage', () => {
   test('explains network failures without exposing only a transport error', () => {
     const message = approvalQueueErrorMessage('loadQueue', new TypeError('Failed to fetch'))
 
-    expect(message).toContain('Check your connection, then refresh Saved items')
+    expect(message).toContain('Check your connection, then choose Load saved items again')
     expect(message).toContain('Forge could not connect while loading saved notes and instructions')
+    expect(message).not.toContain('refresh Saved items')
     expect(message).not.toContain('API')
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('app could not reach')
@@ -41,14 +42,14 @@ describe('approvalQueueErrorMessage', () => {
   test('gives a clear conflict recovery step', () => {
     expectBeginnerMessage(
       approvalQueueErrorMessage('approveCandidate', new Error('409 conflict')),
-      'Refresh the list, then open this item again. It changed while you were checking it.'
+      'Choose Load saved items again, then open this item. It changed while you were checking it.'
     )
   })
 
   test('gives a refresh step when the saved item is missing', () => {
     expectBeginnerMessage(
       approvalQueueErrorMessage('rejectCandidate', new Error('404 not found')),
-      'Refresh the list so you see the latest saved items. This item was not found.'
+      'Choose Load saved items again so you see the latest saved items. This item was not found.'
     )
   })
 
@@ -57,8 +58,9 @@ describe('approvalQueueErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh the list so you see the latest saved items. Saved items could not load. If it still fails, ask an owner or admin to check Saved items access.'
+      'Choose Load saved items again so you see the latest saved items. Saved items could not load. If it still fails, ask an owner or admin to check Saved items access.'
     )
+    expect(message).not.toContain('Refresh the list')
     expect(message).not.toContain('backend')
     expect(message).not.toContain('temporarily unavailable')
   })
@@ -87,7 +89,7 @@ describe('approvalQueueErrorMessage', () => {
       approvalQueueErrorMessage('loadQueue', {
         detail: 'Scope ID is required',
       }),
-      'Refresh the list, then check who can reuse the selected items. Saved items could not load.'
+      'Choose Load saved items again, then check who can reuse the selected items. Saved items could not load.'
     )
   })
 

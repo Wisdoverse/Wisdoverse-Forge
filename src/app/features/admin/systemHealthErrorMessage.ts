@@ -61,23 +61,23 @@ export function systemHealthErrorMessage(error: unknown): string {
   const code = statusCode(error)
 
   if (code === 401 || text.includes('sign in again') || text.includes('unauthorized')) {
-    return 'Sign in again, then open Admin and choose Check now. Forge could not check app health because your sign-in expired.'
+    return 'Sign in again, then open Admin and choose App health before choosing Check now. Forge could not check app health because your sign-in expired.'
   }
   if (code === 403 || text.includes('permission') || text.includes('forbidden')) {
-    return 'Ask an owner or admin to give you Admin access, then choose Check now. Forge could not check app health because you do not have access to app health checks.'
+    return 'Ask an owner or admin to give you Admin access, then open Admin and choose App health before choosing Check now. Forge could not check app health because you do not have access to app health checks.'
   }
   if (code === 404 || text.includes('endpoint is not available')) {
-    return 'Refresh Admin, then choose Check now. App health checks are not available from this Admin view. If it still fails, ask an owner or admin to check System health in Admin.'
+    return 'Open Admin and choose App health, then choose Check now. App health checks are not available from this Admin view. If it still fails, ask an owner or admin to check App health in Admin.'
   }
   if (code === 429 || text.includes('busy') || text.includes('too many')) {
-    return 'Wait a minute, then choose Check now. Forge is receiving too many health checks right now.'
+    return 'Wait a minute, then open Admin, choose App health, and choose Check now. Forge is receiving too many health checks right now.'
   }
   if (code != null && code >= 500) {
-    return 'Refresh Admin, then choose Check now. Forge could not check app health. If it still fails, ask an owner or admin to check System health in Admin.'
+    return 'Open Admin and choose App health, then choose Check now. Forge could not check app health. If it still fails, ask an owner or admin to check App health in Admin.'
   }
   if (isNetworkError(error)) {
-    return 'Check your connection, then choose Check now. Forge could not connect while checking app health.'
+    return 'Check your connection, then open Admin and choose App health before choosing Check now. Forge could not connect while checking app health.'
   }
 
-  return 'Choose Check now again. Forge could not check app health. If it still fails, ask an owner or admin to check System health in Admin.'
+  return 'Open Admin and choose App health, then choose Check now again. Forge could not check app health. If it still fails, ask an owner or admin to check App health in Admin.'
 }

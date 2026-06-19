@@ -235,7 +235,7 @@ describe('ResourceMembersModal', () => {
     expect(alert.textContent).not.toContain('No team selected')
   })
 
-  test('shows refresh guidance when role changes conflict', async () => {
+  test('shows Members guidance when role changes conflict', async () => {
     renderMembersModal({
       members: [makeMember({})],
       users: [makeUser({})],
@@ -249,7 +249,7 @@ describe('ResourceMembersModal', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain("This person's access changed while you were editing")
-    expect(alert.textContent).toContain('Refresh the members list')
+    expect(alert.textContent).toContain('Open Members for this project again')
     expect(alert.textContent).not.toContain('API 409')
     expect(alert.textContent).not.toContain('role already changed')
   })

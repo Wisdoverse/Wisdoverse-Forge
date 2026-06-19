@@ -684,7 +684,7 @@ describe('Sidebar', () => {
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
     expect(
-      await screen.findByText(/Choose a different project name, refresh the left menu/i)
+      await screen.findByText(/Choose a different project name, then open the left menu/i)
     ).toBeInTheDocument()
     expect(screen.queryByText(/project name already exists/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/422/i)).not.toBeInTheDocument()
@@ -706,7 +706,7 @@ describe('Sidebar', () => {
 
     expect(
       await screen.findByText(
-        'Refresh the left menu, then save this project name again. Forge could not save it right now. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
+        'Open the left menu, choose the current project, then save this project name again. Forge could not save it right now. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
       )
     ).toBeInTheDocument()
     expect(screen.queryByText(/API 500/i)).not.toBeInTheDocument()

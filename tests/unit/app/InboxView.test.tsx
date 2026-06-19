@@ -462,6 +462,7 @@ describe('InboxView', () => {
     expect(emptyState).toHaveTextContent('No account access needs reconnecting')
     expect(emptyState).toHaveTextContent('Account access is not blocking agent work right now.')
     expect(emptyState).not.toHaveTextContent('No account access needs reconnecting right now.')
+    expect(emptyState).not.toHaveTextContent(/refresh the inbox|reload the inbox/i)
 
     await user.click(screen.getByRole('button', { name: /show all updates/i }))
 
@@ -530,13 +531,13 @@ describe('InboxView', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'Check your connection, then reload the inbox. Saved notifications could not be loaded'
+      'Check your connection, then choose Load updates again. Saved updates could not be loaded'
     )
-    expect(alert.textContent).not.toMatch(/^Saved notifications could not be loaded/)
+    expect(alert.textContent).not.toMatch(/^Saved updates could not be loaded/)
 
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: /reload inbox/i }))
-    expect(screen.getByRole('button', { name: /reloading inbox/i })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: /load updates again/i }))
+    expect(screen.getByRole('button', { name: /loading updates/i })).toBeDisabled()
     expect(orchestrationApiMock.fetchInboxNotifications).toHaveBeenCalledTimes(2)
 
     retry.resolve([])
@@ -590,7 +591,7 @@ describe('InboxView', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'Check your connection, then reload the inbox. Some updates may appear unread again because Forge could not save the read status.'
+      'Check your connection, then open Inbox again. Some updates may appear unread again because Forge could not save the read status.'
     )
     expect(alert.textContent).not.toContain('Failed to mark')
     expect(useFeedStore.getState().notifications[0].read).toBe(true)
@@ -625,7 +626,7 @@ describe('InboxView', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'Check your connection, then reload the inbox. Some updates may appear unread again because Forge could not save the read status.'
+      'Check your connection, then open Inbox again. Some updates may appear unread again because Forge could not save the read status.'
     )
     expect(alert.textContent).not.toContain('Failed to mark')
     expect(useFeedStore.getState().notifications.every((notification) => notification.read)).toBe(

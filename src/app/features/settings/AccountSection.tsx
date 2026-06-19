@@ -514,7 +514,7 @@ export function AccountSection() {
               Username
             </span>
             <span className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-              {reportedAccountValue(user?.username, 'Refresh this page to load username')}
+              {reportedAccountValue(user?.username, 'Open Account settings again to load username')}
             </span>
           </div>
           <div className="flex items-center justify-between px-4 py-3">
@@ -522,7 +522,7 @@ export function AccountSection() {
               Email
             </span>
             <span className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-              {reportedAccountValue(user?.email, 'Refresh this page to load email')}
+              {reportedAccountValue(user?.email, 'Open Account settings again to load email')}
             </span>
           </div>
           <div className="flex items-center justify-between px-4 py-3">

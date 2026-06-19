@@ -66,7 +66,8 @@ describe('CloneStatusBadge', () => {
       />
     )
     expect(screen.getByText('Code copy needs help')).toBeInTheDocument()
-    expect(screen.getByText(/Check saved code access for this code project/)).toBeInTheDocument()
+    expect(screen.getByText(/Open Settings and Code access/)).toBeInTheDocument()
+    expect(screen.getByText(/check saved access for this code project/)).toBeInTheDocument()
     expect(screen.getByText(/code website rejected Forge access/)).toBeInTheDocument()
     expect(screen.queryByText(/repository/i)).not.toBeInTheDocument()
     expect(screen.queryByText('authentication failed')).not.toBeInTheDocument()
@@ -87,7 +88,8 @@ describe('CloneStatusBadge', () => {
       />
     )
 
-    expect(screen.getByText(/Check the code link, then try copying code again/)).toBeInTheDocument()
+    expect(screen.getByText(/Open Settings and Teams and Projects/)).toBeInTheDocument()
+    expect(screen.getByText(/check this project code link/)).toBeInTheDocument()
     expect(screen.getByText(/could not find this code project/)).toBeInTheDocument()
     expect(screen.queryByText('repository not found')).not.toBeInTheDocument()
     expect(screen.queryByText(/could not find this repository/i)).not.toBeInTheDocument()
@@ -97,7 +99,7 @@ describe('CloneStatusBadge', () => {
     const cases: Array<{ errorClass: CloneSummary['errorClass']; expected: RegExp }> = [
       {
         errorClass: 'network',
-        expected: /Check your connection and code website address, then try copying code again/i,
+        expected: /Check your connection and this project code link, then choose Copy code again/i,
       },
       {
         errorClass: 'timeout',
@@ -134,9 +136,8 @@ describe('CloneStatusBadge', () => {
       />
     )
 
-    expect(
-      screen.getByText(/Check the code link and saved code access, then try copying code again/)
-    ).toBeInTheDocument()
+    expect(screen.getByText(/Open Settings and Teams and Projects/)).toBeInTheDocument()
+    expect(screen.getByText(/check the code link and saved code access/)).toBeInTheDocument()
     expect(screen.queryByText('unexpected git stderr')).not.toBeInTheDocument()
   })
 
@@ -221,6 +222,8 @@ describe('CloneStatusBadge', () => {
     await waitFor(() => {
       const alert = screen.getByRole('alert')
       expect(alert).toHaveTextContent('Ask an owner or admin to let you copy code')
+      expect(alert).toHaveTextContent('open Settings and Teams and Projects')
+      expect(alert).toHaveTextContent('choose Copy code again')
       expect(alert).toHaveTextContent('You do not have permission right now')
       expect(alert).not.toHaveTextContent('update project access')
       expect(alert).not.toHaveTextContent('API 403')
@@ -246,7 +249,8 @@ describe('CloneStatusBadge', () => {
 
     await waitFor(() => {
       const alert = screen.getByRole('alert')
-      expect(alert).toHaveTextContent('Wait a few minutes, then try copying code again')
+      expect(alert).toHaveTextContent('Wait a few minutes, then choose Copy code again')
+      expect(alert).toHaveTextContent('from this project row')
       expect(alert).not.toHaveTextContent('API 500')
       expect(alert).not.toHaveTextContent('database unavailable')
     })
@@ -268,7 +272,7 @@ describe('CloneStatusBadge', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Wait a minute, then try copying code again. Too many copy retries are happening right now.'
+        'Wait a minute, then choose Copy code again from this project row. Too many copy retries are happening right now.'
       )
     })
   })
@@ -288,9 +292,9 @@ describe('CloneStatusBadge', () => {
     fireEvent.click(screen.getByTestId('clone-retry-p1'))
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(
-        'Check the code link and saved code access, then try copying code again'
-      )
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent('Open Settings and Teams and Projects')
+      expect(alert).toHaveTextContent('choose Copy code again on this project row')
     })
   })
 

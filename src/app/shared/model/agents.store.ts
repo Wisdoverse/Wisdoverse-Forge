@@ -106,7 +106,7 @@ function cliToolToProvider(cliTool?: CliTool): string {
     case 'opencode':
       return 'OpenAI'
     default:
-      return 'Refresh AI service'
+      return 'Check AI service setup'
   }
 }
 
@@ -123,7 +123,7 @@ function managedToAgentInfo(agent: ManagedAgent): AgentInfo {
     // Provider+prompt agents: backend carries the real provider/model keys.
     // CLI-tool agents: backend leaves them null, fall back to cliTool-derived labels.
     provider: agent.provider ?? cliToolToProvider(agent.cliTool),
-    model: agent.model ?? agent.cliTool ?? 'Refresh AI model',
+    model: agent.model ?? agent.cliTool ?? 'Check AI model setup',
     status: mapManagedAgentStatus(agent.status),
     tasksCompleted: 0,
     tasksInProgress: 0,
@@ -156,7 +156,7 @@ const initialState = {
   error: null as string | null,
 }
 
-const AGENTS_LOAD_ERROR = 'Refresh Agents to load agents.'
+const AGENTS_LOAD_ERROR = 'Open Agents again to load agents.'
 const AGENT_CREATE_ERROR = 'Agent was not created. Check the agent details, then try again.'
 const AGENT_CREATED_START_ERROR =
   'Ask an owner or admin to check Where agents work in Settings, then start this agent from the card. Agent was created, but file work is not ready yet.'
@@ -164,10 +164,10 @@ const THIS_COMPUTER_SETUP_ERROR =
   'This computer setup text could not be prepared. Check the agent name and work tool, then choose Create Agent again.'
 const AGENT_INSTRUCTIONS_ERROR =
   'Agent instructions were not saved. Review the instructions, then try again.'
-const AGENT_DELETE_ERROR = 'Agent was not removed. Refresh Agents, then try again.'
-const AGENT_PROMPT_ERROR = 'Instruction was not sent. Refresh this agent, then try again.'
-const AGENT_START_ERROR = 'Agent was not started. Refresh this agent, then try again.'
-const AGENT_RESTART_ERROR = 'Agent was not restarted. Refresh this agent, then try again.'
+const AGENT_DELETE_ERROR = 'Open Agents, then try removing this agent again. Agent was not removed.'
+const AGENT_PROMPT_ERROR = 'Instruction was not sent. Open this agent again, then try again.'
+const AGENT_START_ERROR = 'Agent was not started. Open this agent again, then try again.'
+const AGENT_RESTART_ERROR = 'Agent was not restarted. Open this agent again, then try again.'
 
 export const useAgentsStore = create<AgentsState>((set, get) => ({
   ...initialState,

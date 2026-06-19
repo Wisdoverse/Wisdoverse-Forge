@@ -273,8 +273,12 @@ describe('KeysSection', () => {
     render(<KeysSection />)
 
     expect(await screen.findByRole('table', { name: /outside tool access keys/i })).toBeDefined()
-    expect(screen.getByText('Refresh access keys to load created date')).toBeDefined()
-    expect(screen.getByText('Refresh access keys to check last use')).toBeDefined()
+    expect(
+      screen.getByText('Open Outside tool access keys again to load created date')
+    ).toBeDefined()
+    expect(
+      screen.getByText('Open Outside tool access keys again to check last use')
+    ).toBeDefined()
     expect(screen.queryByText('Invalid Date')).toBeNull()
     expect(screen.queryByText('—')).toBeNull()
   })

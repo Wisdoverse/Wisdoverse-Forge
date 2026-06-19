@@ -22,7 +22,7 @@ export function accountErrorMessage(action: AccountErrorAction, error?: unknown)
     return permissionMessage(action)
   }
   if (status === 404) {
-    return `Refresh Settings, then ${retryPhrase(action)}. ${settingsAreaLabel(action)} are not available.`
+    return `Open Account settings again, then ${retryPhrase(action)}. ${settingsAreaLabel(action)} are not available.`
   }
   if (status === 409) {
     return conflictMessage(action)
@@ -34,10 +34,10 @@ export function accountErrorMessage(action: AccountErrorAction, error?: unknown)
     return `Wait a moment, then ${retryPhrase(action)}. Forge is receiving too many account settings requests right now.`
   }
   if (status >= 500) {
-    return `Refresh Settings, then ${retryPhrase(action)}. If it still fails, ask an owner or admin to check account settings.`
+    return `Open Account settings again, then ${retryPhrase(action)}. If it still fails, ask an owner or admin to check account settings.`
   }
 
-  return `Refresh Settings, then ${retryPhrase(action)}. If it still fails, ask an owner or admin to check account settings.`
+  return `Open Account settings again, then ${retryPhrase(action)}. If it still fails, ask an owner or admin to check account settings.`
 }
 
 function retryPhrase(action: AccountErrorAction): string {
@@ -64,9 +64,9 @@ function permissionMessage(action: AccountErrorAction): string {
 
 function conflictMessage(action: AccountErrorAction): string {
   if (action === 'changePassword') {
-    return 'Refresh the page, then try again. Your account changed while this form was open.'
+    return 'Open Account settings again, then change your password again. Your account changed while this form was open.'
   }
-  return 'Refresh team space settings, check the current name, then try again. This team space changed while you were editing.'
+  return 'Open Account settings again, check the current team space name, then try again. This team space changed while you were editing.'
 }
 
 function validationMessage(action: AccountErrorAction, detail?: string | null): string {

@@ -30,7 +30,7 @@ const INBOX_ACTION_STEPS = [
 ]
 
 const READ_STATUS_SAVE_ERROR =
-  'Check your connection, then reload the inbox. Some updates may appear unread again because Forge could not save the read status.'
+  'Check your connection, then open Inbox again. Some updates may appear unread again because Forge could not save the read status.'
 
 function InboxLoadError({ loading, onRetry }: { loading: boolean; onRetry: () => void }) {
   return (
@@ -40,8 +40,8 @@ function InboxLoadError({ loading, onRetry }: { loading: boolean; onRetry: () =>
       className="flex flex-col gap-2 rounded-card border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red sm:flex-row sm:items-center sm:justify-between"
     >
       <span>
-        Check your connection, then reload the inbox. Saved notifications could not be loaded, but
-        new updates will still appear here.
+        Check your connection, then choose Load updates again. Saved updates could not be loaded,
+        but new live updates will still appear here.
       </span>
       <button
         type="button"
@@ -50,7 +50,7 @@ function InboxLoadError({ loading, onRetry }: { loading: boolean; onRetry: () =>
         className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-ui-button font-semibold text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30 disabled:cursor-not-allowed disabled:opacity-70"
       >
         <RefreshCw size={14} className={cn(loading && 'animate-spin')} aria-hidden="true" />
-        {loading ? 'Reloading inbox...' : 'Reload inbox'}
+        {loading ? 'Loading updates...' : 'Load updates again'}
       </button>
     </div>
   )
@@ -389,7 +389,7 @@ function inboxFilterEmptyState(filter: InboxFilter): InboxFilterEmptyState {
     case 'all':
       return {
         title: 'No updates match this filter',
-        detail: 'Open another filter or refresh the inbox if you expected to see recent updates.',
+        detail: 'Open All if a filter is selected, or check Inbox again later for new updates.',
       }
   }
 }

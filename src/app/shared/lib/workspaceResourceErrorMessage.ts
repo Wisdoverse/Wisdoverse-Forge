@@ -21,16 +21,16 @@ export function workspaceResourceErrorMessage(
   }
 
   if (status === 401) {
-    return `Sign in again, then reopen Settings and ${retryPhrase(resource, action)}.`
+    return `Sign in again, then open Settings and Teams and Projects, and ${retryPhrase(resource, action)}.`
   }
   if (status === 403) {
-    return `Ask an owner or admin to update your team space access, then ${retryPhrase(resource, action)} in Settings. You do not have permission to ${permissionAction(action)} this ${resource}.`
+    return `Ask an owner or admin to update your team space access, then open Settings and Teams and Projects, and ${retryPhrase(resource, action)}. You do not have permission to ${permissionAction(action)} this ${resource}.`
   }
   if (status === 404) {
-    return `Refresh Settings, then choose an existing ${resource}.`
+    return `Open Settings and Teams and Projects, then choose an existing ${resource}.`
   }
   if (status === 409) {
-    return `This ${resource} changed while you were editing. Refresh Settings, check the current ${resource}, then try again.`
+    return `Open Settings and Teams and Projects, check the current ${resource}, then try again. This ${resource} changed while you were editing.`
   }
   if (status === 400 || status === 422) {
     return validationMessage(resource, action, detail)
@@ -42,21 +42,21 @@ export function workspaceResourceErrorMessage(
     return workspaceResourceUnavailableMessage(resource, action)
   }
 
-  return `Refresh Settings, then ${retryPhrase(resource, action)}.`
+  return `Open Settings and Teams and Projects, then ${retryPhrase(resource, action)}.`
 }
 
 function workspaceResourceConnectionMessage(
   resource: WorkspaceResourceKind,
   action: WorkspaceResourceAction
 ): string {
-  return `Check your connection, then ${retryPhrase(resource, action)} in Settings.`
+  return `Check your connection, then open Settings and Teams and Projects, and ${retryPhrase(resource, action)}.`
 }
 
 function workspaceResourceUnavailableMessage(
   resource: WorkspaceResourceKind,
   action: WorkspaceResourceAction
 ): string {
-  return `Refresh Settings, then ${retryPhrase(resource, action)}. If it still fails, ask an owner or admin to check Teams and Projects in Settings.`
+  return `Open Settings and Teams and Projects, then ${retryPhrase(resource, action)}. If it still fails, ask an owner or admin to check Teams and Projects in Settings.`
 }
 
 function permissionAction(action: WorkspaceResourceAction): string {

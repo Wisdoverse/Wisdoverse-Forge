@@ -170,7 +170,7 @@ export function SkillsView() {
               onClick={() => void loadSkills()}
               className={uiStyles.primaryButton}
             >
-              Refresh saved instructions
+              Load saved instructions again
             </button>
           </div>
         )}
@@ -222,21 +222,21 @@ export function SkillsView() {
 }
 
 function savedInstructionsLoadErrorMessage(error: string): string {
-  return RAW_LOAD_ERROR_PATTERN.test(error) ? 'Saved instructions need a refresh.' : error
+  return RAW_LOAD_ERROR_PATTERN.test(error) ? 'Saved instructions need to load again.' : error
 }
 
 function savedInstructionsLoadRecoveryMessage(error: string): string {
   const normalized = error.toLowerCase()
   if (normalized.includes('sign in')) {
-    return 'After signing in, choose Refresh saved instructions.'
+    return 'After signing in, choose Load saved instructions again.'
   }
   if (normalized.includes('permission') || normalized.includes('access')) {
-    return 'After an owner or admin updates your access, choose Refresh saved instructions.'
+    return 'After an owner or admin updates your access, choose Load saved instructions again.'
   }
   if (normalized.includes('connect') || normalized.includes('connection')) {
-    return 'Check your connection, then choose Refresh saved instructions.'
+    return 'Check your connection, then choose Load saved instructions again.'
   }
-  return 'Choose Refresh saved instructions to load the list again.'
+  return 'Choose Load saved instructions again to load the list.'
 }
 
 function savedInstructionsEmptyState({
@@ -319,14 +319,14 @@ function skillToolbarStatus({
   error: string | null
 }) {
   if (loading) return 'Checking saved instructions'
-  if (error) return 'Refresh saved instructions to continue.'
+  if (error) return 'Load saved instructions again to continue.'
   if (visibleCount > 0) {
     return `${visibleCount} saved instruction${visibleCount === 1 ? '' : 's'}`
   }
   if (totalCount === 0) return 'Choose Save instruction to start.'
   if (searchQuery.trim()) return 'Clear search to see saved instructions.'
   if (filter !== 'all') return 'Change filter to see saved instructions.'
-  return 'Choose Save instruction or refresh this page.'
+  return 'Choose Save instruction to add a saved instruction.'
 }
 
 function SkillStat({

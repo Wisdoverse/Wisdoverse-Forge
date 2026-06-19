@@ -69,12 +69,12 @@ describe('ContextUsageDashboard', () => {
     expect(screen.queryByText('Signals to check before reuse.')).toBeNull()
   })
 
-  test('tells users to refresh old analytics before deciding from them', () => {
+  test('tells users to load old analytics again before deciding from them', () => {
     render(<ContextUsageDashboard data={analytics({ isStale: true, staleAfterHours: 12 })} />)
 
     const banner = screen.getByTestId('context-usage-stale-banner')
     expect(banner).toHaveTextContent('These numbers are more than 12h old')
-    expect(banner).toHaveTextContent('Refresh analytics before making decisions')
+    expect(banner).toHaveTextContent('Choose Load analytics again before making decisions')
     expect(banner).not.toHaveTextContent('Snapshot')
   })
 
@@ -106,9 +106,11 @@ describe('ContextUsageDashboard', () => {
       />
     )
 
-    expect(screen.getByText('Refresh analytics to update time')).toBeDefined()
+    expect(screen.getByText('Choose Load analytics again to update this time')).toBeDefined()
     const item = screen.getByTestId('context-usage-item')
-    expect(item.textContent).toContain('Builder Agent · Refresh work location · Refresh task type')
+    expect(item.textContent).toContain(
+      'Builder Agent · Check where this ran · Check what kind of task it was'
+    )
     expect(item.textContent).toContain('Next: keep this available for similar tasks.')
     expect(screen.queryByText('Updated time not available')).toBeNull()
     expect(screen.queryByText(/^unknown$/i)).toBeNull()

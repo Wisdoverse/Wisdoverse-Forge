@@ -57,8 +57,9 @@ describe('providerSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh the list, then choose a different name or remove the old service first. An AI service with this name or setup already exists.'
+      'Open Settings and AI services again, check the current AI service, then choose a different name or remove the old service first.'
     )
+    expect(message).not.toContain('Refresh the list')
     expect(message).not.toContain('AI service could not be saved')
   })
 
@@ -67,7 +68,7 @@ describe('providerSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then refresh Settings to load AI service settings. Forge could not connect while opening AI service settings.'
+      'Check your connection, then open Settings and AI services again. Forge could not connect while opening AI service settings.'
     )
     expect(message).not.toContain('the service')
     expect(message).not.toContain('Failed to fetch')
@@ -100,7 +101,7 @@ describe('providerSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load AI service settings. If it still fails, ask an owner or admin to check AI service settings.'
+      'Open Settings and AI services again. If it still fails, ask an owner or admin to check AI service settings.'
     )
     expect(message).not.toContain('settings page')
     expect(message).not.toContain('temporarily unavailable')
@@ -118,7 +119,7 @@ describe('providerSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load AI service settings. If it still fails, ask an owner or admin to check AI service settings.'
+      'Open Settings and AI services again. If it still fails, ask an owner or admin to check AI service settings.'
     )
     expect(message).not.toContain('parser')
   })

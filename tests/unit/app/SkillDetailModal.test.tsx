@@ -91,7 +91,7 @@ describe('SkillDetailModal', () => {
       )
     ).toBeInTheDocument()
     expect(screen.getByText('Saved instructions library')).toBeInTheDocument()
-    expect(screen.getByText('Refresh saved instructions to load maintainer')).toBeInTheDocument()
+    expect(screen.getByText('Open Saved instructions again to load maintainer')).toBeInTheDocument()
     expect(screen.queryByText('Unknown')).toBeNull()
     expect(screen.getByText('Latest saved copy')).toBeInTheDocument()
     expect(

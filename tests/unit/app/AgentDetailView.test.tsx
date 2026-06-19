@@ -289,14 +289,16 @@ describe('AgentDetailView', () => {
 
     render(<AgentDetailView agent={{ ...containerAgent, status: 'working' }} onBack={() => {}} />)
 
-    expect(await screen.findByText('Refresh or open Tasks to check activity')).toBeDefined()
+    expect(await screen.findByText('Choose this agent again or open Tasks')).toBeDefined()
     expect(
       screen.getByText(
-        "This page could not load the agent's recent task history. Refresh Agents, or open Tasks to confirm what is running before assigning more work."
+        "This page could not load the agent's recent task history. Go back to Agents and choose this agent again, or open Tasks to confirm what is running before assigning more work."
       )
     ).toBeDefined()
     expect(
-      screen.getByText("Refresh Agents or open Tasks to check this agent's latest work.")
+      screen.getByText(
+        "Go back to Agents and choose this agent again, or open Tasks to check this agent's latest work."
+      )
     ).toBeDefined()
     expect(screen.getByText(/latest task state before deciding/)).toBeDefined()
     expect(screen.getByRole('button', { name: /open tasks/i })).toBeDefined()
@@ -442,7 +444,9 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('Check the AI service before sending work')).toBeDefined()
     expect(screen.getByText('Open AI service settings and choose Check connection')).toBeDefined()
     expect(within(nextStep).getByText(/choose Check connection for this service/i)).toBeDefined()
-    expect(within(nextStep).getByText(/refresh Agents before sending chat work/i)).toBeDefined()
+    expect(
+      within(nextStep).getByText(/return to Agents and choose this agent again/i)
+    ).toBeDefined()
     expect(screen.getByText(/returns to Ready and can answer in chat/i)).toBeDefined()
     expect(screen.getByRole('link', { name: /open AI service settings/i })).toHaveAttribute(
       'href',

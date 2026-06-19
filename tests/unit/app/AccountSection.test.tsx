@@ -247,8 +247,10 @@ describe('AccountSection', () => {
       username: '',
     })
 
-    expect(screen.getByText('Refresh this page to load username')).toBeDefined()
-    expect(screen.getByText('Refresh this page to load email')).toBeDefined()
+    expect(screen.getByText('Open Account settings again to load username')).toBeDefined()
+    expect(screen.getByText('Open Account settings again to load email')).toBeDefined()
+    expect(screen.queryByText('Refresh this page to load username')).toBeNull()
+    expect(screen.queryByText('Refresh this page to load email')).toBeNull()
     expect(screen.queryByText('Username not reported yet')).toBeNull()
     expect(screen.queryByText('Email not reported yet')).toBeNull()
     expect(screen.queryByText('—')).toBeNull()

@@ -78,7 +78,7 @@ describe('ChatComposer', () => {
         onAbort={() => {}}
         streaming={false}
         disabled={true}
-        disabledReason="Open AI service settings, choose Check connection for this service, then refresh Agents before sending a message."
+        disabledReason="Open AI service settings, choose Check connection for this service, then return to Agents and refresh the list before sending a message."
         disabledPlaceholder="Check this AI service before sending a message."
       />
     )
@@ -91,7 +91,7 @@ describe('ChatComposer', () => {
     expect(screen.getByRole('button', { name: /send/i })).toBeDisabled()
     expect(
       screen.getByText(
-        'Open AI service settings, choose Check connection for this service, then refresh Agents before sending a message.'
+        'Open AI service settings, choose Check connection for this service, then return to Agents and refresh the list before sending a message.'
       )
     ).toBeVisible()
     expect(screen.queryByText(/Settings > AI services/)).toBeNull()

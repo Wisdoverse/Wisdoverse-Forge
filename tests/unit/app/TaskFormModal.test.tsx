@@ -112,12 +112,15 @@ describe('TaskFormModal', () => {
     ).not.toMatch(/^-\s*$/m)
 
     fireEvent.click(screen.getByRole('button', { name: /review/i }))
+    const reviewDescription = screen.getByLabelText(
+      /details the agent should know/i
+    ) as HTMLTextAreaElement
+    expect(reviewDescription.value).toContain('Name the change, request, files, screen, or behavior.')
     expect(
-      (screen.getByLabelText(/details the agent should know/i) as HTMLTextAreaElement).value
+      reviewDescription.value
     ).toContain('Ask for a short verdict, issues, and final recommendation.')
-    expect(
-      (screen.getByLabelText(/details the agent should know/i) as HTMLTextAreaElement).value
-    ).not.toMatch(/^-\s*$/m)
+    expect(reviewDescription.value).not.toContain('Name the PR, branch')
+    expect(reviewDescription.value).not.toMatch(/^-\s*$/m)
   })
 
   test('does not treat template helper prompts as finished task details', () => {
@@ -568,7 +571,7 @@ describe('TaskFormModal', () => {
     await waitFor(() => expect(onProjectChange).toHaveBeenCalledWith(otherProject.id))
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Select the project again to find where tasks wait. If it still does not load, refresh the board or ask an owner to check where tasks wait in this project.'
+        'Select the project again to find where tasks wait. If it still does not load, open the Tasks page again or ask an owner to check where tasks wait in this project.'
       )
     )
     expect(screen.getByRole('alert')).not.toHaveTextContent('task routing setup')

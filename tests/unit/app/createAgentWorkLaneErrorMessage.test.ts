@@ -34,7 +34,7 @@ describe('createAgentWorkLaneErrorMessage', () => {
 
   test('turns duplicate waiting-place failures into an existing-place step', () => {
     expect(createAgentWorkLaneErrorMessage(new Error('API 409: duplicate lane'))).toBe(
-      'Refresh the project, then choose the existing waiting place. A starter waiting place may already exist.'
+      'Open the project again, then choose the existing waiting place. A starter waiting place may already exist.'
     )
   })
 
@@ -45,10 +45,20 @@ describe('createAgentWorkLaneErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Refresh the project, then choose the existing waiting place. A starter waiting place may already exist.'
+      'Open the project again, then choose the existing waiting place. A starter waiting place may already exist.'
     )
     expect(message).not.toContain('duplicate lane')
     expect(message).not.toContain('task queue')
+    expect(message).not.toContain('Refresh the project')
+  })
+
+  test('turns missing projects into a navigable Create Agent step', () => {
+    const message = createAgentWorkLaneErrorMessage({ code: '404' })
+
+    expect(message).toBe(
+      'Open Create Agent, choose the project again, then set up where tasks wait. The waiting place was not created because the selected project may have changed or been removed.'
+    )
+    expect(message).not.toContain('Refresh this page')
   })
 
   test('turns invalid waiting-place setup into a project selection step', () => {

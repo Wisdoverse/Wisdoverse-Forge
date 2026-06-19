@@ -369,7 +369,7 @@ describe('RuntimeSection', () => {
     render(<RuntimeSection />)
 
     const loadGuidance = await screen.findAllByText(
-      'Refresh this settings page to load Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.'
+      'Open Settings, then open Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.'
     )
     expect(loadGuidance.length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByRole('button', { name: /Check again/i }).length).toBeGreaterThanOrEqual(1)

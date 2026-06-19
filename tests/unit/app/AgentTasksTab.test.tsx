@@ -142,12 +142,13 @@ describe('AgentTasksTab', () => {
     render(<AgentTasksTab agentId="agent-1" />)
 
     const alert = await screen.findByRole('alert')
-    expect(within(alert).getByText("Refresh this agent's work list.")).toBeDefined()
+    expect(within(alert).getByText('Open Work again from this agent.')).toBeDefined()
     expect(alert.textContent).toContain(
       "Ask an owner or admin to give you access to this agent's work list."
     )
     expect(alert.textContent).not.toContain('HTTP 403')
     expect(alert.textContent).not.toContain('Details:')
+    expect(alert.textContent).not.toContain("Refresh this agent's work list")
   })
 
   test('filters and searches tasks inside the agent profile', async () => {

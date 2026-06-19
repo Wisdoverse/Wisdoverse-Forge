@@ -3,8 +3,10 @@ export type ApprovalQueueErrorAction = 'approveCandidate' | 'loadQueue' | 'rejec
 const ACTION_FALLBACKS: Record<ApprovalQueueErrorAction, string> = {
   approveCandidate:
     'Check who can reuse it and the original task details, then save the item again. The item was not saved.',
-  loadQueue: 'Refresh the list so you see the latest saved items. Saved items could not load.',
-  rejectCandidate: 'Refresh the list, then choose Do not save again. The item stayed on the list.',
+  loadQueue:
+    'Choose Load saved items again so you see the latest saved items. Saved items could not load.',
+  rejectCandidate:
+    'Choose Load saved items again, then choose Do not save again. The item stayed on the list.',
 }
 
 export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err: unknown): string {
@@ -25,11 +27,11 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
   }
 
   if (status === 404) {
-    return 'Refresh the list so you see the latest saved items. This item was not found.'
+    return 'Choose Load saved items again so you see the latest saved items. This item was not found.'
   }
 
   if (status === 409) {
-    return 'Refresh the list, then open this item again. It changed while you were checking it.'
+    return 'Choose Load saved items again, then open this item. It changed while you were checking it.'
   }
 
   if (status === 422) {
@@ -49,7 +51,7 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
 
 function networkRecoveryMessage(action: ApprovalQueueErrorAction): string {
   if (action === 'loadQueue') {
-    return 'Check your connection, then refresh Saved items. Forge could not connect while loading saved notes and instructions.'
+    return 'Check your connection, then choose Load saved items again. Forge could not connect while loading saved notes and instructions.'
   }
   return 'Check your connection, then try this saved item action again. Forge could not connect while saving your choice.'
 }
@@ -121,7 +123,7 @@ function validationMessage(action: ApprovalQueueErrorAction, detail: string): st
   const normalized = detail.toLowerCase()
   if (normalized.includes('scope')) {
     return action === 'loadQueue'
-      ? 'Refresh the list, then check who can reuse the selected items. Saved items could not load.'
+      ? 'Choose Load saved items again, then check who can reuse the selected items. Saved items could not load.'
       : 'Choose who can reuse it and check the original task details, then try again.'
   }
   if (normalized.includes('sensitivity')) {

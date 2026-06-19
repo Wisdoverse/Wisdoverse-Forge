@@ -91,7 +91,7 @@ const TASK_BRIEF_TEMPLATES: TaskBriefTemplate[] = [
     summary: 'Check before release',
     title: 'Review a change for release readiness',
     description:
-      'Change to review:\n- Name the PR, branch, files, or behavior.\n\nWhat could go wrong:\n- List the risks you care about.\n\nChecks to run:\n- Add tests, commands, or manual checks.\n\nAnswer format:\n- Ask for a short verdict, issues, and final recommendation.',
+      'Change to review:\n- Name the change, request, files, screen, or behavior.\n\nWhat could go wrong:\n- List the risks you care about.\n\nChecks to run:\n- Add tests, commands, or manual checks.\n\nAnswer format:\n- Ask for a short verdict, issues, and final recommendation.',
     priority: 'normal',
     Icon: ShieldCheck,
   },
@@ -264,7 +264,7 @@ export function TaskFormModal({
       const ok = await onProjectChange(projectId)
       if (ok === false) {
         setSubmitError(
-          'Select the project again to find where tasks wait. If it still does not load, refresh the board or ask an owner to check where tasks wait in this project.'
+          'Select the project again to find where tasks wait. If it still does not load, open the Tasks page again or ask an owner to check where tasks wait in this project.'
         )
       }
     } catch (err) {
@@ -939,7 +939,7 @@ const TEMPLATE_HELPER_LINES = new Set([
   'add pages, files, logs, or recent changes if you know them.',
   'add clues, links, or screenshots.',
   'say what answer or recommendation you need.',
-  'name the pr, branch, files, or behavior.',
+  'name the change, request, files, screen, or behavior.',
   'list the risks you care about.',
   'add tests, commands, or manual checks.',
   'ask for a short verdict, issues, and final recommendation.',

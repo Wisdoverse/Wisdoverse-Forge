@@ -54,13 +54,13 @@ const skillTemplates = [
   {
     id: 'work-status',
     label: 'Check work status',
-    description: 'Check review and automated checks once',
+    description: 'Check once, then stop waiting',
     form: {
       name: 'work-status-check',
-      description: 'Summarize review and automated check status from one fresh check',
+      description: 'Summarize review and automated check status without repeated waiting',
       triggerPattern: 'review status, check status, ready to finish',
       content:
-        'Check the review page once and summarize only the review result, ready-to-finish status, and automated check result needed for the next step. If the project already has a recent status summary, reuse it instead of refreshing.\nStart with one plain result: Needs a fix, Waiting, or Done.\nFor Needs a fix, open only the failed check or review item needed to make the fix.\nFor Waiting, stop checking in chat. Tell the user when one later check is useful, or point to the project background watcher if one exists.\nFor Done, report the final status and stop.',
+        'Create one fresh status check from the review page, then stop. If the project already has a recent status summary, reuse it instead of refreshing.\nStart with one plain result: Needs a fix, Waiting, or Done.\nFor Needs a fix, open only the failed check or review item needed to make the fix, then name the exact next step.\nFor Waiting, do not keep checking in chat. Say what is still running, when one later check is useful, and whether the project background watcher can notify the team.\nFor Done, report the final status, say it is ready for handoff, and stop.',
     },
   },
   {

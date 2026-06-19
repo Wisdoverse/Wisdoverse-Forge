@@ -34,7 +34,7 @@ interface RuntimeChecklistItem {
 type RuntimeSectionFocus = 'overview' | 'sign-ins'
 
 const RUNTIME_SETTINGS_LOAD_GUIDANCE =
-  'Refresh this settings page to load Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.'
+  'Open Settings, then open Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.'
 const AGENT_READY_CHECK_GUIDANCE =
   'Open Agents and make sure one agent shows Ready, then choose Check again.'
 
@@ -919,7 +919,7 @@ function fallbackRuntimeLabel(runtime: string): string {
     case 'container':
       return 'Project files'
     default:
-      return runtime.trim() ? 'Check where files open' : 'Refresh where files open'
+      return 'Check where files open'
   }
 }
 
@@ -934,7 +934,7 @@ function fallbackCliToolLabel(tool: string): string {
     case 'opencode':
       return 'OpenCode'
     default:
-      return tool.trim() ? 'Check work tool' : 'Refresh work tools'
+      return 'Check work tool'
   }
 }
 

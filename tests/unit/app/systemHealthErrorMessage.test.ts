@@ -14,14 +14,14 @@ describe('systemHealthErrorMessage', () => {
   test('turns auth failures into a sign-in next step', () => {
     expectBeginnerMessage(
       systemHealthErrorMessage('Code: 401.'),
-      'Sign in again, then open Admin and choose Check now. Forge could not check app health because your sign-in expired.'
+      'Sign in again, then open Admin and choose App health before choosing Check now. Forge could not check app health because your sign-in expired.'
     )
   })
 
   test('turns permission failures into an Admin access next step', () => {
     expectBeginnerMessage(
       systemHealthErrorMessage({ status: 403, detail: 'Forbidden' }),
-      'Ask an owner or admin to give you Admin access, then choose Check now. Forge could not check app health because you do not have access to app health checks.'
+      'Ask an owner or admin to give you Admin access, then open Admin and choose App health before choosing Check now. Forge could not check app health because you do not have access to app health checks.'
     )
   })
 
@@ -30,7 +30,7 @@ describe('systemHealthErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Admin, then choose Check now. App health checks are not available from this Admin view. If it still fails, ask an owner or admin to check System health in Admin.'
+      'Open Admin and choose App health, then choose Check now. App health checks are not available from this Admin view. If it still fails, ask an owner or admin to check App health in Admin.'
     )
     expect(message).not.toContain('endpoint')
     expect(message).not.toContain('route')
@@ -40,7 +40,7 @@ describe('systemHealthErrorMessage', () => {
   test('turns rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       systemHealthErrorMessage({ code: '429' }),
-      'Wait a minute, then choose Check now. Forge is receiving too many health checks right now.'
+      'Wait a minute, then open Admin, choose App health, and choose Check now. Forge is receiving too many health checks right now.'
     )
   })
 
@@ -49,7 +49,7 @@ describe('systemHealthErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Admin, then choose Check now. Forge could not check app health. If it still fails, ask an owner or admin to check System health in Admin.'
+      'Open Admin and choose App health, then choose Check now. Forge could not check app health. If it still fails, ask an owner or admin to check App health in Admin.'
     )
     expect(message).not.toContain('temporarily unavailable')
     expect(message).not.toContain('admin service')
@@ -61,7 +61,7 @@ describe('systemHealthErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then choose Check now. Forge could not connect while checking app health.'
+      'Check your connection, then open Admin and choose App health before choosing Check now. Forge could not connect while checking app health.'
     )
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('browser could not reach')
@@ -73,7 +73,7 @@ describe('systemHealthErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Choose Check now again. Forge could not check app health. If it still fails, ask an owner or admin to check System health in Admin.'
+      'Open Admin and choose App health, then choose Check now again. Forge could not check app health. If it still fails, ask an owner or admin to check App health in Admin.'
     )
     expect(message).not.toContain('parser')
     expect(message).not.toContain('app health setup')

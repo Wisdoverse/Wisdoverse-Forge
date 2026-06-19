@@ -311,7 +311,8 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                 No agent can take this task right now
               </p>
               <p className="mt-1 leading-relaxed text-secondary-light dark:text-secondary-dark">
-                Open Agents to start or connect an agent, then return here and refresh this task.
+                Open Agents to start or connect an agent, then open this task again from the Tasks
+                page.
               </p>
               <a
                 href="/agents"

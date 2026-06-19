@@ -262,7 +262,7 @@ describe('TaskDetailPanel', () => {
     await user.click(screen.getByRole('button', { name: /cancel task/i }))
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Refresh the task, then choose Cancel again.')
+    expect(alert).toHaveTextContent('Open this task again from the Tasks page, then choose Cancel again.')
     expect(alert).toHaveTextContent('The task was not canceled.')
     expect(alert).not.toHaveTextContent('HTTP 500')
   })
@@ -397,9 +397,11 @@ describe('TaskDetailPanel', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: /updates/i }))
 
     expect(
-      await screen.findByText(/refresh updates before deciding whether to retry this task/i)
+      await screen.findByText(/open updates for this task again before deciding whether to retry this task/i)
     ).toBeDefined()
-    expect(screen.getByText(/check your connection and refresh the page/i)).toBeDefined()
+    expect(screen.getByTestId('task-updates')).toHaveTextContent(
+      /check your connection, then open this task again from the tasks page/i
+    )
     expect(screen.queryByText(/failed to fetch/i)).toBeNull()
   })
 
@@ -568,8 +570,14 @@ describe('TaskDetailPanel', () => {
 
     expect(await screen.findByText('No agent can take this task right now')).toBeDefined()
     expect(
-      screen.getByText(/open agents to start or connect an agent, then return here and refresh/i)
-    ).toBeDefined()
+      screen.getAllByText((_, element) =>
+        Boolean(
+          element?.textContent?.includes(
+            'Open Agents to start or connect an agent, then open this task again from the Tasks page.'
+          )
+        )
+      ).length
+    ).toBeGreaterThan(0)
     expect(screen.getByRole('link', { name: /open agents/i })).toHaveAttribute('href', '/agents')
     expect(screen.queryByText('No available agent can take this task right now.')).toBeNull()
 

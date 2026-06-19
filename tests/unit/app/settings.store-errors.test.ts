@@ -171,7 +171,7 @@ describe('settingsActionErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'Check your connection, then refresh Settings to load SSH code access. Forge could not connect while loading Settings.'
+      'Check your connection, then open Settings and SSH code access again. Forge could not connect while loading Settings.'
     )
     expect(message).not.toContain('SSH keys')
     expect(message).not.toContain('Network error')
@@ -185,7 +185,7 @@ describe('settingsActionErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'Check your connection, then refresh Settings to load AI service settings. Forge could not connect while loading Settings.'
+      'Check your connection, then open Settings and AI services again. Forge could not connect while loading Settings.'
     )
     expect(message).not.toContain('connection refused')
     expect(message).not.toContain('gateway')
@@ -217,7 +217,7 @@ describe('settingsActionErrorMessage', () => {
   test('turns settings conflicts into a current-value check step', () => {
     expectBeginnerError(
       settingsActionErrorMessage('providers', 'save', statusError(409, 'conflict')),
-      'This AI service changed or already exists. Refresh the list, check the current value, then try again.'
+      'This AI service changed or already exists. Open Settings and AI services again, check the current value, then try to save the AI service again.'
     )
   })
 
@@ -244,7 +244,7 @@ describe('settingsActionErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'Refresh Settings, then try to load AI service settings again. Forge could not load Settings right now. If it still fails, ask an owner or admin to check Settings.'
+      'Open Settings and AI services again. Forge could not load Settings right now. If it still fails, ask an owner or admin to check Settings.'
     )
     expect(message).not.toContain('HTTP 503')
     expect(message).not.toContain('Service Unavailable')
@@ -253,7 +253,7 @@ describe('settingsActionErrorMessage', () => {
   test('starts unknown Settings failures with the retry step', () => {
     expectBeginnerError(
       settingsActionErrorMessage('providers', 'load', statusError(418, 'teapot')),
-      'Refresh Settings, then try to load AI service settings again. Settings could not load AI service settings.'
+      'Open Settings and AI services again. Settings could not load AI service settings.'
     )
   })
 
@@ -281,7 +281,7 @@ describe('settingsActionErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'Ask an owner or admin to add an agent size, then refresh Settings.'
+      'Ask an owner or admin to add an agent size, then open Settings and Work capacity again.'
     )
     expect(message).not.toContain('resource profile')
   })
@@ -297,7 +297,7 @@ describe('useSettingsStore errors', () => {
 
     expectBeginnerError(
       useSettingsStore.getState().providersError,
-      'Refresh Settings, then try to load AI service settings again. Forge could not load Settings right now. If it still fails, ask an owner or admin to check Settings.'
+      'Open Settings and AI services again. Forge could not load Settings right now. If it still fails, ask an owner or admin to check Settings.'
     )
     expect(useSettingsStore.getState().providersError).not.toContain('provider settings')
     expect(useSettingsStore.getState().providersError).not.toContain('HTTP 503')
@@ -328,7 +328,7 @@ describe('useSettingsStore errors', () => {
 
     expectBeginnerError(
       useSettingsStore.getState().sshKeysError,
-      'Check your connection, then refresh Settings to load SSH code access. Forge could not connect while loading Settings.'
+      'Check your connection, then open Settings and SSH code access again. Forge could not connect while loading Settings.'
     )
     expect(useSettingsStore.getState().sshKeysError).not.toContain('Network error')
   })
@@ -344,7 +344,7 @@ describe('useSettingsStore errors', () => {
 
     expectBeginnerError(
       useSettingsStore.getState().gitCredentialsError,
-      'Code access is not configured yet. Ask an owner or admin to finish GitHub or GitLab setup, then refresh code access.'
+      'Code access is not configured yet. Ask an owner or admin to finish GitHub or GitLab setup, then open Code access again.'
     )
   })
 })

@@ -243,7 +243,9 @@ describe('AgentPluginsTab', () => {
     render(<AgentPluginsTab agentId="agent-1" />)
 
     const alert = await screen.findByRole('alert')
-    expect(within(alert).getByText('Refresh this agent page to load tools.')).toBeDefined()
+    expect(
+      within(alert).getByText('Go back to Agents, choose this agent again, then open Tools.')
+    ).toBeDefined()
     expect(alert.textContent).toContain(
       "Ask an owner or admin to give you access to this agent's tools."
     )

@@ -51,7 +51,7 @@ const EMPTY_STALE = {
 
 function updatedAtLabel(timestamp: string): string {
   const value = Date.parse(timestamp)
-  if (Number.isNaN(value)) return 'Refresh analytics to update time'
+  if (Number.isNaN(value)) return 'Choose Load analytics again to update this time'
   const seconds = Math.max(0, Math.floor((Date.now() - value) / 1000))
   if (seconds < 3600) return `Updated ${Math.max(1, Math.floor(seconds / 60))}m ago`
   if (seconds < 86_400) return `Updated ${Math.floor(seconds / 3600)}h ago`
@@ -60,13 +60,13 @@ function updatedAtLabel(timestamp: string): string {
 
 function runtimeLabel(runtime: string): string {
   const normalized = runtime.trim().toLowerCase()
-  if (!normalized) return 'Refresh work location'
+  if (!normalized) return 'Check where this ran'
   return RUNTIME_LABELS[normalized] ?? 'Check work location'
 }
 
 function taskKindLabel(taskKind: string): string {
   const normalized = taskKind.trim().toLowerCase()
-  if (!normalized) return 'Refresh task type'
+  if (!normalized) return 'Check what kind of task it was'
   return TASK_KIND_LABELS[normalized] ?? 'Check task type'
 }
 
@@ -104,8 +104,8 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
           >
             <AlertTriangle size={14} strokeWidth={2} aria-hidden="true" />
             <span>
-              These numbers are more than {data.staleAfterHours}h old. Refresh analytics before
-              making decisions from them.
+              These numbers are more than {data.staleAfterHours}h old. Choose Load analytics again
+              before making decisions from them.
             </span>
           </div>
         )}

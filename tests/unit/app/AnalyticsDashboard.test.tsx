@@ -40,6 +40,8 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
     expect(nextStep).toHaveTextContent('What to check next')
     expect(nextStep).toHaveTextContent('Bring offline agents back before judging work')
     expect(nextStep).toHaveTextContent('Open Agents and reconnect or restart the offline agents')
+    expect(nextStep).toHaveTextContent('then return to Analytics')
+    expect(nextStep).not.toHaveTextContent('refresh this page')
   })
 
   test('guides an empty activity range toward running a first task', () => {
@@ -121,15 +123,16 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
     const load = vi.fn().mockResolvedValue(undefined)
     useAnalyticsStore.setState({
       load,
-      error: 'Check your connection, then refresh the dashboard. Analytics could not connect.',
+      error: 'Check your connection, then open Analytics again. Analytics could not connect.',
     })
 
     render(<AnalyticsDashboard />)
 
     const alert = screen.getByRole('alert')
-    expect(alert).toHaveTextContent('Refresh analytics data')
-    expect(alert).toHaveTextContent('Check your connection, then refresh the dashboard.')
-    fireEvent.click(screen.getByRole('button', { name: /refresh dashboard/i }))
+    expect(alert).toHaveTextContent('Load analytics again')
+    expect(alert).toHaveTextContent('Check your connection, then open Analytics again.')
+    expect(alert).not.toHaveTextContent('Refresh dashboard')
+    fireEvent.click(screen.getByRole('button', { name: /load analytics again/i }))
     expect(load).toHaveBeenCalled()
   })
 

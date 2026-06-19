@@ -69,9 +69,11 @@ interface InvoiceListProps {
   invoices: BillingInvoice[]
   loading?: boolean
   error?: string | null
+  retrying?: boolean
+  onRetry?: () => void
 }
 
-export function InvoiceList({ invoices, loading, error }: InvoiceListProps) {
+export function InvoiceList({ invoices, loading, error, retrying, onRetry }: InvoiceListProps) {
   return (
     <div>
       <h2 className="mb-4 text-ui-title font-semibold text-foreground-light dark:text-foreground-dark">
@@ -95,9 +97,19 @@ export function InvoiceList({ invoices, loading, error }: InvoiceListProps) {
           <div role="alert" className="px-6 py-8 text-center">
             <p className="text-ui-body text-apple-red">{error}</p>
             <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Refresh Billing to load invoices. If it still fails, ask an owner or admin to check
-              billing access.
+              Choose Check billing again to load invoices. If it still fails, ask an owner or admin
+              to check billing access.
             </p>
+            {onRetry && (
+              <button
+                type="button"
+                onClick={onRetry}
+                disabled={retrying}
+                className={cn(uiStyles.secondaryButton, 'mt-3')}
+              >
+                {retrying ? 'Checking billing' : 'Check billing again'}
+              </button>
+            )}
           </div>
         )}
 

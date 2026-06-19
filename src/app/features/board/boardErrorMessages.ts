@@ -10,10 +10,10 @@ export type BoardErrorAction =
 const ACTION_FALLBACKS: Record<BoardErrorAction, string> = {
   createTask:
     'Check the project, where tasks wait, and the result, then create the task again. The task was not created.',
-  loadReadiness: 'Refresh the board to load agent status before sending work.',
-  loadTasks: 'Refresh the board to load tasks.',
+  loadReadiness: 'Choose Refresh agent status before sending work.',
+  loadTasks: 'Choose Refresh tasks to load tasks.',
   moveTask:
-    'Refresh the board, then move the task again. The task was moved back because the board change was not saved.',
+    'Choose Refresh tasks, then move the task again. The task was moved back because the board change was not saved.',
   previewContext: 'Choose an available agent, then check saved items again.',
   publishTask:
     'Check the saved notes, then send the task with selected saved notes again. The task was not sent.',
@@ -26,7 +26,7 @@ export function boardActionErrorMessage(action: BoardErrorAction, err: unknown):
   const status = errorStatus(err, normalized)
 
   if (/no available agent|no agent.*available/.test(normalized)) {
-    return 'No agent can check saved items right now. Open Agents to start or connect an agent, then return to the board and refresh.'
+    return 'No agent can check saved items right now. Open Agents to start or connect an agent, then open the Tasks page and check saved items again.'
   }
 
   if (isNetworkError(normalized)) {
@@ -38,15 +38,15 @@ export function boardActionErrorMessage(action: BoardErrorAction, err: unknown):
   }
 
   if (status === 403) {
-    return 'Ask an owner or admin to give you access to this board, then refresh the board and try again. You do not have permission to change this board.'
+    return 'Ask an owner or admin to give you access to the Tasks page, then open it and try again. You do not have permission to change this board.'
   }
 
   if (status === 404) {
-    return 'Refresh the board, then choose the current task again.'
+    return 'Choose Refresh tasks, then choose the current task again.'
   }
 
   if (status === 409) {
-    return 'The board changed while you were working. Refresh the board so you see the latest tasks, then try again.'
+    return 'Choose Refresh tasks so you see the latest tasks, then try again. The task board changed while you were working.'
   }
 
   if (status === 422) {
@@ -65,8 +65,11 @@ export function boardActionErrorMessage(action: BoardErrorAction, err: unknown):
 }
 
 function networkRecoveryMessage(action: BoardErrorAction): string {
-  if (action === 'loadReadiness' || action === 'loadTasks') {
-    return 'If it still does not load, check your connection and refresh the page.'
+  if (action === 'loadReadiness') {
+    return 'If it still does not load, check your connection, then choose Refresh agent status.'
+  }
+  if (action === 'loadTasks') {
+    return 'If it still does not load, check your connection, then choose Refresh tasks.'
   }
   return 'If it still does not update, check your connection and try again.'
 }

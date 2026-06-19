@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
-import { Bot, Power, RefreshCw } from 'lucide-react'
+import { Bot, CheckCircle2, Power } from 'lucide-react'
 import * as THREE from 'three'
 import {
   agentRuntimeLabel as agentRuntimeDisplayLabel,
@@ -71,7 +71,7 @@ const STATUS_STYLE: Record<
 const EMPTY_STATE_STEPS = [
   { label: 'Open Agents and create one if none exists', icon: Bot },
   { label: 'Start or wake the agent if it is already listed', icon: Power },
-  { label: 'Refresh this view after the agent checks in', icon: RefreshCw },
+  { label: 'Return to this 3D view after the agent checks in', icon: CheckCircle2 },
 ]
 
 export function workshop3DAgentSubtitle(agent: AgentInfo): string {
@@ -90,7 +90,7 @@ export function Workshop3DEmptyState() {
         </p>
         <p className="mt-1">
           If this is your first agent, create it from Agents. If you already have one, start or wake
-          it there, then refresh this view.
+          it there, then return to this 3D view after it checks in.
         </p>
       </div>
       <ol className="space-y-2">

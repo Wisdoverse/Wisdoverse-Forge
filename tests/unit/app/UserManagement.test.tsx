@@ -104,10 +104,10 @@ describe('UserManagement', () => {
 
     render(<UserManagement />)
 
-    expect(screen.getByText('Refresh users to load added date')).toBeDefined()
+    expect(screen.getByText('Open User access again to load added date')).toBeDefined()
     expect(screen.getByText('Never signed in')).toBeDefined()
-    expect(screen.getByText('Refresh users to check added date')).toBeDefined()
-    expect(screen.getByText('Refresh users to check sign-in date')).toBeDefined()
+    expect(screen.getByText('Open User access again to check added date')).toBeDefined()
+    expect(screen.getByText('Open User access again to check sign-in date')).toBeDefined()
     expect(screen.queryByText('—')).toBeNull()
     expect(screen.queryByText('Invalid Date')).toBeNull()
   })
@@ -326,9 +326,9 @@ describe('UserManagement', () => {
     await waitFor(() => expect(loadUsers).toHaveBeenCalledWith(1))
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(alert).toHaveTextContent('Refresh Admin to reload the user list.')
+    expect(alert).toHaveTextContent('Open Admin again, then choose user list.')
     expect(alert).toHaveTextContent(
-      'Refresh Admin, then try again. If it still fails, ask an owner or admin to check your Admin access and this Admin page.'
+      'Open Admin again, then choose this section. If it still fails, ask an owner or admin to check your Admin access and this Admin page.'
     )
     expect(alert).not.toHaveTextContent('HTTP 503')
     expect(alert).not.toHaveTextContent('Admin setup')

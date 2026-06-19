@@ -195,10 +195,10 @@ describe('AgentConfigTab', () => {
     expect(screen.queryByText(/future-model-v1/i)).toBeNull()
   })
 
-  it('tells users to refresh when a chat-only agent has no model details', () => {
+  it('tells users to check setup when a chat-only agent has no model details', () => {
     render(<AgentConfigTab agentId="missing-model" />)
 
-    expect(screen.getByText(/Refresh AI model/i)).toBeInTheDocument()
+    expect(screen.getByText(/Check AI model setup/i)).toBeInTheDocument()
     expect(screen.queryByText(/AI model not reported/i)).toBeNull()
     expect(screen.queryByText(/Model not reported/i)).toBeNull()
   })
@@ -295,8 +295,8 @@ describe('AgentConfigTab', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(/agent instructions were not saved/i)
     )
-    expect(screen.getByRole('alert')).toHaveTextContent(/^refresh this agent/i)
-    expect(screen.getByRole('alert')).toHaveTextContent(/confirm it is still a chat-only agent/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/^open agents/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/choose this chat-only agent again/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/text-only model/i)
     expect(screen.getByRole('alert')).toHaveTextContent(
       /ask an owner or admin to check your agent access/i
@@ -384,7 +384,7 @@ describe('AgentConfigTab', () => {
     render(<AgentConfigTab agentId="missing-tool" />)
 
     expect(screen.getByTestId('agent-cli-config-summary')).toBeInTheDocument()
-    expect(screen.getByText('Refresh work tool settings')).toBeInTheDocument()
+    expect(screen.getByText('Check work tool settings')).toBeInTheDocument()
     expect(screen.queryByText('Work tool not reported')).toBeNull()
   })
 

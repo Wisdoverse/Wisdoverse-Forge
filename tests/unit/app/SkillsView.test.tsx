@@ -93,18 +93,20 @@ describe('SkillsView', () => {
 
     expect(screen.getByLabelText(/^instruction name$/i)).toHaveValue('work-status-check')
     expect(screen.getByLabelText(/^short description$/i)).toHaveValue(
-      'Summarize review and automated check status from one fresh check'
+      'Summarize review and automated check status without repeated waiting'
     )
     expect(screen.getByLabelText(/^matching words for future tasks$/i)).toHaveValue(
       'review status, check status, ready to finish'
     )
     const instructions = screen.getByLabelText(/^steps for the agent$/i) as HTMLTextAreaElement
-    expect(instructions.value).toContain('Check the review page once')
+    expect(instructions.value).toContain('Create one fresh status check')
     expect(instructions.value).toContain('reuse it instead of refreshing')
     expect(instructions.value).toContain('Needs a fix, Waiting, or Done')
     expect(instructions.value).toContain('open only the failed check or review item')
-    expect(instructions.value).toContain('stop checking in chat')
+    expect(instructions.value).toContain('do not keep checking in chat')
+    expect(instructions.value).toContain('when one later check is useful')
     expect(instructions.value).toContain('project background watcher')
+    expect(instructions.value).toContain('ready for handoff')
     expect(instructions.value).not.toContain('merge readiness')
     expect(instructions.value).not.toContain('PR')
     expect(instructions.value).not.toContain('CI')
@@ -377,11 +379,11 @@ describe('SkillsView', () => {
     render(<SkillsView />)
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Refresh Saved instructions to load the list.')
-    expect(alert).toHaveTextContent('Choose Refresh saved instructions to load the list again.')
+    expect(alert).toHaveTextContent('Open Saved instructions again to load the list.')
+    expect(alert).toHaveTextContent('Choose Load saved instructions again to load the list.')
     expect(alert).not.toHaveTextContent('HTTP 500')
     expect(alert).not.toHaveTextContent('database unavailable')
-    expect(screen.getByRole('button', { name: /refresh saved instructions/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /load saved instructions again/i })).toBeDefined()
     expect(screen.queryByRole('button', { name: /^retry$/i })).toBeNull()
   })
 
@@ -402,8 +404,8 @@ describe('SkillsView', () => {
     })
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Saved instructions need a refresh.')
-    expect(alert).toHaveTextContent('Choose Refresh saved instructions to load the list again.')
+    expect(alert).toHaveTextContent('Saved instructions need to load again.')
+    expect(alert).toHaveTextContent('Choose Load saved instructions again to load the list.')
     expect(alert).not.toHaveTextContent('HTTP 500')
     expect(alert).not.toHaveTextContent('database unavailable')
   })

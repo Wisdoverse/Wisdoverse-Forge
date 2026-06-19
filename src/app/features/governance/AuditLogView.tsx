@@ -116,9 +116,9 @@ const COMMON_EVENT_TYPES = [
 const INPUT_CLASS =
   'h-9 w-full rounded-full border border-black/[0.08] bg-white px-3 text-ui-caption text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70'
 const HIDDEN_AUDIT_DETAIL_VALUE =
-  'Hidden for safety. Keep secrets hidden, refresh change history, then export again.'
+  'Hidden for safety. Keep secrets hidden, choose Refresh change history, then export again.'
 const MISSING_AUDIT_ACCESS_MESSAGE =
-  'Reconnect the needed account access, then refresh change history again. This saved change needs access before it can be shown.'
+  'Reconnect the needed account access, then choose Refresh change history again. This saved change needs access before it can be shown.'
 const REPEATED_AUDIT_DETAIL_VALUE = 'Repeated detail omitted.'
 
 export function AuditLogView() {
@@ -453,7 +453,7 @@ export function AuditLogView() {
                       <p className="mt-1 text-secondary-light dark:text-secondary-dark">
                         Show all history first, then narrow by item, area, person, or time. If this
                         is a new team space, save a useful instruction or mark a saved note as
-                        helpful, then refresh this view.
+                        helpful, then choose Show all change history.
                       </p>
                       <button
                         type="button"

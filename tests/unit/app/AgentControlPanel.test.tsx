@@ -81,7 +81,7 @@ describe('AgentControlPanel', () => {
 
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/refresh this agent/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/Open Agents, choose this agent again/i)
     expect(screen.getByRole('alert')).toHaveTextContent(/Follow the step below/i)
     expect(screen.getByRole('alert')).toHaveTextContent(/Forge could not finish the change/i)
     expect(screen.getByRole('alert')).toHaveTextContent(
@@ -95,13 +95,13 @@ describe('AgentControlPanel', () => {
     expect(screen.getByRole('alert')).not.toHaveTextContent(/agent service/i)
   })
 
-  test('turns busy action failures into a wait and refresh step', () => {
+  test('turns busy action failures into a wait and agent-selection step', () => {
     useAgentsStore.setState({ error: 'HTTP 429: rate limit exceeded' } as never)
 
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'The agent controls are busy. Wait a moment, refresh this agent, then try again.'
+      'Wait a moment, then open Agents and choose this agent again. The agent controls are busy.'
     )
     expect(screen.getByRole('alert')).not.toHaveTextContent(/HTTP 429/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/agent service/i)
@@ -120,13 +120,13 @@ describe('AgentControlPanel', () => {
     expect(screen.getByRole('alert')).not.toHaveTextContent(/Forbidden/i)
   })
 
-  test('turns connection failures into a clear refresh step', () => {
+  test('turns connection failures into a clear agent-selection step', () => {
     useAgentsStore.setState({ error: 'Failed to fetch' } as never)
 
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Check your connection, refresh this agent, then try again. Forge could not connect while changing this agent.'
+      'Check your connection, then open Agents and choose this agent again. Forge could not connect while changing this agent.'
     )
     expect(screen.getByRole('alert')).not.toHaveTextContent(/Failed to fetch/i)
   })
@@ -183,7 +183,9 @@ describe('AgentControlPanel', () => {
     expect(alert).toHaveTextContent('Action did not finish')
     expect(alert).toHaveTextContent(/Follow the step below/i)
     expect(alert).not.toHaveTextContent(/Use the recovery step below/i)
-    expect(alert).toHaveTextContent(/Refresh this agent, confirm it still shows Ready/i)
+    expect(alert).toHaveTextContent(
+      /Open Agents, choose this agent again, confirm it still shows Ready/i
+    )
     expect(alert).toHaveTextContent(/create a task instead/i)
     expect(alert).toHaveTextContent(/ask an owner or admin to check agent messaging/i)
     expect(alert).not.toHaveTextContent(/socket hang up/i)
@@ -227,11 +229,13 @@ describe('AgentControlPanel', () => {
     expect(screen.getByText('AI service needs a check')).toBeDefined()
     expect(screen.getByText('Check AI service before sending')).toBeDefined()
     expect(screen.getAllByText(/choose Check connection for this service/i).length).toBe(4)
+    expect(screen.getAllByText(/return to Agents and choose this agent again/i).length).toBe(4)
     expect(screen.queryByText(/Settings > AI services/i)).toBeNull()
     expect(screen.queryByText('Ready for chat and tracked tasks')).toBeNull()
     expect(screen.queryByText('Chat-only AI service is offline')).toBeNull()
     expect(screen.queryByText(/This chat-only agent is not connected/i)).toBeNull()
     expect(screen.queryByText(/click Check/i)).toBeNull()
+    expect(screen.queryByText(/refresh Agents/i)).toBeNull()
 
     const instructionInput = screen.getByLabelText(/send one instruction/i)
     expect(instructionInput).toBeDisabled()
@@ -314,8 +318,9 @@ describe('AgentControlPanel', () => {
     })
     expect(await screen.findByRole('status')).toHaveTextContent('File work start requested')
     expect(screen.getByRole('status')).toHaveTextContent(
-      'Refresh Agents until this agent shows Ready'
+      'Go back to Agents, choose this agent again when it shows Ready'
     )
+    expect(screen.getByRole('status')).not.toHaveTextContent(/Refresh Agents/i)
   })
 
   test('recovers the start control when a pending workspace does not start', async () => {
@@ -335,8 +340,11 @@ describe('AgentControlPanel', () => {
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('Action did not finish')
-    expect(alert).toHaveTextContent(/Refresh Agents, then choose Start file work again/i)
+    expect(alert).toHaveTextContent(
+      /Go back to Agents, choose this agent again, then choose Start file work again/i
+    )
     expect(alert).toHaveTextContent(/ask an owner or admin to check Where agents work/i)
+    expect(alert).not.toHaveTextContent(/Refresh Agents/i)
     expect(alert).not.toHaveTextContent(/agent control action failed/i)
     expect(screen.queryByRole('status')).toBeNull()
     expect(screen.getByRole('button', { name: /start file work/i })).toBeEnabled()
@@ -429,7 +437,7 @@ describe('AgentControlPanel', () => {
     expect(screen.queryByText('Remove this agent?')).toBeNull()
     expect(screen.getByRole('alert')).toHaveTextContent(/Action did not finish/i)
     expect(screen.getByRole('alert')).toHaveTextContent(
-      /Refresh this agent, then choose Remove agent again/i
+      /Open Agents, choose this agent again, then choose Remove agent again/i
     )
     expect(screen.getByRole('alert')).toHaveTextContent(
       /ask an owner or admin to check your agent access/i

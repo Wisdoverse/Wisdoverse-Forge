@@ -32,8 +32,10 @@ describe('governanceAuditErrorMessage', () => {
   test('explains load network failures without exposing only a transport error', () => {
     const message = governanceAuditErrorMessage('loadAudit', new TypeError('Failed to fetch'))
 
-    expect(message).toContain('Refresh change history, then apply the filters again.')
+    expect(message).toContain('Choose Refresh change history, then apply the filters again.')
     expect(message).toContain('If it still does not load, check your connection')
+    expect(message).toContain('choose Refresh change history again')
+    expect(message).not.toContain('refresh the page')
     expect(message).not.toContain('API')
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('service')
@@ -44,6 +46,7 @@ describe('governanceAuditErrorMessage', () => {
     const message = governanceAuditErrorMessage('exportAudit', 'Network Error')
 
     expect(message).toContain('Keep secrets hidden')
+    expect(message).toContain('choose Refresh change history')
     expect(message).toContain('choose Export change history again')
     expect(message).not.toContain('audit export did not finish')
   })
@@ -51,7 +54,7 @@ describe('governanceAuditErrorMessage', () => {
   test('gives a clear export conflict recovery step', () => {
     expectBeginnerMessage(
       governanceAuditErrorMessage('exportAudit', new Error('409 conflict')),
-      'Refresh change history, then export again because the change list changed while export was running.'
+      'Choose Refresh change history, then export again because the change list changed while export was running.'
     )
   })
 
@@ -60,7 +63,7 @@ describe('governanceAuditErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh change history, then apply the filters again. If it still fails, ask an owner or admin to check change history access.'
+      'Choose Refresh change history, then apply the filters again. If it still fails, ask an owner or admin to check change history access.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('temporarily unavailable')

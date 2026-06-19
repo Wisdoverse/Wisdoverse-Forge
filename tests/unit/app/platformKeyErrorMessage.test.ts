@@ -32,8 +32,9 @@ describe('platformKeyErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh the list, then choose a different name or remove the old key first. An outside tool access key with this name already exists.'
+      'Open Settings and Outside tool access keys again, check the current key, then choose a different name or remove the old key first.'
     )
+    expect(message).not.toContain('Refresh the list')
     expect(message).not.toContain('Outside tool access key could not be created')
   })
 
@@ -42,7 +43,7 @@ describe('platformKeyErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then refresh Settings to load outside tool access keys. Forge could not connect while opening outside tool access settings.'
+      'Check your connection, then open Settings and Outside tool access keys again. Forge could not connect while opening outside tool access settings.'
     )
     expect(message).not.toContain('the service')
     expect(message).not.toContain('Failed to fetch')
@@ -75,7 +76,7 @@ describe('platformKeyErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load outside tool access keys. If it still fails, ask an owner or admin to check outside tool access settings.'
+      'Open Settings and Outside tool access keys again. If it still fails, ask an owner or admin to check outside tool access settings.'
     )
     expect(message).not.toContain('access key service')
     expect(message).not.toContain('temporarily unavailable')
@@ -93,7 +94,7 @@ describe('platformKeyErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load outside tool access keys. If it still fails, ask an owner or admin to check outside tool access settings.'
+      'Open Settings and Outside tool access keys again. If it still fails, ask an owner or admin to check outside tool access settings.'
     )
     expect(message).not.toContain('parser')
   })

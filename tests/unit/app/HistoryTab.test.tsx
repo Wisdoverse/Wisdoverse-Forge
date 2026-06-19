@@ -77,7 +77,7 @@ describe('HistoryTab', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain(
-      'Ask an owner or admin to give you access to this task, then refresh the task details. You do not have permission to view this task.'
+      'Ask an owner or admin to give you access to this task, then open it again from the Tasks page. You do not have permission to view this task.'
     )
     expect(alert.textContent).not.toContain('task detail panel')
     expect(alert.textContent).not.toContain('HTTP 403')

@@ -314,7 +314,7 @@ export const zh = {
   settings: {
     runtime: {
       couldNotLoad:
-        '请刷新这个设置页来加载 Agent 在哪里工作。如果仍然无法加载，请找负责人或管理员检查设置里的“Agent 在哪里工作”。',
+        '请打开设置，然后打开“Agent 在哪里工作”。如果仍然无法加载，请找负责人或管理员检查设置里的“Agent 在哪里工作”。',
     },
   },
 }
@@ -567,6 +567,15 @@ function removeMessage() {
 function rateLimitMessage() {
   return 'Refresh Settings to load AI service settings. Forge is receiving too many AI service requests right now. Wait a minute, then try again.'
 }
+function oldLoadMessage() {
+  return 'Refresh Settings to load AI service settings. If it still fails, ask an owner or admin to check AI service settings.'
+}
+function oldRemoveMessage() {
+  return 'Refresh Settings, then remove this AI service again. If it still fails, ask an owner or admin to check AI service settings.'
+}
+function oldDuplicateMessage() {
+  return 'Refresh the list, then choose a different name or remove the old service first. An AI service with this name or setup already exists.'
+}
 `,
     })
 
@@ -587,6 +596,18 @@ function rateLimitMessage() {
           type: 'provider-settings-error-copy',
           location: 'src/app/features/settings/providerSettingsErrorMessage.ts:9',
         }),
+        expect.objectContaining({
+          type: 'provider-settings-error-copy',
+          location: 'src/app/features/settings/providerSettingsErrorMessage.ts:12',
+        }),
+        expect.objectContaining({
+          type: 'provider-settings-error-copy',
+          location: 'src/app/features/settings/providerSettingsErrorMessage.ts:15',
+        }),
+        expect.objectContaining({
+          type: 'provider-settings-error-copy',
+          location: 'src/app/features/settings/providerSettingsErrorMessage.ts:18',
+        }),
       ])
     )
   })
@@ -596,7 +617,8 @@ function rateLimitMessage() {
       'src/app/features/settings/providerSettingsErrorMessage.ts': `
 function providerSettingsErrorMessage(action) {
   if (action === 'save') return 'Paste the service access key from the selected AI service, then save again.'
-  if (action === 'remove') return 'Refresh Settings, then remove this AI service again.'
+  if (action === 'remove') return 'Open Settings and AI services again, then remove this AI service again.'
+  if (action === 'load') return 'Open Settings and AI services again.'
   return 'Wait a minute, then try again. Forge is receiving too many AI service requests right now.'
 }
 `,
@@ -797,17 +819,17 @@ function CreateAgentModal() {
 `,
       'src/app/features/agents/AgentControlPanel.tsx': `
 function AgentControlPanel() {
-  return 'Open AI service settings, choose Check connection for this service, refresh Agents, then send messages after it shows Ready.'
+  return 'Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again when it shows Ready.'
 }
 `,
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
 function AgentDetailView() {
-  return 'Open AI service settings, choose Check connection for this service, then refresh Agents before sending chat work.'
+  return 'Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again before sending chat work.'
 }
 `,
       'src/app/features/chat/ChatView.tsx': `
 function ChatView() {
-  return 'Open AI service settings, choose Check connection for this service, then refresh Agents before sending a message.'
+  return 'Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again before sending a message.'
 }
 `,
       'src/app/features/settings/providerTestErrorMessage.ts': `
@@ -1024,6 +1046,9 @@ function agentStatusLabel(status) {
 function AgentsEmptyState() {
   return <p>No agents to show</p>
 }
+function CreatedAgentHint() {
+  return <p>If you just created one, refresh Admin and check again.</p>
+}
 `,
     })
 
@@ -1035,6 +1060,10 @@ function AgentsEmptyState() {
         expect.objectContaining({
           type: 'admin-agent-empty-copy',
           location: 'src/app/features/admin/AgentsPanel.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'admin-agent-empty-copy',
+          location: 'src/app/features/admin/AgentsPanel.tsx:6',
         }),
       ])
     )
@@ -1100,7 +1129,7 @@ function AgentsEmptyState() {
     const cwd = fixture({
       'src/app/features/admin/adminErrorCopy.ts': `
 export function adminPanelLoadErrorMessage(error, label) {
-  return 'The admin agents could not load.'
+  return 'Refresh Admin to reload the agents.'
 }
 
 export function cliImageStatusErrorMessage(error) {
@@ -1130,7 +1159,7 @@ export function cliImageStatusErrorMessage(error) {
     const cwd = fixture({
       'src/app/features/admin/adminErrorCopy.ts': `
 export function adminPanelLoadErrorMessage(error, label) {
-  return 'Refresh Admin to reload the agents.'
+  return 'Open Admin again, then choose Agents.'
 }
 
 export function cliImageStatusErrorMessage(error) {
@@ -1146,15 +1175,15 @@ export function cliImageStatusErrorMessage(error) {
     const cwd = fixture({
       'src/app/shared/model/admin.store.ts': `
 export function adminHttpErrorMessage(label) {
-  return \`You do not have access to the admin \${label}. Ask an owner or admin to give you Admin access, then reload Admin.\`
+  return \`Ask an owner or admin to give you Admin access, then reload Admin. You do not have access to the admin \${label}.\`
 }
 
 export function adminLoadErrorMessage(label) {
-  return \`Forge could not load the admin \${label} right now. Reload the \${label}, then try again.\`
+  return \`Reload the \${label}, then try again. Forge could not load the admin \${label} right now.\`
 }
 
 function adminNetworkErrorMessage(resource) {
-  return \`Forge could not connect while loading the admin \${adminResourceLabel(resource)}. Check your connection, then refresh Admin.\`
+  return \`Check your connection, then refresh Admin. Forge could not connect while loading the admin \${adminResourceLabel(resource)}.\`
 }
 
 function adminUserActionNetworkMessage(action) {
@@ -1206,19 +1235,19 @@ function adminUserActionErrorMessage(action) {
     const cwd = fixture({
       'src/app/shared/model/admin.store.ts': `
 export function adminHttpErrorMessage(label) {
-  return \`Ask an owner or admin to give you Admin access, then reload Admin. You do not have access to the admin \${label}.\`
+  return \`Ask an owner or admin to give you Admin access, then open Admin and choose User access. You do not have access to the admin \${label}.\`
 }
 
 export function adminLoadErrorMessage(label) {
-  return \`Reload the \${label}, then try again. Forge could not load the admin \${label} right now.\`
+  return \`Open Admin and choose App health, then try again. Forge could not load the admin \${label} right now.\`
 }
 
 function adminNetworkErrorMessage(resource) {
-  return \`Check your connection, then refresh Admin. Forge could not connect while loading the admin \${adminResourceLabel(resource)}.\`
+  return \`Check your connection, then open Admin and choose Team spaces. Forge could not connect while loading the admin \${adminResourceLabel(resource)}.\`
 }
 
 function adminUserActionNetworkMessage(action) {
-  return \`Check your connection, then try again. The \${adminUserActionLabel(action)} could not reach the server.\`
+  return \`Check your connection, then open Admin and choose User access before trying again. The \${adminUserActionLabel(action)} could not reach the server.\`
 }
 
 function adminUserActionErrorMessage(action) {
@@ -1232,7 +1261,7 @@ function adminUserActionErrorMessage(action) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags Settings load error titles that do not tell users to refresh Settings', () => {
+  it('flags Settings load error titles that do not tell users where to reopen Settings', () => {
     const cwd = fixture({
       'src/app/features/settings/providerSettingsErrorMessage.ts': `
 function baseMessage(action) {
@@ -1281,26 +1310,26 @@ function baseMessage(action) {
     )
   })
 
-  it('accepts Settings load error titles that tell users to refresh Settings', () => {
+  it('accepts Settings load error titles that tell users where to reopen Settings', () => {
     const cwd = fixture({
       'src/app/features/settings/providerSettingsErrorMessage.ts': `
 function baseMessage(action) {
-  return 'Refresh Settings to load AI service settings.'
+  return 'Open Settings and AI services again.'
 }
 `,
       'src/app/features/settings/gitCredentialsErrorMessage.ts': `
 function baseMessage(action) {
-  return 'Refresh Settings to load repository access.'
+  return 'Open Settings and Code access again.'
 }
 `,
       'src/app/features/settings/sshKeysErrorMessage.ts': `
 function baseMessage(action) {
-  return 'Refresh Settings to load repository SSH access.'
+  return 'Open Settings and SSH code access again.'
 }
 `,
       'src/app/features/settings/platformKeyErrorMessage.ts': `
 function baseMessage(action) {
-  return 'Refresh Settings to load outside tool access keys.'
+  return 'Open Settings and Outside tool access keys again.'
 }
 `,
     })
@@ -1319,6 +1348,12 @@ function removeMessage() {
 }
 function rateLimitMessage() {
   return 'Refresh Settings to load code access. Forge is receiving too many code access requests right now. Wait a minute, then try again.'
+}
+function oldLoadMessage() {
+  return 'Refresh Settings to load code access. If it still fails, ask an owner or admin to check code access settings.'
+}
+function oldRemoveMessage() {
+  return 'Refresh Settings, then remove code access again. If it still fails, ask an owner or admin to check code access settings.'
 }
 `,
     })
@@ -1340,6 +1375,14 @@ function rateLimitMessage() {
           type: 'code-access-error-copy',
           location: 'src/app/features/settings/gitCredentialsErrorMessage.ts:9',
         }),
+        expect.objectContaining({
+          type: 'code-access-error-copy',
+          location: 'src/app/features/settings/gitCredentialsErrorMessage.ts:12',
+        }),
+        expect.objectContaining({
+          type: 'code-access-error-copy',
+          location: 'src/app/features/settings/gitCredentialsErrorMessage.ts:15',
+        }),
       ])
     )
   })
@@ -1349,7 +1392,8 @@ function rateLimitMessage() {
       'src/app/features/settings/gitCredentialsErrorMessage.ts': `
 function gitCredentialsErrorMessage(action) {
   if (action === 'save') return 'Paste a new code access key from GitHub or GitLab, then save again.'
-  if (action === 'remove') return 'Refresh Settings, then remove code access again.'
+  if (action === 'remove') return 'Open Settings and Code access again, then remove code access again.'
+  if (action === 'load') return 'Open Settings and Code access again.'
   return 'Wait a minute, then try again. Forge is receiving too many code access requests right now.'
 }
 `,
@@ -1369,6 +1413,12 @@ function removeMessage() {
 }
 function rateLimitMessage() {
   return 'Refresh Settings to load SSH code access. Forge is receiving too many SSH code access requests right now. Wait a minute, then try again.'
+}
+function oldLoadMessage() {
+  return 'Refresh Settings to load SSH code access. If it still fails, ask an owner or admin to check SSH code access settings.'
+}
+function oldRemoveMessage() {
+  return 'Refresh Settings, then remove this SSH code access again. If it still fails, ask an owner or admin to check SSH code access settings.'
 }
 `,
     })
@@ -1390,6 +1440,14 @@ function rateLimitMessage() {
           type: 'ssh-code-access-error-copy',
           location: 'src/app/features/settings/sshKeysErrorMessage.ts:9',
         }),
+        expect.objectContaining({
+          type: 'ssh-code-access-error-copy',
+          location: 'src/app/features/settings/sshKeysErrorMessage.ts:12',
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-error-copy',
+          location: 'src/app/features/settings/sshKeysErrorMessage.ts:15',
+        }),
       ])
     )
   })
@@ -1399,7 +1457,8 @@ function rateLimitMessage() {
       'src/app/features/settings/sshKeysErrorMessage.ts': `
 function sshKeysErrorMessage(action) {
   if (action === 'save') return 'Add a name for this access, then save again.'
-  if (action === 'remove') return 'Refresh Settings, then remove this SSH code access again.'
+  if (action === 'remove') return 'Open Settings and SSH code access again, then remove this SSH code access again.'
+  if (action === 'load') return 'Open Settings and SSH code access again.'
   return 'Wait a minute, then try again. Forge is receiving too many SSH code access requests right now.'
 }
 `,
@@ -1419,6 +1478,15 @@ function removeMessage() {
 }
 function rateLimitMessage() {
   return 'Refresh Settings to load outside tool access keys. Forge is receiving too many outside tool access requests right now. Wait a minute, then try again.'
+}
+function oldLoadMessage() {
+  return 'Refresh Settings to load outside tool access keys. If it still fails, ask an owner or admin to check outside tool access settings.'
+}
+function oldRemoveMessage() {
+  return 'Refresh Settings, then remove this outside tool access key again. If it still fails, ask an owner or admin to check outside tool access settings.'
+}
+function oldDuplicateMessage() {
+  return 'Refresh the list, then choose a different name or remove the old key first. An outside tool access key with this name already exists.'
 }
 `,
     })
@@ -1440,6 +1508,18 @@ function rateLimitMessage() {
           type: 'platform-key-error-copy',
           location: 'src/app/features/settings/platformKeyErrorMessage.ts:9',
         }),
+        expect.objectContaining({
+          type: 'platform-key-error-copy',
+          location: 'src/app/features/settings/platformKeyErrorMessage.ts:12',
+        }),
+        expect.objectContaining({
+          type: 'platform-key-error-copy',
+          location: 'src/app/features/settings/platformKeyErrorMessage.ts:15',
+        }),
+        expect.objectContaining({
+          type: 'platform-key-error-copy',
+          location: 'src/app/features/settings/platformKeyErrorMessage.ts:18',
+        }),
       ])
     )
   })
@@ -1449,7 +1529,8 @@ function rateLimitMessage() {
       'src/app/features/settings/platformKeyErrorMessage.ts': `
 function platformKeyErrorMessage(action) {
   if (action === 'create') return 'Enter the tool or job name, then try again.'
-  if (action === 'remove') return 'Refresh Settings, then remove this outside tool access key again.'
+  if (action === 'remove') return 'Open Settings and Outside tool access keys again, then remove this outside tool access key again.'
+  if (action === 'load') return 'Open Settings and Outside tool access keys again.'
   return 'Wait a minute, then try again. Forge is receiving too many outside tool access requests right now.'
 }
 `,
@@ -1478,6 +1559,15 @@ function serverMessage() {
 }
 function unknownMessage() {
   return 'Account settings could not rename the team space. Refresh Settings, then try again.'
+}
+function pageRefreshMessage() {
+  return 'Refresh the page, then try again. Your account changed while this form was open.'
+}
+function settingsRefreshMessage() {
+  return 'Refresh Settings, then change your password again. If it still fails, ask an owner or admin to check account settings.'
+}
+function teamSpaceRefreshMessage() {
+  return 'Refresh team space settings, check the current name, then try again. This team space changed while you were editing.'
 }
 `,
     })
@@ -1511,6 +1601,18 @@ function unknownMessage() {
           type: 'account-settings-error-copy',
           location: 'src/app/features/settings/accountErrorMessages.ts:18',
         }),
+        expect.objectContaining({
+          type: 'account-settings-error-copy',
+          location: 'src/app/features/settings/accountErrorMessages.ts:21',
+        }),
+        expect.objectContaining({
+          type: 'account-settings-error-copy',
+          location: 'src/app/features/settings/accountErrorMessages.ts:24',
+        }),
+        expect.objectContaining({
+          type: 'account-settings-error-copy',
+          location: 'src/app/features/settings/accountErrorMessages.ts:27',
+        }),
       ])
     )
   })
@@ -1523,7 +1625,9 @@ function accountErrorMessage(action) {
   if (action === 'permission') return 'Ask an owner or admin to update your role. You do not have permission to rename this team space.'
   if (action === 'validation') return 'Re-enter the current password, then try again. The current password did not match this account.'
   if (action === 'rateLimit') return 'Wait a moment, then change your password again. Forge is receiving too many account settings requests right now.'
-  return 'Refresh Settings, then rename the team space again. If it still fails, ask an owner or admin to check account settings.'
+  if (action === 'server') return 'Open Account settings again, then rename the team space again. If it still fails, ask an owner or admin to check account settings.'
+  if (action === 'passwordChanged') return 'Open Account settings again, then change your password again. Your account changed while this form was open.'
+  return 'Open Account settings again, check the current team space name, then try again. This team space changed while you were editing.'
 }
 `,
     })
@@ -1625,7 +1729,7 @@ export const zh = {
 export const en = {
   errors: {
     generic: 'Try again after a moment. If it repeats, ask an owner to check app health.',
-    notFound: 'Refresh the page, then try again. {{resource}} was not found.',
+    notFound: 'Open this page again, then try again. {{resource}} was not found.',
     serverError: 'Wait a moment, then try again. Forge could not finish this right now.',
     uploadError: 'Check the file and connection, then upload again. The upload did not finish.',
     uploadFailed: 'Check the file, then upload again. The upload did not finish.',
@@ -1636,7 +1740,7 @@ export const en = {
 export const zh = {
   errors: {
     generic: '请稍等一下再重试；如果反复发生，请让管理员检查应用健康状态。',
-    notFound: '请刷新页面后重试。未找到 {{resource}}。',
+    notFound: '请重新打开当前页面后重试。未找到 {{resource}}。',
     serverError: '请稍等片刻后重试。Forge 暂时无法完成这个操作。',
     uploadError: '请检查文件和网络后重新上传。上传没有完成。',
     uploadFailed: '请检查文件后重新上传。上传没有完成。',
@@ -1646,6 +1750,51 @@ export const zh = {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags common error translations that tell beginners to refresh the page', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  errors: {
+    notFound: 'Refresh the page, then try again. {{resource}} was not found.',
+    downloadError: 'Refresh the page, then download again. The download did not start.',
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  errors: {
+    notFound: '请刷新页面后重试。未找到 {{resource}}。',
+    downloadError: '请刷新页面后重新下载。下载没有开始。',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'common-error-refresh-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'common-error-refresh-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'common-error-refresh-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'common-error-refresh-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:5',
+        }),
+      ])
+    )
   })
 
   it('flags common error translations that end with vague system checks', () => {
@@ -1843,6 +1992,12 @@ function networkMessage() {
 function busyMessage() {
   return 'Refresh Settings to load workspace teams. Too many setup changes are happening right now. Wait a minute, then refresh Settings again.'
 }
+function plainTeamLoadMessage() {
+  return 'Refresh Settings to load teams.'
+}
+function plainProjectLoadMessage() {
+  return 'Refresh Settings to load projects.'
+}
 `,
     })
 
@@ -1875,6 +2030,14 @@ function busyMessage() {
           type: 'workspace-settings-error-copy',
           location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:18',
         }),
+        expect.objectContaining({
+          type: 'workspace-settings-error-copy',
+          location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:21',
+        }),
+        expect.objectContaining({
+          type: 'workspace-settings-error-copy',
+          location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:24',
+        }),
       ])
     )
   })
@@ -1883,11 +2046,11 @@ function busyMessage() {
     const cwd = fixture({
       'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts': `
 function workspaceSettingsErrorMessage(action) {
-  if (action === 'auth') return 'Sign in again, then refresh Settings to load workspace teams.'
-  if (action === 'permission') return 'Ask an owner or admin to update your team space access, then refresh Settings to load projects.'
-  if (action === 'network') return 'Check your connection, then refresh Settings to load workspace projects.'
-  if (action === 'busy') return 'Wait a minute, then refresh Settings to load workspace teams. Too many setup changes are happening right now.'
-  if (action === 'server') return 'Refresh Settings to load workspace projects. If it still fails, ask an owner or admin to check team and project settings.'
+  if (action === 'auth') return 'Sign in again, then open Settings and Teams and Projects again, then choose Teams.'
+  if (action === 'permission') return 'Ask an owner or admin to update your team space access, then open Settings and Teams and Projects again, then choose Projects.'
+  if (action === 'network') return 'Check your connection, then open Settings and Teams and Projects again, then choose Projects.'
+  if (action === 'busy') return 'Wait a minute, then open Settings and Teams and Projects again, then choose Teams. Too many setup changes are happening right now.'
+  if (action === 'server') return 'Open Settings and Teams and Projects again, then choose Projects. If it still fails, ask an owner or admin to check team and project settings.'
   return 'Enter a project name, then try again.'
 }
 `,
@@ -1921,6 +2084,11 @@ function agentServerMessage(error) {
       'src/app/features/agents/model/pluginErrorMessage.ts': `
 function prefix(action) {
   return 'Agent tools could not be loaded.'
+}
+`,
+      'src/app/features/agents/AgentPluginsTab.tsx': `
+function ErrorTitle() {
+  return <p>Refresh this agent page to load tools.</p>
 }
 `,
       'src/app/features/agents/model/taskErrorMessage.ts': `
@@ -1977,6 +2145,10 @@ function ResourceProfilesError() {
         }),
         expect.objectContaining({
           type: 'load-error-title-copy',
+          location: 'src/app/features/agents/AgentPluginsTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'load-error-title-copy',
           location: 'src/app/features/agents/model/taskErrorMessage.ts:3',
         }),
         expect.objectContaining({
@@ -2008,27 +2180,32 @@ function baseMessage(action) {
 `,
       'src/app/shared/model/billing.store.ts': `
 function billingErrorMessage(area) {
-  return 'Refresh Billing to load invoices.'
+  return 'Choose Check billing again to load invoices.'
 }
 `,
       'src/app/shared/model/agents.store.ts': `
 function loadAgentsError(error) {
-  return 'Refresh Agents to load agents.'
+  return 'Open Agents again to load agents.'
 }
 `,
       'src/app/entities/agent/model/agents.store.ts': `
 function agentServerMessage(error) {
-  return 'Refresh Agents to load agents.'
+  return 'Open Agents again to load agents.'
 }
 `,
       'src/app/features/agents/model/pluginErrorMessage.ts': `
 function prefix(action) {
-  return 'Refresh this agent page to load tools.'
+  return 'Go back to Agents, choose this agent again, then open Tools.'
+}
+`,
+      'src/app/features/agents/AgentPluginsTab.tsx': `
+function ErrorTitle() {
+  return <p>Go back to Agents, choose this agent again, then open Tools.</p>
 }
 `,
       'src/app/features/agents/model/taskErrorMessage.ts': `
 function agentTasksErrorMessage(error) {
-  return "Refresh this agent to load its work list."
+  return "Open Work again from this agent."
 }
 `,
       'src/app/features/settings/runtimeErrorMessages.ts': `
@@ -2038,7 +2215,7 @@ function runtimeSettingsErrorMessage(error) {
 `,
       'src/app/features/manage-members/model/resourceMemberErrorMessages.ts': `
 function resourceMemberErrorMessage(error) {
-  return 'Refresh members to load people for this team.'
+  return 'Open Members for this team again.'
 }
 `,
       'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts': `
@@ -2048,7 +2225,67 @@ function baseMessage(resource, action) {
 `,
       'src/app/features/settings/ResourcesSection.tsx': `
 function ResourceProfilesError() {
-  return <p>Reload sizes to load agent sizes.</p>
+  return <p>Load agent sizes again.</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags agent work-list recovery copy that only tells users to refresh', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentTasksTab.tsx': `
+export function AgentTasksTab() {
+  return <p>Refresh this agent's work list.</p>
+}
+`,
+      'src/app/features/agents/model/taskErrorMessage.ts': `
+function agentTasksErrorMessage(error) {
+  return 'Refresh this page to load the agent work list again.'
+}
+
+function agentRateLimitMessage(error) {
+  return 'Wait a minute, then refresh this agent to load its work list.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-task-load-copy',
+          location: 'src/app/features/agents/AgentTasksTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-task-load-copy',
+          location: 'src/app/features/agents/model/taskErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-task-load-copy',
+          location: 'src/app/features/agents/model/taskErrorMessage.ts:7',
+        }),
+      ])
+    )
+  })
+
+  it('accepts agent work-list recovery copy that names the Work tab', () => {
+    const cwd = fixture({
+      'src/app/features/agents/model/taskErrorMessage.ts': `
+function agentTasksErrorMessage(error) {
+  return 'Open Agents, choose this agent again, then open Work to load the work list.'
+}
+
+function agentRateLimitMessage(error) {
+  return 'Wait a minute, then open Work again from this agent.'
+}
+`,
+      'src/app/features/agents/AgentTasksTab.tsx': `
+export function AgentTasksTab() {
+  return <p>Open Work again from this agent.</p>
 }
 `,
     })
@@ -2096,13 +2333,13 @@ function listMessage() {
     const cwd = fixture({
       'src/app/features/agents/model/pluginErrorMessage.ts': `
 function prefix() {
-  return 'Refresh this agent page, then try the tool change again. The switch was returned to its previous setting.'
+  return 'Go back to Agents, choose this agent again, then open Tools and try the tool change again. The switch was returned to its previous setting.'
 }
 function serverMessage() {
   return 'Wait a few minutes, then try the tool change again. The switch was returned to its previous setting. Forge could not finish this tool request right now.'
 }
 function listMessage() {
-  return "Refresh this agent page, then try the tool change again. The switch was returned to its previous setting. Forge could not read this agent's tool list."
+  return "Go back to Agents, choose this agent again, then open Tools and try the tool change again. The switch was returned to its previous setting. Forge could not read this agent's tool list."
 }
 `,
     })
@@ -2132,6 +2369,10 @@ function memberUnavailableMessage() {
 function validationMessage() {
   return 'This person could not be removed. Check whether they are the last owner.'
 }
+
+function oldMembersListMessage() {
+  return 'Refresh the members list, then remove the person again.'
+}
 `,
     })
 
@@ -2160,6 +2401,10 @@ function validationMessage() {
           type: 'resource-member-error-copy',
           location: 'src/app/features/manage-members/model/resourceMemberErrorMessages.ts:19',
         }),
+        expect.objectContaining({
+          type: 'resource-member-error-copy',
+          location: 'src/app/features/manage-members/model/resourceMemberErrorMessages.ts:23',
+        }),
       ])
     )
   })
@@ -2176,7 +2421,7 @@ function memberLoadError() {
 }
 
 function memberUnavailableMessage() {
-  return 'Refresh members, then remove the person again. Forge could not update people access right now.'
+  return 'Open Members for this team again, then remove the person again. Forge could not update people access right now.'
 }
 
 function validationMessage() {
@@ -2248,7 +2493,7 @@ export const en = {
     ])
   })
 
-  it('flags work-location labels that leave beginners without a refresh step', () => {
+  it('flags work-location labels that leave beginners without a concrete check step', () => {
     const cwd = fixture({
       'src/app/entities/agent/model/runtime-kind.ts': `
 export function runtimeKindLabel(kind) {
@@ -2259,37 +2504,57 @@ export function runtimeKindShortLabel(kind) {
   if (!kind) return 'Location missing'
   return 'Review location'
 }
+export function legacyRuntimeLabel(kind) {
+  return kind ? 'Project files' : 'Refresh work location'
+}
+export function legacyShortLabel(kind) {
+  return kind ? 'Project files' : 'Refresh location'
+}
 `,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'runtime-short-label-copy',
-        location: 'src/app/entities/agent/model/runtime-kind.ts:3',
-      }),
-      expect.objectContaining({
-        type: 'runtime-short-label-copy',
-        location: 'src/app/entities/agent/model/runtime-kind.ts:7',
-      }),
-      expect.objectContaining({
-        type: 'runtime-short-label-copy',
-        location: 'src/app/entities/agent/model/runtime-kind.ts:8',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'runtime-short-label-copy',
+          location: 'src/app/entities/agent/model/runtime-kind.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'runtime-short-label-copy',
+          location: 'src/app/entities/agent/model/runtime-kind.ts:7',
+        }),
+        expect.objectContaining({
+          type: 'runtime-short-label-copy',
+          location: 'src/app/entities/agent/model/runtime-kind.ts:8',
+        }),
+        expect.objectContaining({
+          type: 'runtime-short-label-copy',
+          location: 'src/app/entities/agent/model/runtime-kind.ts:11',
+        }),
+        expect.objectContaining({
+          type: 'agent-setup-fallback-copy',
+          location: 'src/app/entities/agent/model/runtime-kind.ts:11',
+        }),
+        expect.objectContaining({
+          type: 'runtime-short-label-copy',
+          location: 'src/app/entities/agent/model/runtime-kind.ts:14',
+        }),
+      ])
+    )
   })
 
-  it('accepts work-location fallback labels that tell users to refresh', () => {
+  it('accepts work-location fallback labels that tell users to check setup', () => {
     const cwd = fixture({
       'src/app/entities/agent/model/runtime-kind.ts': `
 export function runtimeKindLabel(kind) {
-  if (!kind) return 'Refresh work location'
+  if (!kind) return 'Check where it works'
 }
 
 export function runtimeKindShortLabel(kind) {
-  if (!kind) return 'Refresh location'
+  if (!kind) return 'Check location'
   return 'Check location'
 }
 `,
@@ -2367,17 +2632,17 @@ function fallbackCliToolLabel(tool) {
     const cwd = fixture({
       'src/app/entities/agent/model/display-labels.ts': `
 export function agentAiServiceLabel(provider) {
-  return provider ? 'Check AI service' : 'Refresh AI service'
+  return provider ? 'Check AI service' : 'Check AI service setup'
 }
 `,
       'src/app/entities/agent/model/agents.store.ts': `
 export function cliToolLabel(tool) {
-  return tool ? 'Check work tool' : 'Refresh AI service'
+  return tool ? 'Check work tool' : 'Check AI service setup'
 }
 `,
       'src/app/entities/context/ui/InjectionPreviewModal.tsx': `
 function runtimeLabel(runtime) {
-  return runtime ? 'Check work location' : 'Refresh work location'
+  return runtime ? 'Check work location' : 'Check where this ran'
 }
 `,
       'src/app/features/detail/HistoryTab.tsx': `
@@ -2387,10 +2652,10 @@ function runSourceLabel(run) {
 `,
       'src/app/features/settings/RuntimeSection.tsx': `
 function fallbackRuntimeLabel(runtime) {
-  return runtime ? 'Check where files open' : 'Refresh where files open'
+  return runtime ? 'Check where files open' : 'Check where files open in Settings'
 }
 function fallbackCliToolLabel(tool) {
-  return tool ? 'Check work tool' : 'Refresh work tools'
+  return tool ? 'Check work tool' : 'Check the work tool in Settings'
 }
 `,
     })
@@ -2640,6 +2905,7 @@ function BillingNotConfigured() {
       <p>Billing setup steps</p>
       <p>Ask an owner or admin to turn on billing for this workspace.</p>
       <p>Do not paste secret payment settings here.</p>
+      <p>Refresh this page after billing is turned on.</p>
     </div>
   )
 }
@@ -2671,6 +2937,10 @@ function BillingNotConfigured() {
           type: 'billing-setup-copy',
           location: 'src/app/features/billing/BillingPage.tsx:9',
         }),
+        expect.objectContaining({
+          type: 'billing-setup-copy',
+          location: 'src/app/features/billing/BillingPage.tsx:10',
+        }),
       ])
     )
   })
@@ -2684,6 +2954,7 @@ function BillingNotConfigured() {
       <p>What to do next</p>
       <p>Ask an owner or admin to turn on billing for this team.</p>
       <p>Do not enter payment account passwords or keys on this page.</p>
+      <p>After billing is turned on, open Billing from the sidebar to check the plan.</p>
     </div>
   )
 }
@@ -2813,7 +3084,7 @@ function billingActionErrors() {
     const cwd = fixture({
       'src/app/shared/model/billing.store.ts': `
 function billingErrorMessage() {
-  return 'Refresh Billing to load usage. Check your connection, then refresh Billing again. Forge could not connect while loading billing.'
+  return 'Check your connection, then choose Check billing again to load usage. Forge could not connect while loading billing.'
 }
 `,
       'src/app/features/billing/BillingPage.tsx': `
@@ -2905,11 +3176,11 @@ export function analyticsNetworkErrorMessage() {
     const cwd = fixture({
       'src/app/shared/model/analytics.store.ts': `
 export function analyticsUnavailableMessage() {
-  return 'Refresh the dashboard. If this is a new workspace, run an agent task first.'
+  return 'Open Analytics again. If this is a new workspace, run an agent task first.'
 }
 
 export function analyticsNetworkErrorMessage() {
-  return 'Check your connection, then refresh the dashboard. Analytics could not connect.'
+  return 'Check your connection, then open Analytics again. Analytics could not connect.'
 }
 `,
     })
@@ -3019,16 +3290,59 @@ export function updatedAtLabel() {
     ])
   })
 
-  it('accepts analytics updated-time copy that tells users to refresh', () => {
+  it('accepts analytics updated-time copy that names the load action', () => {
     const cwd = fixture({
       'src/app/features/analytics/ContextUsageDashboard.tsx': `
 export function updatedAtLabel() {
-  return 'Refresh analytics to update time'
+  return 'Choose Load analytics again to update this time'
 }
 `,
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags saved item analytics refresh copy that does not name a concrete action', () => {
+    const cwd = fixture({
+      'src/app/features/analytics/ContextUsageDashboard.tsx': `
+function updatedAtLabel() {
+  return 'Refresh analytics to update time'
+}
+function staleBanner() {
+  return 'Refresh analytics before making decisions from them.'
+}
+function runtimeLabel() {
+  return 'Refresh work location'
+}
+function taskKindLabel() {
+  return 'Refresh task type'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'analytics-refresh-copy',
+          location: 'src/app/features/analytics/ContextUsageDashboard.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'analytics-refresh-copy',
+          location: 'src/app/features/analytics/ContextUsageDashboard.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'analytics-refresh-copy',
+          location: 'src/app/features/analytics/ContextUsageDashboard.tsx:9',
+        }),
+        expect.objectContaining({
+          type: 'analytics-refresh-copy',
+          location: 'src/app/features/analytics/ContextUsageDashboard.tsx:12',
+        }),
+      ])
+    )
   })
 
   it('flags optional saved item empty copy that does not explain how more items appear', () => {
@@ -3267,6 +3581,40 @@ function agentStatusLabel() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags task form review templates that require PR and branch terms', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskFormModal.tsx': `
+const TASK_TEMPLATES = [{
+  id: 'review',
+  description: 'Change to review:\\n- Name the PR, branch, files, or behavior.'
+}]
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'task-form-review-template-copy',
+        location: 'src/app/features/board/TaskFormModal.tsx:4',
+      }),
+    ])
+  })
+
+  it('accepts task form review templates that ask for a change or request plainly', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskFormModal.tsx': `
+const TASK_TEMPLATES = [{
+  id: 'review',
+  description: 'Change to review:\\n- Name the change, request, files, screen, or behavior.'
+}]
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags task form queue load copy that starts with the failure instead of the next step', () => {
     const cwd = fixture({
       'src/app/features/board/TaskFormModal.tsx': `
@@ -3291,7 +3639,7 @@ function handleProjectChange() {
     const cwd = fixture({
       'src/app/features/board/TaskFormModal.tsx': `
 function handleProjectChange() {
-  return 'Select the project again to find where tasks wait. If it still does not load, refresh the board or ask an owner to check task routing setup.'
+  return 'Select the project again to find where tasks wait. If it still does not load, open the Tasks page again or ask an owner to check where tasks wait in this project.'
 }
 `,
     })
@@ -3387,12 +3735,12 @@ function noAgentError() {
     const cwd = fixture({
       'src/app/features/detail/TaskDetailPanel.tsx': `
 function emptyAgents() {
-  return 'Open Agents to start or connect an agent, then return here and refresh this task.'
+  return 'Open Agents to start or connect an agent, then open this task again from the Tasks page.'
 }
 `,
       'src/app/features/detail/taskDetailErrorMessages.ts': `
 function noAgentError() {
-  return 'No agent can take this task right now. Open Agents to start or connect an agent, then refresh this task and try again.'
+  return 'No agent can take this task right now. Open Agents to start or connect an agent, then open this task again from the Tasks page.'
 }
 `,
     })
@@ -3436,15 +3784,15 @@ function emptyInstructionBadge() {
     ])
   })
 
-  it('accepts agent configuration detail copy that names what to refresh', () => {
+  it('accepts agent configuration detail copy that names what to check', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentConfigTab.tsx': `
 function modelLabel() {
-  return 'Refresh AI model'
+  return 'Check AI model setup'
 }
 
 function cliToolLabel() {
-  return 'Refresh work tool settings'
+  return 'Check work tool settings'
 }
 
 function emptyInstructionBadge() {
@@ -3482,7 +3830,7 @@ function promptProfileSaveErrorMessage() {
     const cwd = fixture({
       'src/app/features/agents/AgentConfigTab.tsx': `
 function promptProfileSaveErrorMessage() {
-  return 'Refresh this agent, confirm it is still a chat-only agent, then save again. If it keeps failing, ask an owner or admin to check your agent access. Agent instructions were not saved.'
+  return 'Open Agents, choose this chat-only agent again, then save again. If it keeps failing, ask an owner or admin to check your agent access. Agent instructions were not saved.'
 }
 `,
     })
@@ -3519,16 +3867,16 @@ const info = {
     ])
   })
 
-  it('accepts agent model fallback copy that tells users to refresh model data', () => {
+  it('accepts agent model fallback copy that tells users to check model setup', () => {
     const cwd = fixture({
       'src/app/entities/agent/model/agents.store.ts': `
 const info = {
-  model: 'Refresh AI model',
+  model: 'Check AI model setup',
 }
 `,
       'src/app/shared/model/agents.store.ts': `
 const info = {
-  model: agent.model ?? agent.cliTool ?? 'Refresh AI model',
+  model: agent.model ?? agent.cliTool ?? 'Check AI model setup',
 }
 `,
     })
@@ -3577,21 +3925,21 @@ function cliToolToProvider() {
     expect(result.findings).toHaveLength(3)
   })
 
-  it('accepts agent AI service fallback copy that tells users to refresh service data', () => {
+  it('accepts agent AI service fallback copy that tells users to check service setup', () => {
     const cwd = fixture({
       'src/app/entities/agent/model/display-labels.ts': `
 function agentAiServiceLabel() {
-  return 'Refresh AI service'
+  return 'Check AI service setup'
 }
 `,
       'src/app/entities/agent/model/agents.store.ts': `
 function managedToAgentInfo() {
-  return { provider: 'Refresh AI service' }
+  return { provider: 'Check AI service setup' }
 }
 `,
       'src/app/shared/model/agents.store.ts': `
 function cliToolToProvider() {
-  return 'Refresh AI service'
+  return 'Check AI service setup'
 }
 `,
     })
@@ -4079,12 +4427,13 @@ function ProjectReadiness() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags access level fallback copy that does not tell users what to refresh', () => {
+  it('flags access level fallback copy that does not tell users what to check', () => {
     const cwd = fixture({
       'src/app/entities/user/model/roleLabels.ts': `
 function userRoleLabel() {
   return 'Access level not reported'
   return 'Access level needs review'
+  return 'Refresh access level'
   return { operator: 'Operator' }
 }
 `,
@@ -4107,15 +4456,19 @@ function userRoleLabel() {
           type: 'access-level-copy',
           location: 'src/app/entities/user/model/roleLabels.ts:5',
         }),
+        expect.objectContaining({
+          type: 'access-level-copy',
+          location: 'src/app/entities/user/model/roleLabels.ts:6',
+        }),
       ])
     )
   })
 
-  it('accepts access level fallback copy that tells users to refresh role data', () => {
+  it('accepts access level fallback copy that tells users to check Account settings', () => {
     const cwd = fixture({
       'src/app/entities/user/model/roleLabels.ts': `
 function userRoleLabel() {
-  return 'Refresh access level'
+  return 'Check access in Account settings'
   return 'Check access level'
 }
 `,
@@ -4182,6 +4535,23 @@ export function TimelineView() {
 export function Workshop3DEmptyState() {
   return <p>No agents on the visual map yet</p>
 }
+export function EmptyStep() {
+  return <p>Refresh this view after the agent checks in</p>
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  workshop: {
+    loadError: 'Visual map could not load. Refresh after agents are available, then try again.',
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  workshop: {
+    loadError: '视觉地图无法加载。等 Agent 可用后刷新，再试一次。',
+  },
+}
 `,
     })
 
@@ -4194,6 +4564,18 @@ export function Workshop3DEmptyState() {
           type: 'workshop-3d-empty-copy',
           location: 'src/app/widgets/views/Workshop3DView.tsx:3',
         }),
+        expect.objectContaining({
+          type: 'workshop-3d-empty-copy',
+          location: 'src/app/widgets/views/Workshop3DView.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'workshop-3d-empty-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'workshop-3d-empty-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:4',
+        }),
       ])
     )
   })
@@ -4203,6 +4585,9 @@ export function Workshop3DEmptyState() {
       'src/app/widgets/views/Workshop3DView.tsx': `
 export function Workshop3DEmptyState() {
   return <p>Open Agents to build the visual map</p>
+}
+export function EmptyStep() {
+  return <p>Return to this 3D view after the agent checks in</p>
 }
 `,
     })
@@ -4288,6 +4673,12 @@ function agentNextStep() {
 function nextTitle() {
   return 'Go to Tasks to review recent activity'
 }
+function refreshTitle() {
+  return 'Refresh or open Tasks to check activity'
+}
+function refreshDetail() {
+  return 'Go back to Agents and refresh the list, or open Tasks to confirm what is running before assigning more work.'
+}
 `,
     })
 
@@ -4303,6 +4694,14 @@ function nextTitle() {
         expect.objectContaining({
           type: 'agent-detail-activity-copy',
           location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'agent-detail-activity-copy',
+          location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:9',
+        }),
+        expect.objectContaining({
+          type: 'agent-detail-activity-copy',
+          location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:12',
         }),
       ])
     )
@@ -5217,7 +5616,7 @@ function heartbeatStatusCopy() {
     const cwd = fixture({
       'src/app/features/settings/runtimeErrorMessages.ts': `
 function runtimeErrorMessage() {
-  return 'Open Agents and make sure one agent shows Ready, then refresh this page. Agent connection status could not load.'
+  return 'Open Agents and make sure one agent shows Ready, then open Settings and Where agents work again. Agent connection status could not load.'
 }
 
 function runtimeCliErrorMessage() {
@@ -5234,7 +5633,7 @@ function runtimeSettingsFallback() {
 `,
       'src/app/features/settings/RuntimeSection.tsx': `
 function runtimeChecklistCopy() {
-  return 'Refresh this settings page to load Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.'
+  return 'Open Settings, then open Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.'
 }
 
 function credentialStatusCopy() {
@@ -5248,6 +5647,92 @@ function heartbeatStatusCopy() {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags runtime recovery copy that tells beginners to refresh settings or the page', () => {
+    const cwd = fixture({
+      'src/app/features/settings/runtimeErrorMessages.ts': `
+function runtimeCliLoadMessage() {
+  return 'Refresh this page before starting agents that use work tools. Work tool sign-in could not be checked.'
+}
+
+function runtimeNetworkMessage() {
+  return 'Check your connection, then refresh Settings. Forge could not connect while checking Where agents work.'
+}
+
+function runtimeConflictMessage() {
+  return 'Refresh Settings, check the current choices, then save again.'
+}
+
+function runtimeRateLimitMessage() {
+  return 'Wait a minute, then refresh Settings. Too many setup requests are happening right now.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'runtime-error-copy',
+          location: 'src/app/features/settings/runtimeErrorMessages.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'runtime-error-copy',
+          location: 'src/app/features/settings/runtimeErrorMessages.ts:7',
+        }),
+        expect.objectContaining({
+          type: 'runtime-error-copy',
+          location: 'src/app/features/settings/runtimeErrorMessages.ts:11',
+        }),
+        expect.objectContaining({
+          type: 'runtime-error-copy',
+          location: 'src/app/features/settings/runtimeErrorMessages.ts:15',
+        }),
+      ])
+    )
+  })
+
+  it('flags Where agents work load copy that tells users to refresh the current settings page', () => {
+    const cwd = fixture({
+      'src/app/features/settings/RuntimeSection.tsx': `
+function runtimeChecklistCopy() {
+  return 'Refresh this settings page to load Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.'
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  settings: { runtime: { couldNotLoad: 'Refresh this settings page to load Where agents work.' } },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  settings: { runtime: { couldNotLoad: '请刷新这个设置页来加载 Agent 在哪里工作。' } },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'settings-runtime-setup-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'settings-runtime-setup-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'settings-runtime-setup-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:3',
+        }),
+      ])
+    )
   })
 
   it('flags settings runtime navigation copy that explains internal run and tool choices', () => {
@@ -5436,7 +5921,7 @@ export function CreateAgentModal() {
 `,
       'src/app/features/agents/AgentControlPanel.tsx': `
 export function agentControlErrorMessage() {
-  return 'Refresh Agents, then choose Start file work again. If it still does not show Ready, ask an owner or admin to check Where agents work in Settings.'
+  return 'Go back to Agents, choose this agent again, then choose Start file work again. If it still does not show Ready, ask an owner or admin to check Where agents work in Settings.'
 }
 `,
       'src/app/entities/agent/model/agents.store.ts': `
@@ -5474,6 +5959,26 @@ export const zh = {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags Agent control copy that uses refresh shorthand instead of concrete navigation', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentControlPanel.tsx': `
+export function agentControlErrorMessage() {
+  return 'Refresh Agents, then choose Start file work again.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'agent-file-work-control-copy',
+        location: 'src/app/features/agents/AgentControlPanel.tsx:3',
+      }),
+    ])
   })
 
   it('flags agent work setup labels that use agent location wording', () => {
@@ -6253,12 +6758,16 @@ const STATUS_FILTERS = [
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags shared agent status fallbacks that do not tell users what to refresh', () => {
+  it('flags shared agent status fallbacks that do not tell users what to check', () => {
     const cwd = fixture({
       'src/app/entities/agent/model/status-labels.ts': `
 export function agentStatusLabel(status) {
   if (!status) return 'Status not reported'
   return 'Status needs review'
+}
+export function legacyAgentStatusLabel(status) {
+  if (!status) return 'Refresh agent status'
+  return 'Check agent status'
 }
 `,
     })
@@ -6275,6 +6784,10 @@ export function agentStatusLabel(status) {
         type: 'agent-shared-status-copy',
         location: 'src/app/entities/agent/model/status-labels.ts:4',
       }),
+      expect.objectContaining({
+        type: 'agent-shared-status-copy',
+        location: 'src/app/entities/agent/model/status-labels.ts:7',
+      }),
     ])
   })
 
@@ -6282,7 +6795,7 @@ export function agentStatusLabel(status) {
     const cwd = fixture({
       'src/app/entities/agent/model/status-labels.ts': `
 export function agentStatusLabel(status) {
-  if (!status) return 'Refresh agent status'
+  if (!status) return 'Check agent status'
   return 'Check agent status'
 }
 `,
@@ -6819,7 +7332,7 @@ export const zh = {
 export const en = {
   common: {
     noResults: 'Try a broader search or clear the filters.',
-    noData: 'Create the first item or refresh after setup finishes.',
+    noData: 'Create the first item, or open this page again after setup finishes.',
   },
   agents: {
     noAgents: 'Create one agent to start assigning work.',
@@ -6837,7 +7350,7 @@ export const en = {
 export const zh = {
   common: {
     noResults: '可以放宽搜索条件，或清除筛选后再试。',
-    noData: '可以先创建第一项，或在设置完成后刷新。',
+    noData: '可以先创建第一项；设置完成后，请重新打开当前页面。',
   },
   agents: {
     noAgents: '先创建一个 Agent，再开始分配任务。',
@@ -7292,7 +7805,7 @@ function agentCreatedStartFailureMessage() {
     const cwd = fixture({
       'src/app/entities/agent/model/agents.store.ts': `
 function agentConnectionMessage(actionPhrase) {
-  return \`Check your connection, then refresh Agents. Forge could not \${actionPhrase} while updating Agents.\`
+  return \`Check your connection, then open Agents and choose this agent again. Forge could not \${actionPhrase} while updating Agents.\`
 }
 
 function agentPermissionMessage(actionPhrase) {
@@ -7304,11 +7817,11 @@ function agentBusyMessage(actionPhrase) {
 }
 
 function agentConflictMessage() {
-  return 'Wait for the current work to finish, refresh the Agents page, then try again. This agent is already working.'
+  return 'Wait for the current work to finish, open Agents and choose this agent again, then try again. This agent is already working.'
 }
 
 function agentChangedMessage() {
-  return 'Refresh the Agents page, check its current status, then try again. This agent changed while you were working.'
+  return 'Open Agents, check this agent status, then try again. This agent changed while you were working.'
 }
 
 function agentServerMessage() {
@@ -7320,7 +7833,7 @@ function agentRuntimeMessage() {
 }
 
 function agentUnknownMessage(actionPhrase) {
-  return \`Refresh the Agents page, then try to \${actionPhrase} again. Forge could not \${actionPhrase}.\`
+  return \`Open Agents, then try to \${actionPhrase} again. Forge could not \${actionPhrase}.\`
 }
 
 function agentCreatedStartFailureMessage() {
@@ -7466,32 +7979,40 @@ export function TaskStatus() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags live work status copy that does not tell users to refresh', () => {
+  it('flags live work status copy that does not tell users where to check status', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentTerminalTab.tsx': `
 export function liveWorkStatusLabel() {
   return 'Status not reported'
 }
+const LIVE_WORK_CONNECTION_NOTICE = 'Live work notice: Connection dropped. Refresh this page first.'
 `,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'live-work-status-copy',
-        location: 'src/app/features/agents/AgentTerminalTab.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'live-work-status-copy',
+          location: 'src/app/features/agents/AgentTerminalTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'live-work-status-copy',
+          location: 'src/app/features/agents/AgentTerminalTab.tsx:5',
+        }),
+      ])
+    )
   })
 
-  it('accepts live work status copy that tells users to refresh', () => {
+  it('accepts live work status copy that points users to Overview', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentTerminalTab.tsx': `
 export function liveWorkStatusLabel() {
-  return 'Refresh to load status'
+  return 'Open Overview to check status'
 }
+const LIVE_WORK_CONNECTION_NOTICE = 'Live work notice: Connection dropped. Open Overview, use Controls, and choose Restart agent. Then return to Live work.'
 `,
     })
 
@@ -7829,7 +8350,7 @@ function candidateTitle(candidate) {
 `,
       'src/app/features/analytics/ContextUsageDashboard.tsx': `
 function taskKindLabel(kind) {
-  return kind ? 'Check task type' : 'Refresh task type'
+  return kind ? 'Check task type' : 'Check what kind of task it was'
 }
 `,
       'src/app/features/detail/ContextAppliedList.tsx': `
@@ -7848,25 +8369,34 @@ function contentLoadError() {
 function messageRoleLabel(role) {
   return role.trim() ? 'Message needs review' : 'Message sender not reported'
 }
+function staleSenderMessage() {
+  return 'Refresh chat to load sender'
+}
 `,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'chat-message-fallback-copy',
-        location: 'src/app/features/chat/ChatView.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'chat-message-fallback-copy',
+          location: 'src/app/features/chat/ChatView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'chat-message-fallback-copy',
+          location: 'src/app/features/chat/ChatView.tsx:6',
+        }),
+      ])
+    )
   })
 
   it('accepts chat sender fallback copy that tells users what to do', () => {
     const cwd = fixture({
       'src/app/features/chat/ChatView.tsx': `
 function messageRoleLabel(role) {
-  return role.trim() ? 'Check message sender' : 'Refresh chat to load sender'
+  return role.trim() ? 'Check message sender' : 'Open this chat again to load the sender'
 }
 `,
     })
@@ -8009,6 +8539,9 @@ function filteredDetail() {
 function nextStep() {
   return 'Review Command line failures first. Open recent task results and check the steps that ended in error before assigning more work.'
 }
+function offlineGuidance() {
+  return 'Open Agents and reconnect or restart the offline agents, then refresh this page.'
+}
 `,
     })
 
@@ -8037,6 +8570,10 @@ function nextStep() {
           type: 'analytics-guidance-copy',
           location: 'src/app/features/analytics/AnalyticsDashboard.tsx:3',
         }),
+        expect.objectContaining({
+          type: 'analytics-guidance-copy',
+          location: 'src/app/features/analytics/AnalyticsDashboard.tsx:6',
+        }),
       ])
     )
   })
@@ -8046,6 +8583,9 @@ function nextStep() {
       'src/app/features/analytics/AnalyticsDashboard.tsx': `
 function nextStep() {
   return 'Check Command line retry steps first. Open recent task results, check the recovery notes, then pause new work until the next step is clear.'
+}
+function offlineGuidance() {
+  return 'Open Agents and reconnect or restart the offline agents, then return to Analytics.'
 }
 `,
     })
@@ -8204,7 +8744,7 @@ const ACTION_FALLBACKS = {
 `,
       'src/app/features/context/approvalQueueErrorMessages.ts': `
 const ACTION_FALLBACKS = {
-  loadQueue: 'Refresh the list so you see the latest saved items. Saved items could not load.',
+  loadQueue: 'Choose Load saved items again so you see the latest saved items. Saved items could not load.',
 }
 `,
       'src/app/features/detail/TaskDetailPanel.tsx': `
@@ -8584,7 +9124,7 @@ export function ChatView() {
 `,
       'src/app/features/agents/AgentTasksTab.tsx': `
 export function AgentTasksTab() {
-  return <p>Refresh this agent's work list.</p>
+  return <p>Open Work again from this agent.</p>
 }
 `,
       'src/app/features/settings/RuntimeSection.tsx': `
@@ -8850,7 +9390,7 @@ function agentInstructionPlaceholder() {
     const cwd = fixture({
       'src/app/features/chat/ChatView.tsx': `
 function ChatView() {
-  return 'Open AI service settings, choose Check connection for this service, then refresh Agents before sending a message.'
+  return 'Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again before sending a message.'
 }
 function loadingMessage() {
   return 'Wait for earlier messages to finish loading, then send your message from this chat.'
@@ -8887,6 +9427,15 @@ function chatStreamConflictMessage() {
 function chatStreamReadErrorMessage() {
   return 'The reply stopped before it finished. Check that the agent is still online, then resend the message.'
 }
+function chatStreamMissingAgentMessage() {
+  return 'Refresh the Agents list, choose an active agent, then open chat again.'
+}
+function chatStreamChangedConversation() {
+  return 'Refresh the chat, review the latest message, then try again.'
+}
+function chatStreamNoBodyMessage() {
+  return 'The agent did not send a reply. Refresh this agent and try again.'
+}
 `,
     })
 
@@ -8911,6 +9460,18 @@ function chatStreamReadErrorMessage() {
           type: 'chat-stream-error-copy',
           location: 'src/app/features/chat/useChatStream.ts:12',
         }),
+        expect.objectContaining({
+          type: 'chat-stream-error-copy',
+          location: 'src/app/features/chat/useChatStream.ts:15',
+        }),
+        expect.objectContaining({
+          type: 'chat-stream-error-copy',
+          location: 'src/app/features/chat/useChatStream.ts:18',
+        }),
+        expect.objectContaining({
+          type: 'chat-stream-error-copy',
+          location: 'src/app/features/chat/useChatStream.ts:21',
+        }),
       ])
     )
   })
@@ -8922,13 +9483,22 @@ function chatStreamEventErrorMessage() {
   return 'Resend the message. The agent could not finish this reply. If it still fails, ask an owner or admin to check this agent chat.'
 }
 function chatStreamHttpErrorMessage() {
-  return 'Refresh this agent, then resend the message. This message was not sent.'
+  return 'Go back to Agents, choose this agent again, then open Chat and resend the message. This message was not sent.'
 }
 function chatStreamConflictMessage() {
   return 'Wait for the current reply to finish, then resend the message. This agent is already working.'
 }
 function chatStreamReadErrorMessage() {
   return 'Check that the agent is still online, then resend the message. The reply stopped before it finished.'
+}
+function chatStreamMissingAgentMessage() {
+  return 'Go back to Agents, choose an active agent, then open Chat again.'
+}
+function chatStreamChangedConversation() {
+  return 'Open this chat again, check the latest message, then resend the message.'
+}
+function chatStreamNoBodyMessage() {
+  return 'Go back to Agents, choose this agent again, then open Chat and resend the message.'
 }
 `,
     })
@@ -9007,6 +9577,10 @@ function ServiceRow() {
 function HelperNote() {
   return <p>Setup helper note: use the next step above, then choose Check now.</p>
 }
+
+function ConfigNote() {
+  return <p>Ask an owner or admin to check System health in Admin, then choose Check now.</p>
+}
 `,
     })
 
@@ -9023,6 +9597,10 @@ function HelperNote() {
           type: 'system-health-helper-note-copy',
           sample: expect.stringContaining('Setup helper note'),
         }),
+        expect.objectContaining({
+          type: 'system-health-helper-note-copy',
+          sample: expect.stringContaining('System health in Admin'),
+        }),
       ])
     )
   })
@@ -9031,7 +9609,7 @@ function HelperNote() {
     const cwd = fixture({
       'src/app/features/admin/SystemHealth.tsx': `
 function ServiceRow() {
-  return <p>What to check next: use the next step above, then choose Check now.</p>
+  return <p>What to check next: ask an owner or admin to check App health in Admin, then choose Check now.</p>
 }
 `,
     })
@@ -9044,6 +9622,7 @@ function ServiceRow() {
       'src/app/features/admin/SystemHealth.tsx': `
 const SERVICE_DEFINITIONS = [
   { description: 'Moves events from running agents into the browser in near real time.' },
+  { action: 'Ask an owner or admin to check live updates, then refresh and look for new progress.' },
 ]
 `,
     })
@@ -9051,12 +9630,18 @@ const SERVICE_DEFINITIONS = [
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'system-health-live-update-copy',
-        location: 'src/app/features/admin/SystemHealth.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'system-health-live-update-copy',
+          location: 'src/app/features/admin/SystemHealth.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'system-health-live-update-copy',
+          location: 'src/app/features/admin/SystemHealth.tsx:4',
+        }),
+      ])
+    )
   })
 
   it('accepts app health live update copy that describes visible progress', () => {
@@ -9120,7 +9705,7 @@ const item = { description: 'manage team spaces, people, and app health' }
       'src/app/features/admin/systemHealthErrorMessage.ts': `
 export function systemHealthErrorMessage() {
   const base = 'Forge could not check app health.'
-  return \`\${base} Refresh Admin, then choose Check now.\`
+  return 'Refresh Admin, then choose Check now. Forge could not check app health.'
 }
 `,
     })
@@ -9146,7 +9731,7 @@ export function systemHealthErrorMessage() {
     const cwd = fixture({
       'src/app/features/admin/systemHealthErrorMessage.ts': `
 export function systemHealthErrorMessage() {
-  return 'Refresh Admin, then choose Check now. Forge could not check app health.'
+  return 'Open Admin and choose App health, then choose Check now. Forge could not check app health.'
 }
 `,
     })
@@ -9391,6 +9976,7 @@ const SERVICE_DEFINITIONS = [
 function SystemHealth() {
   return (
     <section>
+      <p>Checks when opened, then refreshes every 30 seconds while Admin is open.</p>
       <p>Checks when opened, then every 30 seconds while this page is visible. Hidden tabs pause checks.</p>
       <button>{loading ? 'Checking...' : 'Check now'}</button>
       <span>responds in 12 ms</span>
@@ -9405,6 +9991,10 @@ function SystemHealth() {
     expect(result.ok).toBe(false)
     expect(result.findings).toEqual(
       expect.arrayContaining([
+        expect.objectContaining({
+          type: 'system-health-status-copy',
+          sample: expect.stringContaining('refreshes every 30 seconds'),
+        }),
         expect.objectContaining({
           type: 'system-health-status-copy',
           sample: expect.stringContaining('while this page is visible'),
@@ -9494,7 +10084,7 @@ function skillAccessErrorMessage() {
     )
   })
 
-  it('accepts saved instruction load copy that points to retry', () => {
+  it('accepts saved instruction load copy that points to opening Saved instructions again', () => {
     const cwd = fixture({
       'src/app/features/skills/SkillsView.tsx': `
 function savedInstructionsLoadErrorMessage(error) {
@@ -9505,10 +10095,10 @@ function savedInstructionsLoadErrorMessage(error) {
 function skillResponseErrorMessage(action) {
   return action === 'create'
     ? 'Review the fields, then create the instruction again.'
-    : 'Refresh Saved instructions to load the list.'
+    : 'Open Saved instructions again to load the list.'
 }
 function skillAccessErrorMessage() {
-  return 'Ask an owner or admin to update your team space access, then refresh Saved instructions. You do not have access to saved instructions for this team space.'
+  return 'Ask an owner or admin to update your team space access, then open Saved instructions again. You do not have access to saved instructions for this team space.'
 }
 `,
     })
@@ -9615,7 +10205,7 @@ function permission() {
   return 'Ask an owner or admin to let you create saved instructions. Your account cannot create workspace instructions yet.'
 }
 function service() {
-  return 'Refresh Saved instructions, then create the instruction again. If it still fails, ask an owner or admin to check Saved instructions access.'
+  return 'Open Saved instructions again, then create the instruction again. If it still fails, ask an owner or admin to check Saved instructions access.'
 }
 `,
       'src/app/features/detail/model/skillDraftErrorMessage.ts': `
@@ -10276,27 +10866,27 @@ function OrgRow() {
     const cwd = fixture({
       'src/app/features/settings/GitCredentialsSection.tsx': `
 function CredentialRow() {
-  return 'Refresh repository access to load added date'
+  return 'Open Code access again to load added date'
 }
 `,
       'src/app/features/settings/SshKeysSection.tsx': `
 function SshKeyRow() {
-  return 'Refresh SSH access to check added date'
+  return 'Open SSH code access again to check added date'
 }
 `,
       'src/app/features/settings/KeysSection.tsx': `
 function KeyRow() {
-  return 'Refresh access keys to check created date'
+  return 'Open Outside tool access keys again to check created date'
 }
 `,
       'src/app/features/admin/UserManagement.tsx': `
 function UserRow() {
-  return 'Refresh users to check sign-in date'
+  return 'Open User access again to check sign-in date'
 }
 `,
       'src/app/features/admin/OrganizationsPanel.tsx': `
 function OrgRow() {
-  return 'Refresh team spaces to check created date'
+  return 'Open Team spaces again to check created date'
 }
 `,
     })
@@ -10304,7 +10894,7 @@ function OrgRow() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags account profile copy that does not tell users to refresh', () => {
+  it('flags account profile copy that does not tell users where to reload account data', () => {
     const cwd = fixture({
       'src/app/features/settings/AccountSection.tsx': `
 function ProfileRow() {
@@ -10324,11 +10914,31 @@ function ProfileRow() {
     ])
   })
 
-  it('accepts account profile copy that tells users to refresh', () => {
+  it('flags account profile copy that asks users to refresh the current page', () => {
     const cwd = fixture({
       'src/app/features/settings/AccountSection.tsx': `
 function ProfileRow() {
   return <span>Refresh this page to load username</span>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'account-profile-copy',
+        location: 'src/app/features/settings/AccountSection.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts account profile copy that points users to Account settings', () => {
+    const cwd = fixture({
+      'src/app/features/settings/AccountSection.tsx': `
+function ProfileRow() {
+  return <span>Open Account settings again to load username</span>
 }
 `,
     })
@@ -10830,10 +11440,10 @@ export function taskBlockedPreview() {
   it('accepts concrete setup wording for beginner-facing recovery copy', () => {
     const cwd = fixture({
       'src/app/routes/context.tsx': `
-export const detail = 'Saved items are available here. Ask an owner to check Saved items access.'
+export const detail = 'Saved items are available here. Open Saved items again or ask an owner to check Saved items access.'
 `,
       'src/app/routes/context-audit.tsx': `
-export const detail = 'Audit history is available here. Ask an owner to check change history access.'
+export const detail = 'Change history is available here. Open Change history again or ask an owner to check change history access.'
 `,
       'src/app/features/settings/ResourcesSection.tsx': `
 export function ResourcesSection() {
@@ -10842,7 +11452,7 @@ export function ResourcesSection() {
 `,
       'src/app/layouts/sidebar/ProjectTree.tsx': `
 function renameErrorMessage() {
-  return 'Refresh the left menu, then save this project name again. If it still fails, ask an owner or admin to check team and project settings.'
+  return 'Open the left menu, choose the current project, then save this project name again. If it still fails, ask an owner or admin to check team and project settings.'
 }
 `,
       'src/app/layouts/sidebar/SidebarNav.tsx': `
@@ -10857,6 +11467,100 @@ export function AuthShellLoadingState() {
       'src/app/shared/lib/taskFailureCopy.ts': `
 export function taskBlockedPreview() {
   return 'Too much work is running right now. Wait a bit, then retry or ask an owner for help.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags route loading copy that tells beginners to refresh the page', () => {
+    const cwd = fixture({
+      'src/app/routes/context.tsx': `
+export const detail = 'If this takes more than a moment, refresh the page or ask an owner to check Saved items access.'
+`,
+      'src/app/routes/context-audit.tsx': `
+export const detail = 'If this takes more than a moment, refresh the page or ask an owner to check change history access.'
+`,
+      'src/app/routes/__root.tsx': `
+export function AuthShellLoadingState() {
+  return 'If this takes more than a moment, refresh the page or sign in again.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'route-loading-refresh-copy',
+          location: 'src/app/routes/context.tsx:2',
+        }),
+        expect.objectContaining({
+          type: 'route-loading-refresh-copy',
+          location: 'src/app/routes/context-audit.tsx:2',
+        }),
+        expect.objectContaining({
+          type: 'route-loading-refresh-copy',
+          location: 'src/app/routes/__root.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts route loading copy that names the page to open again', () => {
+    const cwd = fixture({
+      'src/app/routes/context.tsx': `
+export const detail = 'If this takes more than a moment, open Saved items again or ask an owner to check Saved items access.'
+`,
+      'src/app/routes/context-audit.tsx': `
+export const detail = 'If this takes more than a moment, open Change history again or ask an owner to check change history access.'
+`,
+      'src/app/routes/__root.tsx': `
+export function AuthShellLoadingState() {
+  return 'If this takes more than a moment, open the sign-in page and sign in again.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags agent size load copy that tells beginners to reload', () => {
+    const cwd = fixture({
+      'src/app/features/settings/ResourcesSection.tsx': `
+export function ResourcesSection() {
+  return <p>Reload sizes to load agent sizes.</p>
+  return <p>Reload this list before creating or changing agents that edit project files.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'resource-sizes-load-copy',
+          location: 'src/app/features/settings/ResourcesSection.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'resource-sizes-load-copy',
+          location: 'src/app/features/settings/ResourcesSection.tsx:4',
+        }),
+      ])
+    )
+  })
+
+  it('accepts agent size load copy that uses a plain load-again step', () => {
+    const cwd = fixture({
+      'src/app/features/settings/ResourcesSection.tsx': `
+export function ResourcesSection() {
+  return <p>Load agent sizes again.</p>
+  return <p>Load this list again before creating or changing agents that edit project files.</p>
 }
 `,
     })
@@ -11746,13 +12450,45 @@ export function missingGroupMessage() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags saved instruction maintainer fallback copy that does not tell users to refresh', () => {
+  it('flags task queue recovery copy that only tells users to refresh project state', () => {
+    const cwd = fixture({
+      'src/app/features/agents/model/agentGroupErrorMessage.ts': `
+export function agentGroupErrorMessage() {
+  return 'Refresh this page, then choose the project again. The waiting place was not created.'
+}
+`,
+      'src/app/features/agents/model/createAgentWorkLaneErrorMessage.ts': `
+export function createAgentWorkLaneErrorMessage() {
+  return 'Refresh the project, then choose the existing waiting place. A starter waiting place may already exist.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-task-queue-error-copy',
+          location: 'src/app/features/agents/model/agentGroupErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-task-queue-error-copy',
+          location: 'src/app/features/agents/model/createAgentWorkLaneErrorMessage.ts:3',
+        }),
+      ])
+    )
+  })
+
+  it('flags saved instruction maintainer fallback copy that does not tell users where to reopen saved instructions', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `
 export const en = {
   skills: {
     detail: {
       unknownAuthor: 'Maintainer not listed yet',
+      oldUnknownAuthor: 'Refresh saved instructions to load maintainer',
     },
   },
 }
@@ -11762,6 +12498,7 @@ export const zh = {
   skills: {
     detail: {
       unknownAuthor: '暂未列出维护者',
+      oldUnknownAuthor: '刷新保存的说明以加载维护者',
     },
   },
 }
@@ -11779,7 +12516,15 @@ export const zh = {
         }),
         expect.objectContaining({
           type: 'skill-maintainer-fallback-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'skill-maintainer-fallback-copy',
           location: 'src/app/shared/i18n/locales/zh.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'skill-maintainer-fallback-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:6',
         }),
       ])
     )
@@ -11819,13 +12564,13 @@ export function CreateAgentModal() {
     ])
   })
 
-  it('accepts saved instruction maintainer fallback copy that tells users to refresh', () => {
+  it('accepts saved instruction maintainer fallback copy that tells users where to reopen saved instructions', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `
 export const en = {
   skills: {
     detail: {
-      unknownAuthor: 'Refresh saved instructions to load maintainer',
+      unknownAuthor: 'Open Saved instructions again to load maintainer',
     },
   },
 }
@@ -11834,7 +12579,7 @@ export const en = {
 export const zh = {
   skills: {
     detail: {
-      unknownAuthor: '刷新保存的说明以加载维护者',
+      unknownAuthor: '请重新打开保存的说明，以加载维护者',
     },
   },
 }
@@ -12089,6 +12834,7 @@ export function SkillsView() {
   return <>
     <SkillStat label="Installed" />
     <SkillStat label="Available" />
+    <span>Choose Save instruction or refresh this page.</span>
   </>
 }
 `,
@@ -12126,6 +12872,10 @@ export function CreateSkillModal() {
         expect.objectContaining({
           type: 'saved-instruction-list-status-copy',
           location: 'src/app/features/skills/SkillsView.tsx:9',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-list-status-copy',
+          location: 'src/app/features/skills/SkillsView.tsx:10',
         }),
         expect.objectContaining({
           type: 'saved-instruction-create-field-copy',
@@ -12359,20 +13109,20 @@ function permission() {
     const cwd = fixture({
       'src/app/features/governance/governanceAuditErrorMessages.ts': `
 const ACTION_FALLBACKS = {
-  exportAudit: 'Keep secrets hidden, refresh change history, then try the export again.',
-  loadAudit: 'Refresh change history, then apply the filters again.',
+  exportAudit: 'Keep secrets hidden, choose Refresh change history, then export again.',
+  loadAudit: 'Choose Refresh change history, then apply the filters again.',
 }
 function notFound() {
   return 'Open Admin change history again, then retry.'
 }
 function conflict() {
-  return 'Refresh change history, then export again because the change list changed while export was running.'
+  return 'Choose Refresh change history, then export again because the change list changed while export was running.'
 }
 function rateLimit() {
   return 'Wait a moment, then try again. Change history is handling too many requests right now.'
 }
 function service() {
-  return 'Refresh change history, then apply the filters again. If it still fails, ask an owner or admin to check change history access.'
+  return 'Choose Refresh change history, then apply the filters again. If it still fails, ask an owner or admin to check change history access.'
 }
 function permission() {
   return 'Ask an owner or admin to update your team space access, then retry this change-history action. You do not have permission to view or export change history.'
@@ -12381,6 +13131,50 @@ function permission() {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags governance recovery copy that uses refresh page or view shorthand', () => {
+    const cwd = fixture({
+      'src/app/features/governance/AuditLogView.tsx': `
+function emptyState() {
+  return 'Save a useful instruction, then refresh this view.'
+}
+const HIDDEN_AUDIT_DETAIL_VALUE =
+  'Hidden for safety. Keep secrets hidden, refresh change history, then export again.'
+`,
+      'src/app/features/governance/governanceAuditErrorMessages.ts': `
+function network() {
+  return 'If it still does not load, check your connection and refresh the page.'
+}
+function load() {
+  return 'Refresh change history, then apply the filters again.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'governance-audit-recovery-copy',
+          location: 'src/app/features/governance/AuditLogView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-recovery-copy',
+          location: 'src/app/features/governance/AuditLogView.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-recovery-copy',
+          location: 'src/app/features/governance/governanceAuditErrorMessages.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-recovery-copy',
+          location: 'src/app/features/governance/governanceAuditErrorMessages.ts:6',
+        }),
+      ])
+    )
   })
 
   it('flags governance history copy that exposes audit and event jargon', () => {
@@ -12662,25 +13456,34 @@ function chatStreamEventErrorMessage() {
 function navigationActionErrorMessage(actionPhrase) {
   return \`You do not have permission to \${actionPhrase}. Ask an owner or admin to update your team space access.\`
 }
+function staleNavigationRetryMessage(actionPhrase) {
+  return \`Ask an owner or admin to update your team space access, then refresh the left menu to \${actionPhrase}. You do not have permission to \${actionPhrase}.\`
+}
 `,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'navigation-error-copy',
-        location: 'src/app/entities/navigation/model/navigation.store.ts:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'navigation-error-copy',
+          location: 'src/app/entities/navigation/model/navigation.store.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'navigation-error-copy',
+          location: 'src/app/entities/navigation/model/navigation.store.ts:6',
+        }),
+      ])
+    )
   })
 
   it('accepts navigation permission errors that start with the next step', () => {
     const cwd = fixture({
       'src/app/entities/navigation/model/navigation.store.ts': `
 function navigationActionErrorMessage(actionPhrase) {
-  return \`Ask an owner or admin to update your team space access, then refresh the left menu to \${actionPhrase}. You do not have permission to \${actionPhrase}.\`
+  return \`Ask an owner or admin to update your team space access, then open the left menu and \${actionPhrase}. You do not have permission to \${actionPhrase}.\`
 }
 `,
     })
@@ -12764,22 +13567,22 @@ function busyMessage() {
     const cwd = fixture({
       'src/app/features/detail/taskDetailErrorMessages.ts': `
 const ACTION_FALLBACKS = {
-  loadAgents: 'Refresh this task before assigning an agent.',
-  loadContext: 'Refresh the detail panel to load saved notes and work history.',
-  loadRuns: 'Refresh Updates before deciding whether to retry this task.',
+  loadAgents: 'Open this task again from the Tasks page before assigning an agent.',
+  loadContext: 'Open this task again from the Tasks page to load saved notes and work history.',
+  loadRuns: 'Open Updates for this task again before deciding whether to retry this task.',
   previewContext: 'Choose an available agent, then open saved item review again.',
 }
 function permissionMessage() {
-  return 'Ask an owner or admin to give you access to this task, then refresh the task detail panel. You do not have permission to view this task.'
+  return 'Ask an owner or admin to give you access to this task, then open it again from the Tasks page. You do not have permission to view this task.'
 }
 function networkRecoveryMessage() {
-  return 'If it still does not load, check your connection and refresh the page.'
+  return 'If it still does not load, check your connection, then open this task again from the Tasks page.'
 }
 function notFoundMessage() {
-  return 'Refresh the board, then open the task again. This task was not found.'
+  return 'Open the Tasks page, then choose the current task again. This task was not found.'
 }
 function conflictMessage() {
-  return 'Refresh the detail panel, then try again. This task changed while you were working.'
+  return 'Open this task again from the Tasks page, then try again. This task changed while you were working.'
 }
 function busyMessage() {
   return 'Wait a moment, then try again. Task actions are busy.'
@@ -12837,10 +13640,10 @@ const ACTION_FALLBACKS = {
       'src/app/features/detail/taskDetailErrorMessages.ts': `
 const ACTION_FALLBACKS = {
   approveTask: 'Check that the task is still waiting for approval, then choose Approve again. The task was not approved.',
-  blockTask: 'Refresh the task, then choose Needs help again. The task was not marked as needing help.',
-  cancelTask: 'Refresh the task, then choose Cancel again. The task was not canceled.',
+  blockTask: 'Open this task again from the Tasks page, then choose Needs help again. The task was not marked as needing help.',
+  cancelTask: 'Open this task again from the Tasks page, then choose Cancel again. The task was not canceled.',
   publishTask: 'Check the selected saved notes, then send the task again. The task was not sent with selected notes.',
-  retryTask: 'Refresh the task, then choose Retry task again. The task was not retried.',
+  retryTask: 'Open this task again from the Tasks page, then choose Retry task again. The task was not retried.',
 }
 `,
     })
@@ -12948,18 +13751,18 @@ function networkRecoveryMessage() {
     const cwd = fixture({
       'src/app/features/board/boardErrorMessages.ts': `
 const ACTION_FALLBACKS = {
-  loadReadiness: 'Refresh the board to load agent status before sending work.',
-  loadTasks: 'Refresh the board to load tasks.',
+  loadReadiness: 'Choose Refresh agent status before sending work.',
+  loadTasks: 'Choose Refresh tasks to load tasks.',
   previewContext: 'Choose an available agent, then open the saved item preview again.',
 }
 function permissionMessage() {
-  return 'Ask an owner or admin to give you access to this board, then refresh the board and try again. You do not have permission to change this board.'
+  return 'Ask an owner or admin to give you access to the Tasks page, then open it and try again. You do not have permission to change this board.'
 }
 function notFoundMessage() {
-  return 'Refresh the board, then choose the current task again.'
+  return 'Choose Refresh tasks, then choose the current task again.'
 }
 function networkRecoveryMessage() {
-  return 'If it still does not load, check your connection and refresh the page.'
+  return 'If it still does not load, check your connection, then choose Refresh tasks.'
 }
 `,
     })
@@ -13082,7 +13885,7 @@ function ParticipantChip() {
     const cwd = fixture({
       'src/app/features/board/boardErrorMessages.ts': `
 function noAgentPreview() {
-  return 'No agent can prepare the saved item preview right now. Open Agents to start or connect an agent, then return to the board and refresh.'
+  return 'No agent can prepare the saved item preview right now. Open Agents to start or connect an agent, then open the Tasks page and check saved items again.'
 }
 `,
       'src/app/features/board/AssignmentReadinessPanel.tsx': `
@@ -14122,7 +14925,7 @@ const LEGACY_API_NETWORK_ERROR = 'Check your connection, then try again. Forge c
 `,
       'src/app/features/agents/AgentControlPanel.tsx': `
 function agentControlErrorMessage() {
-  return 'Check your connection, refresh this agent, then try again. Forge could not connect while changing this agent.'
+  return 'Check your connection, then open Agents and choose this agent again. Forge could not connect while changing this agent.'
 }
 `,
       'src/app/features/chat/useChatStream.ts': `
@@ -14154,7 +14957,7 @@ function connectionMessage() {
 `,
       'src/app/shared/model/settings.store.ts': `
 function settingsConnectionMessage() {
-  return 'Check your connection, then refresh Settings to load AI service settings. Forge could not connect while loading Settings.'
+  return 'Check your connection, then open Settings and AI services again. Forge could not connect while loading Settings.'
 }
 `,
       'src/app/features/settings/providerSettingsErrorMessage.ts': `
@@ -14209,6 +15012,9 @@ function actionAlert() {
 function serviceError() {
   return 'Forge could not update this agent right now. Refresh this agent and try again.'
 }
+function refreshAgentStep() {
+  return 'Refresh this agent, then try again.'
+}
 `,
     })
 
@@ -14233,6 +15039,10 @@ function serviceError() {
           type: 'agent-control-error-copy',
           location: 'src/app/features/agents/AgentControlPanel.tsx:12',
         }),
+        expect.objectContaining({
+          type: 'agent-control-error-copy',
+          location: 'src/app/features/agents/AgentControlPanel.tsx:15',
+        }),
       ])
     )
   })
@@ -14247,7 +15057,7 @@ function actionAlert() {
   return 'Follow the step below, then try again.'
 }
 function serviceError() {
-  return "Refresh this agent, then try again. If it keeps failing, ask an owner or admin to check this agent's connection and access in Agents. Forge could not finish the change right now."
+  return "Open Agents, choose this agent again, then try again. If it keeps failing, ask an owner or admin to check this agent's connection and access in Agents. Forge could not finish the change right now."
 }
 `,
     })
@@ -14351,6 +15161,12 @@ function serviceRecoveryMessage(action) {
 function chatErrorMessage(base) {
   return \`\${base} Forge could not read this conversation. Refresh the chat, then try again.\`
 }
+function changed(base) {
+  return \`\${base} Refresh the page; this agent or conversation may have changed.\`
+}
+function unreadable(base) {
+  return \`\${base} Refresh the chat, then try again. Forge could not read this conversation.\`
+}
 `,
     })
 
@@ -14371,6 +15187,14 @@ function chatErrorMessage(base) {
           type: 'chat-error-copy',
           location: 'src/app/shared/model/chat.errors.ts:9',
         }),
+        expect.objectContaining({
+          type: 'chat-error-copy',
+          location: 'src/app/shared/model/chat.errors.ts:12',
+        }),
+        expect.objectContaining({
+          type: 'chat-error-copy',
+          location: 'src/app/shared/model/chat.errors.ts:15',
+        }),
       ])
     )
   })
@@ -14385,7 +15209,10 @@ function serviceRecoveryMessage(action) {
 }
 
 function chatErrorMessage(base) {
-  return \`\${base} Refresh the chat, then try again. Forge could not read this conversation.\`
+  return \`\${base} Choose Retry conversation again. Forge could not read this conversation.\`
+}
+function changed(base) {
+  return \`\${base} Open Agents, choose this agent again, then open Chat. This agent or conversation may have changed.\`
 }
 `,
     })
@@ -14407,6 +15234,10 @@ function settingsDefaultMessage(actionPhrase) {
 function settingsPermissionMessage(actionPhrase) {
   return \`You do not have permission to \${actionPhrase}. Ask an owner or admin to manage Settings.\`
 }
+
+function oldSettingsRefreshMessage(actionPhrase) {
+  return \`Refresh Settings, then try to \${actionPhrase} again.\`
+}
 `,
     })
 
@@ -14427,6 +15258,10 @@ function settingsPermissionMessage(actionPhrase) {
           type: 'settings-store-error-copy',
           location: 'src/app/shared/model/settings.store.ts:11',
         }),
+        expect.objectContaining({
+          type: 'settings-store-error-copy',
+          location: 'src/app/shared/model/settings.store.ts:15',
+        }),
       ])
     )
   })
@@ -14435,11 +15270,11 @@ function settingsPermissionMessage(actionPhrase) {
     const cwd = fixture({
       'src/app/shared/model/settings.store.ts': `
 function settingsUnavailableMessage(operation, actionPhrase) {
-  return \`Refresh Settings, then try to \${actionPhrase} again. Forge could not \${operation} right now.\`
+  return \`Open Settings and AI services again. Forge could not \${operation} right now.\`
 }
 
 function settingsDefaultMessage(actionPhrase) {
-  return \`Refresh Settings, then try to \${actionPhrase} again. Settings could not \${actionPhrase}.\`
+  return \`Open Settings and AI services again. Settings could not \${actionPhrase}.\`
 }
 
 function settingsPermissionMessage(actionPhrase) {
@@ -14465,6 +15300,12 @@ function notFoundMessage() {
 }
 function permissionMessage() {
   return 'You do not have permission to save this team. Ask an owner or admin to update your team space access.'
+}
+function staleSettingsRecoveryMessage() {
+  return 'Refresh Settings, then save the project again. If it still fails, ask an owner or admin to check team and project settings.'
+}
+function staleSettingsPermissionMessage() {
+  return 'Ask an owner or admin to update your team space access, then save the team again in Settings. You do not have permission to save this team.'
 }
 `,
       'src/app/layouts/sidebar/ProjectTree.tsx': `
@@ -14492,6 +15333,12 @@ function permissionRenameMessage() {
 function permissionDeleteMessage() {
   return 'You do not have permission to delete this team. Ask an owner or admin to let you delete this team.'
 }
+function staleLeftMenuMessage() {
+  return 'Refresh the left menu, then save this project name again. The project name was not saved.'
+}
+function staleLeftMenuConflictMessage() {
+  return 'Refresh the left menu, check the current name, then save this project name again. This project changed while you were editing.'
+}
 `,
     })
 
@@ -14515,6 +15362,14 @@ function permissionDeleteMessage() {
         expect.objectContaining({
           type: 'workspace-resource-copy',
           location: 'src/app/shared/lib/workspaceResourceErrorMessage.ts:12',
+        }),
+        expect.objectContaining({
+          type: 'workspace-resource-copy',
+          location: 'src/app/shared/lib/workspaceResourceErrorMessage.ts:15',
+        }),
+        expect.objectContaining({
+          type: 'workspace-resource-copy',
+          location: 'src/app/shared/lib/workspaceResourceErrorMessage.ts:18',
         }),
         expect.objectContaining({
           type: 'workspace-resource-copy',
@@ -14549,6 +15404,14 @@ function permissionDeleteMessage() {
           location: 'src/app/layouts/sidebar/ProjectTree.tsx:24',
         }),
         expect.objectContaining({
+          type: 'workspace-resource-copy',
+          location: 'src/app/layouts/sidebar/ProjectTree.tsx:27',
+        }),
+        expect.objectContaining({
+          type: 'workspace-resource-copy',
+          location: 'src/app/layouts/sidebar/ProjectTree.tsx:30',
+        }),
+        expect.objectContaining({
           type: 'workspace-resource-jargon-copy',
           location: 'src/app/layouts/sidebar/ProjectTree.tsx:9',
         }),
@@ -14560,36 +15423,36 @@ function permissionDeleteMessage() {
     const cwd = fixture({
       'src/app/shared/lib/workspaceResourceErrorMessage.ts': `
 function workspaceResourceConnectionMessage() {
-  return 'Check your connection, then save the team again in Settings.'
+  return 'Check your connection, then open Settings and Teams and Projects, and save the team again.'
 }
 function workspaceResourceUnavailableMessage() {
-  return 'Refresh Settings, then save the project again. If it still fails, ask an owner or admin to check team and project settings.'
+  return 'Open Settings and Teams and Projects, then save the project again. If it still fails, ask an owner or admin to check team and project settings.'
 }
 function notFoundMessage() {
-  return 'Refresh Settings, then choose an existing project.'
+  return 'Open Settings and Teams and Projects, then choose an existing project.'
 }
 function permissionMessage() {
-  return 'Ask an owner or admin to update your team space access, then save the team again in Settings. You do not have permission to save this team.'
+  return 'Ask an owner or admin to update your team space access, then open Settings and Teams and Projects, and save the team again. You do not have permission to save this team.'
 }
 `,
       'src/app/layouts/sidebar/ProjectTree.tsx': `
 function renameErrorMessage() {
-  return 'Refresh the left menu, then save this project name again. The project name was not saved.'
+  return 'Open the left menu, choose the current project, then save this project name again. The project name was not saved.'
 }
 function projectMissingMessage() {
-  return 'Refresh the left menu, then choose the current project again. This project could not be found.'
+  return 'Open the left menu, choose the current project, then try again. This project could not be found.'
 }
 function projectChangedMessage() {
-  return 'Refresh the left menu, check the current name, then save this project name again. This project changed while you were editing.'
+  return 'Open the left menu, choose the current project, then save this project name again. This project changed while you were editing.'
 }
 function renameBusyMessage() {
   return 'Wait a moment, then save this project name again. The left menu is busy.'
 }
 function renameServiceMessage() {
-  return 'Refresh the left menu, then save this project name again. Forge could not save it right now.'
+  return 'Open the left menu, choose the current project, then save this project name again. Forge could not save it right now.'
 }
 function deleteServiceMessage() {
-  return 'Refresh the left menu, then delete this project again. Forge could not delete it right now.'
+  return 'Open the left menu, choose the current project, then delete it again. Forge could not delete it right now.'
 }
 function permissionRenameMessage() {
   return 'Ask an owner or admin to let you edit this project, then save this project name again from the left menu. You do not have permission to rename this project.'
@@ -14711,6 +15574,9 @@ function serverProjectErrorMessage() {
 function fallbackProjectErrorMessage() {
   return 'Could not create the project. Check the project name and team, then try again.'
 }
+function missingTeamProjectErrorMessage() {
+  return 'Refresh Settings, choose the team again, then create this project.'
+}
 `,
     })
 
@@ -14730,6 +15596,10 @@ function fallbackProjectErrorMessage() {
         expect.objectContaining({
           type: 'project-create-error-copy',
           location: 'src/app/features/manage-project/ui/CreateProjectForm.tsx:9',
+        }),
+        expect.objectContaining({
+          type: 'project-create-error-copy',
+          location: 'src/app/features/manage-project/ui/CreateProjectForm.tsx:12',
         }),
       ])
     )
@@ -14858,7 +15728,7 @@ function CreateProjectForm() {
     const cwd = fixture({
       'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
 function CreateProjectForm() {
-  return <><label>Code link</label><input placeholder="https://github.com/team/project.git" /><p>Forge copies that code into this project.</p><p>Paste a code link that starts with https://, or leave this blank and add SSH code access in Settings for git@ links.</p><p>Paste an https:// code link without account details, or leave the code link blank and add code access in Settings.</p></>
+  return <><label>Code link</label><input placeholder="https://github.com/team/project.git" /><p>Forge copies that code into this project.</p><p>Paste the https:// link you copy from your browser, or leave this blank and set up SSH code access in Settings first.</p><p>Paste an https:// code link without account details, or leave the code link blank and add code access in Settings.</p></>
 }
 `,
     })
@@ -14870,7 +15740,7 @@ function CreateProjectForm() {
     const cwd = fixture({
       'src/app/features/manage-team/ui/CreateTeamForm.tsx': `
 function CreateTeamForm() {
-  return <><p>Team setup path</p><p>Address preview: platform-ops.</p><p>Automatic link name: platform-ops.</p></>
+  return <><p>Team setup path</p><p>Address preview: platform-ops.</p><p>Automatic link name: platform-ops.</p><p>Refresh Settings, then create this team again.</p></>
 }
 `,
       'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
@@ -14889,6 +15759,11 @@ function CreateProjectForm() {
           type: 'team-project-create-copy',
           location: 'src/app/features/manage-team/ui/CreateTeamForm.tsx:3',
           sample: expect.stringContaining('Team setup path'),
+        }),
+        expect.objectContaining({
+          type: 'team-project-create-copy',
+          location: 'src/app/features/manage-team/ui/CreateTeamForm.tsx:3',
+          sample: expect.stringContaining('Refresh Settings'),
         }),
         expect.objectContaining({
           type: 'team-project-create-copy',
@@ -15100,6 +15975,9 @@ function serverCloneErrorMessage() {
 function fallbackCloneErrorMessage() {
   return 'Could not copy code into the project. Check the code link and saved code access, then try again.'
 }
+function staleRetryActionMessage() {
+  return 'Wait a minute, then try copying code again. Too many copy retries are happening right now.'
+}
 `,
     })
 
@@ -15120,6 +15998,10 @@ function fallbackCloneErrorMessage() {
           type: 'clone-retry-error-copy',
           location: 'src/app/features/manage-project/ui/CloneStatusBadge.tsx:9',
         }),
+        expect.objectContaining({
+          type: 'clone-retry-error-copy',
+          location: 'src/app/features/manage-project/ui/CloneStatusBadge.tsx:12',
+        }),
       ])
     )
   })
@@ -15128,13 +16010,13 @@ function fallbackCloneErrorMessage() {
     const cwd = fixture({
       'src/app/features/manage-project/ui/CloneStatusBadge.tsx': `
 function permissionCloneRetryErrorMessage() {
-  return 'Ask an owner or admin to let you copy code into this project, then try again. You do not have permission right now.'
+  return 'Ask an owner or admin to let you copy code into this project, then open Settings and Teams and Projects and choose Copy code again. You do not have permission right now.'
 }
 function busyCloneRetryErrorMessage() {
-  return 'Wait a minute, then try copying code again. Too many copy retries are happening right now.'
+  return 'Wait a minute, then choose Copy code again from this project row. Too many copy retries are happening right now.'
 }
 function fallbackCloneRetryErrorMessage() {
-  return 'Check the code link and saved code access, then try copying code again. Forge could not copy code into the project.'
+  return 'Open Settings and Teams and Projects, check the code link and saved code access, then choose Copy code again on this project row. Forge could not copy code into the project.'
 }
 `,
     })
@@ -15257,9 +16139,9 @@ export function CloneStatusBadge({ clone }) {
       'src/app/features/manage-project/ui/CloneStatusBadge.tsx': `
 function cloneFailureMessage(clone) {
   if (clone.errorClass === 'auth') {
-    return 'Check saved code access for this code project, then try copying code again. The code website rejected Forge access.'
+    return 'Open Settings and Code access, check saved access for this code project, then choose Copy code again. The code website rejected Forge access.'
   }
-  return 'Check the code link and saved code access, then try copying code again. Forge could not finish copying code.'
+  return 'Open Settings and Teams and Projects, check the code link and saved code access, then choose Copy code again. Forge could not finish copying code.'
 }
 `,
     })
@@ -15303,29 +16185,29 @@ function timeoutFailureMessage() {
     )
   })
 
-  it('accepts recovery copy that gives one clear refresh step', () => {
+  it('accepts recovery copy that gives one clear load step', () => {
     const cwd = fixture({
       'src/app/features/board/boardErrorMessages.ts': `
 function serviceRecoveryMessage(action) {
-  return 'Refresh the board to load tasks. If it still fails, ask an owner or admin to check task board access.'
+  return 'Choose Refresh tasks to load tasks. If it still fails, ask an owner or admin to check task board access.'
 }
 `,
       'src/app/features/detail/taskDetailErrorMessages.ts': `
 function serviceRecoveryMessage(action) {
-  return 'Refresh the detail panel to load saved notes and work history. If it still fails, ask an owner or admin to check task details access.'
+  return 'Open this task again from the Tasks page to load saved notes and work history. If it still fails, ask an owner or admin to check task details access.'
 }
 `,
       'src/app/features/context/approvalQueueErrorMessages.ts': `
 function serviceRecoveryMessage(action) {
-  return 'Refresh the list so you see the latest saved items. Saved items could not load. If it still fails, ask an owner or admin to check Saved items access.'
+  return 'Choose Load saved items again so you see the latest saved items. Saved items could not load. If it still fails, ask an owner or admin to check Saved items access.'
 }
 `,
       'src/app/entities/navigation/model/navigation.store.ts': `
 function navigationActionErrorMessage(actionPhrase) {
-  return 'Check your connection, then refresh the left menu to load task queues.'
+  return 'Check your connection, then open the left menu and try to load task queues again.'
 }
 function serviceRecoveryMessage() {
-  return 'Refresh the left menu to load team and project links. If it still fails, ask an owner or admin to check the left menu.'
+  return 'Open the left menu to load team and project links. If it still fails, ask an owner or admin to check the left menu.'
 }
 `,
     })
@@ -15405,17 +16287,17 @@ function network() {
       'src/app/features/context/approvalQueueErrorMessages.ts': `
 const ACTION_FALLBACKS = {
   approveCandidate: 'Check who can reuse it and the original task details, then save the item again. The item was not saved.',
-  loadQueue: 'Refresh the list so you see the latest saved items. Saved items could not load.',
-  rejectCandidate: 'Refresh the list, then choose Do not save again. The item stayed on the list.',
+  loadQueue: 'Choose Load saved items again so you see the latest saved items. Saved items could not load.',
+  rejectCandidate: 'Choose Load saved items again, then choose Do not save again. The item stayed on the list.',
 }
 function forbidden() {
   return 'Ask an owner or admin to let you save or skip saved notes and instructions, then retry this saved item action. You do not have permission right now.'
 }
 function missing() {
-  return 'Refresh the list so you see the latest saved items. This item was not found.'
+  return 'Choose Load saved items again so you see the latest saved items. This item was not found.'
 }
 function conflict() {
-  return 'Refresh the list, then open this item again. It changed while you were checking it.'
+  return 'Choose Load saved items again, then open this item. It changed while you were checking it.'
 }
 function busy() {
   return 'Wait a moment, then try again. Saved items are busy.'
@@ -15665,7 +16547,7 @@ function needsActionEmptyState() {
     const cwd = fixture({
       'src/app/features/inbox/InboxView.tsx': `
 function InboxLoadError() {
-  return 'Saved notifications could not be loaded. New updates will still appear here. Check your connection, then reload the inbox.'
+  return 'Saved updates could not be loaded, but new live updates will still appear here. Check your connection, then choose Load updates again.'
 }
 `,
     })
@@ -15681,11 +16563,40 @@ function InboxLoadError() {
     ])
   })
 
-  it('accepts inbox load errors that start with the reload action', () => {
+  it('flags inbox recovery copy that sends beginners to reload or refresh inbox', () => {
     const cwd = fixture({
       'src/app/features/inbox/InboxView.tsx': `
 function InboxLoadError() {
-  return 'Check your connection, then reload the inbox. Saved notifications could not be loaded, but new updates will still appear here.'
+  return 'Check your connection, then reload the inbox.'
+}
+function InboxEmptyState() {
+  return 'Open another filter or refresh the inbox if you expected recent updates.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'inbox-reload-copy',
+          location: 'src/app/features/inbox/InboxView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'inbox-reload-copy',
+          location: 'src/app/features/inbox/InboxView.tsx:6',
+        }),
+      ])
+    )
+  })
+
+  it('accepts inbox load errors that name the visible load-again action', () => {
+    const cwd = fixture({
+      'src/app/features/inbox/InboxView.tsx': `
+function InboxLoadError() {
+  return 'Check your connection, then choose Load updates again. Saved updates could not be loaded, but new live updates will still appear here.'
 }
 `,
     })

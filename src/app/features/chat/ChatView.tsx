@@ -49,7 +49,7 @@ const WORKSPACE_AGENT_EMPTY_COPY = {
   steps: [
     'Create a task and assign it to this agent, or choose where tasks wait so this agent can receive it.',
     'Check Attention once work starts to see what needs help.',
-    'Refresh if the agent just came online.',
+    'Open Agents, confirm this agent shows Ready, then return here.',
   ],
 }
 
@@ -145,7 +145,7 @@ export function ChatView({ agentId }: ChatViewProps) {
   const isProviderAgent = agent != null && !agent.cliTool
   const offline = agent?.status === 'offline'
   const offlineRecoveryDetail = isProviderAgent
-    ? 'This chat-only AI service is not ready. Open AI service settings, choose Check connection for this service, then refresh Agents. Ready means this agent can answer in chat.'
+    ? 'This chat-only AI service is not ready. Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again. Ready means this agent can answer in chat.'
     : 'This agent is not ready. Open Agents, start or reconnect it, then return here when it shows Ready.'
   const emptyAction: ConversationEmptyAction | undefined = isProviderAgent
     ? offline
@@ -155,7 +155,7 @@ export function ChatView({ agentId }: ChatViewProps) {
       ? { label: 'Open Agents', href: '/agents' }
       : { label: 'Create a task', href: '/tasks' }
   const composerDisabledReason = offline
-    ? 'Open AI service settings, choose Check connection for this service, then refresh Agents before sending a message.'
+    ? 'Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again before sending a message.'
     : messagesLoading
       ? 'Wait for earlier messages to finish loading, then send your message from this chat.'
       : undefined
@@ -834,7 +834,7 @@ function messageRoleLabel(role: string): string {
     case 'assistant':
       return 'Agent'
     default:
-      return role.trim() ? 'Check message sender' : 'Refresh chat to load sender'
+      return role.trim() ? 'Check message sender' : 'Open this chat again to load the sender'
   }
 }
 

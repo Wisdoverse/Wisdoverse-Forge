@@ -92,7 +92,8 @@ describe('BillingPage', () => {
     ).toBeDefined()
     expect(screen.getByText(/turn on billing for this team/i)).toBeDefined()
     expect(screen.getByText(/payment account passwords or keys/i)).toBeDefined()
-    expect(screen.getByText(/after billing is turned on/i)).toBeDefined()
+    expect(screen.getByText(/open Billing from the sidebar/i)).toBeDefined()
+    expect(screen.queryByText(/Refresh this page after billing is turned on/i)).toBeNull()
     expect(screen.queryByText(/this workspace/i)).toBeNull()
     expect(screen.queryByText(/secret payment settings/i)).toBeNull()
     expect(screen.queryByText(/deployment/i)).toBeNull()
@@ -143,9 +144,9 @@ describe('BillingPage', () => {
   test('shows plan and usage load errors instead of silently falling back', async () => {
     setBillingState({
       subscriptionError:
-        'Refresh Billing to load plan and payment. Ask an owner or admin to give you billing access.',
+        'Ask an owner or admin to give you billing access, then choose Check billing again to load plan and payment.',
       usageError:
-        'Refresh Billing to load usage. Check your connection, then refresh Billing again. Forge could not connect while loading billing.',
+        'Check your connection, then choose Check billing again to load usage. Forge could not connect while loading billing.',
     })
 
     render(<BillingPage />)
@@ -154,14 +155,19 @@ describe('BillingPage', () => {
     expect(screen.getAllByRole('alert')).toHaveLength(2)
     expect(
       screen.getByText(
-        'Refresh Billing to load plan and payment. Ask an owner or admin to give you billing access.'
+        'Ask an owner or admin to give you billing access, then choose Check billing again to load plan and payment.'
       )
     ).toBeDefined()
     expect(
       screen.getByText(
-        'Refresh Billing to load usage. Check your connection, then refresh Billing again. Forge could not connect while loading billing.'
+        'Check your connection, then choose Check billing again to load usage. Forge could not connect while loading billing.'
       )
     ).toBeDefined()
+    expect(screen.queryByText(/Refresh Billing/i)).toBeNull()
+    const retryButtons = screen.getAllByRole('button', { name: 'Check billing again' })
+    expect(retryButtons).toHaveLength(2)
+    fireEvent.click(retryButtons[0]!)
+    await waitFor(() => expect(loadAllMock).toHaveBeenCalledTimes(2))
   })
 
   test('starts checkout recovery with the retry action', async () => {

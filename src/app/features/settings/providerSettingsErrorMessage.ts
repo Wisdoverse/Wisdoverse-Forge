@@ -80,7 +80,7 @@ function actionFromText(text: string): ProviderSettingsAction {
 function retryAction(action: ProviderSettingsAction): string {
   if (action === 'save') return 'save this AI service again'
   if (action === 'remove') return 'remove this AI service again'
-  return 'refresh Settings to load AI service settings'
+  return 'open Settings and AI services again'
 }
 
 function validationGuidance(lower: string): string {
@@ -113,7 +113,7 @@ export function providerSettingsErrorMessage(error: unknown): string {
     return 'Ask an owner or admin to let you manage AI services.'
   }
   if (code === 409 || lower.includes('already exists') || lower.includes('duplicate')) {
-    return 'Refresh the list, then choose a different name or remove the old service first. An AI service with this name or setup already exists.'
+    return 'Open Settings and AI services again, check the current AI service, then choose a different name or remove the old service first.'
   }
   if (
     code === 422 ||
@@ -129,13 +129,13 @@ export function providerSettingsErrorMessage(error: unknown): string {
   }
   if (code != null && code >= 500) {
     if (action === 'load') {
-      return 'Refresh Settings to load AI service settings. If it still fails, ask an owner or admin to check AI service settings.'
+      return 'Open Settings and AI services again. If it still fails, ask an owner or admin to check AI service settings.'
     }
-    return `Refresh Settings, then ${retry}. If it still fails, ask an owner or admin to check AI service settings.`
+    return `Open Settings and AI services again, then ${retry}. If it still fails, ask an owner or admin to check AI service settings.`
   }
   if (isNetworkError(error)) {
     if (action === 'load') {
-      return 'Check your connection, then refresh Settings to load AI service settings. Forge could not connect while opening AI service settings.'
+      return 'Check your connection, then open Settings and AI services again. Forge could not connect while opening AI service settings.'
     }
     if (action === 'remove') {
       return 'Check your connection, then remove this AI service again. The removal did not finish.'
@@ -144,7 +144,7 @@ export function providerSettingsErrorMessage(error: unknown): string {
   }
 
   if (action === 'load') {
-    return 'Refresh Settings to load AI service settings. If it still fails, ask an owner or admin to check AI service settings.'
+    return 'Open Settings and AI services again. If it still fails, ask an owner or admin to check AI service settings.'
   }
 
   return `Try to ${retry}. If it still fails, ask an owner or admin to check AI service settings.`

@@ -70,7 +70,10 @@ describe('Routing', () => {
     render(<AuthShellLoadingState />)
     expect(screen.getByRole('status')).toHaveTextContent('Checking your sign-in')
     expect(screen.getByRole('status')).toHaveTextContent('opening your team space')
-    expect(screen.getByRole('status')).toHaveTextContent('refresh the page or sign in again')
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'open the sign-in page and sign in again'
+    )
+    expect(screen.getByRole('status')).not.toHaveTextContent('refresh the page')
     expect(screen.getByRole('status')).not.toHaveTextContent('opening the workspace')
   })
 })

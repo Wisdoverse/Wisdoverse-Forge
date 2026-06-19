@@ -173,9 +173,10 @@ describe('ChatView', () => {
 
     const emptyState = screen.getByTestId('conversation-empty-state')
     expect(emptyState).toHaveTextContent(
-      'This chat-only AI service is not ready. Open AI service settings, choose Check connection for this service, then refresh Agents. Ready means this agent can answer in chat.'
+      'This chat-only AI service is not ready. Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again. Ready means this agent can answer in chat.'
     )
     expect(emptyState).not.toHaveTextContent('Settings > AI services')
+    expect(emptyState).not.toHaveTextContent('refresh the list')
     expect(emptyState).not.toHaveTextContent('Start it before sending a message')
     const textbox = screen.getByRole('textbox', { name: /message this agent/i })
     expect(textbox).toBeDisabled()
@@ -185,7 +186,7 @@ describe('ChatView', () => {
     )
     expect(
       screen.getByText(
-        'Open AI service settings, choose Check connection for this service, then refresh Agents before sending a message.'
+        'Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again before sending a message.'
       )
     ).toBeVisible()
     const action = screen.getByRole('link', { name: /open ai services/i })
@@ -233,6 +234,7 @@ describe('ChatView', () => {
     expect(
       screen.getByText('Check Attention once work starts to see what needs help.')
     ).toBeVisible()
+    expect(screen.getByText('Open Agents, confirm this agent shows Ready, then return here.')).toBeVisible()
     const action = screen.getByRole('link', { name: /create a task/i })
     expect(action).toHaveAttribute('href', '/tasks')
     expect(screen.getByTestId('conversation-empty-state')).not.toHaveTextContent('lane')
@@ -320,6 +322,11 @@ describe('ChatView', () => {
           role: 'function_call' as never,
           content: 'Internal sender is not listed yet',
         }),
+        message('Sender is still loading', {
+          id: 'blank-role',
+          role: '' as never,
+          content: 'Sender is still loading',
+        }),
       ],
     })
 
@@ -348,6 +355,8 @@ describe('ChatView', () => {
     expect(screen.getAllByText('You').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Agent').length).toBeGreaterThan(0)
     expect(screen.getByText('Check message sender')).toBeInTheDocument()
+    expect(screen.getByText('Open this chat again to load the sender')).toBeInTheDocument()
+    expect(screen.queryByText('Refresh chat to load sender')).toBeNull()
     expect(screen.queryByText('Message needs review')).toBeNull()
     expect(screen.queryByText(/^user$/i)).toBeNull()
     expect(screen.queryByText(/^assistant$/i)).toBeNull()

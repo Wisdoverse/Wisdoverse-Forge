@@ -168,7 +168,7 @@ describe('InjectionPreviewModal', () => {
       <InjectionPreviewModal
         isOpen
         preview={null}
-        error="No agent can check saved items right now. Open Agents to start or connect an agent, then return to the board and refresh."
+        error="No agent can check saved items right now. Open Agents to start or connect an agent, then open the Tasks page and check saved items again."
         onClose={() => {}}
         onConfirm={() => {}}
       />

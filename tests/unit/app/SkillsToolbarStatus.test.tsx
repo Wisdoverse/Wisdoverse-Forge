@@ -30,7 +30,7 @@ describe('Skills toolbar status', () => {
 
     render(<SkillsView />)
 
-    expect(await screen.findByText('Refresh saved instructions to continue.')).toBeDefined()
+    expect(await screen.findByText('Load saved instructions again to continue.')).toBeDefined()
     expect(screen.queryByText('Saved instructions need attention')).toBeNull()
   })
 
@@ -42,6 +42,7 @@ describe('Skills toolbar status', () => {
     )
     expect(screen.getByText(/Save steps your agents should repeat/i)).toBeInTheDocument()
     expect(screen.queryByText('No saved instructions yet')).toBeNull()
+    expect(screen.queryByText('Choose Save instruction or refresh this page.')).toBeNull()
   })
 
   test('explains when search hides every saved instruction', async () => {

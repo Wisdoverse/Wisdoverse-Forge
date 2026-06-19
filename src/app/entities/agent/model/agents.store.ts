@@ -191,10 +191,10 @@ function agentConnectionMessage(actionPhrase: string, action: AgentErrorAction):
     return 'Check your connection, then choose Create Agent again. Forge could not prepare the setup text for this computer.'
   }
   if (action === 'load') {
-    return 'Check your connection, then refresh Agents to load agents.'
+    return 'Check your connection, then open Agents again to load agents.'
   }
   const operation = 'updating Agents'
-  return `Check your connection, then refresh Agents. Forge could not ${actionPhrase} while ${operation}.`
+  return `Check your connection, then open Agents and choose this agent again. Forge could not ${actionPhrase} while ${operation}.`
 }
 
 export function agentActionErrorMessage(action: AgentErrorAction, error?: unknown): string {
@@ -219,7 +219,7 @@ export function agentActionErrorMessage(action: AgentErrorAction, error?: unknow
     return `Ask an owner or admin to update your team space access, then try to ${actionPhrase} again. You do not have permission to ${actionPhrase}.`
   }
   if (status === 404) {
-    return 'Refresh the Agents page, choose the current agent, then try again. This agent could not be found.'
+    return 'Open Agents, choose the current agent, then try again. This agent could not be found.'
   }
   if (status === 409) {
     return agentConflictMessage(action, detail)
@@ -234,14 +234,14 @@ export function agentActionErrorMessage(action: AgentErrorAction, error?: unknow
     return agentServerMessage(action)
   }
 
-  return `Refresh the Agents page, then try to ${actionPhrase} again. Forge could not ${actionPhrase}.`
+  return `Open Agents, then try to ${actionPhrase} again. Forge could not ${actionPhrase}.`
 }
 
 function agentValidationMessage(action: AgentErrorAction, detail: string | null): string {
   const normalized = detail?.toLowerCase() ?? ''
 
   if (action === 'load') {
-    return 'Refresh Agents to load agents.'
+    return 'Open Agents again to load agents.'
   }
 
   if (action === 'create') {
@@ -263,24 +263,24 @@ function agentValidationMessage(action: AgentErrorAction, detail: string | null)
     return 'Write one clear instruction and make sure the agent is not already working, then send again.'
   }
   if (action === 'updateInstructions') {
-    return 'Check the instruction text, refresh this agent, then save the instructions again.'
+    return 'Check the instruction text, open this agent again, then save the instructions again.'
   }
   if (normalized.includes('runtime') || normalized.includes('docker')) {
     return agentRuntimeRecoveryMessage(detail)
   }
 
-  return `Check the agent details, refresh the Agents page, then try to ${agentActionPhrase(action)} again.`
+  return `Check the agent details, open Agents and choose this agent again, then try to ${agentActionPhrase(action)} again.`
 }
 
 function agentConflictMessage(action: AgentErrorAction, detail: string | null): string {
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('working') || normalized.includes('busy')) {
-    return 'Wait for the current work to finish, refresh the Agents page, then try again. This agent is already working.'
+    return 'Wait for the current work to finish, open Agents and choose this agent again, then try again. This agent is already working.'
   }
   if (action === 'delete') {
-    return 'Refresh the Agents page, check the current status, then try again. This agent changed while you were deleting it.'
+    return 'Open Agents, check the current status, then try again. This agent changed while you were deleting it.'
   }
-  return 'Refresh the Agents page, check its current status, then try again. This agent changed while you were working.'
+  return 'Open Agents, check this agent status, then try again. This agent changed while you were working.'
 }
 
 function agentServerMessage(action: AgentErrorAction): string {
@@ -288,12 +288,12 @@ function agentServerMessage(action: AgentErrorAction): string {
     return 'Wait a moment, then choose Create Agent again. Forge could not prepare the setup text for this computer right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
   }
   if (action === 'load') {
-    return 'Refresh Agents to load agents. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+    return 'Open Agents again to load agents. If it still fails, ask an owner or admin to check Where agents work in Settings.'
   }
   if (action === 'start' || action === 'restart' || action === 'create') {
     return 'Wait a moment, then try again. Forge could not prepare file work for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
   }
-  return `Refresh Agents, then try to ${agentActionPhrase(action)} again. If it still fails, ask an owner or admin to check Where agents work in Settings.`
+  return `Open Agents, then try to ${agentActionPhrase(action)} again. If it still fails, ask an owner or admin to check Where agents work in Settings.`
 }
 
 function agentRuntimeRecoveryMessage(detail: string | null): string {
@@ -317,7 +317,7 @@ function agentCreatedStartFailureMessage(error?: unknown): string {
   ) {
     return 'Ask an owner or admin to check Where agents work in Settings, then start this agent from the card. Agent was created, but it could not start yet. It will stay in the list.'
   }
-  return 'Refresh the Agents page, then start this agent from the card after the place where it runs is ready. Agent was created, but it could not start yet. It will stay in the list.'
+  return 'Open Agents, then start this agent from the card after file work is ready. Agent was created, but it could not start yet. It will stay in the list.'
 }
 
 function mapManagedAgentStatus(status: string): AgentStatus {
@@ -415,8 +415,8 @@ export function managedToAgentInfo(agent: ManagedAgent): AgentInfo {
     provider:
       aiServiceLabel(nonBlankLabel(agent.provider)) ??
       cliToolToProvider(agent.cliTool) ??
-      'Refresh AI service',
-    model: nonBlankLabel(agent.model) ?? cliToolLabel(agent.cliTool) ?? 'Refresh AI model',
+      'Check AI service setup',
+    model: nonBlankLabel(agent.model) ?? cliToolLabel(agent.cliTool) ?? 'Check AI model setup',
     status: mapManagedAgentStatus(agent.status),
     tasksCompleted: 0,
     tasksInProgress: 0,

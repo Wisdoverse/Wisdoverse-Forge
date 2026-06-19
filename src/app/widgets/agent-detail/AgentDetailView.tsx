@@ -170,7 +170,9 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
       .catch(() => {
         if (!cancelled) {
           setRecentTasks([])
-          setRecentTasksError("Refresh Agents or open Tasks to check this agent's latest work.")
+          setRecentTasksError(
+            "Go back to Agents and choose this agent again, or open Tasks to check this agent's latest work."
+          )
         }
       })
     return () => {
@@ -391,7 +393,7 @@ function agentNextStep(
     return {
       title: 'Check the AI service before sending work',
       detail:
-        'Open AI service settings, choose Check connection for this service, then refresh Agents before sending chat work.',
+        'Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again before sending chat work.',
       success: 'The agent returns to Ready and can answer in chat.',
       ready: false,
       targetHref: '/settings/providers',
@@ -412,9 +414,9 @@ function agentNextStep(
 
   if (recentTasksError && agent.status !== 'idle') {
     return {
-      title: 'Refresh or open Tasks to check activity',
+      title: 'Choose this agent again or open Tasks',
       detail:
-        "This page could not load the agent's recent task history. Refresh Agents, or open Tasks to confirm what is running before assigning more work.",
+        "This page could not load the agent's recent task history. Go back to Agents and choose this agent again, or open Tasks to confirm what is running before assigning more work.",
       success: 'You can see the latest task state before deciding what to do next.',
       ready: false,
       targetTab: 'tasks',

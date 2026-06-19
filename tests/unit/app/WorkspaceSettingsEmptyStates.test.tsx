@@ -128,7 +128,7 @@ describe('workspace settings empty states', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain(
-      'Ask an owner or admin to update your team space access, then refresh Settings to load teams.'
+      'Ask an owner or admin to update your team space access, then open Settings and Teams and Projects again, then choose Teams.'
     )
     expect(alert.textContent).not.toContain('workspace access')
     expect(alert.textContent).toMatch(/^Ask an owner or admin/)
@@ -163,7 +163,7 @@ describe('workspace settings empty states', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain(
-      'Refresh Settings to load projects. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
+      'Open Settings and Teams and Projects again, then choose Projects. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
     )
     expect(alert.textContent).not.toContain('HTTP 500')
     expect(alert.textContent).not.toContain('team space setup')
@@ -176,7 +176,9 @@ describe('workspace settings empty states', () => {
 
     render(<ProjectsSection />)
 
-    expect(await screen.findByText(/Refresh Settings to load projects/i)).toBeInTheDocument()
+    expect(
+      await screen.findByText(/Open Settings and Teams and Projects again, then choose Projects/i)
+    ).toBeInTheDocument()
     expect(
       screen.getByText(/ask an owner or admin to check Teams and Projects in Settings/i)
     ).toBeInTheDocument()
@@ -239,7 +241,7 @@ describe('workspace settings empty states', () => {
     render(<ProjectsSection />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Ask an owner or admin to update your team space access, then refresh Settings to load projects. You do not have access to these project settings right now.'
+      'Ask an owner or admin to update your team space access, then open Settings and Teams and Projects again, then choose Projects. You do not have access to these project settings right now.'
     )
     expect(screen.queryByText('HTTP 403')).not.toBeInTheDocument()
   })

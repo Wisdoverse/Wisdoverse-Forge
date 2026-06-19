@@ -79,16 +79,16 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       message,
-      'Check your connection, then refresh Agents. Forge could not start the agent while updating Agents.'
+      'Check your connection, then open Agents and choose this agent again. Forge could not start the agent while updating Agents.'
     )
     expect(message).not.toContain('Network error')
     expect(message).not.toContain('service')
   })
 
-  test('turns agent load network failures into a refresh step', () => {
+  test('turns agent load network failures into an Agents page step', () => {
     const message = agentActionErrorMessage('load', 'Network error')
 
-    expectBeginnerError(message, 'Check your connection, then refresh Agents to load agents.')
+    expectBeginnerError(message, 'Check your connection, then open Agents again to load agents.')
     expect(message).not.toContain('Network error')
     expect(message).not.toContain('service')
   })
@@ -127,12 +127,12 @@ describe('Agents Store', () => {
     expect(message).not.toContain('place where this agent runs')
   })
 
-  test('starts unknown action failures with a refresh step', () => {
+  test('starts unknown action failures with an Agents page step', () => {
     const message = agentActionErrorMessage('restart', apiError(418, { message: 'teapot' }))
 
     expectBeginnerError(
       message,
-      'Refresh the Agents page, then try to restart the agent again. Forge could not restart the agent.'
+      'Open Agents, then try to restart the agent again. Forge could not restart the agent.'
     )
     expect(message).not.toContain('teapot')
   })
@@ -140,7 +140,7 @@ describe('Agents Store', () => {
   test('starts delete conflicts with a current-status check step', () => {
     expectBeginnerError(
       agentActionErrorMessage('delete', apiError(409, { message: 'version changed' })),
-      'Refresh the Agents page, check the current status, then try again. This agent changed while you were deleting it.'
+      'Open Agents, check the current status, then try again. This agent changed while you were deleting it.'
     )
   })
 
@@ -247,13 +247,13 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       useAgentsStore.getState().error,
-      'Refresh Agents to load agents. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+      'Open Agents again to load agents. If it still fails, ask an owner or admin to check Where agents work in Settings.'
     )
     expect(useAgentsStore.getState().error).not.toContain('temporarily unavailable')
     expect(useAgentsStore.getState().loading).toBe(false)
   })
 
-  test('stores a refresh step when agent loading returns unclear details', async () => {
+  test('stores an Agents page step when agent loading returns unclear details', async () => {
     agentApiMock.getAgents.mockResolvedValue({
       ok: false,
       details: { reason: 'agent list parser detail' },
@@ -261,7 +261,7 @@ describe('Agents Store', () => {
 
     await useAgentsStore.getState().loadAgents()
 
-    expectBeginnerError(useAgentsStore.getState().error, 'Refresh Agents to load agents.')
+    expectBeginnerError(useAgentsStore.getState().error, 'Open Agents again to load agents.')
     expect(useAgentsStore.getState().error).not.toContain('parser')
     expect(useAgentsStore.getState().loading).toBe(false)
   })
@@ -401,7 +401,7 @@ describe('Agents Store', () => {
     expect(result).toBe(false)
     expectBeginnerError(
       useAgentsStore.getState().error,
-      'Wait for the current work to finish, refresh the Agents page, then try again. This agent is already working.'
+      'Wait for the current work to finish, open Agents and choose this agent again, then try again. This agent is already working.'
     )
   })
 })

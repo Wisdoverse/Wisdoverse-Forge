@@ -14,8 +14,8 @@ export const Route = createRoute({
       return (
         <FeatureRouteLoadingState
           testId="context-audit-route-loading"
-          title="Checking audit access"
-          detail="We are confirming whether audit history is available here. If this takes more than a moment, refresh the page or ask an owner or admin to check change history access."
+          title="Checking change history"
+          detail="We are confirming whether change history is available here. If this takes more than a moment, open Change history again or ask an owner or admin to check change history access."
         />
       )
     }
