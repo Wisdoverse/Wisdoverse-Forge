@@ -28,6 +28,15 @@ describe('runtimeErrorMessage', () => {
     expect(message).not.toContain('app could not reach')
   })
 
+  test('gives a concrete Agents step when agent online status cannot be checked', () => {
+    const message = runtimeErrorMessage('loadAgentSignals', new TypeError('Failed to fetch'))
+
+    expect(message).toContain('Open Agents and make sure one agent shows Ready')
+    expect(message).toContain('Agent connection status could not load')
+    expect(message).not.toContain('wake an agent')
+    expect(message).not.toContain('Failed to fetch')
+  })
+
   test('gives team space access guidance for local sign-in startup permissions', () => {
     const message = runtimeErrorMessage('startCliSignIn', { error: '403 Forbidden' })
 

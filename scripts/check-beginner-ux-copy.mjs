@@ -930,11 +930,13 @@ const RUNTIME_SETUP_STATUS_DEAD_END_PATTERNS = [
   /\bNo work tool setup status yet\b/i,
   /\bNo agent has been seen online yet\b/i,
   /\bno agents are online yet\b/i,
+  /\bStart or wake an agent\b/i,
   /\bSetup has \d+ agent locations? and \d+ work tools? like Claude or Codex\b/i,
 ]
 
 const RUNTIME_ERROR_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*Agent connection status could not load\. Start or wake an agent/i,
+  /\bStart or wake an agent\b/i,
   /['"`]\s*Work tool sign-in could not be checked\. Refresh this page/i,
   /['"`]\s*Work tool sign-ins could not be checked\. Check setup/i,
   /['"`]\s*Agent online status could not be checked\. Check setup/i,

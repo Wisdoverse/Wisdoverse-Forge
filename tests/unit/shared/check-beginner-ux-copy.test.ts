@@ -5203,7 +5203,7 @@ function heartbeatStatusCopy() {
     const cwd = fixture({
       'src/app/features/settings/runtimeErrorMessages.ts': `
 function runtimeErrorMessage() {
-  return 'Start or wake an agent, then refresh this page. Agent connection status could not load.'
+  return 'Open Agents and make sure one agent shows Ready, then refresh this page. Agent connection status could not load.'
 }
 
 function runtimeCliErrorMessage() {
@@ -5571,6 +5571,10 @@ function heartbeatCopy() {
   return 'No agent has been seen online yet. Start or wake an agent, then check again.'
 }
 
+function wakeActionCopy() {
+  return 'Start or wake an agent, then choose Check again.'
+}
+
 function runtimeReadinessSummary() {
   return 'Setup has 1 agent location and 1 work tool like Claude or Codex. No extra work tool sign-ins are needed, and no agents are online yet.'
 }
@@ -5593,6 +5597,10 @@ function runtimeReadinessSummary() {
         expect.objectContaining({
           type: 'runtime-setup-status-copy',
           location: 'src/app/features/settings/RuntimeSection.tsx:11',
+        }),
+        expect.objectContaining({
+          type: 'runtime-setup-status-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:15',
         }),
       ])
     )

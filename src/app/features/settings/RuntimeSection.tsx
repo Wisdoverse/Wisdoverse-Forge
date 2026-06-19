@@ -33,6 +33,8 @@ interface RuntimeChecklistItem {
 
 const RUNTIME_SETTINGS_LOAD_GUIDANCE =
   'Refresh this settings page to load Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.'
+const AGENT_READY_CHECK_GUIDANCE =
+  'Open Agents and make sure one agent shows Ready, then choose Check again.'
 
 function SettingRow({ label, description, children }: SettingRowProps) {
   return (
@@ -274,9 +276,7 @@ export function RuntimeSection() {
           <RuntimeReadinessMetric
             label="Last agent online"
             value={
-              latestHeartbeat
-                ? formatRelativeTime(latestHeartbeat)
-                : 'Start or wake an agent, then choose Check again.'
+              latestHeartbeat ? formatRelativeTime(latestHeartbeat) : AGENT_READY_CHECK_GUIDANCE
             }
             ready={Boolean(latestHeartbeat)}
           />
@@ -815,7 +815,7 @@ function runtimeLaunchChecklistItems(
       ? 'Choose Check again to refresh agent online status. If it still cannot be checked, ask an owner or admin to check Where agents work in Settings.'
       : latestHeartbeat
         ? `An agent was online ${formatRelativeTime(latestHeartbeat)}.`
-        : 'Start or wake an agent, then choose Check again.',
+        : AGENT_READY_CHECK_GUIDANCE,
     ready: !participantsError && Boolean(latestHeartbeat),
     action: participantsError || !latestHeartbeat ? 'refresh' : undefined,
     actionLabel: participantsError || !latestHeartbeat ? 'Check again' : undefined,
@@ -852,7 +852,7 @@ function runtimeReadinessSummary(
           } connected`
   const onlineAgents =
     onlineAgentCount === 0
-      ? 'Start or wake an agent to bring one online'
+      ? 'Open Agents and make sure one agent shows Ready'
       : `${countPhrase(onlineAgentCount, 'agent')} ${onlineAgentCount === 1 ? 'is' : 'are'} online`
 
   return `Forge can run agents in ${locations} and use ${tools}, such as Claude or Codex. ${signIns}. ${onlineAgents}.`
