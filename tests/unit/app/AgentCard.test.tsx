@@ -122,8 +122,51 @@ describe('AgentCard', () => {
     render(<AgentCard agent={{ ...mockAgent, status: 'offline' }} />)
 
     expect(screen.getByTestId('agent-status-help-agent-1').textContent).toBe(
-      'Open this agent to reconnect before work'
+      'Open this agent and start it before sending file work.'
     )
+  })
+
+  test('explains how to reconnect a not-connected agent on this computer', () => {
+    const localAgent: AgentInfo = {
+      ...mockAgent,
+      id: 'local-agent',
+      cliTool: 'codex',
+      runtimeKind: 'cli',
+      runtimeId: 'host-1234',
+      status: 'offline',
+    }
+
+    expect(agentCardStatusHelp('offline', localAgent)).toBe(
+      'Open this agent, then start or reconnect the command app on that computer.'
+    )
+
+    render(<AgentCard agent={localAgent} />)
+
+    expect(screen.getByTestId('agent-status-help-local-agent').textContent).toBe(
+      'Open this agent, then start or reconnect the command app on that computer.'
+    )
+    expect(screen.queryByText('Open this agent to reconnect before work')).toBeNull()
+  })
+
+  test('explains not-connected chat-only agents without file-work guidance', () => {
+    const providerAgent: AgentInfo = {
+      ...mockAgent,
+      id: 'provider-agent',
+      cliTool: undefined,
+      runtimeKind: 'api',
+      status: 'offline',
+    }
+
+    expect(agentCardStatusHelp('offline', providerAgent)).toBe(
+      'Open this agent and check its AI service before sending chat work.'
+    )
+
+    render(<AgentCard agent={providerAgent} />)
+
+    expect(screen.getByTestId('agent-status-help-provider-agent').textContent).toBe(
+      'Open this agent and check its AI service before sending chat work.'
+    )
+    expect(screen.queryByText(/file work/i)).toBeNull()
   })
 
   test('labels unknown agent statuses without exposing backend values', () => {
