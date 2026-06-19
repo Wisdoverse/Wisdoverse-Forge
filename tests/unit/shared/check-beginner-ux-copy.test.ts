@@ -12445,7 +12445,7 @@ function AuditLogView() {
   return <section aria-label="Common change views">
     <p>Pick a common change view, then narrow it.</p>
     <label>Specific change name</label>
-    <input placeholder="Paste the exact team space, work area, team, or project reference" />
+    <input placeholder="Paste a team space, work area, team, or project reference only when an owner or admin gives you one" />
     <button aria-label="Refresh change history">Refresh</button>
     <button>Show saved change name</button>
     <Metric label="Protected saved items" />
@@ -12502,7 +12502,7 @@ function auditActorLabel(actorUserId) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags governance history references that use item, area, or person code labels', () => {
+  it('flags governance history references that use item, area, person, or exact-code copy', () => {
     const cwd = fixture({
       'src/app/features/governance/AuditLogView.tsx': `
 function AuditRow({ entry }) {
@@ -12511,6 +12511,9 @@ function AuditRow({ entry }) {
     <SubjectLine label="Visible item code" />
     <SubjectLine label="Hidden item code" />
     <span>{entry.scopeId ? \`Area code \${shortId(entry.scopeId)}\` : 'Area code hidden'}</span>
+    <p>Paste an exact change area only when needed</p>
+    <input placeholder="Paste the exact team space, work area, team, or project code from Settings" />
+    <input placeholder="Paste the exact person code only when needed" />
   </>
 }
 
@@ -12541,6 +12544,19 @@ function auditActorLabel(actorUserId) {
           type: 'governance-audit-reference-copy',
           sample:
             "<span>{entry.scopeId ? `Area code ${shortId(entry.scopeId)}` : 'Area code hidden'}</span>",
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-reference-copy',
+          sample: '<p>Paste an exact change area only when needed</p>',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-reference-copy',
+          sample:
+            '<input placeholder="Paste the exact team space, work area, team, or project code from Settings" />',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-reference-copy',
+          sample: '<input placeholder="Paste the exact person code only when needed" />',
         }),
         expect.objectContaining({
           type: 'governance-audit-reference-copy',

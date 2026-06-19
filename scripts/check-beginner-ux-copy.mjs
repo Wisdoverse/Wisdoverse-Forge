@@ -1427,6 +1427,9 @@ const GOVERNANCE_AUDIT_REFERENCE_JARGON_PATTERNS = [
   /\bVisible item code\b/i,
   /\bHidden item code\b/i,
   /\bArea code\b/i,
+  /\bexact change area\b/i,
+  /\bexact team space,\s*work area,\s*team,\s*or project code\b/i,
+  /\bexact person code\b/i,
   /`Person code \$\{shortId\(actorUserId\)\}`/,
 ]
 

@@ -124,9 +124,10 @@ describe('AuditLogView', () => {
     expect(screen.queryByLabelText('Export audit history')).toBeNull()
     expect(screen.getByText('Change area')).toBeDefined()
     expect(
-      screen.getByText(/Paste an exact change area only when an owner or admin gives you one/i)
+      screen.getByText(/Paste a change area only when an owner or admin gives you one/i)
     ).toBeDefined()
-    expect(screen.getByPlaceholderText(/exact change area only when needed/i)).toBeDefined()
+    expect(screen.getByPlaceholderText(/Paste a change area only when needed/i)).toBeDefined()
+    expect(screen.queryByText(/exact change area/i)).toBeNull()
     expect(screen.queryByText('Change category')).toBeNull()
     expect(screen.queryByText(/event category/i)).toBeNull()
     expect(screen.queryByText('Change group')).toBeNull()
@@ -142,10 +143,12 @@ describe('AuditLogView', () => {
     expect(screen.queryByText('Support event name')).toBeNull()
     expect(screen.getByText('Exact work area')).toBeDefined()
     expect(
-      screen.getByPlaceholderText(/exact team space, work area, team, or project code/i)
+      screen.getByPlaceholderText(
+        /team space, work area, team, or project reference only when an owner or admin gives you one/i
+      )
     ).toBeDefined()
     expect(
-      screen.queryByPlaceholderText(/exact team space, work area, team, or project ID/i)
+      screen.queryByPlaceholderText(/exact team space, work area, team, or project/i)
     ).toBeNull()
     expect(screen.getByRole('option', { name: 'Team space' })).toBeDefined()
     expect(screen.getByRole('option', { name: 'Work area' })).toBeDefined()
@@ -154,8 +157,10 @@ describe('AuditLogView', () => {
     expect(screen.queryByRole('option', { name: 'Workspace' })).toBeNull()
     expect(screen.queryByRole('option', { name: 'Organization' })).toBeNull()
     expect(screen.getByText('Exact person')).toBeDefined()
-    expect(screen.getByPlaceholderText(/exact person code only when needed/i)).toBeDefined()
-    expect(screen.queryByPlaceholderText(/exact person ID only when needed/i)).toBeNull()
+    expect(
+      screen.getByPlaceholderText(/Paste a person reference only when an owner or admin gives you one/i)
+    ).toBeDefined()
+    expect(screen.queryByPlaceholderText(/exact person (?:code|ID) only when needed/i)).toBeNull()
     expect(screen.queryByText(/work area support reference/i)).toBeNull()
     expect(screen.queryByText(/person support reference/i)).toBeNull()
     expect(screen.queryByPlaceholderText(/user ID when support asks for one/i)).toBeNull()
