@@ -159,7 +159,9 @@ describe('ApprovalQueueView', () => {
     await userEvent
       .setup()
       .selectOptions(within(dialog).getByTestId('context-approval-scope-kind'), 'team')
-    expect(within(dialog).getByRole('status')).toHaveTextContent(/team id/i)
+    expect(within(dialog).getByRole('status')).toHaveTextContent(
+      /paste the team code before saving/i
+    )
     await userEvent.setup().type(screen.getByTestId('context-approval-scope-id'), 'team-1')
     expect(within(dialog).getByRole('status')).toHaveTextContent(
       /confirm your team can reuse this safely/i
