@@ -29,12 +29,16 @@ describe('CloneStatusBadge', () => {
   it('renders the queued status', () => {
     render(<CloneStatusBadge projectId="p1" status="queued" variant="detail" />)
     expect(screen.getByText('Code copy waiting')).toBeInTheDocument()
+    expect(screen.getByText(/Forge will start copying code soon/)).toBeInTheDocument()
+    expect(screen.getByText(/status updates automatically/)).toBeInTheDocument()
     expect(screen.getByTestId('clone-status-p1')).toHaveAttribute('data-clone-status', 'queued')
   })
 
   it('renders the cloning status', () => {
     render(<CloneStatusBadge projectId="p1" status="cloning" variant="detail" />)
     expect(screen.getByText('Copying code…')).toBeInTheDocument()
+    expect(screen.getByText(/Forge is copying code now/)).toBeInTheDocument()
+    expect(screen.getByText(/You can keep working while it finishes/)).toBeInTheDocument()
   })
 
   it('renders the ready status with branch and short head sha', () => {
@@ -47,6 +51,7 @@ describe('CloneStatusBadge', () => {
       />
     )
     expect(screen.getByText('Code copied')).toBeInTheDocument()
+    expect(screen.getByText(/Agents can use this copied code for tasks/)).toBeInTheDocument()
     expect(screen.getByText('main')).toBeInTheDocument()
     expect(screen.getByText('abc1234')).toBeInTheDocument()
   })
