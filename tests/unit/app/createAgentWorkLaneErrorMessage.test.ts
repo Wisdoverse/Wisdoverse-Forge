@@ -71,11 +71,12 @@ describe('createAgentWorkLaneErrorMessage', () => {
     const message = createAgentWorkLaneErrorMessage(new Error('HTTP 500: database unavailable'))
 
     expect(message).toBe(
-      'Wait a few minutes, then set up where tasks wait again. Forge could not create the waiting place right now. If it still fails, ask an owner or admin to check task routing setup.'
+      'Wait a few minutes, then set up where tasks wait again. Forge could not create the waiting place right now. If it still fails, ask an owner or admin to check where tasks wait in this project.'
     )
     expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('platform')
     expect(message).not.toContain('task queue')
+    expect(message).not.toContain('task routing setup')
   })
 
   test('turns structured service failures into a safe retry and owner check', () => {
@@ -85,10 +86,11 @@ describe('createAgentWorkLaneErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Wait a few minutes, then set up where tasks wait again. Forge could not create the waiting place right now. If it still fails, ask an owner or admin to check task routing setup.'
+      'Wait a few minutes, then set up where tasks wait again. Forge could not create the waiting place right now. If it still fails, ask an owner or admin to check where tasks wait in this project.'
     )
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('503')
     expect(message).not.toContain('task queue')
+    expect(message).not.toContain('task routing setup')
   })
 })

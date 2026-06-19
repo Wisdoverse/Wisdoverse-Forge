@@ -390,7 +390,10 @@ describe('CreateAgentModal', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('Wait a few minutes, then set up where tasks wait again.')
-    expect(alert).toHaveTextContent('ask an owner or admin to check task routing setup')
+    expect(alert).toHaveTextContent(
+      'ask an owner or admin to check where tasks wait in this project'
+    )
+    expect(alert).not.toHaveTextContent('task routing setup')
     expect(alert).not.toHaveTextContent('task queue')
     expect(alert).not.toHaveTextContent('HTTP 500')
     expect(alert).not.toHaveTextContent('database unavailable')

@@ -264,7 +264,7 @@ export function TaskFormModal({
       const ok = await onProjectChange(projectId)
       if (ok === false) {
         setSubmitError(
-          'Select the project again to find where tasks wait. If it still does not load, refresh the board or ask an owner to check task routing setup.'
+          'Select the project again to find where tasks wait. If it still does not load, refresh the board or ask an owner to check where tasks wait in this project.'
         )
       }
     } catch (err) {
