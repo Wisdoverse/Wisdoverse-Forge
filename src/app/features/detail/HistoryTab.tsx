@@ -217,7 +217,7 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
           </p>
           {showWorkAttemptReference && (
             <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
-              Work attempt reference {workAttemptReference(run.id)}
+              Work attempt ID {workAttemptReference(run.id)}
             </p>
           )}
         </div>

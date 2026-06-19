@@ -103,19 +103,19 @@ describe('governanceAuditErrorMessage', () => {
     )
   })
 
-  test('turns reference validation details into a task-reference next step', () => {
+  test('turns ID validation details into a task-ID next step', () => {
     const message = governanceAuditErrorMessage('loadAudit', {
       error: 'Invalid scope id',
     })
 
     expectBeginnerMessage(
       message,
-      'Check the selected team space, work area, person, or task reference, then apply the change filters again.'
+      'Check the selected team space, work area, person, or task ID, then apply the change filters again.'
     )
     expect(message).not.toContain('project area')
     expect(message).not.toContain('user, or task')
     expect(message).not.toContain('project workspace')
     expect(message).not.toContain('selected organization')
-    expect(message).not.toMatch(/task I[D]/)
+    expect(message).not.toMatch(/task reference|support reference/i)
   })
 })
