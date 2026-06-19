@@ -6,6 +6,8 @@ import { workspaceResourceErrorMessage } from '@app/shared/lib/workspaceResource
 import type { NavTeam, UpdateTeamInput } from '@app/entities/team'
 
 const EMPTY_TEAM_NAME_MESSAGE = 'Enter a team name, then save again.'
+const TEAM_DELETE_CONFIRMATION_MESSAGE =
+  'Delete this team from Settings and the left menu. Projects in this team will also disappear from the left menu. Choose Keep if you are not sure.'
 
 interface EditableTeamRowProps {
   team: NavTeam
@@ -28,6 +30,11 @@ export function EditableTeamRow({
   const [saving, setSaving] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const visibilityLabel = team.visibility === 'open' ? 'Open to team space' : 'Invite-only'
+  const visibilityHelp =
+    team.visibility === 'open'
+      ? 'People in this team space can find this team.'
+      : 'Only invited people can find this team.'
 
   function cancelEdit() {
     setEditing(false)
@@ -158,8 +165,10 @@ export function EditableTeamRow({
               'shrink-0',
               team.visibility === 'open' ? uiStyles.activeBadge : uiStyles.badge
             )}
+            aria-label={`Team access: ${visibilityHelp}`}
+            title={visibilityHelp}
           >
-            {team.visibility}
+            {visibilityLabel}
           </span>
         </div>
         <p className="mt-0.5 truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -168,8 +177,7 @@ export function EditableTeamRow({
         </p>
         {confirmingDelete && (
           <p className="mt-1 text-ui-caption font-medium text-apple-red" aria-live="polite">
-            Click Delete team to confirm. Projects in this team will also disappear from the left
-            menu.
+            {TEAM_DELETE_CONFIRMATION_MESSAGE}
           </p>
         )}
         {error && (

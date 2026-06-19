@@ -43,6 +43,27 @@ describe('workspace setup create forms', () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledWith('Support Ops'))
   })
 
+  test('keeps team creation open and shows a safe recovery step when save fails', async () => {
+    const onSave = vi
+      .fn()
+      .mockRejectedValue(new Error('API 500: database unavailable while creating team'))
+
+    render(<CreateTeamForm onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    fireEvent.change(screen.getByLabelText(/team name/i), { target: { value: 'Support Ops' } })
+    fireEvent.click(screen.getByRole('button', { name: /create team/i }))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent('Refresh Settings, then create this team again.')
+      expect(alert).toHaveTextContent('ask an owner or admin to check team space setup')
+      expect(alert).not.toHaveTextContent('API 500')
+      expect(alert).not.toHaveTextContent('database unavailable')
+    })
+    expect(screen.getByLabelText(/team name/i)).toHaveValue('Support Ops')
+    expect(onSave).toHaveBeenCalledWith('Support Ops')
+  })
+
   test('explains that a project needs a team before it can be created', () => {
     const onSave = vi.fn().mockResolvedValue(undefined)
 
@@ -134,8 +155,11 @@ describe('workspace setup create forms', () => {
     fireEvent.change(screen.getByLabelText(/code link/i), {
       target: { value: 'https://github.com/team/project.git' },
     })
+    expect(screen.getByTestId('create-project-status')).toHaveTextContent(
+      'Ready to create project and copy code'
+    )
     expect(screen.getByTestId('create-project-code-link-status')).toHaveTextContent(
-      'Code copy requested. After creation, Forge will try to copy code from this link into the project.'
+      'Code copy requested. After creation, watch the project row for Code copy waiting, Copying code, or Code copied. If it needs help, choose Copy code again.'
     )
     fireEvent.click(screen.getByRole('button', { name: /create project/i }))
 
