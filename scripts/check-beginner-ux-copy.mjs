@@ -643,6 +643,7 @@ const START_GUIDE_RESET_JARGON_PATTERNS = [
   /\bReset it here\b/i,
   /\bnothing to restore\b/i,
   /\bStart is already visible\b/i,
+  /\bIf Start is hidden\b/i,
 ]
 
 const START_GUIDE_FAILURE_FIRST_PATTERNS = [

@@ -422,7 +422,7 @@ function GettingStartedGuideRow() {
             Setup checklist
           </p>
           <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            If Start is hidden, choose Show setup checklist to add Setup checklist back to the left
+            If the setup checklist is hidden, choose Show setup checklist to add it back to the left
             menu. New sign-ins still open Tasks by default, and your projects, agents, and tasks
             stay the same. {statusLine}
           </p>

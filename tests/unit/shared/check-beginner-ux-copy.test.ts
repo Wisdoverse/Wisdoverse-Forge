@@ -10220,7 +10220,7 @@ function ProfileRow() {
     const cwd = fixture({
       'src/app/features/settings/AccountSection.tsx': `
 function GettingStartedGuideRow() {
-  return <section><h3>Onboarding</h3><p>Start is already visible in the left menu, so there is nothing to restore.</p><button>Reset Start guide</button></section>
+  return <section><h3>Onboarding</h3><p>If Start is hidden, choose Show setup checklist. Start is already visible in the left menu, so there is nothing to restore.</p><button>Reset Start guide</button></section>
 }
 `,
       'src/app/pages/settings/ui/SettingsLayout.tsx': `
@@ -10251,7 +10251,7 @@ export const item = {
     const cwd = fixture({
       'src/app/features/settings/AccountSection.tsx': `
 function GettingStartedGuideRow() {
-  return <button>Show setup checklist</button>
+  return <p>If the setup checklist is hidden, choose Show setup checklist to add it back to the left menu.</p>
 }
 `,
     })
