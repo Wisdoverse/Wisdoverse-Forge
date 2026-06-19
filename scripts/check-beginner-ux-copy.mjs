@@ -725,6 +725,11 @@ const TASK_FORM_SUBMIT_LABEL_JARGON_PATTERNS = [
   /\bPreparing Project\.\.\./,
 ]
 
+const TASK_FORM_INCOMPLETE_BRIEF_DEAD_END_PATTERNS = [
+  /\bThis task may be hard for an agent to finish\b/i,
+  /\bchoose Create task anyway if this is enough for now\b/i,
+]
+
 const TASK_FORM_NO_PROJECT_DEAD_END_PATTERNS = [
   /\bNo projects available\. Create a project in Settings before creating tasks\./i,
 ]
@@ -3445,6 +3450,12 @@ function hasTaskFormSubmitLabelJargonCopy(relFile, line) {
   return TASK_FORM_SUBMIT_LABEL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTaskFormIncompleteBriefDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/board/TaskFormModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_FORM_INCOMPLETE_BRIEF_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasTaskFormNoProjectDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/board/TaskFormModal.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -5915,6 +5926,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Task creation submit labels must use sentence case and keep the task action explicit for first-time users.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskFormIncompleteBriefDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'task-form-incomplete-brief-copy',
+        location,
+        message:
+          'Task creation incomplete-brief confirmation must say what is missing and what happens if users continue anyway.',
         sample: line.trim(),
       })
     }

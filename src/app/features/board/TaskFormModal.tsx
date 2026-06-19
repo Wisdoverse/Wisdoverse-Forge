@@ -186,6 +186,9 @@ export function TaskFormModal({
   )
   const missingBriefCues = useMemo(() => briefCues.filter((cue) => !cue.ready), [briefCues])
   const briefReady = missingBriefCues.length === 0
+  const incompleteBriefActionLabel = taskWillWaitForAgent
+    ? 'Save task anyway'
+    : 'Create task anyway'
 
   // The error banner renders partway down a scrollable dialog (below the
   // header and project panels) while the submit button sits at the bottom, so
@@ -537,10 +540,11 @@ export function TaskFormModal({
             data-testid="task-brief-confirmation"
             className="mb-4 rounded-lg border border-apple-orange/20 bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange"
           >
-            <p className="font-semibold">This task may be hard for an agent to finish.</p>
+            <p className="font-semibold">Add missing details before this task starts.</p>
             <p className="mt-0.5">
-              Add {formatBriefCueList(missingBriefCues.map((cue) => cue.label).slice(0, 2))}, or
-              choose Create task anyway if this is enough for now.
+              Missing: {formatBriefCueList(missingBriefCues.map((cue) => cue.label))}. You can still
+              choose {incompleteBriefActionLabel}, but the agent may need to ask what to check or
+              where to work.
             </p>
           </div>
         )}
@@ -762,9 +766,7 @@ export function TaskFormModal({
                     ? 'Saving...'
                     : 'Creating...'
                   : confirmIncompleteBrief && !briefReady
-                    ? taskWillWaitForAgent
-                      ? 'Save task anyway'
-                      : 'Create task anyway'
+                    ? incompleteBriefActionLabel
                     : taskWillWaitForAgent
                       ? 'Save task to wait'
                       : 'Create task'}
