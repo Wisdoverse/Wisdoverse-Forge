@@ -493,6 +493,8 @@ impl<'a> UserEmail<'a> {
 }
 
 /// Password policy for local accounts.
+pub(crate) const MIN_LOCAL_PASSWORD_LENGTH: usize = 12;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct UserPassword<'a> {
     value: &'a str,
@@ -500,8 +502,11 @@ pub(crate) struct UserPassword<'a> {
 
 impl<'a> UserPassword<'a> {
     pub(crate) fn parse(value: &'a str) -> AppResult<Self> {
-        if value.len() < 8 {
-            return Err(ErrorKind::Validation("password must be at least 8 characters".into()).into());
+        if value.len() < MIN_LOCAL_PASSWORD_LENGTH {
+            return Err(ErrorKind::Validation(format!(
+                "password must be at least {MIN_LOCAL_PASSWORD_LENGTH} characters"
+            ))
+            .into());
         }
         Ok(Self { value })
     }
@@ -646,8 +651,8 @@ mod tests {
 
     #[test]
     fn user_password_requires_minimum_length() {
-        assert_eq!(UserPassword::parse("12345678").unwrap().value(), "12345678");
-        assert!(UserPassword::parse("1234567").is_err());
+        assert_eq!(UserPassword::parse("123456789012").unwrap().value(), "123456789012");
+        assert!(UserPassword::parse("12345678901").is_err());
     }
 
     #[test]
