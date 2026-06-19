@@ -42,7 +42,7 @@ export function governanceAuditErrorMessage(
   }
 
   if (status && status >= 500) {
-    return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check change history setup.`
+    return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check change history access.`
   }
 
   return validationMessage(action, detail)

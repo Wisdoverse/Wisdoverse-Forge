@@ -73,7 +73,7 @@ export function chatStreamHttpErrorMessage(
     return 'Wait a moment, then resend the message. This agent is receiving too many messages right now.'
   }
   if (status >= 500) {
-    return 'Wait a few minutes, then resend the message. Forge could not send this chat message right now. If it still fails, ask an owner or admin to check chat and agent setup.'
+    return 'Wait a few minutes, then resend the message. Forge could not send this chat message right now. If it still fails, ask an owner or admin to check this agent chat and agent status.'
   }
 
   return 'Refresh this agent, then resend the message. This message was not sent.'
@@ -108,7 +108,7 @@ export function chatStreamEventErrorMessage(detail: unknown): string {
   if (text.includes('context')) {
     return 'This chat has too many old messages. Clear chat only if those messages are no longer useful, then send the message again.'
   }
-  return 'Resend the message. The agent could not finish this reply. If it still fails, ask an owner or admin to check chat setup.'
+  return 'Resend the message. The agent could not finish this reply. If it still fails, ask an owner or admin to check this agent chat.'
 }
 
 /** React hook: `send(content)` streams LLM reply; `abort()` cancels it. */

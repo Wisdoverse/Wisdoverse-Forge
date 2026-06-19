@@ -68,7 +68,7 @@ describe('boardActionErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh the board to load tasks. If it still fails, ask an owner or admin to check task board setup.'
+      'Refresh the board to load tasks. If it still fails, ask an owner or admin to check task board access.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('temporarily unavailable')
@@ -85,7 +85,7 @@ describe('boardActionErrorMessage', () => {
   test('keeps moved-back task failures actionable without repeating the refresh step', () => {
     expectBeginnerMessage(
       boardActionErrorMessage('moveTask', new Error('HTTP 500')),
-      'Refresh the board, then move the task again. The task was moved back because the board change was not saved. If it still fails, ask an owner or admin to check task board setup.'
+      'Refresh the board, then move the task again. The task was moved back because the board change was not saved. If it still fails, ask an owner or admin to check task board actions.'
     )
   })
 

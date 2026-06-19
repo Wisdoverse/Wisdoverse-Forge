@@ -82,7 +82,7 @@ describe('chatErrorMessage', () => {
     const message = chatErrorMessage('clear', 'Server error (503)')
 
     expect(message).toBe(
-      'Chat was not cleared. Wait a few minutes, then clear chat again if you still want to remove the messages. Forge could not update this chat right now. If it still fails, ask an owner or admin to check chat setup.'
+      'Chat was not cleared. Wait a few minutes, then clear chat again if you still want to remove the messages. Forge could not update this chat right now. If it still fails, ask an owner or admin to check this agent chat.'
     )
     expect(message).not.toContain('503')
     expect(message).not.toContain('platform')
@@ -101,7 +101,7 @@ describe('chatErrorMessage', () => {
     const message = chatErrorMessage('load', new Error('chat storage mismatch'))
 
     expect(message).toBe(
-      "Retry conversation to load conversation history. Choose Retry conversation again. If it still fails, ask an owner or admin to check this agent's chat setup."
+      'Retry conversation to load conversation history. Choose Retry conversation again. If it still fails, ask an owner or admin to check this agent chat.'
     )
     expect(message).not.toContain('chat storage mismatch')
     expect(message).not.toContain('Try again.')
@@ -111,7 +111,7 @@ describe('chatErrorMessage', () => {
     const message = chatErrorMessage('clear', new Error('chat delete failed'))
 
     expect(message).toBe(
-      "Chat was not cleared. Clear chat again if you still want to remove the messages. If it still fails, ask an owner or admin to check this agent's chat setup."
+      'Chat was not cleared. Clear chat again if you still want to remove the messages. If it still fails, ask an owner or admin to check this agent chat.'
     )
     expect(message).not.toContain('chat delete failed')
     expect(message).not.toContain('Try again.')
@@ -137,7 +137,7 @@ describe('useChatStore beginner errors', () => {
     await useChatStore.getState().loadMessages('agent-1')
 
     expect(useChatStore.getState().error).toBe(
-      'Retry conversation to load conversation history. Wait a few minutes, then choose Retry conversation again. Forge could not load this conversation right now. If it still fails, ask an owner or admin to check chat setup.'
+      'Retry conversation to load conversation history. Wait a few minutes, then choose Retry conversation again. Forge could not load this conversation right now. If it still fails, ask an owner or admin to check this agent chat.'
     )
     expect(useChatStore.getState().error).not.toContain('503')
     expect(useChatStore.getState().error).not.toContain('platform')
@@ -178,7 +178,7 @@ describe('useChatStore beginner errors', () => {
     await useChatStore.getState().fetchEvents('agent-1')
 
     expect(useChatStore.getState().error).toBe(
-      'Retry conversation to load conversation history. Wait a few minutes, then choose Retry conversation again. Forge could not load this conversation right now. If it still fails, ask an owner or admin to check chat setup.'
+      'Retry conversation to load conversation history. Wait a few minutes, then choose Retry conversation again. Forge could not load this conversation right now. If it still fails, ask an owner or admin to check this agent chat.'
     )
     expect(useChatStore.getState().error).not.toContain('HTTP 500')
     expect(useChatStore.getState().loading).toBe(false)

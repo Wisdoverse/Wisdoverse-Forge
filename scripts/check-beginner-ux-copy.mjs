@@ -1419,6 +1419,10 @@ const DUPLICATE_RECOVERY_COPY_PATTERNS = [
   /\bForge could not load workspace navigation right now\. Refresh the sidebar, then try again\./i,
 ]
 
+const VAGUE_SETUP_RECOVERY_PATTERNS = [
+  /\bIf it still fails,\s*ask an owner(?: or admin)? to check [^.!?\n]*\bsetup\b/i,
+]
+
 const NAVIGATION_ERROR_FAILURE_FIRST_PATTERNS = [
   /^\s*return\s+`You do not have permission to \$\{actionPhrase\}\. Ask an owner/i,
 ]
@@ -1671,7 +1675,7 @@ const CHAT_ERROR_FAILURE_FIRST_PATTERNS = [
   /^\s*\?\s*['"`]Forge could not load this conversation right now\./,
   /^\s*:\s*['"`]Forge could not update this chat right now\./,
   /^\s*return\s+`\$\{base\} Forge could not read this conversation\./,
-  /\b`\$\{base\} Try again\. If it still fails, ask an owner or admin to check this agent's chat setup\.`/,
+  /\b`\$\{base\} Try again\. If it still fails, ask an owner or admin to check this agent(?:'s)? [^`]+?\.`/,
 ]
 
 const SETTINGS_STORE_ERROR_FAILURE_FIRST_PATTERNS = [
@@ -4249,6 +4253,11 @@ function hasDuplicateRecoveryDeadEndCopy(relFile, line) {
   return DUPLICATE_RECOVERY_COPY_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasVagueSetupRecoveryCopy(line) {
+  if (isLikelyGuardOrParserLine(line)) return false
+  return VAGUE_SETUP_RECOVERY_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasNavigationErrorFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/entities/navigation/model/navigation.store.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -6699,6 +6708,16 @@ function scanFile(file, relFile) {
         type: 'duplicate-recovery-copy',
         location,
         message: 'Recovery copy must avoid repeating the same refresh or retry step.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasVagueSetupRecoveryCopy(line)) {
+      findings.push({
+        type: 'vague-setup-recovery-copy',
+        location,
+        message:
+          'Recovery copy must name the page, access area, or object to check instead of saying setup.',
         sample: line.trim(),
       })
     }

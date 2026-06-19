@@ -164,7 +164,7 @@ export function skillHttpErrorMessage(
   const createRateLimitMessage =
     'Wait a moment, then create the instruction again. Instruction setup is busy right now.'
   const createServiceMessage =
-    'Refresh Saved instructions, then create the instruction again. If it still fails, ask an owner or admin to check instruction setup.'
+    'Refresh Saved instructions, then create the instruction again. If it still fails, ask an owner or admin to check Saved instructions access.'
   const createDefaultMessage = 'Review the fields, then create the instruction again.'
 
   if (status === 401) {
@@ -194,7 +194,7 @@ export function skillHttpErrorMessage(
   if (status >= 500) {
     return action === 'create'
       ? createServiceMessage
-      : 'Refresh Saved instructions to load the list. If it still fails, ask an owner or admin to check instruction setup.'
+      : 'Refresh Saved instructions to load the list. If it still fails, ask an owner or admin to check Saved instructions access.'
   }
 
   return action === 'create' ? createDefaultMessage : 'Refresh Saved instructions to load the list.'

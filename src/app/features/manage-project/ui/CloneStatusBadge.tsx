@@ -124,7 +124,7 @@ function cloneRetryErrorMessage(error: unknown): string {
     return 'Wait a minute, then try copying code again. Too many copy retries are happening right now.'
   }
   if (code && code >= 500) {
-    return 'Wait a few minutes, then try copying code again. Forge could not copy code right now. If it still fails, ask an owner or admin to check project code setup.'
+    return 'Wait a few minutes, then try copying code again. Forge could not copy code right now. If it still fails, ask an owner or admin to check project code access.'
   }
 
   const message = error instanceof Error ? error.message : typeof error === 'string' ? error : ''

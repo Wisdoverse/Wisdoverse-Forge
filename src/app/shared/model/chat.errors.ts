@@ -49,8 +49,8 @@ function baseMessage(action: ChatErrorAction): string {
 
 function serviceRecoveryMessage(action: ChatErrorAction): string {
   return action === 'load'
-    ? 'Wait a few minutes, then choose Retry conversation again. Forge could not load this conversation right now. If it still fails, ask an owner or admin to check chat setup.'
-    : 'Wait a few minutes, then clear chat again if you still want to remove the messages. Forge could not update this chat right now. If it still fails, ask an owner or admin to check chat setup.'
+    ? 'Wait a few minutes, then choose Retry conversation again. Forge could not load this conversation right now. If it still fails, ask an owner or admin to check this agent chat.'
+    : 'Wait a few minutes, then clear chat again if you still want to remove the messages. Forge could not update this chat right now. If it still fails, ask an owner or admin to check this agent chat.'
 }
 
 function networkRecoveryMessage(action: ChatErrorAction): string {
@@ -61,8 +61,8 @@ function networkRecoveryMessage(action: ChatErrorAction): string {
 
 function fallbackRecoveryMessage(action: ChatErrorAction): string {
   return action === 'load'
-    ? "Choose Retry conversation again. If it still fails, ask an owner or admin to check this agent's chat setup."
-    : "Clear chat again if you still want to remove the messages. If it still fails, ask an owner or admin to check this agent's chat setup."
+    ? 'Choose Retry conversation again. If it still fails, ask an owner or admin to check this agent chat.'
+    : 'Clear chat again if you still want to remove the messages. If it still fails, ask an owner or admin to check this agent chat.'
 }
 
 export function chatErrorMessage(action: ChatErrorAction, err: unknown): string {

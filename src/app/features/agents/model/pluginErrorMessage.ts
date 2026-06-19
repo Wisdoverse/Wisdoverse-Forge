@@ -92,10 +92,10 @@ export function agentPluginErrorMessage(action: AgentPluginErrorAction, err: unk
   }
   if (code != null && code >= 500) {
     return action === 'load'
-      ? `${base} Wait a few minutes, then refresh this agent page again. Forge could not finish this tool request right now. If it still fails, ask an owner or admin to check this agent's tool setup.`
+      ? `${base} Wait a few minutes, then refresh this agent page again. Forge could not finish this tool request right now. If it still fails, ask an owner or admin to check this agent's tool list.`
       : saveMessage(
           'Wait a few minutes, then try the tool change again.',
-          "Forge could not finish this tool request right now. If it still fails, ask an owner or admin to check this agent's tool setup."
+          "Forge could not finish this tool request right now. If it still fails, ask an owner or admin to check this agent's tool list."
         )
   }
   if (isNetworkError(err)) {
@@ -116,9 +116,9 @@ export function agentPluginErrorMessage(action: AgentPluginErrorAction, err: unk
   }
 
   return action === 'load'
-    ? `${base} If it still fails, ask an owner or admin to check this agent's tool setup.`
+    ? `${base} If it still fails, ask an owner or admin to check this agent's tool list.`
     : saveMessage(
         'Refresh this agent page, then try the tool change again.',
-        "If it still fails, ask an owner or admin to check this agent's tool setup."
+        "If it still fails, ask an owner or admin to check this agent's tool list."
       )
 }

@@ -60,7 +60,7 @@ describe('taskDetailErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh task details to load saved notes and work history. If it still fails, ask an owner or admin to check task setup.'
+      'Refresh task details to load saved notes and work history. If it still fails, ask an owner or admin to check task details access.'
     )
     expect(message).not.toContain('run details')
     expect(message).not.toMatch(new RegExp(['task', 'context'].join('\\s+'), 'i'))
@@ -73,7 +73,7 @@ describe('taskDetailErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh the task, then choose Cancel again. The task was not canceled. If it still fails, ask an owner or admin to check task setup.'
+      'Refresh the task, then choose Cancel again. The task was not canceled. If it still fails, ask an owner or admin to check task action access.'
     )
     expect(message).not.toContain('HTTP 500')
   })
@@ -83,7 +83,7 @@ describe('taskDetailErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh the task, then choose Needs help again. The task was not marked as needing help. If it still fails, ask an owner or admin to check task setup.'
+      'Refresh the task, then choose Needs help again. The task was not marked as needing help. If it still fails, ask an owner or admin to check task action access.'
     )
     expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('blocked')
