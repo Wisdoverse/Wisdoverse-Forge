@@ -104,8 +104,9 @@ describe('TeamsSection', () => {
 
     await waitFor(() => expect(getTeams).toHaveBeenCalledWith('org-1'))
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Refresh Settings to load teams. If it still fails, ask an owner or admin to check team space setup.'
+      'Refresh Settings to load teams. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
     )
+    expect(screen.queryByText(/team space setup/i)).toBeNull()
     expect(screen.queryByText(/workspace teams/i)).toBeNull()
     expect(screen.queryByText(/workspace setup/i)).toBeNull()
     expect(screen.queryByText('HTTP 500')).toBeNull()

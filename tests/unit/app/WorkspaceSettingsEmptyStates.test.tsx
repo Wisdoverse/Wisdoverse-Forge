@@ -163,20 +163,24 @@ describe('workspace settings empty states', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain(
-      'Refresh Settings to load projects. If it still fails, ask an owner or admin to check team space setup.'
+      'Refresh Settings to load projects. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
     )
     expect(alert.textContent).not.toContain('HTTP 500')
+    expect(alert.textContent).not.toContain('team space setup')
     expect(alert.textContent).not.toContain('temporarily unavailable')
     expect(alert.textContent).not.toContain('workspace projects')
   })
 
-  it('turns project loading server failures into a team space setup step', async () => {
+  it('turns project loading server failures into a Settings recovery step', async () => {
     mocks.getTeams.mockRejectedValue(new Error('API 503: {"message":"database unavailable"}'))
 
     render(<ProjectsSection />)
 
     expect(await screen.findByText(/Refresh Settings to load projects/i)).toBeInTheDocument()
-    expect(screen.getByText(/ask an owner or admin to check team space setup/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/ask an owner or admin to check Teams and Projects in Settings/i)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/team space setup/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/workspace setup/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/database unavailable/i)).not.toBeInTheDocument()
   })

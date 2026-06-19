@@ -331,7 +331,10 @@ describe('AgentDetailView', () => {
     expect(
       screen.getByText(/success looks like the agent status changing to ready or working/i)
     ).toBeDefined()
-    expect(screen.getByText(/ask an owner or admin to check this agent setup/i)).toBeDefined()
+    expect(
+      screen.getByText(/ask an owner or admin to check this agent's connection and access/i)
+    ).toBeDefined()
+    expect(screen.queryByText(/check this agent setup/i)).toBeNull()
     expect(screen.queryByText(/open terminal/i)).toBeNull()
     expect(screen.queryByText(/terminal access/i)).toBeNull()
     expect(screen.queryByText(/live terminal/i)).toBeNull()
@@ -362,7 +365,10 @@ describe('AgentDetailView', () => {
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('Check the agent status')
     expect(alert).toHaveTextContent('choose Start file work again')
-    expect(alert).toHaveTextContent('ask an owner or admin to check this agent setup')
+    expect(alert).toHaveTextContent(
+      "ask an owner or admin to check this agent's connection and access in Agents"
+    )
+    expect(alert).not.toHaveTextContent('check this agent setup')
     expect(alert).not.toHaveTextContent('Start did not finish')
     expect(alert.textContent).not.toContain('Details:')
     expect(alert.textContent).not.toContain('Docker socket refused')
@@ -397,7 +403,10 @@ describe('AgentDetailView', () => {
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('Check the agent status')
     expect(alert).toHaveTextContent('choose Start file work again')
-    expect(alert).toHaveTextContent('ask an owner or admin to check this agent setup')
+    expect(alert).toHaveTextContent(
+      "ask an owner or admin to check this agent's connection and access in Agents"
+    )
+    expect(alert).not.toHaveTextContent('check this agent setup')
     expect(alert).not.toHaveTextContent('Start did not finish')
     expect(alert.textContent).not.toContain('socket hang up')
   })

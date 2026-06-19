@@ -85,8 +85,9 @@ describe('AgentControlPanel', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(/Use the recovery step below/i)
     expect(screen.getByRole('alert')).toHaveTextContent(/forge could not update this agent/i)
     expect(screen.getByRole('alert')).toHaveTextContent(
-      /ask an owner or admin to check this agent setup/i
+      /ask an owner or admin to check this agent's connection and access in Agents/i
     )
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/check this agent setup/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/HTTP 500/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/Start request failed/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/temporarily unavailable/i)
@@ -381,7 +382,10 @@ describe('AgentControlPanel', () => {
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('Action did not finish')
     expect(alert).toHaveTextContent(/choose Restart agent again only if Tasks or Live work/i)
-    expect(alert).toHaveTextContent(/ask an owner or admin to check this agent setup/i)
+    expect(alert).toHaveTextContent(
+      /ask an owner or admin to check this agent's connection and access in Agents/i
+    )
+    expect(alert).not.toHaveTextContent(/check this agent setup/i)
     expect(alert).not.toHaveTextContent(/restart socket failed/i)
     expect(screen.queryByText('Restart this agent?')).toBeNull()
   })
