@@ -7002,16 +7002,16 @@ export function DecisionCopy({ approving }) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags review status copy that uses fix review jargon', () => {
+  it('flags review status copy that uses fix review jargon or vague refresh wording', () => {
     const cwd = fixture({
       'src/app/features/detail/ReviewSnapshotPanel.tsx': `
 function ReviewSnapshotPanel() {
-  return <><span>Fix review</span><button aria-label="Refresh fix review">Refresh</button></>
+  return <><span>Fix review</span><button aria-label="Refresh review status">Refresh</button><p>Use Refresh after it appears.</p></>
 }
 `,
       'src/app/features/detail/model/reviewSnapshotErrorMessage.ts': `
 const ACTION_FALLBACKS = {
-  load: 'Refresh fix review, then try again. Forge could not load the current review status.',
+  load: 'Refresh review status, then try again. Forge could not load the current review status.',
 }
 `,
     })
@@ -7037,12 +7037,12 @@ const ACTION_FALLBACKS = {
     const cwd = fixture({
       'src/app/features/detail/ReviewSnapshotPanel.tsx': `
 function ReviewSnapshotPanel() {
-  return <><span>Review status</span><button aria-label="Refresh review status">Refresh</button></>
+  return <><span>Review status</span><button aria-label="Check review again">Check again</button></>
 }
 `,
       'src/app/features/detail/model/reviewSnapshotErrorMessage.ts': `
 const ACTION_FALLBACKS = {
-  load: 'Refresh review status, then try again. Forge could not load the current review status.',
+  load: 'Choose Check again, then try again. Forge could not load the current review status.',
 }
 `,
     })

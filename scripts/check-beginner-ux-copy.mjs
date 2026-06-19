@@ -160,6 +160,8 @@ const REVIEW_HISTORY_DEAD_END_PATTERNS = [/\bNo saved item history yet\b/i]
 const REVIEW_STATUS_JARGON_PATTERNS = [
   /\bFix review\b/i,
   /\bRefresh fix review\b/i,
+  /\bRefresh review status\b/i,
+  /\bUse Refresh\b/i,
   /\bcode fix review\b/i,
 ]
 

@@ -60,7 +60,9 @@ describe('ReviewSnapshotPanel', () => {
     expect(screen.getByText('Waiting for review')).toBeInTheDocument()
     expect(screen.getByText('Automated checks passed')).toBeInTheDocument()
     expect(screen.queryByText(/Build checks/i)).toBeNull()
-    expect(screen.getByLabelText('Refresh review status')).toBeInTheDocument()
+    expect(screen.getByLabelText('Check review again')).toBeInTheDocument()
+    expect(screen.getByText('Check again')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Refresh review status')).toBeNull()
     expect(screen.getByText('Review the changes')).toBeInTheDocument()
     expect(screen.queryByText(/changed files/i)).toBeNull()
   })
@@ -90,6 +92,8 @@ describe('ReviewSnapshotPanel', () => {
 
     expect(await screen.findByTestId('review-approve')).toBeDisabled()
     expect(screen.getByText(/automated checks pass/i)).toBeInTheDocument()
+    expect(screen.getByText(/choose check again after they finish/i)).toBeInTheDocument()
+    expect(screen.queryByText(/use refresh/i)).toBeNull()
     expect(screen.queryByText(/build checks/i)).toBeNull()
     expect(screen.queryByText(/merge unlocks/i)).toBeNull()
   })
@@ -105,6 +109,8 @@ describe('ReviewSnapshotPanel', () => {
     const button = screen.getByTestId('review-approve')
     expect(button).toBeDisabled()
     expect(screen.getByText(/finish after the agent opens the review page/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/choose check again after it appears/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/use refresh/i)).toBeNull()
     expect(screen.queryByText(/merge unlocks/i)).toBeNull()
 
     fireEvent.click(button)
@@ -134,8 +140,9 @@ describe('ReviewSnapshotPanel', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'Refresh review status, then try again. Forge could not load the current review status.'
+      'Choose Check again, then try again. Forge could not load the current review status.'
     )
+    expect(alert).not.toHaveTextContent('Refresh review status')
     expect(alert).not.toHaveTextContent('Refresh fix review')
     expect(alert).not.toHaveTextContent('code fix review')
     expect(alert).not.toHaveTextContent('API 500')
