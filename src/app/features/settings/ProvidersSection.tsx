@@ -1006,6 +1006,49 @@ function SegmentedToggle<T extends string>({
 type PlanVariant = 'api' | 'coding'
 type RegionVariant = 'cn' | 'global'
 
+/**
+ * Clickable quick-pick chips for a provider's common models. Surfaces the
+ * curated model list directly (the `<datalist>` alone is easy to miss) while
+ * the text input still accepts any custom model name. The chip matching the
+ * current value is highlighted.
+ */
+function ModelQuickPicks({
+  models,
+  selected,
+  onPick,
+}: {
+  models: { model: string; displayName: string }[]
+  selected: string
+  onPick: (model: string) => void
+}) {
+  if (models.length === 0) return null
+  const current = selected.trim()
+  return (
+    <div className="mb-1.5 flex flex-wrap gap-1.5" role="group" aria-label="Common models">
+      {models.map((m) => {
+        const active = m.model === current
+        return (
+          <button
+            key={m.model}
+            type="button"
+            onClick={() => onPick(m.model)}
+            aria-pressed={active}
+            title={m.model}
+            className={cn(
+              'rounded-full border px-2.5 py-1 text-ui-caption transition-colors',
+              active
+                ? 'border-apple-blue bg-apple-blue/10 text-apple-blue'
+                : 'border-black/[0.1] text-secondary-light hover:border-apple-blue/40 hover:text-foreground-light dark:border-white/[0.12] dark:text-secondary-dark dark:hover:text-foreground-dark'
+            )}
+          >
+            {m.displayName}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 interface CatalogConfigPanelProps {
   vendor: CatalogVendor
   onSave: (input: CreateProviderInput) => Promise<void>
@@ -1148,6 +1191,7 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
           </p>
           {allowCustomModels ? (
             <>
+              <ModelQuickPicks models={models} selected={model} onPick={setModel} />
               <input
                 id={modelInputId}
                 type="text"
@@ -1483,6 +1527,11 @@ function AddProviderFormPanel({
           </p>
           {(selectedProvider?.allowCustomModels ?? true) ? (
             <>
+              <ModelQuickPicks
+                models={models}
+                selected={form.model}
+                onPick={(m) => setForm({ ...form, model: m })}
+              />
               <input
                 id={modelInputId}
                 type="text"
