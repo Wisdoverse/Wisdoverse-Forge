@@ -155,7 +155,8 @@ describe('HistoryTab', () => {
 
     expect(await screen.findByText('Agent work history')).toBeInTheDocument()
     expect(screen.getByText(/Used a work tool you should check/i)).toBeInTheDocument()
-    expect(screen.getByText(/Work attempt ID run-tool/i)).toBeInTheDocument()
+    expect(screen.getByText(/Work attempt code run-tool/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Work attempt ID run-tool/i)).toBeNull()
     expect(screen.queryByText(/Support reference run-tool/i)).toBeNull()
     expect(screen.queryByText(/future_tool/i)).toBeNull()
     expect(screen.queryByText(/future tool/i)).toBeNull()
