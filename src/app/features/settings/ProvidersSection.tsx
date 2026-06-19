@@ -16,6 +16,8 @@ import type {
   LlmProvider,
   LlmProviderConfig,
   CreateProviderInput,
+  DiscoverModelsInput,
+  DiscoveredModels,
   ProviderInfo,
   TestConnectionResult,
 } from '@app/shared/api/legacy/settingsApi'
@@ -1049,6 +1051,79 @@ function ModelQuickPicks({
   )
 }
 
+/**
+ * Live model discovery state for a config form. Asks the backend to list a
+ * provider's current models; on success the caller swaps the curated chips for
+ * the live list. Never throws to the UI — a failure just keeps the curated
+ * list and surfaces a soft note.
+ */
+function useModelDiscovery() {
+  const [discovered, setDiscovered] = useState<DiscoveredModels | null>(null)
+  const [discovering, setDiscovering] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function discover(input: DiscoverModelsInput) {
+    setDiscovering(true)
+    setError(null)
+    try {
+      const result = await getSettingsApi().discoverModels(input)
+      setDiscovered(result)
+      if (result.source === 'curated' || result.models.length === 0) {
+        setError(
+          'Could not load a live list from the service. Showing the built-in models — pick one below, or type your model name in the field.'
+        )
+      }
+    } catch {
+      setError(
+        'Could not reach the service to list models. Check the access key, then choose Find available models again — or pick a built-in model below.'
+      )
+    } finally {
+      setDiscovering(false)
+    }
+  }
+
+  return { discovered, discovering, error, discover, reset: () => setDiscovered(null) }
+}
+
+/** "Find available models" affordance + live/curated status line. */
+function DiscoverModelsControl({
+  discovering,
+  discovered,
+  error,
+  onDiscover,
+}: {
+  discovering: boolean
+  discovered: DiscoveredModels | null
+  error: string | null
+  onDiscover: () => void
+}) {
+  return (
+    <div className="mb-1.5 flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        onClick={onDiscover}
+        disabled={discovering}
+        className={cn(
+          'rounded-md border border-black/[0.1] px-2.5 py-1 text-ui-caption font-medium transition-colors dark:border-white/[0.12]',
+          'text-apple-blue hover:border-apple-blue/40 disabled:cursor-not-allowed disabled:opacity-60'
+        )}
+      >
+        {discovering ? 'Finding models…' : 'Find available models'}
+      </button>
+      {discovered?.source === 'live' && !error && (
+        <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+          Live list from the service.
+        </span>
+      )}
+      {error && (
+        <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {error}
+        </span>
+      )}
+    </div>
+  )
+}
+
 interface CatalogConfigPanelProps {
   vendor: CatalogVendor
   onSave: (input: CreateProviderInput) => Promise<void>
@@ -1068,7 +1143,16 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
   const hasRegionToggle = Boolean(variant?.globalBaseUrl)
   const needsApiKey = variant ? providerNeedsApiKey(variant.provider, variant) : true
   const allowCustomModels = variant?.allowCustomModels ?? true
-  const models = variant?.models ?? []
+  const curatedModels = variant?.models ?? []
+  const {
+    discovered,
+    discovering,
+    error: discoverError,
+    discover,
+    reset: resetDiscovery,
+  } = useModelDiscovery()
+  // Prefer a successful live list; otherwise fall back to the curated models.
+  const models = discovered && discovered.models.length > 0 ? discovered.models : curatedModels
 
   const modelListId = `catalog-models-${vendor.key}`
   const apiKeyInputId = 'provider-form-api-key'
@@ -1080,6 +1164,7 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
   useEffect(() => {
     setModel(variant?.defaultModel ?? variant?.models[0]?.model ?? '')
     setSubmitAttempted(false)
+    resetDiscovery()
   }, [variant])
 
   const trimmedModel = model.trim()
@@ -1102,6 +1187,15 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
     // Catalog vendors carry their endpoint as defaultBaseUrl; leaving it
     // undefined lets the backend default apply for vendors with no override.
     return variant.defaultBaseUrl
+  }
+
+  function handleDiscover() {
+    if (!variant) return
+    void discover({
+      provider: variant.provider,
+      baseUrl: resolveBaseUrl(),
+      apiKey: apiKey.trim() || undefined,
+    })
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -1191,6 +1285,12 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
           </p>
           {allowCustomModels ? (
             <>
+              <DiscoverModelsControl
+                discovering={discovering}
+                discovered={discovered}
+                error={discoverError}
+                onDiscover={handleDiscover}
+              />
               <ModelQuickPicks models={models} selected={model} onPick={setModel} />
               <input
                 id={modelInputId}
@@ -1405,7 +1505,15 @@ function AddProviderFormPanel({
   const [submitAttempted, setSubmitAttempted] = useState(false)
 
   const selectedProvider = providerOptions.find((p) => p.provider === form.provider)
-  const models = selectedProvider?.models ?? []
+  const curatedModels = selectedProvider?.models ?? []
+  const {
+    discovered,
+    discovering,
+    error: discoverError,
+    discover,
+    reset: resetDiscovery,
+  } = useModelDiscovery()
+  const models = discovered && discovered.models.length > 0 ? discovered.models : curatedModels
   const needsApiKey = providerNeedsApiKey(form.provider, selectedProvider)
   const needsBaseUrl = providerNeedsBaseUrl(form.provider, selectedProvider)
   const modelListId = `provider-models-${form.provider}`
@@ -1434,12 +1542,21 @@ function AddProviderFormPanel({
   function handleProviderChange(provider: LlmProvider) {
     const info = providerOptions.find((p) => p.provider === provider)
     setSubmitAttempted(false)
+    resetDiscovery()
     setForm({
       provider,
       displayName: info?.displayName ?? '',
       model: info?.defaultModel ?? info?.models[0]?.model ?? '',
       apiKey: '',
       baseUrl: '',
+    })
+  }
+
+  function handleDiscover() {
+    void discover({
+      provider: form.provider,
+      baseUrl: form.baseUrl.trim() || undefined,
+      apiKey: form.apiKey.trim() || undefined,
     })
   }
 
@@ -1527,6 +1644,12 @@ function AddProviderFormPanel({
           </p>
           {(selectedProvider?.allowCustomModels ?? true) ? (
             <>
+              <DiscoverModelsControl
+                discovering={discovering}
+                discovered={discovered}
+                error={discoverError}
+                onDiscover={handleDiscover}
+              />
               <ModelQuickPicks
                 models={models}
                 selected={form.model}

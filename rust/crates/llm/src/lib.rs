@@ -5,6 +5,7 @@
 //! requests to the appropriate provider by name.
 
 pub mod anthropic;
+pub mod discovery;
 pub mod gateway;
 pub mod gemini;
 pub mod openai;
@@ -19,6 +20,9 @@ pub mod testing;
 pub use testing::MockProvider;
 
 pub use anthropic::AnthropicProvider;
+pub use discovery::{
+    DEFAULT_DISCOVERY_TIMEOUT, DiscoveredModel, DiscoveryError, default_discovery_base, discover_models,
+};
 pub use gateway::LlmGateway;
 pub use gemini::GeminiProvider;
 pub use openai::OpenAiProvider;
