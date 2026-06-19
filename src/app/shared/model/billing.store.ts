@@ -46,11 +46,17 @@ interface BillingState {
 // ============================================================================
 
 type BillingErrorArea = 'subscription' | 'usage' | 'invoices'
+type BillingActionArea = 'checkout' | 'portal'
 
 const BILLING_AREA_LABEL: Record<BillingErrorArea, string> = {
   subscription: 'Plan and payment',
   usage: 'Usage',
   invoices: 'Invoices',
+}
+
+const BILLING_ACTION_LABEL: Record<BillingActionArea, string> = {
+  checkout: 'secure payment page',
+  portal: 'billing management page',
 }
 
 function isBillingNotConfigured(err: unknown): boolean {
@@ -130,6 +136,31 @@ export function billingErrorMessage(err: unknown, area: BillingErrorArea): strin
   }
 
   return `${base} If it still fails, ask an owner or admin to check billing.`
+}
+
+export function billingActionErrorMessage(err: unknown, action: BillingActionArea): string {
+  const target = BILLING_ACTION_LABEL[action]
+  const retry = `try opening the ${target} again`
+  const text = structuredErrorText(err).toLowerCase()
+  const code = statusCode(err)
+
+  if (code === 401 || text.includes('sign in again') || text.includes('unauthorized')) {
+    return `Sign in again, then open Billing and ${retry}.`
+  }
+  if (code === 403 || text.includes('permission') || text.includes('forbidden')) {
+    return `Ask an owner or admin to give you billing access, then ${retry}.`
+  }
+  if (code === 429 || text.includes('busy') || text.includes('too many')) {
+    return `Wait a minute, then ${retry}. Billing is busy.`
+  }
+  if (code != null && code >= 500) {
+    return `Wait a few minutes, then ${retry}. If it still fails, ask an owner or admin to check billing.`
+  }
+  if (isNetworkError(err)) {
+    return `Check your connection, then ${retry}. Forge could not connect while opening billing.`
+  }
+
+  return `Try opening the ${target} again. If it still fails, ask an owner or admin to check billing.`
 }
 
 // ============================================================================
@@ -233,12 +264,8 @@ export const useBillingStore = create<BillingState>((set) => ({
   // ---------------------------------------------------------------------------
 
   createCheckout: async (input) => {
-    try {
-      const result = await getBillingApi().createCheckout(input)
-      return result.url
-    } catch {
-      return null
-    }
+    const result = await getBillingApi().createCheckout(input)
+    return result.url
   },
 
   // ---------------------------------------------------------------------------
@@ -246,11 +273,7 @@ export const useBillingStore = create<BillingState>((set) => ({
   // ---------------------------------------------------------------------------
 
   openPortal: async () => {
-    try {
-      const result = await getBillingApi().createPortalAgent(window.location.href)
-      return result.url
-    } catch {
-      return null
-    }
+    const result = await getBillingApi().createPortalAgent(window.location.href)
+    return result.url
   },
 }))
