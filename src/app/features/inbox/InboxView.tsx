@@ -16,11 +16,19 @@ interface InboxFilterEmptyState {
   detail: string
 }
 
-const FILTERS: { id: InboxFilter; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'unread', label: 'Unread' },
-  { id: 'needs-action', label: 'Needs action' },
-  { id: 'credentials', label: 'Account access' },
+const FILTERS: { id: InboxFilter; label: string; ariaLabel: string }[] = [
+  { id: 'all', label: 'All', ariaLabel: 'Show all inbox updates' },
+  { id: 'unread', label: 'Unread', ariaLabel: 'Show unread inbox updates' },
+  {
+    id: 'needs-action',
+    label: 'Needs action',
+    ariaLabel: 'Show inbox updates that need action',
+  },
+  {
+    id: 'credentials',
+    label: 'Account access',
+    ariaLabel: 'Show account access updates',
+  },
 ]
 
 const INBOX_ACTION_STEPS = [
@@ -310,7 +318,7 @@ export function InboxView() {
                 type="button"
                 data-testid={`inbox-filter-${filter.id}`}
                 aria-pressed={selected}
-                aria-label={`Filter by ${filter.label.toLowerCase()} notifications`}
+                aria-label={`${filter.ariaLabel}, ${matchingUpdatesLabel(filterCounts[filter.id])}`}
                 onClick={() => setActiveFilter(filter.id)}
                 className={cn(
                   'flex min-h-8 items-center gap-1.5 rounded-md px-2.5 py-1 text-ui-button font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
@@ -322,6 +330,7 @@ export function InboxView() {
                 <span>{filter.label}</span>
                 <span
                   data-testid={`inbox-filter-count-${filter.id}`}
+                  aria-hidden="true"
                   className={cn(
                     'rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums',
                     selected
@@ -345,6 +354,8 @@ export function InboxView() {
         ) : (
           <div
             data-testid="inbox-filter-empty"
+            role="status"
+            aria-live="polite"
             className="flex h-full flex-col items-center justify-center px-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark"
           >
             <p className="font-medium text-foreground-light dark:text-foreground-dark">
@@ -393,6 +404,10 @@ function inboxFilterEmptyState(filter: InboxFilter): InboxFilterEmptyState {
         detail: 'Open All if a filter is selected, or check Inbox again later for new updates.',
       }
   }
+}
+
+function matchingUpdatesLabel(count: number): string {
+  return `${count} matching ${count === 1 ? 'update' : 'updates'}`
 }
 
 function isActionNotification(notification: Notification): boolean {

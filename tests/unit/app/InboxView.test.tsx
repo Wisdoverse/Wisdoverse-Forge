@@ -402,6 +402,20 @@ describe('InboxView', () => {
     expect(screen.getByTestId('inbox-filter-count-unread').textContent).toBe('2')
     expect(screen.getByTestId('inbox-filter-count-needs-action').textContent).toBe('2')
     expect(screen.getByTestId('inbox-filter-count-credentials').textContent).toBe('1')
+    expect(
+      screen.getByRole('button', { name: /show all inbox updates, 3 matching updates/i })
+    ).toHaveAttribute('aria-pressed', 'true')
+    expect(
+      screen.getByRole('button', { name: /show unread inbox updates, 2 matching updates/i })
+    ).toBeDefined()
+    expect(
+      screen.getByRole('button', {
+        name: /show inbox updates that need action, 2 matching updates/i,
+      })
+    ).toBeDefined()
+    expect(
+      screen.getByRole('button', { name: /show account access updates, 1 matching update/i })
+    ).toBeDefined()
 
     const user = userEvent.setup()
     await user.click(screen.getByTestId('inbox-filter-needs-action'))
@@ -439,6 +453,8 @@ describe('InboxView', () => {
 
     expect(screen.getByTestId('inbox-filter-empty')).toBeDefined()
     expect(screen.getByText('No account access needs reconnecting')).toBeDefined()
+    expect(screen.getByTestId('inbox-filter-empty')).toHaveAttribute('role', 'status')
+    expect(screen.getByTestId('inbox-filter-empty')).toHaveAttribute('aria-live', 'polite')
     expect(screen.getByText(/open all to review other updates/i)).toBeDefined()
     expect(screen.queryByText(/try all for the full history/i)).toBeNull()
   })
@@ -460,6 +476,8 @@ describe('InboxView', () => {
     await user.click(screen.getByTestId('inbox-filter-credentials'))
 
     const emptyState = screen.getByTestId('inbox-filter-empty')
+    expect(emptyState).toHaveAttribute('role', 'status')
+    expect(emptyState).toHaveAttribute('aria-live', 'polite')
     expect(emptyState).toHaveTextContent('No account access needs reconnecting')
     expect(emptyState).toHaveTextContent('Account access is not blocking agent work right now.')
     expect(emptyState).not.toHaveTextContent('No account access needs reconnecting right now.')
@@ -468,6 +486,9 @@ describe('InboxView', () => {
     await user.click(screen.getByRole('button', { name: /show all updates/i }))
 
     expect(screen.getByText('Completed cleanup')).toBeDefined()
+    expect(
+      screen.getByRole('button', { name: /show all inbox updates, 1 matching update/i })
+    ).toHaveAttribute('aria-pressed', 'true')
   })
 
   test('explains empty needs-action lane without failure jargon', async () => {
@@ -486,6 +507,8 @@ describe('InboxView', () => {
     await userEvent.setup().click(screen.getByTestId('inbox-filter-needs-action'))
 
     const emptyState = screen.getByTestId('inbox-filter-empty')
+    expect(emptyState).toHaveAttribute('role', 'status')
+    expect(emptyState).toHaveAttribute('aria-live', 'polite')
     expect(emptyState).toHaveTextContent('You are caught up on action items')
     expect(emptyState).toHaveTextContent(
       'No task is asking for help and no account access needs reconnecting.'
@@ -514,6 +537,8 @@ describe('InboxView', () => {
     await userEvent.setup().click(screen.getByTestId('inbox-filter-unread'))
 
     const emptyState = screen.getByTestId('inbox-filter-empty')
+    expect(emptyState).toHaveAttribute('role', 'status')
+    expect(emptyState).toHaveAttribute('aria-live', 'polite')
     expect(emptyState).toHaveTextContent('No unread updates')
     expect(emptyState).toHaveTextContent(
       'Older updates are still in All. Open All if you need the full history.'
