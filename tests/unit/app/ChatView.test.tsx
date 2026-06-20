@@ -346,6 +346,9 @@ describe('ChatView', () => {
       screen.getByPlaceholderText('Search updates, help requests, work steps...')
     ).toBeInTheDocument()
     expect(
+      screen.getByRole('searchbox', { name: /search conversation/i })
+    ).toHaveAccessibleDescription(/clear it to see the full conversation again/i)
+    expect(
       within(screen.getByTestId('conversation-metric-operator')).getByText('Your messages')
     ).toBeInTheDocument()
     expect(
@@ -368,9 +371,17 @@ describe('ChatView', () => {
     expect(screen.queryByText(/function_call/i)).toBeNull()
 
     const filters = screen.getByTestId('conversation-filter-group')
-    expect(within(filters).getByRole('button', { name: /you\s*1/i })).toBeInTheDocument()
-    expect(within(filters).getByRole('button', { name: /work steps\s*0/i })).toBeInTheDocument()
-    fireEvent.click(within(filters).getByRole('button', { name: /attention\s*1/i }))
+    expect(
+      within(filters).getByRole('button', { name: /show your messages, 1 matching update/i })
+    ).toBeInTheDocument()
+    expect(
+      within(filters).getByRole('button', { name: /show work steps, 0 matching updates/i })
+    ).toBeInTheDocument()
+    fireEvent.click(
+      within(filters).getByRole('button', {
+        name: /show stuck, failed, waiting, or help-needed updates, 1 matching update/i,
+      })
+    )
     expect(screen.getByText('Billing flow is blocked by a missing secret')).toBeInTheDocument()
     expect(screen.queryByText('Settings page shipped')).toBeNull()
 
@@ -379,17 +390,21 @@ describe('ChatView', () => {
     })
     const emptyState = screen.getByTestId('conversation-filter-empty')
     expect(emptyState).toBeInTheDocument()
+    expect(emptyState).toHaveAttribute('role', 'status')
+    expect(emptyState).toHaveAttribute('aria-live', 'polite')
     expect(within(emptyState).getByText('Search and filter are hiding updates')).toBeInTheDocument()
     expect(within(emptyState).getByText(/useful updates may be hidden/i)).toBeInTheDocument()
     expect(within(emptyState).getByText(/check every update/i)).toBeInTheDocument()
     expect(emptyState).not.toHaveTextContent('review every update')
     expect(emptyState).not.toHaveTextContent('No conversation updates match the current filters.')
     expect(emptyState).not.toHaveTextContent('Try All, Attention, or a shorter search term.')
-    fireEvent.click(screen.getByRole('button', { name: /show all updates/i }))
+    fireEvent.click(within(emptyState).getByRole('button', { name: /show all updates/i }))
     expect(screen.getByTestId('conversation-search')).toHaveValue('')
     expect(screen.getByText('Settings page shipped')).toBeInTheDocument()
 
-    fireEvent.click(within(filters).getByRole('button', { name: /work steps\s*0/i }))
+    fireEvent.click(
+      within(filters).getByRole('button', { name: /show work steps, 0 matching updates/i })
+    )
     expect(screen.getByText('Send a file-work task to see work steps')).toBeInTheDocument()
     expect(
       screen.getByText('Work steps appear when an agent shares commands or tool results.')
@@ -415,7 +430,9 @@ describe('ChatView', () => {
     render(<ChatView agentId={providerAgent.id} />)
 
     const filters = screen.getByTestId('conversation-filter-group')
-    fireEvent.click(within(filters).getByRole('button', { name: /you\s*0/i }))
+    fireEvent.click(
+      within(filters).getByRole('button', { name: /show your messages, 0 matching updates/i })
+    )
 
     const emptyState = screen.getByTestId('conversation-filter-empty')
     expect(emptyState).toHaveTextContent('Send a message to see your requests here')
@@ -438,7 +455,11 @@ describe('ChatView', () => {
     render(<ChatView agentId={providerAgent.id} />)
 
     const filters = screen.getByTestId('conversation-filter-group')
-    fireEvent.click(within(filters).getByRole('button', { name: /attention\s*0/i }))
+    fireEvent.click(
+      within(filters).getByRole('button', {
+        name: /show stuck, failed, waiting, or help-needed updates, 0 matching updates/i,
+      })
+    )
 
     const emptyState = screen.getByTestId('conversation-filter-empty')
     expect(emptyState).toHaveTextContent('Use All if you expected a blocker')
@@ -505,8 +526,14 @@ describe('ChatView', () => {
     ).toBeInTheDocument()
 
     const filters = screen.getByTestId('conversation-filter-group')
-    expect(within(filters).getByRole('button', { name: /work steps\s*2/i })).toBeInTheDocument()
-    fireEvent.click(within(filters).getByRole('button', { name: /attention\s*1/i }))
+    expect(
+      within(filters).getByRole('button', { name: /show work steps, 2 matching updates/i })
+    ).toBeInTheDocument()
+    fireEvent.click(
+      within(filters).getByRole('button', {
+        name: /show stuck, failed, waiting, or help-needed updates, 1 matching update/i,
+      })
+    )
     expect(screen.getByText(/Deploy failed because credentials are missing/i)).toBeInTheDocument()
     expect(screen.queryByText(/Typecheck passed/i)).toBeNull()
   })

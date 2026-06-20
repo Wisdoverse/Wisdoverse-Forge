@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   ArrowRight,
@@ -132,6 +132,7 @@ function conversationFilterEmptyCopy(
 }
 
 export function ChatView({ agentId }: ChatViewProps) {
+  const conversationSearchHelpId = useId()
   const turns = useChatStore((s) => s.turns)
   const messages = useChatStore((s) => s.messages)
   const loading = useChatStore((s) => s.loading)
@@ -371,6 +372,7 @@ export function ChatView({ agentId }: ChatViewProps) {
             type="search"
             value={conversationSearch}
             onChange={(event) => setConversationSearch(event.target.value)}
+            aria-describedby={conversationSearchHelpId}
             placeholder="Search updates, help requests, work steps..."
             className={cn(
               'h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-8 pr-3 text-ui-body outline-none',
@@ -379,6 +381,12 @@ export function ChatView({ agentId }: ChatViewProps) {
             )}
           />
         </label>
+        <p
+          id={conversationSearchHelpId}
+          className="text-ui-caption text-secondary-light dark:text-secondary-dark"
+        >
+          Search only filters the updates shown below. Clear it to see the full conversation again.
+        </p>
         <div
           role="group"
           aria-label="Conversation filter"
@@ -389,6 +397,7 @@ export function ChatView({ agentId }: ChatViewProps) {
             <ConversationFilterButton
               key={item.value}
               active={conversationFilter === item.value}
+              value={item.value}
               label={item.label}
               count={item.count}
               onClick={() => setConversationFilter(item.value)}
@@ -496,6 +505,8 @@ function ConversationFilterEmptyState({
   return (
     <div
       data-testid="conversation-filter-empty"
+      role="status"
+      aria-live="polite"
       className="flex flex-col items-center gap-2 text-center text-sm text-secondary-light"
     >
       <span className="font-medium text-foreground-light dark:text-foreground-dark">
@@ -671,19 +682,23 @@ function ConversationMetric({
 
 function ConversationFilterButton({
   active,
+  value,
   label,
   count,
   onClick,
 }: {
   active: boolean
+  value: ConversationFilter
   label: string
   count: number
   onClick: () => void
 }) {
+  const countLabel = `${count} matching ${count === 1 ? 'update' : 'updates'}`
   return (
     <button
       type="button"
       aria-pressed={active}
+      aria-label={`${conversationFilterActionLabel(value)}, ${countLabel}`}
       onClick={onClick}
       className={cn(
         'inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md px-2.5 text-ui-button font-medium transition-colors',
@@ -697,6 +712,21 @@ function ConversationFilterButton({
       <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">{count}</span>
     </button>
   )
+}
+
+function conversationFilterActionLabel(filter: ConversationFilter): string {
+  switch (filter) {
+    case 'all':
+      return 'Show all updates'
+    case 'operator':
+      return 'Show your messages'
+    case 'agent':
+      return 'Show agent replies'
+    case 'tool':
+      return 'Show work steps'
+    case 'attention':
+      return 'Show stuck, failed, waiting, or help-needed updates'
+  }
 }
 
 function summarizeTranscript({
