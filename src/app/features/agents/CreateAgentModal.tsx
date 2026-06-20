@@ -356,6 +356,8 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
   const joinCommandPowershell = localEnrollment?.enrollment?.joinCommandPowershell ?? ''
   const selectedJoinCommand = joinOs === 'posix' ? joinCommand : joinCommandPowershell
   const selectedJoinCommandReady = selectedJoinCommand.trim().length > 0
+  const projectRequiredBeforeCreate =
+    kind !== 'provider' && !selectedProject && Boolean(onOpenProjectsSetup)
 
   function handleOpenProjectsSetup() {
     setCreateModalOpen(false)
@@ -1269,7 +1271,8 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 Cancel
               </button>
               <button
-                type="submit"
+                type={projectRequiredBeforeCreate ? 'button' : 'submit'}
+                onClick={projectRequiredBeforeCreate ? handleOpenProjectsSetup : undefined}
                 disabled={loading}
                 className={cn(
                   'rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white',
@@ -1277,7 +1280,11 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                   loading && 'opacity-50 cursor-not-allowed'
                 )}
               >
-                {loading ? 'Adding…' : 'Add agent'}
+                {projectRequiredBeforeCreate
+                  ? 'Open project settings'
+                  : loading
+                    ? 'Adding…'
+                    : 'Add agent'}
               </button>
             </div>
           </form>
