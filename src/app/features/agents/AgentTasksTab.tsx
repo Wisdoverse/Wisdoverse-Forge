@@ -160,6 +160,7 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
     return (
       <div
         role="alert"
+        aria-live="polite"
         data-testid="agent-tasks-error"
         className={cn(
           'bg-white dark:bg-[#2c2c2e] rounded-xl px-4 py-6',
