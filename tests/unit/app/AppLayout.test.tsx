@@ -128,6 +128,9 @@ describe('AppLayout', () => {
   })
 
   test('top bar shows view toggles', () => {
+    seedProjectNavigation('p1')
+    useBoardStore.getState().setSelectedGroupId('group-1')
+
     render(<MemoryRouter />)
     expect(screen.getByText('Board')).toBeDefined()
     expect(screen.getByText('List')).toBeDefined()
@@ -139,6 +142,30 @@ describe('AppLayout', () => {
     expect(screen.queryByRole('button', { name: 'Status' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Agent' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Priority' })).toBeNull()
+  })
+
+  test('top bar shows the setup step instead of New task when no project exists', () => {
+    render(<MemoryRouter />)
+
+    const setupButton = screen.getByRole('button', { name: 'Set up project' })
+    expect(setupButton).toHaveAttribute(
+      'title',
+      'Open project settings so tasks have a place to belong.'
+    )
+    expect(screen.queryByRole('button', { name: /^new task$/i })).toBeNull()
+  })
+
+  test('top bar shows waiting-place setup before task creation when project setup is incomplete', () => {
+    seedProjectNavigation('p1')
+
+    render(<MemoryRouter />)
+
+    const setupButton = screen.getByRole('button', { name: 'Set up waiting place' })
+    expect(setupButton).toHaveAttribute(
+      'title',
+      'Open Agents to add a waiting place before creating a task.'
+    )
+    expect(screen.queryByRole('button', { name: /^new task$/i })).toBeNull()
   })
 
   test('top bar labels the command search entry for beginners', () => {
@@ -625,7 +652,7 @@ describe('AppLayout', () => {
   test('routes missing project setup from New Task to project settings', async () => {
     const onNavigate = vi.fn()
     render(<MemoryRouter onNavigate={onNavigate} />)
-    fireEvent.click(screen.getByRole('button', { name: /new task/i }))
+    fireEvent.click(screen.getByRole('button', { name: /set up project/i }))
 
     expect(onNavigate).toHaveBeenCalledWith('/settings/projects')
     expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
@@ -637,7 +664,7 @@ describe('AppLayout', () => {
     const onNavigate = vi.fn()
 
     render(<MemoryRouter onNavigate={onNavigate} />)
-    fireEvent.click(screen.getByRole('button', { name: /new task/i }))
+    fireEvent.click(screen.getByRole('button', { name: /set up waiting place/i }))
 
     expect(onNavigate).toHaveBeenCalledWith('/agents')
     expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
