@@ -397,13 +397,13 @@ function handleCliImageUpdate(payload: Record<string, unknown> | null) {
       ? `${display} agent tool package updated`
       : state === 'update_available'
         ? `${display} update available${remoteVersion ? ` (v${remoteVersion})` : ''}`
-        : `${display} tool package check failed`
+        : `Check ${display} tool package in Admin`
   const message =
     state === 'updated'
       ? `New ${display} agents will start on the latest tool package. Running agents are unaffected.`
       : state === 'update_available'
         ? `A newer ${display} tool package is available. Build it from Admin, then new agents can use it. Running agents are unaffected.`
-        : `The ${display} tool package check failed. Open Admin and choose Check now after a few minutes, or ask an owner to check tool package access. New agents keep the current tool package until it succeeds.`
+        : `Open Admin and choose Agent tool updates, then choose Check now after a few minutes. New agents keep the current tool package until the check succeeds. If it still fails, ask an owner to check tool package access.`
   useFeedStore.getState().addNotification({
     id: eventId,
     type: 'cli_image_updated',

@@ -605,6 +605,7 @@ const CLI_IMAGE_STATUS_DEAD_END_PATTERNS = [
   /\bBuilt here\b/i,
   /\bBuilding on this server\b/i,
   /\bBuilds automatically\b/i,
+  /\btool package check failed\b/i,
 ]
 
 const CLI_IMAGE_ACTION_FAILURE_FIRST_PATTERNS = [
@@ -3858,7 +3859,12 @@ function hasOutsideToolAccessNavJargonCopy(relFile, line) {
 }
 
 function hasCliImageStatusDeadEndCopy(relFile, line) {
-  if (!relFile.endsWith('src/app/features/admin/CliImagesPanel.tsx')) return false
+  if (
+    !relFile.endsWith('src/app/features/admin/CliImagesPanel.tsx') &&
+    !relFile.endsWith('src/app/hooks/useWsDispatch.ts')
+  ) {
+    return false
+  }
   if (isLikelyGuardOrParserLine(line)) return false
   return CLI_IMAGE_STATUS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }

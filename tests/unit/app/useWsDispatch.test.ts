@@ -691,9 +691,12 @@ describe('dispatchWsMessage', () => {
     const notifications = useFeedStore.getState().notifications
     expect(notifications).toHaveLength(1)
     expect(notifications[0].type).toBe('cli_image_updated')
-    expect(notifications[0].taskTitle).toContain('tool package check failed')
-    expect(notifications[0].message).toContain('Open Admin and choose Check now')
+    expect(notifications[0].taskTitle).toContain('Check Gemini tool package in Admin')
+    expect(notifications[0].message).toContain(
+      'Open Admin and choose Agent tool updates, then choose Check now'
+    )
     expect(notifications[0].message).toContain('tool package access')
+    expect(notifications[0].message).not.toContain('check failed')
     expect(notifications[0].message).not.toContain('registry timeout')
   })
 
@@ -882,7 +885,8 @@ describe('dispatchWsMessage', () => {
     expect(notifications).toHaveLength(2)
     const fresh = notifications.find((n) => n.id === 'cli-image:gemini:failed:bbb')
     expect(fresh?.read).toBe(false)
-    expect(fresh?.message).toContain('Open Admin and choose Check now')
+    expect(fresh?.message).toContain('Open Admin and choose Agent tool updates')
+    expect(fresh?.message).not.toContain('check failed')
     expect(fresh?.message).not.toContain('auth revoked')
   })
 

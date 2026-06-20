@@ -6011,6 +6011,26 @@ function ToolRow() {
     )
   })
 
+  it('flags agent tool update notifications that start with failed check copy', () => {
+    const cwd = fixture({
+      'src/app/hooks/useWsDispatch.ts': `
+function notifyAgentToolUpdate(display) {
+  return \`\${display} tool package check failed\`
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'cli-image-status-copy',
+        location: 'src/app/hooks/useWsDispatch.ts:3',
+      }),
+    ])
+  })
+
   it('flags agent tool action errors that start with the failure', () => {
     const cwd = fixture({
       'src/app/features/admin/CliImagesPanel.tsx': `
