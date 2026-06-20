@@ -114,17 +114,28 @@ export function GettingStartedView() {
   const verifiedProviderLabel = verifiedProvider ? providerDisplayLabel(verifiedProvider) : null
   const executionCredentialPath = verifiedProvider
     ? '/settings/providers'
-    : providers.length > 0
-      ? '/settings/providers'
-      : runtimeReady
-        ? '/agents'
-        : '/settings/providers'
+    : cliExecutionAgent
+      ? '/agents'
+      : providers.length > 0
+        ? '/settings/providers'
+        : runtimeReady
+          ? '/settings/work-tool-sign-ins'
+          : '/settings/providers'
   const workspaceDetail =
     selectedProject?.name ??
     projects[0]?.name ??
     teams[0]?.name ??
     t('gettingStarted.steps.workspace.empty')
   const hasReusableLearning = skills.length > 0 || taskSnapshot.appliedSkills > 0
+  const firstTaskPath = taskGroupId ? '/tasks' : selectedProject ? '/agents' : '/settings/projects'
+  const firstTaskCta =
+    taskSnapshot.total > 0
+      ? t('gettingStarted.steps.task.open')
+      : taskGroupId
+        ? t('gettingStarted.steps.task.create')
+        : selectedProject
+          ? t('gettingStarted.steps.routing.create')
+          : t('gettingStarted.steps.workspace.create')
 
   const steps = useMemo<SetupStep[]>(
     () => [
@@ -185,7 +196,7 @@ export function GettingStartedView() {
           : providers.length > 0
             ? t('gettingStarted.steps.provider.test')
             : runtimeReady
-              ? t('gettingStarted.steps.provider.connectCli')
+              ? t('gettingStarted.steps.provider.signInTool')
               : t('gettingStarted.steps.provider.create'),
         Icon: KeyRound,
       },
@@ -229,15 +240,14 @@ export function GettingStartedView() {
             ? t('gettingStarted.steps.task.ready', { count: taskSnapshot.total })
             : taskGroupId
               ? t('gettingStarted.steps.task.emptyWithRouting')
-              : t('gettingStarted.steps.task.emptyWithoutRouting'),
+              : selectedProject
+                ? t('gettingStarted.steps.task.emptyWithoutRouting')
+                : t('gettingStarted.steps.task.emptyWithoutProject'),
         why: t('gettingStarted.steps.task.why'),
         success: t('gettingStarted.steps.task.success'),
         complete: taskSnapshot.total > 0,
-        path: '/tasks',
-        cta:
-          taskSnapshot.total > 0
-            ? t('gettingStarted.steps.task.open')
-            : t('gettingStarted.steps.task.create'),
+        path: firstTaskPath,
+        cta: firstTaskCta,
         Icon: ListTodo,
       },
       {
@@ -279,6 +289,8 @@ export function GettingStartedView() {
       executionCredentialPath,
       executionCredentialReady,
       firstAgent,
+      firstTaskCta,
+      firstTaskPath,
       projects,
       providers.length,
       runtimeReady,
@@ -384,7 +396,11 @@ export function GettingStartedView() {
                 {t('gettingStarted.skipHint')}
               </p>
               {skipError && (
-                <p role="alert" className="mt-2 text-ui-caption font-medium text-apple-red">
+                <p
+                  role="alert"
+                  aria-live="polite"
+                  className="mt-2 text-ui-caption font-medium text-apple-red"
+                >
                   {skipError}
                 </p>
               )}

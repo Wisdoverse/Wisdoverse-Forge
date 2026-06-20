@@ -67,7 +67,7 @@ function createTeamErrorMessage(error: unknown): string {
     code == null &&
     (lower.startsWith('sign in again') ||
       lower.startsWith('ask an owner or admin') ||
-      lower.startsWith('refresh settings') ||
+      lower.startsWith('open settings') ||
       lower.startsWith('use a different name') ||
       lower.startsWith('enter a team name') ||
       lower.startsWith('wait a minute') ||
@@ -84,7 +84,7 @@ function createTeamErrorMessage(error: unknown): string {
     return 'Ask an owner or admin to let you create teams in this team space.'
   }
   if (code === 404) {
-    return 'Refresh Settings, then create this team again. The team space may have changed.'
+    return 'Open Settings and Teams and Projects again, then create this team. The team space may have changed.'
   }
   if (code === 409 || lower.includes('already exists') || lower.includes('duplicate')) {
     return 'Use a different team name, then create this team again.'
@@ -98,7 +98,7 @@ function createTeamErrorMessage(error: unknown): string {
     return 'Wait a minute, then create this team again. Too many setup changes are happening right now.'
   }
   if (code != null && code >= 500) {
-    return 'Refresh Settings, then create this team again. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
+    return 'Open Settings and Teams and Projects again, then create this team. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
   }
   if (
     error instanceof TypeError ||
@@ -152,7 +152,7 @@ export function CreateTeamForm({ onSave, onCancel, saving }: CreateTeamFormProps
       )}
     >
       {bannerError && (
-        <div id={bannerId} role="alert" className={uiStyles.error}>
+        <div id={bannerId} role="alert" aria-live="polite" className={uiStyles.error}>
           {bannerError}
         </div>
       )}
@@ -197,13 +197,13 @@ export function CreateTeamForm({ onSave, onCancel, saving }: CreateTeamFormProps
         </p>
         {name.trim() && (
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Shown at the end of team links: {slugifyName(name)}. Forge creates it automatically from
-            the team name.
+            Team link preview: {slugifyName(name)}. Forge creates it automatically from the team
+            name.
           </p>
         )}
       </div>
       {visibleError && (
-        <p id={errorId} role="alert" className="text-ui-caption text-apple-red">
+        <p id={errorId} role="alert" aria-live="polite" className="text-ui-caption text-apple-red">
           {visibleError}
         </p>
       )}

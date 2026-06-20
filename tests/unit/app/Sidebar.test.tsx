@@ -260,7 +260,7 @@ describe('Sidebar', () => {
 
     expect(menu).toHaveAttribute('role', 'menu')
     expect(menu).toHaveAttribute('aria-label', 'Project X project menu')
-    expect(menuScope.getByText('Team Alpha team · project link ending proj-x')).toBeInTheDocument()
+    expect(menuScope.getByText('Team Alpha team · project link preview proj-x')).toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /open project board/i })).toBeInTheDocument()
     expect(
       menuScope.getByRole('menuitem', { name: /new task for this project/i })
@@ -271,27 +271,31 @@ describe('Sidebar', () => {
     expect(menuScope.queryByText(/choose roles/i)).not.toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /rename project/i })).toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /all project settings/i })).toBeInTheDocument()
-    expect(menuScope.getByRole('menuitem', { name: /copy project code/i })).toBeInTheDocument()
+    expect(menuScope.getByRole('menuitem', { name: /copy project reference/i })).toBeInTheDocument()
+    expect(
+      menuScope.queryByRole('menuitem', { name: /copy project code/i })
+    ).not.toBeInTheDocument()
     expect(menuScope.queryByRole('menuitem', { name: /copy project id/i })).not.toBeInTheDocument()
     expect(
       menuScope.queryByRole('menuitem', { name: /copy support reference/i })
     ).not.toBeInTheDocument()
     expect(
-      menuScope.getByRole('menuitem', { name: /copy project link ending/i })
+      menuScope.getByRole('menuitem', { name: /copy project link preview/i })
     ).toBeInTheDocument()
     expect(
-      menuScope.getByText(/another page or support asks for this project code/i)
+      menuScope.getByText(/another page or an owner or admin asks for this project reference/i)
     ).toBeInTheDocument()
+    expect(menuScope.queryByText(/another page or support asks for this project code/i)).toBeNull()
     expect(menuScope.queryByText(/another page or support asks for this project ID/i)).toBeNull()
-    expect(menuScope.queryByText(/project reference/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/only share this if support asks/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText('p1')).not.toBeInTheDocument()
-    expect(menuScope.queryByText(/admin asks/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/name used in links/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/link name/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/project short name/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/short name used in project links/i)).not.toBeInTheDocument()
-    expect(menuScope.getByText(/shown at the end of project links/i)).toBeInTheDocument()
+    expect(menuScope.getByText(/Project link preview: proj-x/i)).toBeInTheDocument()
+    expect(menuScope.queryByText(/shown at the end of project links/i)).not.toBeInTheDocument()
+    expect(menuScope.queryByText(/project link ending/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/Forge uses this in project links/i)).not.toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /delete project/i })).toBeInTheDocument()
   })
@@ -337,7 +341,8 @@ describe('Sidebar', () => {
 
     expect(screen.getByRole('menu', { name: /project x project menu/i })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /open project board/i })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: /copy project code/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /copy project reference/i })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /copy project code/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /copy project id/i })).not.toBeInTheDocument()
     expect(
       screen.queryByRole('menuitem', { name: /copy support reference/i })
@@ -386,15 +391,16 @@ describe('Sidebar', () => {
 
     render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
     fireEvent.contextMenu(screen.getByTestId('project-p1'))
-    fireEvent.click(screen.getByRole('menuitem', { name: /copy project code/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /copy project reference/i }))
 
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('p1'))
-    expect(screen.getByTestId('project-copy-status')).toHaveTextContent('Project code copied')
+    expect(screen.getByTestId('project-copy-status')).toHaveTextContent('Project reference copied')
+    expect(screen.getByTestId('project-copy-status')).not.toHaveTextContent('Project code copied')
     expect(screen.getByTestId('project-copy-status')).not.toHaveTextContent('Project ID copied')
     expect(screen.getByTestId('project-copy-status')).not.toHaveTextContent(/support reference/i)
   })
 
-  it('shows a manual project code when browser copy fails', async () => {
+  it('shows a manual project reference when browser copy fails', async () => {
     seedProjectTree()
     const writeText = vi.fn().mockRejectedValue(new Error('denied'))
     Object.defineProperty(navigator, 'clipboard', {
@@ -404,12 +410,13 @@ describe('Sidebar', () => {
 
     render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
     fireEvent.contextMenu(screen.getByTestId('project-p1'))
-    fireEvent.click(screen.getByRole('menuitem', { name: /copy project code/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /copy project reference/i }))
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'Copy did not work. Select the project code below and copy it yourself.'
+      'Copy did not work. Select the project reference below and copy it yourself.'
     )
+    expect(alert).not.toHaveTextContent(/project code/i)
     expect(alert).not.toHaveTextContent(/project ID/i)
     expect(screen.getByTestId('project-copy-manual-value')).toHaveTextContent('p1')
     expect(alert).not.toHaveTextContent(/support reference/i)
@@ -527,7 +534,9 @@ describe('Sidebar', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
-    expect(screen.getByText('Enter a team name, then save again.')).toBeInTheDocument()
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent('Enter a team name, then save again.')
     expect(screen.queryByText('Team name is required')).not.toBeInTheDocument()
     expect(teamApi.updateTeam).not.toHaveBeenCalled()
   })
@@ -584,6 +593,12 @@ describe('Sidebar', () => {
     fireEvent.click(screen.getByRole('button', { name: /^delete team$/i }))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveAttribute('id', 'sidebar-delete-team-error')
+    expect(screen.getByRole('dialog', { name: /delete this team/i })).toHaveAttribute(
+      'aria-describedby',
+      expect.stringContaining('sidebar-delete-team-error')
+    )
     expect(alert).toHaveTextContent(
       'Ask an owner or admin to let you delete this team, then delete it again from the left menu. You do not have permission to delete this team.'
     )
@@ -684,7 +699,7 @@ describe('Sidebar', () => {
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
     expect(
-      await screen.findByText(/Choose a different project name, refresh the left menu/i)
+      await screen.findByText(/Choose a different project name, then open the left menu/i)
     ).toBeInTheDocument()
     expect(screen.queryByText(/project name already exists/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/422/i)).not.toBeInTheDocument()
@@ -706,7 +721,7 @@ describe('Sidebar', () => {
 
     expect(
       await screen.findByText(
-        'Refresh the left menu, then save this project name again. Forge could not save it right now. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
+        'Open the left menu, choose the current project, then save this project name again. Forge could not save it right now. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
       )
     ).toBeInTheDocument()
     expect(screen.queryByText(/API 500/i)).not.toBeInTheDocument()
@@ -726,7 +741,9 @@ describe('Sidebar', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
-    expect(screen.getByText('Enter a project name, then save again.')).toBeInTheDocument()
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent('Enter a project name, then save again.')
     expect(screen.queryByText('Project name is required')).not.toBeInTheDocument()
     expect(projectApi.updateProject).not.toHaveBeenCalled()
   })
@@ -766,12 +783,56 @@ describe('Sidebar', () => {
     fireEvent.click(screen.getByRole('button', { name: /^delete project$/i }))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveAttribute('id', 'sidebar-delete-project-error')
+    expect(screen.getByRole('dialog', { name: /delete this project/i })).toHaveAttribute(
+      'aria-describedby',
+      expect.stringContaining('sidebar-delete-project-error')
+    )
     expect(alert).toHaveTextContent(
-      'Move agents out of this project first, then delete the project again.'
+      'Go to Agents, change or remove agents that use this project, then delete the project again.'
     )
     expect(alert).not.toHaveTextContent(/Move agents first/i)
     expect(alert).not.toHaveTextContent(/API 422/i)
     expect(screen.getByText('Project X')).toBeInTheDocument()
+  })
+
+  it('shows the task next step when sidebar project delete is blocked by tasks', async () => {
+    seedProjectTree()
+    vi.mocked(projectApi.deleteProject).mockRejectedValueOnce(
+      new Error('API 422: {"message":"finish project tasks before delete"}')
+    )
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /delete project/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^delete project$/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
+      "Go to Tasks, finish this project's tasks first, then delete the project again."
+    )
+    expect(alert).not.toHaveTextContent(/finish project tasks before delete/i)
+  })
+
+  it('shows the project next step when sidebar team delete is blocked by projects', async () => {
+    seedProjectTree()
+    vi.mocked(teamApi.deleteTeam).mockRejectedValueOnce(
+      new Error('API 422: {"message":"team still has projects"}')
+    )
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('team-t1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /delete team/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^delete team$/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
+      "Open the left menu, delete this team's projects first, then delete the team again."
+    )
+    expect(alert).not.toHaveTextContent(/team still has projects/i)
   })
 
   it('shows next-step guidance when sidebar project delete is denied', async () => {
@@ -786,6 +847,7 @@ describe('Sidebar', () => {
     fireEvent.click(screen.getByRole('button', { name: /^delete project$/i }))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
       'Ask an owner or admin to let you delete this project, then delete it again from the left menu. You do not have permission to delete this project.'
     )

@@ -130,8 +130,9 @@ describe('ContextTab', () => {
     )
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
-      'Ask an owner or admin to give you access to this task, then refresh the task details. You do not have permission to view this task.'
+      'Ask an owner or admin to give you access to this task, then open it again from the Tasks page. You do not have permission to view this task.'
     )
     expect(alert).not.toHaveTextContent('task detail panel')
     expect(alert).not.toHaveTextContent('HTTP 403')
@@ -266,10 +267,12 @@ describe('ContextTab', () => {
     expect(screen.getByText('Team space')).toBeDefined()
     expect(screen.queryByText('Team space-level')).toBeNull()
     expect(screen.queryByText('Organization-level')).toBeNull()
-    expect(screen.getByText('Suggested notes to review')).toBeDefined()
+    expect(screen.getByText('Suggested notes to check')).toBeDefined()
+    expect(screen.queryByText('Suggested notes to review')).toBeNull()
     expect(screen.queryByText('Suggested memory updates')).toBeNull()
     expect(screen.getByText('New release memory')).toBeDefined()
-    expect(screen.getByText('Suggested instructions to review')).toBeDefined()
+    expect(screen.getByText('Suggested instructions to check')).toBeDefined()
+    expect(screen.queryByText('Suggested instructions to review')).toBeNull()
     expect(screen.queryByText('Suggested saved instructions')).toBeNull()
     expect(screen.getByText('Release operator')).toBeDefined()
     expect(screen.getByTestId('context-evidence')).toBeDefined()
@@ -327,7 +330,8 @@ describe('ContextTab', () => {
     expect(await screen.findByText('Agent checked saved notes and instructions')).toBeDefined()
     expect(screen.getByText('Waiting to start')).toBeDefined()
     expect(screen.getByText('Check task status')).toBeDefined()
-    expect(screen.getByText('Refresh task status')).toBeDefined()
+    expect(screen.getByText('Open task details to check status')).toBeDefined()
+    expect(screen.queryByText('Refresh task status')).toBeNull()
     expect(screen.queryByText('Status not reported')).toBeNull()
     expect(screen.queryByText(/waiting_for_context/i)).toBeNull()
     expect(screen.queryByText('Unknown')).toBeNull()
@@ -424,6 +428,7 @@ describe('ContextTab', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: /show complete saved note/i }))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
       'Choose Show complete saved note again before relying on it. The complete saved note could not load.'
     )
@@ -467,5 +472,31 @@ describe('ContextTab', () => {
 
     expect(recordFeedback).toHaveBeenCalledOnce()
     expect(recordFeedback.mock.calls[0][1]).toBe('useful')
+  })
+
+  test('announces beginner-safe feedback save failures', async () => {
+    const recordFeedback = vi.fn(async () => {
+      throw new Error('HTTP 500: database unavailable')
+    })
+
+    render(
+      <ContextTab
+        taskId="task-1"
+        loadContext={async () => context({ appliedItems: [applied({ itemId: 'memory-1' })] })}
+        recordFeedback={recordFeedback}
+      />
+    )
+
+    const card = await screen.findByText('Deployment memory')
+    const article = card.closest('article')
+    expect(article).not.toBeNull()
+    await userEvent.setup().click(within(article!).getByRole('button', { name: 'Useful' }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(/Open task details again, then choose the feedback option again/i)
+    expect(alert).toHaveTextContent(/Forge could not save feedback right now/i)
+    expect(alert).not.toHaveTextContent(/HTTP 500/i)
+    expect(alert).not.toHaveTextContent(/database unavailable/i)
   })
 })

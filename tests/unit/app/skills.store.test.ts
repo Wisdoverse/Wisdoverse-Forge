@@ -32,14 +32,14 @@ describe('skillHttpErrorMessage', () => {
   test('turns unauthorized catalog loads into a sign-in step', () => {
     expectBeginnerMessage(
       skillHttpErrorMessage('load', 401),
-      'Sign in again, then refresh Saved instructions.'
+      'Sign in again, then open Saved instructions again.'
     )
   })
 
   test('turns create permission failures into team space access guidance', () => {
     expectBeginnerMessage(
       skillHttpErrorMessage('create', 403),
-      'Ask an owner or admin to let you create saved instructions for this team space.'
+      'Ask an owner or admin to let you create saved instructions for this team space, then create the instruction again.'
     )
     expect(skillHttpErrorMessage('create', 403)).not.toContain('workspace instructions')
   })
@@ -47,7 +47,7 @@ describe('skillHttpErrorMessage', () => {
   test('turns catalog permission failures into team space access guidance', () => {
     expectBeginnerMessage(
       skillHttpErrorMessage('load', 403),
-      'Ask an owner or admin to update your team space access, then refresh Saved instructions. You do not have access to saved instructions for this team space.'
+      'Ask an owner or admin to update your team space access, then open Saved instructions again. You do not have access to saved instructions for this team space.'
     )
     expect(skillHttpErrorMessage('load', 403)).not.toContain('workspace instructions')
   })
@@ -55,8 +55,25 @@ describe('skillHttpErrorMessage', () => {
   test('turns validation details into a field-specific next step', () => {
     expectBeginnerMessage(
       skillHttpErrorMessage('create', 422, { error: { message: 'content is required' } }),
-      'Enter the saved instructions, then try again.'
+      'Enter the saved instructions, then create the instruction again.'
     )
+  })
+
+  test('turns duplicate saved instruction errors into a specific check step', () => {
+    const message = skillHttpErrorMessage('create', 409)
+
+    expectBeginnerMessage(
+      message,
+      'Open Saved instructions to check for a similar item, then change the name or matching words and create the instruction again.'
+    )
+    expect(message).not.toContain('Review the existing instructions')
+  })
+
+  test('uses a check step for unknown create failures', () => {
+    const message = skillHttpErrorMessage('create', 418)
+
+    expectBeginnerMessage(message, 'Check the required fields, then create the instruction again.')
+    expect(message).not.toContain('Review the fields')
   })
 })
 
@@ -66,7 +83,7 @@ describe('useSkillsStore errors', () => {
 
     await useSkillsStore.getState().loadSkills()
 
-    expect(useSkillsStore.getState().error).toBe('Refresh Saved instructions to load the list.')
+    expect(useSkillsStore.getState().error).toBe('Open Saved instructions again to load the list.')
     expect(useSkillsStore.getState().error).not.toContain('service is temporarily unavailable')
     expect(useSkillsStore.getState().error).not.toContain('database unavailable')
   })
@@ -77,7 +94,7 @@ describe('useSkillsStore errors', () => {
     await useSkillsStore.getState().loadSkills()
 
     expect(useSkillsStore.getState().error).toBe(
-      'Check your connection, then refresh Saved instructions to load the list.'
+      'Check your connection, then open Saved instructions again to load the list.'
     )
     expect(useSkillsStore.getState().error).not.toContain('Failed to fetch')
   })
@@ -87,7 +104,7 @@ describe('useSkillsStore errors', () => {
 
     await useSkillsStore.getState().loadSkills()
 
-    expect(useSkillsStore.getState().error).toBe('Refresh Saved instructions to load the list.')
+    expect(useSkillsStore.getState().error).toBe('Open Saved instructions again to load the list.')
     expect(useSkillsStore.getState().error).not.toContain('database parser detail')
   })
 
@@ -100,7 +117,7 @@ describe('useSkillsStore errors', () => {
         trigger_pattern: '[',
         content: 'Review the task',
       })
-    ).rejects.toThrow('Check the matching words, then try again.')
+    ).rejects.toThrow('Check the matching words, then create the instruction again.')
   })
 
   test('throws a connection recovery step when skill creation cannot reach the server', async () => {

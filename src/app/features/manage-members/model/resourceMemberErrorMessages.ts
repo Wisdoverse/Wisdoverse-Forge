@@ -35,10 +35,10 @@ export function resourceMemberErrorMessage(
     return `Ask an owner or admin to give you access to manage people here, then open Members for this ${resource}. You do not have permission right now.`
   }
   if (status === 404) {
-    return `Refresh members or choose another ${resource}. People for this ${resource} are not available.`
+    return `Open Members for this ${resource} again, or choose another ${resource}. This ${resource} may have changed or been removed.`
   }
   if (status === 409) {
-    return "This person's access changed while you were editing. Refresh the members list, review who has access, then try again."
+    return `Open Members for this ${resource} again, check who has access, then try again. This person's access changed while you were editing.`
   }
   if (status === 422) {
     return validationMessage(action, resource, detail)
@@ -50,7 +50,7 @@ export function resourceMemberErrorMessage(
     return memberUnavailableMessage(action, resource)
   }
 
-  return `Refresh the members list, then ${retrySummary(action, resource)}. Forge could not ${actionSummary(action, resource)}.`
+  return `Open Members for this ${resource} again, then ${retrySummary(action, resource)}. Forge could not ${actionSummary(action, resource)}.`
 }
 
 function memberConnectionMessage(action: ResourceMemberErrorAction, resource: string): string {
@@ -63,10 +63,10 @@ function memberConnectionMessage(action: ResourceMemberErrorAction, resource: st
 
 function memberUnavailableMessage(action: ResourceMemberErrorAction, resource: string): string {
   if (action === 'load') {
-    return `Refresh members to load people for this ${resource}. If it still fails, ask an owner or admin to check people access settings.`
+    return `Open Members for this ${resource} again. If it still fails, ask an owner or admin to check people access settings.`
   }
   const operation = 'update people access'
-  return `Refresh members, then ${retrySummary(action, resource)}. Forge could not ${operation} right now. If it still fails, ask an owner or admin to check people access settings.`
+  return `Open Members for this ${resource} again, then ${retrySummary(action, resource)}. Forge could not ${operation} right now. If it still fails, ask an owner or admin to check people access settings.`
 }
 
 function actionSummary(action: ResourceMemberErrorAction, resource: string): string {
@@ -110,7 +110,7 @@ function validationMessage(
 
   switch (action) {
     case 'load':
-      return `Refresh members to load people for this ${resource}.`
+      return `Open Members for this ${resource} again.`
     case 'add':
       if (normalized.includes('role')) {
         return 'Choose this person and what they can do, then add them again.'

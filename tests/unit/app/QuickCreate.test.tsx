@@ -56,7 +56,9 @@ describe('QuickCreate', () => {
     fireEvent.keyDown(input, { key: 'Enter' })
 
     expect(onSubmit).not.toHaveBeenCalled()
-    expect(screen.getByRole('alert')).toHaveTextContent('Write the task goal before saving it.')
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent('Write the task goal before saving it.')
     expect(input).toHaveFocus()
 
     fireEvent.change(input, {
@@ -116,7 +118,9 @@ describe('QuickCreate', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent('The task was not saved')
     )
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
       'Check the project, where tasks wait, and your connection'
     )
     expect(input).toHaveValue('Keep this task')
@@ -139,7 +143,9 @@ describe('QuickCreate', () => {
     fireEvent.click(screen.getByRole('button', { name: /^save for later$/i }))
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('Recover this task', 'backlog'))
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
       'Check the project, where tasks wait, and the result, then create the task again.'
     )
     expect(screen.getByRole('textbox', { name: /task goal/i })).toHaveValue('Recover this task')
@@ -162,7 +168,9 @@ describe('QuickCreate', () => {
         'The task was not saved. Check the project, where tasks wait, and your connection, then choose Save for later again.'
       )
     )
-    expect(screen.getByRole('alert')).not.toHaveTextContent('socket hang up')
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).not.toHaveTextContent('socket hang up')
     expect(screen.getByRole('textbox', { name: /task goal/i })).toHaveValue('Retry this task')
   })
 })

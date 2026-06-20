@@ -1,14 +1,14 @@
 /**
- * Text-Only Model Agent UX — E2E spec (#21)
+ * Simple chat agent UX — E2E spec (#21)
  *
  * Covers the issue-21 UI plumbing end-to-end using the same mocked-API
  * pattern as react-app-smoke.spec.ts.  All backend HTTP calls are
  * intercepted by page.route(); no real server required.
  *
  * Tests:
- *   1. CreateAgentModal — "Text-only model" radio reveals system-prompt textarea.
+ *   1. CreateAgentModal — "Simple chat agent" radio reveals system-prompt textarea.
  *   2. CreateAgentModal submit — POST body contains lowercase provider + systemPrompt.
- *   3. Agent list — text-only model agent shows "Text-only" badge (no cliTool).
+ *   3. Agent list — chat-only agent shows the chat-only badge (no cliTool).
  *   4. Chat tab — ChatComposer renders; Send disabled when empty.
  *   5. ChatComposer Cmd/Ctrl+Enter — fires POST /prompt with correct body.
  *   6. AgentConfigTab — loads existing systemPrompt; PATCH body captured on Save.
@@ -199,7 +199,7 @@ async function waitForAppReady(page: Page): Promise<void> {
 }
 
 // Seed the configured LLM providers (the gateway). The CreateAgentModal
-// self-loads these on open via GET /llm-providers, so the Provider + Prompt
+// self-loads these on open via GET /llm-providers, so the simple chat agent
 // dropdown is populated even when opened from a deep link to /agents.
 async function setupProviderMocks(page: Page): Promise<void> {
   await page.route('**/api/v1/llm-providers', (r: Route) =>
@@ -232,19 +232,24 @@ async function navigateToAgents(page: Page, baseURL: string): Promise<void> {
   await waitForAppReady(page)
   await page.locator('[data-testid="sidebar-nav-agents"]').click()
   await page.waitForURL('**/agents')
-  await expect(page.getByTestId('page-agents').getByRole('heading', { name: 'Agents' })).toBeVisible({ timeout: 5000 })
+  await expect(
+    page.getByTestId('page-agents').getByRole('heading', { name: 'Agents' })
+  ).toBeVisible({ timeout: 5000 })
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-test.describe.serial('Text-only model Agent UX (#21)', () => {
+test.describe.serial('Simple chat agent UX (#21)', () => {
   // 1. CreateAgentModal — kind switch reveals system-prompt textarea ───────────
 
-  test('1. Text-only model radio reveals system-prompt textarea', async ({ page, baseURL }) => {
+  test('1. Simple chat agent radio reveals system-prompt textarea', async ({ page, baseURL }) => {
     await navigateToAgents(page, baseURL!)
 
     // Open modal
-    await page.getByText('Create Agent').first().click()
+    await page
+      .getByRole('button', { name: /Create Agent/i })
+      .first()
+      .click()
     await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 })
 
     // With a tested provider seeded, the modal defaults to "Simple chat agent"
@@ -295,7 +300,10 @@ test.describe.serial('Text-only model Agent UX (#21)', () => {
       })
     })
 
-    await page.getByText('Create Agent').first().click()
+    await page
+      .getByRole('button', { name: /Create Agent/i })
+      .first()
+      .click()
     await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 })
 
     // Switch to provider kind, then wait for the gateway providers to self-load
@@ -326,12 +334,9 @@ test.describe.serial('Text-only model Agent UX (#21)', () => {
     expect(capturedBody.systemPrompt).toBe('Be concise.')
   })
 
-  // 3. Agent list renders text-only badge when cliTool is null ───────────────
+  // 3. Agent list renders chat-only badge when cliTool is null ───────────────
 
-  test('3. Agent list shows Text-only badge for text-only model agent', async ({
-    page,
-    baseURL,
-  }) => {
+  test('3. Agent list shows chat-only badge for chat-only agent', async ({ page, baseURL }) => {
     await navigateToAgents(page, baseURL!)
 
     // Agent card should be present
@@ -343,6 +348,9 @@ test.describe.serial('Text-only model Agent UX (#21)', () => {
 
     // Should NOT have the container/"Project files" badge
     await expect(card.getByText('Project files', { exact: true })).not.toBeVisible()
+
+    // Should NOT show old managed workspace copy.
+    await expect(card.getByText('Managed', { exact: true })).not.toBeVisible()
   })
 
   // 4. Chat tab — ChatComposer renders; Send disabled when empty ─────────────

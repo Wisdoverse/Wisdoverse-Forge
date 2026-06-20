@@ -88,9 +88,9 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
         </p>
       ) : (
         <p>
-          This agent answers in chat through an AI service. It can plan, write, and review text, but
-          it cannot open project files on its own. For file work, use an agent on this computer or
-          one that can edit project files.
+          This agent answers in chat through an AI service. It can answer questions, write, and
+          check text or results, but it cannot open project files on its own. For file work, use an
+          agent on this computer or one that can edit project files.
         </p>
       )}
     </div>
@@ -131,7 +131,7 @@ function agentConnectionStatus(agent: AgentInfo): string {
 }
 
 function agentAvailabilityLabel(agent: AgentInfo): string {
-  if (agent.status === 'idle') return 'Can be assigned now'
+  if (agent.status === 'idle') return 'Ready for work'
   if (agent.status === 'working') return 'Already working'
   if (isHostCliAgent(agent)) return 'Reconnect from Agents first'
   if (agent.cliTool) return 'Open Live work and start file work'
@@ -170,7 +170,9 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
       .catch(() => {
         if (!cancelled) {
           setRecentTasks([])
-          setRecentTasksError("Refresh Agents or open Tasks to check this agent's latest work.")
+          setRecentTasksError(
+            "Go back to Agents and choose this agent again, or open Tasks to check this agent's latest work."
+          )
         }
       })
     return () => {
@@ -300,7 +302,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
               />
               <DetailRow
                 label="Project for new tasks"
-                value={agent.projectName ?? 'Choose when assigning work'}
+                value={agent.projectName ?? 'Choose when sending work'}
               />
               <DetailRow label="Folder agents open" value={agentFolderLabel(agent)} />
               <DetailRow label="Connection" value={agentConnectionStatus(agent)} />
@@ -391,7 +393,7 @@ function agentNextStep(
     return {
       title: 'Check the AI service before sending work',
       detail:
-        'Open AI service settings, choose Check connection for this service, then refresh Agents before sending chat work.',
+        'Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again before sending chat work.',
       success: 'The agent returns to Ready and can answer in chat.',
       ready: false,
       targetHref: '/settings/providers',
@@ -412,9 +414,9 @@ function agentNextStep(
 
   if (recentTasksError && agent.status !== 'idle') {
     return {
-      title: 'Refresh or open Tasks to check activity',
+      title: 'Choose this agent again or open Tasks',
       detail:
-        "This page could not load the agent's recent task history. Refresh Agents, or open Tasks to confirm what is running before assigning more work.",
+        "This page could not load the agent's recent task history. Go back to Agents and choose this agent again, or open Tasks to confirm what is running before sending more work.",
       success: 'You can see the latest task state before deciding what to do next.',
       ready: false,
       targetTab: 'tasks',
@@ -440,8 +442,7 @@ function agentNextStep(
     detail: latestTask
       ? `The latest task was "${latestTask.params.task}" updated ${formatRelativeTime(latestTask.updatedAt)}.`
       : "Go to Tasks to load this agent's work history and decide what to send next.",
-    success:
-      'You can decide whether to reuse the agent, check result files, or assign another task.',
+    success: 'You can decide whether to reuse the agent, check result files, or send another task.',
     ready: true,
     targetTab: 'tasks',
     actionLabel: 'Open tasks',

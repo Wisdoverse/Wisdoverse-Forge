@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest'
 import { agentAiServiceLabel, agentRuntimeLabel } from '@app/entities/agent'
 
 describe('agent display labels', () => {
-  it('turns missing AI service values into a refresh step', () => {
-    expect(agentAiServiceLabel(null)).toBe('Refresh AI service')
-    expect(agentAiServiceLabel(' ')).toBe('Refresh AI service')
+  it('turns missing AI service values into a setup check', () => {
+    expect(agentAiServiceLabel(null)).toBe('Check AI service setup')
+    expect(agentAiServiceLabel(' ')).toBe('Check AI service setup')
   })
 
   it('keeps known and check-needed AI service values readable', () => {

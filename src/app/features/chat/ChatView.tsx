@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   ArrowRight,
@@ -35,7 +35,8 @@ const CONVERSATION_FILTERS: { value: ConversationFilter; label: string }[] = [
 
 const PROVIDER_EMPTY_COPY = {
   title: 'Start by asking this agent',
-  detail: 'Send a short request below when you need planning, review, or a direct answer.',
+  detail:
+    'Send a short request below when you need a question answered, writing help, or a result checked.',
   steps: [
     'Ask for one outcome at a time.',
     'Use Attention after a reply to find what needs help.',
@@ -47,9 +48,9 @@ const WORKSPACE_AGENT_EMPTY_COPY = {
   title: 'Send this agent a task to start updates',
   detail: 'This history fills in after the agent receives work or reports progress.',
   steps: [
-    'Create a task and assign it to this agent, or choose where tasks wait so this agent can receive it.',
+    'Create a task, choose this agent, or choose where tasks wait so this agent can receive it.',
     'Check Attention once work starts to see what needs help.',
-    'Refresh if the agent just came online.',
+    'Open Agents, confirm this agent shows Ready, then return here.',
   ],
 }
 
@@ -77,7 +78,7 @@ function conversationFilterEmptyCopy(
       title: 'Search and filter are hiding updates',
       detail:
         'The search is only looking inside the selected view, so useful updates may be hidden.',
-      nextStep: 'Next: clear filters, review every update, then search again with one short word.',
+      nextStep: 'Next: show all updates, then search again with one short word.',
     }
   }
 
@@ -85,7 +86,7 @@ function conversationFilterEmptyCopy(
     return {
       title: 'Search did not find a conversation update',
       detail: 'Try one word from the update, such as the task name, result, or help request.',
-      nextStep: 'Next: clear the search to see every update again.',
+      nextStep: 'Next: show all updates to return to the full conversation.',
     }
   }
 
@@ -102,7 +103,7 @@ function conversationFilterEmptyCopy(
     return {
       title: 'Send a message to see your requests here',
       detail: 'The You filter only shows requests you sent.',
-      nextStep: 'Next: use All to review every update, or send a message below to add a request.',
+      nextStep: 'Next: use All to check every update, or send a message below to add a request.',
     }
   }
 
@@ -116,9 +117,10 @@ function conversationFilterEmptyCopy(
 
   if (filter === 'tool') {
     return {
-      title: 'Assign a task to see work steps',
+      title: 'Send a file-work task to see work steps',
       detail: 'Work steps appear when an agent shares commands or tool results.',
-      nextStep: 'Next: use All to see chat updates, or assign a task so work steps can appear.',
+      nextStep:
+        'Next: use All to see chat updates, or send a file-work task so work steps can appear.',
     }
   }
 
@@ -130,6 +132,7 @@ function conversationFilterEmptyCopy(
 }
 
 export function ChatView({ agentId }: ChatViewProps) {
+  const conversationSearchHelpId = useId()
   const turns = useChatStore((s) => s.turns)
   const messages = useChatStore((s) => s.messages)
   const loading = useChatStore((s) => s.loading)
@@ -145,7 +148,7 @@ export function ChatView({ agentId }: ChatViewProps) {
   const isProviderAgent = agent != null && !agent.cliTool
   const offline = agent?.status === 'offline'
   const offlineRecoveryDetail = isProviderAgent
-    ? 'This chat-only AI service is not ready. Open AI service settings, choose Check connection for this service, then refresh Agents. Ready means this agent can answer in chat.'
+    ? 'This chat-only AI service is not ready. Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again. Ready means this agent can answer in chat.'
     : 'This agent is not ready. Open Agents, start or reconnect it, then return here when it shows Ready.'
   const emptyAction: ConversationEmptyAction | undefined = isProviderAgent
     ? offline
@@ -155,7 +158,7 @@ export function ChatView({ agentId }: ChatViewProps) {
       ? { label: 'Open Agents', href: '/agents' }
       : { label: 'Create a task', href: '/tasks' }
   const composerDisabledReason = offline
-    ? 'Open AI service settings, choose Check connection for this service, then refresh Agents before sending a message.'
+    ? 'Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again before sending a message.'
     : messagesLoading
       ? 'Wait for earlier messages to finish loading, then send your message from this chat.'
       : undefined
@@ -223,6 +226,9 @@ export function ChatView({ agentId }: ChatViewProps) {
       turns.filter((turn) => turnMatchesConversation(turn, conversationFilter, conversationSearch)),
     [conversationFilter, conversationSearch, turns]
   )
+  const visibleUpdateCount = isProviderAgent ? visibleMessages.length : visibleTurns.length
+  const totalUpdateCount = isProviderAgent ? messages.length : turns.length
+  const updateLabel = totalUpdateCount === 1 ? 'update' : 'updates'
   function resetConversationFilters() {
     setConversationFilter('all')
     setConversationSearch('')
@@ -369,6 +375,7 @@ export function ChatView({ agentId }: ChatViewProps) {
             type="search"
             value={conversationSearch}
             onChange={(event) => setConversationSearch(event.target.value)}
+            aria-describedby={conversationSearchHelpId}
             placeholder="Search updates, help requests, work steps..."
             className={cn(
               'h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-8 pr-3 text-ui-body outline-none',
@@ -377,6 +384,13 @@ export function ChatView({ agentId }: ChatViewProps) {
             )}
           />
         </label>
+        <p
+          id={conversationSearchHelpId}
+          className="text-ui-caption text-secondary-light dark:text-secondary-dark"
+        >
+          Search only filters the updates shown below. Use Show all updates to return to the full
+          conversation.
+        </p>
         <div
           role="group"
           aria-label="Conversation filter"
@@ -387,12 +401,21 @@ export function ChatView({ agentId }: ChatViewProps) {
             <ConversationFilterButton
               key={item.value}
               active={conversationFilter === item.value}
+              value={item.value}
               label={item.label}
               count={item.count}
               onClick={() => setConversationFilter(item.value)}
             />
           ))}
         </div>
+        <p
+          data-testid="conversation-result-count"
+          role="status"
+          aria-live="polite"
+          className="text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark"
+        >
+          Showing {visibleUpdateCount} of {totalUpdateCount} {updateLabel}
+        </p>
       </div>
 
       <div
@@ -494,6 +517,8 @@ function ConversationFilterEmptyState({
   return (
     <div
       data-testid="conversation-filter-empty"
+      role="status"
+      aria-live="polite"
       className="flex flex-col items-center gap-2 text-center text-sm text-secondary-light"
     >
       <span className="font-medium text-foreground-light dark:text-foreground-dark">
@@ -669,19 +694,23 @@ function ConversationMetric({
 
 function ConversationFilterButton({
   active,
+  value,
   label,
   count,
   onClick,
 }: {
   active: boolean
+  value: ConversationFilter
   label: string
   count: number
   onClick: () => void
 }) {
+  const countLabel = `${count} matching ${count === 1 ? 'update' : 'updates'}`
   return (
     <button
       type="button"
       aria-pressed={active}
+      aria-label={`${conversationFilterActionLabel(value)}, ${countLabel}`}
       onClick={onClick}
       className={cn(
         'inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md px-2.5 text-ui-button font-medium transition-colors',
@@ -695,6 +724,21 @@ function ConversationFilterButton({
       <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">{count}</span>
     </button>
   )
+}
+
+function conversationFilterActionLabel(filter: ConversationFilter): string {
+  switch (filter) {
+    case 'all':
+      return 'Show all updates'
+    case 'operator':
+      return 'Show your messages'
+    case 'agent':
+      return 'Show agent replies'
+    case 'tool':
+      return 'Show work steps'
+    case 'attention':
+      return 'Show stuck, failed, waiting, or help-needed updates'
+  }
 }
 
 function summarizeTranscript({
@@ -834,7 +878,7 @@ function messageRoleLabel(role: string): string {
     case 'assistant':
       return 'Agent'
     default:
-      return role.trim() ? 'Check message sender' : 'Refresh chat to load sender'
+      return role.trim() ? 'Check message sender' : 'Open this chat again to load the sender'
   }
 }
 

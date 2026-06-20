@@ -84,6 +84,9 @@ describe('AgentPluginsTab', () => {
     expect(screen.queryByText('Not available')).toBeNull()
     expect(screen.getByText('Using team setting - normally available for agents')).toBeDefined()
     expect(screen.getByText('Changed for this agent - normally off for agents')).toBeDefined()
+    expect(screen.getByLabelText("Search this agent's tools")).toHaveAccessibleDescription(
+      "Search only filters this agent's tools. Use Show all tools to return to the full list."
+    )
     expect(screen.queryByText(new RegExp(['workspace', 'default'].join(' '), 'i'))).toBeNull()
     expect(screen.queryByText(new RegExp(['workspace', 'setting'].join(' '), 'i'))).toBeNull()
     expect(screen.queryByRole('group', { name: /plugin filter/i })).toBeNull()
@@ -105,7 +108,16 @@ describe('AgentPluginsTab', () => {
 
     await screen.findByText('Shell Tools')
     const filters = screen.getByTestId('agent-plugin-filter')
-    fireEvent.click(within(filters).getByRole('button', { name: /turned off\s*1/i }))
+    const turnedOffFilter = within(filters).getByRole('button', {
+      name: /show tools turned off for this agent, 1 matching tool/i,
+    })
+    expect(
+      within(filters).getByRole('button', {
+        name: /show all tools for this agent, 3 matching tools/i,
+      })
+    ).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(turnedOffFilter)
+    expect(turnedOffFilter).toHaveAttribute('aria-pressed', 'true')
 
     expect(screen.getByText('Deploy Tools')).toBeDefined()
     expect(screen.queryByText('Shell Tools')).toBeNull()
@@ -113,16 +125,24 @@ describe('AgentPluginsTab', () => {
 
     fireEvent.change(screen.getByTestId('agent-plugin-search'), { target: { value: 'browser' } })
     const combinedEmpty = screen.getByTestId('agent-plugin-filter-empty')
-    expect(within(combinedEmpty).getByText('Clear search or show all tools')).toBeDefined()
+    expect(combinedEmpty).toHaveAttribute('role', 'status')
+    expect(combinedEmpty).toHaveAttribute('aria-live', 'polite')
+    expect(within(combinedEmpty).getByText('Search and filter are hiding tools')).toBeDefined()
     expect(combinedEmpty.textContent).toContain(
-      'This agent has tools, but the current search and filter hide them.'
+      'Use Show all tools before assuming this agent has no matching tool.'
     )
     expect(combinedEmpty.textContent).not.toContain('No tools match this view')
 
-    fireEvent.click(screen.getByRole('button', { name: /show all tools/i }))
+    fireEvent.click(within(combinedEmpty).getByRole('button', { name: /show all tools/i }))
     expect(screen.getByText('Shell Tools')).toBeDefined()
     expect(screen.getByText('Browser Tools')).toBeDefined()
     expect(screen.getByText('Deploy Tools')).toBeDefined()
+    expect(screen.getByLabelText("Search this agent's tools")).toHaveValue('')
+    expect(
+      within(filters).getByRole('button', {
+        name: /show all tools for this agent, 3 matching tools/i,
+      })
+    ).toHaveAttribute('aria-pressed', 'true')
   })
 
   test('explains search-only empty tool lists', async () => {
@@ -134,14 +154,15 @@ describe('AgentPluginsTab', () => {
 
     fireEvent.change(screen.getByTestId('agent-plugin-search'), { target: { value: 'missing' } })
     const searchEmpty = screen.getByTestId('agent-plugin-filter-empty')
-    expect(within(searchEmpty).getByText('Clear search to see tools')).toBeDefined()
-    expect(searchEmpty.textContent).toContain(
-      'This agent has tools, but the search hides them. Try a broader word or clear search.'
-    )
+    expect(searchEmpty).toHaveAttribute('role', 'status')
+    expect(searchEmpty).toHaveAttribute('aria-live', 'polite')
+    expect(within(searchEmpty).getByText('Search is hiding tools')).toBeDefined()
+    expect(searchEmpty.textContent).toContain('Use Show all tools to return to the full list.')
     expect(searchEmpty.textContent).not.toContain('No tools match this view')
 
-    fireEvent.click(screen.getByRole('button', { name: /show all tools/i }))
+    fireEvent.click(within(searchEmpty).getByRole('button', { name: /show all tools/i }))
     expect(screen.getByText('Shell Tools')).toBeDefined()
+    expect(screen.getByLabelText("Search this agent's tools")).toHaveValue('')
   })
 
   test('explains filter-only empty tool lists', async () => {
@@ -166,14 +187,27 @@ describe('AgentPluginsTab', () => {
 
     await screen.findByText('Shell Tools')
     const filters = screen.getByTestId('agent-plugin-filter')
-    fireEvent.click(within(filters).getByRole('button', { name: /turned off\s*0/i }))
+    fireEvent.click(
+      within(filters).getByRole('button', {
+        name: /show tools turned off for this agent, 0 matching tools/i,
+      })
+    )
 
     const filterEmpty = screen.getByTestId('agent-plugin-filter-empty')
-    expect(within(filterEmpty).getByText('Choose All to see tools')).toBeDefined()
-    expect(filterEmpty.textContent).toContain(
-      'This agent has tools, but this filter has no results yet.'
-    )
+    expect(filterEmpty).toHaveAttribute('role', 'status')
+    expect(filterEmpty).toHaveAttribute('aria-live', 'polite')
+    expect(within(filterEmpty).getByText('Filter is hiding tools')).toBeDefined()
+    expect(filterEmpty.textContent).toContain('Use Show all tools to return to the full list.')
     expect(filterEmpty.textContent).not.toContain('No tools match this view')
+
+    fireEvent.click(within(filterEmpty).getByRole('button', { name: /show all tools/i }))
+
+    expect(screen.getByText('Shell Tools')).toBeDefined()
+    expect(
+      within(filters).getByRole('button', {
+        name: /show all tools for this agent, 1 matching tool/i,
+      })
+    ).toHaveAttribute('aria-pressed', 'true')
   })
 
   test('guides users when a tool has no summary yet', async () => {
@@ -243,7 +277,10 @@ describe('AgentPluginsTab', () => {
     render(<AgentPluginsTab agentId="agent-1" />)
 
     const alert = await screen.findByRole('alert')
-    expect(within(alert).getByText('Refresh this agent page to load tools.')).toBeDefined()
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(
+      within(alert).getByText('Go back to Agents, choose this agent again, then open Tools.')
+    ).toBeDefined()
     expect(alert.textContent).toContain(
       "Ask an owner or admin to give you access to this agent's tools."
     )
@@ -268,12 +305,40 @@ describe('AgentPluginsTab', () => {
     fireEvent.click(shellSwitch)
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert.textContent).toContain('The switch was returned to its previous setting.')
     expect(alert.textContent).toContain(
       "Ask an owner or admin to give you access to this agent's tools."
     )
     expect(alert.textContent).not.toContain('HTTP 403')
     expect(shellSwitch).toHaveAttribute('aria-checked', 'true')
+  })
+
+  test('scrolls the tool change error into view again when the same save failure repeats', async () => {
+    const scrollSpy = vi
+      .spyOn(Element.prototype, 'scrollIntoView')
+      .mockImplementation(() => undefined)
+    fetchMock.mockResolvedValueOnce(pluginResponse()).mockResolvedValue({
+      ok: false,
+      status: 403,
+    })
+
+    render(<AgentPluginsTab agentId="agent-1" />)
+
+    const shellSwitch = await screen.findByRole('switch', {
+      name: /turn off shell tools for this agent/i,
+    })
+
+    fireEvent.click(shellSwitch)
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert.textContent).toContain('The switch was returned to its previous setting.')
+    await waitFor(() => expect(scrollSpy.mock.calls.length).toBeGreaterThan(0))
+    const callsAfterFirstFailure = scrollSpy.mock.calls.length
+
+    fireEvent.click(shellSwitch)
+    await waitFor(() => expect(scrollSpy.mock.calls.length).toBeGreaterThan(callsAfterFirstFailure))
+    scrollSpy.mockRestore()
   })
 
   test('shows beginner next steps when no tools are available', async () => {

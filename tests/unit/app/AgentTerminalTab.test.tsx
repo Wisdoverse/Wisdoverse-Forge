@@ -108,10 +108,11 @@ describe('AgentTerminalTab', () => {
 
     const notice = String(terminalMocks.write.mock.calls.at(-1)?.[0] ?? '')
     expect(notice).toContain('Live work notice: Connection dropped.')
-    expect(notice).toContain('Refresh this page first')
     expect(notice).toContain('Overview')
     expect(notice).toContain('Controls')
     expect(notice).toContain('Restart agent')
+    expect(notice).toContain('return to Live work')
+    expect(notice).not.toContain('Refresh this page first')
     expect(notice).not.toContain('Command window')
     expect(notice).not.toContain('HTTP 500')
     expect(notice).not.toContain('pty connection failed')
@@ -127,7 +128,7 @@ describe('AgentTerminalTab', () => {
         'Wait until this agent shows Ready. If it still shows Not connected, open Overview, use Controls, and start or restart this agent before using Live work.'
       )
     ).toBeInTheDocument()
-    expect(screen.getByText('Refresh to load status')).toBeInTheDocument()
+    expect(screen.getByText('Open Overview to check status')).toBeInTheDocument()
     expect(screen.queryByText('Status not reported')).toBeNull()
     expect(screen.getByText('Agent startup')).toBeInTheDocument()
     expect(screen.getByText('Waiting for this agent')).toBeInTheDocument()
@@ -141,6 +142,7 @@ describe('AgentTerminalTab', () => {
   test('labels unavailable live work with readable tool and status names', () => {
     expect(liveWorkToolLabel('codex')).toBe('Codex')
     expect(liveWorkStatusLabel('idle')).toBe('Ready')
+    expect(liveWorkStatusLabel()).toBe('Open Overview to check status')
 
     render(
       <AgentTerminalTab agentId="agent-1" agentName="Runner" cliTool="codex" agentStatus="idle" />

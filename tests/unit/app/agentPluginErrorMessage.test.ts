@@ -4,7 +4,7 @@ import { agentPluginErrorMessage } from '@app/features/agents/model/pluginErrorM
 describe('agentPluginErrorMessage', () => {
   test('turns permission errors into operator recovery guidance', () => {
     expect(agentPluginErrorMessage('load', new Error('HTTP 403'))).toBe(
-      "Refresh this agent page to load tools. Ask an owner or admin to give you access to this agent's tools."
+      "Go back to Agents, choose this agent again, then open Tools. Ask an owner or admin to give you access to this agent's tools."
     )
   })
 
@@ -15,7 +15,7 @@ describe('agentPluginErrorMessage', () => {
     })
 
     expect(message).toBe(
-      "Refresh this agent page to load tools. Ask an owner or admin to give you access to this agent's tools."
+      "Go back to Agents, choose this agent again, then open Tools. Ask an owner or admin to give you access to this agent's tools."
     )
     expect(message).not.toContain('missing plugin permission')
   })
@@ -59,7 +59,7 @@ describe('agentPluginErrorMessage', () => {
     const message = agentPluginErrorMessage('load', new TypeError('Failed to fetch'))
 
     expect(message).toBe(
-      "Refresh this agent page to load tools. Check your connection, then refresh this agent page again. Forge could not connect while checking this agent's tools."
+      "Check your connection, then go back to Agents, choose this agent again, then open Tools again. Forge could not connect while checking this agent's tools."
     )
     expect(message).not.toContain('Failed to fetch')
   })
@@ -68,18 +68,18 @@ describe('agentPluginErrorMessage', () => {
     const message = agentPluginErrorMessage('load', new Error('ok: false'))
 
     expect(message).toBe(
-      'Refresh this agent page to load tools. If it still fails, ask an owner or admin to check team space tools.'
+      'Go back to Agents, choose this agent again, then open Tools. If it still fails, ask an owner or admin to check team space tools.'
     )
     expect(message).not.toContain('ok: false')
     expect(message).not.toContain('workspace tools')
     expect(message).not.toContain('platform')
   })
 
-  test('uses refresh guidance for unknown tool load failures', () => {
+  test('uses agent list recovery guidance for unknown tool load failures', () => {
     const message = agentPluginErrorMessage('load', new Error('plugin registry mismatch'))
 
     expect(message).toBe(
-      "Refresh this agent page to load tools. If it still fails, ask an owner or admin to check this agent's tool list."
+      "Go back to Agents, choose this agent again, then open Tools. If it still fails, ask an owner or admin to check this agent's tool list."
     )
     expect(message).not.toContain('plugin registry mismatch')
     expect(message).not.toContain('Try again.')
@@ -89,7 +89,7 @@ describe('agentPluginErrorMessage', () => {
     const message = agentPluginErrorMessage('save', new Error('ok: false'))
 
     expect(message).toBe(
-      "Refresh this agent page, then try the tool change again. The switch was returned to its previous setting. Forge could not read this agent's tool list. If it still fails, ask an owner or admin to check team space tools."
+      "Go back to Agents, choose this agent again, then open Tools and try the tool change again. The switch was returned to its previous setting. Forge could not read this agent's tool list. If it still fails, ask an owner or admin to check team space tools."
     )
     expect(message).not.toContain('ok: false')
     expect(message).not.toContain('workspace tools')

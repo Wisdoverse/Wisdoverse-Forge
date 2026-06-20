@@ -17,7 +17,7 @@ export function agentToolLabel(tool?: AgentInfo['cliTool']): string {
 
 export function agentAiServiceLabel(provider?: string | null): string {
   const label = provider?.trim()
-  if (!label) return 'Refresh AI service'
+  if (!label) return 'Check AI service setup'
   switch (label.toLowerCase()) {
     case 'anthropic':
       return 'Anthropic AI service'

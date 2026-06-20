@@ -60,7 +60,7 @@ export function AuthShellLoadingState() {
           }}
         >
           We are making sure you are signed in before opening your team space. If this takes more
-          than a moment, refresh the page or sign in again.
+          than a moment, open the sign-in page and sign in again.
         </p>
       </div>
     </div>

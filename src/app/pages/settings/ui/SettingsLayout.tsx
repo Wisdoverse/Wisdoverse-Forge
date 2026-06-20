@@ -51,8 +51,8 @@ const SECTIONS: SectionItem[] = [
   },
   {
     id: 'keys',
-    label: 'Outside apps',
-    description: 'Add keys agents need to use apps and services outside Forge.',
+    label: 'Outside tool access',
+    description: 'Let trusted outside tools connect to Forge without a person signing in.',
     group: 'Agent work',
     Icon: Key,
   },
@@ -86,8 +86,8 @@ const SECTIONS: SectionItem[] = [
   },
   {
     id: 'work-tool-sign-ins',
-    label: 'Codex CLI sign-in',
-    description: 'Sign in to Codex and other CLI tools agents use for file work.',
+    label: 'Codex and work tool sign-in',
+    description: 'Sign in to OpenAI (Codex) and other work tools used for file work.',
     group: 'Agent work',
     Icon: LogIn,
   },

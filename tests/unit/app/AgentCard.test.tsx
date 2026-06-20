@@ -35,7 +35,7 @@ describe('AgentCard', () => {
     expect(agentStatusLabel('working')).toBe('Working now')
     expect(agentStatusLabel('idle')).toBe('Ready')
     expect(agentStatusLabel('offline')).toBe('Not connected')
-    expect(agentStatusLabel(null)).toBe('Refresh agent status')
+    expect(agentStatusLabel(null)).toBe('Check agent status')
     expect(agentStatusLabel('future_status')).toBe('Check agent status')
     expect(agentStatusLabel('offline')).not.toBe('Offline')
     expect(agentStatusLabel(null)).not.toBe('Status not reported')

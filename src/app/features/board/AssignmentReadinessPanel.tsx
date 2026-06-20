@@ -76,7 +76,11 @@ export function AssignmentReadinessPanel({
             <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
               {handoffSummary}
             </p>
-            {error && <p className="mt-0.5 text-ui-caption text-apple-red">{error}</p>}
+            {error && (
+              <p role="alert" aria-live="polite" className="mt-0.5 text-ui-caption text-apple-red">
+                {error}
+              </p>
+            )}
           </div>
         </div>
 
@@ -98,8 +102,8 @@ export function AssignmentReadinessPanel({
             onClick={onRefresh}
             disabled={loading}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-secondary-light transition-colors hover:bg-black/[0.05] hover:text-foreground-light disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
-            aria-label="Refresh agent status"
-            title="Refresh agent status"
+            aria-label="Check agent status"
+            title="Check agent status"
           >
             <RefreshCw
               size={14}
@@ -134,7 +138,7 @@ export function AssignmentReadinessPanel({
           testId="assignment-metric-blocked"
         />
         <MetricPill
-          label="Review"
+          label="Ready to check"
           value={workload.review}
           tone={workload.review > 0 ? 'success' : 'default'}
         />
@@ -215,7 +219,7 @@ function summarizeHandoff(workload: BoardWorkloadSnapshot, availableCount: numbe
   }
 
   if (workload.review > 0) {
-    return `${workload.review} completed ${pluralize(workload.review, 'task')} ready for review.`
+    return `${workload.review} completed ${pluralize(workload.review, 'task')} ready to check.`
   }
 
   return 'Create a task when you have work to send.'

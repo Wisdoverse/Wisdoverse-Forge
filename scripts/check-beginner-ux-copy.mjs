@@ -37,9 +37,10 @@ const SETTINGS_PATH_JARGON_PATTERNS = [
   /\bOpen Settings\s*&gt;\s*AI services\b/i,
 ]
 
-const API_FALLBACK_FAILURE_FIRST_PATTERNS = [
+const API_FALLBACK_UNHELPFUL_PATTERNS = [
   /\bForge could not finish this request\. Wait a moment, then try again\./i,
   /\bForge did not return a clear error\. Refresh, then try again\./i,
+  /\bRefresh, then try again\. Forge did not return a clear error\./i,
 ]
 
 const RECOVERABLE_ERROR_PATTERNS = [
@@ -93,6 +94,7 @@ const DEAD_END_LIMIT_CONFLICT_PATTERNS = [
   /\bThis username is already taken\b/,
   /\bRegistration restricted to authorized email domains\b/,
   /\bMaximum number of agents reached\b/,
+  /\bAgent limit reached\./,
   /\bFile upload failed\b/,
   /\bFile is too large\. Maximum size is \{\{size\}\}\.?/,
   /密码至少需要 \{\{min\}\} 个字符/,
@@ -101,6 +103,7 @@ const DEAD_END_LIMIT_CONFLICT_PATTERNS = [
   /该用户名已被使用/,
   /仅允许使用授权邮箱域名注册/,
   /已达到最大 Agent 数量/,
+  /Agent 数量已达上限/,
   /文件上传失败/,
   /文件过大，最大允许 \{\{size\}\}/,
 ]
@@ -131,6 +134,7 @@ const AGENT_STATUS_JARGON_PATTERNS = [
 const AGENT_SHARED_STATUS_DEAD_END_PATTERNS = [
   /\bStatus not reported\b/i,
   /\bStatus needs review\b/i,
+  /\bRefresh agent status\b/i,
 ]
 
 const AGENT_STATUS_EMPTY_DEAD_END_PATTERNS = [/\bNo agents are connected yet\b/i]
@@ -158,6 +162,8 @@ const REVIEW_HISTORY_DEAD_END_PATTERNS = [/\bNo saved item history yet\b/i]
 const REVIEW_STATUS_JARGON_PATTERNS = [
   /\bFix review\b/i,
   /\bRefresh fix review\b/i,
+  /\bRefresh review status\b/i,
+  /\bUse Refresh\b/i,
   /\bcode fix review\b/i,
 ]
 
@@ -198,8 +204,12 @@ const PROVIDER_TEST_FAILURE_FIRST_PATTERNS = [
 
 const PROVIDER_SETTINGS_FAILURE_FIRST_PATTERNS = [
   /\bAI service could not be (?:saved|removed)\./i,
+  /\bRefresh the list, then choose a different name or remove the old service first\b/i,
   /\bRefresh Settings to load AI service settings\. Forge is receiving too many AI service requests/i,
   /\bRefresh Settings to load AI service settings\. Try again\./i,
+  /\bRefresh Settings to load AI service settings\./i,
+  /\bRefresh Settings, then (?:save|remove) this AI service again\b/i,
+  /\brefresh Settings to load AI service settings\b/i,
 ]
 
 const PROVIDER_ADDRESS_JARGON_PATTERNS = [
@@ -226,6 +236,7 @@ const PROVIDER_SETUP_JARGON_PATTERNS = [
   /\bKeep the suggested model\b/i,
   /\bchoose a supported model\b/i,
   /\bReview the AI service settings\b/i,
+  /\bGateway alias\b/i,
   /\bClick Check after saving\b/i,
   /\bAfter saving, click Check\b/i,
   /\bService address and model are filled in for you\b/i,
@@ -260,7 +271,10 @@ const ADMIN_AGENT_STATUS_FALLBACK_DEAD_END_PATTERNS = [
   /\bstatus\.trim\(\)\s*\?\s*['"`]Needs review['"`]/i,
 ]
 
-const ADMIN_AGENT_EMPTY_DEAD_END_PATTERNS = [/\bNo agents to show\b/i]
+const ADMIN_AGENT_EMPTY_DEAD_END_PATTERNS = [
+  /\bNo agents to show\b/i,
+  /\brefresh Admin and check again\b/i,
+]
 
 const ADMIN_AGENT_REVIEW_ACTION_PATTERNS = [
   /\breturn here to review it across team spaces\b/i,
@@ -270,12 +284,14 @@ const ADMIN_AGENT_REVIEW_ACTION_PATTERNS = [
 const I18N_ACTION_FIRST_EMPTY_DEAD_END_PATTERNS = [
   /\bnoResults:\s*['"`]No matching results\./i,
   /\bnoData:\s*['"`]Nothing to show yet\./i,
+  /\bnoData:\s*['"`]Create the first item or refresh after setup finishes\./i,
   /\bnoAgents:\s*['"`]No agents yet\./i,
   /\bnoGroups:\s*['"`]No waiting places yet\./i,
   /\bungrouped:\s*['"`]No waiting place yet['"`]/i,
   /\bnoActivity:\s*['"`]No activity yet\./i,
   /\bnoResults:\s*['"`]没有匹配结果。/i,
   /\bnoData:\s*['"`]这里暂时没有内容。/i,
+  /\bnoData:\s*['"`]可以先创建第一项，或在设置完成后刷新。/i,
   /\bnoAgents:\s*['"`]还没有 Agent。/i,
   /\bnoGroups:\s*['"`]暂无任务等待位置。/i,
   /\bungrouped:\s*['"`]暂无任务等待位置['"`]/i,
@@ -285,17 +301,27 @@ const I18N_ACTION_FIRST_EMPTY_DEAD_END_PATTERNS = [
 const ADMIN_LOAD_ERROR_DEAD_END_PATTERNS = [
   /\bThe admin [^'"`]+ could not load\./i,
   /\bThe agent tool update status could not load\./i,
+  /\bRefresh Admin to reload\b/i,
 ]
 
 const ADMIN_STORE_ERROR_FAILURE_FIRST_PATTERNS = [
   /^\s*return\s+`You do not have access to the admin \$\{label\}\. Ask an owner/i,
+  /^\s*return\s+`Ask an owner or admin to give you Admin access, then reload Admin\b/i,
+  /^\s*return\s+`Your sign-in expired\. Sign in again, then open Admin and reload\b/i,
   /^\s*return\s+`The admin \$\{label\} is not available/,
+  /^\s*return\s+`Refresh Admin\b/i,
   /^\s*return\s+`Forge could not load the admin \$\{label\}/,
+  /^\s*return\s+`Reload the \$\{label\}/i,
   /^\s*return\s+`The admin \$\{label\} could not load/,
   /^\s*return\s+`Forge could not connect while loading the admin \$\{adminResourceLabel\(resource\)\}/,
+  /^\s*return\s+`Check your connection, then refresh Admin\b/i,
+  /^\s*return\s+`Forge is receiving too many Admin requests right now\. Wait a moment, then reload\b/i,
   /^\s*\?\s*['"`]You do not have access to change user access\. Ask an owner/i,
   /^\s*:\s*['"`]You do not have access to remove user accounts\. Ask an owner/i,
+  /^\s*return\s+['"`]This user is no longer in the list\. Reload the user list\b/i,
   /^\s*return\s+`Forge could not finish \$\{adminUserActionRecovery\(action\)\}/,
+  /^\s*return\s+`Reload the user list\b/i,
+  /^\s*return\s+`Refresh the user list\b/i,
   /^\s*return\s+`The \$\{label\} did not go through/,
   /^\s*return\s+`The \$\{adminUserActionLabel\(action\)\} could not reach the server\b/,
 ]
@@ -314,6 +340,8 @@ const RUNTIME_SHORT_LABEL_JARGON_PATTERNS = [
   /\bWork location not reported\b/i,
   /\bLocation missing\b/i,
   /\bReview location\b/i,
+  /\bRefresh work location\b/i,
+  /\bRefresh location\b/i,
   /\breturn\s+['"`]Not reported['"`]/,
   /\breturn\s+['"`]Needs review['"`]/,
 ]
@@ -338,6 +366,7 @@ const BILLING_SETUP_JARGON_PATTERNS = [
   /\bfor this workspace\b/i,
   /\bthis workspace\b/i,
   /\bsecret payment settings\b/i,
+  /\bRefresh this page after billing is turned on\b/i,
 ]
 
 const BILLING_PLAN_DEAD_END_PATTERNS = [
@@ -348,6 +377,8 @@ const BILLING_PLAN_DEAD_END_PATTERNS = [
 const BILLING_RECEIPT_LINK_DEAD_END_PATTERNS = [/\bNo link\b/i]
 
 const BILLING_ERROR_FAILURE_FIRST_PATTERNS = [
+  /\bRefresh Billing to load (?:plan and payment|usage|invoices)\b/i,
+  /\brefresh Billing again\b/i,
   /\bForge could not connect while loading billing\. Check your connection, then refresh Billing again\./i,
   /\bThe secure payment page did not open\. Try again\b/i,
   /\bThe billing management page did not open\. Try again\b/i,
@@ -360,6 +391,9 @@ const ANALYTICS_ERROR_FAILURE_FIRST_PATTERNS = [
   /\breturn\s+['"`]Analytics could not load live activity\./i,
   /\breturn\s+['"`]Analytics could not reach/i,
   /\breturn\s+['"`]Analytics could not connect/i,
+  /\brefresh the dashboard\b/i,
+  /\bRefresh analytics data\b/i,
+  /\bRefresh dashboard\b/i,
 ]
 
 const ANALYTICS_USEFUL_EMPTY_DEAD_END_PATTERNS = [/\bNo useful saved items yet\b/i]
@@ -367,14 +401,25 @@ const ANALYTICS_USEFUL_EMPTY_DEAD_END_PATTERNS = [/\bNo useful saved items yet\b
 const ANALYTICS_REVIEW_EMPTY_DEAD_END_PATTERNS = [
   /\bNothing to check right now\b/i,
   /\bNothing looks outdated\b/i,
+  /\bReview these before reuse\b/i,
 ]
 
 const ANALYTICS_UPDATED_TIME_DEAD_END_PATTERNS = [/\btime not available\b/i]
+
+const ANALYTICS_REFRESH_DEAD_END_PATTERNS = [
+  /\bRefresh analytics to update time\b/i,
+  /\bRefresh analytics before making decisions\b/i,
+  /\bRefresh work location\b/i,
+  /\bRefresh task type\b/i,
+]
+
+const ANALYTICS_TASK_KIND_JARGON_PATTERNS = [/\bReview task\b/i]
 
 const ANALYTICS_GUIDANCE_JARGON_PATTERNS = [
   /\bfailed tool steps\b/i,
   /\bfailures first\b/i,
   /\bended in error\b/i,
+  /\bthen refresh this page\b/i,
 ]
 
 const ANALYTICS_EVENT_LABEL_JARGON_PATTERNS = [
@@ -394,6 +439,7 @@ const ACTIVITY_FEED_EMPTY_DEAD_END_PATTERNS = [
   /\bNo updates in this view\b/i,
   /\bNo recent activity matches this view\b/i,
   /\bNo progress updates yet\b/i,
+  /\bUse All to review work that is still moving\b/i,
 ]
 
 const SAVED_ITEM_OPTIONAL_EMPTY_DEAD_END_PATTERNS = [/\bNo other saved items were found\b/i]
@@ -411,6 +457,14 @@ const INBOX_NEEDS_ACTION_EMPTY_DEAD_END_PATTERNS = [/\bNothing needs action righ
 const INBOX_LOAD_FAILURE_FIRST_PATTERNS = [
   /^\s*(?:return\s+)?['"`]?Saved notifications could not be loaded\. New updates will still appear here\b/i,
   /^\s*(?:return\s+)?['"`]?Saved notifications could not be loaded, but new updates will still appear here\b/i,
+  /^\s*(?:return\s+)?['"`]?Saved updates could not be loaded, but new live updates will still appear here\b/i,
+]
+
+const INBOX_RELOAD_DEAD_END_PATTERNS = [
+  /\breload(?:ing)? the inbox\b/i,
+  /\breload inbox\b/i,
+  /\breloading inbox\b/i,
+  /\brefresh the inbox\b/i,
 ]
 
 const TASK_AGENT_ASSIGNMENT_DEAD_END_PATTERNS = [
@@ -423,7 +477,12 @@ const TIMELINE_EMPTY_DEAD_END_PATTERNS = [
   /\bWaiting for run events\b/i,
 ]
 
-const WORKSHOP_3D_EMPTY_DEAD_END_PATTERNS = [/\bNo agents on the visual map yet\b/i]
+const WORKSHOP_3D_EMPTY_DEAD_END_PATTERNS = [
+  /\bNo agents on the visual map yet\b/i,
+  /\brefresh this view\b/i,
+  /\bRefresh after agents are available\b/i,
+  /等 Agent 可用后刷新/,
+]
 const WORKSHOP_3D_MOUSE_JARGON_PATTERNS = [
   /\bScroll to zoom\b/i,
   /\bMiddle-click to pan\b/i,
@@ -438,6 +497,8 @@ const WORKSHOP_3D_MOUSE_JARGON_PATTERNS = [
 const AGENT_DETAIL_ACTIVITY_DEAD_END_PATTERNS = [
   /\bNo task activity has been loaded yet\b/i,
   /\bGo to Tasks to review recent activity\b/i,
+  /\bRefresh or open Tasks to check activity\b/i,
+  /\bGo back to Agents and refresh the list, or open Tasks\b/i,
 ]
 
 const AGENT_DETAIL_FILE_ACCESS_DEAD_END_PATTERNS = [/\bNo file access needed\b/i]
@@ -483,6 +544,8 @@ const AGENT_STORE_ERROR_FAILURE_FIRST_PATTERNS = [
   /^\s*return\s+['"`]This agent could not be found\. Refresh/,
   /^\s*return\s+['"`]This agent is already working\. Wait/,
   /^\s*return\s+['"`]This agent changed while/,
+  /\brefresh the Agents list\b/i,
+  /\brefresh the Agents page\b/i,
   /^\s*return\s+`The Agents page is busy\. Wait/,
   /^\s*return\s+['"`]Forge could not prepare the setup text for this computer right now\. Wait/,
   /^\s*return\s+['"`]Forge could not prepare where this agent runs right now\. Wait/,
@@ -522,6 +585,11 @@ const TITLE_STYLE_GUIDANCE_PATTERNS = [
   /\bOpen Team Members\b/,
 ]
 
+const OUTSIDE_TOOL_ACCESS_NAV_JARGON_PATTERNS = [
+  /\blabel:\s*['"`]Outside apps['"`]/,
+  /\bAdd keys agents need to use apps and services outside Forge\b/i,
+]
+
 const CLI_IMAGE_STATUS_DEAD_END_PATTERNS = [
   /\bCheck failed\b/i,
   /\bThe tool updater reported\b/i,
@@ -539,6 +607,9 @@ const CLI_IMAGE_STATUS_DEAD_END_PATTERNS = [
   /\bBuilt here\b/i,
   /\bBuilding on this server\b/i,
   /\bBuilds automatically\b/i,
+  /\btool package check failed\b/i,
+  /\brough hint of how many agents may restart\b/i,
+  /\bdoes not confirm which exact package each one started from\b/i,
 ]
 
 const CLI_IMAGE_ACTION_FAILURE_FIRST_PATTERNS = [
@@ -560,6 +631,7 @@ const SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS = [
   /\bSome areas need attention\b/i,
   /\bstill needs attention\b/i,
   /\bitems marked Needs attention\b/i,
+  /\brefreshes every 30 seconds\b/i,
   /\bwhile this page is visible\b/i,
   /\bHidden tabs pause checks\b/i,
   /\bChecking\.\.\./i,
@@ -568,11 +640,15 @@ const SYSTEM_HEALTH_STATUS_DEAD_END_PATTERNS = [
   /\bKeeps accounts,\s*tasks,\s*runs,\s*evidence,\s*and settings available\b/i,
 ]
 
-const SYSTEM_HEALTH_LIVE_UPDATE_JARGON_PATTERNS = [/\bMoves events from running agents\b/i]
+const SYSTEM_HEALTH_LIVE_UPDATE_JARGON_PATTERNS = [
+  /\bMoves events from running agents\b/i,
+  /\brefresh and look for new progress\b/i,
+]
 
 const SYSTEM_HEALTH_HELPER_NOTE_JARGON_PATTERNS = [
   /\bOwner\/admin note\b/i,
   /\bSetup helper note\b/i,
+  /\bSystem health in Admin\b/i,
 ]
 
 const ADMIN_NAV_TECHNICAL_COPY_PATTERNS = [
@@ -598,8 +674,11 @@ const CODE_ACCESS_REPOSITORY_JARGON_PATTERNS = [
   /\bowns the repository\b/i,
   /\bprivate repository link\b/i,
   /\bread the repository\b/i,
+  /team\/project\.git/i,
   /team\/repo\.git/i,
 ]
+
+const CODE_ACCESS_EMPTY_DEAD_END_PATTERNS = [/\bLet agents open private HTTPS code links\b/i]
 
 const ACCESS_KEY_LAST_USED_DEAD_END_PATTERNS = [
   /\bNot used yet\b/i,
@@ -607,6 +686,7 @@ const ACCESS_KEY_LAST_USED_DEAD_END_PATTERNS = [
 ]
 
 const ACCESS_KEY_SECRET_VALUE_JARGON_PATTERNS = [
+  /\bName it after the exact tool or job that will use it\b/i,
   /\bCopy the new key into a password manager\b/i,
   /\bonly time the full key is shown\b/i,
   /\bCopy key\b/i,
@@ -621,11 +701,13 @@ const ACCESS_KEY_SECRET_VALUE_JARGON_PATTERNS = [
 const DATE_FALLBACK_DEAD_END_PATTERNS = [
   /\b(?:Added|Created|Sign-in|Last used) date not reported\b/i,
   /\b(?:Added|Created|Sign-in|Last used) date needs review\b/i,
+  /\bRefresh (?:code access|access keys|repository access|SSH access|users|team spaces) to (?:load|check) (?:added|created|sign-in|last use) date\b/i,
 ]
 
 const ACCOUNT_PROFILE_DEAD_END_PATTERNS = [
   /\bUsername not reported yet\b/i,
   /\bEmail not reported yet\b/i,
+  /\bRefresh this page to load (?:username|email)\b/i,
 ]
 
 const ACCOUNT_PROFILE_ROLE_JARGON_PATTERNS = [/>Role</]
@@ -648,6 +730,7 @@ const START_GUIDE_RESET_JARGON_PATTERNS = [
   /\bStart guide\b/i,
   /\bReset Start guide\b/i,
   /\bReset it here\b/i,
+  /\bOpen setup checklist to review setup\b/i,
   /\bnothing to restore\b/i,
   /\bStart is already visible\b/i,
   /\bIf Start is hidden\b/i,
@@ -727,6 +810,8 @@ const WORKSPACE_SETUP_JARGON_PATTERNS = [
   /\bThe workspace is busy\b/i,
 ]
 
+const ROUTE_LOADING_REFRESH_DEAD_END_PATTERNS = [/\brefresh the page\b/i, /\brefresh this page\b/i]
+
 const START_GUIDE_PATH_JARGON_PATTERNS = [
   /\bStart with one safe path\b/i,
   /\bFinish this path\b/i,
@@ -760,6 +845,13 @@ const TASK_FORM_SUBMIT_LABEL_JARGON_PATTERNS = [
   /\bCreate Anyway\b/,
   /\bCreate Task\b/,
   /\bPreparing Project\.\.\./,
+]
+
+const TASK_FORM_TEMPLATE_JARGON_PATTERNS = [
+  /\blabel:\s*['"`](?:Feature|Bug|Investigate|Review)['"`]/,
+  /\bsummary:\s*['"`](?:Build a contained change|Reproduce and fix|Find the reason|Check before release)['"`]/,
+  /\btitle:\s*['"`](?:Build a focused feature|Fix a reproducible defect|Investigate an unclear issue|Review a change for release readiness)['"`]/,
+  /\bChange to review:/,
 ]
 
 const TASK_FORM_INCOMPLETE_BRIEF_DEAD_END_PATTERNS = [
@@ -799,10 +891,17 @@ const TASK_FORM_AGENT_CHOICE_JARGON_PATTERNS = [
   /\b\d+\s+available\b/,
 ]
 
+const TASK_FORM_REVIEW_TEMPLATE_JARGON_PATTERNS = [/\bName the PR, branch, files, or behavior\b/i]
+
 const QUICK_CREATE_DRAFT_TASK_JARGON_PATTERNS = [
   /\bAdd Draft Task\b/i,
   /\bdraft task\b/i,
   /\bcreating the draft task\b/i,
+]
+
+const KANBAN_DONE_REVIEW_EMPTY_JARGON_PATTERNS = [
+  /\bFinished work appears here for review\b/i,
+  /\bNothing ready for review\b/i,
 ]
 
 const QUICK_CREATE_EXAMPLE_REVIEW_JARGON_PATTERNS = [/\bReview setup\b/i]
@@ -819,13 +918,67 @@ const AGENT_TASK_QUEUE_EMPTY_DEAD_END_PATTERNS = [
 ]
 const AGENT_TASK_QUEUE_FAILURE_FIRST_PATTERNS = [
   /\bTask queue was not created\. (?:A|Ask|Check|Choose|Forge|Refresh|Sign in|Too many|Try|Use|Wait)\b/i,
+  /\bRefresh this page, then choose the project again\b/i,
+  /\bRefresh the project, then choose the existing waiting place\b/i,
 ]
 const TASK_LIST_EMPTY_DEAD_END_PATTERNS = [
   /\bCreate one small task from the board first\b/i,
   /\bexpected proof\b/i,
   /\bproof you expect the agent to return\b/i,
 ]
+const AGENT_TASK_LOAD_REFRESH_DEAD_END_PATTERNS = [
+  /\bRefresh this page to load the agent work list\b/i,
+  /\bRefresh this agent'?s work list\b/i,
+  /\brefresh this agent to load its work list\b/i,
+]
 const AGENT_LIST_SUMMARY_DEAD_END_PATTERNS = [/\bNo agents\b/i]
+const CHAT_ONLY_AGENT_REVIEW_JARGON_PATTERNS = [
+  /\bchat-only AI service for planning and review\b/i,
+  /\bBest for planning, writing, and review\b/i,
+  /\bplanning,\s*review,\s*or a direct answer\b/i,
+  /\bcan plan, write, and review text\b/i,
+  /\breview text\b/i,
+]
+const USER_ACTION_ASSIGNMENT_JARGON_PATTERNS = [
+  /\bCreate a task and assign it to this agent\b/i,
+  /\bAssign a task to see work steps\b/i,
+  /\bassign a task so work steps can appear\b/i,
+  /\bassigned agent to send its first update\b/i,
+  /\bAssigned tasks wait\b/i,
+  /\bAssigned agents add updates here\b/i,
+  /\bAssigned agent\b/i,
+  /\bA task is assigned\b/i,
+  /\balready assigned\b/i,
+  /\bwait for an assigned agent\b/i,
+  /\bcreate or assign a task\b/i,
+  /\bbefore assigning an agent\b/i,
+  /\bbefore assigning tasks\b/i,
+  /\bbefore assigning new work\b/i,
+  /\bbefore assigning more work\b/i,
+  /\bbefore assigning work\b/i,
+  /\bstops assigning new work\b/i,
+  /\bwhen assigning tasks\b/i,
+  /\bagent assignment\b/i,
+  /\bassign agent work\b/i,
+  /\bassigned task\b/i,
+  /\bCan be assigned now\b/i,
+  /\bClarify and assign\b/i,
+  /\bOpen (?:the newest )?assignment\b/i,
+  /\bAgents assigned here\b/i,
+  /\bassign tasks to (?:it|this agent)\b/i,
+  /\bassign another task\b/i,
+  /\bassign work from Tasks\b/i,
+  /\bstart assigning work\b/i,
+  /\bChoose when assigning work\b/i,
+]
+const TASK_CARD_PUBLISH_JARGON_PATTERNS = [
+  /\baria-label=\{?`?Publish\b/i,
+  /\btitle=['"`]Preview and publish['"`]/i,
+  /\bbefore publishing\b/i,
+  /\bpreview and publish\b/i,
+  /\bthen publish\b/i,
+  /\bpublish again\b/i,
+]
 const AGENT_TOOL_SUMMARY_DEAD_END_PATTERNS = [
   /\bNo tool summary yet\. Ask an owner what this tool lets the agent do before turning it on\./i,
 ]
@@ -837,27 +990,40 @@ const CREATE_AGENT_OPTIONAL_CONTEXT_DEAD_END_PATTERNS = [
 
 const SKILL_MAINTAINER_FALLBACK_DEAD_END_PATTERNS = [
   /\bMaintainer not listed yet\b/i,
+  /\bRefresh saved instructions to load maintainer\b/i,
+  /\bOpen Saved instructions again to load maintainer\b/i,
   /暂未列出维护者/,
+  /刷新保存的说明以加载维护者/,
+  /加载维护者/,
 ]
 
 const SAVED_INSTRUCTION_SUMMARY_FALLBACK_PATTERNS = [
   /\bNo summary yet\. Open details before using this saved instruction\./i,
   /\bNo summary yet\. Review the instructions below before using this saved instruction\./i,
   /\bOpen details to check the reusable instructions before using this saved instruction\./i,
+  /\breview the reusable instructions before using it\b/i,
   /还没有简介。/,
 ]
 
 const SAVED_INSTRUCTION_TOOL_TOOLTIP_PATTERNS = [
+  /\bCheck this work tool before using\b/i,
   /\bWork tool setup needs review\./i,
+  /使用前先检查这个工作工具/,
   /工作工具设置需要检查。/,
 ]
 
-const SAVED_INSTRUCTION_SOURCE_LABEL_PATTERNS = [/\bWorkspace saved instructions\b/i]
+const SAVED_INSTRUCTION_SOURCE_LABEL_PATTERNS = [
+  /\bWorkspace saved instructions\b/i,
+  /\bSaved instructions library\b/i,
+  /保存的说明库/,
+]
 const SAVED_INSTRUCTION_AVAILABILITY_LABEL_PATTERNS = [/\bThis workspace\b/i, /当前工作区/]
 const SAVED_INSTRUCTION_WORKSPACE_INTRO_PATTERNS = [/\bsaving it for the workspace\b/i]
 const SAVED_INSTRUCTION_DRAFT_DEAD_END_PATTERNS = [
   /\bKeep or rewrite the reusable instructions before publishing\./i,
   /\bReview the reusable instructions\./i,
+  /\bReview what should repeat before saving it for your team space\./i,
+  /\breview the reusable steps before agents use them\b/i,
 ]
 
 const SAVED_INSTRUCTION_DETAIL_HELPER_JARGON_PATTERNS = [
@@ -874,6 +1040,7 @@ const SAVED_INSTRUCTION_LIST_STATUS_JARGON_PATTERNS = [
   /\bavailable:\s*['"`]Available['"`]/,
   /<SkillStat\s+label=["']Installed["']/,
   /<SkillStat\s+label=["']Available["']/,
+  /\bChoose Save instruction or refresh this page\./i,
 ]
 
 const SAVED_INSTRUCTION_CREATE_FIELD_JARGON_PATTERNS = [
@@ -900,6 +1067,8 @@ const AGENT_PLUGIN_ERROR_FAILURE_FIRST_PATTERNS = [
 const SAVED_INSTRUCTIONS_LOAD_DEAD_END_PATTERNS = [
   /\bSaved instructions could not load\./i,
   /\bForge could not load Saved instructions right now\./i,
+  /\bRefresh Saved instructions(?: to load the list)?\b/i,
+  /\brefresh Saved instructions\b/i,
   /\bYou do not have access to saved instructions for this team space\. Ask an owner or admin to update your team space access\./i,
 ]
 
@@ -911,8 +1080,12 @@ const SAVED_INSTRUCTION_CREATE_FAILURE_FIRST_PATTERNS = [
   /\bYou do not have permission to create workspace instructions\./i,
   /\bSaved instructions could not be opened from this page\./i,
   /\bAn instruction with this name or trigger may already exist\./i,
+  /\bReview the existing instructions, then change the name or matching words and create the instruction again\./i,
+  /\bReview the fields, then create the instruction again\./i,
+  /\bReview the draft, then publish again\./i,
   /\bInstruction setup is busy\./i,
   /\bForge could not create the instruction right now\./i,
+  /\bRefresh Saved instructions, then create the instruction again\b/i,
   /\breturn\s+['"`]\s*Forge could not publish this instruction right now\. Wait a few minutes/i,
 ]
 
@@ -932,14 +1105,36 @@ const SAVED_INSTRUCTION_TEMPLATE_JARGON_PATTERNS = [
   /\bstop monitoring in chat\b/i,
   /\bsuggest a background monitor\b/i,
   /\blink evidence\b/i,
+  /\bReview checklist\b/i,
+  /\bReview before handoff\b/i,
+  /\bbefore handoff\b/i,
+  /\bSummarize review and automated check status\b/i,
+  /\breview page\b/i,
+  /\breview item\b/i,
+  /\bready for handoff\b/i,
 ]
 
 const RUNTIME_SIGN_IN_DEAD_END_PATTERNS = [
   /\bNo work tool sign-ins are connected yet\b/i,
   /\bNo work tool sign-in saved\b/i,
+  /['"`]Sign in['"`]/,
+]
+
+const WORK_TOOL_SIGN_IN_ENTRY_JARGON_PATTERNS = [
+  /\blabel:\s*['"`]Codex CLI sign-in['"`]/i,
+  /\bdescription:\s*['"`]Sign in to Codex and other CLI tools agents use for file work\./i,
+  /\bSign in to Codex CLI and work tools\b/i,
+  /\btitle:\s*['"`]Codex and CLI sign-ins['"`]/i,
+  /\bCodex and CLI sign-ins\b/i,
+  /\bother CLI tools agents use\b/i,
 ]
 
 const RUNTIME_DEFAULT_LOCATION_DEAD_END_PATTERNS = [/\bNot set yet\b/i]
+
+const RESOURCE_SIZES_RELOAD_DEAD_END_PATTERNS = [
+  /\bReload sizes to load agent sizes\b/i,
+  /\bReload this list before creating or changing agents\b/i,
+]
 
 const RUNTIME_SETUP_STATUS_DEAD_END_PATTERNS = [
   /\bNo work tool setup status yet\b/i,
@@ -953,12 +1148,20 @@ const RUNTIME_ERROR_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*Agent connection status could not load\. Start or wake an agent/i,
   /\bStart or wake an agent\b/i,
   /['"`]\s*Work tool sign-in could not be checked\. Refresh this page/i,
+  /\bRefresh this page before starting agents that use work tools\b/i,
   /['"`]\s*Work tool sign-ins could not be checked\. Check setup/i,
   /['"`]\s*Agent online status could not be checked\. Check setup/i,
   /['"`]\s*The Where agents run settings have not loaded yet\. Check setup/i,
   /['"`]\s*Work tool sign-in did not start\. Check the connected AI service/i,
+  /\bThe [^'"`]+ browser sign-in page did not open\. Allow pop-ups/i,
   /['"`]\s*Where agents run is not available yet\. Refresh Settings/i,
   /['"`]\s*Forge could not check where agents run right now\. Refresh this page/i,
+  /\brefresh Settings\. Forge could not connect while checking Where agents work\b/i,
+  /\bRefresh this page, check the current status\b/i,
+  /\bRefresh this page, then try again\. Forge could not check Where agents work\b/i,
+  /\bRefresh Settings to load Where agents work\b/i,
+  /\bRefresh Settings, check the current choices\b/i,
+  /\bWait a minute, then refresh Settings\b/i,
   /['"`]\s*Your sign-in expired\. Sign in again, then open Where agents run/i,
   /['"`]\s*You do not have permission to change where agents run\. Ask an owner/i,
   /['"`]\s*The Where agents run choices changed while you were working\. Refresh/i,
@@ -982,6 +1185,7 @@ const SETTINGS_RUNTIME_SETUP_JARGON_PATTERNS = [
   /\bFinish agent work setup\b/i,
   /\bAgent work setup status\b/i,
   /\bRefresh this settings page to load Agent work setup\b/i,
+  /\bRefresh this settings page to load Where agents work\b/i,
   /\bForge could not connect while checking Agent work setup\b/i,
   /\bCheck Agent work setup in Settings\b/i,
   /\bcheck Agent work setup in Settings\b/i,
@@ -995,6 +1199,7 @@ const SETTINGS_RUNTIME_SETUP_JARGON_PATTERNS = [
   /\bCheck setup\b/i,
   /title:\s*['"`]Agent 工作设置/,
   /加载 Agent 工作设置/,
+  /请刷新这个设置页来加载 Agent 在哪里工作/,
 ]
 
 const SETTINGS_RUNTIME_LOCATION_JARGON_PATTERNS = [
@@ -1014,18 +1219,25 @@ const SETTINGS_LOAD_ERROR_DEAD_END_PATTERNS = [
   /\bOutside tool access keys could not be loaded\./i,
   /\bRepository access could not be loaded\./i,
   /\bRepository SSH access could not be loaded\./i,
+  /\bRefresh Settings to load (?:AI service settings|repository access|repository SSH access|outside tool access keys)\./i,
 ]
 
 const CODE_ACCESS_FAILURE_FIRST_PATTERNS = [
   /\bCode access could not be (?:saved|removed)\./i,
   /\bRefresh Settings to load code access\. Forge is receiving too many code access requests/i,
   /\bRefresh Settings to load code access\. Try again\./i,
+  /\bRefresh Settings to load code access\./i,
+  /\bRefresh Settings, then (?:save|remove) code access again\b/i,
+  /\brefresh Settings to load code access\b/i,
 ]
 
 const SSH_CODE_ACCESS_FAILURE_FIRST_PATTERNS = [
   /\bSSH code access could not be (?:saved|removed)\./i,
   /\bRefresh Settings to load SSH code access\. Forge is receiving too many SSH code access requests/i,
   /\bRefresh Settings to load SSH code access\. Try again\./i,
+  /\bRefresh Settings to load SSH code access\./i,
+  /\bRefresh Settings, then (?:save|remove) this SSH code access again\b/i,
+  /\brefresh Settings to load SSH code access\b/i,
 ]
 
 const SSH_CODE_ACCESS_JARGON_PATTERNS = [
@@ -1057,8 +1269,12 @@ const SSH_CODE_ACCESS_JARGON_PATTERNS = [
 
 const PLATFORM_KEY_FAILURE_FIRST_PATTERNS = [
   /\bOutside tool access key could not be (?:created|removed)\./i,
+  /\bRefresh the list, then choose a different name or remove the old key first\b/i,
   /\bRefresh Settings to load outside tool access keys\. Forge is receiving too many outside tool access requests/i,
   /\bRefresh Settings to load outside tool access keys\. Try again\./i,
+  /\bRefresh Settings to load outside tool access keys\./i,
+  /\bRefresh Settings, then (?:create|remove) this outside tool access key again\b/i,
+  /\brefresh Settings to load outside tool access keys\b/i,
 ]
 
 const ACCOUNT_SETTINGS_FAILURE_FIRST_PATTERNS = [
@@ -1066,7 +1282,10 @@ const ACCOUNT_SETTINGS_FAILURE_FIRST_PATTERNS = [
   /\breturn\s+['"`]You do not have permission to (?:change this password|rename this team space)\./i,
   /\breturn\s+['"`](?:Password|Team space) settings are not available\. Refresh Settings/i,
   /\breturn\s+['"`]Your account changed while this form was open\. Refresh/i,
+  /\breturn\s+['"`]Refresh the page, then try again\. Your account changed/i,
   /\breturn\s+['"`]This team space changed while you were editing\. Refresh/i,
+  /\breturn\s+['"`]Refresh team space settings, check the current name/i,
+  /\breturn\s+['"`]Refresh Settings, then (?:change your password|rename the team space) again/i,
   /\breturn\s+['"`]The current password did not match this account\. Re-enter/i,
   /\breturn\s+['"`]That team space name is already in use\. Choose/i,
   /\breturn\s+['"`]Forge is receiving too many account settings requests right now\. Wait/i,
@@ -1098,6 +1317,11 @@ const COMMON_ERROR_FAILURE_FIRST_PATTERNS = [
   /\{\{resource\}\} 配额已用完。请让所有者/,
 ]
 
+const COMMON_ERROR_REFRESH_DEAD_END_PATTERNS = [
+  /\bRefresh the page, then (?:try|download) again\b/i,
+  /请刷新页面后(?:重试|重新下载)/,
+]
+
 const COMMON_ERROR_VAGUE_SYSTEM_PATTERNS = [
   /\bask an owner to check the system\b/i,
   /管理员检查系统/,
@@ -1121,6 +1345,7 @@ const COMMON_CONNECTION_STATUS_DEAD_END_PATTERNS = [
 const SYSTEM_HEALTH_ERROR_FAILURE_FIRST_PATTERNS = [
   /\bconst\s+\w+\s*=\s*['"`]Forge could not check app health\./i,
   /^\s*return\s+['"`]Forge could not check app health\./i,
+  /^\s*return\s+['"`]Refresh Admin, then choose Check now\b/i,
   /^\s*return\s+`\$\{[^}]+\}\s+/,
 ]
 
@@ -1137,14 +1362,20 @@ const WORKSPACE_SETTINGS_FAILURE_FIRST_PATTERNS = [
   /\bRefresh Settings to load workspace (?:teams|projects)\. Ask an owner or admin/i,
   /\bRefresh Settings to load workspace (?:teams|projects)\. Check your connection/i,
   /\bRefresh Settings to load workspace (?:teams|projects)\. Too many setup changes/i,
+  /\bRefresh Settings to load (?:teams|projects)\b/i,
+  /\brefresh Settings to load (?:teams|projects)\b/i,
+  /\brefresh Settings again\b/i,
 ]
 
 const RESOURCE_MEMBER_FAILURE_FIRST_PATTERNS = [
   /\breturn\s+['"`]You do not have permission to manage people/i,
   /\breturn\s+['"`]People for this\b/i,
+  /\bPeople for this [^'"`.]+ are not available\b/i,
   /\breturn\s+['"`]People access is busy\./i,
   /\breopen members for this\b/i,
   /\bClose members,\s*choose\b/,
+  /\bRefresh members\b/i,
+  /\bRefresh the members list\b/i,
   /\breturn\s+['"`]Forge could not (?:update people access|load people|add this person|change what this person|remove this person)/i,
   /\breturn\s+`Forge could not \$\{(?:actionSummary|operation)\}/i,
   /\breturn\s+['"`]This person could not be removed\./i,
@@ -1153,6 +1384,7 @@ const RESOURCE_MEMBER_FAILURE_FIRST_PATTERNS = [
 const LOAD_ERROR_TITLE_DEAD_END_PATTERNS = [
   /\bConversation history could not be loaded\./i,
   /\bAgent tools could not be loaded\./i,
+  /\bRefresh this agent page to load tools\./i,
   /\bThis agent's work list could not be loaded\./i,
   /\bAgent Work Setup could not be loaded\./i,
   /\bMembers could not load for this\b/i,
@@ -1165,6 +1397,11 @@ const LOAD_ERROR_TITLE_DEAD_END_PATTERNS = [
 
 const AGENT_SETUP_FALLBACK_DEAD_END_PATTERNS = [
   /\bAI service needs review\b/i,
+  /\bRefresh AI service\b/i,
+  /\bRefresh AI model\b/i,
+  /\bRefresh work location\b/i,
+  /\bRefresh where files open\b/i,
+  /\bRefresh work tools\b/i,
   /\bWork tool needs review\b/i,
   /\bWork tool not listed\b/i,
   /\bAgent location needs review\b/i,
@@ -1178,22 +1415,39 @@ const AGENT_SETUP_FALLBACK_DEAD_END_PATTERNS = [
   /\ba work tool that needs review\b/i,
 ]
 
-const LIVE_WORK_STATUS_DEAD_END_PATTERNS = [/\bStatus not reported\b/i]
+const LIVE_WORK_STATUS_DEAD_END_PATTERNS = [
+  /\bStatus not reported\b/i,
+  /\bRefresh to load status\b/i,
+  /\bRefresh this page first\b/i,
+]
 
-const TASK_DETAIL_RUN_STATUS_DEAD_END_PATTERNS = [/\bStatus not reported\b/i]
+const TASK_DETAIL_RUN_STATUS_DEAD_END_PATTERNS = [
+  /\bStatus not reported\b/i,
+  /\bRefresh task status\b/i,
+]
 
 const TASK_STATUS_FALLBACK_DEAD_END_PATTERNS = [
   /\bStatus not listed\b/i,
   /\bStatus needs review\b/i,
+  /\bRefresh task status\b/i,
   /\bPriority not listed\b/i,
   /\bPriority needs review\b/i,
+  /\bRefresh task priority\b/i,
 ]
 
 const TASK_COMPLETION_SUMMARY_DEAD_END_PATTERNS = [/\bNo completion summary was provided\b/i]
 
-const TASK_COMPLETION_OPEN_DETAILS_DEAD_END_PATTERNS = [/\bOpen details\b/i, /\bopen details\b/i]
+const TASK_COMPLETION_OPEN_DETAILS_DEAD_END_PATTERNS = [
+  /\bOpen details\b/i,
+  /\bopen details\b/i,
+  /\breview it before using it\b/i,
+]
 
 const TASK_OWNER_INPUT_JARGON_PATTERNS = [/\bneeds owner input\b/i]
+
+const TASK_PERMISSION_PROMPT_REVIEW_PATTERNS = [
+  /\bReview the request before the agent continues\b/i,
+]
 
 const TASK_REUSE_PATH_JARGON_PATTERNS = [/\bsave-for-next-time path\b/i]
 
@@ -1218,12 +1472,19 @@ const TASK_FAILURE_OPEN_DETAILS_DEAD_END_PATTERNS = [
   /\bopen details(?:,| (?:for|to|and))/i,
 ]
 
+const TASK_BLOCKED_APPROVAL_JARGON_PATTERNS = [
+  /\bWaiting (?:for|on) [^'"`]*approval\b/i,
+  /\bReview the approval request\b/i,
+  /\bapprove or decline\b/i,
+]
+
 const TASK_RECOVERY_OPEN_DETAILS_DEAD_END_PATTERNS = [/\bOpen details\b/i, /\bopen details\b/i]
 
 const BEGINNER_SORTING_JARGON_PATTERNS = [
   /\bInbox triage path\b/i,
   /\bTriage Queue\b/,
   /\bYou are a triage agent\b/i,
+  /\bYou review work carefully\b/i,
   /\bcode review agent\b/i,
   /\bregressions\b/i,
   /\bmissing tests\b/i,
@@ -1235,6 +1496,8 @@ const BEGINNER_SORTING_JARGON_PATTERNS = [
   /\blikely cause\b/i,
   /\bsmallest safe fix\b/i,
 ]
+
+const AGENT_CONFIG_TEMPLATE_JARGON_PATTERNS = [/\blabel:\s*['"`]Review['"`]/i]
 
 const TASK_DETAIL_EMPTY_DEAD_END_PATTERNS = [
   /\bNo description provided\./i,
@@ -1288,9 +1551,16 @@ const CONTEXT_EVIDENCE_FULL_RECORD_JARGON_PATTERNS = [
   /\bfull record only\b/i,
 ]
 
+const CONTEXT_EVIDENCE_EMPTY_DETAIL_DEAD_END_PATTERNS = [
+  /\bNo saved details were available\b/i,
+  /\bretry if needed\b/i,
+  /\breturn\s+['"`]not available['"`]/i,
+]
+
 const CHAT_MESSAGE_FALLBACK_DEAD_END_PATTERNS = [
   /\bMessage needs review\b/i,
   /\bMessage sender not reported\b/i,
+  /\bRefresh chat to load sender\b/i,
 ]
 
 const CHAT_OPERATOR_JARGON_PATTERNS = [
@@ -1309,16 +1579,30 @@ const CHAT_FILTER_EMPTY_DEAD_END_PATTERNS = [
   /\bassign a workspace task to create work steps\b/i,
 ]
 
+const HELP_ENTRY_REVIEW_ACTION_PATTERNS = [
+  /\bReview what needs help\b/i,
+  /\ba quick review\b/i,
+  /\breview every update\b/i,
+]
+
 const CHAT_TOOL_STEP_DEAD_END_PATTERNS = [
   /\bThis step needs review\b/i,
   /\bThis step has not reported a result yet\b/i,
   /\b(?:Show|Hide) setup details\b/i,
+  /\b(?:Show|Hide) result details\b/i,
+  /\bShow all result details\b/i,
   /\bTook\s+\{?formatDuration\b/i,
   /\bTook\s+\{?[^\n]{0,80}(?:ms|s)\b/i,
   /\bDuration:\s*\{?[^\n]{0,80}(?:ms|s)\b/i,
   /\$\{[^}\n]*duration[^}\n]*\}\s*ms\b/i,
   /\blabel:\s*['"`]Needs review['"`]/i,
   /\bpath:\s*['"`]Path['"`]/,
+]
+
+const CHAT_TOOL_FOLDER_PATH_JARGON_PATTERNS = [
+  /\bcwd:\s*['"`]Project folder['"`]/,
+  /\bProject folder:\s*\/workspace\b/i,
+  /\bProject folder:\s*\$\{?[^}\n]*cwd/i,
 ]
 
 const VAGUE_NEEDS_REVIEW_COPY_PATTERNS = [
@@ -1357,25 +1641,43 @@ const CHAT_OFFLINE_DEAD_END_PATTERNS = [
   /\bLoading earlier messages\. You can send once loading finishes\./i,
   /\bReconnect or start this agent before sending an instruction\./i,
   /\bOpen AI service settings, choose Check connection, then refresh Agents before sending a message\./i,
+  /\bOpen AI service settings, choose Check connection for this service, then refresh Agents before sending a message\./i,
+  /\breturn to Agents and refresh the list\b/i,
+  /\bRefresh if the agent just came online\b/i,
 ]
 
 const CHAT_STREAM_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*The agent could not finish this reply\. Resend the message\./i,
   /['"`]\s*This message was not sent\. Refresh this agent, then resend the message\./i,
+  /['"`]\s*Refresh this agent, then resend the message\. This message was not sent\./i,
+  /\bRefresh the Agents list, choose an active agent\b/i,
   /['"`]\s*Your sign-in expired\. Sign in again,/i,
   /['"`]\s*You do not have access to this agent or team space\. Ask an owner/i,
   /['"`]\s*You do not have access to this agent chat\. Ask an owner/i,
   /['"`]\s*This agent could not be found\. Refresh the Agents page/i,
+  /\bRefresh the Agents page\b/i,
   /['"`]\s*This agent is receiving too many messages right now\. Wait a moment/i,
   /['"`]\s*Forge could not send this chat message right now\. Wait a few minutes/i,
   /['"`]\s*This agent is already working\. Wait for the current reply/i,
   /['"`]\s*This conversation changed while the message was sending\. Refresh the chat/i,
+  /\bRefresh the chat,\s*review the latest message\b/i,
+  /\bThe agent did not send a reply\. Refresh this agent\b/i,
   /['"`]\s*The reply stopped before it finished\. Check that the agent is still online/i,
 ]
 
 const AGENT_CONTROL_ERROR_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*You do not have permission to change this agent\. Ask an owner/i,
   /['"`]\s*Forge could not update this agent right now\. Refresh this agent/i,
+  /['"`]\s*Refresh this agent, confirm it still shows Ready/i,
+  /['"`]\s*Go back to Agents and refresh the list, then choose Start file work again/i,
+  /['"`]\s*Refresh this agent, then choose Restart agent again/i,
+  /['"`]\s*Refresh this agent, then choose Remove agent again/i,
+  /['"`]\s*This agent changed while you were working\. Refresh this agent/i,
+  /['"`]\s*The agent controls are busy\. Wait a moment, refresh this agent/i,
+  /['"`]\s*Check your connection, refresh this agent/i,
+  /['"`]\s*Refresh this agent, then try again\./i,
+  /['"`]\s*Refresh this agent, then try again\. If it keeps failing/i,
+  /['"`]\s*Refresh this agent and confirm the latest status/i,
   /\bUse the recovery step below\b/i,
   /\bReview the recovery step below\b/i,
   /['"`]\s*agent control action failed['"`]/i,
@@ -1396,6 +1698,13 @@ const GOVERNANCE_AUDIT_ERROR_FAILURE_FIRST_PATTERNS = [
   /\bGovernance audit is handling too many requests right now\./i,
   /\bForge could not (?:load|export) governance audit history right now\./i,
   /\bYou do not have permission to view or export audit history\. Ask an owner/i,
+]
+
+const GOVERNANCE_AUDIT_RECOVERY_DEAD_END_PATTERNS = [
+  /\brefresh the page\b/i,
+  /\brefresh this view\b/i,
+  /['"`]\s*Refresh change history, then/i,
+  /,\s*refresh change history(?: again)?\b/i,
 ]
 
 const GOVERNANCE_AUDIT_VISIBLE_JARGON_PATTERNS = [
@@ -1443,6 +1752,9 @@ const APPROVAL_QUEUE_ERROR_FAILURE_FIRST_PATTERNS = [
   /^\s*return\s+['"`]This item changed while you were reviewing it\./i,
   /^\s*return\s+['"`]The saved item review list is busy\./i,
   /^\s*return\s+['"`]Forge could not connect while (?:loading saved items|saving this review decision)\./i,
+  /\bRefresh the list(?: so you see the latest saved items|, then (?:choose Do not save again|open this item again|check who can reuse the selected items))\b/i,
+  /\brefresh Saved items\b/i,
+  /\bRefresh saved items, then save after\b/i,
 ]
 
 const APPROVAL_QUEUE_CHECK_JARGON_PATTERNS = [
@@ -1485,9 +1797,16 @@ const VAGUE_SETUP_RECOVERY_PATTERNS = [
 
 const NAVIGATION_ERROR_FAILURE_FIRST_PATTERNS = [
   /^\s*return\s+`You do not have permission to \$\{actionPhrase\}\. Ask an owner/i,
+  /\brefresh the left menu to\b/i,
+  /\bRefresh the left menu to\b/i,
+  /\bRefresh the selected project\b/i,
+  /\bRefresh it,\s*check the current teams and projects\b/i,
 ]
 
-const TASK_FORM_AGENT_STATUS_DEAD_END_PATTERNS = [/\bstatus not reported\b/i]
+const TASK_FORM_AGENT_STATUS_DEAD_END_PATTERNS = [
+  /\bstatus not reported\b/i,
+  /\brefresh agent status\b/i,
+]
 
 const TASK_FORM_QUEUE_LOAD_FAILURE_FIRST_PATTERNS = [
   /\bTask queues could not load for this project\./i,
@@ -1497,6 +1816,11 @@ const TASK_FORM_QUEUE_LOAD_FAILURE_FIRST_PATTERNS = [
 const TASK_SUPPORT_REFERENCE_DEAD_END_PATTERNS = [
   /\bSupport reference not (?:reported|listed)\b/i,
   /\bTask ID\b/i,
+  /\bWork attempt\b/i,
+  /\bwork attempt code\b/i,
+  /\blatest attempt\b/i,
+  /\bRefresh task details\b/i,
+  /\brefresh task details to check\b/i,
   /\breturn\s+['"`]not listed['"`]/i,
 ]
 
@@ -1522,6 +1846,11 @@ const SAVED_ITEMS_CHECK_JARGON_PATTERNS = [
   /\breview saved notes and instructions\b/i,
   /\bReview the saved notes\b/i,
   /\bReview the selected saved notes\b/i,
+  /\bSuggested notes to review\b/i,
+  /\bSuggested instructions to review\b/i,
+  /\bWaiting for review\b/i,
+  /return\s+['"`]Approved['"`]/,
+  /return\s+['"`]Rejected['"`]/,
 ]
 
 const TASK_AGENT_CAPABILITY_JARGON_PATTERNS = [
@@ -1532,6 +1861,8 @@ const TASK_AGENT_CAPABILITY_JARGON_PATTERNS = [
 const TASK_DETAIL_AGENT_SETUP_DEAD_END_PATTERNS = [
   /\bNo available agent can take this task right now\./i,
   /\bNo agent is available for this task\. Start an agent or wait for one to finish, then try again\./i,
+  /\breturn here and refresh this task\b/i,
+  /\bthen refresh this task and try again\b/i,
 ]
 
 const TASK_DETAIL_LOAD_FAILURE_FIRST_PATTERNS = [
@@ -1541,6 +1872,7 @@ const TASK_DETAIL_LOAD_FAILURE_FIRST_PATTERNS = [
   /\bThe saved item review could not load\./i,
   /\bThis task was not found\. Refresh the board/i,
   /\bThis task changed while you were working\. Refresh/i,
+  /\bIf it still does not load, check your connection and refresh the page\b/i,
   /\bTask actions are busy\. Wait/i,
   /\bYou do not have permission to (?:view|change) this task\. Ask an owner/i,
   /\bForge could not connect while (?:loading|updating) this task\./i,
@@ -1558,6 +1890,10 @@ const BOARD_LOAD_FAILURE_FIRST_PATTERNS = [
   /\bAgent status could not load\./i,
   /\bThe task board could not load\./i,
   /\bThe saved item preview could not load\./i,
+  /\bRefresh agent status\b/i,
+  /\bRefresh the board to load\b/i,
+  /\bRefresh the board, then choose\b/i,
+  /\bIf it still does not load, check your connection and refresh the page\b/i,
   /\bYou do not have permission to change this board\. Ask an owner/i,
   /\bThis board item was not found\./i,
   /\bForge could not connect while (?:loading|updating) the board\./i,
@@ -1575,6 +1911,7 @@ const BOARD_AGENT_SETUP_DEAD_END_PATTERNS = [
   /\bNo agent is available for saved item preview\. Start an agent or wait for one to finish, then try again\./i,
   /\bNo agent can take work right now\./i,
   /\bConnect or free up an agent before (?:it|them) can start\./i,
+  /\bthen return to the board and refresh\b/i,
   /\bNo recent activity\b/i,
 ]
 
@@ -1587,7 +1924,11 @@ const BOARD_WAITING_PLACE_JARGON_PATTERNS = [
   /\bCreate a task queue first\b/i,
 ]
 
-const ASSIGNMENT_READINESS_STATUS_JARGON_PATTERNS = [/\bIn flight\b/i]
+const ASSIGNMENT_READINESS_STATUS_JARGON_PATTERNS = [
+  /\bIn flight\b/i,
+  /label=["'`]Review["'`]/,
+  /\bready for review\b/i,
+]
 
 const AUTH_FAILURE_FIRST_PATTERNS = [
   /\bToo many sign-in attempts\. Wait a few minutes/i,
@@ -1680,12 +2021,26 @@ const TASK_DETAIL_EVIDENCE_JARGON_PATTERNS = [
   /\bUse this result as evidence\b/i,
   /\bCheck the evidence\b/i,
   /\bresult, evidence\b/i,
+  /\bReview the outcome, then save\b/i,
   /\breview the result before closing\b/i,
+  /\bReview the result before accepting it\b/i,
+  /\bReview the Result tab\b/i,
   /\breview the result and result files\b/i,
   /\breview the result and evidence\b/i,
   /\breview result files\b/i,
   /\breview evidence\b/i,
+  /\bReview what was used\b/i,
+  /\bReview save ideas\b/i,
+  /\bAfter review, save\b/i,
+  /\bReview the handoff\b/i,
+  /\bReview the brief, then send it\b/i,
+  /\bReview the brief, then start\b/i,
+  /\bReview the latest updates before deciding\b/i,
+  /\bOpen Updates to review the latest task activity\b/i,
+  /\breview the suggested saved notes and instructions\b/i,
   /\battached for review\b/i,
+  /\bresult file(?:s)? ready for review\b/i,
+  /\bresult item(?:s)? ready for review\b/i,
   /\bresult file(?:s)? ready to review\b/i,
   /\bresult item(?:s)? ready to review\b/i,
 ]
@@ -1724,6 +2079,7 @@ const NETWORK_FAILURE_FIRST_PATTERNS = [
 ]
 
 const FEEDBACK_FAILURE_FIRST_PATTERNS = [
+  /\bRefresh the task\b/i,
   /['"`]\s*You do not have permission to save feedback for this saved item\. Ask an owner/i,
   /['"`]\s*This saved item could not be found\. Refresh the task/i,
   /['"`]\s*This saved item changed while you were giving feedback\. Refresh the task/i,
@@ -1736,6 +2092,8 @@ const CHAT_ERROR_FAILURE_FIRST_PATTERNS = [
   /^\s*\?\s*['"`]Forge could not load this conversation right now\./,
   /^\s*:\s*['"`]Forge could not update this chat right now\./,
   /^\s*return\s+`\$\{base\} Forge could not read this conversation\./,
+  /^\s*return\s+`\$\{base\} Refresh the page; this agent or conversation may have changed\./,
+  /^\s*return\s+`\$\{base\} Refresh the chat, then try again\. Forge could not read this conversation\./,
   /\b`\$\{base\} Try again\. If it still fails, ask an owner or admin to check this agent(?:'s)? [^`]+?\.`/,
 ]
 
@@ -1743,9 +2101,11 @@ const SETTINGS_STORE_ERROR_FAILURE_FIRST_PATTERNS = [
   /^\s*return\s+`Forge could not \$\{operation\} right now\./,
   /^\s*return\s+`Settings could not \$\{actionPhrase\}\./,
   /^\s*return\s+`You do not have permission to \$\{actionPhrase\}\. Ask an owner/i,
+  /\b[Rr]efresh Settings\b/,
 ]
 
 const RECOVERY_REVIEW_CURRENT_PATTERNS = [
+  /\bRefresh the list,\s*(?:review|check) the current value\b/i,
   /\breview (?:the|its) current (?:status|value|choices|name|teams and projects)\b/i,
 ]
 
@@ -1760,11 +2120,18 @@ const WORKSPACE_RESOURCE_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*(?:Team|Project) could not be (?:saved|deleted)\./i,
   /['"`]\s*This (?:team|project) could not be found\./i,
   /['"`]\s*Forge could not (?:save workspace settings|delete this (?:team|project)) right now\./i,
+  /\bRefresh Settings, then (?:save|delete|choose)/i,
+  /\bthen (?:save|delete) the (?:team|project) again in Settings\b/i,
+  /\bRefresh the left menu, then (?:save|delete|choose)/i,
+  /\bRefresh the left menu, check the current name\b/i,
 ]
 
 const WORKSPACE_RESOURCE_JARGON_PATTERNS = [
   /\breview the current (?:\$\{resource\}|name|team|project)\b/i,
   /\b(?:agents|tasks|agents or tasks) still depend on this project\b/i,
+  /\bMove agents out of this project first\b/i,
+  /\bMove or finish this project's tasks first\b/i,
+  /\bMove or delete this team's projects first\b/i,
   /\bthis team still owns projects or required access\b/i,
 ]
 
@@ -1772,6 +2139,7 @@ const PROJECT_CREATE_FAILURE_FIRST_PATTERNS = [
   /\bToo many project changes are happening right now\. Wait a minute, then create this project again\./i,
   /\bForge could not create the project right now\. Wait a few minutes, then try again\./i,
   /\bCould not create the project\. Check the project name and team, then try again\./i,
+  /\bRefresh Settings, choose the team again, then create this project\./i,
 ]
 
 const WORKSPACE_PROJECT_CREATE_GENERIC_PATTERNS = [
@@ -1789,16 +2157,21 @@ const PROJECT_CREATE_CODE_LINK_JARGON_PATTERNS = [
   /\bclone an existing repo\b/i,
   /\bUse a code link that starts with https:\/\/\. Links that start with git@ go in SSH code access\./i,
   /\bUse an https:\/\/ code link without account details, or leave the code link blank\./i,
+  /\bfor git@ links\b/i,
   /org\/repo\.git/i,
   /\/repo\.git/i,
 ]
 
 const TEAM_PROJECT_CREATE_JARGON_PATTERNS = [
   /\b(?:Team|Project) setup path\b/i,
+  /\bRefresh Settings, then create this team again\./i,
   /\bAddress preview:/i,
   /\bWork folder preview:/i,
   /\bShow support folder\b/i,
   /\bShow support folder path\b/i,
+  /\bShow exact folder\b/i,
+  /\bExact folder:/i,
+  /\bShown at the end of (?:team|project) links\b/i,
   /\bLink ending people may see\b/i,
   /\bAutomatic link name\b/i,
   /\bAutomatic (?:team|project) name\b/i,
@@ -1807,6 +2180,7 @@ const TEAM_PROJECT_CREATE_JARGON_PATTERNS = [
 
 const TEAM_PROJECT_ROW_ADDRESS_JARGON_PATTERNS = [
   /\bAddress:\s*\{/i,
+  /\bShown at the end of (?:team|project) links\b/i,
   /\bLink ending people may see\b/i,
   /\bAutomatic link name\b/i,
   /\bAutomatic (?:team|project) name\b/i,
@@ -1814,6 +2188,7 @@ const TEAM_PROJECT_ROW_ADDRESS_JARGON_PATTERNS = [
 ]
 
 const TEAM_PROJECT_SHORT_NAME_JARGON_PATTERNS = [
+  /\bShown at the end of (?:team|project|team space) links\b/i,
   /\bLink ending people may see\b/i,
   /\blink name\b/i,
   /\bURL name:\s*\{/i,
@@ -1827,6 +2202,8 @@ const TEAM_PROJECT_SHORT_NAME_JARGON_PATTERNS = [
 const SIDEBAR_PROJECT_MENU_GENERATED_NAME_JARGON_PATTERNS = [
   /\bautomatic project name\b/i,
   /\bname used in links\b/i,
+  /\bproject code\b/i,
+  /\bproject link ending\b/i,
   /\bpeople may see this at the end of project links\b/i,
 ]
 
@@ -1837,6 +2214,8 @@ const CLONE_RETRY_FAILURE_FIRST_PATTERNS = [
   /\bToo many code import retries are happening right now\. Wait a minute, then try again\./i,
   /\bForge could not copy code right now\. Wait a few minutes, then try again\./i,
   /\bCould not copy code into the project\. Check the code link and saved code access, then try again\./i,
+  /\bRefresh Projects, then try copying code again\b/i,
+  /\bthen try copying code again\b/i,
 ]
 
 const CLONE_RETRY_BUTTON_GENERIC_PATTERNS = [
@@ -1862,27 +2241,36 @@ const CLONE_FAILURE_REPOSITORY_JARGON_PATTERNS = [
 const AGENT_CONFIG_DETAIL_DEAD_END_PATTERNS = [
   /\bAI model not reported\b/i,
   /\bModel not reported\b/i,
+  /\bRefresh AI model\b/i,
   /\bRefresh agent details\b/i,
+  /\bRefresh work tool settings\b/i,
   /\bWork tool not reported\b/i,
   /\bNo instructions\b/i,
 ]
 
 const AGENT_CONFIG_SAVE_FAILURE_PATTERNS = [
   /\bAgent instructions were not saved\. Refresh this agent/i,
+  /\bAgent instructions were not saved\. Review the instructions, then try again\./i,
+  /\bRefresh this agent, confirm it is still a chat-only agent\b/i,
   /\bAsk an admin to check your agent access\b/i,
 ]
 
-const AGENT_AI_SERVICE_DEAD_END_PATTERNS = [/\bAI service not reported\b/i]
+const AGENT_AI_SERVICE_DEAD_END_PATTERNS = [
+  /\bAI service not reported\b/i,
+  /\bRefresh AI service\b/i,
+]
 
 const AGENT_MODEL_DEAD_END_PATTERNS = [
   /\bAI model not reported\b/i,
   /\bModel not reported\b/i,
+  /\bRefresh AI model\b/i,
   /\bmodel:\s*[^,\n]*['"`]unknown['"`]/i,
 ]
 
 const ACCESS_LEVEL_DEAD_END_PATTERNS = [
   /\bAccess level not reported\b/i,
   /\bAccess level needs review\b/i,
+  /\bRefresh access level\b/i,
   /\boperator:\s*['"`]Operator['"`]/,
 ]
 
@@ -1890,12 +2278,27 @@ const AGENT_TEMPLATE_ROLE_JARGON_PATTERNS = [
   /\bStart with a role\b/i,
   /\bAgent role templates\b/i,
   /\bFills in the agent name\b/i,
+  /\blabel:\s*['"`]Review work['"`]/i,
+  /\bname:\s*['"`]Review Helper['"`]/i,
 ]
 
 const AGENT_INSTRUCTION_TEMPLATE_JARGON_PATTERNS = [
   /\bgathering evidence first\b/i,
   /\bmore evidence is needed\b/i,
   /\broot cause\b/i,
+  /\bYou review work before the team uses it\b/i,
+]
+
+const NEW_AGENT_ENTRY_JARGON_PATTERNS = [
+  /\bCreate Agent\b/,
+  /\bCreate agent\b/,
+  /\bCreate Your First Agent\b/,
+  /\bchoose Create Agent\b/i,
+  /\bChoose in Create Agent\b/,
+  /\breopen Create Agent\b/i,
+  /\bOpen Create Agent\b/,
+  /\bnewAgent:\s*['"`]Create Agent['"`]/,
+  /\bcreateAgent:\s*['"`]Create Agent['"`]/,
 ]
 
 const CREATE_AGENT_WORK_STYLE_JARGON_PATTERNS = [
@@ -1921,6 +2324,10 @@ const CREATE_AGENT_MANAGEMENT_JARGON_PATTERNS = [/\bAgent managed by Forge\b/i]
 const CREATE_AGENT_CONFIRMATION_JARGON_PATTERNS = [
   /\bCreated state\b/i,
   /\bChat-only AI service\b/i,
+  /\bchat and review\b/i,
+  /\bplanning, writing, and review\b/i,
+  /\bassign a result check\b/i,
+  /\bassign review work\b/i,
   /\bChoose an AI service and AI model before creating this agent\b/i,
   /\bChoose an AI service with a saved model\b/i,
   /\bThe model is set by that service\b/i,
@@ -1952,6 +2359,7 @@ const AGENT_WORK_AREA_DISPLAY_JARGON_PATTERNS = [
 ]
 
 const AGENT_FILE_WORK_CONTROL_JARGON_PATTERNS = [
+  /\bRefresh Agents\b/i,
   /\bStart (?:the|this) workspace\b/i,
   /\bStart workspace\b/i,
   /\bWorkspace start requested\b/i,
@@ -1972,12 +2380,16 @@ const VAGUE_ACCESS_RECOVERY_PATTERNS = [
   /\bAsk an owner or admin to update your access\b/i,
   /\bAsk an owner or admin to update what you can do\b/i,
   /\bAsk an owner or admin to update project access\b/i,
+  /\bcheck what you can do\b/i,
 ]
 
 const BEGINNER_JARGON_PATTERNS = [
   /\blocal agents?\b/i,
   /\bmanaged local agent\b/i,
   /\bmanaged workspace agents?\b/i,
+  /\bProvider \+ Prompt\b/i,
+  /\bText-only(?: model)?\b/i,
+  /\btext-only work\b/i,
   /\bclaude,\s*codex,\s*gemini,?\s*or\s*opencode\b/,
   /claude、codex、gemini\s*或\s*opencode/,
   /\bHost CLI\b/i,
@@ -2090,6 +2502,29 @@ function isUiCopyFile(relFile) {
   return true
 }
 
+function lineNumberAt(text, index) {
+  return text.slice(0, index).split('\n').length
+}
+
+function findAlertLiveFindings(text, relFile) {
+  const findings = []
+  const alertTagPattern = /<[^>]*\brole\s*=\s*(?:\{\s*)?['"]alert['"](?:\s*\})?[^>]*>/gs
+  let match
+  while ((match = alertTagPattern.exec(text))) {
+    const tag = match[0]
+    if (/\baria-live\s*=/.test(tag)) continue
+
+    findings.push({
+      type: 'alert-live-announcement',
+      location: `${relFile}:${lineNumberAt(text, match.index)}`,
+      message:
+        'Error alerts must include aria-live so screen-reader users hear what happened and what to do next.',
+      sample: tag.replace(/\s+/g, ' ').trim(),
+    })
+  }
+  return findings
+}
+
 function isLikelyEmptyStateContext(lines, index, line) {
   if (/\bempty\s*[:=]/i.test(line)) return true
   if (/^\s*no[A-Z][A-Za-z0-9_]*\s*:/.test(line)) return true
@@ -2149,7 +2584,7 @@ function hasSettingsPathJargonCopy(line) {
   return SETTINGS_PATH_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
-function hasApiFallbackFailureFirstCopy(relFile, line) {
+function hasApiFallbackUnhelpfulCopy(relFile, line) {
   if (
     relFile !== 'src/app/shared/api/legacy/AgentAPI.ts' &&
     relFile !== 'src/app/shared/api/agent-api-types.ts'
@@ -2157,7 +2592,7 @@ function hasApiFallbackFailureFirstCopy(relFile, line) {
     return false
   }
   if (isLikelyGuardOrParserLine(line)) return false
-  return API_FALLBACK_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+  return API_FALLBACK_UNHELPFUL_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasBeginnerJargon(line) {
@@ -2565,6 +3000,18 @@ function hasAnalyticsUpdatedTimeDeadEndCopy(relFile, line) {
   return ANALYTICS_UPDATED_TIME_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAnalyticsRefreshDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/analytics/ContextUsageDashboard.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ANALYTICS_REFRESH_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAnalyticsTaskKindJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/analytics/ContextUsageDashboard.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ANALYTICS_TASK_KIND_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasAnalyticsGuidanceJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/analytics/AnalyticsDashboard.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -2605,6 +3052,12 @@ function hasInboxLoadFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/inbox/InboxView.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return INBOX_LOAD_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasInboxReloadDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/inbox/InboxView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return INBOX_RELOAD_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasTaskAgentAssignmentDeadEndCopy(relFile, line) {
@@ -2663,6 +3116,12 @@ function hasSavedItemsCheckJargonCopy(relFile, line) {
     !relFile.endsWith('src/app/features/detail/TaskDetailPanel.tsx')
   ) {
     return false
+  }
+  if (
+    relFile.endsWith('src/app/features/detail/ContextCandidatesList.tsx') &&
+    /return\s+['"`](?:Approved|Rejected)['"`]/.test(line)
+  ) {
+    return true
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return SAVED_ITEMS_CHECK_JARGON_PATTERNS.some((pattern) => pattern.test(line))
@@ -2800,6 +3259,12 @@ function hasBeginnerSortingJargonCopy(relFile, line) {
   return BEGINNER_SORTING_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAgentConfigTemplateJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_CONFIG_TEMPLATE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasGettingStartedReviewEvidenceJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
@@ -2832,6 +3297,7 @@ function hasTaskDetailEvidenceJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/detail/DescriptionTab.tsx') &&
     !relFile.endsWith('src/app/features/detail/HistoryTab.tsx') &&
+    !relFile.endsWith('src/app/features/detail/TaskMetadata.tsx') &&
     !relFile.endsWith('src/app/features/detail/TaskDetailPanel.tsx') &&
     !relFile.endsWith('src/app/features/list/ListView.tsx') &&
     !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')
@@ -3064,7 +3530,15 @@ function hasAgentConfigDetailDeadEndCopy(relFile, line) {
 }
 
 function hasAgentConfigSaveFailureCopy(relFile, line) {
-  if (!relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx')) return false
+  if (
+    !(
+      relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx') ||
+      relFile.endsWith('src/app/shared/model/agents.store.ts') ||
+      relFile.endsWith('src/app/entities/agent/model/agents.store.ts')
+    )
+  ) {
+    return false
+  }
   if (isLikelyGuardOrParserLine(line)) return false
   return AGENT_CONFIG_SAVE_FAILURE_PATTERNS.some((pattern) => pattern.test(line))
 }
@@ -3073,6 +3547,54 @@ function hasAgentListSummaryDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/agents/AgentListView.tsx')) return false
   if (line.trim().startsWith('//') || line.trim().startsWith('*')) return false
   return AGENT_LIST_SUMMARY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasChatOnlyAgentReviewJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/agents/AgentListView.tsx') &&
+    !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx') &&
+    !relFile.endsWith('src/app/features/chat/ChatView.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CHAT_ONLY_AGENT_REVIEW_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasUserActionAssignmentJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/chat/ChatView.tsx') &&
+    !relFile.endsWith('src/app/features/feed/ActivityFeed.tsx') &&
+    !relFile.endsWith('src/app/features/feed/AgentStatusBar.tsx') &&
+    !relFile.endsWith('src/app/features/settings/RuntimeSection.tsx') &&
+    !relFile.endsWith('src/app/features/settings/ProvidersSection.tsx') &&
+    !relFile.endsWith('src/app/features/list/ListView.tsx') &&
+    !relFile.endsWith('src/app/features/admin/SystemHealth.tsx') &&
+    !relFile.endsWith('src/app/features/admin/OrganizationsPanel.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentGroupsPanel.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx') &&
+    !relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx') &&
+    !relFile.endsWith('src/app/features/manage-project/ui/CreateProjectForm.tsx') &&
+    !relFile.endsWith('src/app/features/manage-project/ui/EditableProjectRow.tsx') &&
+    !relFile.endsWith('src/app/features/board/KanbanColumn.tsx') &&
+    !relFile.endsWith('src/app/features/board/BoardToolbar.tsx') &&
+    !relFile.endsWith('src/app/features/board/TaskCard.tsx') &&
+    !relFile.endsWith('src/app/features/detail/taskDetailErrorMessages.ts') &&
+    !relFile.endsWith('src/app/features/inbox/InboxView.tsx') &&
+    !relFile.endsWith('src/app/hooks/useWsDispatch.ts') &&
+    !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return USER_ACTION_ASSIGNMENT_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasTaskCardPublishJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/board/TaskCard.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_CARD_PUBLISH_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentToolSummaryDeadEndCopy(relFile, line) {
@@ -3205,6 +3727,23 @@ function hasAgentInstructionTemplateJargonCopy(relFile, line) {
   return AGENT_INSTRUCTION_TEMPLATE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasNewAgentEntryJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/agents/AgentListView.tsx') &&
+    !relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx') &&
+    !relFile.endsWith('src/app/features/settings/ProvidersSection.tsx') &&
+    !relFile.endsWith('src/app/entities/agent/model/agents.store.ts') &&
+    !relFile.endsWith('src/app/shared/model/agents.store.ts') &&
+    !relFile.endsWith('src/app/features/agents/model/createAgentWorkLaneErrorMessage.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return NEW_AGENT_ENTRY_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasCreateAgentOptionalContextDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -3235,7 +3774,13 @@ function hasTimelineEmptyDeadEndCopy(relFile, line) {
 }
 
 function hasWorkshop3DEmptyDeadEndCopy(relFile, line) {
-  if (!relFile.endsWith('src/app/widgets/views/Workshop3DView.tsx')) return false
+  if (
+    !relFile.endsWith('src/app/widgets/views/Workshop3DView.tsx') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
   if (isLikelyGuardOrParserLine(line)) return false
   return WORKSHOP_3D_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
@@ -3338,8 +3883,19 @@ function hasTitleStyleGuidanceCopy(line) {
   return TITLE_STYLE_GUIDANCE_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasOutsideToolAccessNavJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/pages/settings/ui/SettingsLayout.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return OUTSIDE_TOOL_ACCESS_NAV_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasCliImageStatusDeadEndCopy(relFile, line) {
-  if (!relFile.endsWith('src/app/features/admin/CliImagesPanel.tsx')) return false
+  if (
+    !relFile.endsWith('src/app/features/admin/CliImagesPanel.tsx') &&
+    !relFile.endsWith('src/app/hooks/useWsDispatch.ts')
+  ) {
+    return false
+  }
   if (isLikelyGuardOrParserLine(line)) return false
   return CLI_IMAGE_STATUS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
@@ -3425,6 +3981,12 @@ function hasCodeAccessRepositoryJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/settings/GitCredentialsSection.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return CODE_ACCESS_REPOSITORY_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasCodeAccessEmptyDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/settings/GitCredentialsSection.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CODE_ACCESS_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasDateFallbackDeadEndCopy(relFile, line) {
@@ -3573,6 +4135,18 @@ function hasWorkspaceSetupJargonCopy(relFile, line) {
   return WORKSPACE_SETUP_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasRouteLoadingRefreshDeadEndCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/routes/__root.tsx') &&
+    !relFile.endsWith('src/app/routes/context.tsx') &&
+    !relFile.endsWith('src/app/routes/context-audit.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ROUTE_LOADING_REFRESH_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasStartGuidePathJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
@@ -3626,6 +4200,12 @@ function hasTaskFormSubmitLabelJargonCopy(relFile, line) {
   return TASK_FORM_SUBMIT_LABEL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTaskFormTemplateJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/board/TaskFormModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_FORM_TEMPLATE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasTaskFormIncompleteBriefDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/board/TaskFormModal.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -3656,6 +4236,12 @@ function hasTaskFormAgentChoiceJargonCopy(relFile, line) {
   return TASK_FORM_AGENT_CHOICE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTaskFormReviewTemplateJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/board/TaskFormModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_FORM_REVIEW_TEMPLATE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasQuickCreateDraftTaskJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/board/QuickCreate.tsx') &&
@@ -3665,6 +4251,12 @@ function hasQuickCreateDraftTaskJargonCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return QUICK_CREATE_DRAFT_TASK_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasKanbanDoneReviewEmptyJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/board/KanbanColumn.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return KANBAN_DONE_REVIEW_EMPTY_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasQuickCreateExampleReviewJargonCopy(relFile, line) {
@@ -3708,6 +4300,17 @@ function hasAgentTaskQueueFailureFirstCopy(relFile, line) {
   return AGENT_TASK_QUEUE_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAgentTaskLoadRefreshDeadEndCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/agents/model/taskErrorMessage.ts') &&
+    !relFile.endsWith('src/app/features/agents/AgentTasksTab.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_TASK_LOAD_REFRESH_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasSkillMaintainerFallbackDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
@@ -3746,7 +4349,9 @@ function hasSavedInstructionSourceLabelCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/skills/SkillCard.tsx') &&
     !relFile.endsWith('src/app/features/skills/SkillDetailModal.tsx') &&
-    !relFile.endsWith('src/app/features/skills/model/savedInstructionLabels.ts')
+    !relFile.endsWith('src/app/features/skills/model/savedInstructionLabels.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
   ) {
     return false
   }
@@ -3846,10 +4451,27 @@ function hasRuntimeSignInDeadEndCopy(relFile, line) {
   return RUNTIME_SIGN_IN_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasWorkToolSignInEntryJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/pages/settings/ui/SettingsLayout.tsx') &&
+    !relFile.endsWith('src/app/features/settings/RuntimeSection.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return WORK_TOOL_SIGN_IN_ENTRY_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasRuntimeDefaultLocationDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/settings/RuntimeSection.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return RUNTIME_DEFAULT_LOCATION_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasResourceSizesReloadDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/settings/ResourcesSection.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return RESOURCE_SIZES_RELOAD_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasRuntimeSetupStatusDeadEndCopy(relFile, line) {
@@ -3919,6 +4541,17 @@ function hasCommonErrorFailureFirstCopy(relFile, line) {
   return COMMON_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasCommonErrorRefreshDeadEndCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return COMMON_ERROR_REFRESH_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasCommonErrorVagueSystemCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
@@ -3967,6 +4600,7 @@ function hasLoadErrorTitleDeadEndCopy(relFile, line) {
     !relFile.endsWith('src/app/shared/model/billing.store.ts') &&
     !relFile.endsWith('src/app/entities/agent/model/agents.store.ts') &&
     !relFile.endsWith('src/app/features/agents/model/pluginErrorMessage.ts') &&
+    !relFile.endsWith('src/app/features/agents/AgentPluginsTab.tsx') &&
     !relFile.endsWith('src/app/features/agents/model/taskErrorMessage.ts') &&
     !relFile.endsWith('src/app/features/manage-members/model/resourceMemberErrorMessages.ts') &&
     !relFile.endsWith('src/app/features/settings/runtimeErrorMessages.ts') &&
@@ -4109,6 +4743,12 @@ function hasTaskOwnerInputJargonCopy(relFile, line) {
   return TASK_OWNER_INPUT_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTaskPermissionPromptReviewCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/hooks/useWsDispatch.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_PERMISSION_PROMPT_REVIEW_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasTaskReusePathJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/detail/DescriptionTab.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -4139,6 +4779,12 @@ function hasTaskFailureOpenDetailsDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/shared/lib/taskFailureCopy.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return TASK_FAILURE_OPEN_DETAILS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasTaskBlockedApprovalJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/shared/lib/taskFailureCopy.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_BLOCKED_APPROVAL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasTaskRecoveryOpenDetailsDeadEndCopy(relFile, line) {
@@ -4208,6 +4854,12 @@ function hasContextEvidenceFullRecordJargonCopy(relFile, line) {
   return CONTEXT_EVIDENCE_FULL_RECORD_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasContextEvidenceEmptyDetailDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/detail/ContextEvidenceList.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CONTEXT_EVIDENCE_EMPTY_DETAIL_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasChatMessageFallbackDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/chat/ChatView.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -4226,10 +4878,28 @@ function hasChatFilterEmptyDeadEndCopy(relFile, line) {
   return CHAT_FILTER_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasHelpEntryReviewActionCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/chat/ChatView.tsx') &&
+    !relFile.endsWith('src/app/features/feed/AttentionZone.tsx') &&
+    !relFile.endsWith('src/app/features/inbox/InboxItem.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return HELP_ENTRY_REVIEW_ACTION_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasChatToolStepDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/chat/ToolCallDetail.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return CHAT_TOOL_STEP_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasChatToolFolderPathJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/chat/ToolCallDetail.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CHAT_TOOL_FOLDER_PATH_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasVagueNeedsReviewCopy(relFile, line) {
@@ -4285,6 +4955,8 @@ function hasTechnicalProblemJargonCopy(relFile, line) {
 
 function hasChatOfflineDeadEndCopy(relFile, line) {
   if (
+    !relFile.endsWith('src/app/features/agents/AgentControlPanel.tsx') &&
+    !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx') &&
     !relFile.endsWith('src/app/features/chat/ChatView.tsx') &&
     !relFile.endsWith('src/app/features/chat/ChatComposer.tsx')
   ) {
@@ -4312,6 +4984,17 @@ function hasGovernanceAuditErrorFailureFirstCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return GOVERNANCE_AUDIT_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasGovernanceAuditRecoveryDeadEndCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/governance/AuditLogView.tsx') &&
+    !relFile.endsWith('src/app/features/governance/governanceAuditErrorMessages.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return GOVERNANCE_AUDIT_RECOVERY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasGovernanceAuditVisibleJargonCopy(relFile, line) {
@@ -4381,8 +5064,9 @@ function hasNavigationErrorFailureFirstCopy(relFile, line) {
 }
 
 function scanFile(file, relFile) {
-  const lines = fs.readFileSync(file, 'utf8').split('\n')
-  const findings = []
+  const text = fs.readFileSync(file, 'utf8')
+  const lines = text.split('\n')
+  const findings = findAlertLiveFindings(text, relFile)
 
   lines.forEach((line, index) => {
     const location = `${relFile}:${index + 1}`
@@ -4414,11 +5098,11 @@ function scanFile(file, relFile) {
       })
     }
 
-    if (hasApiFallbackFailureFirstCopy(relFile, line)) {
+    if (hasApiFallbackUnhelpfulCopy(relFile, line)) {
       findings.push({
         type: 'api-fallback-error-copy',
         location,
-        message: 'Shared API fallback errors must start with the recovery action.',
+        message: 'Shared API fallback errors must start with a concrete recovery action.',
         sample: line.trim(),
       })
     }
@@ -4674,6 +5358,16 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasCommonErrorRefreshDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'common-error-refresh-copy',
+        location,
+        message:
+          'Common error translations must tell beginners to open the page again instead of refreshing the page.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasCommonErrorVagueSystemCopy(relFile, line)) {
       findings.push({
         type: 'common-error-system-copy',
@@ -4833,7 +5527,8 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'admin-load-error-copy',
         location,
-        message: 'Admin load error titles must tell beginners what to refresh or check.',
+        message:
+          'Admin load error titles must tell beginners which Admin section or action to use.',
         sample: line.trim(),
       })
     }
@@ -4842,7 +5537,8 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'admin-store-error-copy',
         location,
-        message: 'Admin store error copy must start with the next step for beginners.',
+        message:
+          'Admin store error copy must start with a concrete Admin section or action for beginners.',
         sample: line.trim(),
       })
     }
@@ -5010,7 +5706,28 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'analytics-updated-time-copy',
         location,
-        message: 'Analytics updated-time fallback must tell beginners to refresh analytics.',
+        message:
+          'Analytics updated-time fallback must tell beginners to choose Load analytics again.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAnalyticsRefreshDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'analytics-refresh-copy',
+        location,
+        message:
+          'Saved item analytics must point to Load analytics again or a concrete check instead of refresh wording.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAnalyticsTaskKindJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'analytics-task-kind-copy',
+        location,
+        message:
+          'Saved item analytics task labels must say what the user is checking instead of review task.',
         sample: line.trim(),
       })
     }
@@ -5076,7 +5793,18 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'inbox-load-error-copy',
         location,
-        message: 'Inbox load errors must start with the reload action, not the failure summary.',
+        message:
+          'Inbox load errors must start with a concrete load-again action, not the failure summary.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasInboxReloadDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'inbox-reload-copy',
+        location,
+        message:
+          'Inbox recovery copy must use a visible action such as Load updates again, not reload or refresh inbox wording.',
         sample: line.trim(),
       })
     }
@@ -5104,7 +5832,7 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'task-form-agent-status-copy',
         location,
-        message: 'Task creation agent status copy must tell beginners to refresh agent status.',
+        message: 'Task creation agent status copy must tell beginners to check agent status.',
         sample: line.trim(),
       })
     }
@@ -5122,7 +5850,8 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'task-support-reference-copy',
         location,
-        message: 'Task support reference fallback must tell beginners to refresh task details.',
+        message:
+          'Task support reference fallback must tell beginners to reopen the task from the Tasks page.',
         sample: line.trim(),
       })
     }
@@ -5140,8 +5869,7 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'saved-items-check-copy',
         location,
-        message:
-          'Task-send saved item checks must say Saved items/check instead of saved notes review.',
+        message: 'Saved item checks must say Saved items/check instead of saved notes review.',
         sample: line.trim(),
       })
     }
@@ -5197,7 +5925,7 @@ function scanFile(file, relFile) {
         type: 'board-agent-setup-copy',
         location,
         message:
-          'Board no-agent copy must tell beginners to open Agents, start or connect an agent, and refresh the board.',
+          'Board no-agent copy must tell beginners to open Agents, start or connect an agent, and continue from Tasks.',
         sample: line.trim(),
       })
     }
@@ -5286,6 +6014,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Inbox and agent setup copy must describe sorting work in beginner-readable language.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentConfigTemplateJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-config-template-copy',
+        location,
+        message: 'Agent instruction template buttons must say the action beginners should take.',
         sample: line.trim(),
       })
     }
@@ -5564,6 +6301,36 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasChatOnlyAgentReviewJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'chat-only-agent-review-copy',
+        location,
+        message:
+          'Chat-only agent copy must say questions, writing, and checking results instead of review jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasUserActionAssignmentJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'user-action-assignment-copy',
+        location,
+        message:
+          'High-traffic task and agent setup copy must say send work or choose an agent instead of assign jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskCardPublishJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'task-card-publish-copy',
+        location,
+        message:
+          'Task cards must say send or preview and send instead of publish in user-visible actions.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasAgentToolSummaryDeadEndCopy(relFile, line)) {
       findings.push({
         type: 'agent-tool-summary-copy',
@@ -5577,7 +6344,7 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'agent-ai-service-copy',
         location,
-        message: 'Agent AI service fallback copy must tell beginners to refresh service data.',
+        message: 'Agent AI service fallback copy must tell beginners to check service setup.',
         sample: line.trim(),
       })
     }
@@ -5587,7 +6354,7 @@ function scanFile(file, relFile) {
         type: 'create-agent-work-location-copy',
         location,
         message:
-          'Create agent setup must ask where the agent works instead of using work-style jargon.',
+          'New agent setup must ask where the agent works instead of using work-style jargon.',
         sample: line.trim(),
       })
     }
@@ -5597,7 +6364,7 @@ function scanFile(file, relFile) {
         type: 'create-agent-project-copy',
         location,
         message:
-          'Create agent setup must explain which project new tasks use without primary-project jargon.',
+          'New agent setup must explain which project new tasks use without primary-project jargon.',
         sample: line.trim(),
       })
     }
@@ -5607,7 +6374,7 @@ function scanFile(file, relFile) {
         type: 'create-agent-work-area-copy',
         location,
         message:
-          'Create agent setup must explain the project area in beginner-facing words, not workspace internals.',
+          'New agent setup must explain the project area in beginner-facing words, not workspace internals.',
         sample: line.trim(),
       })
     }
@@ -5617,7 +6384,7 @@ function scanFile(file, relFile) {
         type: 'create-agent-management-copy',
         location,
         message:
-          'Create agent setup must explain what the agent does instead of saying it is managed by Forge.',
+          'New agent setup must explain what the agent does instead of saying it is managed by Forge.',
         sample: line.trim(),
       })
     }
@@ -5627,7 +6394,7 @@ function scanFile(file, relFile) {
         type: 'create-agent-confirmation-copy',
         location,
         message:
-          'Create agent review copy must explain the next state and AI service setup in plain language.',
+          'New agent review copy must explain the next state and AI service setup in plain language.',
         sample: line.trim(),
       })
     }
@@ -5656,7 +6423,8 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'agent-file-work-control-copy',
         location,
-        message: 'Agent file-work controls must say file work instead of workspace internals.',
+        message:
+          'Agent file-work controls must say file work and concrete navigation steps instead of workspace or refresh shorthand.',
         sample: line.trim(),
       })
     }
@@ -5665,7 +6433,7 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'agent-model-copy',
         location,
-        message: 'Agent AI model fallback copy must tell beginners to refresh model data.',
+        message: 'Agent AI model fallback copy must tell beginners to check model setup.',
         sample: line.trim(),
       })
     }
@@ -5674,7 +6442,7 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'access-level-copy',
         location,
-        message: 'Access level fallback copy must tell beginners to refresh role data.',
+        message: 'Access level fallback copy must tell beginners to check Account settings.',
         sample: line.trim(),
       })
     }
@@ -5694,6 +6462,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Agent instruction templates must use beginner-facing fact and information wording.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasNewAgentEntryJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'new-agent-entry-copy',
+        location,
+        message:
+          'Agent creation entry points must say New agent or Add agent instead of Create Agent.',
         sample: line.trim(),
       })
     }
@@ -5862,6 +6640,16 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasOutsideToolAccessNavJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'outside-tool-access-nav-copy',
+        location,
+        message:
+          'Outside tool access navigation must say outside tools connect to Forge, not that agents need app keys.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasCliImageStatusDeadEndCopy(relFile, line)) {
       findings.push({
         type: 'cli-image-status-copy',
@@ -5932,7 +6720,7 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'system-health-error-copy',
         location,
-        message: 'App health errors must start with the next action, not the failure summary.',
+        message: 'App health errors must start with the App health section or Check now action.',
         sample: line.trim(),
       })
     }
@@ -5986,11 +6774,21 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasCodeAccessEmptyDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'code-access-empty-copy',
+        location,
+        message:
+          'Code access empty states must start with preparation steps, not only the capability.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasDateFallbackDeadEndCopy(relFile, line)) {
       findings.push({
         type: 'date-fallback-copy',
         location,
-        message: 'Date fallback copy must tell beginners which list to refresh or check.',
+        message: 'Date fallback copy must tell beginners which page or list to open or check.',
         sample: line.trim(),
       })
     }
@@ -5999,8 +6797,7 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'account-profile-copy',
         location,
-        message:
-          'Account profile fallbacks must tell beginners to refresh and reload account data.',
+        message: 'Account profile fallbacks must tell beginners to reopen Account settings.',
         sample: line.trim(),
       })
     }
@@ -6110,6 +6907,16 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasRouteLoadingRefreshDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'route-loading-refresh-copy',
+        location,
+        message:
+          'Route loading states must name the page to open again instead of telling beginners to refresh the page.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasStartGuidePathJargonCopy(relFile, line)) {
       findings.push({
         type: 'start-guide-path-copy',
@@ -6197,6 +7004,16 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasTaskFormTemplateJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'task-form-template-copy',
+        location,
+        message:
+          'Task creation templates must use result-oriented labels instead of developer workflow labels.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasTaskFormIncompleteBriefDeadEndCopy(relFile, line)) {
       findings.push({
         type: 'task-form-incomplete-brief-copy',
@@ -6247,12 +7064,32 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasTaskFormReviewTemplateJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'task-form-review-template-copy',
+        location,
+        message:
+          'Task creation review templates must ask for the change or request without requiring PR or branch terms.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasQuickCreateDraftTaskJargonCopy(relFile, line)) {
       findings.push({
         type: 'quick-create-draft-task-copy',
         location,
         message:
           'Quick task creation must say Add Task or Save Task and explain Not sent yet instead of draft-task jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasKanbanDoneReviewEmptyJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'kanban-done-empty-copy',
+        location,
+        message:
+          'Done column empty states must tell beginners to check finished work before using it instead of saying review.',
         sample: line.trim(),
       })
     }
@@ -6305,12 +7142,22 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasAgentTaskLoadRefreshDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-task-load-copy',
+        location,
+        message:
+          'Agent work-list errors must tell beginners where to open Work again instead of saying refresh this page.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasCreateAgentOptionalContextDeadEndCopy(relFile, line)) {
       findings.push({
         type: 'create-agent-optional-context-copy',
         location,
         message:
-          'Create Agent optional project and queue copy must say the user can choose later instead of showing no-selection labels.',
+          'New agent optional project and queue copy must say the user can choose later instead of showing no-selection labels.',
         sample: line.trim(),
       })
     }
@@ -6320,7 +7167,7 @@ function scanFile(file, relFile) {
         type: 'skill-maintainer-fallback-copy',
         location,
         message:
-          'Saved instruction maintainer fallback copy must tell beginners to refresh saved instructions.',
+          'Saved instruction maintainer fallback copy must tell beginners where to reopen saved instructions.',
         sample: line.trim(),
       })
     }
@@ -6350,7 +7197,7 @@ function scanFile(file, relFile) {
         type: 'saved-instruction-source-label-copy',
         location,
         message:
-          'Saved instruction source labels must say team space instead of workspace for beginners.',
+          'Saved instruction source labels must use plain source names instead of workspace or library wording.',
         sample: line.trim(),
       })
     }
@@ -6429,7 +7276,8 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'saved-instructions-load-copy',
         location,
-        message: 'Saved instructions load fallback copy must point beginners to the retry action.',
+        message:
+          'Saved instructions load fallback copy must point beginners to opening Saved instructions again.',
         sample: line.trim(),
       })
     }
@@ -6464,12 +7312,32 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasWorkToolSignInEntryJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'work-tool-sign-in-entry-copy',
+        location,
+        message:
+          'Work tool sign-in entry points must keep Codex discoverable without naming the whole Settings entry as CLI-only.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasRuntimeDefaultLocationDeadEndCopy(relFile, line)) {
       findings.push({
         type: 'runtime-default-location-copy',
         location,
         message:
           'Project-file setup copy must tell beginners to load setup before choosing where files open.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasResourceSizesReloadDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'resource-sizes-load-copy',
+        location,
+        message:
+          'Agent size load errors must use plain load-again guidance instead of reload-page wording.',
         sample: line.trim(),
       })
     }
@@ -6563,7 +7431,7 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'live-work-status-copy',
         location,
-        message: 'Live work status copy must tell beginners to refresh status before deciding.',
+        message: 'Live work status copy must point beginners to Overview before retrying.',
         sample: line.trim(),
       })
     }
@@ -6573,7 +7441,7 @@ function scanFile(file, relFile) {
         type: 'task-detail-run-status-copy',
         location,
         message:
-          'Task detail run status copy must tell beginners to refresh task status before deciding.',
+          'Task detail run status copy must tell beginners to open task details before deciding.',
         sample: line.trim(),
       })
     }
@@ -6583,7 +7451,7 @@ function scanFile(file, relFile) {
         type: 'task-status-fallback-copy',
         location,
         message:
-          'Task status and priority fallback copy must tell beginners to refresh or check the task field.',
+          'Task status and priority fallback copy must tell beginners to open task details or check the task field.',
         sample: line.trim(),
       })
     }
@@ -6616,6 +7484,15 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasTaskPermissionPromptReviewCopy(relFile, line)) {
+      findings.push({
+        type: 'task-permission-prompt-copy',
+        location,
+        message: 'Permission prompt activity copy must use check instead of review.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasTaskReusePathJargonCopy(relFile, line)) {
       findings.push({
         type: 'task-reuse-path-copy',
@@ -6640,6 +7517,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Task failure previews must name task details and the latest update instead of saying open details.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskBlockedApprovalJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'task-blocked-approval-copy',
+        location,
+        message:
+          'Task blocked copy must tell beginners to open task details and choose the visible next action instead of approval jargon.',
         sample: line.trim(),
       })
     }
@@ -6721,12 +7608,31 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasHelpEntryReviewActionCopy(relFile, line)) {
+      findings.push({
+        type: 'help-entry-review-copy',
+        location,
+        message: 'Help and Attention entry points must use check instead of review.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasChatToolStepDeadEndCopy(relFile, line)) {
       findings.push({
         type: 'chat-tool-step-copy',
         location,
         message:
           'Chat tool step fallbacks must tell beginners to check the step before relying on it.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasChatToolFolderPathJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'chat-tool-folder-path-copy',
+        location,
+        message:
+          'Chat tool step folder details must explain where file work ran before showing a workspace path.',
         sample: line.trim(),
       })
     }
@@ -6770,6 +7676,16 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasContextEvidenceEmptyDetailDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'context-evidence-empty-detail-copy',
+        location,
+        message:
+          'Saved detail empty values must explain what was saved and what beginners can ask next.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasChatOfflineDeadEndCopy(relFile, line)) {
       findings.push({
         type: 'chat-offline-copy',
@@ -6804,6 +7720,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Governance audit errors must start with the next action, not the failure summary.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasGovernanceAuditRecoveryDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'governance-audit-recovery-copy',
+        location,
+        message:
+          'Governance history recovery copy must name the visible button or view action instead of refresh page/view shorthand.',
         sample: line.trim(),
       })
     }

@@ -219,7 +219,7 @@ export function PlanCard({
       </div>
 
       {actionError && (
-        <p role="alert" className="text-ui-body text-apple-red">
+        <p role="alert" aria-live="polite" className="text-ui-body text-apple-red">
           {actionError}
         </p>
       )}

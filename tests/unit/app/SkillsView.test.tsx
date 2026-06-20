@@ -33,7 +33,10 @@ describe('SkillsView', () => {
     // Title is rendered by TopBar outside SkillsView — verify the
     // toolbar count replaces the old duplicate page heading.
     render(<SkillsView />)
-    expect(screen.getByPlaceholderText(/search saved instructions/i)).toBeDefined()
+    const search = screen.getByRole('searchbox', { name: /search saved instructions/i })
+    expect(search).toHaveAccessibleDescription(
+      'Search only filters this list. Use Show all saved instructions to return to the full list.'
+    )
   })
 
   test('shows search input', () => {
@@ -65,19 +68,27 @@ describe('SkillsView', () => {
       'Draft release notes from accepted work'
     )
     expect(screen.getByLabelText(/^matching words for future tasks$/i)).toHaveValue('release')
-    expect((screen.getByLabelText(/^steps for the agent$/i) as HTMLTextAreaElement).value).toContain(
-      'Group user-facing updates'
-    )
+    expect(
+      (screen.getByLabelText(/^steps for the agent$/i) as HTMLTextAreaElement).value
+    ).toContain('Group user-facing updates')
   })
 
-  test('uses plain wording in the review checklist starter instruction', async () => {
+  test('uses plain wording in the result check starter instruction', async () => {
     const user = userEvent.setup()
     render(<SkillsView />)
 
     await user.click(screen.getAllByRole('button', { name: /save instruction/i })[0])
     const templates = screen.getByRole('group', { name: /instruction templates/i })
-    await user.click(within(templates).getByRole('button', { name: /review checklist/i }))
+    await user.click(within(templates).getByRole('button', { name: /result check/i }))
 
+    expect(within(templates).queryByRole('button', { name: /review checklist/i })).toBeNull()
+    expect(screen.getByLabelText(/^instruction name$/i)).toHaveValue('result-check')
+    expect(screen.getByLabelText(/^short description$/i)).toHaveValue(
+      'Check work before the team uses it'
+    )
+    expect(screen.getByLabelText(/^matching words for future tasks$/i)).toHaveValue(
+      'check result, ready to use'
+    )
     const instructions = screen.getByLabelText(/^steps for the agent$/i) as HTMLTextAreaElement
     expect(instructions.value).toContain('link the file or page you checked')
     expect(instructions.value).not.toContain('link evidence')
@@ -93,18 +104,23 @@ describe('SkillsView', () => {
 
     expect(screen.getByLabelText(/^instruction name$/i)).toHaveValue('work-status-check')
     expect(screen.getByLabelText(/^short description$/i)).toHaveValue(
-      'Summarize review and automated check status from one fresh check'
+      'Summarize result and check status without repeated waiting'
     )
     expect(screen.getByLabelText(/^matching words for future tasks$/i)).toHaveValue(
-      'review status, check status, ready to finish'
+      'check status, ready to finish, waiting checks'
     )
     const instructions = screen.getByLabelText(/^steps for the agent$/i) as HTMLTextAreaElement
-    expect(instructions.value).toContain('Check the review page once')
+    expect(instructions.value).toContain('Create one fresh status check')
     expect(instructions.value).toContain('reuse it instead of refreshing')
     expect(instructions.value).toContain('Needs a fix, Waiting, or Done')
-    expect(instructions.value).toContain('open only the failed check or review item')
-    expect(instructions.value).toContain('stop checking in chat')
+    expect(instructions.value).toContain('open only the failed check or item')
+    expect(instructions.value).toContain('do not keep checking in chat')
+    expect(instructions.value).toContain('when one later check is useful')
     expect(instructions.value).toContain('project background watcher')
+    expect(instructions.value).toContain('ready for the team to use')
+    expect(instructions.value).not.toContain('review page')
+    expect(instructions.value).not.toContain('review item')
+    expect(instructions.value).not.toContain('ready for handoff')
     expect(instructions.value).not.toContain('merge readiness')
     expect(instructions.value).not.toContain('PR')
     expect(instructions.value).not.toContain('CI')
@@ -129,7 +145,8 @@ describe('SkillsView', () => {
     expect(screen.queryByRole('dialog', { name: /save a reusable instruction/i })).toBeNull()
     expect(
       fetchMock.mock.calls.some(
-        ([url, init]) => url === '/api/v1/skills' && (init as RequestInit | undefined)?.method === 'POST'
+        ([url, init]) =>
+          url === '/api/v1/skills' && (init as RequestInit | undefined)?.method === 'POST'
       )
     ).toBe(false)
   })
@@ -151,9 +168,47 @@ describe('SkillsView', () => {
       target: { value: 'release handoff' },
     })
 
-    expect(screen.getByText('Clear search or create a saved instruction')).toBeDefined()
-    expect(screen.getByText(/clear search, then choose save instruction/i)).toBeDefined()
+    expect(screen.getByText('No saved instruction matches that search yet')).toBeDefined()
+    expect(screen.getByText(/choose save instruction and add it now/i)).toBeDefined()
     expect(screen.queryByText('No saved instructions match your search')).toBeNull()
+  })
+
+  test('guides hidden saved instructions back to the full list', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        data: [
+          {
+            id: 'skill-release',
+            name: 'release-draft',
+            description: 'Draft release notes',
+            trigger_pattern: 'release',
+            content: 'Summarize accepted work',
+            enabled: true,
+          },
+        ],
+      }),
+    })
+
+    render(<SkillsView />)
+
+    await screen.findByText('release-draft')
+    fireEvent.change(screen.getByLabelText(/search saved instructions/i), {
+      target: { value: 'handoff checklist' },
+    })
+
+    const emptyState = screen.getByTestId('saved-instructions-empty-state')
+    expect(emptyState).toHaveTextContent('Search is hiding saved instructions')
+    expect(emptyState).toHaveTextContent(
+      'Use Show all saved instructions to return to the full list.'
+    )
+    expect(emptyState).not.toHaveTextContent('Clear search to see saved instructions')
+
+    fireEvent.click(within(emptyState).getByRole('button', { name: 'Show all saved instructions' }))
+
+    expect(screen.getByLabelText(/search saved instructions/i)).toHaveValue('')
+    expect(screen.getByText('release-draft')).toBeDefined()
   })
 
   test('renders skills from the Rust API response shape', async () => {
@@ -211,7 +266,7 @@ describe('SkillsView', () => {
     render(<SkillsView />)
 
     await screen.findByText('handoff-check')
-    expect(screen.getByText('Saved in saved instructions library')).toBeDefined()
+    expect(screen.getByText('Saved in saved instructions')).toBeDefined()
     expect(screen.queryByText('@example/team_skill_pack')).toBeNull()
     expect(screen.queryByText('team_skill_pack')).toBeNull()
   })
@@ -258,7 +313,11 @@ describe('SkillsView', () => {
     expect(within(summary).queryByText(/C[L]I scoped/)).toBeNull()
 
     const filters = within(summary).getByRole('group', { name: /saved instruction filter/i })
-    fireEvent.click(within(filters).getByRole('button', { name: /for one work tool\s*1/i }))
+    fireEvent.click(
+      within(filters).getByRole('button', {
+        name: /show saved instructions for one work tool, 1 matching saved instruction/i,
+      })
+    )
 
     expect(screen.getByText('cli-review')).toBeDefined()
     expect(screen.queryByText('release-draft')).toBeNull()
@@ -333,6 +392,9 @@ describe('SkillsView', () => {
 
   test('guides users through required skill fields before create', async () => {
     const user = userEvent.setup()
+    const scrollSpy = vi
+      .spyOn(Element.prototype, 'scrollIntoView')
+      .mockImplementation(() => undefined)
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ ok: true, data: [] }),
@@ -350,21 +412,29 @@ describe('SkillsView', () => {
     expect(within(dialog).queryByText(/safe enough for the workspace/i)).toBeNull()
     await user.click(within(dialog).getByRole('button', { name: /save instruction/i }))
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'Name this saved instruction before saving it.'
-    )
+    const nameAlert = screen.getByRole('alert')
+    expect(nameAlert).toHaveTextContent('Name this saved instruction before saving it.')
+    expect(nameAlert).toHaveAttribute('aria-live', 'polite')
     expect(screen.getByLabelText(/^instruction name$/i)).toHaveFocus()
+    expect(screen.getByLabelText(/^instruction name$/i)).toHaveAttribute('aria-invalid', 'true')
+    await waitFor(() => expect(scrollSpy.mock.calls.length).toBeGreaterThan(0))
+    const callsAfterFirstSubmit = scrollSpy.mock.calls.length
+
+    await user.click(within(dialog).getByRole('button', { name: /save instruction/i }))
+    await waitFor(() => expect(scrollSpy.mock.calls.length).toBeGreaterThan(callsAfterFirstSubmit))
 
     await user.type(screen.getByLabelText(/^instruction name$/i), 'frontend-review')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
 
     await user.click(within(dialog).getByRole('button', { name: /save instruction/i }))
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'Add the steps the agent should follow before saving.'
-    )
+    const stepsAlert = screen.getByRole('alert')
+    expect(stepsAlert).toHaveTextContent('Add the steps the agent should follow before saving.')
+    expect(stepsAlert).toHaveAttribute('aria-live', 'polite')
     expect(screen.getByLabelText(/^steps for the agent$/i)).toHaveFocus()
+    expect(screen.getByLabelText(/^steps for the agent$/i)).toHaveAttribute('aria-invalid', 'true')
     expect(fetchMock).toHaveBeenCalledTimes(1)
+    scrollSpy.mockRestore()
   })
 
   test('shows a recovery step when saved instructions fail to load', async () => {
@@ -377,11 +447,12 @@ describe('SkillsView', () => {
     render(<SkillsView />)
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Refresh Saved instructions to load the list.')
-    expect(alert).toHaveTextContent('Choose Refresh saved instructions to load the list again.')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent('Open Saved instructions again to load the list.')
+    expect(alert).toHaveTextContent('Choose Load saved instructions again to load the list.')
     expect(alert).not.toHaveTextContent('HTTP 500')
     expect(alert).not.toHaveTextContent('database unavailable')
-    expect(screen.getByRole('button', { name: /refresh saved instructions/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /load saved instructions again/i })).toBeDefined()
     expect(screen.queryByRole('button', { name: /^retry$/i })).toBeNull()
   })
 
@@ -402,8 +473,9 @@ describe('SkillsView', () => {
     })
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Saved instructions need a refresh.')
-    expect(alert).toHaveTextContent('Choose Refresh saved instructions to load the list again.')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent('Saved instructions need to load again.')
+    expect(alert).toHaveTextContent('Choose Load saved instructions again to load the list.')
     expect(alert).not.toHaveTextContent('HTTP 500')
     expect(alert).not.toHaveTextContent('database unavailable')
   })
@@ -437,8 +509,9 @@ describe('SkillsView', () => {
     await user.click(within(dialog).getByRole('button', { name: /save instruction/i }))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
-      'Ask an owner or admin to let you create saved instructions for this team space.'
+      'Ask an owner or admin to let you create saved instructions for this team space, then create the instruction again.'
     )
     expect(alert.textContent).not.toContain('workspace instructions')
     expect(alert.textContent).not.toContain('Code:')

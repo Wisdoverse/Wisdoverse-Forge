@@ -64,7 +64,7 @@ export function chatStreamHttpErrorMessage(
     return 'Ask an owner or admin to update your team space access before using this agent chat. You do not have access to this agent or team space.'
   }
   if (status === 404) {
-    return 'Refresh the Agents page, choose an active agent, then open chat again. This agent could not be found.'
+    return 'Go back to Agents, choose an active agent, then open Chat again. This agent could not be found.'
   }
   if (status === 409) {
     return chatStreamConflictMessage(detail)
@@ -76,7 +76,7 @@ export function chatStreamHttpErrorMessage(
     return 'Wait a few minutes, then resend the message. Forge could not send this chat message right now. If it still fails, ask an owner or admin to check this agent chat and agent status.'
   }
 
-  return 'Refresh this agent, then resend the message. This message was not sent.'
+  return 'Go back to Agents, choose this agent again, then open Chat and resend the message. This message was not sent.'
 }
 
 function chatStreamConflictMessage(detail: string | null): string {
@@ -84,7 +84,7 @@ function chatStreamConflictMessage(detail: string | null): string {
   if (normalized.includes('busy') || normalized.includes('working')) {
     return 'Wait for the current reply to finish, then resend the message. This agent is already working.'
   }
-  return 'Refresh the chat, review the latest message, then try again. This conversation changed while the message was sending.'
+  return 'Open this chat again, check the latest message, then resend the message. This conversation changed while the message was sending.'
 }
 
 export function chatStreamRequestErrorMessage(error: unknown): string {
@@ -151,7 +151,7 @@ export function useChatStream(agentId: string) {
 
       if (!resp.body) {
         onStreamError(
-          'The agent did not send a reply. Refresh this agent and try again; if it repeats, check that the agent is online.'
+          'The agent did not send a reply. Go back to Agents, choose this agent again, then open Chat and resend the message.'
         )
         return
       }

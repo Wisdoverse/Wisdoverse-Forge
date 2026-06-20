@@ -45,15 +45,16 @@ describe('workspace management rows', () => {
       </>
     )
 
-    expect(screen.getByText(/Shown at the end of team links:\s*product-team/i)).toBeDefined()
+    expect(screen.getByText(/Team link preview:\s*product-team/i)).toBeDefined()
     expect(screen.getByText('Invite-only')).toHaveAttribute(
       'title',
       'Only invited people can find this team.'
     )
     expect(screen.queryByText(/^private$/i)).toBeNull()
-    expect(screen.getByText('Shown at the end of project links: website-launch')).toBeDefined()
+    expect(screen.getByText('Project link preview: website-launch')).toBeDefined()
     expect(screen.queryByText(/Forge uses this in team links/i)).toBeNull()
     expect(screen.queryByText(/Forge uses this in project links/i)).toBeNull()
+    expect(screen.queryByText(/Shown at the end of/i)).toBeNull()
     expect(screen.queryByText(/Automatic team name/i)).toBeNull()
     expect(screen.queryByText(/Automatic project name/i)).toBeNull()
     expect(screen.queryByText(/Automatic link name/i)).toBeNull()
@@ -129,6 +130,7 @@ describe('workspace management rows', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save team' }))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert.textContent).toContain('You do not have permission')
     expect(alert.textContent).toContain('Ask an owner or admin')
     expect(alert.textContent).not.toContain('API 403')
@@ -146,7 +148,9 @@ describe('workspace management rows', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Save team' }))
 
-    expect(screen.getByRole('alert')).toHaveTextContent('Enter a team name, then save again.')
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent('Enter a team name, then save again.')
     expect(screen.queryByText('Team name is required')).toBeNull()
     expect(onUpdate).not.toHaveBeenCalled()
   })
@@ -169,7 +173,9 @@ describe('workspace management rows', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Save project' }))
 
-    expect(screen.getByRole('alert')).toHaveTextContent('Enter a project name, then save again.')
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent('Enter a project name, then save again.')
     expect(screen.queryByText('Project name is required')).toBeNull()
     expect(onUpdate).not.toHaveBeenCalled()
   })
@@ -192,7 +198,8 @@ describe('workspace management rows', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirm delete Website Launch' }))
 
     const alert = await screen.findByRole('alert')
-    expect(alert.textContent).toContain('Move agents out of this project first')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert.textContent).toContain('Go to Agents, change or remove agents')
     expect(alert.textContent).not.toContain('Details:')
     expect(alert.textContent).not.toContain('Move agents first.')
     expect(alert.textContent).not.toContain('HTTP 422')

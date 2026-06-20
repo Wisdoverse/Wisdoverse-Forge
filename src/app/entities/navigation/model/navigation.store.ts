@@ -90,6 +90,19 @@ const NAVIGATION_AREA_LABELS: Record<NavigationErrorArea, string> = {
   workLane: 'waiting place',
 }
 
+function navigationAreaNotReadyMessage(area: NavigationErrorArea): string {
+  switch (area) {
+    case 'workLane':
+      return 'The waiting place is not ready yet.'
+    case 'organizations':
+      return 'Team spaces are not ready yet.'
+    case 'teamProjects':
+      return 'Teams and projects are not ready yet.'
+    case 'workLanes':
+      return 'Waiting places are not ready yet.'
+  }
+}
+
 function navigationActionPhrase(area: NavigationErrorArea, action: NavigationErrorAction): string {
   switch (action) {
     case 'load':
@@ -107,7 +120,7 @@ function navigationPermissionMessage(
   const retry =
     action === 'create'
       ? `choose the project and ${actionPhrase} again`
-      : `refresh the left menu to ${actionPhrase}`
+      : `open the left menu and ${actionPhrase}`
   return `Ask an owner or admin to update your team space access, then ${retry}. You do not have permission to ${actionPhrase}.`
 }
 
@@ -211,7 +224,7 @@ export function navigationActionErrorMessage(
     if (!isRawNavigationFailure(detail)) {
       return navigationValidationMessage(area, action, detail)
     }
-    return `Check your connection, then refresh the left menu to ${actionPhrase}.`
+    return `Check your connection, then open the left menu and try to ${actionPhrase} again.`
   }
 
   if (status === 401) {
@@ -221,10 +234,10 @@ export function navigationActionErrorMessage(
     return navigationPermissionMessage(area, action)
   }
   if (status === 404) {
-    return `The left menu is not ready for ${NAVIGATION_AREA_LABELS[area]} yet. Refresh it, then try again.`
+    return `Open the left menu and try to ${actionPhrase} again. ${navigationAreaNotReadyMessage(area)}`
   }
   if (status === 409) {
-    return 'The left menu changed while you were working. Refresh it, check the current teams and projects, then try again.'
+    return 'Open the left menu, check the current teams and projects, then try again. The left menu changed while you were working.'
   }
   if (status === 422) {
     return navigationValidationMessage(area, action, detail)
@@ -233,10 +246,10 @@ export function navigationActionErrorMessage(
     return `The left menu is busy. Wait a moment, then try to ${actionPhrase} again.`
   }
   if (status >= 500) {
-    return 'Refresh the left menu to load teams and projects. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
+    return 'Open the left menu to load teams and projects. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
   }
 
-  return `Refresh the left menu to ${actionPhrase}.`
+  return `Open the left menu and try to ${actionPhrase} again.`
 }
 
 function navigationValidationMessage(
@@ -255,14 +268,14 @@ function navigationValidationMessage(
     }
     return action === 'create'
       ? 'Check the waiting place name and project, then create it again.'
-      : 'Refresh the selected project, then load where tasks wait again.'
+      : 'Open the left menu, choose the selected project, then load where tasks wait again.'
   }
 
   if (area === 'teamProjects') {
-    return 'Choose a team space you can access, refresh the left menu, then load its teams and projects again.'
+    return 'Choose a team space you can access, then open the left menu and load its teams and projects again.'
   }
 
-  return `Check the ${NAVIGATION_AREA_LABELS[area]} selection, refresh the left menu, then try again.`
+  return `Check the ${NAVIGATION_AREA_LABELS[area]} selection, then open the left menu and try again.`
 }
 
 function lsGet(key: string): string | null {

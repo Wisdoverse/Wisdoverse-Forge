@@ -116,8 +116,9 @@ describe('InboxView', () => {
     const item = screen.getByTestId('inbox-notification-n1')
     expect(item.getAttribute('data-template')).toBe('task-lifecycle')
     expect(screen.getByText('Needs help')).toBeDefined()
-    expect(screen.getByText('Review what needs help')).toBeDefined()
+    expect(screen.getByText('Check what needs help')).toBeDefined()
     expect(screen.getByText(/provide the requested input/i)).toBeDefined()
+    expect(screen.queryByText('Review what needs help')).toBeNull()
     expect(screen.queryByText(/review blocker/i)).toBeNull()
   })
 
@@ -401,6 +402,20 @@ describe('InboxView', () => {
     expect(screen.getByTestId('inbox-filter-count-unread').textContent).toBe('2')
     expect(screen.getByTestId('inbox-filter-count-needs-action').textContent).toBe('2')
     expect(screen.getByTestId('inbox-filter-count-credentials').textContent).toBe('1')
+    expect(
+      screen.getByRole('button', { name: /show all inbox updates, 3 matching updates/i })
+    ).toHaveAttribute('aria-pressed', 'true')
+    expect(
+      screen.getByRole('button', { name: /show unread inbox updates, 2 matching updates/i })
+    ).toBeDefined()
+    expect(
+      screen.getByRole('button', {
+        name: /show inbox updates that need action, 2 matching updates/i,
+      })
+    ).toBeDefined()
+    expect(
+      screen.getByRole('button', { name: /show account access updates, 1 matching update/i })
+    ).toBeDefined()
 
     const user = userEvent.setup()
     await user.click(screen.getByTestId('inbox-filter-needs-action'))
@@ -438,6 +453,8 @@ describe('InboxView', () => {
 
     expect(screen.getByTestId('inbox-filter-empty')).toBeDefined()
     expect(screen.getByText('No account access needs reconnecting')).toBeDefined()
+    expect(screen.getByTestId('inbox-filter-empty')).toHaveAttribute('role', 'status')
+    expect(screen.getByTestId('inbox-filter-empty')).toHaveAttribute('aria-live', 'polite')
     expect(screen.getByText(/open all to review other updates/i)).toBeDefined()
     expect(screen.queryByText(/try all for the full history/i)).toBeNull()
   })
@@ -459,13 +476,19 @@ describe('InboxView', () => {
     await user.click(screen.getByTestId('inbox-filter-credentials'))
 
     const emptyState = screen.getByTestId('inbox-filter-empty')
+    expect(emptyState).toHaveAttribute('role', 'status')
+    expect(emptyState).toHaveAttribute('aria-live', 'polite')
     expect(emptyState).toHaveTextContent('No account access needs reconnecting')
     expect(emptyState).toHaveTextContent('Account access is not blocking agent work right now.')
     expect(emptyState).not.toHaveTextContent('No account access needs reconnecting right now.')
+    expect(emptyState).not.toHaveTextContent(/refresh the inbox|reload the inbox/i)
 
     await user.click(screen.getByRole('button', { name: /show all updates/i }))
 
     expect(screen.getByText('Completed cleanup')).toBeDefined()
+    expect(
+      screen.getByRole('button', { name: /show all inbox updates, 1 matching update/i })
+    ).toHaveAttribute('aria-pressed', 'true')
   })
 
   test('explains empty needs-action lane without failure jargon', async () => {
@@ -484,6 +507,8 @@ describe('InboxView', () => {
     await userEvent.setup().click(screen.getByTestId('inbox-filter-needs-action'))
 
     const emptyState = screen.getByTestId('inbox-filter-empty')
+    expect(emptyState).toHaveAttribute('role', 'status')
+    expect(emptyState).toHaveAttribute('aria-live', 'polite')
     expect(emptyState).toHaveTextContent('You are caught up on action items')
     expect(emptyState).toHaveTextContent(
       'No task is asking for help and no account access needs reconnecting.'
@@ -512,6 +537,8 @@ describe('InboxView', () => {
     await userEvent.setup().click(screen.getByTestId('inbox-filter-unread'))
 
     const emptyState = screen.getByTestId('inbox-filter-empty')
+    expect(emptyState).toHaveAttribute('role', 'status')
+    expect(emptyState).toHaveAttribute('aria-live', 'polite')
     expect(emptyState).toHaveTextContent('No unread updates')
     expect(emptyState).toHaveTextContent(
       'Older updates are still in All. Open All if you need the full history.'
@@ -529,14 +556,15 @@ describe('InboxView', () => {
     render(<InboxView />)
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
-      'Check your connection, then reload the inbox. Saved notifications could not be loaded'
+      'Check your connection, then choose Load updates again. Saved updates could not be loaded'
     )
-    expect(alert.textContent).not.toMatch(/^Saved notifications could not be loaded/)
+    expect(alert.textContent).not.toMatch(/^Saved updates could not be loaded/)
 
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: /reload inbox/i }))
-    expect(screen.getByRole('button', { name: /reloading inbox/i })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: /load updates again/i }))
+    expect(screen.getByRole('button', { name: /loading updates/i })).toBeDisabled()
     expect(orchestrationApiMock.fetchInboxNotifications).toHaveBeenCalledTimes(2)
 
     retry.resolve([])
@@ -589,8 +617,9 @@ describe('InboxView', () => {
     await userEvent.setup().click(screen.getByTestId('inbox-notification-task-owner:t1:blocked'))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
-      'Check your connection, then reload the inbox. Some updates may appear unread again because Forge could not save the read status.'
+      'Check your connection, then open Inbox again. Some updates may appear unread again because Forge could not save the read status.'
     )
     expect(alert.textContent).not.toContain('Failed to mark')
     expect(useFeedStore.getState().notifications[0].read).toBe(true)
@@ -624,8 +653,9 @@ describe('InboxView', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: /mark all as read/i }))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
-      'Check your connection, then reload the inbox. Some updates may appear unread again because Forge could not save the read status.'
+      'Check your connection, then open Inbox again. Some updates may appear unread again because Forge could not save the read status.'
     )
     expect(alert.textContent).not.toContain('Failed to mark')
     expect(useFeedStore.getState().notifications.every((notification) => notification.read)).toBe(

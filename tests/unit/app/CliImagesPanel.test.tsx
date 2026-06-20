@@ -125,6 +125,12 @@ describe('CliImagesPanel', () => {
     expect(screen.queryByText(/registry timeout/i)).toBeNull()
     expect(screen.queryByText(/Reported detail/i)).toBeNull()
     expect(screen.getByText('2 agents are currently using this tool')).toBeDefined()
+    expect(
+      screen.getByText(/only estimates how many running agents a restart may touch/i)
+    ).toBeDefined()
+    expect(screen.getByText(/open Agents to confirm each affected agent shows Ready/i)).toBeDefined()
+    expect(screen.queryByText(/rough hint/i)).toBeNull()
+    expect(screen.queryByText(/exact package/i)).toBeNull()
   })
 
   test('uses the saved update cadence and pauses hidden tabs', async () => {

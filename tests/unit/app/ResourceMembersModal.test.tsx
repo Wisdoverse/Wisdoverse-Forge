@@ -109,6 +109,21 @@ describe('ResourceMembersModal', () => {
     expect(
       screen.getByText('Choose a person, pick the safest access level, then add them here.')
     ).toBeDefined()
+    const candidateStatus = screen.getByTestId('member-candidate-status')
+    expect(candidateStatus).toHaveAttribute('role', 'status')
+    expect(candidateStatus).toHaveAttribute('aria-live', 'polite')
+    expect(screen.getByLabelText('Filter team-space people')).toHaveAccessibleDescription(
+      'Choose a person, pick the safest access level, then add them here.'
+    )
+    expect(screen.getByLabelText('Select person to add')).toHaveAccessibleDescription(
+      'Choose a person, pick the safest access level, then add them here.'
+    )
+    expect(screen.getByRole('button', { name: /add/i })).toHaveAccessibleDescription(
+      'Choose a person, pick the safest access level, then add them here.'
+    )
+    expect(screen.getByLabelText('New member access level')).toHaveAccessibleDescription(
+      'Start with Member access. Choose Maintainer, Admin, or Owner only when this person needs to change work or manage access.'
+    )
     expect(screen.getByText('Add people already in your team space')).toBeDefined()
     expect(screen.getByText('People with access')).toBeDefined()
     expect(screen.queryByText('Add People Already in Your Organization')).toBeNull()
@@ -162,11 +177,17 @@ describe('ResourceMembersModal', () => {
     })
 
     expect(screen.getByText('Clear search or invite this person first')).toBeDefined()
+    const candidateStatus = screen.getByTestId('member-candidate-status')
+    expect(candidateStatus).toHaveAttribute('role', 'status')
+    expect(candidateStatus).toHaveAttribute('aria-live', 'polite')
     expect(
       screen.getByText(
         'Clear the filter or invite the person to the team space before adding them here.'
       )
     ).toBeDefined()
+    expect(screen.getByLabelText('Filter team-space people')).toHaveAccessibleDescription(
+      'Clear the filter or invite the person to the team space before adding them here.'
+    )
     expect(screen.queryByText('No matching team-space people')).toBeNull()
     expect(screen.queryByText(/organization members/i)).toBeNull()
     expect(screen.getByText('owner@example.com')).toBeDefined()
@@ -196,6 +217,31 @@ describe('ResourceMembersModal', () => {
     expect(alert.textContent).toContain('Ask an owner or admin')
     expect(alert.textContent).not.toContain('API 403')
     expect(alert.textContent).not.toContain('Forbidden')
+  })
+
+  test('scrolls the member error into view again after the same add failure repeats', async () => {
+    const scrollSpy = vi
+      .spyOn(Element.prototype, 'scrollIntoView')
+      .mockImplementation(() => undefined)
+    renderMembersModal({ addMemberError: new Error('API 403: Forbidden') })
+
+    await screen.findByText('Add the first direct member')
+    fireEvent.change(screen.getByLabelText('Select person to add'), {
+      target: { value: 'user-1' },
+    })
+
+    const addButton = screen.getByRole('button', { name: /add/i })
+    fireEvent.click(addButton)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert.textContent).toContain('Ask an owner or admin')
+    await waitFor(() => expect(scrollSpy.mock.calls.length).toBeGreaterThan(0))
+    const callsAfterFirstFailure = scrollSpy.mock.calls.length
+
+    fireEvent.click(addButton)
+    await waitFor(() => expect(scrollSpy.mock.calls.length).toBeGreaterThan(callsAfterFirstFailure))
+    scrollSpy.mockRestore()
   })
 
   test('shows recovery guidance when the selected project changes before adding a member', async () => {
@@ -235,7 +281,7 @@ describe('ResourceMembersModal', () => {
     expect(alert.textContent).not.toContain('No team selected')
   })
 
-  test('shows refresh guidance when role changes conflict', async () => {
+  test('shows Members guidance when role changes conflict', async () => {
     renderMembersModal({
       members: [makeMember({})],
       users: [makeUser({})],
@@ -249,7 +295,7 @@ describe('ResourceMembersModal', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain("This person's access changed while you were editing")
-    expect(alert.textContent).toContain('Refresh the members list')
+    expect(alert.textContent).toContain('Open Members for this project again')
     expect(alert.textContent).not.toContain('API 409')
     expect(alert.textContent).not.toContain('role already changed')
   })

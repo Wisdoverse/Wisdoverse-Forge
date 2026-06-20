@@ -200,7 +200,9 @@ test.describe('React App Smoke Tests', () => {
     test('clicking Agents navigates to /agents', async ({ page }) => {
       await page.locator('[data-testid="sidebar-nav-agents"]').click()
       await page.waitForURL('**/agents')
-      await expect(page.getByTestId('page-agents').getByRole('heading', { name: 'Agents' })).toBeVisible({ timeout: 5000 })
+      await expect(
+        page.getByTestId('page-agents').getByRole('heading', { name: 'Agents' })
+      ).toBeVisible({ timeout: 5000 })
       await screenshot(page, '05-nav-agents')
     })
 
@@ -213,7 +215,9 @@ test.describe('React App Smoke Tests', () => {
     test('clicking Skills navigates to /skills', async ({ page }) => {
       await page.locator('[data-testid="sidebar-nav-skills"]').click()
       await page.waitForURL('**/skills')
-      await expect(page.getByRole('heading', { name: 'Saved instructions', level: 1 })).toBeVisible({ timeout: 5000 })
+      await expect(page.getByRole('heading', { name: 'Saved instructions', level: 1 })).toBeVisible(
+        { timeout: 5000 }
+      )
       await screenshot(page, '07-nav-skills')
     })
 
@@ -467,7 +471,9 @@ test.describe('React App Smoke Tests', () => {
       await page.waitForTimeout(300)
 
       const rightPanel = page.locator('[data-testid="right-panel"]')
-      await expect(rightPanel.getByRole('button', { name: 'Needs help' })).toBeVisible({ timeout: 5000 })
+      await expect(rightPanel.getByRole('button', { name: 'Needs help' })).toBeVisible({
+        timeout: 5000,
+      })
       await expect(rightPanel.getByRole('button', { name: 'Cancel' })).toBeVisible()
     })
 
@@ -586,13 +592,15 @@ test.describe('React App Smoke Tests', () => {
   // 11. Agents Page ──────────────────────────────────────────────────────────
 
   test.describe('11. Agents Page', () => {
-    test('agents page loads with header and New Agent button', async ({ page, baseURL }) => {
+    test('agents page loads with header and New agent button', async ({ page, baseURL }) => {
       await setupAndNavigate(page, baseURL!)
       await page.locator('[data-testid="sidebar-nav-agents"]').click()
       await page.waitForURL('**/agents')
 
-      await expect(page.getByTestId('page-agents').getByRole('heading', { name: 'Agents' })).toBeVisible({ timeout: 5000 })
-      await expect(page.getByRole('button', { name: 'Create Agent' }).first()).toBeVisible()
+      await expect(
+        page.getByTestId('page-agents').getByRole('heading', { name: 'Agents' })
+      ).toBeVisible({ timeout: 5000 })
+      await expect(page.getByRole('button', { name: 'New agent' }).first()).toBeVisible()
       await screenshot(page, '23-agents-page')
     })
   })
@@ -1100,7 +1108,9 @@ test.describe('React App Smoke Tests', () => {
       await agentsCmd.click()
 
       await page.waitForURL('**/agents')
-      await expect(page.getByTestId('page-agents').getByRole('heading', { name: 'Agents' })).toBeVisible({ timeout: 5000 })
+      await expect(
+        page.getByTestId('page-agents').getByRole('heading', { name: 'Agents' })
+      ).toBeVisible({ timeout: 5000 })
       await screenshot(page, '36-cmdk-navigate-agents')
     })
 
@@ -1145,7 +1155,9 @@ test.describe('React App Smoke Tests', () => {
       await page.locator('[data-testid="sidebar-nav-agents"]').click()
       await page.waitForURL('**/agents')
 
-      await expect(page.getByTestId('page-agents').getByRole('heading', { name: 'Agents' })).toBeVisible({ timeout: 5000 })
+      await expect(
+        page.getByTestId('page-agents').getByRole('heading', { name: 'Agents' })
+      ).toBeVisible({ timeout: 5000 })
       // Test asserts the page renders in SOME valid state — empty or
       // populated. `/api/v1/agents` is not mocked here so the backend's
       // actual response wins; assert on the page wrapper, which is present
@@ -1154,12 +1166,12 @@ test.describe('React App Smoke Tests', () => {
       await screenshot(page, '37-agents-empty')
     })
 
-    test('New Agent button is visible', async ({ page, baseURL }) => {
+    test('New agent button is visible', async ({ page, baseURL }) => {
       await setupAndNavigate(page, baseURL!)
       await page.locator('[data-testid="sidebar-nav-agents"]').click()
       await page.waitForURL('**/agents')
 
-      const newAgentBtn = page.getByRole('button', { name: 'Create Agent' }).first()
+      const newAgentBtn = page.getByRole('button', { name: 'New agent' }).first()
       await expect(newAgentBtn).toBeVisible({ timeout: 5000 })
       await expect(newAgentBtn).toBeEnabled()
     })
@@ -1202,11 +1214,15 @@ test.describe('React App Smoke Tests', () => {
       // Navigate through all pages
       await page.locator('[data-testid="sidebar-nav-agents"]').click()
       await page.waitForURL('**/agents')
-      await expect(page.getByTestId('page-agents').getByRole('heading', { name: 'Agents' })).toBeVisible({ timeout: 5000 })
+      await expect(
+        page.getByTestId('page-agents').getByRole('heading', { name: 'Agents' })
+      ).toBeVisible({ timeout: 5000 })
 
       await page.locator('[data-testid="sidebar-nav-skills"]').click()
       await page.waitForURL('**/skills')
-      await expect(page.getByRole('heading', { name: 'Saved instructions', level: 1 })).toBeVisible({ timeout: 5000 })
+      await expect(page.getByRole('heading', { name: 'Saved instructions', level: 1 })).toBeVisible(
+        { timeout: 5000 }
+      )
 
       // Go back to tasks — kanban should still be there
       await page.locator('[data-testid="sidebar-nav-tasks"]').click()
@@ -1255,7 +1271,9 @@ test.describe('React App Smoke Tests', () => {
       // Click agents nav (icon only)
       await page.locator('[data-testid="sidebar-nav-agents"]').click()
       await page.waitForURL('**/agents')
-      await expect(page.getByTestId('page-agents').getByRole('heading', { name: 'Agents' })).toBeVisible({ timeout: 5000 })
+      await expect(
+        page.getByTestId('page-agents').getByRole('heading', { name: 'Agents' })
+      ).toBeVisible({ timeout: 5000 })
     })
   })
 

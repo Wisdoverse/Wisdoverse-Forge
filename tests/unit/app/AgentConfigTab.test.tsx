@@ -195,24 +195,25 @@ describe('AgentConfigTab', () => {
     expect(screen.queryByText(/future-model-v1/i)).toBeNull()
   })
 
-  it('tells users to refresh when a chat-only agent has no model details', () => {
+  it('tells users to check setup when a chat-only agent has no model details', () => {
     render(<AgentConfigTab agentId="missing-model" />)
 
-    expect(screen.getByText(/Refresh AI model/i)).toBeInTheDocument()
+    expect(screen.getByText(/Check AI model setup/i)).toBeInTheDocument()
     expect(screen.queryByText(/AI model not reported/i)).toBeNull()
     expect(screen.queryByText(/Model not reported/i)).toBeNull()
   })
 
   it('applies a prompt template and can reset the edit', () => {
     render(<AgentConfigTab agentId="a1" />)
-    const reviewTemplate = screen.getByRole('button', { name: /review/i })
+    const reviewTemplate = screen.getByRole('button', { name: /check results/i })
     expect(reviewTemplate).toHaveAttribute('aria-pressed', 'false')
     fireEvent.click(reviewTemplate)
 
     expect(
       (screen.getByLabelText(/instructions for this agent/i) as HTMLTextAreaElement).value
-    ).toContain('review work carefully')
+    ).toContain('check work before the team uses it')
     expect(reviewTemplate).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByRole('button', { name: /^review$/i })).toBeNull()
     expect(screen.getByText('Unsaved')).toBeDefined()
     expect(screen.getByRole('status')).toHaveTextContent(/unsaved changes/i)
 
@@ -227,24 +228,25 @@ describe('AgentConfigTab', () => {
 
     const instructions = screen.getByLabelText(/instructions for this agent/i)
     expect(instructions).toHaveValue(
-      'You are a delivery-focused agent. Ask early for missing information, keep changes scoped to the assigned task, preserve existing conventions, and report what you checked before sharing results.'
+      'You are a delivery-focused agent. Ask early for missing information, keep changes scoped to the task you receive, preserve existing conventions, and report what you checked before sharing results.'
     )
     for (const phrase of oldDeliveryTemplatePhrases) {
       expect(instructions).not.toHaveValue(expect.stringMatching(phrase))
     }
   })
 
-  it('uses beginner-facing wording in the review template', () => {
+  it('uses beginner-facing wording in the check-results template', () => {
     render(<AgentConfigTab agentId="a1" />)
-    fireEvent.click(screen.getByRole('button', { name: /review/i }))
+    fireEvent.click(screen.getByRole('button', { name: /check results/i }))
 
     const instructions = screen.getByLabelText(
       /instructions for this agent/i
     ) as HTMLTextAreaElement
-    expect(instructions.value).toContain('review work carefully')
+    expect(instructions.value).toContain('check work before the team uses it')
     expect(instructions.value).toContain('could break the result')
     expect(instructions.value).toContain('missing check')
     expect(instructions.value).toContain('point to the file or behavior')
+    expect(instructions.value).not.toMatch(/review work carefully/i)
     expect(instructions.value).not.toMatch(/code review agent/i)
     expect(instructions.value).not.toMatch(/regressions/i)
     expect(instructions.value).not.toMatch(/missing tests/i)
@@ -295,8 +297,8 @@ describe('AgentConfigTab', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(/agent instructions were not saved/i)
     )
-    expect(screen.getByRole('alert')).toHaveTextContent(/^refresh this agent/i)
-    expect(screen.getByRole('alert')).toHaveTextContent(/confirm it is still a chat-only agent/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/^open agents/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/choose this chat-only agent again/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/text-only model/i)
     expect(screen.getByRole('alert')).toHaveTextContent(
       /ask an owner or admin to check your agent access/i
@@ -340,8 +342,9 @@ describe('AgentConfigTab', () => {
     expect(screen.queryByText('af-claude-container-123')).toBeNull()
     expect(screen.queryByText('/workspace')).toBeNull()
     expect(
-      screen.getByText(/confirm where it can open files before assigning work/i)
+      screen.getByText(/confirm where it can open files before sending file work/i)
     ).toBeInTheDocument()
+    expect(screen.queryByText(/before assigning work/i)).toBeNull()
     expect(screen.queryByText(/text-only model/i)).toBeNull()
     expect(screen.queryByText(/work profile/i)).toBeNull()
   })
@@ -384,7 +387,7 @@ describe('AgentConfigTab', () => {
     render(<AgentConfigTab agentId="missing-tool" />)
 
     expect(screen.getByTestId('agent-cli-config-summary')).toBeInTheDocument()
-    expect(screen.getByText('Refresh work tool settings')).toBeInTheDocument()
+    expect(screen.getByText('Check work tool settings')).toBeInTheDocument()
     expect(screen.queryByText('Work tool not reported')).toBeNull()
   })
 

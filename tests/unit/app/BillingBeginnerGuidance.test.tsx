@@ -52,7 +52,11 @@ describe('Billing beginner guidance', () => {
     expect(screen.getByText('What to do next')).toBeInTheDocument()
     expect(screen.getByText(/turn on billing for this team/i)).toBeInTheDocument()
     expect(screen.getByText(/payment account passwords or keys/i)).toBeInTheDocument()
+    expect(screen.getByText(/open Billing from the sidebar/i)).toBeInTheDocument()
     expect(screen.queryByText('Billing setup path')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(/Refresh this page after billing is turned on/i)
+    ).not.toBeInTheDocument()
     expect(screen.queryByText(/this workspace/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/secret payment settings/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/deployment/i)).not.toBeInTheDocument()
@@ -225,19 +229,25 @@ describe('Billing beginner guidance', () => {
     rerender(
       <InvoiceList
         invoices={[]}
-        error="Refresh Billing to load invoices. Ask an owner or admin for access."
+        error="Choose Check billing again to load invoices. Ask an owner or admin for access."
+        onRetry={vi.fn()}
       />
     )
 
     const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(
-      within(alert).getByText('Refresh Billing to load invoices. Ask an owner or admin for access.')
+      within(alert).getByText(
+        'Choose Check billing again to load invoices. Ask an owner or admin for access.'
+      )
     ).toBeInTheDocument()
     expect(
       within(alert).getByText(
-        /Refresh Billing to load invoices\. If it still fails, ask an owner or admin to check billing access\./i
+        /Choose Check billing again to load invoices\. If it still fails, ask an owner or admin to check billing access\./i
       )
     ).toBeDefined()
+    expect(within(alert).getByRole('button', { name: 'Check billing again' })).toBeInTheDocument()
     expect(within(alert).queryByText(/try again later/i)).not.toBeInTheDocument()
+    expect(within(alert).queryByText(/Refresh Billing/i)).not.toBeInTheDocument()
   })
 })

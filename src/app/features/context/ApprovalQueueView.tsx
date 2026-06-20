@@ -94,7 +94,7 @@ const REJECT_CHECKLIST = [
 const SOURCE_MISSING_LABEL = 'Task details need to load'
 const SOURCE_MISSING_DETAIL = 'Save unlocks after the original task details load.'
 const SOURCE_MISSING_NEXT_STEP =
-  'Refresh saved items, then save after the original task details load.'
+  'Load saved items again, then save after the original task details load.'
 
 interface ApprovalQueueEmptyState {
   title: string
@@ -282,7 +282,7 @@ export function ApprovalQueueView() {
             type="button"
             onClick={() => void loadCandidates()}
             className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.08]"
-            title="Refresh saved items"
+            title="Load saved items again"
           >
             <RefreshCw
               size={15}
@@ -290,7 +290,7 @@ export function ApprovalQueueView() {
               className={cn(loading && 'animate-spin')}
               aria-hidden="true"
             />
-            <span>Refresh</span>
+            <span>Load saved items again</span>
           </button>
         </section>
 
@@ -340,6 +340,8 @@ export function ApprovalQueueView() {
         {error && (
           <div
             data-testid="context-approval-error"
+            role="alert"
+            aria-live="polite"
             className="flex items-start gap-2 rounded-card border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red"
           >
             <AlertTriangle

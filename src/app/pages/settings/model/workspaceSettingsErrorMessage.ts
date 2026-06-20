@@ -87,14 +87,26 @@ function resourceLabel(resource: WorkspaceSettingsResource): string {
   return resource === 'team' ? 'team' : 'project'
 }
 
+function resourcePageLabel(resource: WorkspaceSettingsResource): string {
+  return resource === 'team' ? 'Teams' : 'Projects'
+}
+
+function settingsWorkspaceStep(resource: WorkspaceSettingsResource): string {
+  return `open Settings and Teams and Projects again, then choose ${resourcePageLabel(resource)}`
+}
+
+function startSettingsWorkspaceStep(resource: WorkspaceSettingsResource): string {
+  const step = settingsWorkspaceStep(resource)
+  return `${step.charAt(0).toUpperCase()}${step.slice(1)}`
+}
+
 function loadMessage(resource: WorkspaceSettingsResource): string {
-  const label = resourceLabel(resource)
-  return `Refresh Settings to load ${label}s.`
+  return `${startSettingsWorkspaceStep(resource)}.`
 }
 
 function retryPhrase(resource: WorkspaceSettingsResource, action: WorkspaceSettingsAction): string {
   const label = resourceLabel(resource)
-  return action === 'load' ? `refresh Settings to load ${label}s` : `create this ${label} again`
+  return action === 'load' ? settingsWorkspaceStep(resource) : `create this ${label} again`
 }
 
 function connectionMessage(
@@ -116,7 +128,7 @@ function unavailableMessage(
     return `${loadMessage(resource)} If it still fails, ask an owner or admin to check Teams and Projects in Settings.`
   }
 
-  return `Refresh Settings, then ${retryPhrase(resource, action)}. If it still fails, ask an owner or admin to check Teams and Projects in Settings.`
+  return `Open Settings and Teams and Projects again, choose the team, then ${retryPhrase(resource, action)}. If it still fails, ask an owner or admin to check Teams and Projects in Settings.`
 }
 
 function permissionMessage(
@@ -171,12 +183,12 @@ export function workspaceSettingsErrorMessage(
   if (code === 404 || text.includes('endpoint is not available')) {
     return action === 'load'
       ? `${load} The team space, team, or project may have changed.`
-      : `Refresh Settings, then ${retry}. The team space, team, or project may have changed.`
+      : `Open Settings and Teams and Projects again, choose the team, then ${retry}. The team space, team, or project may have changed.`
   }
   if (code === 409 || text.includes('already exists')) {
     return action === 'create'
       ? 'Use a different name, then try again.'
-      : `${load} Another setup change is still saving. Wait a moment, then refresh Settings again.`
+      : `${load} Another setup change is still saving. Wait a moment, then open ${resourcePageLabel(resource)} again.`
   }
   if (code === 422 || text.includes('invalid')) {
     if (resource === 'project' && action === 'create') {

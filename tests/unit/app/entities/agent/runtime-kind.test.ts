@@ -48,8 +48,8 @@ describe('runtime-kind specifications', () => {
   })
 
   it('uses beginner-facing labels when runtime kind is missing', () => {
-    expect(runtimeKindLabel(undefined)).toBe('Refresh work location')
-    expect(runtimeKindShortLabel(undefined)).toBe('Refresh location')
+    expect(runtimeKindLabel(undefined)).toBe('Check where it works')
+    expect(runtimeKindShortLabel(undefined)).toBe('Check location')
   })
 
   it('does not expose unknown runtime kind slugs', () => {

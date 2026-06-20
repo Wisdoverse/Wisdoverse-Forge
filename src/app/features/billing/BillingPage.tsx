@@ -10,7 +10,7 @@ import { InvoiceList } from './InvoiceList'
 const BILLING_SETUP_STEPS = [
   'Ask an owner or admin to turn on billing for this team.',
   'Do not enter payment account passwords or keys on this page. Ask an owner or admin to connect billing in Billing settings.',
-  'Refresh this page after billing is turned on.',
+  'After billing is turned on, open Billing from the sidebar to check the plan.',
 ]
 
 // ============================================================================
@@ -112,6 +112,28 @@ function BillingCheckpoint({ hasSubscription, usageCount, invoicesCount }: Billi
   )
 }
 
+interface BillingErrorAlertProps {
+  message: string
+  retrying: boolean
+  onRetry: () => void
+}
+
+function BillingErrorAlert({ message, retrying, onRetry }: BillingErrorAlertProps) {
+  return (
+    <div role="alert" aria-live="polite" className={cn(uiStyles.error, 'mb-3')}>
+      <p>{message}</p>
+      <button
+        type="button"
+        onClick={onRetry}
+        disabled={retrying}
+        className={cn(uiStyles.secondaryButton, 'mt-2')}
+      >
+        {retrying ? 'Checking billing' : 'Check billing again'}
+      </button>
+    </div>
+  )
+}
+
 // ============================================================================
 // BillingPage
 // ============================================================================
@@ -139,6 +161,11 @@ export function BillingPage() {
   useEffect(() => {
     void loadAll()
   }, [loadAll])
+
+  const billingChecking = subscriptionLoading || usageLoading || invoicesLoading
+  const handleCheckBillingAgain = () => {
+    void loadAll()
+  }
 
   const handleUpgrade = async () => {
     if (!plan) {
@@ -206,9 +233,11 @@ export function BillingPage() {
       <section>
         <h3 className={uiStyles.groupLabel}>Plan and payment</h3>
         {subscriptionError && (
-          <div role="alert" aria-live="polite" className={cn(uiStyles.error, 'mb-3')}>
-            {subscriptionError}
-          </div>
+          <BillingErrorAlert
+            message={subscriptionError}
+            retrying={billingChecking}
+            onRetry={handleCheckBillingAgain}
+          />
         )}
         <PlanCard
           plan={plan}
@@ -225,9 +254,11 @@ export function BillingPage() {
         <section>
           <h3 className={uiStyles.groupLabel}>Capacity this period</h3>
           {usageError ? (
-            <div role="alert" aria-live="polite" className={uiStyles.error}>
-              {usageError}
-            </div>
+            <BillingErrorAlert
+              message={usageError}
+              retrying={billingChecking}
+              onRetry={handleCheckBillingAgain}
+            />
           ) : (
             <UsageMeter metrics={usage} loading={usageLoading} />
           )}
@@ -235,7 +266,13 @@ export function BillingPage() {
       )}
 
       <section>
-        <InvoiceList invoices={invoices} loading={invoicesLoading} error={invoicesError} />
+        <InvoiceList
+          invoices={invoices}
+          loading={invoicesLoading}
+          error={invoicesError}
+          retrying={billingChecking}
+          onRetry={handleCheckBillingAgain}
+        />
       </section>
     </div>
   )

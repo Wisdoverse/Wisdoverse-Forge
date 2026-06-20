@@ -18,7 +18,7 @@ export function AttentionZone({ items, onApprove, onView }: AttentionZoneProps) 
         </p>
       </div>
       <p className="mb-2 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
-        These items are waiting for a decision, missing access, or a quick review.
+        These items are waiting for a decision, missing access, or a quick check.
       </p>
       <p className="mb-2 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
         Choose Allow to continue only after checking what the agent needs.

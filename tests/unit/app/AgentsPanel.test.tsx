@@ -176,11 +176,11 @@ describe('AgentsPanel', () => {
 
     const error = await screen.findByTestId('admin-agents-error')
     expect(error).toHaveAttribute('aria-live', 'polite')
-    expect(within(error).getByText('Refresh Admin to reload the agents.')).toBeDefined()
+    expect(within(error).getByText('Open Admin again, then choose agents.')).toBeDefined()
     expect(within(error).queryByText('HTTP 503')).toBeNull()
     expect(
       within(error).getByText(
-        'Refresh Admin, then try again. If it still fails, ask an owner or admin to check your Admin access and this Admin page.'
+        'Open Admin again, then choose this section. If it still fails, ask an owner or admin to check your Admin access and this Admin page.'
       )
     ).toBeDefined()
     expect(within(error).queryByText(/admin service/i)).toBeNull()
@@ -206,9 +206,10 @@ describe('AgentsPanel', () => {
     expect(within(emptyState).getByText('Create or connect an agent first')).toBeDefined()
     expect(within(emptyState).getByText(/create the first agent from agents/i)).toBeDefined()
     expect(within(emptyState).getByText(/confirm it becomes ready or working/i)).toBeDefined()
+    expect(within(emptyState).getByText(/return to admin and choose agents/i)).toBeDefined()
     expect(within(emptyState).getByText(/check it across team spaces/i)).toBeDefined()
     expect(within(emptyState).queryByText(/review it across team spaces/i)).toBeNull()
-    expect(within(emptyState).getByText(/refresh admin and check again/i)).toBeDefined()
+    expect(within(emptyState).queryByText(/refresh admin and check again/i)).toBeNull()
     expect(within(emptyState).queryByText('No agents to show')).toBeNull()
     expect(within(emptyState).queryByText(/organizations/i)).toBeNull()
   })

@@ -23,6 +23,10 @@ describe('CommandPalette', () => {
 
   test('renders when open', () => {
     render(<CommandPalette isOpen={true} onClose={() => {}} />)
+    const dialog = screen.getByRole('dialog', { name: /find what you need/i })
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    expect(dialog).toHaveAccessibleDescription(/use tasks when you want to plan or inspect work/i)
+    expect(screen.getByLabelText('Search pages and things to do')).toBeDefined()
     expect(screen.getByPlaceholderText(/search/i)).toBeDefined()
     expect(screen.getByText('Find what you need')).toBeDefined()
     expect(screen.getByText(/use tasks when you want to plan or inspect work/i)).toBeDefined()
@@ -87,16 +91,88 @@ describe('CommandPalette', () => {
 
     expect(onSelect).toHaveBeenCalledWith('nav:start')
     expect(onClose).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText('Show setup checklist again')).toBeNull()
+  })
+
+  test('finds setup checklist recovery when Start is hidden', async () => {
+    render(<CommandPalette isOpen={true} onClose={() => {}} />)
+
+    expect(screen.queryByText('Setup checklist')).toBeNull()
+
+    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+      target: { value: 'start tutorial' },
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('Show setup checklist again')).toBeDefined()
+    })
+    expect(
+      screen.getByText('Open Account settings to add the setup checklist back to the left menu.')
+    ).toBeDefined()
+    expect(screen.queryByText('No page or option matches that search')).toBeNull()
   })
 
   test('shows action commands', () => {
     render(<CommandPalette isOpen={true} onClose={() => {}} />)
     expect(screen.getByText('Create or change something')).toBeDefined()
+    expect(screen.getByText('Show setup checklist again')).toBeDefined()
     expect(screen.getByText('New task')).toBeDefined()
     expect(screen.getByText('Create a task for an agent to finish.')).toBeDefined()
+    expect(screen.getByText('Codex and work tool sign-in')).toBeDefined()
+    expect(
+      screen.getByText('Sign in to OpenAI (Codex) before agents work on project files.')
+    ).toBeDefined()
+    expect(screen.queryByText('Codex CLI sign-in')).toBeNull()
     expect(screen.queryByText(previousActionHeading)).toBeNull()
     expect(screen.queryByText('Create task')).toBeNull()
     expect(screen.queryByText('Start a new piece of work.')).toBeNull()
+  })
+
+  test('uses a beginner setup action when task creation is not ready', async () => {
+    const onSelect = vi.fn()
+    const onClose = vi.fn()
+
+    render(
+      <CommandPalette
+        isOpen={true}
+        onClose={onClose}
+        onSelect={onSelect}
+        createTaskCommand={{
+          label: 'Set up project before task',
+          description: 'Open project settings so tasks have a place to belong.',
+          searchText: 'new task create task project setup',
+        }}
+      />
+    )
+
+    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+      target: { value: 'new task' },
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('Set up project before task')).toBeDefined()
+    })
+    fireEvent.click(screen.getByText('Open project settings so tasks have a place to belong.'))
+
+    expect(onSelect).toHaveBeenCalledWith('action:create-task')
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText('Create a task for an agent to finish.')).toBeNull()
+  })
+
+  test('finds Codex sign-in through beginner search terms', async () => {
+    render(<CommandPalette isOpen={true} onClose={() => {}} />)
+
+    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+      target: { value: 'codex login' },
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('Codex and work tool sign-in')).toBeDefined()
+    })
+    expect(
+      screen.getByText('Sign in to OpenAI (Codex) before agents work on project files.')
+    ).toBeDefined()
+    expect(screen.queryByText('No page or option matches that search')).toBeNull()
   })
 
   test('uses beginner-safe view names instead of old scene jargon', () => {
@@ -121,24 +197,47 @@ describe('CommandPalette', () => {
     fireEvent.change(input, { target: { value: 'zzzzzz' } })
 
     await waitFor(() => {
-      expect(screen.getByText('No page or option matches that search')).toBeDefined()
+      expect(screen.getByRole('status')).toHaveTextContent('No page or option matches that search')
     })
+    expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite')
     expect(
       screen.getByText(/try tasks, inbox, agents, saved instructions, or settings/i)
     ).toBeDefined()
     expect(
       screen.queryByText(/try tasks, inbox, saved items, agents, saved instructions, or settings/i)
     ).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+    expect(screen.getByRole('button', { name: /open tasks/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /open agents/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /open settings/i })).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: /show all pages and actions/i }))
 
     await waitFor(() => {
       expect(input).toHaveValue('')
       expect(screen.getByText('Tasks')).toBeDefined()
     })
+    expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull()
     expect(screen.queryByText('No page or action matches that search')).toBeNull()
     expect(screen.queryByText(/common workflow/i)).toBeNull()
     expect(screen.queryByText(previousEmptyTitle)).toBeNull()
     expect(screen.queryByText(new RegExp(previousFullListCopy, 'i'))).toBeNull()
+  })
+
+  test('empty search lets beginners open a common page directly', async () => {
+    const onSelect = vi.fn()
+    const onClose = vi.fn()
+    render(<CommandPalette isOpen={true} onClose={onClose} onSelect={onSelect} />)
+
+    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+      target: { value: 'where is the thing' },
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent('No page or option matches that search')
+    })
+    fireEvent.click(screen.getByRole('button', { name: /open agents/i }))
+
+    expect(onSelect).toHaveBeenCalledWith('nav:agents')
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 
   test('suggests common workflow terms when search has no matches', () => {
@@ -156,7 +255,11 @@ describe('CommandPalette', () => {
     expect(
       screen.queryByText(/try tasks, inbox, saved items, agents, saved instructions, or settings/i)
     ).toBeNull()
-    expect(screen.getByRole('button', { name: 'Clear search' })).toBeDefined()
+    expect(screen.getByRole('button', { name: /open tasks/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /open agents/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /open settings/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /show all pages and actions/i })).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull()
     expect(screen.queryByText(previousEmptyTitle)).toBeNull()
     expect(screen.queryByText(new RegExp(previousFullListCopy, 'i'))).toBeNull()
   })

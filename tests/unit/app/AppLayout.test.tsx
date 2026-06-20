@@ -128,6 +128,9 @@ describe('AppLayout', () => {
   })
 
   test('top bar shows view toggles', () => {
+    seedProjectNavigation('p1')
+    useBoardStore.getState().setSelectedGroupId('group-1')
+
     render(<MemoryRouter />)
     expect(screen.getByText('Board')).toBeDefined()
     expect(screen.getByText('List')).toBeDefined()
@@ -139,6 +142,30 @@ describe('AppLayout', () => {
     expect(screen.queryByRole('button', { name: 'Status' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Agent' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Priority' })).toBeNull()
+  })
+
+  test('top bar shows the setup step instead of New task when no project exists', () => {
+    render(<MemoryRouter />)
+
+    const setupButton = screen.getByRole('button', { name: 'Set up project' })
+    expect(setupButton).toHaveAttribute(
+      'title',
+      'Open project settings so tasks have a place to belong.'
+    )
+    expect(screen.queryByRole('button', { name: /^new task$/i })).toBeNull()
+  })
+
+  test('top bar shows waiting-place setup before task creation when project setup is incomplete', () => {
+    seedProjectNavigation('p1')
+
+    render(<MemoryRouter />)
+
+    const setupButton = screen.getByRole('button', { name: 'Set up waiting place' })
+    expect(setupButton).toHaveAttribute(
+      'title',
+      'Open Agents to add a waiting place before creating a task.'
+    )
+    expect(screen.queryByRole('button', { name: /^new task$/i })).toBeNull()
   })
 
   test('top bar labels the command search entry for beginners', () => {
@@ -171,6 +198,39 @@ describe('AppLayout', () => {
     expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
   })
 
+  test('command palette routes first task setup to project settings when no project exists', async () => {
+    const onNavigate = vi.fn()
+
+    render(<MemoryRouter onNavigate={onNavigate} />)
+
+    fireEvent.click(screen.getByTestId('top-bar-command-search'))
+    await waitFor(() => {
+      expect(screen.getByText('Set up project before task')).toBeDefined()
+    })
+    fireEvent.click(screen.getByText('Open project settings so tasks have a place to belong.'))
+
+    expect(onNavigate).toHaveBeenCalledWith('/settings/projects')
+    expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
+    expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
+  })
+
+  test('command palette routes task setup to Agents when tasks have nowhere to wait', async () => {
+    seedProjectNavigation('p1')
+    const onNavigate = vi.fn()
+
+    render(<MemoryRouter onNavigate={onNavigate} />)
+
+    fireEvent.click(screen.getByTestId('top-bar-command-search'))
+    await waitFor(() => {
+      expect(screen.getByText('Set up where tasks wait')).toBeDefined()
+    })
+    fireEvent.click(screen.getByText('Open Agents to add a waiting place before creating a task.'))
+
+    expect(onNavigate).toHaveBeenCalledWith('/agents')
+    expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
+    expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
+  })
+
   test('command palette task view actions open Tasks before switching view', () => {
     routerState.path = '/settings'
     const onNavigate = vi.fn()
@@ -182,6 +242,82 @@ describe('AppLayout', () => {
 
     expect(onNavigate).toHaveBeenCalledWith('/tasks')
     expect(useBoardStore.getState().viewMode).toBe('list')
+    expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
+  })
+
+  test('project menu New task opens the task form when the project has a waiting place', async () => {
+    seedProjectNavigation(null)
+    const onNavigate = vi.fn()
+
+    render(<MemoryRouter onNavigate={onNavigate} />)
+
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /new task for this project/i }))
+
+    await waitFor(() => expect(mockGetGroups).toHaveBeenCalledWith('p1'))
+    expect(onNavigate).toHaveBeenCalledWith('/tasks')
+    await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
+    expect(screen.getByRole('dialog', { name: /tell an agent what to do/i })).toBeDefined()
+  })
+
+  test('project menu New task routes to Agents when the project has no waiting place', async () => {
+    seedProjectNavigation(null)
+    mockGetGroups.mockResolvedValueOnce([])
+    const onNavigate = vi.fn()
+
+    render(<MemoryRouter onNavigate={onNavigate} />)
+
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /new task for this project/i }))
+
+    await waitFor(() => expect(mockGetGroups).toHaveBeenCalledWith('p1'))
+    expect(onNavigate).toHaveBeenCalledWith('/agents')
+    expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
+  })
+
+  test('command palette opens Codex and work tool sign-in directly', async () => {
+    const onNavigate = vi.fn()
+
+    render(<MemoryRouter onNavigate={onNavigate} />)
+
+    fireEvent.click(screen.getByTestId('top-bar-command-search'))
+    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+      target: { value: 'codex login' },
+    })
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Sign in to OpenAI (Codex) before agents work on project files.')
+      ).toBeDefined()
+    })
+    fireEvent.click(
+      screen.getByText('Sign in to OpenAI (Codex) before agents work on project files.')
+    )
+
+    expect(onNavigate).toHaveBeenCalledWith('/settings/work-tool-sign-ins')
+    expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
+  })
+
+  test('command palette opens setup checklist recovery in Account settings', async () => {
+    const onNavigate = vi.fn()
+
+    render(<MemoryRouter onNavigate={onNavigate} />)
+
+    fireEvent.click(screen.getByTestId('top-bar-command-search'))
+    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+      target: { value: 'start tutorial' },
+    })
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Open Account settings to add the setup checklist back to the left menu.')
+      ).toBeDefined()
+    })
+    fireEvent.click(
+      screen.getByText('Open Account settings to add the setup checklist back to the left menu.')
+    )
+
+    expect(onNavigate).toHaveBeenCalledWith('/settings/account')
     expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
   })
 
@@ -447,10 +583,10 @@ describe('AppLayout', () => {
     expect(screen.getByText('What to finish')).toBeDefined()
     expect(screen.getByText(/visible change or decision/i)).toBeDefined()
 
-    fireEvent.click(within(briefGroup).getByRole('button', { name: /bug/i }))
+    fireEvent.click(within(briefGroup).getByRole('button', { name: /fix a problem/i }))
 
     expect(screen.getByLabelText(/what should the agent finish/i)).toHaveValue(
-      'Fix a reproducible defect'
+      'Fix a problem you can repeat'
     )
     expect(screen.getByLabelText(/details the agent should know/i)).toHaveValue()
     expect(
@@ -466,7 +602,7 @@ describe('AppLayout', () => {
       expect(mockCreateTask).toHaveBeenCalledWith({
         groupId: 'group-1',
         params: {
-          task: 'Fix a reproducible defect',
+          task: 'Fix a problem you can repeat',
           message: expect.stringContaining('Done when:'),
         },
         priority: 'high',
@@ -546,23 +682,21 @@ describe('AppLayout', () => {
   test('routes missing project setup from New Task to project settings', async () => {
     const onNavigate = vi.fn()
     render(<MemoryRouter onNavigate={onNavigate} />)
-    fireEvent.click(screen.getByRole('button', { name: /new task/i }))
-
-    expect(screen.getByText(/create a project before sending tasks/i)).toBeDefined()
-    const createButton = screen.getByRole('button', { name: /create task/i })
-    expect(createButton).toBeEnabled()
-    expect(screen.queryByText(/no projects available/i)).toBeNull()
-
-    fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
-      target: { value: 'Create first task' },
-    })
-    fireEvent.click(createButton)
-    const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Open project settings before creating a task.')
-
-    fireEvent.click(screen.getAllByRole('button', { name: /open project settings/i }).at(-1)!)
+    fireEvent.click(screen.getByRole('button', { name: /set up project/i }))
 
     expect(onNavigate).toHaveBeenCalledWith('/settings/projects')
+    expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
+    expect(screen.queryByText(/no projects available/i)).toBeNull()
+  })
+
+  test('routes missing waiting place setup from New Task to Agents', async () => {
+    seedProjectNavigation('p1')
+    const onNavigate = vi.fn()
+
+    render(<MemoryRouter onNavigate={onNavigate} />)
+    fireEvent.click(screen.getByRole('button', { name: /set up waiting place/i }))
+
+    expect(onNavigate).toHaveBeenCalledWith('/agents')
     expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
   })
 })

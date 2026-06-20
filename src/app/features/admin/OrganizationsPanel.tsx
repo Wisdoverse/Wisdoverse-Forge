@@ -7,7 +7,7 @@ import { ADMIN_PANEL_RECOVERY, adminPanelLoadErrorMessage } from './adminErrorCo
 
 function formatDate(iso: string): string {
   const date = new Date(iso)
-  if (!Number.isFinite(date.getTime())) return 'Refresh team spaces to check created date'
+  if (!Number.isFinite(date.getTime())) return 'Open Team spaces again to check created date'
   return date.toLocaleDateString(undefined, {
     year: 'numeric',
     month: 'short',
@@ -54,7 +54,7 @@ const ORG_GUIDANCE: { title: string; description: string; Icon: LucideIcon }[] =
   },
   {
     title: 'Teams show work areas',
-    description: 'More teams usually means more places to organize projects and assign agent work.',
+    description: 'More teams usually means more places to organize projects and send agent work.',
     Icon: Network,
   },
 ]
@@ -197,7 +197,7 @@ export function OrganizationsPanel() {
                           {org.name}
                         </p>
                         <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                          Shown at the end of team space links: {org.slug}
+                          Team space link preview: {org.slug}
                         </p>
                       </div>
                     </td>

@@ -80,7 +80,7 @@ describe('CreateAgentModal', () => {
   test('renders project-file fields by default', () => {
     render(<CreateAgentModal />)
 
-    expect(screen.getByRole('heading', { name: 'Create an agent' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'New agent' })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: /project files/i })).toBeChecked()
     expect(screen.getByTestId('agent-runtime-fit')).toBeInTheDocument()
     expect(screen.getByText('Pick a starter template')).toBeInTheDocument()
@@ -136,10 +136,10 @@ describe('CreateAgentModal', () => {
     expect(within(review).queryByText('Work style')).toBeNull()
     expect(within(review).queryByText('Created state')).toBeNull()
     expect(within(review).getByText(/claude with project files/i)).toBeInTheDocument()
-    expect(within(review).getByText('Choose a project before assigning tasks.')).toBeInTheDocument()
+    expect(within(review).getByText('Choose a project before sending tasks.')).toBeInTheDocument()
     expect(within(review).queryByText('No project selected yet')).toBeNull()
     expect(
-      within(review).getByText('Choose a project later before assigning tasks.')
+      within(review).getByText('Choose a project later before sending tasks.')
     ).toBeInTheDocument()
     expect(
       within(review).getByText('Wait until it shows Ready, then send one small task from Tasks.')
@@ -167,7 +167,7 @@ describe('CreateAgentModal', () => {
 
     expect(onOpenProjectsSetup).toHaveBeenCalledTimes(1)
     expect(useAgentsStore.getState().createModalOpen).toBe(false)
-    expect(screen.queryByRole('dialog', { name: /create an agent/i })).toBeNull()
+    expect(screen.queryByRole('dialog', { name: /new agent/i })).toBeNull()
   })
 
   test('blocks project-file agent creation until a project is selected', async () => {
@@ -177,7 +177,7 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal onOpenProjectsSetup={onOpenProjectsSetup} />)
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'CLI Worker' } })
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(/open project settings, create or choose a project/i)
@@ -285,7 +285,7 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'CLI Worker' } })
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     await waitFor(() => expect(createAgent).toHaveBeenCalledTimes(1))
     expect(createAgent.mock.calls[0][0]).toMatchObject({
@@ -299,7 +299,7 @@ describe('CreateAgentModal', () => {
     useAgentsStore.setState({ createAgent } as never)
 
     render(<CreateAgentModal />)
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Name this agent before creating it.'
@@ -354,7 +354,7 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByText(new RegExp('board\\s+tasks', 'i'))).toBeNull()
 
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'CLI Worker' } })
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     await waitFor(() => expect(createAgent).toHaveBeenCalledTimes(1))
     expect(createAgent.mock.calls[0][0]).toMatchObject({
@@ -420,8 +420,12 @@ describe('CreateAgentModal', () => {
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
 
     expect(screen.getByText('Fills in name and instructions')).toBeInTheDocument()
-    expect(screen.getAllByText(/anthropic for chat and review/i).length).toBeGreaterThan(0)
-    expect(screen.getByText(/questions, planning, writing, and review/i)).toBeInTheDocument()
+    expect(
+      screen.getAllByText(/anthropic for questions and result checks/i).length
+    ).toBeGreaterThan(0)
+    expect(
+      screen.getByText(/questions, planning, writing, and checking results/i)
+    ).toBeInTheDocument()
     expect(screen.getByText(/does not open project files/i)).toBeInTheDocument()
     expect(screen.getByText('Check AI service in Settings')).toBeInTheDocument()
     expect(screen.queryByText(/ai service must be checked/i)).toBeNull()
@@ -441,11 +445,13 @@ describe('CreateAgentModal', () => {
     const review = screen.getByTestId('agent-create-review')
     expect(
       within(review).getByText(
-        'Ask a first question or assign review work that does not need files.'
+        'Ask a first question, or send a result-check task that does not need files.'
       )
     ).toBeInTheDocument()
     expect(
-      within(review).getByText('Ready for chat and review after the AI service is connected.')
+      within(review).getByText(
+        'Ready for questions and result checks after the AI service is connected.'
+      )
     ).toBeInTheDocument()
     expect(screen.queryByLabelText(/^model name$/i)).toBeNull()
     expect(screen.queryByLabelText(/^provider$/i)).toBeNull()
@@ -476,7 +482,7 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByLabelText(/^ai service$/i)).toBeNull()
 
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     let alert: HTMLElement | null = null
     await waitFor(() =>
@@ -560,7 +566,9 @@ describe('CreateAgentModal', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getAllByText(/google for chat and review/i).length).toBeGreaterThan(0)
+      expect(screen.getAllByText(/google for questions and result checks/i).length).toBeGreaterThan(
+        0
+      )
     })
     expect(screen.getByText('AI service only')).toBeInTheDocument()
     expect(screen.getByText('Check AI service in Settings')).toBeInTheDocument()
@@ -604,7 +612,7 @@ describe('CreateAgentModal', () => {
     fireEvent.change(screen.getByLabelText(/folder on this computer/i), {
       target: { value: '/Users/me/project' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     await waitFor(() => expect(enrollLocalAgent).toHaveBeenCalledTimes(1))
     expect(enrollLocalAgent.mock.calls[0][0]).toMatchObject({
@@ -678,14 +686,14 @@ describe('CreateAgentModal', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Laptop Worker' } })
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     // The setup text leads; the pasted text tracks the OS toggle.
     const oneLiner = await screen.findByLabelText(/setup text/i)
     expect(oneLiner).toHaveValue(joinCommand)
     expect(screen.getByText(/Forge will show it as an agent here/i)).toBeInTheDocument()
     expect(
-      screen.getByText(/assign tasks to it, and keep its status and history/i)
+      screen.getByText(/let you send tasks to it, and keep its status and history/i)
     ).toBeInTheDocument()
     expect(screen.getByText(/Files stay on that computer/i)).toBeInTheDocument()
     expect(screen.getByTestId('local-agent-paste-hint')).toHaveTextContent(
@@ -756,7 +764,7 @@ describe('CreateAgentModal', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Laptop Worker' } })
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     expect(await screen.findByLabelText(/setup text/i)).toHaveValue(joinCommand)
     fireEvent.click(screen.getByRole('button', { name: /windows/i }))
@@ -800,7 +808,7 @@ describe('CreateAgentModal', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Laptop Worker' } })
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     expect(await screen.findByText('This computer agent')).toBeInTheDocument()
     expect(screen.getByText('This computer handles tasks')).toBeInTheDocument()
@@ -834,7 +842,7 @@ describe('CreateAgentModal', () => {
     expect(screen.getByLabelText(/^saved ai service setup$/i)).toHaveValue('gpt-5.5')
 
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     await waitFor(() => expect(createAgent).toHaveBeenCalledTimes(1))
     expect(createAgent.mock.calls[0][0]).toMatchObject({
@@ -936,7 +944,7 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'CLI Worker' } })
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     await waitFor(() => expect(createAgent).toHaveBeenCalledTimes(1))
     const payload = createAgent.mock.calls[0][0]
@@ -973,7 +981,7 @@ describe('CreateAgentModal', () => {
     render(<CreateAgentModal />)
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     await waitFor(() => expect(createAgent).toHaveBeenCalledTimes(1))
     const payload = createAgent.mock.calls[0][0]
@@ -992,7 +1000,7 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: '   ' } })
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent('Name this agent before creating it.')
@@ -1023,7 +1031,7 @@ describe('CreateAgentModal', () => {
     render(<CreateAgentModal />)
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(
@@ -1041,7 +1049,7 @@ describe('CreateAgentModal', () => {
     useAgentsStore.setState({ createAgent } as never)
 
     render(<CreateAgentModal />)
-    const submit = screen.getByRole('button', { name: /^create agent$/i })
+    const submit = screen.getByRole('button', { name: /^add agent$/i })
 
     fireEvent.click(submit)
     await waitFor(() =>
@@ -1073,19 +1081,21 @@ describe('CreateAgentModal', () => {
     render(<CreateAgentModal />)
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Local Worker' } })
     fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     const copyButton = await screen.findByRole('button', { name: /copy setup text/i })
     // jsdom has no navigator.clipboard, which is exactly the non-secure-context
     // (plain HTTP) deployment case the message exists for.
     fireEvent.click(copyButton)
 
+    let alert: HTMLElement | null = null
     await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent(
+      expect((alert = screen.getByRole('alert'))).toHaveTextContent(
         'Copy did not work. Select the setup text in the box, then copy it yourself.'
       )
     )
-    expect(screen.getByRole('alert')).not.toHaveTextContent(/clipboard access/i)
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).not.toHaveTextContent(/clipboard access/i)
   })
 
   test('applies a starter template to simple chat agent instructions', async () => {
@@ -1109,9 +1119,9 @@ describe('CreateAgentModal', () => {
     render(<CreateAgentModal />)
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
     const templateGroup = screen.getByRole('group', { name: /agent starter templates/i })
-    fireEvent.click(within(templateGroup).getByRole('button', { name: /review work/i }))
+    fireEvent.click(within(templateGroup).getByRole('button', { name: /check results/i }))
 
-    expect(screen.getByLabelText(/^name$/i)).toHaveValue('Review Helper')
+    expect(screen.getByLabelText(/^name$/i)).toHaveValue('Result Check Helper')
     expect((screen.getByLabelText(/agent instructions/i) as HTMLTextAreaElement).value).toContain(
       'confusing behavior'
     )
@@ -1125,12 +1135,12 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByText(/prompt work/i)).toBeNull()
     expect(screen.queryByRole('group', { name: /agent role templates/i })).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     await waitFor(() => expect(createAgent).toHaveBeenCalledTimes(1))
     expect(createAgent.mock.calls[0][0]).toMatchObject({
       kind: 'provider',
-      name: 'Review Helper',
+      name: 'Result Check Helper',
       provider: 'anthropic',
       model: 'claude-sonnet-4-6',
       systemPrompt: expect.stringContaining('clear use, fix, or wait recommendation'),
@@ -1191,7 +1201,7 @@ describe('CreateAgentModal', () => {
     expect(instructions.value).toContain('what changed and what to try next')
     expect(instructions.value).not.toMatch(/tradeoffs|edits narrow|handing work back/i)
 
-    fireEvent.click(within(templateGroup).getByRole('button', { name: /review work/i }))
+    fireEvent.click(within(templateGroup).getByRole('button', { name: /check results/i }))
     expect(instructions.value).toContain('Explain each concern in plain language')
     expect(instructions.value).not.toMatch(/cite files|concrete risks/i)
 

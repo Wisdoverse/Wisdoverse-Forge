@@ -11,7 +11,9 @@ describe('skillDraftErrorMessage', () => {
   test('keeps store permission guidance when the modal remaps publish errors', () => {
     expect(
       skillDraftErrorMessage(
-        new Error('Ask an owner or admin to let you create saved instructions for this team space.')
+        new Error(
+          'Ask an owner or admin to let you create saved instructions for this team space, then create the instruction again.'
+        )
       )
     ).toBe(
       'Ask an owner or admin to let you create saved instructions, then publish again. Instruction was not published.'
@@ -90,5 +92,15 @@ describe('skillDraftErrorMessage', () => {
     )
     expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('service is temporarily unavailable')
+  })
+
+  test('turns unknown publish failures into a draft check step', () => {
+    const message = skillDraftErrorMessage(new Error('unexpected failure'))
+
+    expect(message).toBe(
+      'Check the draft, then publish again. Instruction was not published. If it still fails, ask an owner or admin to check Saved instructions access.'
+    )
+    expect(message).not.toContain('Review the draft')
+    expect(message).not.toContain('unexpected failure')
   })
 })

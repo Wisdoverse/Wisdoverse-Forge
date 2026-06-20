@@ -152,8 +152,8 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
           {canPublish && onPublish && (
             <button
               type="button"
-              aria-label={`Publish ${task.params.task}`}
-              title="Preview and publish"
+              aria-label={`Preview and send ${task.params.task}`}
+              title="Preview and send"
               onPointerDown={(event) => event.stopPropagation()}
               onMouseDown={(event) => event.stopPropagation()}
               onClick={(event) => {
@@ -221,7 +221,7 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
       <div className="flex items-center justify-between gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
         {hasAssignee ? (
           <span className="truncate font-medium text-foreground-light dark:text-foreground-dark">
-            {task.assignedAgentName ?? 'Assigned agent'}
+            {task.assignedAgentName ?? 'Chosen agent'}
           </span>
         ) : (
           <span>Needs agent</span>
@@ -291,16 +291,16 @@ function taskNextStep(task: TaskSummary, options: TaskNextStepOptions): string |
     case 'backlog':
       if (!options.hasBrief) {
         return options.hasAssignee
-          ? 'Open this card and add details before publishing.'
+          ? 'Open this card and add details before sending.'
           : 'Open this card, add details, then choose an agent.'
       }
       if (!options.hasAssignee) {
         return options.canOpenPublishPreview
-          ? 'Choose an agent, then preview and publish.'
+          ? 'Choose an agent, then preview and send.'
           : 'Choose an agent before this task can start.'
       }
       return options.canOpenPublishPreview
-        ? 'Review saved items, then publish.'
+        ? 'Check saved items, then send.'
         : 'Open this card, add details, then send it to an agent.'
     case 'queued':
       return options.hasAssignee
@@ -311,7 +311,7 @@ function taskNextStep(task: TaskSummary, options: TaskNextStepOptions): string |
     case 'blocked':
       if (task.blockedHint) return null
       if (task.blockedReason === 'waiting_agent') {
-        return 'Attach or free an agent, then publish again.'
+        return 'Choose or free an agent, then send again.'
       }
       return 'Open task details to read what is blocking this task.'
     case 'failed':

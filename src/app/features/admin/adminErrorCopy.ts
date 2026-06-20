@@ -1,14 +1,14 @@
 const RAW_STATUS_ERROR_PATTERN = /\b(?:HTTP|API|Code:)\s*\(?\d{3}\b/i
 
 export const ADMIN_PANEL_RECOVERY =
-  'Refresh Admin, then try again. If it still fails, ask an owner or admin to check your Admin access and this Admin page.'
+  'Open Admin again, then choose this section. If it still fails, ask an owner or admin to check your Admin access and this Admin page.'
 
 export const CLI_IMAGE_RECOVERY =
   'Choose Check now again. If it still fails, ask an owner or admin to check Tool updates in Admin.'
 
 export function adminPanelLoadErrorMessage(error: string, label: string): string {
   if (!RAW_STATUS_ERROR_PATTERN.test(error)) return error
-  return `Refresh Admin to reload the ${label}.`
+  return `Open Admin again, then choose ${label}.`
 }
 
 export function cliImageStatusErrorMessage(error: string): string {

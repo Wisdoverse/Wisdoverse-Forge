@@ -68,6 +68,31 @@ describe('taskFailureCopy', () => {
     expect(message).not.toContain('provider')
   })
 
+  test('turns waiting approval into a plain task-details choice', () => {
+    const message = taskBlockedPreview({
+      blockedReason: 'waiting_approval',
+    })
+
+    expect(message).toBe(
+      'Open the task details, read what the agent needs, then choose Continue or Stop.'
+    )
+    expect(message).not.toContain('approval request')
+    expect(message).not.toContain('approve or decline')
+  })
+
+  test('turns approval blocked hints into a plain task-details choice', () => {
+    const message = taskBlockedPreview({
+      blockedHint: 'Waiting for SSH approval',
+      blockedReason: 'waiting_input',
+    })
+
+    expect(message).toBe(
+      'Open the task details to see what needs confirmation, then choose Continue or Stop when it is ready.'
+    )
+    expect(message).not.toContain('approval')
+    expect(message).not.toContain('SSH')
+  })
+
   test('identifies raw failure details before they reach user-facing summaries', () => {
     expect(isRawTaskFailureDetail('command exited 1')).toBe(true)
     expect(isRawTaskFailureDetail('provider token rejected')).toBe(true)

@@ -73,15 +73,16 @@ describe('resourceMemberErrorMessage', () => {
     )
   })
 
-  test('turns missing member lists into a refresh step first', () => {
+  test('turns missing member lists into a clear Members step first', () => {
     const message = resourceMemberErrorMessage('load', 'Project', new Error('HTTP 404: Not Found'))
 
     expectBeginnerMessage(
       message,
-      'Refresh members or choose another project. People for this project are not available.'
+      'Open Members for this project again, or choose another project. This project may have changed or been removed.'
     )
     expect(message).not.toContain('HTTP 404')
     expect(message).not.toContain('Not Found')
+    expect(message).not.toContain('People for this project are not available')
   })
 
   test('uses structured validation details to explain missing access choices', () => {
@@ -139,7 +140,7 @@ describe('resourceMemberErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh members to load people for this team. If it still fails, ask an owner or admin to check people access settings.'
+      'Open Members for this team again. If it still fails, ask an owner or admin to check people access settings.'
     )
     expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('backend')
@@ -147,13 +148,13 @@ describe('resourceMemberErrorMessage', () => {
     expect(message).not.toContain('service')
   })
 
-  test('turns load validation details into a refresh step', () => {
+  test('turns load validation details into a Members step', () => {
     const message = resourceMemberErrorMessage('load', 'Project', {
       status: 422,
       detail: 'member filter is invalid',
     })
 
-    expectBeginnerMessage(message, 'Refresh members to load people for this project.')
+    expectBeginnerMessage(message, 'Open Members for this project again.')
     expect(message).not.toContain('member filter')
   })
 
@@ -165,7 +166,7 @@ describe('resourceMemberErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh members, then remove the person again. Forge could not update people access right now. If it still fails, ask an owner or admin to check people access settings.'
+      'Open Members for this team again, then remove the person again. Forge could not update people access right now. If it still fails, ask an owner or admin to check people access settings.'
     )
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('503')
@@ -184,7 +185,7 @@ describe('resourceMemberErrorMessage', () => {
     expect(message).not.toContain('Too many requests')
   })
 
-  test('turns unknown member failures into a refresh step first', () => {
+  test('turns unknown member failures into a Members step first', () => {
     const message = resourceMemberErrorMessage('remove', 'Project', {
       statusCode: '418',
       message: 'unexpected member state',
@@ -192,7 +193,7 @@ describe('resourceMemberErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh the members list, then remove the person again. Forge could not remove this person from this project.'
+      'Open Members for this project again, then remove the person again. Forge could not remove this person from this project.'
     )
     expect(message).not.toContain('unexpected member state')
   })

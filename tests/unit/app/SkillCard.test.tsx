@@ -48,14 +48,15 @@ describe('SkillCard', () => {
 
     expect(
       screen.getByRole('button', {
-        name: /release-review\. ready to reuse\. open saved instruction details to review the reusable instructions before using it/i,
+        name: /release-review\. ready to reuse\. open saved instruction details to check the reusable instructions before using it/i,
       })
     ).toBeInTheDocument()
     expect(
       screen.getByText(
-        'Open saved instruction details to review the reusable instructions before using it.'
+        'Open saved instruction details to check the reusable instructions before using it.'
       )
     ).toBeDefined()
+    expect(screen.queryByText(/review the reusable instructions before using it/i)).toBeNull()
   })
 
   test('uses readable source fallback when saved-in metadata is missing', () => {
@@ -63,7 +64,7 @@ describe('SkillCard', () => {
       <SkillCard skill={{ ...baseSkill, plugin: '   ', pluginAuthor: '   ' }} onClick={() => {}} />
     )
 
-    expect(screen.getByText('Saved in saved instructions library')).toBeInTheDocument()
+    expect(screen.getByText('Saved in saved instructions')).toBeInTheDocument()
     expect(screen.queryByText(/Saved in\s*$/)).toBeNull()
     expect(screen.queryByText(/by\s*$/)).toBeNull()
   })

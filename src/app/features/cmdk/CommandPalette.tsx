@@ -9,6 +9,11 @@ interface CommandPaletteProps {
   isOpen: boolean
   onClose: () => void
   onSelect?: (command: string) => void
+  createTaskCommand?: {
+    label: string
+    description: string
+    searchText?: string
+  }
 }
 
 const NAV_COMMANDS = [
@@ -37,14 +42,37 @@ const NAV_COMMANDS = [
   },
 ]
 
-const ACTION_COMMANDS = [
+type NavCommand = (typeof NAV_COMMANDS)[number]
+
+const EMPTY_SEARCH_QUICK_COMMAND_IDS = ['nav:tasks', 'nav:agents', 'nav:settings'] as const
+
+const DEFAULT_CREATE_TASK_COMMAND = {
+  id: 'action:create-task',
+  label: 'New task',
+  description: 'Create a task for an agent to finish.',
+  searchText: 'new task create task send work',
+}
+
+const SECONDARY_ACTION_COMMANDS = [
   {
-    id: 'action:create-task',
-    label: 'New task',
-    description: 'Create a task for an agent to finish.',
+    id: 'action:work-tool-sign-ins',
+    label: 'Codex and work tool sign-in',
+    description: 'Sign in to OpenAI (Codex) before agents work on project files.',
+    searchText: 'codex openai login sign in work tool settings',
   },
-  { id: 'action:toggle-theme', label: 'Change theme', description: 'Switch the app appearance.' },
+  {
+    id: 'action:toggle-theme',
+    label: 'Change theme',
+    description: 'Switch the app appearance.',
+  },
 ]
+
+const SETUP_CHECKLIST_RECOVERY_COMMAND = {
+  id: 'action:show-setup-checklist',
+  label: 'Show setup checklist again',
+  description: 'Open Account settings to add the setup checklist back to the left menu.',
+  searchText: 'start tutorial onboarding setup checklist reset restore show again',
+}
 
 const VIEW_COMMANDS = [
   { id: 'view:board', label: 'Board view', description: 'Move tasks through simple columns.' },
@@ -67,7 +95,12 @@ function commonWorkflowSuggestion(commands: typeof NAV_COMMANDS): string {
   return `Try ${prefix}, or ${labels[labels.length - 1]} to open a page people use often.`
 }
 
-export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProps) {
+export function CommandPalette({
+  isOpen,
+  onClose,
+  onSelect,
+  createTaskCommand,
+}: CommandPaletteProps) {
   const contextGovernanceEnabled = useContextFeaturesStore((s) => s.governance)
   const showGettingStarted = useSettingsStore((s) => shouldShowGettingStarted(s.preferences))
   const [search, setSearch] = useState('')
@@ -77,7 +110,15 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
       (cmd.id !== 'nav:context' || contextGovernanceEnabled) &&
       (cmd.id !== 'nav:start' || showGettingStarted)
   )
+  const taskCommand = { ...DEFAULT_CREATE_TASK_COMMAND, ...createTaskCommand }
+  const baseActionCommands = [taskCommand, ...SECONDARY_ACTION_COMMANDS]
+  const actionCommands = showGettingStarted
+    ? baseActionCommands
+    : [SETUP_CHECKLIST_RECOVERY_COMMAND, ...baseActionCommands]
   const emptySearchSuggestion = commonWorkflowSuggestion(navCommands)
+  const emptySearchQuickCommands = EMPTY_SEARCH_QUICK_COMMAND_IDS.map((id) =>
+    navCommands.find((command) => command.id === id)
+  ).filter((command): command is NavCommand => Boolean(command))
 
   function handleSelect(commandId: string) {
     onSelect?.(commandId)
@@ -92,6 +133,10 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
       }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="command-palette-title"
+        aria-describedby="command-palette-help"
         className={cn(
           'w-full max-w-lg mx-4',
           'bg-surface dark:bg-surface-dark',
@@ -101,16 +146,23 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
       >
         <Command>
           <div className="border-b border-black/[0.08] px-4 py-3 dark:border-white/[0.08]">
-            <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+            <p
+              id="command-palette-title"
+              className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark"
+            >
               Find what you need
             </p>
-            <ol className="mt-2 list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            <ol
+              id="command-palette-help"
+              className="mt-2 list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark"
+            >
               {COMMAND_DISCOVERY_STEPS.map((step) => (
                 <li key={step}>{step}</li>
               ))}
             </ol>
           </div>
           <Command.Input
+            aria-label="Search pages and things to do"
             value={search}
             onValueChange={setSearch}
             placeholder="Search pages or things to do, e.g. tasks, inbox, settings"
@@ -123,16 +175,32 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
           />
           <Command.List className="max-h-80 overflow-y-auto py-2">
             <Command.Empty className="px-4 py-6 text-center text-sm text-secondary-light dark:text-secondary-dark">
-              <p className="font-medium text-foreground-light dark:text-foreground-dark">
-                No page or option matches that search
-              </p>
-              <p className="mt-1">{emptySearchSuggestion}</p>
+              <div role="status" aria-live="polite">
+                <p className="font-medium text-foreground-light dark:text-foreground-dark">
+                  No page or option matches that search
+                </p>
+                <p className="mt-1">{emptySearchSuggestion}</p>
+              </div>
+              {emptySearchQuickCommands.length > 0 && (
+                <div className="mt-3 flex flex-wrap justify-center gap-2" aria-label="Common pages">
+                  {emptySearchQuickCommands.map((command) => (
+                    <button
+                      key={command.id}
+                      type="button"
+                      onClick={() => handleSelect(command.id)}
+                      className="inline-flex h-8 items-center justify-center rounded-full border border-apple-blue/30 bg-apple-blue/10 px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-apple-blue/40 dark:bg-apple-blue/15 dark:text-apple-blue-light dark:hover:bg-apple-blue/25"
+                    >
+                      Open {command.label}
+                    </button>
+                  ))}
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => setSearch('')}
                 className="mt-3 inline-flex h-8 items-center justify-center rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.08]"
               >
-                Clear search
+                Show all pages and actions
               </button>
             </Command.Empty>
 
@@ -164,10 +232,10 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
               heading="Create or change something"
               className="[&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-secondary-light dark:[&_[cmdk-group-heading]]:text-secondary-dark"
             >
-              {ACTION_COMMANDS.map((cmd) => (
+              {actionCommands.map((cmd) => (
                 <Command.Item
                   key={cmd.id}
-                  value={`${cmd.label} ${cmd.description}`}
+                  value={`${cmd.label} ${cmd.description} ${cmd.searchText ?? ''}`}
                   onSelect={() => handleSelect(cmd.id)}
                   className={cn(
                     'flex cursor-pointer flex-col gap-0.5 px-4 py-2 text-sm',

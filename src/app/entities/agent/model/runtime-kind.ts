@@ -42,7 +42,7 @@ export function runtimeKindLabel(kind: AgentRuntimeKind | string | undefined): s
       return RUNTIME_KIND_LABELS.api
     case undefined:
     case '':
-      return 'Refresh work location'
+      return 'Check where it works'
     default:
       return 'Check work location'
   }
@@ -59,7 +59,7 @@ export function runtimeKindShortLabel(kind: AgentRuntimeKind | string | undefine
       return RUNTIME_KIND_SHORT_LABELS.api
     case undefined:
     case '':
-      return 'Refresh location'
+      return 'Check location'
     default:
       return 'Check location'
   }

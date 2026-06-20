@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   ArrowRight,
@@ -60,6 +60,9 @@ const SORT_OPTIONS: { value: AgentSortKey; label: string }[] = [
   { value: 'active', label: 'Tasks in progress' },
   { value: 'success', label: 'Best finish rate' },
 ]
+
+const AGENT_SEARCH_HELP =
+  'Search only filters this list. Use Show all agents to see every agent and work location again.'
 
 const HOST_CLI_PLATFORMS: {
   value: HostCliPlatform
@@ -134,9 +137,13 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-3">
-              <p className="text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark">
+              <p
+                role="status"
+                aria-live="polite"
+                className="text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark"
+              >
                 {agents.length === 0
-                  ? 'Create first agent'
+                  ? 'Add first agent'
                   : `${filteredAgents.length}/${agents.length} agent${agents.length === 1 ? '' : 's'}`}
               </p>
               <button
@@ -145,7 +152,7 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
                 className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-apple-blue px-4 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
               >
                 <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
-                <span>Create Agent</span>
+                <span>New agent</span>
               </button>
             </div>
           </div>
@@ -178,10 +185,10 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
               </div>
               <div className="max-w-sm space-y-1">
                 <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-                  Create Your First Agent
+                  Add your first agent
                 </p>
                 <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-                  Start with a chat-only AI service for planning and review, or connect this
+                  Start with a chat-only AI service for questions and result checks, or connect this
                   computer when the task needs files and commands on your machine.
                 </p>
               </div>
@@ -191,12 +198,14 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-apple-blue px-4 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
               >
                 <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
-                <span>Create Agent</span>
+                <span>New agent</span>
               </button>
             </div>
           ) : filteredAgents.length === 0 ? (
             <div
               data-testid="agent-filter-empty"
+              role="status"
+              aria-live="polite"
               className="flex min-h-64 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-black/10 px-6 text-center dark:border-white/10"
             >
               <Search
@@ -341,7 +350,7 @@ function AgentChoiceGuide() {
         <ChoiceGuideItem
           icon={Bot}
           title="Chat-only AI service"
-          detail="Best for planning, writing, and review when no project files need to be opened."
+          detail="Best for questions, writing, and checking results when no project files need to be opened."
         />
         <ChoiceGuideItem
           icon={Laptop}
@@ -400,6 +409,8 @@ function HostCliEnrollmentPanel({
   const [platform, setPlatform] = useState<HostCliPlatform>('posix')
   const [copied, setCopied] = useState(false)
   const [copyError, setCopyError] = useState<string | null>(null)
+  const [copyErrorAttempt, setCopyErrorAttempt] = useState(0)
+  const copyErrorRef = useRef<HTMLParagraphElement>(null)
   const command = useMemo(
     () => buildLocalEnrollCommand(selectedProjectId, platform),
     [platform, selectedProjectId]
@@ -409,11 +420,16 @@ function HostCliEnrollmentPanel({
     : 'Open project settings first.'
   const commandReady = Boolean(selectedProjectId)
 
+  useEffect(() => {
+    if (copyError) copyErrorRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [copyError, copyErrorAttempt])
+
   async function handleCopyCommand() {
     if (!commandReady) return
     setCopyError(null)
     if (!navigator.clipboard?.writeText) {
       setCopyError('Copy did not work. Select the setup text in the box, then copy it yourself.')
+      setCopyErrorAttempt((current) => current + 1)
       return
     }
     try {
@@ -422,6 +438,7 @@ function HostCliEnrollmentPanel({
       window.setTimeout(() => setCopied(false), 1800)
     } catch {
       setCopyError('Copy did not work. Select the setup text in the box, then copy it yourself.')
+      setCopyErrorAttempt((current) => current + 1)
     }
   }
 
@@ -459,7 +476,7 @@ function HostCliEnrollmentPanel({
         className="mt-3 inline-flex h-9 w-full items-center justify-center gap-2 rounded-full bg-apple-blue px-3 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95"
       >
         <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
-        Create agent on this computer
+        Add this computer as an agent
       </button>
 
       <details className="mt-3">
@@ -467,8 +484,8 @@ function HostCliEnrollmentPanel({
           If the button does not work
         </summary>
         <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Use this backup if the guided setup does not open. Most people should choose Create agent
-          on this computer above.
+          Use this backup if the guided setup does not open. Most people should choose Add this
+          computer as an agent above.
         </p>
         <div className="mt-3">
           <p className="mb-2 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
@@ -591,7 +608,12 @@ function HostCliEnrollmentPanel({
           </span>
         </button>
         {copyError && (
-          <p role="alert" className="mt-2 text-ui-caption font-medium text-apple-red">
+          <p
+            ref={copyErrorRef}
+            role="alert"
+            aria-live="polite"
+            className="mt-2 text-ui-caption font-medium text-apple-red"
+          >
             {copyError}
           </p>
         )}
@@ -732,9 +754,16 @@ function FleetControls({
             value={searchQuery}
             onChange={(event) => onSearchQueryChange(event.target.value)}
             placeholder="Search agents, AI services, projects…"
+            aria-describedby="agent-search-help"
             className="h-10 w-full rounded-md border border-black/[0.08] bg-white pl-9 pr-3 text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light focus-visible:border-apple-blue/40 focus-visible:ring-2 focus-visible:ring-apple-blue/20 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark"
           />
         </div>
+        <p
+          id="agent-search-help"
+          className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+        >
+          {AGENT_SEARCH_HELP}
+        </p>
       </div>
 
       <div className="flex min-w-0 flex-col gap-2">

@@ -43,7 +43,7 @@ describe('SkillDetailModal', () => {
     expect(screen.getByText('Team space saved instructions')).toBeInTheDocument()
     expect(screen.queryByText('Workspace skills')).toBeNull()
     expect(screen.queryByText('Workspace saved instructions')).toBeNull()
-    expect(screen.getByText('Maintainer')).toBeInTheDocument()
+    expect(screen.getByText('Updated by')).toBeInTheDocument()
     expect(screen.getByText('Platform team')).toBeInTheDocument()
     expect(screen.getByText('Available to')).toBeInTheDocument()
     expect(screen.getByText('This team space')).toBeInTheDocument()
@@ -90,8 +90,10 @@ describe('SkillDetailModal', () => {
         'Ask an owner or admin to install it before expecting agents to use it in tasks.'
       )
     ).toBeInTheDocument()
-    expect(screen.getByText('Saved instructions library')).toBeInTheDocument()
-    expect(screen.getByText('Refresh saved instructions to load maintainer')).toBeInTheDocument()
+    expect(screen.getByText('Saved instructions')).toBeInTheDocument()
+    expect(
+      screen.getByText('Open Saved instructions again to show who keeps this updated')
+    ).toBeInTheDocument()
     expect(screen.queryByText('Unknown')).toBeNull()
     expect(screen.getByText('Latest saved copy')).toBeInTheDocument()
     expect(
@@ -117,12 +119,12 @@ describe('SkillDetailModal', () => {
       />
     )
 
-    expect(screen.getByText('Saved instructions library')).toBeInTheDocument()
+    expect(screen.getByText('Saved instructions')).toBeInTheDocument()
     expect(screen.getByText('Check saved instruction access')).toBeInTheDocument()
-    expect(screen.getByText('Check this work tool before using')).toBeInTheDocument()
-    expect(screen.getByText('Check this work tool before using')).toHaveAttribute(
+    expect(screen.getByText('Check work tool in Settings')).toBeInTheDocument()
+    expect(screen.getByText('Check work tool in Settings')).toHaveAttribute(
       'title',
-      'Open Settings and check the work tool before using this saved instruction.'
+      'Open Settings, check the work tool, then use this saved instruction.'
     )
     expect(screen.queryByText('@example/team_skill_pack')).toBeNull()
     expect(screen.queryByText('private_beta_scope')).toBeNull()

@@ -99,6 +99,8 @@ describe('BoardView', () => {
     render(<BoardView />)
 
     const error = await screen.findByTestId('board-error')
+    const alert = within(error).getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(error.textContent).toContain('Sign in again')
     expect(error.textContent).not.toContain('Code:')
     expect(error.textContent).not.toContain('401 Unauthorized')
@@ -127,11 +129,9 @@ describe('BoardView', () => {
     render(<BoardView />)
 
     const readiness = await screen.findByTestId('assignment-readiness')
+    expect(readiness.textContent).toContain('Choose Check agent status before sending work.')
     expect(readiness.textContent).toContain(
-      'Refresh the board to load agent status before sending work.'
-    )
-    expect(readiness.textContent).toContain(
-      'If it still does not load, check your connection and refresh the page.'
+      'If it still does not load, check your connection, then choose Check agent status.'
     )
     expect(screen.queryByText(/failed to fetch/i)).toBeNull()
   })
@@ -243,7 +243,11 @@ describe('BoardView', () => {
     expect(screen.queryByTestId('assignment-metric-in-flight')).toBeNull()
     expect(screen.getByTestId('assignment-metric-blocked').textContent).toContain('1')
     expect(screen.getByTestId('assignment-metric-blocked').textContent).toContain('Needs help')
-    expect(screen.getByTestId('assignment-metric-review').textContent).toContain('1')
+    expect(screen.getByTestId('assignment-metric-ready-to-check').textContent).toContain('1')
+    expect(screen.getByTestId('assignment-metric-ready-to-check').textContent).toContain(
+      'Ready to check'
+    )
+    expect(screen.queryByTestId('assignment-metric-review')).toBeNull()
   })
 
   test('renders failed tasks outside the Done column', async () => {
@@ -331,6 +335,8 @@ describe('BoardView', () => {
 
     fireEvent.change(screen.getByTestId('board-search'), { target: { value: 'missing' } })
     const emptyState = screen.getByTestId('board-filter-empty')
+    expect(emptyState).toHaveAttribute('role', 'status')
+    expect(emptyState).toHaveAttribute('aria-live', 'polite')
     expect(within(emptyState).getByText('Search is hiding every task')).toBeDefined()
     expect(within(emptyState).getByText(/none match the words you typed/i)).toBeDefined()
     expect(within(emptyState).getByText(/before assuming the board is empty/i)).toBeDefined()
@@ -371,12 +377,22 @@ describe('BoardView', () => {
     expect(await screen.findByText('Production incident')).toBeDefined()
     const toolbar = screen.getByTestId('board-toolbar')
 
-    fireEvent.click(within(toolbar).getByRole('button', { name: /urgent\s*1/i }))
+    fireEvent.click(
+      within(toolbar).getByRole('button', { name: /show urgent priority tasks, 1 matching task/i })
+    )
     expect(screen.getByText('Production incident')).toBeDefined()
     expect(screen.queryByText('Copy review')).toBeNull()
 
-    fireEvent.click(within(toolbar).getByRole('button', { name: /all priorities\s*2/i }))
-    fireEvent.click(within(toolbar).getByRole('button', { name: /^has agent\s*1$/i }))
+    fireEvent.click(
+      within(toolbar).getByRole('button', {
+        name: /show tasks at all priority levels, 2 matching tasks/i,
+      })
+    )
+    fireEvent.click(
+      within(toolbar).getByRole('button', {
+        name: /show tasks that already have an agent, 1 matching task/i,
+      })
+    )
     expect(screen.queryByText('Production incident')).toBeNull()
     expect(screen.getByText('Copy review')).toBeDefined()
   })
@@ -392,6 +408,7 @@ describe('BoardView', () => {
     fireEvent.click(screen.getByRole('button', { name: /^save for later$/i }))
 
     const alert = await screen.findByTestId('board-action-error')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
       'Check the project, where tasks wait, and the result, then create the task again. The task was not created.'
     )

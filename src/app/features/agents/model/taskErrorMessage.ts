@@ -50,17 +50,17 @@ export function agentTasksErrorMessage(err: unknown): string {
     return "Ask an owner or admin to give you access to this agent's work list."
   }
   if (code === 404) {
-    return 'Refresh this page to load the agent work list again; this agent may have changed or been removed.'
+    return 'Open Agents, choose this agent again, then open Work to load the work list. This agent may have changed or been removed.'
   }
   if (code === 429 || text.includes('rate limit') || text.includes('too many')) {
-    return 'Too many task requests are happening right now. Wait a minute, then refresh this agent to load its work list.'
+    return 'Too many task requests are happening right now. Wait a minute, then open Work again from this agent.'
   }
   if (code != null && code >= 500) {
-    return "Refresh this agent to load its work list. If it still fails, ask an owner or admin to check this agent's work list."
+    return "Open Work again from this agent. If it still fails, ask an owner or admin to check this agent's work list."
   }
   if (isNetworkError(err)) {
-    return 'Check your connection, then refresh this agent to load its work list.'
+    return 'Check your connection, then open Work again from this agent.'
   }
 
-  return "Refresh this agent to load its work list. If it still fails, ask an owner or admin to check this agent's work list."
+  return "Open Work again from this agent. If it still fails, ask an owner or admin to check this agent's work list."
 }

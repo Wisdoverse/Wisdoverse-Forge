@@ -158,7 +158,9 @@ describe('AccountSection', () => {
 
     fireEvent.submit(screen.getByLabelText('Current Password').closest('form')!)
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
       'Choose a new password that is different from the current password.'
     )
     expect(screen.getByLabelText('New Password')).toHaveFocus()
@@ -178,7 +180,9 @@ describe('AccountSection', () => {
       target: { value: 'elevenchars' },
     })
 
-    expect(screen.getByText('Needed: Use at least 12 characters for the new password.')).toBeDefined()
+    expect(
+      screen.getByText('Needed: Use at least 12 characters for the new password.')
+    ).toBeDefined()
     expect(screen.getByRole('button', { name: /update password/i })).toBeDisabled()
 
     fireEvent.change(screen.getByLabelText('New Password'), {
@@ -247,8 +251,10 @@ describe('AccountSection', () => {
       username: '',
     })
 
-    expect(screen.getByText('Refresh this page to load username')).toBeDefined()
-    expect(screen.getByText('Refresh this page to load email')).toBeDefined()
+    expect(screen.getByText('Open Account settings again to load username')).toBeDefined()
+    expect(screen.getByText('Open Account settings again to load email')).toBeDefined()
+    expect(screen.queryByText('Refresh this page to load username')).toBeNull()
+    expect(screen.queryByText('Refresh this page to load email')).toBeNull()
     expect(screen.queryByText('Username not reported yet')).toBeNull()
     expect(screen.queryByText('Email not reported yet')).toBeNull()
     expect(screen.queryByText('—')).toBeNull()
@@ -270,6 +276,7 @@ describe('AccountSection', () => {
     fireEvent.click(screen.getByRole('button', { name: /update password/i }))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert.textContent).toContain('Sign in again')
     expect(alert.textContent).toMatch(/^Sign in again/)
     expect(alert.textContent).not.toContain('Code: 401.')
@@ -288,6 +295,7 @@ describe('AccountSection', () => {
     fireEvent.click(screen.getByRole('button', { name: /save team space name/i }))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert.textContent).toContain('You do not have permission to rename this team space')
     expect(alert.textContent).toContain('Ask an owner or admin to update your team space access')
     expect(alert.textContent).not.toContain('role')
@@ -318,6 +326,7 @@ describe('AccountSection', () => {
     fireEvent.click(screen.getByRole('button', { name: /update password/i }))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert.textContent).toContain('The current password did not match this account')
     expect(alert.textContent).toMatch(/^Re-enter the current password/)
     expect(alert.textContent).not.toContain('Details:')
@@ -357,13 +366,14 @@ describe('AccountSection', () => {
 
     await waitFor(() => expect(setGettingStartedDismissedMock).toHaveBeenCalledWith(false))
     expect(await screen.findByRole('status')).toHaveTextContent(
-      'Setup checklist is back in the left menu. Choose Open setup checklist to review setup. Your projects, agents, and tasks were not changed.'
+      'Setup checklist is back in the left menu. Choose Open setup checklist to check setup steps. Your projects, agents, and tasks were not changed.'
     )
     expect(
       screen.getByText(
-        'Setup checklist is back in the left menu. Choose Open setup checklist to review setup. Your projects, agents, and tasks were not changed.'
+        'Setup checklist is back in the left menu. Choose Open setup checklist to check setup steps. Your projects, agents, and tasks were not changed.'
       )
     ).toBeDefined()
+    expect(screen.queryByText(/review setup/i)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /open setup checklist/i }))
     expect(navigateMock).toHaveBeenCalledWith({ to: '/start' })
   })
@@ -385,7 +395,9 @@ describe('AccountSection', () => {
     renderAccountSection()
 
     expect(screen.getByText(/Wait a moment while Forge checks/i)).toBeDefined()
-    expect(screen.getByText(/Forge is checking whether the setup checklist is shown/i)).toBeDefined()
+    expect(
+      screen.getByText(/Forge is checking whether the setup checklist is shown/i)
+    ).toBeDefined()
     expect(screen.getByText(/Your projects, agents, and tasks stay the same/i)).toBeDefined()
     expect(screen.queryByText(/new sign-ins open Tasks/i)).toBeNull()
     expect(screen.queryByText(/New sign-ins can open the setup checklist/i)).toBeNull()
@@ -404,10 +416,13 @@ describe('AccountSection', () => {
     renderAccountSection()
 
     expect(
-      screen.getByText(/It is available now. Choose Open setup checklist to review setup/i)
+      screen.getByText(/It is available now. Choose Open setup checklist to check setup steps/i)
     ).toBeDefined()
+    expect(screen.queryByText(/review setup/i)).toBeNull()
     expect(screen.getByText(/It is shown in the left menu/i)).toBeDefined()
-    expect(screen.getByText(/New sign-ins can open the setup checklist until you hide it again/i)).toBeDefined()
+    expect(
+      screen.getByText(/New sign-ins can open the setup checklist until you hide it again/i)
+    ).toBeDefined()
     expect(screen.queryByText(/new sign-ins open Tasks by default/i)).toBeNull()
     expect(screen.queryByText(/already in the left menu/)).toBeNull()
     expect(screen.queryByText(/nothing to restore/i)).toBeNull()
@@ -428,14 +443,14 @@ describe('AccountSection', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /show setup checklist/i }))
 
-    expect(
-      await screen.findByText(
-        'Check your connection, then choose Show setup checklist again. Forge could not add it back to the left menu.'
-      )
-    ).toBeDefined()
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
+      'Check your connection, then choose Show setup checklist again. Forge could not add it back to the left menu.'
+    )
     expect(
       screen.queryByText(
-        'Setup checklist is back in the left menu. Choose Open setup checklist to review setup.'
+        'Setup checklist is back in the left menu. Choose Open setup checklist to check setup steps.'
       )
     ).toBeNull()
     expect(screen.queryByRole('button', { name: /open setup checklist/i })).toBeNull()

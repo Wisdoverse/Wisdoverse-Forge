@@ -66,7 +66,7 @@ export function agentGroupErrorMessage(err: unknown): string {
     return 'Ask an owner or admin to let you set up where tasks wait in this project. The waiting place was not created.'
   }
   if (code === 404) {
-    return 'Refresh this page, then choose the project again. The waiting place was not created because the selected project may have changed or been removed.'
+    return 'Open Agents, choose the project again, then set up where tasks wait. The waiting place was not created because the selected project may have changed or been removed.'
   }
   if (code === 409) {
     return 'Use a different name, then try creating the waiting place again. A waiting place with this name may already exist.'

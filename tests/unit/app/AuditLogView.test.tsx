@@ -351,6 +351,7 @@ describe('AuditLogView', () => {
     expect(
       screen.getByText(/save a useful instruction or mark a saved note as helpful/i)
     ).toBeDefined()
+    expect(screen.getByText(/then choose Show all change history/i)).toBeDefined()
     expect(screen.getByText(/new team space/i)).toBeDefined()
     expect(screen.queryByText(/new workspace/i)).toBeNull()
     expect(screen.queryByText(/approve a skill/i)).toBeNull()
@@ -376,9 +377,15 @@ describe('AuditLogView', () => {
     render(<AuditLogView />)
 
     const error = await screen.findByRole('alert')
-    expect(error.textContent).toContain('Refresh change history, then apply the filters again.')
+    expect(error).toHaveAttribute('aria-live', 'polite')
+    expect(error.textContent).toContain(
+      'Choose Refresh change history, then apply the filters again.'
+    )
     expect(error.textContent).not.toContain('audit view')
-    expect(error.textContent).toContain('check your connection and refresh the page')
+    expect(error.textContent).toContain(
+      'check your connection and choose Refresh change history again'
+    )
+    expect(error.textContent).not.toContain('refresh the page')
     expect(error.textContent).not.toMatch(/failed to fetch/i)
     expect(error.textContent).not.toContain('service')
   })
@@ -392,6 +399,7 @@ describe('AuditLogView', () => {
     fireEvent.click(screen.getByTestId('governance-audit-export'))
 
     const error = await screen.findByRole('alert')
+    expect(error).toHaveAttribute('aria-live', 'polite')
     expect(error.textContent).toContain('do not have permission')
     expect(error.textContent).toContain('owner or admin')
     expect(error.textContent).not.toContain('403 Forbidden')

@@ -8,7 +8,7 @@ const AGENT_STATUS_LABELS: Record<string, string> = {
 
 export function agentStatusLabel(status: AgentStatus | string | null | undefined): string {
   const normalized = agentStatusKey(status)
-  if (!normalized) return 'Refresh agent status'
+  if (!normalized) return 'Check agent status'
   return AGENT_STATUS_LABELS[normalized] ?? 'Check agent status'
 }
 

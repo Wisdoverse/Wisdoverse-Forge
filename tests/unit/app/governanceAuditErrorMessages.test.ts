@@ -11,7 +11,7 @@ describe('governanceAuditErrorMessage', () => {
   test('turns auth failures into a sign-in instruction', () => {
     expectBeginnerMessage(
       governanceAuditErrorMessage('loadAudit', new Error('401 Unauthorized')),
-      'Your sign-in expired. Sign in again, then retry this change-history action.'
+      'Your sign-in expired. Sign in again, then choose Refresh change history again.'
     )
   })
 
@@ -20,8 +20,9 @@ describe('governanceAuditErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Ask an owner or admin to update your team space access, then retry this change-history action. You do not have permission to view or export change history.'
+      'Ask an owner or admin to update your team space access, then choose Export change history again. You do not have permission to view or export change history.'
     )
+    expect(message).not.toContain('retry this change-history action')
     expect(message).not.toContain('governance audit records')
     expect(message).not.toContain('audit history')
     expect(message).not.toContain('role')
@@ -32,8 +33,10 @@ describe('governanceAuditErrorMessage', () => {
   test('explains load network failures without exposing only a transport error', () => {
     const message = governanceAuditErrorMessage('loadAudit', new TypeError('Failed to fetch'))
 
-    expect(message).toContain('Refresh change history, then apply the filters again.')
+    expect(message).toContain('Choose Refresh change history, then apply the filters again.')
     expect(message).toContain('If it still does not load, check your connection')
+    expect(message).toContain('choose Refresh change history again')
+    expect(message).not.toContain('refresh the page')
     expect(message).not.toContain('API')
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('service')
@@ -44,6 +47,7 @@ describe('governanceAuditErrorMessage', () => {
     const message = governanceAuditErrorMessage('exportAudit', 'Network Error')
 
     expect(message).toContain('Keep secrets hidden')
+    expect(message).toContain('choose Refresh change history')
     expect(message).toContain('choose Export change history again')
     expect(message).not.toContain('audit export did not finish')
   })
@@ -51,7 +55,14 @@ describe('governanceAuditErrorMessage', () => {
   test('gives a clear export conflict recovery step', () => {
     expectBeginnerMessage(
       governanceAuditErrorMessage('exportAudit', new Error('409 conflict')),
-      'Refresh change history, then export again because the change list changed while export was running.'
+      'Choose Refresh change history, then choose Export change history again because the change list changed while export was running.'
+    )
+  })
+
+  test('gives a clear load conflict recovery step', () => {
+    expectBeginnerMessage(
+      governanceAuditErrorMessage('loadAudit', { status: 409 }),
+      'Choose Refresh change history again because the change list changed while you were checking it.'
     )
   })
 
@@ -60,7 +71,7 @@ describe('governanceAuditErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh change history, then apply the filters again. If it still fails, ask an owner or admin to check change history access.'
+      'Choose Refresh change history, then apply the filters again. If it still fails, ask an owner or admin to check change history access.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('temporarily unavailable')
@@ -72,8 +83,9 @@ describe('governanceAuditErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Admin change history again, then retry. If it still fails, ask an owner or admin to check team space access.'
+      'Open Admin change history again, then choose Refresh change history again. If it still fails, ask an owner or admin to check team space access.'
     )
+    expect(message).not.toContain('then retry')
     expect(message).not.toContain('route')
     expect(message).not.toContain('workspace access')
   })
@@ -81,7 +93,7 @@ describe('governanceAuditErrorMessage', () => {
   test('turns rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       governanceAuditErrorMessage('loadAudit', { code: '429' }),
-      'Wait a moment, then try again. Change history is handling too many requests right now.'
+      'Wait a moment, then choose Refresh change history again. Change history is handling too many requests right now.'
     )
   })
 

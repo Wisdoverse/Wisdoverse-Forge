@@ -319,6 +319,25 @@ function adminResourceLabel(resource: AdminResource): string {
   }
 }
 
+function adminResourceSectionLabel(resource: AdminResource): string {
+  switch (resource) {
+    case 'users':
+      return 'User access'
+    case 'organizations':
+      return 'Team spaces'
+    case 'agents':
+      return 'Agents'
+    case 'health':
+      return 'App health'
+    case 'cli-images':
+      return 'Agent tool updates'
+  }
+}
+
+function openAdminResourceStep(resource: AdminResource): string {
+  return `open Admin and choose ${adminResourceSectionLabel(resource)}`
+}
+
 function adminErrorDetail(data: Record<string, unknown>): string | null {
   if (typeof data.error === 'string' && data.error.trim()) return data.error.trim()
   if (
@@ -347,31 +366,31 @@ export function adminHttpErrorMessage(
   void data
 
   if (status === 401) {
-    return `Your sign-in expired. Sign in again, then open Admin and reload the ${label}.`
+    return `Your sign-in expired. Sign in again, then ${openAdminResourceStep(resource)}.`
   }
   if (status === 403) {
-    return `Ask an owner or admin to give you Admin access, then reload Admin. You do not have access to the admin ${label}.`
+    return `Ask an owner or admin to give you Admin access, then ${openAdminResourceStep(resource)}. You do not have access to the admin ${label}.`
   }
   if (status === 404) {
-    return `Refresh Admin, then try again. The admin ${label} is not available from this Admin view. If it still fails, ask an owner or admin to check this Admin page.`
+    return `Open Admin and choose ${adminResourceSectionLabel(resource)}, then try again. The admin ${label} is not available from this Admin view. If it still fails, ask an owner or admin to check this Admin page.`
   }
   if (status === 409) {
     return resource === 'cli-images'
-      ? 'An agent tool update is already in progress. Wait for the current update to finish, refresh agent tool updates, then try again.'
-      : `The admin ${label} changed while you were working. Refresh Admin, review the latest state, then try again.`
+      ? 'Wait for the current update to finish, then open Admin and choose Agent tool updates before trying again. An agent tool update is already in progress.'
+      : `Open Admin and choose ${adminResourceSectionLabel(resource)}, review the latest state, then try again. The admin ${label} changed while you were working.`
   }
   if (status === 429) {
-    return `Forge is receiving too many Admin requests right now. Wait a moment, then reload the ${label}.`
+    return `Wait a moment, then ${openAdminResourceStep(resource)} before trying again. Forge is receiving too many Admin requests right now.`
   }
   if (status >= 500) {
-    return `Reload the ${label}, then try again. Forge could not load the admin ${label} right now. If it still fails, ask an owner or admin to check ${label} in Admin.`
+    return `Open Admin and choose ${adminResourceSectionLabel(resource)}, then try again. Forge could not load the admin ${label} right now. If it still fails, ask an owner or admin to check ${label} in Admin.`
   }
 
-  return `Refresh Admin, then try again. The admin ${label} could not load. If it still fails, ask an owner or admin to check ${label} in Admin.`
+  return `Open Admin and choose ${adminResourceSectionLabel(resource)}, then try again. The admin ${label} could not load. If it still fails, ask an owner or admin to check ${label} in Admin.`
 }
 
 function adminNetworkErrorMessage(resource: AdminResource): string {
-  return `Check your connection, then refresh Admin. Forge could not connect while loading the admin ${adminResourceLabel(resource)}.`
+  return `Check your connection, then ${openAdminResourceStep(resource)}. Forge could not connect while loading the admin ${adminResourceLabel(resource)}.`
 }
 
 function adminErrorMessage(err: unknown, resource: AdminResource): string {
@@ -412,7 +431,7 @@ export function adminUserActionErrorMessage(
   }
 
   if (status === 401) {
-    return `Your sign-in expired. Sign in again, then retry ${adminUserActionRecovery(action)}.`
+    return `Your sign-in expired. Sign in again, then open Admin and choose User access before retrying ${adminUserActionRecovery(action)}.`
   }
   if (status === 403) {
     return action === 'change-role'
@@ -420,16 +439,16 @@ export function adminUserActionErrorMessage(
       : 'Ask an owner or admin to give you Admin access, then try again. You do not have access to remove user accounts.'
   }
   if (status === 404) {
-    return 'This user is no longer in the list. Reload the user list to see the latest accounts.'
+    return 'Open Admin and choose User access to see the latest accounts. This user is no longer in the list.'
   }
   if (status >= 500) {
-    return `Reload the user list, then try again. Forge could not finish ${adminUserActionRecovery(action)} right now. If it still fails, ask an owner or admin to check User access in Admin.`
+    return `Open Admin and choose User access, then try again. Forge could not finish ${adminUserActionRecovery(action)} right now. If it still fails, ask an owner or admin to check User access in Admin.`
   }
-  return `Refresh the user list, then try again. The ${label} did not go through.`
+  return `Open Admin and choose User access, then try again. The ${label} did not go through.`
 }
 
 function adminUserActionNetworkMessage(action: AdminUserAction): string {
-  return `Check your connection, then try again. The ${adminUserActionLabel(action)} did not finish.`
+  return `Check your connection, then open Admin and choose User access before trying again. The ${adminUserActionLabel(action)} did not finish.`
 }
 
 function adminUserActionError(err: unknown, action: AdminUserAction): string {

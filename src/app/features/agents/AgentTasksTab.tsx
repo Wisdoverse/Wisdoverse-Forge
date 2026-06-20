@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import {
   AlertTriangle,
   CheckCircle2,
@@ -65,11 +65,15 @@ const STATE_DOT: Record<TaskState, string> = {
 
 type AgentTaskFilter = 'all' | 'open' | 'needs-action' | 'completed'
 
-const TASK_FILTERS: { value: AgentTaskFilter; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'open', label: 'Still open' },
-  { value: 'needs-action', label: 'Needs help' },
-  { value: 'completed', label: 'Done' },
+const TASK_FILTERS: { value: AgentTaskFilter; label: string; ariaLabel: string }[] = [
+  { value: 'all', label: 'All', ariaLabel: 'Show all work for this agent' },
+  { value: 'open', label: 'Still open', ariaLabel: 'Show work that is still open' },
+  {
+    value: 'needs-action',
+    label: 'Needs help',
+    ariaLabel: 'Show blocked or failed work for this agent',
+  },
+  { value: 'completed', label: 'Done', ariaLabel: 'Show finished work for this agent' },
 ]
 
 const AGENT_TASK_EMPTY_STEPS: { title: string; description: string; Icon: LucideIcon }[] = [
@@ -97,6 +101,7 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<AgentTaskFilter>('all')
   const [query, setQuery] = useState('')
+  const searchHelpId = useId()
 
   useEffect(() => {
     let cancelled = false
@@ -160,6 +165,7 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
     return (
       <div
         role="alert"
+        aria-live="polite"
         data-testid="agent-tasks-error"
         className={cn(
           'bg-white dark:bg-[#2c2c2e] rounded-xl px-4 py-6',
@@ -167,7 +173,7 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
           'text-center text-ui-body text-apple-red'
         )}
       >
-        <p className="font-medium">Refresh this agent's work list.</p>
+        <p className="font-medium">Open Work again from this agent.</p>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           {error}
         </p>
@@ -244,6 +250,8 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
           <input
             data-testid="agent-task-search"
             type="search"
+            aria-label="Search this agent's work list"
+            aria-describedby={searchHelpId}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search by task name, problem, or result"
@@ -254,6 +262,13 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
             )}
           />
         </label>
+        <p
+          id={searchHelpId}
+          className="px-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+        >
+          Search only filters this agent&apos;s work list. Use Show all agent work to return to the
+          full list.
+        </p>
         <div
           role="group"
           aria-label="Agent task filter"
@@ -265,6 +280,7 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
               key={item.value}
               active={filter === item.value}
               label={item.label}
+              ariaLabel={item.ariaLabel}
               count={item.count}
               onClick={() => setFilter(item.value)}
             />
@@ -359,6 +375,8 @@ function AgentTasksFilterEmptyState({
 }) {
   return (
     <div
+      role="status"
+      aria-live="polite"
       data-testid="agent-tasks-filter-empty"
       className={cn(
         'rounded-xl border border-dashed border-black/[0.1] bg-white px-4 py-5',
@@ -388,21 +406,21 @@ function agentTasksFilterEmptyState(filter: AgentTaskFilter, query: string): Emp
 
   if (hasSearch && hasFilter) {
     return {
-      title: 'Clear search or show all agent work',
-      detail: 'This agent has tasks, but the current search and filter hide them.',
+      title: 'Search and filter are hiding this work',
+      detail: 'Use Show all agent work before assuming this agent has no matching task.',
     }
   }
 
   if (hasSearch) {
     return {
-      title: "Clear search to see this agent's work",
-      detail: 'This agent has tasks, but this search hides them. Try a broader word.',
+      title: "Search is hiding this agent's work",
+      detail: 'Use Show all agent work to return to the full list.',
     }
   }
 
   return {
-    title: "Choose All to see this agent's work",
-    detail: 'This agent has tasks, but this filter has no results yet.',
+    title: "Filter is hiding this agent's work",
+    detail: 'Use Show all agent work to return to the full list.',
   }
 }
 
@@ -447,18 +465,23 @@ function WorkloadMetric({
 function TaskFilterButton({
   active,
   label,
+  ariaLabel,
   count,
   onClick,
 }: {
   active: boolean
   label: string
+  ariaLabel: string
   count: number
   onClick: () => void
 }) {
+  const countLabel = `${count} matching ${count === 1 ? 'task' : 'tasks'}`
+
   return (
     <button
       type="button"
       aria-pressed={active}
+      aria-label={`${ariaLabel}, ${countLabel}`}
       onClick={onClick}
       className={cn(
         'inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-2 text-ui-caption font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35',
@@ -468,7 +491,12 @@ function TaskFilterButton({
       )}
     >
       <span>{label}</span>
-      <span className="tabular-nums text-secondary-light dark:text-secondary-dark">{count}</span>
+      <span
+        className="tabular-nums text-secondary-light dark:text-secondary-dark"
+        aria-hidden="true"
+      >
+        {count}
+      </span>
     </button>
   )
 }

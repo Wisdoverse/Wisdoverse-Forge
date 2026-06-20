@@ -141,7 +141,7 @@ function AppliedContextCard({
             </button>
           )}
           {contentError && (
-            <p role="alert" className="mt-1 text-[10px] text-apple-red">
+            <p role="alert" aria-live="polite" className="mt-1 text-[10px] text-apple-red">
               {contentError}
             </p>
           )}

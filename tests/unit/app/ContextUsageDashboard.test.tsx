@@ -52,6 +52,7 @@ describe('ContextUsageDashboard', () => {
     expect(screen.getByText(/old enough to check again/i)).toBeDefined()
     expect(screen.getByText('No saved items need checking')).toBeDefined()
     expect(screen.getByText(/people report they may be outdated/i)).toBeDefined()
+    expect(screen.getByText(/check these before agents reuse them/i)).toBeDefined()
     expect(
       screen.getByText(/keep using task feedback so risky saved items appear here/i)
     ).toBeDefined()
@@ -62,6 +63,7 @@ describe('ContextUsageDashboard', () => {
     expect(screen.queryByText('Nothing looks outdated')).toBeNull()
     expect(screen.queryByText('Nothing to check right now')).toBeNull()
     expect(screen.queryByText('No useful saved items yet')).toBeNull()
+    expect(screen.queryByText(/review these before reuse/i)).toBeNull()
     expect(screen.queryByText(/stale threshold/i)).toBeNull()
     expect(screen.queryByText(/^Stale$/)).toBeNull()
     expect(screen.queryByText(/Snapshot/i)).toBeNull()
@@ -69,12 +71,12 @@ describe('ContextUsageDashboard', () => {
     expect(screen.queryByText('Signals to check before reuse.')).toBeNull()
   })
 
-  test('tells users to refresh old analytics before deciding from them', () => {
+  test('tells users to load old analytics again before deciding from them', () => {
     render(<ContextUsageDashboard data={analytics({ isStale: true, staleAfterHours: 12 })} />)
 
     const banner = screen.getByTestId('context-usage-stale-banner')
     expect(banner).toHaveTextContent('These numbers are more than 12h old')
-    expect(banner).toHaveTextContent('Refresh analytics before making decisions')
+    expect(banner).toHaveTextContent('Choose Load analytics again before making decisions')
     expect(banner).not.toHaveTextContent('Snapshot')
   })
 
@@ -106,9 +108,11 @@ describe('ContextUsageDashboard', () => {
       />
     )
 
-    expect(screen.getByText('Refresh analytics to update time')).toBeDefined()
+    expect(screen.getByText('Choose Load analytics again to update this time')).toBeDefined()
     const item = screen.getByTestId('context-usage-item')
-    expect(item.textContent).toContain('Builder Agent · Refresh work location · Refresh task type')
+    expect(item.textContent).toContain(
+      'Builder Agent · Check where this ran · Check what kind of task it was'
+    )
     expect(item.textContent).toContain('Next: keep this available for similar tasks.')
     expect(screen.queryByText('Updated time not available')).toBeNull()
     expect(screen.queryByText(/^unknown$/i)).toBeNull()
@@ -178,8 +182,10 @@ describe('ContextUsageDashboard', () => {
     )
 
     const item = screen.getByTestId('context-usage-item')
+    expect(item.textContent).toContain('Reviewer Agent · This computer · Result check task')
     expect(item.textContent).toContain(
       'Next: open the latest task result, then update or remove this before reuse.'
     )
+    expect(item.textContent).not.toContain('Review task')
   })
 })

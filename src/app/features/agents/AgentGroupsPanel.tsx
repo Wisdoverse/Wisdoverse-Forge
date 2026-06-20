@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { type FormEvent, useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   ArrowRight,
@@ -24,6 +24,8 @@ import { useNavigationStore } from '@app/entities/navigation'
 import { agentGroupErrorMessage } from './model/agentGroupErrorMessage'
 
 const DEFAULT_GROUP_DESCRIPTION = 'Project tasks wait here until an available agent picks them up.'
+const ROUTING_SEARCH_HELP =
+  'Search only filters tasks in this waiting place. Use Show all tasks here to return to the full waiting place.'
 
 const TASK_STATE_LABELS: Record<TaskSummary['state'], string> = {
   backlog: 'Not sent yet',
@@ -93,7 +95,7 @@ const TASK_GROUP_TEMPLATES: TaskGroupTemplate[] = [
   {
     id: 'triage',
     label: 'Sort work',
-    summary: 'Clarify and assign',
+    summary: 'Clarify and send',
     name: 'Intake Tasks',
     description: 'Clarify incoming work, find what is missing, and send tasks to the right agent.',
     Icon: ClipboardCheck,
@@ -120,6 +122,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
+  const routingSearchHelpId = useId()
 
   const selectedProject = useMemo(() => {
     if (!selectedProjectId) return null
@@ -376,8 +379,15 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
                   onChange={(event) => setRoutingSearch(event.target.value)}
                   className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-8 pr-3 text-ui-body text-foreground-light outline-none placeholder:text-secondary-light focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-[#2a2a2c] dark:text-foreground-dark dark:placeholder:text-secondary-dark"
                   placeholder="Search tasks, agents, or problems..."
+                  aria-describedby={routingSearchHelpId}
                 />
               </label>
+              <p
+                id={routingSearchHelpId}
+                className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+              >
+                {ROUTING_SEARCH_HELP}
+              </p>
 
               <div className="mt-3">
                 {groupTasks.length === 0 ? (
@@ -400,6 +410,8 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
                 ) : (
                   <div
                     data-testid="task-routing-filter-empty"
+                    role="status"
+                    aria-live="polite"
                     className="flex flex-col gap-2 rounded-lg border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark"
                   >
                     <div className="space-y-1">
@@ -520,7 +532,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
           )}
 
           {error && (
-            <p role="alert" className="text-ui-caption text-apple-red">
+            <p role="alert" aria-live="polite" className="text-ui-caption text-apple-red">
               {error}
             </p>
           )}
@@ -620,7 +632,7 @@ function routedTaskTitle(task: TaskSummary): string {
 
 function routedTaskAssignment(task: TaskSummary): string {
   if (task.assignedAgentName) return task.assignedAgentName
-  if (task.assignedTo) return 'Assigned agent'
+  if (task.assignedTo) return 'Chosen agent'
   return 'Needs agent'
 }
 

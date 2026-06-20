@@ -93,11 +93,11 @@ describe('ContextUsageDashboard', () => {
     ).toBeDefined()
   })
 
-  test('makes stale snapshots actionable', () => {
+  test('makes stale analytics actionable', () => {
     render(<ContextUsageDashboard data={{ ...baseData, isStale: true }} />)
 
     expect(screen.getByTestId('context-usage-stale-banner').textContent).toContain(
-      'Refresh analytics before making decisions from them.'
+      'Choose Load analytics again before making decisions from them.'
     )
   })
 

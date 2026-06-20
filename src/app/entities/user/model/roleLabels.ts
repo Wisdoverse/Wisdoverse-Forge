@@ -12,7 +12,7 @@ export function userRoleLabel(role?: string | null): string {
   const normalized = role?.trim().toLowerCase()
 
   if (!normalized) {
-    return 'Refresh access level'
+    return 'Check access in Account settings'
   }
 
   return USER_ROLE_LABELS[normalized] ?? 'Check access level'

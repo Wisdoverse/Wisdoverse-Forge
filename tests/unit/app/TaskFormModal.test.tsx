@@ -76,10 +76,19 @@ describe('TaskFormModal', () => {
     expect(screen.getAllByText('Done when').length).toBeGreaterThan(0)
     expect(screen.queryByText(/scope and proof/i)).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: /feature/i }))
+    expect(screen.getByText('Add something')).toBeDefined()
+    expect(screen.getByText('Fix a problem')).toBeDefined()
+    expect(screen.getByText('Find the cause')).toBeDefined()
+    expect(screen.getByText('Check a change')).toBeDefined()
+    expect(screen.queryByText(/^Feature$/)).toBeNull()
+    expect(screen.queryByText(/^Bug$/)).toBeNull()
+    expect(screen.queryByText(/^Investigate$/)).toBeNull()
+    expect(screen.queryByText(/^Review$/)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /add something/i }))
 
     expect(screen.getByLabelText(/what should the agent finish/i)).toHaveValue(
-      'Build a focused feature'
+      'Add one focused change'
     )
     const description = screen.getByLabelText(
       /details the agent should know/i
@@ -95,7 +104,7 @@ describe('TaskFormModal', () => {
     expect(description.value).not.toContain('Constraints:')
     expect(description.value).not.toContain('Evidence:')
 
-    fireEvent.click(screen.getByRole('button', { name: /bug/i }))
+    fireEvent.click(screen.getByRole('button', { name: /fix a problem/i }))
     expect(
       (screen.getByLabelText(/details the agent should know/i) as HTMLTextAreaElement).value
     ).toContain('Say how to confirm the fix.')
@@ -103,7 +112,7 @@ describe('TaskFormModal', () => {
       (screen.getByLabelText(/details the agent should know/i) as HTMLTextAreaElement).value
     ).not.toMatch(/^-\s*$/m)
 
-    fireEvent.click(screen.getByRole('button', { name: /investigate/i }))
+    fireEvent.click(screen.getByRole('button', { name: /find the cause/i }))
     expect(
       (screen.getByLabelText(/details the agent should know/i) as HTMLTextAreaElement).value
     ).toContain('Say what answer or recommendation you need.')
@@ -111,19 +120,27 @@ describe('TaskFormModal', () => {
       (screen.getByLabelText(/details the agent should know/i) as HTMLTextAreaElement).value
     ).not.toMatch(/^-\s*$/m)
 
-    fireEvent.click(screen.getByRole('button', { name: /review/i }))
-    expect(
-      (screen.getByLabelText(/details the agent should know/i) as HTMLTextAreaElement).value
-    ).toContain('Ask for a short verdict, issues, and final recommendation.')
-    expect(
-      (screen.getByLabelText(/details the agent should know/i) as HTMLTextAreaElement).value
-    ).not.toMatch(/^-\s*$/m)
+    fireEvent.click(screen.getByRole('button', { name: /check a change/i }))
+    const reviewDescription = screen.getByLabelText(
+      /details the agent should know/i
+    ) as HTMLTextAreaElement
+    expect(reviewDescription.value).toContain(
+      'Name the change, request, files, screen, or behavior.'
+    )
+    expect(reviewDescription.value).toContain(
+      'Ask for a short verdict, issues, and final recommendation.'
+    )
+    expect(reviewDescription.value).toContain('Change to check:')
+    expect(reviewDescription.value).not.toContain('Change to review:')
+    expect(reviewDescription.value).not.toContain('Name the PR, branch')
+    expect(reviewDescription.value).not.toContain('release readiness')
+    expect(reviewDescription.value).not.toMatch(/^-\s*$/m)
   })
 
   test('does not treat template helper prompts as finished task details', () => {
     renderModal()
 
-    fireEvent.click(screen.getByRole('button', { name: /feature/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add something/i }))
 
     expect(screen.getByTestId('task-brief-cue-goal')).toHaveTextContent('Add')
     expect(screen.getByTestId('task-brief-cue-goal')).toHaveTextContent(
@@ -231,6 +248,7 @@ describe('TaskFormModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /^create task$/i }))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent('Open project settings before creating a task.')
     fireEvent.click(screen.getAllByRole('button', { name: /open project settings/i }).at(-1)!)
 
@@ -338,6 +356,7 @@ describe('TaskFormModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /^create task$/i }))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent('Set up where tasks wait before saving this task.')
     fireEvent.click(screen.getAllByRole('button', { name: /set up where tasks wait/i }).at(-1)!)
 
@@ -361,7 +380,7 @@ describe('TaskFormModal', () => {
       name: 'Starting Agent (not ready)',
     }) as HTMLOptionElement
     const missingStatusOption = screen.getByRole('option', {
-      name: 'Missing Status Agent (refresh agent status)',
+      name: 'Missing Status Agent (check agent status)',
     }) as HTMLOptionElement
 
     expect(readyOption.disabled).toBe(false)
@@ -378,7 +397,9 @@ describe('TaskFormModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /create task/i }))
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveAttribute('aria-live', 'polite')
+      expect(alert).toHaveTextContent(
         'Add a short title so the agent knows the goal.'
       )
     })
@@ -394,7 +415,9 @@ describe('TaskFormModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /^create task$/i }))
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveAttribute('aria-live', 'polite')
+      expect(alert).toHaveTextContent(
         'Add a short title so the agent knows the goal.'
       )
     })
@@ -531,7 +554,9 @@ describe('TaskFormModal', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent('The task was not created')
     )
-    expect(screen.getByRole('alert')).not.toHaveTextContent('boom')
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).not.toHaveTextContent('boom')
     expect(onClose).not.toHaveBeenCalled()
     expect(onSubmit).toHaveBeenCalledTimes(1)
   })
@@ -547,7 +572,11 @@ describe('TaskFormModal', () => {
       target: { value: '   ' },
     })
     fireEvent.click(submit)
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/short title/i))
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveAttribute('aria-live', 'polite')
+      expect(alert).toHaveTextContent(/short title/i)
+    })
     const callsAfterFirst = scrollSpy.mock.calls.length
     expect(callsAfterFirst).toBeGreaterThan(0)
 
@@ -568,12 +597,14 @@ describe('TaskFormModal', () => {
     await waitFor(() => expect(onProjectChange).toHaveBeenCalledWith(otherProject.id))
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Select the project again to find where tasks wait. If it still does not load, refresh the board or ask an owner to check where tasks wait in this project.'
+        'Select the project again to find where tasks wait. If it still does not load, open the Tasks page again or ask an owner to check where tasks wait in this project.'
       )
     )
-    expect(screen.getByRole('alert')).not.toHaveTextContent('task routing setup')
-    expect(screen.getByRole('alert')).not.toHaveTextContent(/task queues could not load/i)
-    expect(screen.getByRole('alert')).not.toHaveTextContent(/load task queues/i)
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).not.toHaveTextContent('task routing setup')
+    expect(alert).not.toHaveTextContent(/task queues could not load/i)
+    expect(alert).not.toHaveTextContent(/load task queues/i)
   })
 
   test('explains that a newly selected project is still preparing', async () => {

@@ -19,14 +19,14 @@ interface AgentTerminalTabProps {
 
 const KEY_GROUPS: KeyDef[][] = [NAV_KEYS, NUM_KEYS, UTIL_KEYS]
 const LIVE_WORK_CONNECTION_NOTICE =
-  'Live work notice: Connection dropped. Refresh this page first. If this agent still shows Not connected, open Overview, use Controls, and choose Restart agent.'
+  'Live work notice: Connection dropped. Open Overview, use Controls, and choose Restart agent. Then return to Live work.'
 
 export function liveWorkToolLabel(cliTool?: CliTool): string {
   return agentToolLabel(cliTool)
 }
 
 export function liveWorkStatusLabel(status?: string): string {
-  if (!status?.trim()) return 'Refresh to load status'
+  if (!status?.trim()) return 'Open Overview to check status'
   return agentStatusLabel(status)
 }
 
