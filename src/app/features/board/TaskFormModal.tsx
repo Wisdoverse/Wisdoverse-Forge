@@ -176,6 +176,11 @@ export function TaskFormModal({
       : 'Create one place for new work to wait, then return here.'
   const assignableAgents = agents.filter((agent) => agentCanTakeTask(agent.status))
   const taskWillWaitForAgent = workLaneReady && assignableAgents.length === 0
+  const missingAgentDetail = agentSetupDetail({
+    workLaneReady,
+    hasProject: Boolean(selectedProject),
+    hasAgents: agents.length > 0,
+  })
   const projectGroups = useMemo(() => groupProjectsByTeam(projects), [projects])
   const projectField = register('projectId')
   const titleValue = watch('title')
@@ -410,10 +415,7 @@ export function TaskFormModal({
               />
               <div className="min-w-0 flex-1">
                 <p className="font-semibold">Connect an agent before this task can start</p>
-                <p className="mt-0.5">
-                  Save the task now. It will wait here until an agent is ready. To start it sooner,
-                  open Agents.
-                </p>
+                <p className="mt-0.5">{missingAgentDetail}</p>
               </div>
             </div>
             {onOpenAgentSetup && (
@@ -441,10 +443,7 @@ export function TaskFormModal({
                 <p className="font-semibold">
                   Start or connect an agent before this task can start
                 </p>
-                <p className="mt-0.5">
-                  Save the task now. It will wait here until one of your agents is ready. To start
-                  it sooner, open Agents.
-                </p>
+                <p className="mt-0.5">{missingAgentDetail}</p>
               </div>
             </div>
             {onOpenAgentSetup && (
@@ -787,6 +786,28 @@ export function TaskFormModal({
 function agentCanTakeTask(status: string): boolean {
   const normalized = normalizeAgentStatus(status)
   return normalized === 'available' || normalized === 'idle'
+}
+
+function agentSetupDetail({
+  workLaneReady,
+  hasProject,
+  hasAgents,
+}: {
+  workLaneReady: boolean
+  hasProject: boolean
+  hasAgents: boolean
+}): string {
+  if (workLaneReady) {
+    return hasAgents
+      ? 'Save the task now. It will wait here until one of your agents is ready. To start it sooner, open Agents.'
+      : 'Save the task now. It will wait here until an agent is ready. To start it sooner, open Agents.'
+  }
+
+  const setupStep = hasProject
+    ? 'Set up where tasks wait first.'
+    : 'Create a project and set up where tasks wait first.'
+  const waitTarget = hasAgents ? 'one of your agents' : 'an agent'
+  return `${setupStep} Then this task can wait here until ${waitTarget} is ready. To fix agent setup now, open Agents.`
 }
 
 function agentStatusLabel(status: string): string {

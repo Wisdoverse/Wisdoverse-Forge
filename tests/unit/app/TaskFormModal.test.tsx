@@ -228,6 +228,31 @@ describe('TaskFormModal', () => {
     expect(onOpenAgentSetup).toHaveBeenCalledTimes(1)
   })
 
+  test('does not tell users to save a waiting task before project setup is ready', () => {
+    const onOpenAgentSetup = vi.fn()
+    renderModal(vi.fn(), {
+      agents: [],
+      projects: [],
+      selectedProjectId: null,
+      selectedTaskGroupId: null,
+      selectedTaskGroupName: null,
+      onOpenAgentSetup,
+    })
+
+    expect(screen.getByText('Connect an agent before this task can start')).toBeDefined()
+    expect(
+      screen.getByText(
+        'Create a project and set up where tasks wait first. Then this task can wait here until an agent is ready. To fix agent setup now, open Agents.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByText(/Save the task now/i)).toBeNull()
+    expect(screen.getByRole('button', { name: /open agents/i })).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: /open agents/i }))
+
+    expect(onOpenAgentSetup).toHaveBeenCalledTimes(1)
+  })
+
   test('guides project setup before the first task', async () => {
     const onOpenProjectSettings = vi.fn()
     const { onSubmit } = renderModal(vi.fn(), {
