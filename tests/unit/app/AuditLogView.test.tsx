@@ -377,6 +377,7 @@ describe('AuditLogView', () => {
     render(<AuditLogView />)
 
     const error = await screen.findByRole('alert')
+    expect(error).toHaveAttribute('aria-live', 'polite')
     expect(error.textContent).toContain(
       'Choose Refresh change history, then apply the filters again.'
     )
@@ -398,6 +399,7 @@ describe('AuditLogView', () => {
     fireEvent.click(screen.getByTestId('governance-audit-export'))
 
     const error = await screen.findByRole('alert')
+    expect(error).toHaveAttribute('aria-live', 'polite')
     expect(error.textContent).toContain('do not have permission')
     expect(error.textContent).toContain('owner or admin')
     expect(error.textContent).not.toContain('403 Forbidden')

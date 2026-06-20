@@ -256,6 +256,7 @@ export function InboxView() {
         {readError && (
           <div
             role="alert"
+            aria-live="polite"
             className="mb-3 rounded-card border border-apple-orange/25 bg-apple-orange/10 px-3 py-2 text-ui-body text-secondary-light dark:text-secondary-dark"
           >
             {readError}

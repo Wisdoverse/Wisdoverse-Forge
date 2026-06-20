@@ -287,7 +287,7 @@ export function CloneStatusBadge({
         </p>
       )}
       {retryError && (
-        <p className="text-ui-caption text-apple-red" role="alert">
+        <p className="text-ui-caption text-apple-red" role="alert" aria-live="polite">
           {retryError}
         </p>
       )}

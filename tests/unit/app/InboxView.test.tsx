@@ -531,6 +531,7 @@ describe('InboxView', () => {
     render(<InboxView />)
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
       'Check your connection, then choose Load updates again. Saved updates could not be loaded'
     )
@@ -591,6 +592,7 @@ describe('InboxView', () => {
     await userEvent.setup().click(screen.getByTestId('inbox-notification-task-owner:t1:blocked'))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
       'Check your connection, then open Inbox again. Some updates may appear unread again because Forge could not save the read status.'
     )
@@ -626,6 +628,7 @@ describe('InboxView', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: /mark all as read/i }))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
       'Check your connection, then open Inbox again. Some updates may appear unread again because Forge could not save the read status.'
     )

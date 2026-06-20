@@ -398,6 +398,7 @@ export function AuditLogView() {
         {error && (
           <div
             role="alert"
+            aria-live="polite"
             className="mb-4 rounded-card border border-apple-red/20 bg-apple-red/10 px-4 py-2 text-ui-body text-apple-red"
           >
             {error}

@@ -221,6 +221,7 @@ describe('CloneStatusBadge', () => {
 
     await waitFor(() => {
       const alert = screen.getByRole('alert')
+      expect(alert).toHaveAttribute('aria-live', 'polite')
       expect(alert).toHaveTextContent('Ask an owner or admin to let you copy code')
       expect(alert).toHaveTextContent('open Settings and Teams and Projects')
       expect(alert).toHaveTextContent('choose Copy code again')
@@ -249,6 +250,7 @@ describe('CloneStatusBadge', () => {
 
     await waitFor(() => {
       const alert = screen.getByRole('alert')
+      expect(alert).toHaveAttribute('aria-live', 'polite')
       expect(alert).toHaveTextContent('Wait a few minutes, then choose Copy code again')
       expect(alert).toHaveTextContent('from this project row')
       expect(alert).not.toHaveTextContent('API 500')
@@ -271,7 +273,9 @@ describe('CloneStatusBadge', () => {
     fireEvent.click(screen.getByTestId('clone-retry-p1'))
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveAttribute('aria-live', 'polite')
+      expect(alert).toHaveTextContent(
         'Wait a minute, then choose Copy code again from this project row. Too many copy retries are happening right now.'
       )
     })
@@ -293,6 +297,7 @@ describe('CloneStatusBadge', () => {
 
     await waitFor(() => {
       const alert = screen.getByRole('alert')
+      expect(alert).toHaveAttribute('aria-live', 'polite')
       expect(alert).toHaveTextContent('Open Settings and Teams and Projects')
       expect(alert).toHaveTextContent('choose Copy code again on this project row')
     })
