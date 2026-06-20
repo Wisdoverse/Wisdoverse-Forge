@@ -303,7 +303,11 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
       {actionFailed && userActionError && (
         <tr className="border-b border-black/[0.06] dark:border-white/[0.08]">
           <td colSpan={6} className="px-4 pb-3 pt-0">
-            <p className="rounded-card border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red">
+            <p
+              role="alert"
+              aria-live="polite"
+              className="rounded-card border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
+            >
               {userActionError}
             </p>
           </td>

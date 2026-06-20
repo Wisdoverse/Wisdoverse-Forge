@@ -174,7 +174,8 @@ describe('UserManagement', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Save access' }))
 
-    await waitFor(() => expect(screen.getByText(guardMessage)).toBeDefined())
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(guardMessage))
+    expect(screen.getByRole('alert')).toHaveAttribute('aria-live', 'polite')
     // The editor stays open so the operator can cancel or retry.
     expect(screen.getByRole('combobox')).toBeDefined()
   })
@@ -203,6 +204,37 @@ describe('UserManagement', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove account' }))
     await waitFor(() => expect(deleteUser).toHaveBeenCalledWith('user-2'))
+  })
+
+  test('announces failed account removal with a recoverable row alert', async () => {
+    const guardMessage = 'This account was not removed. Open User access again, then retry remove.'
+    const deleteUser = vi.fn(async () => {
+      useAdminStore.setState({ userActionError: guardMessage })
+      return false
+    })
+    useAdminStore.setState({
+      ...originalAdminState,
+      users: [{ ...mockUser, id: 'user-2', displayName: 'Bo Member', role: 'member' }],
+      usersTotal: 1,
+      usersPage: 1,
+      usersLoading: false,
+      usersError: null,
+      userActionError: null,
+      userSearch: '',
+      loadUsers: vi.fn(),
+      deleteUser,
+    })
+
+    render(<UserManagement />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove account' }))
+
+    await waitFor(() => expect(deleteUser).toHaveBeenCalledWith('user-2'))
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent(guardMessage)
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(screen.getByRole('button', { name: 'Remove' })).toBeDefined()
   })
 
   test('cancelling the remove confirmation keeps the account', () => {
