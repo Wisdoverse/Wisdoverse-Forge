@@ -1,5 +1,5 @@
 import { type ReactNode, useCallback, useEffect, useState } from 'react'
-import { FolderKanban, ShieldAlert, Users } from 'lucide-react'
+import { Bot, CheckCircle2, CheckSquare, FolderKanban, ShieldAlert, Users } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useAuth } from '@app/shared/model/auth.context'
@@ -32,6 +32,7 @@ export function ProjectsSection() {
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [membersProject, setMembersProject] = useState<NavProject | null>(null)
+  const [createdProjectName, setCreatedProjectName] = useState<string | null>(null)
   const projectCreatableTeams = teams.filter((team) => team.canCreateProject !== false)
   const hasTeams = teams.length > 0
   const canCreateProject = projectCreatableTeams.length > 0
@@ -75,6 +76,11 @@ export function ProjectsSection() {
 
   const loadOrgUsers = useCallback(() => userApi.getUsers(), [])
 
+  function startProjectCreate() {
+    setCreatedProjectName(null)
+    setShowForm(true)
+  }
+
   const loadData = useCallback(async () => {
     const orgId = user?.orgId
     if (!orgId) return
@@ -113,12 +119,14 @@ export function ProjectsSection() {
       const project = await projectApi.createProject(teamId, { name, repositoryUrl })
       const team = teams.find((t) => t.id === teamId)
       setProjectsWithTeam((prev) => [...prev, { project, teamName: team?.name ?? '' }])
+      setCreatedProjectName(project.name || name)
       setShowForm(false)
     } catch (err) {
       // Re-throw so CreateProjectForm surfaces the server's rejection (e.g. an
       // invalid repository URL) as a banner instead of failing silently.
       const message = workspaceSettingsErrorMessage('project', 'create', err)
       setError(message)
+      setCreatedProjectName(null)
       throw new Error(message, { cause: err })
     } finally {
       setSaving(false)
@@ -193,11 +201,7 @@ export function ProjectsSection() {
           </p>
         </div>
         {!showForm && canCreateProject && projectsWithTeam.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setShowForm(true)}
-            className={uiStyles.primaryButton}
-          >
+          <button type="button" onClick={startProjectCreate} className={uiStyles.primaryButton}>
             <FolderKanban size={14} strokeWidth={2} aria-hidden="true" />
             <span>New Project</span>
           </button>
@@ -207,6 +211,39 @@ export function ProjectsSection() {
       {error && (
         <div role="alert" aria-live="polite" className={uiStyles.error}>
           {error}
+        </div>
+      )}
+
+      {createdProjectName && (
+        <div role="status" aria-live="polite" className={cn(uiStyles.note, 'mb-4')}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex gap-2">
+              <CheckCircle2
+                size={18}
+                strokeWidth={2}
+                aria-hidden="true"
+                className="mt-0.5 flex-none text-apple-green"
+              />
+              <div>
+                <p className="font-medium text-foreground-light dark:text-foreground-dark">
+                  Project "{createdProjectName}" is ready
+                </p>
+                <p className="mt-1 text-ui-caption">
+                  Next: set up where tasks wait in Agents, then create the first task in Tasks.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <a href="/agents" className={uiStyles.secondaryButton}>
+                <Bot size={14} strokeWidth={2} aria-hidden="true" />
+                <span>Set up waiting place</span>
+              </a>
+              <a href="/tasks" className={uiStyles.primaryButton}>
+                <CheckSquare size={14} strokeWidth={2} aria-hidden="true" />
+                <span>Create first task</span>
+              </a>
+            </div>
+          </div>
         </div>
       )}
 
@@ -238,7 +275,7 @@ export function ProjectsSection() {
               canCreateProject ? (
                 <button
                   type="button"
-                  onClick={() => setShowForm(true)}
+                  onClick={startProjectCreate}
                   className={uiStyles.primaryButton}
                 >
                   <FolderKanban size={14} strokeWidth={2} aria-hidden="true" />
