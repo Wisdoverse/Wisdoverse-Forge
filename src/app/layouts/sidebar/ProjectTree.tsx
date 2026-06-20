@@ -380,6 +380,7 @@ function EmptyTreeHint({ title, detail, actionLabel, Icon, onAction, testId }: E
 function DeleteConfirmationDialog({ state, onCancel, onConfirm }: DeleteConfirmationDialogProps) {
   const titleId = `sidebar-delete-${state.target}-title`
   const detailId = `sidebar-delete-${state.target}-detail`
+  const errorId = `sidebar-delete-${state.target}-error`
   const targetName = state.target === 'team' ? state.team.name : state.project.name
   const title = state.target === 'team' ? 'Delete this team?' : 'Delete this project?'
   const detail =
@@ -405,7 +406,7 @@ function DeleteConfirmationDialog({ state, onCancel, onConfirm }: DeleteConfirma
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        aria-describedby={detailId}
+        aria-describedby={state.error ? `${detailId} ${errorId}` : detailId}
         className="relative w-full max-w-[380px] rounded-lg bg-white p-5 shadow-xl dark:bg-[#2c2c2e]"
       >
         <h2
@@ -422,7 +423,9 @@ function DeleteConfirmationDialog({ state, onCancel, onConfirm }: DeleteConfirma
         </p>
         {state.error && (
           <div
+            id={errorId}
             role="alert"
+            aria-live="polite"
             className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-ui-caption text-red-600 dark:bg-red-900/20 dark:text-red-400"
           >
             {state.error}

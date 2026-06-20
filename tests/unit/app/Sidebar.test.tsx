@@ -534,7 +534,9 @@ describe('Sidebar', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
-    expect(screen.getByRole('alert')).toHaveTextContent('Enter a team name, then save again.')
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent('Enter a team name, then save again.')
     expect(screen.queryByText('Team name is required')).not.toBeInTheDocument()
     expect(teamApi.updateTeam).not.toHaveBeenCalled()
   })
@@ -591,6 +593,12 @@ describe('Sidebar', () => {
     fireEvent.click(screen.getByRole('button', { name: /^delete team$/i }))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveAttribute('id', 'sidebar-delete-team-error')
+    expect(screen.getByRole('dialog', { name: /delete this team/i })).toHaveAttribute(
+      'aria-describedby',
+      expect.stringContaining('sidebar-delete-team-error')
+    )
     expect(alert).toHaveTextContent(
       'Ask an owner or admin to let you delete this team, then delete it again from the left menu. You do not have permission to delete this team.'
     )
@@ -733,7 +741,9 @@ describe('Sidebar', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
-    expect(screen.getByRole('alert')).toHaveTextContent('Enter a project name, then save again.')
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent('Enter a project name, then save again.')
     expect(screen.queryByText('Project name is required')).not.toBeInTheDocument()
     expect(projectApi.updateProject).not.toHaveBeenCalled()
   })
@@ -773,6 +783,12 @@ describe('Sidebar', () => {
     fireEvent.click(screen.getByRole('button', { name: /^delete project$/i }))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveAttribute('id', 'sidebar-delete-project-error')
+    expect(screen.getByRole('dialog', { name: /delete this project/i })).toHaveAttribute(
+      'aria-describedby',
+      expect.stringContaining('sidebar-delete-project-error')
+    )
     expect(alert).toHaveTextContent(
       'Go to Agents, change or remove agents that use this project, then delete the project again.'
     )
@@ -793,6 +809,7 @@ describe('Sidebar', () => {
     fireEvent.click(screen.getByRole('button', { name: /^delete project$/i }))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
       "Go to Tasks, finish this project's tasks first, then delete the project again."
     )
@@ -811,6 +828,7 @@ describe('Sidebar', () => {
     fireEvent.click(screen.getByRole('button', { name: /^delete team$/i }))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
       "Open the left menu, delete this team's projects first, then delete the team again."
     )
@@ -829,6 +847,7 @@ describe('Sidebar', () => {
     fireEvent.click(screen.getByRole('button', { name: /^delete project$/i }))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
       'Ask an owner or admin to let you delete this project, then delete it again from the left menu. You do not have permission to delete this project.'
     )
