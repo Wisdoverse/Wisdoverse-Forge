@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CheckCircle2, Circle, RotateCcw, Search, SlidersHorizontal, Wrench } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { agentPluginErrorMessage } from './model/pluginErrorMessage'
@@ -163,8 +163,10 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [actionErrorAttempt, setActionErrorAttempt] = useState(0)
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<PluginFilter>('all')
+  const actionErrorRef = useRef<HTMLDivElement>(null)
 
   const summary = useMemo(() => summarizePlugins(plugins), [plugins])
   const visiblePlugins = useMemo(
@@ -215,6 +217,13 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
     }
   }, [agentId])
 
+  // Tool toggles sit below the summary and filter controls. Bring repeated
+  // failures back into view so users can see why the switch returned.
+  useEffect(() => {
+    if (actionError)
+      actionErrorRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [actionError, actionErrorAttempt])
+
   async function toggle(plugin: PluginItem) {
     const next = !plugin.enabled
     setActionError(null)
@@ -239,6 +248,7 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
         prev.map((p) => (p.id === plugin.id ? { ...p, enabled: !next, saving: false } : p))
       )
       setActionError(agentPluginErrorMessage('save', err))
+      setActionErrorAttempt((current) => current + 1)
     }
   }
 
@@ -335,6 +345,7 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
 
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <label className="relative min-w-0 flex-1">
+            <span className="sr-only">Search this agent's tools</span>
             <Search
               size={15}
               strokeWidth={2}
@@ -360,6 +371,7 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
               <button
                 key={option}
                 type="button"
+                aria-pressed={filter === option}
                 onClick={() => setFilter(option)}
                 className={cn(
                   'inline-flex h-7 items-center gap-1 rounded-md px-2 text-ui-caption font-medium transition-colors',
@@ -393,6 +405,7 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
 
       {actionError ? (
         <div
+          ref={actionErrorRef}
           role="alert"
           aria-live="polite"
           className="rounded-card border border-apple-red/25 bg-apple-red/[0.06] px-4 py-3 text-ui-caption text-apple-red"

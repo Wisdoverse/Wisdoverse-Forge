@@ -84,6 +84,7 @@ describe('AgentPluginsTab', () => {
     expect(screen.queryByText('Not available')).toBeNull()
     expect(screen.getByText('Using team setting - normally available for agents')).toBeDefined()
     expect(screen.getByText('Changed for this agent - normally off for agents')).toBeDefined()
+    expect(screen.getByLabelText("Search this agent's tools")).toBeDefined()
     expect(screen.queryByText(new RegExp(['workspace', 'default'].join(' '), 'i'))).toBeNull()
     expect(screen.queryByText(new RegExp(['workspace', 'setting'].join(' '), 'i'))).toBeNull()
     expect(screen.queryByRole('group', { name: /plugin filter/i })).toBeNull()
@@ -105,7 +106,13 @@ describe('AgentPluginsTab', () => {
 
     await screen.findByText('Shell Tools')
     const filters = screen.getByTestId('agent-plugin-filter')
-    fireEvent.click(within(filters).getByRole('button', { name: /turned off\s*1/i }))
+    const turnedOffFilter = within(filters).getByRole('button', { name: /turned off\s*1/i })
+    expect(within(filters).getByRole('button', { name: /all\s*3/i })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+    fireEvent.click(turnedOffFilter)
+    expect(turnedOffFilter).toHaveAttribute('aria-pressed', 'true')
 
     expect(screen.getByText('Deploy Tools')).toBeDefined()
     expect(screen.queryByText('Shell Tools')).toBeNull()
@@ -278,6 +285,33 @@ describe('AgentPluginsTab', () => {
     )
     expect(alert.textContent).not.toContain('HTTP 403')
     expect(shellSwitch).toHaveAttribute('aria-checked', 'true')
+  })
+
+  test('scrolls the tool change error into view again when the same save failure repeats', async () => {
+    const scrollSpy = vi
+      .spyOn(Element.prototype, 'scrollIntoView')
+      .mockImplementation(() => undefined)
+    fetchMock.mockResolvedValueOnce(pluginResponse()).mockResolvedValue({
+      ok: false,
+      status: 403,
+    })
+
+    render(<AgentPluginsTab agentId="agent-1" />)
+
+    const shellSwitch = await screen.findByRole('switch', {
+      name: /turn off shell tools for this agent/i,
+    })
+
+    fireEvent.click(shellSwitch)
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert.textContent).toContain('The switch was returned to its previous setting.')
+    await waitFor(() => expect(scrollSpy.mock.calls.length).toBeGreaterThan(0))
+    const callsAfterFirstFailure = scrollSpy.mock.calls.length
+
+    fireEvent.click(shellSwitch)
+    await waitFor(() => expect(scrollSpy.mock.calls.length).toBeGreaterThan(callsAfterFirstFailure))
+    scrollSpy.mockRestore()
   })
 
   test('shows beginner next steps when no tools are available', async () => {
