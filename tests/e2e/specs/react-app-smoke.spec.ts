@@ -892,44 +892,76 @@ test.describe('React App Smoke Tests', () => {
     })
   })
 
-  // 21. Group By Switching ───────────────────────────────────────────────────
-
-  // TODO(#629): the Status/Agent/Priority group-by toggle was removed in the
-  // board redesign and replaced by BoardToolbar filters. Skipped until rewritten
-  // against the new filter UI rather than asserting against removed buttons.
-  test.describe.skip('21. Group By Switching', () => {
+  // 21. Board Filters ─────────────────────────────────────────────────────────
+  //
+  // Rewritten for the #629 redesign: the old Status/Agent/Priority TopBar
+  // "Group By" toggle was removed and replaced by the BoardToolbar priority +
+  // assignee filter groups. These drive the real filter UI (aria-pressed active
+  // state) and assert the fixture-grounded "Showing N of M tasks" counts from
+  // MOCK_TASKS (7 tasks: high=2, assigned=3, low=1 unassigned).
+  test.describe('21. Board Filters', () => {
     test.beforeEach(async ({ page, baseURL }) => {
       await setupAndNavigate(page, baseURL!)
     })
 
-    test('clicking Agent group by button activates it', async ({ page }) => {
-      const topBar = page.locator('[data-testid="top-bar"]')
-      const agentBtn = topBar.getByRole('button', { name: 'Agent' })
-      await agentBtn.click()
+    test('priority filter activates via aria-pressed and narrows the board', async ({ page }) => {
+      const toolbar = page.getByTestId('board-toolbar')
+      await toolbar.waitFor({ state: 'visible', timeout: 15000 })
+      const priority = toolbar.getByRole('group', { name: 'Filter tasks by priority' })
+      const high = priority.getByRole('button', { name: 'High' })
 
-      // Agent button should now have active styling (bg-apple-blue)
-      const classes = await agentBtn.getAttribute('class')
-      expect(classes).toMatch(/(^|\s)bg-apple-blue($|\s)/)
+      await expect(high).toHaveAttribute('aria-pressed', 'false')
+      await high.click({ timeout: 30000 })
+      await expect(high).toHaveAttribute('aria-pressed', 'true')
+      await expect(priority.getByRole('button', { name: 'All priorities' })).toHaveAttribute(
+        'aria-pressed',
+        'false'
+      )
+      // Fixture: 2 high-priority tasks (t-001, t-004) of 7.
+      await expect(toolbar.getByText('Showing 2 of 7 tasks')).toBeVisible()
     })
 
-    test('clicking Priority group by button activates it', async ({ page }) => {
-      const topBar = page.locator('[data-testid="top-bar"]')
-      const priorityBtn = topBar.getByRole('button', { name: 'Priority' })
-      await priorityBtn.click()
+    test('assignee filter toggles independently and Clear resets to all', async ({ page }) => {
+      const toolbar = page.getByTestId('board-toolbar')
+      await toolbar.waitFor({ state: 'visible', timeout: 15000 })
+      const assignee = toolbar.getByRole('group', { name: 'Filter tasks by agent assignment' })
+      const hasAgent = assignee.getByRole('button', { name: 'Has agent' })
 
-      const classes = await priorityBtn.getAttribute('class')
-      expect(classes).toMatch(/(^|\s)bg-apple-blue($|\s)/)
+      await hasAgent.click({ timeout: 30000 })
+      await expect(hasAgent).toHaveAttribute('aria-pressed', 'true')
+      // Fixture: 3 assigned tasks (t-003, t-004, t-007) of 7.
+      await expect(toolbar.getByText('Showing 3 of 7 tasks')).toBeVisible()
+
+      // Clear appears only while a filter is active and resets every filter.
+      await toolbar.getByRole('button', { name: 'Clear' }).click()
+      await expect(hasAgent).toHaveAttribute('aria-pressed', 'false')
+      await expect(assignee.getByRole('button', { name: 'All agents' })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      )
+      await expect(toolbar.getByText('Showing 7 of 7 tasks')).toBeVisible()
     })
 
-    test('clicking Status group by re-activates it', async ({ page }) => {
-      const topBar = page.locator('[data-testid="top-bar"]')
-      const statusBtn = topBar.getByRole('button', { name: 'Status' })
-      // Switch away then back
-      await topBar.getByRole('button', { name: 'Agent' }).click()
-      await statusBtn.click()
+    test('over-filtering shows the guided empty state, not a blank board', async ({ page }) => {
+      const toolbar = page.getByTestId('board-toolbar')
+      await toolbar.waitFor({ state: 'visible', timeout: 15000 })
 
-      const classes = await statusBtn.getAttribute('class')
-      expect(classes).toMatch(/(^|\s)bg-apple-blue($|\s)/)
+      // Low priority (only t-006) is unassigned, so Low + Has agent matches 0 tasks.
+      await toolbar
+        .getByRole('group', { name: 'Filter tasks by priority' })
+        .getByRole('button', { name: 'Low' })
+        .click({ timeout: 30000 })
+      await toolbar
+        .getByRole('group', { name: 'Filter tasks by agent assignment' })
+        .getByRole('button', { name: 'Has agent' })
+        .click()
+
+      const emptyState = page.getByTestId('board-filter-empty')
+      await expect(emptyState).toBeVisible()
+      await expect(toolbar.getByText('Showing 0 of 7 tasks')).toBeVisible()
+
+      await emptyState.getByRole('button', { name: 'Show all tasks' }).click()
+      await expect(emptyState).toBeHidden()
     })
   })
 
