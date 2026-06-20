@@ -12507,6 +12507,38 @@ function KanbanColumn() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags done-column empty copy that uses review wording for finished work', () => {
+    const cwd = fixture({
+      'src/app/features/board/KanbanColumn.tsx': `
+function KanbanColumn() {
+  return <p>Finished work appears here for review</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'kanban-done-empty-copy',
+        location: 'src/app/features/board/KanbanColumn.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts done-column empty copy that tells people to check finished work first', () => {
+    const cwd = fixture({
+      'src/app/features/board/KanbanColumn.tsx': `
+function KanbanColumn() {
+  return <p>Finished work appears here to check before using</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags quick task examples that say review setup', () => {
     const cwd = fixture({
       'src/app/features/board/QuickCreate.tsx': `
