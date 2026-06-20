@@ -528,10 +528,19 @@ describe('ProvidersSection', () => {
 
     const serviceChoices = screen.getByRole('group', { name: /known AI services/i })
     fireEvent.click(within(serviceChoices).getByRole('button', { name: /anthropic/i }))
+    fireEvent.change(screen.getByLabelText(/service access key/i), {
+      target: { value: 'sk-test' },
+    })
 
     fireEvent.click(screen.getByRole('button', { name: /find available models/i }))
 
-    await waitFor(() => expect(settingsApiMock.discoverModels).toHaveBeenCalledWith({ provider: 'anthropic', baseUrl: undefined, apiKey: undefined }))
+    await waitFor(() =>
+      expect(settingsApiMock.discoverModels).toHaveBeenCalledWith({
+        provider: 'anthropic',
+        baseUrl: undefined,
+        apiKey: 'sk-test',
+      })
+    )
 
     // The live model now appears as a clickable chip and fills the field.
     const chips = screen.getByRole('group', { name: /common models/i })
@@ -539,6 +548,33 @@ describe('ProvidersSection', () => {
     fireEvent.click(liveChip)
     expect(screen.getByLabelText(/^service setup$/i)).toHaveValue('claude-live-xyz')
     expect(screen.getByText(/live list from the service/i)).toBeDefined()
+  })
+
+  test('Find available models guides users before calling the service when setup is missing', async () => {
+    useSettingsStore.setState({ providers: [] })
+
+    render(<ProvidersSection />)
+
+    const nextStep = await screen.findByTestId('provider-next-step')
+    fireEvent.click(within(nextStep).getByRole('button', { name: /add AI service/i }))
+
+    const serviceChoices = screen.getByRole('group', { name: /known AI services/i })
+    fireEvent.click(within(serviceChoices).getByRole('button', { name: /anthropic/i }))
+    fireEvent.click(screen.getByRole('button', { name: /find available models/i }))
+
+    expect(settingsApiMock.discoverModels).not.toHaveBeenCalled()
+    expect(screen.getByText(/Paste the service access key first/i)).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: /custom service address/i }))
+    fireEvent.change(screen.getByLabelText(/^AI service$/i), {
+      target: { value: 'openai_compatible' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /find available models/i }))
+
+    expect(settingsApiMock.discoverModels).not.toHaveBeenCalled()
+    expect(
+      screen.getByText(/Paste the service access key and service address first/i)
+    ).toBeDefined()
   })
 
   test('Region=Global switches a vendor to its global endpoint on save', async () => {

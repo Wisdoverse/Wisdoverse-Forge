@@ -450,6 +450,35 @@ function providerFormReadiness({
   }
 }
 
+function discoverySetupMessage({
+  needsApiKey,
+  needsBaseUrl,
+  apiKey,
+  baseUrl,
+}: {
+  needsApiKey: boolean
+  needsBaseUrl: boolean
+  apiKey: string
+  baseUrl: string
+}): string | null {
+  const missingApiKey = needsApiKey && !apiKey.trim()
+  const missingBaseUrl = needsBaseUrl && !baseUrl.trim()
+
+  if (missingApiKey && missingBaseUrl) {
+    return 'Paste the service access key and service address first, then choose Find available models. You can also keep the suggested setup and save.'
+  }
+
+  if (missingApiKey) {
+    return 'Paste the service access key first, then choose Find available models. You can also keep the suggested setup and save.'
+  }
+
+  if (missingBaseUrl) {
+    return 'Enter the service address first, then choose Find available models. You can also keep the suggested setup and save.'
+  }
+
+  return null
+}
+
 function providerConnectionState(provider: LlmProviderConfig): ProviderFilter {
   if (!provider.isEnabled) return 'disabled'
   return provider.lastTestStatus === 'passed' ? 'ready' : 'needs-test'
@@ -1082,7 +1111,17 @@ function useModelDiscovery() {
     }
   }
 
-  return { discovered, discovering, error, discover, reset: () => setDiscovered(null) }
+  function guide(message: string) {
+    setDiscovered(null)
+    setError(message)
+  }
+
+  function reset() {
+    setDiscovered(null)
+    setError(null)
+  }
+
+  return { discovered, discovering, error, discover, guide, reset }
 }
 
 /** "Find available models" affordance + live/curated status line. */
@@ -1149,6 +1188,7 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
     discovering,
     error: discoverError,
     discover,
+    guide: guideDiscovery,
     reset: resetDiscovery,
   } = useModelDiscovery()
   // Prefer a successful live list; otherwise fall back to the curated models.
@@ -1191,6 +1231,16 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
 
   function handleDiscover() {
     if (!variant) return
+    const setupMessage = discoverySetupMessage({
+      needsApiKey,
+      needsBaseUrl: false,
+      apiKey,
+      baseUrl: '',
+    })
+    if (setupMessage) {
+      guideDiscovery(setupMessage)
+      return
+    }
     void discover({
       provider: variant.provider,
       baseUrl: resolveBaseUrl(),
@@ -1511,6 +1561,7 @@ function AddProviderFormPanel({
     discovering,
     error: discoverError,
     discover,
+    guide: guideDiscovery,
     reset: resetDiscovery,
   } = useModelDiscovery()
   const models = discovered && discovered.models.length > 0 ? discovered.models : curatedModels
@@ -1553,6 +1604,16 @@ function AddProviderFormPanel({
   }
 
   function handleDiscover() {
+    const setupMessage = discoverySetupMessage({
+      needsApiKey,
+      needsBaseUrl,
+      apiKey: form.apiKey,
+      baseUrl: form.baseUrl,
+    })
+    if (setupMessage) {
+      guideDiscovery(setupMessage)
+      return
+    }
     void discover({
       provider: form.provider,
       baseUrl: form.baseUrl.trim() || undefined,
