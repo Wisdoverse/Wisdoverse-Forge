@@ -959,6 +959,7 @@ const SAVED_INSTRUCTION_WORKSPACE_INTRO_PATTERNS = [/\bsaving it for the workspa
 const SAVED_INSTRUCTION_DRAFT_DEAD_END_PATTERNS = [
   /\bKeep or rewrite the reusable instructions before publishing\./i,
   /\bReview the reusable instructions\./i,
+  /\bReview what should repeat before saving it for your team space\./i,
   /\breview the reusable steps before agents use them\b/i,
 ]
 

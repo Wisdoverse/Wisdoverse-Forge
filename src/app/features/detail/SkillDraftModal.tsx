@@ -116,7 +116,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
               Draft saved instruction
             </h2>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Turn this completed task into reusable instructions. Review what should repeat before
+              Turn this completed task into reusable instructions. Check what should repeat before
               saving it for your team space.
             </p>
           </div>

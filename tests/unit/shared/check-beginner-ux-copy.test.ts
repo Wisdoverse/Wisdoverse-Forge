@@ -10110,7 +10110,7 @@ export function SkillDraftModal() {
     const cwd = fixture({
       'src/app/features/detail/SkillDraftModal.tsx': `
 export function SkillDraftModal() {
-  return 'Review what should repeat before saving it for your team space.'
+  return 'Check what should repeat before saving it for your team space.'
 }
 `,
     })
@@ -10125,6 +10125,7 @@ export function SkillDraftModal() {
   const error = 'Keep or rewrite the reusable instructions before publishing.'
   return 'Review the reusable instructions.'
   return 'Find this instruction, then review the reusable steps before agents use them.'
+  return 'Review what should repeat before saving it for your team space.'
 }
 `,
     })
@@ -10145,6 +10146,10 @@ export function SkillDraftModal() {
         expect.objectContaining({
           type: 'saved-instruction-draft-copy',
           location: 'src/app/features/detail/SkillDraftModal.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-draft-copy',
+          location: 'src/app/features/detail/SkillDraftModal.tsx:6',
         }),
       ])
     )

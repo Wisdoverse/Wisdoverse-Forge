@@ -46,7 +46,12 @@ describe('SkillDraftModal', () => {
     )
 
     expect(screen.getByRole('button', { name: 'Close without publishing' })).toBeDefined()
-    expect(screen.getByText(/saving it for your team space/i)).toBeDefined()
+    expect(
+      screen.getByText(/Check what should repeat before saving it for your team space/i)
+    ).toBeDefined()
+    expect(
+      screen.queryByText(/Review what should repeat before saving it for your team space/i)
+    ).toBeNull()
     expect(screen.queryByText(/saving it for the workspace/i)).toBeNull()
     expect(screen.queryByRole('button', { name: /^Cancel$/ })).toBeNull()
 
