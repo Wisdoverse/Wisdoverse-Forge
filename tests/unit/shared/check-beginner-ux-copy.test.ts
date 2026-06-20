@@ -5296,6 +5296,11 @@ function AgentDetailView() {
   return <p>This agent can plan, write, and review text.</p>
 }
 `,
+      'src/app/features/chat/ChatView.tsx': `
+function ChatView() {
+  return <p>Send a short request below when you need planning, review, or a direct answer.</p>
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
@@ -5318,6 +5323,11 @@ function AgentDetailView() {
           location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:3',
           sample: expect.stringContaining('review text'),
         }),
+        expect.objectContaining({
+          type: 'chat-only-agent-review-copy',
+          location: 'src/app/features/chat/ChatView.tsx:3',
+          sample: expect.stringContaining('planning, review'),
+        }),
       ])
     )
   })
@@ -5335,6 +5345,189 @@ function AgentEmptyState() {
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
 function AgentDetailView() {
   return <p>This agent can answer questions, write, and check text or results.</p>
+}
+`,
+      'src/app/features/chat/ChatView.tsx': `
+function ChatView() {
+  return <p>Send a short request below when you need a question answered, writing help, or a result checked.</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags high-traffic task setup copy that uses assign as the user action', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ChatView.tsx': `
+const WORKSPACE_AGENT_EMPTY_COPY = {
+  steps: ['Create a task and assign it to this agent, or choose where tasks wait.'],
+}
+function conversationFilterEmptyCopy() {
+  return {
+    title: 'Assign a task to see work steps',
+    nextStep: 'Next: use All to see chat updates, or assign a task so work steps can appear.',
+  }
+}
+`,
+      'src/app/features/feed/ActivityFeed.tsx': `
+function ActivityFeed() {
+  return <>
+    <p>Start a task or wait for the assigned agent to send its first update.</p>
+    <p>Next: open Board, create or assign a task, then return here.</p>
+  </>
+}
+`,
+      'src/app/features/feed/AgentStatusBar.tsx': `
+function AgentStatusBar() {
+  return <p>Open Agents to create or start one before assigning work.</p>
+}
+`,
+      'src/app/features/settings/RuntimeSection.tsx': `
+function RuntimeNextStepPanel() {
+  return <>
+    <h4>Before assigning work</h4>
+    <p>Open Agents, create or select an agent, then assign work from Tasks.</p>
+  </>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/chat/ChatView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/chat/ChatView.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/chat/ChatView.tsx:8',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/feed/ActivityFeed.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/feed/ActivityFeed.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/feed/AgentStatusBar.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:5',
+        }),
+      ])
+    )
+  })
+
+  it('accepts high-traffic task setup copy that says send work and choose agents', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ChatView.tsx': `
+const WORKSPACE_AGENT_EMPTY_COPY = {
+  steps: ['Create a task, choose this agent, or choose where tasks wait.'],
+}
+function conversationFilterEmptyCopy() {
+  return {
+    title: 'Send a file-work task to see work steps',
+    nextStep: 'Next: use All to see chat updates, or send a file-work task so work steps can appear.',
+  }
+}
+`,
+      'src/app/features/feed/ActivityFeed.tsx': `
+function ActivityFeed() {
+  return <>
+    <p>Start a task or wait for the chosen agent to send its first update.</p>
+    <p>Next: open Board, create a task or choose an agent for one, then return here.</p>
+  </>
+}
+`,
+      'src/app/features/feed/AgentStatusBar.tsx': `
+function AgentStatusBar() {
+  return <p>Open Agents to create or start one before sending work.</p>
+}
+`,
+      'src/app/features/settings/RuntimeSection.tsx': `
+function RuntimeNextStepPanel() {
+  return <>
+    <h4>Before sending file work</h4>
+    <p>Open Agents, create or select an agent, then send work from Tasks.</p>
+  </>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags task cards that use publish wording for sending tasks', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskCard.tsx': `
+function TaskCard() {
+  return <>
+    <button aria-label={\`Publish task title\`} title="Preview and publish" />
+    <p>Open this card and add details before publishing.</p>
+    <p>Choose an agent, then preview and publish.</p>
+    <p>Review saved items, then publish.</p>
+    <p>Attach or free an agent, then publish again.</p>
+  </>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-card-publish-copy',
+          location: 'src/app/features/board/TaskCard.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'task-card-publish-copy',
+          location: 'src/app/features/board/TaskCard.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'task-card-publish-copy',
+          location: 'src/app/features/board/TaskCard.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'task-card-publish-copy',
+          location: 'src/app/features/board/TaskCard.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'task-card-publish-copy',
+          location: 'src/app/features/board/TaskCard.tsx:8',
+        }),
+      ])
+    )
+  })
+
+  it('accepts task cards that use send wording for task actions', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskCard.tsx': `
+function TaskCard() {
+  return <>
+    <button aria-label={\`Preview and send task title\`} title="Preview and send" />
+    <p>Open this card and add details before sending.</p>
+    <p>Choose an agent, then preview and send.</p>
+    <p>Check saved items, then send.</p>
+    <p>Choose or free an agent, then send again.</p>
+  </>
 }
 `,
     })
@@ -7181,15 +7374,33 @@ export function AgentStatusBar() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'agent-status-empty-copy',
-        location: 'src/app/features/feed/AgentStatusBar.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-status-empty-copy',
+          location: 'src/app/features/feed/AgentStatusBar.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/feed/AgentStatusBar.tsx:3',
+        }),
+      ])
+    )
   })
 
   it('accepts agent status empty states that start with the next action', () => {
+    const cwd = fixture({
+      'src/app/features/feed/AgentStatusBar.tsx': `
+export function AgentStatusBar() {
+  return <div>Open Agents to create or start one before sending work.</div>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags agent status empty states that use assigning-work jargon', () => {
     const cwd = fixture({
       'src/app/features/feed/AgentStatusBar.tsx': `
 export function AgentStatusBar() {
@@ -7198,7 +7409,15 @@ export function AgentStatusBar() {
 `,
     })
 
-    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'user-action-assignment-copy',
+        location: 'src/app/features/feed/AgentStatusBar.tsx:3',
+      }),
+    ])
   })
 
   it('flags agent status bar copy that does not say where to start the agent', () => {

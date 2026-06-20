@@ -35,7 +35,8 @@ const CONVERSATION_FILTERS: { value: ConversationFilter; label: string }[] = [
 
 const PROVIDER_EMPTY_COPY = {
   title: 'Start by asking this agent',
-  detail: 'Send a short request below when you need planning, review, or a direct answer.',
+  detail:
+    'Send a short request below when you need a question answered, writing help, or a result checked.',
   steps: [
     'Ask for one outcome at a time.',
     'Use Attention after a reply to find what needs help.',
@@ -47,7 +48,7 @@ const WORKSPACE_AGENT_EMPTY_COPY = {
   title: 'Send this agent a task to start updates',
   detail: 'This history fills in after the agent receives work or reports progress.',
   steps: [
-    'Create a task and assign it to this agent, or choose where tasks wait so this agent can receive it.',
+    'Create a task, choose this agent, or choose where tasks wait so this agent can receive it.',
     'Check Attention once work starts to see what needs help.',
     'Open Agents, confirm this agent shows Ready, then return here.',
   ],
@@ -116,9 +117,10 @@ function conversationFilterEmptyCopy(
 
   if (filter === 'tool') {
     return {
-      title: 'Assign a task to see work steps',
+      title: 'Send a file-work task to see work steps',
       detail: 'Work steps appear when an agent shares commands or tool results.',
-      nextStep: 'Next: use All to see chat updates, or assign a task so work steps can appear.',
+      nextStep:
+        'Next: use All to see chat updates, or send a file-work task so work steps can appear.',
     }
   }
 

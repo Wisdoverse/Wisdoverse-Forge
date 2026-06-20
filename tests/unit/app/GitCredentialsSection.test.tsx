@@ -44,7 +44,9 @@ describe('GitCredentialsSection', () => {
     const user = userEvent.setup()
     render(<GitCredentialsSection />)
 
-    expect(await screen.findByText('Prepare HTTPS code access for private code links')).toBeDefined()
+    expect(
+      await screen.findByText('Prepare HTTPS code access for private code links')
+    ).toBeDefined()
     const emptyState = screen.getByTestId('code-access-empty-state')
     expect(within(emptyState).getByText(/links that start with https:\/\//i)).toBeDefined()
     expect(within(emptyState).getAllByText(/use SSH code access instead/i).length).toBeGreaterThan(
@@ -58,8 +60,12 @@ describe('GitCredentialsSection', () => {
         'Create a read-only key for the code projects agents need, then copy it once.'
       )
     ).toBeDefined()
-    expect(within(emptyState).getByText('Leave the address empty for github.com or gitlab.com')).toBeDefined()
-    expect(within(emptyState).getByText(/private code website like gitlab\.example\.com/i)).toBeDefined()
+    expect(
+      within(emptyState).getByText('Leave the address empty for github.com or gitlab.com')
+    ).toBeDefined()
+    expect(
+      within(emptyState).getByText(/private code website like gitlab\.example\.com/i)
+    ).toBeDefined()
     expect(within(emptyState).queryByText('No repository access saved yet')).toBeNull()
     expect(within(emptyState).queryByText(/default cloud address/i)).toBeNull()
 
@@ -74,7 +80,9 @@ describe('GitCredentialsSection', () => {
       )
     ).toBeDefined()
     expect(screen.getByText('Leave the address empty for github.com or gitlab.com')).toBeDefined()
-    expect(screen.getByText(/Only fill it in when your company uses a private code website/i)).toBeDefined()
+    expect(
+      screen.getByText(/Only fill it in when your company uses a private code website/i)
+    ).toBeDefined()
     expect(screen.queryByText('Use the normal website by default')).toBeNull()
     expect(screen.queryByText(/leave address blank for cloud/i)).toBeNull()
     expect(screen.getByText(/next: paste the code access key/i)).toBeDefined()
@@ -246,5 +254,24 @@ describe('GitCredentialsSection', () => {
       'Paste the code access key from GitHub or GitLab, then save again.'
     )
     expect(screen.queryByText(/Details: invalid token/i)).toBeNull()
+  })
+
+  test('maps raw code access errors before rendering them', async () => {
+    useSettingsStore.setState({
+      gitCredentialsError: 'HTTP 422: Details: invalid token for provider github',
+    })
+
+    render(<GitCredentialsSection />)
+
+    await waitFor(() => expect(loadGitCredentialsMock).toHaveBeenCalled())
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Paste a new code access key from GitHub or GitLab, then save again.'
+    )
+    expect(alert).not.toHaveTextContent('Details')
+    expect(alert).not.toHaveTextContent('invalid token')
+    expect(alert).not.toHaveTextContent('HTTP')
+    expect(alert).not.toHaveTextContent('API')
+    expect(alert).not.toHaveTextContent('provider github')
   })
 })

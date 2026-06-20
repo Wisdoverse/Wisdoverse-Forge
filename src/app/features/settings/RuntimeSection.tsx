@@ -408,7 +408,7 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
                   aria-hidden="true"
                 />
                 <h4 className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
-                  Before assigning work
+                  Before sending file work
                 </h4>
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -594,7 +594,7 @@ function RuntimeNextStepPanel({
           <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
             What success looks like:{' '}
             {allReady
-              ? 'Open Agents, create or select an agent, then assign work from Tasks.'
+              ? 'Open Agents, create or select an agent, then send work from Tasks.'
               : 'This item changes to Ready.'}
           </p>
         </div>

@@ -134,11 +134,12 @@ describe('TaskCard', () => {
     )
 
     expect(screen.getByTestId('task-next-step').textContent).toBe(
-      'Choose an agent, then preview and publish.'
+      'Choose an agent, then preview and send.'
     )
+    expect(screen.getByTestId('task-next-step').textContent).not.toContain('publish')
   })
 
-  test('shows a direct publish next step after an agent is selected', () => {
+  test('shows a direct send next step after an agent is selected', () => {
     const onPublish = vi.fn()
     render(
       <TaskCard
@@ -151,14 +152,13 @@ describe('TaskCard', () => {
       />
     )
 
-    expect(screen.getByTestId('task-next-step').textContent).toBe(
-      'Review saved items, then publish.'
-    )
+    expect(screen.getByTestId('task-next-step').textContent).toBe('Check saved items, then send.')
     expect(screen.getByTestId('task-next-step').textContent).not.toContain('when ready')
     expect(screen.getByTestId('task-next-step').textContent).not.toContain('context')
+    expect(screen.getByTestId('task-next-step').textContent).not.toContain('publish')
   })
 
-  test('does not send title-only backlog tasks toward publish', () => {
+  test('does not send title-only backlog tasks toward sending', () => {
     const onPublish = vi.fn()
     render(
       <TaskCard
@@ -173,9 +173,10 @@ describe('TaskCard', () => {
     )
 
     expect(screen.getByTestId('task-next-step').textContent).toBe(
-      'Open this card and add details before publishing.'
+      'Open this card and add details before sending.'
     )
     expect(screen.getByTestId('task-next-step').textContent).not.toContain('Review saved items')
+    expect(screen.getByTestId('task-next-step').textContent).not.toContain('publishing')
   })
 
   test('asks for details before agent choice on title-only backlog tasks', () => {
@@ -198,6 +199,7 @@ describe('TaskCard', () => {
       'Open this card, add details, then choose an agent.'
     )
     expect(screen.getByTestId('task-next-step').textContent).not.toContain('preview and publish')
+    expect(screen.getByTestId('task-next-step').textContent).not.toContain('publish')
   })
 
   test('tells operators how to finish a saved task card before sending', () => {
@@ -395,11 +397,13 @@ describe('TaskCard', () => {
     expect(screen.queryByTestId('task-result-count')).toBeNull()
   })
 
-  test('opens publish preview for backlog tasks', () => {
+  test('opens send preview for backlog tasks', () => {
     const onPublish = vi.fn()
     render(<TaskCard task={{ ...mockTask, state: 'backlog' }} onPublish={onPublish} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Publish Refactor database migration' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Preview and send Refactor database migration' })
+    )
 
     expect(onPublish).toHaveBeenCalledWith(expect.objectContaining({ id: 'task-1' }))
   })

@@ -200,11 +200,11 @@ export function ActivityFeed() {
             Quiet so far
           </p>
           <p className="text-[11px] text-secondary-light dark:text-secondary-dark leading-relaxed">
-            Start a task or wait for the assigned agent to send its first update.
+            Start a task or wait for the chosen agent to send its first update.
           </p>
           <p className="max-w-[240px] text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
-            Next: open Board, create or assign a task, then return here after the first agent
-            update.
+            Next: open Board, create a task or choose an agent for one, then return here after the
+            first agent update.
           </p>
         </div>
       )}

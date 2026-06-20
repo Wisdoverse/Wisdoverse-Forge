@@ -928,8 +928,26 @@ const AGENT_LIST_SUMMARY_DEAD_END_PATTERNS = [/\bNo agents\b/i]
 const CHAT_ONLY_AGENT_REVIEW_JARGON_PATTERNS = [
   /\bchat-only AI service for planning and review\b/i,
   /\bBest for planning, writing, and review\b/i,
+  /\bplanning,\s*review,\s*or a direct answer\b/i,
   /\bcan plan, write, and review text\b/i,
   /\breview text\b/i,
+]
+const USER_ACTION_ASSIGNMENT_JARGON_PATTERNS = [
+  /\bCreate a task and assign it to this agent\b/i,
+  /\bAssign a task to see work steps\b/i,
+  /\bassign a task so work steps can appear\b/i,
+  /\bassigned agent to send its first update\b/i,
+  /\bcreate or assign a task\b/i,
+  /\bbefore assigning work\b/i,
+  /\bassign work from Tasks\b/i,
+]
+const TASK_CARD_PUBLISH_JARGON_PATTERNS = [
+  /\baria-label=\{?`?Publish\b/i,
+  /\btitle=['"`]Preview and publish['"`]/i,
+  /\bbefore publishing\b/i,
+  /\bpreview and publish\b/i,
+  /\bthen publish\b/i,
+  /\bpublish again\b/i,
 ]
 const AGENT_TOOL_SUMMARY_DEAD_END_PATTERNS = [
   /\bNo tool summary yet\. Ask an owner what this tool lets the agent do before turning it on\./i,
@@ -3474,12 +3492,32 @@ function hasAgentListSummaryDeadEndCopy(relFile, line) {
 function hasChatOnlyAgentReviewJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/agents/AgentListView.tsx') &&
-    !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')
+    !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx') &&
+    !relFile.endsWith('src/app/features/chat/ChatView.tsx')
   ) {
     return false
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return CHAT_ONLY_AGENT_REVIEW_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasUserActionAssignmentJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/chat/ChatView.tsx') &&
+    !relFile.endsWith('src/app/features/feed/ActivityFeed.tsx') &&
+    !relFile.endsWith('src/app/features/feed/AgentStatusBar.tsx') &&
+    !relFile.endsWith('src/app/features/settings/RuntimeSection.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return USER_ACTION_ASSIGNMENT_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasTaskCardPublishJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/board/TaskCard.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_CARD_PUBLISH_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentToolSummaryDeadEndCopy(relFile, line) {
@@ -6186,6 +6224,26 @@ function scanFile(file, relFile) {
         location,
         message:
           'Chat-only agent copy must say questions, writing, and checking results instead of review jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasUserActionAssignmentJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'user-action-assignment-copy',
+        location,
+        message:
+          'High-traffic task and agent setup copy must say send work or choose an agent instead of assign jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskCardPublishJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'task-card-publish-copy',
+        location,
+        message:
+          'Task cards must say send or preview and send instead of publish in user-visible actions.',
         sample: line.trim(),
       })
     }

@@ -4,6 +4,7 @@ import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
 import type { GitCredential, GitProvider } from '@app/entities/agent'
 import { formatAccessDate } from './formatAccessDate'
+import { gitCredentialsErrorMessage } from './gitCredentialsErrorMessage'
 
 const PROVIDER_LABELS: Record<GitProvider, string> = {
   github: 'GitHub',
@@ -21,6 +22,14 @@ const GIT_CREDENTIAL_SETUP_STEPS = [
     value: 'Only fill it in when your company uses a private code website like gitlab.example.com.',
   },
 ]
+
+const RAW_GIT_CREDENTIAL_ERROR_PATTERN =
+  /\b(?:Details:|invalid token|invalid provider|invalid host|bad credentials|expired token|token expired|HTTP|API|Server error|Code:|Network error|Failed to fetch|forbidden|unauthorized|not configured)\b/i
+
+function displayGitCredentialsError(error: string): string {
+  if (!RAW_GIT_CREDENTIAL_ERROR_PATTERN.test(error)) return error
+  return gitCredentialsErrorMessage(error)
+}
 
 interface CredentialFormReadiness {
   ready: boolean
@@ -424,7 +433,7 @@ export function GitCredentialsSection() {
       {/* Error */}
       {gitCredentialsError && (
         <div role="alert" aria-live="polite" className={uiStyles.error}>
-          {gitCredentialsError}
+          {displayGitCredentialsError(gitCredentialsError)}
         </div>
       )}
 

@@ -228,9 +228,10 @@ describe('ChatView', () => {
     expect(screen.getByText('Send work to create the first update.')).toBeInTheDocument()
     expect(
       screen.getByText(
-        'Create a task and assign it to this agent, or choose where tasks wait so this agent can receive it.'
+        'Create a task, choose this agent, or choose where tasks wait so this agent can receive it.'
       )
     ).toBeInTheDocument()
+    expect(screen.queryByText(/assign it to this agent/i)).toBeNull()
     expect(
       screen.getByText('Check Attention once work starts to see what needs help.')
     ).toBeVisible()
@@ -387,11 +388,13 @@ describe('ChatView', () => {
     expect(screen.getByText('Settings page shipped')).toBeInTheDocument()
 
     fireEvent.click(within(filters).getByRole('button', { name: /work steps\s*0/i }))
-    expect(screen.getByText('Assign a task to see work steps')).toBeInTheDocument()
+    expect(screen.getByText('Send a file-work task to see work steps')).toBeInTheDocument()
     expect(
       screen.getByText('Work steps appear when an agent shares commands or tool results.')
     ).toBeInTheDocument()
-    expect(screen.getByText(/assign a task so work steps can appear/i)).toBeInTheDocument()
+    expect(screen.getByText(/send a file-work task so work steps can appear/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Assign a task to see work steps/i)).toBeNull()
+    expect(screen.queryByText(/assign a task so work steps can appear/i)).toBeNull()
     expect(screen.queryByText('No work steps have been reported yet')).toBeNull()
     expect(screen.queryByText('No work steps are showing yet')).toBeNull()
   })
