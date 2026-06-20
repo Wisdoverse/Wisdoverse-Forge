@@ -86,8 +86,8 @@ const SECTIONS: SectionItem[] = [
   },
   {
     id: 'work-tool-sign-ins',
-    label: 'Codex CLI sign-in',
-    description: 'Sign in to Codex and other CLI tools agents use for file work.',
+    label: 'Work tool sign-in',
+    description: 'Sign in to Codex and other work tools agents use for file work.',
     group: 'Agent work',
     Icon: LogIn,
   },

@@ -1057,6 +1057,15 @@ const RUNTIME_SIGN_IN_DEAD_END_PATTERNS = [
   /['"`]Sign in['"`]/,
 ]
 
+const WORK_TOOL_SIGN_IN_ENTRY_JARGON_PATTERNS = [
+  /\blabel:\s*['"`]Codex CLI sign-in['"`]/i,
+  /\bdescription:\s*['"`]Sign in to Codex and other CLI tools agents use for file work\./i,
+  /\bSign in to Codex CLI and work tools\b/i,
+  /\btitle:\s*['"`]Codex and CLI sign-ins['"`]/i,
+  /\bCodex and CLI sign-ins\b/i,
+  /\bother CLI tools agents use\b/i,
+]
+
 const RUNTIME_DEFAULT_LOCATION_DEAD_END_PATTERNS = [/\bNot set yet\b/i]
 
 const RESOURCE_SIZES_RELOAD_DEAD_END_PATTERNS = [
@@ -4272,6 +4281,17 @@ function hasRuntimeSignInDeadEndCopy(relFile, line) {
   return RUNTIME_SIGN_IN_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasWorkToolSignInEntryJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/pages/settings/ui/SettingsLayout.tsx') &&
+    !relFile.endsWith('src/app/features/settings/RuntimeSection.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return WORK_TOOL_SIGN_IN_ENTRY_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasRuntimeDefaultLocationDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/settings/RuntimeSection.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -7068,6 +7088,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Work setup summaries must tell beginners to sign in before starting affected agents.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasWorkToolSignInEntryJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'work-tool-sign-in-entry-copy',
+        location,
+        message:
+          'Work tool sign-in entry points must keep Codex discoverable without naming the whole Settings entry as CLI-only.',
         sample: line.trim(),
       })
     }

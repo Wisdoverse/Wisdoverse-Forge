@@ -226,12 +226,11 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
           className="mb-4 rounded-lg border border-apple-blue/20 bg-apple-blue/[0.04] p-4"
         >
           <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            Sign in to Codex CLI and work tools
+            Work tool sign-in
           </h3>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-            Start here when Codex asks for login, or when an agent says its work account needs
-            reconnecting. Choose Sign in next to OpenAI (Codex), finish the browser login, then
-            return here and choose Check again.
+            Start here when Codex or another work tool asks for login. Choose Sign in next to OpenAI
+            (Codex), finish the browser login, then return here and choose Check again.
           </p>
           <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
             If OpenAI (Codex) does not appear, choose Check again. If it still does not appear, ask
@@ -841,7 +840,7 @@ function runtimeLaunchChecklistItems(
   const credentialReady = !cliStatusError && (!disconnectedCredential || cliStatuses.length === 0)
   items.push({
     id: 'credentials',
-    title: 'Codex and CLI sign-ins',
+    title: 'Work tool sign-ins',
     detail: cliStatusError
       ? 'Choose Check again to refresh work tool sign-ins. If they still cannot be checked, ask an owner or admin to check work tool sign-ins.'
       : cliStatuses.length === 0

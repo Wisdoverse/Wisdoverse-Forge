@@ -180,9 +180,7 @@ describe('RuntimeSection', () => {
     expect(screen.getByText('Installed and ready')).toBeDefined()
     expect(screen.getAllByText(/work tool sign-ins/i).length).toBeGreaterThan(0)
     expect(screen.getByText(/1\/2 work tool sign-ins ready/i)).toBeDefined()
-    expect(
-      screen.getByText(/Choose Sign in to GitHub/i)
-    ).toBeDefined()
+    expect(screen.getByText(/Choose Sign in to GitHub/i)).toBeDefined()
     expect(screen.queryByText(/No work tool sign-in saved/i)).toBeNull()
     expect(screen.getAllByRole('button', { name: /Sign in to GitHub/i }).length).toBeGreaterThan(0)
     expect(screen.getByText(/browser login page opens/i)).toBeDefined()
@@ -321,9 +319,7 @@ describe('RuntimeSection', () => {
       screen.getByText(/Sign in to a tool for file work before starting agents that need one/i)
     ).toBeDefined()
     expect(screen.queryByText(/No work tool sign-ins are connected yet/i)).toBeNull()
-    expect(
-      screen.getAllByText(/Choose Sign in to GitHub/i).length
-    ).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Choose Sign in to GitHub/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/No work tool sign-in saved/i)).toBeNull()
     expect(screen.getAllByRole('button', { name: /Sign in to GitHub/i }).length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: /^Sign in$/i })).toBeNull()
@@ -343,13 +339,12 @@ describe('RuntimeSection', () => {
     render(<RuntimeSection focus="sign-ins" />)
 
     expect(await screen.findByTestId('runtime-sign-in-entry')).toHaveTextContent(
-      'Sign in to Codex CLI and work tools'
+      'Work tool sign-in'
     )
+    expect(screen.queryByText(/Sign in to Codex CLI and work tools/i)).toBeNull()
     expect(screen.getByText('OpenAI (Codex)')).toBeDefined()
     expect(screen.getAllByText('Codex').length).toBeGreaterThan(0)
-    expect(
-      screen.getAllByText(/Choose Sign in to OpenAI \(Codex\)/i).length
-    ).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Choose Sign in to OpenAI \(Codex\)/i).length).toBeGreaterThan(0)
     expect(
       screen.getAllByRole('button', { name: /Sign in to OpenAI \(Codex\)/i }).length
     ).toBeGreaterThan(0)

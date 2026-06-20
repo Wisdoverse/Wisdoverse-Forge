@@ -5938,6 +5938,79 @@ const SECTIONS = [
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags work tool sign-in entry copy that names the whole entry as CLI-only', () => {
+    const cwd = fixture({
+      'src/app/pages/settings/ui/SettingsLayout.tsx': `
+const SECTIONS = [
+  {
+    label: 'Codex CLI sign-in',
+    description: 'Sign in to Codex and other CLI tools agents use for file work.',
+  },
+]
+`,
+      'src/app/features/settings/RuntimeSection.tsx': `
+export function RuntimeSection() {
+  return (
+    <>
+      <h3>Sign in to Codex CLI and work tools</h3>
+      <RuntimeChecklistRow title="Codex and CLI sign-ins" />
+    </>
+  )
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'work-tool-sign-in-entry-copy',
+          location: 'src/app/pages/settings/ui/SettingsLayout.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'work-tool-sign-in-entry-copy',
+          location: 'src/app/pages/settings/ui/SettingsLayout.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'work-tool-sign-in-entry-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'work-tool-sign-in-entry-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:6',
+        }),
+      ])
+    )
+  })
+
+  it('accepts work tool sign-in entry copy that keeps Codex discoverable', () => {
+    const cwd = fixture({
+      'src/app/pages/settings/ui/SettingsLayout.tsx': `
+const SECTIONS = [
+  {
+    label: 'Work tool sign-in',
+    description: 'Sign in to Codex and other work tools agents use for file work.',
+  },
+]
+`,
+      'src/app/features/settings/RuntimeSection.tsx': `
+export function RuntimeSection() {
+  return (
+    <>
+      <h3>Work tool sign-in</h3>
+      <p>Start here when Codex or another work tool asks for login. Choose Sign in next to OpenAI (Codex), finish the browser login, then return here and choose Check again.</p>
+      <RuntimeChecklistRow title="Work tool sign-ins" />
+    </>
+  )
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags Where agents work copy that falls back to setup wording', () => {
     const cwd = fixture({
       'src/app/features/settings/RuntimeSection.tsx': `
