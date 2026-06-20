@@ -25,7 +25,7 @@ describe('DescriptionTab', () => {
       'Choose an agent before this task can start.'
     )
     expect(screen.getByTestId('task-next-action').textContent).toContain(
-      'Choose an available agent, review the suggested saved notes and instructions, then send the task.'
+      'Choose an available agent, check the suggested saved notes and instructions, then send the task.'
     )
     expect(screen.getByRole('link', { name: /open agents/i })).toHaveAttribute('href', '/agents')
     expect(screen.getByTestId('task-next-action').textContent).not.toContain('when ready')
@@ -43,7 +43,7 @@ describe('DescriptionTab', () => {
       'An agent was chosen, but its name has not loaded yet. Refresh this task so you can confirm the right agent before sending it.'
     )
     expect(screen.getByTestId('task-next-action').textContent).toContain(
-      'Review the brief, then send it to this agent.'
+      'Check the brief, then send it to this agent.'
     )
     expect(screen.getByTestId('task-next-action').textContent).not.toContain('when ready')
     expect(screen.queryByText('Assigned agent')).toBeNull()
@@ -138,13 +138,13 @@ describe('DescriptionTab', () => {
     )
 
     expect(screen.getByTestId('task-assignment-guidance').textContent).toBe(
-      'This agent finished this task. Review the result before accepting it.'
+      'This agent finished this task. Check the result before accepting it.'
     )
     expect(screen.queryByText('This agent will handle the next step for this task.')).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /open result files/i }))
-    fireEvent.click(screen.getByRole('button', { name: /^review what was used/i }))
-    fireEvent.click(screen.getByRole('button', { name: /review save ideas/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^check what was used/i }))
+    fireEvent.click(screen.getByRole('button', { name: /check save ideas/i }))
     fireEvent.click(screen.getByRole('button', { name: /draft saved instruction/i }))
 
     expect(onOpenResult).toHaveBeenCalledOnce()
@@ -155,7 +155,9 @@ describe('DescriptionTab', () => {
       'check what the agent reused'
     )
     expect(
-      screen.getByText('After review, save the repeatable steps if future tasks should reuse them.')
+      screen.getByText(
+        'After checking the result, save the repeatable steps if future tasks should reuse them.'
+      )
     ).toBeDefined()
     expect(
       screen.getByText('Save the repeatable steps only when they should help future tasks.')
@@ -169,6 +171,10 @@ describe('DescriptionTab', () => {
     expect(screen.queryByText(new RegExp(['saved context', 'item'].join('\\s+'), 'i'))).toBeNull()
     expect(screen.queryByText('Evidence')).toBeNull()
     expect(screen.queryByText(/result files and evidence/i)).toBeNull()
+    expect(screen.queryByText(/ready for review/i)).toBeNull()
+    expect(screen.queryByText(/review what was used/i)).toBeNull()
+    expect(screen.queryByText(/review save ideas/i)).toBeNull()
+    expect(screen.queryByText(/after review/i)).toBeNull()
     const previousReuseCopy = new RegExp(['Completed work', 'saved instructions'].join('.*'), 'i')
     expect(screen.queryByText(previousReuseCopy)).toBeNull()
     expect(screen.queryByText('Reusable learning')).toBeNull()

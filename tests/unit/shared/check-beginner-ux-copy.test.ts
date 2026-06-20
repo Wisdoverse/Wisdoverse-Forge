@@ -14977,7 +14977,16 @@ export const zh = {
     const cwd = fixture({
       'src/app/features/detail/DescriptionTab.tsx': `
 function DescriptionTab() {
-  return <ReviewSection title="Result files and evidence" />
+  return <>
+    <ReviewSection title="Result files and evidence" />
+    <p>1 result file ready for review.</p>
+    <button>Review what was used</button>
+    <button>Review save ideas</button>
+    <p>After review, save the repeatable steps if future tasks should reuse them.</p>
+    <p>This agent finished this task. Review the result before accepting it.</p>
+    <p>Review the brief, then send it to this agent.</p>
+    <p>Choose an available agent, review the suggested saved notes and instructions, then send the task.</p>
+  </>
 }
 `,
       'src/app/features/detail/TaskDetailPanel.tsx': `
@@ -15015,7 +15024,35 @@ function agentNextStep() {
       expect.arrayContaining([
         expect.objectContaining({
           type: 'task-detail-result-review-copy',
-          location: 'src/app/features/detail/DescriptionTab.tsx:3',
+          location: 'src/app/features/detail/DescriptionTab.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/DescriptionTab.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/DescriptionTab.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/DescriptionTab.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/DescriptionTab.tsx:8',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/DescriptionTab.tsx:9',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/DescriptionTab.tsx:10',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/DescriptionTab.tsx:11',
         }),
         expect.objectContaining({
           type: 'task-detail-result-review-copy',
