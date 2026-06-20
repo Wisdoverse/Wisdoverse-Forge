@@ -1478,6 +1478,12 @@ const TASK_BLOCKED_APPROVAL_JARGON_PATTERNS = [
   /\bapprove or decline\b/i,
 ]
 
+const TASK_ATTENTION_INTERNAL_STATE_JARGON_PATTERNS = [
+  /\bblocked or failed work\b/i,
+  /\bblocked or failed tasks?\b/i,
+  /\bblocked or failed task updates\b/i,
+]
+
 const TASK_RECOVERY_OPEN_DETAILS_DEAD_END_PATTERNS = [/\bOpen details\b/i, /\bopen details\b/i]
 
 const BEGINNER_SORTING_JARGON_PATTERNS = [
@@ -4787,6 +4793,20 @@ function hasTaskBlockedApprovalJargonCopy(relFile, line) {
   return TASK_BLOCKED_APPROVAL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTaskAttentionInternalStateJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/agents/AgentTasksTab.tsx') &&
+    !relFile.endsWith('src/app/features/board/TaskCard.tsx') &&
+    !relFile.endsWith('src/app/features/feed/ActivityFeed.tsx') &&
+    !relFile.endsWith('src/app/features/feed/AttentionZone.tsx') &&
+    !relFile.endsWith('src/app/features/list/ListView.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_ATTENTION_INTERNAL_STATE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasTaskRecoveryOpenDetailsDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/board/TaskCard.tsx') &&
@@ -7527,6 +7547,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Task blocked copy must tell beginners to open task details and choose the visible next action instead of approval jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskAttentionInternalStateJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'task-attention-state-copy',
+        location,
+        message:
+          'Task attention copy must say needs help or stopped early instead of blocked or failed work.',
         sample: line.trim(),
       })
     }
