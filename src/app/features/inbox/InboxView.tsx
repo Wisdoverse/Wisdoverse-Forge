@@ -430,7 +430,7 @@ function nextStepTitle(notification: Notification): string {
     case 'completed':
       return 'Open the latest completed result when you have time'
     case 'assigned':
-      return 'Open the newest assignment'
+      return 'Open the newest task update'
     case 'mentioned':
       return 'Open the newest mention'
     case 'cli_image_updated':
@@ -473,7 +473,7 @@ function nextStepActionLabel(notification: Notification): string {
     case 'completed':
       return 'Open result'
     case 'assigned':
-      return 'Open assignment'
+      return 'Open task update'
     case 'mentioned':
       return 'Open mention'
     case 'cli_image_updated':

@@ -16,7 +16,7 @@ const ACTION_FALLBACKS: Record<TaskDetailErrorAction, string> = {
     'Open this task again from the Tasks page, then choose Needs help again. The task was not marked as needing help.',
   cancelTask:
     'Open this task again from the Tasks page, then choose Cancel again. The task was not canceled.',
-  loadAgents: 'Open this task again from the Tasks page before assigning an agent.',
+  loadAgents: 'Open this task again from the Tasks page before choosing an agent.',
   loadContext: 'Open this task again from the Tasks page to load saved notes and work history.',
   loadRuns: 'Open Updates for this task again before deciding whether to retry this task.',
   previewContext: 'Choose an available agent, then check saved items again.',

@@ -193,7 +193,7 @@ describe('beginner error translations', () => {
     expect(zh.prompt.noAgentSelected).not.toBe('未选择 Agent')
   })
 
-  test('agent status copy tells beginners whether work can be assigned', () => {
+  test('agent status copy tells beginners whether work can start', () => {
     expect(en.agents.status.idle).toBe('Ready')
     expect(en.agents.status.working).toBe('Working now')
     expect(en.agents.status.waiting).toBe('Needs input')

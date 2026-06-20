@@ -131,7 +131,7 @@ function agentConnectionStatus(agent: AgentInfo): string {
 }
 
 function agentAvailabilityLabel(agent: AgentInfo): string {
-  if (agent.status === 'idle') return 'Can be assigned now'
+  if (agent.status === 'idle') return 'Ready for work'
   if (agent.status === 'working') return 'Already working'
   if (isHostCliAgent(agent)) return 'Reconnect from Agents first'
   if (agent.cliTool) return 'Open Live work and start file work'
@@ -416,7 +416,7 @@ function agentNextStep(
     return {
       title: 'Choose this agent again or open Tasks',
       detail:
-        "This page could not load the agent's recent task history. Go back to Agents and choose this agent again, or open Tasks to confirm what is running before assigning more work.",
+        "This page could not load the agent's recent task history. Go back to Agents and choose this agent again, or open Tasks to confirm what is running before sending more work.",
       success: 'You can see the latest task state before deciding what to do next.',
       ready: false,
       targetTab: 'tasks',
@@ -442,8 +442,7 @@ function agentNextStep(
     detail: latestTask
       ? `The latest task was "${latestTask.params.task}" updated ${formatRelativeTime(latestTask.updatedAt)}.`
       : "Go to Tasks to load this agent's work history and decide what to send next.",
-    success:
-      'You can decide whether to reuse the agent, check result files, or assign another task.',
+    success: 'You can decide whether to reuse the agent, check result files, or send another task.',
     ready: true,
     targetTab: 'tasks',
     actionLabel: 'Open tasks',

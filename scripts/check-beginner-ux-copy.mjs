@@ -937,14 +937,29 @@ const USER_ACTION_ASSIGNMENT_JARGON_PATTERNS = [
   /\bAssign a task to see work steps\b/i,
   /\bassign a task so work steps can appear\b/i,
   /\bassigned agent to send its first update\b/i,
+  /\bAssigned tasks wait\b/i,
   /\bAssigned agents add updates here\b/i,
   /\bAssigned agent\b/i,
+  /\bA task is assigned\b/i,
+  /\balready assigned\b/i,
   /\bwait for an assigned agent\b/i,
   /\bcreate or assign a task\b/i,
+  /\bbefore assigning an agent\b/i,
   /\bbefore assigning tasks\b/i,
+  /\bbefore assigning new work\b/i,
+  /\bbefore assigning more work\b/i,
   /\bbefore assigning work\b/i,
+  /\bstops assigning new work\b/i,
   /\bwhen assigning tasks\b/i,
+  /\bagent assignment\b/i,
+  /\bassign agent work\b/i,
+  /\bassigned task\b/i,
+  /\bCan be assigned now\b/i,
+  /\bClarify and assign\b/i,
+  /\bOpen (?:the newest )?assignment\b/i,
+  /\bAgents assigned here\b/i,
   /\bassign tasks to (?:it|this agent)\b/i,
+  /\bassign another task\b/i,
   /\bassign work from Tasks\b/i,
   /\bstart assigning work\b/i,
   /\bChoose when assigning work\b/i,
@@ -3521,11 +3536,18 @@ function hasUserActionAssignmentJargonCopy(relFile, line) {
     !relFile.endsWith('src/app/features/settings/RuntimeSection.tsx') &&
     !relFile.endsWith('src/app/features/settings/ProvidersSection.tsx') &&
     !relFile.endsWith('src/app/features/list/ListView.tsx') &&
+    !relFile.endsWith('src/app/features/admin/SystemHealth.tsx') &&
+    !relFile.endsWith('src/app/features/admin/OrganizationsPanel.tsx') &&
     !relFile.endsWith('src/app/features/agents/AgentGroupsPanel.tsx') &&
     !relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx') &&
     !relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx') &&
     !relFile.endsWith('src/app/features/manage-project/ui/CreateProjectForm.tsx') &&
+    !relFile.endsWith('src/app/features/manage-project/ui/EditableProjectRow.tsx') &&
+    !relFile.endsWith('src/app/features/board/KanbanColumn.tsx') &&
+    !relFile.endsWith('src/app/features/board/BoardToolbar.tsx') &&
     !relFile.endsWith('src/app/features/board/TaskCard.tsx') &&
+    !relFile.endsWith('src/app/features/detail/taskDetailErrorMessages.ts') &&
+    !relFile.endsWith('src/app/features/inbox/InboxView.tsx') &&
     !relFile.endsWith('src/app/hooks/useWsDispatch.ts') &&
     !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx') &&
     !relFile.endsWith('src/app/shared/i18n/locales/en.ts')

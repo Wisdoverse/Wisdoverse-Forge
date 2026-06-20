@@ -493,7 +493,7 @@ describe('GettingStartedView', () => {
     ).toBeDefined()
     expect(
       screen.getAllByText(
-        'The task appears on the board, either waiting for an agent or already assigned.'
+        'The task appears on the board, either waiting for an agent or already has one.'
       ).length
     ).toBeGreaterThan(0)
     expect(screen.queryByText(/queue/i)).toBeNull()

@@ -267,7 +267,7 @@ function OverallBanner({
       bg: 'border-apple-red/20 bg-apple-red/10',
       text: 'text-apple-red',
       label: 'App interruption likely',
-      detail: 'Fix the area marked Fix first before assigning new work.',
+      detail: 'Fix the area marked Fix first before sending new work.',
     },
   }
   const c = config[status]

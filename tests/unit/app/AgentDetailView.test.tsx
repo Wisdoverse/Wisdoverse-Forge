@@ -207,7 +207,7 @@ describe('AgentDetailView', () => {
       />
     )
     expect(screen.getByTestId('agent-assignment-fit')).toBeDefined()
-    expect(screen.getByText('Can be assigned now')).toBeDefined()
+    expect(screen.getByText('Ready for work')).toBeDefined()
     expect(screen.getByText('Implement onboarding flow')).toBeDefined()
     expect(screen.getByText('Finish a task, then save useful steps.')).toBeDefined()
     expect(screen.queryByText(/task\s+context/i)).toBeNull()
@@ -292,7 +292,7 @@ describe('AgentDetailView', () => {
     expect(await screen.findByText('Choose this agent again or open Tasks')).toBeDefined()
     expect(
       screen.getByText(
-        "This page could not load the agent's recent task history. Go back to Agents and choose this agent again, or open Tasks to confirm what is running before assigning more work."
+        "This page could not load the agent's recent task history. Go back to Agents and choose this agent again, or open Tasks to confirm what is running before sending more work."
       )
     ).toBeDefined()
     expect(

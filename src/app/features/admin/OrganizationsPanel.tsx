@@ -54,7 +54,7 @@ const ORG_GUIDANCE: { title: string; description: string; Icon: LucideIcon }[] =
   },
   {
     title: 'Teams show work areas',
-    description: 'More teams usually means more places to organize projects and assign agent work.',
+    description: 'More teams usually means more places to organize projects and send agent work.',
     Icon: Network,
   },
 ]

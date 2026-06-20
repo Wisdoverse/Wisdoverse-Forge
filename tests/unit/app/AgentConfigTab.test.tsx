@@ -228,7 +228,7 @@ describe('AgentConfigTab', () => {
 
     const instructions = screen.getByLabelText(/instructions for this agent/i)
     expect(instructions).toHaveValue(
-      'You are a delivery-focused agent. Ask early for missing information, keep changes scoped to the assigned task, preserve existing conventions, and report what you checked before sharing results.'
+      'You are a delivery-focused agent. Ask early for missing information, keep changes scoped to the task you receive, preserve existing conventions, and report what you checked before sharing results.'
     )
     for (const phrase of oldDeliveryTemplatePhrases) {
       expect(instructions).not.toHaveValue(expect.stringMatching(phrase))

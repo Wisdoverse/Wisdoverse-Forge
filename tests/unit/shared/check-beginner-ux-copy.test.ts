@@ -5410,6 +5410,16 @@ function providerNextStep() {
   return 'Choose Check connection before assigning work.'
 }
 `,
+      'src/app/features/admin/SystemHealth.tsx': `
+function HealthBanner() {
+  return <p>Fix the area marked Fix first before assigning new work.</p>
+}
+`,
+      'src/app/features/admin/OrganizationsPanel.tsx': `
+function OrganizationsPanel() {
+  return <p>More teams usually means more places to organize projects and assign agent work.</p>
+}
+`,
       'src/app/features/list/ListView.tsx': `
 function taskAgentLabel() {
   return 'Assigned agent'
@@ -5435,9 +5445,34 @@ function CreateProjectForm() {
   return <p>Pick the name users will look for when assigning tasks.</p>
 }
 `,
+      'src/app/features/manage-project/ui/EditableProjectRow.tsx': `
+function DeleteProjectCopy() {
+  return <p>Agents assigned here will be moved out of this project.</p>
+}
+`,
+      'src/app/features/board/KanbanColumn.tsx': `
+function EmptyColumn() {
+  return <p>Assigned tasks wait here until an available agent starts them.</p>
+}
+`,
+      'src/app/features/board/BoardToolbar.tsx': `
+function Toolbar() {
+  return <div aria-label="Filter tasks by agent assignment" />
+}
+`,
       'src/app/features/board/TaskCard.tsx': `
 function TaskCard() {
   return <span>Assigned agent</span>
+}
+`,
+      'src/app/features/detail/taskDetailErrorMessages.ts': `
+const ACTION_FALLBACKS = {
+  loadAgents: 'Open this task again from the Tasks page before assigning an agent.',
+}
+`,
+      'src/app/features/inbox/InboxView.tsx': `
+function nextStepActionLabel() {
+  return 'Open assignment'
 }
 `,
       'src/app/hooks/useWsDispatch.ts': `
@@ -5498,6 +5533,14 @@ export const en = { agents: { noAgents: 'Create one agent to start assigning wor
         }),
         expect.objectContaining({
           type: 'user-action-assignment-copy',
+          location: 'src/app/features/admin/SystemHealth.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/admin/OrganizationsPanel.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
           location: 'src/app/features/list/ListView.tsx:3',
         }),
         expect.objectContaining({
@@ -5518,7 +5561,27 @@ export const en = { agents: { noAgents: 'Create one agent to start assigning wor
         }),
         expect.objectContaining({
           type: 'user-action-assignment-copy',
+          location: 'src/app/features/manage-project/ui/EditableProjectRow.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/board/KanbanColumn.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/board/BoardToolbar.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
           location: 'src/app/features/board/TaskCard.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/detail/taskDetailErrorMessages.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/inbox/InboxView.tsx:3',
         }),
         expect.objectContaining({
           type: 'user-action-assignment-copy',
@@ -5575,6 +5638,16 @@ function providerNextStep() {
   return 'Choose Check connection before sending work.'
 }
 `,
+      'src/app/features/admin/SystemHealth.tsx': `
+function HealthBanner() {
+  return <p>Fix the area marked Fix first before sending new work.</p>
+}
+`,
+      'src/app/features/admin/OrganizationsPanel.tsx': `
+function OrganizationsPanel() {
+  return <p>More teams usually means more places to organize projects and send agent work.</p>
+}
+`,
       'src/app/features/list/ListView.tsx': `
 function taskAgentLabel() {
   return 'Chosen agent'
@@ -5582,7 +5655,7 @@ function taskAgentLabel() {
 `,
       'src/app/features/agents/AgentGroupsPanel.tsx': `
 function routedTaskAssignment() {
-  return 'Chosen agent'
+  return 'Clarify and send'
 }
 `,
       'src/app/features/agents/AgentConfigTab.tsx': `
@@ -5590,9 +5663,34 @@ function CliRuntimeConfig() {
   return <p>Confirm where it can open files before sending file work.</p>
 }
 `,
+      'src/app/features/manage-project/ui/EditableProjectRow.tsx': `
+function DeleteProjectCopy() {
+  return <p>Agents using this project will be moved out of it.</p>
+}
+`,
+      'src/app/features/board/KanbanColumn.tsx': `
+function EmptyColumn() {
+  return <p>Tasks with an agent wait here until that agent starts them.</p>
+}
+`,
+      'src/app/features/board/BoardToolbar.tsx': `
+function Toolbar() {
+  return <div aria-label="Filter tasks by whether an agent is chosen" />
+}
+`,
       'src/app/features/board/TaskCard.tsx': `
 function TaskCard() {
   return <span>Chosen agent</span>
+}
+`,
+      'src/app/features/detail/taskDetailErrorMessages.ts': `
+const ACTION_FALLBACKS = {
+  loadAgents: 'Open this task again from the Tasks page before choosing an agent.',
+}
+`,
+      'src/app/features/inbox/InboxView.tsx': `
+function nextStepActionLabel() {
+  return 'Open task update'
 }
 `,
       'src/app/hooks/useWsDispatch.ts': `
@@ -7078,7 +7176,7 @@ export const zh = {
       'src/app/shared/i18n/locales/en.ts': `
 export const en = {
   agents: {
-    confirmDelete: 'Delete this agent? This removes its setup and stops assigning new work to it.',
+    confirmDelete: 'Delete this agent? This removes its setup and stops sending new work to it.',
   },
   confirm: {
     delete: 'Delete this item? It will be removed from this team space.',
@@ -14937,7 +15035,7 @@ function busyMessage() {
     const cwd = fixture({
       'src/app/features/detail/taskDetailErrorMessages.ts': `
 const ACTION_FALLBACKS = {
-  loadAgents: 'Open this task again from the Tasks page before assigning an agent.',
+  loadAgents: 'Open this task again from the Tasks page before choosing an agent.',
   loadContext: 'Open this task again from the Tasks page to load saved notes and work history.',
   loadRuns: 'Open Updates for this task again before deciding whether to retry this task.',
   previewContext: 'Choose an available agent, then open saved item review again.',
@@ -15649,7 +15747,7 @@ export const en = {
       runtime: { review: 'Check work location' },
       provider: { reviewProviders: 'Check AI services', reviewAgents: 'Open agents' },
       routing: { review: 'Check waiting places' },
-      task: { inFlight: 'A task is assigned. Check progress from the board.' },
+      task: { inFlight: 'A task has an agent. Check progress from the board.' },
     },
   },
 }
@@ -16137,7 +16235,7 @@ function listNextStep() {
 `,
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
 function agentNextStep() {
-  return 'You can decide whether to reuse the agent, check result files, or assign another task.'
+  return 'You can decide whether to reuse the agent, check result files, or send another task.'
 }
 `,
     })

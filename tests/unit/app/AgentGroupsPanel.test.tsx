@@ -297,7 +297,7 @@ describe('AgentGroupsPanel', () => {
     expect(screen.queryByDisplayValue(/scoped changes/i)).toBeNull()
     expect(screen.queryByDisplayValue(/handoff/i)).toBeNull()
     const reviewSummary = screen.getByText('Check before release')
-    const triageSummary = screen.getByText('Clarify and assign')
+    const triageSummary = screen.getByText('Clarify and send')
     fireEvent.click(triageSummary.closest('button')!)
     expect(screen.getByRole('button', { name: /sort work/i })).toBeInTheDocument()
     expect(screen.getByLabelText(/waiting place name/i)).toHaveValue('Intake Tasks')

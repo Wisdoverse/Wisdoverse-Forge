@@ -8,7 +8,7 @@ import { CloneStatusBadge } from './CloneStatusBadge'
 
 const EMPTY_PROJECT_NAME_MESSAGE = 'Enter a project name, then save again.'
 const PROJECT_DELETE_CONFIRMATION_MESSAGE =
-  'Delete this project from Settings and the left menu. Agents assigned here will be moved out of this project. Choose Keep if you are not sure.'
+  'Delete this project from Settings and the left menu. Agents using this project will be moved out of it. Choose Keep if you are not sure.'
 
 interface EditableProjectRowProps {
   project: NavProject

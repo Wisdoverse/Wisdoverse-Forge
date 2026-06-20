@@ -97,7 +97,7 @@ export function BoardToolbar({
           />
 
           <FilterGroup
-            ariaLabel="Filter tasks by agent assignment"
+            ariaLabel="Filter tasks by whether an agent is chosen"
             options={ASSIGNEE_FILTERS.map((filter) => ({
               ...filter,
               count: counts.assignee[filter.value],
