@@ -266,8 +266,8 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
           id={searchHelpId}
           className="px-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
-          Search only filters this agent's work list. Clear it to see every task for this agent
-          again.
+          Search only filters this agent&apos;s work list. Use Show all agent work to return to the
+          full list.
         </p>
         <div
           role="group"
@@ -406,21 +406,21 @@ function agentTasksFilterEmptyState(filter: AgentTaskFilter, query: string): Emp
 
   if (hasSearch && hasFilter) {
     return {
-      title: 'Clear search or show all agent work',
-      detail: 'This agent has tasks, but the current search and filter hide them.',
+      title: 'Search and filter are hiding this work',
+      detail: 'Use Show all agent work before assuming this agent has no matching task.',
     }
   }
 
   if (hasSearch) {
     return {
-      title: "Clear search to see this agent's work",
-      detail: 'This agent has tasks, but this search hides them. Try a broader word.',
+      title: "Search is hiding this agent's work",
+      detail: 'Use Show all agent work to return to the full list.',
     }
   }
 
   return {
-    title: "Choose All to see this agent's work",
-    detail: 'This agent has tasks, but this filter has no results yet.',
+    title: "Filter is hiding this agent's work",
+    detail: 'Use Show all agent work to return to the full list.',
   }
 }
 

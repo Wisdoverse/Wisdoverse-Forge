@@ -119,7 +119,7 @@ describe('AgentTasksTab', () => {
     expect(screen.queryByText('These tasks stopped before finishing.')).toBeNull()
     const search = screen.getByRole('searchbox', { name: "Search this agent's work list" })
     expect(search).toHaveAccessibleDescription(
-      "Search only filters this agent's work list. Clear it to see every task for this agent again."
+      "Search only filters this agent's work list. Use Show all agent work to return to the full list."
     )
     expect(screen.getByPlaceholderText('Search by task name, problem, or result')).toBe(search)
     expect(screen.queryByPlaceholderText(/blocker/i)).toBeNull()
@@ -224,10 +224,8 @@ describe('AgentTasksTab', () => {
     const filterEmpty = screen.getByTestId('agent-tasks-filter-empty')
     expect(filterEmpty).toHaveAttribute('role', 'status')
     expect(filterEmpty).toHaveAttribute('aria-live', 'polite')
-    expect(within(filterEmpty).getByText("Choose All to see this agent's work")).toBeDefined()
-    expect(filterEmpty.textContent).toContain(
-      'This agent has tasks, but this filter has no results yet.'
-    )
+    expect(within(filterEmpty).getByText("Filter is hiding this agent's work")).toBeDefined()
+    expect(filterEmpty.textContent).toContain('Use Show all agent work to return to the full list.')
     expect(filterEmpty.textContent).not.toContain('No tasks match this view')
 
     fireEvent.click(screen.getByRole('button', { name: /show all agent work/i }))
@@ -257,10 +255,8 @@ describe('AgentTasksTab', () => {
     const searchEmpty = screen.getByTestId('agent-tasks-filter-empty')
     expect(searchEmpty).toHaveAttribute('role', 'status')
     expect(searchEmpty).toHaveAttribute('aria-live', 'polite')
-    expect(within(searchEmpty).getByText("Clear search to see this agent's work")).toBeDefined()
-    expect(searchEmpty.textContent).toContain(
-      'This agent has tasks, but this search hides them. Try a broader word.'
-    )
+    expect(within(searchEmpty).getByText("Search is hiding this agent's work")).toBeDefined()
+    expect(searchEmpty.textContent).toContain('Use Show all agent work to return to the full list.')
     expect(searchEmpty.textContent).not.toContain('No tasks match this view')
 
     fireEvent.click(screen.getByRole('button', { name: /show all agent work/i }))
@@ -275,9 +271,9 @@ describe('AgentTasksTab', () => {
     const combinedEmpty = screen.getByTestId('agent-tasks-filter-empty')
     expect(combinedEmpty).toHaveAttribute('role', 'status')
     expect(combinedEmpty).toHaveAttribute('aria-live', 'polite')
-    expect(within(combinedEmpty).getByText('Clear search or show all agent work')).toBeDefined()
+    expect(within(combinedEmpty).getByText('Search and filter are hiding this work')).toBeDefined()
     expect(combinedEmpty.textContent).toContain(
-      'This agent has tasks, but the current search and filter hide them.'
+      'Use Show all agent work before assuming this agent has no matching task.'
     )
     expect(combinedEmpty.textContent).not.toContain('No tasks match this view')
   })
