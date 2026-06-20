@@ -185,6 +185,29 @@ describe('AppLayout', () => {
     expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
   })
 
+  test('command palette opens Codex and work tool sign-in directly', async () => {
+    const onNavigate = vi.fn()
+
+    render(<MemoryRouter onNavigate={onNavigate} />)
+
+    fireEvent.click(screen.getByTestId('top-bar-command-search'))
+    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+      target: { value: 'codex login' },
+    })
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Sign in to OpenAI (Codex) before agents work on project files.')
+      ).toBeDefined()
+    })
+    fireEvent.click(
+      screen.getByText('Sign in to OpenAI (Codex) before agents work on project files.')
+    )
+
+    expect(onNavigate).toHaveBeenCalledWith('/settings/work-tool-sign-ins')
+    expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
+  })
+
   test('uses beginner-facing start page metadata', () => {
     routerState.path = '/start'
 

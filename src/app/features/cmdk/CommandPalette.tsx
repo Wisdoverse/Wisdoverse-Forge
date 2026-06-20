@@ -43,6 +43,12 @@ const ACTION_COMMANDS = [
     label: 'New task',
     description: 'Create a task for an agent to finish.',
   },
+  {
+    id: 'action:work-tool-sign-ins',
+    label: 'Codex and work tool sign-in',
+    description: 'Sign in to OpenAI (Codex) before agents work on project files.',
+    searchText: 'codex openai login sign in work tool settings',
+  },
   { id: 'action:toggle-theme', label: 'Change theme', description: 'Switch the app appearance.' },
 ]
 
@@ -180,7 +186,7 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
               {ACTION_COMMANDS.map((cmd) => (
                 <Command.Item
                   key={cmd.id}
-                  value={`${cmd.label} ${cmd.description}`}
+                  value={`${cmd.label} ${cmd.description} ${cmd.searchText ?? ''}`}
                   onSelect={() => handleSelect(cmd.id)}
                   className={cn(
                     'flex cursor-pointer flex-col gap-0.5 px-4 py-2 text-sm',

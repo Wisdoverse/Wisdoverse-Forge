@@ -98,9 +98,30 @@ describe('CommandPalette', () => {
     expect(screen.getByText('Create or change something')).toBeDefined()
     expect(screen.getByText('New task')).toBeDefined()
     expect(screen.getByText('Create a task for an agent to finish.')).toBeDefined()
+    expect(screen.getByText('Codex and work tool sign-in')).toBeDefined()
+    expect(
+      screen.getByText('Sign in to OpenAI (Codex) before agents work on project files.')
+    ).toBeDefined()
+    expect(screen.queryByText('Codex CLI sign-in')).toBeNull()
     expect(screen.queryByText(previousActionHeading)).toBeNull()
     expect(screen.queryByText('Create task')).toBeNull()
     expect(screen.queryByText('Start a new piece of work.')).toBeNull()
+  })
+
+  test('finds Codex sign-in through beginner search terms', async () => {
+    render(<CommandPalette isOpen={true} onClose={() => {}} />)
+
+    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+      target: { value: 'codex login' },
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('Codex and work tool sign-in')).toBeDefined()
+    })
+    expect(
+      screen.getByText('Sign in to OpenAI (Codex) before agents work on project files.')
+    ).toBeDefined()
+    expect(screen.queryByText('No page or option matches that search')).toBeNull()
   })
 
   test('uses beginner-safe view names instead of old scene jargon', () => {

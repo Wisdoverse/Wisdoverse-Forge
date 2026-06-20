@@ -176,6 +176,8 @@ export function AppLayout({
     } else if (commandId === 'action:create-task') {
       handleNavigate('/tasks')
       setTaskFormOpen(true)
+    } else if (commandId === 'action:work-tool-sign-ins') {
+      handleNavigate('/settings/work-tool-sign-ins')
     } else if (commandId === 'action:toggle-theme') {
       toggleTheme()
     }
