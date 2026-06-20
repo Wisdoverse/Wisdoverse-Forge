@@ -389,33 +389,35 @@ test.describe('React App Smoke Tests', () => {
       await screenshot(page, '15-view-timeline')
     })
 
-    // TODO(headless-webgl): the Map (Workshop3D) view needs a real WebGL
-    // context to mount its three.js scene; headless Chromium on staging has no
-    // GPU, so the scene testid never appears. Skipped here; exercised in a real
-    // browser. The Map view button itself is covered by the view-mode test.
-    test.skip('switch to 3D view mounts interactive agent scene', async ({ page }) => {
+    test('switch to 3D Map view renders the agent map resiliently', async ({ page }) => {
       const topBar = page.locator('[data-testid="top-bar"]')
       await topBar.getByRole('button', { name: 'Map' }).click()
 
-      // Workshop3DView is a lazy-loaded chunk (~520kB three.js bundle) +
-      // WebGL renderer init in headless Chromium can hit a 15s cap on a cold
-      // CDN cache. Bumping to 30s eliminates the post-deploy flake without
-      // hiding a real regression.
+      // Workshop3DView is a lazy ~520kB three.js chunk; allow a generous mount.
       const scene = page.locator('[data-testid="workshop-3d-scene"]')
       await expect(scene).toBeVisible({ timeout: 30000 })
-      await expect(scene.locator('canvas[data-testid="workshop-3d-canvas"]')).toHaveCount(1)
-      await expect(page.getByText(/Full React rewrite coming soon/i)).toHaveCount(0)
 
+      // It must never crash the board into the error boundary, even where WebGL
+      // is unavailable (headless CI / no-GPU). Either the real canvas mounts, or
+      // the graceful WebGL-unavailable fallback shows — the view always renders.
+      await expect(page.getByText('Something went wrong')).toHaveCount(0)
+      await expect(page.getByText(/Full React rewrite coming soon/i)).toHaveCount(0)
+      const canvas = scene.locator('canvas[data-testid="workshop-3d-canvas"]')
+      const fallback = scene.locator('[data-testid="workshop-3d-webgl-unavailable"]')
+      await expect(canvas.or(fallback)).toBeVisible({ timeout: 10000 })
+
+      // The HTML agent roster + selection work regardless of WebGL.
       const agentButton = scene.locator('[data-testid="workshop-3d-agent"]').first()
       await expect(agentButton).toBeVisible({ timeout: 10000 })
       await agentButton.click()
       await expect(agentButton).toHaveAttribute('aria-pressed', 'true')
       await expect(scene.locator('[data-testid="workshop-3d-selected-agent"]')).toBeVisible()
 
+      // View toggle round-trips without crashing.
       await topBar.getByRole('button', { name: 'Board' }).click()
       await expect(scene).toHaveCount(0)
       await topBar.getByRole('button', { name: 'Map' }).click()
-      await expect(page.locator('[data-testid="workshop-3d-canvas"]')).toHaveCount(1)
+      await expect(page.locator('[data-testid="workshop-3d-scene"]')).toBeVisible()
       await screenshot(page, '16-view-3d')
     })
 
