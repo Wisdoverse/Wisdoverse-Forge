@@ -8988,6 +8988,11 @@ export function CandidateLink() {
     </section>
   )
 }
+function candidateStateLabel(state) {
+  if (state === 'approved') return 'Approved'
+  if (state === 'rejected') return 'Rejected'
+  return 'Waiting for review'
+}
 `,
       'src/app/features/board/boardErrorMessages.ts': `
 const ACTION_FALLBACKS = {
@@ -9038,6 +9043,14 @@ export function ResultHelp() {
         }),
         expect.objectContaining({
           type: 'saved-items-check-copy',
+          sample: expect.stringContaining("return 'Approved'"),
+        }),
+        expect.objectContaining({
+          type: 'saved-items-check-copy',
+          sample: expect.stringContaining("return 'Rejected'"),
+        }),
+        expect.objectContaining({
+          type: 'saved-items-check-copy',
           sample: expect.stringContaining('open the saved notes review again'),
         }),
         expect.objectContaining({
@@ -9069,6 +9082,11 @@ export function CandidateLink() {
       <a aria-label="Open Saved items">Open Saved items</a>
     </section>
   )
+}
+function candidateStateLabel(state) {
+  if (state === 'approved') return 'Saved'
+  if (state === 'rejected') return 'Not saved'
+  return 'Needs your check'
 }
 `,
       'src/app/features/board/boardErrorMessages.ts': `

@@ -1757,6 +1757,8 @@ const SAVED_ITEMS_CHECK_JARGON_PATTERNS = [
   /\bSuggested notes to review\b/i,
   /\bSuggested instructions to review\b/i,
   /\bWaiting for review\b/i,
+  /return\s+['"`]Approved['"`]/,
+  /return\s+['"`]Rejected['"`]/,
 ]
 
 const TASK_AGENT_CAPABILITY_JARGON_PATTERNS = [
@@ -2969,6 +2971,12 @@ function hasSavedItemsCheckJargonCopy(relFile, line) {
     !relFile.endsWith('src/app/features/detail/TaskDetailPanel.tsx')
   ) {
     return false
+  }
+  if (
+    relFile.endsWith('src/app/features/detail/ContextCandidatesList.tsx') &&
+    /return\s+['"`](?:Approved|Rejected)['"`]/.test(line)
+  ) {
+    return true
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return SAVED_ITEMS_CHECK_JARGON_PATTERNS.some((pattern) => pattern.test(line))

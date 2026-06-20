@@ -40,7 +40,7 @@ describe('ContextCandidatesList', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  test('explains suggested memories as review-only before reuse', () => {
+  test('explains suggested memories as check-only before reuse', () => {
     render(
       <ContextCandidatesList
         title="Suggested notes to check"
@@ -68,7 +68,7 @@ describe('ContextCandidatesList', () => {
     expect(screen.queryByText(previousMemoryIdeaLabel)).toBeNull()
   })
 
-  test('explains instruction suggestions as review-only before agents can follow them', () => {
+  test('explains instruction suggestions as check-only before agents can follow them', () => {
     render(
       <ContextCandidatesList
         title="Suggested instructions to check"
@@ -93,7 +93,8 @@ describe('ContextCandidatesList', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('Release operator')).toBeInTheDocument()
     expect(screen.getByText('Suggested instruction')).toBeInTheDocument()
-    expect(screen.getByText('Approved')).toBeInTheDocument()
+    expect(screen.getByText('Saved')).toBeInTheDocument()
+    expect(screen.queryByText('Approved')).toBeNull()
     expect(
       screen.getByText(/Open Saved items and read the full suggestion before using it/i)
     ).toBeInTheDocument()
