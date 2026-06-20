@@ -178,7 +178,9 @@ describe('AccountSection', () => {
       target: { value: 'elevenchars' },
     })
 
-    expect(screen.getByText('Needed: Use at least 12 characters for the new password.')).toBeDefined()
+    expect(
+      screen.getByText('Needed: Use at least 12 characters for the new password.')
+    ).toBeDefined()
     expect(screen.getByRole('button', { name: /update password/i })).toBeDisabled()
 
     fireEvent.change(screen.getByLabelText('New Password'), {
@@ -359,13 +361,14 @@ describe('AccountSection', () => {
 
     await waitFor(() => expect(setGettingStartedDismissedMock).toHaveBeenCalledWith(false))
     expect(await screen.findByRole('status')).toHaveTextContent(
-      'Setup checklist is back in the left menu. Choose Open setup checklist to review setup. Your projects, agents, and tasks were not changed.'
+      'Setup checklist is back in the left menu. Choose Open setup checklist to check setup steps. Your projects, agents, and tasks were not changed.'
     )
     expect(
       screen.getByText(
-        'Setup checklist is back in the left menu. Choose Open setup checklist to review setup. Your projects, agents, and tasks were not changed.'
+        'Setup checklist is back in the left menu. Choose Open setup checklist to check setup steps. Your projects, agents, and tasks were not changed.'
       )
     ).toBeDefined()
+    expect(screen.queryByText(/review setup/i)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /open setup checklist/i }))
     expect(navigateMock).toHaveBeenCalledWith({ to: '/start' })
   })
@@ -387,7 +390,9 @@ describe('AccountSection', () => {
     renderAccountSection()
 
     expect(screen.getByText(/Wait a moment while Forge checks/i)).toBeDefined()
-    expect(screen.getByText(/Forge is checking whether the setup checklist is shown/i)).toBeDefined()
+    expect(
+      screen.getByText(/Forge is checking whether the setup checklist is shown/i)
+    ).toBeDefined()
     expect(screen.getByText(/Your projects, agents, and tasks stay the same/i)).toBeDefined()
     expect(screen.queryByText(/new sign-ins open Tasks/i)).toBeNull()
     expect(screen.queryByText(/New sign-ins can open the setup checklist/i)).toBeNull()
@@ -406,10 +411,13 @@ describe('AccountSection', () => {
     renderAccountSection()
 
     expect(
-      screen.getByText(/It is available now. Choose Open setup checklist to review setup/i)
+      screen.getByText(/It is available now. Choose Open setup checklist to check setup steps/i)
     ).toBeDefined()
+    expect(screen.queryByText(/review setup/i)).toBeNull()
     expect(screen.getByText(/It is shown in the left menu/i)).toBeDefined()
-    expect(screen.getByText(/New sign-ins can open the setup checklist until you hide it again/i)).toBeDefined()
+    expect(
+      screen.getByText(/New sign-ins can open the setup checklist until you hide it again/i)
+    ).toBeDefined()
     expect(screen.queryByText(/new sign-ins open Tasks by default/i)).toBeNull()
     expect(screen.queryByText(/already in the left menu/)).toBeNull()
     expect(screen.queryByText(/nothing to restore/i)).toBeNull()
@@ -437,7 +445,7 @@ describe('AccountSection', () => {
     ).toBeDefined()
     expect(
       screen.queryByText(
-        'Setup checklist is back in the left menu. Choose Open setup checklist to review setup.'
+        'Setup checklist is back in the left menu. Choose Open setup checklist to check setup steps.'
       )
     ).toBeNull()
     expect(screen.queryByRole('button', { name: /open setup checklist/i })).toBeNull()

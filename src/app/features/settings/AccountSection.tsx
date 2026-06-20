@@ -388,7 +388,7 @@ function GettingStartedGuideRow() {
     ? 'Wait a moment while Forge checks whether the setup checklist is shown.'
     : hidden
       ? 'Next step: choose Show setup checklist to add it back.'
-      : 'It is available now. Choose Open setup checklist to review setup.'
+      : 'It is available now. Choose Open setup checklist to check setup steps.'
   const visibilityDetail = !preferencesLoaded
     ? 'Forge is checking whether the setup checklist is shown. Your projects, agents, and tasks stay the same.'
     : hidden
@@ -467,8 +467,8 @@ function GettingStartedGuideRow() {
           className="flex flex-col gap-2 rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue sm:flex-row sm:items-center sm:justify-between"
         >
           <span>
-            Setup checklist is back in the left menu. Choose Open setup checklist to review setup.
-            Your projects, agents, and tasks were not changed.
+            Setup checklist is back in the left menu. Choose Open setup checklist to check setup
+            steps. Your projects, agents, and tasks were not changed.
           </span>
           <button
             type="button"

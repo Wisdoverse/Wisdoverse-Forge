@@ -721,6 +721,7 @@ const START_GUIDE_RESET_JARGON_PATTERNS = [
   /\bStart guide\b/i,
   /\bReset Start guide\b/i,
   /\bReset it here\b/i,
+  /\bOpen setup checklist to review setup\b/i,
   /\bnothing to restore\b/i,
   /\bStart is already visible\b/i,
   /\bIf Start is hidden\b/i,

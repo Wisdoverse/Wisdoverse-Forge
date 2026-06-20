@@ -11273,7 +11273,7 @@ function ProfileRow() {
     const cwd = fixture({
       'src/app/features/settings/AccountSection.tsx': `
 function GettingStartedGuideRow() {
-  return <section><h3>Onboarding</h3><p>If Start is hidden, choose Show setup checklist. Start is already visible in the left menu, so there is nothing to restore. New sign-ins still open Tasks by default.</p><button>Reset Start guide</button></section>
+  return <section><h3>Onboarding</h3><p>If Start is hidden, choose Show setup checklist. Start is already visible in the left menu, so there is nothing to restore. New sign-ins still open Tasks by default.</p><p>Setup checklist is back in the left menu. Choose Open setup checklist to review setup.</p><button>Reset Start guide</button></section>
 }
 `,
       'src/app/pages/settings/ui/SettingsLayout.tsx': `
@@ -11304,7 +11304,7 @@ export const item = {
     const cwd = fixture({
       'src/app/features/settings/AccountSection.tsx': `
 function GettingStartedGuideRow() {
-  return <section><p>It is hidden from the left menu, so new sign-ins open Tasks by default. Choose Show setup checklist to add it back. Your projects, agents, and tasks stay the same.</p><p>It is shown in the left menu. New sign-ins can open the setup checklist until you hide it again. Your projects, agents, and tasks stay the same.</p></section>
+  return <section><p>It is hidden from the left menu, so new sign-ins open Tasks by default. Choose Show setup checklist to add it back. Your projects, agents, and tasks stay the same.</p><p>It is available now. Choose Open setup checklist to check setup steps.</p><p>It is shown in the left menu. New sign-ins can open the setup checklist until you hide it again. Your projects, agents, and tasks stay the same.</p></section>
 }
 `,
     })
