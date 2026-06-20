@@ -200,7 +200,9 @@ describe('AgentControlPanel', () => {
     const instructionInput = screen.getByLabelText(/send one instruction/i)
     fireEvent.click(screen.getByRole('button', { name: /send instruction/i }))
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
       'Write an instruction before sending it to this agent.'
     )
     expect(instructionInput).toHaveFocus()

@@ -807,7 +807,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
             )}
 
             {copyError && (
-              <p role="alert" className="text-ui-caption text-apple-red">
+              <p role="alert" aria-live="polite" className="text-ui-caption text-apple-red">
                 {copyError}
               </p>
             )}

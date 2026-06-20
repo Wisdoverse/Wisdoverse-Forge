@@ -230,7 +230,12 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
           }}
         />
         {promptError && (
-          <div id={promptErrorId} className="text-ui-caption text-apple-red" role="alert">
+          <div
+            id={promptErrorId}
+            className="text-ui-caption text-apple-red"
+            role="alert"
+            aria-live="polite"
+          >
             {promptError}
           </div>
         )}

@@ -1088,12 +1088,14 @@ describe('CreateAgentModal', () => {
     // (plain HTTP) deployment case the message exists for.
     fireEvent.click(copyButton)
 
+    let alert: HTMLElement | null = null
     await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent(
+      expect((alert = screen.getByRole('alert'))).toHaveTextContent(
         'Copy did not work. Select the setup text in the box, then copy it yourself.'
       )
     )
-    expect(screen.getByRole('alert')).not.toHaveTextContent(/clipboard access/i)
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).not.toHaveTextContent(/clipboard access/i)
   })
 
   test('applies a starter template to simple chat agent instructions', async () => {
