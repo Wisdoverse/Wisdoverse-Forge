@@ -166,15 +166,17 @@ Prerequisites: set `CLI_IMAGE_AUTO_UPDATE_ENABLED=true` and make Docker availabl
 to the Rust API service (the same requirement as `MCP_ENABLED=true`). The updater
 is deployment-global and has no tenant scope, because image state is per host.
 
-| Variable                              | Default                               | Purpose                                                                                                                                                  |
-| ------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CLI_IMAGE_AUTO_UPDATE_ENABLED`       | `false`                               | Enables the background CLI agent-image auto-updater                                                                                                      |
-| `CLI_IMAGE_AUTO_UPDATE_INTERVAL_SECS` | `900`                                 | Registry poll interval in seconds (15 min); clamped to a 60-second minimum                                                                               |
-| `CLI_IMAGE_PRUNE_ENABLED`             | `false`                               | Prunes superseded dangling agent overlays after each sweep; only runs when auto-update is on                                                             |
-| `CLI_IMAGE_CLAUDE_AUTO_BUILD`         | `false`                               | Builds the local `claude` image automatically when npm publishes a newer Claude Code; off = detect-only with a one-click Build button in the admin panel |
-| `CLI_IMAGE_NPM_REGISTRY`              | `https://registry.npmjs.org`          | npm registry base for the claude version check and build; point at a mirror (e.g. `https://registry.npmmirror.com`) behind restrictive networks          |
-| `AGENT_REGISTRY`                      | `ghcr.io/wisdoverse/wisdoverse-forge` | Registry base the updater pulls overlays from, as `${AGENT_REGISTRY}/agent-<tool>:<tag>`                                                                 |
-| `AGENT_CLI_IMAGE_TAG`                 | `latest`                              | Image tag the updater tracks, used as the `<tag>` in the remote ref above                                                                                |
+| Variable                                  | Default                               | Purpose                                                                                                                                                  |
+| ----------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CLI_IMAGE_AUTO_UPDATE_ENABLED`           | `false`                               | Enables the background CLI agent-image auto-updater                                                                                                      |
+| `CLI_IMAGE_AUTO_UPDATE_INTERVAL_SECS`     | `900`                                 | Registry poll interval in seconds (15 min); clamped to a 60-second minimum                                                                               |
+| `CLI_IMAGE_PRUNE_ENABLED`                 | `false`                               | Prunes superseded dangling agent overlays after each sweep; only runs when auto-update is on                                                             |
+| `CLI_IMAGE_CLAUDE_AUTO_BUILD`             | `false`                               | Builds the local `claude` image automatically when npm publishes a newer Claude Code; off = detect-only with a one-click Build button in the admin panel |
+| `CLI_IMAGE_NPM_REGISTRY`                  | `https://registry.npmjs.org`          | npm registry base for the claude version check and build; point at a mirror (e.g. `https://registry.npmmirror.com`) behind restrictive networks          |
+| `AGENT_REGISTRY`                          | `ghcr.io/wisdoverse/wisdoverse-forge` | Registry base the updater pulls overlays from, as `${AGENT_REGISTRY}/agent-<tool>:<tag>`                                                                 |
+| `AGENT_CLI_IMAGE_TAG`                     | `latest`                              | Image tag the updater tracks, used as the `<tag>` in the remote ref above                                                                                |
+| `AGENT_CONTAINER_RECONCILE_ENABLED`       | `true`                                | Periodic backstop that clears `agents.container_id` references whose container has vanished; no-ops without a Docker runtime                             |
+| `AGENT_CONTAINER_RECONCILE_INTERVAL_SECS` | `300`                                 | Reconcile sweep interval in seconds; must be greater than 0                                                                                              |
 
 Success looks like newly spawned agents picking up the current CLI overlay
 without an operator running `make update-agents` by hand. Confirm status at the
@@ -333,6 +335,30 @@ Notes:
   `qwen`/`alibaba`/`aliyun` to `dashscope`, `mimo` to `xiaomi`, and `tencent`
   to `hunyuan`. The same aliases with a `_coding` suffix resolve to the
   matching Coding Plan entry.
+
+## Choosing a Model (Live Discovery)
+
+When you add or edit an AI service in Settings → AI services, the model field
+offers the provider's common models as clickable chips, and you can always type
+any model name yourself.
+
+To pull the provider's current model list instead of the built-in one:
+
+1. Pick the AI service and paste the service access key (and Base URL, if your
+   service uses a custom one).
+2. Select **Find available models**.
+3. The chips refresh with the live list and the form shows "Live list from the
+   service". The model field still accepts any custom name.
+
+What success looks like: the chips update to the provider's current models and
+the note reads "Live list from the service".
+
+If discovery cannot reach the provider (no key yet, an unreachable or private
+Base URL, or a provider that does not publish a model list), the form keeps the
+built-in list and shows a short "Showing the built-in models" note — adding the
+service still works normally. Discovery only contacts public HTTPS endpoints;
+private, loopback, and metadata addresses are refused. Results are cached
+briefly so repeated lookups are fast.
 
 ## Guidance
 

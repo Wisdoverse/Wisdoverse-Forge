@@ -14,6 +14,23 @@ const emptyWorkload = {
 }
 
 describe('AssignmentReadinessPanel', () => {
+  test('renders the empty state instead of crashing when participants is undefined', () => {
+    // A partial/malformed readiness payload can leave participants undefined.
+    // The panel must degrade to the empty state, never throw on `.filter`.
+    render(
+      <AssignmentReadinessPanel
+        participants={undefined as unknown as ParticipantSummary[]}
+        workload={emptyWorkload}
+        loading={false}
+        error={null}
+        onRefresh={vi.fn()}
+      />
+    )
+
+    expect(screen.getByRole('heading', { name: 'Agent status' })).toBeDefined()
+    expect(screen.getByTestId('assignment-readiness-empty')).toBeDefined()
+  })
+
   test('guides setup when no agents are connected to the task queue', () => {
     render(
       <AssignmentReadinessPanel

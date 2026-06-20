@@ -39,13 +39,15 @@ export function AssignmentReadinessPanel({
   error,
   onRefresh,
 }: AssignmentReadinessPanelProps) {
-  const available = participants.filter((participant) => participant.status === 'available')
-  const busy = participants.filter((participant) => participant.status === 'busy')
-  const offline = participants.filter((participant) => participant.status === 'offline')
-  const needsAgentSetup =
-    participants.length === 0 || (available.length === 0 && workload.unassigned > 0)
+  // Defensive: never assume a non-null list here, so a malformed/partial
+  // readiness payload degrades to an empty panel instead of crashing the board.
+  const roster = participants ?? []
+  const available = roster.filter((participant) => participant.status === 'available')
+  const busy = roster.filter((participant) => participant.status === 'busy')
+  const offline = roster.filter((participant) => participant.status === 'offline')
+  const needsAgentSetup = roster.length === 0 || (available.length === 0 && workload.unassigned > 0)
   const summary =
-    participants.length === 0
+    roster.length === 0
       ? 'Connect an agent before sending work.'
       : available.length > 0
         ? `${available.length} agent${available.length === 1 ? '' : 's'} can take work now.`
@@ -138,7 +140,7 @@ export function AssignmentReadinessPanel({
         />
       </div>
 
-      {participants.length === 0 && !loading ? (
+      {roster.length === 0 && !loading ? (
         <div
           data-testid="assignment-readiness-empty"
           className="mt-2 rounded-lg border border-dashed border-apple-blue/25 bg-apple-blue/[0.04] px-3 py-2"
@@ -151,9 +153,9 @@ export function AssignmentReadinessPanel({
             Until then, tasks that are not sent yet will wait here.
           </p>
         </div>
-      ) : participants.length > 0 ? (
+      ) : roster.length > 0 ? (
         <div className="mt-2 flex gap-2 overflow-x-auto pb-0.5">
-          {participants.map((participant) => (
+          {roster.map((participant) => (
             <ParticipantChip key={participant.agentId} participant={participant} />
           ))}
         </div>

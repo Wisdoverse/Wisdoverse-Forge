@@ -446,35 +446,49 @@ describe('CliImagesPanel', () => {
       loadCliImages: vi.fn(),
       cliImageRollResult: {
         tool: 'codex',
-        total: 4,
+        total: 5,
         succeeded: 1,
-        failed: 2,
+        failed: 3,
         skippedBusy: 1,
         results: [
-          { agentId: 'a1', ok: true, stopped: false },
-          { agentId: 'a2', ok: false, stopped: true, error: 'respawn failed' },
-          { agentId: 'a3', ok: false, stopped: false, error: 'stop failed' },
+          { agentId: 'a1', ok: true, stopped: false, outcome: 'respawned' },
+          {
+            agentId: 'a2',
+            ok: false,
+            stopped: true,
+            outcome: 'respawn_failed',
+            error: 'respawn failed',
+          },
+          { agentId: 'a3', ok: false, stopped: false, outcome: 'still_running' },
+          {
+            agentId: 'a4',
+            ok: false,
+            stopped: false,
+            outcome: 'unconfirmed',
+            error: 'stop failed',
+          },
         ],
       },
     })
 
     render(<CliImagesPanel />)
     expect(screen.getByText('Last restart: Codex')).toBeDefined()
-    expect(screen.getByText(/1 of 4 agents restarted/)).toBeDefined()
+    expect(screen.getByText(/1 of 5 agents restarted/)).toBeDefined()
     expect(screen.getByText(/1 still working/)).toBeDefined()
-    expect(screen.getByText(/2 need a retry/)).toBeDefined()
+    expect(screen.getByText(/3 need a retry/)).toBeDefined()
     expect(screen.getByText(/Restart again once they show Ready/i)).toBeDefined()
     expect(screen.getByText(/Agents still working were left running/i)).toBeDefined()
     expect(screen.queryByText(/skipped \(busy\)/i)).toBeNull()
-    expect(screen.queryByText(/2 failed/i)).toBeNull()
+    expect(screen.queryByText(/3 failed/i)).toBeNull()
     expect(screen.queryByText(/idle/i)).toBeNull()
-    // start-fail → "now stopped"; stop-fail → unconfirmed post-condition (may be
-    // running on the old image OR already down after a partial stop).
+    // Verified post-conditions: respawn_failed → "now stopped"; still_running →
+    // unchanged, retry; unconfirmed → server reconciles automatically.
     expect(screen.getByText(/did not restart and .* now stopped/)).toBeDefined()
     expect(
-      screen.getByText(
-        /could not be stopped cleanly.*may still be running on.*the previous tool version/s
-      )
+      screen.getByText(/still running on the previous tool version.*Choose Restart again to retry/s)
+    ).toBeDefined()
+    expect(
+      screen.getByText(/could not be confirmed stopped.*reconciling .* automatically/s)
     ).toBeDefined()
     expect(screen.getByText(/Some agents could not restart cleanly/i)).toBeDefined()
     expect(screen.queryByText(/respawn failed/i)).toBeNull()

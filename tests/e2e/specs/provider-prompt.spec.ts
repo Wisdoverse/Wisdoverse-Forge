@@ -126,7 +126,9 @@ async function setupNavMocks(page: Page): Promise<void> {
     r.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ ok: true, tasks: [], stats: { byState: {} } }),
+      // `participants` mirrors the real readiness payload — the board's
+      // AssignmentReadinessPanel reads it from GET /orchestration/participants.
+      body: JSON.stringify({ ok: true, tasks: [], stats: { byState: {} }, participants: [] }),
     })
   )
 }
@@ -230,7 +232,9 @@ async function navigateToAgents(page: Page, baseURL: string): Promise<void> {
   await waitForAppReady(page)
   await page.locator('[data-testid="sidebar-nav-agents"]').click()
   await page.waitForURL('**/agents')
-  await expect(page.getByRole('heading', { name: 'Agents' })).toBeVisible({ timeout: 5000 })
+  await expect(
+    page.getByTestId('page-agents').getByRole('heading', { name: 'Agents' })
+  ).toBeVisible({ timeout: 5000 })
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -248,20 +252,21 @@ test.describe.serial('Simple chat agent UX (#21)', () => {
       .click()
     await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 })
 
-    // With a tested provider seeded, the modal defaults to Simple chat agent
-    // (buildDefaultValues picks the verified provider). The system-prompt
-    // textarea is part of the provider UI, so this test exercises the toggle
-    // default-independently: switch to Project files, then back to Simple chat agent.
+    // With a tested provider seeded, the modal defaults to "Simple chat agent"
+    // (buildDefaultValues picks the verified provider → kind 'provider'). The
+    // system-prompt textarea is part of the chat-agent UI, so this exercises the
+    // toggle default-independently: switch to Project files, then back to chat.
+    // (#629 renamed the kind radiogroup + options.)
     const kindGroup = page.getByRole('radiogroup', { name: 'Where should this agent work?' })
 
-    // Project files kind hides the system-prompt textarea.
+    // "Project files" (container) kind hides the system-prompt textarea.
     await kindGroup.getByText('Project files').click()
     await expect(page.locator('textarea#systemPrompt')).not.toBeVisible()
 
-    // Switching to Simple chat agent reveals the system-prompt textarea.
+    // Switching to "Simple chat agent" reveals the system-prompt textarea.
     await kindGroup.getByText('Simple chat agent').click()
     await expect(page.locator('textarea#systemPrompt')).toBeVisible({ timeout: 3000 })
-    await expect(page.getByPlaceholder(/concise.*code reviewer/i)).toBeVisible()
+    await expect(page.getByPlaceholder(/Help review tasks.*explain risks/i)).toBeVisible()
   })
 
   // 2. Submit POST — body contains lowercase provider + systemPrompt ──────────
@@ -313,11 +318,12 @@ test.describe.serial('Simple chat agent UX (#21)', () => {
     await expect(providerSelect).toHaveValue(PROV_CONFIG_ID, { timeout: 5000 })
 
     // Fill name + system prompt after the provider selection has settled
-    await page.getByPlaceholder('e.g. Frontend Agent').fill('My LLM Agent')
+    await page.getByPlaceholder(/Frontend Agent/).fill('My LLM Agent')
     await page.locator('textarea#systemPrompt').fill('Be concise.')
 
-    // Submit
-    await page.getByRole('button', { name: 'Create Agent' }).click()
+    // Submit (the in-dialog button is lowercase "Create agent"; the page-level
+    // open button is "Create Agent", so scope to the dialog).
+    await page.getByRole('dialog').getByRole('button', { name: 'Create agent' }).click()
 
     // Wait for modal to close (store closes on success)
     await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 })
@@ -337,8 +343,11 @@ test.describe.serial('Simple chat agent UX (#21)', () => {
     const card = page.locator('[data-testid="agent-card-agent-prov-1"]')
     await expect(card).toBeVisible({ timeout: 5000 })
 
-    // AgentKindBadge renders "Chat-only" when cliTool is absent
+    // AgentKindBadge renders "Chat-only" when cliTool is absent (#629 copy).
     await expect(card.getByText('Chat-only', { exact: true })).toBeVisible()
+
+    // Should NOT have the container/"Project files" badge
+    await expect(card.getByText('Project files', { exact: true })).not.toBeVisible()
 
     // Should NOT show old managed workspace copy.
     await expect(card.getByText('Managed', { exact: true })).not.toBeVisible()
@@ -462,8 +471,9 @@ test.describe.serial('Simple chat agent UX (#21)', () => {
 
     await page.locator('[data-testid="agent-card-agent-prov-1"]').click()
 
-    // Navigate to Config tab
-    await page.getByRole('button', { name: 'Instructions' }).click()
+    // Navigate to the agent's Instructions (config) tab. Scope to the page so
+    // it does not collide with the sidebar's "Saved items"/"Saved instructions".
+    await page.getByTestId('page-agents').getByRole('button', { name: 'Instructions' }).click()
 
     // Existing system prompt should be pre-filled
     const promptTextarea = page.locator('textarea#config-system-prompt')
@@ -474,7 +484,7 @@ test.describe.serial('Simple chat agent UX (#21)', () => {
     await promptTextarea.fill('new prompt')
 
     // Save button should be enabled (dirty)
-    const saveBtn = page.getByRole('button', { name: 'Save' })
+    const saveBtn = page.getByRole('button', { name: 'Save Instructions' })
     await expect(saveBtn).toBeEnabled()
     await saveBtn.click()
 

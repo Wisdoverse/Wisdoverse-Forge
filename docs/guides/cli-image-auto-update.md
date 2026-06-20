@@ -198,19 +198,32 @@ Status codes:
 | `409` | A roll of the same tool is already in progress.                                                                                                                                                                                                                                 |
 
 Result shape: `{ tool, total, succeeded, failed, skippedBusy, results: [{ agentId,
-ok, stopped, error? }] }`. `total` counts every agent considered (rolled +
-skipped). Each `results` entry carries `ok` and a `stopped` boolean; `error` is a
-client-safe message (full errors are logged server-side). On a per-agent failure
-`stopped` tells the operator exactly how far the roll got:
+ok, stopped, outcome, error? }] }`. `total` counts every agent considered (rolled +
+skipped). `error` is a client-safe message (full errors are logged server-side).
+The stop path is idempotent and **verifies its post-condition** (stop → remove →
+re-inspect to confirm the container is actually gone) before reporting, so each
+`outcome` is a fact, not a guess. `stopped` is retained for compatibility (`true`
+only for `respawn_failed`); prefer `outcome`:
 
-- **Respawn failed** (`ok: false`, `stopped: true`): the container was confirmed
+- `respawned` (`ok: true`): stopped, removed, and back up on the new image.
+- `respawn_failed` (`ok: false`, `stopped: true`): the container was confirmed
   stopped + removed but the respawn errored, so **the agent is now down**. Restart
   it from the Agents view.
-- **Stop did not complete** (`ok: false`, `stopped: false`): the stop itself
-  errored, so the post-condition is **UNCONFIRMED**. `stop` is not atomic
-  (stop → remove → clear container id), so the agent may still be running on the
-  old image **or** may have been brought partway down — either way a clean stop
-  was not confirmed. **Check the Agents view** to see its real state.
+- `still_running` (`ok: false`): the container is confirmed **still running** on
+  the previous image — the stop did not take effect, so nothing changed. Safe to
+  **retry the roll**.
+- `unconfirmed` (`ok: false`): the final state could not be confirmed (a Docker
+  daemon error during stop). No manual action needed — the **reconcile backstop**
+  (below) converges the agent's `container_id` with Docker on its next sweep.
+
+### Reconcile backstop
+
+A periodic worker reconciles every container-runtime agent's `container_id`
+against Docker: if the referenced container has gone away, it clears the stale
+reference and marks the agent offline. This closes the loop for an `unconfirmed`
+roll without operator intervention. It is on by default when a Docker runtime is
+present and is governed by `AGENT_CONTAINER_RECONCILE_ENABLED` (default `true`)
+and `AGENT_CONTAINER_RECONCILE_INTERVAL_SECS` (default `300`).
 
 ## Shipped follow-ups
 

@@ -14,8 +14,8 @@ use agentforge_core::AppResult;
 
 use crate::health::AppState;
 use crate::services::llm_provider::{
-    LlmProviderService, llm_provider_delete_response, llm_provider_list_response, llm_provider_response,
-    llm_provider_test_response, supported_providers_response,
+    LlmProviderService, discovered_models_response, llm_provider_delete_response, llm_provider_list_response,
+    llm_provider_response, llm_provider_test_response, supported_providers_response,
 };
 
 #[derive(Debug, Clone, Deserialize)]
@@ -36,6 +36,14 @@ pub struct UpdateProviderRequest {
     pub api_key: Option<String>,
     pub base_url: Option<String>,
     pub is_enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscoverModelsRequest {
+    pub provider: String,
+    pub base_url: Option<String>,
+    pub api_key: Option<String>,
 }
 
 fn make_service(state: &AppState) -> LlmProviderService {
@@ -108,12 +116,36 @@ async fn test_provider(
     Ok(Json(llm_provider_test_response(result)))
 }
 
+/// `POST /api/v1/llm-providers/discover-models` — live-list models for a
+/// not-yet-saved provider from form input (provider + optional base URL + key).
+async fn discover_models_preview(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+    Json(req): Json<DiscoverModelsRequest>,
+) -> Json<serde_json::Value> {
+    let result = make_service(&state).discover_models_preview(&req.provider, req.base_url, req.api_key).await;
+    Json(discovered_models_response(&result))
+}
+
+/// `GET /api/v1/llm-providers/{id}/models` — live-list models for a saved
+/// provider using its stored credential.
+async fn discover_models_for_config(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let result = make_service(&state).discover_models_for_config(&auth.scope, id).await?;
+    Ok(Json(discovered_models_response(&result)))
+}
+
 /// Build LLM provider routes sub-router.
 pub fn llm_provider_routes() -> Router<AppState> {
     Router::new()
         .route("/llm-providers/supported", get(get_supported_providers))
+        .route("/llm-providers/discover-models", axum::routing::post(discover_models_preview))
         .route("/llm-providers", get(list_providers).post(create_provider))
         .route("/llm-providers/{id}", get(get_provider).patch(update_provider).delete(delete_provider))
+        .route("/llm-providers/{id}/models", get(discover_models_for_config))
         .route("/llm-providers/{id}/default", axum::routing::post(set_default_provider))
         .route("/llm-providers/{id}/test", axum::routing::post(test_provider))
 }
@@ -178,6 +210,81 @@ mod tests {
         .expect("stored ollama provider");
         assert_eq!(stored.0, "");
         assert_eq!(stored.1, None);
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn discover_models_keyless_returns_curated_fallback(pool: sqlx::PgPool) {
+        use axum::body::{Body, to_bytes};
+        use axum::http::{Request, StatusCode, header};
+        use tower::ServiceExt;
+
+        // No apiKey supplied for a keyed provider: discovery short-circuits to
+        // the curated list without any outbound network call.
+        let seed = crate::test_support::seed_provider_agent(&pool, "openai", "gpt-5.5").await;
+        let app = crate::test_support::test_app_with_mock_provider(pool, "openai", "ok").await;
+
+        let request = Request::builder()
+            .method("POST")
+            .uri("/api/v1/llm-providers/discover-models")
+            .header(header::AUTHORIZATION, format!("Bearer {}", seed.jwt))
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(r#"{"provider":"anthropic"}"#))
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 64 * 1024).await.unwrap()).unwrap();
+        assert_eq!(body["ok"], true);
+        assert_eq!(body["provider"], "anthropic");
+        assert_eq!(body["source"], "curated");
+        let models = body["models"].as_array().expect("models array");
+        assert!(!models.is_empty(), "curated anthropic models must be present");
+        assert!(models.iter().any(|m| m["model"] == "claude-sonnet-4-20250514"));
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn discover_models_blocks_private_base_url(pool: sqlx::PgPool) {
+        use axum::body::{Body, to_bytes};
+        use axum::http::{Request, StatusCode, header};
+        use tower::ServiceExt;
+
+        // A private/loopback base URL is rejected by the SSRF guard before any
+        // request leaves the process; the curated fallback is returned instead.
+        let seed = crate::test_support::seed_provider_agent(&pool, "openai", "gpt-5.5").await;
+        let app = crate::test_support::test_app_with_mock_provider(pool, "openai", "ok").await;
+
+        let request = Request::builder()
+            .method("POST")
+            .uri("/api/v1/llm-providers/discover-models")
+            .header(header::AUTHORIZATION, format!("Bearer {}", seed.jwt))
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(r#"{"provider":"openai","baseUrl":"http://127.0.0.1:9","apiKey":"sk-x"}"#))
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 64 * 1024).await.unwrap()).unwrap();
+        assert_eq!(body["source"], "curated");
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn discover_models_requires_auth(pool: sqlx::PgPool) {
+        use axum::body::Body;
+        use axum::http::{Request, StatusCode, header};
+        use tower::ServiceExt;
+
+        let app = crate::test_support::test_app_with_mock_provider(pool, "openai", "ok").await;
+        let request = Request::builder()
+            .method("POST")
+            .uri("/api/v1/llm-providers/discover-models")
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(r#"{"provider":"anthropic"}"#))
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     }
 
     #[sqlx::test(migrations = "../db/migrations")]
