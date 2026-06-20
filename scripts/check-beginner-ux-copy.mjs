@@ -2112,6 +2112,7 @@ const AGENT_CONFIG_DETAIL_DEAD_END_PATTERNS = [
 
 const AGENT_CONFIG_SAVE_FAILURE_PATTERNS = [
   /\bAgent instructions were not saved\. Refresh this agent/i,
+  /\bAgent instructions were not saved\. Review the instructions, then try again\./i,
   /\bRefresh this agent, confirm it is still a chat-only agent\b/i,
   /\bAsk an admin to check your agent access\b/i,
 ]
@@ -3330,7 +3331,15 @@ function hasAgentConfigDetailDeadEndCopy(relFile, line) {
 }
 
 function hasAgentConfigSaveFailureCopy(relFile, line) {
-  if (!relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx')) return false
+  if (
+    !(
+      relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx') ||
+      relFile.endsWith('src/app/shared/model/agents.store.ts') ||
+      relFile.endsWith('src/app/entities/agent/model/agents.store.ts')
+    )
+  ) {
+    return false
+  }
   if (isLikelyGuardOrParserLine(line)) return false
   return AGENT_CONFIG_SAVE_FAILURE_PATTERNS.some((pattern) => pattern.test(line))
 }

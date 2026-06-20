@@ -3868,6 +3868,15 @@ function promptProfileSaveErrorMessage() {
   return 'Agent instructions were not saved. Refresh this agent, confirm it is still a chat-only agent, then save again. Ask an admin to check your agent access if it keeps failing.'
 }
 `,
+      'src/app/shared/model/agents.store.ts': `
+const AGENT_INSTRUCTIONS_ERROR =
+  'Agent instructions were not saved. Review the instructions, then try again.'
+`,
+      'src/app/entities/agent/model/agents.store.ts': `
+function agentValidationMessage() {
+  return 'Agent instructions were not saved. Review the instructions, then try again.'
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
@@ -3879,6 +3888,14 @@ function promptProfileSaveErrorMessage() {
           type: 'agent-config-save-copy',
           location: 'src/app/features/agents/AgentConfigTab.tsx:3',
         }),
+        expect.objectContaining({
+          type: 'agent-config-save-copy',
+          location: 'src/app/shared/model/agents.store.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-config-save-copy',
+          location: 'src/app/entities/agent/model/agents.store.ts:3',
+        }),
       ])
     )
   })
@@ -3888,6 +3905,15 @@ function promptProfileSaveErrorMessage() {
       'src/app/features/agents/AgentConfigTab.tsx': `
 function promptProfileSaveErrorMessage() {
   return 'Open Agents, choose this chat-only agent again, then save again. If it keeps failing, ask an owner or admin to check your agent access. Agent instructions were not saved.'
+}
+`,
+      'src/app/shared/model/agents.store.ts': `
+const AGENT_INSTRUCTIONS_ERROR =
+  'Check the instruction text, open this agent again, then save the instructions again.'
+`,
+      'src/app/entities/agent/model/agents.store.ts': `
+function agentValidationMessage() {
+  return 'Check the instruction text, open this agent again, then save the instructions again.'
 }
 `,
     })

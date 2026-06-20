@@ -298,6 +298,26 @@ describe('Agents Store', () => {
     expect(useAgentsStore.getState().createModalInitialKind).toBeNull()
   })
 
+  test('stores a check step when agent instructions are not saved', async () => {
+    agentApiMock.updateAgent.mockResolvedValue({
+      ok: false,
+      error: 'database unavailable',
+    })
+
+    const result = await useAgentsStore
+      .getState()
+      .updateAgentSystemPrompt('agent-1', 'Explain risks plainly.')
+
+    expect(result).toBe(false)
+    expectBeginnerError(
+      useAgentsStore.getState().error,
+      'Check the instruction text, open this agent again, then save the instructions again.'
+    )
+    expect(useAgentsStore.getState().error).not.toContain('Review the instructions')
+    expect(useAgentsStore.getState().error).not.toContain('Agent instructions were not saved')
+    expect(useAgentsStore.getState().error).not.toContain('database')
+  })
+
   test('keeps created agent and modal visible when container start needs operator action', async () => {
     useAgentsStore.setState({ createModalOpen: true })
     agentApiMock.createAgent.mockResolvedValue({

@@ -163,7 +163,7 @@ const AGENT_CREATED_START_ERROR =
 const THIS_COMPUTER_SETUP_ERROR =
   'This computer setup text could not be prepared. Check the agent name and work tool, then choose Create Agent again.'
 const AGENT_INSTRUCTIONS_ERROR =
-  'Agent instructions were not saved. Review the instructions, then try again.'
+  'Check the instruction text, open this agent again, then save the instructions again.'
 const AGENT_DELETE_ERROR = 'Open Agents, then try removing this agent again. Agent was not removed.'
 const AGENT_PROMPT_ERROR = 'Instruction was not sent. Open this agent again, then try again.'
 const AGENT_START_ERROR = 'Agent was not started. Open this agent again, then try again.'
