@@ -1392,6 +1392,11 @@ const TASK_FAILURE_OPEN_DETAILS_DEAD_END_PATTERNS = [
   /\bopen details(?:,| (?:for|to|and))/i,
 ]
 
+const TASK_BLOCKED_APPROVAL_JARGON_PATTERNS = [
+  /\bReview the approval request\b/i,
+  /\bapprove or decline\b/i,
+]
+
 const TASK_RECOVERY_OPEN_DETAILS_DEAD_END_PATTERNS = [/\bOpen details\b/i, /\bopen details\b/i]
 
 const BEGINNER_SORTING_JARGON_PATTERNS = [
@@ -4529,6 +4534,12 @@ function hasTaskFailureOpenDetailsDeadEndCopy(relFile, line) {
   return TASK_FAILURE_OPEN_DETAILS_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTaskBlockedApprovalJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/shared/lib/taskFailureCopy.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_BLOCKED_APPROVAL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasTaskRecoveryOpenDetailsDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/board/TaskCard.tsx') &&
@@ -7173,6 +7184,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Task failure previews must name task details and the latest update instead of saying open details.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskBlockedApprovalJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'task-blocked-approval-copy',
+        location,
+        message:
+          'Task blocked copy must tell beginners to open task details and choose the visible next action instead of approval jargon.',
         sample: line.trim(),
       })
     }

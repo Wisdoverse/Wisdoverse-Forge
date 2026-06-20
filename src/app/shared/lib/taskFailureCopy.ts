@@ -67,7 +67,7 @@ export function taskBlockedPreview({
     case 'waiting_input':
       return 'Add the missing information so the agent can continue.'
     case 'waiting_approval':
-      return 'Review the approval request, then approve or decline it.'
+      return 'Open the task details, read what the agent needs, then choose Continue or Stop.'
     case 'quota_exceeded':
       return 'Pause lower-priority work or ask an owner to raise the limit, then retry.'
     default:

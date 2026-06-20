@@ -17410,6 +17410,38 @@ export function taskBlockedPreview() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags blocked task approval copy that uses approval jargon', () => {
+    const cwd = fixture({
+      'src/app/shared/lib/taskFailureCopy.ts': `
+export function taskBlockedPreview() {
+  return 'Review the approval request, then approve or decline it.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'task-blocked-approval-copy',
+        location: 'src/app/shared/lib/taskFailureCopy.ts:3',
+      }),
+    ])
+  })
+
+  it('accepts blocked task copy that points to task details and visible choices', () => {
+    const cwd = fixture({
+      'src/app/shared/lib/taskFailureCopy.ts': `
+export function taskBlockedPreview() {
+  return 'Open the task details, read what the agent needs, then choose Continue or Stop.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags failed task board empty copy that uses retry-path wording', () => {
     const cwd = fixture({
       'src/app/features/board/KanbanColumn.tsx': `
