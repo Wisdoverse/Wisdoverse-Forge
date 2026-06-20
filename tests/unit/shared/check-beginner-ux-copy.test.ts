@@ -7530,6 +7530,50 @@ export function CreateAgentModal() {
     )
   })
 
+  it('flags old chat-agent naming in user-visible copy', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+export function CreateAgentModal() {
+  return (
+    <section>
+      <p>Provider + Prompt</p>
+      <p>Text-only model agent</p>
+    </section>
+  )
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  gettingStarted: {
+    workLocations: {
+      textOnly: 'text-only work',
+    },
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'beginner-jargon-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'beginner-jargon-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'beginner-jargon-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:5',
+        }),
+      ])
+    )
+  })
+
   it('flags this-computer setup copy that uses command-window jargon', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentListView.tsx': `

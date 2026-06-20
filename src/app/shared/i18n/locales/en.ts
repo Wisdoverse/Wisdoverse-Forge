@@ -106,7 +106,7 @@ export const en = {
     workLocations: {
       managed: 'the Project files option',
       local: 'this computer',
-      textOnly: 'text-only work',
+      textOnly: 'chat-only work',
       ready: 'a work location',
     },
     stepStatus: {

@@ -107,8 +107,8 @@ const AGENT_ROLE_TEMPLATES: AgentRoleTemplate[] = [
 ]
 
 /**
- * A Provider + Prompt agent option, sourced from the configured LLM providers
- * (the gateway) in Settings → LLM Providers. Each configured provider carries
+ * A simple chat agent option, sourced from the configured AI services
+ * in Settings. Each configured AI service carries
  * its own display name and model, so we no longer keep a hardcoded list.
  */
 interface ProviderOption {
@@ -133,7 +133,7 @@ function setupCommandPasteHint(os: 'posix' | 'windows'): string {
 }
 
 /**
- * Build the Provider + Prompt options from configured providers. Prefer
+ * Build the simple chat agent options from configured AI services. Prefer
  * providers that passed a connection test; fall back to all enabled providers
  * so a freshly-added (untested) provider is still usable.
  */
@@ -293,8 +293,8 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
   const [copiedJoin, setCopiedJoin] = useState(false)
   const [copyError, setCopyError] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
-  // Provider + Prompt agents pick from the configured providers (the LLM
-  // gateway), preferring tested ones. No usable provider = a clear hint, no
+  // Simple chat agents pick from configured AI services, preferring tested
+  // ones. No usable AI service = a clear hint, no
   // broken dropdown.
   const providerOptions = useMemo(() => buildProviderOptions(providers), [providers])
   const hasProviderOptions = providerOptions.length > 0
@@ -385,8 +385,8 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [createModalOpen, setCreateModalOpen, setError])
 
-  // Provider + Prompt options are sourced from the configured LLM providers in
-  // the settings store, but only the Settings and Getting Started pages load
+  // Simple chat agent options are sourced from configured AI services in the
+  // settings store, but only the Settings and Getting Started pages load
   // that store. Opening this modal from a deep link to /agents would otherwise
   // show an empty provider list even when the org has providers configured.
   // Self-load once per open so the dropdown is populated wherever the modal is
