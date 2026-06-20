@@ -340,6 +340,8 @@ export function ApprovalQueueView() {
         {error && (
           <div
             data-testid="context-approval-error"
+            role="alert"
+            aria-live="polite"
             className="flex items-start gap-2 rounded-card border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red"
           >
             <AlertTriangle

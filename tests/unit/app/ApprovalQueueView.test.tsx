@@ -259,7 +259,8 @@ describe('ApprovalQueueView', () => {
 
     render(<ApprovalQueueView />)
 
-    const error = await screen.findByTestId('context-approval-error')
+    const error = await screen.findByRole('alert')
+    expect(error).toHaveAttribute('data-testid', 'context-approval-error')
     expect(error.textContent).toContain('Check your connection, then choose Load saved items again')
     expect(error.textContent).toContain(
       'Forge could not connect while loading saved notes and instructions'
@@ -277,7 +278,8 @@ describe('ApprovalQueueView', () => {
     await userEvent.setup().click(screen.getByTestId('context-approve-candidate-1'))
     await userEvent.setup().click(screen.getByTestId('context-approval-submit'))
 
-    const error = await screen.findByTestId('context-approval-error')
+    const error = await screen.findByRole('alert')
+    expect(error).toHaveAttribute('data-testid', 'context-approval-error')
     expect(error.textContent).toContain('Choose Load saved items again, then open this item')
     expect(error.textContent).toContain('It changed while you were checking it')
     expect(error.textContent).not.toContain('Refresh the list')
@@ -294,7 +296,8 @@ describe('ApprovalQueueView', () => {
     await userEvent.setup().click(screen.getByTestId('context-reject-candidate-1'))
     await userEvent.setup().click(screen.getByTestId('context-reject-submit'))
 
-    const error = await screen.findByTestId('context-approval-error')
+    const error = await screen.findByRole('alert')
+    expect(error).toHaveAttribute('data-testid', 'context-approval-error')
     expect(error.textContent).toContain('Ask an owner or admin')
     expect(error.textContent).toContain('owner or admin')
     expect(error.textContent).toContain('do not have permission')
