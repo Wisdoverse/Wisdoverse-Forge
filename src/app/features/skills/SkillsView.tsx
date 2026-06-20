@@ -124,7 +124,8 @@ export function SkillsView() {
             id={searchHelpId}
             className="hidden max-w-[14rem] text-ui-caption text-secondary-light dark:text-secondary-dark lg:block"
           >
-            Search only filters this list. Clear it to see every saved instruction again.
+            Search only filters this list. Use Show all saved instructions to return to the full
+            list.
           </p>
           <button
             type="button"
@@ -296,33 +297,33 @@ function savedInstructionsEmptyState({
 
   if (hasCatalogSkills && hasSearch && hasFilter) {
     return {
-      title: 'Clear search or show all saved instructions',
-      detail: 'The library has saved instructions, but this search and filter hide them.',
+      title: 'Search and filter are hiding saved instructions',
+      detail:
+        'Use Show all saved instructions before assuming the library has nothing useful saved.',
       action: 'reset',
     }
   }
 
   if (hasCatalogSkills && hasSearch) {
     return {
-      title: 'Clear search to see saved instructions',
-      detail: 'The library has saved instructions, but this search hides them.',
+      title: 'Search is hiding saved instructions',
+      detail: 'Use Show all saved instructions to return to the full list.',
       action: 'reset',
     }
   }
 
   if (hasCatalogSkills && hasFilter) {
     return {
-      title: 'Change filter to see saved instructions',
-      detail: 'The library has saved instructions, but this filter hides them.',
+      title: 'Filter is hiding saved instructions',
+      detail: 'Use Show all saved instructions to return to the full list.',
       action: 'reset',
     }
   }
 
   if (hasSearch) {
     return {
-      title: 'Clear search or create a saved instruction',
-      detail:
-        'There are no saved instructions yet. Clear search, then choose Save instruction to save reusable steps.',
+      title: 'No saved instruction matches that search yet',
+      detail: 'If this is a reusable step your team needs, choose Save instruction and add it now.',
       action: 'create',
     }
   }
@@ -382,8 +383,8 @@ function skillToolbarStatus({
     return `${visibleCount} saved instruction${visibleCount === 1 ? '' : 's'}`
   }
   if (totalCount === 0) return 'Choose Save instruction to start.'
-  if (searchQuery.trim()) return 'Clear search to see saved instructions.'
-  if (filter !== 'all') return 'Change filter to see saved instructions.'
+  if (searchQuery.trim()) return 'Search is hiding saved instructions.'
+  if (filter !== 'all') return 'Filter is hiding saved instructions.'
   return 'Choose Save instruction to add a saved instruction.'
 }
 

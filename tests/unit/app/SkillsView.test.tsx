@@ -35,7 +35,7 @@ describe('SkillsView', () => {
     render(<SkillsView />)
     const search = screen.getByRole('searchbox', { name: /search saved instructions/i })
     expect(search).toHaveAccessibleDescription(
-      'Search only filters this list. Clear it to see every saved instruction again.'
+      'Search only filters this list. Use Show all saved instructions to return to the full list.'
     )
   })
 
@@ -168,9 +168,47 @@ describe('SkillsView', () => {
       target: { value: 'release handoff' },
     })
 
-    expect(screen.getByText('Clear search or create a saved instruction')).toBeDefined()
-    expect(screen.getByText(/clear search, then choose save instruction/i)).toBeDefined()
+    expect(screen.getByText('No saved instruction matches that search yet')).toBeDefined()
+    expect(screen.getByText(/choose save instruction and add it now/i)).toBeDefined()
     expect(screen.queryByText('No saved instructions match your search')).toBeNull()
+  })
+
+  test('guides hidden saved instructions back to the full list', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        data: [
+          {
+            id: 'skill-release',
+            name: 'release-draft',
+            description: 'Draft release notes',
+            trigger_pattern: 'release',
+            content: 'Summarize accepted work',
+            enabled: true,
+          },
+        ],
+      }),
+    })
+
+    render(<SkillsView />)
+
+    await screen.findByText('release-draft')
+    fireEvent.change(screen.getByLabelText(/search saved instructions/i), {
+      target: { value: 'handoff checklist' },
+    })
+
+    const emptyState = screen.getByTestId('saved-instructions-empty-state')
+    expect(emptyState).toHaveTextContent('Search is hiding saved instructions')
+    expect(emptyState).toHaveTextContent(
+      'Use Show all saved instructions to return to the full list.'
+    )
+    expect(emptyState).not.toHaveTextContent('Clear search to see saved instructions')
+
+    fireEvent.click(within(emptyState).getByRole('button', { name: 'Show all saved instructions' }))
+
+    expect(screen.getByLabelText(/search saved instructions/i)).toHaveValue('')
+    expect(screen.getByText('release-draft')).toBeDefined()
   })
 
   test('renders skills from the Rust API response shape', async () => {
