@@ -91,7 +91,7 @@ export function EditableTeamRow({
       >
         <div className="flex flex-col gap-2">
           {error && (
-            <div role="alert" className={uiStyles.error}>
+            <div role="alert" aria-live="polite" className={uiStyles.error}>
               {error}
             </div>
           )}
@@ -181,7 +181,7 @@ export function EditableTeamRow({
           </p>
         )}
         {error && (
-          <p role="alert" className="mt-1 text-ui-caption text-apple-red">
+          <p role="alert" aria-live="polite" className="mt-1 text-ui-caption text-apple-red">
             {error}
           </p>
         )}
