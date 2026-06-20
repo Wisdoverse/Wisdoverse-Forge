@@ -99,6 +99,8 @@ describe('BoardView', () => {
     render(<BoardView />)
 
     const error = await screen.findByTestId('board-error')
+    const alert = within(error).getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(error.textContent).toContain('Sign in again')
     expect(error.textContent).not.toContain('Code:')
     expect(error.textContent).not.toContain('401 Unauthorized')
@@ -394,6 +396,7 @@ describe('BoardView', () => {
     fireEvent.click(screen.getByRole('button', { name: /^save for later$/i }))
 
     const alert = await screen.findByTestId('board-action-error')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
       'Check the project, where tasks wait, and the result, then create the task again. The task was not created.'
     )
