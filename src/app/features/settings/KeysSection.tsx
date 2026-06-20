@@ -163,7 +163,11 @@ function NewKeyBanner({ keyValue, onDismiss }: NewKeyBannerProps) {
           </p>
           <code className="break-all font-mono text-ui-caption">{keyValue}</code>
           {copyError && (
-            <p role="alert" className="mt-2 text-ui-caption font-medium text-apple-red">
+            <p
+              role="alert"
+              aria-live="polite"
+              className="mt-2 text-ui-caption font-medium text-apple-red"
+            >
               {copyError}
             </p>
           )}
@@ -275,7 +279,12 @@ function CreateKeyForm({ onSave, onCancel, saving }: CreateKeyFormProps) {
         Use a clear tool or job name. This makes it easy to remove the right access key later.
       </p>
       {visibleError && (
-        <p id={nameErrorId} role="alert" className="mt-1 text-ui-caption text-apple-red">
+        <p
+          id={nameErrorId}
+          role="alert"
+          aria-live="polite"
+          className="mt-1 text-ui-caption text-apple-red"
+        >
           {visibleError}
         </p>
       )}

@@ -102,7 +102,9 @@ describe('KeysSection', () => {
     fireEvent.submit(form!)
 
     expect(createApiKeyMock).not.toHaveBeenCalled()
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
       /name the tool that will use this access key first/i
     )
     expect(input).toHaveFocus()
@@ -167,10 +169,12 @@ describe('KeysSection', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /copy access value/i }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
       'Copy did not work. Select the access value text, copy it yourself, then choose I saved this value.'
     )
-    expect(screen.getByRole('alert')).not.toHaveTextContent(/clipboard access/i)
+    expect(alert).not.toHaveTextContent(/clipboard access/i)
   })
 
   test('labels saved key rows with clear removal language', async () => {
