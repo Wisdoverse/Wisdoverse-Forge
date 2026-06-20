@@ -35,13 +35,25 @@ describe('taskDetailErrorMessage', () => {
   test('explains network failures without exposing only a transport error', () => {
     const message = taskDetailErrorMessage('loadRuns', new TypeError('Failed to fetch'))
 
-    expect(message).toContain('Open Updates for this task again before deciding whether to retry this task.')
+    expect(message).toContain(
+      'Open Updates for this task again before deciding whether to retry this task.'
+    )
     expect(message).toContain('If it still does not load, check your connection')
     expect(message).toContain('open this task again from the Tasks page')
     expect(message).not.toContain('refresh the page')
     expect(message).not.toContain('API')
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('app could not reach')
+  })
+
+  test('describes update network failures with the visible task action path', () => {
+    const message = taskDetailErrorMessage('cancelTask', new TypeError('Network error'))
+
+    expect(message).toContain('Open this task again from the Tasks page, then choose Cancel again.')
+    expect(message).toContain('open this task again from the Tasks page')
+    expect(message).toContain('choose the action again')
+    expect(message).not.toContain('try again. Task actions are busy')
+    expect(message).not.toContain('check your connection and try again')
   })
 
   test('gives a clear next step when no agent can take the task', () => {
@@ -120,6 +132,21 @@ describe('taskDetailErrorMessage', () => {
     )
   })
 
+  test('turns agent and saved-note validation details into task-detail recovery steps', () => {
+    expectBeginnerMessage(
+      taskDetailErrorMessage('publishTask', new Error('agent required')),
+      'Choose an available agent, then open this task again from the Tasks page and choose the action again.'
+    )
+    expectBeginnerMessage(
+      taskDetailErrorMessage('publishTask', new Error('context selection changed')),
+      'Check the selected saved notes, then open this task again from the Tasks page and choose the action again.'
+    )
+    expectBeginnerMessage(
+      taskDetailErrorMessage('publishTask', new Error('publish failed')),
+      'Check the task details, then send the task again.'
+    )
+  })
+
   test('turns approval validation details into the Approve action', () => {
     expectBeginnerMessage(
       taskDetailErrorMessage('approveTask', new Error('approval state changed')),
@@ -138,7 +165,11 @@ describe('taskDetailErrorMessage', () => {
     )
     expectBeginnerMessage(
       taskDetailErrorMessage('retryTask', new Error('HTTP 429')),
-      'Wait a moment, then try again. Task actions are busy.'
+      'Open this task again from the Tasks page, then choose Retry task again. The task was not retried. Wait a moment before choosing the action again. Task actions are busy right now.'
+    )
+    expectBeginnerMessage(
+      taskDetailErrorMessage('loadRuns', new Error('HTTP 429')),
+      'Wait a moment, then open this task again from the Tasks page. Task details are busy right now.'
     )
   })
 })
