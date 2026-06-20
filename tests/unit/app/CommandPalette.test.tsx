@@ -206,6 +206,9 @@ describe('CommandPalette', () => {
     expect(
       screen.queryByText(/try tasks, inbox, saved items, agents, saved instructions, or settings/i)
     ).toBeNull()
+    expect(screen.getByRole('button', { name: /open tasks/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /open agents/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /open settings/i })).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: /show all pages and actions/i }))
 
     await waitFor(() => {
@@ -217,6 +220,24 @@ describe('CommandPalette', () => {
     expect(screen.queryByText(/common workflow/i)).toBeNull()
     expect(screen.queryByText(previousEmptyTitle)).toBeNull()
     expect(screen.queryByText(new RegExp(previousFullListCopy, 'i'))).toBeNull()
+  })
+
+  test('empty search lets beginners open a common page directly', async () => {
+    const onSelect = vi.fn()
+    const onClose = vi.fn()
+    render(<CommandPalette isOpen={true} onClose={onClose} onSelect={onSelect} />)
+
+    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+      target: { value: 'where is the thing' },
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent('No page or option matches that search')
+    })
+    fireEvent.click(screen.getByRole('button', { name: /open agents/i }))
+
+    expect(onSelect).toHaveBeenCalledWith('nav:agents')
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 
   test('suggests common workflow terms when search has no matches', () => {
@@ -234,6 +255,9 @@ describe('CommandPalette', () => {
     expect(
       screen.queryByText(/try tasks, inbox, saved items, agents, saved instructions, or settings/i)
     ).toBeNull()
+    expect(screen.getByRole('button', { name: /open tasks/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /open agents/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /open settings/i })).toBeDefined()
     expect(screen.getByRole('button', { name: /show all pages and actions/i })).toBeDefined()
     expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull()
     expect(screen.queryByText(previousEmptyTitle)).toBeNull()

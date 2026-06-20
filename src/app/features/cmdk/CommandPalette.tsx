@@ -42,6 +42,10 @@ const NAV_COMMANDS = [
   },
 ]
 
+type NavCommand = (typeof NAV_COMMANDS)[number]
+
+const EMPTY_SEARCH_QUICK_COMMAND_IDS = ['nav:tasks', 'nav:agents', 'nav:settings'] as const
+
 const DEFAULT_CREATE_TASK_COMMAND = {
   id: 'action:create-task',
   label: 'New task',
@@ -112,6 +116,9 @@ export function CommandPalette({
     ? baseActionCommands
     : [SETUP_CHECKLIST_RECOVERY_COMMAND, ...baseActionCommands]
   const emptySearchSuggestion = commonWorkflowSuggestion(navCommands)
+  const emptySearchQuickCommands = EMPTY_SEARCH_QUICK_COMMAND_IDS.map((id) =>
+    navCommands.find((command) => command.id === id)
+  ).filter((command): command is NavCommand => Boolean(command))
 
   function handleSelect(commandId: string) {
     onSelect?.(commandId)
@@ -174,6 +181,20 @@ export function CommandPalette({
                 </p>
                 <p className="mt-1">{emptySearchSuggestion}</p>
               </div>
+              {emptySearchQuickCommands.length > 0 && (
+                <div className="mt-3 flex flex-wrap justify-center gap-2" aria-label="Common pages">
+                  {emptySearchQuickCommands.map((command) => (
+                    <button
+                      key={command.id}
+                      type="button"
+                      onClick={() => handleSelect(command.id)}
+                      className="inline-flex h-8 items-center justify-center rounded-full border border-apple-blue/30 bg-apple-blue/10 px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-apple-blue/40 dark:bg-apple-blue/15 dark:text-apple-blue-light dark:hover:bg-apple-blue/25"
+                    >
+                      Open {command.label}
+                    </button>
+                  ))}
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => setSearch('')}
