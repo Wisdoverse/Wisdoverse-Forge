@@ -61,21 +61,41 @@ vi.mock('@app/features/manage-team', () => ({
   EditableTeamRow: () => <div>Existing team row</div>,
 }))
 
-vi.mock('@app/features/manage-project', () => ({
-  CreateProjectForm: ({
-    onSave,
-  }: {
-    onSave: (name: string, teamId: string, repositoryUrl?: string) => Promise<void>
-  }) => (
-    <div>
-      <div>Project form ready</div>
-      <button type="button" onClick={() => void onSave('Project One', 'team-1')}>
-        Save project
-      </button>
-    </div>
-  ),
-  EditableProjectRow: () => <div>Existing project row</div>,
-}))
+vi.mock('@app/features/manage-project', async () => {
+  const React = await import('react')
+
+  return {
+    CreateProjectForm: ({
+      onSave,
+    }: {
+      onSave: (name: string, teamId: string, repositoryUrl?: string) => Promise<void>
+    }) => {
+      const [formError, setFormError] = React.useState<string | null>(null)
+
+      return (
+        <div>
+          <div>Project form ready</div>
+          {formError && (
+            <div role="alert" aria-live="polite">
+              {formError}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() =>
+              void onSave('Project One', 'team-1').catch((err: unknown) => {
+                setFormError(err instanceof Error ? err.message : String(err))
+              })
+            }
+          >
+            Save project
+          </button>
+        </div>
+      )
+    },
+    EditableProjectRow: () => <div>Existing project row</div>,
+  }
+})
 
 vi.mock('@app/features/manage-members', () => ({
   ResourceMembersModal: () => <div>Members dialog</div>,
@@ -250,6 +270,29 @@ describe('workspace settings empty states', () => {
       '/tasks'
     )
     expect(screen.getByText('Existing project row')).toBeInTheDocument()
+  })
+
+  it('keeps project creation failures in the form without a duplicate page alert', async () => {
+    mocks.getTeams.mockResolvedValue([{ ...teamAlpha, canCreateProject: true }])
+    mocks.getProjects.mockResolvedValue([])
+    mocks.createProject.mockRejectedValue(new Error('API 503: database unavailable'))
+
+    render(<ProjectsSection />)
+
+    await waitFor(() => expect(mocks.getProjects).toHaveBeenCalledWith('team-1'))
+    fireEvent.click(await screen.findByRole('button', { name: /new project/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save project/i }))
+
+    const alerts = await screen.findAllByRole('alert')
+    expect(alerts).toHaveLength(1)
+    expect(alerts[0]).toHaveAttribute('aria-live', 'polite')
+    expect(alerts[0]).toHaveTextContent(
+      'Open Settings and Teams and Projects again, choose the team, then create this project again. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
+    )
+    expect(alerts[0]).not.toHaveTextContent('API 503')
+    expect(alerts[0]).not.toHaveTextContent('database unavailable')
+    expect(screen.getByText('Project form ready')).toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
   it('explains where to manage project people and access', async () => {

@@ -122,10 +122,9 @@ export function ProjectsSection() {
       setCreatedProjectName(project.name || name)
       setShowForm(false)
     } catch (err) {
-      // Re-throw so CreateProjectForm surfaces the server's rejection (e.g. an
-      // invalid repository URL) as a banner instead of failing silently.
+      // Keep create failures in the form the user is editing; the form banner
+      // receives this normalized message from the thrown error.
       const message = workspaceSettingsErrorMessage('project', 'create', err)
-      setError(message)
       setCreatedProjectName(null)
       throw new Error(message, { cause: err })
     } finally {
