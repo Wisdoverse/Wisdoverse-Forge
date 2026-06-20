@@ -72,7 +72,7 @@ describe('KanbanColumn', () => {
 
     const emptyState = screen.getByTestId('kanban-empty-queued')
     expect(within(emptyState).getByText('Sent tasks wait here for an agent')).toBeDefined()
-    expect(within(emptyState).getByText(/available agent starts them/i)).toBeDefined()
+    expect(within(emptyState).getByText(/that agent starts them/i)).toBeDefined()
     expect(within(emptyState).queryByText('Nothing waiting to start')).toBeNull()
     expect(emptyState.textContent).not.toMatch(/queue|queued/i)
     expect(emptyState.textContent).not.toContain('dispatch')

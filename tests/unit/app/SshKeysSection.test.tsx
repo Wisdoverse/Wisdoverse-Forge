@@ -183,15 +183,20 @@ describe('SshKeysSection', () => {
     const removeNowButton = screen.getByRole('button', {
       name: /confirm removing work laptop SSH code access/i,
     })
+    let resolveDelete: (removed: boolean) => void = () => {}
     deleteSshKeyMock.mockImplementationOnce(
-      () => new Promise((resolve) => setTimeout(() => resolve(true), 20))
+      () =>
+        new Promise((resolve) => {
+          resolveDelete = resolve
+        })
     )
 
     await user.click(removeNowButton)
-    expect(removeNowButton).toHaveTextContent('Removing...')
+    await waitFor(() => expect(removeNowButton).toHaveTextContent('Removing...'))
     expect(removeNowButton).toHaveAttribute('aria-busy', 'true')
     expect(screen.getByRole('button', { name: /keep access/i })).toBeDisabled()
 
+    resolveDelete(true)
     await waitFor(() => expect(deleteSshKeyMock).toHaveBeenCalledWith('ssh-key-1'))
   })
 
