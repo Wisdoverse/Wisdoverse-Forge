@@ -254,7 +254,11 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
 
   if (error) {
     return (
-      <div role="alert" className="flex flex-col items-center justify-center py-8 text-center">
+      <div
+        role="alert"
+        aria-live="polite"
+        className="flex flex-col items-center justify-center py-8 text-center"
+      >
         <p className="text-ui-body font-medium text-apple-red">
           Go back to Agents, choose this agent again, then open Tools.
         </p>
@@ -390,6 +394,7 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
       {actionError ? (
         <div
           role="alert"
+          aria-live="polite"
           className="rounded-card border border-apple-red/25 bg-apple-red/[0.06] px-4 py-3 text-ui-caption text-apple-red"
         >
           {actionError}

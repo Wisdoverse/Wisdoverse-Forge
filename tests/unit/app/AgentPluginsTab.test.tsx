@@ -243,6 +243,7 @@ describe('AgentPluginsTab', () => {
     render(<AgentPluginsTab agentId="agent-1" />)
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(
       within(alert).getByText('Go back to Agents, choose this agent again, then open Tools.')
     ).toBeDefined()
@@ -270,6 +271,7 @@ describe('AgentPluginsTab', () => {
     fireEvent.click(shellSwitch)
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert.textContent).toContain('The switch was returned to its previous setting.')
     expect(alert.textContent).toContain(
       "Ask an owner or admin to give you access to this agent's tools."
