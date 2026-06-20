@@ -577,8 +577,8 @@ describe('TaskFormModal', () => {
       expect(alert).toHaveAttribute('aria-live', 'polite')
       expect(alert).toHaveTextContent(/short title/i)
     })
+    await waitFor(() => expect(scrollSpy).toHaveBeenCalled())
     const callsAfterFirst = scrollSpy.mock.calls.length
-    expect(callsAfterFirst).toBeGreaterThan(0)
 
     fireEvent.click(submit)
     await waitFor(() => expect(scrollSpy.mock.calls.length).toBeGreaterThan(callsAfterFirst))

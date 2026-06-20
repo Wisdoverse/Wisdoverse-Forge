@@ -70,9 +70,11 @@ describe('Skills toolbar status', () => {
       target: { value: 'database' },
     })
 
-    expect(screen.getByText('Clear search to see saved instructions.')).toBeInTheDocument()
-    expect(screen.getByText('Clear search to see saved instructions')).toBeInTheDocument()
-    expect(screen.getByText(/this search hides them/i)).toBeInTheDocument()
+    expect(screen.getByText('Search is hiding saved instructions.')).toBeInTheDocument()
+    expect(screen.getByText('Search is hiding saved instructions')).toBeInTheDocument()
+    expect(
+      screen.getByText('Use Show all saved instructions to return to the full list.')
+    ).toBeInTheDocument()
     const emptyState = screen.getByTestId('saved-instructions-empty-state')
     expect(emptyState).toHaveAttribute('role', 'status')
     expect(emptyState).toHaveAttribute('aria-live', 'polite')
@@ -117,9 +119,11 @@ describe('Skills toolbar status', () => {
       })
     )
 
-    expect(screen.getByText('Change filter to see saved instructions.')).toBeInTheDocument()
-    expect(screen.getByText('Change filter to see saved instructions')).toBeInTheDocument()
-    expect(screen.getByText(/this filter hides them/i)).toBeInTheDocument()
+    expect(screen.getByText('Filter is hiding saved instructions.')).toBeInTheDocument()
+    expect(screen.getByText('Filter is hiding saved instructions')).toBeInTheDocument()
+    expect(
+      screen.getByText('Use Show all saved instructions to return to the full list.')
+    ).toBeInTheDocument()
     const emptyState = screen.getByTestId('saved-instructions-empty-state')
     expect(emptyState).toHaveAttribute('role', 'status')
     expect(emptyState).toHaveAttribute('aria-live', 'polite')
