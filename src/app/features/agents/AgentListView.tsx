@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   ArrowRight,
@@ -400,6 +400,8 @@ function HostCliEnrollmentPanel({
   const [platform, setPlatform] = useState<HostCliPlatform>('posix')
   const [copied, setCopied] = useState(false)
   const [copyError, setCopyError] = useState<string | null>(null)
+  const [copyErrorAttempt, setCopyErrorAttempt] = useState(0)
+  const copyErrorRef = useRef<HTMLParagraphElement>(null)
   const command = useMemo(
     () => buildLocalEnrollCommand(selectedProjectId, platform),
     [platform, selectedProjectId]
@@ -409,11 +411,16 @@ function HostCliEnrollmentPanel({
     : 'Open project settings first.'
   const commandReady = Boolean(selectedProjectId)
 
+  useEffect(() => {
+    if (copyError) copyErrorRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [copyError, copyErrorAttempt])
+
   async function handleCopyCommand() {
     if (!commandReady) return
     setCopyError(null)
     if (!navigator.clipboard?.writeText) {
       setCopyError('Copy did not work. Select the setup text in the box, then copy it yourself.')
+      setCopyErrorAttempt((current) => current + 1)
       return
     }
     try {
@@ -422,6 +429,7 @@ function HostCliEnrollmentPanel({
       window.setTimeout(() => setCopied(false), 1800)
     } catch {
       setCopyError('Copy did not work. Select the setup text in the box, then copy it yourself.')
+      setCopyErrorAttempt((current) => current + 1)
     }
   }
 
@@ -592,6 +600,7 @@ function HostCliEnrollmentPanel({
         </button>
         {copyError && (
           <p
+            ref={copyErrorRef}
             role="alert"
             aria-live="polite"
             className="mt-2 text-ui-caption font-medium text-apple-red"

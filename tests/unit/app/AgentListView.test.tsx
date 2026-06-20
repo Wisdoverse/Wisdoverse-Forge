@@ -180,6 +180,9 @@ describe('AgentListView', () => {
   })
 
   test('shows manual-copy guidance when the setup command cannot be copied', async () => {
+    const scrollSpy = vi
+      .spyOn(Element.prototype, 'scrollIntoView')
+      .mockImplementation(() => undefined)
     useNavigationStore.setState({
       selectedProjectId: 'p1',
       projects: {
@@ -211,10 +214,17 @@ describe('AgentListView', () => {
       'Copy did not work. Select the setup text in the box, then copy it yourself.'
     )
     expect(alert).not.toHaveTextContent(/clipboard access/i)
+    await waitFor(() => expect(scrollSpy.mock.calls.length).toBeGreaterThan(0))
+    const callsAfterFirstFailure = scrollSpy.mock.calls.length
+
+    fireEvent.click(within(enrollment).getByRole('button', { name: /copy setup text/i }))
+
+    await waitFor(() => expect(scrollSpy.mock.calls.length).toBeGreaterThan(callsAfterFirstFailure))
 
     fireEvent.click(within(enrollment).getByRole('button', { name: /windows/i }))
 
     expect(within(enrollment).queryByRole('alert')).toBeNull()
+    scrollSpy.mockRestore()
   })
 
   test('renders agent cards', () => {
