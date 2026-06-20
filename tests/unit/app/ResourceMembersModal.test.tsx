@@ -109,6 +109,21 @@ describe('ResourceMembersModal', () => {
     expect(
       screen.getByText('Choose a person, pick the safest access level, then add them here.')
     ).toBeDefined()
+    const candidateStatus = screen.getByTestId('member-candidate-status')
+    expect(candidateStatus).toHaveAttribute('role', 'status')
+    expect(candidateStatus).toHaveAttribute('aria-live', 'polite')
+    expect(screen.getByLabelText('Filter team-space people')).toHaveAccessibleDescription(
+      'Choose a person, pick the safest access level, then add them here.'
+    )
+    expect(screen.getByLabelText('Select person to add')).toHaveAccessibleDescription(
+      'Choose a person, pick the safest access level, then add them here.'
+    )
+    expect(screen.getByRole('button', { name: /add/i })).toHaveAccessibleDescription(
+      'Choose a person, pick the safest access level, then add them here.'
+    )
+    expect(screen.getByLabelText('New member access level')).toHaveAccessibleDescription(
+      'Start with Member access. Choose Maintainer, Admin, or Owner only when this person needs to change work or manage access.'
+    )
     expect(screen.getByText('Add people already in your team space')).toBeDefined()
     expect(screen.getByText('People with access')).toBeDefined()
     expect(screen.queryByText('Add People Already in Your Organization')).toBeNull()
@@ -162,11 +177,17 @@ describe('ResourceMembersModal', () => {
     })
 
     expect(screen.getByText('Clear search or invite this person first')).toBeDefined()
+    const candidateStatus = screen.getByTestId('member-candidate-status')
+    expect(candidateStatus).toHaveAttribute('role', 'status')
+    expect(candidateStatus).toHaveAttribute('aria-live', 'polite')
     expect(
       screen.getByText(
         'Clear the filter or invite the person to the team space before adding them here.'
       )
     ).toBeDefined()
+    expect(screen.getByLabelText('Filter team-space people')).toHaveAccessibleDescription(
+      'Clear the filter or invite the person to the team space before adding them here.'
+    )
     expect(screen.queryByText('No matching team-space people')).toBeNull()
     expect(screen.queryByText(/organization members/i)).toBeNull()
     expect(screen.getByText('owner@example.com')).toBeDefined()

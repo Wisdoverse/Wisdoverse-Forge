@@ -354,10 +354,20 @@ export function ResourceMembersModal({
               </button>
             </div>
             <p
+              id={addStatusId}
               data-testid="member-candidate-status"
+              role="status"
+              aria-live="polite"
               className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark"
             >
               {candidateStatus.detail}
+            </p>
+            <p
+              id={roleHelpId}
+              className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+            >
+              Start with Member access. Choose Maintainer, Admin, or Owner only when this person
+              needs to change work or manage access.
             </p>
           </div>
 
