@@ -5218,6 +5218,9 @@ function completionSummary() {
 function safeCompletionMessage() {
   return 'Finished with a summary you should check. Open details before using the result.'
 }
+function stdoutSummary() {
+  return 'Finished with a text result. Open the task details to review it before using it.'
+}
 `,
     })
 
@@ -5234,6 +5237,10 @@ function safeCompletionMessage() {
           type: 'task-completion-details-copy',
           location: 'src/app/hooks/useWsDispatch.ts:6',
         }),
+        expect.objectContaining({
+          type: 'task-completion-details-copy',
+          location: 'src/app/hooks/useWsDispatch.ts:9',
+        }),
       ])
     )
   })
@@ -5246,6 +5253,9 @@ function completionSummary() {
 }
 function safeCompletionMessage() {
   return 'Finished with a summary you should check. Open the task details before using the result.'
+}
+function stdoutSummary() {
+  return 'Finished with a text result. Open the task details to check it before using it.'
 }
 `,
     })

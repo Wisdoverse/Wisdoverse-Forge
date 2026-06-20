@@ -498,8 +498,9 @@ describe('dispatchWsMessage', () => {
     const notifications = useFeedStore.getState().notifications
     expect(notifications).toHaveLength(1)
     expect(notifications[0].message).toContain(
-      'Finished with a text result. Open the task details to review it before using it.'
+      'Finished with a text result. Open the task details to check it before using it.'
     )
+    expect(notifications[0].message).not.toContain('review it before using it')
     expect(notifications[0].message).not.toContain('panic')
     expect(notifications[0].message).not.toContain('stack trace')
     expect(notifications[0].message).not.toContain('secret token')

@@ -441,7 +441,7 @@ function completionSummary(task: TaskSummary): string {
     return safeCompletionMessage(result.message)
   }
   if (typeof result.stdout === 'string' && result.stdout.trim()) {
-    return 'Finished with a text result. Open the task details to review it before using it.'
+    return 'Finished with a text result. Open the task details to check it before using it.'
   }
   return 'Completed'
 }

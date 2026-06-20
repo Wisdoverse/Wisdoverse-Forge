@@ -1350,7 +1350,11 @@ const TASK_STATUS_FALLBACK_DEAD_END_PATTERNS = [
 
 const TASK_COMPLETION_SUMMARY_DEAD_END_PATTERNS = [/\bNo completion summary was provided\b/i]
 
-const TASK_COMPLETION_OPEN_DETAILS_DEAD_END_PATTERNS = [/\bOpen details\b/i, /\bopen details\b/i]
+const TASK_COMPLETION_OPEN_DETAILS_DEAD_END_PATTERNS = [
+  /\bOpen details\b/i,
+  /\bopen details\b/i,
+  /\breview it before using it\b/i,
+]
 
 const TASK_OWNER_INPUT_JARGON_PATTERNS = [/\bneeds owner input\b/i]
 
