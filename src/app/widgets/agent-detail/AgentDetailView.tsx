@@ -88,9 +88,9 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
         </p>
       ) : (
         <p>
-          This agent answers in chat through an AI service. It can plan, write, and review text, but
-          it cannot open project files on its own. For file work, use an agent on this computer or
-          one that can edit project files.
+          This agent answers in chat through an AI service. It can answer questions, write, and
+          check text or results, but it cannot open project files on its own. For file work, use an
+          agent on this computer or one that can edit project files.
         </p>
       )}
     </div>

@@ -925,6 +925,12 @@ const AGENT_TASK_LOAD_REFRESH_DEAD_END_PATTERNS = [
   /\brefresh this agent to load its work list\b/i,
 ]
 const AGENT_LIST_SUMMARY_DEAD_END_PATTERNS = [/\bNo agents\b/i]
+const CHAT_ONLY_AGENT_REVIEW_JARGON_PATTERNS = [
+  /\bchat-only AI service for planning and review\b/i,
+  /\bBest for planning, writing, and review\b/i,
+  /\bcan plan, write, and review text\b/i,
+  /\breview text\b/i,
+]
 const AGENT_TOOL_SUMMARY_DEAD_END_PATTERNS = [
   /\bNo tool summary yet\. Ask an owner what this tool lets the agent do before turning it on\./i,
 ]
@@ -3463,6 +3469,17 @@ function hasAgentListSummaryDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/agents/AgentListView.tsx')) return false
   if (line.trim().startsWith('//') || line.trim().startsWith('*')) return false
   return AGENT_LIST_SUMMARY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasChatOnlyAgentReviewJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/agents/AgentListView.tsx') &&
+    !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CHAT_ONLY_AGENT_REVIEW_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAgentToolSummaryDeadEndCopy(relFile, line) {
@@ -6159,6 +6176,16 @@ function scanFile(file, relFile) {
         type: 'agent-list-summary-copy',
         location,
         message: 'Agent list empty summaries must point beginners to creating the first agent.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasChatOnlyAgentReviewJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'chat-only-agent-review-copy',
+        location,
+        message:
+          'Chat-only agent copy must say questions, writing, and checking results instead of review jargon.',
         sample: line.trim(),
       })
     }

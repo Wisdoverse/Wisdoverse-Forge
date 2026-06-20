@@ -5281,6 +5281,67 @@ function AgentSummary() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags chat-only agent copy that still says review instead of check results', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentListView.tsx': `
+function AgentChoiceGuide() {
+  return <p>Best for planning, writing, and review when no project files need to be opened.</p>
+}
+function AgentEmptyState() {
+  return <p>Start with a chat-only AI service for planning and review.</p>
+}
+`,
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function AgentDetailView() {
+  return <p>This agent can plan, write, and review text.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'chat-only-agent-review-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:3',
+          sample: expect.stringContaining('planning, writing, and review'),
+        }),
+        expect.objectContaining({
+          type: 'chat-only-agent-review-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:6',
+          sample: expect.stringContaining('planning and review'),
+        }),
+        expect.objectContaining({
+          type: 'chat-only-agent-review-copy',
+          location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:3',
+          sample: expect.stringContaining('review text'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts chat-only agent copy that names questions and checking results', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentListView.tsx': `
+function AgentChoiceGuide() {
+  return <p>Best for questions, writing, and checking results when no project files need to be opened.</p>
+}
+function AgentEmptyState() {
+  return <p>Start with a chat-only AI service for questions and result checks.</p>
+}
+`,
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function AgentDetailView() {
+  return <p>This agent can answer questions, write, and check text or results.</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags completed task notifications that stop at a missing summary', () => {
     const cwd = fixture({
       'src/app/hooks/useWsDispatch.ts': `

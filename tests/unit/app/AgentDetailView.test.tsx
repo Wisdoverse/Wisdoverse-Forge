@@ -492,7 +492,10 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('AI service is ready for chat')).toBeDefined()
     expect(screen.getAllByText('Chat-only AI service').length).toBeGreaterThan(0)
     expect(screen.getByText(/answers in chat through an AI service/i)).toBeDefined()
-    expect(screen.getByText(/can plan, write, and review text/i)).toBeDefined()
+    expect(
+      screen.getByText(/can answer questions, write, and check text or results/i)
+    ).toBeDefined()
+    expect(screen.queryByText(/can plan, write, and review text/i)).toBeNull()
     expect(screen.getByText(/cannot open project files on its own/i)).toBeDefined()
     expect(screen.getByText(/for file work, use an agent on this computer/i)).toBeDefined()
     const accessNote = screen.getByText(/confirm this chat-only agent can answer/i)

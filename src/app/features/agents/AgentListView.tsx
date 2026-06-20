@@ -181,7 +181,7 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
                   Add your first agent
                 </p>
                 <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-                  Start with a chat-only AI service for planning and review, or connect this
+                  Start with a chat-only AI service for questions and result checks, or connect this
                   computer when the task needs files and commands on your machine.
                 </p>
               </div>
@@ -341,7 +341,7 @@ function AgentChoiceGuide() {
         <ChoiceGuideItem
           icon={Bot}
           title="Chat-only AI service"
-          detail="Best for planning, writing, and review when no project files need to be opened."
+          detail="Best for questions, writing, and checking results when no project files need to be opened."
         />
         <ChoiceGuideItem
           icon={Laptop}
