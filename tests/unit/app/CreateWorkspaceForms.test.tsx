@@ -134,12 +134,14 @@ describe('workspace setup create forms', () => {
     expect(screen.getByText(/Agents will open this project in a folder named/i)).toBeInTheDocument()
     expect(screen.getByText('my-new-repo')).toBeInTheDocument()
     expect(screen.getByText(/You do not need to type this/i)).toBeInTheDocument()
-    expect(screen.getByText('Show exact folder for troubleshooting')).toBeInTheDocument()
+    expect(screen.getByText('Show folder details for support')).toBeInTheDocument()
     expect(screen.queryByText('Show support folder')).toBeNull()
+    expect(screen.queryByText('Show exact folder for troubleshooting')).toBeNull()
     expect(
-      screen.getByText(/Use this only if an owner, admin, or support message asks/i)
+      screen.getByText(/Use this only if an owner, admin, or support message asks for the project folder/i)
     ).toBeInTheDocument()
-    expect(screen.getByText('Exact folder: /workspace/my-new-repo')).toBeInTheDocument()
+    expect(screen.getByText('Project folder for support: /workspace/my-new-repo')).toBeInTheDocument()
+    expect(screen.queryByText('Exact folder: /workspace/my-new-repo')).toBeNull()
   })
 
   test('submits a valid https code link as the third arg', async () => {

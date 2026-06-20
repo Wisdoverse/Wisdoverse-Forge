@@ -2165,6 +2165,8 @@ const TEAM_PROJECT_CREATE_JARGON_PATTERNS = [
   /\bWork folder preview:/i,
   /\bShow support folder\b/i,
   /\bShow support folder path\b/i,
+  /\bShow exact folder\b/i,
+  /\bExact folder:/i,
   /\bShown at the end of (?:team|project) links\b/i,
   /\bLink ending people may see\b/i,
   /\bAutomatic link name\b/i,
