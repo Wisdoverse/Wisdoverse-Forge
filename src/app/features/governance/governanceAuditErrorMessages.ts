@@ -5,6 +5,11 @@ const ACTION_FALLBACKS: Record<GovernanceAuditErrorAction, string> = {
   loadAudit: 'Choose Refresh change history, then apply the filters again.',
 }
 
+const ACTION_RETRY_STEPS: Record<GovernanceAuditErrorAction, string> = {
+  exportAudit: 'choose Export change history again',
+  loadAudit: 'choose Refresh change history again',
+}
+
 export function governanceAuditErrorMessage(
   action: GovernanceAuditErrorAction,
   err: unknown
@@ -18,19 +23,21 @@ export function governanceAuditErrorMessage(
   }
 
   if (status === 401) {
-    return 'Your sign-in expired. Sign in again, then retry this change-history action.'
+    return `Your sign-in expired. Sign in again, then ${ACTION_RETRY_STEPS[action]}.`
   }
 
   if (status === 403) {
-    return 'Ask an owner or admin to update your team space access, then retry this change-history action. You do not have permission to view or export change history.'
+    return `Ask an owner or admin to update your team space access, then ${ACTION_RETRY_STEPS[action]}. You do not have permission to view or export change history.`
   }
 
   if (status === 404) {
-    return 'Open Admin change history again, then retry. If it still fails, ask an owner or admin to check team space access.'
+    return `Open Admin change history again, then ${ACTION_RETRY_STEPS[action]}. If it still fails, ask an owner or admin to check team space access.`
   }
 
   if (status === 409) {
-    return 'Choose Refresh change history, then export again because the change list changed while export was running.'
+    return action === 'exportAudit'
+      ? 'Choose Refresh change history, then choose Export change history again because the change list changed while export was running.'
+      : 'Choose Refresh change history again because the change list changed while you were checking it.'
   }
 
   if (status === 422) {
@@ -38,7 +45,7 @@ export function governanceAuditErrorMessage(
   }
 
   if (status === 429) {
-    return 'Wait a moment, then try again. Change history is handling too many requests right now.'
+    return `Wait a moment, then ${ACTION_RETRY_STEPS[action]}. Change history is handling too many requests right now.`
   }
 
   if (status && status >= 500) {
