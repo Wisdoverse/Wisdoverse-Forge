@@ -619,11 +619,14 @@ describe('dispatchWsMessage', () => {
       taskId: 'credential:codex',
       taskTitle: 'Codex account needs reconnecting',
       ownerUserId: 'user-owner',
-      taskHref: '/settings',
+      taskHref: '/settings/work-tool-sign-ins',
       read: false,
     })
-    expect(notifications[0].message).toContain('Reconnect the Codex account in Settings')
+    expect(notifications[0].message).toContain(
+      'Open Codex and work tool sign-in, then reconnect the Codex account'
+    )
     expect(notifications[0].message).toContain('new agents that work on files')
+    expect(notifications[0].message).not.toContain('in Settings before')
     expect(notifications[0].taskTitle).not.toContain('credential expired')
   })
 

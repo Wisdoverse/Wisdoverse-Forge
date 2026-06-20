@@ -454,6 +454,13 @@ const SAVED_ITEM_SELECTION_EMPTY_DEAD_END_PATTERNS = [
 
 const INBOX_NEEDS_ACTION_EMPTY_DEAD_END_PATTERNS = [/\bNothing needs action right now\b/i]
 
+const INBOX_REVIEW_GUIDANCE_JARGON_PATTERNS = [
+  /\breview time\b/i,
+  /\breview older updates\b/i,
+  /\breview other updates\b/i,
+  /\bReview the latest agent tool update\b/,
+]
+
 const INBOX_LOAD_FAILURE_FIRST_PATTERNS = [
   /^\s*(?:return\s+)?['"`]?Saved notifications could not be loaded\. New updates will still appear here\b/i,
   /^\s*(?:return\s+)?['"`]?Saved notifications could not be loaded, but new updates will still appear here\b/i,
@@ -852,6 +859,14 @@ const TASK_FORM_TEMPLATE_JARGON_PATTERNS = [
   /\bsummary:\s*['"`](?:Build a contained change|Reproduce and fix|Find the reason|Check before release)['"`]/,
   /\btitle:\s*['"`](?:Build a focused feature|Fix a reproducible defect|Investigate an unclear issue|Review a change for release readiness)['"`]/,
   /\bChange to review:/,
+  /\bDescribe the screen, command, or behavior to add\b/i,
+  /\bName the page, folder, or files if you know them\b/i,
+  /\bvisible, passing, or ready to review\b/i,
+  /\bAdd the page, command, log, or file if you know it\b/i,
+  /\bAdd pages, files, logs, or recent changes if you know them\b/i,
+  /\bName the change, request, files, screen, or behavior\b/i,
+  /\bAdd tests, commands, or manual checks\b/i,
+  /\bAsk for a short verdict, issues, and final recommendation\b/i,
 ]
 
 const TASK_FORM_INCOMPLETE_BRIEF_DEAD_END_PATTERNS = [
@@ -935,6 +950,7 @@ const AGENT_LIST_SUMMARY_DEAD_END_PATTERNS = [/\bNo agents\b/i]
 const CHAT_ONLY_AGENT_REVIEW_JARGON_PATTERNS = [
   /\bchat-only AI service for planning and review\b/i,
   /\bBest for planning, writing, and review\b/i,
+  /\bplanning or review with a clear result\b/i,
   /\bplanning,\s*review,\s*or a direct answer\b/i,
   /\bcan plan, write, and review text\b/i,
   /\breview text\b/i,
@@ -1478,11 +1494,23 @@ const TASK_BLOCKED_APPROVAL_JARGON_PATTERNS = [
   /\bapprove or decline\b/i,
 ]
 
+const TASK_ATTENTION_INTERNAL_STATE_JARGON_PATTERNS = [
+  /\bblocked or failed work\b/i,
+  /\bblocked or failed tasks?\b/i,
+  /\bblocked or failed task updates\b/i,
+  /\bneed(?:s)? your help or failed\b/i,
+]
+
 const TASK_RECOVERY_OPEN_DETAILS_DEAD_END_PATTERNS = [/\bOpen details\b/i, /\bopen details\b/i]
 
 const BEGINNER_SORTING_JARGON_PATTERNS = [
   /\bInbox triage path\b/i,
   /\bTriage Queue\b/,
+  /\bid:\s*['"`](?:review|triage)['"`]/,
+  /\blabel:\s*['"`]Review['"`]/,
+  /\bname:\s*['"`]Review Tasks['"`]/,
+  /\bCheck before release\b/i,
+  /\bReview completed work\b/i,
   /\bYou are a triage agent\b/i,
   /\bYou review work carefully\b/i,
   /\bcode review agent\b/i,
@@ -1581,6 +1609,7 @@ const CHAT_FILTER_EMPTY_DEAD_END_PATTERNS = [
 
 const HELP_ENTRY_REVIEW_ACTION_PATTERNS = [
   /\bReview what needs help\b/i,
+  /\bReview what the agent finished\b/i,
   /\ba quick review\b/i,
   /\breview every update\b/i,
 ]
@@ -2275,6 +2304,9 @@ const ACCESS_LEVEL_DEAD_END_PATTERNS = [
 ]
 
 const AGENT_TEMPLATE_ROLE_JARGON_PATTERNS = [
+  /\bAgentRoleTemplate\b/,
+  /\bAGENT_ROLE_TEMPLATES\b/,
+  /\bapplyRoleTemplate\b/,
   /\bStart with a role\b/i,
   /\bAgent role templates\b/i,
   /\bFills in the agent name\b/i,
@@ -3048,6 +3080,12 @@ function hasInboxNeedsActionEmptyDeadEndCopy(relFile, line) {
   return INBOX_NEEDS_ACTION_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasInboxReviewGuidanceJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/inbox/InboxView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return INBOX_REVIEW_GUIDANCE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasInboxLoadFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/inbox/InboxView.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -3552,6 +3590,7 @@ function hasAgentListSummaryDeadEndCopy(relFile, line) {
 function hasChatOnlyAgentReviewJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/agents/AgentListView.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentControlPanel.tsx') &&
     !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx') &&
     !relFile.endsWith('src/app/features/chat/ChatView.tsx')
   ) {
@@ -4787,6 +4826,20 @@ function hasTaskBlockedApprovalJargonCopy(relFile, line) {
   return TASK_BLOCKED_APPROVAL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTaskAttentionInternalStateJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/agents/AgentTasksTab.tsx') &&
+    !relFile.endsWith('src/app/features/board/TaskCard.tsx') &&
+    !relFile.endsWith('src/app/features/feed/ActivityFeed.tsx') &&
+    !relFile.endsWith('src/app/features/feed/AttentionZone.tsx') &&
+    !relFile.endsWith('src/app/features/list/ListView.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_ATTENTION_INTERNAL_STATE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasTaskRecoveryOpenDetailsDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/board/TaskCard.tsx') &&
@@ -4881,6 +4934,7 @@ function hasChatFilterEmptyDeadEndCopy(relFile, line) {
 function hasHelpEntryReviewActionCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/chat/ChatView.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentGroupsPanel.tsx') &&
     !relFile.endsWith('src/app/features/feed/AttentionZone.tsx') &&
     !relFile.endsWith('src/app/features/inbox/InboxItem.tsx')
   ) {
@@ -5785,6 +5839,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Inbox action-item empty states must say the user is caught up instead of using vague nothing-copy.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasInboxReviewGuidanceJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'inbox-review-guidance-copy',
+        location,
+        message: 'Inbox guidance must say check or open instead of review.',
         sample: line.trim(),
       })
     }
@@ -7527,6 +7590,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Task blocked copy must tell beginners to open task details and choose the visible next action instead of approval jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskAttentionInternalStateJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'task-attention-state-copy',
+        location,
+        message:
+          'Task attention copy must say needs help or stopped early instead of blocked or failed work.',
         sample: line.trim(),
       })
     }

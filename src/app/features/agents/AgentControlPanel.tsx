@@ -453,7 +453,7 @@ function getReadyActionInfo(
   return {
     title: 'Ready for chat and tracked tasks',
     detail:
-      'Send a quick instruction here, or create a Task when you need planning or review with a clear result.',
+      'Send a quick instruction here, or create a Task when you need a question answered, writing help, or a result check with a clear outcome.',
   }
 }
 

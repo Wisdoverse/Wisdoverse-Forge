@@ -84,16 +84,16 @@ const TASK_GROUP_TEMPLATES: TaskGroupTemplate[] = [
     Icon: Wrench,
   },
   {
-    id: 'review',
-    label: 'Review',
-    summary: 'Check before release',
-    name: 'Review Tasks',
+    id: 'result-check',
+    label: 'Check results',
+    summary: 'Check before use',
+    name: 'Result Check Tasks',
     description:
-      'Review completed work for behavior that does not look right, missing checks, and anything that could stop a release.',
+      'Check finished work for confusing behavior, missing checks, and anything that could make it unsafe to use.',
     Icon: ShieldCheck,
   },
   {
-    id: 'triage',
+    id: 'sort-work',
     label: 'Sort work',
     summary: 'Clarify and send',
     name: 'Intake Tasks',
@@ -186,7 +186,9 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
 
     const trimmedName = name.trim()
     if (!trimmedName) {
-      setError('Name this waiting place before creating it. Examples: Intake, Review, or Delivery.')
+      setError(
+        'Name this waiting place before creating it. Examples: Intake, Result Check, or Delivery.'
+      )
       nameInputRef.current?.focus()
       return
     }
@@ -655,7 +657,7 @@ function routedTaskNextStep(task: TaskSummary): string {
     case 'failed':
       return taskFailurePreview(task.error)
     case 'completed':
-      return 'Review what the agent finished'
+      return 'Check the finished result'
     case 'canceled':
       return 'Stopped before completion'
   }

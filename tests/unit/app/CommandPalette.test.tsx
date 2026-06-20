@@ -104,10 +104,12 @@ describe('CommandPalette', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByText('Show setup checklist again')).toBeDefined()
+      expect(screen.getByText('Reset setup checklist')).toBeDefined()
     })
     expect(
-      screen.getByText('Open Account settings to add the setup checklist back to the left menu.')
+      screen.getByText(
+        'Add the setup checklist back to the left menu and open it. Projects, agents, and tasks stay unchanged.'
+      )
     ).toBeDefined()
     expect(screen.queryByText('No page or option matches that search')).toBeNull()
   })
@@ -115,7 +117,7 @@ describe('CommandPalette', () => {
   test('shows action commands', () => {
     render(<CommandPalette isOpen={true} onClose={() => {}} />)
     expect(screen.getByText('Create or change something')).toBeDefined()
-    expect(screen.getByText('Show setup checklist again')).toBeDefined()
+    expect(screen.getByText('Reset setup checklist')).toBeDefined()
     expect(screen.getByText('New task')).toBeDefined()
     expect(screen.getByText('Create a task for an agent to finish.')).toBeDefined()
     expect(screen.getByText('Codex and work tool sign-in')).toBeDefined()

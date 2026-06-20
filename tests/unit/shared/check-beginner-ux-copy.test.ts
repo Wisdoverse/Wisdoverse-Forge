@@ -3749,7 +3749,7 @@ const TASK_TEMPLATES = [{
       'src/app/features/board/TaskFormModal.tsx': `
 const TASK_TEMPLATES = [{
   id: 'review',
-  description: 'Change to check:\\n- Name the change, request, files, screen, or behavior.'
+  description: 'Change to check:\\n- Name what changed and where a user would see it.'
 }]
 `,
     })
@@ -4173,26 +4173,39 @@ const AGENT_ROLE_TEMPLATES = [{
   label: 'Review work',
   name: 'Review Helper'
 }]
+function applyRoleTemplate() {
+  return null
+}
 `,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'agent-template-role-copy',
-        sample: expect.stringContaining('Fills in the agent name'),
-      }),
-      expect.objectContaining({
-        type: 'agent-template-role-copy',
-        sample: expect.stringContaining('Review work'),
-      }),
-      expect.objectContaining({
-        type: 'agent-template-role-copy',
-        sample: expect.stringContaining('Review Helper'),
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-template-role-copy',
+          sample: expect.stringContaining('Fills in the agent name'),
+        }),
+        expect.objectContaining({
+          type: 'agent-template-role-copy',
+          sample: expect.stringContaining('Review work'),
+        }),
+        expect.objectContaining({
+          type: 'agent-template-role-copy',
+          sample: expect.stringContaining('Review Helper'),
+        }),
+        expect.objectContaining({
+          type: 'agent-template-role-copy',
+          sample: expect.stringContaining('AGENT_ROLE_TEMPLATES'),
+        }),
+        expect.objectContaining({
+          type: 'agent-template-role-copy',
+          sample: expect.stringContaining('applyRoleTemplate'),
+        }),
+      ])
+    )
   })
 
   it('accepts create-agent starter template hints that explain starter task instructions', () => {
@@ -4201,7 +4214,7 @@ const AGENT_ROLE_TEMPLATES = [{
 function TemplateHint() {
   return <span>Fills in name and starter task instructions</span>
 }
-const AGENT_ROLE_TEMPLATES = [{
+const AGENT_STARTER_TEMPLATES = [{
   label: 'Check results',
   name: 'Result Check Helper'
 }]
@@ -5373,6 +5386,11 @@ function ChatView() {
   return <p>Send a short request below when you need planning, review, or a direct answer.</p>
 }
 `,
+      'src/app/features/agents/AgentControlPanel.tsx': `
+function AgentControlPanel() {
+  return <p>Send a quick instruction here, or create a Task when you need planning or review with a clear result.</p>
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
@@ -5400,6 +5418,11 @@ function ChatView() {
           location: 'src/app/features/chat/ChatView.tsx:3',
           sample: expect.stringContaining('planning, review'),
         }),
+        expect.objectContaining({
+          type: 'chat-only-agent-review-copy',
+          location: 'src/app/features/agents/AgentControlPanel.tsx:3',
+          sample: expect.stringContaining('planning or review'),
+        }),
       ])
     )
   })
@@ -5422,6 +5445,11 @@ function AgentDetailView() {
       'src/app/features/chat/ChatView.tsx': `
 function ChatView() {
   return <p>Send a short request below when you need a question answered, writing help, or a result checked.</p>
+}
+`,
+      'src/app/features/agents/AgentControlPanel.tsx': `
+function AgentControlPanel() {
+  return <p>Send a quick instruction here, or create a Task when you need a question answered, writing help, or a result check with a clear outcome.</p>
 }
 `,
     })
@@ -9618,6 +9646,11 @@ function conversationFilterEmptyCopy() {
   return 'Next: clear filters, review every update, then search again with one short word.'
 }
 `,
+      'src/app/features/agents/AgentGroupsPanel.tsx': `
+function routedTaskNextStep() {
+  return 'Review what the agent finished'
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
@@ -9636,6 +9669,10 @@ function conversationFilterEmptyCopy() {
         expect.objectContaining({
           type: 'help-entry-review-copy',
           location: 'src/app/features/chat/ChatView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'help-entry-review-copy',
+          location: 'src/app/features/agents/AgentGroupsPanel.tsx:3',
         }),
       ])
     )
@@ -9685,6 +9722,10 @@ function filteredEmpty() {
 function filteredDetail() {
   return 'No recent activity matches this view.'
 }
+
+function filterLabel() {
+  return 'Show updates that need your help or failed'
+}
 `,
       'src/app/features/analytics/AnalyticsDashboard.tsx': `
 function nextStep() {
@@ -9720,6 +9761,10 @@ function offlineGuidance() {
         expect.objectContaining({
           type: 'activity-feed-empty-copy',
           location: 'src/app/features/feed/ActivityFeed.tsx:19',
+        }),
+        expect.objectContaining({
+          type: 'task-attention-state-copy',
+          location: 'src/app/features/feed/ActivityFeed.tsx:23',
         }),
         expect.objectContaining({
           type: 'analytics-guidance-copy',
@@ -11712,7 +11757,7 @@ const skillTemplates = [{
   it('flags agent instruction templates that expose evidence or root-cause jargon', () => {
     const cwd = fixture({
       'src/app/features/agents/CreateAgentModal.tsx': `
-const AGENT_ROLE_TEMPLATES = [{
+const AGENT_STARTER_TEMPLATES = [{
   systemPrompt: 'You investigate unclear failures by gathering evidence first. You review work before the team uses it.'
 }]
 `,
@@ -13338,6 +13383,8 @@ const TASK_TEMPLATES = [
   { label: 'Bug', summary: 'Reproduce and fix', title: 'Fix a reproducible defect' },
   { label: 'Investigate', summary: 'Find the reason', title: 'Investigate an unclear issue' },
   { label: 'Review', summary: 'Check before release', title: 'Review a change for release readiness', description: 'Change to review:\\n- Name the change.' },
+  { label: 'Add something', description: 'What should change:\\n- Describe the screen, command, or behavior to add.\\n\\nWhere to work:\\n- Name the page, folder, or files if you know them.\\n\\nDone when:\\n- Say what should be visible, passing, or ready to review.' },
+  { label: 'Check a change', description: 'Change to check:\\n- Name the change, request, files, screen, or behavior.\\n\\nChecks to run:\\n- Add tests, commands, or manual checks.\\n\\nAnswer format:\\n- Ask for a short verdict, issues, and final recommendation.' },
 ]
 `,
     })
@@ -13368,6 +13415,14 @@ const TASK_TEMPLATES = [
         expect.objectContaining({
           type: 'task-form-template-copy',
           location: 'src/app/features/board/TaskFormModal.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'task-form-template-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'task-form-template-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:8',
         }),
       ])
     )
@@ -16008,7 +16063,7 @@ function oldCheckTemplate() {
 `,
       'src/app/features/agents/AgentGroupsPanel.tsx': `
 function groupTemplate() {
-  return 'Triage Queue'
+  return [{ id: 'review', label: 'Review', name: 'Review Tasks', summary: 'Check before release', description: 'Review completed work before release.' }]
 }
 `,
     })
@@ -16040,7 +16095,19 @@ function groupTemplate() {
         }),
         expect.objectContaining({
           type: 'beginner-sorting-copy',
-          sample: expect.stringContaining('Triage Queue'),
+          sample: expect.stringContaining("id: 'review'"),
+        }),
+        expect.objectContaining({
+          type: 'beginner-sorting-copy',
+          sample: expect.stringContaining("label: 'Review'"),
+        }),
+        expect.objectContaining({
+          type: 'beginner-sorting-copy',
+          sample: expect.stringContaining('Review Tasks'),
+        }),
+        expect.objectContaining({
+          type: 'beginner-sorting-copy',
+          sample: expect.stringContaining('Review completed work'),
         }),
       ])
     )
@@ -16063,7 +16130,7 @@ function promptTemplate() {
 `,
       'src/app/features/agents/AgentGroupsPanel.tsx': `
 function groupTemplate() {
-  return 'Intake Queue'
+  return [{ id: 'sort-work', label: 'Sort work', name: 'Intake Tasks' }, { id: 'result-check', label: 'Check results', name: 'Result Check Tasks' }]
 }
 `,
     })
@@ -16075,7 +16142,7 @@ function groupTemplate() {
     const cwd = fixture({
       'src/app/features/agents/AgentConfigTab.tsx': `
 const PROMPT_TEMPLATES = [{
-  id: 'review',
+  id: 'result-check',
   label: 'Review',
   value: 'You check work before the team uses it.'
 }]
@@ -16085,19 +16152,21 @@ const PROMPT_TEMPLATES = [{
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'agent-config-template-copy',
-        location: 'src/app/features/agents/AgentConfigTab.tsx:4',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-config-template-copy',
+          location: 'src/app/features/agents/AgentConfigTab.tsx:4',
+        }),
+      ])
+    )
   })
 
   it('accepts agent instruction template buttons that describe the action', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentConfigTab.tsx': `
 const PROMPT_TEMPLATES = [{
-  id: 'review',
+  id: 'result-check',
   label: 'Check results',
   value: 'You check work before the team uses it.'
 }]
@@ -18282,6 +18351,70 @@ function needsActionEmptyState() {
       'src/app/features/inbox/InboxView.tsx': `
 function needsActionEmptyState() {
   return 'You are caught up on action items'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags inbox guidance that tells beginners to review updates', () => {
+    const cwd = fixture({
+      'src/app/features/inbox/InboxView.tsx': `
+function inboxHeader() {
+  return 'Completed work can wait until review time.'
+}
+function needsActionEmptyState() {
+  return 'Use All when you want to review older updates.'
+}
+function credentialsEmptyState() {
+  return 'Open All to review other updates.'
+}
+function toolUpdateTitle() {
+  return 'Review the latest agent tool update'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'inbox-review-guidance-copy',
+          location: 'src/app/features/inbox/InboxView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'inbox-review-guidance-copy',
+          location: 'src/app/features/inbox/InboxView.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'inbox-review-guidance-copy',
+          location: 'src/app/features/inbox/InboxView.tsx:9',
+        }),
+        expect.objectContaining({
+          type: 'inbox-review-guidance-copy',
+          location: 'src/app/features/inbox/InboxView.tsx:12',
+        }),
+      ])
+    )
+  })
+
+  it('accepts inbox guidance that uses check or open wording', () => {
+    const cwd = fixture({
+      'src/app/features/inbox/InboxView.tsx': `
+function inboxHeader() {
+  return 'Completed work can wait until you have time to check it.'
+}
+function needsActionEmptyState() {
+  return 'Open All when you want to check older updates.'
+}
+function credentialsEmptyState() {
+  return 'Open All to check other updates.'
+}
+function toolUpdateTitle() {
+  return 'Check the latest agent tool update'
 }
 `,
     })

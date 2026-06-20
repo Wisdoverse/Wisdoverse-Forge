@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
-import { render, screen, cleanup, waitFor } from '@testing-library/react'
+import { render, screen, cleanup, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { InboxView } from '@app/features/inbox/InboxView'
 import { useFeedStore } from '@app/shared/model/feed.store'
@@ -335,7 +335,8 @@ describe('InboxView', () => {
     expect(screen.getByText('Account access needs reconnecting')).toBeDefined()
     expect(screen.queryByText(/runtime access/i)).toBeNull()
     expect(screen.queryByText(/credential expired/i)).toBeNull()
-    expect(screen.getByRole('button', { name: /open where agents work/i })).toBeDefined()
+    expect(within(nextStep).getByRole('button', { name: /reconnect work access/i })).toBeDefined()
+    expect(screen.queryByRole('button', { name: /open where agents work/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /^open settings$/i })).toBeNull()
   })
 
@@ -455,8 +456,9 @@ describe('InboxView', () => {
     expect(screen.getByText('No account access needs reconnecting')).toBeDefined()
     expect(screen.getByTestId('inbox-filter-empty')).toHaveAttribute('role', 'status')
     expect(screen.getByTestId('inbox-filter-empty')).toHaveAttribute('aria-live', 'polite')
-    expect(screen.getByText(/open all to review other updates/i)).toBeDefined()
+    expect(screen.getByText(/open all to check other updates/i)).toBeDefined()
     expect(screen.queryByText(/try all for the full history/i)).toBeNull()
+    expect(screen.queryByText(/review other updates/i)).toBeNull()
   })
 
   test('explains an empty filtered lane and lets the user return to all updates', async () => {
@@ -513,7 +515,9 @@ describe('InboxView', () => {
     expect(emptyState).toHaveTextContent(
       'No task is asking for help and no account access needs reconnecting.'
     )
+    expect(emptyState).toHaveTextContent('Open All when you want to check older updates.')
     expect(emptyState).not.toHaveTextContent('Nothing needs action right now')
+    expect(emptyState).not.toHaveTextContent('review older updates')
     expect(emptyState).not.toHaveTextContent(
       'No tasks that need help, stopped work, or account access issues need action right now.'
     )
@@ -687,8 +691,9 @@ describe('InboxView', () => {
     expect(item).toHaveTextContent('Account access')
     expect(item).toHaveTextContent('Reconnect work access')
     expect(item).toHaveTextContent(
-      'Open Where agents work and reconnect the account agents use for file work.'
+      'Open Codex and work tool sign-in, then reconnect the account agents use for file work.'
     )
+    expect(item).not.toHaveTextContent('Open Where agents work')
     expect(screen.getByText('Codex account access needs reconnecting')).toBeDefined()
     expect(screen.getByText('Codex work account needs reconnecting')).toBeDefined()
     expect(screen.queryByText(/credential expired/i)).toBeNull()
@@ -698,10 +703,10 @@ describe('InboxView', () => {
     await userEvent.setup().click(item)
 
     expect(useFeedStore.getState().notifications[0].read).toBe(true)
-    expect(useSettingsStore.getState().activeSection).toBe('runtime')
+    expect(useSettingsStore.getState().activeSection).toBe('work-tool-sign-ins')
     expect(navigateMock).toHaveBeenCalledWith({
       to: '/settings/$section',
-      params: { section: 'runtime' },
+      params: { section: 'work-tool-sign-ins' },
     })
   })
 
@@ -726,6 +731,9 @@ describe('InboxView', () => {
     expect(screen.getByText(/open admin, then agent tool updates/i)).toBeDefined()
     expect(screen.getByText(/check each work tool/i)).toBeDefined()
     expect(screen.getByTestId('inbox-next-step')).toHaveTextContent(
+      'Check the latest agent tool update'
+    )
+    expect(screen.getByTestId('inbox-next-step')).not.toHaveTextContent(
       'Review the latest agent tool update'
     )
     expect(screen.getAllByRole('button', { name: /open tool updates/i }).length).toBeGreaterThan(0)

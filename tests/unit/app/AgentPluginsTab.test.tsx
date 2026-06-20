@@ -278,9 +278,8 @@ describe('AgentPluginsTab', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(
-      within(alert).getByText('Go back to Agents, choose this agent again, then open Tools.')
-    ).toBeDefined()
+    expect(within(alert).getByText('Open Tools again from Agents')).toBeDefined()
+    expect(alert.textContent?.match(/Go back to Agents, choose this agent again/g)).toHaveLength(1)
     expect(alert.textContent).toContain(
       "Ask an owner or admin to give you access to this agent's tools."
     )

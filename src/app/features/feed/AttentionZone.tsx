@@ -2,11 +2,12 @@ import { attentionReasonPreview, type AttentionItem } from '@app/shared/model/fe
 
 interface AttentionZoneProps {
   items: AttentionItem[]
-  onApprove?: (id: string) => void
+  help?: string | null
+  onDismiss?: (id: string) => void
   onView?: (id: string) => void
 }
 
-export function AttentionZone({ items, onApprove, onView }: AttentionZoneProps) {
+export function AttentionZone({ items, help, onDismiss, onView }: AttentionZoneProps) {
   if (items.length === 0) return null
 
   return (
@@ -21,8 +22,17 @@ export function AttentionZone({ items, onApprove, onView }: AttentionZoneProps) 
         These items are waiting for a decision, missing access, or a quick check.
       </p>
       <p className="mb-2 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
-        Choose Allow to continue only after checking what the agent needs.
+        Choose Mark checked only after opening the task and handling what it needs.
       </p>
+      {help && (
+        <p
+          role="status"
+          aria-live="polite"
+          className="mb-2 rounded-lg bg-white px-2 py-1.5 text-[10px] leading-relaxed text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark"
+        >
+          {help}
+        </p>
+      )}
       {items.map((item) => {
         const reason = attentionReasonPreview(item.reason)
         return (
@@ -47,10 +57,10 @@ export function AttentionZone({ items, onApprove, onView }: AttentionZoneProps) 
               </button>
               <button
                 type="button"
-                onClick={() => onApprove?.(item.id)}
+                onClick={() => onDismiss?.(item.id)}
                 className="rounded-badge bg-apple-blue px-2.5 py-1 text-[9px] font-medium text-white"
               >
-                Allow to continue
+                Mark checked
               </button>
             </div>
           </div>

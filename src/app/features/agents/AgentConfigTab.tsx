@@ -26,13 +26,13 @@ const PROMPT_TEMPLATES = [
       'You are a delivery-focused agent. Ask early for missing information, keep changes scoped to the task you receive, preserve existing conventions, and report what you checked before sharing results.',
   },
   {
-    id: 'review',
+    id: 'result-check',
     label: 'Check results',
     value:
       'You check work before the team uses it. Start with anything that could break the result, create a security risk, or need a missing check. Explain the problem first, then point to the file or behavior that proves it.',
   },
   {
-    id: 'triage',
+    id: 'sort-work',
     label: 'Sort work',
     value:
       "You help sort incoming work. Try the steps the user described, explain what happened in plain language, suggest the smallest safe next step, and ask for more information when it's needed.",

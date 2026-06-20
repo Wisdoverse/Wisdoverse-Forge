@@ -155,6 +155,12 @@ export function InboxView() {
     if (notification.taskHref === '/tasks') {
       setSelectedTask(notification.taskId)
       void navigate({ to: '/tasks' })
+    } else if (
+      notification.type === 'credential_expired' ||
+      notification.taskHref === '/settings/work-tool-sign-ins'
+    ) {
+      useSettingsStore.getState().setActiveSection('work-tool-sign-ins')
+      void navigate({ to: '/settings/$section', params: { section: 'work-tool-sign-ins' } })
     } else if (notification.taskHref === '/settings') {
       useSettingsStore.getState().setActiveSection('runtime')
       void navigate({ to: '/settings/$section', params: { section: 'runtime' } })
@@ -222,7 +228,7 @@ export function InboxView() {
           </h1>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
             Start with tasks that need help and account access issues. Completed work can wait until
-            review time.
+            you have time to check it.
           </p>
         </header>
         {nextStepNotification && (
@@ -390,13 +396,13 @@ function inboxFilterEmptyState(filter: InboxFilter): InboxFilterEmptyState {
       return {
         title: 'You are caught up on action items',
         detail:
-          'No task is asking for help and no account access needs reconnecting. Use All when you want to review older updates.',
+          'No task is asking for help and no account access needs reconnecting. Open All when you want to check older updates.',
       }
     case 'credentials':
       return {
         title: 'No account access needs reconnecting',
         detail:
-          'Account access is not blocking agent work right now. Open All to review other updates.',
+          'Account access is not blocking agent work right now. Open All to check other updates.',
       }
     case 'all':
       return {
@@ -450,7 +456,7 @@ function nextStepTitle(notification: Notification): string {
     case 'mentioned':
       return 'Open the newest mention'
     case 'cli_image_updated':
-      return 'Review the latest agent tool update'
+      return 'Check the latest agent tool update'
   }
 }
 
@@ -481,7 +487,7 @@ function nextStepDescription(
 function nextStepActionLabel(notification: Notification): string {
   switch (notification.type) {
     case 'credential_expired':
-      return 'Open Where agents work'
+      return 'Reconnect work access'
     case 'blocked':
       return 'Open task'
     case 'failed':

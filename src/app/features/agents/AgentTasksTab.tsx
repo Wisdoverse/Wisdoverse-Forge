@@ -71,7 +71,7 @@ const TASK_FILTERS: { value: AgentTaskFilter; label: string; ariaLabel: string }
   {
     value: 'needs-action',
     label: 'Needs help',
-    ariaLabel: 'Show blocked or failed work for this agent',
+    ariaLabel: 'Show work that needs help or stopped early for this agent',
   },
   { value: 'completed', label: 'Done', ariaLabel: 'Show finished work for this agent' },
 ]

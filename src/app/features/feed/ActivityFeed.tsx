@@ -1,6 +1,14 @@
 import { useMemo, useState } from 'react'
-import { Activity, AlertTriangle, CheckCircle2, CircleDot, ListFilter } from 'lucide-react'
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  CircleDot,
+  ClipboardList,
+  ListFilter,
+} from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { useBoardStore } from '@app/shared/model/board.store'
 import { useFeedStore } from '@app/shared/model/feed.store'
 import { AgentStatusBar } from './AgentStatusBar'
 import { AttentionZone } from './AttentionZone'
@@ -13,7 +21,7 @@ const FEED_FILTERS: { value: FeedFilter; label: string; ariaLabel: string }[] = 
   {
     value: 'needs-action',
     label: 'Needs action',
-    ariaLabel: 'Show blocked or failed task updates',
+    ariaLabel: 'Show updates that need your help or stopped early',
   },
   { value: 'progress', label: 'Progress', ariaLabel: 'Show updates for work in progress' },
   { value: 'completed', label: 'Completed', ariaLabel: 'Show completed task updates' },
@@ -23,6 +31,10 @@ interface FeedFilteredEmptyCopy {
   title: string
   detail: string
   nextStep: string
+}
+
+interface ActivityFeedProps {
+  onOpenBoard?: () => void
 }
 
 function feedFilteredEmptyCopy(filter: FeedFilter): FeedFilteredEmptyCopy {
@@ -57,11 +69,15 @@ function feedFilteredEmptyCopy(filter: FeedFilter): FeedFilteredEmptyCopy {
   }
 }
 
-export function ActivityFeed() {
+export function ActivityFeed({ onOpenBoard }: ActivityFeedProps = {}) {
   const agents = useFeedStore((state) => state.agents)
   const attentionItems = useFeedStore((state) => state.attentionItems)
   const feedItems = useFeedStore((state) => state.feedItems)
+  const boardColumns = useBoardStore((state) => state.columns)
+  const setSelectedTask = useBoardStore((state) => state.setSelectedTask)
+  const removeAttentionItem = useFeedStore((state) => state.removeAttentionItem)
   const [activeFilter, setActiveFilter] = useState<FeedFilter>('all')
+  const [attentionHelp, setAttentionHelp] = useState<string | null>(null)
 
   const operations = useMemo(() => {
     const workingAgents = agents.filter((agent) => agent.status === 'working').length
@@ -160,7 +176,30 @@ export function ActivityFeed() {
       </section>
 
       <AgentStatusBar agents={agents} />
-      <AttentionZone items={attentionItems} />
+      <AttentionZone
+        items={attentionItems}
+        help={attentionHelp}
+        onView={(taskId) => {
+          const taskExists = Object.values(boardColumns)
+            .flat()
+            .some((task) => task.id === taskId)
+          if (taskExists) {
+            setSelectedTask(taskId)
+            setAttentionHelp(null)
+            return
+          }
+          setAttentionHelp(
+            'Open the task board, refresh tasks if needed, then open this task from the board.'
+          )
+          onOpenBoard?.()
+        }}
+        onDismiss={(id) => {
+          removeAttentionItem(id)
+          setAttentionHelp(
+            'Removed from needs your decision. Check the task details if it stops again.'
+          )
+        }}
+      />
 
       {feedItems.length > 0 ? (
         <div>
@@ -208,9 +247,19 @@ export function ActivityFeed() {
             Start a task or wait for the chosen agent to send its first update.
           </p>
           <p className="max-w-[240px] text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
-            Next: open Board, create a task or choose an agent for one, then return here after the
-            first agent update.
+            Next: open the task board, create a task or choose an agent for one, then return here
+            after the first agent update.
           </p>
+          {onOpenBoard && (
+            <button
+              type="button"
+              onClick={onOpenBoard}
+              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full bg-apple-blue/10 px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+            >
+              <ClipboardList size={13} strokeWidth={2.25} aria-hidden="true" />
+              <span>Open task board</span>
+            </button>
+          )}
         </div>
       )}
     </div>

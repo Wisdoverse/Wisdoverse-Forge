@@ -174,7 +174,7 @@ describe('AgentGroupsPanel', () => {
     )
   })
 
-  test('describes completed task review without handoff wording', () => {
+  test('describes completed task result checks without handoff wording', () => {
     seedRoutingState([
       makeTask({
         id: 'done-1',
@@ -187,7 +187,8 @@ describe('AgentGroupsPanel', () => {
 
     render(<AgentGroupsPanel />)
 
-    expect(screen.getByText(/docs agent .* review what the agent finished/i)).toBeInTheDocument()
+    expect(screen.getByText(/docs agent .* check the finished result/i)).toBeInTheDocument()
+    expect(screen.queryByText(/review what the agent finished/i)).toBeNull()
     expect(screen.queryByText(new RegExp(['completed', 'handoff'].join('\\s+'), 'i'))).toBeNull()
   })
 
@@ -306,7 +307,7 @@ describe('AgentGroupsPanel', () => {
     )
     expect(screen.queryByDisplayValue(/scoped changes/i)).toBeNull()
     expect(screen.queryByDisplayValue(/handoff/i)).toBeNull()
-    const reviewSummary = screen.getByText('Check before release')
+    const resultCheckSummary = screen.getByText('Check before use')
     const triageSummary = screen.getByText('Clarify and send')
     fireEvent.click(triageSummary.closest('button')!)
     expect(screen.getByRole('button', { name: /sort work/i })).toBeInTheDocument()
@@ -317,14 +318,16 @@ describe('AgentGroupsPanel', () => {
     expect(screen.queryByDisplayValue(/queue/i)).toBeNull()
     expect(screen.queryByDisplayValue(/triage/i)).toBeNull()
     expect(screen.queryByDisplayValue(previousBlockingCopy)).toBeNull()
-    fireEvent.click(reviewSummary.closest('button')!)
-    expect(reviewSummary).toBeInTheDocument()
+    fireEvent.click(resultCheckSummary.closest('button')!)
+    expect(resultCheckSummary).toBeInTheDocument()
     expect(screen.queryByText(['Risk', 'and', 'readiness'].join(' '))).toBeNull()
-    fireEvent.click(reviewSummary.closest('button')!)
+    expect(screen.getByLabelText(/waiting place name/i)).toHaveValue('Result Check Tasks')
+    fireEvent.click(resultCheckSummary.closest('button')!)
     expect(screen.getByLabelText(/waiting place description/i)).toHaveValue(
-      'Review completed work for behavior that does not look right, missing checks, and anything that could stop a release.'
+      'Check finished work for confusing behavior, missing checks, and anything that could make it unsafe to use.'
     )
     expect(screen.queryByDisplayValue(/missing tests/i)).toBeNull()
+    expect(screen.queryByDisplayValue(/Review completed work/i)).toBeNull()
     expect(screen.queryByDisplayValue(/block release/i)).toBeNull()
     fireEvent.change(screen.getByLabelText(/waiting place name/i), { target: { value: '' } })
     fireEvent.submit(screen.getByRole('button', { name: /create waiting place/i }).closest('form')!)
@@ -332,7 +335,7 @@ describe('AgentGroupsPanel', () => {
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
-      'Name this waiting place before creating it. Examples: Intake, Review, or Delivery.'
+      'Name this waiting place before creating it. Examples: Intake, Result Check, or Delivery.'
     )
     expect(screen.getByLabelText(/waiting place name/i)).toHaveFocus()
 

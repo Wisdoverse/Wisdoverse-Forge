@@ -45,7 +45,8 @@ export function AgentStatusBar({ agents }: { agents: AgentStatus[] }) {
         data-testid="agent-status-empty"
         className="rounded-lg bg-black/[0.035] px-3 py-2 text-[10px] leading-relaxed text-secondary-light dark:bg-white/[0.05] dark:text-secondary-dark"
       >
-        Open Agents to create or start one before sending work.
+        Open Agents, then choose New agent if none exists or Start on an existing agent before
+        sending work.
       </div>
     )
   }
