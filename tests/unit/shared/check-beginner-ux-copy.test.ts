@@ -5386,6 +5386,11 @@ function ChatView() {
   return <p>Send a short request below when you need planning, review, or a direct answer.</p>
 }
 `,
+      'src/app/features/agents/AgentControlPanel.tsx': `
+function AgentControlPanel() {
+  return <p>Send a quick instruction here, or create a Task when you need planning or review with a clear result.</p>
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
@@ -5413,6 +5418,11 @@ function ChatView() {
           location: 'src/app/features/chat/ChatView.tsx:3',
           sample: expect.stringContaining('planning, review'),
         }),
+        expect.objectContaining({
+          type: 'chat-only-agent-review-copy',
+          location: 'src/app/features/agents/AgentControlPanel.tsx:3',
+          sample: expect.stringContaining('planning or review'),
+        }),
       ])
     )
   })
@@ -5435,6 +5445,11 @@ function AgentDetailView() {
       'src/app/features/chat/ChatView.tsx': `
 function ChatView() {
   return <p>Send a short request below when you need a question answered, writing help, or a result checked.</p>
+}
+`,
+      'src/app/features/agents/AgentControlPanel.tsx': `
+function AgentControlPanel() {
+  return <p>Send a quick instruction here, or create a Task when you need a question answered, writing help, or a result check with a clear outcome.</p>
 }
 `,
     })

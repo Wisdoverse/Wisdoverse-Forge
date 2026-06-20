@@ -950,6 +950,7 @@ const AGENT_LIST_SUMMARY_DEAD_END_PATTERNS = [/\bNo agents\b/i]
 const CHAT_ONLY_AGENT_REVIEW_JARGON_PATTERNS = [
   /\bchat-only AI service for planning and review\b/i,
   /\bBest for planning, writing, and review\b/i,
+  /\bplanning or review with a clear result\b/i,
   /\bplanning,\s*review,\s*or a direct answer\b/i,
   /\bcan plan, write, and review text\b/i,
   /\breview text\b/i,
@@ -3589,6 +3590,7 @@ function hasAgentListSummaryDeadEndCopy(relFile, line) {
 function hasChatOnlyAgentReviewJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/agents/AgentListView.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentControlPanel.tsx') &&
     !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx') &&
     !relFile.endsWith('src/app/features/chat/ChatView.tsx')
   ) {
