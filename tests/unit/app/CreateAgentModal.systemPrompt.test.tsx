@@ -77,7 +77,7 @@ describe('CreateAgentModal agent instructions', () => {
     fireEvent.change(screen.getByPlaceholderText(/Frontend Agent/i), {
       target: { value: 'Test' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /create agent/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add agent/i }))
 
     await waitFor(() =>
       expect(createAgent).toHaveBeenCalledWith(
@@ -109,7 +109,7 @@ describe('CreateAgentModal agent instructions', () => {
     fireEvent.change(screen.getByLabelText(/agent instructions/i), {
       target: { value: 'you are terse' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /create agent/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add agent/i }))
     await waitFor(() =>
       expect(createAgent).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -131,7 +131,7 @@ describe('CreateAgentModal agent instructions', () => {
       target: { value: 'Test' },
     })
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
-    fireEvent.click(screen.getByRole('button', { name: /create agent/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add agent/i }))
     await waitFor(() =>
       expect(createAgent).toHaveBeenCalledWith(
         expect.objectContaining({

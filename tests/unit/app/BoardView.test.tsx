@@ -127,9 +127,7 @@ describe('BoardView', () => {
     render(<BoardView />)
 
     const readiness = await screen.findByTestId('assignment-readiness')
-    expect(readiness.textContent).toContain(
-      'Choose Check agent status before sending work.'
-    )
+    expect(readiness.textContent).toContain('Choose Check agent status before sending work.')
     expect(readiness.textContent).toContain(
       'If it still does not load, check your connection, then choose Check agent status.'
     )
@@ -243,7 +241,11 @@ describe('BoardView', () => {
     expect(screen.queryByTestId('assignment-metric-in-flight')).toBeNull()
     expect(screen.getByTestId('assignment-metric-blocked').textContent).toContain('1')
     expect(screen.getByTestId('assignment-metric-blocked').textContent).toContain('Needs help')
-    expect(screen.getByTestId('assignment-metric-review').textContent).toContain('1')
+    expect(screen.getByTestId('assignment-metric-ready-to-check').textContent).toContain('1')
+    expect(screen.getByTestId('assignment-metric-ready-to-check').textContent).toContain(
+      'Ready to check'
+    )
+    expect(screen.queryByTestId('assignment-metric-review')).toBeNull()
   })
 
   test('renders failed tasks outside the Done column', async () => {
