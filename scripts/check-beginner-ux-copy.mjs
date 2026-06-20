@@ -2047,6 +2047,7 @@ const TEAM_PROJECT_SHORT_NAME_JARGON_PATTERNS = [
 const SIDEBAR_PROJECT_MENU_GENERATED_NAME_JARGON_PATTERNS = [
   /\bautomatic project name\b/i,
   /\bname used in links\b/i,
+  /\bproject code\b/i,
   /\bproject link ending\b/i,
   /\bpeople may see this at the end of project links\b/i,
 ]

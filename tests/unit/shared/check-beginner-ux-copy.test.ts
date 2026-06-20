@@ -16154,6 +16154,10 @@ function EditableProjectRow({ project }) {
 function ProjectTree({ projectMenu }) {
   return <p>{projectMenu.team.name} team · link name {projectMenu.project.slug}</p>
   return <p>{projectMenu.team.name} team · name used in links {projectMenu.project.slug}</p>
+  return <button>Copy project code</button>
+  return <p>Use this only when another page or support asks for this project code</p>
+  return <p>Project code copied</p>
+  return <p>Select the project code below</p>
   return <button>Copy name used in links</button>
   return <button>Copy project short name</button>
   return <p>{projectMenu.project.slug} · short name used in project links</p>
@@ -16191,6 +16195,8 @@ function OrganizationsPanel({ org }) {
       'src/app/layouts/sidebar/ProjectTree.tsx': `
 function ProjectTree({ projectMenu }) {
   return <p>{projectMenu.team.name} team · project link preview {projectMenu.project.slug}</p>
+  return <button>Copy project reference</button>
+  return <p>Project reference copied</p>
   return <button>Copy project link preview</button>
   return <p>Project link preview: {projectMenu.project.slug}</p>
 }
