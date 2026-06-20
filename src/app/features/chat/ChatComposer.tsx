@@ -128,7 +128,12 @@ export function ChatComposer({
         Need a starting point? Ask for a short summary, what needs help, or the next safe step.
       </p>
       {error && (
-        <p id={errorId} role="alert" className="text-ui-caption font-medium text-apple-red">
+        <p
+          id={errorId}
+          role="alert"
+          aria-live="polite"
+          className="text-ui-caption font-medium text-apple-red"
+        >
           {error}
         </p>
       )}

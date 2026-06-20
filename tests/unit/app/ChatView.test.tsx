@@ -274,6 +274,7 @@ describe('ChatView', () => {
     render(<ChatView agentId={cliAgent.id} />)
 
     const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent('Check this conversation')
     expect(alert).toHaveTextContent('Check your connection, then choose Retry conversation again.')
     expect(alert).not.toHaveTextContent('HTTP')
@@ -294,6 +295,7 @@ describe('ChatView', () => {
     render(<ChatView agentId={providerAgent.id} />)
 
     const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent('Check this conversation')
     expect(alert).toHaveTextContent('ask an owner or admin to check this agent chat')
     expect(alert).not.toHaveTextContent('HTTP 500')

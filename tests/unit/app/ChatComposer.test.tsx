@@ -54,10 +54,12 @@ describe('ChatComposer', () => {
     fireEvent.click(screen.getByRole('button', { name: /send/i }))
 
     expect(onSend).not.toHaveBeenCalled()
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
       'Write a message before sending it to this agent. Try asking for a summary, what needs help, or the next safe step.'
     )
-    expect(screen.getByRole('alert')).not.toHaveTextContent(previousBlockedPrompt)
+    expect(alert).not.toHaveTextContent(previousBlockedPrompt)
     expect(textarea).toHaveFocus()
 
     fireEvent.change(textarea, { target: { value: 'review the latest task' } })
