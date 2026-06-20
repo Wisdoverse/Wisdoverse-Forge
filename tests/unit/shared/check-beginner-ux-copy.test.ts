@@ -17547,7 +17547,7 @@ function CreateProjectForm() {
     const cwd = fixture({
       'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
 function CreateProjectForm() {
-  return <><label>Code link</label><input placeholder="https://github.com/team/project.git" /><p>Forge copies that code into this project.</p><p>Paste the https:// link you copy from your browser, or leave this blank and set up SSH code access in Settings first.</p><p>Paste an https:// code link without account details, or leave the code link blank and add code access in Settings.</p></>
+  return <><label>Code link</label><input placeholder="https://github.com/team/project.git" /><p>Forge copies that code into this project.</p><p>On GitHub or GitLab, choose Code, choose HTTPS, then copy that link. If you only see an SSH link, leave this blank and set up SSH code access in Settings first.</p><p>Paste an https:// code link without account details, or leave the code link blank and add code access in Settings.</p></>
 }
 `,
     })
@@ -17813,6 +17813,9 @@ function fallbackCloneErrorMessage() {
 function staleRetryActionMessage() {
   return 'Wait a minute, then try copying code again. Too many copy retries are happening right now.'
 }
+function projectRowMessage() {
+  return 'Wait a minute, then choose Copy code again from this project row. Too many copy retries are happening right now.'
+}
 `,
     })
 
@@ -17837,6 +17840,10 @@ function staleRetryActionMessage() {
           type: 'clone-retry-error-copy',
           location: 'src/app/features/manage-project/ui/CloneStatusBadge.tsx:12',
         }),
+        expect.objectContaining({
+          type: 'clone-retry-error-copy',
+          location: 'src/app/features/manage-project/ui/CloneStatusBadge.tsx:15',
+        }),
       ])
     )
   })
@@ -17848,10 +17855,10 @@ function permissionCloneRetryErrorMessage() {
   return 'Ask an owner or admin to let you copy code into this project, then open Settings and Teams and Projects and choose Copy code again. You do not have permission right now.'
 }
 function busyCloneRetryErrorMessage() {
-  return 'Wait a minute, then choose Copy code again from this project row. Too many copy retries are happening right now.'
+  return 'Wait a minute, then choose Copy code again for this project in the list. Too many copy retries are happening right now.'
 }
 function fallbackCloneRetryErrorMessage() {
-  return 'Open Settings and Teams and Projects, check the code link and saved code access, then choose Copy code again on this project row. Forge could not copy code into the project.'
+  return 'Open Settings and Teams and Projects, check the code link and saved code access, then choose Copy code again for this project in the list. Forge could not copy code into the project.'
 }
 `,
     })

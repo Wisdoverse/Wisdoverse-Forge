@@ -92,9 +92,7 @@ describe('workspace setup create forms', () => {
     expect(onSave).not.toHaveBeenCalled()
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(alert).toHaveTextContent(
-      'Create or choose a team before creating this project.'
-    )
+    expect(alert).toHaveTextContent('Create or choose a team before creating this project.')
     expect(screen.getByText('No teams — create a team first')).toHaveFocus()
   })
 
@@ -145,9 +143,13 @@ describe('workspace setup create forms', () => {
     expect(screen.queryByText('Show support folder')).toBeNull()
     expect(screen.queryByText('Show exact folder for troubleshooting')).toBeNull()
     expect(
-      screen.getByText(/Use this only if an owner, admin, or support message asks for the project folder/i)
+      screen.getByText(
+        /Use this only if an owner, admin, or support message asks for the project folder/i
+      )
     ).toBeInTheDocument()
-    expect(screen.getByText('Project folder for support: /workspace/my-new-repo')).toBeInTheDocument()
+    expect(
+      screen.getByText('Project folder for support: /workspace/my-new-repo')
+    ).toBeInTheDocument()
     expect(screen.queryByText('Exact folder: /workspace/my-new-repo')).toBeNull()
   })
 
@@ -161,10 +163,13 @@ describe('workspace setup create forms', () => {
     expect(screen.getByPlaceholderText('https://github.com/team/project.git')).toBeInTheDocument()
     expect(screen.queryByPlaceholderText('https://github.com/org/repo.git')).toBeNull()
     expect(screen.getByText(/when you want Forge to copy code now/i)).toBeInTheDocument()
-    expect(screen.getAllByText(/Never paste passwords or access keys here/i).length).toBeGreaterThan(
-      0
-    )
-    expect(screen.getByText(/copy from your browser/i)).toBeInTheDocument()
+    expect(
+      screen.getAllByText(/choose Code, choose HTTPS, then copy that link/i).length
+    ).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText(/Never paste passwords or access keys here/i).length
+    ).toBeGreaterThan(0)
+    expect(screen.queryByText(/copy from your browser/i)).toBeNull()
     expect(screen.queryByText(/for git@ links/i)).toBeNull()
     expect(screen.getAllByText(/leave this blank/i).length).toBeGreaterThan(0)
     expect(screen.getByTestId('create-project-code-link-status')).toHaveTextContent(
@@ -182,7 +187,7 @@ describe('workspace setup create forms', () => {
       'Ready to create project and copy code'
     )
     expect(screen.getByTestId('create-project-code-link-status')).toHaveTextContent(
-      'Code copy requested. After creation, watch the project row for Code copy waiting, Copying code, or Code copied. If it needs help, choose Copy code again.'
+      'Code copy requested. After creation, watch this project in the list for Code copy waiting, Copying code, or Code copied. If it needs help, choose Copy code again.'
     )
     fireEvent.click(screen.getByRole('button', { name: /create project/i }))
 
@@ -212,9 +217,7 @@ describe('workspace setup create forms', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(alert).toHaveTextContent(
-      'Paste the https:// code link from your browser'
-    )
+    expect(alert).toHaveTextContent('Paste the https:// code link from your browser')
     expect(alert).toHaveTextContent('leave this blank')
     expect(alert).toHaveTextContent('SSH code access')
     expect(alert).not.toHaveTextContent('for git@ links')

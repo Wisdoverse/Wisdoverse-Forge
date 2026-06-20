@@ -2250,6 +2250,7 @@ const CLONE_RETRY_FAILURE_FIRST_PATTERNS = [
   /\bCould not copy code into the project\. Check the code link and saved code access, then try again\./i,
   /\bRefresh Projects, then try copying code again\b/i,
   /\bthen try copying code again\b/i,
+  /\bproject row\b/i,
 ]
 
 const CLONE_RETRY_BUTTON_GENERIC_PATTERNS = [
@@ -6297,7 +6298,8 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'clone-retry-error-copy',
         location,
-        message: 'Code import retry errors must start with the next action for beginners.',
+        message:
+          'Code copy retry errors must start with the next action and say project in the list instead of project row.',
         sample: line.trim(),
       })
     }

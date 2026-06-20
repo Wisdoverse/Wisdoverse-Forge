@@ -62,7 +62,11 @@ describe('CloneStatusBadge', () => {
         projectId="p1"
         status="failed"
         variant="detail"
-        clone={summary({ status: 'failed', errorClass: 'auth', errorMessage: 'authentication failed' })}
+        clone={summary({
+          status: 'failed',
+          errorClass: 'auth',
+          errorMessage: 'authentication failed',
+        })}
       />
     )
     expect(screen.getByText('Code copy needs help')).toBeInTheDocument()
@@ -252,7 +256,7 @@ describe('CloneStatusBadge', () => {
       const alert = screen.getByRole('alert')
       expect(alert).toHaveAttribute('aria-live', 'polite')
       expect(alert).toHaveTextContent('Wait a few minutes, then choose Copy code again')
-      expect(alert).toHaveTextContent('from this project row')
+      expect(alert).toHaveTextContent('for this project in the list')
       expect(alert).not.toHaveTextContent('API 500')
       expect(alert).not.toHaveTextContent('database unavailable')
     })
@@ -276,7 +280,7 @@ describe('CloneStatusBadge', () => {
       const alert = screen.getByRole('alert')
       expect(alert).toHaveAttribute('aria-live', 'polite')
       expect(alert).toHaveTextContent(
-        'Wait a minute, then choose Copy code again from this project row. Too many copy retries are happening right now.'
+        'Wait a minute, then choose Copy code again for this project in the list. Too many copy retries are happening right now.'
       )
     })
   })
@@ -299,7 +303,7 @@ describe('CloneStatusBadge', () => {
       const alert = screen.getByRole('alert')
       expect(alert).toHaveAttribute('aria-live', 'polite')
       expect(alert).toHaveTextContent('Open Settings and Teams and Projects')
-      expect(alert).toHaveTextContent('choose Copy code again on this project row')
+      expect(alert).toHaveTextContent('choose Copy code again for this project in the list')
     })
   })
 
