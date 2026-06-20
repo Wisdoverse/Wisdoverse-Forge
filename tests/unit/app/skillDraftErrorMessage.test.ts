@@ -93,4 +93,14 @@ describe('skillDraftErrorMessage', () => {
     expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('service is temporarily unavailable')
   })
+
+  test('turns unknown publish failures into a draft check step', () => {
+    const message = skillDraftErrorMessage(new Error('unexpected failure'))
+
+    expect(message).toBe(
+      'Check the draft, then publish again. Instruction was not published. If it still fails, ask an owner or admin to check Saved instructions access.'
+    )
+    expect(message).not.toContain('Review the draft')
+    expect(message).not.toContain('unexpected failure')
+  })
 })

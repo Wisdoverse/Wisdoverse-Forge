@@ -10439,6 +10439,9 @@ function network() {
 function service() {
   return 'Forge could not publish this instruction right now. Wait a few minutes, then publish again.'
 }
+function reviewFirst() {
+  return 'Review the draft, then publish again. Instruction was not published.'
+}
 `,
       'src/app/shared/model/skills.store.ts': `
 function busy() {
@@ -10488,6 +10491,10 @@ function fallback() {
         }),
         expect.objectContaining({
           type: 'saved-instruction-create-copy',
+          location: 'src/app/features/detail/model/skillDraftErrorMessage.ts:12',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-create-copy',
           location: 'src/app/shared/model/skills.store.ts:3',
         }),
         expect.objectContaining({
@@ -10517,7 +10524,7 @@ function service() {
 `,
       'src/app/features/detail/model/skillDraftErrorMessage.ts': `
 function publish() {
-  return 'Review the draft, then publish again. Instruction was not published.'
+  return 'Check the draft, then publish again. Instruction was not published.'
 }
 function network() {
   return 'Check your connection, then publish again. Forge could not connect while publishing this instruction.'

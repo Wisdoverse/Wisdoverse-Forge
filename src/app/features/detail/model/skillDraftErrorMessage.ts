@@ -82,5 +82,5 @@ export function skillDraftErrorMessage(error: unknown): string {
     return 'Check your connection, then publish again. Forge could not connect while publishing this instruction.'
   }
 
-  return `Review the draft, then publish again. ${failure} If it still fails, ask an owner or admin to check Saved instructions access.`
+  return `Check the draft, then publish again. ${failure} If it still fails, ask an owner or admin to check Saved instructions access.`
 }

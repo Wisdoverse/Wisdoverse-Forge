@@ -1019,6 +1019,7 @@ const SAVED_INSTRUCTION_CREATE_FAILURE_FIRST_PATTERNS = [
   /\bAn instruction with this name or trigger may already exist\./i,
   /\bReview the existing instructions, then change the name or matching words and create the instruction again\./i,
   /\bReview the fields, then create the instruction again\./i,
+  /\bReview the draft, then publish again\./i,
   /\bInstruction setup is busy\./i,
   /\bForge could not create the instruction right now\./i,
   /\bRefresh Saved instructions, then create the instruction again\b/i,
