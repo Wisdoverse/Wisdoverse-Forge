@@ -25,7 +25,7 @@ import { agentGroupErrorMessage } from './model/agentGroupErrorMessage'
 
 const DEFAULT_GROUP_DESCRIPTION = 'Project tasks wait here until an available agent picks them up.'
 const ROUTING_SEARCH_HELP =
-  'Search only filters tasks in this waiting place. Clear it to see every task here again.'
+  'Search only filters tasks in this waiting place. Use Show all tasks here to return to the full waiting place.'
 
 const TASK_STATE_LABELS: Record<TaskSummary['state'], string> = {
   backlog: 'Not sent yet',

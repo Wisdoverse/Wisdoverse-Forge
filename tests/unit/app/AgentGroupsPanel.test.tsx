@@ -170,7 +170,7 @@ describe('AgentGroupsPanel', () => {
     expect(screen.queryByText(/from provider/i)).toBeNull()
     expect(screen.queryByText('Other group work')).toBeNull()
     expect(screen.getByLabelText('Search tasks in this waiting place')).toHaveAccessibleDescription(
-      'Search only filters tasks in this waiting place. Clear it to see every task here again.'
+      'Search only filters tasks in this waiting place. Use Show all tasks here to return to the full waiting place.'
     )
   })
 
@@ -249,7 +249,7 @@ describe('AgentGroupsPanel', () => {
 
     const search = screen.getByLabelText('Search tasks in this waiting place')
     expect(search).toHaveAccessibleDescription(
-      'Search only filters tasks in this waiting place. Clear it to see every task here again.'
+      'Search only filters tasks in this waiting place. Use Show all tasks here to return to the full waiting place.'
     )
 
     fireEvent.change(search, {
