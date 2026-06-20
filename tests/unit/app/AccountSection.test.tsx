@@ -112,7 +112,7 @@ describe('AccountSection', () => {
 
     expect(
       screen.getByText(
-        'Enter your current password, then choose a new password with at least 12 characters.'
+        'Enter your current password, then choose a new password with at least 12 characters, one uppercase letter, one lowercase letter, one number, and one symbol.'
       )
     ).toBeDefined()
 
@@ -120,15 +120,15 @@ describe('AccountSection', () => {
       target: { value: 'old-password' },
     })
     fireEvent.change(screen.getByLabelText('New Password'), {
-      target: { value: 'new-password' },
+      target: { value: 'NewPassword123!' },
     })
     fireEvent.change(screen.getByLabelText('Confirm New Password'), {
-      target: { value: 'new-password' },
+      target: { value: 'NewPassword123!' },
     })
     fireEvent.click(screen.getByRole('button', { name: /update password/i }))
 
     await waitFor(() =>
-      expect(changePasswordMock).toHaveBeenCalledWith('old-password', 'new-password')
+      expect(changePasswordMock).toHaveBeenCalledWith('old-password', 'NewPassword123!')
     )
     expect(await screen.findByRole('status')).toHaveTextContent(
       'Password changed. Use the new password the next time you sign in.'
@@ -142,13 +142,13 @@ describe('AccountSection', () => {
     renderAccountSection()
 
     fireEvent.change(screen.getByLabelText('Current Password'), {
-      target: { value: 'same-password' },
+      target: { value: 'SamePassword123!' },
     })
     fireEvent.change(screen.getByLabelText('New Password'), {
-      target: { value: 'same-password' },
+      target: { value: 'SamePassword123!' },
     })
     fireEvent.change(screen.getByLabelText('Confirm New Password'), {
-      target: { value: 'same-password' },
+      target: { value: 'SamePassword123!' },
     })
 
     expect(
@@ -167,7 +167,7 @@ describe('AccountSection', () => {
     expect(changePasswordMock).not.toHaveBeenCalled()
   })
 
-  test('shows the same 12-character password rule used by sign-up and reset', async () => {
+  test('shows the same password rules used by sign-up and reset', async () => {
     renderAccountSection()
 
     fireEvent.change(screen.getByLabelText('Current Password'), {
@@ -193,6 +193,23 @@ describe('AccountSection', () => {
     })
 
     expect(screen.getByText('Done: Use at least 12 characters for the new password.')).toBeDefined()
+    expect(
+      screen.getByText('Needed: Add at least one uppercase letter to the password.')
+    ).toBeDefined()
+    expect(screen.getByRole('button', { name: /update password/i })).toBeDisabled()
+
+    fireEvent.change(screen.getByLabelText('New Password'), {
+      target: { value: 'Twelve-chars1' },
+    })
+    fireEvent.change(screen.getByLabelText('Confirm New Password'), {
+      target: { value: 'Twelve-chars1' },
+    })
+
+    expect(
+      screen.getByText('Done: Add at least one uppercase letter to the password.')
+    ).toBeDefined()
+    expect(screen.getByText('Done: Add at least one number to the password.')).toBeDefined()
+    expect(screen.getByText('Done: Add at least one symbol to the password.')).toBeDefined()
     expect(screen.getByRole('button', { name: /update password/i })).toBeEnabled()
   })
 
@@ -268,10 +285,10 @@ describe('AccountSection', () => {
       target: { value: 'old-password' },
     })
     fireEvent.change(screen.getByLabelText('New Password'), {
-      target: { value: 'new-password' },
+      target: { value: 'NewPassword123!' },
     })
     fireEvent.change(screen.getByLabelText('Confirm New Password'), {
-      target: { value: 'new-password' },
+      target: { value: 'NewPassword123!' },
     })
     fireEvent.click(screen.getByRole('button', { name: /update password/i }))
 
@@ -318,10 +335,10 @@ describe('AccountSection', () => {
       target: { value: 'old-password' },
     })
     fireEvent.change(screen.getByLabelText('New Password'), {
-      target: { value: 'new-password' },
+      target: { value: 'NewPassword123!' },
     })
     fireEvent.change(screen.getByLabelText('Confirm New Password'), {
-      target: { value: 'new-password' },
+      target: { value: 'NewPassword123!' },
     })
     fireEvent.click(screen.getByRole('button', { name: /update password/i }))
 

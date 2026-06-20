@@ -4,6 +4,7 @@
 
 import type { AuthManager, LoginResult } from '@app/shared/auth/AuthManager'
 import { config } from '@app/shared/config'
+import { passwordRuleMessage, passwordRuleStates } from '@app/shared/lib/passwordRules'
 import { iconSuccess } from '@app/shared/ui/icons'
 
 type AuthTab = 'login' | 'register'
@@ -111,25 +112,6 @@ function authRegisterErrorMessage(result: AuthFailure): string {
   }
 
   return 'Check the fields, then create the account again. If it still fails, ask an owner or admin to check account creation settings.'
-}
-
-function registerPasswordRuleMessage(password: string): string | null {
-  if (password.length < 12) {
-    return 'Use at least 12 characters for the new password. Add a few more characters, then try again.'
-  }
-  if (!/[A-Z]/.test(password)) {
-    return 'Add at least one uppercase letter to the password, then try again.'
-  }
-  if (!/[a-z]/.test(password)) {
-    return 'Add at least one lowercase letter to the password, then try again.'
-  }
-  if (!/[0-9]/.test(password)) {
-    return 'Add at least one number to the password, then try again.'
-  }
-  if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(password)) {
-    return 'Add at least one symbol to the password, then try again.'
-  }
-  return null
 }
 
 function authSignInErrorMessage(error: unknown): string {
@@ -622,9 +604,9 @@ export class AuthPage {
       )
       return
     }
-    const passwordRuleMessage = registerPasswordRuleMessage(password)
-    if (passwordRuleMessage) {
-      this.setError(passwordRuleMessage)
+    const passwordRuleError = passwordRuleMessage(password)
+    if (passwordRuleError) {
+      this.setError(passwordRuleError)
       this.container?.querySelector<HTMLInputElement>('#register-password')?.focus()
       return
     }
@@ -768,13 +750,9 @@ export class AuthPage {
     const root = scope || this.container
     if (!root) return
 
-    const rules: Record<string, boolean> = {
-      length: password.length >= 12,
-      upper: /[A-Z]/.test(password),
-      lower: /[a-z]/.test(password),
-      number: /[0-9]/.test(password),
-      special: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(password),
-    }
+    const rules: Record<string, boolean> = Object.fromEntries(
+      passwordRuleStates(password).map((rule) => [rule.id, rule.met])
+    )
 
     // Update rule indicators
     for (const [key, met] of Object.entries(rules)) {
@@ -1067,9 +1045,9 @@ export class AuthPage {
         this.shakeCard()
         return
       }
-      if (password.length < 12) {
-        errorDiv.textContent =
-          'Use at least 12 characters for the new password. Add a few more characters, then try again.'
+      const passwordRuleError = passwordRuleMessage(password)
+      if (passwordRuleError) {
+        errorDiv.textContent = passwordRuleError
         errorDiv.style.display = ''
         this.shakeCard()
         return

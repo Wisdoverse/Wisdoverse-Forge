@@ -361,6 +361,23 @@ describe('AuthPage beginner guidance', () => {
     )
   })
 
+  test('checks reset-token password rules before calling the backend', async () => {
+    const resetPassword = vi.fn().mockResolvedValue(undefined)
+    const page = new AuthPage(createAuthManager({ resetPassword }), 'login', 'reset-token')
+
+    await page.show()
+    const passwordInput = document.querySelector<HTMLInputElement>('#reset-password')
+    const confirmInput = document.querySelector<HTMLInputElement>('#reset-confirm')
+    if (passwordInput) passwordInput.value = 'longpassword'
+    if (confirmInput) confirmInput.value = 'longpassword'
+    document
+      .querySelector<HTMLFormElement>('#reset-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+    expect(bodyText()).toContain('Add at least one uppercase letter to the password, then try again.')
+    expect(resetPassword).not.toHaveBeenCalled()
+  })
+
   test('keeps password reset email failures beginner-safe', async () => {
     const page = new AuthPage(
       createAuthManager({
