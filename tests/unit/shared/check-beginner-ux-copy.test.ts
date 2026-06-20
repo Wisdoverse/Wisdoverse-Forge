@@ -16079,12 +16079,12 @@ function CreateProjectForm() {
     const cwd = fixture({
       'src/app/features/manage-team/ui/CreateTeamForm.tsx': `
 function CreateTeamForm() {
-  return <><p>Team creation steps</p><p>Shown at the end of team links: platform-ops.</p></>
+  return <><p>Team creation steps</p><p>Team link preview: platform-ops.</p></>
 }
 `,
       'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
 function CreateProjectForm() {
-  return <><p>Project creation steps</p><p>Shown at the end of project links: app.</p><summary>Show exact folder for troubleshooting</summary><p>Use this only if an owner, admin, or support message asks for the exact folder.</p><p>Exact folder: /workspace/app</p></>
+  return <><p>Project creation steps</p><p>Project link preview: app.</p><summary>Show exact folder for troubleshooting</summary><p>Use this only if an owner, admin, or support message asks for the exact folder.</p><p>Exact folder: /workspace/app</p></>
 }
 `,
     })
@@ -16135,12 +16135,12 @@ function EditableProjectRow({ project }) {
     const cwd = fixture({
       'src/app/features/manage-team/ui/EditableTeamRow.tsx': `
 function EditableTeamRow({ team }) {
-  return <p>Shown at the end of team links: {team.slug}</p>
+  return <p>Team link preview: {team.slug}</p>
 }
 `,
       'src/app/features/manage-project/ui/EditableProjectRow.tsx': `
 function EditableProjectRow({ project }) {
-  return <span>Shown at the end of project links: {project.slug}</span>
+  return <span>Project link preview: {project.slug}</span>
 }
 `,
     })
@@ -16190,14 +16190,14 @@ function OrganizationsPanel({ org }) {
     const cwd = fixture({
       'src/app/layouts/sidebar/ProjectTree.tsx': `
 function ProjectTree({ projectMenu }) {
-  return <p>{projectMenu.team.name} team · project link ending {projectMenu.project.slug}</p>
-  return <button>Copy project link ending</button>
-  return <p>{projectMenu.project.slug} · shown at the end of project links</p>
+  return <p>{projectMenu.team.name} team · project link preview {projectMenu.project.slug}</p>
+  return <button>Copy project link preview</button>
+  return <p>Project link preview: {projectMenu.project.slug}</p>
 }
 `,
       'src/app/features/admin/OrganizationsPanel.tsx': `
 function OrganizationsPanel({ org }) {
-  return <p>Shown at the end of team space links: {org.slug}</p>
+  return <p>Team space link preview: {org.slug}</p>
 }
 `,
     })
@@ -16205,16 +16205,16 @@ function OrganizationsPanel({ org }) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags old link-ending copy that says people may see it', () => {
+  it('flags old link-ending copy that asks beginners to reason about link endings', () => {
     const cwd = fixture({
       'src/app/features/manage-team/ui/CreateTeamForm.tsx': `
 function CreateTeamForm({ team }) {
-  return <p>Link ending people may see: {team.slug}</p>
+  return <><p>Link ending people may see: {team.slug}</p><p>Shown at the end of team links: {team.slug}</p></>
 }
 `,
       'src/app/features/manage-project/ui/EditableProjectRow.tsx': `
 function EditableProjectRow({ project }) {
-  return <span>Link ending people may see: {project.slug}</span>
+  return <><span>Link ending people may see: {project.slug}</span><span>Shown at the end of project links: {project.slug}</span></>
 }
 `,
       'src/app/layouts/sidebar/ProjectTree.tsx': `
@@ -16224,7 +16224,7 @@ function ProjectTree({ projectMenu }) {
 `,
       'src/app/features/admin/OrganizationsPanel.tsx': `
 function OrganizationsPanel({ org }) {
-  return <p>Link ending people may see: {org.slug}</p>
+  return <><p>Link ending people may see: {org.slug}</p><p>Shown at the end of team space links: {org.slug}</p></>
 }
 `,
     })

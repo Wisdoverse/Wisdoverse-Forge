@@ -45,15 +45,16 @@ describe('workspace management rows', () => {
       </>
     )
 
-    expect(screen.getByText(/Shown at the end of team links:\s*product-team/i)).toBeDefined()
+    expect(screen.getByText(/Team link preview:\s*product-team/i)).toBeDefined()
     expect(screen.getByText('Invite-only')).toHaveAttribute(
       'title',
       'Only invited people can find this team.'
     )
     expect(screen.queryByText(/^private$/i)).toBeNull()
-    expect(screen.getByText('Shown at the end of project links: website-launch')).toBeDefined()
+    expect(screen.getByText('Project link preview: website-launch')).toBeDefined()
     expect(screen.queryByText(/Forge uses this in team links/i)).toBeNull()
     expect(screen.queryByText(/Forge uses this in project links/i)).toBeNull()
+    expect(screen.queryByText(/Shown at the end of/i)).toBeNull()
     expect(screen.queryByText(/Automatic team name/i)).toBeNull()
     expect(screen.queryByText(/Automatic project name/i)).toBeNull()
     expect(screen.queryByText(/Automatic link name/i)).toBeNull()

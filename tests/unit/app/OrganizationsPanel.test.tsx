@@ -73,7 +73,7 @@ describe('OrganizationsPanel', () => {
     expect(screen.getByRole('columnheader', { name: 'Setup status' })).toBeDefined()
     expect(screen.queryByRole('columnheader', { name: 'Readiness' })).toBeNull()
     expect(screen.getByText('Acme Labs')).toBeDefined()
-    expect(screen.getByText('Shown at the end of team space links: acme')).toBeDefined()
+    expect(screen.getByText('Team space link preview: acme')).toBeDefined()
     expect(screen.queryByText(/Forge uses this in team space links/i)).toBeNull()
     expect(screen.queryByText(/Automatic team space name/i)).toBeNull()
     expect(screen.queryByText(/Team space short name/i)).toBeNull()

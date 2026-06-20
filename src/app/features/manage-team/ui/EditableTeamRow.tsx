@@ -172,7 +172,7 @@ export function EditableTeamRow({
           </span>
         </div>
         <p className="mt-0.5 truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Shown at the end of team links: {team.slug}
+          Team link preview: {team.slug}
           {team.description ? ` · ${team.description}` : ''}
         </p>
         {confirmingDelete && (
