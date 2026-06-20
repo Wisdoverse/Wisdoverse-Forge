@@ -12,6 +12,20 @@ const pkgVersion = (
   }
 ).version
 
+// Shared dev/preview proxy: forward API + WebSocket traffic to the Rust backend.
+// Used by both `vite dev` (server) and `vite preview` so a built bundle served
+// by preview (e.g. the CI E2E smoke job, or prod-like local serving) reaches the
+// backend the same way the dev server does.
+const apiProxy = {
+  '/ws': {
+    target: `ws://localhost:${serverPort}`,
+    ws: true,
+  },
+  '/api': {
+    target: `http://localhost:${serverPort}`,
+  },
+}
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -26,15 +40,11 @@ export default defineConfig({
   },
   server: {
     port: clientPort,
-    proxy: {
-      '/ws': {
-        target: `ws://localhost:${serverPort}`,
-        ws: true,
-      },
-      '/api': {
-        target: `http://localhost:${serverPort}`,
-      },
-    },
+    proxy: apiProxy,
+  },
+  preview: {
+    port: clientPort,
+    proxy: apiProxy,
   },
   build: {
     target: 'esnext',
