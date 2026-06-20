@@ -124,7 +124,7 @@ function PasswordChangeForm() {
         password next time.
       </p>
       {error && (
-        <div role="alert" className={uiStyles.error}>
+        <div role="alert" aria-live="polite" className={uiStyles.error}>
           {error}
         </div>
       )}
@@ -308,7 +308,7 @@ function OrgRenameForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       {error && (
-        <div role="alert" className={uiStyles.error}>
+        <div role="alert" aria-live="polite" className={uiStyles.error}>
           {error}
         </div>
       )}
@@ -456,7 +456,7 @@ function GettingStartedGuideRow() {
         </div>
       </div>
       {error && (
-        <div role="alert" className={cn(uiStyles.error, 'mb-0')}>
+        <div role="alert" aria-live="polite" className={cn(uiStyles.error, 'mb-0')}>
           {error}
         </div>
       )}

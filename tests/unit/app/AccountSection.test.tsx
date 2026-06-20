@@ -158,7 +158,9 @@ describe('AccountSection', () => {
 
     fireEvent.submit(screen.getByLabelText('Current Password').closest('form')!)
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
       'Choose a new password that is different from the current password.'
     )
     expect(screen.getByLabelText('New Password')).toHaveFocus()
@@ -274,6 +276,7 @@ describe('AccountSection', () => {
     fireEvent.click(screen.getByRole('button', { name: /update password/i }))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert.textContent).toContain('Sign in again')
     expect(alert.textContent).toMatch(/^Sign in again/)
     expect(alert.textContent).not.toContain('Code: 401.')
@@ -292,6 +295,7 @@ describe('AccountSection', () => {
     fireEvent.click(screen.getByRole('button', { name: /save team space name/i }))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert.textContent).toContain('You do not have permission to rename this team space')
     expect(alert.textContent).toContain('Ask an owner or admin to update your team space access')
     expect(alert.textContent).not.toContain('role')
@@ -322,6 +326,7 @@ describe('AccountSection', () => {
     fireEvent.click(screen.getByRole('button', { name: /update password/i }))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert.textContent).toContain('The current password did not match this account')
     expect(alert.textContent).toMatch(/^Re-enter the current password/)
     expect(alert.textContent).not.toContain('Details:')
@@ -438,11 +443,11 @@ describe('AccountSection', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /show setup checklist/i }))
 
-    expect(
-      await screen.findByText(
-        'Check your connection, then choose Show setup checklist again. Forge could not add it back to the left menu.'
-      )
-    ).toBeDefined()
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
+      'Check your connection, then choose Show setup checklist again. Forge could not add it back to the left menu.'
+    )
     expect(
       screen.queryByText(
         'Setup checklist is back in the left menu. Choose Open setup checklist to check setup steps.'
