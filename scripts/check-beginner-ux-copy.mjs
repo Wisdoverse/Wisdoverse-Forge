@@ -1051,6 +1051,13 @@ const SAVED_INSTRUCTION_TEMPLATE_JARGON_PATTERNS = [
   /\bstop monitoring in chat\b/i,
   /\bsuggest a background monitor\b/i,
   /\blink evidence\b/i,
+  /\bReview checklist\b/i,
+  /\bReview before handoff\b/i,
+  /\bbefore handoff\b/i,
+  /\bSummarize review and automated check status\b/i,
+  /\breview page\b/i,
+  /\breview item\b/i,
+  /\bready for handoff\b/i,
 ]
 
 const RUNTIME_SIGN_IN_DEAD_END_PATTERNS = [

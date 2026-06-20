@@ -70,14 +70,22 @@ describe('SkillsView', () => {
     ).toContain('Group user-facing updates')
   })
 
-  test('uses plain wording in the review checklist starter instruction', async () => {
+  test('uses plain wording in the result check starter instruction', async () => {
     const user = userEvent.setup()
     render(<SkillsView />)
 
     await user.click(screen.getAllByRole('button', { name: /save instruction/i })[0])
     const templates = screen.getByRole('group', { name: /instruction templates/i })
-    await user.click(within(templates).getByRole('button', { name: /review checklist/i }))
+    await user.click(within(templates).getByRole('button', { name: /result check/i }))
 
+    expect(within(templates).queryByRole('button', { name: /review checklist/i })).toBeNull()
+    expect(screen.getByLabelText(/^instruction name$/i)).toHaveValue('result-check')
+    expect(screen.getByLabelText(/^short description$/i)).toHaveValue(
+      'Check work before the team uses it'
+    )
+    expect(screen.getByLabelText(/^matching words for future tasks$/i)).toHaveValue(
+      'check result, ready to use'
+    )
     const instructions = screen.getByLabelText(/^steps for the agent$/i) as HTMLTextAreaElement
     expect(instructions.value).toContain('link the file or page you checked')
     expect(instructions.value).not.toContain('link evidence')
@@ -93,20 +101,23 @@ describe('SkillsView', () => {
 
     expect(screen.getByLabelText(/^instruction name$/i)).toHaveValue('work-status-check')
     expect(screen.getByLabelText(/^short description$/i)).toHaveValue(
-      'Summarize review and automated check status without repeated waiting'
+      'Summarize result and check status without repeated waiting'
     )
     expect(screen.getByLabelText(/^matching words for future tasks$/i)).toHaveValue(
-      'review status, check status, ready to finish'
+      'check status, ready to finish, waiting checks'
     )
     const instructions = screen.getByLabelText(/^steps for the agent$/i) as HTMLTextAreaElement
     expect(instructions.value).toContain('Create one fresh status check')
     expect(instructions.value).toContain('reuse it instead of refreshing')
     expect(instructions.value).toContain('Needs a fix, Waiting, or Done')
-    expect(instructions.value).toContain('open only the failed check or review item')
+    expect(instructions.value).toContain('open only the failed check or item')
     expect(instructions.value).toContain('do not keep checking in chat')
     expect(instructions.value).toContain('when one later check is useful')
     expect(instructions.value).toContain('project background watcher')
-    expect(instructions.value).toContain('ready for handoff')
+    expect(instructions.value).toContain('ready for the team to use')
+    expect(instructions.value).not.toContain('review page')
+    expect(instructions.value).not.toContain('review item')
+    expect(instructions.value).not.toContain('ready for handoff')
     expect(instructions.value).not.toContain('merge readiness')
     expect(instructions.value).not.toContain('PR')
     expect(instructions.value).not.toContain('CI')

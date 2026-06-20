@@ -11005,6 +11005,49 @@ const skillTemplates = [{
     ])
   })
 
+  it('flags saved instruction template cards that expose review and handoff jargon', () => {
+    const cwd = fixture({
+      'src/app/features/skills/CreateSkillModal.tsx': `
+const skillTemplates = [{
+  label: 'Review checklist',
+  description: 'Review before handoff',
+  form: {
+    description: 'Summarize review and automated check status without repeated waiting',
+    content: 'Check work before handoff. Create one fresh status check from the review page. Open only the failed check or review item. Say it is ready for handoff.'
+  }
+}]
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'saved-instruction-template-copy',
+          sample: expect.stringContaining('Review checklist'),
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-template-copy',
+          sample: expect.stringContaining('Review before handoff'),
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-template-copy',
+          sample: expect.stringContaining('before handoff'),
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-template-copy',
+          sample: expect.stringContaining('Summarize review'),
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-template-copy',
+          sample: expect.stringContaining('review page'),
+        }),
+      ])
+    )
+  })
+
   it('accepts saved instruction templates that use plain status result language', () => {
     const cwd = fixture({
       'src/app/features/skills/CreateSkillModal.tsx': `
@@ -11012,7 +11055,7 @@ const skillTemplates = [{
   id: 'work-status',
   form: {
     name: 'work-status-check',
-    content: 'Check the review page once and summarize review result, ready-to-finish status, and automated check result. Start with one plain result: Needs a fix, Waiting, or Done. For Needs a fix, open only the failed check or review item. For Waiting, stop checking in chat.'
+    content: 'Check the result page once and summarize result status and automated check result. Start with one plain result: Needs a fix, Waiting, or Done. For Needs a fix, open only the failed check or item. For Waiting, stop checking in chat.'
   }
 }]
 `,

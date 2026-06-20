@@ -29,12 +29,12 @@ const SKILL_REVIEW_POINTS = [
 const skillTemplates = [
   {
     id: 'review',
-    label: 'Review checklist',
-    description: 'Review before handoff',
+    label: 'Result check',
+    description: 'Check before the team uses it',
     form: {
-      name: 'review-checklist',
-      description: 'Check work before handoff',
-      triggerPattern: 'review',
+      name: 'result-check',
+      description: 'Check work before the team uses it',
+      triggerPattern: 'check result, ready to use',
       content:
         'Check what changed.\nList risks, missing tests, and the next safe action.\nKeep the answer short and link the file or page you checked when available.',
     },
@@ -57,10 +57,10 @@ const skillTemplates = [
     description: 'Check once, then stop waiting',
     form: {
       name: 'work-status-check',
-      description: 'Summarize review and automated check status without repeated waiting',
-      triggerPattern: 'review status, check status, ready to finish',
+      description: 'Summarize result and check status without repeated waiting',
+      triggerPattern: 'check status, ready to finish, waiting checks',
       content:
-        'Create one fresh status check from the review page, then stop. If the project already has a recent status summary, reuse it instead of refreshing.\nStart with one plain result: Needs a fix, Waiting, or Done.\nFor Needs a fix, open only the failed check or review item needed to make the fix, then name the exact next step.\nFor Waiting, do not keep checking in chat. Say what is still running, when one later check is useful, and whether the project background watcher can notify the team.\nFor Done, report the final status, say it is ready for handoff, and stop.',
+        'Create one fresh status check from the result page, then stop. If the project already has a recent status summary, reuse it instead of refreshing.\nStart with one plain result: Needs a fix, Waiting, or Done.\nFor Needs a fix, open only the failed check or item needed to make the fix, then name the exact next step.\nFor Waiting, do not keep checking in chat. Say what is still running, when one later check is useful, and whether the project background watcher can notify the team.\nFor Done, report the final status, say it is ready for the team to use, and stop.',
     },
   },
   {
