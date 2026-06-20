@@ -169,6 +169,9 @@ describe('AgentGroupsPanel', () => {
     expect(screen.queryByText(/rate limit exceeded/i)).toBeNull()
     expect(screen.queryByText(/from provider/i)).toBeNull()
     expect(screen.queryByText('Other group work')).toBeNull()
+    expect(screen.getByLabelText('Search tasks in this waiting place')).toHaveAccessibleDescription(
+      'Search only filters tasks in this waiting place. Clear it to see every task here again.'
+    )
   })
 
   test('describes completed task review without handoff wording', () => {
@@ -244,18 +247,25 @@ describe('AgentGroupsPanel', () => {
 
     render(<AgentGroupsPanel />)
 
-    fireEvent.change(screen.getByTestId('task-routing-search'), {
+    const search = screen.getByLabelText('Search tasks in this waiting place')
+    expect(search).toHaveAccessibleDescription(
+      'Search only filters tasks in this waiting place. Clear it to see every task here again.'
+    )
+
+    fireEvent.change(search, {
       target: { value: 'auth' },
     })
 
     expect(screen.getByText('Auth handoff blocked')).toBeInTheDocument()
     expect(screen.queryByText('Build settings page')).toBeNull()
 
-    fireEvent.change(screen.getByTestId('task-routing-search'), {
+    fireEvent.change(search, {
       target: { value: 'missing' },
     })
 
     const emptyState = screen.getByTestId('task-routing-filter-empty')
+    expect(emptyState).toHaveAttribute('role', 'status')
+    expect(emptyState).toHaveAttribute('aria-live', 'polite')
     expect(
       within(emptyState).getByText('Search is hiding tasks in this waiting place')
     ).toBeInTheDocument()
