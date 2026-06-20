@@ -48,7 +48,8 @@ interface EmptyStateCopy {
   detail: string
 }
 
-const LIST_SEARCH_HELP = 'Search only filters the task list. Clear it to see every task again.'
+const LIST_SEARCH_HELP =
+  'Search only filters the task list. Use Show all tasks to return to the full list.'
 
 const LIST_FILTERS: { value: ListTaskFilter; label: string; ariaLabel: string }[] = [
   { value: 'all', label: 'All', ariaLabel: 'Show all tasks' },
@@ -528,21 +529,21 @@ function listFilterEmptyState(filter: ListTaskFilter, query: string): EmptyState
 
   if (hasSearch && hasFilter) {
     return {
-      title: 'Clear search or show all tasks',
-      detail: 'There are tasks here, but the current search and filter hide them.',
+      title: 'Search and filter are hiding tasks',
+      detail: 'Use Show all tasks before assuming there is no matching task.',
     }
   }
 
   if (hasSearch) {
     return {
-      title: 'Clear search to see tasks',
-      detail: 'There are tasks here, but this search hides them. Try a broader word.',
+      title: 'Search is hiding tasks',
+      detail: 'Use Show all tasks to return to the full list.',
     }
   }
 
   return {
-    title: 'Choose All to see tasks',
-    detail: 'There are tasks here, but this filter has no results yet.',
+    title: 'Filter is hiding tasks',
+    detail: 'Use Show all tasks to return to the full list.',
   }
 }
 
