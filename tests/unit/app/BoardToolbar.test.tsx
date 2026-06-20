@@ -47,11 +47,24 @@ describe('BoardToolbar', () => {
     expect(
       screen.getByPlaceholderText('Search task names, agents, or help needed...')
     ).toBeDefined()
+    expect(screen.getByRole('searchbox', { name: /search tasks/i })).toHaveAccessibleDescription(
+      /clear it to see every task again/i
+    )
     expect(screen.queryByPlaceholderText(/blockers/i)).toBeNull()
-    expect(screen.getByRole('button', { name: /all priorities\s*6/i })).toBeDefined()
-    expect(screen.getByRole('button', { name: /all agents\s*6/i })).toBeDefined()
-    expect(screen.getByRole('button', { name: /needs agent\s*3/i })).toBeDefined()
-    expect(screen.getByRole('button', { name: /has agent\s*3/i })).toBeDefined()
+    expect(
+      screen.getByRole('button', { name: /show tasks at all priority levels, 6 matching tasks/i })
+    ).toBeDefined()
+    expect(
+      screen.getByRole('button', { name: /show tasks for all agent choices, 6 matching tasks/i })
+    ).toBeDefined()
+    expect(
+      screen.getByRole('button', { name: /show tasks that still need an agent, 3 matching tasks/i })
+    ).toBeDefined()
+    expect(
+      screen.getByRole('button', {
+        name: /show tasks that already have an agent, 3 matching tasks/i,
+      })
+    ).toBeDefined()
     expect(screen.getByText('Showing 4 of 6 tasks')).toBeDefined()
   })
 
@@ -59,9 +72,15 @@ describe('BoardToolbar', () => {
     const props = renderToolbar()
     const toolbar = screen.getByTestId('board-toolbar')
 
-    fireEvent.click(within(toolbar).getByRole('button', { name: /urgent\s*1/i }))
-    fireEvent.click(within(toolbar).getByRole('button', { name: /needs agent\s*3/i }))
-    fireEvent.click(within(toolbar).getByRole('button', { name: /compact/i }))
+    fireEvent.click(
+      within(toolbar).getByRole('button', { name: /show urgent priority tasks, 1 matching task/i })
+    )
+    fireEvent.click(
+      within(toolbar).getByRole('button', {
+        name: /show tasks that still need an agent, 3 matching tasks/i,
+      })
+    )
+    fireEvent.click(within(toolbar).getByRole('button', { name: /use compact task cards/i }))
 
     expect(props.onPriorityFilterChange).toHaveBeenCalledWith('urgent')
     expect(props.onAssigneeFilterChange).toHaveBeenCalledWith('unassigned')

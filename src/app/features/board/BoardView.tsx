@@ -386,6 +386,8 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
         {hasActiveBoardFilter && filterCounts.visible === 0 ? (
           <div
             data-testid="board-filter-empty"
+            role="status"
+            aria-live="polite"
             className="flex min-h-64 flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-black/10 px-6 text-center dark:border-white/10"
           >
             <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">

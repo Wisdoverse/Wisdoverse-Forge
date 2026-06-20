@@ -335,6 +335,8 @@ describe('BoardView', () => {
 
     fireEvent.change(screen.getByTestId('board-search'), { target: { value: 'missing' } })
     const emptyState = screen.getByTestId('board-filter-empty')
+    expect(emptyState).toHaveAttribute('role', 'status')
+    expect(emptyState).toHaveAttribute('aria-live', 'polite')
     expect(within(emptyState).getByText('Search is hiding every task')).toBeDefined()
     expect(within(emptyState).getByText(/none match the words you typed/i)).toBeDefined()
     expect(within(emptyState).getByText(/before assuming the board is empty/i)).toBeDefined()
@@ -375,12 +377,22 @@ describe('BoardView', () => {
     expect(await screen.findByText('Production incident')).toBeDefined()
     const toolbar = screen.getByTestId('board-toolbar')
 
-    fireEvent.click(within(toolbar).getByRole('button', { name: /urgent\s*1/i }))
+    fireEvent.click(
+      within(toolbar).getByRole('button', { name: /show urgent priority tasks, 1 matching task/i })
+    )
     expect(screen.getByText('Production incident')).toBeDefined()
     expect(screen.queryByText('Copy review')).toBeNull()
 
-    fireEvent.click(within(toolbar).getByRole('button', { name: /all priorities\s*2/i }))
-    fireEvent.click(within(toolbar).getByRole('button', { name: /^has agent\s*1$/i }))
+    fireEvent.click(
+      within(toolbar).getByRole('button', {
+        name: /show tasks at all priority levels, 2 matching tasks/i,
+      })
+    )
+    fireEvent.click(
+      within(toolbar).getByRole('button', {
+        name: /show tasks that already have an agent, 1 matching task/i,
+      })
+    )
     expect(screen.queryByText('Production incident')).toBeNull()
     expect(screen.getByText('Copy review')).toBeDefined()
   })
