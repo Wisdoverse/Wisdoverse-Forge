@@ -937,6 +937,7 @@ const SAVED_INSTRUCTION_SUMMARY_FALLBACK_PATTERNS = [
   /\bNo summary yet\. Open details before using this saved instruction\./i,
   /\bNo summary yet\. Review the instructions below before using this saved instruction\./i,
   /\bOpen details to check the reusable instructions before using this saved instruction\./i,
+  /\breview the reusable instructions before using it\b/i,
   /还没有简介。/,
 ]
 
@@ -957,6 +958,7 @@ const SAVED_INSTRUCTION_WORKSPACE_INTRO_PATTERNS = [/\bsaving it for the workspa
 const SAVED_INSTRUCTION_DRAFT_DEAD_END_PATTERNS = [
   /\bKeep or rewrite the reusable instructions before publishing\./i,
   /\bReview the reusable instructions\./i,
+  /\breview the reusable steps before agents use them\b/i,
 ]
 
 const SAVED_INSTRUCTION_DETAIL_HELPER_JARGON_PATTERNS = [

@@ -102,8 +102,11 @@ describe('SkillDraftModal', () => {
     expect(openSkills.getAttribute('href')).toBe('/skills')
     expect(chooseAgent.getAttribute('href')).toBe('/agents')
     expect(
-      screen.getByText('Find this instruction, then review the reusable steps before agents use them.')
+      screen.getByText(
+        'Find this instruction, then check the reusable steps before agents use them.'
+      )
     ).toBeDefined()
+    expect(screen.queryByText(/review the reusable steps before agents use them/i)).toBeNull()
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(

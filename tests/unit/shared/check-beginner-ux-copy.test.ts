@@ -10098,6 +10098,7 @@ export function SkillDraftModal() {
 export function SkillDraftModal() {
   const error = 'Keep or rewrite the reusable instructions before publishing.'
   return 'Review the reusable instructions.'
+  return 'Find this instruction, then review the reusable steps before agents use them.'
 }
 `,
     })
@@ -10115,16 +10116,20 @@ export function SkillDraftModal() {
           type: 'saved-instruction-draft-copy',
           location: 'src/app/features/detail/SkillDraftModal.tsx:4',
         }),
+        expect.objectContaining({
+          type: 'saved-instruction-draft-copy',
+          location: 'src/app/features/detail/SkillDraftModal.tsx:5',
+        }),
       ])
     )
   })
 
-  it('accepts saved instruction draft copy that names the field and review step', () => {
+  it('accepts saved instruction draft copy that names the field and check step', () => {
     const cwd = fixture({
       'src/app/features/detail/SkillDraftModal.tsx': `
 export function SkillDraftModal() {
   const error = 'Add the repeatable steps, or keep the suggested steps, before publishing.'
-  return 'Find this instruction, then review the reusable steps before agents use them.'
+  return 'Find this instruction, then check the reusable steps before agents use them.'
 }
 `,
     })
@@ -12979,6 +12984,7 @@ export const zh = {
       'src/app/features/skills/SkillCard.tsx': `
 export function SkillCard() {
   return 'Open details to check the reusable instructions before using this saved instruction.'
+  return 'Open saved instruction details to review the reusable instructions before using it.'
 }
 `,
     })
@@ -12986,12 +12992,18 @@ export function SkillCard() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'saved-instruction-summary-fallback-copy',
-        location: 'src/app/features/skills/SkillCard.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'saved-instruction-summary-fallback-copy',
+          location: 'src/app/features/skills/SkillCard.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-summary-fallback-copy',
+          location: 'src/app/features/skills/SkillCard.tsx:4',
+        }),
+      ])
+    )
   })
 
   it('flags saved instruction work-tool tooltips that do not say where to check setup', () => {
@@ -13047,7 +13059,7 @@ export const zh = {
     const cwd = fixture({
       'src/app/features/skills/SkillCard.tsx': `
 export function SkillCard() {
-  return 'Open saved instruction details to review the reusable instructions before using it.'
+  return 'Open saved instruction details to check the reusable instructions before using it.'
 }
 `,
       'src/app/shared/i18n/locales/en.ts': `
