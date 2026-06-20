@@ -525,12 +525,15 @@ describe('AgentListView', () => {
     render(<AgentListView />)
 
     const templates = screen.getByRole('group', { name: /waiting place templates/i })
-    fireEvent.click(within(templates).getByRole('button', { name: /review/i }))
+    fireEvent.click(within(templates).getByRole('button', { name: /check results/i }))
 
-    expect(screen.getByLabelText(/waiting place name/i)).toHaveValue('Review Tasks')
+    expect(screen.getByLabelText(/waiting place name/i)).toHaveValue('Result Check Tasks')
     expect(
       (screen.getByLabelText(/waiting place description/i) as HTMLInputElement).value
-    ).toContain('stop a release')
+    ).toContain('unsafe to use')
+    expect(
+      (screen.getByLabelText(/waiting place description/i) as HTMLInputElement).value
+    ).not.toContain('Review completed work')
     expect(
       (screen.getByLabelText(/waiting place description/i) as HTMLInputElement).value
     ).not.toContain('block release')
@@ -541,8 +544,8 @@ describe('AgentListView', () => {
       expect(createAgentGroup).toHaveBeenCalledWith(
         'p1',
         expect.objectContaining({
-          name: 'Review Tasks',
-          description: expect.stringContaining('stop a release'),
+          name: 'Result Check Tasks',
+          description: expect.stringContaining('unsafe to use'),
         })
       )
     )

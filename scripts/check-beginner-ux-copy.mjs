@@ -1505,6 +1505,11 @@ const TASK_RECOVERY_OPEN_DETAILS_DEAD_END_PATTERNS = [/\bOpen details\b/i, /\bop
 const BEGINNER_SORTING_JARGON_PATTERNS = [
   /\bInbox triage path\b/i,
   /\bTriage Queue\b/,
+  /\bid:\s*['"`](?:review|triage)['"`]/,
+  /\blabel:\s*['"`]Review['"`]/,
+  /\bname:\s*['"`]Review Tasks['"`]/,
+  /\bCheck before release\b/i,
+  /\bReview completed work\b/i,
   /\bYou are a triage agent\b/i,
   /\bYou review work carefully\b/i,
   /\bcode review agent\b/i,
@@ -2297,6 +2302,9 @@ const ACCESS_LEVEL_DEAD_END_PATTERNS = [
 ]
 
 const AGENT_TEMPLATE_ROLE_JARGON_PATTERNS = [
+  /\bAgentRoleTemplate\b/,
+  /\bAGENT_ROLE_TEMPLATES\b/,
+  /\bapplyRoleTemplate\b/,
   /\bStart with a role\b/i,
   /\bAgent role templates\b/i,
   /\bFills in the agent name\b/i,

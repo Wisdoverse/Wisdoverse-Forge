@@ -47,7 +47,7 @@ const CLI_TOOLS: { value: CliTool; label: string }[] = [
   { value: 'opencode', label: 'OpenCode' },
 ]
 
-interface AgentRoleTemplate {
+interface AgentStarterTemplate {
   id: string
   label: string
   summary: string
@@ -67,7 +67,7 @@ interface AgentCreateReviewItem {
   value: string
 }
 
-const AGENT_ROLE_TEMPLATES: AgentRoleTemplate[] = [
+const AGENT_STARTER_TEMPLATES: AgentStarterTemplate[] = [
   {
     id: 'builder',
     label: 'Make a change',
@@ -78,7 +78,7 @@ const AGENT_ROLE_TEMPLATES: AgentRoleTemplate[] = [
     Icon: Code2,
   },
   {
-    id: 'reviewer',
+    id: 'result-check',
     label: 'Check results',
     summary: 'Looks for risks before use',
     name: 'Result Check Helper',
@@ -518,7 +518,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
     }
   }
 
-  function applyRoleTemplate(template: AgentRoleTemplate) {
+  function applyStarterTemplate(template: AgentStarterTemplate) {
     setSelectedTemplateId(template.id)
     setValue('name', template.name, { shouldDirty: true })
     setValue('systemPrompt', template.systemPrompt, { shouldDirty: true })
@@ -886,11 +886,11 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 aria-label="Agent starter templates"
                 className="grid gap-2 sm:grid-cols-2"
               >
-                {AGENT_ROLE_TEMPLATES.map((template) => (
+                {AGENT_STARTER_TEMPLATES.map((template) => (
                   <button
                     key={template.id}
                     type="button"
-                    onClick={() => applyRoleTemplate(template)}
+                    onClick={() => applyStarterTemplate(template)}
                     aria-pressed={selectedTemplateId === template.id}
                     className={cn(
                       'flex min-h-16 items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors',

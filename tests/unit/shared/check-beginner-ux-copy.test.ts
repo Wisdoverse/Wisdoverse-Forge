@@ -4173,26 +4173,39 @@ const AGENT_ROLE_TEMPLATES = [{
   label: 'Review work',
   name: 'Review Helper'
 }]
+function applyRoleTemplate() {
+  return null
+}
 `,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'agent-template-role-copy',
-        sample: expect.stringContaining('Fills in the agent name'),
-      }),
-      expect.objectContaining({
-        type: 'agent-template-role-copy',
-        sample: expect.stringContaining('Review work'),
-      }),
-      expect.objectContaining({
-        type: 'agent-template-role-copy',
-        sample: expect.stringContaining('Review Helper'),
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-template-role-copy',
+          sample: expect.stringContaining('Fills in the agent name'),
+        }),
+        expect.objectContaining({
+          type: 'agent-template-role-copy',
+          sample: expect.stringContaining('Review work'),
+        }),
+        expect.objectContaining({
+          type: 'agent-template-role-copy',
+          sample: expect.stringContaining('Review Helper'),
+        }),
+        expect.objectContaining({
+          type: 'agent-template-role-copy',
+          sample: expect.stringContaining('AGENT_ROLE_TEMPLATES'),
+        }),
+        expect.objectContaining({
+          type: 'agent-template-role-copy',
+          sample: expect.stringContaining('applyRoleTemplate'),
+        }),
+      ])
+    )
   })
 
   it('accepts create-agent starter template hints that explain starter task instructions', () => {
@@ -4201,7 +4214,7 @@ const AGENT_ROLE_TEMPLATES = [{
 function TemplateHint() {
   return <span>Fills in name and starter task instructions</span>
 }
-const AGENT_ROLE_TEMPLATES = [{
+const AGENT_STARTER_TEMPLATES = [{
   label: 'Check results',
   name: 'Result Check Helper'
 }]
@@ -11720,7 +11733,7 @@ const skillTemplates = [{
   it('flags agent instruction templates that expose evidence or root-cause jargon', () => {
     const cwd = fixture({
       'src/app/features/agents/CreateAgentModal.tsx': `
-const AGENT_ROLE_TEMPLATES = [{
+const AGENT_STARTER_TEMPLATES = [{
   systemPrompt: 'You investigate unclear failures by gathering evidence first. You review work before the team uses it.'
 }]
 `,
@@ -16026,7 +16039,7 @@ function oldCheckTemplate() {
 `,
       'src/app/features/agents/AgentGroupsPanel.tsx': `
 function groupTemplate() {
-  return 'Triage Queue'
+  return [{ id: 'review', label: 'Review', name: 'Review Tasks', summary: 'Check before release', description: 'Review completed work before release.' }]
 }
 `,
     })
@@ -16058,7 +16071,19 @@ function groupTemplate() {
         }),
         expect.objectContaining({
           type: 'beginner-sorting-copy',
-          sample: expect.stringContaining('Triage Queue'),
+          sample: expect.stringContaining("id: 'review'"),
+        }),
+        expect.objectContaining({
+          type: 'beginner-sorting-copy',
+          sample: expect.stringContaining("label: 'Review'"),
+        }),
+        expect.objectContaining({
+          type: 'beginner-sorting-copy',
+          sample: expect.stringContaining('Review Tasks'),
+        }),
+        expect.objectContaining({
+          type: 'beginner-sorting-copy',
+          sample: expect.stringContaining('Review completed work'),
         }),
       ])
     )
@@ -16081,7 +16106,7 @@ function promptTemplate() {
 `,
       'src/app/features/agents/AgentGroupsPanel.tsx': `
 function groupTemplate() {
-  return 'Intake Queue'
+  return [{ id: 'sort-work', label: 'Sort work', name: 'Intake Tasks' }, { id: 'result-check', label: 'Check results', name: 'Result Check Tasks' }]
 }
 `,
     })
@@ -16093,7 +16118,7 @@ function groupTemplate() {
     const cwd = fixture({
       'src/app/features/agents/AgentConfigTab.tsx': `
 const PROMPT_TEMPLATES = [{
-  id: 'review',
+  id: 'result-check',
   label: 'Review',
   value: 'You check work before the team uses it.'
 }]
@@ -16103,19 +16128,21 @@ const PROMPT_TEMPLATES = [{
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'agent-config-template-copy',
-        location: 'src/app/features/agents/AgentConfigTab.tsx:4',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-config-template-copy',
+          location: 'src/app/features/agents/AgentConfigTab.tsx:4',
+        }),
+      ])
+    )
   })
 
   it('accepts agent instruction template buttons that describe the action', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentConfigTab.tsx': `
 const PROMPT_TEMPLATES = [{
-  id: 'review',
+  id: 'result-check',
   label: 'Check results',
   value: 'You check work before the team uses it.'
 }]
