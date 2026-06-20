@@ -7253,7 +7253,7 @@ export const en = {
     emailDomainRestricted: 'Registration restricted to authorized email domains',
   },
   agents: {
-    maxAgentsReached: 'Maximum number of agents reached',
+    maxAgentsReached: 'Agent limit reached. Stop or delete an unused agent, then try again.',
   },
   files: {
     uploadFailed: 'File upload failed',
@@ -7309,7 +7309,7 @@ export const zh = {
     emailDomainRestricted: '仅允许使用授权邮箱域名注册',
   },
   agents: {
-    maxAgentsReached: '已达到最大 Agent 数量',
+    maxAgentsReached: 'Agent 数量已达上限。请先停止或删除不用的 Agent，然后重试。',
   },
   files: {
     uploadFailed: '文件上传失败',
@@ -7363,6 +7363,9 @@ export const en = {
   },
   files: {
     tooLarge: 'Choose a file under {{size}}, then upload it again.',
+  },
+  agents: {
+    maxAgentsReached: 'Stop or delete an unused agent, then try again. You already have the allowed number of agents.',
   },
 }
 `,

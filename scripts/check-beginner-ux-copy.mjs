@@ -94,6 +94,7 @@ const DEAD_END_LIMIT_CONFLICT_PATTERNS = [
   /\bThis username is already taken\b/,
   /\bRegistration restricted to authorized email domains\b/,
   /\bMaximum number of agents reached\b/,
+  /\bAgent limit reached\./,
   /\bFile upload failed\b/,
   /\bFile is too large\. Maximum size is \{\{size\}\}\.?/,
   /密码至少需要 \{\{min\}\} 个字符/,
@@ -102,6 +103,7 @@ const DEAD_END_LIMIT_CONFLICT_PATTERNS = [
   /该用户名已被使用/,
   /仅允许使用授权邮箱域名注册/,
   /已达到最大 Agent 数量/,
+  /Agent 数量已达上限/,
   /文件上传失败/,
   /文件过大，最大允许 \{\{size\}\}/,
 ]

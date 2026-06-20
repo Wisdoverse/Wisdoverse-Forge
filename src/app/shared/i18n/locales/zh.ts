@@ -285,7 +285,7 @@ export const zh: TranslationKeys = {
     agentStopped: 'Agent 已停止',
     agentDeleted: 'Agent 已删除',
     agentCreated: 'Agent 已创建',
-    maxAgentsReached: 'Agent 数量已达上限。请先停止或删除不用的 Agent，然后重试。',
+    maxAgentsReached: '请先停止或删除不用的 Agent，然后重试。当前 Agent 数量已经到上限。',
     invalidProjectPath: '请输入项目文件夹位置，然后重试。',
   },
 

@@ -292,7 +292,8 @@ export const en = {
     agentStopped: 'Agent stopped',
     agentDeleted: 'Agent deleted',
     agentCreated: 'Agent created',
-    maxAgentsReached: 'Agent limit reached. Stop or delete an unused agent, then try again.',
+    maxAgentsReached:
+      'Stop or delete an unused agent, then try again. You already have the allowed number of agents.',
     invalidProjectPath: 'Enter the project folder location, then try again.',
   },
 
