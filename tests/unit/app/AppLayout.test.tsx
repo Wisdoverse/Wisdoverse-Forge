@@ -245,6 +245,36 @@ describe('AppLayout', () => {
     expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
   })
 
+  test('project menu New task opens the task form when the project has a waiting place', async () => {
+    seedProjectNavigation(null)
+    const onNavigate = vi.fn()
+
+    render(<MemoryRouter onNavigate={onNavigate} />)
+
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /new task for this project/i }))
+
+    await waitFor(() => expect(mockGetGroups).toHaveBeenCalledWith('p1'))
+    expect(onNavigate).toHaveBeenCalledWith('/tasks')
+    await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
+    expect(screen.getByRole('dialog', { name: /tell an agent what to do/i })).toBeDefined()
+  })
+
+  test('project menu New task routes to Agents when the project has no waiting place', async () => {
+    seedProjectNavigation(null)
+    mockGetGroups.mockResolvedValueOnce([])
+    const onNavigate = vi.fn()
+
+    render(<MemoryRouter onNavigate={onNavigate} />)
+
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /new task for this project/i }))
+
+    await waitFor(() => expect(mockGetGroups).toHaveBeenCalledWith('p1'))
+    expect(onNavigate).toHaveBeenCalledWith('/agents')
+    expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
+  })
+
   test('command palette opens Codex and work tool sign-in directly', async () => {
     const onNavigate = vi.fn()
 

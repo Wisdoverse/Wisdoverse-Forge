@@ -193,6 +193,10 @@ export function AppLayout({
         // task form would otherwise claim the project has nowhere tasks can wait.
         await selectProject(projectId)
       }
+      if (!useBoardStore.getState().selectedGroupId) {
+        handleNavigate('/agents')
+        return
+      }
       handleNavigate('/tasks')
       setTaskFormOpen(true)
     },
