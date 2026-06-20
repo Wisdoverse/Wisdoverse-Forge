@@ -134,7 +134,7 @@ export function AssignmentReadinessPanel({
           testId="assignment-metric-blocked"
         />
         <MetricPill
-          label="Review"
+          label="Ready to check"
           value={workload.review}
           tone={workload.review > 0 ? 'success' : 'default'}
         />
@@ -215,7 +215,7 @@ function summarizeHandoff(workload: BoardWorkloadSnapshot, availableCount: numbe
   }
 
   if (workload.review > 0) {
-    return `${workload.review} completed ${pluralize(workload.review, 'task')} ready for review.`
+    return `${workload.review} completed ${pluralize(workload.review, 'task')} ready to check.`
   }
 
   return 'Create a task when you have work to send.'

@@ -12606,11 +12606,11 @@ function AgentGroupSelector() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags assignment status metrics that say in flight', () => {
+  it('flags assignment status metrics that use expert status or review wording', () => {
     const cwd = fixture({
       'src/app/features/board/AssignmentReadinessPanel.tsx': `
 function AssignmentReadinessPanel() {
-  return <span>In flight</span>
+  return <><span>In flight</span><MetricPill label="Review" /><p>1 completed task ready for review.</p></>
 }
 `,
     })
@@ -12618,19 +12618,21 @@ function AssignmentReadinessPanel() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'assignment-readiness-status-copy',
-        location: 'src/app/features/board/AssignmentReadinessPanel.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'assignment-readiness-status-copy',
+          location: 'src/app/features/board/AssignmentReadinessPanel.tsx:3',
+        }),
+      ])
+    )
   })
 
-  it('accepts assignment status metrics that say being worked on', () => {
+  it('accepts assignment status metrics that say being worked on and ready to check', () => {
     const cwd = fixture({
       'src/app/features/board/AssignmentReadinessPanel.tsx': `
 function AssignmentReadinessPanel() {
-  return <span>Being worked on</span>
+  return <><span>Being worked on</span><MetricPill label="Ready to check" /><p>1 completed task ready to check.</p></>
 }
 `,
     })

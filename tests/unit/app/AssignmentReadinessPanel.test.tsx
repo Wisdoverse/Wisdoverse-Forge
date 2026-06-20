@@ -193,6 +193,31 @@ describe('AssignmentReadinessPanel', () => {
     expect(readiness.textContent).not.toContain('Blocked')
   })
 
+  test('summarizes completed tasks as ready to check', () => {
+    render(
+      <AssignmentReadinessPanel
+        participants={[
+          {
+            id: 'participant-1',
+            agentId: 'agent-1',
+            name: 'Ready Agent',
+            status: 'available',
+            capabilities: ['codex'],
+          },
+        ]}
+        workload={{ ...emptyWorkload, review: 2 }}
+        loading={false}
+        error={null}
+        onRefresh={vi.fn()}
+      />
+    )
+
+    const readiness = screen.getByTestId('assignment-readiness')
+    expect(readiness.textContent).toContain('2 completed tasks ready to check.')
+    expect(screen.getByText('Ready to check')).toBeDefined()
+    expect(readiness.textContent).not.toContain('ready for review')
+  })
+
   test('uses plain offline agent activity labels', () => {
     const participants: ParticipantSummary[] = [
       {

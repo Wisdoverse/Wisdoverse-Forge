@@ -1821,7 +1821,11 @@ const BOARD_WAITING_PLACE_JARGON_PATTERNS = [
   /\bCreate a task queue first\b/i,
 ]
 
-const ASSIGNMENT_READINESS_STATUS_JARGON_PATTERNS = [/\bIn flight\b/i]
+const ASSIGNMENT_READINESS_STATUS_JARGON_PATTERNS = [
+  /\bIn flight\b/i,
+  /label=["'`]Review["'`]/,
+  /\bready for review\b/i,
+]
 
 const AUTH_FAILURE_FIRST_PATTERNS = [
   /\bToo many sign-in attempts\. Wait a few minutes/i,
