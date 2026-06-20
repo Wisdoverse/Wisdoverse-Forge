@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { SkillsView } from '@app/features/skills/SkillsView'
 import { useSkillsStore } from '@app/shared/model/skills.store'
@@ -73,8 +73,21 @@ describe('Skills toolbar status', () => {
     expect(screen.getByText('Clear search to see saved instructions.')).toBeInTheDocument()
     expect(screen.getByText('Clear search to see saved instructions')).toBeInTheDocument()
     expect(screen.getByText(/this search hides them/i)).toBeInTheDocument()
+    const emptyState = screen.getByTestId('saved-instructions-empty-state')
+    expect(emptyState).toHaveAttribute('role', 'status')
+    expect(emptyState).toHaveAttribute('aria-live', 'polite')
+    expect(
+      within(emptyState).getByRole('button', { name: /show all saved instructions/i })
+    ).toBeInTheDocument()
     expect(screen.queryByText('No saved instructions match search')).toBeNull()
     expect(screen.queryByText('No saved instructions match this view')).toBeNull()
+
+    fireEvent.click(
+      within(emptyState).getByRole('button', { name: /show all saved instructions/i })
+    )
+
+    expect(screen.getByText('release-review')).toBeInTheDocument()
+    expect(screen.getByRole('searchbox', { name: /search saved instructions/i })).toHaveValue('')
   })
 
   test('explains when a filter hides every saved instruction', async () => {
@@ -98,12 +111,33 @@ describe('Skills toolbar status', () => {
     render(<SkillsView />)
 
     await screen.findByText('release-review')
-    fireEvent.click(screen.getByRole('button', { name: /for one work tool\s*0/i }))
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /show saved instructions for one work tool, 0 matching saved instructions/i,
+      })
+    )
 
     expect(screen.getByText('Change filter to see saved instructions.')).toBeInTheDocument()
     expect(screen.getByText('Change filter to see saved instructions')).toBeInTheDocument()
     expect(screen.getByText(/this filter hides them/i)).toBeInTheDocument()
+    const emptyState = screen.getByTestId('saved-instructions-empty-state')
+    expect(emptyState).toHaveAttribute('role', 'status')
+    expect(emptyState).toHaveAttribute('aria-live', 'polite')
+    expect(
+      within(emptyState).getByRole('button', { name: /show all saved instructions/i })
+    ).toBeInTheDocument()
     expect(screen.queryByText('No saved instructions match filter')).toBeNull()
     expect(screen.queryByText('No saved instructions match this view')).toBeNull()
+
+    fireEvent.click(
+      within(emptyState).getByRole('button', { name: /show all saved instructions/i })
+    )
+
+    expect(screen.getByText('release-review')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', {
+        name: /show all saved instructions, 1 matching saved instruction/i,
+      })
+    ).toHaveAttribute('aria-pressed', 'true')
   })
 })

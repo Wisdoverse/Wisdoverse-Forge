@@ -33,7 +33,10 @@ describe('SkillsView', () => {
     // Title is rendered by TopBar outside SkillsView — verify the
     // toolbar count replaces the old duplicate page heading.
     render(<SkillsView />)
-    expect(screen.getByPlaceholderText(/search saved instructions/i)).toBeDefined()
+    const search = screen.getByRole('searchbox', { name: /search saved instructions/i })
+    expect(search).toHaveAccessibleDescription(
+      'Search only filters this list. Clear it to see every saved instruction again.'
+    )
   })
 
   test('shows search input', () => {
@@ -272,7 +275,11 @@ describe('SkillsView', () => {
     expect(within(summary).queryByText(/C[L]I scoped/)).toBeNull()
 
     const filters = within(summary).getByRole('group', { name: /saved instruction filter/i })
-    fireEvent.click(within(filters).getByRole('button', { name: /for one work tool\s*1/i }))
+    fireEvent.click(
+      within(filters).getByRole('button', {
+        name: /show saved instructions for one work tool, 1 matching saved instruction/i,
+      })
+    )
 
     expect(screen.getByText('cli-review')).toBeDefined()
     expect(screen.queryByText('release-draft')).toBeNull()

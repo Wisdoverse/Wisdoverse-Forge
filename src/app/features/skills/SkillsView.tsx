@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { BrainCircuit, CheckCircle2, Circle, Filter, Plus, Search, Terminal } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
@@ -9,11 +9,29 @@ import { SkillDetailModal } from './SkillDetailModal'
 
 type SkillFilter = 'all' | 'installed' | 'available' | 'cli'
 
-const SKILL_FILTER_LABELS: Record<SkillFilter, string> = {
-  all: 'All',
-  installed: 'Ready to use',
-  available: 'Needs install',
-  cli: 'For one work tool',
+const SKILL_FILTERS: { value: SkillFilter; label: string; ariaLabel: string }[] = [
+  { value: 'all', label: 'All', ariaLabel: 'Show all saved instructions' },
+  {
+    value: 'installed',
+    label: 'Ready to use',
+    ariaLabel: 'Show saved instructions that are ready to use',
+  },
+  {
+    value: 'available',
+    label: 'Needs install',
+    ariaLabel: 'Show saved instructions that need install first',
+  },
+  {
+    value: 'cli',
+    label: 'For one work tool',
+    ariaLabel: 'Show saved instructions for one work tool',
+  },
+]
+
+interface SavedInstructionsEmptyState {
+  title: string
+  detail: string
+  action: 'create' | 'reset'
 }
 
 const RAW_LOAD_ERROR_PATTERN = /\b(?:API|HTTP|Code:)\s*\(?\d{3}\b/i
@@ -31,6 +49,7 @@ export function SkillsView() {
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null)
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [skillFilter, setSkillFilter] = useState<SkillFilter>('all')
+  const searchHelpId = useId()
 
   useEffect(() => {
     void loadSkills()
@@ -65,6 +84,10 @@ export function SkillsView() {
     loading,
     error,
   })
+  const resetSkillView = () => {
+    setSearchQuery('')
+    setSkillFilter('all')
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -90,12 +113,19 @@ export function SkillsView() {
             <input
               id="skill-search"
               type="search"
+              aria-describedby={searchHelpId}
               placeholder="Search saved instructions..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className={cn(uiStyles.input, 'w-40 shrink pl-9 sm:w-56')}
             />
           </div>
+          <p
+            id={searchHelpId}
+            className="hidden max-w-[14rem] text-ui-caption text-secondary-light dark:text-secondary-dark lg:block"
+          >
+            Search only filters this list. Clear it to see every saved instruction again.
+          </p>
           <button
             type="button"
             onClick={() => setCreateModalOpen(true)}
@@ -130,13 +160,14 @@ export function SkillsView() {
                 aria-label="Saved instruction filter"
                 className="flex flex-wrap gap-1.5"
               >
-                {(Object.keys(SKILL_FILTER_LABELS) as SkillFilter[]).map((filter) => (
+                {SKILL_FILTERS.map((filter) => (
                   <SkillFilterButton
-                    key={filter}
-                    active={skillFilter === filter}
-                    label={SKILL_FILTER_LABELS[filter]}
-                    count={filterCounts[filter]}
-                    onClick={() => setSkillFilter(filter)}
+                    key={filter.value}
+                    active={skillFilter === filter.value}
+                    label={filter.label}
+                    ariaLabel={filter.ariaLabel}
+                    count={filterCounts[filter.value]}
+                    onClick={() => setSkillFilter(filter.value)}
                   />
                 ))}
               </div>
@@ -177,7 +208,12 @@ export function SkillsView() {
         )}
 
         {!loading && !error && visibleSkills.length === 0 && (
-          <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
+          <div
+            role="status"
+            aria-live="polite"
+            data-testid="saved-instructions-empty-state"
+            className="flex h-full flex-col items-center justify-center gap-4 text-center"
+          >
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-apple-blue/10 text-apple-blue">
               <BrainCircuit size={28} strokeWidth={1.75} aria-hidden="true" />
             </div>
@@ -191,11 +227,17 @@ export function SkillsView() {
             </div>
             <button
               type="button"
-              onClick={() => setCreateModalOpen(true)}
+              onClick={
+                emptyState.action === 'reset' ? resetSkillView : () => setCreateModalOpen(true)
+              }
               className={uiStyles.primaryButton}
             >
-              <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
-              <span>Save instruction</span>
+              {emptyState.action === 'create' && (
+                <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
+              )}
+              <span>
+                {emptyState.action === 'reset' ? 'Show all saved instructions' : 'Save instruction'}
+              </span>
             </button>
           </div>
         )}
@@ -248,32 +290,47 @@ function savedInstructionsEmptyState({
   hasCatalogSkills: boolean
   searchQuery: string
   filter: SkillFilter
-}): { title: string; detail: string } {
-  if (hasCatalogSkills && searchQuery.trim()) {
+}): SavedInstructionsEmptyState {
+  const hasSearch = searchQuery.trim().length > 0
+  const hasFilter = filter !== 'all'
+
+  if (hasCatalogSkills && hasSearch && hasFilter) {
+    return {
+      title: 'Clear search or show all saved instructions',
+      detail: 'The library has saved instructions, but this search and filter hide them.',
+      action: 'reset',
+    }
+  }
+
+  if (hasCatalogSkills && hasSearch) {
     return {
       title: 'Clear search to see saved instructions',
       detail: 'The library has saved instructions, but this search hides them.',
+      action: 'reset',
     }
   }
 
-  if (hasCatalogSkills && filter !== 'all') {
+  if (hasCatalogSkills && hasFilter) {
     return {
       title: 'Change filter to see saved instructions',
       detail: 'The library has saved instructions, but this filter hides them.',
+      action: 'reset',
     }
   }
 
-  if (searchQuery.trim()) {
+  if (hasSearch) {
     return {
       title: 'Clear search or create a saved instruction',
       detail:
         'There are no saved instructions yet. Clear search, then choose Save instruction to save reusable steps.',
+      action: 'create',
     }
   }
 
   return {
     title: 'Create your first saved instruction',
     detail: 'Save steps your agents should repeat, like review checklists or release-note rules.',
+    action: 'create',
   }
 }
 
@@ -359,18 +416,23 @@ function SkillStat({
 function SkillFilterButton({
   active,
   label,
+  ariaLabel,
   count,
   onClick,
 }: {
   active: boolean
   label: string
+  ariaLabel: string
   count: number
   onClick: () => void
 }) {
+  const countLabel = `${count} matching saved instruction${count === 1 ? '' : 's'}`
+
   return (
     <button
       type="button"
       aria-pressed={active}
+      aria-label={`${ariaLabel}, ${countLabel}`}
       onClick={onClick}
       className={cn(
         'inline-flex h-7 min-w-0 items-center gap-1.5 rounded-full border px-2.5 text-ui-caption font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35',
@@ -380,7 +442,9 @@ function SkillFilterButton({
       )}
     >
       <span className="truncate">{label}</span>
-      <span className="tabular-nums opacity-70">{count}</span>
+      <span className="tabular-nums opacity-70" aria-hidden="true">
+        {count}
+      </span>
     </button>
   )
 }
