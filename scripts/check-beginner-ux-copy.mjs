@@ -234,6 +234,7 @@ const PROVIDER_SETUP_JARGON_PATTERNS = [
   /\bKeep the suggested model\b/i,
   /\bchoose a supported model\b/i,
   /\bReview the AI service settings\b/i,
+  /\bGateway alias\b/i,
   /\bClick Check after saving\b/i,
   /\bAfter saving, click Check\b/i,
   /\bService address and model are filled in for you\b/i,

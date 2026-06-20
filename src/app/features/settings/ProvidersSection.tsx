@@ -320,7 +320,7 @@ const FALLBACK_SUPPORTED_PROVIDERS: ProviderInfo[] = [
     defaultBaseUrl: 'http://litellm:4000',
     requiresApiKey: true,
     allowCustomModels: true,
-    models: [{ model: 'gpt-4o-mini', displayName: 'Gateway alias: gpt-4o-mini' }],
+    models: [{ model: 'gpt-4o-mini', displayName: 'Suggested setup: gpt-4o-mini' }],
   },
   {
     provider: 'openai_compatible',

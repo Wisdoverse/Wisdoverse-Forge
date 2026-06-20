@@ -701,6 +701,9 @@ function RegionToggle() {
 function CatalogGrid() {
   return 'Standard setup · Coding plan · China/Global address'
 }
+function ModelQuickPicks() {
+  return 'Gateway alias: gpt-4o-mini'
+}
 `,
       'src/app/features/agents/CreateAgentModal.tsx': `
 function CreateAgentModal() {
@@ -818,6 +821,9 @@ function RegionToggle() {
 }
 function CatalogGrid() {
   return 'Standard setup · Coding plan · China or global website address'
+}
+function ModelQuickPicks() {
+  return 'Suggested setup: gpt-4o-mini'
 }
 `,
       'src/app/features/agents/CreateAgentModal.tsx': `
