@@ -1365,6 +1365,10 @@ const TASK_COMPLETION_OPEN_DETAILS_DEAD_END_PATTERNS = [
 
 const TASK_OWNER_INPUT_JARGON_PATTERNS = [/\bneeds owner input\b/i]
 
+const TASK_PERMISSION_PROMPT_REVIEW_PATTERNS = [
+  /\bReview the request before the agent continues\b/i,
+]
+
 const TASK_REUSE_PATH_JARGON_PATTERNS = [/\bsave-for-next-time path\b/i]
 
 const TASK_RECOVERY_STATUS_DEAD_END_PATTERNS = [
@@ -4474,6 +4478,12 @@ function hasTaskOwnerInputJargonCopy(relFile, line) {
   return TASK_OWNER_INPUT_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTaskPermissionPromptReviewCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/hooks/useWsDispatch.ts')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_PERMISSION_PROMPT_REVIEW_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasTaskReusePathJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/detail/DescriptionTab.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -7102,6 +7112,15 @@ function scanFile(file, relFile) {
         type: 'task-owner-input-copy',
         location,
         message: 'Task owner guidance must ask for the user answer, not owner-input jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskPermissionPromptReviewCopy(relFile, line)) {
+      findings.push({
+        type: 'task-permission-prompt-copy',
+        location,
+        message: 'Permission prompt activity copy must use check instead of review.',
         sample: line.trim(),
       })
     }

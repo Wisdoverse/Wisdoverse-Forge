@@ -290,7 +290,7 @@ function agentActivityDetail(eventType: string, tool?: string | null): string {
         ? `Finished ${activityToolLabel(tool).toLowerCase()}.`
         : 'The agent finished a work step.'
     case 'permission_prompt':
-      return 'Review the request before the agent continues.'
+      return 'Check the request before the agent continues.'
     case 'blocked':
       return 'Open the task to see what is needed before work can continue.'
     default:

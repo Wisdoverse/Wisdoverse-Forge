@@ -5337,6 +5337,38 @@ function taskStatusSnapshot(agentName) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags permission prompt activity copy that asks users to review ordinary requests', () => {
+    const cwd = fixture({
+      'src/app/hooks/useWsDispatch.ts': `
+function agentActivityDetail() {
+  return 'Review the request before the agent continues.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'task-permission-prompt-copy',
+        location: 'src/app/hooks/useWsDispatch.ts:3',
+      }),
+    ])
+  })
+
+  it('accepts permission prompt activity copy that starts with checking the request', () => {
+    const cwd = fixture({
+      'src/app/hooks/useWsDispatch.ts': `
+function agentActivityDetail() {
+  return 'Check the request before the agent continues.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags missing tool summary copy that assumes the tool should be turned on', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentPluginsTab.tsx': `

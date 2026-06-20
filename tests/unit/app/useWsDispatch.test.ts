@@ -143,6 +143,22 @@ describe('dispatchWsMessage', () => {
     expect(item.detail).not.toContain('reported')
   })
 
+  it('uses check-first wording for permission prompts', () => {
+    dispatchWsMessage({
+      type: 'event',
+      payload: {
+        type: 'permission_prompt',
+        agentName: 'Codex',
+        timestamp: Date.now(),
+      },
+    })
+
+    const item = useFeedStore.getState().feedItems[0]
+    expect(item.taskTitle).toBe('Decision needed')
+    expect(item.detail).toBe('Check the request before the agent continues.')
+    expect(item.detail).not.toContain('Review the request')
+  })
+
   it('ignores unknown message types', () => {
     expect(() => dispatchWsMessage({ type: 'pong' })).not.toThrow()
     expect(() => dispatchWsMessage({ type: 'unknown_thing' })).not.toThrow()
