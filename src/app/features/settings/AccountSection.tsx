@@ -387,19 +387,19 @@ function GettingStartedGuideRow() {
   const statusLine = !preferencesLoaded
     ? 'Wait a moment while Forge checks whether the setup checklist is shown.'
     : hidden
-      ? 'Next step: choose Show setup checklist to add it back.'
+      ? 'Next step: choose Reset setup checklist to add it back.'
       : 'It is available now. Choose Open setup checklist to check setup steps.'
   const visibilityDetail = !preferencesLoaded
     ? 'Forge is checking whether the setup checklist is shown. Your projects, agents, and tasks stay the same.'
     : hidden
-      ? 'It is hidden from the left menu, so new sign-ins open Tasks by default. Choose Show setup checklist to add it back to the left menu. Your projects, agents, and tasks stay the same.'
+      ? 'It is hidden from the left menu, so new sign-ins open Tasks by default. Reset setup checklist adds it back to the left menu only. Your projects, agents, and tasks stay the same.'
       : 'It is shown in the left menu. New sign-ins can open the setup checklist until you hide it again. Your projects, agents, and tasks stay the same.'
   const restoreButtonLabel = restoring
     ? 'Showing...'
     : !preferencesLoaded
       ? 'Checking...'
       : hidden
-        ? 'Show setup checklist'
+        ? 'Reset setup checklist'
         : 'Setup checklist already shown'
 
   async function handleRestore() {
@@ -412,7 +412,7 @@ function GettingStartedGuideRow() {
       setRestored(true)
     } else {
       setError(
-        'Check your connection, then choose Show setup checklist again. Forge could not add it back to the left menu.'
+        'Check your connection, then choose Reset setup checklist again. Forge could not add it back to the left menu.'
       )
     }
   }
