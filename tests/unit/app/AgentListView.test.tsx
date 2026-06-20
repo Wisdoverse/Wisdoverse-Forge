@@ -345,7 +345,9 @@ describe('AgentListView', () => {
       'aria-describedby',
       'agent-search-help'
     )
-    expect(screen.getByText(/clear it to see every agent and work location again/i)).toBeDefined()
+    expect(
+      screen.getByText(/use show all agents to see every agent and work location again/i)
+    ).toBeDefined()
 
     fireEvent.change(screen.getByTestId('agent-search'), { target: { value: 'review' } })
     expect(screen.getByText('Review Analyst')).toBeDefined()

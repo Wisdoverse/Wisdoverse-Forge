@@ -62,7 +62,7 @@ const SORT_OPTIONS: { value: AgentSortKey; label: string }[] = [
 ]
 
 const AGENT_SEARCH_HELP =
-  'Search only filters this list. Clear it to see every agent and work location again.'
+  'Search only filters this list. Use Show all agents to see every agent and work location again.'
 
 const HOST_CLI_PLATFORMS: {
   value: HostCliPlatform
