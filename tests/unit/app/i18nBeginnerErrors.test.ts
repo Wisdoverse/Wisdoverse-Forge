@@ -397,6 +397,20 @@ describe('beginner error translations', () => {
     expect(JSON.stringify(zh.gettingStarted.steps.workspace)).not.toContain('工作区')
   })
 
+  test('getting started work option points Codex users to work tool sign-in', () => {
+    expect(en.gettingStarted.steps.provider.empty).toContain('work tool sign-in')
+    expect(en.gettingStarted.steps.provider.empty).toContain('Codex')
+    expect(en.gettingStarted.steps.provider.signInTool).toBe('Open work tool sign-in')
+    expect(en.gettingStarted.steps.provider.why).toContain('signed-in work tool')
+    expect((en.gettingStarted.steps.provider as Record<string, unknown>).connectCli).toBeUndefined()
+
+    expect(zh.gettingStarted.steps.provider.empty).toContain('工作工具登录')
+    expect(zh.gettingStarted.steps.provider.empty).toContain('Codex')
+    expect(zh.gettingStarted.steps.provider.signInTool).toBe('打开工作工具登录')
+    expect(zh.gettingStarted.steps.provider.why).toContain('已登录的工作工具')
+    expect((zh.gettingStarted.steps.provider as Record<string, unknown>).connectCli).toBeUndefined()
+  })
+
   test('getting started review copy avoids evidence jargon', () => {
     expect(en.gettingStarted.steps.review.why).toContain('useful output')
     expect(en.gettingStarted.steps.review.success).toContain('result files')

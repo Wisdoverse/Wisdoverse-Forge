@@ -132,13 +132,14 @@ export const zh: TranslationKeys = {
       },
       provider: {
         title: '给 Agent 一个工作方式',
-        empty: '先选一种方式：添加模型服务，或把这台电脑接入为 Agent。',
+        empty:
+          '先选一种方式：添加模型服务用于文字回答，或打开工作工具登录，让 Codex 能处理文件工作。',
         needsTest: '先检查模型服务，再给 Agent 分配工作。',
         cliReady: '{{name}} 已经可以从{{location}}执行工作。',
-        why: 'Agent 需要一种可用方式：已检查的模型服务用于文字回答，或从这台电脑接入的 Agent 用于实际操作。',
-        success: '已经有一种可用方式：模型服务已检查通过，或这台电脑已接入为 Agent。',
+        why: 'Agent 需要一种可用方式：已检查的模型服务用于文字回答，或已登录的工作工具加上 Agent 来处理文件工作。',
+        success: '已经有一种可用方式：模型服务已检查通过，或有 Agent 可以打开文件工作。',
         create: '添加模型服务',
-        connectCli: '接入这台电脑',
+        signInTool: '打开工作工具登录',
         test: '检查模型服务',
         reviewProviders: '查看模型服务',
         reviewAgents: '查看 Agent',

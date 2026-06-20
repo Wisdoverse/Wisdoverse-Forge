@@ -668,6 +668,66 @@ describe('GettingStartedView', () => {
     expect(navigateMock).toHaveBeenCalledWith({ to: '/agents' })
   })
 
+  test('routes file-work sign-in setup to work tool sign-in settings', async () => {
+    useNavigationStore.setState({
+      teams: [
+        {
+          id: 'team-1',
+          orgId: 'org-1',
+          name: 'Launch Team',
+          slug: 'launch-team',
+          visibility: 'open',
+          description: '',
+        },
+      ],
+      projects: {
+        'team-1': [
+          {
+            id: 'project-1',
+            teamId: 'team-1',
+            name: 'Launch Project',
+            slug: 'launch-project',
+            color: '#007AFF',
+            description: '',
+          },
+        ],
+      },
+      selectedProjectId: 'project-1',
+    })
+    useSettingsStore.setState({
+      providers: [],
+      runtimeSettings: {
+        defaultRuntime: 'container',
+        availableRuntimes: ['container'],
+        defaultCliTool: 'codex',
+        availableCliTools: ['codex'],
+        cliToolDetails: [
+          {
+            cliTool: 'codex',
+            image: 'agentforge-agent:codex',
+            version: '1.0.0',
+            imagePresent: true,
+            versionSource: 'docker-label',
+          },
+        ],
+      },
+    })
+
+    render(<GettingStartedView />)
+
+    const signInButtons = await screen.findAllByRole('button', {
+      name: /open work tool sign-in/i,
+    })
+    expect(signInButtons.length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText(/open work tool sign-in for Codex before file work/i).length
+    ).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: /join this computer/i })).toBeNull()
+
+    fireEvent.click(signInButtons[0]!)
+    expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/work-tool-sign-ins' })
+  })
+
   test('does not complete provider step until connection test has passed', async () => {
     useNavigationStore.setState({
       teams: [

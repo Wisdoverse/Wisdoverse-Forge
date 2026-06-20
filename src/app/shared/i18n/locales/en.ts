@@ -135,14 +135,14 @@ export const en = {
       provider: {
         title: 'Give agents a way to work',
         empty:
-          'Choose one way to let agents work: add an AI service, or join this computer as an agent.',
+          'Choose one way to let agents work: add an AI service for chat answers, or open work tool sign-in for Codex before file work.',
         needsTest: 'Check the AI service before giving agents work.',
         cliReady: '{{name}} is ready to run work from {{location}}.',
-        why: 'Agents need one ready option: a checked AI service for chat answers, or an agent joined from this computer for hands-on work.',
+        why: 'Agents need one ready option: a checked AI service for chat answers, or a signed-in work tool plus an agent for hands-on file work.',
         success:
-          'One ready option exists: a checked AI service or an agent joined from this computer.',
+          'One ready option exists: a checked AI service or an agent that can open file work.',
         create: 'Add AI service',
-        connectCli: 'Join this computer',
+        signInTool: 'Open work tool sign-in',
         test: 'Check AI service',
         reviewProviders: 'Check AI services',
         reviewAgents: 'Open agents',

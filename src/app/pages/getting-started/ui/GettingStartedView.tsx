@@ -114,11 +114,13 @@ export function GettingStartedView() {
   const verifiedProviderLabel = verifiedProvider ? providerDisplayLabel(verifiedProvider) : null
   const executionCredentialPath = verifiedProvider
     ? '/settings/providers'
-    : providers.length > 0
-      ? '/settings/providers'
-      : runtimeReady
-        ? '/agents'
-        : '/settings/providers'
+    : cliExecutionAgent
+      ? '/agents'
+      : providers.length > 0
+        ? '/settings/providers'
+        : runtimeReady
+          ? '/settings/work-tool-sign-ins'
+          : '/settings/providers'
   const workspaceDetail =
     selectedProject?.name ??
     projects[0]?.name ??
@@ -185,7 +187,7 @@ export function GettingStartedView() {
           : providers.length > 0
             ? t('gettingStarted.steps.provider.test')
             : runtimeReady
-              ? t('gettingStarted.steps.provider.connectCli')
+              ? t('gettingStarted.steps.provider.signInTool')
               : t('gettingStarted.steps.provider.create'),
         Icon: KeyRound,
       },
