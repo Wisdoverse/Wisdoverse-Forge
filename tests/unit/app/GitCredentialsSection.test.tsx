@@ -134,7 +134,9 @@ describe('GitCredentialsSection', () => {
 
     fireEvent.submit(form!)
     expect(saveGitCredentialMock).not.toHaveBeenCalled()
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
       /paste the code access key from GitHub or GitLab before saving/i
     )
     expect(tokenInput).toHaveFocus()

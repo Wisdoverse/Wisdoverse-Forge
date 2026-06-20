@@ -299,7 +299,12 @@ function AddCredentialForm({
             open. Never paste your website password.
           </p>
           {visibleError && (
-            <p id={tokenErrorId} role="alert" className="mt-1 text-ui-caption text-apple-red">
+            <p
+              id={tokenErrorId}
+              role="alert"
+              aria-live="polite"
+              className="mt-1 text-ui-caption text-apple-red"
+            >
               {visibleError}
             </p>
           )}
