@@ -59,13 +59,30 @@ describe('ToolCallDetail', () => {
     fireEvent.click(screen.getByRole('button', { name: /show what the agent received/i }))
     fireEvent.click(screen.getByRole('button', { name: /show what happened/i }))
 
-    expect(screen.getByText(/Project folder: \/workspace\/app/i)).toBeInTheDocument()
+    expect(screen.getByText(/Where file work ran: \/workspace\/app/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Use this only if an owner or admin asks where file work ran/i)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Project folder: \/workspace\/app/i)).toBeNull()
     expect(screen.getByText(/File or link: src\/app\/main\.tsx/i)).toBeInTheDocument()
     expect(screen.getByText(/Time spent: about 1 second/i)).toBeInTheDocument()
     expect(screen.queryByText(/Duration: 1\.2s/i)).toBeNull()
     expect(screen.queryByText(/^Path:/i)).toBeNull()
     expect(screen.queryByText(/cwd/i)).toBeNull()
     expect(screen.queryByText(/durationMs/i)).toBeNull()
+  })
+
+  test('explains the default project folder instead of showing it as a path to type', () => {
+    render(<ToolCallDetail call={{ ...baseCall, input: { command: 'pwd', cwd: '/workspace' } }} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /show step details for command runner/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show what the agent received/i }))
+
+    expect(
+      screen.getByText(/Where file work ran: Default agent project folder/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/You do not need to type this/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Project folder: \/workspace/i)).toBeNull()
   })
 
   test('flags failed tool output as something to review before trusting the answer', () => {

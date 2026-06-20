@@ -1523,6 +1523,12 @@ const CHAT_TOOL_STEP_DEAD_END_PATTERNS = [
   /\bpath:\s*['"`]Path['"`]/,
 ]
 
+const CHAT_TOOL_FOLDER_PATH_JARGON_PATTERNS = [
+  /\bcwd:\s*['"`]Project folder['"`]/,
+  /\bProject folder:\s*\/workspace\b/i,
+  /\bProject folder:\s*\$\{?[^}\n]*cwd/i,
+]
+
 const VAGUE_NEEDS_REVIEW_COPY_PATTERNS = [
   /\bsummary that needs review\b/i,
   /\bnothing needs review\b/i,
@@ -4700,6 +4706,12 @@ function hasChatToolStepDeadEndCopy(relFile, line) {
   return CHAT_TOOL_STEP_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasChatToolFolderPathJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/chat/ToolCallDetail.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CHAT_TOOL_FOLDER_PATH_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasVagueNeedsReviewCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/hooks/useWsDispatch.ts') &&
@@ -7361,6 +7373,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Chat tool step fallbacks must tell beginners to check the step before relying on it.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasChatToolFolderPathJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'chat-tool-folder-path-copy',
+        location,
+        message:
+          'Chat tool step folder details must explain where file work ran before showing a workspace path.',
         sample: line.trim(),
       })
     }

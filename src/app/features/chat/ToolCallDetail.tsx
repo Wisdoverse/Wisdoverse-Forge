@@ -33,13 +33,10 @@ function formatExtraDetails(data: Record<string, unknown>): string {
 function extraDetailLabel(key: string): string {
   if (isSensitiveKey(key)) return 'Account access'
 
-  const normalized = key
-    .trim()
-    .toLowerCase()
-    .replace(/[-_\s]/g, '')
+  const normalized = normalizedDetailKey(key)
   const labels: Record<string, string> = {
     command: 'Command',
-    cwd: 'Project folder',
+    cwd: 'Where file work ran',
     durationms: 'Time spent',
     ok: 'Finished cleanly',
     summary: 'Summary',
@@ -62,6 +59,13 @@ function extraDetailLabel(key: string): string {
   return labels[normalized] ?? humanizeDetailKey(key)
 }
 
+function normalizedDetailKey(key: string): string {
+  return key
+    .trim()
+    .toLowerCase()
+    .replace(/[-_\s]/g, '')
+}
+
 function humanizeDetailKey(key: string): string {
   return key
     .trim()
@@ -73,20 +77,25 @@ function humanizeDetailKey(key: string): string {
 }
 
 function formatExtraValue(value: unknown, key = ''): string {
-  if (
-    typeof value === 'number' &&
-    key
-      .trim()
-      .toLowerCase()
-      .replace(/[-_\s]/g, '') === 'durationms'
-  ) {
+  const normalized = normalizedDetailKey(key)
+  if (typeof value === 'number' && normalized === 'durationms') {
     return formatDuration(value)
   }
+  if (typeof value === 'string' && normalized === 'cwd') return formatProjectFolderValue(value)
   if (typeof value === 'boolean') return value ? 'Yes' : 'No'
   if (typeof value === 'string') return value
   if (value === null || value === undefined) return 'Not shown yet'
   if (typeof value === 'number') return String(value)
   return JSON.stringify(value, null, 2)
+}
+
+function formatProjectFolderValue(value: string): string {
+  const folder = value.trim()
+  if (!folder) return 'Project folder was not shown.'
+  if (folder === '/workspace') {
+    return 'Default agent project folder. You do not need to type this.'
+  }
+  return `${folder}. Use this only if an owner or admin asks where file work ran.`
 }
 
 function safeToolValue(value: unknown, key = ''): unknown {
@@ -116,10 +125,7 @@ function safeToolValue(value: unknown, key = ''): unknown {
 }
 
 function outputMessageForKey(key: string): string | null {
-  const normalized = key
-    .trim()
-    .toLowerCase()
-    .replace(/[-_\s]/g, '')
+  const normalized = normalizedDetailKey(key)
   if (['stdout', 'rawoutput', 'commandoutput'].includes(normalized)) {
     return COMMAND_OUTPUT_MESSAGE
   }

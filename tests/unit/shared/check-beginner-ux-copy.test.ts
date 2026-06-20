@@ -9278,6 +9278,60 @@ const labels = {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags chat tool step folder details that expose workspace paths without context', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ToolCallDetail.tsx': `
+const labels = {
+  cwd: 'Project folder',
+}
+
+function detailLine() {
+  return 'Project folder: /workspace/app'
+}
+
+function dynamicLine(agent) {
+  return \`Project folder: \${agent.cwd}\`
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'chat-tool-folder-path-copy',
+          location: 'src/app/features/chat/ToolCallDetail.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'chat-tool-folder-path-copy',
+          location: 'src/app/features/chat/ToolCallDetail.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'chat-tool-folder-path-copy',
+          location: 'src/app/features/chat/ToolCallDetail.tsx:11',
+        }),
+      ])
+    )
+  })
+
+  it('accepts chat tool step folder details that explain where file work ran', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ToolCallDetail.tsx': `
+const labels = {
+  cwd: 'Where file work ran',
+}
+
+function detailLine() {
+  return 'Where file work ran: /workspace/app. Use this only if an owner or admin asks where file work ran.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags chat tool result toggles that expose detail jargon', () => {
     const cwd = fixture({
       'src/app/features/chat/ToolCallDetail.tsx': `
