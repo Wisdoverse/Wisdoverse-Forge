@@ -171,6 +171,39 @@ describe('AppLayout', () => {
     expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
   })
 
+  test('command palette routes first task setup to project settings when no project exists', async () => {
+    const onNavigate = vi.fn()
+
+    render(<MemoryRouter onNavigate={onNavigate} />)
+
+    fireEvent.click(screen.getByTestId('top-bar-command-search'))
+    await waitFor(() => {
+      expect(screen.getByText('Set up project before task')).toBeDefined()
+    })
+    fireEvent.click(screen.getByText('Open project settings so tasks have a place to belong.'))
+
+    expect(onNavigate).toHaveBeenCalledWith('/settings/projects')
+    expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
+    expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
+  })
+
+  test('command palette routes task setup to Agents when tasks have nowhere to wait', async () => {
+    seedProjectNavigation('p1')
+    const onNavigate = vi.fn()
+
+    render(<MemoryRouter onNavigate={onNavigate} />)
+
+    fireEvent.click(screen.getByTestId('top-bar-command-search'))
+    await waitFor(() => {
+      expect(screen.getByText('Set up where tasks wait')).toBeDefined()
+    })
+    fireEvent.click(screen.getByText('Open Agents to add a waiting place before creating a task.'))
+
+    expect(onNavigate).toHaveBeenCalledWith('/agents')
+    expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
+    expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
+  })
+
   test('command palette task view actions open Tasks before switching view', () => {
     routerState.path = '/settings'
     const onNavigate = vi.fn()
@@ -594,21 +627,19 @@ describe('AppLayout', () => {
     render(<MemoryRouter onNavigate={onNavigate} />)
     fireEvent.click(screen.getByRole('button', { name: /new task/i }))
 
-    expect(screen.getByText(/create a project before sending tasks/i)).toBeDefined()
-    const createButton = screen.getByRole('button', { name: /create task/i })
-    expect(createButton).toBeEnabled()
-    expect(screen.queryByText(/no projects available/i)).toBeNull()
-
-    fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
-      target: { value: 'Create first task' },
-    })
-    fireEvent.click(createButton)
-    const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Open project settings before creating a task.')
-
-    fireEvent.click(screen.getAllByRole('button', { name: /open project settings/i }).at(-1)!)
-
     expect(onNavigate).toHaveBeenCalledWith('/settings/projects')
+    expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
+    expect(screen.queryByText(/no projects available/i)).toBeNull()
+  })
+
+  test('routes missing waiting place setup from New Task to Agents', async () => {
+    seedProjectNavigation('p1')
+    const onNavigate = vi.fn()
+
+    render(<MemoryRouter onNavigate={onNavigate} />)
+    fireEvent.click(screen.getByRole('button', { name: /new task/i }))
+
+    expect(onNavigate).toHaveBeenCalledWith('/agents')
     expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
   })
 })

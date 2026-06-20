@@ -126,6 +126,31 @@ export function AppLayout({
   }, [taskFormOpen])
   const pageMeta = resolvePageMeta(activePath)
   const isTasksPage = activePath.startsWith('/tasks')
+  const hasProjectOptions = taskProjectOptions.length > 0
+  const createTaskCommand =
+    !selectedProjectId && !hasProjectOptions
+      ? {
+          label: 'Set up project before task',
+          description: 'Open project settings so tasks have a place to belong.',
+          searchText: 'new task create task first task project setup',
+        }
+      : !selectedProjectId
+        ? {
+            label: 'Choose project for new task',
+            description: 'Pick a project first, then write the task for an agent.',
+            searchText: 'new task create task choose project send work',
+          }
+        : !selectedGroupId
+          ? {
+              label: 'Set up where tasks wait',
+              description: 'Open Agents to add a waiting place before creating a task.',
+              searchText: 'new task create task first task agent waiting place setup',
+            }
+          : {
+              label: 'New task',
+              description: 'Create a task for an agent to finish.',
+              searchText: 'new task create task send work',
+            }
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -165,6 +190,19 @@ export function AppLayout({
     [handleNavigate, selectProject]
   )
 
+  const handleNewTaskAction = useCallback(() => {
+    if (!selectedProjectId && !hasProjectOptions) {
+      handleNavigate('/settings/projects')
+      return
+    }
+    if (selectedProjectId && !selectedGroupId) {
+      handleNavigate('/agents')
+      return
+    }
+    handleNavigate('/tasks')
+    setTaskFormOpen(true)
+  }, [handleNavigate, hasProjectOptions, selectedGroupId, selectedProjectId])
+
   function handleCommandSelect(commandId: string) {
     if (commandId.startsWith('nav:')) {
       const path = `/${commandId.replace('nav:', '')}`
@@ -174,8 +212,7 @@ export function AppLayout({
       handleNavigate('/tasks')
       setViewMode(view)
     } else if (commandId === 'action:create-task') {
-      handleNavigate('/tasks')
-      setTaskFormOpen(true)
+      handleNewTaskAction()
     } else if (commandId === 'action:work-tool-sign-ins') {
       handleNavigate('/settings/work-tool-sign-ins')
     } else if (commandId === 'action:show-setup-checklist') {
@@ -222,7 +259,7 @@ export function AppLayout({
           }
           viewMode={viewMode}
           onViewChange={setViewMode}
-          onCreateTask={() => setTaskFormOpen(true)}
+          onCreateTask={handleNewTaskAction}
           agentGroupSelector={
             isTasksPage ? (
               <AgentGroupSelector
@@ -274,6 +311,7 @@ export function AppLayout({
         isOpen={cmdkOpen}
         onClose={() => setCmdkOpen(false)}
         onSelect={handleCommandSelect}
+        createTaskCommand={createTaskCommand}
       />
       <TaskFormModal
         isOpen={taskFormOpen}

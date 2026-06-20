@@ -128,6 +128,37 @@ describe('CommandPalette', () => {
     expect(screen.queryByText('Start a new piece of work.')).toBeNull()
   })
 
+  test('uses a beginner setup action when task creation is not ready', async () => {
+    const onSelect = vi.fn()
+    const onClose = vi.fn()
+
+    render(
+      <CommandPalette
+        isOpen={true}
+        onClose={onClose}
+        onSelect={onSelect}
+        createTaskCommand={{
+          label: 'Set up project before task',
+          description: 'Open project settings so tasks have a place to belong.',
+          searchText: 'new task create task project setup',
+        }}
+      />
+    )
+
+    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+      target: { value: 'new task' },
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('Set up project before task')).toBeDefined()
+    })
+    fireEvent.click(screen.getByText('Open project settings so tasks have a place to belong.'))
+
+    expect(onSelect).toHaveBeenCalledWith('action:create-task')
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText('Create a task for an agent to finish.')).toBeNull()
+  })
+
   test('finds Codex sign-in through beginner search terms', async () => {
     render(<CommandPalette isOpen={true} onClose={() => {}} />)
 

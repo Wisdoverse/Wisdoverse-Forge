@@ -9,6 +9,11 @@ interface CommandPaletteProps {
   isOpen: boolean
   onClose: () => void
   onSelect?: (command: string) => void
+  createTaskCommand?: {
+    label: string
+    description: string
+    searchText?: string
+  }
 }
 
 const NAV_COMMANDS = [
@@ -37,19 +42,25 @@ const NAV_COMMANDS = [
   },
 ]
 
-const ACTION_COMMANDS = [
-  {
-    id: 'action:create-task',
-    label: 'New task',
-    description: 'Create a task for an agent to finish.',
-  },
+const DEFAULT_CREATE_TASK_COMMAND = {
+  id: 'action:create-task',
+  label: 'New task',
+  description: 'Create a task for an agent to finish.',
+  searchText: 'new task create task send work',
+}
+
+const SECONDARY_ACTION_COMMANDS = [
   {
     id: 'action:work-tool-sign-ins',
     label: 'Codex and work tool sign-in',
     description: 'Sign in to OpenAI (Codex) before agents work on project files.',
     searchText: 'codex openai login sign in work tool settings',
   },
-  { id: 'action:toggle-theme', label: 'Change theme', description: 'Switch the app appearance.' },
+  {
+    id: 'action:toggle-theme',
+    label: 'Change theme',
+    description: 'Switch the app appearance.',
+  },
 ]
 
 const SETUP_CHECKLIST_RECOVERY_COMMAND = {
@@ -80,7 +91,12 @@ function commonWorkflowSuggestion(commands: typeof NAV_COMMANDS): string {
   return `Try ${prefix}, or ${labels[labels.length - 1]} to open a page people use often.`
 }
 
-export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProps) {
+export function CommandPalette({
+  isOpen,
+  onClose,
+  onSelect,
+  createTaskCommand,
+}: CommandPaletteProps) {
   const contextGovernanceEnabled = useContextFeaturesStore((s) => s.governance)
   const showGettingStarted = useSettingsStore((s) => shouldShowGettingStarted(s.preferences))
   const [search, setSearch] = useState('')
@@ -90,9 +106,11 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
       (cmd.id !== 'nav:context' || contextGovernanceEnabled) &&
       (cmd.id !== 'nav:start' || showGettingStarted)
   )
+  const taskCommand = { ...DEFAULT_CREATE_TASK_COMMAND, ...createTaskCommand }
+  const baseActionCommands = [taskCommand, ...SECONDARY_ACTION_COMMANDS]
   const actionCommands = showGettingStarted
-    ? ACTION_COMMANDS
-    : [SETUP_CHECKLIST_RECOVERY_COMMAND, ...ACTION_COMMANDS]
+    ? baseActionCommands
+    : [SETUP_CHECKLIST_RECOVERY_COMMAND, ...baseActionCommands]
   const emptySearchSuggestion = commonWorkflowSuggestion(navCommands)
 
   function handleSelect(commandId: string) {
