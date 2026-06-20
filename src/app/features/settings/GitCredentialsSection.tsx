@@ -468,9 +468,8 @@ export function GitCredentialsSection() {
                   Prepare HTTPS code access for private code links
                 </p>
                 <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                  Use this for GitHub or GitLab links that start with https://, such as
-                  https://github.com/team/project.git. If the address starts with git@, use SSH code
-                  access instead.
+                  Use this for private GitHub or GitLab code links that start with https://. If the
+                  link starts with git@, use SSH code access instead.
                 </p>
               </div>
               <div className="grid gap-2 sm:grid-cols-3">

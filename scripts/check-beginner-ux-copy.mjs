@@ -674,6 +674,7 @@ const CODE_ACCESS_REPOSITORY_JARGON_PATTERNS = [
   /\bowns the repository\b/i,
   /\bprivate repository link\b/i,
   /\bread the repository\b/i,
+  /team\/project\.git/i,
   /team\/repo\.git/i,
 ]
 

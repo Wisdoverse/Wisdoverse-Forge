@@ -48,10 +48,14 @@ describe('GitCredentialsSection', () => {
       await screen.findByText('Prepare HTTPS code access for private code links')
     ).toBeDefined()
     const emptyState = screen.getByTestId('code-access-empty-state')
+    expect(
+      within(emptyState).getByText(/private GitHub or GitLab code links that start with https:\/\//i)
+    ).toBeDefined()
     expect(within(emptyState).getByText(/links that start with https:\/\//i)).toBeDefined()
     expect(within(emptyState).getAllByText(/use SSH code access instead/i).length).toBeGreaterThan(
       0
     )
+    expect(within(emptyState).queryByText(/github\.com\/team\/project\.git/i)).toBeNull()
     expect(within(emptyState).getByText('Pick the code website')).toBeDefined()
     expect(within(emptyState).getByText('Choose GitHub or GitLab.')).toBeDefined()
     expect(within(emptyState).getByText('Copy a code access key')).toBeDefined()

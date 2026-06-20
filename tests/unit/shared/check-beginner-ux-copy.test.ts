@@ -11962,7 +11962,7 @@ function savedMessage() {
   return 'Code access saved. Create a small task with a private repository link to confirm agents can open it. If it cannot read the repository, come back here and replace this key.'
 }
 function EmptyState() {
-  return <p>Use this for links such as https://github.com/team/repo.git.</p>
+  return <p>Use this for links such as https://github.com/team/project.git.</p>
 }
 `,
     })
@@ -11982,7 +11982,7 @@ function EmptyState() {
         }),
         expect.objectContaining({
           type: 'code-access-repository-copy',
-          sample: expect.stringContaining('team/repo.git'),
+          sample: expect.stringContaining('team/project.git'),
         }),
       ])
     )
@@ -12021,7 +12021,7 @@ function savedMessage() {
   return 'Code access saved. Create a small task with a private code link to confirm agents can open it. If agents cannot open the code, come back here and replace this key.'
 }
 function Example() {
-  return <p>Use this for links such as https://github.com/team/project.git.</p>
+  return <p>Use this for private GitHub or GitLab code links that start with https://.</p>
 }
 `,
     })
