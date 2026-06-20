@@ -92,6 +92,10 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
       }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="command-palette-title"
+        aria-describedby="command-palette-help"
         className={cn(
           'w-full max-w-lg mx-4',
           'bg-surface dark:bg-surface-dark',
@@ -101,16 +105,23 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
       >
         <Command>
           <div className="border-b border-black/[0.08] px-4 py-3 dark:border-white/[0.08]">
-            <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+            <p
+              id="command-palette-title"
+              className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark"
+            >
               Find what you need
             </p>
-            <ol className="mt-2 list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            <ol
+              id="command-palette-help"
+              className="mt-2 list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark"
+            >
               {COMMAND_DISCOVERY_STEPS.map((step) => (
                 <li key={step}>{step}</li>
               ))}
             </ol>
           </div>
           <Command.Input
+            aria-label="Search pages and things to do"
             value={search}
             onValueChange={setSearch}
             placeholder="Search pages or things to do, e.g. tasks, inbox, settings"
@@ -123,10 +134,12 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
           />
           <Command.List className="max-h-80 overflow-y-auto py-2">
             <Command.Empty className="px-4 py-6 text-center text-sm text-secondary-light dark:text-secondary-dark">
-              <p className="font-medium text-foreground-light dark:text-foreground-dark">
-                No page or option matches that search
-              </p>
-              <p className="mt-1">{emptySearchSuggestion}</p>
+              <div role="status" aria-live="polite">
+                <p className="font-medium text-foreground-light dark:text-foreground-dark">
+                  No page or option matches that search
+                </p>
+                <p className="mt-1">{emptySearchSuggestion}</p>
+              </div>
               <button
                 type="button"
                 onClick={() => setSearch('')}

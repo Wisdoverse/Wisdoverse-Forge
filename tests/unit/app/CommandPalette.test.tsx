@@ -23,6 +23,10 @@ describe('CommandPalette', () => {
 
   test('renders when open', () => {
     render(<CommandPalette isOpen={true} onClose={() => {}} />)
+    const dialog = screen.getByRole('dialog', { name: /find what you need/i })
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    expect(dialog).toHaveAccessibleDescription(/use tasks when you want to plan or inspect work/i)
+    expect(screen.getByLabelText('Search pages and things to do')).toBeDefined()
     expect(screen.getByPlaceholderText(/search/i)).toBeDefined()
     expect(screen.getByText('Find what you need')).toBeDefined()
     expect(screen.getByText(/use tasks when you want to plan or inspect work/i)).toBeDefined()
@@ -121,8 +125,9 @@ describe('CommandPalette', () => {
     fireEvent.change(input, { target: { value: 'zzzzzz' } })
 
     await waitFor(() => {
-      expect(screen.getByText('No page or option matches that search')).toBeDefined()
+      expect(screen.getByRole('status')).toHaveTextContent('No page or option matches that search')
     })
+    expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite')
     expect(
       screen.getByText(/try tasks, inbox, agents, saved instructions, or settings/i)
     ).toBeDefined()
