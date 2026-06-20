@@ -2196,6 +2196,18 @@ const AGENT_INSTRUCTION_TEMPLATE_JARGON_PATTERNS = [
   /\broot cause\b/i,
 ]
 
+const NEW_AGENT_ENTRY_JARGON_PATTERNS = [
+  /\bCreate Agent\b/,
+  /\bCreate agent\b/,
+  /\bCreate Your First Agent\b/,
+  /\bchoose Create Agent\b/i,
+  /\bChoose in Create Agent\b/,
+  /\breopen Create Agent\b/i,
+  /\bOpen Create Agent\b/,
+  /\bnewAgent:\s*['"`]Create Agent['"`]/,
+  /\bcreateAgent:\s*['"`]Create Agent['"`]/,
+]
+
 const CREATE_AGENT_WORK_STYLE_JARGON_PATTERNS = [
   /\bChoose work style\b/i,
   /\blabel:\s*['"`]Work style['"`]/,
@@ -3533,6 +3545,23 @@ function hasAgentInstructionTemplateJargonCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return AGENT_INSTRUCTION_TEMPLATE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasNewAgentEntryJargonCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/agents/AgentListView.tsx') &&
+    !relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx') &&
+    !relFile.endsWith('src/app/features/settings/ProvidersSection.tsx') &&
+    !relFile.endsWith('src/app/entities/agent/model/agents.store.ts') &&
+    !relFile.endsWith('src/app/shared/model/agents.store.ts') &&
+    !relFile.endsWith('src/app/features/agents/model/createAgentWorkLaneErrorMessage.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return NEW_AGENT_ENTRY_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasCreateAgentOptionalContextDeadEndCopy(relFile, line) {
@@ -6073,7 +6102,7 @@ function scanFile(file, relFile) {
         type: 'create-agent-work-location-copy',
         location,
         message:
-          'Create agent setup must ask where the agent works instead of using work-style jargon.',
+          'New agent setup must ask where the agent works instead of using work-style jargon.',
         sample: line.trim(),
       })
     }
@@ -6083,7 +6112,7 @@ function scanFile(file, relFile) {
         type: 'create-agent-project-copy',
         location,
         message:
-          'Create agent setup must explain which project new tasks use without primary-project jargon.',
+          'New agent setup must explain which project new tasks use without primary-project jargon.',
         sample: line.trim(),
       })
     }
@@ -6093,7 +6122,7 @@ function scanFile(file, relFile) {
         type: 'create-agent-work-area-copy',
         location,
         message:
-          'Create agent setup must explain the project area in beginner-facing words, not workspace internals.',
+          'New agent setup must explain the project area in beginner-facing words, not workspace internals.',
         sample: line.trim(),
       })
     }
@@ -6103,7 +6132,7 @@ function scanFile(file, relFile) {
         type: 'create-agent-management-copy',
         location,
         message:
-          'Create agent setup must explain what the agent does instead of saying it is managed by Forge.',
+          'New agent setup must explain what the agent does instead of saying it is managed by Forge.',
         sample: line.trim(),
       })
     }
@@ -6113,7 +6142,7 @@ function scanFile(file, relFile) {
         type: 'create-agent-confirmation-copy',
         location,
         message:
-          'Create agent review copy must explain the next state and AI service setup in plain language.',
+          'New agent review copy must explain the next state and AI service setup in plain language.',
         sample: line.trim(),
       })
     }
@@ -6181,6 +6210,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Agent instruction templates must use beginner-facing fact and information wording.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasNewAgentEntryJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'new-agent-entry-copy',
+        location,
+        message:
+          'Agent creation entry points must say New agent or Add agent instead of Create Agent.',
         sample: line.trim(),
       })
     }
@@ -6866,7 +6905,7 @@ function scanFile(file, relFile) {
         type: 'create-agent-optional-context-copy',
         location,
         message:
-          'Create Agent optional project and queue copy must say the user can choose later instead of showing no-selection labels.',
+          'New agent optional project and queue copy must say the user can choose later instead of showing no-selection labels.',
         sample: line.trim(),
       })
     }

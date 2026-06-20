@@ -385,7 +385,7 @@ describe('ProvidersSection', () => {
     expect(
       within(readiness).getByText('Chat agents: choose a ready service when creating an agent')
     ).toBeDefined()
-    expect(within(readiness).getByText('Choose in Create Agent')).toBeDefined()
+    expect(within(readiness).getByText('Choose in New agent')).toBeDefined()
     expect(within(readiness).queryByText('Default: None')).toBeNull()
     expect(within(readiness).queryByText('Choose a default')).toBeNull()
     expect(within(readiness).queryByText('Not set')).toBeNull()
@@ -415,7 +415,7 @@ describe('ProvidersSection', () => {
     expect(screen.queryByRole('button', { name: /save AI service/i })).toBeNull()
   })
 
-  test('points ready AI service setup toward Create Agent', async () => {
+  test('points ready AI service setup toward New agent', async () => {
     useSettingsStore.setState({
       providers: [
         {
@@ -435,8 +435,8 @@ describe('ProvidersSection', () => {
 
     const nextStep = await screen.findByTestId('provider-next-step')
     expect(within(nextStep).getByText('Ready to create simple chat agents')).toBeDefined()
-    expect(within(nextStep).getByText(/choose Create Agent/i)).toBeDefined()
-    expect(within(nextStep).queryByText(/choose New Agent/i)).toBeNull()
+    expect(within(nextStep).getByText(/choose New agent/i)).toBeDefined()
+    expect(within(nextStep).queryByText(/choose Create Agent/i)).toBeNull()
   })
 
   test('collapses coding-plan variants into one vendor with beginner-friendly setup choices', async () => {

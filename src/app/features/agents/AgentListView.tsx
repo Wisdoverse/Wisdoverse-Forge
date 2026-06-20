@@ -136,7 +136,7 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
             <div className="flex shrink-0 items-center gap-3">
               <p className="text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark">
                 {agents.length === 0
-                  ? 'Create first agent'
+                  ? 'Add first agent'
                   : `${filteredAgents.length}/${agents.length} agent${agents.length === 1 ? '' : 's'}`}
               </p>
               <button
@@ -145,7 +145,7 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
                 className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-apple-blue px-4 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
               >
                 <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
-                <span>Create Agent</span>
+                <span>New agent</span>
               </button>
             </div>
           </div>
@@ -178,7 +178,7 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
               </div>
               <div className="max-w-sm space-y-1">
                 <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-                  Create Your First Agent
+                  Add your first agent
                 </p>
                 <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
                   Start with a chat-only AI service for planning and review, or connect this
@@ -191,7 +191,7 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-apple-blue px-4 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
               >
                 <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
-                <span>Create Agent</span>
+                <span>New agent</span>
               </button>
             </div>
           ) : filteredAgents.length === 0 ? (
@@ -459,7 +459,7 @@ function HostCliEnrollmentPanel({
         className="mt-3 inline-flex h-9 w-full items-center justify-center gap-2 rounded-full bg-apple-blue px-3 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95"
       >
         <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
-        Create agent on this computer
+        Add this computer as an agent
       </button>
 
       <details className="mt-3">
@@ -467,8 +467,8 @@ function HostCliEnrollmentPanel({
           If the button does not work
         </summary>
         <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Use this backup if the guided setup does not open. Most people should choose Create agent
-          on this computer above.
+          Use this backup if the guided setup does not open. Most people should choose Add this
+          computer as an agent above.
         </p>
         <div className="mt-3">
           <p className="mb-2 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">

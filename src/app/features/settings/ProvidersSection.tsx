@@ -591,7 +591,7 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
   return {
     title: 'Ready to create simple chat agents',
     detail: `${defaultProvider?.displayName ?? readyProviders[0]?.displayName ?? 'An AI service'} is ready for agents that answer in chat.`,
-    success: 'Open Agents, choose Create Agent, then select Simple chat agent.',
+    success: 'Open Agents, choose New agent, then select Simple chat agent.',
     ready: true,
   }
 }
@@ -815,7 +815,7 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
     defaultProvider?.displayName ??
     (total === 0 ? 'add an AI service first' : 'choose a ready service when creating an agent')
   const chatChoiceMetric =
-    defaultProvider?.displayName ?? (total === 0 ? 'Add first service' : 'Choose in Create Agent')
+    defaultProvider?.displayName ?? (total === 0 ? 'Add first service' : 'Choose in New agent')
   const allReady = ready > 0 && ready === total - disabled && needsTest === 0
 
   return (

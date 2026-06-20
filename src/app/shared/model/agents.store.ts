@@ -161,7 +161,7 @@ const AGENT_CREATE_ERROR = 'Agent was not created. Check the agent details, then
 const AGENT_CREATED_START_ERROR =
   'Ask an owner or admin to check Where agents work in Settings, then start this agent from the card. Agent was created, but file work is not ready yet.'
 const THIS_COMPUTER_SETUP_ERROR =
-  'This computer setup text could not be prepared. Check the agent name and work tool, then choose Create Agent again.'
+  'This computer setup text could not be prepared. Check the agent name and work tool, then choose New agent again.'
 const AGENT_INSTRUCTIONS_ERROR =
   'Check the instruction text, open this agent again, then save the instructions again.'
 const AGENT_DELETE_ERROR = 'Open Agents, then try removing this agent again. Agent was not removed.'

@@ -236,8 +236,8 @@ export const zh: TranslationKeys = {
   // =========================================================================
   agents: {
     title: 'Agent',
-    newAgent: '创建 Agent',
-    createAgent: '创建 Agent',
+    newAgent: '新建 Agent',
+    createAgent: '添加 Agent',
     editAgent: '编辑 Agent',
     deleteAgent: '删除 Agent',
     noAgents: '先创建一个 Agent，再开始分配任务。',

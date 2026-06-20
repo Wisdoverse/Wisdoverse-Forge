@@ -188,7 +188,7 @@ function isAgentServiceUnavailable(detail: string | null): boolean {
 
 function agentConnectionMessage(actionPhrase: string, action: AgentErrorAction): string {
   if (action === 'enrollLocal') {
-    return 'Check your connection, then choose Create Agent again. Forge could not prepare the setup text for this computer.'
+    return 'Check your connection, then choose New agent again. Forge could not prepare the setup text for this computer.'
   }
   if (action === 'load') {
     return 'Check your connection, then open Agents again to load agents.'
@@ -257,7 +257,7 @@ function agentValidationMessage(action: AgentErrorAction, detail: string | null)
   }
 
   if (action === 'enrollLocal') {
-    return 'Check the agent name, work tool, and project access, then choose Create Agent again.'
+    return 'Check the agent name, work tool, and project access, then choose New agent again.'
   }
   if (action === 'sendPrompt') {
     return 'Write one clear instruction and make sure the agent is not already working, then send again.'
@@ -285,7 +285,7 @@ function agentConflictMessage(action: AgentErrorAction, detail: string | null): 
 
 function agentServerMessage(action: AgentErrorAction): string {
   if (action === 'enrollLocal') {
-    return 'Wait a moment, then choose Create Agent again. Forge could not prepare the setup text for this computer right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+    return 'Wait a moment, then choose New agent again. Forge could not prepare the setup text for this computer right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
   }
   if (action === 'load') {
     return 'Open Agents again to load agents. If it still fails, ask an owner or admin to check Where agents work in Settings.'

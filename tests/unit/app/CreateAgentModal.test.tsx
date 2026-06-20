@@ -80,7 +80,7 @@ describe('CreateAgentModal', () => {
   test('renders project-file fields by default', () => {
     render(<CreateAgentModal />)
 
-    expect(screen.getByRole('heading', { name: 'Create an agent' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'New agent' })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: /project files/i })).toBeChecked()
     expect(screen.getByTestId('agent-runtime-fit')).toBeInTheDocument()
     expect(screen.getByText('Pick a starter template')).toBeInTheDocument()
@@ -167,7 +167,7 @@ describe('CreateAgentModal', () => {
 
     expect(onOpenProjectsSetup).toHaveBeenCalledTimes(1)
     expect(useAgentsStore.getState().createModalOpen).toBe(false)
-    expect(screen.queryByRole('dialog', { name: /create an agent/i })).toBeNull()
+    expect(screen.queryByRole('dialog', { name: /new agent/i })).toBeNull()
   })
 
   test('blocks project-file agent creation until a project is selected', async () => {
@@ -177,7 +177,7 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal onOpenProjectsSetup={onOpenProjectsSetup} />)
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'CLI Worker' } })
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(/open project settings, create or choose a project/i)
@@ -285,7 +285,7 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'CLI Worker' } })
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     await waitFor(() => expect(createAgent).toHaveBeenCalledTimes(1))
     expect(createAgent.mock.calls[0][0]).toMatchObject({
@@ -299,7 +299,7 @@ describe('CreateAgentModal', () => {
     useAgentsStore.setState({ createAgent } as never)
 
     render(<CreateAgentModal />)
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Name this agent before creating it.'
@@ -354,7 +354,7 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByText(new RegExp('board\\s+tasks', 'i'))).toBeNull()
 
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'CLI Worker' } })
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     await waitFor(() => expect(createAgent).toHaveBeenCalledTimes(1))
     expect(createAgent.mock.calls[0][0]).toMatchObject({
@@ -476,7 +476,7 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByLabelText(/^ai service$/i)).toBeNull()
 
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     let alert: HTMLElement | null = null
     await waitFor(() =>
@@ -604,7 +604,7 @@ describe('CreateAgentModal', () => {
     fireEvent.change(screen.getByLabelText(/folder on this computer/i), {
       target: { value: '/Users/me/project' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     await waitFor(() => expect(enrollLocalAgent).toHaveBeenCalledTimes(1))
     expect(enrollLocalAgent.mock.calls[0][0]).toMatchObject({
@@ -678,7 +678,7 @@ describe('CreateAgentModal', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Laptop Worker' } })
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     // The setup text leads; the pasted text tracks the OS toggle.
     const oneLiner = await screen.findByLabelText(/setup text/i)
@@ -756,7 +756,7 @@ describe('CreateAgentModal', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Laptop Worker' } })
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     expect(await screen.findByLabelText(/setup text/i)).toHaveValue(joinCommand)
     fireEvent.click(screen.getByRole('button', { name: /windows/i }))
@@ -800,7 +800,7 @@ describe('CreateAgentModal', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Laptop Worker' } })
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     expect(await screen.findByText('This computer agent')).toBeInTheDocument()
     expect(screen.getByText('This computer handles tasks')).toBeInTheDocument()
@@ -834,7 +834,7 @@ describe('CreateAgentModal', () => {
     expect(screen.getByLabelText(/^saved ai service setup$/i)).toHaveValue('gpt-5.5')
 
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     await waitFor(() => expect(createAgent).toHaveBeenCalledTimes(1))
     expect(createAgent.mock.calls[0][0]).toMatchObject({
@@ -936,7 +936,7 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'CLI Worker' } })
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     await waitFor(() => expect(createAgent).toHaveBeenCalledTimes(1))
     const payload = createAgent.mock.calls[0][0]
@@ -973,7 +973,7 @@ describe('CreateAgentModal', () => {
     render(<CreateAgentModal />)
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     await waitFor(() => expect(createAgent).toHaveBeenCalledTimes(1))
     const payload = createAgent.mock.calls[0][0]
@@ -992,7 +992,7 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: '   ' } })
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent('Name this agent before creating it.')
@@ -1023,7 +1023,7 @@ describe('CreateAgentModal', () => {
     render(<CreateAgentModal />)
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(
@@ -1041,7 +1041,7 @@ describe('CreateAgentModal', () => {
     useAgentsStore.setState({ createAgent } as never)
 
     render(<CreateAgentModal />)
-    const submit = screen.getByRole('button', { name: /^create agent$/i })
+    const submit = screen.getByRole('button', { name: /^add agent$/i })
 
     fireEvent.click(submit)
     await waitFor(() =>
@@ -1073,7 +1073,7 @@ describe('CreateAgentModal', () => {
     render(<CreateAgentModal />)
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Local Worker' } })
     fireEvent.click(screen.getByRole('radio', { name: /this computer/i }))
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     const copyButton = await screen.findByRole('button', { name: /copy setup text/i })
     // jsdom has no navigator.clipboard, which is exactly the non-secure-context
@@ -1125,7 +1125,7 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByText(/prompt work/i)).toBeNull()
     expect(screen.queryByRole('group', { name: /agent role templates/i })).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: /^create agent$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     await waitFor(() => expect(createAgent).toHaveBeenCalledTimes(1))
     expect(createAgent.mock.calls[0][0]).toMatchObject({

@@ -596,7 +596,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
             id="create-agent-title"
             className="text-ui-title font-semibold text-foreground-light dark:text-foreground-dark"
           >
-            {localEnrollment ? 'Connect this computer' : 'Create an agent'}
+            {localEnrollment ? 'Connect this computer' : 'New agent'}
           </h2>
           <button
             type="button"
@@ -817,7 +817,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 onClick={handleCreateAnother}
                 className="rounded-full bg-surface-pearl px-4 py-2 text-ui-button font-medium text-foreground-light ring-1 ring-black/[0.04] transition-transform active:scale-95 dark:bg-white/[0.06] dark:text-foreground-dark"
               >
-                Create another
+                Add another agent
               </button>
               {localEnrollment.enrollment?.joinCommand ? (
                 <button
@@ -1276,7 +1276,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                   loading && 'opacity-50 cursor-not-allowed'
                 )}
               >
-                {loading ? 'Creating…' : 'Create agent'}
+                {loading ? 'Adding…' : 'Add agent'}
               </button>
             </div>
           </form>

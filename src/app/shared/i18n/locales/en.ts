@@ -152,7 +152,7 @@ export const en = {
         empty: 'Create one simple agent: chat-only, Project files, or this computer.',
         why: 'Agents receive tasks and return results. Start with one simple agent.',
         success: 'At least one agent appears in the Agents page.',
-        create: 'Create agent',
+        create: 'Add agent',
         review: 'Open agents',
       },
       routing: {
@@ -243,8 +243,8 @@ export const en = {
   // =========================================================================
   agents: {
     title: 'Agents',
-    newAgent: 'Create Agent',
-    createAgent: 'Create Agent',
+    newAgent: 'New agent',
+    createAgent: 'Add agent',
     editAgent: 'Edit Agent',
     deleteAgent: 'Delete Agent',
     noAgents: 'Create one agent to start assigning work.',
@@ -275,7 +275,7 @@ export const en = {
     },
     confirmDelete: 'Delete this agent? This removes its setup and stops assigning new work to it.',
     confirmStop: 'Stop this agent? Current work pauses until you start it again.',
-    // Create Agent modal
+    // New agent modal
     startNewAgent: 'Start a new agent',
     pickProject: 'Pick a project to begin',
     tellClaude: 'Tell Claude what to work on',

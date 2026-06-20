@@ -39,9 +39,9 @@ describe('AgentListView', () => {
     render(<AgentListView />)
     expect(screen.getByText('Agents')).toBeDefined()
     expect(screen.queryByText('Agent Fleet')).toBeNull()
-    expect(screen.getByText('Create first agent')).toBeDefined()
+    expect(screen.getByText('Add first agent')).toBeDefined()
     expect(screen.queryByText('No agents')).toBeNull()
-    expect(screen.getByText(/create your first agent/i)).toBeDefined()
+    expect(screen.getByText(/add your first agent/i)).toBeDefined()
     expect(screen.getByText(/chat-only AI service for planning and review/i)).toBeDefined()
     expect(screen.getByText(/files and commands on your machine/i)).toBeDefined()
     const guide = screen.getByTestId('agent-choice-guide')
@@ -51,8 +51,8 @@ describe('AgentListView', () => {
     expect(within(guide).getByText('Project files')).toBeDefined()
     expect(screen.queryByTestId('agent-fleet-controls')).toBeNull()
     expect(screen.queryByText(/connected model for text-only work/i)).toBeNull()
-    expect(screen.getAllByRole('button', { name: /create agent/i }).length).toBeGreaterThan(0)
-    expect(screen.queryByRole('button', { name: /^new agent$/i })).toBeNull()
+    expect(screen.getAllByRole('button', { name: /^new agent$/i }).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: /^create agent$/i })).toBeNull()
   })
 
   test('waits for a selected project before showing a command for this computer', () => {
@@ -67,7 +67,7 @@ describe('AgentListView', () => {
     expect(enrollment.textContent).toContain('If the button does not work')
     expect(enrollment.textContent).toContain('Use this backup if the guided setup does not open')
     expect(enrollment.textContent).not.toContain('your team asks you to run a command')
-    expect(enrollment.textContent).toContain('choose Create agent on this computer above')
+    expect(enrollment.textContent).toContain('choose Add this computer as an agent above')
     expect(enrollment.textContent).toContain('Computer type')
     expect(
       within(enrollment).getByRole('group', { name: /choose this computer type/i })
@@ -100,9 +100,9 @@ describe('AgentListView', () => {
     expect(onOpenProjectsSetup).toHaveBeenCalledTimes(1)
 
     fireEvent.click(
-      within(enrollment).getByRole('button', { name: /create agent on this computer/i })
+      within(enrollment).getByRole('button', { name: /add this computer as an agent/i })
     )
-    expect(screen.getByRole('dialog', { name: /create an agent/i })).toBeDefined()
+    expect(screen.getByRole('dialog', { name: /new agent/i })).toBeDefined()
     expect(screen.getByRole('radio', { name: /this computer/i })).toBeChecked()
     expect(screen.getByLabelText(/folder on this computer/i)).toBeDefined()
   })
@@ -409,11 +409,11 @@ describe('AgentListView', () => {
     expect(screen.getByText('Build Runner')).toBeDefined()
   })
 
-  test('shows Create Agent buttons', () => {
+  test('shows New agent buttons', () => {
     render(<AgentListView />)
-    // Both the toolbar and the empty-state CTA render "Create Agent"
-    expect(screen.getAllByText(/create agent/i).length).toBeGreaterThan(0)
-    expect(screen.queryByText(/^New Agent$/i)).toBeNull()
+    // Both the toolbar and the empty-state CTA render "New agent"
+    expect(screen.getAllByText(/^New agent$/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/^Create Agent$/i)).toBeNull()
   })
 
   test('creates a waiting place from the selected project context', async () => {

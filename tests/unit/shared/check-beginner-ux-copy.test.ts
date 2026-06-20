@@ -491,7 +491,7 @@ function ProviderReadinessPanel() {
     const cwd = fixture({
       'src/app/features/settings/ProvidersSection.tsx': `
 function ProviderReadinessPanel() {
-  return ['Chat agents: choose a ready service when creating an agent', 'Chat agent choice', 'Choose in Create Agent']
+  return ['Chat agents: choose a ready service when creating an agent', 'Chat agent choice', 'Choose in New agent']
 }
 `,
     })
@@ -7859,16 +7859,108 @@ export function AgentDetailView() {
 `,
       'src/app/entities/agent/model/agents.store.ts': `
 export function agentError() {
-  return 'Check your connection, then choose Create Agent again. Forge could not prepare the setup text for this computer.'
+  return 'Check your connection, then choose New agent again. Forge could not prepare the setup text for this computer.'
 }
 `,
       'src/app/shared/model/agents.store.ts': `
 export const THIS_COMPUTER_SETUP_ERROR =
-  'This computer setup text could not be prepared. Check the agent name and work tool, then choose Create Agent again.'
+  'This computer setup text could not be prepared. Check the agent name and work tool, then choose New agent again.'
 `,
       'src/app/shared/i18n/locales/en.ts': `
 export const en = {
   detail: 'Setup text needs to be pasted again',
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags old Create Agent entry wording in agent setup surfaces', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentListView.tsx': `
+export function AgentListView() {
+  return <><button>Create Agent</button><p>Create Your First Agent</p></>
+}
+`,
+      'src/app/features/agents/CreateAgentModal.tsx': `
+export function CreateAgentModal() {
+  return <button>Create agent</button>
+}
+`,
+      'src/app/features/settings/ProvidersSection.tsx': `
+export function ProvidersSection() {
+  return <p>Open Agents, choose Create Agent, then select Simple chat agent.</p>
+}
+`,
+      'src/app/entities/agent/model/agents.store.ts': `
+export function agentError() {
+  return 'Check your connection, then choose Create Agent again.'
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  newAgent: 'Create Agent',
+  createAgent: 'Create Agent',
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'new-agent-entry-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'new-agent-entry-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'new-agent-entry-copy',
+          location: 'src/app/features/settings/ProvidersSection.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'new-agent-entry-copy',
+          location: 'src/app/entities/agent/model/agents.store.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'new-agent-entry-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts New agent and Add agent entry wording in agent setup surfaces', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentListView.tsx': `
+export function AgentListView() {
+  return <><button>New agent</button><p>Add your first agent</p><button>Add this computer as an agent</button></>
+}
+`,
+      'src/app/features/agents/CreateAgentModal.tsx': `
+export function CreateAgentModal() {
+  return <button>Add agent</button>
+}
+`,
+      'src/app/features/settings/ProvidersSection.tsx': `
+export function ProvidersSection() {
+  return <p>Open Agents, choose New agent, then select Simple chat agent.</p>
+}
+`,
+      'src/app/entities/agent/model/agents.store.ts': `
+export function agentError() {
+  return 'Check your connection, then choose New agent again.'
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  newAgent: 'New agent',
+  createAgent: 'Add agent',
 }
 `,
     })
@@ -7968,7 +8060,7 @@ function agentChangedMessage() {
 }
 
 function agentServerMessage() {
-  return 'Forge could not prepare the setup text for this computer right now. Wait a moment, then choose Create Agent again.'
+  return 'Forge could not prepare the setup text for this computer right now. Wait a moment, then choose New agent again.'
 }
 
 function agentRuntimeMessage() {
@@ -8054,7 +8146,7 @@ function agentChangedMessage() {
 }
 
 function agentServerMessage() {
-  return 'Wait a moment, then choose Create Agent again. Forge could not prepare the setup text for this computer right now.'
+  return 'Wait a moment, then choose New agent again. Forge could not prepare the setup text for this computer right now.'
 }
 
 function agentRuntimeMessage() {
@@ -12073,7 +12165,7 @@ export function ResourcesSection() {
 export const en = {
   gettingStarted: {
     title: 'Start with one safe path',
-    description: 'Follow one step at a time. Finish this path to create an agent.',
+    description: 'Follow one step at a time. Finish this path to add your first agent.',
   },
 }
 `,
@@ -12110,7 +12202,7 @@ export const zh = {
 export const en = {
   gettingStarted: {
     title: 'Set up your first agent safely',
-    description: 'Follow one step at a time. Finish this checklist to create an agent.',
+    description: 'Follow one step at a time. Finish this checklist to add your first agent.',
   },
 }
 `,
