@@ -263,6 +263,29 @@ describe('AuthPage beginner guidance', () => {
     expect(register).not.toHaveBeenCalled()
   })
 
+  test('checks account creation password rules before calling the backend', async () => {
+    const register = vi.fn().mockResolvedValue({ ok: true })
+    const page = new AuthPage(createAuthManager({ register }))
+
+    await page.show()
+    document.querySelector<HTMLButtonElement>('[data-tab="register"]')?.click()
+    const emailInput = document.querySelector<HTMLInputElement>('#register-email')
+    const passwordInput = document.querySelector<HTMLInputElement>('#register-password')
+    const confirmInput = document.querySelector<HTMLInputElement>('#register-confirm')
+    if (emailInput) emailInput.value = 'new@example.com'
+    if (passwordInput) passwordInput.value = 'longpassword'
+    if (confirmInput) confirmInput.value = 'longpassword'
+    document
+      .querySelector<HTMLFormElement>('#register-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+    expect(bodyText()).toContain('Add at least one uppercase letter to the password, then try again.')
+    expect(document.querySelector<HTMLInputElement>('#register-password')).toBe(
+      document.activeElement
+    )
+    expect(register).not.toHaveBeenCalled()
+  })
+
   test('turns duplicate account registration failures into a next step', async () => {
     const page = new AuthPage(
       createAuthManager({

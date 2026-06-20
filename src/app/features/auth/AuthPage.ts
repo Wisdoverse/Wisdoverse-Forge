@@ -113,6 +113,25 @@ function authRegisterErrorMessage(result: AuthFailure): string {
   return 'Check the fields, then create the account again. If it still fails, ask an owner or admin to check account creation settings.'
 }
 
+function registerPasswordRuleMessage(password: string): string | null {
+  if (password.length < 12) {
+    return 'Use at least 12 characters for the new password. Add a few more characters, then try again.'
+  }
+  if (!/[A-Z]/.test(password)) {
+    return 'Add at least one uppercase letter to the password, then try again.'
+  }
+  if (!/[a-z]/.test(password)) {
+    return 'Add at least one lowercase letter to the password, then try again.'
+  }
+  if (!/[0-9]/.test(password)) {
+    return 'Add at least one number to the password, then try again.'
+  }
+  if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(password)) {
+    return 'Add at least one symbol to the password, then try again.'
+  }
+  return null
+}
+
 function authSignInErrorMessage(error: unknown): string {
   const detail =
     error instanceof Error ? error.message.trim() : typeof error === 'string' ? error.trim() : ''
@@ -601,6 +620,12 @@ export class AuthPage {
       this.setError(
         'Enter an email address and type the new password twice to create your account.'
       )
+      return
+    }
+    const passwordRuleMessage = registerPasswordRuleMessage(password)
+    if (passwordRuleMessage) {
+      this.setError(passwordRuleMessage)
+      this.container?.querySelector<HTMLInputElement>('#register-password')?.focus()
       return
     }
     if (password !== confirm) {
