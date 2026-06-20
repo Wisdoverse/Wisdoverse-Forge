@@ -49,7 +49,9 @@ describe('GitCredentialsSection', () => {
     ).toBeDefined()
     const emptyState = screen.getByTestId('code-access-empty-state')
     expect(
-      within(emptyState).getByText(/private GitHub or GitLab code links that start with https:\/\//i)
+      within(emptyState).getByText(
+        /private GitHub or GitLab code links that start with https:\/\//i
+      )
     ).toBeDefined()
     expect(within(emptyState).getByText(/links that start with https:\/\//i)).toBeDefined()
     expect(within(emptyState).getAllByText(/use SSH code access instead/i).length).toBeGreaterThan(
@@ -240,8 +242,8 @@ describe('GitCredentialsSection', () => {
     expect(screen.getByText('Website address')).toBeDefined()
     expect(screen.queryByText('Git service')).toBeNull()
     expect(screen.getByText('github.com')).toBeDefined()
-    expect(screen.getByText('Open Code access again to load added date')).toBeDefined()
-    expect(screen.getByText('Open Code access again to check added date')).toBeDefined()
+    expect(screen.getByText('Open HTTPS code access again to load added date')).toBeDefined()
+    expect(screen.getByText('Open HTTPS code access again to check added date')).toBeDefined()
     expect(screen.queryByText('Default cloud address')).toBeNull()
     expect(screen.queryByText('Git address')).toBeNull()
     expect(screen.queryByText('Invalid Date')).toBeNull()

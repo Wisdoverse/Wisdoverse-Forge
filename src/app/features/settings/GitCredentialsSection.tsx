@@ -107,8 +107,8 @@ function CredentialRow({ credential, onDelete }: CredentialRowProps) {
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
           {formatAccessDate(credential.createdAt, {
-            missing: 'Open Code access again to load added date',
-            invalid: 'Open Code access again to check added date',
+            missing: 'Open HTTPS code access again to load added date',
+            invalid: 'Open HTTPS code access again to check added date',
           })}
         </span>
       </td>
