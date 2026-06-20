@@ -1748,6 +1748,9 @@ const SAVED_ITEMS_CHECK_JARGON_PATTERNS = [
   /\breview saved notes and instructions\b/i,
   /\bReview the saved notes\b/i,
   /\bReview the selected saved notes\b/i,
+  /\bSuggested notes to review\b/i,
+  /\bSuggested instructions to review\b/i,
+  /\bWaiting for review\b/i,
 ]
 
 const TASK_AGENT_CAPABILITY_JARGON_PATTERNS = [
@@ -5591,8 +5594,7 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'saved-items-check-copy',
         location,
-        message:
-          'Task-send saved item checks must say Saved items/check instead of saved notes review.',
+        message: 'Saved item checks must say Saved items/check instead of saved notes review.',
         sample: line.trim(),
       })
     }

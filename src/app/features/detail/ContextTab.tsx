@@ -163,7 +163,7 @@ export function ContextTab({
         onRecordFeedback={(item, label) => recordFeedback(item, label)}
       />
       <ContextCandidatesList
-        title="Suggested notes to review"
+        title="Suggested notes to check"
         kind="memory"
         candidates={context.suggestedMemoryUpdates}
       />
@@ -175,7 +175,7 @@ export function ContextTab({
         onRecordFeedback={(item, label) => recordFeedback(item, label)}
       />
       <ContextCandidatesList
-        title="Suggested instructions to review"
+        title="Suggested instructions to check"
         kind="skill"
         candidates={context.skillCandidates}
       />

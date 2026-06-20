@@ -8979,7 +8979,14 @@ export function InjectionPreviewModal() {
 `,
       'src/app/features/detail/ContextCandidatesList.tsx': `
 export function CandidateLink() {
-  return <a aria-label="Open saved notes review">Open saved notes review</a>
+  return (
+    <section>
+      <h3>Suggested notes to review</h3>
+      <h3>Suggested instructions to review</h3>
+      <span>Waiting for review</span>
+      <a aria-label="Open saved notes review">Open saved notes review</a>
+    </section>
+  )
 }
 `,
       'src/app/features/board/boardErrorMessages.ts': `
@@ -9019,6 +9026,18 @@ export function ResultHelp() {
         }),
         expect.objectContaining({
           type: 'saved-items-check-copy',
+          sample: expect.stringContaining('Suggested notes to review'),
+        }),
+        expect.objectContaining({
+          type: 'saved-items-check-copy',
+          sample: expect.stringContaining('Suggested instructions to review'),
+        }),
+        expect.objectContaining({
+          type: 'saved-items-check-copy',
+          sample: expect.stringContaining('Waiting for review'),
+        }),
+        expect.objectContaining({
+          type: 'saved-items-check-copy',
           sample: expect.stringContaining('open the saved notes review again'),
         }),
         expect.objectContaining({
@@ -9042,7 +9061,14 @@ export function InjectionPreviewModal() {
 `,
       'src/app/features/detail/ContextCandidatesList.tsx': `
 export function CandidateLink() {
-  return <a aria-label="Open Saved items">Open Saved items</a>
+  return (
+    <section>
+      <h3>Suggested notes to check</h3>
+      <h3>Suggested instructions to check</h3>
+      <span>Needs your check</span>
+      <a aria-label="Open Saved items">Open Saved items</a>
+    </section>
+  )
 }
 `,
       'src/app/features/board/boardErrorMessages.ts': `

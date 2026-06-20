@@ -117,7 +117,7 @@ function candidateStateLabel(state: TaskContextCandidate['state']): string {
   if (state === 'approved') return 'Approved'
   if (state === 'rejected') return 'Rejected'
   if (state === 'superseded') return 'Replaced'
-  return 'Waiting for review'
+  return 'Needs your check'
 }
 
 function candidateNextStep(candidate: TaskContextCandidate): string {
