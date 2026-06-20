@@ -103,22 +103,21 @@ function agentPluginFilterEmptyState(filter: PluginFilter, query: string): Empty
 
   if (hasSearch && hasFilter) {
     return {
-      title: 'Clear search or show all tools',
-      detail: 'This agent has tools, but the current search and filter hide them.',
+      title: 'Search and filter are hiding tools',
+      detail: 'Use Show all tools before assuming this agent has no matching tool.',
     }
   }
 
   if (hasSearch) {
     return {
-      title: 'Clear search to see tools',
-      detail:
-        'This agent has tools, but the search hides them. Try a broader word or clear search.',
+      title: 'Search is hiding tools',
+      detail: 'Use Show all tools to return to the full list.',
     }
   }
 
   return {
-    title: 'Choose All to see tools',
-    detail: 'This agent has tools, but this filter has no results yet.',
+    title: 'Filter is hiding tools',
+    detail: 'Use Show all tools to return to the full list.',
   }
 }
 
@@ -370,7 +369,8 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
             id={searchHelpId}
             className="text-ui-caption text-secondary-light dark:text-secondary-dark lg:max-w-[16rem]"
           >
-            Search only filters this agent's tools. Clear it to see every tool again.
+            Search only filters this agent&apos;s tools. Use Show all tools to return to the full
+            list.
           </p>
 
           <div

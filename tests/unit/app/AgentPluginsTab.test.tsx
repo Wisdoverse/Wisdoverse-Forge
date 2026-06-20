@@ -85,7 +85,7 @@ describe('AgentPluginsTab', () => {
     expect(screen.getByText('Using team setting - normally available for agents')).toBeDefined()
     expect(screen.getByText('Changed for this agent - normally off for agents')).toBeDefined()
     expect(screen.getByLabelText("Search this agent's tools")).toHaveAccessibleDescription(
-      "Search only filters this agent's tools. Clear it to see every tool again."
+      "Search only filters this agent's tools. Use Show all tools to return to the full list."
     )
     expect(screen.queryByText(new RegExp(['workspace', 'default'].join(' '), 'i'))).toBeNull()
     expect(screen.queryByText(new RegExp(['workspace', 'setting'].join(' '), 'i'))).toBeNull()
@@ -127,9 +127,9 @@ describe('AgentPluginsTab', () => {
     const combinedEmpty = screen.getByTestId('agent-plugin-filter-empty')
     expect(combinedEmpty).toHaveAttribute('role', 'status')
     expect(combinedEmpty).toHaveAttribute('aria-live', 'polite')
-    expect(within(combinedEmpty).getByText('Clear search or show all tools')).toBeDefined()
+    expect(within(combinedEmpty).getByText('Search and filter are hiding tools')).toBeDefined()
     expect(combinedEmpty.textContent).toContain(
-      'This agent has tools, but the current search and filter hide them.'
+      'Use Show all tools before assuming this agent has no matching tool.'
     )
     expect(combinedEmpty.textContent).not.toContain('No tools match this view')
 
@@ -156,10 +156,8 @@ describe('AgentPluginsTab', () => {
     const searchEmpty = screen.getByTestId('agent-plugin-filter-empty')
     expect(searchEmpty).toHaveAttribute('role', 'status')
     expect(searchEmpty).toHaveAttribute('aria-live', 'polite')
-    expect(within(searchEmpty).getByText('Clear search to see tools')).toBeDefined()
-    expect(searchEmpty.textContent).toContain(
-      'This agent has tools, but the search hides them. Try a broader word or clear search.'
-    )
+    expect(within(searchEmpty).getByText('Search is hiding tools')).toBeDefined()
+    expect(searchEmpty.textContent).toContain('Use Show all tools to return to the full list.')
     expect(searchEmpty.textContent).not.toContain('No tools match this view')
 
     fireEvent.click(within(searchEmpty).getByRole('button', { name: /show all tools/i }))
@@ -198,10 +196,8 @@ describe('AgentPluginsTab', () => {
     const filterEmpty = screen.getByTestId('agent-plugin-filter-empty')
     expect(filterEmpty).toHaveAttribute('role', 'status')
     expect(filterEmpty).toHaveAttribute('aria-live', 'polite')
-    expect(within(filterEmpty).getByText('Choose All to see tools')).toBeDefined()
-    expect(filterEmpty.textContent).toContain(
-      'This agent has tools, but this filter has no results yet.'
-    )
+    expect(within(filterEmpty).getByText('Filter is hiding tools')).toBeDefined()
+    expect(filterEmpty.textContent).toContain('Use Show all tools to return to the full list.')
     expect(filterEmpty.textContent).not.toContain('No tools match this view')
 
     fireEvent.click(within(filterEmpty).getByRole('button', { name: /show all tools/i }))
