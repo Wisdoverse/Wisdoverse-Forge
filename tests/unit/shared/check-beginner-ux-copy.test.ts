@@ -15347,6 +15347,9 @@ function renderInboxPath() {
 function promptTemplate() {
   return 'You are a triage agent. Reproduce the reported behavior, separate symptoms from likely cause, identify the smallest safe fix, and then act as a code review agent. Prioritize regressions, missing tests, unclear ownership, concrete findings, and cite the exact files.'
 }
+function oldCheckTemplate() {
+  return 'You review work carefully. Start with anything that could break the result.'
+}
 `,
       'src/app/features/agents/AgentGroupsPanel.tsx': `
 function groupTemplate() {
@@ -15378,6 +15381,10 @@ function groupTemplate() {
         }),
         expect.objectContaining({
           type: 'beginner-sorting-copy',
+          sample: expect.stringContaining('review work carefully'),
+        }),
+        expect.objectContaining({
+          type: 'beginner-sorting-copy',
           sample: expect.stringContaining('Triage Queue'),
         }),
       ])
@@ -15395,7 +15402,7 @@ function renderInboxPath() {
 function promptTemplate() {
   return [
     "You help sort incoming work. Try the steps the user described, explain what happened in plain language, suggest the smallest safe next step, and ask for more information when it's needed.",
-    "You review work carefully. Start with anything that could break the result, create a security risk, or need a missing check. Explain the problem first, then point to the file or behavior that proves it."
+    "You check work before the team uses it. Start with anything that could break the result, create a security risk, or need a missing check. Explain the problem first, then point to the file or behavior that proves it."
   ].join(' ')
 }
 `,
@@ -15403,6 +15410,42 @@ function promptTemplate() {
 function groupTemplate() {
   return 'Intake Queue'
 }
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags agent instruction template buttons that only say review', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentConfigTab.tsx': `
+const PROMPT_TEMPLATES = [{
+  id: 'review',
+  label: 'Review',
+  value: 'You check work before the team uses it.'
+}]
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'agent-config-template-copy',
+        location: 'src/app/features/agents/AgentConfigTab.tsx:4',
+      }),
+    ])
+  })
+
+  it('accepts agent instruction template buttons that describe the action', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentConfigTab.tsx': `
+const PROMPT_TEMPLATES = [{
+  id: 'review',
+  label: 'Check results',
+  value: 'You check work before the team uses it.'
+}]
 `,
     })
 

@@ -27,9 +27,9 @@ const PROMPT_TEMPLATES = [
   },
   {
     id: 'review',
-    label: 'Review',
+    label: 'Check results',
     value:
-      'You review work carefully. Start with anything that could break the result, create a security risk, or need a missing check. Explain the problem first, then point to the file or behavior that proves it.',
+      'You check work before the team uses it. Start with anything that could break the result, create a security risk, or need a missing check. Explain the problem first, then point to the file or behavior that proves it.',
   },
   {
     id: 'triage',

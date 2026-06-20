@@ -205,14 +205,15 @@ describe('AgentConfigTab', () => {
 
   it('applies a prompt template and can reset the edit', () => {
     render(<AgentConfigTab agentId="a1" />)
-    const reviewTemplate = screen.getByRole('button', { name: /review/i })
+    const reviewTemplate = screen.getByRole('button', { name: /check results/i })
     expect(reviewTemplate).toHaveAttribute('aria-pressed', 'false')
     fireEvent.click(reviewTemplate)
 
     expect(
       (screen.getByLabelText(/instructions for this agent/i) as HTMLTextAreaElement).value
-    ).toContain('review work carefully')
+    ).toContain('check work before the team uses it')
     expect(reviewTemplate).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByRole('button', { name: /^review$/i })).toBeNull()
     expect(screen.getByText('Unsaved')).toBeDefined()
     expect(screen.getByRole('status')).toHaveTextContent(/unsaved changes/i)
 
@@ -234,17 +235,18 @@ describe('AgentConfigTab', () => {
     }
   })
 
-  it('uses beginner-facing wording in the review template', () => {
+  it('uses beginner-facing wording in the check-results template', () => {
     render(<AgentConfigTab agentId="a1" />)
-    fireEvent.click(screen.getByRole('button', { name: /review/i }))
+    fireEvent.click(screen.getByRole('button', { name: /check results/i }))
 
     const instructions = screen.getByLabelText(
       /instructions for this agent/i
     ) as HTMLTextAreaElement
-    expect(instructions.value).toContain('review work carefully')
+    expect(instructions.value).toContain('check work before the team uses it')
     expect(instructions.value).toContain('could break the result')
     expect(instructions.value).toContain('missing check')
     expect(instructions.value).toContain('point to the file or behavior')
+    expect(instructions.value).not.toMatch(/review work carefully/i)
     expect(instructions.value).not.toMatch(/code review agent/i)
     expect(instructions.value).not.toMatch(/regressions/i)
     expect(instructions.value).not.toMatch(/missing tests/i)

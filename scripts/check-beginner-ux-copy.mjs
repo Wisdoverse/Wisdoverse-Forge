@@ -1429,6 +1429,7 @@ const BEGINNER_SORTING_JARGON_PATTERNS = [
   /\bInbox triage path\b/i,
   /\bTriage Queue\b/,
   /\bYou are a triage agent\b/i,
+  /\bYou review work carefully\b/i,
   /\bcode review agent\b/i,
   /\bregressions\b/i,
   /\bmissing tests\b/i,
@@ -1440,6 +1441,8 @@ const BEGINNER_SORTING_JARGON_PATTERNS = [
   /\blikely cause\b/i,
   /\bsmallest safe fix\b/i,
 ]
+
+const AGENT_CONFIG_TEMPLATE_JARGON_PATTERNS = [/\blabel:\s*['"`]Review['"`]/i]
 
 const TASK_DETAIL_EMPTY_DEAD_END_PATTERNS = [
   /\bNo description provided\./i,
@@ -3164,6 +3167,12 @@ function hasBeginnerSortingJargonCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return BEGINNER_SORTING_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentConfigTemplateJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_CONFIG_TEMPLATE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasGettingStartedReviewEvidenceJargonCopy(relFile, line) {
@@ -5861,6 +5870,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Inbox and agent setup copy must describe sorting work in beginner-readable language.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentConfigTemplateJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-config-template-copy',
+        location,
+        message: 'Agent instruction template buttons must say the action beginners should take.',
         sample: line.trim(),
       })
     }
