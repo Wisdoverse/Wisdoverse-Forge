@@ -102,6 +102,25 @@ describe('AssignmentReadinessPanel', () => {
     expect(screen.getByTestId('assignment-metric-unassigned').textContent).toContain('Needs agent')
   })
 
+  test('announces status load errors as recoverable alerts', () => {
+    render(
+      <AssignmentReadinessPanel
+        participants={[]}
+        workload={{ ...emptyWorkload, backlog: 1, unassigned: 1 }}
+        loading={false}
+        error="We could not check agents. Choose Check agent status before sending work."
+        onRefresh={vi.fn()}
+      />
+    )
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent(
+      'We could not check agents. Choose Check agent status before sending work.'
+    )
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(screen.getByRole('button', { name: 'Check agent status' })).toBeDefined()
+  })
+
   test('explains how to unblock tasks when no agent is available', () => {
     render(
       <AssignmentReadinessPanel

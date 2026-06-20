@@ -76,7 +76,11 @@ export function AssignmentReadinessPanel({
             <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
               {handoffSummary}
             </p>
-            {error && <p className="mt-0.5 text-ui-caption text-apple-red">{error}</p>}
+            {error && (
+              <p role="alert" aria-live="polite" className="mt-0.5 text-ui-caption text-apple-red">
+                {error}
+              </p>
+            )}
           </div>
         </div>
 
