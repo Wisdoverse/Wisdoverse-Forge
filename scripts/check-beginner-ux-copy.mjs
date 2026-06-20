@@ -1608,6 +1608,7 @@ const CHAT_FILTER_EMPTY_DEAD_END_PATTERNS = [
 
 const HELP_ENTRY_REVIEW_ACTION_PATTERNS = [
   /\bReview what needs help\b/i,
+  /\bReview what the agent finished\b/i,
   /\ba quick review\b/i,
   /\breview every update\b/i,
 ]
@@ -4931,6 +4932,7 @@ function hasChatFilterEmptyDeadEndCopy(relFile, line) {
 function hasHelpEntryReviewActionCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/chat/ChatView.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentGroupsPanel.tsx') &&
     !relFile.endsWith('src/app/features/feed/AttentionZone.tsx') &&
     !relFile.endsWith('src/app/features/inbox/InboxItem.tsx')
   ) {

@@ -9631,6 +9631,11 @@ function conversationFilterEmptyCopy() {
   return 'Next: clear filters, review every update, then search again with one short word.'
 }
 `,
+      'src/app/features/agents/AgentGroupsPanel.tsx': `
+function routedTaskNextStep() {
+  return 'Review what the agent finished'
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
@@ -9649,6 +9654,10 @@ function conversationFilterEmptyCopy() {
         expect.objectContaining({
           type: 'help-entry-review-copy',
           location: 'src/app/features/chat/ChatView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'help-entry-review-copy',
+          location: 'src/app/features/agents/AgentGroupsPanel.tsx:3',
         }),
       ])
     )

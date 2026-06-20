@@ -174,7 +174,7 @@ describe('AgentGroupsPanel', () => {
     )
   })
 
-  test('describes completed task review without handoff wording', () => {
+  test('describes completed task result checks without handoff wording', () => {
     seedRoutingState([
       makeTask({
         id: 'done-1',
@@ -187,7 +187,8 @@ describe('AgentGroupsPanel', () => {
 
     render(<AgentGroupsPanel />)
 
-    expect(screen.getByText(/docs agent .* review what the agent finished/i)).toBeInTheDocument()
+    expect(screen.getByText(/docs agent .* check the finished result/i)).toBeInTheDocument()
+    expect(screen.queryByText(/review what the agent finished/i)).toBeNull()
     expect(screen.queryByText(new RegExp(['completed', 'handoff'].join('\\s+'), 'i'))).toBeNull()
   })
 
