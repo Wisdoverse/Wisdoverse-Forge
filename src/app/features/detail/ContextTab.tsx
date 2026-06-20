@@ -115,7 +115,7 @@ export function ContextTab({
   if (error) {
     return (
       <div className="py-8 flex items-center justify-center">
-        <p role="alert" className="text-xs text-apple-red">
+        <p role="alert" aria-live="polite" className="text-xs text-apple-red">
           {error}
         </p>
       </div>

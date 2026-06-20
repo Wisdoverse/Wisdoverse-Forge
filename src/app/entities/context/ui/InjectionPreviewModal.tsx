@@ -147,6 +147,7 @@ export function InjectionPreviewModal({
               {error && (
                 <div
                   role="alert"
+                  aria-live="polite"
                   className="flex gap-2 rounded-card bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red"
                 >
                   <AlertTriangle
@@ -213,6 +214,7 @@ export function InjectionPreviewModal({
               {error && (
                 <div
                   role="alert"
+                  aria-live="polite"
                   className="flex gap-2 rounded-card bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red"
                 >
                   <AlertTriangle
