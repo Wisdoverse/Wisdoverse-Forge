@@ -17416,18 +17416,27 @@ export function taskBlockedPreview() {
 export function taskBlockedPreview() {
   return 'Review the approval request, then approve or decline it.'
 }
+export function beginnerBlockedHint() {
+  return 'Waiting on approval'
+}
 `,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'task-blocked-approval-copy',
-        location: 'src/app/shared/lib/taskFailureCopy.ts:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-blocked-approval-copy',
+          location: 'src/app/shared/lib/taskFailureCopy.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'task-blocked-approval-copy',
+          location: 'src/app/shared/lib/taskFailureCopy.ts:6',
+        }),
+      ])
+    )
   })
 
   it('accepts blocked task copy that points to task details and visible choices', () => {

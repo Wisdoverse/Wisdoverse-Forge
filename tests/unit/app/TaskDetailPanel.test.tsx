@@ -265,7 +265,9 @@ describe('TaskDetailPanel', () => {
     await user.click(screen.getByRole('button', { name: /cancel task/i }))
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Open this task again from the Tasks page, then choose Cancel again.')
+    expect(alert).toHaveTextContent(
+      'Open this task again from the Tasks page, then choose Cancel again.'
+    )
     expect(alert).toHaveTextContent('The task was not canceled.')
     expect(alert).not.toHaveTextContent('HTTP 500')
   })
@@ -286,7 +288,12 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByTestId('task-next-action')).toBeDefined()
     expect(screen.getByText(/provide what is missing/i)).toBeDefined()
     expect(screen.queryByText(previousResolveCopy)).toBeNull()
-    expect(screen.getAllByText(/waiting for deployment approval/i).length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText(
+        /open the task details to see what needs confirmation, then choose continue or stop when it is ready/i
+      ).length
+    ).toBeGreaterThan(0)
+    expect(screen.queryByText(/waiting for deployment approval/i)).toBeNull()
   })
 
   test('retries failed tasks and updates the board store', async () => {
@@ -400,7 +407,9 @@ describe('TaskDetailPanel', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: /updates/i }))
 
     expect(
-      await screen.findByText(/open updates for this task again before deciding whether to retry this task/i)
+      await screen.findByText(
+        /open updates for this task again before deciding whether to retry this task/i
+      )
     ).toBeDefined()
     expect(screen.getByTestId('task-updates')).toHaveTextContent(
       /check your connection, then open this task again from the tasks page/i
@@ -430,7 +439,8 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByText(/open result files or what the agent used/i)).toBeDefined()
     expect(screen.queryByText(/open result files or context/i)).toBeNull()
     expect(screen.getByText(/future tasks should reuse them/i)).toBeDefined()
-    expect(screen.getByRole('button', { name: /review save ideas/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /check save ideas/i })).toBeDefined()
+    expect(screen.queryByRole('button', { name: /review save ideas/i })).toBeNull()
   })
 
   test('guides beginner review on the result tab', async () => {

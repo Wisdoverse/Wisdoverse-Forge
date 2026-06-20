@@ -236,7 +236,10 @@ describe('dispatchWsMessage', () => {
       taskHref: '/tasks',
       read: false,
     })
-    expect(notifications[0].message).toContain('Waiting for SSH approval')
+    expect(notifications[0].message).toContain(
+      'Open the task details to see what needs confirmation, then choose Continue or Stop when it is ready.'
+    )
+    expect(notifications[0].message).not.toContain('Waiting for SSH approval')
     expect(notifications[0].message).toContain('needs your answer before work can continue')
     expect(notifications[0].message).not.toContain('needs owner input')
     expect(notifications[0].message).not.toContain('is blocked')

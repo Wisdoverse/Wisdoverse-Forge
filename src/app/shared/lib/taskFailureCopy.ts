@@ -79,6 +79,9 @@ function beginnerBlockedHint(hint: string): string {
   if (/\b(?:quota|rate limit|rate limited)\b/i.test(hint) || /\b429\b/.test(hint)) {
     return 'Too much work is running right now. Wait a bit, then retry or ask an owner for help.'
   }
+  if (/\bapproval\b/i.test(hint)) {
+    return 'Open the task details to see what needs confirmation, then choose Continue or Stop when it is ready.'
+  }
   if (/\b(api\s*)?(credential|credentials|key|keys|token|tokens|secret|secrets)\b/i.test(hint)) {
     return 'Waiting for account access. Add or reconnect the required service access, then retry.'
   }

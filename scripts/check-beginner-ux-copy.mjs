@@ -1393,6 +1393,7 @@ const TASK_FAILURE_OPEN_DETAILS_DEAD_END_PATTERNS = [
 ]
 
 const TASK_BLOCKED_APPROVAL_JARGON_PATTERNS = [
+  /\bWaiting (?:for|on) [^'"`]*approval\b/i,
   /\bReview the approval request\b/i,
   /\bapprove or decline\b/i,
 ]
