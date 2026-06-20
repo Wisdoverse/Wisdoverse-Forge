@@ -10,7 +10,9 @@ describe('AgentStatusBar', () => {
 
     expect(screen.getByTestId('agent-status-empty')).toBeDefined()
     expect(
-      screen.getByText('Open Agents to create or start one before sending work.')
+      screen.getByText(
+        'Open Agents, then choose New agent if none exists or Start on an existing agent before sending work.'
+      )
     ).toBeDefined()
     expect(screen.queryByText(/before assigning work/i)).toBeNull()
     expect(screen.queryByText(/no agents are connected yet/i)).toBeNull()

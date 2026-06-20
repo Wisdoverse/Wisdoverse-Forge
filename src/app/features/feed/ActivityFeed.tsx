@@ -21,7 +21,7 @@ const FEED_FILTERS: { value: FeedFilter; label: string; ariaLabel: string }[] = 
   {
     value: 'needs-action',
     label: 'Needs action',
-    ariaLabel: 'Show blocked or failed task updates',
+    ariaLabel: 'Show updates that need your help or failed',
   },
   { value: 'progress', label: 'Progress', ariaLabel: 'Show updates for work in progress' },
   { value: 'completed', label: 'Completed', ariaLabel: 'Show completed task updates' },

@@ -206,12 +206,12 @@ describe('ActivityFeed', () => {
     ).toBeDefined()
     expect(
       within(filters).getByRole('button', {
-        name: /show blocked or failed task updates, 1 matching update/i,
+        name: /show updates that need your help or failed, 1 matching update/i,
       })
     ).toBeDefined()
     fireEvent.click(
       within(filters).getByRole('button', {
-        name: /show blocked or failed task updates, 1 matching update/i,
+        name: /show updates that need your help or failed, 1 matching update/i,
       })
     )
 
@@ -272,7 +272,7 @@ describe('ActivityFeed', () => {
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: /show blocked or failed task updates, 0 matching updates/i,
+        name: /show updates that need your help or failed, 0 matching updates/i,
       })
     )
     const emptyState = screen.getByTestId('feed-filter-empty')
