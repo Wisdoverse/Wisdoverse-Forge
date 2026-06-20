@@ -10329,7 +10329,7 @@ function savedInstructionsLoadErrorMessage(error) {
       'src/app/shared/model/skills.store.ts': `
 function skillResponseErrorMessage(action) {
   return action === 'create'
-    ? 'Review the fields, then create the instruction again.'
+    ? 'Check the required fields, then create the instruction again.'
     : 'Forge could not load Saved instructions right now. Refresh Saved instructions, then try again.'
 }
 function skillAccessErrorMessage() {
@@ -10370,7 +10370,7 @@ function savedInstructionsLoadErrorMessage(error) {
       'src/app/shared/model/skills.store.ts': `
 function skillResponseErrorMessage(action) {
   return action === 'create'
-    ? 'Review the fields, then create the instruction again.'
+    ? 'Check the required fields, then create the instruction again.'
     : 'Open Saved instructions again to load the list.'
 }
 function skillAccessErrorMessage() {
@@ -10497,7 +10497,7 @@ function service() {
 `,
       'src/app/shared/model/skills.store.ts': `
 function fallback() {
-  return 'Review the fields, then create the instruction again.'
+  return 'Check the required fields, then create the instruction again.'
 }
 function busy() {
   return 'Wait a moment, then create the instruction again. Instruction setup is busy right now.'
@@ -10506,6 +10506,30 @@ function busy() {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags saved instruction creation recovery copy that starts with review', () => {
+    const cwd = fixture({
+      'src/app/shared/model/skills.store.ts': `
+const createConflictMessage =
+  'Review the existing instructions, then change the name or matching words and create the instruction again.'
+const createDefaultMessage = 'Review the fields, then create the instruction again.'
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'saved-instruction-create-copy',
+        location: 'src/app/shared/model/skills.store.ts:3',
+      }),
+      expect.objectContaining({
+        type: 'saved-instruction-create-copy',
+        location: 'src/app/shared/model/skills.store.ts:4',
+      }),
+    ])
   })
 
   it('flags saved instruction templates that expose PR and CI status jargon', () => {

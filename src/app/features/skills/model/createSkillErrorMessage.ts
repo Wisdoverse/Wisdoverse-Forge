@@ -7,12 +7,12 @@ const CREATE_PERMISSION_MESSAGE =
   'Ask an owner or admin to let you create saved instructions for this team space, then create the instruction again.'
 const CREATE_NOT_FOUND_MESSAGE = 'Open Saved instructions again, then create the instruction.'
 const CREATE_CONFLICT_MESSAGE =
-  'Review the existing instructions, then change the name or matching words and create the instruction again.'
+  'Open Saved instructions to check for a similar item, then change the name or matching words and create the instruction again.'
 const CREATE_RATE_LIMIT_MESSAGE =
   'Wait a moment, then create the instruction again. Instruction setup is busy right now.'
 const CREATE_SERVICE_MESSAGE =
   'Open Saved instructions again, then create the instruction again. If it still fails, ask an owner or admin to check Saved instructions access.'
-const CREATE_DEFAULT_MESSAGE = 'Review the fields, then create the instruction again.'
+const CREATE_DEFAULT_MESSAGE = 'Check the required fields, then create the instruction again.'
 
 const USER_FACING_STARTS = [
   'The instruction could not be created',
@@ -26,10 +26,9 @@ const USER_FACING_STARTS = [
   'Check your connection',
   'Ask an owner or admin',
   'Open Saved instructions',
-  'Review the existing instructions',
   'Wait a moment',
   'Open Saved instructions',
-  'Review the fields',
+  'Check the required fields',
 ]
 
 export function createSkillErrorMessage(error?: unknown): string {

@@ -161,12 +161,12 @@ export function skillHttpErrorMessage(
   const createPermissionMessage =
     'Ask an owner or admin to let you create saved instructions for this team space, then create the instruction again.'
   const createConflictMessage =
-    'Review the existing instructions, then change the name or matching words and create the instruction again.'
+    'Open Saved instructions to check for a similar item, then change the name or matching words and create the instruction again.'
   const createRateLimitMessage =
     'Wait a moment, then create the instruction again. Instruction setup is busy right now.'
   const createServiceMessage =
     'Open Saved instructions again, then create the instruction again. If it still fails, ask an owner or admin to check Saved instructions access.'
-  const createDefaultMessage = 'Review the fields, then create the instruction again.'
+  const createDefaultMessage = 'Check the required fields, then create the instruction again.'
 
   if (status === 401) {
     return `Sign in again, then ${actionText}.`
@@ -219,7 +219,7 @@ function skillResponseErrorMessage(
       ? skillValidationMessage(detail)
       : 'Open Saved instructions again to load the list.'
   return action === 'create'
-    ? 'Review the fields, then create the instruction again.'
+    ? 'Check the required fields, then create the instruction again.'
     : 'Open Saved instructions again to load the list.'
 }
 

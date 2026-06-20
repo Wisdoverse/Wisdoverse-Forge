@@ -66,6 +66,16 @@ describe('createSkillErrorMessage', () => {
     )
   })
 
+  test('maps duplicate saved instructions to a specific check step', () => {
+    const message = createSkillErrorMessage(new Error('HTTP 409'))
+
+    expectBeginnerMessage(
+      message,
+      'Open Saved instructions to check for a similar item, then change the name or matching words and create the instruction again.'
+    )
+    expect(message).not.toContain('Review the existing instructions')
+  })
+
   test('turns validation details into a field-specific next step', () => {
     const message = createSkillErrorMessage(new Error('HTTP 422: {"message":"trigger is invalid"}'))
 
@@ -94,5 +104,12 @@ describe('createSkillErrorMessage', () => {
     expect(message).not.toContain('backend')
     expect(message).not.toContain('service is temporarily unavailable')
     expect(message).not.toContain('Forge could not create')
+  })
+
+  test('uses a check step for unknown create failures', () => {
+    const message = createSkillErrorMessage(new Error('HTTP 418'))
+
+    expectBeginnerMessage(message, 'Check the required fields, then create the instruction again.')
+    expect(message).not.toContain('Review the fields')
   })
 })

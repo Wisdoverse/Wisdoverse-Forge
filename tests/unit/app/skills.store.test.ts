@@ -58,6 +58,23 @@ describe('skillHttpErrorMessage', () => {
       'Enter the saved instructions, then create the instruction again.'
     )
   })
+
+  test('turns duplicate saved instruction errors into a specific check step', () => {
+    const message = skillHttpErrorMessage('create', 409)
+
+    expectBeginnerMessage(
+      message,
+      'Open Saved instructions to check for a similar item, then change the name or matching words and create the instruction again.'
+    )
+    expect(message).not.toContain('Review the existing instructions')
+  })
+
+  test('uses a check step for unknown create failures', () => {
+    const message = skillHttpErrorMessage('create', 418)
+
+    expectBeginnerMessage(message, 'Check the required fields, then create the instruction again.')
+    expect(message).not.toContain('Review the fields')
+  })
 })
 
 describe('useSkillsStore errors', () => {
