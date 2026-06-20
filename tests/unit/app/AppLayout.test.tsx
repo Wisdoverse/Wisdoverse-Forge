@@ -119,6 +119,18 @@ describe('AppLayout', () => {
     expect(within(revealButton).getByText('Activity')).toBeDefined()
   })
 
+  test('empty live updates can open the task board', () => {
+    routerState.path = '/settings'
+    const onNavigate = vi.fn()
+
+    render(<MemoryRouter onNavigate={onNavigate} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /show live task updates/i }))
+    fireEvent.click(screen.getByRole('button', { name: /open task board/i }))
+
+    expect(onNavigate).toHaveBeenCalledWith('/tasks')
+  })
+
   test('sidebar has navigation items', () => {
     render(<MemoryRouter />)
     const navItems = screen.getAllByTestId(/^sidebar-nav-/)

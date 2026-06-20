@@ -7,11 +7,18 @@ import { useBoardStore } from '@app/shared/model/board.store'
 interface RightPanelProps {
   collapsed: boolean
   onToggle: () => void
+  onOpenBoard?: () => void
   children?: React.ReactNode
   variant?: 'side' | 'mobile'
 }
 
-export function RightPanel({ collapsed, onToggle, children, variant = 'side' }: RightPanelProps) {
+export function RightPanel({
+  collapsed,
+  onToggle,
+  onOpenBoard,
+  children,
+  variant = 'side',
+}: RightPanelProps) {
   const { selectedTaskId, columns, setSelectedTask } = useBoardStore()
 
   const selectedTask = selectedTaskId
@@ -56,7 +63,9 @@ export function RightPanel({ collapsed, onToggle, children, variant = 'side' }: 
               <X size={14} strokeWidth={2} />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto p-4">{children ?? <ActivityFeed />}</div>
+          <div className="flex-1 overflow-y-auto p-4">
+            {children ?? <ActivityFeed onOpenBoard={onOpenBoard} />}
+          </div>
         </>
       )}
     </aside>

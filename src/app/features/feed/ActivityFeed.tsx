@@ -1,5 +1,12 @@
 import { useMemo, useState } from 'react'
-import { Activity, AlertTriangle, CheckCircle2, CircleDot, ListFilter } from 'lucide-react'
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  CircleDot,
+  ClipboardList,
+  ListFilter,
+} from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { useFeedStore } from '@app/shared/model/feed.store'
 import { AgentStatusBar } from './AgentStatusBar'
@@ -23,6 +30,10 @@ interface FeedFilteredEmptyCopy {
   title: string
   detail: string
   nextStep: string
+}
+
+interface ActivityFeedProps {
+  onOpenBoard?: () => void
 }
 
 function feedFilteredEmptyCopy(filter: FeedFilter): FeedFilteredEmptyCopy {
@@ -57,7 +68,7 @@ function feedFilteredEmptyCopy(filter: FeedFilter): FeedFilteredEmptyCopy {
   }
 }
 
-export function ActivityFeed() {
+export function ActivityFeed({ onOpenBoard }: ActivityFeedProps = {}) {
   const agents = useFeedStore((state) => state.agents)
   const attentionItems = useFeedStore((state) => state.attentionItems)
   const feedItems = useFeedStore((state) => state.feedItems)
@@ -208,9 +219,19 @@ export function ActivityFeed() {
             Start a task or wait for the chosen agent to send its first update.
           </p>
           <p className="max-w-[240px] text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
-            Next: open Board, create a task or choose an agent for one, then return here after the
-            first agent update.
+            Next: open the task board, create a task or choose an agent for one, then return here
+            after the first agent update.
           </p>
+          {onOpenBoard && (
+            <button
+              type="button"
+              onClick={onOpenBoard}
+              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full bg-apple-blue/10 px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+            >
+              <ClipboardList size={13} strokeWidth={2.25} aria-hidden="true" />
+              <span>Open task board</span>
+            </button>
+          )}
         </div>
       )}
     </div>

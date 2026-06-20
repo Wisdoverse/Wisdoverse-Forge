@@ -1,4 +1,4 @@
-import { describe, test, expect, afterEach, beforeEach } from 'vitest'
+import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
 import { ActivityFeed } from '@app/features/feed/ActivityFeed'
 import { useFeedStore } from '@app/shared/model/feed.store'
@@ -222,11 +222,22 @@ describe('ActivityFeed', () => {
     render(<ActivityFeed />)
     expect(screen.getByText(/quiet so far/i)).toBeDefined()
     expect(screen.getByText(/start a task or wait for the chosen agent/i)).toBeDefined()
-    expect(screen.getByText(/open Board, create a task or choose an agent/i)).toBeDefined()
+    expect(screen.getByText(/open the task board, create a task or choose an agent/i)).toBeDefined()
+    expect(screen.queryByRole('button', { name: /open task board/i })).toBeNull()
     expect(screen.queryByText(/assigned agent/i)).toBeNull()
     expect(screen.queryByText(/assigned agents add updates/i)).toBeNull()
     expect(screen.queryByText(/create or assign a task/i)).toBeNull()
     expect(screen.queryByText(/No progress updates yet/i)).toBeNull()
     expect(screen.queryByText(/No work has reported progress yet/i)).toBeNull()
+  })
+
+  test('lets beginners open the task board from an empty activity feed', () => {
+    const onOpenBoard = vi.fn()
+
+    render(<ActivityFeed onOpenBoard={onOpenBoard} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /open task board/i }))
+
+    expect(onOpenBoard).toHaveBeenCalledTimes(1)
   })
 })

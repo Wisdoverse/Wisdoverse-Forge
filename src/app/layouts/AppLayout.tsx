@@ -307,6 +307,7 @@ export function AppLayout({
         <RightPanel
           collapsed={panelCollapsed}
           onToggle={() => setPanelCollapsed(!panelCollapsed)}
+          onOpenBoard={() => handleNavigate('/tasks')}
         />
       ) : null}
       {isMobile && selectedTaskId && !panelCollapsed && (
@@ -318,7 +319,12 @@ export function AppLayout({
             className="absolute inset-0 z-30 bg-black/35 backdrop-blur-sm"
           />
           <div className="absolute inset-x-2 top-[68px] bottom-2 z-40">
-            <RightPanel collapsed={false} onToggle={closeMobileDetail} variant="mobile" />
+            <RightPanel
+              collapsed={false}
+              onToggle={closeMobileDetail}
+              onOpenBoard={() => handleNavigate('/tasks')}
+              variant="mobile"
+            />
           </div>
         </>
       )}
