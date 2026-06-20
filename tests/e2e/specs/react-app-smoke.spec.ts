@@ -393,33 +393,35 @@ test.describe('React App Smoke Tests', () => {
       await screenshot(page, '15-view-timeline')
     })
 
-    // TODO(headless-webgl): the Map (Workshop3D) view needs a real WebGL
-    // context to mount its three.js scene; headless Chromium on staging has no
-    // GPU, so the scene testid never appears. Skipped here; exercised in a real
-    // browser. The Map view button itself is covered by the view-mode test.
-    test.skip('switch to 3D view mounts interactive agent scene', async ({ page }) => {
+    test('switch to 3D Map view renders the agent map resiliently', async ({ page }) => {
       const topBar = page.locator('[data-testid="top-bar"]')
       await topBar.getByRole('button', { name: 'Map' }).click()
 
-      // Workshop3DView is a lazy-loaded chunk (~520kB three.js bundle) +
-      // WebGL renderer init in headless Chromium can hit a 15s cap on a cold
-      // CDN cache. Bumping to 30s eliminates the post-deploy flake without
-      // hiding a real regression.
+      // Workshop3DView is a lazy ~520kB three.js chunk; allow a generous mount.
       const scene = page.locator('[data-testid="workshop-3d-scene"]')
       await expect(scene).toBeVisible({ timeout: 30000 })
-      await expect(scene.locator('canvas[data-testid="workshop-3d-canvas"]')).toHaveCount(1)
-      await expect(page.getByText(/Full React rewrite coming soon/i)).toHaveCount(0)
 
+      // It must never crash the board into the error boundary, even where WebGL
+      // is unavailable (headless CI / no-GPU). Either the real canvas mounts, or
+      // the graceful WebGL-unavailable fallback shows — the view always renders.
+      await expect(page.getByText('Something went wrong')).toHaveCount(0)
+      await expect(page.getByText(/Full React rewrite coming soon/i)).toHaveCount(0)
+      const canvas = scene.locator('canvas[data-testid="workshop-3d-canvas"]')
+      const fallback = scene.locator('[data-testid="workshop-3d-webgl-unavailable"]')
+      await expect(canvas.or(fallback)).toBeVisible({ timeout: 10000 })
+
+      // The HTML agent roster + selection work regardless of WebGL.
       const agentButton = scene.locator('[data-testid="workshop-3d-agent"]').first()
       await expect(agentButton).toBeVisible({ timeout: 10000 })
       await agentButton.click()
       await expect(agentButton).toHaveAttribute('aria-pressed', 'true')
       await expect(scene.locator('[data-testid="workshop-3d-selected-agent"]')).toBeVisible()
 
+      // View toggle round-trips without crashing.
       await topBar.getByRole('button', { name: 'Board' }).click()
       await expect(scene).toHaveCount(0)
       await topBar.getByRole('button', { name: 'Map' }).click()
-      await expect(page.locator('[data-testid="workshop-3d-canvas"]')).toHaveCount(1)
+      await expect(page.locator('[data-testid="workshop-3d-scene"]')).toBeVisible()
       await screenshot(page, '16-view-3d')
     })
 
@@ -900,44 +902,76 @@ test.describe('React App Smoke Tests', () => {
     })
   })
 
-  // 21. Group By Switching ───────────────────────────────────────────────────
-
-  // TODO(#629): the Status/Agent/Priority group-by toggle was removed in the
-  // board redesign and replaced by BoardToolbar filters. Skipped until rewritten
-  // against the new filter UI rather than asserting against removed buttons.
-  test.describe.skip('21. Group By Switching', () => {
+  // 21. Board Filters ─────────────────────────────────────────────────────────
+  //
+  // Rewritten for the #629 redesign: the old Status/Agent/Priority TopBar
+  // "Group By" toggle was removed and replaced by the BoardToolbar priority +
+  // assignee filter groups. These drive the real filter UI (aria-pressed active
+  // state) and assert the fixture-grounded "Showing N of M tasks" counts from
+  // MOCK_TASKS (7 tasks: high=2, assigned=3, low=1 unassigned).
+  test.describe('21. Board Filters', () => {
     test.beforeEach(async ({ page, baseURL }) => {
       await setupAndNavigate(page, baseURL!)
     })
 
-    test('clicking Agent group by button activates it', async ({ page }) => {
-      const topBar = page.locator('[data-testid="top-bar"]')
-      const agentBtn = topBar.getByRole('button', { name: 'Agent' })
-      await agentBtn.click()
+    test('priority filter activates via aria-pressed and narrows the board', async ({ page }) => {
+      const toolbar = page.getByTestId('board-toolbar')
+      await toolbar.waitFor({ state: 'visible', timeout: 15000 })
+      const priority = toolbar.getByRole('group', { name: 'Filter tasks by priority' })
+      const high = priority.getByRole('button', { name: 'High' })
 
-      // Agent button should now have active styling (bg-apple-blue)
-      const classes = await agentBtn.getAttribute('class')
-      expect(classes).toMatch(/(^|\s)bg-apple-blue($|\s)/)
+      await expect(high).toHaveAttribute('aria-pressed', 'false')
+      await high.click({ timeout: 30000 })
+      await expect(high).toHaveAttribute('aria-pressed', 'true')
+      await expect(priority.getByRole('button', { name: 'All priorities' })).toHaveAttribute(
+        'aria-pressed',
+        'false'
+      )
+      // Fixture: 2 high-priority tasks (t-001, t-004) of 7.
+      await expect(toolbar.getByText('Showing 2 of 7 tasks')).toBeVisible()
     })
 
-    test('clicking Priority group by button activates it', async ({ page }) => {
-      const topBar = page.locator('[data-testid="top-bar"]')
-      const priorityBtn = topBar.getByRole('button', { name: 'Priority' })
-      await priorityBtn.click()
+    test('assignee filter toggles independently and Clear resets to all', async ({ page }) => {
+      const toolbar = page.getByTestId('board-toolbar')
+      await toolbar.waitFor({ state: 'visible', timeout: 15000 })
+      const assignee = toolbar.getByRole('group', { name: 'Filter tasks by agent assignment' })
+      const hasAgent = assignee.getByRole('button', { name: 'Has agent' })
 
-      const classes = await priorityBtn.getAttribute('class')
-      expect(classes).toMatch(/(^|\s)bg-apple-blue($|\s)/)
+      await hasAgent.click({ timeout: 30000 })
+      await expect(hasAgent).toHaveAttribute('aria-pressed', 'true')
+      // Fixture: 3 assigned tasks (t-003, t-004, t-007) of 7.
+      await expect(toolbar.getByText('Showing 3 of 7 tasks')).toBeVisible()
+
+      // Clear appears only while a filter is active and resets every filter.
+      await toolbar.getByRole('button', { name: 'Clear' }).click()
+      await expect(hasAgent).toHaveAttribute('aria-pressed', 'false')
+      await expect(assignee.getByRole('button', { name: 'All agents' })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      )
+      await expect(toolbar.getByText('Showing 7 of 7 tasks')).toBeVisible()
     })
 
-    test('clicking Status group by re-activates it', async ({ page }) => {
-      const topBar = page.locator('[data-testid="top-bar"]')
-      const statusBtn = topBar.getByRole('button', { name: 'Status' })
-      // Switch away then back
-      await topBar.getByRole('button', { name: 'Agent' }).click()
-      await statusBtn.click()
+    test('over-filtering shows the guided empty state, not a blank board', async ({ page }) => {
+      const toolbar = page.getByTestId('board-toolbar')
+      await toolbar.waitFor({ state: 'visible', timeout: 15000 })
 
-      const classes = await statusBtn.getAttribute('class')
-      expect(classes).toMatch(/(^|\s)bg-apple-blue($|\s)/)
+      // Low priority (only t-006) is unassigned, so Low + Has agent matches 0 tasks.
+      await toolbar
+        .getByRole('group', { name: 'Filter tasks by priority' })
+        .getByRole('button', { name: 'Low' })
+        .click({ timeout: 30000 })
+      await toolbar
+        .getByRole('group', { name: 'Filter tasks by agent assignment' })
+        .getByRole('button', { name: 'Has agent' })
+        .click()
+
+      const emptyState = page.getByTestId('board-filter-empty')
+      await expect(emptyState).toBeVisible()
+      await expect(toolbar.getByText('Showing 0 of 7 tasks')).toBeVisible()
+
+      await emptyState.getByRole('button', { name: 'Show all tasks' }).click()
+      await expect(emptyState).toBeHidden()
     })
   })
 

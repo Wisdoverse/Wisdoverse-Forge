@@ -37,7 +37,10 @@ const CHROMIUM_ARGS = [
 
 const STABLE_E2E_EMAIL = 'dev@example.com'
 const E2E_EMAIL = process.env.E2E_EMAIL ?? STABLE_E2E_EMAIL
-const DEFAULT_LOCAL_PASSWORD = 'DevPass123!'
+// Must satisfy the backend register rule (>= 12 characters; see auth
+// validation). The older 11-char 'DevPass123!' default now fails register
+// ("password must be at least 12 characters") on a fresh stack.
+const DEFAULT_LOCAL_PASSWORD = 'DevPass1234!'
 
 function isLocalTarget(baseURL: string): boolean {
   try {
