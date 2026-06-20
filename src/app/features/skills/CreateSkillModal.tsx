@@ -82,8 +82,10 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
   const [form, setForm] = useState(emptyForm)
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [errorAttempt, setErrorAttempt] = useState(0)
   const [fieldError, setFieldError] = useState<'name' | 'content' | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const errorBannerRef = useRef<HTMLDivElement>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
   const contentInputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -92,6 +94,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
     setForm(emptyForm)
     setSelectedTemplateId(null)
     setError(null)
+    setErrorAttempt(0)
     setFieldError(null)
 
     function handleKeyDown(event: KeyboardEvent) {
@@ -101,6 +104,12 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [onClose, open])
+
+  // The submit button sits below a scrollable form, so repeated failures can
+  // look like a dead click unless the visible error is brought back into view.
+  useEffect(() => {
+    if (error) errorBannerRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [error, errorAttempt])
 
   if (!open) return null
 
@@ -119,11 +128,15 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
 
     if (!name) {
       setError('Name this saved instruction before saving it.')
+      setErrorAttempt((current) => current + 1)
+      setFieldError('name')
       nameInputRef.current?.focus()
       return
     }
     if (!content) {
       setError('Add the steps the agent should follow before saving.')
+      setErrorAttempt((current) => current + 1)
+      setFieldError('content')
       contentInputRef.current?.focus()
       return
     }
@@ -141,6 +154,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
       onClose()
     } catch (err) {
       setError(createSkillErrorMessage(err))
+      setErrorAttempt((current) => current + 1)
     } finally {
       setSubmitting(false)
     }
@@ -150,6 +164,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
     setForm(template.form)
     setSelectedTemplateId(template.id)
     setError(null)
+    setFieldError(null)
   }
 
   return (
@@ -193,7 +208,13 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
         </p>
 
         {error && (
-          <div id="create-skill-error" role="alert" aria-live="polite" className={uiStyles.error}>
+          <div
+            id="create-skill-error"
+            ref={errorBannerRef}
+            role="alert"
+            aria-live="polite"
+            className={uiStyles.error}
+          >
             {error}
           </div>
         )}
@@ -252,6 +273,8 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
               ref={nameInputRef}
               value={form.name}
               onChange={(event) => updateField('name', event.target.value)}
+              aria-invalid={fieldError === 'name'}
+              aria-describedby={fieldError === 'name' ? 'create-skill-error' : undefined}
               className={uiStyles.input}
               placeholder="e.g. release-review"
               autoFocus
@@ -332,6 +355,8 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
               ref={contentInputRef}
               value={form.content}
               onChange={(event) => updateField('content', event.target.value)}
+              aria-invalid={fieldError === 'content'}
+              aria-describedby={fieldError === 'content' ? 'create-skill-error' : undefined}
               className={cn(
                 'min-h-36 w-full resize-y rounded-[18px] border border-black/[0.08] bg-white px-3 py-2 font-mono text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70'
               )}

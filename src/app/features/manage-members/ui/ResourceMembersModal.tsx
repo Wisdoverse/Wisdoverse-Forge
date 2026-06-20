@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   Info,
@@ -87,7 +87,9 @@ export function ResourceMembersModal({
   const [loading, setLoading] = useState(true)
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [errorAttempt, setErrorAttempt] = useState(0)
   const [confirmRemoveUserId, setConfirmRemoveUserId] = useState<string | null>(null)
+  const errorBannerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -103,6 +105,7 @@ export function ResourceMembersModal({
       .catch((err) => {
         if (cancelled) return
         setError(resourceMemberErrorMessage('load', resourceLabel, err))
+        setErrorAttempt((current) => current + 1)
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -120,6 +123,12 @@ export function ResourceMembersModal({
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
+
+  // Member actions happen near the middle or bottom of a scrollable dialog.
+  // Keep the failure reason visible, including repeat clicks with the same text.
+  useEffect(() => {
+    if (error) errorBannerRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [error, errorAttempt])
 
   const candidateUsers = useMemo(() => {
     const memberIds = new Set(members.map((member) => member.userId))
@@ -165,6 +174,7 @@ export function ResourceMembersModal({
       setConfirmRemoveUserId(null)
     } catch (err) {
       setError(resourceMemberErrorMessage('add', resourceLabel, err))
+      setErrorAttempt((current) => current + 1)
     } finally {
       setBusyKey(null)
     }
@@ -180,6 +190,7 @@ export function ResourceMembersModal({
       setMembers((prev) => prev.map((item) => (item.userId === member.userId ? updated : item)))
     } catch (err) {
       setError(resourceMemberErrorMessage('updateRole', resourceLabel, err))
+      setErrorAttempt((current) => current + 1)
     } finally {
       setBusyKey(null)
     }
@@ -195,6 +206,7 @@ export function ResourceMembersModal({
       setConfirmRemoveUserId(null)
     } catch (err) {
       setError(resourceMemberErrorMessage('remove', resourceLabel, err))
+      setErrorAttempt((current) => current + 1)
     } finally {
       setBusyKey(null)
     }
@@ -260,7 +272,7 @@ export function ResourceMembersModal({
 
         <div className="max-h-[calc(100vh-120px)] space-y-4 overflow-y-auto overscroll-contain p-4 sm:p-5">
           {error && (
-            <div role="alert" aria-live="polite" className={uiStyles.error}>
+            <div ref={errorBannerRef} role="alert" aria-live="polite" className={uiStyles.error}>
               {error}
             </div>
           )}

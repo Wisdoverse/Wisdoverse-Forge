@@ -198,6 +198,31 @@ describe('ResourceMembersModal', () => {
     expect(alert.textContent).not.toContain('Forbidden')
   })
 
+  test('scrolls the member error into view again after the same add failure repeats', async () => {
+    const scrollSpy = vi
+      .spyOn(Element.prototype, 'scrollIntoView')
+      .mockImplementation(() => undefined)
+    renderMembersModal({ addMemberError: new Error('API 403: Forbidden') })
+
+    await screen.findByText('Add the first direct member')
+    fireEvent.change(screen.getByLabelText('Select person to add'), {
+      target: { value: 'user-1' },
+    })
+
+    const addButton = screen.getByRole('button', { name: /add/i })
+    fireEvent.click(addButton)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert.textContent).toContain('Ask an owner or admin')
+    await waitFor(() => expect(scrollSpy.mock.calls.length).toBeGreaterThan(0))
+    const callsAfterFirstFailure = scrollSpy.mock.calls.length
+
+    fireEvent.click(addButton)
+    await waitFor(() => expect(scrollSpy.mock.calls.length).toBeGreaterThan(callsAfterFirstFailure))
+    scrollSpy.mockRestore()
+  })
+
   test('shows recovery guidance when the selected project changes before adding a member', async () => {
     renderMembersModal({ addMemberError: new Error('No project selected') })
 

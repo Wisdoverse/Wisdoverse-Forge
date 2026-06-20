@@ -347,6 +347,9 @@ describe('SkillsView', () => {
 
   test('guides users through required skill fields before create', async () => {
     const user = userEvent.setup()
+    const scrollSpy = vi
+      .spyOn(Element.prototype, 'scrollIntoView')
+      .mockImplementation(() => undefined)
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ ok: true, data: [] }),
@@ -365,11 +368,15 @@ describe('SkillsView', () => {
     await user.click(within(dialog).getByRole('button', { name: /save instruction/i }))
 
     const nameAlert = screen.getByRole('alert')
-    expect(nameAlert).toHaveTextContent(
-      'Name this saved instruction before saving it.'
-    )
+    expect(nameAlert).toHaveTextContent('Name this saved instruction before saving it.')
     expect(nameAlert).toHaveAttribute('aria-live', 'polite')
     expect(screen.getByLabelText(/^instruction name$/i)).toHaveFocus()
+    expect(screen.getByLabelText(/^instruction name$/i)).toHaveAttribute('aria-invalid', 'true')
+    await waitFor(() => expect(scrollSpy.mock.calls.length).toBeGreaterThan(0))
+    const callsAfterFirstSubmit = scrollSpy.mock.calls.length
+
+    await user.click(within(dialog).getByRole('button', { name: /save instruction/i }))
+    await waitFor(() => expect(scrollSpy.mock.calls.length).toBeGreaterThan(callsAfterFirstSubmit))
 
     await user.type(screen.getByLabelText(/^instruction name$/i), 'frontend-review')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
@@ -377,12 +384,12 @@ describe('SkillsView', () => {
     await user.click(within(dialog).getByRole('button', { name: /save instruction/i }))
 
     const stepsAlert = screen.getByRole('alert')
-    expect(stepsAlert).toHaveTextContent(
-      'Add the steps the agent should follow before saving.'
-    )
+    expect(stepsAlert).toHaveTextContent('Add the steps the agent should follow before saving.')
     expect(stepsAlert).toHaveAttribute('aria-live', 'polite')
     expect(screen.getByLabelText(/^steps for the agent$/i)).toHaveFocus()
+    expect(screen.getByLabelText(/^steps for the agent$/i)).toHaveAttribute('aria-invalid', 'true')
     expect(fetchMock).toHaveBeenCalledTimes(1)
+    scrollSpy.mockRestore()
   })
 
   test('shows a recovery step when saved instructions fail to load', async () => {
