@@ -599,8 +599,9 @@ export function CliImagesPanel() {
           <PruneSummaryBlock prune={cliImages.prune} />
 
           <p className="mt-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            “Agents currently using this tool” is a rough hint of how many agents may restart. It
-            does not confirm which exact package each one started from.
+            The number of agents currently using this tool only estimates how many running agents a
+            restart may touch. After restarting, open Agents to confirm each affected agent shows
+            Ready.
           </p>
         </>
       )}

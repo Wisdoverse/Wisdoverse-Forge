@@ -608,6 +608,8 @@ const CLI_IMAGE_STATUS_DEAD_END_PATTERNS = [
   /\bBuilding on this server\b/i,
   /\bBuilds automatically\b/i,
   /\btool package check failed\b/i,
+  /\brough hint of how many agents may restart\b/i,
+  /\bdoes not confirm which exact package each one started from\b/i,
 ]
 
 const CLI_IMAGE_ACTION_FAILURE_FIRST_PATTERNS = [

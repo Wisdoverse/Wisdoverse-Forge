@@ -6108,7 +6108,7 @@ function ToolRow() {
     const cwd = fixture({
       'src/app/features/admin/CliImagesPanel.tsx': `
 function ToolRow() {
-  return <><p>Built here</p><p>Building on this server — usually a few minutes.</p><p>Builds automatically — new versions build themselves</p></>
+  return <><p>Built here</p><p>Building on this server — usually a few minutes.</p><p>Builds automatically — new versions build themselves</p><p>“Agents currently using this tool” is a rough hint of how many agents may restart. It does not confirm which exact package each one started from.</p></>
 }
 `,
     })
