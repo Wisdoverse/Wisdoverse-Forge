@@ -14816,6 +14816,10 @@ function AuditLogView() {
     <p>Review proof</p>
     <p>Check proof setup</p>
     <p>Required account access is missing. Add or reconnect service access.</p>
+    <Metric label="Hidden review-note rows" />
+    <p>Saved instruction approved for reuse</p>
+    <span>Review notes hidden</span>
+    <button>Show review notes</button>
     <span>Protected</span>
   </section>
 }
@@ -14864,6 +14868,22 @@ function message() {
           type: 'governance-audit-jargon-copy',
           location: 'src/app/features/governance/governanceAuditErrorMessages.ts:3',
         }),
+        expect.objectContaining({
+          type: 'governance-audit-jargon-copy',
+          sample: '<Metric label="Hidden review-note rows" />',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-jargon-copy',
+          sample: '<p>Saved instruction approved for reuse</p>',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-jargon-copy',
+          sample: '<span>Review notes hidden</span>',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-jargon-copy',
+          sample: '<button>Show review notes</button>',
+        }),
       ])
     )
   })
@@ -14884,7 +14904,7 @@ function AuditLogView() {
     <span>{entry.scopeId ? \`Work area \${shortId(entry.scopeId)}\` : 'Work area hidden'}</span>
     <span>Set up verification</span>
     <span>Check verification</span>
-    <span>Review notes hidden</span>
+    <span>Change notes hidden</span>
   </section>
 }
 `,

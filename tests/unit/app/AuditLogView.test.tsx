@@ -115,7 +115,8 @@ describe('AuditLogView', () => {
     expect(screen.queryByText('Record limit')).toBeNull()
     expect(screen.getByText('Changes shown')).toBeDefined()
     expect(screen.queryByText('History rows')).toBeNull()
-    expect(screen.getByText('Hidden review-note rows')).toBeDefined()
+    expect(screen.getByText('Hidden change-note rows')).toBeDefined()
+    expect(screen.queryByText('Hidden review-note rows')).toBeNull()
     expect(screen.queryByText('Hidden detail rows')).toBeNull()
     expect(screen.queryByText('Hidden support-note rows')).toBeNull()
     expect(screen.getByLabelText('Refresh change history')).toBeDefined()
@@ -168,7 +169,8 @@ describe('AuditLogView', () => {
     expect(screen.getByText('Change')).toBeDefined()
     expect(screen.getByText('Feedback saved')).toBeDefined()
     expect(screen.queryByText('Feedback recorded')).toBeNull()
-    expect(screen.getByText('Saved instruction approved for reuse')).toBeDefined()
+    expect(screen.getByText('Saved instruction saved for reuse')).toBeDefined()
+    expect(screen.queryByText('Saved instruction approved for reuse')).toBeNull()
     expect(screen.queryByText('Saved instruction saved')).toBeNull()
     expect(screen.queryByText('Skill approved')).toBeNull()
     expect(screen.getAllByText('Show saved change name').length).toBeGreaterThan(0)
@@ -191,8 +193,10 @@ describe('AuditLogView', () => {
     expect(screen.queryByText('Person ID user-1')).toBeNull()
     expect(screen.queryByText('user-1')).toBeNull()
     expect(screen.getByText('Verification')).toBeDefined()
-    expect(screen.getByText('Review notes')).toBeDefined()
-    expect(screen.getAllByText('Show review notes').length).toBeGreaterThan(0)
+    expect(screen.getByText('Change notes')).toBeDefined()
+    expect(screen.queryByText('Review notes')).toBeNull()
+    expect(screen.getAllByText('Show change notes').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Show review notes')).toBeNull()
     expect(screen.queryByText('Support notes')).toBeNull()
     expect(screen.queryByText('Show support notes')).toBeNull()
     expect(screen.getByTestId('governance-audit-item-reference').textContent).toContain(
@@ -223,7 +227,7 @@ describe('AuditLogView', () => {
     expect(screen.queryByText('Area ID project-1')).toBeNull()
     expect(screen.queryByText(/Area support reference/i)).toBeNull()
     expect(screen.getByTestId('governance-audit-redacted').textContent).toContain(
-      'Review notes hidden'
+      'Change notes hidden'
     )
     expect(screen.queryByText('Protected')).toBeNull()
     expect(screen.getByText('Set up verification')).toBeDefined()
