@@ -89,7 +89,8 @@ export function BoardToolbar({
               id={searchHelpId}
               className="mt-1 block text-ui-caption text-secondary-light dark:text-secondary-dark"
             >
-              Search only filters the tasks shown below. Clear it to see every task again.
+              Search only filters the tasks shown below. Use Show all tasks to return to the full
+              board.
             </span>
           </label>
 
