@@ -2502,6 +2502,29 @@ function isUiCopyFile(relFile) {
   return true
 }
 
+function lineNumberAt(text, index) {
+  return text.slice(0, index).split('\n').length
+}
+
+function findAlertLiveFindings(text, relFile) {
+  const findings = []
+  const alertTagPattern = /<[^>]*\brole\s*=\s*(?:\{\s*)?['"]alert['"](?:\s*\})?[^>]*>/gs
+  let match
+  while ((match = alertTagPattern.exec(text))) {
+    const tag = match[0]
+    if (/\baria-live\s*=/.test(tag)) continue
+
+    findings.push({
+      type: 'alert-live-announcement',
+      location: `${relFile}:${lineNumberAt(text, match.index)}`,
+      message:
+        'Error alerts must include aria-live so screen-reader users hear what happened and what to do next.',
+      sample: tag.replace(/\s+/g, ' ').trim(),
+    })
+  }
+  return findings
+}
+
 function isLikelyEmptyStateContext(lines, index, line) {
   if (/\bempty\s*[:=]/i.test(line)) return true
   if (/^\s*no[A-Z][A-Za-z0-9_]*\s*:/.test(line)) return true
@@ -5041,8 +5064,9 @@ function hasNavigationErrorFailureFirstCopy(relFile, line) {
 }
 
 function scanFile(file, relFile) {
-  const lines = fs.readFileSync(file, 'utf8').split('\n')
-  const findings = []
+  const text = fs.readFileSync(file, 'utf8')
+  const lines = text.split('\n')
+  const findings = findAlertLiveFindings(text, relFile)
 
   lines.forEach((line, index) => {
     const location = `${relFile}:${index + 1}`

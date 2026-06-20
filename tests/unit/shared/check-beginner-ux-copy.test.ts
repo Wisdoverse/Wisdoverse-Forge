@@ -105,6 +105,64 @@ export const en = {
     ])
   })
 
+  it('flags alert regions that do not announce updates to screen readers', () => {
+    const cwd = fixture({
+      'src/app/features/tasks/TaskError.tsx': `
+export function TaskError({ message }: { message: string }) {
+  return (
+    <div>
+      <p role="alert">{message}</p>
+      <div
+        role="alert"
+        className="text-red"
+      >
+        {message}
+      </div>
+    </div>
+  )
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'alert-live-announcement',
+          location: 'src/app/features/tasks/TaskError.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'alert-live-announcement',
+          location: 'src/app/features/tasks/TaskError.tsx:6',
+        }),
+      ])
+    )
+  })
+
+  it('accepts alert regions that announce updates to screen readers', () => {
+    const cwd = fixture({
+      'src/app/features/tasks/TaskError.tsx': `
+export function TaskError({ message }: { message: string }) {
+  return (
+    <div>
+      <p role="alert" aria-live="polite">{message}</p>
+      <div
+        role="alert"
+        aria-live="polite"
+      >
+        {message}
+      </div>
+    </div>
+  )
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags shared required-field copy that gives beginners no next step', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `
