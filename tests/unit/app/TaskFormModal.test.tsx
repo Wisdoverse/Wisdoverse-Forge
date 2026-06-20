@@ -76,10 +76,19 @@ describe('TaskFormModal', () => {
     expect(screen.getAllByText('Done when').length).toBeGreaterThan(0)
     expect(screen.queryByText(/scope and proof/i)).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: /feature/i }))
+    expect(screen.getByText('Add something')).toBeDefined()
+    expect(screen.getByText('Fix a problem')).toBeDefined()
+    expect(screen.getByText('Find the cause')).toBeDefined()
+    expect(screen.getByText('Check a change')).toBeDefined()
+    expect(screen.queryByText(/^Feature$/)).toBeNull()
+    expect(screen.queryByText(/^Bug$/)).toBeNull()
+    expect(screen.queryByText(/^Investigate$/)).toBeNull()
+    expect(screen.queryByText(/^Review$/)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /add something/i }))
 
     expect(screen.getByLabelText(/what should the agent finish/i)).toHaveValue(
-      'Build a focused feature'
+      'Add one focused change'
     )
     const description = screen.getByLabelText(
       /details the agent should know/i
@@ -95,7 +104,7 @@ describe('TaskFormModal', () => {
     expect(description.value).not.toContain('Constraints:')
     expect(description.value).not.toContain('Evidence:')
 
-    fireEvent.click(screen.getByRole('button', { name: /bug/i }))
+    fireEvent.click(screen.getByRole('button', { name: /fix a problem/i }))
     expect(
       (screen.getByLabelText(/details the agent should know/i) as HTMLTextAreaElement).value
     ).toContain('Say how to confirm the fix.')
@@ -103,7 +112,7 @@ describe('TaskFormModal', () => {
       (screen.getByLabelText(/details the agent should know/i) as HTMLTextAreaElement).value
     ).not.toMatch(/^-\s*$/m)
 
-    fireEvent.click(screen.getByRole('button', { name: /investigate/i }))
+    fireEvent.click(screen.getByRole('button', { name: /find the cause/i }))
     expect(
       (screen.getByLabelText(/details the agent should know/i) as HTMLTextAreaElement).value
     ).toContain('Say what answer or recommendation you need.')
@@ -111,22 +120,27 @@ describe('TaskFormModal', () => {
       (screen.getByLabelText(/details the agent should know/i) as HTMLTextAreaElement).value
     ).not.toMatch(/^-\s*$/m)
 
-    fireEvent.click(screen.getByRole('button', { name: /review/i }))
+    fireEvent.click(screen.getByRole('button', { name: /check a change/i }))
     const reviewDescription = screen.getByLabelText(
       /details the agent should know/i
     ) as HTMLTextAreaElement
-    expect(reviewDescription.value).toContain('Name the change, request, files, screen, or behavior.')
-    expect(
-      reviewDescription.value
-    ).toContain('Ask for a short verdict, issues, and final recommendation.')
+    expect(reviewDescription.value).toContain(
+      'Name the change, request, files, screen, or behavior.'
+    )
+    expect(reviewDescription.value).toContain(
+      'Ask for a short verdict, issues, and final recommendation.'
+    )
+    expect(reviewDescription.value).toContain('Change to check:')
+    expect(reviewDescription.value).not.toContain('Change to review:')
     expect(reviewDescription.value).not.toContain('Name the PR, branch')
+    expect(reviewDescription.value).not.toContain('release readiness')
     expect(reviewDescription.value).not.toMatch(/^-\s*$/m)
   })
 
   test('does not treat template helper prompts as finished task details', () => {
     renderModal()
 
-    fireEvent.click(screen.getByRole('button', { name: /feature/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add something/i }))
 
     expect(screen.getByTestId('task-brief-cue-goal')).toHaveTextContent('Add')
     expect(screen.getByTestId('task-brief-cue-goal')).toHaveTextContent(

@@ -838,6 +838,13 @@ const TASK_FORM_SUBMIT_LABEL_JARGON_PATTERNS = [
   /\bPreparing Project\.\.\./,
 ]
 
+const TASK_FORM_TEMPLATE_JARGON_PATTERNS = [
+  /\blabel:\s*['"`](?:Feature|Bug|Investigate|Review)['"`]/,
+  /\bsummary:\s*['"`](?:Build a contained change|Reproduce and fix|Find the reason|Check before release)['"`]/,
+  /\btitle:\s*['"`](?:Build a focused feature|Fix a reproducible defect|Investigate an unclear issue|Review a change for release readiness)['"`]/,
+  /\bChange to review:/,
+]
+
 const TASK_FORM_INCOMPLETE_BRIEF_DEAD_END_PATTERNS = [
   /\bThis task may be hard for an agent to finish\b/i,
   /\bchoose Create task anyway if this is enough for now\b/i,
@@ -3979,6 +3986,12 @@ function hasTaskFormSubmitLabelJargonCopy(relFile, line) {
   return TASK_FORM_SUBMIT_LABEL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasTaskFormTemplateJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/board/TaskFormModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_FORM_TEMPLATE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasTaskFormIncompleteBriefDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/board/TaskFormModal.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -6696,6 +6709,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Task creation submit labels must use sentence case and keep the task action explicit for first-time users.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskFormTemplateJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'task-form-template-copy',
+        location,
+        message:
+          'Task creation templates must use result-oriented labels instead of developer workflow labels.',
         sample: line.trim(),
       })
     }

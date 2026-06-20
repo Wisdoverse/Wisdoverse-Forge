@@ -3638,7 +3638,7 @@ function agentStatusLabel() {
       'src/app/features/board/TaskFormModal.tsx': `
 const TASK_TEMPLATES = [{
   id: 'review',
-  description: 'Change to review:\\n- Name the PR, branch, files, or behavior.'
+  description: 'Change to check:\\n- Name the PR, branch, files, or behavior.'
 }]
 `,
     })
@@ -3659,7 +3659,7 @@ const TASK_TEMPLATES = [{
       'src/app/features/board/TaskFormModal.tsx': `
 const TASK_TEMPLATES = [{
   id: 'review',
-  description: 'Change to review:\\n- Name the change, request, files, screen, or behavior.'
+  description: 'Change to check:\\n- Name the change, request, files, screen, or behavior.'
 }]
 `,
     })
@@ -12375,6 +12375,64 @@ function TaskFormModal() {
 function TaskFormModal() {
   return <button>{selectingProject ? 'Preparing project...' : confirmIncompleteBrief ? 'Create task anyway' : 'Create task'}</button>
 }
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags task form templates that use developer workflow labels', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskFormModal.tsx': `
+const TASK_TEMPLATES = [
+  { label: 'Feature', summary: 'Build a contained change', title: 'Build a focused feature' },
+  { label: 'Bug', summary: 'Reproduce and fix', title: 'Fix a reproducible defect' },
+  { label: 'Investigate', summary: 'Find the reason', title: 'Investigate an unclear issue' },
+  { label: 'Review', summary: 'Check before release', title: 'Review a change for release readiness', description: 'Change to review:\\n- Name the change.' },
+]
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-form-template-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:3',
+          sample:
+            "{ label: 'Feature', summary: 'Build a contained change', title: 'Build a focused feature' },",
+        }),
+        expect.objectContaining({
+          type: 'task-form-template-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:4',
+          sample:
+            "{ label: 'Bug', summary: 'Reproduce and fix', title: 'Fix a reproducible defect' },",
+        }),
+        expect.objectContaining({
+          type: 'task-form-template-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:5',
+          sample:
+            "{ label: 'Investigate', summary: 'Find the reason', title: 'Investigate an unclear issue' },",
+        }),
+        expect.objectContaining({
+          type: 'task-form-template-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:6',
+        }),
+      ])
+    )
+  })
+
+  it('accepts task form templates that use result-oriented labels', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskFormModal.tsx': `
+const TASK_TEMPLATES = [
+  { label: 'Add something', summary: 'Add one clear change', title: 'Add one focused change' },
+  { label: 'Fix a problem', summary: 'Find what breaks and fix it', title: 'Fix a problem you can repeat' },
+  { label: 'Find the cause', summary: 'Explain what is happening', title: 'Find the cause of an unclear problem' },
+  { label: 'Check a change', summary: 'Look for risks before using it', title: 'Check whether a change is safe to use', description: 'Change to check:\\n- Name the change.' },
+]
 `,
     })
 

@@ -447,10 +447,10 @@ describe('AppLayout', () => {
     expect(screen.getByText('What to finish')).toBeDefined()
     expect(screen.getByText(/visible change or decision/i)).toBeDefined()
 
-    fireEvent.click(within(briefGroup).getByRole('button', { name: /bug/i }))
+    fireEvent.click(within(briefGroup).getByRole('button', { name: /fix a problem/i }))
 
     expect(screen.getByLabelText(/what should the agent finish/i)).toHaveValue(
-      'Fix a reproducible defect'
+      'Fix a problem you can repeat'
     )
     expect(screen.getByLabelText(/details the agent should know/i)).toHaveValue()
     expect(
@@ -466,7 +466,7 @@ describe('AppLayout', () => {
       expect(mockCreateTask).toHaveBeenCalledWith({
         groupId: 'group-1',
         params: {
-          task: 'Fix a reproducible defect',
+          task: 'Fix a problem you can repeat',
           message: expect.stringContaining('Done when:'),
         },
         priority: 'high',
