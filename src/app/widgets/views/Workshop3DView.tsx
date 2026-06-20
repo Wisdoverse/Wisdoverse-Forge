@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Bot, Power, RefreshCw } from 'lucide-react'
 import * as THREE from 'three'
 import {
@@ -621,6 +621,11 @@ export function Workshop3DView() {
   const selectedAgentIdRef = useRef<string | null>(null)
   const selectAgentRef = useRef<(id: string | null) => void>(() => undefined)
   const agentsRequestedRef = useRef(false)
+  // When WebGL is unavailable (headless CI, no-GPU VM, blocklisted driver), the
+  // renderer can't be created. Degrade to the HTML agent roster instead of
+  // throwing — an uncaught throw here would drop the whole board into the app
+  // error boundary ("Something went wrong").
+  const [webglUnavailable, setWebglUnavailable] = useState(false)
 
   const agents = useAgentsStore((state) => state.agents)
   const selectedAgentId = useAgentsStore((state) => state.selectedAgentId)
@@ -650,7 +655,17 @@ export function Workshop3DView() {
     camera.position.set(0, 5.6, 8.9)
     camera.lookAt(0, 0.42, 0)
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
+    let renderer: THREE.WebGLRenderer
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
+    } catch (err) {
+      // No WebGL context (headless CI without a GPU, software-render disabled,
+      // blocklisted driver). Fall back to the roster view rather than crashing
+      // the board. `scene` has no GPU resources yet, so nothing to dispose.
+      console.warn('Workshop3DView: WebGL unavailable, falling back to roster view', err)
+      setWebglUnavailable(true)
+      return
+    }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     renderer.shadowMap.enabled = true
     renderer.domElement.dataset.testid = 'workshop-3d-canvas'
@@ -873,6 +888,21 @@ export function Workshop3DView() {
       data-testid="workshop-3d-scene"
       className="relative h-full min-h-[420px] w-full overflow-hidden bg-[#080a0f]"
     >
+      {webglUnavailable && (
+        <div
+          data-testid="workshop-3d-webgl-unavailable"
+          className="absolute inset-0 z-0 flex items-center justify-center p-6 text-center"
+        >
+          <div className="max-w-sm rounded-lg border border-white/10 bg-black/35 px-4 py-3 text-white shadow-lg backdrop-blur">
+            <div className="text-sm font-medium">3D map needs WebGL</div>
+            <p className="mt-1 text-[12px] leading-snug text-white/65">
+              This browser or device can&apos;t open a 3D view. Your agents are still listed here —
+              use the list to select one, or switch to Board or List view.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-white shadow-lg backdrop-blur sm:left-4 sm:top-4">
         <div className="text-[11px] font-semibold text-white/55">Agent Map</div>
         <div data-testid="workshop-3d-agent-count" className="mt-1 text-sm font-medium">
