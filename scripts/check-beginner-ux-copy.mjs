@@ -1482,6 +1482,7 @@ const TASK_ATTENTION_INTERNAL_STATE_JARGON_PATTERNS = [
   /\bblocked or failed work\b/i,
   /\bblocked or failed tasks?\b/i,
   /\bblocked or failed task updates\b/i,
+  /\bneed(?:s)? your help or failed\b/i,
 ]
 
 const TASK_RECOVERY_OPEN_DETAILS_DEAD_END_PATTERNS = [/\bOpen details\b/i, /\bopen details\b/i]

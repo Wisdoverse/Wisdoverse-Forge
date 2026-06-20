@@ -9685,6 +9685,10 @@ function filteredEmpty() {
 function filteredDetail() {
   return 'No recent activity matches this view.'
 }
+
+function filterLabel() {
+  return 'Show updates that need your help or failed'
+}
 `,
       'src/app/features/analytics/AnalyticsDashboard.tsx': `
 function nextStep() {
@@ -9720,6 +9724,10 @@ function offlineGuidance() {
         expect.objectContaining({
           type: 'activity-feed-empty-copy',
           location: 'src/app/features/feed/ActivityFeed.tsx:19',
+        }),
+        expect.objectContaining({
+          type: 'task-attention-state-copy',
+          location: 'src/app/features/feed/ActivityFeed.tsx:23',
         }),
         expect.objectContaining({
           type: 'analytics-guidance-copy',
