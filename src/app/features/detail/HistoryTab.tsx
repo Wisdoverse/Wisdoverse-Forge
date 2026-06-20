@@ -107,6 +107,7 @@ export function HistoryTab({ task }: HistoryTabProps) {
           {error && (
             <div
               role="alert"
+              aria-live="polite"
               className="rounded-lg bg-apple-red/10 px-3 py-2 text-xs text-apple-red"
             >
               {error}

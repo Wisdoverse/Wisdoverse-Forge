@@ -77,6 +77,7 @@ describe('HistoryTab', () => {
     render(<HistoryTab task={makeTask()} />)
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert.textContent).toContain(
       'Ask an owner or admin to give you access to this task, then open it again from the Tasks page. You do not have permission to view this task.'
     )

@@ -266,6 +266,7 @@ describe('TaskDetailPanel', () => {
     await user.click(screen.getByRole('button', { name: /cancel task/i }))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
       'Open this task again from the Tasks page, then choose Cancel again.'
     )

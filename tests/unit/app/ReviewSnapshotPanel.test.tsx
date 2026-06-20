@@ -139,6 +139,7 @@ describe('ReviewSnapshotPanel', () => {
     render(<ReviewSnapshotPanel task={task()} />)
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
       'Choose Check again, then try again. Forge could not load the current review status.'
     )
@@ -159,6 +160,7 @@ describe('ReviewSnapshotPanel', () => {
     fireEvent.click(await screen.findByTestId('review-approve'))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent('Ask another owner or admin to review this fix.')
     expect(alert).toHaveTextContent(
       'The review system needs someone else to review changes you opened yourself.'

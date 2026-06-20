@@ -128,7 +128,11 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
       </div>
 
       {error && (
-        <div className="px-3 py-2 rounded-lg bg-apple-red/10 text-apple-red text-xs" role="alert">
+        <div
+          className="px-3 py-2 rounded-lg bg-apple-red/10 text-apple-red text-xs"
+          role="alert"
+          aria-live="polite"
+        >
           {error}
         </div>
       )}
