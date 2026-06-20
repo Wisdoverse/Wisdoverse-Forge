@@ -852,6 +852,14 @@ const TASK_FORM_TEMPLATE_JARGON_PATTERNS = [
   /\bsummary:\s*['"`](?:Build a contained change|Reproduce and fix|Find the reason|Check before release)['"`]/,
   /\btitle:\s*['"`](?:Build a focused feature|Fix a reproducible defect|Investigate an unclear issue|Review a change for release readiness)['"`]/,
   /\bChange to review:/,
+  /\bDescribe the screen, command, or behavior to add\b/i,
+  /\bName the page, folder, or files if you know them\b/i,
+  /\bvisible, passing, or ready to review\b/i,
+  /\bAdd the page, command, log, or file if you know it\b/i,
+  /\bAdd pages, files, logs, or recent changes if you know them\b/i,
+  /\bName the change, request, files, screen, or behavior\b/i,
+  /\bAdd tests, commands, or manual checks\b/i,
+  /\bAsk for a short verdict, issues, and final recommendation\b/i,
 ]
 
 const TASK_FORM_INCOMPLETE_BRIEF_DEAD_END_PATTERNS = [

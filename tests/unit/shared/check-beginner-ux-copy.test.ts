@@ -3749,7 +3749,7 @@ const TASK_TEMPLATES = [{
       'src/app/features/board/TaskFormModal.tsx': `
 const TASK_TEMPLATES = [{
   id: 'review',
-  description: 'Change to check:\\n- Name the change, request, files, screen, or behavior.'
+  description: 'Change to check:\\n- Name what changed and where a user would see it.'
 }]
 `,
     })
@@ -13346,6 +13346,8 @@ const TASK_TEMPLATES = [
   { label: 'Bug', summary: 'Reproduce and fix', title: 'Fix a reproducible defect' },
   { label: 'Investigate', summary: 'Find the reason', title: 'Investigate an unclear issue' },
   { label: 'Review', summary: 'Check before release', title: 'Review a change for release readiness', description: 'Change to review:\\n- Name the change.' },
+  { label: 'Add something', description: 'What should change:\\n- Describe the screen, command, or behavior to add.\\n\\nWhere to work:\\n- Name the page, folder, or files if you know them.\\n\\nDone when:\\n- Say what should be visible, passing, or ready to review.' },
+  { label: 'Check a change', description: 'Change to check:\\n- Name the change, request, files, screen, or behavior.\\n\\nChecks to run:\\n- Add tests, commands, or manual checks.\\n\\nAnswer format:\\n- Ask for a short verdict, issues, and final recommendation.' },
 ]
 `,
     })
@@ -13376,6 +13378,14 @@ const TASK_TEMPLATES = [
         expect.objectContaining({
           type: 'task-form-template-copy',
           location: 'src/app/features/board/TaskFormModal.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'task-form-template-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'task-form-template-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:8',
         }),
       ])
     )

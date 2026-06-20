@@ -97,8 +97,10 @@ describe('TaskFormModal', () => {
     expect(description.value).toContain('Where to work:')
     expect(description.value).toContain('What to avoid:')
     expect(description.value).toContain('Done when:')
-    expect(description.value).toContain('Describe the screen, command, or behavior to add.')
-    expect(description.value).toContain('Say what should be visible, passing, or ready to review.')
+    expect(description.value).toContain('Describe what you want to see or use after this is done.')
+    expect(description.value).toContain('Say what should be visible, ready to use, or easy to check.')
+    expect(description.value).not.toContain('Describe the screen, command, or behavior to add.')
+    expect(description.value).not.toContain('Say what should be visible, passing, or ready to review.')
     expect(description.value).not.toMatch(/^-\s*$/m)
     expect(description.value).not.toContain('Scope:')
     expect(description.value).not.toContain('Constraints:')
@@ -107,7 +109,7 @@ describe('TaskFormModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /fix a problem/i }))
     expect(
       (screen.getByLabelText(/details the agent should know/i) as HTMLTextAreaElement).value
-    ).toContain('Say how to confirm the fix.')
+    ).toContain('Say how you will know the problem is fixed.')
     expect(
       (screen.getByLabelText(/details the agent should know/i) as HTMLTextAreaElement).value
     ).not.toMatch(/^-\s*$/m)
@@ -115,7 +117,7 @@ describe('TaskFormModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /find the cause/i }))
     expect(
       (screen.getByLabelText(/details the agent should know/i) as HTMLTextAreaElement).value
-    ).toContain('Say what answer or recommendation you need.')
+    ).toContain('Add what you already tried or noticed.')
     expect(
       (screen.getByLabelText(/details the agent should know/i) as HTMLTextAreaElement).value
     ).not.toMatch(/^-\s*$/m)
@@ -124,15 +126,25 @@ describe('TaskFormModal', () => {
     const reviewDescription = screen.getByLabelText(
       /details the agent should know/i
     ) as HTMLTextAreaElement
+    expect(reviewDescription.value).toContain('Name what changed and where a user would see it.')
     expect(reviewDescription.value).toContain(
-      'Name the change, request, files, screen, or behavior.'
+      'Say what you want the agent to check, such as a screen, result, or sign-in step.'
     )
     expect(reviewDescription.value).toContain(
-      'Ask for a short verdict, issues, and final recommendation.'
+      'Ask for what is safe, what needs fixing, and what to do next.'
     )
     expect(reviewDescription.value).toContain('Change to check:')
+    expect(reviewDescription.value).toContain('What to check:')
+    expect(reviewDescription.value).toContain('Answer needed:')
     expect(reviewDescription.value).not.toContain('Change to review:')
     expect(reviewDescription.value).not.toContain('Name the PR, branch')
+    expect(reviewDescription.value).not.toContain(
+      'Name the change, request, files, screen, or behavior.'
+    )
+    expect(reviewDescription.value).not.toContain('Add tests, commands, or manual checks.')
+    expect(reviewDescription.value).not.toContain(
+      'Ask for a short verdict, issues, and final recommendation.'
+    )
     expect(reviewDescription.value).not.toContain('release readiness')
     expect(reviewDescription.value).not.toMatch(/^-\s*$/m)
   })
@@ -148,11 +160,11 @@ describe('TaskFormModal', () => {
     )
     expect(screen.getByTestId('task-brief-cue-where')).toHaveTextContent('Add')
     expect(screen.getByTestId('task-brief-cue-where')).toHaveTextContent(
-      'Name the files, screen, folder, or area to check first.'
+      'Name the page, screen, file, or area to check first.'
     )
     expect(screen.getByTestId('task-brief-cue-done')).toHaveTextContent('Add')
     expect(screen.getByTestId('task-brief-cue-done')).toHaveTextContent(
-      'Add the test, screenshot, output, or result that proves it is done.'
+      'Add the simple check, screenshot, or result that proves it is done.'
     )
 
     fireEvent.change(screen.getByLabelText(/details the agent should know/i), {
@@ -181,10 +193,10 @@ describe('TaskFormModal', () => {
       'Write one sentence for the result you want.'
     )
     expect(screen.getByTestId('task-brief-cue-where')).toHaveTextContent(
-      'Name the files, screen, folder, or area to check first.'
+      'Name the page, screen, file, or area to check first.'
     )
     expect(screen.getByTestId('task-brief-cue-done')).toHaveTextContent(
-      'Add the test, screenshot, output, or result that proves it is done.'
+      'Add the simple check, screenshot, or result that proves it is done.'
     )
 
     fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
