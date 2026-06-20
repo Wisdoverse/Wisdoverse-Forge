@@ -8759,6 +8759,68 @@ function toolEmptyNextStep() {
     )
   })
 
+  it('flags help entry points that use review for ordinary checks', () => {
+    const cwd = fixture({
+      'src/app/features/inbox/InboxItem.tsx': `
+function inboxActionLabel() {
+  return 'Review what needs help'
+}
+`,
+      'src/app/features/feed/AttentionZone.tsx': `
+function attentionGuidance() {
+  return 'These items are waiting for a decision, missing access, or a quick review.'
+}
+`,
+      'src/app/features/chat/ChatView.tsx': `
+function conversationFilterEmptyCopy() {
+  return 'Next: clear filters, review every update, then search again with one short word.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'help-entry-review-copy',
+          location: 'src/app/features/inbox/InboxItem.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'help-entry-review-copy',
+          location: 'src/app/features/feed/AttentionZone.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'help-entry-review-copy',
+          location: 'src/app/features/chat/ChatView.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts help entry points that use check for ordinary checks', () => {
+    const cwd = fixture({
+      'src/app/features/inbox/InboxItem.tsx': `
+function inboxActionLabel() {
+  return 'Check what needs help'
+}
+`,
+      'src/app/features/feed/AttentionZone.tsx': `
+function attentionGuidance() {
+  return 'These items are waiting for a decision, missing access, or a quick check.'
+}
+`,
+      'src/app/features/chat/ChatView.tsx': `
+function conversationFilterEmptyCopy() {
+  return 'Next: clear filters, check every update, then search again with one short word.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags feed and analytics guidance that uses reported-work jargon', () => {
     const cwd = fixture({
       'src/app/features/feed/ActivityFeed.tsx': `

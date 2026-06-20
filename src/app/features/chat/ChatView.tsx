@@ -77,7 +77,7 @@ function conversationFilterEmptyCopy(
       title: 'Search and filter are hiding updates',
       detail:
         'The search is only looking inside the selected view, so useful updates may be hidden.',
-      nextStep: 'Next: clear filters, review every update, then search again with one short word.',
+      nextStep: 'Next: clear filters, check every update, then search again with one short word.',
     }
   }
 
@@ -102,7 +102,7 @@ function conversationFilterEmptyCopy(
     return {
       title: 'Send a message to see your requests here',
       detail: 'The You filter only shows requests you sent.',
-      nextStep: 'Next: use All to review every update, or send a message below to add a request.',
+      nextStep: 'Next: use All to check every update, or send a message below to add a request.',
     }
   }
 

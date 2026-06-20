@@ -19,9 +19,13 @@ describe('AttentionZone', () => {
 
     expect(screen.getByText('Needs your decision')).toBeDefined()
     expect(screen.getByText(/allow to continue only after checking/i)).toBeDefined()
+    expect(
+      screen.getByText(/waiting for a decision, missing access, or a quick check/i)
+    ).toBeDefined()
     expect(screen.getByText('Deploy staging')).toBeDefined()
     expect(screen.getByText(/Agent Two is waiting: Waiting for account access/i)).toBeDefined()
     expect(screen.queryByText(/Needs SSH key/i)).toBeNull()
+    expect(screen.queryByText(/quick review/i)).toBeNull()
   })
 
   test('renders safe attention reasons from the feed store', () => {

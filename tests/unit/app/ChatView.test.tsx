@@ -234,7 +234,9 @@ describe('ChatView', () => {
     expect(
       screen.getByText('Check Attention once work starts to see what needs help.')
     ).toBeVisible()
-    expect(screen.getByText('Open Agents, confirm this agent shows Ready, then return here.')).toBeVisible()
+    expect(
+      screen.getByText('Open Agents, confirm this agent shows Ready, then return here.')
+    ).toBeVisible()
     const action = screen.getByRole('link', { name: /create a task/i })
     expect(action).toHaveAttribute('href', '/tasks')
     expect(screen.getByTestId('conversation-empty-state')).not.toHaveTextContent('lane')
@@ -376,7 +378,8 @@ describe('ChatView', () => {
     expect(emptyState).toBeInTheDocument()
     expect(within(emptyState).getByText('Search and filter are hiding updates')).toBeInTheDocument()
     expect(within(emptyState).getByText(/useful updates may be hidden/i)).toBeInTheDocument()
-    expect(within(emptyState).getByText(/review every update/i)).toBeInTheDocument()
+    expect(within(emptyState).getByText(/check every update/i)).toBeInTheDocument()
+    expect(emptyState).not.toHaveTextContent('review every update')
     expect(emptyState).not.toHaveTextContent('No conversation updates match the current filters.')
     expect(emptyState).not.toHaveTextContent('Try All, Attention, or a shorter search term.')
     fireEvent.click(screen.getByRole('button', { name: /show all updates/i }))

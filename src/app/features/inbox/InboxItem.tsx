@@ -31,7 +31,7 @@ const TYPE_CONFIG: Record<
     unreadBg: 'bg-apple-red/[0.04]',
     dot: 'bg-apple-red',
     label: 'Needs help',
-    actionLabel: 'Review what needs help',
+    actionLabel: 'Check what needs help',
     guidance: 'Open the task, read what is missing, and provide the requested input.',
     template: 'task-lifecycle',
   },

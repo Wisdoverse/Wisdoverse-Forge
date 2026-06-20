@@ -1490,6 +1490,12 @@ const CHAT_FILTER_EMPTY_DEAD_END_PATTERNS = [
   /\bassign a workspace task to create work steps\b/i,
 ]
 
+const HELP_ENTRY_REVIEW_ACTION_PATTERNS = [
+  /\bReview what needs help\b/i,
+  /\ba quick review\b/i,
+  /\breview every update\b/i,
+]
+
 const CHAT_TOOL_STEP_DEAD_END_PATTERNS = [
   /\bThis step needs review\b/i,
   /\bThis step has not reported a result yet\b/i,
@@ -4607,6 +4613,18 @@ function hasChatFilterEmptyDeadEndCopy(relFile, line) {
   return CHAT_FILTER_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasHelpEntryReviewActionCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/features/chat/ChatView.tsx') &&
+    !relFile.endsWith('src/app/features/feed/AttentionZone.tsx') &&
+    !relFile.endsWith('src/app/features/inbox/InboxItem.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return HELP_ENTRY_REVIEW_ACTION_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasChatToolStepDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/chat/ToolCallDetail.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -7226,6 +7244,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Chat filter empty states must explain what users can check without reported-work jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasHelpEntryReviewActionCopy(relFile, line)) {
+      findings.push({
+        type: 'help-entry-review-copy',
+        location,
+        message: 'Help and Attention entry points must use check instead of review.',
         sample: line.trim(),
       })
     }

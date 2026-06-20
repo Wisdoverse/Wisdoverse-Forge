@@ -116,8 +116,9 @@ describe('InboxView', () => {
     const item = screen.getByTestId('inbox-notification-n1')
     expect(item.getAttribute('data-template')).toBe('task-lifecycle')
     expect(screen.getByText('Needs help')).toBeDefined()
-    expect(screen.getByText('Review what needs help')).toBeDefined()
+    expect(screen.getByText('Check what needs help')).toBeDefined()
     expect(screen.getByText(/provide the requested input/i)).toBeDefined()
+    expect(screen.queryByText('Review what needs help')).toBeNull()
     expect(screen.queryByText(/review blocker/i)).toBeNull()
   })
 
