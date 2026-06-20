@@ -11,7 +11,7 @@ describe('approvalQueueErrorMessage', () => {
   test('turns auth failures into a sign-in instruction', () => {
     expectBeginnerMessage(
       approvalQueueErrorMessage('loadQueue', new Error('401 Unauthorized')),
-      'Sign in again, then retry this saved item action.'
+      'Sign in again, then choose Load saved items again.'
     )
   })
 
@@ -34,8 +34,9 @@ describe('approvalQueueErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then try this saved item action again. Forge could not connect while saving your choice.'
+      'Check your connection, then choose Save item again. Forge could not connect while saving your choice.'
     )
+    expect(message).not.toContain('try this saved item action again')
     expect(message).not.toContain('NetworkError')
   })
 
@@ -70,7 +71,7 @@ describe('approvalQueueErrorMessage', () => {
 
     expect(message).toContain('Ask an owner or admin')
     expect(message).toContain('save or skip saved notes and instructions')
-    expect(message).toContain('then retry this saved item action')
+    expect(message).toContain('then choose Do not save again')
     expect(message).not.toContain('403 Forbidden')
     expect(message).not.toContain(['saved', 'memories'].join(' '))
   })
@@ -80,7 +81,7 @@ describe('approvalQueueErrorMessage', () => {
       approvalQueueErrorMessage('approveCandidate', {
         error: 'Scope ID is required',
       }),
-      'Choose who can reuse it and check the original task details, then try again.'
+      'Choose who can reuse it and check the original task details, then choose Save item again.'
     )
   })
 
@@ -96,7 +97,16 @@ describe('approvalQueueErrorMessage', () => {
   test('turns rate limits into a wait step first', () => {
     expectBeginnerMessage(
       approvalQueueErrorMessage('loadQueue', new Error('429 too many requests')),
-      'Wait a moment, then try again. Saved items are busy.'
+      'Wait a moment, then choose Load saved items again. Saved items are busy.'
+    )
+  })
+
+  test('turns confirmation validation into the matching review action', () => {
+    expectBeginnerMessage(
+      approvalQueueErrorMessage('rejectCandidate', {
+        detail: 'confirmation is required',
+      }),
+      'Complete the confirmation step, then choose Do not save again.'
     )
   })
 })
