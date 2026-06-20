@@ -252,7 +252,12 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
         </div>
       </div>
       {visibleError && (
-        <p id={errorId} role="alert" className="mb-3 text-ui-caption text-apple-red">
+        <p
+          id={errorId}
+          role="alert"
+          aria-live="polite"
+          className="mb-3 text-ui-caption text-apple-red"
+        >
           {visibleError}
         </p>
       )}

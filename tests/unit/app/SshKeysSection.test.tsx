@@ -97,7 +97,9 @@ describe('SshKeysSection', () => {
 
     fireEvent.submit(form!)
     expect(createSshKeyMock).not.toHaveBeenCalled()
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    const missingNameAlert = screen.getByRole('alert')
+    expect(missingNameAlert).toHaveAttribute('aria-live', 'polite')
+    expect(missingNameAlert).toHaveTextContent(
       /add a name your team will recognize before saving/i
     )
     expect(nameInput).toHaveFocus()
@@ -105,10 +107,12 @@ describe('SshKeysSection', () => {
     fireEvent.change(nameInput, { target: { value: 'Work laptop' } })
     fireEvent.submit(form!)
     expect(createSshKeyMock).not.toHaveBeenCalled()
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    const missingPublicKeyAlert = screen.getByRole('alert')
+    expect(missingPublicKeyAlert).toHaveAttribute('aria-live', 'polite')
+    expect(missingPublicKeyAlert).toHaveTextContent(
       /paste the safe public key line before saving/i
     )
-    expect(screen.getByRole('alert')).toHaveTextContent(/safe/i)
+    expect(missingPublicKeyAlert).toHaveTextContent(/safe/i)
     expect(safePublicLineInput).toHaveFocus()
 
     fireEvent.change(safePublicLineInput, {
@@ -119,8 +123,10 @@ describe('SshKeysSection', () => {
     expect(saveButton).toBeEnabled()
     fireEvent.click(saveButton)
     expect(createSshKeyMock).not.toHaveBeenCalled()
-    expect(screen.getByRole('alert')).toHaveTextContent(/looks like a private key/i)
-    expect(screen.getByRole('alert')).toHaveTextContent(/copy the one-line \.pub public key/i)
+    const privateKeyAlert = screen.getByRole('alert')
+    expect(privateKeyAlert).toHaveAttribute('aria-live', 'polite')
+    expect(privateKeyAlert).toHaveTextContent(/looks like a private key/i)
+    expect(privateKeyAlert).toHaveTextContent(/copy the one-line \.pub public key/i)
     expect(safePublicLineInput).toHaveFocus()
 
     fireEvent.change(safePublicLineInput, {
