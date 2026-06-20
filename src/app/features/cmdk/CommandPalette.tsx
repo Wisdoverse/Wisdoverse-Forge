@@ -69,8 +69,9 @@ const SECONDARY_ACTION_COMMANDS = [
 
 const SETUP_CHECKLIST_RECOVERY_COMMAND = {
   id: 'action:show-setup-checklist',
-  label: 'Show setup checklist again',
-  description: 'Add the setup checklist back to the left menu and open it.',
+  label: 'Reset setup checklist',
+  description:
+    'Add the setup checklist back to the left menu and open it. Projects, agents, and tasks stay unchanged.',
   searchText: 'start tutorial onboarding setup checklist reset restore show again',
 }
 
