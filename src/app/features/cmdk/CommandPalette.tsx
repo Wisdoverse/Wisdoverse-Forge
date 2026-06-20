@@ -52,6 +52,13 @@ const ACTION_COMMANDS = [
   { id: 'action:toggle-theme', label: 'Change theme', description: 'Switch the app appearance.' },
 ]
 
+const SETUP_CHECKLIST_RECOVERY_COMMAND = {
+  id: 'action:show-setup-checklist',
+  label: 'Show setup checklist again',
+  description: 'Open Account settings to add the setup checklist back to the left menu.',
+  searchText: 'start tutorial onboarding setup checklist reset restore show again',
+}
+
 const VIEW_COMMANDS = [
   { id: 'view:board', label: 'Board view', description: 'Move tasks through simple columns.' },
   { id: 'view:list', label: 'List view', description: 'Scan tasks in one sortable table.' },
@@ -83,6 +90,9 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
       (cmd.id !== 'nav:context' || contextGovernanceEnabled) &&
       (cmd.id !== 'nav:start' || showGettingStarted)
   )
+  const actionCommands = showGettingStarted
+    ? ACTION_COMMANDS
+    : [SETUP_CHECKLIST_RECOVERY_COMMAND, ...ACTION_COMMANDS]
   const emptySearchSuggestion = commonWorkflowSuggestion(navCommands)
 
   function handleSelect(commandId: string) {
@@ -183,7 +193,7 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
               heading="Create or change something"
               className="[&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-secondary-light dark:[&_[cmdk-group-heading]]:text-secondary-dark"
             >
-              {ACTION_COMMANDS.map((cmd) => (
+              {actionCommands.map((cmd) => (
                 <Command.Item
                   key={cmd.id}
                   value={`${cmd.label} ${cmd.description} ${cmd.searchText ?? ''}`}

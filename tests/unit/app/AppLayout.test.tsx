@@ -208,6 +208,29 @@ describe('AppLayout', () => {
     expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
   })
 
+  test('command palette opens setup checklist recovery in Account settings', async () => {
+    const onNavigate = vi.fn()
+
+    render(<MemoryRouter onNavigate={onNavigate} />)
+
+    fireEvent.click(screen.getByTestId('top-bar-command-search'))
+    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+      target: { value: 'start tutorial' },
+    })
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Open Account settings to add the setup checklist back to the left menu.')
+      ).toBeDefined()
+    })
+    fireEvent.click(
+      screen.getByText('Open Account settings to add the setup checklist back to the left menu.')
+    )
+
+    expect(onNavigate).toHaveBeenCalledWith('/settings/account')
+    expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
+  })
+
   test('uses beginner-facing start page metadata', () => {
     routerState.path = '/start'
 

@@ -178,6 +178,8 @@ export function AppLayout({
       setTaskFormOpen(true)
     } else if (commandId === 'action:work-tool-sign-ins') {
       handleNavigate('/settings/work-tool-sign-ins')
+    } else if (commandId === 'action:show-setup-checklist') {
+      handleNavigate('/settings/account')
     } else if (commandId === 'action:toggle-theme') {
       toggleTheme()
     }

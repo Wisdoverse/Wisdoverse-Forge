@@ -91,11 +91,31 @@ describe('CommandPalette', () => {
 
     expect(onSelect).toHaveBeenCalledWith('nav:start')
     expect(onClose).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText('Show setup checklist again')).toBeNull()
+  })
+
+  test('finds setup checklist recovery when Start is hidden', async () => {
+    render(<CommandPalette isOpen={true} onClose={() => {}} />)
+
+    expect(screen.queryByText('Setup checklist')).toBeNull()
+
+    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+      target: { value: 'start tutorial' },
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('Show setup checklist again')).toBeDefined()
+    })
+    expect(
+      screen.getByText('Open Account settings to add the setup checklist back to the left menu.')
+    ).toBeDefined()
+    expect(screen.queryByText('No page or option matches that search')).toBeNull()
   })
 
   test('shows action commands', () => {
     render(<CommandPalette isOpen={true} onClose={() => {}} />)
     expect(screen.getByText('Create or change something')).toBeDefined()
+    expect(screen.getByText('Show setup checklist again')).toBeDefined()
     expect(screen.getByText('New task')).toBeDefined()
     expect(screen.getByText('Create a task for an agent to finish.')).toBeDefined()
     expect(screen.getByText('Codex and work tool sign-in')).toBeDefined()
