@@ -79,11 +79,11 @@ const AGENT_ROLE_TEMPLATES: AgentRoleTemplate[] = [
   },
   {
     id: 'reviewer',
-    label: 'Review work',
+    label: 'Check results',
     summary: 'Looks for risks before use',
-    name: 'Review Helper',
+    name: 'Result Check Helper',
     systemPrompt:
-      'You review work before the team uses it. Look for confusing behavior, missing checks, risky changes, and unclear next steps. Explain each concern in plain language and end with a clear use, fix, or wait recommendation.',
+      'You check work before the team uses it. Look for confusing behavior, missing checks, risky changes, and unclear next steps. Explain each concern in plain language and end with a clear use, fix, or wait recommendation.',
     Icon: ClipboardCheck,
   },
   {
@@ -193,8 +193,9 @@ function runtimeFitFor(
   }
 
   return {
-    title: `${providerLabel} for chat and review`,
-    detail: 'Best for questions, planning, writing, and review that do not need project files.',
+    title: `${providerLabel} for questions and result checks`,
+    detail:
+      'Best for questions, planning, writing, and checking results when no project files need to be opened.',
     items: [
       { label: 'Where it works', value: 'AI service only' },
       { label: 'Files', value: 'Does not open project files' },
@@ -238,7 +239,7 @@ function createReviewItems({
     kind === 'local-cli'
       ? 'Forge creates the agent, then shows setup steps for this computer.'
       : kind === 'provider'
-        ? 'Ready for chat and review after the AI service is connected.'
+        ? 'Ready for questions and result checks after the AI service is connected.'
         : 'Forge starts it after the project file area is ready.'
 
   const taskQueue = selectedGroupName
@@ -253,7 +254,7 @@ function createReviewItems({
     kind === 'local-cli'
       ? "Paste the setup text in this computer's command app and keep that app open."
       : kind === 'provider'
-        ? 'Ask a first question or assign review work that does not need files.'
+        ? 'Ask a first question or assign a result check that does not need files.'
         : 'Wait until it shows Ready, then send one small task from Tasks.'
 
   return [
@@ -974,7 +975,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                   ? 'Forge opens the shared project folder for file and command work.'
                   : kind === 'local-cli'
                     ? 'Uses files and commands on your computer. Forge still manages the agent here with tasks, status, and history.'
-                    : 'Uses a connected AI service for planning, writing, and review. It does not open files or run commands.'}
+                    : 'Uses a connected AI service for planning, writing, and checking results. It does not open files or run commands.'}
               </p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 Not sure? Use Project files when the agent should edit shared project files, This
@@ -1157,7 +1158,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     id="systemPrompt"
                     {...register('systemPrompt')}
                     rows={4}
-                    placeholder="e.g. Help review tasks, explain risks in plain language, and list the next step."
+                    placeholder="e.g. Help check task results, explain risks in plain language, and list the next step."
                     className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                   />
                 </div>

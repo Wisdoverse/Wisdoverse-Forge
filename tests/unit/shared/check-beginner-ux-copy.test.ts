@@ -4097,6 +4097,10 @@ function WorkStylePicker() {
 function TemplateHint() {
   return <span>Fills in the agent name</span>
 }
+const AGENT_ROLE_TEMPLATES = [{
+  label: 'Review work',
+  name: 'Review Helper'
+}]
 `,
     })
 
@@ -4108,6 +4112,14 @@ function TemplateHint() {
         type: 'agent-template-role-copy',
         sample: expect.stringContaining('Fills in the agent name'),
       }),
+      expect.objectContaining({
+        type: 'agent-template-role-copy',
+        sample: expect.stringContaining('Review work'),
+      }),
+      expect.objectContaining({
+        type: 'agent-template-role-copy',
+        sample: expect.stringContaining('Review Helper'),
+      }),
     ])
   })
 
@@ -4117,6 +4129,10 @@ function TemplateHint() {
 function TemplateHint() {
   return <span>Fills in name and starter task instructions</span>
 }
+const AGENT_ROLE_TEMPLATES = [{
+  label: 'Check results',
+  name: 'Result Check Helper'
+}]
 `,
     })
 
@@ -4145,7 +4161,10 @@ function createReviewItems() {
   return [{ label: 'Created state', value: 'Ready for chat and review after the AI service is connected.' }]
 }
 function runtimeFitFor() {
-  return [{ label: 'Where it works', value: 'Chat-only AI service' }]
+  return [{ label: 'Where it works', value: 'Chat-only AI service' }, { title: 'Anthropic for chat and review', detail: 'Best for questions, planning, writing, and review that do not need project files.' }]
+}
+function nextStep() {
+  return 'Ask a first question or assign review work that does not need files.'
 }
 function validationMessage() {
   return 'Choose an AI service and AI model before creating this agent.'
@@ -4177,6 +4196,18 @@ function OldProviderSelect() {
         }),
         expect.objectContaining({
           type: 'create-agent-confirmation-copy',
+          sample: expect.stringContaining('chat and review'),
+        }),
+        expect.objectContaining({
+          type: 'create-agent-confirmation-copy',
+          sample: expect.stringContaining('planning, writing, and review'),
+        }),
+        expect.objectContaining({
+          type: 'create-agent-confirmation-copy',
+          sample: expect.stringContaining('assign review work'),
+        }),
+        expect.objectContaining({
+          type: 'create-agent-confirmation-copy',
           sample: expect.stringContaining('Choose an AI service and AI model'),
         }),
         expect.objectContaining({
@@ -4199,10 +4230,13 @@ function OldProviderSelect() {
     const cwd = fixture({
       'src/app/features/agents/CreateAgentModal.tsx': `
 function createReviewItems() {
-  return [{ label: 'After creation', value: 'Ready for chat and review after the AI service is connected.' }]
+  return [{ label: 'After creation', value: 'Ready for questions and result checks after the AI service is connected.' }]
 }
 function runtimeFitFor() {
-  return [{ label: 'Where it works', value: 'AI service only' }]
+  return [{ label: 'Where it works', value: 'AI service only' }, { title: 'Anthropic for questions and result checks', detail: 'Best for questions, planning, writing, and checking results when no project files need to be opened.' }]
+}
+function nextStep() {
+  return 'Ask a first question or assign a result check that does not need files.'
 }
 function validationMessage() {
   return 'Open AI service settings, choose Check connection for this service, then come back when it shows Ready.'
@@ -11068,7 +11102,7 @@ const skillTemplates = [{
     const cwd = fixture({
       'src/app/features/agents/CreateAgentModal.tsx': `
 const AGENT_ROLE_TEMPLATES = [{
-  systemPrompt: 'You investigate unclear failures by gathering evidence first.'
+  systemPrompt: 'You investigate unclear failures by gathering evidence first. You review work before the team uses it.'
 }]
 `,
       'src/app/features/agents/AgentConfigTab.tsx': `
@@ -11086,6 +11120,10 @@ const PROMPT_TEMPLATES = [{
         expect.objectContaining({
           type: 'agent-instruction-template-copy',
           sample: expect.stringContaining('gathering evidence first'),
+        }),
+        expect.objectContaining({
+          type: 'agent-instruction-template-copy',
+          sample: expect.stringContaining('review work before the team uses it'),
         }),
         expect.objectContaining({
           type: 'agent-instruction-template-copy',

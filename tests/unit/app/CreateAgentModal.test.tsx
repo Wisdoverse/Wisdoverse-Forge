@@ -420,8 +420,12 @@ describe('CreateAgentModal', () => {
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
 
     expect(screen.getByText('Fills in name and instructions')).toBeInTheDocument()
-    expect(screen.getAllByText(/anthropic for chat and review/i).length).toBeGreaterThan(0)
-    expect(screen.getByText(/questions, planning, writing, and review/i)).toBeInTheDocument()
+    expect(
+      screen.getAllByText(/anthropic for questions and result checks/i).length
+    ).toBeGreaterThan(0)
+    expect(
+      screen.getByText(/questions, planning, writing, and checking results/i)
+    ).toBeInTheDocument()
     expect(screen.getByText(/does not open project files/i)).toBeInTheDocument()
     expect(screen.getByText('Check AI service in Settings')).toBeInTheDocument()
     expect(screen.queryByText(/ai service must be checked/i)).toBeNull()
@@ -441,11 +445,13 @@ describe('CreateAgentModal', () => {
     const review = screen.getByTestId('agent-create-review')
     expect(
       within(review).getByText(
-        'Ask a first question or assign review work that does not need files.'
+        'Ask a first question or assign a result check that does not need files.'
       )
     ).toBeInTheDocument()
     expect(
-      within(review).getByText('Ready for chat and review after the AI service is connected.')
+      within(review).getByText(
+        'Ready for questions and result checks after the AI service is connected.'
+      )
     ).toBeInTheDocument()
     expect(screen.queryByLabelText(/^model name$/i)).toBeNull()
     expect(screen.queryByLabelText(/^provider$/i)).toBeNull()
@@ -560,7 +566,9 @@ describe('CreateAgentModal', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getAllByText(/google for chat and review/i).length).toBeGreaterThan(0)
+      expect(screen.getAllByText(/google for questions and result checks/i).length).toBeGreaterThan(
+        0
+      )
     })
     expect(screen.getByText('AI service only')).toBeInTheDocument()
     expect(screen.getByText('Check AI service in Settings')).toBeInTheDocument()
@@ -1109,9 +1117,9 @@ describe('CreateAgentModal', () => {
     render(<CreateAgentModal />)
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
     const templateGroup = screen.getByRole('group', { name: /agent starter templates/i })
-    fireEvent.click(within(templateGroup).getByRole('button', { name: /review work/i }))
+    fireEvent.click(within(templateGroup).getByRole('button', { name: /check results/i }))
 
-    expect(screen.getByLabelText(/^name$/i)).toHaveValue('Review Helper')
+    expect(screen.getByLabelText(/^name$/i)).toHaveValue('Result Check Helper')
     expect((screen.getByLabelText(/agent instructions/i) as HTMLTextAreaElement).value).toContain(
       'confusing behavior'
     )
@@ -1130,7 +1138,7 @@ describe('CreateAgentModal', () => {
     await waitFor(() => expect(createAgent).toHaveBeenCalledTimes(1))
     expect(createAgent.mock.calls[0][0]).toMatchObject({
       kind: 'provider',
-      name: 'Review Helper',
+      name: 'Result Check Helper',
       provider: 'anthropic',
       model: 'claude-sonnet-4-6',
       systemPrompt: expect.stringContaining('clear use, fix, or wait recommendation'),
@@ -1191,7 +1199,7 @@ describe('CreateAgentModal', () => {
     expect(instructions.value).toContain('what changed and what to try next')
     expect(instructions.value).not.toMatch(/tradeoffs|edits narrow|handing work back/i)
 
-    fireEvent.click(within(templateGroup).getByRole('button', { name: /review work/i }))
+    fireEvent.click(within(templateGroup).getByRole('button', { name: /check results/i }))
     expect(instructions.value).toContain('Explain each concern in plain language')
     expect(instructions.value).not.toMatch(/cite files|concrete risks/i)
 

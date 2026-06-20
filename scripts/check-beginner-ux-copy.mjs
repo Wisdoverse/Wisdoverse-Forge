@@ -2218,12 +2218,15 @@ const AGENT_TEMPLATE_ROLE_JARGON_PATTERNS = [
   /\bStart with a role\b/i,
   /\bAgent role templates\b/i,
   /\bFills in the agent name\b/i,
+  /\blabel:\s*['"`]Review work['"`]/i,
+  /\bname:\s*['"`]Review Helper['"`]/i,
 ]
 
 const AGENT_INSTRUCTION_TEMPLATE_JARGON_PATTERNS = [
   /\bgathering evidence first\b/i,
   /\bmore evidence is needed\b/i,
   /\broot cause\b/i,
+  /\bYou review work before the team uses it\b/i,
 ]
 
 const NEW_AGENT_ENTRY_JARGON_PATTERNS = [
@@ -2261,6 +2264,9 @@ const CREATE_AGENT_MANAGEMENT_JARGON_PATTERNS = [/\bAgent managed by Forge\b/i]
 const CREATE_AGENT_CONFIRMATION_JARGON_PATTERNS = [
   /\bCreated state\b/i,
   /\bChat-only AI service\b/i,
+  /\bchat and review\b/i,
+  /\bplanning, writing, and review\b/i,
+  /\bassign review work\b/i,
   /\bChoose an AI service and AI model before creating this agent\b/i,
   /\bChoose an AI service with a saved model\b/i,
   /\bThe model is set by that service\b/i,
