@@ -64,6 +64,8 @@ describe('settingsActionErrorMessage', () => {
   test('routes Codex sign-in aliases to the work tool sign-ins settings page', () => {
     expect(normalizeSettingsSection('work-tool-sign-ins')).toBe('work-tool-sign-ins')
     expect(normalizeSettingsSection('codex-login')).toBe('work-tool-sign-ins')
+    expect(normalizeSettingsSection('codex-cli-login')).toBe('work-tool-sign-ins')
+    expect(normalizeSettingsSection('openai-codex')).toBe('work-tool-sign-ins')
     expect(normalizeSettingsSection('codex')).toBe('work-tool-sign-ins')
     expect(normalizeSettingsSection('cli-login')).toBe('work-tool-sign-ins')
   })

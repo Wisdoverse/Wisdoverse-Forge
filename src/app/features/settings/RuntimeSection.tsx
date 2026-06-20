@@ -160,6 +160,12 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
   const checklistReadyCount = checklistItems.filter((item) => item.ready).length
   const setupReady = checklistItems.length > 0 && checklistReadyCount === checklistItems.length
   const nextChecklistItem = checklistItems.find((item) => !item.ready) ?? null
+  const sectionTitle =
+    focus === 'sign-ins' ? 'Codex and work tool sign-in' : t('settings.runtime.title')
+  const sectionDescription =
+    focus === 'sign-ins'
+      ? 'Sign in to OpenAI (Codex) and other work tools before agents work on project files.'
+      : t('settings.runtime.description')
 
   async function connectCliProvider(provider: string) {
     const label = cliSignInDisplayName(cliStatuses, provider)
@@ -199,8 +205,8 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>{t('settings.runtime.title')}</h2>
-          <p className={uiStyles.sectionDescription}>{t('settings.runtime.description')}</p>
+          <h2 className={uiStyles.sectionTitle}>{sectionTitle}</h2>
+          <p className={uiStyles.sectionDescription}>{sectionDescription}</p>
         </div>
         {saving && (
           <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -232,11 +238,12 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
           className="mb-4 rounded-lg border border-apple-blue/20 bg-apple-blue/[0.04] p-4"
         >
           <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            Work tool sign-in
+            Start Codex sign-in here
           </h3>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-            Start here when Codex or another work tool asks for login. Choose Sign in next to OpenAI
-            (Codex), finish the browser login, then return here and choose Check again.
+            Start here when Codex or another work tool asks for login. For Codex, choose Sign in
+            next to OpenAI (Codex), finish the browser login, then return here and choose Check
+            again.
           </p>
           <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
             If OpenAI (Codex) does not appear, choose Check again. If it still does not appear, ask

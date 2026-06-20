@@ -340,8 +340,19 @@ describe('RuntimeSection', () => {
 
     render(<RuntimeSection focus="sign-ins" />)
 
+    expect(
+      await screen.findByRole('heading', { name: 'Codex and work tool sign-in' })
+    ).toBeDefined()
+    expect(
+      screen.getByText(
+        'Sign in to OpenAI (Codex) and other work tools before agents work on project files.'
+      )
+    ).toBeDefined()
     expect(await screen.findByTestId('runtime-sign-in-entry')).toHaveTextContent(
-      'Work tool sign-in'
+      'Start Codex sign-in here'
+    )
+    expect(screen.getByTestId('runtime-sign-in-entry')).toHaveTextContent(
+      'For Codex, choose Sign in next to OpenAI (Codex)'
     )
     expect(screen.queryByText(/Sign in to Codex CLI and work tools/i)).toBeNull()
     expect(screen.getByText('OpenAI (Codex)')).toBeDefined()
@@ -484,7 +495,9 @@ describe('RuntimeSection', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(/work tool sign-in could not be checked/i)
-    expect(alert).toHaveTextContent(/Forge could not connect while checking Where agents work/i)
+    expect(alert).toHaveTextContent(
+      /Forge could not connect while checking the Codex and work tool sign-in page/i
+    )
     expect(screen.getByText(/Choose Check again to refresh work tool sign-ins/i)).toBeDefined()
     expect(screen.queryByText(/^Work tool sign-ins could not be checked/i)).toBeNull()
     expect(screen.queryByText(/failed to fetch/i)).toBeNull()
@@ -520,7 +533,7 @@ describe('RuntimeSection', () => {
     fireEvent.click(screen.getAllByRole('button', { name: /Sign in to GitHub/i })[0])
 
     expect(
-      await screen.findByText(/do not have permission to change Where agents work/i)
+      await screen.findByText(/do not have permission to change Codex and work tool sign-in/i)
     ).toBeDefined()
     expect(screen.getAllByText(/owner or admin/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/403 Forbidden/)).toBeNull()

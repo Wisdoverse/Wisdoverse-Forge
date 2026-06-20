@@ -4,9 +4,30 @@ const ACTION_FALLBACKS: Record<RuntimeErrorAction, string> = {
   loadAgentSignals:
     'Open Agents and make sure one agent shows Ready, then open Settings and Where agents work again. Agent connection status could not load.',
   loadCliSignIn:
-    'Open Settings and Where agents work again before starting agents that use work tools. Work tool sign-in could not be checked.',
+    'Open Settings, then Codex and work tool sign-in again before starting agents that use work tools. Work tool sign-in could not be checked.',
   startCliSignIn:
-    'Check the connected AI service, then reconnect the account. Work tool sign-in did not start.',
+    'Open Settings, then Codex and work tool sign-in again, then reconnect the account. Work tool sign-in did not start.',
+}
+
+const ACTION_RECOVERY: Record<
+  RuntimeErrorAction,
+  { location: string; openStep: string; target: string }
+> = {
+  loadAgentSignals: {
+    location: 'Where agents work',
+    openStep: 'open Settings and Where agents work',
+    target: 'Where agents work',
+  },
+  loadCliSignIn: {
+    location: 'Codex and work tool sign-in',
+    openStep: 'open Settings, then Codex and work tool sign-in',
+    target: 'the Codex and work tool sign-in page',
+  },
+  startCliSignIn: {
+    location: 'Codex and work tool sign-in',
+    openStep: 'open Settings, then Codex and work tool sign-in',
+    target: 'the Codex and work tool sign-in page',
+  },
 }
 
 export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): string {
@@ -15,23 +36,28 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   const status = errorStatus(err, normalized)
 
   if (isNetworkError(normalized)) {
-    return `${ACTION_FALLBACKS[action]} Check your connection, then open Settings and Where agents work again. Forge could not connect while checking Where agents work.`
+    const recovery = ACTION_RECOVERY[action]
+    return `${ACTION_FALLBACKS[action]} Check your connection, then ${recovery.openStep} again. Forge could not connect while checking ${recovery.target}.`
   }
 
   if (status === 401) {
-    return 'Sign in again, then open Where agents work and try again. Your sign-in expired.'
+    const recovery = ACTION_RECOVERY[action]
+    return `Sign in again, then open ${recovery.location} and try again. Your sign-in expired.`
   }
 
   if (status === 403) {
-    return 'Ask an owner or admin to update your team space access before changing Where agents work. You do not have permission to change Where agents work.'
+    const recovery = ACTION_RECOVERY[action]
+    return `Ask an owner or admin to update your team space access before changing ${recovery.location}. You do not have permission to change ${recovery.location}.`
   }
 
   if (status === 404) {
-    return 'Open Settings and Where agents work again. Where agents work is not available yet. If it still does not load, ask an owner or admin to check it.'
+    const recovery = ACTION_RECOVERY[action]
+    return `${sentenceCase(recovery.openStep)} again. ${recovery.location} is not available yet. If it still does not load, ask an owner or admin to check it.`
   }
 
   if (status === 409) {
-    return 'Open Settings and Where agents work again, check the current status, then try again. The choices in Where agents work changed while you were working.'
+    const recovery = ACTION_RECOVERY[action]
+    return `${sentenceCase(recovery.openStep)} again, check the current status, then try again. The choices in ${recovery.location} changed while you were working.`
   }
 
   if (status === 422) {
@@ -43,7 +69,8 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   }
 
   if (status && status >= 500) {
-    return 'Open Settings and Where agents work again, then try again. Forge could not check Where agents work right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+    const recovery = ACTION_RECOVERY[action]
+    return `${sentenceCase(recovery.openStep)} again, then try again. Forge could not check ${recovery.target} right now. If it still fails, ask an owner or admin to check ${recovery.location} in Settings.`
   }
 
   return runtimeValidationMessage(action, detail)
@@ -182,8 +209,12 @@ function runtimeValidationMessage(action: RuntimeErrorAction, detail: string): s
   }
 
   if (action === 'loadCliSignIn') {
-    return 'Open Settings and Where agents work again, then reconnect the work tool sign-in. Work tool sign-in could not be checked.'
+    return 'Open Settings, then Codex and work tool sign-in again, then reconnect the work tool sign-in. Work tool sign-in could not be checked.'
   }
 
   return 'Open Agents and make sure one agent shows Ready, then open Settings and Where agents work again. Agent connection status could not load.'
+}
+
+function sentenceCase(value: string): string {
+  return value.length === 0 ? value : `${value[0].toUpperCase()}${value.slice(1)}`
 }
