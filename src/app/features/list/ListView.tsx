@@ -1,4 +1,4 @@
-import { useRef, useMemo, useState, type ReactNode } from 'react'
+import { useRef, useId, useMemo, useState, type ReactNode } from 'react'
 import { useVirtualizer, type VirtualizerOptions } from '@tanstack/react-virtual'
 import {
   AlertTriangle,
@@ -48,11 +48,13 @@ interface EmptyStateCopy {
   detail: string
 }
 
-const LIST_FILTERS: { value: ListTaskFilter; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'open', label: 'Open' },
-  { value: 'attention', label: 'Needs action' },
-  { value: 'completed', label: 'Completed' },
+const LIST_SEARCH_HELP = 'Search only filters the task list. Clear it to see every task again.'
+
+const LIST_FILTERS: { value: ListTaskFilter; label: string; ariaLabel: string }[] = [
+  { value: 'all', label: 'All', ariaLabel: 'Show all tasks' },
+  { value: 'open', label: 'Open', ariaLabel: 'Show tasks not finished yet' },
+  { value: 'attention', label: 'Needs action', ariaLabel: 'Show tasks that need action' },
+  { value: 'completed', label: 'Completed', ariaLabel: 'Show completed tasks' },
 ]
 
 // Custom observeElementRect that falls back to a large virtual height in jsdom
@@ -85,6 +87,7 @@ const observeElementRectFallback: VirtualizerOptions<
 
 export function ListView() {
   const { columns, setSelectedTask, setViewMode } = useBoardStore()
+  const searchHelpId = useId()
   const [searchQuery, setSearchQuery] = useState('')
   const [filter, setFilter] = useState<ListTaskFilter>('all')
 
@@ -174,23 +177,32 @@ export function ListView() {
           </div>
 
           <div className="flex min-w-0 flex-1 flex-col gap-2 lg:flex-row lg:items-center lg:justify-end">
-            <label className="relative min-w-0 flex-1 lg:max-w-sm">
-              <span className="sr-only">Search task list</span>
-              <Search
-                size={15}
-                strokeWidth={2}
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-secondary-light dark:text-secondary-dark"
-                aria-hidden="true"
-              />
-              <input
-                data-testid="list-search"
-                type="search"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search tasks, agents, or help needed…"
-                className="h-9 w-full rounded-lg border border-black/[0.08] bg-black/[0.02] pl-9 pr-3 text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light focus:border-apple-blue/40 focus:bg-white focus:ring-2 focus:ring-apple-blue/20 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark dark:focus:bg-white/[0.06]"
-              />
-            </label>
+            <div className="min-w-0 flex-1 lg:max-w-sm">
+              <label className="relative block">
+                <span className="sr-only">Search task list</span>
+                <Search
+                  size={15}
+                  strokeWidth={2}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-secondary-light dark:text-secondary-dark"
+                  aria-hidden="true"
+                />
+                <input
+                  data-testid="list-search"
+                  type="search"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search tasks, agents, or help needed…"
+                  aria-describedby={searchHelpId}
+                  className="h-9 w-full rounded-lg border border-black/[0.08] bg-black/[0.02] pl-9 pr-3 text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light focus:border-apple-blue/40 focus:bg-white focus:ring-2 focus:ring-apple-blue/20 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark dark:focus:bg-white/[0.06]"
+                />
+              </label>
+              <p
+                id={searchHelpId}
+                className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+              >
+                {LIST_SEARCH_HELP}
+              </p>
+            </div>
 
             <div
               role="group"
@@ -203,6 +215,7 @@ export function ListView() {
                   key={item.value}
                   active={filter === item.value}
                   label={item.label}
+                  ariaLabel={item.ariaLabel}
                   count={item.count}
                   onClick={() => setFilter(item.value)}
                 />
@@ -254,6 +267,8 @@ export function ListView() {
       ) : visibleTasks.length === 0 ? (
         <div
           data-testid="list-filter-empty"
+          role="status"
+          aria-live="polite"
           className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-ui-body text-secondary-light dark:text-secondary-dark"
         >
           <span className="font-medium text-foreground-light dark:text-foreground-dark">
@@ -411,11 +426,13 @@ function ListMetric({
 function ListFilterButton({
   active,
   label,
+  ariaLabel,
   count,
   onClick,
 }: {
   active: boolean
   label: string
+  ariaLabel: string
   count: number
   onClick: () => void
 }) {
@@ -423,6 +440,7 @@ function ListFilterButton({
     <button
       type="button"
       aria-pressed={active}
+      aria-label={`${ariaLabel}, ${matchingTasksLabel(count)}`}
       onClick={onClick}
       className={cn(
         'inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-2 text-ui-caption font-medium transition-colors',
@@ -433,9 +451,18 @@ function ListFilterButton({
       )}
     >
       <span>{label}</span>
-      <span className="tabular-nums text-secondary-light dark:text-secondary-dark">{count}</span>
+      <span
+        aria-hidden="true"
+        className="tabular-nums text-secondary-light dark:text-secondary-dark"
+      >
+        {count}
+      </span>
     </button>
   )
+}
+
+function matchingTasksLabel(count: number): string {
+  return `${count} matching ${count === 1 ? 'task' : 'tasks'}`
 }
 
 function summarizeListTasks(tasks: TaskSummary[]): {

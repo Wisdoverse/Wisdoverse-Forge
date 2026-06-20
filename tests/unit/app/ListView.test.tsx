@@ -274,19 +274,26 @@ describe('ListView', () => {
 
     render(<ListView />)
 
+    const search = screen.getByRole('searchbox', { name: /search task list/i })
+    expect(search).toHaveAccessibleDescription(
+      'Search only filters the task list. Clear it to see every task again.'
+    )
+
     fireEvent.click(
       within(screen.getByTestId('list-task-filter')).getByRole('button', {
-        name: /needs action\s*1/i,
+        name: /show tasks that need action, 1 matching task/i,
       })
     )
 
     expect(screen.getByText('Deploy preview')).toBeDefined()
     expect(screen.queryByText('Build settings')).toBeNull()
 
-    fireEvent.change(screen.getByTestId('list-search'), {
+    fireEvent.change(search, {
       target: { value: 'missing task' },
     })
     const combinedEmpty = screen.getByTestId('list-filter-empty')
+    expect(combinedEmpty).toHaveAttribute('role', 'status')
+    expect(combinedEmpty).toHaveAttribute('aria-live', 'polite')
     expect(within(combinedEmpty).getByText('Clear search or show all tasks')).toBeDefined()
     expect(combinedEmpty.textContent).toContain(
       'There are tasks here, but the current search and filter hide them.'
@@ -297,7 +304,13 @@ describe('ListView', () => {
     expect(screen.queryByText(/task title/i)).toBeNull()
     expect(screen.queryByText(/blocker/i)).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: /show all tasks/i }))
+    fireEvent.click(within(combinedEmpty).getByRole('button', { name: /show all tasks/i }))
+    expect(screen.getByRole('searchbox', { name: /search task list/i })).toHaveValue('')
+    expect(
+      within(screen.getByTestId('list-task-filter')).getByRole('button', {
+        name: /show all tasks, 2 matching tasks/i,
+      })
+    ).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText('Build settings')).toBeDefined()
   })
 
@@ -317,24 +330,34 @@ describe('ListView', () => {
 
     render(<ListView />)
 
-    fireEvent.change(screen.getByTestId('list-search'), {
+    const search = screen.getByRole('searchbox', { name: /search task list/i })
+    expect(search).toHaveAccessibleDescription(
+      'Search only filters the task list. Clear it to see every task again.'
+    )
+
+    fireEvent.change(search, {
       target: { value: 'missing task' },
     })
     const searchEmpty = screen.getByTestId('list-filter-empty')
+    expect(searchEmpty).toHaveAttribute('role', 'status')
+    expect(searchEmpty).toHaveAttribute('aria-live', 'polite')
     expect(within(searchEmpty).getByText('Clear search to see tasks')).toBeDefined()
     expect(searchEmpty.textContent).toContain(
       'There are tasks here, but this search hides them. Try a broader word.'
     )
     expect(searchEmpty.textContent).not.toContain('No tasks match this view')
 
-    fireEvent.click(screen.getByRole('button', { name: /show all tasks/i }))
+    fireEvent.click(within(searchEmpty).getByRole('button', { name: /show all tasks/i }))
+    expect(screen.getByRole('searchbox', { name: /search task list/i })).toHaveValue('')
     fireEvent.click(
       within(screen.getByTestId('list-task-filter')).getByRole('button', {
-        name: /completed\s*0/i,
+        name: /show completed tasks, 0 matching tasks/i,
       })
     )
 
     const filterEmpty = screen.getByTestId('list-filter-empty')
+    expect(filterEmpty).toHaveAttribute('role', 'status')
+    expect(filterEmpty).toHaveAttribute('aria-live', 'polite')
     expect(within(filterEmpty).getByText('Choose All to see tasks')).toBeDefined()
     expect(filterEmpty.textContent).toContain(
       'There are tasks here, but this filter has no results yet.'
