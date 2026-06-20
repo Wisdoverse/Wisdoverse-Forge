@@ -193,7 +193,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
         </p>
 
         {error && (
-          <div id="create-skill-error" role="alert" className={uiStyles.error}>
+          <div id="create-skill-error" role="alert" aria-live="polite" className={uiStyles.error}>
             {error}
           </div>
         )}

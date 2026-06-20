@@ -364,9 +364,11 @@ describe('SkillsView', () => {
     expect(within(dialog).queryByText(/safe enough for the workspace/i)).toBeNull()
     await user.click(within(dialog).getByRole('button', { name: /save instruction/i }))
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    const nameAlert = screen.getByRole('alert')
+    expect(nameAlert).toHaveTextContent(
       'Name this saved instruction before saving it.'
     )
+    expect(nameAlert).toHaveAttribute('aria-live', 'polite')
     expect(screen.getByLabelText(/^instruction name$/i)).toHaveFocus()
 
     await user.type(screen.getByLabelText(/^instruction name$/i), 'frontend-review')
@@ -374,9 +376,11 @@ describe('SkillsView', () => {
 
     await user.click(within(dialog).getByRole('button', { name: /save instruction/i }))
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    const stepsAlert = screen.getByRole('alert')
+    expect(stepsAlert).toHaveTextContent(
       'Add the steps the agent should follow before saving.'
     )
+    expect(stepsAlert).toHaveAttribute('aria-live', 'polite')
     expect(screen.getByLabelText(/^steps for the agent$/i)).toHaveFocus()
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
@@ -391,6 +395,7 @@ describe('SkillsView', () => {
     render(<SkillsView />)
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent('Open Saved instructions again to load the list.')
     expect(alert).toHaveTextContent('Choose Load saved instructions again to load the list.')
     expect(alert).not.toHaveTextContent('HTTP 500')
@@ -416,6 +421,7 @@ describe('SkillsView', () => {
     })
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent('Saved instructions need to load again.')
     expect(alert).toHaveTextContent('Choose Load saved instructions again to load the list.')
     expect(alert).not.toHaveTextContent('HTTP 500')
@@ -451,6 +457,7 @@ describe('SkillsView', () => {
     await user.click(within(dialog).getByRole('button', { name: /save instruction/i }))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
       'Ask an owner or admin to let you create saved instructions for this team space, then create the instruction again.'
     )

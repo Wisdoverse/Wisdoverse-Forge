@@ -147,9 +147,11 @@ describe('SkillDraftModal', () => {
     await user.clear(screen.getByLabelText(/^instruction name$/i))
     await user.click(screen.getByRole('button', { name: /publish instruction/i }))
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    const nameAlert = screen.getByRole('alert')
+    expect(nameAlert).toHaveTextContent(
       'Name this instruction before publishing it.'
     )
+    expect(nameAlert).toHaveAttribute('aria-live', 'polite')
     expect(screen.getByLabelText(/^instruction name$/i)).toHaveFocus()
     expect(screen.getByLabelText(/^instruction name$/i)).toHaveAttribute('aria-invalid', 'true')
 
@@ -160,9 +162,11 @@ describe('SkillDraftModal', () => {
     await user.clear(screen.getByLabelText(/^reusable instructions$/i))
     await user.click(screen.getByRole('button', { name: /publish instruction/i }))
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    const stepsAlert = screen.getByRole('alert')
+    expect(stepsAlert).toHaveTextContent(
       'Add the repeatable steps, or keep the suggested steps, before publishing.'
     )
+    expect(stepsAlert).toHaveAttribute('aria-live', 'polite')
     expect(screen.getByLabelText(/^reusable instructions$/i)).toHaveFocus()
     expect(screen.getByLabelText(/^reusable instructions$/i)).toHaveAttribute(
       'aria-invalid',

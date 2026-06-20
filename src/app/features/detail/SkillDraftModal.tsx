@@ -131,7 +131,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
         </div>
 
         {error && (
-          <div id="skill-draft-error" role="alert" className={uiStyles.error}>
+          <div id="skill-draft-error" role="alert" aria-live="polite" className={uiStyles.error}>
             {error}
           </div>
         )}

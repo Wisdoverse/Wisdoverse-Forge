@@ -155,6 +155,7 @@ export function SkillsView() {
         {!loading && error && (
           <div
             role="alert"
+            aria-live="polite"
             className="flex h-full flex-col items-center justify-center gap-3 text-center"
           >
             <div className="space-y-1">
