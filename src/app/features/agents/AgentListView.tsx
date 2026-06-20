@@ -61,6 +61,9 @@ const SORT_OPTIONS: { value: AgentSortKey; label: string }[] = [
   { value: 'success', label: 'Best finish rate' },
 ]
 
+const AGENT_SEARCH_HELP =
+  'Search only filters this list. Clear it to see every agent and work location again.'
+
 const HOST_CLI_PLATFORMS: {
   value: HostCliPlatform
   label: string
@@ -134,7 +137,11 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-3">
-              <p className="text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark">
+              <p
+                role="status"
+                aria-live="polite"
+                className="text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark"
+              >
                 {agents.length === 0
                   ? 'Add first agent'
                   : `${filteredAgents.length}/${agents.length} agent${agents.length === 1 ? '' : 's'}`}
@@ -197,6 +204,8 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
           ) : filteredAgents.length === 0 ? (
             <div
               data-testid="agent-filter-empty"
+              role="status"
+              aria-live="polite"
               className="flex min-h-64 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-black/10 px-6 text-center dark:border-white/10"
             >
               <Search
@@ -745,9 +754,16 @@ function FleetControls({
             value={searchQuery}
             onChange={(event) => onSearchQueryChange(event.target.value)}
             placeholder="Search agents, AI services, projects…"
+            aria-describedby="agent-search-help"
             className="h-10 w-full rounded-md border border-black/[0.08] bg-white pl-9 pr-3 text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light focus-visible:border-apple-blue/40 focus-visible:ring-2 focus-visible:ring-apple-blue/20 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark"
           />
         </div>
+        <p
+          id="agent-search-help"
+          className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+        >
+          {AGENT_SEARCH_HELP}
+        </p>
       </div>
 
       <div className="flex min-w-0 flex-col gap-2">

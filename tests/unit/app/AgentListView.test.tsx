@@ -340,6 +340,12 @@ describe('AgentListView', () => {
     render(<AgentListView />)
     expect(screen.getByPlaceholderText(/AI services, projects/i)).toBeDefined()
     expect(screen.queryByPlaceholderText(/models, projects/i)).toBeNull()
+    expect(screen.getByRole('status')).toHaveTextContent('4/4 agents')
+    expect(screen.getByTestId('agent-search')).toHaveAttribute(
+      'aria-describedby',
+      'agent-search-help'
+    )
+    expect(screen.getByText(/clear it to see every agent and work location again/i)).toBeDefined()
 
     fireEvent.change(screen.getByTestId('agent-search'), { target: { value: 'review' } })
     expect(screen.getByText('Review Analyst')).toBeDefined()
@@ -381,6 +387,8 @@ describe('AgentListView', () => {
 
     fireEvent.change(screen.getByTestId('agent-search'), { target: { value: 'missing' } })
     const emptyState = screen.getByTestId('agent-filter-empty')
+    expect(emptyState).toHaveAttribute('role', 'status')
+    expect(emptyState).toHaveAttribute('aria-live', 'polite')
     expect(within(emptyState).getByText('Search is hiding every agent')).toBeDefined()
     expect(within(emptyState).getByText(/none match the words you typed/i)).toBeDefined()
     expect(within(emptyState).getByText(/before creating another one/i)).toBeDefined()
@@ -409,6 +417,8 @@ describe('AgentListView', () => {
     const statusFilters = screen.getByRole('group', { name: /status filter/i })
     fireEvent.click(within(statusFilters).getByRole('button', { name: /not connected\s*0/i }))
     const emptyState = screen.getByTestId('agent-filter-empty')
+    expect(emptyState).toHaveAttribute('role', 'status')
+    expect(emptyState).toHaveAttribute('aria-live', 'polite')
     expect(within(emptyState).getByText('This status filter hides every agent')).toBeDefined()
     expect(
       within(emptyState).getByText(/another status, such as Working now, Ready, or Not connected/i)
