@@ -248,6 +248,7 @@ describe('TaskFormModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /^create task$/i }))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent('Open project settings before creating a task.')
     fireEvent.click(screen.getAllByRole('button', { name: /open project settings/i }).at(-1)!)
 
@@ -355,6 +356,7 @@ describe('TaskFormModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /^create task$/i }))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent('Set up where tasks wait before saving this task.')
     fireEvent.click(screen.getAllByRole('button', { name: /set up where tasks wait/i }).at(-1)!)
 
@@ -395,7 +397,9 @@ describe('TaskFormModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /create task/i }))
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveAttribute('aria-live', 'polite')
+      expect(alert).toHaveTextContent(
         'Add a short title so the agent knows the goal.'
       )
     })
@@ -411,7 +415,9 @@ describe('TaskFormModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /^create task$/i }))
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveAttribute('aria-live', 'polite')
+      expect(alert).toHaveTextContent(
         'Add a short title so the agent knows the goal.'
       )
     })
@@ -548,7 +554,9 @@ describe('TaskFormModal', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent('The task was not created')
     )
-    expect(screen.getByRole('alert')).not.toHaveTextContent('boom')
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).not.toHaveTextContent('boom')
     expect(onClose).not.toHaveBeenCalled()
     expect(onSubmit).toHaveBeenCalledTimes(1)
   })
@@ -564,7 +572,11 @@ describe('TaskFormModal', () => {
       target: { value: '   ' },
     })
     fireEvent.click(submit)
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/short title/i))
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveAttribute('aria-live', 'polite')
+      expect(alert).toHaveTextContent(/short title/i)
+    })
     const callsAfterFirst = scrollSpy.mock.calls.length
     expect(callsAfterFirst).toBeGreaterThan(0)
 
@@ -588,9 +600,11 @@ describe('TaskFormModal', () => {
         'Select the project again to find where tasks wait. If it still does not load, open the Tasks page again or ask an owner to check where tasks wait in this project.'
       )
     )
-    expect(screen.getByRole('alert')).not.toHaveTextContent('task routing setup')
-    expect(screen.getByRole('alert')).not.toHaveTextContent(/task queues could not load/i)
-    expect(screen.getByRole('alert')).not.toHaveTextContent(/load task queues/i)
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).not.toHaveTextContent('task routing setup')
+    expect(alert).not.toHaveTextContent(/task queues could not load/i)
+    expect(alert).not.toHaveTextContent(/load task queues/i)
   })
 
   test('explains that a newly selected project is still preparing', async () => {

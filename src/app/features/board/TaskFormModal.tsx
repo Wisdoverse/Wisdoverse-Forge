@@ -508,6 +508,7 @@ export function TaskFormModal({
           <div
             ref={errorBannerRef}
             role="alert"
+            aria-live="polite"
             className="mb-4 rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
           >
             <div className="flex flex-wrap items-center gap-2">
@@ -625,7 +626,12 @@ export function TaskFormModal({
               autoFocus
             />
             {errors.title ? (
-              <p id="task-title-error" role="alert" className="mt-1 text-ui-caption text-apple-red">
+              <p
+                id="task-title-error"
+                role="alert"
+                aria-live="polite"
+                className="mt-1 text-ui-caption text-apple-red"
+              >
                 {errors.title.message}
               </p>
             ) : (
