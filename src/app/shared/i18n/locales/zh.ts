@@ -165,6 +165,7 @@ export const zh: TranslationKeys = {
         title: '第一个任务',
         emptyWithRouting: '写一个小任务。Forge 会把它放到任务等待位置，等可用的 Agent 领取。',
         emptyWithoutRouting: '先设置任务等待位置，再创建第一个任务。',
+        emptyWithoutProject: '先创建或选择项目，再设置任务等待位置，然后创建第一个任务。',
         ready: '看板上已有 {{count}} 个任务。',
         why: '先用一个小任务验证流程，避免一开始就把真实工作卡住。',
         success: '看板上能看到任务，状态是等待领取或已分配给 Agent。',

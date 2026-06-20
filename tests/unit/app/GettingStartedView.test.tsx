@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import '@app/i18n'
 import { GettingStartedView } from '@app/pages/getting-started'
 import { useNavigationStore } from '@app/entities/navigation'
@@ -410,6 +410,34 @@ describe('GettingStartedView', () => {
     expect(screen.getByText('Set up where tasks wait before the first task.')).toBeDefined()
     expect(screen.queryByText('Task queue')).toBeNull()
     expect(screen.queryByText(/task queue/i)).toBeNull()
+
+    const firstTaskCard = screen.getByRole('heading', { name: /first task/i }).closest('article')
+    expect(firstTaskCard).not.toBeNull()
+    fireEvent.click(
+      within(firstTaskCard as HTMLElement).getByRole('button', { name: /set up waiting place/i })
+    )
+    expect(navigateMock).toHaveBeenCalledWith({ to: '/agents' })
+  })
+
+  test('routes the first task step to project settings before a project exists', async () => {
+    render(<GettingStartedView />)
+
+    expect(await screen.findByText('Do this next')).toBeDefined()
+    expect(
+      screen.getByText(
+        'Create or choose a project, then set up where tasks wait before the first task.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByRole('button', { name: /write first task/i })).toBeNull()
+
+    const firstTaskCard = screen.getByRole('heading', { name: /first task/i }).closest('article')
+    expect(firstTaskCard).not.toBeNull()
+    fireEvent.click(
+      within(firstTaskCard as HTMLElement).getByRole('button', {
+        name: /create team and project/i,
+      })
+    )
+    expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/projects' })
   })
 
   test('explains the first task as a small waiting-place pickup', async () => {

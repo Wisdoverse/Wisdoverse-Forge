@@ -169,6 +169,8 @@ export const en = {
         emptyWithRouting:
           'Write one small task. Forge puts it where tasks wait until the next available agent picks it up.',
         emptyWithoutRouting: 'Set up where tasks wait before the first task.',
+        emptyWithoutProject:
+          'Create or choose a project, then set up where tasks wait before the first task.',
         ready: '{{count}} task on the board.',
         why: 'A small first task proves the setup works before you depend on it for real work.',
         success: 'The task appears on the board, either waiting for an agent or already has one.',
