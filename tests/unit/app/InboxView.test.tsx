@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
-import { render, screen, cleanup, waitFor } from '@testing-library/react'
+import { render, screen, cleanup, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { InboxView } from '@app/features/inbox/InboxView'
 import { useFeedStore } from '@app/shared/model/feed.store'
@@ -335,7 +335,8 @@ describe('InboxView', () => {
     expect(screen.getByText('Account access needs reconnecting')).toBeDefined()
     expect(screen.queryByText(/runtime access/i)).toBeNull()
     expect(screen.queryByText(/credential expired/i)).toBeNull()
-    expect(screen.getByRole('button', { name: /open where agents work/i })).toBeDefined()
+    expect(within(nextStep).getByRole('button', { name: /reconnect work access/i })).toBeDefined()
+    expect(screen.queryByRole('button', { name: /open where agents work/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /^open settings$/i })).toBeNull()
   })
 

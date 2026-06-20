@@ -155,9 +155,15 @@ export function InboxView() {
     if (notification.taskHref === '/tasks') {
       setSelectedTask(notification.taskId)
       void navigate({ to: '/tasks' })
-    } else if (notification.taskHref === '/settings') {
+    } else if (
+      notification.type === 'credential_expired' ||
+      notification.taskHref === '/settings/work-tool-sign-ins'
+    ) {
       useSettingsStore.getState().setActiveSection('work-tool-sign-ins')
       void navigate({ to: '/settings/$section', params: { section: 'work-tool-sign-ins' } })
+    } else if (notification.taskHref === '/settings') {
+      useSettingsStore.getState().setActiveSection('runtime')
+      void navigate({ to: '/settings/$section', params: { section: 'runtime' } })
     } else if (notification.taskHref === '/admin') {
       // Tool update notifications open the admin console on the tool updates panel,
       // mirroring the /settings runtime-section pattern above.
@@ -481,7 +487,7 @@ function nextStepDescription(
 function nextStepActionLabel(notification: Notification): string {
   switch (notification.type) {
     case 'credential_expired':
-      return 'Open Where agents work'
+      return 'Reconnect work access'
     case 'blocked':
       return 'Open task'
     case 'failed':
