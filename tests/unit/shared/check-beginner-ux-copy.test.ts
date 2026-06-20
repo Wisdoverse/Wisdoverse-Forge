@@ -15001,6 +15001,23 @@ function ResultReviewGuide() {
 function taskCheckIn() {
   return '1 result item ready to review.'
 }
+function taskOutcome() {
+  return 'Review the outcome, then save repeatable steps or create a follow-up task if something is missing.'
+}
+function taskStart() {
+  return 'The task has an agent. Review the brief, then start the task.'
+}
+function taskFallback() {
+  return 'Review the latest updates before deciding whether to start, retry, or close this task.'
+}
+`,
+      'src/app/features/detail/TaskMetadata.tsx': `
+function taskStatus() {
+  return 'The task is finished. Review the Result tab or the final answer before closing the loop.'
+}
+function taskFallback() {
+  return 'Open Updates to review the latest task activity.'
+}
 `,
       'src/app/features/list/ListView.tsx': `
 function listNextStep() {
@@ -15065,6 +15082,26 @@ function agentNextStep() {
         expect.objectContaining({
           type: 'task-detail-result-review-copy',
           location: 'src/app/features/detail/HistoryTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/HistoryTab.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/HistoryTab.tsx:9',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/HistoryTab.tsx:12',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/TaskMetadata.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/TaskMetadata.tsx:6',
         }),
         expect.objectContaining({
           type: 'task-detail-result-review-copy',

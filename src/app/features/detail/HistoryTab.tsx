@@ -378,7 +378,7 @@ function taskCheckIn(task: TaskSummary): {
         detail:
           artifactCount > 0
             ? `${artifactCount} result file${artifactCount === 1 ? '' : 's'} ready to check.`
-            : 'Review the outcome, then save repeatable steps or create a follow-up task if something is missing.',
+            : 'Check the outcome, then save repeatable steps or create a follow-up task if something is missing.',
         tone: 'success',
         Icon: CheckCircle2,
       }
@@ -487,7 +487,7 @@ function taskUpdateGuide(task: TaskSummary): string {
   switch (task.state) {
     case 'backlog':
       return task.assignedAgentName
-        ? 'The task has an agent. Review the brief, then start the task.'
+        ? 'The task has an agent. Check the brief, then start the task.'
         : 'Choose an agent first, then start the task.'
     case 'queued':
       return task.assignedAgentName || task.assignedTo
@@ -504,7 +504,7 @@ function taskUpdateGuide(task: TaskSummary): string {
     case 'canceled':
       return 'No one is working on this task now. Reopen it or create follow-up work if it still matters.'
     default:
-      return 'Review the latest updates before deciding whether to start, retry, or close this task.'
+      return 'Check the latest updates before deciding whether to start, retry, or close this task.'
   }
 }
 

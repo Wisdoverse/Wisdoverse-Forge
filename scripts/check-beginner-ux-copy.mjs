@@ -1904,8 +1904,10 @@ const TASK_DETAIL_EVIDENCE_JARGON_PATTERNS = [
   /\bUse this result as evidence\b/i,
   /\bCheck the evidence\b/i,
   /\bresult, evidence\b/i,
+  /\bReview the outcome, then save\b/i,
   /\breview the result before closing\b/i,
   /\bReview the result before accepting it\b/i,
+  /\bReview the Result tab\b/i,
   /\breview the result and result files\b/i,
   /\breview the result and evidence\b/i,
   /\breview result files\b/i,
@@ -1915,6 +1917,9 @@ const TASK_DETAIL_EVIDENCE_JARGON_PATTERNS = [
   /\bAfter review, save\b/i,
   /\bReview the handoff\b/i,
   /\bReview the brief, then send it\b/i,
+  /\bReview the brief, then start\b/i,
+  /\bReview the latest updates before deciding\b/i,
+  /\bOpen Updates to review the latest task activity\b/i,
   /\breview the suggested saved notes and instructions\b/i,
   /\battached for review\b/i,
   /\bresult file(?:s)? ready for review\b/i,
@@ -3110,6 +3115,7 @@ function hasTaskDetailEvidenceJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/detail/DescriptionTab.tsx') &&
     !relFile.endsWith('src/app/features/detail/HistoryTab.tsx') &&
+    !relFile.endsWith('src/app/features/detail/TaskMetadata.tsx') &&
     !relFile.endsWith('src/app/features/detail/TaskDetailPanel.tsx') &&
     !relFile.endsWith('src/app/features/list/ListView.tsx') &&
     !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')

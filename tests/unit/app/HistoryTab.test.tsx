@@ -44,8 +44,9 @@ describe('HistoryTab', () => {
     render(<HistoryTab task={makeTask({ state: 'backlog', progress: 0 })} />)
 
     expect(
-      await screen.findByText('The task has an agent. Review the brief, then start the task.')
+      await screen.findByText('The task has an agent. Check the brief, then start the task.')
     ).toBeInTheDocument()
+    expect(screen.queryByText(/Review the brief, then start/i)).toBeNull()
     expect(screen.queryByText(new RegExp(['brief', 'is', 'ready'].join('\\s+'), 'i'))).toBeNull()
     expect(screen.queryByText(/when ready/i)).toBeNull()
   })
@@ -384,8 +385,9 @@ describe('HistoryTab', () => {
 
     expect(await screen.findByText('Build Agent finished the task')).toBeInTheDocument()
     expect(screen.getByText('This agent finished the task.')).toBeInTheDocument()
-    expect(screen.getByText(/Review the outcome, then save repeatable steps/i)).toBeInTheDocument()
+    expect(screen.getByText(/Check the outcome, then save repeatable steps/i)).toBeInTheDocument()
     expect(screen.getByText(/Open Results next. Check the answer/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Review the outcome/i)).toBeNull()
     expect(screen.queryByText('This agent will handle the next step.')).toBeNull()
     expect(screen.queryByText(/saved guidance/i)).toBeNull()
     expect(screen.queryByText(/Confirm the answer matches the brief/i)).toBeNull()
