@@ -8992,6 +8992,40 @@ const labels = {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags chat tool result toggles that expose detail jargon', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ToolCallDetail.tsx': `
+function ToolCallDetail() {
+  return <>
+    <button>Show result details</button>
+    <button>Hide result details</button>
+    <button>Show all result details (18 lines)</button>
+  </>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'chat-tool-step-copy',
+          sample: expect.stringContaining('Show result details'),
+        }),
+        expect.objectContaining({
+          type: 'chat-tool-step-copy',
+          sample: expect.stringContaining('Hide result details'),
+        }),
+        expect.objectContaining({
+          type: 'chat-tool-step-copy',
+          sample: expect.stringContaining('Show all result details'),
+        }),
+      ])
+    )
+  })
+
   it('flags chat tool step timing copy that exposes raw duration units', () => {
     const cwd = fixture({
       'src/app/features/chat/ToolCallDetail.tsx': `

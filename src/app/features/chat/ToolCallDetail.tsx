@@ -9,6 +9,10 @@ const MISSING_ACCESS_MESSAGE =
   'Required account access is missing. Add or reconnect service access, then retry.'
 const TECHNICAL_PROBLEM_MESSAGE =
   'This step hit a problem. Ask the agent to explain what happened, then retry if the task still matters.'
+const COMMAND_OUTPUT_MESSAGE =
+  'Command output was saved. Ask the agent to explain it before relying on it.'
+const PROBLEM_OUTPUT_MESSAGE =
+  'Problem output was saved. Ask the agent to explain what happened before retrying.'
 
 function formatExtraDetails(data: Record<string, unknown>): string {
   try {
@@ -46,6 +50,11 @@ function extraDetailLabel(key: string): string {
     path: 'File or link',
     file: 'File',
     url: 'Address',
+    stdout: 'Command output',
+    stderr: 'Problem output',
+    rawoutput: 'Command output',
+    commandoutput: 'Command output',
+    erroroutput: 'Problem output',
     target: 'Target',
     reason: 'Reason',
     error: 'Problem',
@@ -83,6 +92,9 @@ function formatExtraValue(value: unknown, key = ''): string {
 function safeToolValue(value: unknown, key = ''): unknown {
   if (isSensitiveKey(key)) return HIDDEN_ACCESS_VALUE
 
+  const savedOutputMessage = outputMessageForKey(key)
+  if (savedOutputMessage) return savedOutputMessage
+
   if (typeof value === 'string') {
     return safeToolString(value)
   }
@@ -101,6 +113,20 @@ function safeToolValue(value: unknown, key = ''): unknown {
   }
 
   return value
+}
+
+function outputMessageForKey(key: string): string | null {
+  const normalized = key
+    .trim()
+    .toLowerCase()
+    .replace(/[-_\s]/g, '')
+  if (['stdout', 'rawoutput', 'commandoutput'].includes(normalized)) {
+    return COMMAND_OUTPUT_MESSAGE
+  }
+  if (['stderr', 'erroroutput'].includes(normalized)) {
+    return PROBLEM_OUTPUT_MESSAGE
+  }
+  return null
 }
 
 function isSensitiveKey(key: string): boolean {
@@ -360,7 +386,7 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
                 onClick={() => setShowResultDetails((visible) => !visible)}
                 className="mt-1 text-[10px] font-medium text-apple-blue hover:underline"
               >
-                {showResultDetails ? 'Hide result details' : 'Show result details'}
+                {showResultDetails ? 'Hide what happened' : 'Show what happened'}
               </button>
               {showResultDetails && (
                 <>
@@ -382,7 +408,7 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
                       onClick={() => setShowFullOutput(true)}
                       className="text-[10px] text-apple-blue hover:underline mt-1"
                     >
-                      Show all result details ({outputLines.length} lines)
+                      Show the rest of what happened ({outputLines.length} lines)
                     </button>
                   )}
                 </>

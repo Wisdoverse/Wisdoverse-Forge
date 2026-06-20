@@ -1471,6 +1471,8 @@ const CHAT_TOOL_STEP_DEAD_END_PATTERNS = [
   /\bThis step needs review\b/i,
   /\bThis step has not reported a result yet\b/i,
   /\b(?:Show|Hide) setup details\b/i,
+  /\b(?:Show|Hide) result details\b/i,
+  /\bShow all result details\b/i,
   /\bTook\s+\{?formatDuration\b/i,
   /\bTook\s+\{?[^\n]{0,80}(?:ms|s)\b/i,
   /\bDuration:\s*\{?[^\n]{0,80}(?:ms|s)\b/i,
