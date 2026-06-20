@@ -161,7 +161,11 @@ describe('ProvidersSection', () => {
       screen.queryByRole('button', { name: /check local lab AI service connection/i })
     ).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Disabled' }))
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /disabled AI services status filter, 1 configured AI service/i,
+      })
+    )
 
     expect(screen.queryByText('Anthropic Review')).toBeNull()
     expect(screen.getByText('Local Lab')).toBeDefined()
@@ -170,7 +174,12 @@ describe('ProvidersSection', () => {
   test('searches providers and exposes a clear empty state', async () => {
     render(<ProvidersSection />)
 
-    fireEvent.change(await screen.findByRole('searchbox', { name: /search AI services/i }), {
+    const search = await screen.findByRole('searchbox', { name: /search AI services/i })
+    expect(search).toHaveAccessibleDescription(
+      'Search only filters AI services. Clear it to see every AI service again.'
+    )
+
+    fireEvent.change(search, {
       target: { value: 'review' },
     })
 
@@ -182,13 +191,21 @@ describe('ProvidersSection', () => {
     })
 
     const searchEmpty = screen.getByTestId('provider-filter-empty')
+    expect(searchEmpty).toHaveAttribute('role', 'status')
+    expect(searchEmpty).toHaveAttribute('aria-live', 'polite')
     expect(within(searchEmpty).getByText('Clear search to see AI services')).toBeDefined()
     expect(searchEmpty.textContent).toContain(
       'Your AI services exist, but this search hides them. Try a broader name.'
     )
     expect(searchEmpty.textContent).not.toContain('No AI services match this view')
 
-    fireEvent.click(screen.getByRole('button', { name: /show all AI services/i }))
+    fireEvent.click(within(searchEmpty).getByRole('button', { name: /show all AI services/i }))
+    expect(screen.getByRole('searchbox', { name: /search AI services/i })).toHaveValue('')
+    expect(
+      screen.getByRole('button', {
+        name: /all AI services status filter, 3 configured AI services/i,
+      })
+    ).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getAllByText('OpenAI Production').length).toBeGreaterThan(0)
     expect(screen.getByText('Anthropic Review')).toBeDefined()
     expect(screen.getByText('Local Lab')).toBeDefined()
@@ -213,9 +230,15 @@ describe('ProvidersSection', () => {
     render(<ProvidersSection />)
 
     expect((await screen.findAllByText('OpenAI Production')).length).toBeGreaterThan(0)
-    fireEvent.click(screen.getByRole('button', { name: 'Needs check' }))
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /AI services that need a connection check status filter, 0 configured AI services/i,
+      })
+    )
 
     const filterEmpty = screen.getByTestId('provider-filter-empty')
+    expect(filterEmpty).toHaveAttribute('role', 'status')
+    expect(filterEmpty).toHaveAttribute('aria-live', 'polite')
     expect(within(filterEmpty).getByText('Choose All to see AI services')).toBeDefined()
     expect(filterEmpty.textContent).toContain(
       'Your AI services exist, but this filter has no results yet.'
@@ -227,11 +250,21 @@ describe('ProvidersSection', () => {
     })
 
     const combinedEmpty = screen.getByTestId('provider-filter-empty')
+    expect(combinedEmpty).toHaveAttribute('role', 'status')
+    expect(combinedEmpty).toHaveAttribute('aria-live', 'polite')
     expect(within(combinedEmpty).getByText('Clear search or show all AI services')).toBeDefined()
     expect(combinedEmpty.textContent).toContain(
       'Your AI services exist, but the current search and filter hide them.'
     )
     expect(combinedEmpty.textContent).not.toContain('No AI services match this view')
+
+    fireEvent.click(within(combinedEmpty).getByRole('button', { name: /show all AI services/i }))
+    expect(screen.getByRole('searchbox', { name: /search AI services/i })).toHaveValue('')
+    expect(
+      screen.getByRole('button', {
+        name: /all AI services status filter, 1 configured AI service/i,
+      })
+    ).toHaveAttribute('aria-pressed', 'true')
   })
 
   test('guides an empty provider setup into the catalog and saves a built-in vendor', async () => {
@@ -399,7 +432,11 @@ describe('ProvidersSection', () => {
 
     // The disabled provider still lists in the configured rows.
     expect(screen.getByText('Local Disabled')).toBeDefined()
-    expect(screen.getByRole('button', { name: 'Disabled' })).toHaveAttribute('aria-pressed', 'true')
+    expect(
+      screen.getByRole('button', {
+        name: /disabled AI services status filter, 1 configured AI service/i,
+      })
+    ).toHaveAttribute('aria-pressed', 'true')
     expect(screen.queryByRole('button', { name: /save AI service/i })).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /turn on local disabled AI service/i }))
@@ -407,10 +444,11 @@ describe('ProvidersSection', () => {
     await waitFor(() =>
       expect(setProviderEnabledMock).toHaveBeenCalledWith('provider-disabled-only', true)
     )
-    expect(screen.getByRole('button', { name: 'Needs check' })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    )
+    expect(
+      screen.getByRole('button', {
+        name: /AI services that need a connection check status filter, 1 configured AI service/i,
+      })
+    ).toHaveAttribute('aria-pressed', 'true')
     expect(
       screen.getByRole('button', { name: /check local disabled AI service connection/i })
     ).toBeEnabled()
