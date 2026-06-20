@@ -176,7 +176,7 @@ describe('ProvidersSection', () => {
 
     const search = await screen.findByRole('searchbox', { name: /search AI services/i })
     expect(search).toHaveAccessibleDescription(
-      'Search only filters AI services. Clear it to see every AI service again.'
+      'Search only filters AI services. Use Show all AI services to see every AI service again.'
     )
 
     fireEvent.change(search, {
@@ -193,10 +193,11 @@ describe('ProvidersSection', () => {
     const searchEmpty = screen.getByTestId('provider-filter-empty')
     expect(searchEmpty).toHaveAttribute('role', 'status')
     expect(searchEmpty).toHaveAttribute('aria-live', 'polite')
-    expect(within(searchEmpty).getByText('Clear search to see AI services')).toBeDefined()
+    expect(within(searchEmpty).getByText('Search is hiding AI services')).toBeDefined()
     expect(searchEmpty.textContent).toContain(
-      'Your AI services exist, but this search hides them. Try a broader name.'
+      'Your AI services exist, but this search hides them. Use Show all AI services to return to the full list.'
     )
+    expect(searchEmpty.textContent).not.toContain('Clear search')
     expect(searchEmpty.textContent).not.toContain('No AI services match this view')
 
     fireEvent.click(within(searchEmpty).getByRole('button', { name: /show all AI services/i }))
@@ -239,9 +240,9 @@ describe('ProvidersSection', () => {
     const filterEmpty = screen.getByTestId('provider-filter-empty')
     expect(filterEmpty).toHaveAttribute('role', 'status')
     expect(filterEmpty).toHaveAttribute('aria-live', 'polite')
-    expect(within(filterEmpty).getByText('Choose All to see AI services')).toBeDefined()
+    expect(within(filterEmpty).getByText('This status hides AI services')).toBeDefined()
     expect(filterEmpty.textContent).toContain(
-      'Your AI services exist, but this filter has no results yet.'
+      'Your AI services exist, but this status has no results yet. Use Show all AI services to return to every status.'
     )
     expect(filterEmpty.textContent).not.toContain('No AI services match this view')
 
@@ -252,10 +253,13 @@ describe('ProvidersSection', () => {
     const combinedEmpty = screen.getByTestId('provider-filter-empty')
     expect(combinedEmpty).toHaveAttribute('role', 'status')
     expect(combinedEmpty).toHaveAttribute('aria-live', 'polite')
-    expect(within(combinedEmpty).getByText('Clear search or show all AI services')).toBeDefined()
+    expect(
+      within(combinedEmpty).getByText('Search and filter are hiding AI services')
+    ).toBeDefined()
     expect(combinedEmpty.textContent).toContain(
-      'Your AI services exist, but the current search and filter hide them.'
+      'Your AI services exist, but the current search and filter hide them. Use Show all AI services before assuming a service is missing.'
     )
+    expect(combinedEmpty.textContent).not.toContain('Clear search')
     expect(combinedEmpty.textContent).not.toContain('No AI services match this view')
 
     fireEvent.click(within(combinedEmpty).getByRole('button', { name: /show all AI services/i }))

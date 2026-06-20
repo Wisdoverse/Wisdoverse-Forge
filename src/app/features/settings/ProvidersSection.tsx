@@ -79,7 +79,7 @@ interface CatalogVendor {
 }
 
 const PROVIDER_SEARCH_HELP =
-  'Search only filters AI services. Clear it to see every AI service again.'
+  'Search only filters AI services. Use Show all AI services to see every AI service again.'
 
 const PROVIDER_FILTERS: { id: ProviderFilter; label: string; ariaLabel: string }[] = [
   { id: 'all', label: 'All', ariaLabel: 'All AI services status filter' },
@@ -531,21 +531,24 @@ function providerFilterEmptyState(
 
   if (hasSearch && hasFilter) {
     return {
-      title: 'Clear search or show all AI services',
-      detail: 'Your AI services exist, but the current search and filter hide them.',
+      title: 'Search and filter are hiding AI services',
+      detail:
+        'Your AI services exist, but the current search and filter hide them. Use Show all AI services before assuming a service is missing.',
     }
   }
 
   if (hasSearch) {
     return {
-      title: 'Clear search to see AI services',
-      detail: 'Your AI services exist, but this search hides them. Try a broader name.',
+      title: 'Search is hiding AI services',
+      detail:
+        'Your AI services exist, but this search hides them. Use Show all AI services to return to the full list.',
     }
   }
 
   return {
-    title: 'Choose All to see AI services',
-    detail: 'Your AI services exist, but this filter has no results yet.',
+    title: 'This status hides AI services',
+    detail:
+      'Your AI services exist, but this status has no results yet. Use Show all AI services to return to every status.',
   }
 }
 
