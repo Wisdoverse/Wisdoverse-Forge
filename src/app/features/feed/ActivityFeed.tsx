@@ -8,6 +8,7 @@ import {
   ListFilter,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { useBoardStore } from '@app/shared/model/board.store'
 import { useFeedStore } from '@app/shared/model/feed.store'
 import { AgentStatusBar } from './AgentStatusBar'
 import { AttentionZone } from './AttentionZone'
@@ -72,7 +73,11 @@ export function ActivityFeed({ onOpenBoard }: ActivityFeedProps = {}) {
   const agents = useFeedStore((state) => state.agents)
   const attentionItems = useFeedStore((state) => state.attentionItems)
   const feedItems = useFeedStore((state) => state.feedItems)
+  const boardColumns = useBoardStore((state) => state.columns)
+  const setSelectedTask = useBoardStore((state) => state.setSelectedTask)
+  const removeAttentionItem = useFeedStore((state) => state.removeAttentionItem)
   const [activeFilter, setActiveFilter] = useState<FeedFilter>('all')
+  const [attentionHelp, setAttentionHelp] = useState<string | null>(null)
 
   const operations = useMemo(() => {
     const workingAgents = agents.filter((agent) => agent.status === 'working').length
@@ -171,7 +176,30 @@ export function ActivityFeed({ onOpenBoard }: ActivityFeedProps = {}) {
       </section>
 
       <AgentStatusBar agents={agents} />
-      <AttentionZone items={attentionItems} />
+      <AttentionZone
+        items={attentionItems}
+        help={attentionHelp}
+        onView={(taskId) => {
+          const taskExists = Object.values(boardColumns)
+            .flat()
+            .some((task) => task.id === taskId)
+          if (taskExists) {
+            setSelectedTask(taskId)
+            setAttentionHelp(null)
+            return
+          }
+          setAttentionHelp(
+            'Open the task board, refresh tasks if needed, then open this task from the board.'
+          )
+          onOpenBoard?.()
+        }}
+        onDismiss={(id) => {
+          removeAttentionItem(id)
+          setAttentionHelp(
+            'Removed from needs your decision. Check the task details if it stops again.'
+          )
+        }}
+      />
 
       {feedItems.length > 0 ? (
         <div>

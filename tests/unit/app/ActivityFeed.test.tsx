@@ -1,10 +1,14 @@
 import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
 import { ActivityFeed } from '@app/features/feed/ActivityFeed'
+import { useBoardStore } from '@app/shared/model/board.store'
 import { useFeedStore } from '@app/shared/model/feed.store'
 
 afterEach(cleanup)
-beforeEach(() => useFeedStore.getState().reset())
+beforeEach(() => {
+  useBoardStore.getState().reset()
+  useFeedStore.getState().reset()
+})
 
 describe('ActivityFeed', () => {
   test('renders agent status bar', () => {
@@ -30,7 +34,71 @@ describe('ActivityFeed', () => {
     expect(screen.getByText(/Agent Two is waiting: Waiting for account access/i)).toBeDefined()
     expect(screen.queryByText(/Needs SSH key/i)).toBeNull()
     expect(screen.getByRole('button', { name: /open task details/i })).toBeDefined()
-    expect(screen.getByRole('button', { name: /allow to continue/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /mark checked/i })).toBeDefined()
+  })
+
+  test('opens task details from an attention item when the task is on the board', () => {
+    useBoardStore.getState().setTasks([
+      {
+        id: 't1',
+        groupId: 'g1',
+        state: 'blocked',
+        method: 'tasks/send',
+        params: { task: 'Deploy staging', message: '' },
+        priority: 'normal',
+        progress: 0,
+        createdAt: '2026-06-20T00:00:00Z',
+        updatedAt: '2026-06-20T00:00:00Z',
+      },
+    ])
+    useFeedStore.getState().addAttentionItem({
+      id: 't1',
+      taskTitle: 'Deploy staging',
+      agentName: 'Agent Two',
+      reason: 'Needs SSH key',
+      timestamp: Date.now(),
+    })
+
+    render(<ActivityFeed />)
+
+    fireEvent.click(screen.getByRole('button', { name: /open task details/i }))
+
+    expect(useBoardStore.getState().selectedTaskId).toBe('t1')
+  })
+
+  test('opens the task board when an attention item is not loaded locally', () => {
+    const onOpenBoard = vi.fn()
+    useFeedStore.getState().addAttentionItem({
+      id: 't-missing',
+      taskTitle: 'Deploy staging',
+      agentName: 'Agent Two',
+      reason: 'Needs SSH key',
+      timestamp: Date.now(),
+    })
+
+    render(<ActivityFeed onOpenBoard={onOpenBoard} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /open task details/i }))
+
+    expect(onOpenBoard).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('status')).toHaveTextContent(/open the task board/i)
+  })
+
+  test('removes an attention item after marking it checked', () => {
+    useFeedStore.getState().addAttentionItem({
+      id: 't1',
+      taskTitle: 'Deploy staging',
+      agentName: 'Agent Two',
+      reason: 'Needs SSH key',
+      timestamp: Date.now(),
+    })
+
+    render(<ActivityFeed />)
+
+    fireEvent.click(screen.getByRole('button', { name: /mark checked/i }))
+
+    expect(useFeedStore.getState().attentionItems).toHaveLength(0)
+    expect(screen.queryByTestId('attention-zone')).toBeNull()
   })
 
   test('hides attention zone when no blocked tasks', () => {
