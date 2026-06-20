@@ -60,13 +60,13 @@ export function createAgentWorkLaneErrorMessage(error: unknown): string {
   const code = statusCode(error)
 
   if (code === 401 || text.includes('unauthorized') || text.includes('sign in again')) {
-    return 'Sign in again, reopen Create Agent, and set up where tasks wait again. The waiting place was not created.'
+    return 'Sign in again, open New agent again, and set up where tasks wait again. The waiting place was not created.'
   }
   if (code === 403 || text.includes('forbidden') || text.includes('permission')) {
     return 'Ask an owner or admin to let you set up where tasks wait in this project. The waiting place was not created.'
   }
   if (code === 404) {
-    return 'Refresh this page, then choose the project again. The waiting place was not created because the selected project may have changed or been removed.'
+    return 'Open New agent, choose the project again, then set up where tasks wait. The waiting place was not created because the selected project may have changed or been removed.'
   }
   if (
     code === 409 ||
@@ -74,7 +74,7 @@ export function createAgentWorkLaneErrorMessage(error: unknown): string {
     text.includes('already exist') ||
     text.includes('duplicate')
   ) {
-    return 'Refresh the project, then choose the existing waiting place. A starter waiting place may already exist.'
+    return 'Open the project again, then choose the existing waiting place. A starter waiting place may already exist.'
   }
   if (code === 422 || text.includes('validation')) {
     return 'Choose a project first, then set up where tasks wait again. The waiting place was not created.'

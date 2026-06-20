@@ -127,7 +127,8 @@ describe('SystemHealth', () => {
     render(<SystemHealth />)
 
     expect(loadHealth).toHaveBeenCalledOnce()
-    expect(screen.getByText(/refreshes every 30 seconds while Admin is open/i)).toBeDefined()
+    expect(screen.getByText(/checks again every 30 seconds while Admin is open/i)).toBeDefined()
+    expect(screen.queryByText(/refreshes every 30 seconds/i)).toBeNull()
     expect(screen.queryByText(/Hidden tabs pause checks/i)).toBeNull()
     expect(screen.queryByText(/while this page is visible/i)).toBeNull()
 
@@ -195,7 +196,7 @@ describe('SystemHealth', () => {
     render(<SystemHealth />)
 
     await waitFor(() => expect(loadHealth).toHaveBeenCalledOnce())
-    expect(screen.getByText(/Ask an owner or admin to check System health in Admin/i)).toBeDefined()
+    expect(screen.getByText(/Ask an owner or admin to check App health in Admin/i)).toBeDefined()
     expect(screen.queryByText(/check app setup/i)).toBeNull()
     expect(screen.queryByText(/runtime configuration/i)).toBeNull()
   })
@@ -230,7 +231,7 @@ describe('SystemHealth', () => {
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
-      'Refresh Admin, then choose Check now. Forge could not check app health. If it still fails, ask an owner or admin to check System health in Admin.'
+      'Open Admin and choose App health, then choose Check now. Forge could not check app health. If it still fails, ask an owner or admin to check App health in Admin.'
     )
     expect(screen.queryByText('HTTP 500')).toBeNull()
     expect(screen.queryByText(/temporarily unavailable/i)).toBeNull()

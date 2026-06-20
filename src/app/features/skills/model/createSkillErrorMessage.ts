@@ -4,15 +4,15 @@ const GENERIC_BODY_TEXT = /^(Unauthorized|Forbidden|Not Found|Internal Server Er
 const CREATE_NETWORK_MESSAGE =
   'Check your connection, then create the instruction again. Forge could not connect while creating it.'
 const CREATE_PERMISSION_MESSAGE =
-  'Ask an owner or admin to let you create saved instructions for this team space.'
+  'Ask an owner or admin to let you create saved instructions for this team space, then create the instruction again.'
 const CREATE_NOT_FOUND_MESSAGE = 'Open Saved instructions again, then create the instruction.'
 const CREATE_CONFLICT_MESSAGE =
-  'Review the existing instructions, then change the name or matching words and try again.'
+  'Open Saved instructions to check for a similar item, then change the name or matching words and create the instruction again.'
 const CREATE_RATE_LIMIT_MESSAGE =
   'Wait a moment, then create the instruction again. Instruction setup is busy right now.'
 const CREATE_SERVICE_MESSAGE =
-  'Refresh Saved instructions, then create the instruction again. If it still fails, ask an owner or admin to check Saved instructions access.'
-const CREATE_DEFAULT_MESSAGE = 'Review the fields, then create the instruction again.'
+  'Open Saved instructions again, then create the instruction again. If it still fails, ask an owner or admin to check Saved instructions access.'
+const CREATE_DEFAULT_MESSAGE = 'Check the required fields, then create the instruction again.'
 
 const USER_FACING_STARTS = [
   'The instruction could not be created',
@@ -26,10 +26,9 @@ const USER_FACING_STARTS = [
   'Check your connection',
   'Ask an owner or admin',
   'Open Saved instructions',
-  'Review the existing instructions',
   'Wait a moment',
-  'Refresh Saved instructions',
-  'Review the fields',
+  'Open Saved instructions',
+  'Check the required fields',
 ]
 
 export function createSkillErrorMessage(error?: unknown): string {
@@ -163,15 +162,15 @@ function trimDetail(detail: string | null): string | null {
 function validationMessage(detail: string | null): string {
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('trigger')) {
-    return 'Check the matching words, then try again.'
+    return 'Check the matching words, then create the instruction again.'
   }
   if (normalized.includes('name')) {
-    return 'Enter an instruction name, then try again.'
+    return 'Enter an instruction name, then create the instruction again.'
   }
   if (normalized.includes('content') || normalized.includes('instruction')) {
-    return 'Enter the saved instructions, then try again.'
+    return 'Enter the saved instructions, then create the instruction again.'
   }
-  return 'Check the instruction name, matching words, and instructions, then try again.'
+  return 'Check the instruction name, matching words, and instructions, then create the instruction again.'
 }
 
 function stripInternalErrorSuffix(detail: string): string {

@@ -1,5 +1,5 @@
 import { LayoutGrid, ListFilter, Search } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 import { cn } from '@app/shared/lib/utils'
 
 export type BoardPriorityFilter = 'all' | 'urgent' | 'high' | 'normal' | 'low'
@@ -26,23 +26,23 @@ interface BoardToolbarProps {
   onClear: () => void
 }
 
-const PRIORITY_FILTERS: { value: BoardPriorityFilter; label: string }[] = [
-  { value: 'all', label: 'All priorities' },
-  { value: 'urgent', label: 'Urgent' },
-  { value: 'high', label: 'High' },
-  { value: 'normal', label: 'Normal' },
-  { value: 'low', label: 'Low' },
+const PRIORITY_FILTERS: { value: BoardPriorityFilter; label: string; ariaLabel: string }[] = [
+  { value: 'all', label: 'All priorities', ariaLabel: 'Show tasks at all priority levels' },
+  { value: 'urgent', label: 'Urgent', ariaLabel: 'Show urgent priority tasks' },
+  { value: 'high', label: 'High', ariaLabel: 'Show high priority tasks' },
+  { value: 'normal', label: 'Normal', ariaLabel: 'Show normal priority tasks' },
+  { value: 'low', label: 'Low', ariaLabel: 'Show low priority tasks' },
 ]
 
-const ASSIGNEE_FILTERS: { value: BoardAssigneeFilter; label: string }[] = [
-  { value: 'all', label: 'All agents' },
-  { value: 'unassigned', label: 'Needs agent' },
-  { value: 'assigned', label: 'Has agent' },
+const ASSIGNEE_FILTERS: { value: BoardAssigneeFilter; label: string; ariaLabel: string }[] = [
+  { value: 'all', label: 'All agents', ariaLabel: 'Show tasks for all agent choices' },
+  { value: 'unassigned', label: 'Needs agent', ariaLabel: 'Show tasks that still need an agent' },
+  { value: 'assigned', label: 'Has agent', ariaLabel: 'Show tasks that already have an agent' },
 ]
 
-const DISPLAY_OPTIONS: { value: BoardDisplayMode; label: string }[] = [
-  { value: 'comfortable', label: 'Guided' },
-  { value: 'compact', label: 'Compact' },
+const DISPLAY_OPTIONS: { value: BoardDisplayMode; label: string; ariaLabel: string }[] = [
+  { value: 'comfortable', label: 'Guided', ariaLabel: 'Use guided task cards' },
+  { value: 'compact', label: 'Compact', ariaLabel: 'Use compact task cards' },
 ]
 
 export function BoardToolbar({
@@ -57,6 +57,7 @@ export function BoardToolbar({
   counts,
   onClear,
 }: BoardToolbarProps) {
+  const searchHelpId = useId()
   const hasActiveFilter =
     searchQuery.trim().length > 0 || priorityFilter !== 'all' || assigneeFilter !== 'all'
 
@@ -80,9 +81,17 @@ export function BoardToolbar({
               type="search"
               value={searchQuery}
               onChange={(event) => onSearchQueryChange(event.target.value)}
+              aria-describedby={searchHelpId}
               placeholder="Search task names, agents, or help needed..."
               className="h-9 w-full rounded-lg border border-black/[0.08] bg-black/[0.02] pl-9 pr-3 text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light focus:border-apple-blue/40 focus:bg-white focus:ring-2 focus:ring-apple-blue/20 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark dark:focus:bg-white/[0.06]"
             />
+            <span
+              id={searchHelpId}
+              className="mt-1 block text-ui-caption text-secondary-light dark:text-secondary-dark"
+            >
+              Search only filters the tasks shown below. Use Show all tasks to return to the full
+              board.
+            </span>
           </label>
 
           <FilterGroup
@@ -97,7 +106,7 @@ export function BoardToolbar({
           />
 
           <FilterGroup
-            ariaLabel="Filter tasks by agent assignment"
+            ariaLabel="Filter tasks by whether an agent is chosen"
             options={ASSIGNEE_FILTERS.map((filter) => ({
               ...filter,
               count: counts.assignee[filter.value],
@@ -108,7 +117,11 @@ export function BoardToolbar({
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <span className="text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark">
+          <span
+            role="status"
+            aria-live="polite"
+            className="text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark"
+          >
             Showing {counts.visible} of {counts.total} tasks
           </span>
           {hasActiveFilter && (
@@ -117,7 +130,7 @@ export function BoardToolbar({
               onClick={onClear}
               className="inline-flex h-8 items-center justify-center rounded-lg px-2 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35"
             >
-              Clear
+              Show all tasks
             </button>
           )}
           <FilterGroup
@@ -142,7 +155,7 @@ function FilterGroup<T extends string>({
 }: {
   ariaLabel: string
   icon?: ReactNode
-  options: { value: T; label: string; count: number | null }[]
+  options: { value: T; label: string; ariaLabel: string; count: number | null }[]
   value: T
   onChange: (value: T) => void
 }) {
@@ -157,11 +170,16 @@ function FilterGroup<T extends string>({
       )}
       {options.map((option) => {
         const selected = option.value === value
+        const countLabel =
+          typeof option.count === 'number'
+            ? `${option.count} matching ${option.count === 1 ? 'task' : 'tasks'}`
+            : null
         return (
           <button
             key={option.value}
             type="button"
             aria-pressed={selected}
+            aria-label={countLabel ? `${option.ariaLabel}, ${countLabel}` : option.ariaLabel}
             onClick={() => onChange(option.value)}
             className={cn(
               'inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-2 text-ui-caption font-medium transition-colors',

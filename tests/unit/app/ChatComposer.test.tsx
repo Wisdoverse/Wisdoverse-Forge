@@ -54,10 +54,12 @@ describe('ChatComposer', () => {
     fireEvent.click(screen.getByRole('button', { name: /send/i }))
 
     expect(onSend).not.toHaveBeenCalled()
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
       'Write a message before sending it to this agent. Try asking for a summary, what needs help, or the next safe step.'
     )
-    expect(screen.getByRole('alert')).not.toHaveTextContent(previousBlockedPrompt)
+    expect(alert).not.toHaveTextContent(previousBlockedPrompt)
     expect(textarea).toHaveFocus()
 
     fireEvent.change(textarea, { target: { value: 'review the latest task' } })
@@ -78,7 +80,7 @@ describe('ChatComposer', () => {
         onAbort={() => {}}
         streaming={false}
         disabled={true}
-        disabledReason="Open AI service settings, choose Check connection for this service, then refresh Agents before sending a message."
+        disabledReason="Open AI service settings, choose Check connection for this service, then return to Agents and refresh the list before sending a message."
         disabledPlaceholder="Check this AI service before sending a message."
       />
     )
@@ -91,7 +93,7 @@ describe('ChatComposer', () => {
     expect(screen.getByRole('button', { name: /send/i })).toBeDisabled()
     expect(
       screen.getByText(
-        'Open AI service settings, choose Check connection for this service, then refresh Agents before sending a message.'
+        'Open AI service settings, choose Check connection for this service, then return to Agents and refresh the list before sending a message.'
       )
     ).toBeVisible()
     expect(screen.queryByText(/Settings > AI services/)).toBeNull()

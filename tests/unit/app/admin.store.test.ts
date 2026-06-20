@@ -62,14 +62,14 @@ describe('adminHttpErrorMessage', () => {
   test('turns expired admin auth into a sign-in step', () => {
     expectBeginnerError(
       adminHttpErrorMessage('users', 401),
-      'Your sign-in expired. Sign in again, then open Admin and reload the user list.'
+      'Your sign-in expired. Sign in again, then open Admin and choose User access.'
     )
   })
 
   test('turns admin permission failures into an Admin access step', () => {
     expectBeginnerError(
       adminHttpErrorMessage('organizations', 403),
-      'Ask an owner or admin to give you Admin access, then reload Admin. You do not have access to the admin team space list.'
+      'Ask an owner or admin to give you Admin access, then open Admin and choose Team spaces. You do not have access to the admin team space list.'
     )
   })
 
@@ -80,7 +80,7 @@ describe('adminHttpErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'Reload the system health, then try again. Forge could not load the admin system health right now. If it still fails, ask an owner or admin to check system health in Admin.'
+      'Open Admin and choose App health, then try again. Forge could not load the admin system health right now. If it still fails, ask an owner or admin to check system health in Admin.'
     )
     expect(message).not.toContain('temporarily unavailable')
     expect(message).not.toContain('admin service')
@@ -92,7 +92,7 @@ describe('adminHttpErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'Refresh Admin, then try again. The admin agent list is not available from this Admin view. If it still fails, ask an owner or admin to check this Admin page.'
+      'Open Admin and choose Agents, then try again. The admin agent list is not available from this Admin view. If it still fails, ask an owner or admin to check this Admin page.'
     )
     expect(message).not.toContain('service')
     expect(message).not.toContain('check setup')
@@ -101,7 +101,7 @@ describe('adminHttpErrorMessage', () => {
   test('turns admin rate limits into a wait and reload step', () => {
     expectBeginnerError(
       adminHttpErrorMessage('users', 429),
-      'Forge is receiving too many Admin requests right now. Wait a moment, then reload the user list.'
+      'Wait a moment, then open Admin and choose User access before trying again. Forge is receiving too many Admin requests right now.'
     )
   })
 })
@@ -114,7 +114,7 @@ describe('useAdminStore loading errors', () => {
 
     expectBeginnerError(
       useAdminStore.getState().usersError,
-      'Ask an owner or admin to give you Admin access, then reload Admin. You do not have access to the admin user list.'
+      'Ask an owner or admin to give you Admin access, then open Admin and choose User access. You do not have access to the admin user list.'
     )
     expect(useAdminStore.getState().usersError).not.toContain('role')
   })
@@ -125,7 +125,7 @@ describe('useAdminStore loading errors', () => {
     await useAdminStore.getState().loadOrgs()
 
     expect(useAdminStore.getState().orgsError).toBe(
-      'Check your connection, then refresh Admin. Forge could not connect while loading the admin team space list.'
+      'Check your connection, then open Admin and choose Team spaces. Forge could not connect while loading the admin team space list.'
     )
     expect(useAdminStore.getState().orgsError).not.toContain('could not reach the service')
   })
@@ -150,7 +150,7 @@ describe('useAdminStore loading errors', () => {
 
     expectBeginnerError(
       useAdminStore.getState().healthError,
-      'Reload the system health, then try again. Forge could not load the admin system health right now. If it still fails, ask an owner or admin to check system health in Admin.'
+      'Open Admin and choose App health, then try again. Forge could not load the admin system health right now. If it still fails, ask an owner or admin to check system health in Admin.'
     )
     expect(useAdminStore.getState().healthError).not.toContain('temporarily unavailable')
     expect(useAdminStore.getState().healthError).not.toContain('Admin setup')
@@ -233,7 +233,7 @@ describe('useAdminStore loading errors', () => {
 
     expectBeginnerError(
       useAdminStore.getState().cliImagesError,
-      'Ask an owner or admin to give you Admin access, then reload Admin. You do not have access to the admin agent tool updates.'
+      'Ask an owner or admin to give you Admin access, then open Admin and choose Agent tool updates. You do not have access to the admin agent tool updates.'
     )
     expect(useAdminStore.getState().cliImagesError).not.toContain('role')
   })
@@ -552,7 +552,7 @@ describe('useAdminStore loading errors', () => {
 
     expect(ok).toBe(false)
     expect(useAdminStore.getState().userActionError).toBe(
-      'Check your connection, then try again. The removal did not finish.'
+      'Check your connection, then open Admin and choose User access before trying again. The removal did not finish.'
     )
     expect(useAdminStore.getState().userActionError).not.toContain('server')
     expect(useAdminStore.getState().users).toHaveLength(2)
@@ -566,7 +566,7 @@ describe('useAdminStore loading errors', () => {
 
     expect(ok).toBe(false)
     expect(useAdminStore.getState().userActionError).toBe(
-      'Check your connection, then try again. The access change did not finish.'
+      'Check your connection, then open Admin and choose User access before trying again. The access change did not finish.'
     )
     expect(useAdminStore.getState().userActionError).not.toContain('server')
     expect(useAdminStore.getState().users[1]?.role).toBe('member')
@@ -580,20 +580,20 @@ describe('useAdminStore loading errors', () => {
 
   test('adminUserActionErrorMessage maps statuses to operator steps', () => {
     expect(adminUserActionErrorMessage('change-role', 401)).toBe(
-      'Your sign-in expired. Sign in again, then retry the access change.'
+      'Your sign-in expired. Sign in again, then open Admin and choose User access before retrying the access change.'
     )
     expect(adminUserActionErrorMessage('remove', 403)).toBe(
       'Ask an owner or admin to give you Admin access, then try again. You do not have access to remove user accounts.'
     )
     expect(adminUserActionErrorMessage('remove', 404)).toBe(
-      'This user is no longer in the list. Reload the user list to see the latest accounts.'
+      'Open Admin and choose User access to see the latest accounts. This user is no longer in the list.'
     )
     expect(adminUserActionErrorMessage('change-role', 500, { error: 'db down' })).toBe(
-      'Reload the user list, then try again. Forge could not finish the access change right now. If it still fails, ask an owner or admin to check User access in Admin.'
+      'Open Admin and choose User access, then try again. Forge could not finish the access change right now. If it still fails, ask an owner or admin to check User access in Admin.'
     )
     // 422 without a usable detail falls back to the generic retry step.
     expect(adminUserActionErrorMessage('change-role', 422)).toBe(
-      'Refresh the user list, then try again. The access change did not go through.'
+      'Open Admin and choose User access, then try again. The access change did not go through.'
     )
     expect(adminUserActionErrorMessage('change-role', 500, { error: 'db down' })).not.toContain(
       'db down'

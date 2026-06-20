@@ -57,9 +57,9 @@ interface TaskBriefCue {
 const TASK_BRIEF_TEMPLATES: TaskBriefTemplate[] = [
   {
     id: 'feature',
-    label: 'Feature',
-    summary: 'Build a contained change',
-    title: 'Build a focused feature',
+    label: 'Add something',
+    summary: 'Add one clear change',
+    title: 'Add one focused change',
     description:
       'What should change:\n- Describe the screen, command, or behavior to add.\n\nWhere to work:\n- Name the page, folder, or files if you know them.\n\nWhat to avoid:\n- List anything that should stay unchanged.\n\nDone when:\n- Say what should be visible, passing, or ready to review.',
     priority: 'normal',
@@ -67,9 +67,9 @@ const TASK_BRIEF_TEMPLATES: TaskBriefTemplate[] = [
   },
   {
     id: 'bug',
-    label: 'Bug',
-    summary: 'Reproduce and fix',
-    title: 'Fix a reproducible defect',
+    label: 'Fix a problem',
+    summary: 'Find what breaks and fix it',
+    title: 'Fix a problem you can repeat',
     description:
       'What is broken:\n- Describe what you see now.\n\nWhat should happen:\n- Describe the correct result.\n\nWhere to look first:\n- Add the page, command, log, or file if you know it.\n\nDone when:\n- Say how to confirm the fix.',
     priority: 'high',
@@ -77,9 +77,9 @@ const TASK_BRIEF_TEMPLATES: TaskBriefTemplate[] = [
   },
   {
     id: 'investigation',
-    label: 'Investigate',
-    summary: 'Find the reason',
-    title: 'Investigate an unclear issue',
+    label: 'Find the cause',
+    summary: 'Explain what is happening',
+    title: 'Find the cause of an unclear problem',
     description:
       'Question to answer:\n- Write the question in one sentence.\n\nWhat to inspect:\n- Add pages, files, logs, or recent changes if you know them.\n\nWhat is already known:\n- Add clues, links, or screenshots.\n\nDecision needed:\n- Say what answer or recommendation you need.',
     priority: 'normal',
@@ -87,11 +87,11 @@ const TASK_BRIEF_TEMPLATES: TaskBriefTemplate[] = [
   },
   {
     id: 'review',
-    label: 'Review',
-    summary: 'Check before release',
-    title: 'Review a change for release readiness',
+    label: 'Check a change',
+    summary: 'Look for risks before using it',
+    title: 'Check whether a change is safe to use',
     description:
-      'Change to review:\n- Name the PR, branch, files, or behavior.\n\nWhat could go wrong:\n- List the risks you care about.\n\nChecks to run:\n- Add tests, commands, or manual checks.\n\nAnswer format:\n- Ask for a short verdict, issues, and final recommendation.',
+      'Change to check:\n- Name the change, request, files, screen, or behavior.\n\nWhat could go wrong:\n- List the risks you care about.\n\nChecks to run:\n- Add tests, commands, or manual checks.\n\nAnswer format:\n- Ask for a short verdict, issues, and final recommendation.',
     priority: 'normal',
     Icon: ShieldCheck,
   },
@@ -264,7 +264,7 @@ export function TaskFormModal({
       const ok = await onProjectChange(projectId)
       if (ok === false) {
         setSubmitError(
-          'Select the project again to find where tasks wait. If it still does not load, refresh the board or ask an owner to check where tasks wait in this project.'
+          'Select the project again to find where tasks wait. If it still does not load, open the Tasks page again or ask an owner to check where tasks wait in this project.'
         )
       }
     } catch (err) {
@@ -508,6 +508,7 @@ export function TaskFormModal({
           <div
             ref={errorBannerRef}
             role="alert"
+            aria-live="polite"
             className="mb-4 rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
           >
             <div className="flex flex-wrap items-center gap-2">
@@ -625,7 +626,12 @@ export function TaskFormModal({
               autoFocus
             />
             {errors.title ? (
-              <p id="task-title-error" role="alert" className="mt-1 text-ui-caption text-apple-red">
+              <p
+                id="task-title-error"
+                role="alert"
+                aria-live="polite"
+                className="mt-1 text-ui-caption text-apple-red"
+              >
                 {errors.title.message}
               </p>
             ) : (
@@ -795,7 +801,7 @@ function agentStatusLabel(status: string): string {
     case 'offline':
       return 'not connected'
     default:
-      return normalized ? 'not ready' : 'refresh agent status'
+      return normalized ? 'not ready' : 'check agent status'
   }
 }
 
@@ -812,7 +818,7 @@ function taskBriefCues(title: string, description: string): TaskBriefCue[] {
     'where to look first',
     'what to inspect',
     'what to avoid',
-    'change to review',
+    'change to check',
   ])
   const hasDoneSectionContent = hasBriefSectionContent(description, [
     'done when',
@@ -920,7 +926,7 @@ const TEMPLATE_CUE_LABELS = new Set([
   'what to inspect',
   'what is already known',
   'decision needed',
-  'change to review',
+  'change to check',
   'what could go wrong',
   'checks to run',
   'answer format',
@@ -939,7 +945,7 @@ const TEMPLATE_HELPER_LINES = new Set([
   'add pages, files, logs, or recent changes if you know them.',
   'add clues, links, or screenshots.',
   'say what answer or recommendation you need.',
-  'name the pr, branch, files, or behavior.',
+  'name the change, request, files, screen, or behavior.',
   'list the risks you care about.',
   'add tests, commands, or manual checks.',
   'ask for a short verdict, issues, and final recommendation.',

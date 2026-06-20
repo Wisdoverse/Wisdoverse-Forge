@@ -116,7 +116,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
               Draft saved instruction
             </h2>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Turn this completed task into reusable instructions. Review what should repeat before
+              Turn this completed task into reusable instructions. Check what should repeat before
               saving it for your team space.
             </p>
           </div>
@@ -131,7 +131,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
         </div>
 
         {error && (
-          <div id="skill-draft-error" role="alert" className={uiStyles.error}>
+          <div id="skill-draft-error" role="alert" aria-live="polite" className={uiStyles.error}>
             {error}
           </div>
         )}
@@ -303,7 +303,7 @@ function SkillPublishedState({ skill, onClose }: { skill: Skill; onClose: () => 
           href="/skills"
           Icon={LibraryBig}
           title="Open saved instructions"
-          detail="Find this instruction, then review the reusable steps before agents use them."
+          detail="Find this instruction, then check the reusable steps before agents use them."
         />
         <NextReuseLink
           href="/agents"

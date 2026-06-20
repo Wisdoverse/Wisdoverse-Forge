@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import '@app/i18n'
 import { GettingStartedView } from '@app/pages/getting-started'
 import { useNavigationStore } from '@app/entities/navigation'
@@ -410,6 +410,34 @@ describe('GettingStartedView', () => {
     expect(screen.getByText('Set up where tasks wait before the first task.')).toBeDefined()
     expect(screen.queryByText('Task queue')).toBeNull()
     expect(screen.queryByText(/task queue/i)).toBeNull()
+
+    const firstTaskCard = screen.getByRole('heading', { name: /first task/i }).closest('article')
+    expect(firstTaskCard).not.toBeNull()
+    fireEvent.click(
+      within(firstTaskCard as HTMLElement).getByRole('button', { name: /set up waiting place/i })
+    )
+    expect(navigateMock).toHaveBeenCalledWith({ to: '/agents' })
+  })
+
+  test('routes the first task step to project settings before a project exists', async () => {
+    render(<GettingStartedView />)
+
+    expect(await screen.findByText('Do this next')).toBeDefined()
+    expect(
+      screen.getByText(
+        'Create or choose a project, then set up where tasks wait before the first task.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByRole('button', { name: /write first task/i })).toBeNull()
+
+    const firstTaskCard = screen.getByRole('heading', { name: /first task/i }).closest('article')
+    expect(firstTaskCard).not.toBeNull()
+    fireEvent.click(
+      within(firstTaskCard as HTMLElement).getByRole('button', {
+        name: /create team and project/i,
+      })
+    )
+    expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/projects' })
   })
 
   test('explains the first task as a small waiting-place pickup', async () => {
@@ -493,7 +521,7 @@ describe('GettingStartedView', () => {
     ).toBeDefined()
     expect(
       screen.getAllByText(
-        'The task appears on the board, either waiting for an agent or already assigned.'
+        'The task appears on the board, either waiting for an agent or already has one.'
       ).length
     ).toBeGreaterThan(0)
     expect(screen.queryByText(/queue/i)).toBeNull()
@@ -668,6 +696,66 @@ describe('GettingStartedView', () => {
     expect(navigateMock).toHaveBeenCalledWith({ to: '/agents' })
   })
 
+  test('routes file-work sign-in setup to work tool sign-in settings', async () => {
+    useNavigationStore.setState({
+      teams: [
+        {
+          id: 'team-1',
+          orgId: 'org-1',
+          name: 'Launch Team',
+          slug: 'launch-team',
+          visibility: 'open',
+          description: '',
+        },
+      ],
+      projects: {
+        'team-1': [
+          {
+            id: 'project-1',
+            teamId: 'team-1',
+            name: 'Launch Project',
+            slug: 'launch-project',
+            color: '#007AFF',
+            description: '',
+          },
+        ],
+      },
+      selectedProjectId: 'project-1',
+    })
+    useSettingsStore.setState({
+      providers: [],
+      runtimeSettings: {
+        defaultRuntime: 'container',
+        availableRuntimes: ['container'],
+        defaultCliTool: 'codex',
+        availableCliTools: ['codex'],
+        cliToolDetails: [
+          {
+            cliTool: 'codex',
+            image: 'agentforge-agent:codex',
+            version: '1.0.0',
+            imagePresent: true,
+            versionSource: 'docker-label',
+          },
+        ],
+      },
+    })
+
+    render(<GettingStartedView />)
+
+    const signInButtons = await screen.findAllByRole('button', {
+      name: /open work tool sign-in/i,
+    })
+    expect(signInButtons.length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText(/open work tool sign-in for Codex before file work/i).length
+    ).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: /join this computer/i })).toBeNull()
+
+    fireEvent.click(signInButtons[0]!)
+    expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/work-tool-sign-ins' })
+  })
+
   test('does not complete provider step until connection test has passed', async () => {
     useNavigationStore.setState({
       teams: [
@@ -794,6 +882,7 @@ describe('GettingStartedView', () => {
     expect(alert).toHaveTextContent(
       'Check your connection, then choose Skip again. The setup checklist could not be hidden.'
     )
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(navigateMock).not.toHaveBeenCalled()
     expect(screen.getByRole('button', { name: /skip and open tasks/i })).not.toBeDisabled()
   })

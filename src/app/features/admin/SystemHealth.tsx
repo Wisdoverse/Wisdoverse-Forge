@@ -50,7 +50,8 @@ const SERVICE_DEFINITIONS: readonly ServiceDefinition[] = [
     supportName: 'Shows new progress in the browser',
     description: 'Shows progress from running agents in the browser in near real time.',
     impact: 'Runs may continue, but users may not see progress updates immediately.',
-    action: 'Ask an owner or admin to check live updates, then refresh and look for new progress.',
+    action:
+      'Ask an owner or admin to check live updates, then choose Check now and look for new progress.',
   },
   {
     key: 'docker',
@@ -162,7 +163,7 @@ function serviceIssueNote(error: string): string {
     detail.includes('configuration') ||
     detail.includes('config')
   ) {
-    return 'A required setting may be missing. Ask an owner or admin to check System health in Admin, then choose Check now.'
+    return 'A required setting may be missing. Ask an owner or admin to check App health in Admin, then choose Check now.'
   }
   if (
     detail.includes('rate limit') ||
@@ -266,7 +267,7 @@ function OverallBanner({
       bg: 'border-apple-red/20 bg-apple-red/10',
       text: 'text-apple-red',
       label: 'App interruption likely',
-      detail: 'Fix the area marked Fix first before assigning new work.',
+      detail: 'Fix the area marked Fix first before sending new work.',
     },
   }
   const c = config[status]
@@ -317,7 +318,7 @@ export function SystemHealth() {
         <div>
           <h2 className={uiStyles.sectionTitle}>App health check</h2>
           <p className={uiStyles.sectionDescription}>
-            Checks when opened, then refreshes every 30 seconds while Admin is open. Start with
+            Checks when opened, then checks again every 30 seconds while Admin is open. Start with
             anything marked Fix first, then items marked Check again soon.
           </p>
         </div>

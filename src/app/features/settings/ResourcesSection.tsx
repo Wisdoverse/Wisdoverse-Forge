@@ -187,10 +187,11 @@ function ResourceProfilesError({
     <div role="alert" aria-live="polite" className={cn(uiStyles.error, 'mb-4')}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="font-semibold">Reload sizes to load agent sizes.</p>
+          <p className="font-semibold">Load agent sizes again.</p>
           <p className="mt-1">
             Agent sizes decide how much computer power and memory an agent that edits project files
-            can use. Reload this list before creating or changing agents that edit project files.
+            can use. Load this list again before creating or changing agents that edit project
+            files.
           </p>
         </div>
         <button
@@ -199,7 +200,7 @@ function ResourceProfilesError({
           disabled={loading}
           className="inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-apple-red/30 px-3 text-ui-button font-semibold text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/40 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {loading ? 'Reloading...' : 'Reload sizes'}
+          {loading ? 'Loading...' : 'Load again'}
         </button>
       </div>
     </div>

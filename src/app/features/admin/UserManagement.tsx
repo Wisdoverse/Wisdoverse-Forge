@@ -41,8 +41,8 @@ function userEmptyState(search: string): UserEmptyState {
     return {
       title: 'Search did not find a matching person',
       detail:
-        'Check the spelling or search by their email address. Clear the search to see everyone who can sign in.',
-      actionLabel: 'Clear search',
+        'Check the spelling or search by their email address. Use Show all people to return to everyone who can sign in.',
+      actionLabel: 'Show all people',
     }
   }
 
@@ -240,8 +240,8 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
         >
           {formatDate(
             user.createdAt,
-            'Refresh users to load added date',
-            'Refresh users to check added date'
+            'Open User access again to load added date',
+            'Open User access again to check added date'
           )}
         </td>
         <td
@@ -250,7 +250,11 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
             'text-ui-caption text-secondary-light dark:text-secondary-dark'
           )}
         >
-          {formatDate(user.lastLoginAt, 'Never signed in', 'Refresh users to check sign-in date')}
+          {formatDate(
+            user.lastLoginAt,
+            'Never signed in',
+            'Open User access again to check sign-in date'
+          )}
         </td>
         <td className={uiStyles.tableCell}>
           {isSelf ? (
@@ -299,7 +303,11 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
       {actionFailed && userActionError && (
         <tr className="border-b border-black/[0.06] dark:border-white/[0.08]">
           <td colSpan={6} className="px-4 pb-3 pt-0">
-            <p className="rounded-card border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red">
+            <p
+              role="alert"
+              aria-live="polite"
+              className="rounded-card border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
+            >
               {userActionError}
             </p>
           </td>
@@ -387,6 +395,8 @@ export function UserManagement() {
         ) : users.length === 0 ? (
           <div
             data-testid="admin-users-empty"
+            role="status"
+            aria-live="polite"
             className="flex flex-col items-center justify-center px-6 py-12 text-center"
           >
             <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">

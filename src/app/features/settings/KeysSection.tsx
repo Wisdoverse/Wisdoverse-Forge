@@ -9,7 +9,7 @@ import { platformKeyErrorMessage } from './platformKeyErrorMessage'
 
 const ACCESS_KEY_EMPTY_STEPS = [
   'Create one only for a tool you trust.',
-  'Name it after the exact tool or job that will use it.',
+  'Name it so teammates know which trusted tool uses it.',
   'Save the new access value in a password manager before closing this message.',
 ]
 
@@ -53,8 +53,8 @@ function KeyRow({ apiKey, onRevoke }: KeyRowProps) {
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
           {formatAccessDate(apiKey.createdAt, {
-            missing: 'Refresh access keys to load created date',
-            invalid: 'Refresh access keys to check created date',
+            missing: 'Open Outside tool access again to load created date',
+            invalid: 'Open Outside tool access again to check created date',
           })}
         </span>
       </td>
@@ -62,7 +62,7 @@ function KeyRow({ apiKey, onRevoke }: KeyRowProps) {
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
           {formatAccessDate(apiKey.lastUsedAt, {
             missing: 'Use this access key from a trusted outside tool first',
-            invalid: 'Refresh access keys to check last use',
+            invalid: 'Open Outside tool access again to check last use',
           })}
         </span>
       </td>
@@ -163,7 +163,11 @@ function NewKeyBanner({ keyValue, onDismiss }: NewKeyBannerProps) {
           </p>
           <code className="break-all font-mono text-ui-caption">{keyValue}</code>
           {copyError && (
-            <p role="alert" className="mt-2 text-ui-caption font-medium text-apple-red">
+            <p
+              role="alert"
+              aria-live="polite"
+              className="mt-2 text-ui-caption font-medium text-apple-red"
+            >
               {copyError}
             </p>
           )}
@@ -275,7 +279,12 @@ function CreateKeyForm({ onSave, onCancel, saving }: CreateKeyFormProps) {
         Use a clear tool or job name. This makes it easy to remove the right access key later.
       </p>
       {visibleError && (
-        <p id={nameErrorId} role="alert" className="mt-1 text-ui-caption text-apple-red">
+        <p
+          id={nameErrorId}
+          role="alert"
+          aria-live="polite"
+          className="mt-1 text-ui-caption text-apple-red"
+        >
           {visibleError}
         </p>
       )}

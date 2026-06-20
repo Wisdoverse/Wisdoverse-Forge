@@ -73,7 +73,7 @@ describe('OrganizationsPanel', () => {
     expect(screen.getByRole('columnheader', { name: 'Setup status' })).toBeDefined()
     expect(screen.queryByRole('columnheader', { name: 'Readiness' })).toBeNull()
     expect(screen.getByText('Acme Labs')).toBeDefined()
-    expect(screen.getByText('Shown at the end of team space links: acme')).toBeDefined()
+    expect(screen.getByText('Team space link preview: acme')).toBeDefined()
     expect(screen.queryByText(/Forge uses this in team space links/i)).toBeNull()
     expect(screen.queryByText(/Automatic team space name/i)).toBeNull()
     expect(screen.queryByText(/Team space short name/i)).toBeNull()
@@ -94,7 +94,7 @@ describe('OrganizationsPanel', () => {
 
     render(<OrganizationsPanel />)
 
-    expect(await screen.findByText('Refresh team spaces to check created date')).toBeDefined()
+    expect(await screen.findByText('Open Team spaces again to check created date')).toBeDefined()
     expect(screen.queryByText('Invalid Date')).toBeNull()
     expect(screen.queryByText('—')).toBeNull()
   })
@@ -129,10 +129,10 @@ describe('OrganizationsPanel', () => {
 
     const error = await screen.findByTestId('admin-org-error')
     expect(error).toHaveAttribute('aria-live', 'polite')
-    expect(within(error).getByText('Refresh Admin to reload the team space list.')).toBeDefined()
+    expect(within(error).getByText('Open Admin again, then choose team space list.')).toBeDefined()
     expect(
       within(error).getByText(
-        'Refresh Admin, then try again. If it still fails, ask an owner or admin to check your Admin access and this Admin page.'
+        'Open Admin again, then choose this section. If it still fails, ask an owner or admin to check your Admin access and this Admin page.'
       )
     ).toBeDefined()
     expect(within(error).queryByText('HTTP 503')).toBeNull()

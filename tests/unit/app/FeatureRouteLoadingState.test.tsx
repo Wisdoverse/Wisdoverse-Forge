@@ -9,14 +9,15 @@ describe('FeatureRouteLoadingState', () => {
     render(
       <FeatureRouteLoadingState
         title="Checking saved items"
-        detail="We are checking whether saved items are available here. If this takes more than a moment, refresh the page or ask an owner or admin to check Saved items access."
+        detail="We are checking whether saved items are available here. If this takes more than a moment, open Saved items again or ask an owner or admin to check Saved items access."
       />
     )
 
     expect(screen.getByRole('status')).toHaveTextContent('Checking saved items')
     expect(screen.getByRole('status')).toHaveTextContent(
-      'refresh the page or ask an owner or admin to check Saved items access'
+      'open Saved items again or ask an owner or admin to check Saved items access'
     )
+    expect(screen.getByRole('status')).not.toHaveTextContent('refresh the page')
     expect(screen.getByRole('status')).not.toHaveTextContent(/workspace setup/i)
     expect(screen.getByRole('status')).not.toHaveTextContent(/context\s+review/i)
   })

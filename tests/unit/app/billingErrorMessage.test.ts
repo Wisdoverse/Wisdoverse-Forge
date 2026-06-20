@@ -4,7 +4,7 @@ import { billingActionErrorMessage, billingErrorMessage } from '@app/shared/mode
 describe('billingErrorMessage', () => {
   test('turns permission failures into a billing access next step', () => {
     expect(billingErrorMessage({ statusCode: 403 }, 'subscription')).toBe(
-      'Refresh Billing to load plan and payment. Ask an owner or admin to give you billing access.'
+      'Ask an owner or admin to give you billing access, then choose Check billing again to load plan and payment.'
     )
   })
 
@@ -15,7 +15,7 @@ describe('billingErrorMessage', () => {
     )
 
     expect(message).toBe(
-      'Refresh Billing to load plan and payment. Sign in again, then open Billing.'
+      'Sign in again, then open Billing and choose Check billing again to load plan and payment.'
     )
     expect(message).not.toContain('billing token expired')
   })
@@ -27,7 +27,7 @@ describe('billingErrorMessage', () => {
     )
 
     expect(message).toBe(
-      'Refresh Billing to load invoices. Ask an owner or admin to give you billing access.'
+      'Ask an owner or admin to give you billing access, then choose Check billing again to load invoices.'
     )
     expect(message).not.toContain('policy denied')
   })
@@ -39,7 +39,7 @@ describe('billingErrorMessage', () => {
     )
 
     expect(message).toBe(
-      'Refresh Billing to load usage. Billing is busy. Wait a minute, then refresh Billing again.'
+      'Wait a minute, then choose Check billing again to load usage. Billing is busy.'
     )
     expect(message).not.toContain('provider calls')
   })
@@ -48,7 +48,7 @@ describe('billingErrorMessage', () => {
     const message = billingErrorMessage('HTTP 500', 'invoices')
 
     expect(message).toBe(
-      'Refresh Billing to load invoices. If it still fails, ask an owner or admin to check billing.'
+      'Choose Check billing again to load invoices. If it still fails, ask an owner or admin to check billing.'
     )
     expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('temporarily unavailable')
@@ -58,14 +58,14 @@ describe('billingErrorMessage', () => {
     const message = billingErrorMessage(new TypeError('Failed to fetch'), 'usage')
 
     expect(message).toBe(
-      'Refresh Billing to load usage. Check your connection, then refresh Billing again. Forge could not connect while loading billing.'
+      'Check your connection, then choose Check billing again to load usage. Forge could not connect while loading billing.'
     )
     expect(message).not.toContain('Failed to fetch')
   })
 
   test('uses a safe fallback without exposing raw details', () => {
     expect(billingErrorMessage(new Error('database timeout on shard 7'), 'invoices')).toBe(
-      'Refresh Billing to load invoices. If it still fails, ask an owner or admin to check billing.'
+      'Choose Check billing again to load invoices. If it still fails, ask an owner or admin to check billing.'
     )
   })
 
@@ -76,7 +76,7 @@ describe('billingErrorMessage', () => {
     )
 
     expect(message).toBe(
-      'Refresh Billing to load invoices. If it still fails, ask an owner or admin to check billing.'
+      'Choose Check billing again to load invoices. If it still fails, ask an owner or admin to check billing.'
     )
     expect(message).not.toContain('database timeout')
     expect(message).not.toContain('shard')

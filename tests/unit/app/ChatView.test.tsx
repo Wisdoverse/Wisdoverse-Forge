@@ -173,9 +173,10 @@ describe('ChatView', () => {
 
     const emptyState = screen.getByTestId('conversation-empty-state')
     expect(emptyState).toHaveTextContent(
-      'This chat-only AI service is not ready. Open AI service settings, choose Check connection for this service, then refresh Agents. Ready means this agent can answer in chat.'
+      'This chat-only AI service is not ready. Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again. Ready means this agent can answer in chat.'
     )
     expect(emptyState).not.toHaveTextContent('Settings > AI services')
+    expect(emptyState).not.toHaveTextContent('refresh the list')
     expect(emptyState).not.toHaveTextContent('Start it before sending a message')
     const textbox = screen.getByRole('textbox', { name: /message this agent/i })
     expect(textbox).toBeDisabled()
@@ -185,7 +186,7 @@ describe('ChatView', () => {
     )
     expect(
       screen.getByText(
-        'Open AI service settings, choose Check connection for this service, then refresh Agents before sending a message.'
+        'Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again before sending a message.'
       )
     ).toBeVisible()
     const action = screen.getByRole('link', { name: /open ai services/i })
@@ -227,11 +228,15 @@ describe('ChatView', () => {
     expect(screen.getByText('Send work to create the first update.')).toBeInTheDocument()
     expect(
       screen.getByText(
-        'Create a task and assign it to this agent, or choose where tasks wait so this agent can receive it.'
+        'Create a task, choose this agent, or choose where tasks wait so this agent can receive it.'
       )
     ).toBeInTheDocument()
+    expect(screen.queryByText(/assign it to this agent/i)).toBeNull()
     expect(
       screen.getByText('Check Attention once work starts to see what needs help.')
+    ).toBeVisible()
+    expect(
+      screen.getByText('Open Agents, confirm this agent shows Ready, then return here.')
     ).toBeVisible()
     const action = screen.getByRole('link', { name: /create a task/i })
     expect(action).toHaveAttribute('href', '/tasks')
@@ -269,6 +274,7 @@ describe('ChatView', () => {
     render(<ChatView agentId={cliAgent.id} />)
 
     const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent('Check this conversation')
     expect(alert).toHaveTextContent('Check your connection, then choose Retry conversation again.')
     expect(alert).not.toHaveTextContent('HTTP')
@@ -289,6 +295,7 @@ describe('ChatView', () => {
     render(<ChatView agentId={providerAgent.id} />)
 
     const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent('Check this conversation')
     expect(alert).toHaveTextContent('ask an owner or admin to check this agent chat')
     expect(alert).not.toHaveTextContent('HTTP 500')
@@ -320,6 +327,11 @@ describe('ChatView', () => {
           role: 'function_call' as never,
           content: 'Internal sender is not listed yet',
         }),
+        message('Sender is still loading', {
+          id: 'blank-role',
+          role: '' as never,
+          content: 'Sender is still loading',
+        }),
       ],
     })
 
@@ -333,6 +345,14 @@ describe('ChatView', () => {
     expect(
       screen.getByPlaceholderText('Search updates, help requests, work steps...')
     ).toBeInTheDocument()
+    expect(
+      screen.getByRole('searchbox', { name: /search conversation/i })
+    ).toHaveAccessibleDescription(/use show all updates to return to the full conversation/i)
+    expect(screen.getByTestId('conversation-result-count')).toHaveAttribute('role', 'status')
+    expect(screen.getByTestId('conversation-result-count')).toHaveAttribute('aria-live', 'polite')
+    expect(screen.getByTestId('conversation-result-count')).toHaveTextContent(
+      'Showing 5 of 5 updates'
+    )
     expect(
       within(screen.getByTestId('conversation-metric-operator')).getByText('Your messages')
     ).toBeInTheDocument()
@@ -348,38 +368,62 @@ describe('ChatView', () => {
     expect(screen.getAllByText('You').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Agent').length).toBeGreaterThan(0)
     expect(screen.getByText('Check message sender')).toBeInTheDocument()
+    expect(screen.getByText('Open this chat again to load the sender')).toBeInTheDocument()
+    expect(screen.queryByText('Refresh chat to load sender')).toBeNull()
     expect(screen.queryByText('Message needs review')).toBeNull()
     expect(screen.queryByText(/^user$/i)).toBeNull()
     expect(screen.queryByText(/^assistant$/i)).toBeNull()
     expect(screen.queryByText(/function_call/i)).toBeNull()
 
     const filters = screen.getByTestId('conversation-filter-group')
-    expect(within(filters).getByRole('button', { name: /you\s*1/i })).toBeInTheDocument()
-    expect(within(filters).getByRole('button', { name: /work steps\s*0/i })).toBeInTheDocument()
-    fireEvent.click(within(filters).getByRole('button', { name: /attention\s*1/i }))
+    expect(
+      within(filters).getByRole('button', { name: /show your messages, 1 matching update/i })
+    ).toBeInTheDocument()
+    expect(
+      within(filters).getByRole('button', { name: /show work steps, 0 matching updates/i })
+    ).toBeInTheDocument()
+    fireEvent.click(
+      within(filters).getByRole('button', {
+        name: /show stuck, failed, waiting, or help-needed updates, 1 matching update/i,
+      })
+    )
     expect(screen.getByText('Billing flow is blocked by a missing secret')).toBeInTheDocument()
     expect(screen.queryByText('Settings page shipped')).toBeNull()
+    expect(screen.getByTestId('conversation-result-count')).toHaveTextContent(
+      'Showing 1 of 5 updates'
+    )
 
     fireEvent.change(screen.getByTestId('conversation-search'), {
       target: { value: 'missing-term' },
     })
     const emptyState = screen.getByTestId('conversation-filter-empty')
     expect(emptyState).toBeInTheDocument()
+    expect(emptyState).toHaveAttribute('role', 'status')
+    expect(emptyState).toHaveAttribute('aria-live', 'polite')
     expect(within(emptyState).getByText('Search and filter are hiding updates')).toBeInTheDocument()
     expect(within(emptyState).getByText(/useful updates may be hidden/i)).toBeInTheDocument()
-    expect(within(emptyState).getByText(/review every update/i)).toBeInTheDocument()
+    expect(
+      within(emptyState).getByText('Next: show all updates, then search again with one short word.')
+    ).toBeInTheDocument()
+    expect(within(emptyState).getByText(/search again with one short word/i)).toBeInTheDocument()
+    expect(emptyState).not.toHaveTextContent('clear filters')
+    expect(emptyState).not.toHaveTextContent('review every update')
     expect(emptyState).not.toHaveTextContent('No conversation updates match the current filters.')
     expect(emptyState).not.toHaveTextContent('Try All, Attention, or a shorter search term.')
-    fireEvent.click(screen.getByRole('button', { name: /show all updates/i }))
+    fireEvent.click(within(emptyState).getByRole('button', { name: /show all updates/i }))
     expect(screen.getByTestId('conversation-search')).toHaveValue('')
     expect(screen.getByText('Settings page shipped')).toBeInTheDocument()
 
-    fireEvent.click(within(filters).getByRole('button', { name: /work steps\s*0/i }))
-    expect(screen.getByText('Assign a task to see work steps')).toBeInTheDocument()
+    fireEvent.click(
+      within(filters).getByRole('button', { name: /show work steps, 0 matching updates/i })
+    )
+    expect(screen.getByText('Send a file-work task to see work steps')).toBeInTheDocument()
     expect(
       screen.getByText('Work steps appear when an agent shares commands or tool results.')
     ).toBeInTheDocument()
-    expect(screen.getByText(/assign a task so work steps can appear/i)).toBeInTheDocument()
+    expect(screen.getByText(/send a file-work task so work steps can appear/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Assign a task to see work steps/i)).toBeNull()
+    expect(screen.queryByText(/assign a task so work steps can appear/i)).toBeNull()
     expect(screen.queryByText('No work steps have been reported yet')).toBeNull()
     expect(screen.queryByText('No work steps are showing yet')).toBeNull()
   })
@@ -398,7 +442,9 @@ describe('ChatView', () => {
     render(<ChatView agentId={providerAgent.id} />)
 
     const filters = screen.getByTestId('conversation-filter-group')
-    fireEvent.click(within(filters).getByRole('button', { name: /you\s*0/i }))
+    fireEvent.click(
+      within(filters).getByRole('button', { name: /show your messages, 0 matching updates/i })
+    )
 
     const emptyState = screen.getByTestId('conversation-filter-empty')
     expect(emptyState).toHaveTextContent('Send a message to see your requests here')
@@ -421,7 +467,11 @@ describe('ChatView', () => {
     render(<ChatView agentId={providerAgent.id} />)
 
     const filters = screen.getByTestId('conversation-filter-group')
-    fireEvent.click(within(filters).getByRole('button', { name: /attention\s*0/i }))
+    fireEvent.click(
+      within(filters).getByRole('button', {
+        name: /show stuck, failed, waiting, or help-needed updates, 0 matching updates/i,
+      })
+    )
 
     const emptyState = screen.getByTestId('conversation-filter-empty')
     expect(emptyState).toHaveTextContent('Use All if you expected a blocker')
@@ -488,8 +538,14 @@ describe('ChatView', () => {
     ).toBeInTheDocument()
 
     const filters = screen.getByTestId('conversation-filter-group')
-    expect(within(filters).getByRole('button', { name: /work steps\s*2/i })).toBeInTheDocument()
-    fireEvent.click(within(filters).getByRole('button', { name: /attention\s*1/i }))
+    expect(
+      within(filters).getByRole('button', { name: /show work steps, 2 matching updates/i })
+    ).toBeInTheDocument()
+    fireEvent.click(
+      within(filters).getByRole('button', {
+        name: /show stuck, failed, waiting, or help-needed updates, 1 matching update/i,
+      })
+    )
     expect(screen.getByText(/Deploy failed because credentials are missing/i)).toBeInTheDocument()
     expect(screen.queryByText(/Typecheck passed/i)).toBeNull()
   })

@@ -202,7 +202,7 @@ function AgentsEmptyState({ filter }: { filter: AdminAgentRuntimeKindFilter }) {
       </p>
       <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
         {filter === 'all'
-          ? 'Create the first agent from Agents, confirm it becomes Ready or Working, then return here to check it across team spaces. If you just created one, refresh Admin and check again.'
+          ? 'Create the first agent from Agents, confirm it becomes Ready or Working, then return to Admin and choose Agents to check it across team spaces.'
           : `No ${runtimeKindLabel(filter)} agents match this filter. Choose "All work locations" before assuming the agent is missing.`}
       </p>
     </div>

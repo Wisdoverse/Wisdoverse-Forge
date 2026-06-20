@@ -25,9 +25,10 @@ describe('agentTasksErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Too many task requests are happening right now. Wait a minute, then refresh this agent to load its work list.'
+      'Too many task requests are happening right now. Wait a minute, then open Work again from this agent.'
     )
     expect(message).not.toContain('task query requests')
+    expect(message).not.toContain('refresh this agent')
   })
 
   test('maps server error rate limits without leaking raw queue details', () => {
@@ -37,7 +38,7 @@ describe('agentTasksErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Too many task requests are happening right now. Wait a minute, then refresh this agent to load its work list.'
+      'Too many task requests are happening right now. Wait a minute, then open Work again from this agent.'
     )
     expect(message).not.toContain('task query requests')
   })
@@ -46,10 +47,11 @@ describe('agentTasksErrorMessage', () => {
     const message = agentTasksErrorMessage('Server error (503)')
 
     expect(message).toBe(
-      "Refresh this agent to load its work list. If it still fails, ask an owner or admin to check this agent's work list."
+      "Open Work again from this agent. If it still fails, ask an owner or admin to check this agent's work list."
     )
     expect(message).not.toContain('503')
     expect(message).not.toContain('platform')
+    expect(message).not.toContain('Refresh this agent')
   })
 
   test('maps structured service failures without raw setup details', () => {
@@ -59,7 +61,7 @@ describe('agentTasksErrorMessage', () => {
     })
 
     expect(message).toBe(
-      "Refresh this agent to load its work list. If it still fails, ask an owner or admin to check this agent's work list."
+      "Open Work again from this agent. If it still fails, ask an owner or admin to check this agent's work list."
     )
     expect(message).not.toContain('database timeout')
   })
@@ -67,7 +69,17 @@ describe('agentTasksErrorMessage', () => {
   test('maps network failures to retryable guidance', () => {
     const message = agentTasksErrorMessage(new TypeError('Failed to fetch'))
 
-    expect(message).toBe('Check your connection, then refresh this agent to load its work list.')
+    expect(message).toBe('Check your connection, then open Work again from this agent.')
     expect(message).not.toContain('Failed to fetch')
+    expect(message).not.toContain('refresh this agent')
+  })
+
+  test('maps missing agents to a navigable Work step', () => {
+    const message = agentTasksErrorMessage({ status: 404 })
+
+    expect(message).toBe(
+      'Open Agents, choose this agent again, then open Work to load the work list. This agent may have changed or been removed.'
+    )
+    expect(message).not.toContain('Refresh this page')
   })
 })

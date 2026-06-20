@@ -19,7 +19,7 @@ const LOCAL_AGENT_CONTROL_FAILURE = {
 } as const
 
 const CHAT_ONLY_AI_SERVICE_RECOVERY_DETAIL =
-  'Open AI service settings, choose Check connection for this service, refresh Agents, then send messages or tasks after it shows Ready.'
+  'Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again when it shows Ready.'
 
 interface AgentControlPanelProps {
   agent: AgentInfo
@@ -100,7 +100,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
       const ok = await startAgent(agent.id)
       if (ok) {
         setLocalActionStatus(
-          'File work start requested. Refresh Agents until this agent shows Ready, then send an instruction or create a task.'
+          'File work start requested. Go back to Agents, choose this agent again when it shows Ready, then send an instruction or create a task.'
         )
       } else {
         setLocalActionError(LOCAL_AGENT_CONTROL_FAILURE.startWorkspace)
@@ -230,7 +230,12 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
           }}
         />
         {promptError && (
-          <div id={promptErrorId} className="text-ui-caption text-apple-red" role="alert">
+          <div
+            id={promptErrorId}
+            className="text-ui-caption text-apple-red"
+            role="alert"
+            aria-live="polite"
+          >
             {promptError}
           </div>
         )}
@@ -495,9 +500,10 @@ function getMessageAvailability(
     return {
       canSend: false,
       detail:
-        'File work is not connected. Refresh Agents or start file work before sending an instruction.',
-      placeholder: 'Start or refresh file work before sending an instruction.',
-      help: 'Refresh Agents or start file work, wait for Ready, then send an instruction here.',
+        'File work is not connected. Go back to Agents and choose this agent again, or start file work before sending an instruction.',
+      placeholder:
+        'Start file work or open Agents and choose this agent again before sending an instruction.',
+      help: 'Go back to Agents and choose this agent again, or start file work, then wait for Ready before sending here.',
     }
   }
 
@@ -505,7 +511,7 @@ function getMessageAvailability(
     canSend: false,
     detail: CHAT_ONLY_AI_SERVICE_RECOVERY_DETAIL,
     placeholder: 'Check this AI service before sending an instruction.',
-    help: 'Open AI service settings, choose Check connection for this service, then refresh Agents.',
+    help: 'Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again.',
   }
 }
 
@@ -601,16 +607,16 @@ function ActionInfo({ icon: Icon, title, detail }: ActionInfoProps) {
 
 function agentControlErrorMessage(error: string): string {
   if (error === LOCAL_AGENT_CONTROL_FAILURE.sendInstruction) {
-    return 'Refresh this agent, confirm it still shows Ready, then resend the instruction. If it still fails, create a task instead or ask an owner or admin to check agent messaging.'
+    return 'Open Agents, choose this agent again, confirm it still shows Ready, then resend the instruction. If it still fails, create a task instead or ask an owner or admin to check agent messaging.'
   }
   if (error === LOCAL_AGENT_CONTROL_FAILURE.startWorkspace) {
-    return 'Refresh Agents, then choose Start file work again. If it still does not show Ready, ask an owner or admin to check Where agents work in Settings.'
+    return 'Go back to Agents, choose this agent again, then choose Start file work again. If it still does not show Ready, ask an owner or admin to check Where agents work in Settings.'
   }
   if (error === LOCAL_AGENT_CONTROL_FAILURE.restartWorkspace) {
-    return "Refresh this agent, then choose Restart agent again only if Tasks or Live work still shows no progress. If it keeps failing, ask an owner or admin to check this agent's connection and access in Agents."
+    return "Open Agents, choose this agent again, then choose Restart agent again only if Tasks or Live work still shows no progress. If it keeps failing, ask an owner or admin to check this agent's connection and access in Agents."
   }
   if (error === LOCAL_AGENT_CONTROL_FAILURE.removeAgent) {
-    return 'Refresh this agent, then choose Remove agent again. If it keeps failing, ask an owner or admin to check your agent access.'
+    return 'Open Agents, choose this agent again, then choose Remove agent again. If it keeps failing, ask an owner or admin to check your agent access.'
   }
 
   const normalized = error.toLowerCase()
@@ -626,23 +632,23 @@ function agentControlErrorMessage(error: string): string {
     return 'Sign in again, reopen this agent, then try the action once more.'
   }
   if (normalized.includes('conflict') || /\b409\b/.test(error)) {
-    return 'This agent changed while you were working. Refresh this agent, confirm the latest status, then try again.'
+    return 'Open Agents, choose this agent again, confirm the latest status, then try again. This agent changed while you were working.'
   }
   if (normalized.includes('rate limit') || /\b429\b/.test(error)) {
-    return 'The agent controls are busy. Wait a moment, refresh this agent, then try again.'
+    return 'Wait a moment, then open Agents and choose this agent again. The agent controls are busy.'
   }
   if (
     normalized === 'network error' ||
     normalized === 'failed to fetch' ||
     normalized.includes('networkerror')
   ) {
-    return 'Check your connection, refresh this agent, then try again. Forge could not connect while changing this agent.'
+    return 'Check your connection, then open Agents and choose this agent again. Forge could not connect while changing this agent.'
   }
   if (/\b5\d\d\b/.test(error)) {
-    return "Refresh this agent, then try again. If it keeps failing, ask an owner or admin to check this agent's connection and access in Agents. Forge could not finish the change right now."
+    return "Open Agents, choose this agent again, then try again. If it keeps failing, ask an owner or admin to check this agent's connection and access in Agents. Forge could not finish the change right now."
   }
 
-  return "Refresh this agent and confirm the latest status before trying once more. For Start or Restart, wait for Ready or Working. If it keeps failing, ask an owner or admin to check what you can do and this agent's connection and access in Agents."
+  return "Open Agents, choose this agent again, and confirm the latest status before trying once more. If you started or restarted file work, wait for Ready or Working. If it keeps failing, ask an owner or admin to check your agent access and this agent's connection in Agents."
 }
 
 interface ConfirmActionProps {

@@ -54,7 +54,7 @@ describe('sshKeysErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then refresh Settings to load SSH code access. Forge could not connect while opening SSH code access.'
+      'Check your connection, then open Settings and SSH code access again. Forge could not connect while opening SSH code access.'
     )
     expect(message).not.toContain('service')
     expect(message).not.toContain('Failed to fetch')
@@ -87,7 +87,7 @@ describe('sshKeysErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load SSH code access. If it still fails, ask an owner or admin to check SSH code access settings.'
+      'Open Settings and SSH code access again. If it still fails, ask an owner or admin to check SSH code access settings.'
     )
     expect(message).not.toContain('temporarily unavailable')
   })
@@ -104,7 +104,7 @@ describe('sshKeysErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load SSH code access. If it still fails, ask an owner or admin to check SSH code access settings.'
+      'Open Settings and SSH code access again. If it still fails, ask an owner or admin to check SSH code access settings.'
     )
     expect(message).not.toContain('parser')
   })

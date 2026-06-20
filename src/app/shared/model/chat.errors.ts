@@ -77,7 +77,7 @@ export function chatErrorMessage(action: ChatErrorAction, err: unknown): string 
     return `${base} Ask an owner or admin to give you access to this agent.`
   }
   if (code === 404) {
-    return `${base} Refresh the page; this agent or conversation may have changed.`
+    return `${base} Open Agents, choose this agent again, then open Chat. This agent or conversation may have changed.`
   }
   if (code === 409) {
     return `${base} Another chat action is still saving. Wait a moment, then try again.`
@@ -92,7 +92,7 @@ export function chatErrorMessage(action: ChatErrorAction, err: unknown): string 
     return `${base} ${networkRecoveryMessage(action)}`
   }
   if (text.includes('ok: false')) {
-    return `${base} Refresh the chat, then try again. Forge could not read this conversation.`
+    return `${base} Choose Retry conversation again. Forge could not read this conversation.`
   }
 
   return `${base} ${fallbackRecoveryMessage(action)}`

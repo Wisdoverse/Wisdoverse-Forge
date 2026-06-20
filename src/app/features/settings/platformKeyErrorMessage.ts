@@ -80,12 +80,12 @@ function actionFromText(text: string): PlatformKeyAction {
 function retryAction(action: PlatformKeyAction): string {
   if (action === 'create') return 'create this outside tool access key again'
   if (action === 'remove') return 'remove this outside tool access key again'
-  return 'refresh Settings to load outside tool access keys'
+  return 'open Settings and Outside tool access keys again'
 }
 
 function connectionMessage(action: PlatformKeyAction): string {
   if (action === 'load') {
-    return 'Check your connection, then refresh Settings to load outside tool access keys. Forge could not connect while opening outside tool access settings.'
+    return 'Check your connection, then open Settings and Outside tool access keys again. Forge could not connect while opening outside tool access settings.'
   }
   if (action === 'remove') {
     return 'Check your connection, then remove this outside tool access key again. The removal did not finish.'
@@ -107,7 +107,7 @@ export function platformKeyErrorMessage(error: unknown): string {
     return 'Ask an owner or admin to let you create or remove outside tool access keys.'
   }
   if (code === 409 || lower.includes('already exists') || lower.includes('duplicate')) {
-    return 'Refresh the list, then choose a different name or remove the old key first. An outside tool access key with this name already exists.'
+    return 'Open Settings and Outside tool access keys again, check the current key, then choose a different name or remove the old key first.'
   }
   if (
     code === 422 ||
@@ -122,16 +122,16 @@ export function platformKeyErrorMessage(error: unknown): string {
   }
   if (code != null && code >= 500) {
     if (action === 'load') {
-      return 'Refresh Settings to load outside tool access keys. If it still fails, ask an owner or admin to check outside tool access settings.'
+      return 'Open Settings and Outside tool access keys again. If it still fails, ask an owner or admin to check outside tool access settings.'
     }
-    return `Refresh Settings, then ${retry}. If it still fails, ask an owner or admin to check outside tool access settings.`
+    return `Open Settings and Outside tool access keys again, then ${retry}. If it still fails, ask an owner or admin to check outside tool access settings.`
   }
   if (isNetworkError(error)) {
     return connectionMessage(action)
   }
 
   if (action === 'load') {
-    return 'Refresh Settings to load outside tool access keys. If it still fails, ask an owner or admin to check outside tool access settings.'
+    return 'Open Settings and Outside tool access keys again. If it still fails, ask an owner or admin to check outside tool access settings.'
   }
 
   return `Try to ${retry}. If it still fails, ask an owner or admin to check outside tool access settings.`

@@ -8,7 +8,7 @@ import { CloneStatusBadge } from './CloneStatusBadge'
 
 const EMPTY_PROJECT_NAME_MESSAGE = 'Enter a project name, then save again.'
 const PROJECT_DELETE_CONFIRMATION_MESSAGE =
-  'Delete this project from Settings and the left menu. Agents assigned here will be moved out of this project. Choose Keep if you are not sure.'
+  'Delete this project from Settings and the left menu. Agents using this project will be moved out of it. Choose Keep if you are not sure.'
 
 interface EditableProjectRowProps {
   project: NavProject
@@ -93,7 +93,7 @@ export function EditableProjectRow({
       >
         <div className="flex flex-col gap-2">
           {error && (
-            <div role="alert" className={uiStyles.error}>
+            <div role="alert" aria-live="polite" className={uiStyles.error}>
               {error}
             </div>
           )}
@@ -195,7 +195,7 @@ export function EditableProjectRow({
             </p>
           )}
           {error && (
-            <p role="alert" className="mt-1 text-ui-caption text-apple-red">
+            <p role="alert" aria-live="polite" className="mt-1 text-ui-caption text-apple-red">
               {error}
             </p>
           )}
@@ -203,7 +203,7 @@ export function EditableProjectRow({
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <span className="hidden rounded-badge border border-black/5 bg-black/[0.03] px-1.5 py-0.5 text-[10px] text-secondary-light dark:border-white/10 dark:bg-white/[0.05] dark:text-secondary-dark sm:inline">
-          Shown at the end of project links: {project.slug}
+          Project link preview: {project.slug}
         </span>
         {canManage && (
           <>

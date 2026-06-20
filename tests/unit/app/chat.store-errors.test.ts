@@ -66,6 +66,19 @@ describe('chatErrorMessage', () => {
     expect(message).not.toContain('delete already in progress')
   })
 
+  test('maps missing conversations to an agent chat navigation step', () => {
+    const message = chatErrorMessage('load', {
+      detail: 'chat not found',
+      statusCode: 404,
+    })
+
+    expect(message).toBe(
+      'Retry conversation to load conversation history. Open Agents, choose this agent again, then open Chat. This agent or conversation may have changed.'
+    )
+    expect(message).not.toContain('chat not found')
+    expect(message).not.toContain('Refresh the page')
+  })
+
   test('maps structured rate limits without raw provider text', () => {
     const message = chatErrorMessage('load', {
       error: 'too many provider history reads',
@@ -92,9 +105,10 @@ describe('chatErrorMessage', () => {
     const message = chatErrorMessage('load', new Error('Server returned ok: false'))
 
     expect(message).toBe(
-      'Retry conversation to load conversation history. Refresh the chat, then try again. Forge could not read this conversation.'
+      'Retry conversation to load conversation history. Choose Retry conversation again. Forge could not read this conversation.'
     )
     expect(message).not.toContain('ok: false')
+    expect(message).not.toContain('Refresh the chat')
   })
 
   test('uses the visible retry action for unknown conversation load failures', () => {

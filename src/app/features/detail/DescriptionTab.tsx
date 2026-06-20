@@ -177,7 +177,7 @@ export function DescriptionTab({
         <div className="space-y-2 text-xs text-secondary-light dark:text-secondary-dark">
           <p>
             {resultArtifacts.length > 0
-              ? `${resultArtifacts.length} result file${resultArtifacts.length === 1 ? '' : 's'} ready for review.`
+              ? `${resultArtifacts.length} result file${resultArtifacts.length === 1 ? '' : 's'} ready to check.`
               : canReview
                 ? 'No result files were saved. Use Next action above, then retry or create a follow-up task if files are still needed.'
                 : 'Result files appear here after the task finishes.'}
@@ -205,7 +205,7 @@ export function DescriptionTab({
               onClick={onOpenContext}
               className="inline-flex h-8 items-center gap-1.5 rounded-full bg-black/[0.04] px-3 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.08] dark:bg-white/[0.06] dark:text-foreground-dark dark:hover:bg-white/[0.1]"
             >
-              <span>Review what was used</span>
+              <span>Check what was used</span>
               <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
             </button>
           )}
@@ -216,7 +216,7 @@ export function DescriptionTab({
         <div className="space-y-2 text-xs text-secondary-light dark:text-secondary-dark">
           <p>
             {task.state === 'completed'
-              ? 'After review, save the repeatable steps if future tasks should reuse them.'
+              ? 'After checking the result, save the repeatable steps if future tasks should reuse them.'
               : 'The save-for-next-time option becomes available once useful work is completed.'}
           </p>
           {task.state === 'completed' && (
@@ -228,7 +228,7 @@ export function DescriptionTab({
                   className="inline-flex h-8 items-center gap-1.5 rounded-full bg-apple-blue px-3 text-ui-button font-medium text-white transition-colors hover:bg-apple-blue-focus"
                 >
                   <WandSparkles size={13} strokeWidth={2.25} aria-hidden="true" />
-                  <span>Review save ideas</span>
+                  <span>Check save ideas</span>
                 </button>
               )}
               {onDraftSkill && (
@@ -341,7 +341,7 @@ function assignedAgentDetail(task: TaskSummary): string {
     case 'blocked':
       return 'This agent needs your answer before it can continue.'
     case 'completed':
-      return 'This agent finished this task. Review the result before accepting it.'
+      return 'This agent finished this task. Check the result before accepting it.'
     case 'failed':
       return 'This agent tried this task. Check retry steps before trying again.'
     case 'canceled':
@@ -392,13 +392,13 @@ function nextActionForTask(
       return hasAgent
         ? {
             title: 'Ready to send',
-            detail: 'Review the brief, then send it to this agent.',
+            detail: 'Check the brief, then send it to this agent.',
             tone: 'default',
           }
         : {
             title: 'Assign an agent',
             detail:
-              'Choose an available agent, review the suggested saved notes and instructions, then send the task.',
+              'Choose an available agent, check the suggested saved notes and instructions, then send the task.',
             tone: 'warn',
           }
     case 'queued':
@@ -436,7 +436,7 @@ function nextActionForTask(
       }
     case 'completed':
       return {
-        title: 'Review the handoff',
+        title: 'Check the handoff',
         detail:
           artifactCount > 0
             ? 'Open result files, check what the agent reused, and save repeatable steps if future tasks should use them.'
@@ -460,7 +460,7 @@ function nextActionForTask(
     default:
       return {
         title: 'Check current status',
-        detail: 'Open Updates to review the latest activity before starting, retrying, or closing.',
+        detail: 'Open Updates to check the latest activity before starting, retrying, or closing.',
         tone: 'warn',
       }
   }

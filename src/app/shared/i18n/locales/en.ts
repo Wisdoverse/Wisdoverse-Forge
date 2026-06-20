@@ -52,7 +52,7 @@ export const en = {
     select: 'Select',
     selected: '{{count}} selected',
     noResults: 'Try a broader search or clear the filters.',
-    noData: 'Create the first item or refresh after setup finishes.',
+    noData: 'Create the first item, or open this page again after setup finishes.',
     optional: 'Optional',
     required: 'Fill this in',
   },
@@ -106,7 +106,7 @@ export const en = {
     workLocations: {
       managed: 'the Project files option',
       local: 'this computer',
-      textOnly: 'text-only work',
+      textOnly: 'chat-only work',
       ready: 'a work location',
     },
     stepStatus: {
@@ -135,14 +135,14 @@ export const en = {
       provider: {
         title: 'Give agents a way to work',
         empty:
-          'Choose one way to let agents work: add an AI service, or join this computer as an agent.',
+          'Choose one way to let agents work: add an AI service for chat answers, or open work tool sign-in for Codex before file work.',
         needsTest: 'Check the AI service before giving agents work.',
         cliReady: '{{name}} is ready to run work from {{location}}.',
-        why: 'Agents need one ready option: a checked AI service for chat answers, or an agent joined from this computer for hands-on work.',
+        why: 'Agents need one ready option: a checked AI service for chat answers, or a signed-in work tool plus an agent for hands-on file work.',
         success:
-          'One ready option exists: a checked AI service or an agent joined from this computer.',
+          'One ready option exists: a checked AI service or an agent that can open file work.',
         create: 'Add AI service',
-        connectCli: 'Join this computer',
+        signInTool: 'Open work tool sign-in',
         test: 'Check AI service',
         reviewProviders: 'Check AI services',
         reviewAgents: 'Open agents',
@@ -152,7 +152,7 @@ export const en = {
         empty: 'Create one simple agent: chat-only, Project files, or this computer.',
         why: 'Agents receive tasks and return results. Start with one simple agent.',
         success: 'At least one agent appears in the Agents page.',
-        create: 'Create agent',
+        create: 'Add agent',
         review: 'Open agents',
       },
       routing: {
@@ -169,16 +169,18 @@ export const en = {
         emptyWithRouting:
           'Write one small task. Forge puts it where tasks wait until the next available agent picks it up.',
         emptyWithoutRouting: 'Set up where tasks wait before the first task.',
+        emptyWithoutProject:
+          'Create or choose a project, then set up where tasks wait before the first task.',
         ready: '{{count}} task on the board.',
         why: 'A small first task proves the setup works before you depend on it for real work.',
-        success: 'The task appears on the board, either waiting for an agent or already assigned.',
+        success: 'The task appears on the board, either waiting for an agent or already has one.',
         create: 'Write first task',
         open: 'Open board',
       },
       review: {
         title: 'Check the result',
         empty: 'After an agent picks up a task, open it to see progress and results.',
-        inFlight: 'A task is assigned. Check progress from the board.',
+        inFlight: 'A task has an agent. Check progress from the board.',
         ready: '{{count}} completed task ready to check.',
         why: 'Checking the result helps you decide whether the agent returned useful output you can trust.',
         success: 'A task has completed output or result files you can open.',
@@ -243,11 +245,11 @@ export const en = {
   // =========================================================================
   agents: {
     title: 'Agents',
-    newAgent: 'Create Agent',
-    createAgent: 'Create Agent',
+    newAgent: 'New agent',
+    createAgent: 'Add agent',
     editAgent: 'Edit Agent',
     deleteAgent: 'Delete Agent',
-    noAgents: 'Create one agent to start assigning work.',
+    noAgents: 'Create one agent before sending work.',
     agentName: 'Agent Name',
     projectPath: 'Project folder location',
     workingDirectory: 'Work folder',
@@ -273,9 +275,9 @@ export const en = {
       error: 'Check agent status',
       connecting: 'Connecting...',
     },
-    confirmDelete: 'Delete this agent? This removes its setup and stops assigning new work to it.',
+    confirmDelete: 'Delete this agent? This removes its setup and stops sending new work to it.',
     confirmStop: 'Stop this agent? Current work pauses until you start it again.',
-    // Create Agent modal
+    // New agent modal
     startNewAgent: 'Start a new agent',
     pickProject: 'Pick a project to begin',
     tellClaude: 'Tell Claude what to work on',
@@ -292,7 +294,8 @@ export const en = {
     agentStopped: 'Agent stopped',
     agentDeleted: 'Agent deleted',
     agentCreated: 'Agent created',
-    maxAgentsReached: 'Agent limit reached. Stop or delete an unused agent, then try again.',
+    maxAgentsReached:
+      'Stop or delete an unused agent, then try again. You already have the allowed number of agents.',
     invalidProjectPath: 'Enter the project folder location, then try again.',
   },
 
@@ -390,7 +393,7 @@ export const en = {
   workshop: {
     title: 'Visual map',
     loading: 'Loading visual map...',
-    loadError: 'Visual map could not load. Refresh after agents are available, then try again.',
+    loadError: 'Open Agents, wait until one shows Ready, then open Visual map again.',
     controls: {
       zoom: 'Use the agent list to find an agent',
       pan: 'Select a robot in the map',
@@ -444,11 +447,11 @@ export const en = {
     runtime: {
       title: 'Where agents work',
       description:
-        'Choose where agents can open files, then check tools and sign-ins before assigning tasks.',
+        'Choose where agents can open files, then check tools and sign-ins before sending tasks.',
       saving: 'Saving...',
       loading: 'Loading where agents work...',
       couldNotLoad:
-        'Refresh this settings page to load Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.',
+        'Open Settings, then open Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.',
       defaultRuntimeLabel: 'Where project files open',
       defaultRuntimeDescription:
         'Choose Project files for the simplest shared file work. Choose This computer only when this machine should join as an agent that Forge can manage here.',
@@ -484,19 +487,18 @@ export const en = {
       statusReady: 'Ready to use',
       statusNeedsInstall: 'Needs install before agents can use it',
       cliFit: 'Best with {{tool}}',
-      unknownToolFit: 'Check this work tool before using',
+      unknownToolFit: 'Check work tool in Settings',
       allAgentsFit: 'Works with any agent',
       allAgentsTooltip: 'No specific work tool is required.',
       containerCliTooltip: 'Work tool: {{tool}}',
-      unknownToolTooltip:
-        'Open Settings and check the work tool before using this saved instruction.',
+      unknownToolTooltip: 'Open Settings, check the work tool, then use this saved instruction.',
       nextStepHeading: 'What to do next',
       nextStepReady:
         'Use this saved instruction when creating a task, or rely on its matching words to suggest it for similar work.',
       nextStepNeedsInstall:
         'Ask an owner or admin to install it before expecting agents to use it in tasks.',
       sourceLabel: 'Where it came from',
-      authorLabel: 'Maintainer',
+      authorLabel: 'Updated by',
       availabilityLabel: 'Available to',
       descriptionHeading: 'What this helps with',
       noDescription: 'Check the reusable instructions below before using this saved instruction.',
@@ -506,10 +508,10 @@ export const en = {
       detailsHelper: 'Read these reusable steps before using this saved instruction.',
       noContent:
         'No reusable steps are saved yet. Add the steps agents should follow before using this saved instruction.',
-      unknownAuthor: 'Refresh saved instructions to load maintainer',
-      unknownSource: 'Saved instructions library',
+      unknownAuthor: 'Open Saved instructions again to show who keeps this updated',
+      unknownSource: 'Saved instructions',
       availabilityWorkspace: 'This team space',
-      availabilityGlobal: 'Saved instructions library',
+      availabilityGlobal: 'Saved instructions',
       availabilityProject: 'This project',
       availabilityLatest: 'Latest saved copy',
       availabilityNeedsReview: 'Check saved instruction access',
@@ -523,7 +525,7 @@ export const en = {
     generic: 'Try again after a moment. If it repeats, ask an owner to check app health.',
     network: 'Check your connection, then try again. Forge could not connect.',
     timeout: 'Wait a moment, then try again. The request took too long.',
-    notFound: 'Refresh the page, then try again. {{resource}} was not found.',
+    notFound: 'Open this page again, then try again. {{resource}} was not found.',
     unauthorized: 'Sign in again, then retry this action.',
     forbidden:
       'You do not have access for this action. Ask an owner or admin to check your team space access.',
@@ -537,7 +539,7 @@ export const en = {
       'Try this step again, then check the agent status if it repeats. The agent could not finish this step.',
     fileError: 'Check the file, then try again. Forge could not handle it.',
     uploadError: 'Check the file and connection, then upload again. The upload did not finish.',
-    downloadError: 'Refresh the page, then download again. The download did not start.',
+    downloadError: 'Open this page again, then download again. The download did not start.',
     rateLimited:
       'Wait {{seconds}} seconds, then try again. Too many requests are happening right now.',
     quotaExceeded:

@@ -161,6 +161,18 @@ describe('TaskMetadata', () => {
     )
   })
 
+  test('guides completed tasks with check wording', () => {
+    render(<TaskMetadata task={{ ...mockTask, state: 'completed' }} />)
+
+    expect(screen.getByText('Completed')).toBeDefined()
+    expect(screen.getByTestId('task-metadata-guidance').textContent).toContain(
+      'The task is finished. Check the Result tab or the final answer before closing the loop.'
+    )
+    expect(screen.getByTestId('task-metadata-guidance').textContent).not.toContain(
+      'Review the Result tab'
+    )
+  })
+
   test('labels unknown task status and priority without exposing raw codes', () => {
     render(
       <TaskMetadata
@@ -174,10 +186,31 @@ describe('TaskMetadata', () => {
 
     expect(screen.getByText('Check task status')).toBeDefined()
     expect(screen.getByText('Check task priority')).toBeDefined()
+    expect(screen.getByTestId('task-metadata-guidance').textContent).toContain(
+      'Open Updates to check the latest task activity.'
+    )
     expect(screen.queryByText(/waiting_for_agent/i)).toBeNull()
     expect(screen.queryByText(/waiting for agent/i)).toBeNull()
     expect(screen.queryByText(/future_priority/i)).toBeNull()
     expect(screen.queryByText(/future priority/i)).toBeNull()
+    expect(screen.queryByText(/Open Updates to review/i)).toBeNull()
+  })
+
+  test('labels missing task status and priority with a task details step', () => {
+    render(
+      <TaskMetadata
+        task={{
+          ...mockTask,
+          state: ' ' as never,
+          priority: ' ' as never,
+        }}
+      />
+    )
+
+    expect(screen.getByText('Open task details to check status')).toBeDefined()
+    expect(screen.getByText('Open task details to check priority')).toBeDefined()
+    expect(screen.queryByText('Refresh task status')).toBeNull()
+    expect(screen.queryByText('Refresh task priority')).toBeNull()
   })
 
   test('explains canceled tasks with saved activity wording', () => {

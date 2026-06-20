@@ -15,7 +15,7 @@ const PROJECT_SETUP_STEPS = [
   'Choose the team that owns the work.',
   'Name the project after the product, app, or work area.',
   'Code link is optional. Leave it blank if you only want a place for tasks right now.',
-  'Use only https:// GitHub or GitLab code links here. For git@ links, add SSH code access in Settings first. Never paste tokens or passwords here.',
+  'Use the https:// link you copy from GitHub or GitLab in your browser. If your code host gives you an SSH link, set up SSH code access in Settings first. Never paste passwords or access keys here.',
 ]
 
 /**
@@ -30,7 +30,7 @@ export function validateRepositoryUrl(raw: string): string | null {
   const value = raw.trim()
   if (!value) return null // optional — empty is valid
   if (/^(?:git@|ssh:\/\/)/i.test(value)) {
-    return 'Paste a code link that starts with https://, or leave this blank and add SSH code access in Settings for git@ links.'
+    return 'Paste the https:// code link from your browser, or leave this blank and set up SSH code access in Settings first.'
   }
 
   let parsed: URL
@@ -40,7 +40,7 @@ export function validateRepositoryUrl(raw: string): string | null {
     return 'Paste a full GitHub or GitLab code link, for example https://github.com/team/project.git, or leave this blank.'
   }
   if (parsed.protocol !== 'https:') {
-    return 'Paste a code link that starts with https://, or leave this blank and add SSH code access in Settings for git@ links.'
+    return 'Paste the https:// code link from your browser, or leave this blank and set up SSH code access in Settings first.'
   }
   // No credentials embedded in the URL (user[:pass]@host) — the server rejects
   // these so a token never lands in a stored URL. `URL` also flags a bare `@`.
@@ -107,7 +107,7 @@ function createProjectErrorMessage(error: unknown): string {
     return 'Ask an owner or admin to let you create projects in this team.'
   }
   if (code === 404) {
-    return 'Refresh Settings, choose the team again, then create this project.'
+    return 'Open Settings and Teams and Projects again, choose the team, then create this project.'
   }
   if (code === 409 || lower.includes('already exists') || lower.includes('duplicate')) {
     return 'Choose a different project name, then create this project again.'
@@ -240,7 +240,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
       )}
     >
       {bannerError && (
-        <div id={bannerId} role="alert" className={uiStyles.error}>
+        <div id={bannerId} role="alert" aria-live="polite" className={uiStyles.error}>
           {bannerError}
         </div>
       )}
@@ -279,12 +279,12 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
             id="project-name-help"
             className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Pick the name users will look for when assigning tasks.
+            Pick the name users will look for when sending tasks.
           </p>
           {trimmedName && (
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Shown at the end of project links: {slugifyName(name)}. Forge creates it automatically
-              from the project name.
+              Project link preview: {slugifyName(name)}. Forge creates it automatically from the
+              project name.
             </p>
           )}
         </div>
@@ -344,9 +344,9 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
           id="project-repo-help"
           className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
-          Paste a GitHub or GitLab link only when you want Forge to copy code now. Use https://
-          links here. If your link starts with git@, leave this blank and add SSH code access in
-          Settings first. Never paste tokens or passwords here.
+          Paste a GitHub or GitLab link only when you want Forge to copy code now. Use the https://
+          link you copy from your browser. If your code host gives you an SSH link, leave this blank
+          and set up SSH code access in Settings first. Never paste passwords or access keys here.
         </p>
         <p
           id="project-repo-status"
@@ -366,13 +366,13 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
             </p>
             <details className="mt-1">
               <summary className="cursor-pointer text-apple-blue hover:underline">
-                Show exact folder for troubleshooting
+                Show folder details for support
               </summary>
               <p className="mt-1">
-                Use this only if an owner, admin, or support message asks for the exact folder.
+                Use this only if an owner, admin, or support message asks for the project folder.
               </p>
               <span className="font-mono text-[11px] text-foreground-light dark:text-foreground-dark">
-                Exact folder: {workspacePath}
+                Project folder for support: {workspacePath}
               </span>
             </details>
           </div>
@@ -380,12 +380,12 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
       </div>
 
       {visibleError && errorField === 'name' && (
-        <p id={errorId} role="alert" className="text-ui-caption text-apple-red">
+        <p id={errorId} role="alert" aria-live="polite" className="text-ui-caption text-apple-red">
           {visibleError}
         </p>
       )}
       {visibleError && errorField === 'team' && (
-        <p role="alert" className="text-ui-caption text-apple-red">
+        <p role="alert" aria-live="polite" className="text-ui-caption text-apple-red">
           {visibleError}
         </p>
       )}

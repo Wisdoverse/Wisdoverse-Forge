@@ -71,9 +71,10 @@ describe('chatStreamHttpErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh the Agents page, choose an active agent, then open chat again. This agent could not be found.'
+      'Go back to Agents, choose an active agent, then open Chat again. This agent could not be found.'
     )
     expect(message).not.toContain('agent missing')
+    expect(message).not.toContain('Refresh the Agents list')
   })
 
   it('explains denied agent access with team space recovery guidance', () => {
@@ -97,7 +98,7 @@ describe('chatStreamHttpErrorMessage', () => {
   it('turns changed conversations into a refresh step', () => {
     expectBeginnerMessage(
       chatStreamHttpErrorMessage(409, { message: 'conversation changed' }),
-      'Refresh the chat, review the latest message, then try again. This conversation changed while the message was sending.'
+      'Open this chat again, check the latest message, then resend the message. This conversation changed while the message was sending.'
     )
   })
 
@@ -127,10 +128,11 @@ describe('chatStreamHttpErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh this agent, then resend the message. This message was not sent.'
+      'Go back to Agents, choose this agent again, then open Chat and resend the message. This message was not sent.'
     )
     expect(message).not.toContain('chat request')
     expect(message).not.toContain('teapot route')
+    expect(message).not.toContain('Refresh this agent')
   })
 })
 

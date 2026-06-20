@@ -19,7 +19,7 @@ describe('Workshop3DEmptyState', () => {
     expect(within(emptyState).getByText('Open Agents to build the visual map')).toBeDefined()
     expect(
       within(emptyState).getByText(
-        'If this is your first agent, create it from Agents. If you already have one, start or wake it there, then refresh this view.'
+        'If this is your first agent, create it from Agents. If you already have one, start or wake it there, then return to this 3D view after it checks in.'
       )
     ).toBeDefined()
     expect(within(emptyState).queryByText('No agents on the visual map yet')).toBeNull()
@@ -29,8 +29,9 @@ describe('Workshop3DEmptyState', () => {
       within(emptyState).getByText('Start or wake the agent if it is already listed')
     ).toBeDefined()
     expect(
-      within(emptyState).getByText('Refresh this view after the agent checks in')
+      within(emptyState).getByText('Return to this 3D view after the agent checks in')
     ).toBeDefined()
+    expect(within(emptyState).queryByText(/refresh this view/i)).toBeNull()
   })
 })
 

@@ -34,7 +34,7 @@ interface RuntimeChecklistItem {
 type RuntimeSectionFocus = 'overview' | 'sign-ins'
 
 const RUNTIME_SETTINGS_LOAD_GUIDANCE =
-  'Refresh this settings page to load Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.'
+  'Open Settings, then open Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.'
 const AGENT_READY_CHECK_GUIDANCE =
   'Open Agents and make sure one agent shows Ready, then choose Check again.'
 
@@ -160,8 +160,15 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
   const checklistReadyCount = checklistItems.filter((item) => item.ready).length
   const setupReady = checklistItems.length > 0 && checklistReadyCount === checklistItems.length
   const nextChecklistItem = checklistItems.find((item) => !item.ready) ?? null
+  const sectionTitle =
+    focus === 'sign-ins' ? 'Codex and work tool sign-in' : t('settings.runtime.title')
+  const sectionDescription =
+    focus === 'sign-ins'
+      ? 'Sign in to OpenAI (Codex) and other work tools before agents work on project files.'
+      : t('settings.runtime.description')
 
   async function connectCliProvider(provider: string) {
+    const label = cliSignInDisplayName(cliStatuses, provider)
     setOpeningProvider(provider)
     setCliStatusError(null)
     try {
@@ -170,7 +177,12 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
         setCliStatusError(runtimeErrorMessage('startCliSignIn', result))
         return
       }
-      window.open(result.url, '_blank', 'noopener,noreferrer')
+      const popup = window.open(result.url, '_blank', 'noopener,noreferrer')
+      if (!popup) {
+        setCliStatusError(
+          `Allow pop-ups for this site, then choose Sign in to ${label} again. The ${label} browser sign-in page did not open.`
+        )
+      }
     } catch (err) {
       setCliStatusError(runtimeErrorMessage('startCliSignIn', err))
     } finally {
@@ -193,8 +205,8 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>{t('settings.runtime.title')}</h2>
-          <p className={uiStyles.sectionDescription}>{t('settings.runtime.description')}</p>
+          <h2 className={uiStyles.sectionTitle}>{sectionTitle}</h2>
+          <p className={uiStyles.sectionDescription}>{sectionDescription}</p>
         </div>
         {saving && (
           <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -226,12 +238,12 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
           className="mb-4 rounded-lg border border-apple-blue/20 bg-apple-blue/[0.04] p-4"
         >
           <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            Sign in to Codex CLI and work tools
+            Start Codex sign-in here
           </h3>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-            Start here when Codex asks for login, or when an agent says its work account needs
-            reconnecting. Choose Sign in next to OpenAI (Codex), finish the browser login, then
-            return here and choose Check again.
+            Start here when Codex or another work tool asks for login. For Codex, choose Sign in
+            next to OpenAI (Codex), finish the browser login, then return here and choose Check
+            again.
           </p>
           <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
             If OpenAI (Codex) does not appear, choose Check again. If it still does not appear, ask
@@ -409,7 +421,7 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
                   aria-hidden="true"
                 />
                 <h4 className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
-                  Before assigning work
+                  Before sending file work
                 </h4>
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -539,6 +551,10 @@ function mergeCliAuthProxyStatuses(
   return Array.from(byProvider.values())
 }
 
+function cliSignInDisplayName(statuses: CliAuthProxyStatusEntry[], provider: string): string {
+  return statuses.find((status) => status.provider === provider)?.displayName ?? provider
+}
+
 function RuntimeNextStepPanel({
   item,
   allReady,
@@ -595,7 +611,7 @@ function RuntimeNextStepPanel({
           <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
             What success looks like:{' '}
             {allReady
-              ? 'Open Agents, create or select an agent, then assign work from Tasks.'
+              ? 'Open Agents, create or select an agent, then send work from Tasks.'
               : 'This item changes to Ready.'}
           </p>
         </div>
@@ -728,9 +744,8 @@ function CredentialStatusRow({
     ? status.lastRefresh
       ? `Last checked ${formatRelativeTime(status.lastRefresh)}`
       : 'Work tool signed in'
-    : status.revokeReason || status.revokedAt
-      ? 'Sign in again before starting agents that use this tool'
-      : 'Sign in before starting agents that use this tool'
+    : `Choose Sign in to ${status.displayName}. The browser login page opens, then return here and choose Check again.`
+  const actionLabel = opening ? `Opening ${status.displayName}` : `Sign in to ${status.displayName}`
 
   return (
     <div className="flex flex-col gap-2 rounded-lg bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04] sm:flex-row sm:items-center sm:justify-between">
@@ -758,9 +773,13 @@ function CredentialStatusRow({
           type="button"
           onClick={onConnect}
           disabled={opening}
-          className={cn(uiStyles.secondaryButton, 'shrink-0')}
+          title={`Open the ${status.displayName} browser login page`}
+          className={cn(
+            uiStyles.secondaryButton,
+            'h-auto min-h-9 w-full whitespace-normal py-2 text-center leading-tight sm:w-auto sm:shrink-0 sm:whitespace-nowrap'
+          )}
         >
-          {opening ? 'Opening' : 'Sign in'}
+          {actionLabel}
         </button>
       )}
     </div>
@@ -838,7 +857,7 @@ function runtimeLaunchChecklistItems(
   const credentialReady = !cliStatusError && (!disconnectedCredential || cliStatuses.length === 0)
   items.push({
     id: 'credentials',
-    title: 'Codex and CLI sign-ins',
+    title: 'Work tool sign-ins',
     detail: cliStatusError
       ? 'Choose Check again to refresh work tool sign-ins. If they still cannot be checked, ask an owner or admin to check work tool sign-ins.'
       : cliStatuses.length === 0
@@ -919,7 +938,7 @@ function fallbackRuntimeLabel(runtime: string): string {
     case 'container':
       return 'Project files'
     default:
-      return runtime.trim() ? 'Check where files open' : 'Refresh where files open'
+      return 'Check where files open'
   }
 }
 
@@ -934,7 +953,7 @@ function fallbackCliToolLabel(tool: string): string {
     case 'opencode':
       return 'OpenCode'
     default:
-      return tool.trim() ? 'Check work tool' : 'Refresh work tools'
+      return 'Check work tool'
   }
 }
 

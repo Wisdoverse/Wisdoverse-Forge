@@ -104,10 +104,10 @@ describe('UserManagement', () => {
 
     render(<UserManagement />)
 
-    expect(screen.getByText('Refresh users to load added date')).toBeDefined()
+    expect(screen.getByText('Open User access again to load added date')).toBeDefined()
     expect(screen.getByText('Never signed in')).toBeDefined()
-    expect(screen.getByText('Refresh users to check added date')).toBeDefined()
-    expect(screen.getByText('Refresh users to check sign-in date')).toBeDefined()
+    expect(screen.getByText('Open User access again to check added date')).toBeDefined()
+    expect(screen.getByText('Open User access again to check sign-in date')).toBeDefined()
     expect(screen.queryByText('—')).toBeNull()
     expect(screen.queryByText('Invalid Date')).toBeNull()
   })
@@ -174,7 +174,8 @@ describe('UserManagement', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Save access' }))
 
-    await waitFor(() => expect(screen.getByText(guardMessage)).toBeDefined())
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(guardMessage))
+    expect(screen.getByRole('alert')).toHaveAttribute('aria-live', 'polite')
     // The editor stays open so the operator can cancel or retry.
     expect(screen.getByRole('combobox')).toBeDefined()
   })
@@ -203,6 +204,37 @@ describe('UserManagement', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove account' }))
     await waitFor(() => expect(deleteUser).toHaveBeenCalledWith('user-2'))
+  })
+
+  test('announces failed account removal with a recoverable row alert', async () => {
+    const guardMessage = 'This account was not removed. Open User access again, then retry remove.'
+    const deleteUser = vi.fn(async () => {
+      useAdminStore.setState({ userActionError: guardMessage })
+      return false
+    })
+    useAdminStore.setState({
+      ...originalAdminState,
+      users: [{ ...mockUser, id: 'user-2', displayName: 'Bo Member', role: 'member' }],
+      usersTotal: 1,
+      usersPage: 1,
+      usersLoading: false,
+      usersError: null,
+      userActionError: null,
+      userSearch: '',
+      loadUsers: vi.fn(),
+      deleteUser,
+    })
+
+    render(<UserManagement />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove account' }))
+
+    await waitFor(() => expect(deleteUser).toHaveBeenCalledWith('user-2'))
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent(guardMessage)
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(screen.getByRole('button', { name: 'Remove' })).toBeDefined()
   })
 
   test('cancelling the remove confirmation keeps the account', () => {
@@ -271,10 +303,11 @@ describe('UserManagement', () => {
     loadUsers.mockClear()
 
     expect(screen.getByText('Search did not find a matching person')).toBeDefined()
-    expect(screen.getByText(/clear the search to see everyone who can sign in/i)).toBeDefined()
+    expect(screen.getByRole('status')).toHaveTextContent(/show all people/i)
+    expect(screen.getByText(/return to everyone who can sign in/i)).toBeDefined()
     expect(screen.queryByText('No users match this view')).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Show all people' }))
 
     expect(screen.getByLabelText('Search people by name or email')).toHaveValue('')
     await waitFor(() => expect(loadUsers).toHaveBeenCalledWith(1))
@@ -304,7 +337,7 @@ describe('UserManagement', () => {
       screen.getByText(/people appear here after an owner or admin invites them/i)
     ).toBeDefined()
     expect(screen.queryByText('No one is listed yet')).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Show all people' })).toBeNull()
     expect(screen.queryByText('No users match this view')).toBeNull()
   })
 
@@ -326,9 +359,9 @@ describe('UserManagement', () => {
     await waitFor(() => expect(loadUsers).toHaveBeenCalledWith(1))
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(alert).toHaveTextContent('Refresh Admin to reload the user list.')
+    expect(alert).toHaveTextContent('Open Admin again, then choose user list.')
     expect(alert).toHaveTextContent(
-      'Refresh Admin, then try again. If it still fails, ask an owner or admin to check your Admin access and this Admin page.'
+      'Open Admin again, then choose this section. If it still fails, ask an owner or admin to check your Admin access and this Admin page.'
     )
     expect(alert).not.toHaveTextContent('HTTP 503')
     expect(alert).not.toHaveTextContent('Admin setup')

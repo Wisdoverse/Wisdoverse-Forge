@@ -6,9 +6,10 @@ describe('feedbackErrorMessage', () => {
     const message = feedbackErrorMessage(new Error('Failed to fetch'))
 
     expect(message).toBe(
-      'Check your connection, then save this feedback again. Forge could not connect while saving it.'
+      'Check your connection, then choose the feedback option again. Forge could not connect while saving it.'
     )
     expect(message).not.toContain('Failed to fetch')
+    expect(message).not.toContain('save this feedback')
   })
 
   test('maps permission failures without raw API text', () => {
@@ -25,7 +26,10 @@ describe('feedbackErrorMessage', () => {
   test('keeps useful validation detail after the operator action', () => {
     const message = feedbackErrorMessage(new Error('HTTP 422: {"message":"Unknown label."}'))
 
-    expect(message).toContain('Choose one feedback option')
+    expect(message).toContain(
+      'Choose Useful, Outdated, Incorrect, Too sensitive, or Do not use again for this saved item'
+    )
+    expect(message).not.toContain('Choose one feedback option')
     expect(message).not.toContain('Code:')
     expect(message).not.toContain('Details:')
     expect(message).not.toContain('HTTP 422')

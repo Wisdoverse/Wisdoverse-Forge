@@ -72,7 +72,9 @@ describe('KeysSection', () => {
     expect(within(emptyState).getAllByText(/trusted outside tool/i).length).toBeGreaterThan(0)
     expect(within(emptyState).getByText(/skip this until a trusted outside tool/i)).toBeDefined()
     expect(within(emptyState).getByText(/tool you trust/i)).toBeDefined()
+    expect(within(emptyState).getByText(/teammates know which trusted tool uses it/i)).toBeDefined()
     expect(within(emptyState).getByText(/access value in a password manager/i)).toBeDefined()
+    expect(within(emptyState).queryByText(/exact tool or job/i)).toBeNull()
     expect(within(emptyState).queryByText(/copy the new key/i)).toBeNull()
     expect(within(emptyState).queryByText('No outside tool access keys yet')).toBeNull()
     expect(within(emptyState).queryByText(/platform A[P]I keys/i)).toBeNull()
@@ -100,7 +102,9 @@ describe('KeysSection', () => {
     fireEvent.submit(form!)
 
     expect(createApiKeyMock).not.toHaveBeenCalled()
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
       /name the tool that will use this access key first/i
     )
     expect(input).toHaveFocus()
@@ -165,10 +169,12 @@ describe('KeysSection', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /copy access value/i }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
       'Copy did not work. Select the access value text, copy it yourself, then choose I saved this value.'
     )
-    expect(screen.getByRole('alert')).not.toHaveTextContent(/clipboard access/i)
+    expect(alert).not.toHaveTextContent(/clipboard access/i)
   })
 
   test('labels saved key rows with clear removal language', async () => {
@@ -267,14 +273,21 @@ describe('KeysSection', () => {
           createdAt: '',
           lastUsedAt: 'not-a-date',
         }),
+        apiKey({
+          id: 'key-2',
+          name: 'Release webhook',
+          keyPrefix: 'af_prod',
+          createdAt: 'not-a-date',
+        }),
       ],
     })
 
     render(<KeysSection />)
 
     expect(await screen.findByRole('table', { name: /outside tool access keys/i })).toBeDefined()
-    expect(screen.getByText('Refresh access keys to load created date')).toBeDefined()
-    expect(screen.getByText('Refresh access keys to check last use')).toBeDefined()
+    expect(screen.getByText('Open Outside tool access again to load created date')).toBeDefined()
+    expect(screen.getByText('Open Outside tool access again to check created date')).toBeDefined()
+    expect(screen.getByText('Open Outside tool access again to check last use')).toBeDefined()
     expect(screen.queryByText('Invalid Date')).toBeNull()
     expect(screen.queryByText('—')).toBeNull()
   })

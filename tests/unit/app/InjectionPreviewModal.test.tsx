@@ -168,17 +168,35 @@ describe('InjectionPreviewModal', () => {
       <InjectionPreviewModal
         isOpen
         preview={null}
-        error="No agent can check saved items right now. Open Agents to start or connect an agent, then return to the board and refresh."
+        error="No agent can check saved items right now. Open Agents to start or connect an agent, then open the Tasks page and check saved items again."
         onClose={() => {}}
         onConfirm={() => {}}
       />
     )
 
     const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert.textContent).toContain('No agent can check saved items right now')
     expect(alert.textContent).toContain('Open Agents to start or connect an agent')
     expect(screen.getByText(/choose an available agent, then try sending again/i)).toBeDefined()
     expect(screen.queryByText('No saved notes review is available yet.')).toBeNull()
+  })
+
+  test('announces saved-item check errors while keeping selected notes visible', () => {
+    render(
+      <InjectionPreviewModal
+        isOpen
+        preview={preview}
+        error="Saved items were not updated. Check the list, then send again."
+        onClose={() => {}}
+        onConfirm={() => {}}
+      />
+    )
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent('Saved items were not updated. Check the list, then send again.')
+    expect(screen.getByText('Deploy checklist')).toBeDefined()
   })
 
   test('describes unknown saved items and helper-agent limits without jargon', () => {

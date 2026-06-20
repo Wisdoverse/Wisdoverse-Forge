@@ -23,13 +23,13 @@ const PROMPT_TEMPLATES = [
     id: 'delivery',
     label: 'Delivery',
     value:
-      'You are a delivery-focused agent. Ask early for missing information, keep changes scoped to the assigned task, preserve existing conventions, and report what you checked before sharing results.',
+      'You are a delivery-focused agent. Ask early for missing information, keep changes scoped to the task you receive, preserve existing conventions, and report what you checked before sharing results.',
   },
   {
     id: 'review',
-    label: 'Review',
+    label: 'Check results',
     value:
-      'You review work carefully. Start with anything that could break the result, create a security risk, or need a missing check. Explain the problem first, then point to the file or behavior that proves it.',
+      'You check work before the team uses it. Start with anything that could break the result, create a security risk, or need a missing check. Explain the problem first, then point to the file or behavior that proves it.',
   },
   {
     id: 'triage',
@@ -49,7 +49,7 @@ function promptStats(value: string): PromptStats {
 }
 
 function promptProfileSaveErrorMessage(): string {
-  return 'Refresh this agent, confirm it is still a chat-only agent, then save again. If it keeps failing, ask an owner or admin to check your agent access. Agent instructions were not saved.'
+  return 'Open Agents, choose this chat-only agent again, then save again. If it keeps failing, ask an owner or admin to check your agent access. Agent instructions were not saved.'
 }
 
 function isMissingModelLabel(label: string): boolean {
@@ -62,7 +62,7 @@ function isMissingModelLabel(label: string): boolean {
 
 function modelLabel(model?: string | null): string {
   const label = model?.trim()
-  return label && !isMissingModelLabel(label) ? 'AI model selected' : 'Refresh AI model'
+  return label && !isMissingModelLabel(label) ? 'AI model selected' : 'Check AI model setup'
 }
 
 export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
@@ -330,7 +330,7 @@ function cliToolLabel(tool?: AgentInfo['cliTool'] | string): string {
       return 'OpenCode'
     case undefined:
     case '':
-      return 'Refresh work tool settings'
+      return 'Check work tool settings'
     default:
       return 'Check work tool settings'
   }
@@ -360,7 +360,7 @@ function CliRuntimeConfig({ agent }: { agent: AgentInfo }) {
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
             This agent follows the setup for its work tool. Confirm where it can open files before
-            assigning work.
+            sending file work.
           </p>
         </div>
         <span className="inline-flex h-7 w-fit items-center rounded-full bg-apple-blue/10 px-2.5 text-ui-caption font-medium text-apple-blue">

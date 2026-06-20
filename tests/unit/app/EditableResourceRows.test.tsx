@@ -36,7 +36,7 @@ describe('Editable resource rows', () => {
       />
     )
 
-    expect(screen.getByText('Shown at the end of team links: platform')).toBeDefined()
+    expect(screen.getByText('Team link preview: platform')).toBeDefined()
     expect(screen.getByText('Open to team space')).toHaveAttribute(
       'title',
       'People in this team space can find this team.'
@@ -47,8 +47,9 @@ describe('Editable resource rows', () => {
     expect(screen.queryByTitle('Members')).toBeNull()
     expect(screen.queryByTitle('Edit')).toBeNull()
     expect(screen.queryByTitle('Delete')).toBeNull()
-    expect(screen.getByRole('button', { name: 'Manage people and access for Platform' }))
-      .toHaveAttribute('title', 'Manage people and access')
+    expect(
+      screen.getByRole('button', { name: 'Manage people and access for Platform' })
+    ).toHaveAttribute('title', 'Manage people and access')
     expect(screen.getByRole('button', { name: 'Edit Platform' })).toHaveAttribute(
       'title',
       'Rename team'
@@ -79,14 +80,15 @@ describe('Editable resource rows', () => {
       />
     )
 
-    expect(screen.getByText('Shown at the end of project links: web-app')).toBeDefined()
+    expect(screen.getByText('Project link preview: web-app')).toBeDefined()
     expect(screen.queryByText(/Forge uses this in project links/i)).toBeNull()
     expect(screen.queryByText(/Automatic project name/i)).toBeNull()
     expect(screen.queryByTitle('Members')).toBeNull()
     expect(screen.queryByTitle('Edit')).toBeNull()
     expect(screen.queryByTitle('Delete')).toBeNull()
-    expect(screen.getByRole('button', { name: 'Manage people and access for Web App' }))
-      .toHaveAttribute('title', 'Manage people and access')
+    expect(
+      screen.getByRole('button', { name: 'Manage people and access for Web App' })
+    ).toHaveAttribute('title', 'Manage people and access')
     expect(screen.getByRole('button', { name: 'Edit Web App' })).toHaveAttribute(
       'title',
       'Rename project'

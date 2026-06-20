@@ -156,16 +156,17 @@ export function skillHttpErrorMessage(
   data: Record<string, unknown> = {}
 ): string {
   const detail = errorDetail(data)
-  const actionText = action === 'create' ? 'create the instruction' : 'refresh Saved instructions'
+  const actionText =
+    action === 'create' ? 'create the instruction' : 'open Saved instructions again'
   const createPermissionMessage =
-    'Ask an owner or admin to let you create saved instructions for this team space.'
+    'Ask an owner or admin to let you create saved instructions for this team space, then create the instruction again.'
   const createConflictMessage =
-    'Review the existing instructions, then change the name or matching words and try again.'
+    'Open Saved instructions to check for a similar item, then change the name or matching words and create the instruction again.'
   const createRateLimitMessage =
     'Wait a moment, then create the instruction again. Instruction setup is busy right now.'
   const createServiceMessage =
-    'Refresh Saved instructions, then create the instruction again. If it still fails, ask an owner or admin to check Saved instructions access.'
-  const createDefaultMessage = 'Review the fields, then create the instruction again.'
+    'Open Saved instructions again, then create the instruction again. If it still fails, ask an owner or admin to check Saved instructions access.'
+  const createDefaultMessage = 'Check the required fields, then create the instruction again.'
 
   if (status === 401) {
     return `Sign in again, then ${actionText}.`
@@ -173,12 +174,12 @@ export function skillHttpErrorMessage(
   if (status === 403) {
     return action === 'create'
       ? createPermissionMessage
-      : 'Ask an owner or admin to update your team space access, then refresh Saved instructions. You do not have access to saved instructions for this team space.'
+      : 'Ask an owner or admin to update your team space access, then open Saved instructions again. You do not have access to saved instructions for this team space.'
   }
   if (status === 404) {
     return action === 'create'
       ? 'Open Saved instructions again, then create the instruction.'
-      : 'Refresh Saved instructions to load the list.'
+      : 'Open Saved instructions again to load the list.'
   }
   if (status === 409) {
     return createConflictMessage
@@ -194,16 +195,18 @@ export function skillHttpErrorMessage(
   if (status >= 500) {
     return action === 'create'
       ? createServiceMessage
-      : 'Refresh Saved instructions to load the list.'
+      : 'Open Saved instructions again to load the list.'
   }
 
-  return action === 'create' ? createDefaultMessage : 'Refresh Saved instructions to load the list.'
+  return action === 'create'
+    ? createDefaultMessage
+    : 'Open Saved instructions again to load the list.'
 }
 
 function skillNetworkErrorMessage(action: SkillAction): string {
   return action === 'create'
     ? 'Check your connection, then create the instruction again. Forge could not connect while creating it.'
-    : 'Check your connection, then refresh Saved instructions to load the list.'
+    : 'Check your connection, then open Saved instructions again to load the list.'
 }
 
 function skillResponseErrorMessage(
@@ -214,24 +217,24 @@ function skillResponseErrorMessage(
   if (detail)
     return action === 'create'
       ? skillValidationMessage(detail)
-      : 'Refresh Saved instructions to load the list.'
+      : 'Open Saved instructions again to load the list.'
   return action === 'create'
-    ? 'Review the fields, then create the instruction again.'
-    : 'Refresh Saved instructions to load the list.'
+    ? 'Check the required fields, then create the instruction again.'
+    : 'Open Saved instructions again to load the list.'
 }
 
 function skillValidationMessage(detail: string | null): string {
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('trigger')) {
-    return 'Check the matching words, then try again.'
+    return 'Check the matching words, then create the instruction again.'
   }
   if (normalized.includes('name')) {
-    return 'Enter an instruction name, then try again.'
+    return 'Enter an instruction name, then create the instruction again.'
   }
   if (normalized.includes('content') || normalized.includes('instruction')) {
-    return 'Enter the saved instructions, then try again.'
+    return 'Enter the saved instructions, then create the instruction again.'
   }
-  return 'Check the instruction name, matching words, and instructions, then try again.'
+  return 'Check the instruction name, matching words, and instructions, then create the instruction again.'
 }
 
 export const useSkillsStore = create<SkillsState>((set, get) => ({

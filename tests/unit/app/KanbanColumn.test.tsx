@@ -40,7 +40,9 @@ describe('KanbanColumn', () => {
       within(examples).getByRole('button', { name: /Check setup and list the next safe step/i })
     )
 
-    expect(screen.getByLabelText('Task goal')).toHaveValue('Check setup and list the next safe step')
+    expect(screen.getByLabelText('Task goal')).toHaveValue(
+      'Check setup and list the next safe step'
+    )
     expect(
       within(examples).queryByRole('button', { name: /Review setup and list the next safe step/i })
     ).toBeNull()
@@ -94,9 +96,12 @@ describe('KanbanColumn', () => {
     renderColumn('done')
 
     const reviewEmpty = screen.getByTestId('kanban-empty-done')
-    expect(within(reviewEmpty).getByText('Finished work appears here for review')).toBeDefined()
+    expect(
+      within(reviewEmpty).getByText('Finished work appears here to check before using')
+    ).toBeDefined()
     expect(within(reviewEmpty).getByText(/completed tasks move here/i)).toBeDefined()
     expect(within(reviewEmpty).queryByText('Nothing ready for review')).toBeNull()
+    expect(within(reviewEmpty).queryByText('Finished work appears here for review')).toBeNull()
 
     cleanup()
     renderColumn('failed')
@@ -105,9 +110,7 @@ describe('KanbanColumn', () => {
     expect(
       within(recoveryEmpty).getByText('Retry steps appear here after a task stops')
     ).toBeDefined()
-    expect(
-      within(recoveryEmpty).getByText(/read the recovery note and retry steps/i)
-    ).toBeDefined()
+    expect(within(recoveryEmpty).getByText(/read the recovery note and retry steps/i)).toBeDefined()
     expect(recoveryEmpty.textContent).not.toMatch(/retry path/i)
     expect(within(recoveryEmpty).queryByText('No work needing recovery')).toBeNull()
   })

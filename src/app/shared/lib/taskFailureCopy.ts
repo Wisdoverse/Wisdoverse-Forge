@@ -67,7 +67,7 @@ export function taskBlockedPreview({
     case 'waiting_input':
       return 'Add the missing information so the agent can continue.'
     case 'waiting_approval':
-      return 'Review the approval request, then approve or decline it.'
+      return 'Open the task details, read what the agent needs, then choose Continue or Stop.'
     case 'quota_exceeded':
       return 'Pause lower-priority work or ask an owner to raise the limit, then retry.'
     default:
@@ -81,6 +81,9 @@ function beginnerBlockedHint(hint: string): string {
   }
   if (/\b(api\s*)?(credential|credentials|key|keys|token|tokens|secret|secrets)\b/i.test(hint)) {
     return 'Waiting for account access. Add or reconnect the required service access, then retry.'
+  }
+  if (/\bapproval\b/i.test(hint)) {
+    return 'Open the task details to see what needs confirmation, then choose Continue or Stop when it is ready.'
   }
   if (containsTechnicalBlockedHint(hint)) {
     return 'This task needs help before it can continue. Open the task details, check the latest update, then retry or ask an owner for help.'

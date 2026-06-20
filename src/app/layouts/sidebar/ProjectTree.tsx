@@ -201,16 +201,16 @@ function renameErrorMessage(target: RenameTarget, error: unknown): string {
   }
 
   if (status === 401) {
-    return `Sign in again, then reopen the left menu and save this ${label} name.`
+    return `Sign in again, then open the left menu and save this ${label} name again.`
   }
   if (status === 403) {
     return `Ask an owner or admin to let you edit this ${label}, then save this ${label} name again from the left menu. You do not have permission to rename this ${label}.`
   }
   if (status === 404) {
-    return `Refresh the left menu, then choose the current ${label} again. This ${label} could not be found.`
+    return `Open the left menu, choose the current ${label}, then try again. This ${label} could not be found.`
   }
   if (status === 409) {
-    return `Refresh the left menu, check the current name, then save this ${label} name again. This ${label} changed while you were editing.`
+    return `Open the left menu, choose the current ${label}, then save this ${label} name again. This ${label} changed while you were editing.`
   }
   if (status === 422) {
     return renameValidationMessage(target, detail)
@@ -219,10 +219,10 @@ function renameErrorMessage(target: RenameTarget, error: unknown): string {
     return `Wait a moment, then save this ${label} name again. The left menu is busy.`
   }
   if (status >= 500) {
-    return `Refresh the left menu, then save this ${label} name again. Forge could not save it right now. If it still fails, ask an owner or admin to check Teams and Projects in Settings.`
+    return `Open the left menu, choose the current ${label}, then save this ${label} name again. Forge could not save it right now. If it still fails, ask an owner or admin to check Teams and Projects in Settings.`
   }
 
-  return `Refresh the left menu, then save this ${label} name again. The ${label} name was not saved.`
+  return `Open the left menu, choose the current ${label}, then save this ${label} name again. The ${label} name was not saved.`
 }
 
 function renameValidationMessage(target: RenameTarget, detail: string | null): string {
@@ -231,13 +231,13 @@ function renameValidationMessage(target: RenameTarget, detail: string | null): s
   const normalized = detail?.toLowerCase() ?? ''
 
   if (normalized.includes('duplicate') || normalized.includes('already')) {
-    return `Choose a different ${label} name, refresh the left menu, then save again.`
+    return `Choose a different ${label} name, then open the left menu and save again.`
   }
   if (normalized.includes('name')) {
     return `Enter a ${label} name, then save again.`
   }
 
-  return `Refresh the left menu, then save this ${label} name again. The ${title.toLowerCase()} name was not saved.`
+  return `Open the left menu, choose the current ${label}, then save this ${label} name again. The ${title.toLowerCase()} name was not saved.`
 }
 
 function deleteErrorMessage(target: RenameTarget, error: unknown): string {
@@ -257,13 +257,13 @@ function deleteErrorMessage(target: RenameTarget, error: unknown): string {
     return deleteValidationMessage(target, normalized)
   }
   if (status === 401) {
-    return `Sign in again, then reopen the left menu and delete this ${label} again.`
+    return `Sign in again, then open the left menu and delete this ${label} again.`
   }
   if (status === 403) {
     return `Ask an owner or admin to let you delete this ${label}, then delete it again from the left menu. You do not have permission to delete this ${label}.`
   }
   if (status === 404) {
-    return `Refresh the left menu. This ${label} may already be gone.`
+    return `Open the left menu and check the current ${label} list. This ${label} may already be gone.`
   }
   if (status === 409 || status === 422) {
     return deleteValidationMessage(target, normalized)
@@ -272,25 +272,25 @@ function deleteErrorMessage(target: RenameTarget, error: unknown): string {
     return `Wait a moment, then delete this ${label} again. The left menu is busy.`
   }
   if (status >= 500) {
-    return `Refresh the left menu, then delete this ${label} again. Forge could not delete it right now. If it still fails, ask an owner or admin to check Teams and Projects in Settings.`
+    return `Open the left menu, choose the current ${label}, then delete it again. Forge could not delete it right now. If it still fails, ask an owner or admin to check Teams and Projects in Settings.`
   }
 
-  return `Refresh the left menu, then delete this ${label} again.`
+  return `Open the left menu, choose the current ${label}, then delete it again.`
 }
 
 function deleteValidationMessage(target: RenameTarget, normalized: string): string {
   if (target === 'team' && normalized.includes('project')) {
-    return "Move or delete this team's projects first, then delete the team again."
+    return "Open the left menu, delete this team's projects first, then delete the team again."
   }
   if (target === 'project' && normalized.includes('agent')) {
-    return 'Move agents out of this project first, then delete the project again.'
+    return 'Go to Agents, change or remove agents that use this project, then delete the project again.'
   }
   if (target === 'project' && normalized.includes('task')) {
-    return "Move or finish this project's tasks first, then delete the project again."
+    return "Go to Tasks, finish this project's tasks first, then delete the project again."
   }
   return target === 'team'
-    ? 'Check whether this team still has projects or required owner access, then delete it again.'
-    : 'Check whether agents or tasks are still using this project, then delete it again.'
+    ? 'Open the left menu and check this team for projects, then delete the team again. If it still fails, ask an owner or admin to check team access.'
+    : 'Go to Agents and Tasks, check what is using this project, then delete the project again.'
 }
 
 function getMenuPosition(
@@ -380,6 +380,7 @@ function EmptyTreeHint({ title, detail, actionLabel, Icon, onAction, testId }: E
 function DeleteConfirmationDialog({ state, onCancel, onConfirm }: DeleteConfirmationDialogProps) {
   const titleId = `sidebar-delete-${state.target}-title`
   const detailId = `sidebar-delete-${state.target}-detail`
+  const errorId = `sidebar-delete-${state.target}-error`
   const targetName = state.target === 'team' ? state.team.name : state.project.name
   const title = state.target === 'team' ? 'Delete this team?' : 'Delete this project?'
   const detail =
@@ -405,7 +406,7 @@ function DeleteConfirmationDialog({ state, onCancel, onConfirm }: DeleteConfirma
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        aria-describedby={detailId}
+        aria-describedby={state.error ? `${detailId} ${errorId}` : detailId}
         className="relative w-full max-w-[380px] rounded-lg bg-white p-5 shadow-xl dark:bg-[#2c2c2e]"
       >
         <h2
@@ -422,7 +423,9 @@ function DeleteConfirmationDialog({ state, onCancel, onConfirm }: DeleteConfirma
         </p>
         {state.error && (
           <div
+            id={errorId}
             role="alert"
+            aria-live="polite"
             className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-ui-caption text-red-600 dark:bg-red-900/20 dark:text-red-400"
           >
             {state.error}
@@ -852,7 +855,7 @@ export function ProjectTree({
                 </span>
               </div>
               <p className="mt-0.5 truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-                {projectMenu.team.name} team · project link ending {projectMenu.project.slug}
+                {projectMenu.team.name} team · project link preview {projectMenu.project.slug}
               </p>
             </div>
 
@@ -896,25 +899,25 @@ export function ProjectTree({
             <div className="my-1 h-px bg-black/[0.06] dark:bg-white/[0.08]" />
             <ProjectMenuItem
               Icon={Copy}
-              label="Copy project code"
-              detail="Use this only when another page or support asks for this project code"
+              label="Copy project reference"
+              detail="Use this only when another page or an owner or admin asks for this project reference"
               onClick={() =>
                 void handleCopyProjectValue(
                   projectMenu.project.id,
-                  'Project code copied',
-                  'project code'
+                  'Project reference copied',
+                  'project reference'
                 )
               }
             />
             <ProjectMenuItem
               Icon={Hash}
-              label="Copy project link ending"
-              detail={`${projectMenu.project.slug} · shown at the end of project links`}
+              label="Copy project link preview"
+              detail={`Project link preview: ${projectMenu.project.slug}`}
               onClick={() =>
                 void handleCopyProjectValue(
                   projectMenu.project.slug,
-                  'Project link ending copied',
-                  'project link ending'
+                  'Project link preview copied',
+                  'project link preview'
                 )
               }
             />
@@ -964,7 +967,11 @@ export function ProjectTree({
               Edit team details
             </h2>
             {teamEditor.error && (
-              <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-ui-caption text-red-600 dark:bg-red-900/20 dark:text-red-400">
+              <div
+                role="alert"
+                aria-live="polite"
+                className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-ui-caption text-red-600 dark:bg-red-900/20 dark:text-red-400"
+              >
                 {teamEditor.error}
               </div>
             )}
@@ -1026,7 +1033,11 @@ export function ProjectTree({
               Rename project
             </h2>
             {projectEditor.error && (
-              <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-ui-caption text-red-600 dark:bg-red-900/20 dark:text-red-400">
+              <div
+                role="alert"
+                aria-live="polite"
+                className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-ui-caption text-red-600 dark:bg-red-900/20 dark:text-red-400"
+              >
                 {projectEditor.error}
               </div>
             )}

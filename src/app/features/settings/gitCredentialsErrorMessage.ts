@@ -78,12 +78,12 @@ function actionFromText(text: string): GitCredentialAction {
 function retryAction(action: GitCredentialAction): string {
   if (action === 'save') return 'save code access again'
   if (action === 'remove') return 'remove code access again'
-  return 'refresh Settings to load code access'
+  return 'open Settings and Code access again'
 }
 
 function connectionMessage(action: GitCredentialAction): string {
   if (action === 'load') {
-    return 'Check your connection, then refresh Settings to load code access. Forge could not connect while opening code access.'
+    return 'Check your connection, then open Settings and Code access again. Forge could not connect while opening code access.'
   }
   if (action === 'remove') {
     return 'Check your connection, then remove code access again. The removal did not finish.'
@@ -140,16 +140,16 @@ export function gitCredentialsErrorMessage(error: unknown): string {
   }
   if (code != null && code >= 500) {
     if (action === 'load') {
-      return 'Refresh Settings to load code access. If it still fails, ask an owner or admin to check code access settings.'
+      return 'Open Settings and Code access again. If it still fails, ask an owner or admin to check code access settings.'
     }
-    return `Refresh Settings, then ${retry}. If it still fails, ask an owner or admin to check code access settings.`
+    return `Open Settings and Code access again, then ${retry}. If it still fails, ask an owner or admin to check code access settings.`
   }
   if (isNetworkError(error)) {
     return connectionMessage(action)
   }
 
   if (action === 'load') {
-    return 'Refresh Settings to load code access. If it still fails, ask an owner or admin to check code access settings.'
+    return 'Open Settings and Code access again. If it still fails, ask an owner or admin to check code access settings.'
   }
   return `Try to ${retry}. If it still fails, ask an owner or admin to check code access settings.`
 }

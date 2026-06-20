@@ -334,7 +334,9 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
         className="flex h-full items-center justify-center px-6 text-center"
       >
         <div className="flex max-w-sm flex-col items-center gap-3">
-          <p className="text-ui-body text-apple-red">{error}</p>
+          <p role="alert" aria-live="polite" className="text-ui-body text-apple-red">
+            {error}
+          </p>
           {selectedGroupId ? (
             <button
               type="button"
@@ -375,6 +377,7 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
           <div
             data-testid="board-action-error"
             role="alert"
+            aria-live="polite"
             className="rounded-lg border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red"
           >
             {actionError}
@@ -383,6 +386,8 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
         {hasActiveBoardFilter && filterCounts.visible === 0 ? (
           <div
             data-testid="board-filter-empty"
+            role="status"
+            aria-live="polite"
             className="flex min-h-64 flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-black/10 px-6 text-center dark:border-white/10"
           >
             <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">

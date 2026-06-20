@@ -86,8 +86,8 @@ describe('agents.store managedToAgentInfo backward-compat', () => {
       cliTool: null,
     } as any)
 
-    expect(info.provider).toBe('Refresh AI service')
-    expect(info.model).toBe('Refresh AI model')
+    expect(info.provider).toBe('Check AI service setup')
+    expect(info.model).toBe('Check AI model setup')
     expect(info.provider).not.toBe('Unknown')
     expect(info.model).not.toBe('unknown')
     expect(info.model).not.toBe('Model not reported')

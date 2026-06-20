@@ -149,7 +149,12 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
         </div>
       </div>
       {error && (
-        <p id={errorId} role="alert" className="text-ui-caption font-medium text-apple-red">
+        <p
+          id={errorId}
+          role="alert"
+          aria-live="polite"
+          className="text-ui-caption font-medium text-apple-red"
+        >
           {error}
         </p>
       )}

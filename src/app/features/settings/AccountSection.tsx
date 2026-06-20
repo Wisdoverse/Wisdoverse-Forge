@@ -124,7 +124,7 @@ function PasswordChangeForm() {
         password next time.
       </p>
       {error && (
-        <div role="alert" className={uiStyles.error}>
+        <div role="alert" aria-live="polite" className={uiStyles.error}>
           {error}
         </div>
       )}
@@ -308,7 +308,7 @@ function OrgRenameForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       {error && (
-        <div role="alert" className={uiStyles.error}>
+        <div role="alert" aria-live="polite" className={uiStyles.error}>
           {error}
         </div>
       )}
@@ -388,7 +388,7 @@ function GettingStartedGuideRow() {
     ? 'Wait a moment while Forge checks whether the setup checklist is shown.'
     : hidden
       ? 'Next step: choose Show setup checklist to add it back.'
-      : 'It is available now. Choose Open setup checklist to review setup.'
+      : 'It is available now. Choose Open setup checklist to check setup steps.'
   const visibilityDetail = !preferencesLoaded
     ? 'Forge is checking whether the setup checklist is shown. Your projects, agents, and tasks stay the same.'
     : hidden
@@ -456,7 +456,7 @@ function GettingStartedGuideRow() {
         </div>
       </div>
       {error && (
-        <div role="alert" className={cn(uiStyles.error, 'mb-0')}>
+        <div role="alert" aria-live="polite" className={cn(uiStyles.error, 'mb-0')}>
           {error}
         </div>
       )}
@@ -467,8 +467,8 @@ function GettingStartedGuideRow() {
           className="flex flex-col gap-2 rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue sm:flex-row sm:items-center sm:justify-between"
         >
           <span>
-            Setup checklist is back in the left menu. Choose Open setup checklist to review setup.
-            Your projects, agents, and tasks were not changed.
+            Setup checklist is back in the left menu. Choose Open setup checklist to check setup
+            steps. Your projects, agents, and tasks were not changed.
           </span>
           <button
             type="button"
@@ -514,7 +514,7 @@ export function AccountSection() {
               Username
             </span>
             <span className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-              {reportedAccountValue(user?.username, 'Refresh this page to load username')}
+              {reportedAccountValue(user?.username, 'Open Account settings again to load username')}
             </span>
           </div>
           <div className="flex items-center justify-between px-4 py-3">
@@ -522,7 +522,7 @@ export function AccountSection() {
               Email
             </span>
             <span className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-              {reportedAccountValue(user?.email, 'Refresh this page to load email')}
+              {reportedAccountValue(user?.email, 'Open Account settings again to load email')}
             </span>
           </div>
           <div className="flex items-center justify-between px-4 py-3">

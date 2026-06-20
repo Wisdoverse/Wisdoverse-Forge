@@ -55,7 +55,7 @@ describe('navigation.store', () => {
   it('turns permission failures into team space access guidance', () => {
     expectBeginnerError(
       navigationActionErrorMessage('teamProjects', 'load', apiError(403, { message: 'forbidden' })),
-      'Ask an owner or admin to update your team space access, then refresh the left menu to load teams and projects. You do not have permission to load teams and projects.'
+      'Ask an owner or admin to update your team space access, then open the left menu and load teams and projects. You do not have permission to load teams and projects.'
     )
   })
 
@@ -82,7 +82,7 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       message,
-      'Choose a team space you can access, refresh the left menu, then load its teams and projects again.'
+      'Choose a team space you can access, then open the left menu and load its teams and projects again.'
     )
     expect(message).not.toContain('organization')
     expect(message).not.toContain('sidebar')
@@ -91,7 +91,7 @@ describe('navigation.store', () => {
   it('turns navigation conflicts into a current teams and projects check step', () => {
     expectBeginnerError(
       navigationActionErrorMessage('teamProjects', 'load', apiError(409, { message: 'conflict' })),
-      'The left menu changed while you were working. Refresh it, check the current teams and projects, then try again.'
+      'Open the left menu, check the current teams and projects, then try again. The left menu changed while you were working.'
     )
   })
 
@@ -104,7 +104,7 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       message,
-      'Check your connection, then refresh the left menu to load waiting places.'
+      'Check your connection, then open the left menu and try to load waiting places again.'
     )
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('service')
@@ -180,7 +180,7 @@ describe('navigation.store', () => {
     vi.mocked(agentGroupApi.getGroups).mockRejectedValueOnce(new Error('network down'))
     await expect(useNavigationStore.getState().selectProject('p1')).resolves.toBe(false)
     expect(useNavigationStore.getState().error).toBe(
-      'Refresh the selected project, then load where tasks wait again.'
+      'Open the left menu, choose the selected project, then load where tasks wait again.'
     )
     expect(useNavigationStore.getState().error).not.toContain('network down')
     expect(useNavigationStore.getState().error).not.toContain('task queue')
@@ -337,7 +337,7 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       useNavigationStore.getState().error,
-      'Refresh the left menu to load teams and projects. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
+      'Open the left menu to load teams and projects. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
     )
     expect(useNavigationStore.getState().error).not.toContain('temporarily unavailable')
     expect(useNavigationStore.getState().error).not.toContain('organization')
@@ -353,7 +353,7 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       useNavigationStore.getState().error,
-      'Ask an owner or admin to update your team space access, then refresh the left menu to load teams and projects. You do not have permission to load teams and projects.'
+      'Ask an owner or admin to update your team space access, then open the left menu and load teams and projects. You do not have permission to load teams and projects.'
     )
   })
 
@@ -364,7 +364,7 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       useNavigationStore.getState().error,
-      'Check your connection, then refresh the left menu to load waiting places.'
+      'Check your connection, then open the left menu and try to load waiting places again.'
     )
     expect(useNavigationStore.getState().error).not.toContain('Failed to fetch')
   })

@@ -4,6 +4,7 @@ import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
 import type { GitCredential, GitProvider } from '@app/entities/agent'
 import { formatAccessDate } from './formatAccessDate'
+import { gitCredentialsErrorMessage } from './gitCredentialsErrorMessage'
 
 const PROVIDER_LABELS: Record<GitProvider, string> = {
   github: 'GitHub',
@@ -21,6 +22,14 @@ const GIT_CREDENTIAL_SETUP_STEPS = [
     value: 'Only fill it in when your company uses a private code website like gitlab.example.com.',
   },
 ]
+
+const RAW_GIT_CREDENTIAL_ERROR_PATTERN =
+  /\b(?:Details:|invalid token|invalid provider|invalid host|bad credentials|expired token|token expired|HTTP|API|Server error|Code:|Network error|Failed to fetch|forbidden|unauthorized|not configured)\b/i
+
+function displayGitCredentialsError(error: string): string {
+  if (!RAW_GIT_CREDENTIAL_ERROR_PATTERN.test(error)) return error
+  return gitCredentialsErrorMessage(error)
+}
 
 interface CredentialFormReadiness {
   ready: boolean
@@ -98,8 +107,8 @@ function CredentialRow({ credential, onDelete }: CredentialRowProps) {
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
           {formatAccessDate(credential.createdAt, {
-            missing: 'Refresh code access to load added date',
-            invalid: 'Refresh code access to check added date',
+            missing: 'Open HTTPS code access again to load added date',
+            invalid: 'Open HTTPS code access again to check added date',
           })}
         </span>
       </td>
@@ -290,7 +299,12 @@ function AddCredentialForm({
             open. Never paste your website password.
           </p>
           {visibleError && (
-            <p id={tokenErrorId} role="alert" className="mt-1 text-ui-caption text-apple-red">
+            <p
+              id={tokenErrorId}
+              role="alert"
+              aria-live="polite"
+              className="mt-1 text-ui-caption text-apple-red"
+            >
               {visibleError}
             </p>
           )}
@@ -378,7 +392,7 @@ export function GitCredentialsSection() {
     if (ok) {
       setShowForm(false)
       setSavedMessage(
-        'Code access saved. Create a small task with an https:// private code link to confirm agents can open it. If it cannot open the code, come back here and replace this key.'
+        'Code access saved. Create a small task with an https:// private code link to confirm agents can open it. If agents cannot open the code, come back here and replace this key.'
       )
     }
   }
@@ -424,7 +438,7 @@ export function GitCredentialsSection() {
       {/* Error */}
       {gitCredentialsError && (
         <div role="alert" aria-live="polite" className={uiStyles.error}>
-          {gitCredentialsError}
+          {displayGitCredentialsError(gitCredentialsError)}
         </div>
       )}
 
@@ -445,15 +459,40 @@ export function GitCredentialsSection() {
             Loading code access...
           </div>
         ) : gitCredentials.length === 0 && !showForm ? (
-          <div className="px-4 py-6 text-center" data-testid="code-access-empty-state">
-            <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              Let agents open private HTTPS code links
-            </p>
-            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Use this for GitHub or GitLab links that start with https://, such as
-              https://github.com/team/project.git. If the address starts with git@, use SSH code
-              access instead.
-            </p>
+          <div
+            className="px-4 py-6"
+            data-testid="code-access-empty-state"
+            aria-labelledby="code-access-empty-title"
+          >
+            <div className="mx-auto flex max-w-2xl flex-col gap-3 text-left">
+              <div className="text-center">
+                <p
+                  id="code-access-empty-title"
+                  className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark"
+                >
+                  Prepare HTTPS code access for private code links
+                </p>
+                <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  Use this for private GitHub or GitLab code links that start with https://. If the
+                  link starts with git@, use SSH code access instead.
+                </p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {GIT_CREDENTIAL_SETUP_STEPS.map((step) => (
+                  <div
+                    key={step.label}
+                    className="min-h-20 rounded-lg bg-black/[0.025] px-3 py-2 dark:bg-white/[0.05]"
+                  >
+                    <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+                      {step.label}
+                    </p>
+                    <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                      {step.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
             {canAddMore && (
               <button
                 type="button"

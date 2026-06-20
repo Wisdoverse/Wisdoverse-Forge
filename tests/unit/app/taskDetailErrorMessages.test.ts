@@ -18,7 +18,7 @@ describe('taskDetailErrorMessage', () => {
   test('describes read permission failures as view access problems', () => {
     expectBeginnerMessage(
       taskDetailErrorMessage('loadRuns', new Error('HTTP 403')),
-      'Ask an owner or admin to give you access to this task, then refresh the task details. You do not have permission to view this task.'
+      'Ask an owner or admin to give you access to this task, then open it again from the Tasks page. You do not have permission to view this task.'
     )
   })
 
@@ -28,23 +28,37 @@ describe('taskDetailErrorMessage', () => {
         statusCode: '403',
         serverError: 'owner role required',
       }),
-      'Ask an owner or admin to let you update this task, then refresh the task details and try again. You do not have permission to change this task.'
+      'Ask an owner or admin to let you update this task, then open it again from the Tasks page and try again. You do not have permission to change this task.'
     )
   })
 
   test('explains network failures without exposing only a transport error', () => {
     const message = taskDetailErrorMessage('loadRuns', new TypeError('Failed to fetch'))
 
-    expect(message).toContain('Refresh Updates before deciding whether to retry this task.')
+    expect(message).toContain(
+      'Open Updates for this task again before deciding whether to retry this task.'
+    )
     expect(message).toContain('If it still does not load, check your connection')
+    expect(message).toContain('open this task again from the Tasks page')
+    expect(message).not.toContain('refresh the page')
     expect(message).not.toContain('API')
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('app could not reach')
   })
 
+  test('describes update network failures with the visible task action path', () => {
+    const message = taskDetailErrorMessage('cancelTask', new TypeError('Network error'))
+
+    expect(message).toContain('Open this task again from the Tasks page, then choose Cancel again.')
+    expect(message).toContain('open this task again from the Tasks page')
+    expect(message).toContain('choose the action again')
+    expect(message).not.toContain('try again. Task actions are busy')
+    expect(message).not.toContain('check your connection and try again')
+  })
+
   test('gives a clear next step when no agent can take the task', () => {
     expect(taskDetailErrorMessage('loadAgents', new Error('No available agent'))).toBe(
-      'No agent can take this task right now. Open Agents to start or connect an agent, then refresh this task and try again.'
+      'No agent can take this task right now. Open Agents to start or connect an agent, then open this task again from the Tasks page.'
     )
   })
 
@@ -60,7 +74,7 @@ describe('taskDetailErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh task details to load saved notes and work history. If it still fails, ask an owner or admin to check task details access.'
+      'Open this task again from the Tasks page to load saved notes and work history. If it still fails, ask an owner or admin to check task details access.'
     )
     expect(message).not.toContain('run details')
     expect(message).not.toMatch(new RegExp(['task', 'context'].join('\\s+'), 'i'))
@@ -73,7 +87,7 @@ describe('taskDetailErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh the task, then choose Cancel again. The task was not canceled. If it still fails, ask an owner or admin to check task action access.'
+      'Open this task again from the Tasks page, then choose Cancel again. The task was not canceled. If it still fails, ask an owner or admin to check task action access.'
     )
     expect(message).not.toContain('HTTP 500')
   })
@@ -83,7 +97,7 @@ describe('taskDetailErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh the task, then choose Needs help again. The task was not marked as needing help. If it still fails, ask an owner or admin to check task action access.'
+      'Open this task again from the Tasks page, then choose Needs help again. The task was not marked as needing help. If it still fails, ask an owner or admin to check task action access.'
     )
     expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('blocked')
@@ -94,7 +108,7 @@ describe('taskDetailErrorMessage', () => {
       taskDetailErrorMessage('retryTask', {
         error: 'Task is already running',
       }),
-      'This task is already in progress. Wait for the current work to finish, then refresh the task.'
+      'This task is already in progress. Wait for the current work to finish, then open this task again from the Tasks page.'
     )
   })
 
@@ -114,7 +128,22 @@ describe('taskDetailErrorMessage', () => {
       'Check that the task is still waiting for your decision, then choose Allow and continue again. The task did not continue.'
     )
     expect(taskDetailErrorMessage('retryTask', new Error('unknown retry issue'))).toBe(
-      'Refresh the task, then choose Retry task again. The task was not retried.'
+      'Open this task again from the Tasks page, then choose Retry task again. The task was not retried.'
+    )
+  })
+
+  test('turns agent and saved-note validation details into task-detail recovery steps', () => {
+    expectBeginnerMessage(
+      taskDetailErrorMessage('publishTask', new Error('agent required')),
+      'Choose an available agent, then open this task again from the Tasks page and choose the action again.'
+    )
+    expectBeginnerMessage(
+      taskDetailErrorMessage('publishTask', new Error('context selection changed')),
+      'Check the selected saved notes, then open this task again from the Tasks page and choose the action again.'
+    )
+    expectBeginnerMessage(
+      taskDetailErrorMessage('publishTask', new Error('publish failed')),
+      'Check the task details, then send the task again.'
     )
   })
 
@@ -128,15 +157,19 @@ describe('taskDetailErrorMessage', () => {
   test('starts changed and missing task errors with the recovery step', () => {
     expectBeginnerMessage(
       taskDetailErrorMessage('retryTask', new Error('HTTP 404')),
-      'Refresh the board, then open the task again. This task was not found.'
+      'Open the Tasks page, then choose the current task again. This task was not found.'
     )
     expectBeginnerMessage(
       taskDetailErrorMessage('retryTask', new Error('HTTP 409')),
-      'Refresh task details, then try again. This task changed while you were working.'
+      'Open this task again from the Tasks page, then try again. This task changed while you were working.'
     )
     expectBeginnerMessage(
       taskDetailErrorMessage('retryTask', new Error('HTTP 429')),
-      'Wait a moment, then try again. Task actions are busy.'
+      'Open this task again from the Tasks page, then choose Retry task again. The task was not retried. Wait a moment before choosing the action again. Task actions are busy right now.'
+    )
+    expectBeginnerMessage(
+      taskDetailErrorMessage('loadRuns', new Error('HTTP 429')),
+      'Wait a moment, then open this task again from the Tasks page. Task details are busy right now.'
     )
   })
 })

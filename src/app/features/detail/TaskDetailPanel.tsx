@@ -311,7 +311,8 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                 No agent can take this task right now
               </p>
               <p className="mt-1 leading-relaxed text-secondary-light dark:text-secondary-dark">
-                Open Agents to start or connect an agent, then return here and refresh this task.
+                Open Agents to start or connect an agent, then open this task again from the Tasks
+                page.
               </p>
               <a
                 href="/agents"
@@ -422,6 +423,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
           {taskActionError && (
             <div
               role="alert"
+              aria-live="polite"
               className="rounded-lg bg-apple-red/10 px-3 py-2 text-xs text-apple-red"
             >
               {taskActionError}
@@ -519,7 +521,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
 
 function taskReferenceLabel(id: string): string {
   const trimmed = id.trim()
-  if (!trimmed) return 'Refresh task details'
+  if (!trimmed) return 'Open this task again from the Tasks page to check the task reference.'
   return `Task reference ${trimmed.length > 8 ? trimmed.slice(0, 8) : trimmed}`
 }
 

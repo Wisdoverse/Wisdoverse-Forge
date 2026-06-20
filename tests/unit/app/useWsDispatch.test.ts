@@ -143,6 +143,22 @@ describe('dispatchWsMessage', () => {
     expect(item.detail).not.toContain('reported')
   })
 
+  it('uses check-first wording for permission prompts', () => {
+    dispatchWsMessage({
+      type: 'event',
+      payload: {
+        type: 'permission_prompt',
+        agentName: 'Codex',
+        timestamp: Date.now(),
+      },
+    })
+
+    const item = useFeedStore.getState().feedItems[0]
+    expect(item.taskTitle).toBe('Decision needed')
+    expect(item.detail).toBe('Check the request before the agent continues.')
+    expect(item.detail).not.toContain('Review the request')
+  })
+
   it('ignores unknown message types', () => {
     expect(() => dispatchWsMessage({ type: 'pong' })).not.toThrow()
     expect(() => dispatchWsMessage({ type: 'unknown_thing' })).not.toThrow()
@@ -220,10 +236,44 @@ describe('dispatchWsMessage', () => {
       taskHref: '/tasks',
       read: false,
     })
-    expect(notifications[0].message).toContain('Waiting for SSH approval')
+    expect(notifications[0].message).toContain(
+      'Open the task details to see what needs confirmation, then choose Continue or Stop when it is ready.'
+    )
+    expect(notifications[0].message).not.toContain('Waiting for SSH approval')
     expect(notifications[0].message).toContain('needs your answer before work can continue')
     expect(notifications[0].message).not.toContain('needs owner input')
     expect(notifications[0].message).not.toContain('is blocked')
+  })
+
+  it('uses chosen-agent wording when a task owner notification has no agent name yet', () => {
+    localStorage.setItem('af:auth:user', JSON.stringify({ id: 'user-owner' }))
+
+    dispatchWsMessage({
+      type: 'orchestration:task_update',
+      payload: {
+        action: 'updated',
+        task: {
+          id: 'task-owner-no-agent-name',
+          groupId: 'g-other',
+          state: 'completed',
+          method: 'code',
+          params: { task: 'Check copy', message: '' },
+          createdBy: 'user-owner',
+          assignedTo: 'agent-123',
+          result: { message: 'Copy updated' },
+          priority: 'normal',
+          progress: 100,
+          createdAt: '2026-04-03T00:00:00Z',
+          updatedAt: '2026-04-03T00:01:00Z',
+        },
+      },
+    })
+
+    const notifications = useFeedStore.getState().notifications
+    expect(notifications).toHaveLength(1)
+    expect(notifications[0].message).toContain('Chosen agent completed this task')
+    expect(notifications[0].message).not.toContain('Assigned agent')
+    expect(notifications[0].message).not.toContain('agent-123')
   })
 
   it('hides raw blocked fallback details in owner notifications', () => {
@@ -498,8 +548,9 @@ describe('dispatchWsMessage', () => {
     const notifications = useFeedStore.getState().notifications
     expect(notifications).toHaveLength(1)
     expect(notifications[0].message).toContain(
-      'Finished with a text result. Open the task details to review it before using it.'
+      'Finished with a text result. Open the task details to check it before using it.'
     )
+    expect(notifications[0].message).not.toContain('review it before using it')
     expect(notifications[0].message).not.toContain('panic')
     expect(notifications[0].message).not.toContain('stack trace')
     expect(notifications[0].message).not.toContain('secret token')
@@ -640,9 +691,12 @@ describe('dispatchWsMessage', () => {
     const notifications = useFeedStore.getState().notifications
     expect(notifications).toHaveLength(1)
     expect(notifications[0].type).toBe('cli_image_updated')
-    expect(notifications[0].taskTitle).toContain('tool package check failed')
-    expect(notifications[0].message).toContain('Open Admin and choose Check now')
+    expect(notifications[0].taskTitle).toContain('Check Gemini tool package in Admin')
+    expect(notifications[0].message).toContain(
+      'Open Admin and choose Agent tool updates, then choose Check now'
+    )
     expect(notifications[0].message).toContain('tool package access')
+    expect(notifications[0].message).not.toContain('check failed')
     expect(notifications[0].message).not.toContain('registry timeout')
   })
 
@@ -831,7 +885,8 @@ describe('dispatchWsMessage', () => {
     expect(notifications).toHaveLength(2)
     const fresh = notifications.find((n) => n.id === 'cli-image:gemini:failed:bbb')
     expect(fresh?.read).toBe(false)
-    expect(fresh?.message).toContain('Open Admin and choose Check now')
+    expect(fresh?.message).toContain('Open Admin and choose Agent tool updates')
+    expect(fresh?.message).not.toContain('check failed')
     expect(fresh?.message).not.toContain('auth revoked')
   })
 

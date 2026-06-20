@@ -79,7 +79,7 @@ describe('accountErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings, then rename the team space again. If it still fails, ask an owner or admin to check account settings.'
+      'Open Account settings again, then rename the team space again. If it still fails, ask an owner or admin to check account settings.'
     )
     expect(message).not.toContain('Team space name could not be saved')
     expect(message).not.toContain('Organization')
@@ -108,7 +108,14 @@ describe('accountErrorMessage', () => {
   test('turns team space conflicts into a current-name check step', () => {
     expectBeginnerMessage(
       accountErrorMessage('renameOrganization', { statusCode: 409 }),
-      'Refresh team space settings, check the current name, then try again. This team space changed while you were editing.'
+      'Open Account settings again, check the current team space name, then try again. This team space changed while you were editing.'
+    )
+  })
+
+  test('turns password conflicts into an account settings navigation step', () => {
+    expectBeginnerMessage(
+      accountErrorMessage('changePassword', { statusCode: 409 }),
+      'Open Account settings again, then change your password again. Your account changed while this form was open.'
     )
   })
 
@@ -124,7 +131,7 @@ describe('accountErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings, then rename the team space again. If it still fails, ask an owner or admin to check account settings.'
+      'Open Account settings again, then rename the team space again. If it still fails, ask an owner or admin to check account settings.'
     )
     expect(message).not.toContain('Account settings could not')
   })

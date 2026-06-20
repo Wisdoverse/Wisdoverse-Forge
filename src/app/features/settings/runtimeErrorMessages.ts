@@ -2,11 +2,32 @@ export type RuntimeErrorAction = 'loadAgentSignals' | 'loadCliSignIn' | 'startCl
 
 const ACTION_FALLBACKS: Record<RuntimeErrorAction, string> = {
   loadAgentSignals:
-    'Open Agents and make sure one agent shows Ready, then refresh this page. Agent connection status could not load.',
+    'Open Agents and make sure one agent shows Ready, then open Settings and Where agents work again. Agent connection status could not load.',
   loadCliSignIn:
-    'Refresh this page before starting agents that use work tools. Work tool sign-in could not be checked.',
+    'Open Settings, then Codex and work tool sign-in again before starting agents that use work tools. Work tool sign-in could not be checked.',
   startCliSignIn:
-    'Check the connected AI service, then reconnect the account. Work tool sign-in did not start.',
+    'Open Settings, then Codex and work tool sign-in again, then reconnect the account. Work tool sign-in did not start.',
+}
+
+const ACTION_RECOVERY: Record<
+  RuntimeErrorAction,
+  { location: string; openStep: string; target: string }
+> = {
+  loadAgentSignals: {
+    location: 'Where agents work',
+    openStep: 'open Settings and Where agents work',
+    target: 'Where agents work',
+  },
+  loadCliSignIn: {
+    location: 'Codex and work tool sign-in',
+    openStep: 'open Settings, then Codex and work tool sign-in',
+    target: 'the Codex and work tool sign-in page',
+  },
+  startCliSignIn: {
+    location: 'Codex and work tool sign-in',
+    openStep: 'open Settings, then Codex and work tool sign-in',
+    target: 'the Codex and work tool sign-in page',
+  },
 }
 
 export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): string {
@@ -15,23 +36,28 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   const status = errorStatus(err, normalized)
 
   if (isNetworkError(normalized)) {
-    return `${ACTION_FALLBACKS[action]} Check your connection, then refresh Settings. Forge could not connect while checking Where agents work.`
+    const recovery = ACTION_RECOVERY[action]
+    return `${ACTION_FALLBACKS[action]} Check your connection, then ${recovery.openStep} again. Forge could not connect while checking ${recovery.target}.`
   }
 
   if (status === 401) {
-    return 'Sign in again, then open Where agents work and try again. Your sign-in expired.'
+    const recovery = ACTION_RECOVERY[action]
+    return `Sign in again, then open ${recovery.location} and try again. Your sign-in expired.`
   }
 
   if (status === 403) {
-    return 'Ask an owner or admin to update your team space access before changing Where agents work. You do not have permission to change Where agents work.'
+    const recovery = ACTION_RECOVERY[action]
+    return `Ask an owner or admin to update your team space access before changing ${recovery.location}. You do not have permission to change ${recovery.location}.`
   }
 
   if (status === 404) {
-    return 'Refresh Settings. Where agents work is not available yet. If it still does not load, ask an owner or admin to check it.'
+    const recovery = ACTION_RECOVERY[action]
+    return `${sentenceCase(recovery.openStep)} again. ${recovery.location} is not available yet. If it still does not load, ask an owner or admin to check it.`
   }
 
   if (status === 409) {
-    return 'Refresh this page, check the current status, then try again. The choices in Where agents work changed while you were working.'
+    const recovery = ACTION_RECOVERY[action]
+    return `${sentenceCase(recovery.openStep)} again, check the current status, then try again. The choices in ${recovery.location} changed while you were working.`
   }
 
   if (status === 422) {
@@ -43,7 +69,8 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   }
 
   if (status && status >= 500) {
-    return 'Refresh this page, then try again. Forge could not check Where agents work right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+    const recovery = ACTION_RECOVERY[action]
+    return `${sentenceCase(recovery.openStep)} again, then try again. Forge could not check ${recovery.target} right now. If it still fails, ask an owner or admin to check ${recovery.location} in Settings.`
   }
 
   return runtimeValidationMessage(action, detail)
@@ -59,12 +86,12 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
     normalized.includes('default cli tool') ||
     normalized.includes('default runtime') ||
     normalized.includes('not available')
-  const loadBase = 'Refresh Settings to load Where agents work.'
+  const loadBase = 'Open Settings and Where agents work again.'
 
   if (isNetworkError(normalized)) {
     return isSaveAction
       ? 'Check your connection, then save Where agents work again. Forge could not connect while saving Where agents work.'
-      : 'Check your connection, then refresh Settings to load Where agents work.'
+      : 'Check your connection, then open Settings and Where agents work again.'
   }
 
   if (status === 401) {
@@ -81,14 +108,14 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
 
   if (status === 404) {
     return isSaveAction
-      ? 'Refresh Settings, then save after Where agents work is available. Where agents work could not be saved.'
-      : 'Refresh Settings after Where agents work is available.'
+      ? 'Open Settings and Where agents work again, then save after Where agents work is available. Where agents work could not be saved.'
+      : 'Open Settings and Where agents work again after Where agents work is available.'
   }
 
   if (status === 409) {
     return isSaveAction
-      ? 'Refresh Settings, check the current choices, then save again. The choices in Where agents work changed while you were working.'
-      : 'Refresh Settings, check the current choices, then try again. The choices in Where agents work changed while you were working.'
+      ? 'Open Settings and Where agents work again, check the current choices, then save again. The choices in Where agents work changed while you were working.'
+      : 'Open Settings and Where agents work again, check the current choices, then try again. The choices in Where agents work changed while you were working.'
   }
 
   if (status === 422) {
@@ -98,12 +125,12 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
   if (status === 429) {
     return isSaveAction
       ? 'Wait a minute, then save Where agents work again. Too many setup requests are happening right now.'
-      : 'Wait a minute, then refresh Settings. Too many setup requests are happening right now.'
+      : 'Wait a minute, then open Settings and Where agents work again. Too many setup requests are happening right now.'
   }
 
   if (status && status >= 500) {
     return isSaveAction
-      ? 'Refresh Settings, then save again. Where agents work could not be saved. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+      ? 'Open Settings and Where agents work again, then save again. Where agents work could not be saved. If it still fails, ask an owner or admin to check Where agents work in Settings.'
       : `${loadBase} If it still fails, ask an owner or admin to check Where agents work in Settings.`
   }
 
@@ -182,8 +209,12 @@ function runtimeValidationMessage(action: RuntimeErrorAction, detail: string): s
   }
 
   if (action === 'loadCliSignIn') {
-    return 'Refresh this page, then reconnect the work tool sign-in. Work tool sign-in could not be checked.'
+    return 'Open Settings, then Codex and work tool sign-in again, then reconnect the work tool sign-in. Work tool sign-in could not be checked.'
   }
 
-  return 'Open Agents and make sure one agent shows Ready, then refresh this page. Agent connection status could not load.'
+  return 'Open Agents and make sure one agent shows Ready, then open Settings and Where agents work again. Agent connection status could not load.'
+}
+
+function sentenceCase(value: string): string {
+  return value.length === 0 ? value : `${value[0].toUpperCase()}${value.slice(1)}`
 }

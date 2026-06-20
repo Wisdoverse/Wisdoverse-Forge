@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useId, useMemo, useState, type FormEvent } from 'react'
 import {
   Activity,
   AlertTriangle,
@@ -78,11 +78,18 @@ interface CatalogVendor {
   coding?: ProviderInfo
 }
 
-const PROVIDER_FILTERS: { id: ProviderFilter; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'ready', label: 'Ready' },
-  { id: 'needs-test', label: 'Needs check' },
-  { id: 'disabled', label: 'Disabled' },
+const PROVIDER_SEARCH_HELP =
+  'Search only filters AI services. Use Show all AI services to see every AI service again.'
+
+const PROVIDER_FILTERS: { id: ProviderFilter; label: string; ariaLabel: string }[] = [
+  { id: 'all', label: 'All', ariaLabel: 'All AI services status filter' },
+  { id: 'ready', label: 'Ready', ariaLabel: 'Ready AI services status filter' },
+  {
+    id: 'needs-test',
+    label: 'Needs check',
+    ariaLabel: 'AI services that need a connection check status filter',
+  },
+  { id: 'disabled', label: 'Disabled', ariaLabel: 'Disabled AI services status filter' },
 ]
 
 /** Provider keys that are bring-your-own endpoints rather than curated vendors. */
@@ -320,7 +327,7 @@ const FALLBACK_SUPPORTED_PROVIDERS: ProviderInfo[] = [
     defaultBaseUrl: 'http://litellm:4000',
     requiresApiKey: true,
     allowCustomModels: true,
-    models: [{ model: 'gpt-4o-mini', displayName: 'Gateway alias: gpt-4o-mini' }],
+    models: [{ model: 'gpt-4o-mini', displayName: 'Suggested setup: gpt-4o-mini' }],
   },
   {
     provider: 'openai_compatible',
@@ -450,9 +457,47 @@ function providerFormReadiness({
   }
 }
 
+function discoverySetupMessage({
+  needsApiKey,
+  needsBaseUrl,
+  apiKey,
+  baseUrl,
+}: {
+  needsApiKey: boolean
+  needsBaseUrl: boolean
+  apiKey: string
+  baseUrl: string
+}): string | null {
+  const missingApiKey = needsApiKey && !apiKey.trim()
+  const missingBaseUrl = needsBaseUrl && !baseUrl.trim()
+
+  if (missingApiKey && missingBaseUrl) {
+    return 'Paste the service access key and service address first, then choose Find available models. You can also keep the suggested setup and save.'
+  }
+
+  if (missingApiKey) {
+    return 'Paste the service access key first, then choose Find available models. You can also keep the suggested setup and save.'
+  }
+
+  if (missingBaseUrl) {
+    return 'Enter the service address first, then choose Find available models. You can also keep the suggested setup and save.'
+  }
+
+  return null
+}
+
 function providerConnectionState(provider: LlmProviderConfig): ProviderFilter {
   if (!provider.isEnabled) return 'disabled'
   return provider.lastTestStatus === 'passed' ? 'ready' : 'needs-test'
+}
+
+function providerCountForFilter(providers: LlmProviderConfig[], filter: ProviderFilter): number {
+  if (filter === 'all') return providers.length
+  return providers.filter((provider) => providerConnectionState(provider) === filter).length
+}
+
+function configuredAiServicesLabel(count: number): string {
+  return `${count} configured AI ${count === 1 ? 'service' : 'services'}`
 }
 
 function providerStatusLabel(provider: LlmProviderConfig): string {
@@ -486,21 +531,24 @@ function providerFilterEmptyState(
 
   if (hasSearch && hasFilter) {
     return {
-      title: 'Clear search or show all AI services',
-      detail: 'Your AI services exist, but the current search and filter hide them.',
+      title: 'Search and filter are hiding AI services',
+      detail:
+        'Your AI services exist, but the current search and filter hide them. Use Show all AI services before assuming a service is missing.',
     }
   }
 
   if (hasSearch) {
     return {
-      title: 'Clear search to see AI services',
-      detail: 'Your AI services exist, but this search hides them. Try a broader name.',
+      title: 'Search is hiding AI services',
+      detail:
+        'Your AI services exist, but this search hides them. Use Show all AI services to return to the full list.',
     }
   }
 
   return {
-    title: 'Choose All to see AI services',
-    detail: 'Your AI services exist, but this filter has no results yet.',
+    title: 'This status hides AI services',
+    detail:
+      'Your AI services exist, but this status has no results yet. Use Show all AI services to return to every status.',
   }
 }
 
@@ -530,7 +578,7 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
     const firstProvider = needsTestProviders[0]
     return {
       title: 'Check the AI service connection',
-      detail: `Choose Check connection for ${firstProvider.displayName} before assigning work so agents do not fail on the first answer.`,
+      detail: `Choose Check connection for ${firstProvider.displayName} before sending work so agents do not fail on the first answer.`,
       success: 'The AI service shows Ready and can be used by simple chat agents.',
       ready: false,
       action: 'show-needs-test',
@@ -562,7 +610,7 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
   return {
     title: 'Ready to create simple chat agents',
     detail: `${defaultProvider?.displayName ?? readyProviders[0]?.displayName ?? 'An AI service'} is ready for agents that answer in chat.`,
-    success: 'Open Agents, choose Create Agent, then select Simple chat agent.',
+    success: 'Open Agents, choose New agent, then select Simple chat agent.',
     ready: true,
   }
 }
@@ -786,7 +834,7 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
     defaultProvider?.displayName ??
     (total === 0 ? 'add an AI service first' : 'choose a ready service when creating an agent')
   const chatChoiceMetric =
-    defaultProvider?.displayName ?? (total === 0 ? 'Add first service' : 'Choose in Create Agent')
+    defaultProvider?.displayName ?? (total === 0 ? 'Add first service' : 'Choose in New agent')
   const allReady = ready > 0 && ready === total - disabled && needsTest === 0
 
   return (
@@ -1082,7 +1130,17 @@ function useModelDiscovery() {
     }
   }
 
-  return { discovered, discovering, error, discover, reset: () => setDiscovered(null) }
+  function guide(message: string) {
+    setDiscovered(null)
+    setError(message)
+  }
+
+  function reset() {
+    setDiscovered(null)
+    setError(null)
+  }
+
+  return { discovered, discovering, error, discover, guide, reset }
 }
 
 /** "Find available models" affordance + live/curated status line. */
@@ -1149,6 +1207,7 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
     discovering,
     error: discoverError,
     discover,
+    guide: guideDiscovery,
     reset: resetDiscovery,
   } = useModelDiscovery()
   // Prefer a successful live list; otherwise fall back to the curated models.
@@ -1191,6 +1250,16 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
 
   function handleDiscover() {
     if (!variant) return
+    const setupMessage = discoverySetupMessage({
+      needsApiKey,
+      needsBaseUrl: false,
+      apiKey,
+      baseUrl: '',
+    })
+    if (setupMessage) {
+      guideDiscovery(setupMessage)
+      return
+    }
     void discover({
       provider: variant.provider,
       baseUrl: resolveBaseUrl(),
@@ -1511,6 +1580,7 @@ function AddProviderFormPanel({
     discovering,
     error: discoverError,
     discover,
+    guide: guideDiscovery,
     reset: resetDiscovery,
   } = useModelDiscovery()
   const models = discovered && discovered.models.length > 0 ? discovered.models : curatedModels
@@ -1553,6 +1623,16 @@ function AddProviderFormPanel({
   }
 
   function handleDiscover() {
+    const setupMessage = discoverySetupMessage({
+      needsApiKey,
+      needsBaseUrl,
+      apiKey: form.apiKey,
+      baseUrl: form.baseUrl,
+    })
+    if (setupMessage) {
+      guideDiscovery(setupMessage)
+      return
+    }
     void discover({
       provider: form.provider,
       baseUrl: form.baseUrl.trim() || undefined,
@@ -1968,6 +2048,7 @@ function AddProviderPanel({
 // ============================================================================
 
 export function ProvidersSection() {
+  const providerSearchHelpId = useId()
   const {
     providers,
     providersLoading,
@@ -2092,45 +2173,71 @@ export function ProvidersSection() {
       <ProviderNextStepPanel step={nextStep} onAction={handleNextStepAction} />
 
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <label className="relative min-w-0 flex-1">
-          <span className="sr-only">Search AI services</span>
-          <Search
-            size={14}
-            strokeWidth={2}
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-secondary-light dark:text-secondary-dark"
-            aria-hidden="true"
-          />
-          <input
-            type="search"
-            name="provider-search"
-            value={providerSearch}
-            onChange={(event) => setProviderSearch(event.target.value)}
-            placeholder="Search AI services…"
-            autoComplete="off"
-            className={cn(uiStyles.input, 'pl-9')}
-          />
-        </label>
+        <div className="min-w-0 flex-1">
+          <label className="relative block">
+            <span className="sr-only">Search AI services</span>
+            <Search
+              size={14}
+              strokeWidth={2}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-secondary-light dark:text-secondary-dark"
+              aria-hidden="true"
+            />
+            <input
+              type="search"
+              name="provider-search"
+              value={providerSearch}
+              onChange={(event) => setProviderSearch(event.target.value)}
+              placeholder="Search AI services…"
+              autoComplete="off"
+              aria-describedby={providerSearchHelpId}
+              className={cn(uiStyles.input, 'pl-9')}
+            />
+          </label>
+          <p
+            id={providerSearchHelpId}
+            className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+          >
+            {PROVIDER_SEARCH_HELP}
+          </p>
+        </div>
         <div
           className="flex flex-wrap gap-2"
           role="group"
           aria-label="Filter AI services by status"
         >
-          {PROVIDER_FILTERS.map((filter) => (
-            <button
-              key={filter.id}
-              type="button"
-              onClick={() => setProviderFilter(filter.id)}
-              className={cn(
-                'inline-flex h-8 items-center rounded-full px-3 text-ui-caption font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
-                providerFilter === filter.id
-                  ? 'bg-apple-blue text-white'
-                  : 'border border-black/[0.08] bg-white text-secondary-light hover:bg-black/[0.03] hover:text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark dark:hover:bg-white/[0.08] dark:hover:text-foreground-dark'
-              )}
-              aria-pressed={providerFilter === filter.id}
-            >
-              {filter.label}
-            </button>
-          ))}
+          {PROVIDER_FILTERS.map((filter) => {
+            const providerCount = providerCountForFilter(providers, filter.id)
+            const isSelected = providerFilter === filter.id
+
+            return (
+              <button
+                key={filter.id}
+                type="button"
+                onClick={() => setProviderFilter(filter.id)}
+                className={cn(
+                  'inline-flex h-8 items-center rounded-full px-3 text-ui-caption font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
+                  isSelected
+                    ? 'bg-apple-blue text-white'
+                    : 'border border-black/[0.08] bg-white text-secondary-light hover:bg-black/[0.03] hover:text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark dark:hover:bg-white/[0.08] dark:hover:text-foreground-dark'
+                )}
+                aria-label={`${filter.ariaLabel}, ${configuredAiServicesLabel(providerCount)}`}
+                aria-pressed={isSelected}
+              >
+                <span>{filter.label}</span>
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    'ml-2 inline-flex min-w-4 justify-center rounded-full px-1.5 text-[11px] leading-4',
+                    isSelected
+                      ? 'bg-white/20 text-white'
+                      : 'bg-black/[0.06] text-secondary-light dark:bg-white/[0.08] dark:text-secondary-dark'
+                  )}
+                >
+                  {providerCount}
+                </span>
+              </button>
+            )
+          })}
         </div>
       </div>
 
@@ -2151,7 +2258,12 @@ export function ProvidersSection() {
             </p>
           </div>
         ) : filteredProviders.length === 0 && !showForm ? (
-          <div data-testid="provider-filter-empty" className="px-4 py-6 text-center">
+          <div
+            data-testid="provider-filter-empty"
+            role="status"
+            aria-live="polite"
+            className="px-4 py-6 text-center"
+          >
             <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
               {filterEmptyState.title}
             </p>

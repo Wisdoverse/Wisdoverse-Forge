@@ -220,7 +220,7 @@ function notifyTaskOwner(task: TaskSummary) {
 
   if (ownerId !== currentUserId()) return
 
-  const assigned = task.assignedAgentName ?? task.assignedTo
+  const assigned = task.assignedAgentName ?? (task.assignedTo ? 'Chosen agent' : undefined)
   const taskTitle = task.params?.task ?? task.id
   const updatedAt = Date.parse(task.updatedAt)
   const timestamp = Number.isFinite(updatedAt) ? updatedAt : Date.now()
@@ -253,7 +253,7 @@ function taskNotificationMessage(
   assigned: string | undefined,
   detail: string
 ): string {
-  const actor = assigned || 'Assigned agent'
+  const actor = assigned || 'Chosen agent'
   switch (type) {
     case 'blocked':
       return `${actor} needs your answer before work can continue: ${detail}`
@@ -290,7 +290,7 @@ function agentActivityDetail(eventType: string, tool?: string | null): string {
         ? `Finished ${activityToolLabel(tool).toLowerCase()}.`
         : 'The agent finished a work step.'
     case 'permission_prompt':
-      return 'Review the request before the agent continues.'
+      return 'Check the request before the agent continues.'
     case 'blocked':
       return 'Open the task to see what is needed before work can continue.'
     default:
@@ -397,13 +397,13 @@ function handleCliImageUpdate(payload: Record<string, unknown> | null) {
       ? `${display} agent tool package updated`
       : state === 'update_available'
         ? `${display} update available${remoteVersion ? ` (v${remoteVersion})` : ''}`
-        : `${display} tool package check failed`
+        : `Check ${display} tool package in Admin`
   const message =
     state === 'updated'
       ? `New ${display} agents will start on the latest tool package. Running agents are unaffected.`
       : state === 'update_available'
         ? `A newer ${display} tool package is available. Build it from Admin, then new agents can use it. Running agents are unaffected.`
-        : `The ${display} tool package check failed. Open Admin and choose Check now after a few minutes, or ask an owner to check tool package access. New agents keep the current tool package until it succeeds.`
+        : `Open Admin and choose Agent tool updates, then choose Check now after a few minutes. New agents keep the current tool package until the check succeeds. If it still fails, ask an owner to check tool package access.`
   useFeedStore.getState().addNotification({
     id: eventId,
     type: 'cli_image_updated',
@@ -441,7 +441,7 @@ function completionSummary(task: TaskSummary): string {
     return safeCompletionMessage(result.message)
   }
   if (typeof result.stdout === 'string' && result.stdout.trim()) {
-    return 'Finished with a text result. Open the task details to review it before using it.'
+    return 'Finished with a text result. Open the task details to check it before using it.'
   }
   return 'Completed'
 }

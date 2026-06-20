@@ -52,24 +52,24 @@ const VISUALS: Record<Exclude<CloneStatus, 'none'>, Visual> = {
 }
 
 const CLONE_RETRY_DEFAULT_ERROR =
-  'Check the code link and saved code access, then try copying code again. Forge could not copy code into the project.'
+  'Open Settings and Teams and Projects, check the code link and saved code access, then choose Copy code again on this project row. Forge could not copy code into the project.'
 
 function cloneFailureMessage(clone: CloneSummary | undefined): string {
   switch (clone?.errorClass) {
     case 'auth':
-      return 'Check saved code access for this code project, then try copying code again. The code website rejected Forge access.'
+      return 'Open Settings and Code access, check saved access for this code project, then choose Copy code again. The code website rejected Forge access.'
     case 'not_found':
-      return 'Check the code link, then try copying code again. Forge could not find this code project.'
+      return 'Open Settings and Teams and Projects, check this project code link, then choose Copy code again. Forge could not find this code project.'
     case 'network':
-      return 'Check your connection and code website address, then try copying code again. Forge could not reach this code project.'
+      return 'Check your connection and this project code link, then choose Copy code again. Forge could not reach this code project.'
     case 'timeout':
-      return 'Wait a few minutes, then try copying code again. The code website took too long to respond.'
+      return 'Wait a few minutes, then choose Copy code again. The code website took too long to respond.'
     case 'too_large':
-      return 'Ask an owner or admin to check project storage before trying again. This code project is too large to copy right now.'
+      return 'Ask an owner or admin to check project storage, then choose Copy code again if the project can be smaller. This code project is too large to copy right now.'
     case 'internal':
-      return 'Wait a few minutes, then try copying code again. Forge could not finish copying code.'
+      return 'Wait a few minutes, then choose Copy code again. Forge could not finish copying code.'
     default:
-      return 'Check the code link and saved code access, then try copying code again. Forge could not finish copying code.'
+      return 'Open Settings and Teams and Projects, check the code link and saved code access, then choose Copy code again. Forge could not finish copying code.'
   }
 }
 
@@ -107,29 +107,31 @@ function statusCodeFromError(error: unknown): number | null {
 
 function cloneRetryErrorMessage(error: unknown): string {
   const code = statusCodeFromError(error)
-  if (code === 401) return 'Sign in again, then try copying code again from the project row.'
+  if (code === 401) {
+    return 'Sign in again, then open Settings and Teams and Projects and choose Copy code again from this project row.'
+  }
   if (code === 403) {
-    return 'Ask an owner or admin to let you copy code into this project, then try again. You do not have permission right now.'
+    return 'Ask an owner or admin to let you copy code into this project, then open Settings and Teams and Projects and choose Copy code again. You do not have permission right now.'
   }
   if (code === 404) {
-    return 'Refresh Projects, then try copying code again from the current project row. This project could not be found.'
+    return 'Open Settings and Teams and Projects, find the current project row, then choose Copy code again. This project could not be found.'
   }
   if (code === 409) {
-    return 'Wait a moment, then check the status again. Forge is already copying code for this project.'
+    return 'Wait a moment, then check this project row again. Forge is already copying code for this project.'
   }
   if (code === 422) {
-    return 'Check the code link and saved code access, then try copying code again.'
+    return 'Open Settings and Teams and Projects, check the code link and saved code access, then choose Copy code again.'
   }
   if (code === 429) {
-    return 'Wait a minute, then try copying code again. Too many copy retries are happening right now.'
+    return 'Wait a minute, then choose Copy code again from this project row. Too many copy retries are happening right now.'
   }
   if (code && code >= 500) {
-    return 'Wait a few minutes, then try copying code again. Forge could not copy code right now. If it still fails, ask an owner or admin to check project code access.'
+    return 'Wait a few minutes, then choose Copy code again from this project row. Forge could not copy code right now. If it still fails, ask an owner or admin to check project code access.'
   }
 
   const message = error instanceof Error ? error.message : typeof error === 'string' ? error : ''
   if (/failed to fetch|network|load failed/i.test(message)) {
-    return 'Check your connection, then try copying code again.'
+    return 'Check your connection, then choose Copy code again from this project row.'
   }
 
   return CLONE_RETRY_DEFAULT_ERROR
@@ -285,7 +287,7 @@ export function CloneStatusBadge({
         </p>
       )}
       {retryError && (
-        <p className="text-ui-caption text-apple-red" role="alert">
+        <p className="text-ui-caption text-apple-red" role="alert" aria-live="polite">
           {retryError}
         </p>
       )}

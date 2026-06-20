@@ -38,6 +38,15 @@ describe('agentGroupErrorMessage', () => {
     expect(message).not.toContain('lane conflict')
   })
 
+  test('maps missing projects to a navigable Agents step', () => {
+    const message = agentGroupErrorMessage({ status: 404 })
+
+    expect(message).toBe(
+      'Open Agents, choose the project again, then set up where tasks wait. The waiting place was not created because the selected project may have changed or been removed.'
+    )
+    expect(message).not.toContain('Refresh this page')
+  })
+
   test('gives a connection recovery path for network failures', () => {
     const message = agentGroupErrorMessage(new TypeError('Failed to fetch'))
 

@@ -129,7 +129,8 @@ describe('RuntimeSection', () => {
     expect(nextStep).toHaveTextContent('Work tools ready')
     expect(nextStep).toHaveTextContent('What success looks like: This item changes to Ready.')
     expect(nextStep).not.toHaveTextContent('Success:')
-    expect(screen.getByText('Before assigning work')).toBeDefined()
+    expect(screen.getByText('Before sending file work')).toBeDefined()
+    expect(screen.queryByText('Before assigning work')).toBeNull()
     expect(screen.getByText('2/4 ready')).toBeDefined()
     expect(within(readiness).getByText('Finish where agents work')).toBeDefined()
     expect(
@@ -180,11 +181,11 @@ describe('RuntimeSection', () => {
     expect(screen.getByText('Installed and ready')).toBeDefined()
     expect(screen.getAllByText(/work tool sign-ins/i).length).toBeGreaterThan(0)
     expect(screen.getByText(/1\/2 work tool sign-ins ready/i)).toBeDefined()
-    expect(
-      screen.getByText(/Sign in again before starting agents that use this tool/i)
-    ).toBeDefined()
+    expect(screen.getByText(/Choose Sign in to GitHub/i)).toBeDefined()
     expect(screen.queryByText(/No work tool sign-in saved/i)).toBeNull()
-    expect(screen.getByRole('button', { name: /Sign in to GitHub/i })).toBeDefined()
+    expect(screen.getAllByRole('button', { name: /Sign in to GitHub/i }).length).toBeGreaterThan(0)
+    expect(screen.getByText(/browser login page opens/i)).toBeDefined()
+    expect(screen.queryByRole('button', { name: /^Sign in$/i })).toBeNull()
     expect(screen.getAllByRole('button', { name: /Check again/i }).length).toBeGreaterThan(0)
     expect(
       screen.queryByRole('button', { name: new RegExp(['Check', 'status'].join(' '), 'i') })
@@ -194,7 +195,7 @@ describe('RuntimeSection', () => {
     expect(screen.queryByText(/still need attention/i)).toBeNull()
     expect(screen.getAllByText('Needs setup').length).toBeGreaterThan(0)
 
-    fireEvent.click(screen.getByRole('button', { name: /Sign in to GitHub/i }))
+    fireEvent.click(screen.getAllByRole('button', { name: /Sign in to GitHub/i })[0])
 
     await waitFor(() => expect(agentApiMock.startCliAuthProxyLogin).toHaveBeenCalledWith('github'))
     expect(openSpy).toHaveBeenCalledWith(
@@ -251,8 +252,9 @@ describe('RuntimeSection', () => {
     expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('Ready to give agents work')
     expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('Where project files open')
     expect(screen.getByTestId('runtime-next-step')).toHaveTextContent(
-      'What success looks like: Open Agents, create or select an agent, then assign work from Tasks.'
+      'What success looks like: Open Agents, create or select an agent, then send work from Tasks.'
     )
+    expect(screen.getByTestId('runtime-next-step')).not.toHaveTextContent('assign work')
     expect(screen.getByTestId('runtime-next-step')).not.toHaveTextContent('Success:')
     expect(screen.queryByRole('button', { name: /Sign in to GitHub/i })).toBeNull()
     expect(screen.getByText(/1\/1 work tools are ready/i)).toBeDefined()
@@ -319,11 +321,10 @@ describe('RuntimeSection', () => {
       screen.getByText(/Sign in to a tool for file work before starting agents that need one/i)
     ).toBeDefined()
     expect(screen.queryByText(/No work tool sign-ins are connected yet/i)).toBeNull()
-    expect(
-      screen.getAllByText(/Sign in before starting agents that use this tool/i).length
-    ).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Choose Sign in to GitHub/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/No work tool sign-in saved/i)).toBeNull()
-    expect(screen.getByRole('button', { name: /Sign in to GitHub/i })).toBeDefined()
+    expect(screen.getAllByRole('button', { name: /Sign in to GitHub/i }).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: /^Sign in$/i })).toBeNull()
   })
 
   test('keeps the Codex sign-in entry visible when status rows have not been created yet', async () => {
@@ -339,17 +340,30 @@ describe('RuntimeSection', () => {
 
     render(<RuntimeSection focus="sign-ins" />)
 
+    expect(
+      await screen.findByRole('heading', { name: 'Codex and work tool sign-in' })
+    ).toBeDefined()
+    expect(
+      screen.getByText(
+        'Sign in to OpenAI (Codex) and other work tools before agents work on project files.'
+      )
+    ).toBeDefined()
     expect(await screen.findByTestId('runtime-sign-in-entry')).toHaveTextContent(
-      'Sign in to Codex CLI and work tools'
+      'Start Codex sign-in here'
     )
+    expect(screen.getByTestId('runtime-sign-in-entry')).toHaveTextContent(
+      'For Codex, choose Sign in next to OpenAI (Codex)'
+    )
+    expect(screen.queryByText(/Sign in to Codex CLI and work tools/i)).toBeNull()
     expect(screen.getByText('OpenAI (Codex)')).toBeDefined()
     expect(screen.getAllByText('Codex').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Choose Sign in to OpenAI \(Codex\)/i).length).toBeGreaterThan(0)
     expect(
-      screen.getAllByText(/Sign in before starting agents that use this tool/i).length
+      screen.getAllByRole('button', { name: /Sign in to OpenAI \(Codex\)/i }).length
     ).toBeGreaterThan(0)
-    expect(screen.getByRole('button', { name: /Sign in to OpenAI \(Codex\)/i })).toBeDefined()
+    expect(screen.queryByRole('button', { name: /^Sign in$/i })).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: /Sign in to OpenAI \(Codex\)/i }))
+    fireEvent.click(screen.getAllByRole('button', { name: /Sign in to OpenAI \(Codex\)/i })[0])
 
     await waitFor(() => expect(agentApiMock.startCliAuthProxyLogin).toHaveBeenCalledWith('openai'))
     expect(openSpy).toHaveBeenCalledWith(
@@ -357,6 +371,24 @@ describe('RuntimeSection', () => {
       '_blank',
       'noopener,noreferrer'
     )
+  })
+
+  test('explains how to recover when the browser blocks the sign-in page', async () => {
+    vi.spyOn(window, 'open').mockImplementation(() => null)
+
+    render(<RuntimeSection />)
+
+    await screen.findByTestId('runtime-launch-checklist')
+    fireEvent.click(screen.getAllByRole('button', { name: /Sign in to GitHub/i })[0])
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
+      'Allow pop-ups for this site, then choose Sign in to GitHub again.'
+    )
+    expect(alert).toHaveTextContent('The GitHub browser sign-in page did not open.')
+    expect(alert).not.toHaveTextContent('window.open')
+    expect(alert).not.toHaveTextContent('popup blocker')
   })
 
   test('labels missing work setup clearly instead of Unknown', async () => {
@@ -369,7 +401,7 @@ describe('RuntimeSection', () => {
     render(<RuntimeSection />)
 
     const loadGuidance = await screen.findAllByText(
-      'Refresh this settings page to load Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.'
+      'Open Settings, then open Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.'
     )
     expect(loadGuidance.length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByRole('button', { name: /Check again/i }).length).toBeGreaterThanOrEqual(1)
@@ -463,7 +495,9 @@ describe('RuntimeSection', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(/work tool sign-in could not be checked/i)
-    expect(alert).toHaveTextContent(/Forge could not connect while checking Where agents work/i)
+    expect(alert).toHaveTextContent(
+      /Forge could not connect while checking the Codex and work tool sign-in page/i
+    )
     expect(screen.getByText(/Choose Check again to refresh work tool sign-ins/i)).toBeDefined()
     expect(screen.queryByText(/^Work tool sign-ins could not be checked/i)).toBeNull()
     expect(screen.queryByText(/failed to fetch/i)).toBeNull()
@@ -496,10 +530,10 @@ describe('RuntimeSection', () => {
     render(<RuntimeSection />)
 
     await screen.findByTestId('runtime-launch-checklist')
-    fireEvent.click(screen.getByRole('button', { name: /Sign in to GitHub/i }))
+    fireEvent.click(screen.getAllByRole('button', { name: /Sign in to GitHub/i })[0])
 
     expect(
-      await screen.findByText(/do not have permission to change Where agents work/i)
+      await screen.findByText(/do not have permission to change Codex and work tool sign-in/i)
     ).toBeDefined()
     expect(screen.getAllByText(/owner or admin/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/403 Forbidden/)).toBeNull()

@@ -120,24 +120,25 @@ function isNetworkError(err: unknown): boolean {
 }
 
 export function billingErrorMessage(err: unknown, area: BillingErrorArea): string {
-  const base = `Refresh Billing to load ${BILLING_AREA_LABEL[area].toLowerCase()}.`
+  const target = BILLING_AREA_LABEL[area].toLowerCase()
+  const base = `Choose Check billing again to load ${target}.`
   const text = structuredErrorText(err).toLowerCase()
   const code = statusCode(err)
 
   if (code === 401 || text.includes('sign in again') || text.includes('unauthorized')) {
-    return `${base} Sign in again, then open Billing.`
+    return `Sign in again, then open Billing and choose Check billing again to load ${target}.`
   }
   if (code === 403 || text.includes('permission') || text.includes('forbidden')) {
-    return `${base} Ask an owner or admin to give you billing access.`
+    return `Ask an owner or admin to give you billing access, then choose Check billing again to load ${target}.`
   }
   if (code === 429 || text.includes('busy') || text.includes('too many')) {
-    return `${base} Billing is busy. Wait a minute, then refresh Billing again.`
+    return `Wait a minute, then choose Check billing again to load ${target}. Billing is busy.`
   }
   if (code != null && code >= 500) {
     return `${base} If it still fails, ask an owner or admin to check billing.`
   }
   if (isNetworkError(err)) {
-    return `${base} Check your connection, then refresh Billing again. Forge could not connect while loading billing.`
+    return `Check your connection, then choose Check billing again to load ${target}. Forge could not connect while loading billing.`
   }
 
   return `${base} If it still fails, ask an owner or admin to check billing.`

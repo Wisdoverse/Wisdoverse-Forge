@@ -16,11 +16,19 @@ interface InboxFilterEmptyState {
   detail: string
 }
 
-const FILTERS: { id: InboxFilter; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'unread', label: 'Unread' },
-  { id: 'needs-action', label: 'Needs action' },
-  { id: 'credentials', label: 'Account access' },
+const FILTERS: { id: InboxFilter; label: string; ariaLabel: string }[] = [
+  { id: 'all', label: 'All', ariaLabel: 'Show all inbox updates' },
+  { id: 'unread', label: 'Unread', ariaLabel: 'Show unread inbox updates' },
+  {
+    id: 'needs-action',
+    label: 'Needs action',
+    ariaLabel: 'Show inbox updates that need action',
+  },
+  {
+    id: 'credentials',
+    label: 'Account access',
+    ariaLabel: 'Show account access updates',
+  },
 ]
 
 const INBOX_ACTION_STEPS = [
@@ -30,7 +38,7 @@ const INBOX_ACTION_STEPS = [
 ]
 
 const READ_STATUS_SAVE_ERROR =
-  'Check your connection, then reload the inbox. Some updates may appear unread again because Forge could not save the read status.'
+  'Check your connection, then open Inbox again. Some updates may appear unread again because Forge could not save the read status.'
 
 function InboxLoadError({ loading, onRetry }: { loading: boolean; onRetry: () => void }) {
   return (
@@ -40,8 +48,8 @@ function InboxLoadError({ loading, onRetry }: { loading: boolean; onRetry: () =>
       className="flex flex-col gap-2 rounded-card border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red sm:flex-row sm:items-center sm:justify-between"
     >
       <span>
-        Check your connection, then reload the inbox. Saved notifications could not be loaded, but
-        new updates will still appear here.
+        Check your connection, then choose Load updates again. Saved updates could not be loaded,
+        but new live updates will still appear here.
       </span>
       <button
         type="button"
@@ -50,7 +58,7 @@ function InboxLoadError({ loading, onRetry }: { loading: boolean; onRetry: () =>
         className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-ui-button font-semibold text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30 disabled:cursor-not-allowed disabled:opacity-70"
       >
         <RefreshCw size={14} className={cn(loading && 'animate-spin')} aria-hidden="true" />
-        {loading ? 'Reloading inbox...' : 'Reload inbox'}
+        {loading ? 'Loading updates...' : 'Load updates again'}
       </button>
     </div>
   )
@@ -256,6 +264,7 @@ export function InboxView() {
         {readError && (
           <div
             role="alert"
+            aria-live="polite"
             className="mb-3 rounded-card border border-apple-orange/25 bg-apple-orange/10 px-3 py-2 text-ui-body text-secondary-light dark:text-secondary-dark"
           >
             {readError}
@@ -309,7 +318,7 @@ export function InboxView() {
                 type="button"
                 data-testid={`inbox-filter-${filter.id}`}
                 aria-pressed={selected}
-                aria-label={`Filter by ${filter.label.toLowerCase()} notifications`}
+                aria-label={`${filter.ariaLabel}, ${matchingUpdatesLabel(filterCounts[filter.id])}`}
                 onClick={() => setActiveFilter(filter.id)}
                 className={cn(
                   'flex min-h-8 items-center gap-1.5 rounded-md px-2.5 py-1 text-ui-button font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
@@ -321,6 +330,7 @@ export function InboxView() {
                 <span>{filter.label}</span>
                 <span
                   data-testid={`inbox-filter-count-${filter.id}`}
+                  aria-hidden="true"
                   className={cn(
                     'rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums',
                     selected
@@ -344,6 +354,8 @@ export function InboxView() {
         ) : (
           <div
             data-testid="inbox-filter-empty"
+            role="status"
+            aria-live="polite"
             className="flex h-full flex-col items-center justify-center px-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark"
           >
             <p className="font-medium text-foreground-light dark:text-foreground-dark">
@@ -389,9 +401,13 @@ function inboxFilterEmptyState(filter: InboxFilter): InboxFilterEmptyState {
     case 'all':
       return {
         title: 'No updates match this filter',
-        detail: 'Open another filter or refresh the inbox if you expected to see recent updates.',
+        detail: 'Open All if a filter is selected, or check Inbox again later for new updates.',
       }
   }
+}
+
+function matchingUpdatesLabel(count: number): string {
+  return `${count} matching ${count === 1 ? 'update' : 'updates'}`
 }
 
 function isActionNotification(notification: Notification): boolean {
@@ -430,7 +446,7 @@ function nextStepTitle(notification: Notification): string {
     case 'completed':
       return 'Open the latest completed result when you have time'
     case 'assigned':
-      return 'Open the newest assignment'
+      return 'Open the newest task update'
     case 'mentioned':
       return 'Open the newest mention'
     case 'cli_image_updated':
@@ -473,7 +489,7 @@ function nextStepActionLabel(notification: Notification): string {
     case 'completed':
       return 'Open result'
     case 'assigned':
-      return 'Open assignment'
+      return 'Open task update'
     case 'mentioned':
       return 'Open mention'
     case 'cli_image_updated':

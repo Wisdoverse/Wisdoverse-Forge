@@ -105,6 +105,64 @@ export const en = {
     ])
   })
 
+  it('flags alert regions that do not announce updates to screen readers', () => {
+    const cwd = fixture({
+      'src/app/features/tasks/TaskError.tsx': `
+export function TaskError({ message }: { message: string }) {
+  return (
+    <div>
+      <p role="alert">{message}</p>
+      <div
+        role="alert"
+        className="text-red"
+      >
+        {message}
+      </div>
+    </div>
+  )
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'alert-live-announcement',
+          location: 'src/app/features/tasks/TaskError.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'alert-live-announcement',
+          location: 'src/app/features/tasks/TaskError.tsx:6',
+        }),
+      ])
+    )
+  })
+
+  it('accepts alert regions that announce updates to screen readers', () => {
+    const cwd = fixture({
+      'src/app/features/tasks/TaskError.tsx': `
+export function TaskError({ message }: { message: string }) {
+  return (
+    <div>
+      <p role="alert" aria-live="polite">{message}</p>
+      <div
+        role="alert"
+        aria-live="polite"
+      >
+        {message}
+      </div>
+    </div>
+  )
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags shared required-field copy that gives beginners no next step', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `
@@ -233,7 +291,7 @@ export async function saveThing() {
     ])
   })
 
-  it('flags shared API fallbacks that explain the failure before recovery', () => {
+  it('flags shared API fallbacks that are failure-first or use vague refresh recovery', () => {
     const cwd = fixture({
       'src/app/shared/api/legacy/AgentAPI.ts': `
 const LEGACY_API_REQUEST_ERROR =
@@ -242,6 +300,10 @@ const LEGACY_API_REQUEST_ERROR =
       'src/app/shared/api/agent-api-types.ts': `
 export function extractApiError(
   fallback = 'Forge did not return a clear error. Refresh, then try again.'
+) {}
+
+export function oldRecoveryFirstFallback(
+  fallback = 'Refresh, then try again. Forge did not return a clear error.'
 ) {
   return fallback
 }
@@ -261,6 +323,10 @@ export function extractApiError(
           type: 'api-fallback-error-copy',
           location: 'src/app/shared/api/agent-api-types.ts:3',
         }),
+        expect.objectContaining({
+          type: 'api-fallback-error-copy',
+          location: 'src/app/shared/api/agent-api-types.ts:7',
+        }),
       ])
     )
   })
@@ -273,7 +339,7 @@ const LEGACY_API_REQUEST_ERROR =
 `,
       'src/app/shared/api/agent-api-types.ts': `
 export function extractApiError(
-  fallback = 'Refresh, then try again. Forge did not return a clear error.'
+  fallback = 'Open this page again, then try again. Forge did not return a clear error. If it still fails, ask an owner or admin to check the service connection.'
 ) {
   return fallback
 }
@@ -314,7 +380,7 @@ export const zh = {
   settings: {
     runtime: {
       couldNotLoad:
-        '请刷新这个设置页来加载 Agent 在哪里工作。如果仍然无法加载，请找负责人或管理员检查设置里的“Agent 在哪里工作”。',
+        '请打开设置，然后打开“Agent 在哪里工作”。如果仍然无法加载，请找负责人或管理员检查设置里的“Agent 在哪里工作”。',
     },
   },
 }
@@ -483,7 +549,7 @@ function ProviderReadinessPanel() {
     const cwd = fixture({
       'src/app/features/settings/ProvidersSection.tsx': `
 function ProviderReadinessPanel() {
-  return ['Chat agents: choose a ready service when creating an agent', 'Chat agent choice', 'Choose in Create Agent']
+  return ['Chat agents: choose a ready service when creating an agent', 'Chat agent choice', 'Choose in New agent']
 }
 `,
     })
@@ -567,6 +633,15 @@ function removeMessage() {
 function rateLimitMessage() {
   return 'Refresh Settings to load AI service settings. Forge is receiving too many AI service requests right now. Wait a minute, then try again.'
 }
+function oldLoadMessage() {
+  return 'Refresh Settings to load AI service settings. If it still fails, ask an owner or admin to check AI service settings.'
+}
+function oldRemoveMessage() {
+  return 'Refresh Settings, then remove this AI service again. If it still fails, ask an owner or admin to check AI service settings.'
+}
+function oldDuplicateMessage() {
+  return 'Refresh the list, then choose a different name or remove the old service first. An AI service with this name or setup already exists.'
+}
 `,
     })
 
@@ -587,6 +662,18 @@ function rateLimitMessage() {
           type: 'provider-settings-error-copy',
           location: 'src/app/features/settings/providerSettingsErrorMessage.ts:9',
         }),
+        expect.objectContaining({
+          type: 'provider-settings-error-copy',
+          location: 'src/app/features/settings/providerSettingsErrorMessage.ts:12',
+        }),
+        expect.objectContaining({
+          type: 'provider-settings-error-copy',
+          location: 'src/app/features/settings/providerSettingsErrorMessage.ts:15',
+        }),
+        expect.objectContaining({
+          type: 'provider-settings-error-copy',
+          location: 'src/app/features/settings/providerSettingsErrorMessage.ts:18',
+        }),
       ])
     )
   })
@@ -596,7 +683,8 @@ function rateLimitMessage() {
       'src/app/features/settings/providerSettingsErrorMessage.ts': `
 function providerSettingsErrorMessage(action) {
   if (action === 'save') return 'Paste the service access key from the selected AI service, then save again.'
-  if (action === 'remove') return 'Refresh Settings, then remove this AI service again.'
+  if (action === 'remove') return 'Open Settings and AI services again, then remove this AI service again.'
+  if (action === 'load') return 'Open Settings and AI services again.'
   return 'Wait a minute, then try again. Forge is receiving too many AI service requests right now.'
 }
 `,
@@ -670,6 +758,9 @@ function RegionToggle() {
 }
 function CatalogGrid() {
   return 'Standard setup · Coding plan · China/Global address'
+}
+function ModelQuickPicks() {
+  return 'Gateway alias: gpt-4o-mini'
 }
 `,
       'src/app/features/agents/CreateAgentModal.tsx': `
@@ -789,6 +880,9 @@ function RegionToggle() {
 function CatalogGrid() {
   return 'Standard setup · Coding plan · China or global website address'
 }
+function ModelQuickPicks() {
+  return 'Suggested setup: gpt-4o-mini'
+}
 `,
       'src/app/features/agents/CreateAgentModal.tsx': `
 function CreateAgentModal() {
@@ -797,17 +891,17 @@ function CreateAgentModal() {
 `,
       'src/app/features/agents/AgentControlPanel.tsx': `
 function AgentControlPanel() {
-  return 'Open AI service settings, choose Check connection for this service, refresh Agents, then send messages after it shows Ready.'
+  return 'Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again when it shows Ready.'
 }
 `,
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
 function AgentDetailView() {
-  return 'Open AI service settings, choose Check connection for this service, then refresh Agents before sending chat work.'
+  return 'Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again before sending chat work.'
 }
 `,
       'src/app/features/chat/ChatView.tsx': `
 function ChatView() {
-  return 'Open AI service settings, choose Check connection for this service, then refresh Agents before sending a message.'
+  return 'Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again before sending a message.'
 }
 `,
       'src/app/features/settings/providerTestErrorMessage.ts': `
@@ -1024,6 +1118,9 @@ function agentStatusLabel(status) {
 function AgentsEmptyState() {
   return <p>No agents to show</p>
 }
+function CreatedAgentHint() {
+  return <p>If you just created one, refresh Admin and check again.</p>
+}
 `,
     })
 
@@ -1035,6 +1132,10 @@ function AgentsEmptyState() {
         expect.objectContaining({
           type: 'admin-agent-empty-copy',
           location: 'src/app/features/admin/AgentsPanel.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'admin-agent-empty-copy',
+          location: 'src/app/features/admin/AgentsPanel.tsx:6',
         }),
       ])
     )
@@ -1100,7 +1201,7 @@ function AgentsEmptyState() {
     const cwd = fixture({
       'src/app/features/admin/adminErrorCopy.ts': `
 export function adminPanelLoadErrorMessage(error, label) {
-  return 'The admin agents could not load.'
+  return 'Refresh Admin to reload the agents.'
 }
 
 export function cliImageStatusErrorMessage(error) {
@@ -1130,7 +1231,7 @@ export function cliImageStatusErrorMessage(error) {
     const cwd = fixture({
       'src/app/features/admin/adminErrorCopy.ts': `
 export function adminPanelLoadErrorMessage(error, label) {
-  return 'Refresh Admin to reload the agents.'
+  return 'Open Admin again, then choose Agents.'
 }
 
 export function cliImageStatusErrorMessage(error) {
@@ -1146,15 +1247,15 @@ export function cliImageStatusErrorMessage(error) {
     const cwd = fixture({
       'src/app/shared/model/admin.store.ts': `
 export function adminHttpErrorMessage(label) {
-  return \`You do not have access to the admin \${label}. Ask an owner or admin to give you Admin access, then reload Admin.\`
+  return \`Ask an owner or admin to give you Admin access, then reload Admin. You do not have access to the admin \${label}.\`
 }
 
 export function adminLoadErrorMessage(label) {
-  return \`Forge could not load the admin \${label} right now. Reload the \${label}, then try again.\`
+  return \`Reload the \${label}, then try again. Forge could not load the admin \${label} right now.\`
 }
 
 function adminNetworkErrorMessage(resource) {
-  return \`Forge could not connect while loading the admin \${adminResourceLabel(resource)}. Check your connection, then refresh Admin.\`
+  return \`Check your connection, then refresh Admin. Forge could not connect while loading the admin \${adminResourceLabel(resource)}.\`
 }
 
 function adminUserActionNetworkMessage(action) {
@@ -1206,19 +1307,19 @@ function adminUserActionErrorMessage(action) {
     const cwd = fixture({
       'src/app/shared/model/admin.store.ts': `
 export function adminHttpErrorMessage(label) {
-  return \`Ask an owner or admin to give you Admin access, then reload Admin. You do not have access to the admin \${label}.\`
+  return \`Ask an owner or admin to give you Admin access, then open Admin and choose User access. You do not have access to the admin \${label}.\`
 }
 
 export function adminLoadErrorMessage(label) {
-  return \`Reload the \${label}, then try again. Forge could not load the admin \${label} right now.\`
+  return \`Open Admin and choose App health, then try again. Forge could not load the admin \${label} right now.\`
 }
 
 function adminNetworkErrorMessage(resource) {
-  return \`Check your connection, then refresh Admin. Forge could not connect while loading the admin \${adminResourceLabel(resource)}.\`
+  return \`Check your connection, then open Admin and choose Team spaces. Forge could not connect while loading the admin \${adminResourceLabel(resource)}.\`
 }
 
 function adminUserActionNetworkMessage(action) {
-  return \`Check your connection, then try again. The \${adminUserActionLabel(action)} could not reach the server.\`
+  return \`Check your connection, then open Admin and choose User access before trying again. The \${adminUserActionLabel(action)} could not reach the server.\`
 }
 
 function adminUserActionErrorMessage(action) {
@@ -1232,7 +1333,7 @@ function adminUserActionErrorMessage(action) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags Settings load error titles that do not tell users to refresh Settings', () => {
+  it('flags Settings load error titles that do not tell users where to reopen Settings', () => {
     const cwd = fixture({
       'src/app/features/settings/providerSettingsErrorMessage.ts': `
 function baseMessage(action) {
@@ -1281,26 +1382,26 @@ function baseMessage(action) {
     )
   })
 
-  it('accepts Settings load error titles that tell users to refresh Settings', () => {
+  it('accepts Settings load error titles that tell users where to reopen Settings', () => {
     const cwd = fixture({
       'src/app/features/settings/providerSettingsErrorMessage.ts': `
 function baseMessage(action) {
-  return 'Refresh Settings to load AI service settings.'
+  return 'Open Settings and AI services again.'
 }
 `,
       'src/app/features/settings/gitCredentialsErrorMessage.ts': `
 function baseMessage(action) {
-  return 'Refresh Settings to load repository access.'
+  return 'Open Settings and Code access again.'
 }
 `,
       'src/app/features/settings/sshKeysErrorMessage.ts': `
 function baseMessage(action) {
-  return 'Refresh Settings to load repository SSH access.'
+  return 'Open Settings and SSH code access again.'
 }
 `,
       'src/app/features/settings/platformKeyErrorMessage.ts': `
 function baseMessage(action) {
-  return 'Refresh Settings to load outside tool access keys.'
+  return 'Open Settings and Outside tool access keys again.'
 }
 `,
     })
@@ -1319,6 +1420,12 @@ function removeMessage() {
 }
 function rateLimitMessage() {
   return 'Refresh Settings to load code access. Forge is receiving too many code access requests right now. Wait a minute, then try again.'
+}
+function oldLoadMessage() {
+  return 'Refresh Settings to load code access. If it still fails, ask an owner or admin to check code access settings.'
+}
+function oldRemoveMessage() {
+  return 'Refresh Settings, then remove code access again. If it still fails, ask an owner or admin to check code access settings.'
 }
 `,
     })
@@ -1340,6 +1447,14 @@ function rateLimitMessage() {
           type: 'code-access-error-copy',
           location: 'src/app/features/settings/gitCredentialsErrorMessage.ts:9',
         }),
+        expect.objectContaining({
+          type: 'code-access-error-copy',
+          location: 'src/app/features/settings/gitCredentialsErrorMessage.ts:12',
+        }),
+        expect.objectContaining({
+          type: 'code-access-error-copy',
+          location: 'src/app/features/settings/gitCredentialsErrorMessage.ts:15',
+        }),
       ])
     )
   })
@@ -1349,7 +1464,8 @@ function rateLimitMessage() {
       'src/app/features/settings/gitCredentialsErrorMessage.ts': `
 function gitCredentialsErrorMessage(action) {
   if (action === 'save') return 'Paste a new code access key from GitHub or GitLab, then save again.'
-  if (action === 'remove') return 'Refresh Settings, then remove code access again.'
+  if (action === 'remove') return 'Open Settings and Code access again, then remove code access again.'
+  if (action === 'load') return 'Open Settings and Code access again.'
   return 'Wait a minute, then try again. Forge is receiving too many code access requests right now.'
 }
 `,
@@ -1369,6 +1485,12 @@ function removeMessage() {
 }
 function rateLimitMessage() {
   return 'Refresh Settings to load SSH code access. Forge is receiving too many SSH code access requests right now. Wait a minute, then try again.'
+}
+function oldLoadMessage() {
+  return 'Refresh Settings to load SSH code access. If it still fails, ask an owner or admin to check SSH code access settings.'
+}
+function oldRemoveMessage() {
+  return 'Refresh Settings, then remove this SSH code access again. If it still fails, ask an owner or admin to check SSH code access settings.'
 }
 `,
     })
@@ -1390,6 +1512,14 @@ function rateLimitMessage() {
           type: 'ssh-code-access-error-copy',
           location: 'src/app/features/settings/sshKeysErrorMessage.ts:9',
         }),
+        expect.objectContaining({
+          type: 'ssh-code-access-error-copy',
+          location: 'src/app/features/settings/sshKeysErrorMessage.ts:12',
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-error-copy',
+          location: 'src/app/features/settings/sshKeysErrorMessage.ts:15',
+        }),
       ])
     )
   })
@@ -1399,7 +1529,8 @@ function rateLimitMessage() {
       'src/app/features/settings/sshKeysErrorMessage.ts': `
 function sshKeysErrorMessage(action) {
   if (action === 'save') return 'Add a name for this access, then save again.'
-  if (action === 'remove') return 'Refresh Settings, then remove this SSH code access again.'
+  if (action === 'remove') return 'Open Settings and SSH code access again, then remove this SSH code access again.'
+  if (action === 'load') return 'Open Settings and SSH code access again.'
   return 'Wait a minute, then try again. Forge is receiving too many SSH code access requests right now.'
 }
 `,
@@ -1419,6 +1550,15 @@ function removeMessage() {
 }
 function rateLimitMessage() {
   return 'Refresh Settings to load outside tool access keys. Forge is receiving too many outside tool access requests right now. Wait a minute, then try again.'
+}
+function oldLoadMessage() {
+  return 'Refresh Settings to load outside tool access keys. If it still fails, ask an owner or admin to check outside tool access settings.'
+}
+function oldRemoveMessage() {
+  return 'Refresh Settings, then remove this outside tool access key again. If it still fails, ask an owner or admin to check outside tool access settings.'
+}
+function oldDuplicateMessage() {
+  return 'Refresh the list, then choose a different name or remove the old key first. An outside tool access key with this name already exists.'
 }
 `,
     })
@@ -1440,6 +1580,18 @@ function rateLimitMessage() {
           type: 'platform-key-error-copy',
           location: 'src/app/features/settings/platformKeyErrorMessage.ts:9',
         }),
+        expect.objectContaining({
+          type: 'platform-key-error-copy',
+          location: 'src/app/features/settings/platformKeyErrorMessage.ts:12',
+        }),
+        expect.objectContaining({
+          type: 'platform-key-error-copy',
+          location: 'src/app/features/settings/platformKeyErrorMessage.ts:15',
+        }),
+        expect.objectContaining({
+          type: 'platform-key-error-copy',
+          location: 'src/app/features/settings/platformKeyErrorMessage.ts:18',
+        }),
       ])
     )
   })
@@ -1449,7 +1601,8 @@ function rateLimitMessage() {
       'src/app/features/settings/platformKeyErrorMessage.ts': `
 function platformKeyErrorMessage(action) {
   if (action === 'create') return 'Enter the tool or job name, then try again.'
-  if (action === 'remove') return 'Refresh Settings, then remove this outside tool access key again.'
+  if (action === 'remove') return 'Open Settings and Outside tool access keys again, then remove this outside tool access key again.'
+  if (action === 'load') return 'Open Settings and Outside tool access keys again.'
   return 'Wait a minute, then try again. Forge is receiving too many outside tool access requests right now.'
 }
 `,
@@ -1478,6 +1631,15 @@ function serverMessage() {
 }
 function unknownMessage() {
   return 'Account settings could not rename the team space. Refresh Settings, then try again.'
+}
+function pageRefreshMessage() {
+  return 'Refresh the page, then try again. Your account changed while this form was open.'
+}
+function settingsRefreshMessage() {
+  return 'Refresh Settings, then change your password again. If it still fails, ask an owner or admin to check account settings.'
+}
+function teamSpaceRefreshMessage() {
+  return 'Refresh team space settings, check the current name, then try again. This team space changed while you were editing.'
 }
 `,
     })
@@ -1511,6 +1673,18 @@ function unknownMessage() {
           type: 'account-settings-error-copy',
           location: 'src/app/features/settings/accountErrorMessages.ts:18',
         }),
+        expect.objectContaining({
+          type: 'account-settings-error-copy',
+          location: 'src/app/features/settings/accountErrorMessages.ts:21',
+        }),
+        expect.objectContaining({
+          type: 'account-settings-error-copy',
+          location: 'src/app/features/settings/accountErrorMessages.ts:24',
+        }),
+        expect.objectContaining({
+          type: 'account-settings-error-copy',
+          location: 'src/app/features/settings/accountErrorMessages.ts:27',
+        }),
       ])
     )
   })
@@ -1523,7 +1697,9 @@ function accountErrorMessage(action) {
   if (action === 'permission') return 'Ask an owner or admin to update your role. You do not have permission to rename this team space.'
   if (action === 'validation') return 'Re-enter the current password, then try again. The current password did not match this account.'
   if (action === 'rateLimit') return 'Wait a moment, then change your password again. Forge is receiving too many account settings requests right now.'
-  return 'Refresh Settings, then rename the team space again. If it still fails, ask an owner or admin to check account settings.'
+  if (action === 'server') return 'Open Account settings again, then rename the team space again. If it still fails, ask an owner or admin to check account settings.'
+  if (action === 'passwordChanged') return 'Open Account settings again, then change your password again. Your account changed while this form was open.'
+  return 'Open Account settings again, check the current team space name, then try again. This team space changed while you were editing.'
 }
 `,
     })
@@ -1625,7 +1801,7 @@ export const zh = {
 export const en = {
   errors: {
     generic: 'Try again after a moment. If it repeats, ask an owner to check app health.',
-    notFound: 'Refresh the page, then try again. {{resource}} was not found.',
+    notFound: 'Open this page again, then try again. {{resource}} was not found.',
     serverError: 'Wait a moment, then try again. Forge could not finish this right now.',
     uploadError: 'Check the file and connection, then upload again. The upload did not finish.',
     uploadFailed: 'Check the file, then upload again. The upload did not finish.',
@@ -1636,7 +1812,7 @@ export const en = {
 export const zh = {
   errors: {
     generic: '请稍等一下再重试；如果反复发生，请让管理员检查应用健康状态。',
-    notFound: '请刷新页面后重试。未找到 {{resource}}。',
+    notFound: '请重新打开当前页面后重试。未找到 {{resource}}。',
     serverError: '请稍等片刻后重试。Forge 暂时无法完成这个操作。',
     uploadError: '请检查文件和网络后重新上传。上传没有完成。',
     uploadFailed: '请检查文件后重新上传。上传没有完成。',
@@ -1646,6 +1822,51 @@ export const zh = {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags common error translations that tell beginners to refresh the page', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  errors: {
+    notFound: 'Refresh the page, then try again. {{resource}} was not found.',
+    downloadError: 'Refresh the page, then download again. The download did not start.',
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  errors: {
+    notFound: '请刷新页面后重试。未找到 {{resource}}。',
+    downloadError: '请刷新页面后重新下载。下载没有开始。',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'common-error-refresh-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'common-error-refresh-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'common-error-refresh-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'common-error-refresh-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:5',
+        }),
+      ])
+    )
   })
 
   it('flags common error translations that end with vague system checks', () => {
@@ -1843,6 +2064,12 @@ function networkMessage() {
 function busyMessage() {
   return 'Refresh Settings to load workspace teams. Too many setup changes are happening right now. Wait a minute, then refresh Settings again.'
 }
+function plainTeamLoadMessage() {
+  return 'Refresh Settings to load teams.'
+}
+function plainProjectLoadMessage() {
+  return 'Refresh Settings to load projects.'
+}
 `,
     })
 
@@ -1875,6 +2102,14 @@ function busyMessage() {
           type: 'workspace-settings-error-copy',
           location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:18',
         }),
+        expect.objectContaining({
+          type: 'workspace-settings-error-copy',
+          location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:21',
+        }),
+        expect.objectContaining({
+          type: 'workspace-settings-error-copy',
+          location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:24',
+        }),
       ])
     )
   })
@@ -1883,11 +2118,11 @@ function busyMessage() {
     const cwd = fixture({
       'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts': `
 function workspaceSettingsErrorMessage(action) {
-  if (action === 'auth') return 'Sign in again, then refresh Settings to load workspace teams.'
-  if (action === 'permission') return 'Ask an owner or admin to update your team space access, then refresh Settings to load projects.'
-  if (action === 'network') return 'Check your connection, then refresh Settings to load workspace projects.'
-  if (action === 'busy') return 'Wait a minute, then refresh Settings to load workspace teams. Too many setup changes are happening right now.'
-  if (action === 'server') return 'Refresh Settings to load workspace projects. If it still fails, ask an owner or admin to check team and project settings.'
+  if (action === 'auth') return 'Sign in again, then open Settings and Teams and Projects again, then choose Teams.'
+  if (action === 'permission') return 'Ask an owner or admin to update your team space access, then open Settings and Teams and Projects again, then choose Projects.'
+  if (action === 'network') return 'Check your connection, then open Settings and Teams and Projects again, then choose Projects.'
+  if (action === 'busy') return 'Wait a minute, then open Settings and Teams and Projects again, then choose Teams. Too many setup changes are happening right now.'
+  if (action === 'server') return 'Open Settings and Teams and Projects again, then choose Projects. If it still fails, ask an owner or admin to check team and project settings.'
   return 'Enter a project name, then try again.'
 }
 `,
@@ -1921,6 +2156,11 @@ function agentServerMessage(error) {
       'src/app/features/agents/model/pluginErrorMessage.ts': `
 function prefix(action) {
   return 'Agent tools could not be loaded.'
+}
+`,
+      'src/app/features/agents/AgentPluginsTab.tsx': `
+function ErrorTitle() {
+  return <p>Refresh this agent page to load tools.</p>
 }
 `,
       'src/app/features/agents/model/taskErrorMessage.ts': `
@@ -1977,6 +2217,10 @@ function ResourceProfilesError() {
         }),
         expect.objectContaining({
           type: 'load-error-title-copy',
+          location: 'src/app/features/agents/AgentPluginsTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'load-error-title-copy',
           location: 'src/app/features/agents/model/taskErrorMessage.ts:3',
         }),
         expect.objectContaining({
@@ -2008,27 +2252,32 @@ function baseMessage(action) {
 `,
       'src/app/shared/model/billing.store.ts': `
 function billingErrorMessage(area) {
-  return 'Refresh Billing to load invoices.'
+  return 'Choose Check billing again to load invoices.'
 }
 `,
       'src/app/shared/model/agents.store.ts': `
 function loadAgentsError(error) {
-  return 'Refresh Agents to load agents.'
+  return 'Open Agents again to load agents.'
 }
 `,
       'src/app/entities/agent/model/agents.store.ts': `
 function agentServerMessage(error) {
-  return 'Refresh Agents to load agents.'
+  return 'Open Agents again to load agents.'
 }
 `,
       'src/app/features/agents/model/pluginErrorMessage.ts': `
 function prefix(action) {
-  return 'Refresh this agent page to load tools.'
+  return 'Go back to Agents, choose this agent again, then open Tools.'
+}
+`,
+      'src/app/features/agents/AgentPluginsTab.tsx': `
+function ErrorTitle() {
+  return <p>Go back to Agents, choose this agent again, then open Tools.</p>
 }
 `,
       'src/app/features/agents/model/taskErrorMessage.ts': `
 function agentTasksErrorMessage(error) {
-  return "Refresh this agent to load its work list."
+  return "Open Work again from this agent."
 }
 `,
       'src/app/features/settings/runtimeErrorMessages.ts': `
@@ -2038,7 +2287,7 @@ function runtimeSettingsErrorMessage(error) {
 `,
       'src/app/features/manage-members/model/resourceMemberErrorMessages.ts': `
 function resourceMemberErrorMessage(error) {
-  return 'Refresh members to load people for this team.'
+  return 'Open Members for this team again.'
 }
 `,
       'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts': `
@@ -2048,7 +2297,67 @@ function baseMessage(resource, action) {
 `,
       'src/app/features/settings/ResourcesSection.tsx': `
 function ResourceProfilesError() {
-  return <p>Reload sizes to load agent sizes.</p>
+  return <p>Load agent sizes again.</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags agent work-list recovery copy that only tells users to refresh', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentTasksTab.tsx': `
+export function AgentTasksTab() {
+  return <p>Refresh this agent's work list.</p>
+}
+`,
+      'src/app/features/agents/model/taskErrorMessage.ts': `
+function agentTasksErrorMessage(error) {
+  return 'Refresh this page to load the agent work list again.'
+}
+
+function agentRateLimitMessage(error) {
+  return 'Wait a minute, then refresh this agent to load its work list.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-task-load-copy',
+          location: 'src/app/features/agents/AgentTasksTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-task-load-copy',
+          location: 'src/app/features/agents/model/taskErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-task-load-copy',
+          location: 'src/app/features/agents/model/taskErrorMessage.ts:7',
+        }),
+      ])
+    )
+  })
+
+  it('accepts agent work-list recovery copy that names the Work tab', () => {
+    const cwd = fixture({
+      'src/app/features/agents/model/taskErrorMessage.ts': `
+function agentTasksErrorMessage(error) {
+  return 'Open Agents, choose this agent again, then open Work to load the work list.'
+}
+
+function agentRateLimitMessage(error) {
+  return 'Wait a minute, then open Work again from this agent.'
+}
+`,
+      'src/app/features/agents/AgentTasksTab.tsx': `
+export function AgentTasksTab() {
+  return <p>Open Work again from this agent.</p>
 }
 `,
     })
@@ -2096,13 +2405,13 @@ function listMessage() {
     const cwd = fixture({
       'src/app/features/agents/model/pluginErrorMessage.ts': `
 function prefix() {
-  return 'Refresh this agent page, then try the tool change again. The switch was returned to its previous setting.'
+  return 'Go back to Agents, choose this agent again, then open Tools and try the tool change again. The switch was returned to its previous setting.'
 }
 function serverMessage() {
   return 'Wait a few minutes, then try the tool change again. The switch was returned to its previous setting. Forge could not finish this tool request right now.'
 }
 function listMessage() {
-  return "Refresh this agent page, then try the tool change again. The switch was returned to its previous setting. Forge could not read this agent's tool list."
+  return "Go back to Agents, choose this agent again, then open Tools and try the tool change again. The switch was returned to its previous setting. Forge could not read this agent's tool list."
 }
 `,
     })
@@ -2125,12 +2434,20 @@ function memberLoadError() {
   return 'People access is busy. Wait a moment, then try again.'
 }
 
+function memberMissingError() {
+  return 'Open Members for this project again, or choose another project. People for this project are not available.'
+}
+
 function memberUnavailableMessage() {
   return 'Forge could not update people access right now. Refresh members, then try again.'
 }
 
 function validationMessage() {
   return 'This person could not be removed. Check whether they are the last owner.'
+}
+
+function oldMembersListMessage() {
+  return 'Refresh the members list, then remove the person again.'
 }
 `,
     })
@@ -2160,6 +2477,14 @@ function validationMessage() {
           type: 'resource-member-error-copy',
           location: 'src/app/features/manage-members/model/resourceMemberErrorMessages.ts:19',
         }),
+        expect.objectContaining({
+          type: 'resource-member-error-copy',
+          location: 'src/app/features/manage-members/model/resourceMemberErrorMessages.ts:23',
+        }),
+        expect.objectContaining({
+          type: 'resource-member-error-copy',
+          location: 'src/app/features/manage-members/model/resourceMemberErrorMessages.ts:27',
+        }),
       ])
     )
   })
@@ -2175,8 +2500,12 @@ function memberLoadError() {
   return 'Wait a moment, then try again. People access is busy right now.'
 }
 
+function memberMissingError() {
+  return 'Open Members for this project again, or choose another project. This project may have changed or been removed.'
+}
+
 function memberUnavailableMessage() {
-  return 'Refresh members, then remove the person again. Forge could not update people access right now.'
+  return 'Open Members for this team again, then remove the person again. Forge could not update people access right now.'
 }
 
 function validationMessage() {
@@ -2248,7 +2577,7 @@ export const en = {
     ])
   })
 
-  it('flags work-location labels that leave beginners without a refresh step', () => {
+  it('flags work-location labels that leave beginners without a concrete check step', () => {
     const cwd = fixture({
       'src/app/entities/agent/model/runtime-kind.ts': `
 export function runtimeKindLabel(kind) {
@@ -2259,37 +2588,57 @@ export function runtimeKindShortLabel(kind) {
   if (!kind) return 'Location missing'
   return 'Review location'
 }
+export function legacyRuntimeLabel(kind) {
+  return kind ? 'Project files' : 'Refresh work location'
+}
+export function legacyShortLabel(kind) {
+  return kind ? 'Project files' : 'Refresh location'
+}
 `,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'runtime-short-label-copy',
-        location: 'src/app/entities/agent/model/runtime-kind.ts:3',
-      }),
-      expect.objectContaining({
-        type: 'runtime-short-label-copy',
-        location: 'src/app/entities/agent/model/runtime-kind.ts:7',
-      }),
-      expect.objectContaining({
-        type: 'runtime-short-label-copy',
-        location: 'src/app/entities/agent/model/runtime-kind.ts:8',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'runtime-short-label-copy',
+          location: 'src/app/entities/agent/model/runtime-kind.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'runtime-short-label-copy',
+          location: 'src/app/entities/agent/model/runtime-kind.ts:7',
+        }),
+        expect.objectContaining({
+          type: 'runtime-short-label-copy',
+          location: 'src/app/entities/agent/model/runtime-kind.ts:8',
+        }),
+        expect.objectContaining({
+          type: 'runtime-short-label-copy',
+          location: 'src/app/entities/agent/model/runtime-kind.ts:11',
+        }),
+        expect.objectContaining({
+          type: 'agent-setup-fallback-copy',
+          location: 'src/app/entities/agent/model/runtime-kind.ts:11',
+        }),
+        expect.objectContaining({
+          type: 'runtime-short-label-copy',
+          location: 'src/app/entities/agent/model/runtime-kind.ts:14',
+        }),
+      ])
+    )
   })
 
-  it('accepts work-location fallback labels that tell users to refresh', () => {
+  it('accepts work-location fallback labels that tell users to check setup', () => {
     const cwd = fixture({
       'src/app/entities/agent/model/runtime-kind.ts': `
 export function runtimeKindLabel(kind) {
-  if (!kind) return 'Refresh work location'
+  if (!kind) return 'Check where it works'
 }
 
 export function runtimeKindShortLabel(kind) {
-  if (!kind) return 'Refresh location'
+  if (!kind) return 'Check location'
   return 'Check location'
 }
 `,
@@ -2367,17 +2716,17 @@ function fallbackCliToolLabel(tool) {
     const cwd = fixture({
       'src/app/entities/agent/model/display-labels.ts': `
 export function agentAiServiceLabel(provider) {
-  return provider ? 'Check AI service' : 'Refresh AI service'
+  return provider ? 'Check AI service' : 'Check AI service setup'
 }
 `,
       'src/app/entities/agent/model/agents.store.ts': `
 export function cliToolLabel(tool) {
-  return tool ? 'Check work tool' : 'Refresh AI service'
+  return tool ? 'Check work tool' : 'Check AI service setup'
 }
 `,
       'src/app/entities/context/ui/InjectionPreviewModal.tsx': `
 function runtimeLabel(runtime) {
-  return runtime ? 'Check work location' : 'Refresh work location'
+  return runtime ? 'Check work location' : 'Check where this ran'
 }
 `,
       'src/app/features/detail/HistoryTab.tsx': `
@@ -2387,10 +2736,10 @@ function runSourceLabel(run) {
 `,
       'src/app/features/settings/RuntimeSection.tsx': `
 function fallbackRuntimeLabel(runtime) {
-  return runtime ? 'Check where files open' : 'Refresh where files open'
+  return runtime ? 'Check where files open' : 'Check where files open in Settings'
 }
 function fallbackCliToolLabel(tool) {
-  return tool ? 'Check work tool' : 'Refresh work tools'
+  return tool ? 'Check work tool' : 'Check the work tool in Settings'
 }
 `,
     })
@@ -2640,6 +2989,7 @@ function BillingNotConfigured() {
       <p>Billing setup steps</p>
       <p>Ask an owner or admin to turn on billing for this workspace.</p>
       <p>Do not paste secret payment settings here.</p>
+      <p>Refresh this page after billing is turned on.</p>
     </div>
   )
 }
@@ -2671,6 +3021,10 @@ function BillingNotConfigured() {
           type: 'billing-setup-copy',
           location: 'src/app/features/billing/BillingPage.tsx:9',
         }),
+        expect.objectContaining({
+          type: 'billing-setup-copy',
+          location: 'src/app/features/billing/BillingPage.tsx:10',
+        }),
       ])
     )
   })
@@ -2684,6 +3038,7 @@ function BillingNotConfigured() {
       <p>What to do next</p>
       <p>Ask an owner or admin to turn on billing for this team.</p>
       <p>Do not enter payment account passwords or keys on this page.</p>
+      <p>After billing is turned on, open Billing from the sidebar to check the plan.</p>
     </div>
   )
 }
@@ -2813,7 +3168,7 @@ function billingActionErrors() {
     const cwd = fixture({
       'src/app/shared/model/billing.store.ts': `
 function billingErrorMessage() {
-  return 'Refresh Billing to load usage. Check your connection, then refresh Billing again. Forge could not connect while loading billing.'
+  return 'Check your connection, then choose Check billing again to load usage. Forge could not connect while loading billing.'
 }
 `,
       'src/app/features/billing/BillingPage.tsx': `
@@ -2905,11 +3260,11 @@ export function analyticsNetworkErrorMessage() {
     const cwd = fixture({
       'src/app/shared/model/analytics.store.ts': `
 export function analyticsUnavailableMessage() {
-  return 'Refresh the dashboard. If this is a new workspace, run an agent task first.'
+  return 'Open Analytics again. If this is a new workspace, run an agent task first.'
 }
 
 export function analyticsNetworkErrorMessage() {
-  return 'Check your connection, then refresh the dashboard. Analytics could not connect.'
+  return 'Check your connection, then open Analytics again. Analytics could not connect.'
 }
 `,
     })
@@ -2958,6 +3313,7 @@ const EMPTY_TOP_USEFUL = {
       'src/app/features/analytics/ContextUsageDashboard.tsx': `
 const EMPTY_NEEDS_REVIEW = {
   title: 'Nothing to check right now',
+  detail: 'Review these before reuse because people reported they may be outdated, incorrect, or sensitive.',
 }
 
 const EMPTY_STALE = {
@@ -2977,7 +3333,11 @@ const EMPTY_STALE = {
         }),
         expect.objectContaining({
           type: 'analytics-review-empty-copy',
-          location: 'src/app/features/analytics/ContextUsageDashboard.tsx:7',
+          sample: expect.stringContaining('Review these before reuse'),
+        }),
+        expect.objectContaining({
+          type: 'analytics-review-empty-copy',
+          location: 'src/app/features/analytics/ContextUsageDashboard.tsx:8',
         }),
       ])
     )
@@ -2988,10 +3348,43 @@ const EMPTY_STALE = {
       'src/app/features/analytics/ContextUsageDashboard.tsx': `
 const EMPTY_NEEDS_REVIEW = {
   title: 'No saved items need checking',
+  detail: 'Check these before agents reuse them because people reported they may be outdated, incorrect, or sensitive.',
 }
 
 const EMPTY_STALE = {
   title: 'No saved items look outdated',
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags saved item analytics task labels that expose review jargon', () => {
+    const cwd = fixture({
+      'src/app/features/analytics/ContextUsageDashboard.tsx': `
+const TASK_KIND_LABELS = {
+  review: 'Review task',
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'analytics-task-kind-copy',
+        location: 'src/app/features/analytics/ContextUsageDashboard.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts saved item analytics task labels that say what users check', () => {
+    const cwd = fixture({
+      'src/app/features/analytics/ContextUsageDashboard.tsx': `
+const TASK_KIND_LABELS = {
+  review: 'Result check task',
 }
 `,
     })
@@ -3019,16 +3412,59 @@ export function updatedAtLabel() {
     ])
   })
 
-  it('accepts analytics updated-time copy that tells users to refresh', () => {
+  it('accepts analytics updated-time copy that names the load action', () => {
     const cwd = fixture({
       'src/app/features/analytics/ContextUsageDashboard.tsx': `
 export function updatedAtLabel() {
-  return 'Refresh analytics to update time'
+  return 'Choose Load analytics again to update this time'
 }
 `,
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags saved item analytics refresh copy that does not name a concrete action', () => {
+    const cwd = fixture({
+      'src/app/features/analytics/ContextUsageDashboard.tsx': `
+function updatedAtLabel() {
+  return 'Refresh analytics to update time'
+}
+function staleBanner() {
+  return 'Refresh analytics before making decisions from them.'
+}
+function runtimeLabel() {
+  return 'Refresh work location'
+}
+function taskKindLabel() {
+  return 'Refresh task type'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'analytics-refresh-copy',
+          location: 'src/app/features/analytics/ContextUsageDashboard.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'analytics-refresh-copy',
+          location: 'src/app/features/analytics/ContextUsageDashboard.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'analytics-refresh-copy',
+          location: 'src/app/features/analytics/ContextUsageDashboard.tsx:9',
+        }),
+        expect.objectContaining({
+          type: 'analytics-refresh-copy',
+          location: 'src/app/features/analytics/ContextUsageDashboard.tsx:12',
+        }),
+      ])
+    )
   })
 
   it('flags optional saved item empty copy that does not explain how more items appear', () => {
@@ -3235,7 +3671,7 @@ function taskAgentLabel(task) {
     )
   })
 
-  it('flags task form agent status copy that does not tell users to refresh agent status', () => {
+  it('flags task form agent status copy that does not tell users to check agent status', () => {
     const cwd = fixture({
       'src/app/features/board/TaskFormModal.tsx': `
 function agentStatusLabel() {
@@ -3255,12 +3691,66 @@ function agentStatusLabel() {
     ])
   })
 
-  it('accepts task form agent status copy that tells users to refresh agent status', () => {
+  it('flags task form agent status copy that uses refresh wording', () => {
     const cwd = fixture({
       'src/app/features/board/TaskFormModal.tsx': `
 function agentStatusLabel() {
   return 'refresh agent status'
 }
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'task-form-agent-status-copy',
+        location: 'src/app/features/board/TaskFormModal.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts task form agent status copy that tells users to check agent status', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskFormModal.tsx': `
+function agentStatusLabel() {
+  return 'check agent status'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags task form review templates that require PR and branch terms', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskFormModal.tsx': `
+const TASK_TEMPLATES = [{
+  id: 'review',
+  description: 'Change to check:\\n- Name the PR, branch, files, or behavior.'
+}]
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'task-form-review-template-copy',
+        location: 'src/app/features/board/TaskFormModal.tsx:4',
+      }),
+    ])
+  })
+
+  it('accepts task form review templates that ask for a change or request plainly', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskFormModal.tsx': `
+const TASK_TEMPLATES = [{
+  id: 'review',
+  description: 'Change to check:\\n- Name the change, request, files, screen, or behavior.'
+}]
 `,
     })
 
@@ -3291,7 +3781,7 @@ function handleProjectChange() {
     const cwd = fixture({
       'src/app/features/board/TaskFormModal.tsx': `
 function handleProjectChange() {
-  return 'Select the project again to find where tasks wait. If it still does not load, refresh the board or ask an owner to check task routing setup.'
+  return 'Select the project again to find where tasks wait. If it still does not load, open the Tasks page again or ask an owner to check where tasks wait in this project.'
 }
 `,
     })
@@ -3299,7 +3789,7 @@ function handleProjectChange() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags task support reference copy that does not tell users to refresh task details', () => {
+  it('flags task support reference copy that does not tell users where to reopen the task', () => {
     const cwd = fixture({
       'src/app/features/detail/TaskDetailPanel.tsx': `
 function taskSupportReference() {
@@ -3311,7 +3801,13 @@ function taskReferenceLabel(id) {
 `,
       'src/app/features/detail/HistoryTab.tsx': `
 function supportRunReference(id) {
-  return 'not listed'
+  return 'refresh task details to check'
+}
+function workAttemptReferenceLabel(id) {
+  return 'Work attempt code run-1234'
+}
+function taskUpdateGuide() {
+  return 'Read the latest attempt before retrying.'
 }
 `,
     })
@@ -3333,18 +3829,31 @@ function supportRunReference(id) {
           type: 'task-support-reference-copy',
           location: 'src/app/features/detail/HistoryTab.tsx:3',
         }),
+        expect.objectContaining({
+          type: 'task-support-reference-copy',
+          location: 'src/app/features/detail/HistoryTab.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'task-support-reference-copy',
+          location: 'src/app/features/detail/HistoryTab.tsx:9',
+        }),
       ])
     )
   })
 
-  it('accepts task support reference copy that tells users to refresh task details', () => {
+  it('accepts task support reference copy that tells users where to reopen the task', () => {
     const cwd = fixture({
       'src/app/features/detail/TaskDetailPanel.tsx': `
 function taskSupportReference() {
-  return 'Refresh task details'
+  return 'Open this task again from the Tasks page to check the task reference.'
 }
 function taskReferenceLabel(id) {
   return \`Task reference \${id}\`
+}
+`,
+      'src/app/features/detail/HistoryTab.tsx': `
+function workAttemptReferenceLabel(id) {
+  return 'Open this task again from the Tasks page to check the help code.'
 }
 `,
     })
@@ -3387,12 +3896,12 @@ function noAgentError() {
     const cwd = fixture({
       'src/app/features/detail/TaskDetailPanel.tsx': `
 function emptyAgents() {
-  return 'Open Agents to start or connect an agent, then return here and refresh this task.'
+  return 'Open Agents to start or connect an agent, then open this task again from the Tasks page.'
 }
 `,
       'src/app/features/detail/taskDetailErrorMessages.ts': `
 function noAgentError() {
-  return 'No agent can take this task right now. Open Agents to start or connect an agent, then refresh this task and try again.'
+  return 'No agent can take this task right now. Open Agents to start or connect an agent, then open this task again from the Tasks page.'
 }
 `,
     })
@@ -3436,15 +3945,15 @@ function emptyInstructionBadge() {
     ])
   })
 
-  it('accepts agent configuration detail copy that names what to refresh', () => {
+  it('accepts agent configuration detail copy that names what to check', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentConfigTab.tsx': `
 function modelLabel() {
-  return 'Refresh AI model'
+  return 'Check AI model setup'
 }
 
 function cliToolLabel() {
-  return 'Refresh work tool settings'
+  return 'Check work tool settings'
 }
 
 function emptyInstructionBadge() {
@@ -3463,6 +3972,15 @@ function promptProfileSaveErrorMessage() {
   return 'Agent instructions were not saved. Refresh this agent, confirm it is still a chat-only agent, then save again. Ask an admin to check your agent access if it keeps failing.'
 }
 `,
+      'src/app/shared/model/agents.store.ts': `
+const AGENT_INSTRUCTIONS_ERROR =
+  'Agent instructions were not saved. Review the instructions, then try again.'
+`,
+      'src/app/entities/agent/model/agents.store.ts': `
+function agentValidationMessage() {
+  return 'Agent instructions were not saved. Review the instructions, then try again.'
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
@@ -3474,6 +3992,14 @@ function promptProfileSaveErrorMessage() {
           type: 'agent-config-save-copy',
           location: 'src/app/features/agents/AgentConfigTab.tsx:3',
         }),
+        expect.objectContaining({
+          type: 'agent-config-save-copy',
+          location: 'src/app/shared/model/agents.store.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-config-save-copy',
+          location: 'src/app/entities/agent/model/agents.store.ts:3',
+        }),
       ])
     )
   })
@@ -3482,7 +4008,16 @@ function promptProfileSaveErrorMessage() {
     const cwd = fixture({
       'src/app/features/agents/AgentConfigTab.tsx': `
 function promptProfileSaveErrorMessage() {
-  return 'Refresh this agent, confirm it is still a chat-only agent, then save again. If it keeps failing, ask an owner or admin to check your agent access. Agent instructions were not saved.'
+  return 'Open Agents, choose this chat-only agent again, then save again. If it keeps failing, ask an owner or admin to check your agent access. Agent instructions were not saved.'
+}
+`,
+      'src/app/shared/model/agents.store.ts': `
+const AGENT_INSTRUCTIONS_ERROR =
+  'Check the instruction text, open this agent again, then save the instructions again.'
+`,
+      'src/app/entities/agent/model/agents.store.ts': `
+function agentValidationMessage() {
+  return 'Check the instruction text, open this agent again, then save the instructions again.'
 }
 `,
     })
@@ -3519,16 +4054,16 @@ const info = {
     ])
   })
 
-  it('accepts agent model fallback copy that tells users to refresh model data', () => {
+  it('accepts agent model fallback copy that tells users to check model setup', () => {
     const cwd = fixture({
       'src/app/entities/agent/model/agents.store.ts': `
 const info = {
-  model: 'Refresh AI model',
+  model: 'Check AI model setup',
 }
 `,
       'src/app/shared/model/agents.store.ts': `
 const info = {
-  model: agent.model ?? agent.cliTool ?? 'Refresh AI model',
+  model: agent.model ?? agent.cliTool ?? 'Check AI model setup',
 }
 `,
     })
@@ -3577,21 +4112,21 @@ function cliToolToProvider() {
     expect(result.findings).toHaveLength(3)
   })
 
-  it('accepts agent AI service fallback copy that tells users to refresh service data', () => {
+  it('accepts agent AI service fallback copy that tells users to check service setup', () => {
     const cwd = fixture({
       'src/app/entities/agent/model/display-labels.ts': `
 function agentAiServiceLabel() {
-  return 'Refresh AI service'
+  return 'Check AI service setup'
 }
 `,
       'src/app/entities/agent/model/agents.store.ts': `
 function managedToAgentInfo() {
-  return { provider: 'Refresh AI service' }
+  return { provider: 'Check AI service setup' }
 }
 `,
       'src/app/shared/model/agents.store.ts': `
 function cliToolToProvider() {
-  return 'Refresh AI service'
+  return 'Check AI service setup'
 }
 `,
     })
@@ -3634,6 +4169,10 @@ function WorkStylePicker() {
 function TemplateHint() {
   return <span>Fills in the agent name</span>
 }
+const AGENT_ROLE_TEMPLATES = [{
+  label: 'Review work',
+  name: 'Review Helper'
+}]
 `,
     })
 
@@ -3645,6 +4184,14 @@ function TemplateHint() {
         type: 'agent-template-role-copy',
         sample: expect.stringContaining('Fills in the agent name'),
       }),
+      expect.objectContaining({
+        type: 'agent-template-role-copy',
+        sample: expect.stringContaining('Review work'),
+      }),
+      expect.objectContaining({
+        type: 'agent-template-role-copy',
+        sample: expect.stringContaining('Review Helper'),
+      }),
     ])
   })
 
@@ -3654,6 +4201,10 @@ function TemplateHint() {
 function TemplateHint() {
   return <span>Fills in name and starter task instructions</span>
 }
+const AGENT_ROLE_TEMPLATES = [{
+  label: 'Check results',
+  name: 'Result Check Helper'
+}]
 `,
     })
 
@@ -3682,7 +4233,10 @@ function createReviewItems() {
   return [{ label: 'Created state', value: 'Ready for chat and review after the AI service is connected.' }]
 }
 function runtimeFitFor() {
-  return [{ label: 'Where it works', value: 'Chat-only AI service' }]
+  return [{ label: 'Where it works', value: 'Chat-only AI service' }, { title: 'Anthropic for chat and review', detail: 'Best for questions, planning, writing, and review that do not need project files.' }]
+}
+function nextStep() {
+  return 'Ask a first question or assign a result check that does not need files.'
 }
 function validationMessage() {
   return 'Choose an AI service and AI model before creating this agent.'
@@ -3714,6 +4268,18 @@ function OldProviderSelect() {
         }),
         expect.objectContaining({
           type: 'create-agent-confirmation-copy',
+          sample: expect.stringContaining('chat and review'),
+        }),
+        expect.objectContaining({
+          type: 'create-agent-confirmation-copy',
+          sample: expect.stringContaining('planning, writing, and review'),
+        }),
+        expect.objectContaining({
+          type: 'create-agent-confirmation-copy',
+          sample: expect.stringContaining('assign a result check'),
+        }),
+        expect.objectContaining({
+          type: 'create-agent-confirmation-copy',
           sample: expect.stringContaining('Choose an AI service and AI model'),
         }),
         expect.objectContaining({
@@ -3736,10 +4302,13 @@ function OldProviderSelect() {
     const cwd = fixture({
       'src/app/features/agents/CreateAgentModal.tsx': `
 function createReviewItems() {
-  return [{ label: 'After creation', value: 'Ready for chat and review after the AI service is connected.' }]
+  return [{ label: 'After creation', value: 'Ready for questions and result checks after the AI service is connected.' }]
 }
 function runtimeFitFor() {
-  return [{ label: 'Where it works', value: 'AI service only' }]
+  return [{ label: 'Where it works', value: 'AI service only' }, { title: 'Anthropic for questions and result checks', detail: 'Best for questions, planning, writing, and checking results when no project files need to be opened.' }]
+}
+function nextStep() {
+  return 'Ask a first question, or send a result-check task that does not need files.'
 }
 function validationMessage() {
   return 'Open AI service settings, choose Check connection for this service, then come back when it shows Ready.'
@@ -4079,12 +4648,13 @@ function ProjectReadiness() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags access level fallback copy that does not tell users what to refresh', () => {
+  it('flags access level fallback copy that does not tell users what to check', () => {
     const cwd = fixture({
       'src/app/entities/user/model/roleLabels.ts': `
 function userRoleLabel() {
   return 'Access level not reported'
   return 'Access level needs review'
+  return 'Refresh access level'
   return { operator: 'Operator' }
 }
 `,
@@ -4107,15 +4677,19 @@ function userRoleLabel() {
           type: 'access-level-copy',
           location: 'src/app/entities/user/model/roleLabels.ts:5',
         }),
+        expect.objectContaining({
+          type: 'access-level-copy',
+          location: 'src/app/entities/user/model/roleLabels.ts:6',
+        }),
       ])
     )
   })
 
-  it('accepts access level fallback copy that tells users to refresh role data', () => {
+  it('accepts access level fallback copy that tells users to check Account settings', () => {
     const cwd = fixture({
       'src/app/entities/user/model/roleLabels.ts': `
 function userRoleLabel() {
-  return 'Refresh access level'
+  return 'Check access in Account settings'
   return 'Check access level'
 }
 `,
@@ -4182,6 +4756,23 @@ export function TimelineView() {
 export function Workshop3DEmptyState() {
   return <p>No agents on the visual map yet</p>
 }
+export function EmptyStep() {
+  return <p>Refresh this view after the agent checks in</p>
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  workshop: {
+    loadError: 'Visual map could not load. Refresh after agents are available, then try again.',
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  workshop: {
+    loadError: '视觉地图无法加载。等 Agent 可用后刷新，再试一次。',
+  },
+}
 `,
     })
 
@@ -4194,6 +4785,18 @@ export function Workshop3DEmptyState() {
           type: 'workshop-3d-empty-copy',
           location: 'src/app/widgets/views/Workshop3DView.tsx:3',
         }),
+        expect.objectContaining({
+          type: 'workshop-3d-empty-copy',
+          location: 'src/app/widgets/views/Workshop3DView.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'workshop-3d-empty-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'workshop-3d-empty-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:4',
+        }),
       ])
     )
   })
@@ -4203,6 +4806,9 @@ export function Workshop3DEmptyState() {
       'src/app/widgets/views/Workshop3DView.tsx': `
 export function Workshop3DEmptyState() {
   return <p>Open Agents to build the visual map</p>
+}
+export function EmptyStep() {
+  return <p>Return to this 3D view after the agent checks in</p>
 }
 `,
     })
@@ -4288,6 +4894,12 @@ function agentNextStep() {
 function nextTitle() {
   return 'Go to Tasks to review recent activity'
 }
+function refreshTitle() {
+  return 'Refresh or open Tasks to check activity'
+}
+function refreshDetail() {
+  return 'Go back to Agents and refresh the list, or open Tasks to confirm what is running before assigning more work.'
+}
 `,
     })
 
@@ -4303,6 +4915,14 @@ function nextTitle() {
         expect.objectContaining({
           type: 'agent-detail-activity-copy',
           location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'agent-detail-activity-copy',
+          location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:9',
+        }),
+        expect.objectContaining({
+          type: 'agent-detail-activity-copy',
+          location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:12',
         }),
       ])
     )
@@ -4656,6 +5276,36 @@ const teamNextStep = 'Open Team Members after creation to invite people.'
     )
   })
 
+  it('flags outside tool access navigation that sounds like agent app keys', () => {
+    const cwd = fixture({
+      'src/app/pages/settings/ui/SettingsLayout.tsx': `
+const SECTIONS = [
+  {
+    id: 'keys',
+    label: 'Outside apps',
+    description: 'Add keys agents need to use apps and services outside Forge.',
+  },
+]
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'outside-tool-access-nav-copy',
+          location: 'src/app/pages/settings/ui/SettingsLayout.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'outside-tool-access-nav-copy',
+          location: 'src/app/pages/settings/ui/SettingsLayout.tsx:6',
+        }),
+      ])
+    )
+  })
+
   it('accepts action-first beginner guidance', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentTasksTab.tsx': `
@@ -4703,6 +5353,484 @@ function AgentSummary() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags chat-only agent copy that still says review instead of check results', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentListView.tsx': `
+function AgentChoiceGuide() {
+  return <p>Best for planning, writing, and review when no project files need to be opened.</p>
+}
+function AgentEmptyState() {
+  return <p>Start with a chat-only AI service for planning and review.</p>
+}
+`,
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function AgentDetailView() {
+  return <p>This agent can plan, write, and review text.</p>
+}
+`,
+      'src/app/features/chat/ChatView.tsx': `
+function ChatView() {
+  return <p>Send a short request below when you need planning, review, or a direct answer.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'chat-only-agent-review-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:3',
+          sample: expect.stringContaining('planning, writing, and review'),
+        }),
+        expect.objectContaining({
+          type: 'chat-only-agent-review-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:6',
+          sample: expect.stringContaining('planning and review'),
+        }),
+        expect.objectContaining({
+          type: 'chat-only-agent-review-copy',
+          location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:3',
+          sample: expect.stringContaining('review text'),
+        }),
+        expect.objectContaining({
+          type: 'chat-only-agent-review-copy',
+          location: 'src/app/features/chat/ChatView.tsx:3',
+          sample: expect.stringContaining('planning, review'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts chat-only agent copy that names questions and checking results', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentListView.tsx': `
+function AgentChoiceGuide() {
+  return <p>Best for questions, writing, and checking results when no project files need to be opened.</p>
+}
+function AgentEmptyState() {
+  return <p>Start with a chat-only AI service for questions and result checks.</p>
+}
+`,
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function AgentDetailView() {
+  return <p>This agent can answer questions, write, and check text or results.</p>
+}
+`,
+      'src/app/features/chat/ChatView.tsx': `
+function ChatView() {
+  return <p>Send a short request below when you need a question answered, writing help, or a result checked.</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags high-traffic task setup copy that uses assign as the user action', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ChatView.tsx': `
+const WORKSPACE_AGENT_EMPTY_COPY = {
+  steps: ['Create a task and assign it to this agent, or choose where tasks wait.'],
+}
+function conversationFilterEmptyCopy() {
+  return {
+    title: 'Assign a task to see work steps',
+    nextStep: 'Next: use All to see chat updates, or assign a task so work steps can appear.',
+  }
+}
+`,
+      'src/app/features/feed/ActivityFeed.tsx': `
+function ActivityFeed() {
+  return <>
+    <p>Start a task or wait for the assigned agent to send its first update.</p>
+    <p>Next: open Board, create or assign a task, then return here.</p>
+  </>
+}
+`,
+      'src/app/features/feed/AgentStatusBar.tsx': `
+function AgentStatusBar() {
+  return <p>Open Agents to create or start one before assigning work.</p>
+}
+`,
+      'src/app/features/settings/RuntimeSection.tsx': `
+function RuntimeNextStepPanel() {
+  return <>
+    <h4>Before assigning work</h4>
+    <p>Open Agents, create or select an agent, then assign work from Tasks.</p>
+  </>
+}
+`,
+      'src/app/features/settings/ProvidersSection.tsx': `
+function providerNextStep() {
+  return 'Choose Check connection before assigning work.'
+}
+`,
+      'src/app/features/admin/SystemHealth.tsx': `
+function HealthBanner() {
+  return <p>Fix the area marked Fix first before assigning new work.</p>
+}
+`,
+      'src/app/features/admin/OrganizationsPanel.tsx': `
+function OrganizationsPanel() {
+  return <p>More teams usually means more places to organize projects and assign agent work.</p>
+}
+`,
+      'src/app/features/list/ListView.tsx': `
+function taskAgentLabel() {
+  return 'Assigned agent'
+}
+`,
+      'src/app/features/agents/AgentGroupsPanel.tsx': `
+function routedTaskAssignment() {
+  return 'Assigned agent'
+}
+`,
+      'src/app/features/agents/AgentConfigTab.tsx': `
+function CliRuntimeConfig() {
+  return <p>Confirm where it can open files before assigning work.</p>
+}
+`,
+      'src/app/features/agents/CreateAgentModal.tsx': `
+function CreateAgentModal() {
+  return <p>Choose a project later before assigning tasks. Forge will assign tasks to it.</p>
+}
+`,
+      'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
+function CreateProjectForm() {
+  return <p>Pick the name users will look for when assigning tasks.</p>
+}
+`,
+      'src/app/features/manage-project/ui/EditableProjectRow.tsx': `
+function DeleteProjectCopy() {
+  return <p>Agents assigned here will be moved out of this project.</p>
+}
+`,
+      'src/app/features/board/KanbanColumn.tsx': `
+function EmptyColumn() {
+  return <p>Assigned tasks wait here until an available agent starts them.</p>
+}
+`,
+      'src/app/features/board/BoardToolbar.tsx': `
+function Toolbar() {
+  return <div aria-label="Filter tasks by agent assignment" />
+}
+`,
+      'src/app/features/board/TaskCard.tsx': `
+function TaskCard() {
+  return <span>Assigned agent</span>
+}
+`,
+      'src/app/features/detail/taskDetailErrorMessages.ts': `
+const ACTION_FALLBACKS = {
+  loadAgents: 'Open this task again from the Tasks page before assigning an agent.',
+}
+`,
+      'src/app/features/inbox/InboxView.tsx': `
+function nextStepActionLabel() {
+  return 'Open assignment'
+}
+`,
+      'src/app/hooks/useWsDispatch.ts': `
+function taskNotificationMessage() {
+  return 'Assigned agent completed this task'
+}
+`,
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function DetailRow() {
+  return 'Choose when assigning work'
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = { agents: { noAgents: 'Create one agent to start assigning work.' } }
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/chat/ChatView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/chat/ChatView.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/chat/ChatView.tsx:8',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/feed/ActivityFeed.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/feed/ActivityFeed.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/feed/AgentStatusBar.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/settings/ProvidersSection.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/admin/SystemHealth.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/admin/OrganizationsPanel.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/list/ListView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/agents/AgentGroupsPanel.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/agents/AgentConfigTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/manage-project/ui/CreateProjectForm.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/manage-project/ui/EditableProjectRow.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/board/KanbanColumn.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/board/BoardToolbar.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/board/TaskCard.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/detail/taskDetailErrorMessages.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/inbox/InboxView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/hooks/useWsDispatch.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:2',
+        }),
+      ])
+    )
+  })
+
+  it('accepts high-traffic task setup copy that says send work and choose agents', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ChatView.tsx': `
+const WORKSPACE_AGENT_EMPTY_COPY = {
+  steps: ['Create a task, choose this agent, or choose where tasks wait.'],
+}
+function conversationFilterEmptyCopy() {
+  return {
+    title: 'Send a file-work task to see work steps',
+    nextStep: 'Next: use All to see chat updates, or send a file-work task so work steps can appear.',
+  }
+}
+`,
+      'src/app/features/feed/ActivityFeed.tsx': `
+function ActivityFeed() {
+  return <>
+    <p>Start a task or wait for the chosen agent to send its first update.</p>
+    <p>Next: open Board, create a task or choose an agent for one, then return here.</p>
+  </>
+}
+`,
+      'src/app/features/feed/AgentStatusBar.tsx': `
+function AgentStatusBar() {
+  return <p>Open Agents to create or start one before sending work.</p>
+}
+`,
+      'src/app/features/settings/RuntimeSection.tsx': `
+function RuntimeNextStepPanel() {
+  return <>
+    <h4>Before sending file work</h4>
+    <p>Open Agents, create or select an agent, then send work from Tasks.</p>
+  </>
+}
+`,
+      'src/app/features/settings/ProvidersSection.tsx': `
+function providerNextStep() {
+  return 'Choose Check connection before sending work.'
+}
+`,
+      'src/app/features/admin/SystemHealth.tsx': `
+function HealthBanner() {
+  return <p>Fix the area marked Fix first before sending new work.</p>
+}
+`,
+      'src/app/features/admin/OrganizationsPanel.tsx': `
+function OrganizationsPanel() {
+  return <p>More teams usually means more places to organize projects and send agent work.</p>
+}
+`,
+      'src/app/features/list/ListView.tsx': `
+function taskAgentLabel() {
+  return 'Chosen agent'
+}
+`,
+      'src/app/features/agents/AgentGroupsPanel.tsx': `
+function routedTaskAssignment() {
+  return 'Clarify and send'
+}
+`,
+      'src/app/features/agents/AgentConfigTab.tsx': `
+function CliRuntimeConfig() {
+  return <p>Confirm where it can open files before sending file work.</p>
+}
+`,
+      'src/app/features/manage-project/ui/EditableProjectRow.tsx': `
+function DeleteProjectCopy() {
+  return <p>Agents using this project will be moved out of it.</p>
+}
+`,
+      'src/app/features/board/KanbanColumn.tsx': `
+function EmptyColumn() {
+  return <p>Tasks with an agent wait here until that agent starts them.</p>
+}
+`,
+      'src/app/features/board/BoardToolbar.tsx': `
+function Toolbar() {
+  return <div aria-label="Filter tasks by whether an agent is chosen" />
+}
+`,
+      'src/app/features/board/TaskCard.tsx': `
+function TaskCard() {
+  return <span>Chosen agent</span>
+}
+`,
+      'src/app/features/detail/taskDetailErrorMessages.ts': `
+const ACTION_FALLBACKS = {
+  loadAgents: 'Open this task again from the Tasks page before choosing an agent.',
+}
+`,
+      'src/app/features/inbox/InboxView.tsx': `
+function nextStepActionLabel() {
+  return 'Open task update'
+}
+`,
+      'src/app/hooks/useWsDispatch.ts': `
+function taskNotificationMessage() {
+  return 'Chosen agent completed this task'
+}
+`,
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function DetailRow() {
+  return 'Choose when sending work'
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = { agents: { noAgents: 'Create one agent before sending work.' } }
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags task cards that use publish wording for sending tasks', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskCard.tsx': `
+function TaskCard() {
+  return <>
+    <button aria-label={\`Publish task title\`} title="Preview and publish" />
+    <p>Open this card and add details before publishing.</p>
+    <p>Choose an agent, then preview and publish.</p>
+    <p>Review saved items, then publish.</p>
+    <p>Attach or free an agent, then publish again.</p>
+  </>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-card-publish-copy',
+          location: 'src/app/features/board/TaskCard.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'task-card-publish-copy',
+          location: 'src/app/features/board/TaskCard.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'task-card-publish-copy',
+          location: 'src/app/features/board/TaskCard.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'task-card-publish-copy',
+          location: 'src/app/features/board/TaskCard.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'task-card-publish-copy',
+          location: 'src/app/features/board/TaskCard.tsx:8',
+        }),
+      ])
+    )
+  })
+
+  it('accepts task cards that use send wording for task actions', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskCard.tsx': `
+function TaskCard() {
+  return <>
+    <button aria-label={\`Preview and send task title\`} title="Preview and send" />
+    <p>Open this card and add details before sending.</p>
+    <p>Choose an agent, then preview and send.</p>
+    <p>Check saved items, then send.</p>
+    <p>Choose or free an agent, then send again.</p>
+  </>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags completed task notifications that stop at a missing summary', () => {
     const cwd = fixture({
       'src/app/hooks/useWsDispatch.ts': `
@@ -4732,6 +5860,9 @@ function completionSummary() {
 function safeCompletionMessage() {
   return 'Finished with a summary you should check. Open details before using the result.'
 }
+function stdoutSummary() {
+  return 'Finished with a text result. Open the task details to review it before using it.'
+}
 `,
     })
 
@@ -4748,6 +5879,10 @@ function safeCompletionMessage() {
           type: 'task-completion-details-copy',
           location: 'src/app/hooks/useWsDispatch.ts:6',
         }),
+        expect.objectContaining({
+          type: 'task-completion-details-copy',
+          location: 'src/app/hooks/useWsDispatch.ts:9',
+        }),
       ])
     )
   })
@@ -4760,6 +5895,9 @@ function completionSummary() {
 }
 function safeCompletionMessage() {
   return 'Finished with a summary you should check. Open the task details before using the result.'
+}
+function stdoutSummary() {
+  return 'Finished with a text result. Open the task details to check it before using it.'
 }
 `,
     })
@@ -4808,6 +5946,38 @@ function taskNotificationMessage(actor, detail) {
       'src/app/features/detail/HistoryTab.tsx': `
 function taskStatusSnapshot(agentName) {
   return \`\${agentName} needs your answer\`
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags permission prompt activity copy that asks users to review ordinary requests', () => {
+    const cwd = fixture({
+      'src/app/hooks/useWsDispatch.ts': `
+function agentActivityDetail() {
+  return 'Review the request before the agent continues.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'task-permission-prompt-copy',
+        location: 'src/app/hooks/useWsDispatch.ts:3',
+      }),
+    ])
+  })
+
+  it('accepts permission prompt activity copy that starts with checking the request', () => {
+    const cwd = fixture({
+      'src/app/hooks/useWsDispatch.ts': `
+function agentActivityDetail() {
+  return 'Check the request before the agent continues.'
 }
 `,
     })
@@ -4899,6 +6069,26 @@ function ToolRow() {
     )
   })
 
+  it('flags agent tool update notifications that start with failed check copy', () => {
+    const cwd = fixture({
+      'src/app/hooks/useWsDispatch.ts': `
+function notifyAgentToolUpdate(display) {
+  return \`\${display} tool package check failed\`
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'cli-image-status-copy',
+        location: 'src/app/hooks/useWsDispatch.ts:3',
+      }),
+    ])
+  })
+
   it('flags agent tool action errors that start with the failure', () => {
     const cwd = fixture({
       'src/app/features/admin/CliImagesPanel.tsx': `
@@ -4976,7 +6166,7 @@ function ToolRow() {
     const cwd = fixture({
       'src/app/features/admin/CliImagesPanel.tsx': `
 function ToolRow() {
-  return <><p>Built here</p><p>Building on this server — usually a few minutes.</p><p>Builds automatically — new versions build themselves</p></>
+  return <><p>Built here</p><p>Building on this server — usually a few minutes.</p><p>Builds automatically — new versions build themselves</p><p>“Agents currently using this tool” is a rough hint of how many agents may restart. It does not confirm which exact package each one started from.</p></>
 }
 `,
     })
@@ -5076,6 +6266,9 @@ function runtimeReadinessSummary() {
 function CredentialStatusRow() {
   return <p>No work tool sign-in saved</p>
 }
+function ConnectButton() {
+  return <button>{opening ? 'Opening' : 'Sign in'}</button>
+}
 `,
     })
 
@@ -5091,6 +6284,10 @@ function CredentialStatusRow() {
         type: 'runtime-sign-in-copy',
         location: 'src/app/features/settings/RuntimeSection.tsx:7',
       }),
+      expect.objectContaining({
+        type: 'runtime-sign-in-copy',
+        location: 'src/app/features/settings/RuntimeSection.tsx:10',
+      }),
     ])
   })
 
@@ -5102,7 +6299,10 @@ function runtimeReadinessSummary() {
 }
 
 function CredentialStatusRow() {
-  return <p>Sign in before starting agents that use this tool</p>
+  return <p>Choose Sign in to OpenAI (Codex). The browser login page opens, then return here and choose Check again.</p>
+}
+function ConnectButton() {
+  return <button>Sign in to OpenAI (Codex)</button>
 }
 `,
     })
@@ -5173,6 +6373,10 @@ function credentialStatusCopy() {
 function heartbeatStatusCopy() {
   return 'Agent online status could not be checked. Check setup. If it still cannot be checked, ask an owner or admin to check Where agents run.'
 }
+
+function blockedSignInCopy() {
+  return 'The GitHub browser sign-in page did not open. Allow pop-ups for this site, then choose Sign in to GitHub again.'
+}
 `,
     })
 
@@ -5209,6 +6413,10 @@ function heartbeatStatusCopy() {
           type: 'runtime-error-copy',
           location: 'src/app/features/settings/RuntimeSection.tsx:11',
         }),
+        expect.objectContaining({
+          type: 'runtime-error-copy',
+          sample: expect.stringContaining('browser sign-in page did not open'),
+        }),
       ])
     )
   })
@@ -5217,7 +6425,7 @@ function heartbeatStatusCopy() {
     const cwd = fixture({
       'src/app/features/settings/runtimeErrorMessages.ts': `
 function runtimeErrorMessage() {
-  return 'Open Agents and make sure one agent shows Ready, then refresh this page. Agent connection status could not load.'
+  return 'Open Agents and make sure one agent shows Ready, then open Settings and Where agents work again. Agent connection status could not load.'
 }
 
 function runtimeCliErrorMessage() {
@@ -5234,7 +6442,7 @@ function runtimeSettingsFallback() {
 `,
       'src/app/features/settings/RuntimeSection.tsx': `
 function runtimeChecklistCopy() {
-  return 'Refresh this settings page to load Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.'
+  return 'Open Settings, then open Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.'
 }
 
 function credentialStatusCopy() {
@@ -5244,10 +6452,100 @@ function credentialStatusCopy() {
 function heartbeatStatusCopy() {
   return 'Choose Check again to refresh agent online status. If it still cannot be checked, ask an owner or admin to check Where agents work in Settings.'
 }
+
+function blockedSignInCopy() {
+  return 'Allow pop-ups for this site, then choose Sign in to GitHub again. The GitHub browser sign-in page did not open.'
+}
 `,
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags runtime recovery copy that tells beginners to refresh settings or the page', () => {
+    const cwd = fixture({
+      'src/app/features/settings/runtimeErrorMessages.ts': `
+function runtimeCliLoadMessage() {
+  return 'Refresh this page before starting agents that use work tools. Work tool sign-in could not be checked.'
+}
+
+function runtimeNetworkMessage() {
+  return 'Check your connection, then refresh Settings. Forge could not connect while checking Where agents work.'
+}
+
+function runtimeConflictMessage() {
+  return 'Refresh Settings, check the current choices, then save again.'
+}
+
+function runtimeRateLimitMessage() {
+  return 'Wait a minute, then refresh Settings. Too many setup requests are happening right now.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'runtime-error-copy',
+          location: 'src/app/features/settings/runtimeErrorMessages.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'runtime-error-copy',
+          location: 'src/app/features/settings/runtimeErrorMessages.ts:7',
+        }),
+        expect.objectContaining({
+          type: 'runtime-error-copy',
+          location: 'src/app/features/settings/runtimeErrorMessages.ts:11',
+        }),
+        expect.objectContaining({
+          type: 'runtime-error-copy',
+          location: 'src/app/features/settings/runtimeErrorMessages.ts:15',
+        }),
+      ])
+    )
+  })
+
+  it('flags Where agents work load copy that tells users to refresh the current settings page', () => {
+    const cwd = fixture({
+      'src/app/features/settings/RuntimeSection.tsx': `
+function runtimeChecklistCopy() {
+  return 'Refresh this settings page to load Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.'
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  settings: { runtime: { couldNotLoad: 'Refresh this settings page to load Where agents work.' } },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  settings: { runtime: { couldNotLoad: '请刷新这个设置页来加载 Agent 在哪里工作。' } },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'settings-runtime-setup-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'settings-runtime-setup-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'settings-runtime-setup-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:3',
+        }),
+      ])
+    )
   })
 
   it('flags settings runtime navigation copy that explains internal run and tool choices', () => {
@@ -5282,6 +6580,79 @@ const SECTIONS = [
     description: 'Choose where project files open and which work tool agents use.',
   },
 ]
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags work tool sign-in entry copy that names the whole entry as CLI-only', () => {
+    const cwd = fixture({
+      'src/app/pages/settings/ui/SettingsLayout.tsx': `
+const SECTIONS = [
+  {
+    label: 'Codex CLI sign-in',
+    description: 'Sign in to Codex and other CLI tools agents use for file work.',
+  },
+]
+`,
+      'src/app/features/settings/RuntimeSection.tsx': `
+export function RuntimeSection() {
+  return (
+    <>
+      <h3>Sign in to Codex CLI and work tools</h3>
+      <RuntimeChecklistRow title="Codex and CLI sign-ins" />
+    </>
+  )
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'work-tool-sign-in-entry-copy',
+          location: 'src/app/pages/settings/ui/SettingsLayout.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'work-tool-sign-in-entry-copy',
+          location: 'src/app/pages/settings/ui/SettingsLayout.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'work-tool-sign-in-entry-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'work-tool-sign-in-entry-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:6',
+        }),
+      ])
+    )
+  })
+
+  it('accepts work tool sign-in entry copy that keeps Codex discoverable', () => {
+    const cwd = fixture({
+      'src/app/pages/settings/ui/SettingsLayout.tsx': `
+const SECTIONS = [
+  {
+    label: 'Work tool sign-in',
+    description: 'Sign in to Codex and other work tools agents use for file work.',
+  },
+]
+`,
+      'src/app/features/settings/RuntimeSection.tsx': `
+export function RuntimeSection() {
+  return (
+    <>
+      <h3>Work tool sign-in</h3>
+      <p>Start here when Codex or another work tool asks for login. Choose Sign in next to OpenAI (Codex), finish the browser login, then return here and choose Check again.</p>
+      <RuntimeChecklistRow title="Work tool sign-ins" />
+    </>
+  )
+}
 `,
     })
 
@@ -5436,7 +6807,7 @@ export function CreateAgentModal() {
 `,
       'src/app/features/agents/AgentControlPanel.tsx': `
 export function agentControlErrorMessage() {
-  return 'Refresh Agents, then choose Start file work again. If it still does not show Ready, ask an owner or admin to check Where agents work in Settings.'
+  return 'Go back to Agents, choose this agent again, then choose Start file work again. If it still does not show Ready, ask an owner or admin to check Where agents work in Settings.'
 }
 `,
       'src/app/entities/agent/model/agents.store.ts': `
@@ -5474,6 +6845,26 @@ export const zh = {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags Agent control copy that uses refresh shorthand instead of concrete navigation', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentControlPanel.tsx': `
+export function agentControlErrorMessage() {
+  return 'Refresh Agents, then choose Start file work again.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'agent-file-work-control-copy',
+        location: 'src/app/features/agents/AgentControlPanel.tsx:3',
+      }),
+    ])
   })
 
   it('flags agent work setup labels that use agent location wording', () => {
@@ -5875,7 +7266,7 @@ export const zh = {
       'src/app/shared/i18n/locales/en.ts': `
 export const en = {
   agents: {
-    confirmDelete: 'Delete this agent? This removes its setup and stops assigning new work to it.',
+    confirmDelete: 'Delete this agent? This removes its setup and stops sending new work to it.',
   },
   confirm: {
     delete: 'Delete this item? It will be removed from this team space.',
@@ -5920,7 +7311,7 @@ export const en = {
     emailDomainRestricted: 'Registration restricted to authorized email domains',
   },
   agents: {
-    maxAgentsReached: 'Maximum number of agents reached',
+    maxAgentsReached: 'Agent limit reached. Stop or delete an unused agent, then try again.',
   },
   files: {
     uploadFailed: 'File upload failed',
@@ -5976,7 +7367,7 @@ export const zh = {
     emailDomainRestricted: '仅允许使用授权邮箱域名注册',
   },
   agents: {
-    maxAgentsReached: '已达到最大 Agent 数量',
+    maxAgentsReached: 'Agent 数量已达上限。请先停止或删除不用的 Agent，然后重试。',
   },
   files: {
     uploadFailed: '文件上传失败',
@@ -6030,6 +7421,9 @@ export const en = {
   },
   files: {
     tooLarge: 'Choose a file under {{size}}, then upload it again.',
+  },
+  agents: {
+    maxAgentsReached: 'Stop or delete an unused agent, then try again. You already have the allowed number of agents.',
   },
 }
 `,
@@ -6253,12 +7647,16 @@ const STATUS_FILTERS = [
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags shared agent status fallbacks that do not tell users what to refresh', () => {
+  it('flags shared agent status fallbacks that do not tell users what to check', () => {
     const cwd = fixture({
       'src/app/entities/agent/model/status-labels.ts': `
 export function agentStatusLabel(status) {
   if (!status) return 'Status not reported'
   return 'Status needs review'
+}
+export function legacyAgentStatusLabel(status) {
+  if (!status) return 'Refresh agent status'
+  return 'Check agent status'
 }
 `,
     })
@@ -6275,6 +7673,10 @@ export function agentStatusLabel(status) {
         type: 'agent-shared-status-copy',
         location: 'src/app/entities/agent/model/status-labels.ts:4',
       }),
+      expect.objectContaining({
+        type: 'agent-shared-status-copy',
+        location: 'src/app/entities/agent/model/status-labels.ts:7',
+      }),
     ])
   })
 
@@ -6282,7 +7684,7 @@ export function agentStatusLabel(status) {
     const cwd = fixture({
       'src/app/entities/agent/model/status-labels.ts': `
 export function agentStatusLabel(status) {
-  if (!status) return 'Refresh agent status'
+  if (!status) return 'Check agent status'
   return 'Check agent status'
 }
 `,
@@ -6303,15 +7705,33 @@ export function AgentStatusBar() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'agent-status-empty-copy',
-        location: 'src/app/features/feed/AgentStatusBar.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-status-empty-copy',
+          location: 'src/app/features/feed/AgentStatusBar.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/feed/AgentStatusBar.tsx:3',
+        }),
+      ])
+    )
   })
 
   it('accepts agent status empty states that start with the next action', () => {
+    const cwd = fixture({
+      'src/app/features/feed/AgentStatusBar.tsx': `
+export function AgentStatusBar() {
+  return <div>Open Agents to create or start one before sending work.</div>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags agent status empty states that use assigning-work jargon', () => {
     const cwd = fixture({
       'src/app/features/feed/AgentStatusBar.tsx': `
 export function AgentStatusBar() {
@@ -6320,7 +7740,15 @@ export function AgentStatusBar() {
 `,
     })
 
-    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'user-action-assignment-copy',
+        location: 'src/app/features/feed/AgentStatusBar.tsx:3',
+      }),
+    ])
   })
 
   it('flags agent status bar copy that does not say where to start the agent', () => {
@@ -6469,16 +7897,16 @@ export function DecisionCopy({ approving }) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags review status copy that uses fix review jargon', () => {
+  it('flags review status copy that uses fix review jargon or vague refresh wording', () => {
     const cwd = fixture({
       'src/app/features/detail/ReviewSnapshotPanel.tsx': `
 function ReviewSnapshotPanel() {
-  return <><span>Fix review</span><button aria-label="Refresh fix review">Refresh</button></>
+  return <><span>Fix review</span><button aria-label="Refresh review status">Refresh</button><p>Use Refresh after it appears.</p></>
 }
 `,
       'src/app/features/detail/model/reviewSnapshotErrorMessage.ts': `
 const ACTION_FALLBACKS = {
-  load: 'Refresh fix review, then try again. Forge could not load the current review status.',
+  load: 'Refresh review status, then try again. Forge could not load the current review status.',
 }
 `,
     })
@@ -6504,12 +7932,12 @@ const ACTION_FALLBACKS = {
     const cwd = fixture({
       'src/app/features/detail/ReviewSnapshotPanel.tsx': `
 function ReviewSnapshotPanel() {
-  return <><span>Review status</span><button aria-label="Refresh review status">Refresh</button></>
+  return <><span>Review status</span><button aria-label="Check review again">Check again</button></>
 }
 `,
       'src/app/features/detail/model/reviewSnapshotErrorMessage.ts': `
 const ACTION_FALLBACKS = {
-  load: 'Refresh review status, then try again. Forge could not load the current review status.',
+  load: 'Choose Check again, then try again. Forge could not load the current review status.',
 }
 `,
     })
@@ -6819,10 +8247,10 @@ export const zh = {
 export const en = {
   common: {
     noResults: 'Try a broader search or clear the filters.',
-    noData: 'Create the first item or refresh after setup finishes.',
+    noData: 'Create the first item, or open this page again after setup finishes.',
   },
   agents: {
-    noAgents: 'Create one agent to start assigning work.',
+    noAgents: 'Create one agent before sending work.',
   },
   groups: {
     noGroups: 'Create a waiting place so new tasks have a place to wait for agents.',
@@ -6837,10 +8265,10 @@ export const en = {
 export const zh = {
   common: {
     noResults: '可以放宽搜索条件，或清除筛选后再试。',
-    noData: '可以先创建第一项，或在设置完成后刷新。',
+    noData: '可以先创建第一项；设置完成后，请重新打开当前页面。',
   },
   agents: {
-    noAgents: '先创建一个 Agent，再开始分配任务。',
+    noAgents: '先创建一个 Agent，再发送任务。',
   },
   groups: {
     noGroups: '先创建一个任务等待位置，让新任务有地方等待 Agent 接手。',
@@ -6927,6 +8355,50 @@ export function CreateAgentModal() {
         expect.objectContaining({
           type: 'beginner-jargon-copy',
           location: 'src/app/features/agents/CreateAgentModal.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('flags old chat-agent naming in user-visible copy', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+export function CreateAgentModal() {
+  return (
+    <section>
+      <p>Provider + Prompt</p>
+      <p>Text-only model agent</p>
+    </section>
+  )
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  gettingStarted: {
+    workLocations: {
+      textOnly: 'text-only work',
+    },
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'beginner-jargon-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'beginner-jargon-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'beginner-jargon-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:5',
         }),
       ])
     )
@@ -7137,16 +8609,108 @@ export function AgentDetailView() {
 `,
       'src/app/entities/agent/model/agents.store.ts': `
 export function agentError() {
-  return 'Check your connection, then choose Create Agent again. Forge could not prepare the setup text for this computer.'
+  return 'Check your connection, then choose New agent again. Forge could not prepare the setup text for this computer.'
 }
 `,
       'src/app/shared/model/agents.store.ts': `
 export const THIS_COMPUTER_SETUP_ERROR =
-  'This computer setup text could not be prepared. Check the agent name and work tool, then choose Create Agent again.'
+  'This computer setup text could not be prepared. Check the agent name and work tool, then choose New agent again.'
 `,
       'src/app/shared/i18n/locales/en.ts': `
 export const en = {
   detail: 'Setup text needs to be pasted again',
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags old Create Agent entry wording in agent setup surfaces', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentListView.tsx': `
+export function AgentListView() {
+  return <><button>Create Agent</button><p>Create Your First Agent</p></>
+}
+`,
+      'src/app/features/agents/CreateAgentModal.tsx': `
+export function CreateAgentModal() {
+  return <button>Create agent</button>
+}
+`,
+      'src/app/features/settings/ProvidersSection.tsx': `
+export function ProvidersSection() {
+  return <p>Open Agents, choose Create Agent, then select Simple chat agent.</p>
+}
+`,
+      'src/app/entities/agent/model/agents.store.ts': `
+export function agentError() {
+  return 'Check your connection, then choose Create Agent again.'
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  newAgent: 'Create Agent',
+  createAgent: 'Create Agent',
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'new-agent-entry-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'new-agent-entry-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'new-agent-entry-copy',
+          location: 'src/app/features/settings/ProvidersSection.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'new-agent-entry-copy',
+          location: 'src/app/entities/agent/model/agents.store.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'new-agent-entry-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts New agent and Add agent entry wording in agent setup surfaces', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentListView.tsx': `
+export function AgentListView() {
+  return <><button>New agent</button><p>Add your first agent</p><button>Add this computer as an agent</button></>
+}
+`,
+      'src/app/features/agents/CreateAgentModal.tsx': `
+export function CreateAgentModal() {
+  return <button>Add agent</button>
+}
+`,
+      'src/app/features/settings/ProvidersSection.tsx': `
+export function ProvidersSection() {
+  return <p>Open Agents, choose New agent, then select Simple chat agent.</p>
+}
+`,
+      'src/app/entities/agent/model/agents.store.ts': `
+export function agentError() {
+  return 'Check your connection, then choose New agent again.'
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  newAgent: 'New agent',
+  createAgent: 'Add agent',
 }
 `,
     })
@@ -7183,6 +8747,26 @@ export function AgentDetailView() {
         }),
       ])
     )
+  })
+
+  it('flags vague agent access recovery copy', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentControlPanel.tsx': `
+function agentControlErrorMessage() {
+  return "If it keeps failing, ask an owner or admin to check what you can do and this agent's connection."
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'vague-access-recovery-copy',
+        location: 'src/app/features/agents/AgentControlPanel.tsx:3',
+      }),
+    ])
   })
 
   it('accepts joined-computer reconnect copy that starts from Agents', () => {
@@ -7226,7 +8810,7 @@ function agentChangedMessage() {
 }
 
 function agentServerMessage() {
-  return 'Forge could not prepare the setup text for this computer right now. Wait a moment, then choose Create Agent again.'
+  return 'Forge could not prepare the setup text for this computer right now. Wait a moment, then choose New agent again.'
 }
 
 function agentRuntimeMessage() {
@@ -7292,7 +8876,7 @@ function agentCreatedStartFailureMessage() {
     const cwd = fixture({
       'src/app/entities/agent/model/agents.store.ts': `
 function agentConnectionMessage(actionPhrase) {
-  return \`Check your connection, then refresh Agents. Forge could not \${actionPhrase} while updating Agents.\`
+  return \`Check your connection, then open Agents and choose this agent again. Forge could not \${actionPhrase} while updating Agents.\`
 }
 
 function agentPermissionMessage(actionPhrase) {
@@ -7304,15 +8888,15 @@ function agentBusyMessage(actionPhrase) {
 }
 
 function agentConflictMessage() {
-  return 'Wait for the current work to finish, refresh the Agents page, then try again. This agent is already working.'
+  return 'Wait for the current work to finish, open Agents and choose this agent again, then try again. This agent is already working.'
 }
 
 function agentChangedMessage() {
-  return 'Refresh the Agents page, check its current status, then try again. This agent changed while you were working.'
+  return 'Open Agents, check this agent status, then try again. This agent changed while you were working.'
 }
 
 function agentServerMessage() {
-  return 'Wait a moment, then choose Create Agent again. Forge could not prepare the setup text for this computer right now.'
+  return 'Wait a moment, then choose New agent again. Forge could not prepare the setup text for this computer right now.'
 }
 
 function agentRuntimeMessage() {
@@ -7320,7 +8904,7 @@ function agentRuntimeMessage() {
 }
 
 function agentUnknownMessage(actionPhrase) {
-  return \`Refresh the Agents page, then try to \${actionPhrase} again. Forge could not \${actionPhrase}.\`
+  return \`Open Agents, then try to \${actionPhrase} again. Forge could not \${actionPhrase}.\`
 }
 
 function agentCreatedStartFailureMessage() {
@@ -7466,48 +9050,62 @@ export function TaskStatus() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags live work status copy that does not tell users to refresh', () => {
+  it('flags live work status copy that does not tell users where to check status', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentTerminalTab.tsx': `
 export function liveWorkStatusLabel() {
   return 'Status not reported'
 }
+const LIVE_WORK_CONNECTION_NOTICE = 'Live work notice: Connection dropped. Refresh this page first.'
 `,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'live-work-status-copy',
-        location: 'src/app/features/agents/AgentTerminalTab.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'live-work-status-copy',
+          location: 'src/app/features/agents/AgentTerminalTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'live-work-status-copy',
+          location: 'src/app/features/agents/AgentTerminalTab.tsx:5',
+        }),
+      ])
+    )
   })
 
-  it('accepts live work status copy that tells users to refresh', () => {
+  it('accepts live work status copy that points users to Overview', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentTerminalTab.tsx': `
 export function liveWorkStatusLabel() {
-  return 'Refresh to load status'
+  return 'Open Overview to check status'
 }
+const LIVE_WORK_CONNECTION_NOTICE = 'Live work notice: Connection dropped. Open Overview, use Controls, and choose Restart agent. Then return to Live work.'
 `,
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags task detail run status copy that does not tell users to refresh task status', () => {
+  it('flags task detail run status copy that does not tell users to open task details', () => {
     const cwd = fixture({
       'src/app/features/detail/HistoryTab.tsx': `
 export function readableRunStatus() {
   return 'Status not reported'
 }
+export function emptyRunStatus() {
+  return 'Refresh task status'
+}
 `,
       'src/app/features/detail/ContextTab.tsx': `
 export function runStatusLabel() {
   return 'Status not reported'
+}
+export function emptyRunStatus() {
+  return 'Refresh task status'
 }
 `,
     })
@@ -7523,22 +9121,30 @@ export function runStatusLabel() {
         }),
         expect.objectContaining({
           type: 'task-detail-run-status-copy',
+          location: 'src/app/features/detail/HistoryTab.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-run-status-copy',
           location: 'src/app/features/detail/ContextTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-run-status-copy',
+          location: 'src/app/features/detail/ContextTab.tsx:6',
         }),
       ])
     )
   })
 
-  it('accepts task detail run status copy that tells users to refresh task status', () => {
+  it('accepts task detail run status copy that tells users to open task details', () => {
     const cwd = fixture({
       'src/app/features/detail/HistoryTab.tsx': `
 export function readableRunStatus() {
-  return 'Refresh task status'
+  return 'Open task details to check status'
 }
 `,
       'src/app/features/detail/ContextTab.tsx': `
 export function runStatusLabel() {
-  return 'Refresh task status'
+  return 'Open task details to check status'
 }
 `,
     })
@@ -7550,12 +9156,12 @@ export function runStatusLabel() {
     const cwd = fixture({
       'src/app/entities/task/model/taskLabels.ts': `
 export function taskStateLabel(status) {
-  if (!status) return 'Status not listed'
+  if (!status) return 'Refresh task status'
   return 'Status needs review'
 }
 
 export function taskPriorityLabel(priority) {
-  if (!priority) return 'Priority not listed'
+  if (!priority) return 'Refresh task priority'
   return 'Priority needs review'
 }
 `,
@@ -7608,23 +9214,23 @@ export function runStatusLabel(status) {
     const cwd = fixture({
       'src/app/entities/task/model/taskLabels.ts': `
 export function taskStateLabel(status) {
-  if (!status) return 'Refresh task status'
+  if (!status) return 'Open task details to check status'
   return 'Check task status'
 }
 
 export function taskPriorityLabel(priority) {
-  if (!priority) return 'Refresh task priority'
+  if (!priority) return 'Open task details to check priority'
   return 'Check task priority'
 }
 `,
       'src/app/features/detail/HistoryTab.tsx': `
 export function readableRunStatus(status) {
-  return status ? 'Check task status' : 'Refresh task status'
+  return status ? 'Check task status' : 'Open task details to check status'
 }
 `,
       'src/app/features/detail/ContextTab.tsx': `
 export function runStatusLabel(status) {
-  return status ? 'Check task status' : 'Refresh task status'
+  return status ? 'Check task status' : 'Open task details to check status'
 }
 `,
     })
@@ -7829,7 +9435,7 @@ function candidateTitle(candidate) {
 `,
       'src/app/features/analytics/ContextUsageDashboard.tsx': `
 function taskKindLabel(kind) {
-  return kind ? 'Check task type' : 'Refresh task type'
+  return kind ? 'Check task type' : 'Check what kind of task it was'
 }
 `,
       'src/app/features/detail/ContextAppliedList.tsx': `
@@ -7848,25 +9454,34 @@ function contentLoadError() {
 function messageRoleLabel(role) {
   return role.trim() ? 'Message needs review' : 'Message sender not reported'
 }
+function staleSenderMessage() {
+  return 'Refresh chat to load sender'
+}
 `,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'chat-message-fallback-copy',
-        location: 'src/app/features/chat/ChatView.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'chat-message-fallback-copy',
+          location: 'src/app/features/chat/ChatView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'chat-message-fallback-copy',
+          location: 'src/app/features/chat/ChatView.tsx:6',
+        }),
+      ])
+    )
   })
 
   it('accepts chat sender fallback copy that tells users what to do', () => {
     const cwd = fixture({
       'src/app/features/chat/ChatView.tsx': `
 function messageRoleLabel(role) {
-  return role.trim() ? 'Check message sender' : 'Refresh chat to load sender'
+  return role.trim() ? 'Check message sender' : 'Open this chat again to load the sender'
 }
 `,
     })
@@ -7986,6 +9601,68 @@ function toolEmptyNextStep() {
     )
   })
 
+  it('flags help entry points that use review for ordinary checks', () => {
+    const cwd = fixture({
+      'src/app/features/inbox/InboxItem.tsx': `
+function inboxActionLabel() {
+  return 'Review what needs help'
+}
+`,
+      'src/app/features/feed/AttentionZone.tsx': `
+function attentionGuidance() {
+  return 'These items are waiting for a decision, missing access, or a quick review.'
+}
+`,
+      'src/app/features/chat/ChatView.tsx': `
+function conversationFilterEmptyCopy() {
+  return 'Next: clear filters, review every update, then search again with one short word.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'help-entry-review-copy',
+          location: 'src/app/features/inbox/InboxItem.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'help-entry-review-copy',
+          location: 'src/app/features/feed/AttentionZone.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'help-entry-review-copy',
+          location: 'src/app/features/chat/ChatView.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts help entry points that use check for ordinary checks', () => {
+    const cwd = fixture({
+      'src/app/features/inbox/InboxItem.tsx': `
+function inboxActionLabel() {
+  return 'Check what needs help'
+}
+`,
+      'src/app/features/feed/AttentionZone.tsx': `
+function attentionGuidance() {
+  return 'These items are waiting for a decision, missing access, or a quick check.'
+}
+`,
+      'src/app/features/chat/ChatView.tsx': `
+function conversationFilterEmptyCopy() {
+  return 'Next: clear filters, check every update, then search again with one short word.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags feed and analytics guidance that uses reported-work jargon', () => {
     const cwd = fixture({
       'src/app/features/feed/ActivityFeed.tsx': `
@@ -7995,6 +9672,10 @@ function emptyFeed() {
 
 function needsActionEmpty() {
   return 'Nothing is asking for your help. Use All to review work that is still moving.'
+}
+
+function needsActionReviewEmpty() {
+  return 'Urgent updates are clear. Use All to review work that is still moving.'
 }
 
 function filteredEmpty() {
@@ -8008,6 +9689,9 @@ function filteredDetail() {
       'src/app/features/analytics/AnalyticsDashboard.tsx': `
 function nextStep() {
   return 'Review Command line failures first. Open recent task results and check the steps that ended in error before assigning more work.'
+}
+function offlineGuidance() {
+  return 'Open Agents and reconnect or restart the offline agents, then refresh this page.'
 }
 `,
     })
@@ -8034,8 +9718,16 @@ function nextStep() {
           location: 'src/app/features/feed/ActivityFeed.tsx:15',
         }),
         expect.objectContaining({
+          type: 'activity-feed-empty-copy',
+          location: 'src/app/features/feed/ActivityFeed.tsx:19',
+        }),
+        expect.objectContaining({
           type: 'analytics-guidance-copy',
           location: 'src/app/features/analytics/AnalyticsDashboard.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'analytics-guidance-copy',
+          location: 'src/app/features/analytics/AnalyticsDashboard.tsx:6',
         }),
       ])
     )
@@ -8046,6 +9738,9 @@ function nextStep() {
       'src/app/features/analytics/AnalyticsDashboard.tsx': `
 function nextStep() {
   return 'Check Command line retry steps first. Open recent task results, check the recovery notes, then pause new work until the next step is clear.'
+}
+function offlineGuidance() {
+  return 'Open Agents and reconnect or restart the offline agents, then return to Analytics.'
 }
 `,
     })
@@ -8126,7 +9821,19 @@ export function InjectionPreviewModal() {
 `,
       'src/app/features/detail/ContextCandidatesList.tsx': `
 export function CandidateLink() {
-  return <a aria-label="Open saved notes review">Open saved notes review</a>
+  return (
+    <section>
+      <h3>Suggested notes to review</h3>
+      <h3>Suggested instructions to review</h3>
+      <span>Waiting for review</span>
+      <a aria-label="Open saved notes review">Open saved notes review</a>
+    </section>
+  )
+}
+function candidateStateLabel(state) {
+  if (state === 'approved') return 'Approved'
+  if (state === 'rejected') return 'Rejected'
+  return 'Waiting for review'
 }
 `,
       'src/app/features/board/boardErrorMessages.ts': `
@@ -8166,6 +9873,26 @@ export function ResultHelp() {
         }),
         expect.objectContaining({
           type: 'saved-items-check-copy',
+          sample: expect.stringContaining('Suggested notes to review'),
+        }),
+        expect.objectContaining({
+          type: 'saved-items-check-copy',
+          sample: expect.stringContaining('Suggested instructions to review'),
+        }),
+        expect.objectContaining({
+          type: 'saved-items-check-copy',
+          sample: expect.stringContaining('Waiting for review'),
+        }),
+        expect.objectContaining({
+          type: 'saved-items-check-copy',
+          sample: expect.stringContaining("return 'Approved'"),
+        }),
+        expect.objectContaining({
+          type: 'saved-items-check-copy',
+          sample: expect.stringContaining("return 'Rejected'"),
+        }),
+        expect.objectContaining({
+          type: 'saved-items-check-copy',
           sample: expect.stringContaining('open the saved notes review again'),
         }),
         expect.objectContaining({
@@ -8189,7 +9916,19 @@ export function InjectionPreviewModal() {
 `,
       'src/app/features/detail/ContextCandidatesList.tsx': `
 export function CandidateLink() {
-  return <a aria-label="Open Saved items">Open Saved items</a>
+  return (
+    <section>
+      <h3>Suggested notes to check</h3>
+      <h3>Suggested instructions to check</h3>
+      <span>Needs your check</span>
+      <a aria-label="Open Saved items">Open Saved items</a>
+    </section>
+  )
+}
+function candidateStateLabel(state) {
+  if (state === 'approved') return 'Saved'
+  if (state === 'rejected') return 'Not saved'
+  return 'Needs your check'
 }
 `,
       'src/app/features/board/boardErrorMessages.ts': `
@@ -8204,7 +9943,7 @@ const ACTION_FALLBACKS = {
 `,
       'src/app/features/context/approvalQueueErrorMessages.ts': `
 const ACTION_FALLBACKS = {
-  loadQueue: 'Refresh the list so you see the latest saved items. Saved items could not load.',
+  loadQueue: 'Choose Load saved items again so you see the latest saved items. Saved items could not load.',
 }
 `,
       'src/app/features/detail/TaskDetailPanel.tsx': `
@@ -8287,6 +10026,94 @@ const labels = {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags chat tool step folder details that expose workspace paths without context', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ToolCallDetail.tsx': `
+const labels = {
+  cwd: 'Project folder',
+}
+
+function detailLine() {
+  return 'Project folder: /workspace/app'
+}
+
+function dynamicLine(agent) {
+  return \`Project folder: \${agent.cwd}\`
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'chat-tool-folder-path-copy',
+          location: 'src/app/features/chat/ToolCallDetail.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'chat-tool-folder-path-copy',
+          location: 'src/app/features/chat/ToolCallDetail.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'chat-tool-folder-path-copy',
+          location: 'src/app/features/chat/ToolCallDetail.tsx:11',
+        }),
+      ])
+    )
+  })
+
+  it('accepts chat tool step folder details that explain where file work ran', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ToolCallDetail.tsx': `
+const labels = {
+  cwd: 'Where file work ran',
+}
+
+function detailLine() {
+  return 'Where file work ran: /workspace/app. Use this only if an owner or admin asks where file work ran.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags chat tool result toggles that expose detail jargon', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ToolCallDetail.tsx': `
+function ToolCallDetail() {
+  return <>
+    <button>Show result details</button>
+    <button>Hide result details</button>
+    <button>Show all result details (18 lines)</button>
+  </>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'chat-tool-step-copy',
+          sample: expect.stringContaining('Show result details'),
+        }),
+        expect.objectContaining({
+          type: 'chat-tool-step-copy',
+          sample: expect.stringContaining('Hide result details'),
+        }),
+        expect.objectContaining({
+          type: 'chat-tool-step-copy',
+          sample: expect.stringContaining('Show all result details'),
+        }),
+      ])
+    )
   })
 
   it('flags chat tool step timing copy that exposes raw duration units', () => {
@@ -8584,7 +10411,7 @@ export function ChatView() {
 `,
       'src/app/features/agents/AgentTasksTab.tsx': `
 export function AgentTasksTab() {
-  return <p>Refresh this agent's work list.</p>
+  return <p>Open Work again from this agent.</p>
 }
 `,
       'src/app/features/settings/RuntimeSection.tsx': `
@@ -8746,7 +10573,7 @@ const PROBLEM_MESSAGE =
 `,
       'src/app/features/detail/ContextEvidenceList.tsx': `
 const PROBLEM_MESSAGE =
-  'This saved detail hit a problem. Ask the agent to explain what happened, then retry if the task still matters.'
+  'Behind-the-scenes details were hidden for safety. Check the summary above, then ask the agent to explain what happened if the task still matters.'
 `,
     })
 
@@ -8780,6 +10607,50 @@ export function ContextEvidenceList() {
       'src/app/features/detail/ContextEvidenceList.tsx': `
 export function ContextEvidenceList() {
   return <details><summary>Show saved details</summary><p>Open saved details only when checking an unexpected result.</p></details>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags saved detail empty values that leave beginners at unavailable or retry copy', () => {
+    const cwd = fixture({
+      'src/app/features/detail/ContextEvidenceList.tsx': `
+function formatSavedDetails() {
+  return 'No saved details were available. Check the summary above, then retry if needed.'
+}
+function savedDetailValue() {
+  return 'not available'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'context-evidence-empty-detail-copy',
+          location: 'src/app/features/detail/ContextEvidenceList.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'context-evidence-empty-detail-copy',
+          location: 'src/app/features/detail/ContextEvidenceList.tsx:6',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved detail empty values that explain what users can do next', () => {
+    const cwd = fixture({
+      'src/app/features/detail/ContextEvidenceList.tsx': `
+function formatSavedDetails() {
+  return 'The summary above is all that was saved for this item. Ask the agent to explain the result if something looks wrong.'
+}
+function savedDetailValue() {
+  return 'not saved for this item'
 }
 `,
     })
@@ -8850,7 +10721,7 @@ function agentInstructionPlaceholder() {
     const cwd = fixture({
       'src/app/features/chat/ChatView.tsx': `
 function ChatView() {
-  return 'Open AI service settings, choose Check connection for this service, then refresh Agents before sending a message.'
+  return 'Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again before sending a message.'
 }
 function loadingMessage() {
   return 'Wait for earlier messages to finish loading, then send your message from this chat.'
@@ -8887,6 +10758,15 @@ function chatStreamConflictMessage() {
 function chatStreamReadErrorMessage() {
   return 'The reply stopped before it finished. Check that the agent is still online, then resend the message.'
 }
+function chatStreamMissingAgentMessage() {
+  return 'Refresh the Agents list, choose an active agent, then open chat again.'
+}
+function chatStreamChangedConversation() {
+  return 'Refresh the chat, review the latest message, then try again.'
+}
+function chatStreamNoBodyMessage() {
+  return 'The agent did not send a reply. Refresh this agent and try again.'
+}
 `,
     })
 
@@ -8911,6 +10791,18 @@ function chatStreamReadErrorMessage() {
           type: 'chat-stream-error-copy',
           location: 'src/app/features/chat/useChatStream.ts:12',
         }),
+        expect.objectContaining({
+          type: 'chat-stream-error-copy',
+          location: 'src/app/features/chat/useChatStream.ts:15',
+        }),
+        expect.objectContaining({
+          type: 'chat-stream-error-copy',
+          location: 'src/app/features/chat/useChatStream.ts:18',
+        }),
+        expect.objectContaining({
+          type: 'chat-stream-error-copy',
+          location: 'src/app/features/chat/useChatStream.ts:21',
+        }),
       ])
     )
   })
@@ -8922,13 +10814,22 @@ function chatStreamEventErrorMessage() {
   return 'Resend the message. The agent could not finish this reply. If it still fails, ask an owner or admin to check this agent chat.'
 }
 function chatStreamHttpErrorMessage() {
-  return 'Refresh this agent, then resend the message. This message was not sent.'
+  return 'Go back to Agents, choose this agent again, then open Chat and resend the message. This message was not sent.'
 }
 function chatStreamConflictMessage() {
   return 'Wait for the current reply to finish, then resend the message. This agent is already working.'
 }
 function chatStreamReadErrorMessage() {
   return 'Check that the agent is still online, then resend the message. The reply stopped before it finished.'
+}
+function chatStreamMissingAgentMessage() {
+  return 'Go back to Agents, choose an active agent, then open Chat again.'
+}
+function chatStreamChangedConversation() {
+  return 'Open this chat again, check the latest message, then resend the message.'
+}
+function chatStreamNoBodyMessage() {
+  return 'Go back to Agents, choose this agent again, then open Chat and resend the message.'
 }
 `,
     })
@@ -9007,6 +10908,10 @@ function ServiceRow() {
 function HelperNote() {
   return <p>Setup helper note: use the next step above, then choose Check now.</p>
 }
+
+function ConfigNote() {
+  return <p>Ask an owner or admin to check System health in Admin, then choose Check now.</p>
+}
 `,
     })
 
@@ -9023,6 +10928,10 @@ function HelperNote() {
           type: 'system-health-helper-note-copy',
           sample: expect.stringContaining('Setup helper note'),
         }),
+        expect.objectContaining({
+          type: 'system-health-helper-note-copy',
+          sample: expect.stringContaining('System health in Admin'),
+        }),
       ])
     )
   })
@@ -9031,7 +10940,7 @@ function HelperNote() {
     const cwd = fixture({
       'src/app/features/admin/SystemHealth.tsx': `
 function ServiceRow() {
-  return <p>What to check next: use the next step above, then choose Check now.</p>
+  return <p>What to check next: ask an owner or admin to check App health in Admin, then choose Check now.</p>
 }
 `,
     })
@@ -9044,6 +10953,7 @@ function ServiceRow() {
       'src/app/features/admin/SystemHealth.tsx': `
 const SERVICE_DEFINITIONS = [
   { description: 'Moves events from running agents into the browser in near real time.' },
+  { action: 'Ask an owner or admin to check live updates, then refresh and look for new progress.' },
 ]
 `,
     })
@@ -9051,12 +10961,18 @@ const SERVICE_DEFINITIONS = [
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'system-health-live-update-copy',
-        location: 'src/app/features/admin/SystemHealth.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'system-health-live-update-copy',
+          location: 'src/app/features/admin/SystemHealth.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'system-health-live-update-copy',
+          location: 'src/app/features/admin/SystemHealth.tsx:4',
+        }),
+      ])
+    )
   })
 
   it('accepts app health live update copy that describes visible progress', () => {
@@ -9120,7 +11036,7 @@ const item = { description: 'manage team spaces, people, and app health' }
       'src/app/features/admin/systemHealthErrorMessage.ts': `
 export function systemHealthErrorMessage() {
   const base = 'Forge could not check app health.'
-  return \`\${base} Refresh Admin, then choose Check now.\`
+  return 'Refresh Admin, then choose Check now. Forge could not check app health.'
 }
 `,
     })
@@ -9146,7 +11062,7 @@ export function systemHealthErrorMessage() {
     const cwd = fixture({
       'src/app/features/admin/systemHealthErrorMessage.ts': `
 export function systemHealthErrorMessage() {
-  return 'Refresh Admin, then choose Check now. Forge could not check app health.'
+  return 'Open Admin and choose App health, then choose Check now. Forge could not check app health.'
 }
 `,
     })
@@ -9228,7 +11144,7 @@ export function SkillDraftModal() {
     const cwd = fixture({
       'src/app/features/detail/SkillDraftModal.tsx': `
 export function SkillDraftModal() {
-  return 'Review what should repeat before saving it for your team space.'
+  return 'Check what should repeat before saving it for your team space.'
 }
 `,
     })
@@ -9242,6 +11158,8 @@ export function SkillDraftModal() {
 export function SkillDraftModal() {
   const error = 'Keep or rewrite the reusable instructions before publishing.'
   return 'Review the reusable instructions.'
+  return 'Find this instruction, then review the reusable steps before agents use them.'
+  return 'Review what should repeat before saving it for your team space.'
 }
 `,
     })
@@ -9259,16 +11177,24 @@ export function SkillDraftModal() {
           type: 'saved-instruction-draft-copy',
           location: 'src/app/features/detail/SkillDraftModal.tsx:4',
         }),
+        expect.objectContaining({
+          type: 'saved-instruction-draft-copy',
+          location: 'src/app/features/detail/SkillDraftModal.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-draft-copy',
+          location: 'src/app/features/detail/SkillDraftModal.tsx:6',
+        }),
       ])
     )
   })
 
-  it('accepts saved instruction draft copy that names the field and review step', () => {
+  it('accepts saved instruction draft copy that names the field and check step', () => {
     const cwd = fixture({
       'src/app/features/detail/SkillDraftModal.tsx': `
 export function SkillDraftModal() {
   const error = 'Add the repeatable steps, or keep the suggested steps, before publishing.'
-  return 'Find this instruction, then review the reusable steps before agents use them.'
+  return 'Find this instruction, then check the reusable steps before agents use them.'
 }
 `,
     })
@@ -9391,6 +11317,7 @@ const SERVICE_DEFINITIONS = [
 function SystemHealth() {
   return (
     <section>
+      <p>Checks when opened, then refreshes every 30 seconds while Admin is open.</p>
       <p>Checks when opened, then every 30 seconds while this page is visible. Hidden tabs pause checks.</p>
       <button>{loading ? 'Checking...' : 'Check now'}</button>
       <span>responds in 12 ms</span>
@@ -9405,6 +11332,10 @@ function SystemHealth() {
     expect(result.ok).toBe(false)
     expect(result.findings).toEqual(
       expect.arrayContaining([
+        expect.objectContaining({
+          type: 'system-health-status-copy',
+          sample: expect.stringContaining('refreshes every 30 seconds'),
+        }),
         expect.objectContaining({
           type: 'system-health-status-copy',
           sample: expect.stringContaining('while this page is visible'),
@@ -9463,7 +11394,7 @@ function savedInstructionsLoadErrorMessage(error) {
       'src/app/shared/model/skills.store.ts': `
 function skillResponseErrorMessage(action) {
   return action === 'create'
-    ? 'Review the fields, then create the instruction again.'
+    ? 'Check the required fields, then create the instruction again.'
     : 'Forge could not load Saved instructions right now. Refresh Saved instructions, then try again.'
 }
 function skillAccessErrorMessage() {
@@ -9494,7 +11425,7 @@ function skillAccessErrorMessage() {
     )
   })
 
-  it('accepts saved instruction load copy that points to retry', () => {
+  it('accepts saved instruction load copy that points to opening Saved instructions again', () => {
     const cwd = fixture({
       'src/app/features/skills/SkillsView.tsx': `
 function savedInstructionsLoadErrorMessage(error) {
@@ -9504,11 +11435,11 @@ function savedInstructionsLoadErrorMessage(error) {
       'src/app/shared/model/skills.store.ts': `
 function skillResponseErrorMessage(action) {
   return action === 'create'
-    ? 'Review the fields, then create the instruction again.'
-    : 'Refresh Saved instructions to load the list.'
+    ? 'Check the required fields, then create the instruction again.'
+    : 'Open Saved instructions again to load the list.'
 }
 function skillAccessErrorMessage() {
-  return 'Ask an owner or admin to update your team space access, then refresh Saved instructions. You do not have access to saved instructions for this team space.'
+  return 'Ask an owner or admin to update your team space access, then open Saved instructions again. You do not have access to saved instructions for this team space.'
 }
 `,
     })
@@ -9541,6 +11472,9 @@ function network() {
 }
 function service() {
   return 'Forge could not publish this instruction right now. Wait a few minutes, then publish again.'
+}
+function reviewFirst() {
+  return 'Review the draft, then publish again. Instruction was not published.'
 }
 `,
       'src/app/shared/model/skills.store.ts': `
@@ -9591,6 +11525,10 @@ function fallback() {
         }),
         expect.objectContaining({
           type: 'saved-instruction-create-copy',
+          location: 'src/app/features/detail/model/skillDraftErrorMessage.ts:12',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-create-copy',
           location: 'src/app/shared/model/skills.store.ts:3',
         }),
         expect.objectContaining({
@@ -9615,12 +11553,12 @@ function permission() {
   return 'Ask an owner or admin to let you create saved instructions. Your account cannot create workspace instructions yet.'
 }
 function service() {
-  return 'Refresh Saved instructions, then create the instruction again. If it still fails, ask an owner or admin to check Saved instructions access.'
+  return 'Open Saved instructions again, then create the instruction again. If it still fails, ask an owner or admin to check Saved instructions access.'
 }
 `,
       'src/app/features/detail/model/skillDraftErrorMessage.ts': `
 function publish() {
-  return 'Review the draft, then publish again. Instruction was not published.'
+  return 'Check the draft, then publish again. Instruction was not published.'
 }
 function network() {
   return 'Check your connection, then publish again. Forge could not connect while publishing this instruction.'
@@ -9631,7 +11569,7 @@ function service() {
 `,
       'src/app/shared/model/skills.store.ts': `
 function fallback() {
-  return 'Review the fields, then create the instruction again.'
+  return 'Check the required fields, then create the instruction again.'
 }
 function busy() {
   return 'Wait a moment, then create the instruction again. Instruction setup is busy right now.'
@@ -9640,6 +11578,30 @@ function busy() {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags saved instruction creation recovery copy that starts with review', () => {
+    const cwd = fixture({
+      'src/app/shared/model/skills.store.ts': `
+const createConflictMessage =
+  'Review the existing instructions, then change the name or matching words and create the instruction again.'
+const createDefaultMessage = 'Review the fields, then create the instruction again.'
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'saved-instruction-create-copy',
+        location: 'src/app/shared/model/skills.store.ts:3',
+      }),
+      expect.objectContaining({
+        type: 'saved-instruction-create-copy',
+        location: 'src/app/shared/model/skills.store.ts:4',
+      }),
+    ])
   })
 
   it('flags saved instruction templates that expose PR and CI status jargon', () => {
@@ -9688,6 +11650,49 @@ const skillTemplates = [{
     ])
   })
 
+  it('flags saved instruction template cards that expose review and handoff jargon', () => {
+    const cwd = fixture({
+      'src/app/features/skills/CreateSkillModal.tsx': `
+const skillTemplates = [{
+  label: 'Review checklist',
+  description: 'Review before handoff',
+  form: {
+    description: 'Summarize review and automated check status without repeated waiting',
+    content: 'Check work before handoff. Create one fresh status check from the review page. Open only the failed check or review item. Say it is ready for handoff.'
+  }
+}]
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'saved-instruction-template-copy',
+          sample: expect.stringContaining('Review checklist'),
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-template-copy',
+          sample: expect.stringContaining('Review before handoff'),
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-template-copy',
+          sample: expect.stringContaining('before handoff'),
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-template-copy',
+          sample: expect.stringContaining('Summarize review'),
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-template-copy',
+          sample: expect.stringContaining('review page'),
+        }),
+      ])
+    )
+  })
+
   it('accepts saved instruction templates that use plain status result language', () => {
     const cwd = fixture({
       'src/app/features/skills/CreateSkillModal.tsx': `
@@ -9695,7 +11700,7 @@ const skillTemplates = [{
   id: 'work-status',
   form: {
     name: 'work-status-check',
-    content: 'Check the review page once and summarize review result, ready-to-finish status, and automated check result. Start with one plain result: Needs a fix, Waiting, or Done. For Needs a fix, open only the failed check or review item. For Waiting, stop checking in chat.'
+    content: 'Check the result page once and summarize result status and automated check result. Start with one plain result: Needs a fix, Waiting, or Done. For Needs a fix, open only the failed check or item. For Waiting, stop checking in chat.'
   }
 }]
 `,
@@ -9708,7 +11713,7 @@ const skillTemplates = [{
     const cwd = fixture({
       'src/app/features/agents/CreateAgentModal.tsx': `
 const AGENT_ROLE_TEMPLATES = [{
-  systemPrompt: 'You investigate unclear failures by gathering evidence first.'
+  systemPrompt: 'You investigate unclear failures by gathering evidence first. You review work before the team uses it.'
 }]
 `,
       'src/app/features/agents/AgentConfigTab.tsx': `
@@ -9726,6 +11731,10 @@ const PROMPT_TEMPLATES = [{
         expect.objectContaining({
           type: 'agent-instruction-template-copy',
           sample: expect.stringContaining('gathering evidence first'),
+        }),
+        expect.objectContaining({
+          type: 'agent-instruction-template-copy',
+          sample: expect.stringContaining('review work before the team uses it'),
         }),
         expect.objectContaining({
           type: 'agent-instruction-template-copy',
@@ -9791,6 +11800,7 @@ function NewKeyBanner() {
   )
 }
 const ACCESS_KEY_EMPTY_STEPS = ['Copy the new key into a password manager before closing this message.']
+const OLD_ACCESS_KEY_EMPTY_STEPS = ['Name it after the exact tool or job that will use it.']
 `,
     })
 
@@ -9835,6 +11845,10 @@ const ACCESS_KEY_EMPTY_STEPS = ['Copy the new key into a password manager before
           type: 'access-key-secret-value-copy',
           sample: expect.stringContaining('Copy the new key'),
         }),
+        expect.objectContaining({
+          type: 'access-key-secret-value-copy',
+          sample: expect.stringContaining('exact tool or job'),
+        }),
       ])
     )
   })
@@ -9856,6 +11870,7 @@ function NewKeyBanner() {
   )
 }
 const ACCESS_KEY_EMPTY_STEPS = ['Save the new access value in a password manager before closing this message.']
+const TRUSTED_TOOL_STEP = 'Name it so teammates know which trusted tool uses it.'
 `,
     })
 
@@ -10005,7 +12020,7 @@ function savedMessage() {
   return 'Code access saved. Create a small task with a private repository link to confirm agents can open it. If it cannot read the repository, come back here and replace this key.'
 }
 function EmptyState() {
-  return <p>Use this for links such as https://github.com/team/repo.git.</p>
+  return <p>Use this for links such as https://github.com/team/project.git.</p>
 }
 `,
     })
@@ -10025,23 +12040,46 @@ function EmptyState() {
         }),
         expect.objectContaining({
           type: 'code-access-repository-copy',
-          sample: expect.stringContaining('team/repo.git'),
+          sample: expect.stringContaining('team/project.git'),
         }),
       ])
     )
   })
 
+  it('flags HTTPS code access empty copy that only names the capability', () => {
+    const cwd = fixture({
+      'src/app/features/settings/GitCredentialsSection.tsx': `
+function EmptyState() {
+  return <p>Let agents open private HTTPS code links</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'code-access-empty-copy',
+        location: 'src/app/features/settings/GitCredentialsSection.tsx:3',
+      }),
+    ])
+  })
+
   it('accepts HTTPS code access setup copy that talks about code links', () => {
     const cwd = fixture({
       'src/app/features/settings/GitCredentialsSection.tsx': `
+function EmptyState() {
+  return <p>Prepare HTTPS code access for private code links</p>
+}
 function AddCredentialForm() {
   return <p>Choose where this code lives.</p>
 }
 function savedMessage() {
-  return 'Code access saved. Create a small task with a private code link to confirm agents can open it. If it cannot open the code, come back here and replace this key.'
+  return 'Code access saved. Create a small task with a private code link to confirm agents can open it. If agents cannot open the code, come back here and replace this key.'
 }
-function EmptyState() {
-  return <p>Use this for links such as https://github.com/team/project.git.</p>
+function Example() {
+  return <p>Use this for private GitHub or GitLab code links that start with https://.</p>
 }
 `,
     })
@@ -10276,27 +12314,27 @@ function OrgRow() {
     const cwd = fixture({
       'src/app/features/settings/GitCredentialsSection.tsx': `
 function CredentialRow() {
-  return 'Refresh repository access to load added date'
+  return 'Open Code access again to load added date'
 }
 `,
       'src/app/features/settings/SshKeysSection.tsx': `
 function SshKeyRow() {
-  return 'Refresh SSH access to check added date'
+  return 'Open SSH code access again to check added date'
 }
 `,
       'src/app/features/settings/KeysSection.tsx': `
 function KeyRow() {
-  return 'Refresh access keys to check created date'
+  return 'Open Outside tool access keys again to check created date'
 }
 `,
       'src/app/features/admin/UserManagement.tsx': `
 function UserRow() {
-  return 'Refresh users to check sign-in date'
+  return 'Open User access again to check sign-in date'
 }
 `,
       'src/app/features/admin/OrganizationsPanel.tsx': `
 function OrgRow() {
-  return 'Refresh team spaces to check created date'
+  return 'Open Team spaces again to check created date'
 }
 `,
     })
@@ -10304,7 +12342,7 @@ function OrgRow() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags account profile copy that does not tell users to refresh', () => {
+  it('flags account profile copy that does not tell users where to reload account data', () => {
     const cwd = fixture({
       'src/app/features/settings/AccountSection.tsx': `
 function ProfileRow() {
@@ -10324,11 +12362,31 @@ function ProfileRow() {
     ])
   })
 
-  it('accepts account profile copy that tells users to refresh', () => {
+  it('flags account profile copy that asks users to refresh the current page', () => {
     const cwd = fixture({
       'src/app/features/settings/AccountSection.tsx': `
 function ProfileRow() {
   return <span>Refresh this page to load username</span>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'account-profile-copy',
+        location: 'src/app/features/settings/AccountSection.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts account profile copy that points users to Account settings', () => {
+    const cwd = fixture({
+      'src/app/features/settings/AccountSection.tsx': `
+function ProfileRow() {
+  return <span>Open Account settings again to load username</span>
 }
 `,
     })
@@ -10340,7 +12398,7 @@ function ProfileRow() {
     const cwd = fixture({
       'src/app/features/settings/AccountSection.tsx': `
 function GettingStartedGuideRow() {
-  return <section><h3>Onboarding</h3><p>If Start is hidden, choose Show setup checklist. Start is already visible in the left menu, so there is nothing to restore. New sign-ins still open Tasks by default.</p><button>Reset Start guide</button></section>
+  return <section><h3>Onboarding</h3><p>If Start is hidden, choose Show setup checklist. Start is already visible in the left menu, so there is nothing to restore. New sign-ins still open Tasks by default.</p><p>Setup checklist is back in the left menu. Choose Open setup checklist to review setup.</p><button>Reset Start guide</button></section>
 }
 `,
       'src/app/pages/settings/ui/SettingsLayout.tsx': `
@@ -10371,7 +12429,7 @@ export const item = {
     const cwd = fixture({
       'src/app/features/settings/AccountSection.tsx': `
 function GettingStartedGuideRow() {
-  return <section><p>It is hidden from the left menu, so new sign-ins open Tasks by default. Choose Show setup checklist to add it back. Your projects, agents, and tasks stay the same.</p><p>It is shown in the left menu. New sign-ins can open the setup checklist until you hide it again. Your projects, agents, and tasks stay the same.</p></section>
+  return <section><p>It is hidden from the left menu, so new sign-ins open Tasks by default. Choose Show setup checklist to add it back. Your projects, agents, and tasks stay the same.</p><p>It is available now. Choose Open setup checklist to check setup steps.</p><p>It is shown in the left menu. New sign-ins can open the setup checklist until you hide it again. Your projects, agents, and tasks stay the same.</p></section>
 }
 `,
     })
@@ -10830,10 +12888,10 @@ export function taskBlockedPreview() {
   it('accepts concrete setup wording for beginner-facing recovery copy', () => {
     const cwd = fixture({
       'src/app/routes/context.tsx': `
-export const detail = 'Saved items are available here. Ask an owner to check Saved items access.'
+export const detail = 'Saved items are available here. Open Saved items again or ask an owner to check Saved items access.'
 `,
       'src/app/routes/context-audit.tsx': `
-export const detail = 'Audit history is available here. Ask an owner to check change history access.'
+export const detail = 'Change history is available here. Open Change history again or ask an owner to check change history access.'
 `,
       'src/app/features/settings/ResourcesSection.tsx': `
 export function ResourcesSection() {
@@ -10842,7 +12900,7 @@ export function ResourcesSection() {
 `,
       'src/app/layouts/sidebar/ProjectTree.tsx': `
 function renameErrorMessage() {
-  return 'Refresh the left menu, then save this project name again. If it still fails, ask an owner or admin to check team and project settings.'
+  return 'Open the left menu, choose the current project, then save this project name again. If it still fails, ask an owner or admin to check team and project settings.'
 }
 `,
       'src/app/layouts/sidebar/SidebarNav.tsx': `
@@ -10864,13 +12922,107 @@ export function taskBlockedPreview() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags route loading copy that tells beginners to refresh the page', () => {
+    const cwd = fixture({
+      'src/app/routes/context.tsx': `
+export const detail = 'If this takes more than a moment, refresh the page or ask an owner to check Saved items access.'
+`,
+      'src/app/routes/context-audit.tsx': `
+export const detail = 'If this takes more than a moment, refresh the page or ask an owner to check change history access.'
+`,
+      'src/app/routes/__root.tsx': `
+export function AuthShellLoadingState() {
+  return 'If this takes more than a moment, refresh the page or sign in again.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'route-loading-refresh-copy',
+          location: 'src/app/routes/context.tsx:2',
+        }),
+        expect.objectContaining({
+          type: 'route-loading-refresh-copy',
+          location: 'src/app/routes/context-audit.tsx:2',
+        }),
+        expect.objectContaining({
+          type: 'route-loading-refresh-copy',
+          location: 'src/app/routes/__root.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts route loading copy that names the page to open again', () => {
+    const cwd = fixture({
+      'src/app/routes/context.tsx': `
+export const detail = 'If this takes more than a moment, open Saved items again or ask an owner to check Saved items access.'
+`,
+      'src/app/routes/context-audit.tsx': `
+export const detail = 'If this takes more than a moment, open Change history again or ask an owner to check change history access.'
+`,
+      'src/app/routes/__root.tsx': `
+export function AuthShellLoadingState() {
+  return 'If this takes more than a moment, open the sign-in page and sign in again.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags agent size load copy that tells beginners to reload', () => {
+    const cwd = fixture({
+      'src/app/features/settings/ResourcesSection.tsx': `
+export function ResourcesSection() {
+  return <p>Reload sizes to load agent sizes.</p>
+  return <p>Reload this list before creating or changing agents that edit project files.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'resource-sizes-load-copy',
+          location: 'src/app/features/settings/ResourcesSection.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'resource-sizes-load-copy',
+          location: 'src/app/features/settings/ResourcesSection.tsx:4',
+        }),
+      ])
+    )
+  })
+
+  it('accepts agent size load copy that uses a plain load-again step', () => {
+    const cwd = fixture({
+      'src/app/features/settings/ResourcesSection.tsx': `
+export function ResourcesSection() {
+  return <p>Load agent sizes again.</p>
+  return <p>Load this list again before creating or changing agents that edit project files.</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags first-run guide copy that describes a path instead of the setup checklist', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `
 export const en = {
   gettingStarted: {
     title: 'Start with one safe path',
-    description: 'Follow one step at a time. Finish this path to create an agent.',
+    description: 'Follow one step at a time. Finish this path to add your first agent.',
   },
 }
 `,
@@ -10907,7 +13059,7 @@ export const zh = {
 export const en = {
   gettingStarted: {
     title: 'Set up your first agent safely',
-    description: 'Follow one step at a time. Finish this checklist to create an agent.',
+    description: 'Follow one step at a time. Finish this checklist to add your first agent.',
   },
 }
 `,
@@ -11172,6 +13324,64 @@ function TaskFormModal() {
 function TaskFormModal() {
   return <button>{selectingProject ? 'Preparing project...' : confirmIncompleteBrief ? 'Create task anyway' : 'Create task'}</button>
 }
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags task form templates that use developer workflow labels', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskFormModal.tsx': `
+const TASK_TEMPLATES = [
+  { label: 'Feature', summary: 'Build a contained change', title: 'Build a focused feature' },
+  { label: 'Bug', summary: 'Reproduce and fix', title: 'Fix a reproducible defect' },
+  { label: 'Investigate', summary: 'Find the reason', title: 'Investigate an unclear issue' },
+  { label: 'Review', summary: 'Check before release', title: 'Review a change for release readiness', description: 'Change to review:\\n- Name the change.' },
+]
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-form-template-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:3',
+          sample:
+            "{ label: 'Feature', summary: 'Build a contained change', title: 'Build a focused feature' },",
+        }),
+        expect.objectContaining({
+          type: 'task-form-template-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:4',
+          sample:
+            "{ label: 'Bug', summary: 'Reproduce and fix', title: 'Fix a reproducible defect' },",
+        }),
+        expect.objectContaining({
+          type: 'task-form-template-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:5',
+          sample:
+            "{ label: 'Investigate', summary: 'Find the reason', title: 'Investigate an unclear issue' },",
+        }),
+        expect.objectContaining({
+          type: 'task-form-template-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:6',
+        }),
+      ])
+    )
+  })
+
+  it('accepts task form templates that use result-oriented labels', () => {
+    const cwd = fixture({
+      'src/app/features/board/TaskFormModal.tsx': `
+const TASK_TEMPLATES = [
+  { label: 'Add something', summary: 'Add one clear change', title: 'Add one focused change' },
+  { label: 'Fix a problem', summary: 'Find what breaks and fix it', title: 'Fix a problem you can repeat' },
+  { label: 'Find the cause', summary: 'Explain what is happening', title: 'Find the cause of an unclear problem' },
+  { label: 'Check a change', summary: 'Look for risks before using it', title: 'Check whether a change is safe to use', description: 'Change to check:\\n- Name the change.' },
+]
 `,
     })
 
@@ -11447,11 +13657,11 @@ function AgentGroupSelector() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags assignment status metrics that say in flight', () => {
+  it('flags assignment status metrics that use expert status or review wording', () => {
     const cwd = fixture({
       'src/app/features/board/AssignmentReadinessPanel.tsx': `
 function AssignmentReadinessPanel() {
-  return <span>In flight</span>
+  return <><span>In flight</span><MetricPill label="Review" /><p>1 completed task ready for review.</p></>
 }
 `,
     })
@@ -11459,19 +13669,21 @@ function AssignmentReadinessPanel() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'assignment-readiness-status-copy',
-        location: 'src/app/features/board/AssignmentReadinessPanel.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'assignment-readiness-status-copy',
+          location: 'src/app/features/board/AssignmentReadinessPanel.tsx:3',
+        }),
+      ])
+    )
   })
 
-  it('accepts assignment status metrics that say being worked on', () => {
+  it('accepts assignment status metrics that say being worked on and ready to check', () => {
     const cwd = fixture({
       'src/app/features/board/AssignmentReadinessPanel.tsx': `
 function AssignmentReadinessPanel() {
-  return <span>Being worked on</span>
+  return <><span>Being worked on</span><MetricPill label="Ready to check" /><p>1 completed task ready to check.</p></>
 }
 `,
     })
@@ -11520,6 +13732,38 @@ function QuickCreate() {
       'src/app/features/board/KanbanColumn.tsx': `
 function KanbanColumn() {
   return <p>Add a task below with the result you want.</p>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags done-column empty copy that uses review wording for finished work', () => {
+    const cwd = fixture({
+      'src/app/features/board/KanbanColumn.tsx': `
+function KanbanColumn() {
+  return <p>Finished work appears here for review</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'kanban-done-empty-copy',
+        location: 'src/app/features/board/KanbanColumn.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts done-column empty copy that tells people to check finished work first', () => {
+    const cwd = fixture({
+      'src/app/features/board/KanbanColumn.tsx': `
+function KanbanColumn() {
+  return <p>Finished work appears here to check before using</p>
 }
 `,
     })
@@ -11746,13 +13990,46 @@ export function missingGroupMessage() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags saved instruction maintainer fallback copy that does not tell users to refresh', () => {
+  it('flags task queue recovery copy that only tells users to refresh project state', () => {
+    const cwd = fixture({
+      'src/app/features/agents/model/agentGroupErrorMessage.ts': `
+export function agentGroupErrorMessage() {
+  return 'Refresh this page, then choose the project again. The waiting place was not created.'
+}
+`,
+      'src/app/features/agents/model/createAgentWorkLaneErrorMessage.ts': `
+export function createAgentWorkLaneErrorMessage() {
+  return 'Refresh the project, then choose the existing waiting place. A starter waiting place may already exist.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-task-queue-error-copy',
+          location: 'src/app/features/agents/model/agentGroupErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-task-queue-error-copy',
+          location: 'src/app/features/agents/model/createAgentWorkLaneErrorMessage.ts:3',
+        }),
+      ])
+    )
+  })
+
+  it('flags saved instruction maintainer fallback copy that does not tell users where to reopen saved instructions', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `
 export const en = {
   skills: {
     detail: {
       unknownAuthor: 'Maintainer not listed yet',
+      oldUnknownAuthor: 'Refresh saved instructions to load maintainer',
+      currentUnknownAuthor: 'Open Saved instructions again to load maintainer',
     },
   },
 }
@@ -11762,6 +14039,8 @@ export const zh = {
   skills: {
     detail: {
       unknownAuthor: '暂未列出维护者',
+      oldUnknownAuthor: '刷新保存的说明以加载维护者',
+      currentUnknownAuthor: '请重新打开保存的说明，以加载维护者',
     },
   },
 }
@@ -11779,7 +14058,23 @@ export const zh = {
         }),
         expect.objectContaining({
           type: 'skill-maintainer-fallback-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'skill-maintainer-fallback-copy',
           location: 'src/app/shared/i18n/locales/zh.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'skill-maintainer-fallback-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'skill-maintainer-fallback-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:7',
+        }),
+        expect.objectContaining({
+          type: 'skill-maintainer-fallback-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:7',
         }),
       ])
     )
@@ -11819,13 +14114,13 @@ export function CreateAgentModal() {
     ])
   })
 
-  it('accepts saved instruction maintainer fallback copy that tells users to refresh', () => {
+  it('accepts saved instruction maintainer fallback copy that tells users where to reopen saved instructions', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `
 export const en = {
   skills: {
     detail: {
-      unknownAuthor: 'Refresh saved instructions to load maintainer',
+      unknownAuthor: 'Open Saved instructions again to show who keeps this updated',
     },
   },
 }
@@ -11834,7 +14129,7 @@ export const en = {
 export const zh = {
   skills: {
     detail: {
-      unknownAuthor: '刷新保存的说明以加载维护者',
+      unknownAuthor: '请重新打开保存的说明，查看谁负责更新它',
     },
   },
 }
@@ -11898,6 +14193,7 @@ export const zh = {
       'src/app/features/skills/SkillCard.tsx': `
 export function SkillCard() {
   return 'Open details to check the reusable instructions before using this saved instruction.'
+  return 'Open saved instruction details to review the reusable instructions before using it.'
 }
 `,
     })
@@ -11905,12 +14201,18 @@ export function SkillCard() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'saved-instruction-summary-fallback-copy',
-        location: 'src/app/features/skills/SkillCard.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'saved-instruction-summary-fallback-copy',
+          location: 'src/app/features/skills/SkillCard.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-summary-fallback-copy',
+          location: 'src/app/features/skills/SkillCard.tsx:4',
+        }),
+      ])
+    )
   })
 
   it('flags saved instruction work-tool tooltips that do not say where to check setup', () => {
@@ -11919,6 +14221,7 @@ export function SkillCard() {
 export const en = {
   skills: {
     detail: {
+      unknownToolFit: 'Check this work tool before using',
       unknownToolTooltip: 'Work tool setup needs review.',
     },
   },
@@ -11928,6 +14231,7 @@ export const en = {
 export const zh = {
   skills: {
     detail: {
+      unknownToolFit: '使用前先检查这个工作工具',
       unknownToolTooltip: '工作工具设置需要检查。',
     },
   },
@@ -11946,7 +14250,15 @@ export const zh = {
         }),
         expect.objectContaining({
           type: 'saved-instruction-tool-tooltip-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-tool-tooltip-copy',
           location: 'src/app/shared/i18n/locales/zh.ts:5',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-tool-tooltip-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:6',
         }),
       ])
     )
@@ -11956,7 +14268,7 @@ export const zh = {
     const cwd = fixture({
       'src/app/features/skills/SkillCard.tsx': `
 export function SkillCard() {
-  return 'Open saved instruction details to review the reusable instructions before using it.'
+  return 'Open saved instruction details to check the reusable instructions before using it.'
 }
 `,
       'src/app/shared/i18n/locales/en.ts': `
@@ -11966,7 +14278,7 @@ export const en = {
       noDescription:
         'Check the reusable instructions below before using this saved instruction.',
       unknownToolTooltip:
-        'Open Settings and check the work tool before using this saved instruction.',
+        'Open Settings, check the work tool, then use this saved instruction.',
     },
   },
 }
@@ -11976,7 +14288,7 @@ export const zh = {
   skills: {
     detail: {
       noDescription: '使用这条保存的说明前，请先查看下面的可复用说明。',
-      unknownToolTooltip: '打开设置检查工作工具，再使用这条保存的说明。',
+      unknownToolTooltip: '打开设置，检查工作工具，然后再使用这条保存的说明。',
     },
   },
 }
@@ -12089,6 +14401,7 @@ export function SkillsView() {
   return <>
     <SkillStat label="Installed" />
     <SkillStat label="Available" />
+    <span>Choose Save instruction or refresh this page.</span>
   </>
 }
 `,
@@ -12126,6 +14439,10 @@ export function CreateSkillModal() {
         expect.objectContaining({
           type: 'saved-instruction-list-status-copy',
           location: 'src/app/features/skills/SkillsView.tsx:9',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-list-status-copy',
+          location: 'src/app/features/skills/SkillsView.tsx:10',
         }),
         expect.objectContaining({
           type: 'saved-instruction-create-field-copy',
@@ -12359,20 +14676,20 @@ function permission() {
     const cwd = fixture({
       'src/app/features/governance/governanceAuditErrorMessages.ts': `
 const ACTION_FALLBACKS = {
-  exportAudit: 'Keep secrets hidden, refresh change history, then try the export again.',
-  loadAudit: 'Refresh change history, then apply the filters again.',
+  exportAudit: 'Keep secrets hidden, choose Refresh change history, then export again.',
+  loadAudit: 'Choose Refresh change history, then apply the filters again.',
 }
 function notFound() {
   return 'Open Admin change history again, then retry.'
 }
 function conflict() {
-  return 'Refresh change history, then export again because the change list changed while export was running.'
+  return 'Choose Refresh change history, then export again because the change list changed while export was running.'
 }
 function rateLimit() {
   return 'Wait a moment, then try again. Change history is handling too many requests right now.'
 }
 function service() {
-  return 'Refresh change history, then apply the filters again. If it still fails, ask an owner or admin to check change history access.'
+  return 'Choose Refresh change history, then apply the filters again. If it still fails, ask an owner or admin to check change history access.'
 }
 function permission() {
   return 'Ask an owner or admin to update your team space access, then retry this change-history action. You do not have permission to view or export change history.'
@@ -12381,6 +14698,50 @@ function permission() {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags governance recovery copy that uses refresh page or view shorthand', () => {
+    const cwd = fixture({
+      'src/app/features/governance/AuditLogView.tsx': `
+function emptyState() {
+  return 'Save a useful instruction, then refresh this view.'
+}
+const HIDDEN_AUDIT_DETAIL_VALUE =
+  'Hidden for safety. Keep secrets hidden, refresh change history, then export again.'
+`,
+      'src/app/features/governance/governanceAuditErrorMessages.ts': `
+function network() {
+  return 'If it still does not load, check your connection and refresh the page.'
+}
+function load() {
+  return 'Refresh change history, then apply the filters again.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'governance-audit-recovery-copy',
+          location: 'src/app/features/governance/AuditLogView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-recovery-copy',
+          location: 'src/app/features/governance/AuditLogView.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-recovery-copy',
+          location: 'src/app/features/governance/governanceAuditErrorMessages.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-recovery-copy',
+          location: 'src/app/features/governance/governanceAuditErrorMessages.ts:6',
+        }),
+      ])
+    )
   })
 
   it('flags governance history copy that exposes audit and event jargon', () => {
@@ -12662,25 +15023,34 @@ function chatStreamEventErrorMessage() {
 function navigationActionErrorMessage(actionPhrase) {
   return \`You do not have permission to \${actionPhrase}. Ask an owner or admin to update your team space access.\`
 }
+function staleNavigationRetryMessage(actionPhrase) {
+  return \`Ask an owner or admin to update your team space access, then refresh the left menu to \${actionPhrase}. You do not have permission to \${actionPhrase}.\`
+}
 `,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'navigation-error-copy',
-        location: 'src/app/entities/navigation/model/navigation.store.ts:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'navigation-error-copy',
+          location: 'src/app/entities/navigation/model/navigation.store.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'navigation-error-copy',
+          location: 'src/app/entities/navigation/model/navigation.store.ts:6',
+        }),
+      ])
+    )
   })
 
   it('accepts navigation permission errors that start with the next step', () => {
     const cwd = fixture({
       'src/app/entities/navigation/model/navigation.store.ts': `
 function navigationActionErrorMessage(actionPhrase) {
-  return \`Ask an owner or admin to update your team space access, then refresh the left menu to \${actionPhrase}. You do not have permission to \${actionPhrase}.\`
+  return \`Ask an owner or admin to update your team space access, then open the left menu and \${actionPhrase}. You do not have permission to \${actionPhrase}.\`
 }
 `,
     })
@@ -12764,22 +15134,22 @@ function busyMessage() {
     const cwd = fixture({
       'src/app/features/detail/taskDetailErrorMessages.ts': `
 const ACTION_FALLBACKS = {
-  loadAgents: 'Refresh this task before assigning an agent.',
-  loadContext: 'Refresh the detail panel to load saved notes and work history.',
-  loadRuns: 'Refresh Updates before deciding whether to retry this task.',
+  loadAgents: 'Open this task again from the Tasks page before choosing an agent.',
+  loadContext: 'Open this task again from the Tasks page to load saved notes and work history.',
+  loadRuns: 'Open Updates for this task again before deciding whether to retry this task.',
   previewContext: 'Choose an available agent, then open saved item review again.',
 }
 function permissionMessage() {
-  return 'Ask an owner or admin to give you access to this task, then refresh the task detail panel. You do not have permission to view this task.'
+  return 'Ask an owner or admin to give you access to this task, then open it again from the Tasks page. You do not have permission to view this task.'
 }
 function networkRecoveryMessage() {
-  return 'If it still does not load, check your connection and refresh the page.'
+  return 'If it still does not load, check your connection, then open this task again from the Tasks page.'
 }
 function notFoundMessage() {
-  return 'Refresh the board, then open the task again. This task was not found.'
+  return 'Open the Tasks page, then choose the current task again. This task was not found.'
 }
 function conflictMessage() {
-  return 'Refresh the detail panel, then try again. This task changed while you were working.'
+  return 'Open this task again from the Tasks page, then try again. This task changed while you were working.'
 }
 function busyMessage() {
   return 'Wait a moment, then try again. Task actions are busy.'
@@ -12837,10 +15207,10 @@ const ACTION_FALLBACKS = {
       'src/app/features/detail/taskDetailErrorMessages.ts': `
 const ACTION_FALLBACKS = {
   approveTask: 'Check that the task is still waiting for approval, then choose Approve again. The task was not approved.',
-  blockTask: 'Refresh the task, then choose Needs help again. The task was not marked as needing help.',
-  cancelTask: 'Refresh the task, then choose Cancel again. The task was not canceled.',
+  blockTask: 'Open this task again from the Tasks page, then choose Needs help again. The task was not marked as needing help.',
+  cancelTask: 'Open this task again from the Tasks page, then choose Cancel again. The task was not canceled.',
   publishTask: 'Check the selected saved notes, then send the task again. The task was not sent with selected notes.',
-  retryTask: 'Refresh the task, then choose Retry task again. The task was not retried.',
+  retryTask: 'Open this task again from the Tasks page, then choose Retry task again. The task was not retried.',
 }
 `,
     })
@@ -12948,18 +15318,18 @@ function networkRecoveryMessage() {
     const cwd = fixture({
       'src/app/features/board/boardErrorMessages.ts': `
 const ACTION_FALLBACKS = {
-  loadReadiness: 'Refresh the board to load agent status before sending work.',
-  loadTasks: 'Refresh the board to load tasks.',
+  loadReadiness: 'Choose Check agent status before sending work.',
+  loadTasks: 'Choose Refresh tasks to load tasks.',
   previewContext: 'Choose an available agent, then open the saved item preview again.',
 }
 function permissionMessage() {
-  return 'Ask an owner or admin to give you access to this board, then refresh the board and try again. You do not have permission to change this board.'
+  return 'Ask an owner or admin to give you access to the Tasks page, then open it and try again. You do not have permission to change this board.'
 }
 function notFoundMessage() {
-  return 'Refresh the board, then choose the current task again.'
+  return 'Choose Refresh tasks, then choose the current task again.'
 }
 function networkRecoveryMessage() {
-  return 'If it still does not load, check your connection and refresh the page.'
+  return 'If it still does not load, check your connection, then choose Refresh tasks.'
 }
 `,
     })
@@ -13082,7 +15452,7 @@ function ParticipantChip() {
     const cwd = fixture({
       'src/app/features/board/boardErrorMessages.ts': `
 function noAgentPreview() {
-  return 'No agent can prepare the saved item preview right now. Open Agents to start or connect an agent, then return to the board and refresh.'
+  return 'No agent can prepare the saved item preview right now. Open Agents to start or connect an agent, then open the Tasks page and check saved items again.'
 }
 `,
       'src/app/features/board/AssignmentReadinessPanel.tsx': `
@@ -13476,7 +15846,7 @@ export const en = {
       runtime: { review: 'Check work location' },
       provider: { reviewProviders: 'Check AI services', reviewAgents: 'Open agents' },
       routing: { review: 'Check waiting places' },
-      task: { inFlight: 'A task is assigned. Check progress from the board.' },
+      task: { inFlight: 'A task has an agent. Check progress from the board.' },
     },
   },
 }
@@ -13632,6 +16002,9 @@ function renderInboxPath() {
 function promptTemplate() {
   return 'You are a triage agent. Reproduce the reported behavior, separate symptoms from likely cause, identify the smallest safe fix, and then act as a code review agent. Prioritize regressions, missing tests, unclear ownership, concrete findings, and cite the exact files.'
 }
+function oldCheckTemplate() {
+  return 'You review work carefully. Start with anything that could break the result.'
+}
 `,
       'src/app/features/agents/AgentGroupsPanel.tsx': `
 function groupTemplate() {
@@ -13663,6 +16036,10 @@ function groupTemplate() {
         }),
         expect.objectContaining({
           type: 'beginner-sorting-copy',
+          sample: expect.stringContaining('review work carefully'),
+        }),
+        expect.objectContaining({
+          type: 'beginner-sorting-copy',
           sample: expect.stringContaining('Triage Queue'),
         }),
       ])
@@ -13680,7 +16057,7 @@ function renderInboxPath() {
 function promptTemplate() {
   return [
     "You help sort incoming work. Try the steps the user described, explain what happened in plain language, suggest the smallest safe next step, and ask for more information when it's needed.",
-    "You review work carefully. Start with anything that could break the result, create a security risk, or need a missing check. Explain the problem first, then point to the file or behavior that proves it."
+    "You check work before the team uses it. Start with anything that could break the result, create a security risk, or need a missing check. Explain the problem first, then point to the file or behavior that proves it."
   ].join(' ')
 }
 `,
@@ -13688,6 +16065,42 @@ function promptTemplate() {
 function groupTemplate() {
   return 'Intake Queue'
 }
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags agent instruction template buttons that only say review', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentConfigTab.tsx': `
+const PROMPT_TEMPLATES = [{
+  id: 'review',
+  label: 'Review',
+  value: 'You check work before the team uses it.'
+}]
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'agent-config-template-copy',
+        location: 'src/app/features/agents/AgentConfigTab.tsx:4',
+      }),
+    ])
+  })
+
+  it('accepts agent instruction template buttons that describe the action', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentConfigTab.tsx': `
+const PROMPT_TEMPLATES = [{
+  id: 'review',
+  label: 'Check results',
+  value: 'You check work before the team uses it.'
+}]
 `,
     })
 
@@ -13754,7 +16167,16 @@ export const zh = {
     const cwd = fixture({
       'src/app/features/detail/DescriptionTab.tsx': `
 function DescriptionTab() {
-  return <ReviewSection title="Result files and evidence" />
+  return <>
+    <ReviewSection title="Result files and evidence" />
+    <p>1 result file ready for review.</p>
+    <button>Review what was used</button>
+    <button>Review save ideas</button>
+    <p>After review, save the repeatable steps if future tasks should reuse them.</p>
+    <p>This agent finished this task. Review the result before accepting it.</p>
+    <p>Review the brief, then send it to this agent.</p>
+    <p>Choose an available agent, review the suggested saved notes and instructions, then send the task.</p>
+  </>
 }
 `,
       'src/app/features/detail/TaskDetailPanel.tsx': `
@@ -13768,6 +16190,23 @@ function ResultReviewGuide() {
       'src/app/features/detail/HistoryTab.tsx': `
 function taskCheckIn() {
   return '1 result item ready to review.'
+}
+function taskOutcome() {
+  return 'Review the outcome, then save repeatable steps or create a follow-up task if something is missing.'
+}
+function taskStart() {
+  return 'The task has an agent. Review the brief, then start the task.'
+}
+function taskFallback() {
+  return 'Review the latest updates before deciding whether to start, retry, or close this task.'
+}
+`,
+      'src/app/features/detail/TaskMetadata.tsx': `
+function taskStatus() {
+  return 'The task is finished. Review the Result tab or the final answer before closing the loop.'
+}
+function taskFallback() {
+  return 'Open Updates to review the latest task activity.'
 }
 `,
       'src/app/features/list/ListView.tsx': `
@@ -13792,7 +16231,35 @@ function agentNextStep() {
       expect.arrayContaining([
         expect.objectContaining({
           type: 'task-detail-result-review-copy',
-          location: 'src/app/features/detail/DescriptionTab.tsx:3',
+          location: 'src/app/features/detail/DescriptionTab.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/DescriptionTab.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/DescriptionTab.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/DescriptionTab.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/DescriptionTab.tsx:8',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/DescriptionTab.tsx:9',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/DescriptionTab.tsx:10',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/DescriptionTab.tsx:11',
         }),
         expect.objectContaining({
           type: 'task-detail-result-review-copy',
@@ -13805,6 +16272,26 @@ function agentNextStep() {
         expect.objectContaining({
           type: 'task-detail-result-review-copy',
           location: 'src/app/features/detail/HistoryTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/HistoryTab.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/HistoryTab.tsx:9',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/HistoryTab.tsx:12',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/TaskMetadata.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-result-review-copy',
+          location: 'src/app/features/detail/TaskMetadata.tsx:6',
         }),
         expect.objectContaining({
           type: 'task-detail-result-review-copy',
@@ -13847,7 +16334,7 @@ function listNextStep() {
 `,
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
 function agentNextStep() {
-  return 'You can decide whether to reuse the agent, check result files, or assign another task.'
+  return 'You can decide whether to reuse the agent, check result files, or send another task.'
 }
 `,
     })
@@ -14122,7 +16609,7 @@ const LEGACY_API_NETWORK_ERROR = 'Check your connection, then try again. Forge c
 `,
       'src/app/features/agents/AgentControlPanel.tsx': `
 function agentControlErrorMessage() {
-  return 'Check your connection, refresh this agent, then try again. Forge could not connect while changing this agent.'
+  return 'Check your connection, then open Agents and choose this agent again. Forge could not connect while changing this agent.'
 }
 `,
       'src/app/features/chat/useChatStream.ts': `
@@ -14154,7 +16641,7 @@ function connectionMessage() {
 `,
       'src/app/shared/model/settings.store.ts': `
 function settingsConnectionMessage() {
-  return 'Check your connection, then refresh Settings to load AI service settings. Forge could not connect while loading Settings.'
+  return 'Check your connection, then open Settings and AI services again. Forge could not connect while loading Settings.'
 }
 `,
       'src/app/features/settings/providerSettingsErrorMessage.ts': `
@@ -14209,6 +16696,9 @@ function actionAlert() {
 function serviceError() {
   return 'Forge could not update this agent right now. Refresh this agent and try again.'
 }
+function refreshAgentStep() {
+  return 'Refresh this agent, then try again.'
+}
 `,
     })
 
@@ -14233,6 +16723,10 @@ function serviceError() {
           type: 'agent-control-error-copy',
           location: 'src/app/features/agents/AgentControlPanel.tsx:12',
         }),
+        expect.objectContaining({
+          type: 'agent-control-error-copy',
+          location: 'src/app/features/agents/AgentControlPanel.tsx:15',
+        }),
       ])
     )
   })
@@ -14247,7 +16741,7 @@ function actionAlert() {
   return 'Follow the step below, then try again.'
 }
 function serviceError() {
-  return "Refresh this agent, then try again. If it keeps failing, ask an owner or admin to check this agent's connection and access in Agents. Forge could not finish the change right now."
+  return "Open Agents, choose this agent again, then try again. If it keeps failing, ask an owner or admin to check this agent's connection and access in Agents. Forge could not finish the change right now."
 }
 `,
     })
@@ -14275,6 +16769,9 @@ function service() {
 }
 function fallback() {
   return 'Feedback could not be saved. Refresh the task and try again.'
+}
+function refreshFirst() {
+  return 'Refresh the task, then save feedback again. Feedback could not be saved.'
 }
 `,
     })
@@ -14308,6 +16805,10 @@ function fallback() {
           type: 'feedback-error-copy',
           location: 'src/app/entities/context/model/feedbackErrorMessage.ts:18',
         }),
+        expect.objectContaining({
+          type: 'feedback-error-copy',
+          location: 'src/app/entities/context/model/feedbackErrorMessage.ts:21',
+        }),
       ])
     )
   })
@@ -14319,19 +16820,19 @@ function permission() {
   return 'Ask an owner or admin to give you access to this saved item, then save feedback again. You do not have permission to save feedback for this saved item.'
 }
 function missing() {
-  return 'Refresh the task, then choose this saved item again. This saved item could not be found.'
+  return 'Open task details again, then choose this saved item again. This saved item could not be found.'
 }
 function changed() {
-  return 'Refresh the task, review this saved item, then save feedback again. This saved item changed while you were giving feedback.'
+  return 'Open task details again, check this saved item, then save feedback again. This saved item changed while you were giving feedback.'
 }
 function busy() {
   return 'Wait a moment, then save this feedback again. Feedback is busy.'
 }
 function service() {
-  return 'Refresh the task, then save feedback again. Forge could not save feedback right now.'
+  return 'Open task details again, then save feedback again. Forge could not save feedback right now.'
 }
 function fallback() {
-  return 'Refresh the task, then save feedback again. Feedback could not be saved.'
+  return 'Open task details again, then save feedback again. Feedback could not be saved.'
 }
 `,
     })
@@ -14350,6 +16851,12 @@ function serviceRecoveryMessage(action) {
 
 function chatErrorMessage(base) {
   return \`\${base} Forge could not read this conversation. Refresh the chat, then try again.\`
+}
+function changed(base) {
+  return \`\${base} Refresh the page; this agent or conversation may have changed.\`
+}
+function unreadable(base) {
+  return \`\${base} Refresh the chat, then try again. Forge could not read this conversation.\`
 }
 `,
     })
@@ -14371,6 +16878,14 @@ function chatErrorMessage(base) {
           type: 'chat-error-copy',
           location: 'src/app/shared/model/chat.errors.ts:9',
         }),
+        expect.objectContaining({
+          type: 'chat-error-copy',
+          location: 'src/app/shared/model/chat.errors.ts:12',
+        }),
+        expect.objectContaining({
+          type: 'chat-error-copy',
+          location: 'src/app/shared/model/chat.errors.ts:15',
+        }),
       ])
     )
   })
@@ -14385,7 +16900,10 @@ function serviceRecoveryMessage(action) {
 }
 
 function chatErrorMessage(base) {
-  return \`\${base} Refresh the chat, then try again. Forge could not read this conversation.\`
+  return \`\${base} Choose Retry conversation again. Forge could not read this conversation.\`
+}
+function changed(base) {
+  return \`\${base} Open Agents, choose this agent again, then open Chat. This agent or conversation may have changed.\`
 }
 `,
     })
@@ -14407,6 +16925,10 @@ function settingsDefaultMessage(actionPhrase) {
 function settingsPermissionMessage(actionPhrase) {
   return \`You do not have permission to \${actionPhrase}. Ask an owner or admin to manage Settings.\`
 }
+
+function oldSettingsRefreshMessage(actionPhrase) {
+  return \`Refresh Settings, then try to \${actionPhrase} again.\`
+}
 `,
     })
 
@@ -14427,6 +16949,10 @@ function settingsPermissionMessage(actionPhrase) {
           type: 'settings-store-error-copy',
           location: 'src/app/shared/model/settings.store.ts:11',
         }),
+        expect.objectContaining({
+          type: 'settings-store-error-copy',
+          location: 'src/app/shared/model/settings.store.ts:15',
+        }),
       ])
     )
   })
@@ -14435,11 +16961,11 @@ function settingsPermissionMessage(actionPhrase) {
     const cwd = fixture({
       'src/app/shared/model/settings.store.ts': `
 function settingsUnavailableMessage(operation, actionPhrase) {
-  return \`Refresh Settings, then try to \${actionPhrase} again. Forge could not \${operation} right now.\`
+  return \`Open Settings and AI services again. Forge could not \${operation} right now.\`
 }
 
 function settingsDefaultMessage(actionPhrase) {
-  return \`Refresh Settings, then try to \${actionPhrase} again. Settings could not \${actionPhrase}.\`
+  return \`Open Settings and AI services again. Settings could not \${actionPhrase}.\`
 }
 
 function settingsPermissionMessage(actionPhrase) {
@@ -14465,6 +16991,12 @@ function notFoundMessage() {
 }
 function permissionMessage() {
   return 'You do not have permission to save this team. Ask an owner or admin to update your team space access.'
+}
+function staleSettingsRecoveryMessage() {
+  return 'Refresh Settings, then save the project again. If it still fails, ask an owner or admin to check team and project settings.'
+}
+function staleSettingsPermissionMessage() {
+  return 'Ask an owner or admin to update your team space access, then save the team again in Settings. You do not have permission to save this team.'
 }
 `,
       'src/app/layouts/sidebar/ProjectTree.tsx': `
@@ -14492,6 +17024,12 @@ function permissionRenameMessage() {
 function permissionDeleteMessage() {
   return 'You do not have permission to delete this team. Ask an owner or admin to let you delete this team.'
 }
+function staleLeftMenuMessage() {
+  return 'Refresh the left menu, then save this project name again. The project name was not saved.'
+}
+function staleLeftMenuConflictMessage() {
+  return 'Refresh the left menu, check the current name, then save this project name again. This project changed while you were editing.'
+}
 `,
     })
 
@@ -14515,6 +17053,14 @@ function permissionDeleteMessage() {
         expect.objectContaining({
           type: 'workspace-resource-copy',
           location: 'src/app/shared/lib/workspaceResourceErrorMessage.ts:12',
+        }),
+        expect.objectContaining({
+          type: 'workspace-resource-copy',
+          location: 'src/app/shared/lib/workspaceResourceErrorMessage.ts:15',
+        }),
+        expect.objectContaining({
+          type: 'workspace-resource-copy',
+          location: 'src/app/shared/lib/workspaceResourceErrorMessage.ts:18',
         }),
         expect.objectContaining({
           type: 'workspace-resource-copy',
@@ -14549,6 +17095,14 @@ function permissionDeleteMessage() {
           location: 'src/app/layouts/sidebar/ProjectTree.tsx:24',
         }),
         expect.objectContaining({
+          type: 'workspace-resource-copy',
+          location: 'src/app/layouts/sidebar/ProjectTree.tsx:27',
+        }),
+        expect.objectContaining({
+          type: 'workspace-resource-copy',
+          location: 'src/app/layouts/sidebar/ProjectTree.tsx:30',
+        }),
+        expect.objectContaining({
           type: 'workspace-resource-jargon-copy',
           location: 'src/app/layouts/sidebar/ProjectTree.tsx:9',
         }),
@@ -14560,42 +17114,60 @@ function permissionDeleteMessage() {
     const cwd = fixture({
       'src/app/shared/lib/workspaceResourceErrorMessage.ts': `
 function workspaceResourceConnectionMessage() {
-  return 'Check your connection, then save the team again in Settings.'
+  return 'Check your connection, then open Settings and Teams and Projects, and save the team again.'
 }
 function workspaceResourceUnavailableMessage() {
-  return 'Refresh Settings, then save the project again. If it still fails, ask an owner or admin to check team and project settings.'
+  return 'Open Settings and Teams and Projects, then save the project again. If it still fails, ask an owner or admin to check team and project settings.'
 }
 function notFoundMessage() {
-  return 'Refresh Settings, then choose an existing project.'
+  return 'Open Settings and Teams and Projects, then choose an existing project.'
 }
 function permissionMessage() {
-  return 'Ask an owner or admin to update your team space access, then save the team again in Settings. You do not have permission to save this team.'
+  return 'Ask an owner or admin to update your team space access, then open Settings and Teams and Projects, and save the team again. You do not have permission to save this team.'
+}
+function projectDeleteAgentMessage() {
+  return 'Go to Agents, change or remove agents that use this project, then delete the project again.'
+}
+function projectDeleteTaskMessage() {
+  return "Go to Tasks, finish this project's tasks first, then delete the project again."
+}
+function teamDeleteProjectMessage() {
+  return "Open Settings and Teams and Projects, delete this team's projects first, then delete the team again."
 }
 `,
       'src/app/layouts/sidebar/ProjectTree.tsx': `
 function renameErrorMessage() {
-  return 'Refresh the left menu, then save this project name again. The project name was not saved.'
+  return 'Open the left menu, choose the current project, then save this project name again. The project name was not saved.'
 }
 function projectMissingMessage() {
-  return 'Refresh the left menu, then choose the current project again. This project could not be found.'
+  return 'Open the left menu, choose the current project, then try again. This project could not be found.'
 }
 function projectChangedMessage() {
-  return 'Refresh the left menu, check the current name, then save this project name again. This project changed while you were editing.'
+  return 'Open the left menu, choose the current project, then save this project name again. This project changed while you were editing.'
 }
 function renameBusyMessage() {
   return 'Wait a moment, then save this project name again. The left menu is busy.'
 }
 function renameServiceMessage() {
-  return 'Refresh the left menu, then save this project name again. Forge could not save it right now.'
+  return 'Open the left menu, choose the current project, then save this project name again. Forge could not save it right now.'
 }
 function deleteServiceMessage() {
-  return 'Refresh the left menu, then delete this project again. Forge could not delete it right now.'
+  return 'Open the left menu, choose the current project, then delete it again. Forge could not delete it right now.'
 }
 function permissionRenameMessage() {
   return 'Ask an owner or admin to let you edit this project, then save this project name again from the left menu. You do not have permission to rename this project.'
 }
 function permissionDeleteMessage() {
   return 'Ask an owner or admin to let you delete this team, then delete it again from the left menu. You do not have permission to delete this team.'
+}
+function projectDeleteAgentMessage() {
+  return 'Go to Agents, change or remove agents that use this project, then delete the project again.'
+}
+function projectDeleteTaskMessage() {
+  return "Go to Tasks, finish this project's tasks first, then delete the project again."
+}
+function teamDeleteProjectMessage() {
+  return "Open the left menu, delete this team's projects first, then delete the team again."
 }
 `,
     })
@@ -14614,6 +17186,15 @@ function projectDeleteMessage() {
 }
 function teamDeleteMessage() {
   return 'Check whether this team still owns projects or required access, then delete it again.'
+}
+function sidebarProjectAgentMessage() {
+  return 'Move agents out of this project first, then delete the project again.'
+}
+function sidebarProjectTaskMessage() {
+  return "Move or finish this project's tasks first, then delete the project again."
+}
+function sidebarTeamProjectMessage() {
+  return "Move or delete this team's projects first, then delete the team again."
 }
 `,
     })
@@ -14634,6 +17215,18 @@ function teamDeleteMessage() {
         expect.objectContaining({
           type: 'workspace-resource-jargon-copy',
           location: 'src/app/shared/lib/workspaceResourceErrorMessage.ts:9',
+        }),
+        expect.objectContaining({
+          type: 'workspace-resource-jargon-copy',
+          location: 'src/app/shared/lib/workspaceResourceErrorMessage.ts:12',
+        }),
+        expect.objectContaining({
+          type: 'workspace-resource-jargon-copy',
+          location: 'src/app/shared/lib/workspaceResourceErrorMessage.ts:15',
+        }),
+        expect.objectContaining({
+          type: 'workspace-resource-jargon-copy',
+          location: 'src/app/shared/lib/workspaceResourceErrorMessage.ts:18',
         }),
       ])
     )
@@ -14711,6 +17304,9 @@ function serverProjectErrorMessage() {
 function fallbackProjectErrorMessage() {
   return 'Could not create the project. Check the project name and team, then try again.'
 }
+function missingTeamProjectErrorMessage() {
+  return 'Refresh Settings, choose the team again, then create this project.'
+}
 `,
     })
 
@@ -14730,6 +17326,10 @@ function fallbackProjectErrorMessage() {
         expect.objectContaining({
           type: 'project-create-error-copy',
           location: 'src/app/features/manage-project/ui/CreateProjectForm.tsx:9',
+        }),
+        expect.objectContaining({
+          type: 'project-create-error-copy',
+          location: 'src/app/features/manage-project/ui/CreateProjectForm.tsx:12',
         }),
       ])
     )
@@ -14858,7 +17458,7 @@ function CreateProjectForm() {
     const cwd = fixture({
       'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
 function CreateProjectForm() {
-  return <><label>Code link</label><input placeholder="https://github.com/team/project.git" /><p>Forge copies that code into this project.</p><p>Paste a code link that starts with https://, or leave this blank and add SSH code access in Settings for git@ links.</p><p>Paste an https:// code link without account details, or leave the code link blank and add code access in Settings.</p></>
+  return <><label>Code link</label><input placeholder="https://github.com/team/project.git" /><p>Forge copies that code into this project.</p><p>Paste the https:// link you copy from your browser, or leave this blank and set up SSH code access in Settings first.</p><p>Paste an https:// code link without account details, or leave the code link blank and add code access in Settings.</p></>
 }
 `,
     })
@@ -14870,12 +17470,12 @@ function CreateProjectForm() {
     const cwd = fixture({
       'src/app/features/manage-team/ui/CreateTeamForm.tsx': `
 function CreateTeamForm() {
-  return <><p>Team setup path</p><p>Address preview: platform-ops.</p><p>Automatic link name: platform-ops.</p></>
+  return <><p>Team setup path</p><p>Address preview: platform-ops.</p><p>Automatic link name: platform-ops.</p><p>Refresh Settings, then create this team again.</p></>
 }
 `,
       'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
 function CreateProjectForm() {
-  return <><p>Project setup path</p><p>Work folder preview: /workspace/app</p><summary>Show support folder</summary><summary>Show support folder path</summary><p>Automatic project name: app.</p><p>Project short name: app.</p></>
+  return <><p>Project setup path</p><p>Work folder preview: /workspace/app</p><summary>Show support folder</summary><summary>Show support folder path</summary><summary>Show exact folder for troubleshooting</summary><p>Exact folder: /workspace/app</p><p>Automatic project name: app.</p><p>Project short name: app.</p></>
 }
 `,
     })
@@ -14892,6 +17492,11 @@ function CreateProjectForm() {
         }),
         expect.objectContaining({
           type: 'team-project-create-copy',
+          location: 'src/app/features/manage-team/ui/CreateTeamForm.tsx:3',
+          sample: expect.stringContaining('Refresh Settings'),
+        }),
+        expect.objectContaining({
+          type: 'team-project-create-copy',
           location: 'src/app/features/manage-project/ui/CreateProjectForm.tsx:3',
           sample: expect.stringContaining('Project setup path'),
         }),
@@ -14899,6 +17504,16 @@ function CreateProjectForm() {
           type: 'team-project-create-copy',
           location: 'src/app/features/manage-project/ui/CreateProjectForm.tsx:3',
           sample: expect.stringContaining('Show support folder path'),
+        }),
+        expect.objectContaining({
+          type: 'team-project-create-copy',
+          location: 'src/app/features/manage-project/ui/CreateProjectForm.tsx:3',
+          sample: expect.stringContaining('Show exact folder'),
+        }),
+        expect.objectContaining({
+          type: 'team-project-create-copy',
+          location: 'src/app/features/manage-project/ui/CreateProjectForm.tsx:3',
+          sample: expect.stringContaining('Exact folder'),
         }),
         expect.objectContaining({
           type: 'team-project-create-copy',
@@ -14913,12 +17528,12 @@ function CreateProjectForm() {
     const cwd = fixture({
       'src/app/features/manage-team/ui/CreateTeamForm.tsx': `
 function CreateTeamForm() {
-  return <><p>Team creation steps</p><p>Shown at the end of team links: platform-ops.</p></>
+  return <><p>Team creation steps</p><p>Team link preview: platform-ops.</p></>
 }
 `,
       'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
 function CreateProjectForm() {
-  return <><p>Project creation steps</p><p>Shown at the end of project links: app.</p><summary>Show exact folder for troubleshooting</summary><p>Use this only if an owner, admin, or support message asks for the exact folder.</p><p>Exact folder: /workspace/app</p></>
+  return <><p>Project creation steps</p><p>Project link preview: app.</p><summary>Show folder details for support</summary><p>Use this only if an owner, admin, or support message asks for the project folder.</p><p>Project folder for support: /workspace/app</p></>
 }
 `,
     })
@@ -14969,12 +17584,12 @@ function EditableProjectRow({ project }) {
     const cwd = fixture({
       'src/app/features/manage-team/ui/EditableTeamRow.tsx': `
 function EditableTeamRow({ team }) {
-  return <p>Shown at the end of team links: {team.slug}</p>
+  return <p>Team link preview: {team.slug}</p>
 }
 `,
       'src/app/features/manage-project/ui/EditableProjectRow.tsx': `
 function EditableProjectRow({ project }) {
-  return <span>Shown at the end of project links: {project.slug}</span>
+  return <span>Project link preview: {project.slug}</span>
 }
 `,
     })
@@ -14988,6 +17603,10 @@ function EditableProjectRow({ project }) {
 function ProjectTree({ projectMenu }) {
   return <p>{projectMenu.team.name} team · link name {projectMenu.project.slug}</p>
   return <p>{projectMenu.team.name} team · name used in links {projectMenu.project.slug}</p>
+  return <button>Copy project code</button>
+  return <p>Use this only when another page or support asks for this project code</p>
+  return <p>Project code copied</p>
+  return <p>Select the project code below</p>
   return <button>Copy name used in links</button>
   return <button>Copy project short name</button>
   return <p>{projectMenu.project.slug} · short name used in project links</p>
@@ -15024,14 +17643,16 @@ function OrganizationsPanel({ org }) {
     const cwd = fixture({
       'src/app/layouts/sidebar/ProjectTree.tsx': `
 function ProjectTree({ projectMenu }) {
-  return <p>{projectMenu.team.name} team · project link ending {projectMenu.project.slug}</p>
-  return <button>Copy project link ending</button>
-  return <p>{projectMenu.project.slug} · shown at the end of project links</p>
+  return <p>{projectMenu.team.name} team · project link preview {projectMenu.project.slug}</p>
+  return <button>Copy project reference</button>
+  return <p>Project reference copied</p>
+  return <button>Copy project link preview</button>
+  return <p>Project link preview: {projectMenu.project.slug}</p>
 }
 `,
       'src/app/features/admin/OrganizationsPanel.tsx': `
 function OrganizationsPanel({ org }) {
-  return <p>Shown at the end of team space links: {org.slug}</p>
+  return <p>Team space link preview: {org.slug}</p>
 }
 `,
     })
@@ -15039,16 +17660,16 @@ function OrganizationsPanel({ org }) {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags old link-ending copy that says people may see it', () => {
+  it('flags old link-ending copy that asks beginners to reason about link endings', () => {
     const cwd = fixture({
       'src/app/features/manage-team/ui/CreateTeamForm.tsx': `
 function CreateTeamForm({ team }) {
-  return <p>Link ending people may see: {team.slug}</p>
+  return <><p>Link ending people may see: {team.slug}</p><p>Shown at the end of team links: {team.slug}</p></>
 }
 `,
       'src/app/features/manage-project/ui/EditableProjectRow.tsx': `
 function EditableProjectRow({ project }) {
-  return <span>Link ending people may see: {project.slug}</span>
+  return <><span>Link ending people may see: {project.slug}</span><span>Shown at the end of project links: {project.slug}</span></>
 }
 `,
       'src/app/layouts/sidebar/ProjectTree.tsx': `
@@ -15058,7 +17679,7 @@ function ProjectTree({ projectMenu }) {
 `,
       'src/app/features/admin/OrganizationsPanel.tsx': `
 function OrganizationsPanel({ org }) {
-  return <p>Link ending people may see: {org.slug}</p>
+  return <><p>Link ending people may see: {org.slug}</p><p>Shown at the end of team space links: {org.slug}</p></>
 }
 `,
     })
@@ -15100,6 +17721,9 @@ function serverCloneErrorMessage() {
 function fallbackCloneErrorMessage() {
   return 'Could not copy code into the project. Check the code link and saved code access, then try again.'
 }
+function staleRetryActionMessage() {
+  return 'Wait a minute, then try copying code again. Too many copy retries are happening right now.'
+}
 `,
     })
 
@@ -15120,6 +17744,10 @@ function fallbackCloneErrorMessage() {
           type: 'clone-retry-error-copy',
           location: 'src/app/features/manage-project/ui/CloneStatusBadge.tsx:9',
         }),
+        expect.objectContaining({
+          type: 'clone-retry-error-copy',
+          location: 'src/app/features/manage-project/ui/CloneStatusBadge.tsx:12',
+        }),
       ])
     )
   })
@@ -15128,13 +17756,13 @@ function fallbackCloneErrorMessage() {
     const cwd = fixture({
       'src/app/features/manage-project/ui/CloneStatusBadge.tsx': `
 function permissionCloneRetryErrorMessage() {
-  return 'Ask an owner or admin to let you copy code into this project, then try again. You do not have permission right now.'
+  return 'Ask an owner or admin to let you copy code into this project, then open Settings and Teams and Projects and choose Copy code again. You do not have permission right now.'
 }
 function busyCloneRetryErrorMessage() {
-  return 'Wait a minute, then try copying code again. Too many copy retries are happening right now.'
+  return 'Wait a minute, then choose Copy code again from this project row. Too many copy retries are happening right now.'
 }
 function fallbackCloneRetryErrorMessage() {
-  return 'Check the code link and saved code access, then try copying code again. Forge could not copy code into the project.'
+  return 'Open Settings and Teams and Projects, check the code link and saved code access, then choose Copy code again on this project row. Forge could not copy code into the project.'
 }
 `,
     })
@@ -15257,9 +17885,9 @@ export function CloneStatusBadge({ clone }) {
       'src/app/features/manage-project/ui/CloneStatusBadge.tsx': `
 function cloneFailureMessage(clone) {
   if (clone.errorClass === 'auth') {
-    return 'Check saved code access for this code project, then try copying code again. The code website rejected Forge access.'
+    return 'Open Settings and Code access, check saved access for this code project, then choose Copy code again. The code website rejected Forge access.'
   }
-  return 'Check the code link and saved code access, then try copying code again. Forge could not finish copying code.'
+  return 'Open Settings and Teams and Projects, check the code link and saved code access, then choose Copy code again. Forge could not finish copying code.'
 }
 `,
     })
@@ -15303,29 +17931,29 @@ function timeoutFailureMessage() {
     )
   })
 
-  it('accepts recovery copy that gives one clear refresh step', () => {
+  it('accepts recovery copy that gives one clear load step', () => {
     const cwd = fixture({
       'src/app/features/board/boardErrorMessages.ts': `
 function serviceRecoveryMessage(action) {
-  return 'Refresh the board to load tasks. If it still fails, ask an owner or admin to check task board access.'
+  return 'Choose Refresh tasks to load tasks. If it still fails, ask an owner or admin to check task board access.'
 }
 `,
       'src/app/features/detail/taskDetailErrorMessages.ts': `
 function serviceRecoveryMessage(action) {
-  return 'Refresh the detail panel to load saved notes and work history. If it still fails, ask an owner or admin to check task details access.'
+  return 'Open this task again from the Tasks page to load saved notes and work history. If it still fails, ask an owner or admin to check task details access.'
 }
 `,
       'src/app/features/context/approvalQueueErrorMessages.ts': `
 function serviceRecoveryMessage(action) {
-  return 'Refresh the list so you see the latest saved items. Saved items could not load. If it still fails, ask an owner or admin to check Saved items access.'
+  return 'Choose Load saved items again so you see the latest saved items. Saved items could not load. If it still fails, ask an owner or admin to check Saved items access.'
 }
 `,
       'src/app/entities/navigation/model/navigation.store.ts': `
 function navigationActionErrorMessage(actionPhrase) {
-  return 'Check your connection, then refresh the left menu to load task queues.'
+  return 'Check your connection, then open the left menu and try to load task queues again.'
 }
 function serviceRecoveryMessage() {
-  return 'Refresh the left menu to load team and project links. If it still fails, ask an owner or admin to check the left menu.'
+  return 'Open the left menu to load team and project links. If it still fails, ask an owner or admin to check the left menu.'
 }
 `,
     })
@@ -15405,17 +18033,17 @@ function network() {
       'src/app/features/context/approvalQueueErrorMessages.ts': `
 const ACTION_FALLBACKS = {
   approveCandidate: 'Check who can reuse it and the original task details, then save the item again. The item was not saved.',
-  loadQueue: 'Refresh the list so you see the latest saved items. Saved items could not load.',
-  rejectCandidate: 'Refresh the list, then choose Do not save again. The item stayed on the list.',
+  loadQueue: 'Choose Load saved items again so you see the latest saved items. Saved items could not load.',
+  rejectCandidate: 'Choose Load saved items again, then choose Do not save again. The item stayed on the list.',
 }
 function forbidden() {
   return 'Ask an owner or admin to let you save or skip saved notes and instructions, then retry this saved item action. You do not have permission right now.'
 }
 function missing() {
-  return 'Refresh the list so you see the latest saved items. This item was not found.'
+  return 'Choose Load saved items again so you see the latest saved items. This item was not found.'
 }
 function conflict() {
-  return 'Refresh the list, then open this item again. It changed while you were checking it.'
+  return 'Choose Load saved items again, then open this item. It changed while you were checking it.'
 }
 function busy() {
   return 'Wait a moment, then try again. Saved items are busy.'
@@ -15665,7 +18293,7 @@ function needsActionEmptyState() {
     const cwd = fixture({
       'src/app/features/inbox/InboxView.tsx': `
 function InboxLoadError() {
-  return 'Saved notifications could not be loaded. New updates will still appear here. Check your connection, then reload the inbox.'
+  return 'Saved updates could not be loaded, but new live updates will still appear here. Check your connection, then choose Load updates again.'
 }
 `,
     })
@@ -15681,11 +18309,40 @@ function InboxLoadError() {
     ])
   })
 
-  it('accepts inbox load errors that start with the reload action', () => {
+  it('flags inbox recovery copy that sends beginners to reload or refresh inbox', () => {
     const cwd = fixture({
       'src/app/features/inbox/InboxView.tsx': `
 function InboxLoadError() {
-  return 'Check your connection, then reload the inbox. Saved notifications could not be loaded, but new updates will still appear here.'
+  return 'Check your connection, then reload the inbox.'
+}
+function InboxEmptyState() {
+  return 'Open another filter or refresh the inbox if you expected recent updates.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'inbox-reload-copy',
+          location: 'src/app/features/inbox/InboxView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'inbox-reload-copy',
+          location: 'src/app/features/inbox/InboxView.tsx:6',
+        }),
+      ])
+    )
+  })
+
+  it('accepts inbox load errors that name the visible load-again action', () => {
+    const cwd = fixture({
+      'src/app/features/inbox/InboxView.tsx': `
+function InboxLoadError() {
+  return 'Check your connection, then choose Load updates again. Saved updates could not be loaded, but new live updates will still appear here.'
 }
 `,
     })
@@ -15863,6 +18520,47 @@ export function taskFailurePreview() {
 }
 export function taskBlockedPreview() {
   return 'This task needs help before it can continue. Open the task details, check the latest update, then retry or ask an owner for help.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags blocked task approval copy that uses approval jargon', () => {
+    const cwd = fixture({
+      'src/app/shared/lib/taskFailureCopy.ts': `
+export function taskBlockedPreview() {
+  return 'Review the approval request, then approve or decline it.'
+}
+export function beginnerBlockedHint() {
+  return 'Waiting on approval'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-blocked-approval-copy',
+          location: 'src/app/shared/lib/taskFailureCopy.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'task-blocked-approval-copy',
+          location: 'src/app/shared/lib/taskFailureCopy.ts:6',
+        }),
+      ])
+    )
+  })
+
+  it('accepts blocked task copy that points to task details and visible choices', () => {
+    const cwd = fixture({
+      'src/app/shared/lib/taskFailureCopy.ts': `
+export function taskBlockedPreview() {
+  return 'Open the task details, read what the agent needs, then choose Continue or Stop.'
 }
 `,
     })

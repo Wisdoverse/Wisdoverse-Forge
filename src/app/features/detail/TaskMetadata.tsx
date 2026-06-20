@@ -123,12 +123,12 @@ function taskMetadataGuidance(task: TaskSummary, hasAssignee: boolean): string {
         error: task.error,
       })
     case 'completed':
-      return 'The task is finished. Review the Result tab or the final answer before closing the loop.'
+      return 'The task is finished. Check the Result tab or the final answer before closing the loop.'
     case 'failed':
       return taskFailurePreview(task.error)
     case 'canceled':
       return 'The task was stopped intentionally. Open Updates to see the latest saved activity.'
     default:
-      return 'Open Updates to review the latest task activity.'
+      return 'Open Updates to check the latest task activity.'
   }
 }

@@ -162,7 +162,8 @@ test.describe('Inbox owner task notifications', () => {
     const notification = page.locator('[data-testid="inbox-notification-task-owner:t-004:blocked"]')
     await expect(notification).toBeVisible({ timeout: 10_000 })
     await expect(notification).toContainText('Review PR #42')
-    await expect(notification).toContainText('Waiting for owner approval')
+    await expect(notification).toContainText('Open the task details to see what needs confirmation')
+    await expect(notification).not.toContainText('Waiting for owner approval')
 
     await notification.click()
     await page.waitForURL('**/tasks')

@@ -12,6 +12,8 @@ interface TopBarProps {
   viewMode: ViewMode
   onViewChange: (view: ViewMode) => void
   onCreateTask: () => void
+  createTaskLabel?: string
+  createTaskTitle?: string
   agentGroupSelector?: ReactNode
   onCmdK?: () => void
 }
@@ -31,6 +33,8 @@ export function TopBar({
   viewMode,
   onViewChange,
   onCreateTask,
+  createTaskLabel = 'New task',
+  createTaskTitle = 'Create a task for an agent to finish.',
   agentGroupSelector,
   onCmdK,
 }: TopBarProps) {
@@ -120,10 +124,12 @@ export function TopBar({
           <button
             type="button"
             onClick={onCreateTask}
+            aria-label={createTaskLabel}
+            title={createTaskTitle}
             className="inline-flex items-center gap-1.5 rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95"
           >
             <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
-            <span>New task</span>
+            <span>{createTaskLabel}</span>
           </button>
         )}
       </div>

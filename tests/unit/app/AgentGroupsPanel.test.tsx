@@ -169,6 +169,9 @@ describe('AgentGroupsPanel', () => {
     expect(screen.queryByText(/rate limit exceeded/i)).toBeNull()
     expect(screen.queryByText(/from provider/i)).toBeNull()
     expect(screen.queryByText('Other group work')).toBeNull()
+    expect(screen.getByLabelText('Search tasks in this waiting place')).toHaveAccessibleDescription(
+      'Search only filters tasks in this waiting place. Use Show all tasks here to return to the full waiting place.'
+    )
   })
 
   test('describes completed task review without handoff wording', () => {
@@ -202,8 +205,9 @@ describe('AgentGroupsPanel', () => {
 
     expect(screen.getByText('Deploy settings')).toBeInTheDocument()
     expect(
-      screen.getByText(/assigned agent .* waiting for an available agent to start it/i)
+      screen.getByText(/chosen agent .* waiting for an available agent to start it/i)
     ).toBeInTheDocument()
+    expect(screen.queryByText(/assigned agent/i)).toBeNull()
     expect(screen.queryByText(/unassigned/i)).toBeNull()
   })
 
@@ -243,18 +247,25 @@ describe('AgentGroupsPanel', () => {
 
     render(<AgentGroupsPanel />)
 
-    fireEvent.change(screen.getByTestId('task-routing-search'), {
+    const search = screen.getByLabelText('Search tasks in this waiting place')
+    expect(search).toHaveAccessibleDescription(
+      'Search only filters tasks in this waiting place. Use Show all tasks here to return to the full waiting place.'
+    )
+
+    fireEvent.change(search, {
       target: { value: 'auth' },
     })
 
     expect(screen.getByText('Auth handoff blocked')).toBeInTheDocument()
     expect(screen.queryByText('Build settings page')).toBeNull()
 
-    fireEvent.change(screen.getByTestId('task-routing-search'), {
+    fireEvent.change(search, {
       target: { value: 'missing' },
     })
 
     const emptyState = screen.getByTestId('task-routing-filter-empty')
+    expect(emptyState).toHaveAttribute('role', 'status')
+    expect(emptyState).toHaveAttribute('aria-live', 'polite')
     expect(
       within(emptyState).getByText('Search is hiding tasks in this waiting place')
     ).toBeInTheDocument()
@@ -296,7 +307,7 @@ describe('AgentGroupsPanel', () => {
     expect(screen.queryByDisplayValue(/scoped changes/i)).toBeNull()
     expect(screen.queryByDisplayValue(/handoff/i)).toBeNull()
     const reviewSummary = screen.getByText('Check before release')
-    const triageSummary = screen.getByText('Clarify and assign')
+    const triageSummary = screen.getByText('Clarify and send')
     fireEvent.click(triageSummary.closest('button')!)
     expect(screen.getByRole('button', { name: /sort work/i })).toBeInTheDocument()
     expect(screen.getByLabelText(/waiting place name/i)).toHaveValue('Intake Tasks')
@@ -318,7 +329,9 @@ describe('AgentGroupsPanel', () => {
     fireEvent.change(screen.getByLabelText(/waiting place name/i), { target: { value: '' } })
     fireEvent.submit(screen.getByRole('button', { name: /create waiting place/i }).closest('form')!)
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
       'Name this waiting place before creating it. Examples: Intake, Review, or Delivery.'
     )
     expect(screen.getByLabelText(/waiting place name/i)).toHaveFocus()
@@ -347,7 +360,9 @@ describe('AgentGroupsPanel', () => {
     })
     fireEvent.submit(screen.getByRole('button', { name: /create waiting place/i }).closest('form')!)
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
       'Ask an owner or admin to let you set up where tasks wait in this project. The waiting place was not created.'
     )
     expect(screen.getByLabelText(/waiting place name/i)).toHaveValue('Delivery Tasks')

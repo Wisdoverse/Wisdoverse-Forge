@@ -81,12 +81,12 @@ function actionFromText(text: string): SshKeyAction {
 function retryAction(action: SshKeyAction): string {
   if (action === 'save') return 'save this SSH code access again'
   if (action === 'remove') return 'remove this SSH code access again'
-  return 'refresh Settings to load SSH code access'
+  return 'open Settings and SSH code access again'
 }
 
 function connectionMessage(action: SshKeyAction): string {
   if (action === 'load') {
-    return 'Check your connection, then refresh Settings to load SSH code access. Forge could not connect while opening SSH code access.'
+    return 'Check your connection, then open Settings and SSH code access again. Forge could not connect while opening SSH code access.'
   }
   if (action === 'remove') {
     return 'Check your connection, then remove this SSH code access again. The removal did not finish.'
@@ -146,13 +146,13 @@ export function sshKeysErrorMessage(error: unknown): string {
   }
   if (code != null && code >= 500) {
     if (action === 'load') {
-      return 'Refresh Settings to load SSH code access. If it still fails, ask an owner or admin to check SSH code access settings.'
+      return 'Open Settings and SSH code access again. If it still fails, ask an owner or admin to check SSH code access settings.'
     }
-    return `Refresh Settings, then ${retry}. If it still fails, ask an owner or admin to check SSH code access settings.`
+    return `Open Settings and SSH code access again, then ${retry}. If it still fails, ask an owner or admin to check SSH code access settings.`
   }
 
   if (action === 'load') {
-    return 'Refresh Settings to load SSH code access. If it still fails, ask an owner or admin to check SSH code access settings.'
+    return 'Open Settings and SSH code access again. If it still fails, ask an owner or admin to check SSH code access settings.'
   }
 
   return `Try to ${retry}. If it still fails, ask an owner or admin to check SSH code access settings.`

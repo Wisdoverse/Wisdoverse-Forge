@@ -117,6 +117,7 @@ describe('Billing views', () => {
     fireEvent.click(screen.getByRole('button', { name: /upgrade plan/i }))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
       'Check your connection, then try opening the secure payment page again.'
     )
@@ -156,6 +157,7 @@ describe('Billing views', () => {
     fireEvent.click(screen.getByRole('button', { name: /manage billing/i }))
 
     const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
       'Ask an owner or admin to give you billing access, then try opening the billing management page again.'
     )

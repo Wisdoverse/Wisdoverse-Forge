@@ -179,7 +179,7 @@ describe('InjectionPreviewModal', () => {
     expect(screen.queryByText('Unknown')).toBeNull()
   })
 
-  test('labels missing work locations as not listed', () => {
+  test('labels missing work locations with a check step', () => {
     render(
       <InjectionPreviewModal
         isOpen
@@ -195,7 +195,7 @@ describe('InjectionPreviewModal', () => {
     )
 
     expect(screen.getByText('Work location')).toBeDefined()
-    expect(screen.getByText('Refresh work location')).toBeDefined()
+    expect(screen.getByText('Check where this ran')).toBeDefined()
     expect(screen.queryByText('Runtime')).toBeNull()
   })
 

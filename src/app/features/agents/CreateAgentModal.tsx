@@ -79,11 +79,11 @@ const AGENT_ROLE_TEMPLATES: AgentRoleTemplate[] = [
   },
   {
     id: 'reviewer',
-    label: 'Review work',
+    label: 'Check results',
     summary: 'Looks for risks before use',
-    name: 'Review Helper',
+    name: 'Result Check Helper',
     systemPrompt:
-      'You review work before the team uses it. Look for confusing behavior, missing checks, risky changes, and unclear next steps. Explain each concern in plain language and end with a clear use, fix, or wait recommendation.',
+      'You check work before the team uses it. Look for confusing behavior, missing checks, risky changes, and unclear next steps. Explain each concern in plain language and end with a clear use, fix, or wait recommendation.',
     Icon: ClipboardCheck,
   },
   {
@@ -107,8 +107,8 @@ const AGENT_ROLE_TEMPLATES: AgentRoleTemplate[] = [
 ]
 
 /**
- * A Provider + Prompt agent option, sourced from the configured LLM providers
- * (the gateway) in Settings → LLM Providers. Each configured provider carries
+ * A simple chat agent option, sourced from the configured AI services
+ * in Settings. Each configured AI service carries
  * its own display name and model, so we no longer keep a hardcoded list.
  */
 interface ProviderOption {
@@ -133,7 +133,7 @@ function setupCommandPasteHint(os: 'posix' | 'windows'): string {
 }
 
 /**
- * Build the Provider + Prompt options from configured providers. Prefer
+ * Build the simple chat agent options from configured AI services. Prefer
  * providers that passed a connection test; fall back to all enabled providers
  * so a freshly-added (untested) provider is still usable.
  */
@@ -193,8 +193,9 @@ function runtimeFitFor(
   }
 
   return {
-    title: `${providerLabel} for chat and review`,
-    detail: 'Best for questions, planning, writing, and review that do not need project files.',
+    title: `${providerLabel} for questions and result checks`,
+    detail:
+      'Best for questions, planning, writing, and checking results when no project files need to be opened.',
     items: [
       { label: 'Where it works', value: 'AI service only' },
       { label: 'Files', value: 'Does not open project files' },
@@ -238,7 +239,7 @@ function createReviewItems({
     kind === 'local-cli'
       ? 'Forge creates the agent, then shows setup steps for this computer.'
       : kind === 'provider'
-        ? 'Ready for chat and review after the AI service is connected.'
+        ? 'Ready for questions and result checks after the AI service is connected.'
         : 'Forge starts it after the project file area is ready.'
 
   const taskQueue = selectedGroupName
@@ -247,20 +248,20 @@ function createReviewItems({
       ? hasGroups
         ? 'Choose where tasks wait now, or set it later from Tasks.'
         : 'Set up where tasks wait here when you want new tasks to wait in one place.'
-      : 'Choose a project later before assigning tasks.'
+      : 'Choose a project later before sending tasks.'
 
   const nextStep =
     kind === 'local-cli'
       ? "Paste the setup text in this computer's command app and keep that app open."
       : kind === 'provider'
-        ? 'Ask a first question or assign review work that does not need files.'
+        ? 'Ask a first question, or send a result-check task that does not need files.'
         : 'Wait until it shows Ready, then send one small task from Tasks.'
 
   return [
     { label: 'Where it works', value: runtimeTitle },
     {
       label: 'Project for new tasks',
-      value: projectName ?? 'Choose a project before assigning tasks.',
+      value: projectName ?? 'Choose a project before sending tasks.',
     },
     { label: 'Where tasks wait', value: taskQueue },
     { label: 'Next step', value: nextStep },
@@ -293,8 +294,8 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
   const [copiedJoin, setCopiedJoin] = useState(false)
   const [copyError, setCopyError] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
-  // Provider + Prompt agents pick from the configured providers (the LLM
-  // gateway), preferring tested ones. No usable provider = a clear hint, no
+  // Simple chat agents pick from configured AI services, preferring tested
+  // ones. No usable AI service = a clear hint, no
   // broken dropdown.
   const providerOptions = useMemo(() => buildProviderOptions(providers), [providers])
   const hasProviderOptions = providerOptions.length > 0
@@ -385,8 +386,8 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [createModalOpen, setCreateModalOpen, setError])
 
-  // Provider + Prompt options are sourced from the configured LLM providers in
-  // the settings store, but only the Settings and Getting Started pages load
+  // Simple chat agent options are sourced from configured AI services in the
+  // settings store, but only the Settings and Getting Started pages load
   // that store. Opening this modal from a deep link to /agents would otherwise
   // show an empty provider list even when the org has providers configured.
   // Self-load once per open so the dropdown is populated wherever the modal is
@@ -596,7 +597,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
             id="create-agent-title"
             className="text-ui-title font-semibold text-foreground-light dark:text-foreground-dark"
           >
-            {localEnrollment ? 'Connect this computer' : 'Create an agent'}
+            {localEnrollment ? 'Connect this computer' : 'New agent'}
           </h2>
           <button
             type="button"
@@ -658,7 +659,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
               </div>
               <p className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {localEnrollment.enrollment?.joinCommand
-                  ? "Open this computer's command app, paste the setup text there, and keep that app open while it works. Forge will show it as an agent here, assign tasks to it, and keep its status and history. Files stay on that computer."
+                  ? "Open this computer's command app, paste the setup text there, and keep that app open while it works. Forge will show it as an agent here, let you send tasks to it, and keep its status and history. Files stay on that computer."
                   : 'Paste this setup text on the computer where this agent should work. Forge will manage its tasks, status, and history while files stay on that computer.'}
               </p>
             </div>
@@ -806,7 +807,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
             )}
 
             {copyError && (
-              <p role="alert" className="text-ui-caption text-apple-red">
+              <p role="alert" aria-live="polite" className="text-ui-caption text-apple-red">
                 {copyError}
               </p>
             )}
@@ -817,7 +818,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 onClick={handleCreateAnother}
                 className="rounded-full bg-surface-pearl px-4 py-2 text-ui-button font-medium text-foreground-light ring-1 ring-black/[0.04] transition-transform active:scale-95 dark:bg-white/[0.06] dark:text-foreground-dark"
               >
-                Create another
+                Add another agent
               </button>
               {localEnrollment.enrollment?.joinCommand ? (
                 <button
@@ -974,7 +975,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                   ? 'Forge opens the shared project folder for file and command work.'
                   : kind === 'local-cli'
                     ? 'Uses files and commands on your computer. Forge still manages the agent here with tasks, status, and history.'
-                    : 'Uses a connected AI service for planning, writing, and review. It does not open files or run commands.'}
+                    : 'Uses a connected AI service for planning, writing, and checking results. It does not open files or run commands.'}
               </p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 Not sure? Use Project files when the agent should edit shared project files, This
@@ -1037,7 +1038,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     ? 'Project ready. Tasks default to this project. File access stays on the joined computer.'
                     : 'Project ready. Tasks default to this project. Forge opens the shared project folder for this agent.'
                   : kind === 'provider'
-                    ? 'You can create this chat-only agent now. Choose a project later before assigning tasks.'
+                    ? 'You can create this chat-only agent now. Choose a project later before sending tasks.'
                     : 'Open project settings to create or choose a project before creating this file-working agent.'}
               </p>
               {!selectedProject && onOpenProjectsSetup ? (
@@ -1157,7 +1158,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     id="systemPrompt"
                     {...register('systemPrompt')}
                     rows={4}
-                    placeholder="e.g. Help review tasks, explain risks in plain language, and list the next step."
+                    placeholder="e.g. Help check task results, explain risks in plain language, and list the next step."
                     className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                   />
                 </div>
@@ -1276,7 +1277,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                   loading && 'opacity-50 cursor-not-allowed'
                 )}
               >
-                {loading ? 'Creating…' : 'Create agent'}
+                {loading ? 'Adding…' : 'Add agent'}
               </button>
             </div>
           </form>

@@ -44,7 +44,7 @@ describe('AssignmentReadinessPanel', () => {
 
     const emptyState = screen.getByTestId('assignment-readiness-empty')
     expect(screen.getByRole('heading', { name: 'Agent status' })).toBeDefined()
-    expect(screen.getByRole('button', { name: 'Refresh agent status' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Check agent status' })).toBeDefined()
     expect(screen.getByRole('link', { name: /open agents/i })).toHaveAttribute('href', '/agents')
     expect(screen.getByText('Connect an agent before sending work.')).toBeDefined()
     expect(within(emptyState).getByText('Connect an agent before sending work')).toBeDefined()
@@ -65,6 +65,7 @@ describe('AssignmentReadinessPanel', () => {
     expect(
       screen.queryByRole('button', { name: ['Refresh', 'agent', 'readiness'].join(' ') })
     ).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Refresh agent status' })).toBeNull()
     expect(screen.queryByText('No agents are connected to this task queue yet.')).toBeNull()
     expect(emptyState.textContent).not.toContain('backlog')
     expect(emptyState.textContent).not.toContain('dispatch')
@@ -99,6 +100,25 @@ describe('AssignmentReadinessPanel', () => {
     expect(readiness.textContent).not.toContain('handed off')
     expect(readiness.textContent).not.toContain('can start now')
     expect(screen.getByTestId('assignment-metric-unassigned').textContent).toContain('Needs agent')
+  })
+
+  test('announces status load errors as recoverable alerts', () => {
+    render(
+      <AssignmentReadinessPanel
+        participants={[]}
+        workload={{ ...emptyWorkload, backlog: 1, unassigned: 1 }}
+        loading={false}
+        error="We could not check agents. Choose Check agent status before sending work."
+        onRefresh={vi.fn()}
+      />
+    )
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent(
+      'We could not check agents. Choose Check agent status before sending work.'
+    )
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(screen.getByRole('button', { name: 'Check agent status' })).toBeDefined()
   })
 
   test('explains how to unblock tasks when no agent is available', () => {
@@ -190,6 +210,31 @@ describe('AssignmentReadinessPanel', () => {
     expect(screen.getByTestId('assignment-metric-blocked').textContent).toContain('Needs help')
     expect(readiness.textContent).not.toContain('blocked tasks')
     expect(readiness.textContent).not.toContain('Blocked')
+  })
+
+  test('summarizes completed tasks as ready to check', () => {
+    render(
+      <AssignmentReadinessPanel
+        participants={[
+          {
+            id: 'participant-1',
+            agentId: 'agent-1',
+            name: 'Ready Agent',
+            status: 'available',
+            capabilities: ['codex'],
+          },
+        ]}
+        workload={{ ...emptyWorkload, review: 2 }}
+        loading={false}
+        error={null}
+        onRefresh={vi.fn()}
+      />
+    )
+
+    const readiness = screen.getByTestId('assignment-readiness')
+    expect(readiness.textContent).toContain('2 completed tasks ready to check.')
+    expect(screen.getByText('Ready to check')).toBeDefined()
+    expect(readiness.textContent).not.toContain('ready for review')
   })
 
   test('uses plain offline agent activity labels', () => {

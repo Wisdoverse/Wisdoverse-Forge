@@ -42,9 +42,17 @@ function isNetworkError(err: unknown): boolean {
 }
 
 const TOOL_SWITCH_REVERTED = 'The switch was returned to its previous setting.'
+const LOAD_TOOLS_STEP = 'Go back to Agents, choose this agent again, then open Tools.'
+const LOAD_TOOLS_AFTER_ACTION = 'go back to Agents, choose this agent again, then open Tools.'
+const LOAD_TOOLS_AGAIN_AFTER_ACTION =
+  'go back to Agents, choose this agent again, then open Tools again.'
+const RETRY_TOOL_CHANGE_STEP =
+  'Go back to Agents, choose this agent again, then open Tools and try the tool change again.'
+const CHOOSE_CURRENT_TOOL_STEP =
+  'Go back to Agents, choose this agent again, then open Tools and choose the current tool again.'
 
 function loadPrefix(): string {
-  return 'Refresh this agent page to load tools.'
+  return LOAD_TOOLS_STEP
 }
 
 function saveMessage(firstStep: string, detail: string): string {
@@ -58,8 +66,11 @@ export function agentPluginErrorMessage(action: AgentPluginErrorAction, err: unk
 
   if (code === 401) {
     return action === 'load'
-      ? `${base} Sign in again, then reopen this agent.`
-      : saveMessage('Sign in again, then reopen this agent and try the tool change again.', '')
+      ? `Sign in again, then ${LOAD_TOOLS_AFTER_ACTION}`
+      : saveMessage(
+          'Sign in again, then go back to Agents, choose this agent again, and try the tool change again.',
+          ''
+        )
   }
   if (code === 403) {
     return action === 'load'
@@ -70,13 +81,13 @@ export function agentPluginErrorMessage(action: AgentPluginErrorAction, err: unk
     return action === 'load'
       ? `${base} This agent or tool may have been changed by someone else.`
       : saveMessage(
-          'Refresh this agent page, then choose the current tool again.',
+          CHOOSE_CURRENT_TOOL_STEP,
           'This agent or tool may have been changed by someone else.'
         )
   }
   if (code === 409) {
     return action === 'load'
-      ? `${base} Wait a moment, then refresh this agent page again. Another change is still being saved.`
+      ? `Wait a moment, then ${LOAD_TOOLS_AGAIN_AFTER_ACTION} Another change is still being saved.`
       : saveMessage(
           'Wait a moment, then try the tool change again.',
           'Another change is still being saved.'
@@ -84,7 +95,7 @@ export function agentPluginErrorMessage(action: AgentPluginErrorAction, err: unk
   }
   if (code === 429) {
     return action === 'load'
-      ? `${base} Wait a minute, then refresh this agent page again. Too many requests are happening right now.`
+      ? `Wait a minute, then ${LOAD_TOOLS_AGAIN_AFTER_ACTION} Too many requests are happening right now.`
       : saveMessage(
           'Wait a minute, then try the tool change again.',
           'Too many requests are happening right now.'
@@ -92,7 +103,7 @@ export function agentPluginErrorMessage(action: AgentPluginErrorAction, err: unk
   }
   if (code != null && code >= 500) {
     return action === 'load'
-      ? `${base} Wait a few minutes, then refresh this agent page again. Forge could not finish this tool request right now. If it still fails, ask an owner or admin to check this agent's tool list.`
+      ? `Wait a few minutes, then ${LOAD_TOOLS_AGAIN_AFTER_ACTION} Forge could not finish this tool request right now. If it still fails, ask an owner or admin to check this agent's tool list.`
       : saveMessage(
           'Wait a few minutes, then try the tool change again.',
           "Forge could not finish this tool request right now. If it still fails, ask an owner or admin to check this agent's tool list."
@@ -100,7 +111,7 @@ export function agentPluginErrorMessage(action: AgentPluginErrorAction, err: unk
   }
   if (isNetworkError(err)) {
     return action === 'load'
-      ? `${base} Check your connection, then refresh this agent page again. Forge could not connect while checking this agent's tools.`
+      ? `Check your connection, then ${LOAD_TOOLS_AGAIN_AFTER_ACTION} Forge could not connect while checking this agent's tools.`
       : saveMessage(
           'Check your connection, then try the tool change again.',
           "Forge could not connect while checking this agent's tools."
@@ -110,7 +121,7 @@ export function agentPluginErrorMessage(action: AgentPluginErrorAction, err: unk
     return action === 'load'
       ? `${base} If it still fails, ask an owner or admin to check team space tools.`
       : saveMessage(
-          'Refresh this agent page, then try the tool change again.',
+          RETRY_TOOL_CHANGE_STEP,
           "Forge could not read this agent's tool list. If it still fails, ask an owner or admin to check team space tools."
         )
   }
@@ -118,7 +129,7 @@ export function agentPluginErrorMessage(action: AgentPluginErrorAction, err: unk
   return action === 'load'
     ? `${base} If it still fails, ask an owner or admin to check this agent's tool list.`
     : saveMessage(
-        'Refresh this agent page, then try the tool change again.',
+        RETRY_TOOL_CHANGE_STEP,
         "If it still fails, ask an owner or admin to check this agent's tool list."
       )
 }

@@ -26,7 +26,7 @@ export function taskStateLabel(
   options: TaskStateLabelOptions = {}
 ): string {
   const normalized = normalizedMachineValue(state)
-  if (!normalized) return 'Refresh task status'
+  if (!normalized) return 'Open task details to check status'
   if (normalized === 'completed' && options.completedLabel) return options.completedLabel
   return TASK_STATE_LABELS[normalized] ?? 'Check task status'
 }
@@ -35,7 +35,7 @@ export function taskPriorityLabel(
   priority: TaskSummary['priority'] | string | null | undefined
 ): string {
   const normalized = normalizedMachineValue(priority)
-  if (!normalized) return 'Refresh task priority'
+  if (!normalized) return 'Open task details to check priority'
   return TASK_PRIORITY_LABELS[normalized] ?? 'Check task priority'
 }
 

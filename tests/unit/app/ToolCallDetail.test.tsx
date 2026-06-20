@@ -46,9 +46,7 @@ describe('ToolCallDetail', () => {
       screen.getByText('What the agent was told or given before it ran this step.')
     ).toBeInTheDocument()
     expect(screen.getByText('After this step')).toBeInTheDocument()
-    expect(
-      screen.getByText('What the agent showed after this step finished.')
-    ).toBeInTheDocument()
+    expect(screen.getByText('What the agent showed after this step finished.')).toBeInTheDocument()
     expect(screen.getByText('Command the agent used: npm run typecheck')).toBeInTheDocument()
     expect(screen.getByText(/Typecheck passed/)).toBeInTheDocument()
     expect(screen.queryByText(/cwd/i)).toBeNull()
@@ -59,15 +57,32 @@ describe('ToolCallDetail', () => {
     expect(screen.queryByText(/support review/i)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /show what the agent received/i }))
-    fireEvent.click(screen.getByRole('button', { name: /show result details/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show what happened/i }))
 
-    expect(screen.getByText(/Project folder: \/workspace\/app/i)).toBeInTheDocument()
+    expect(screen.getByText(/Where file work ran: \/workspace\/app/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Use this only if an owner or admin asks where file work ran/i)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Project folder: \/workspace\/app/i)).toBeNull()
     expect(screen.getByText(/File or link: src\/app\/main\.tsx/i)).toBeInTheDocument()
     expect(screen.getByText(/Time spent: about 1 second/i)).toBeInTheDocument()
     expect(screen.queryByText(/Duration: 1\.2s/i)).toBeNull()
     expect(screen.queryByText(/^Path:/i)).toBeNull()
     expect(screen.queryByText(/cwd/i)).toBeNull()
     expect(screen.queryByText(/durationMs/i)).toBeNull()
+  })
+
+  test('explains the default project folder instead of showing it as a path to type', () => {
+    render(<ToolCallDetail call={{ ...baseCall, input: { command: 'pwd', cwd: '/workspace' } }} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /show step details for command runner/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show what the agent received/i }))
+
+    expect(
+      screen.getByText(/Where file work ran: Default agent project folder/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/You do not need to type this/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Project folder: \/workspace/i)).toBeNull()
   })
 
   test('flags failed tool output as something to review before trusting the answer', () => {
@@ -131,7 +146,7 @@ describe('ToolCallDetail', () => {
     expect(screen.queryByText(/secret token/i)).toBeNull()
     expect(screen.queryByText(/raw command output/i)).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: /show result details/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show what happened/i }))
 
     expect(screen.getByText(/Problem: This step hit a problem/i)).toBeInTheDocument()
     expect(screen.queryByText(/technical problem/i)).toBeNull()
@@ -139,6 +154,34 @@ describe('ToolCallDetail', () => {
     expect(screen.queryByText(/stack trace/i)).toBeNull()
     expect(screen.queryByText(/secret token/i)).toBeNull()
     expect(screen.queryByText(/raw command output/i)).toBeNull()
+  })
+
+  test('turns command output fields into beginner next steps instead of raw logs', () => {
+    render(
+      <ToolCallDetail
+        call={{
+          ...baseCall,
+          output: {
+            stdout: 'raw success output from the command',
+            stderr: 'permission denied: raw failure output',
+          },
+          success: false,
+        }}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /show step details for command runner/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show what happened/i }))
+
+    expect(
+      screen.getByText(/Command output: Command output was saved.*before relying on it/i)
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/Problem output: Problem output was saved.*before retrying/i)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/raw success output/i)).toBeNull()
+    expect(screen.queryByText(/permission denied/i)).toBeNull()
+    expect(screen.queryByRole('button', { name: /show result details/i })).toBeNull()
   })
 
   test('uses check wording when saved setup details cannot be shown safely', () => {
@@ -150,7 +193,9 @@ describe('ToolCallDetail', () => {
     fireEvent.click(screen.getByRole('button', { name: /show step details for command runner/i }))
     fireEvent.click(screen.getByRole('button', { name: /show what the agent received/i }))
 
-    expect(screen.getByText(/Extra details were saved but could not be shown safely/i)).toBeDefined()
+    expect(
+      screen.getByText(/Extra details were saved but could not be shown safely/i)
+    ).toBeDefined()
     expect(screen.getByText(/Check the summary above/i)).toBeDefined()
     expect(screen.queryByText(/Review the summary above/i)).toBeNull()
   })

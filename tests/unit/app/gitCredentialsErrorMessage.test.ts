@@ -42,7 +42,7 @@ describe('gitCredentialsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings, then remove code access again. If it still fails, ask an owner or admin to check code access settings.'
+      'Open Settings and Code access again, then remove code access again. If it still fails, ask an owner or admin to check code access settings.'
     )
     expect(message).not.toContain('temporarily unavailable')
     expect(message).not.toContain('Code access could not be removed')
@@ -53,7 +53,7 @@ describe('gitCredentialsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load code access. If it still fails, ask an owner or admin to check code access settings.'
+      'Open Settings and Code access again. If it still fails, ask an owner or admin to check code access settings.'
     )
   })
 
@@ -62,7 +62,7 @@ describe('gitCredentialsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then refresh Settings to load code access. Forge could not connect while opening code access.'
+      'Check your connection, then open Settings and Code access again. Forge could not connect while opening code access.'
     )
     expect(message).not.toContain('service')
     expect(message).not.toContain('Failed to fetch')
@@ -102,7 +102,7 @@ describe('gitCredentialsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Refresh Settings to load code access. If it still fails, ask an owner or admin to check code access settings.'
+      'Open Settings and Code access again. If it still fails, ask an owner or admin to check code access settings.'
     )
     expect(message).not.toContain('vault')
   })

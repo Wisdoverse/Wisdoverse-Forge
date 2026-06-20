@@ -207,7 +207,7 @@ describe('AgentDetailView', () => {
       />
     )
     expect(screen.getByTestId('agent-assignment-fit')).toBeDefined()
-    expect(screen.getByText('Can be assigned now')).toBeDefined()
+    expect(screen.getByText('Ready for work')).toBeDefined()
     expect(screen.getByText('Implement onboarding flow')).toBeDefined()
     expect(screen.getByText('Finish a task, then save useful steps.')).toBeDefined()
     expect(screen.queryByText(/task\s+context/i)).toBeNull()
@@ -289,14 +289,16 @@ describe('AgentDetailView', () => {
 
     render(<AgentDetailView agent={{ ...containerAgent, status: 'working' }} onBack={() => {}} />)
 
-    expect(await screen.findByText('Refresh or open Tasks to check activity')).toBeDefined()
+    expect(await screen.findByText('Choose this agent again or open Tasks')).toBeDefined()
     expect(
       screen.getByText(
-        "This page could not load the agent's recent task history. Refresh Agents, or open Tasks to confirm what is running before assigning more work."
+        "This page could not load the agent's recent task history. Go back to Agents and choose this agent again, or open Tasks to confirm what is running before sending more work."
       )
     ).toBeDefined()
     expect(
-      screen.getByText("Refresh Agents or open Tasks to check this agent's latest work.")
+      screen.getByText(
+        "Go back to Agents and choose this agent again, or open Tasks to check this agent's latest work."
+      )
     ).toBeDefined()
     expect(screen.getByText(/latest task state before deciding/)).toBeDefined()
     expect(screen.getByRole('button', { name: /open tasks/i })).toBeDefined()
@@ -442,7 +444,9 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('Check the AI service before sending work')).toBeDefined()
     expect(screen.getByText('Open AI service settings and choose Check connection')).toBeDefined()
     expect(within(nextStep).getByText(/choose Check connection for this service/i)).toBeDefined()
-    expect(within(nextStep).getByText(/refresh Agents before sending chat work/i)).toBeDefined()
+    expect(
+      within(nextStep).getByText(/return to Agents and choose this agent again/i)
+    ).toBeDefined()
     expect(screen.getByText(/returns to Ready and can answer in chat/i)).toBeDefined()
     expect(screen.getByRole('link', { name: /open AI service settings/i })).toHaveAttribute(
       'href',
@@ -488,7 +492,10 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('AI service is ready for chat')).toBeDefined()
     expect(screen.getAllByText('Chat-only AI service').length).toBeGreaterThan(0)
     expect(screen.getByText(/answers in chat through an AI service/i)).toBeDefined()
-    expect(screen.getByText(/can plan, write, and review text/i)).toBeDefined()
+    expect(
+      screen.getByText(/can answer questions, write, and check text or results/i)
+    ).toBeDefined()
+    expect(screen.queryByText(/can plan, write, and review text/i)).toBeNull()
     expect(screen.getByText(/cannot open project files on its own/i)).toBeDefined()
     expect(screen.getByText(/for file work, use an agent on this computer/i)).toBeDefined()
     const accessNote = screen.getByText(/confirm this chat-only agent can answer/i)

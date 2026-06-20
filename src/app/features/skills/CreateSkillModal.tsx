@@ -29,12 +29,12 @@ const SKILL_REVIEW_POINTS = [
 const skillTemplates = [
   {
     id: 'review',
-    label: 'Review checklist',
-    description: 'Review before handoff',
+    label: 'Result check',
+    description: 'Check before the team uses it',
     form: {
-      name: 'review-checklist',
-      description: 'Check work before handoff',
-      triggerPattern: 'review',
+      name: 'result-check',
+      description: 'Check work before the team uses it',
+      triggerPattern: 'check result, ready to use',
       content:
         'Check what changed.\nList risks, missing tests, and the next safe action.\nKeep the answer short and link the file or page you checked when available.',
     },
@@ -54,13 +54,13 @@ const skillTemplates = [
   {
     id: 'work-status',
     label: 'Check work status',
-    description: 'Check review and automated checks once',
+    description: 'Check once, then stop waiting',
     form: {
       name: 'work-status-check',
-      description: 'Summarize review and automated check status from one fresh check',
-      triggerPattern: 'review status, check status, ready to finish',
+      description: 'Summarize result and check status without repeated waiting',
+      triggerPattern: 'check status, ready to finish, waiting checks',
       content:
-        'Check the review page once and summarize only the review result, ready-to-finish status, and automated check result needed for the next step. If the project already has a recent status summary, reuse it instead of refreshing.\nStart with one plain result: Needs a fix, Waiting, or Done.\nFor Needs a fix, open only the failed check or review item needed to make the fix.\nFor Waiting, stop checking in chat. Tell the user when one later check is useful, or point to the project background watcher if one exists.\nFor Done, report the final status and stop.',
+        'Create one fresh status check from the result page, then stop. If the project already has a recent status summary, reuse it instead of refreshing.\nStart with one plain result: Needs a fix, Waiting, or Done.\nFor Needs a fix, open only the failed check or item needed to make the fix, then name the exact next step.\nFor Waiting, do not keep checking in chat. Say what is still running, when one later check is useful, and whether the project background watcher can notify the team.\nFor Done, report the final status, say it is ready for the team to use, and stop.',
     },
   },
   {
@@ -82,8 +82,10 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
   const [form, setForm] = useState(emptyForm)
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [errorAttempt, setErrorAttempt] = useState(0)
   const [fieldError, setFieldError] = useState<'name' | 'content' | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const errorBannerRef = useRef<HTMLDivElement>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
   const contentInputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -92,6 +94,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
     setForm(emptyForm)
     setSelectedTemplateId(null)
     setError(null)
+    setErrorAttempt(0)
     setFieldError(null)
 
     function handleKeyDown(event: KeyboardEvent) {
@@ -101,6 +104,12 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [onClose, open])
+
+  // The submit button sits below a scrollable form, so repeated failures can
+  // look like a dead click unless the visible error is brought back into view.
+  useEffect(() => {
+    if (error) errorBannerRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [error, errorAttempt])
 
   if (!open) return null
 
@@ -119,11 +128,15 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
 
     if (!name) {
       setError('Name this saved instruction before saving it.')
+      setErrorAttempt((current) => current + 1)
+      setFieldError('name')
       nameInputRef.current?.focus()
       return
     }
     if (!content) {
       setError('Add the steps the agent should follow before saving.')
+      setErrorAttempt((current) => current + 1)
+      setFieldError('content')
       contentInputRef.current?.focus()
       return
     }
@@ -141,6 +154,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
       onClose()
     } catch (err) {
       setError(createSkillErrorMessage(err))
+      setErrorAttempt((current) => current + 1)
     } finally {
       setSubmitting(false)
     }
@@ -150,6 +164,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
     setForm(template.form)
     setSelectedTemplateId(template.id)
     setError(null)
+    setFieldError(null)
   }
 
   return (
@@ -193,7 +208,13 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
         </p>
 
         {error && (
-          <div id="create-skill-error" role="alert" className={uiStyles.error}>
+          <div
+            id="create-skill-error"
+            ref={errorBannerRef}
+            role="alert"
+            aria-live="polite"
+            className={uiStyles.error}
+          >
             {error}
           </div>
         )}
@@ -252,6 +273,8 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
               ref={nameInputRef}
               value={form.name}
               onChange={(event) => updateField('name', event.target.value)}
+              aria-invalid={fieldError === 'name'}
+              aria-describedby={fieldError === 'name' ? 'create-skill-error' : undefined}
               className={uiStyles.input}
               placeholder="e.g. release-review"
               autoFocus
@@ -332,6 +355,8 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
               ref={contentInputRef}
               value={form.content}
               onChange={(event) => updateField('content', event.target.value)}
+              aria-invalid={fieldError === 'content'}
+              aria-describedby={fieldError === 'content' ? 'create-skill-error' : undefined}
               className={cn(
                 'min-h-36 w-full resize-y rounded-[18px] border border-black/[0.08] bg-white px-3 py-2 font-mono text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70'
               )}

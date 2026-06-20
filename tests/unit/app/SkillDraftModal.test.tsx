@@ -46,7 +46,12 @@ describe('SkillDraftModal', () => {
     )
 
     expect(screen.getByRole('button', { name: 'Close without publishing' })).toBeDefined()
-    expect(screen.getByText(/saving it for your team space/i)).toBeDefined()
+    expect(
+      screen.getByText(/Check what should repeat before saving it for your team space/i)
+    ).toBeDefined()
+    expect(
+      screen.queryByText(/Review what should repeat before saving it for your team space/i)
+    ).toBeNull()
     expect(screen.queryByText(/saving it for the workspace/i)).toBeNull()
     expect(screen.queryByRole('button', { name: /^Cancel$/ })).toBeNull()
 
@@ -102,8 +107,11 @@ describe('SkillDraftModal', () => {
     expect(openSkills.getAttribute('href')).toBe('/skills')
     expect(chooseAgent.getAttribute('href')).toBe('/agents')
     expect(
-      screen.getByText('Find this instruction, then review the reusable steps before agents use them.')
+      screen.getByText(
+        'Find this instruction, then check the reusable steps before agents use them.'
+      )
     ).toBeDefined()
+    expect(screen.queryByText(/review the reusable steps before agents use them/i)).toBeNull()
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -139,9 +147,11 @@ describe('SkillDraftModal', () => {
     await user.clear(screen.getByLabelText(/^instruction name$/i))
     await user.click(screen.getByRole('button', { name: /publish instruction/i }))
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    const nameAlert = screen.getByRole('alert')
+    expect(nameAlert).toHaveTextContent(
       'Name this instruction before publishing it.'
     )
+    expect(nameAlert).toHaveAttribute('aria-live', 'polite')
     expect(screen.getByLabelText(/^instruction name$/i)).toHaveFocus()
     expect(screen.getByLabelText(/^instruction name$/i)).toHaveAttribute('aria-invalid', 'true')
 
@@ -152,9 +162,11 @@ describe('SkillDraftModal', () => {
     await user.clear(screen.getByLabelText(/^reusable instructions$/i))
     await user.click(screen.getByRole('button', { name: /publish instruction/i }))
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    const stepsAlert = screen.getByRole('alert')
+    expect(stepsAlert).toHaveTextContent(
       'Add the repeatable steps, or keep the suggested steps, before publishing.'
     )
+    expect(stepsAlert).toHaveAttribute('aria-live', 'polite')
     expect(screen.getByLabelText(/^reusable instructions$/i)).toHaveFocus()
     expect(screen.getByLabelText(/^reusable instructions$/i)).toHaveAttribute(
       'aria-invalid',
