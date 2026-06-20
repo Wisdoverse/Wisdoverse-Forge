@@ -964,7 +964,11 @@ export function ProjectTree({
               Edit team details
             </h2>
             {teamEditor.error && (
-              <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-ui-caption text-red-600 dark:bg-red-900/20 dark:text-red-400">
+              <div
+                role="alert"
+                aria-live="polite"
+                className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-ui-caption text-red-600 dark:bg-red-900/20 dark:text-red-400"
+              >
                 {teamEditor.error}
               </div>
             )}
@@ -1026,7 +1030,11 @@ export function ProjectTree({
               Rename project
             </h2>
             {projectEditor.error && (
-              <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-ui-caption text-red-600 dark:bg-red-900/20 dark:text-red-400">
+              <div
+                role="alert"
+                aria-live="polite"
+                className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-ui-caption text-red-600 dark:bg-red-900/20 dark:text-red-400"
+              >
                 {projectEditor.error}
               </div>
             )}

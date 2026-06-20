@@ -534,7 +534,7 @@ describe('Sidebar', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
-    expect(screen.getByText('Enter a team name, then save again.')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter a team name, then save again.')
     expect(screen.queryByText('Team name is required')).not.toBeInTheDocument()
     expect(teamApi.updateTeam).not.toHaveBeenCalled()
   })
@@ -733,7 +733,7 @@ describe('Sidebar', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
-    expect(screen.getByText('Enter a project name, then save again.')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter a project name, then save again.')
     expect(screen.queryByText('Project name is required')).not.toBeInTheDocument()
     expect(projectApi.updateProject).not.toHaveBeenCalled()
   })
