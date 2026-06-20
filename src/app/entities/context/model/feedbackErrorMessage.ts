@@ -1,6 +1,9 @@
 const RAW_NETWORK_ERRORS = [/^Network error$/i, /^Failed to fetch$/i]
 const RAW_STATUS_ERRORS = [/^API\s+\d{3}/i, /^HTTP\s+\d{3}/i, /^Server error\s*\(\d{3}\)$/i]
 const GENERIC_BODY_TEXT = /^(Unauthorized|Forbidden|Not Found|Internal Server Error)$/i
+const FEEDBACK_RETRY_STEP = 'choose the feedback option again'
+const FEEDBACK_OPTION_STEP =
+  'Choose Useful, Outdated, Incorrect, Too sensitive, or Do not use again for this saved item'
 
 export function feedbackErrorMessage(error?: unknown): string {
   const status = statusFromError(error)
@@ -10,32 +13,32 @@ export function feedbackErrorMessage(error?: unknown): string {
     if (detail) {
       return validationMessage(detail)
     }
-    return 'Check your connection, then save this feedback again. Forge could not connect while saving it.'
+    return `Check your connection, then ${FEEDBACK_RETRY_STEP}. Forge could not connect while saving it.`
   }
 
   if (status === 401) {
-    return 'Sign in again, then save this feedback.'
+    return `Sign in again, then ${FEEDBACK_RETRY_STEP}.`
   }
   if (status === 403) {
-    return 'Ask an owner or admin to give you access to this saved item, then save feedback again. You do not have permission to save feedback for this saved item.'
+    return `Ask an owner or admin to give you access to this saved item, then ${FEEDBACK_RETRY_STEP}. You do not have permission to save feedback for this saved item.`
   }
   if (status === 404) {
-    return 'Open task details again, then choose this saved item again. This saved item could not be found.'
+    return `Open task details again, choose this saved item again, then ${FEEDBACK_RETRY_STEP}. This saved item could not be found.`
   }
   if (status === 409) {
-    return 'Open task details again, check this saved item, then save feedback again. This saved item changed while you were giving feedback.'
+    return `Open task details again, check this saved item, then ${FEEDBACK_RETRY_STEP}. This saved item changed while you were giving feedback.`
   }
   if (status === 400 || status === 422) {
     return validationMessage(detail)
   }
   if (status === 429) {
-    return 'Wait a moment, then save this feedback again. Feedback is busy.'
+    return `Wait a moment, then ${FEEDBACK_RETRY_STEP}. Feedback is busy.`
   }
   if (status >= 500) {
-    return 'Open task details again, then save feedback again. Forge could not save feedback right now. If it still fails, ask an owner or admin to check saved item feedback access.'
+    return `Open task details again, then ${FEEDBACK_RETRY_STEP}. Forge could not save feedback right now. If it still fails, ask an owner or admin to check saved item feedback access.`
   }
 
-  return 'Open task details again, then save feedback again. Feedback could not be saved.'
+  return `Open task details again, then ${FEEDBACK_RETRY_STEP}. Feedback could not be saved.`
 }
 
 function statusFromError(error: unknown): number | null {
@@ -127,10 +130,10 @@ function validationMessage(detail: string | null): string {
     normalized.includes('vote') ||
     normalized.includes('rating')
   ) {
-    return 'Choose one feedback option for this saved item, then try again.'
+    return `${FEEDBACK_OPTION_STEP}, then choose it again.`
   }
   if (normalized.includes('context')) {
-    return 'Open task details again, choose the saved item again, then save feedback.'
+    return `Open task details again, choose the saved item again, then ${FEEDBACK_RETRY_STEP}.`
   }
-  return 'Choose one feedback option for this saved item, then try again.'
+  return `${FEEDBACK_OPTION_STEP}, then choose it again.`
 }
