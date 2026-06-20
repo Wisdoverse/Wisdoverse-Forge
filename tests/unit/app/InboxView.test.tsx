@@ -687,8 +687,9 @@ describe('InboxView', () => {
     expect(item).toHaveTextContent('Account access')
     expect(item).toHaveTextContent('Reconnect work access')
     expect(item).toHaveTextContent(
-      'Open Where agents work and reconnect the account agents use for file work.'
+      'Open Codex and work tool sign-in, then reconnect the account agents use for file work.'
     )
+    expect(item).not.toHaveTextContent('Open Where agents work')
     expect(screen.getByText('Codex account access needs reconnecting')).toBeDefined()
     expect(screen.getByText('Codex work account needs reconnecting')).toBeDefined()
     expect(screen.queryByText(/credential expired/i)).toBeNull()
@@ -698,10 +699,10 @@ describe('InboxView', () => {
     await userEvent.setup().click(item)
 
     expect(useFeedStore.getState().notifications[0].read).toBe(true)
-    expect(useSettingsStore.getState().activeSection).toBe('runtime')
+    expect(useSettingsStore.getState().activeSection).toBe('work-tool-sign-ins')
     expect(navigateMock).toHaveBeenCalledWith({
       to: '/settings/$section',
-      params: { section: 'runtime' },
+      params: { section: 'work-tool-sign-ins' },
     })
   })
 
