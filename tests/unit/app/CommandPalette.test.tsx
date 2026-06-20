@@ -122,7 +122,7 @@ describe('CommandPalette', () => {
     expect(screen.getByText('Create a task for an agent to finish.')).toBeDefined()
     expect(screen.getByText('Codex and work tool sign-in')).toBeDefined()
     expect(
-      screen.getByText('Sign in to OpenAI (Codex) before agents work on project files.')
+      screen.getByText('Open the Codex sign-in page before agents work on project files.')
     ).toBeDefined()
     expect(screen.queryByText('Codex CLI sign-in')).toBeNull()
     expect(screen.queryByText(previousActionHeading)).toBeNull()
@@ -172,7 +172,7 @@ describe('CommandPalette', () => {
       expect(screen.getByText('Codex and work tool sign-in')).toBeDefined()
     })
     expect(
-      screen.getByText('Sign in to OpenAI (Codex) before agents work on project files.')
+      screen.getByText('Open the Codex sign-in page before agents work on project files.')
     ).toBeDefined()
     expect(screen.queryByText('No page or option matches that search')).toBeNull()
   })
