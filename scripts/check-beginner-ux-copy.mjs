@@ -411,6 +411,8 @@ const ANALYTICS_REFRESH_DEAD_END_PATTERNS = [
   /\bRefresh task type\b/i,
 ]
 
+const ANALYTICS_TASK_KIND_JARGON_PATTERNS = [/\bReview task\b/i]
+
 const ANALYTICS_GUIDANCE_JARGON_PATTERNS = [
   /\bfailed tool steps\b/i,
   /\bfailures first\b/i,
@@ -2902,6 +2904,12 @@ function hasAnalyticsRefreshDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/analytics/ContextUsageDashboard.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return ANALYTICS_REFRESH_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAnalyticsTaskKindJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/analytics/ContextUsageDashboard.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ANALYTICS_TASK_KIND_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAnalyticsGuidanceJargonCopy(relFile, line) {
@@ -5550,6 +5558,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Saved item analytics must point to Load analytics again or a concrete check instead of refresh wording.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAnalyticsTaskKindJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'analytics-task-kind-copy',
+        location,
+        message:
+          'Saved item analytics task labels must say what the user is checking instead of review task.',
         sample: line.trim(),
       })
     }

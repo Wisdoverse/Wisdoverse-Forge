@@ -182,8 +182,10 @@ describe('ContextUsageDashboard', () => {
     )
 
     const item = screen.getByTestId('context-usage-item')
+    expect(item.textContent).toContain('Reviewer Agent · This computer · Result check task')
     expect(item.textContent).toContain(
       'Next: open the latest task result, then update or remove this before reuse.'
     )
+    expect(item.textContent).not.toContain('Review task')
   })
 })

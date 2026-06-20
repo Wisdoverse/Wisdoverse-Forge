@@ -3302,6 +3302,38 @@ const EMPTY_STALE = {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags saved item analytics task labels that expose review jargon', () => {
+    const cwd = fixture({
+      'src/app/features/analytics/ContextUsageDashboard.tsx': `
+const TASK_KIND_LABELS = {
+  review: 'Review task',
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'analytics-task-kind-copy',
+        location: 'src/app/features/analytics/ContextUsageDashboard.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts saved item analytics task labels that say what users check', () => {
+    const cwd = fixture({
+      'src/app/features/analytics/ContextUsageDashboard.tsx': `
+const TASK_KIND_LABELS = {
+  review: 'Result check task',
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags analytics updated-time copy that does not tell users to refresh', () => {
     const cwd = fixture({
       'src/app/features/analytics/ContextUsageDashboard.tsx': `

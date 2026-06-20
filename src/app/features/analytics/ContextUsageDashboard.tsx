@@ -23,7 +23,7 @@ const TASK_KIND_LABELS: Record<string, string> = {
   coding: 'Code change',
   implementation: 'Implementation task',
   planning: 'Planning task',
-  review: 'Review task',
+  review: 'Result check task',
   workflow: 'Workflow task',
 }
 
