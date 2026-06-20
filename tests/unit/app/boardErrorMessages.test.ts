@@ -40,9 +40,23 @@ describe('boardActionErrorMessage', () => {
     expect(message).not.toContain('app could not reach')
   })
 
+  test('keeps network recovery tied to the board action', () => {
+    expectBeginnerMessage(
+      boardActionErrorMessage('moveTask', new TypeError('Connection refused')),
+      'Choose Refresh tasks, then move the task again. The task was moved back because the board change was not saved. If it still does not update, check your connection, then move the task again.'
+    )
+  })
+
   test('gives a clear next step when no agent can preview context', () => {
     expect(boardActionErrorMessage('previewContext', new Error('No available agent'))).toBe(
       'No agent can check saved items right now. Open Agents to start or connect an agent, then open the Tasks page and check saved items again.'
+    )
+  })
+
+  test('turns rate limits into an action-specific retry step', () => {
+    expectBeginnerMessage(
+      boardActionErrorMessage('publishTask', new Error('429 too many requests')),
+      'The board is busy with too many requests. Wait a moment, then send the task with selected saved notes again.'
     )
   })
 
@@ -108,8 +122,17 @@ describe('boardActionErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Choose where tasks wait for this project, then try the board action again.'
+      'Choose where tasks wait for this project, then create the task again.'
     )
     expect(message).not.toContain('task queue')
+  })
+
+  test('turns missing agent validation into a saved items recovery step', () => {
+    expectBeginnerMessage(
+      boardActionErrorMessage('previewContext', {
+        error: 'Agent is required',
+      }),
+      'Choose an available agent, then open saved items from this task again.'
+    )
   })
 })

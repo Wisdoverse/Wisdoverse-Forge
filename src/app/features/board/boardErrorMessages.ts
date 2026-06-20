@@ -20,6 +20,16 @@ const ACTION_FALLBACKS: Record<BoardErrorAction, string> = {
   selectProject: 'Choose the project again, then create the task. The project was not selected.',
 }
 
+const ACTION_RETRY_STEPS: Record<BoardErrorAction, string> = {
+  createTask: 'create the task again',
+  loadReadiness: 'choose Check agent status',
+  loadTasks: 'choose Refresh tasks',
+  moveTask: 'move the task again',
+  previewContext: 'open saved items from this task again',
+  publishTask: 'send the task with selected saved notes again',
+  selectProject: 'choose the project again',
+}
+
 export function boardActionErrorMessage(action: BoardErrorAction, err: unknown): string {
   const detail = errorDetail(err)
   const normalized = detail.toLowerCase()
@@ -54,7 +64,7 @@ export function boardActionErrorMessage(action: BoardErrorAction, err: unknown):
   }
 
   if (status === 429) {
-    return 'The board is busy with too many requests. Wait a moment, then try again.'
+    return `The board is busy with too many requests. Wait a moment, then ${ACTION_RETRY_STEPS[action]}.`
   }
 
   if (status && status >= 500) {
@@ -71,7 +81,7 @@ function networkRecoveryMessage(action: BoardErrorAction): string {
   if (action === 'loadTasks') {
     return 'If it still does not load, check your connection, then choose Refresh tasks.'
   }
-  return 'If it still does not update, check your connection and try again.'
+  return `If it still does not update, check your connection, then ${ACTION_RETRY_STEPS[action]}.`
 }
 
 function serviceRecoveryMessage(action: BoardErrorAction): string {
@@ -144,13 +154,13 @@ function validationRecovery(action: BoardErrorAction, detail: string): string {
     return 'Add a task result, choose the project and where tasks wait, then create the task again.'
   }
   if (normalized.includes('project')) {
-    return 'Choose a project you can access, then try the board action again.'
+    return `Choose a project you can access, then ${ACTION_RETRY_STEPS[action]}.`
   }
   if (normalized.includes('lane') || normalized.includes('group')) {
-    return 'Choose where tasks wait for this project, then try the board action again.'
+    return `Choose where tasks wait for this project, then ${ACTION_RETRY_STEPS[action]}.`
   }
   if (normalized.includes('agent')) {
-    return 'Choose an available agent, then try the board action again.'
+    return `Choose an available agent, then ${ACTION_RETRY_STEPS[action]}.`
   }
 
   return ACTION_FALLBACKS[action]
