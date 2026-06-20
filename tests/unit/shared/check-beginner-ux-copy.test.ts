@@ -8702,6 +8702,10 @@ function needsActionEmpty() {
   return 'Nothing is asking for your help. Use All to review work that is still moving.'
 }
 
+function needsActionReviewEmpty() {
+  return 'Urgent updates are clear. Use All to review work that is still moving.'
+}
+
 function filteredEmpty() {
   return 'No completed updates in this view'
 }
@@ -8740,6 +8744,10 @@ function offlineGuidance() {
         expect.objectContaining({
           type: 'activity-feed-empty-copy',
           location: 'src/app/features/feed/ActivityFeed.tsx:15',
+        }),
+        expect.objectContaining({
+          type: 'activity-feed-empty-copy',
+          location: 'src/app/features/feed/ActivityFeed.tsx:19',
         }),
         expect.objectContaining({
           type: 'analytics-guidance-copy',

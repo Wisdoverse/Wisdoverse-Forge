@@ -186,8 +186,12 @@ describe('ActivityFeed', () => {
     const emptyState = screen.getByTestId('feed-filter-empty')
     expect(within(emptyState).getByText('You are caught up on urgent updates')).toBeDefined()
     expect(within(emptyState).getByText(/urgent updates are clear/i)).toBeDefined()
+    expect(
+      within(emptyState).getByText(/use all to check work that is still moving/i)
+    ).toBeDefined()
     expect(within(emptyState).getByRole('button', { name: /show all updates/i })).toBeDefined()
     expect(emptyState.textContent).not.toContain('Nothing is asking for your help')
+    expect(emptyState.textContent).not.toContain('Use All to review work that is still moving')
   })
 
   test('shows empty state when no feed items', () => {

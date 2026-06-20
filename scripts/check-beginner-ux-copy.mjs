@@ -435,6 +435,7 @@ const ACTIVITY_FEED_EMPTY_DEAD_END_PATTERNS = [
   /\bNo updates in this view\b/i,
   /\bNo recent activity matches this view\b/i,
   /\bNo progress updates yet\b/i,
+  /\bUse All to review work that is still moving\b/i,
 ]
 
 const SAVED_ITEM_OPTIONAL_EMPTY_DEAD_END_PATTERNS = [/\bNo other saved items were found\b/i]
