@@ -134,12 +134,13 @@ describe('CommandPalette', () => {
     expect(
       screen.queryByText(/try tasks, inbox, saved items, agents, saved instructions, or settings/i)
     ).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+    fireEvent.click(screen.getByRole('button', { name: /show all pages and actions/i }))
 
     await waitFor(() => {
       expect(input).toHaveValue('')
       expect(screen.getByText('Tasks')).toBeDefined()
     })
+    expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull()
     expect(screen.queryByText('No page or action matches that search')).toBeNull()
     expect(screen.queryByText(/common workflow/i)).toBeNull()
     expect(screen.queryByText(previousEmptyTitle)).toBeNull()
@@ -161,7 +162,8 @@ describe('CommandPalette', () => {
     expect(
       screen.queryByText(/try tasks, inbox, saved items, agents, saved instructions, or settings/i)
     ).toBeNull()
-    expect(screen.getByRole('button', { name: 'Clear search' })).toBeDefined()
+    expect(screen.getByRole('button', { name: /show all pages and actions/i })).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull()
     expect(screen.queryByText(previousEmptyTitle)).toBeNull()
     expect(screen.queryByText(new RegExp(previousFullListCopy, 'i'))).toBeNull()
   })

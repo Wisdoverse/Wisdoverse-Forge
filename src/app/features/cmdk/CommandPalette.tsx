@@ -145,7 +145,7 @@ export function CommandPalette({ isOpen, onClose, onSelect }: CommandPaletteProp
                 onClick={() => setSearch('')}
                 className="mt-3 inline-flex h-8 items-center justify-center rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.08]"
               >
-                Clear search
+                Show all pages and actions
               </button>
             </Command.Empty>
 
