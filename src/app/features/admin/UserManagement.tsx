@@ -41,8 +41,8 @@ function userEmptyState(search: string): UserEmptyState {
     return {
       title: 'Search did not find a matching person',
       detail:
-        'Check the spelling or search by their email address. Clear the search to see everyone who can sign in.',
-      actionLabel: 'Clear search',
+        'Check the spelling or search by their email address. Use Show all people to return to everyone who can sign in.',
+      actionLabel: 'Show all people',
     }
   }
 
@@ -395,6 +395,8 @@ export function UserManagement() {
         ) : users.length === 0 ? (
           <div
             data-testid="admin-users-empty"
+            role="status"
+            aria-live="polite"
             className="flex flex-col items-center justify-center px-6 py-12 text-center"
           >
             <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">

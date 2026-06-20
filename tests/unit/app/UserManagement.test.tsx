@@ -303,10 +303,11 @@ describe('UserManagement', () => {
     loadUsers.mockClear()
 
     expect(screen.getByText('Search did not find a matching person')).toBeDefined()
-    expect(screen.getByText(/clear the search to see everyone who can sign in/i)).toBeDefined()
+    expect(screen.getByRole('status')).toHaveTextContent(/show all people/i)
+    expect(screen.getByText(/return to everyone who can sign in/i)).toBeDefined()
     expect(screen.queryByText('No users match this view')).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Show all people' }))
 
     expect(screen.getByLabelText('Search people by name or email')).toHaveValue('')
     await waitFor(() => expect(loadUsers).toHaveBeenCalledWith(1))
@@ -336,7 +337,7 @@ describe('UserManagement', () => {
       screen.getByText(/people appear here after an owner or admin invites them/i)
     ).toBeDefined()
     expect(screen.queryByText('No one is listed yet')).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Show all people' })).toBeNull()
     expect(screen.queryByText('No users match this view')).toBeNull()
   })
 
