@@ -2,12 +2,15 @@ import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 import { useBoardStore } from '@app/shared/model/board.store'
 import { useNavigationStore } from '@app/entities/navigation'
+import { useSettingsStore } from '@app/shared/model/settings.store'
 
 const mockGetParticipants = vi.fn()
 const mockCreateTask = vi.fn()
 const mockGetGroups = vi.fn()
 const mockCreateGroup = vi.fn()
 const routerState = vi.hoisted(() => ({ path: '/tasks' }))
+const originalSetGettingStartedDismissed =
+  useSettingsStore.getState().setGettingStartedDismissed
 
 vi.mock('@app/shared/model/auth.context', () => ({
   useAuth: () => ({
@@ -72,6 +75,11 @@ afterEach(() => {
   cleanup()
   useBoardStore.getState().reset()
   useNavigationStore.getState().reset()
+  useSettingsStore.setState({
+    preferences: null,
+    preferencesLoaded: false,
+    setGettingStartedDismissed: originalSetGettingStartedDismissed,
+  })
   vi.clearAllMocks()
   Object.defineProperty(window, 'innerWidth', { value: 1024, configurable: true })
 })
@@ -310,8 +318,14 @@ describe('AppLayout', () => {
     expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
   })
 
-  test('command palette opens setup checklist recovery in Account settings', async () => {
+  test('command palette restores and opens the setup checklist directly', async () => {
     const onNavigate = vi.fn()
+    const setGettingStartedDismissed = vi.fn().mockResolvedValue(true)
+    useSettingsStore.setState({
+      preferences: { gettingStartedDismissed: true },
+      preferencesLoaded: true,
+      setGettingStartedDismissed,
+    })
 
     render(<MemoryRouter onNavigate={onNavigate} />)
 
@@ -322,14 +336,42 @@ describe('AppLayout', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText('Open Account settings to add the setup checklist back to the left menu.')
+        screen.getByText('Add the setup checklist back to the left menu and open it.')
       ).toBeDefined()
     })
-    fireEvent.click(
-      screen.getByText('Open Account settings to add the setup checklist back to the left menu.')
-    )
+    fireEvent.click(screen.getByText('Add the setup checklist back to the left menu and open it.'))
 
-    expect(onNavigate).toHaveBeenCalledWith('/settings/account')
+    await waitFor(() => expect(setGettingStartedDismissed).toHaveBeenCalledWith(false))
+    await waitFor(() => expect(onNavigate).toHaveBeenCalledWith('/start'))
+    expect(onNavigate).not.toHaveBeenCalledWith('/settings/account')
+    expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
+  })
+
+  test('command palette opens Account settings when setup checklist restore fails', async () => {
+    const onNavigate = vi.fn()
+    const setGettingStartedDismissed = vi.fn().mockResolvedValue(false)
+    useSettingsStore.setState({
+      preferences: { gettingStartedDismissed: true },
+      preferencesLoaded: true,
+      setGettingStartedDismissed,
+    })
+
+    render(<MemoryRouter onNavigate={onNavigate} />)
+
+    fireEvent.click(screen.getByTestId('top-bar-command-search'))
+    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+      target: { value: 'start tutorial' },
+    })
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Add the setup checklist back to the left menu and open it.')
+      ).toBeDefined()
+    })
+    fireEvent.click(screen.getByText('Add the setup checklist back to the left menu and open it.'))
+
+    await waitFor(() => expect(setGettingStartedDismissed).toHaveBeenCalledWith(false))
+    await waitFor(() => expect(onNavigate).toHaveBeenCalledWith('/settings/account'))
     expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
   })
 

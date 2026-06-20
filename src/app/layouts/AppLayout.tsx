@@ -7,6 +7,7 @@ import { RightPanel } from './RightPanel'
 import { useBoardStore } from '@app/shared/model/board.store'
 import { useNavigationStore } from '@app/entities/navigation'
 import { useTheme } from '@app/shared/model/theme.context'
+import { useSettingsStore } from '@app/shared/model/settings.store'
 import { CommandPalette } from '@app/features/cmdk/CommandPalette'
 import { TaskFormModal, type TaskProjectOption } from '@app/features/board/TaskFormModal'
 import { AgentGroupSelector } from '@app/features/board/AgentGroupSelector'
@@ -49,6 +50,7 @@ export function AppLayout({
   const { viewMode, setViewMode } = useBoardStore()
   const toggleSidebar = useNavigationStore((s) => s.toggleSidebar)
   const sidebarExpanded = useNavigationStore((s) => s.sidebarExpanded)
+  const setGettingStartedDismissed = useSettingsStore((s) => s.setGettingStartedDismissed)
   const { toggleTheme } = useTheme()
   const [panelCollapsed, setPanelCollapsed] = useState(true)
   const [isMobile, setIsMobile] = useState(() =>
@@ -229,10 +231,15 @@ export function AppLayout({
     } else if (commandId === 'action:work-tool-sign-ins') {
       handleNavigate('/settings/work-tool-sign-ins')
     } else if (commandId === 'action:show-setup-checklist') {
-      handleNavigate('/settings/account')
+      void restoreSetupChecklistFromCommand()
     } else if (commandId === 'action:toggle-theme') {
       toggleTheme()
     }
+  }
+
+  async function restoreSetupChecklistFromCommand() {
+    const restored = await setGettingStartedDismissed(false)
+    handleNavigate(restored ? '/start' : '/settings/account')
   }
 
   // On mobile, sidebar is hidden unless expanded (where it overlays content)

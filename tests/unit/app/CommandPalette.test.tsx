@@ -107,7 +107,7 @@ describe('CommandPalette', () => {
       expect(screen.getByText('Show setup checklist again')).toBeDefined()
     })
     expect(
-      screen.getByText('Open Account settings to add the setup checklist back to the left menu.')
+      screen.getByText('Add the setup checklist back to the left menu and open it.')
     ).toBeDefined()
     expect(screen.queryByText('No page or option matches that search')).toBeNull()
   })
