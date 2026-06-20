@@ -17617,12 +17617,12 @@ function CreateProjectForm() {
     const cwd = fixture({
       'src/app/features/manage-team/ui/CreateTeamForm.tsx': `
 function CreateTeamForm() {
-  return <><p>Team creation steps</p><p>Team link preview: platform-ops.</p></>
+  return <><p>Team creation steps</p><p>Team link preview: platform-ops. Forge creates it automatically from the team name. You do not need to type it.</p></>
 }
 `,
       'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
 function CreateProjectForm() {
-  return <><p>Project creation steps</p><p>Project link preview: app.</p><summary>Show folder details for support</summary><p>Use this only if an owner, admin, or support message asks for the project folder.</p><p>Project folder for support: /workspace/app</p></>
+  return <><p>Project creation steps</p><p>Project link preview: app. Forge creates it automatically from the project name. You do not need to type it.</p><summary>Show folder details for support</summary><p>Use this only if an owner, admin, or support message asks for the project folder.</p><p>Project folder for support: /workspace/app</p></>
 }
 `,
     })
@@ -17673,12 +17673,12 @@ function EditableProjectRow({ project }) {
     const cwd = fixture({
       'src/app/features/manage-team/ui/EditableTeamRow.tsx': `
 function EditableTeamRow({ team }) {
-  return <p>Team link preview: {team.slug}</p>
+  return <p>Team link preview: {team.slug}. Forge creates this automatically</p>
 }
 `,
       'src/app/features/manage-project/ui/EditableProjectRow.tsx': `
 function EditableProjectRow({ project }) {
-  return <span>Project link preview: {project.slug}</span>
+  return <span>Project link preview: {project.slug}. Auto-created</span>
 }
 `,
     })
@@ -17736,12 +17736,12 @@ function ProjectTree({ projectMenu }) {
   return <button>Copy project reference</button>
   return <p>Project reference copied</p>
   return <button>Copy project link preview</button>
-  return <p>Project link preview: {projectMenu.project.slug}</p>
+  return <p>Project link preview: {projectMenu.project.slug}. Forge creates this automatically.</p>
 }
 `,
       'src/app/features/admin/OrganizationsPanel.tsx': `
 function OrganizationsPanel({ org }) {
-  return <p>Team space link preview: {org.slug}</p>
+  return <p>Team space link preview: {org.slug}. Forge creates this automatically.</p>
 }
 `,
     })

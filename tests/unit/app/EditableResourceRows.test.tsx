@@ -36,7 +36,9 @@ describe('Editable resource rows', () => {
       />
     )
 
-    expect(screen.getByText('Team link preview: platform')).toBeDefined()
+    expect(
+      screen.getByText('Team link preview: platform. Forge creates this automatically')
+    ).toBeDefined()
     expect(screen.getByText('Open to team space')).toHaveAttribute(
       'title',
       'People in this team space can find this team.'
@@ -80,7 +82,7 @@ describe('Editable resource rows', () => {
       />
     )
 
-    expect(screen.getByText('Project link preview: web-app')).toBeDefined()
+    expect(screen.getByText('Project link preview: web-app. Auto-created')).toBeDefined()
     expect(screen.queryByText(/Forge uses this in project links/i)).toBeNull()
     expect(screen.queryByText(/Automatic project name/i)).toBeNull()
     expect(screen.queryByTitle('Members')).toBeNull()

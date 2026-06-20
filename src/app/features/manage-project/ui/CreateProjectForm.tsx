@@ -284,7 +284,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
           {trimmedName && (
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
               Project link preview: {slugifyName(name)}. Forge creates it automatically from the
-              project name.
+              project name. You do not need to type it.
             </p>
           )}
         </div>

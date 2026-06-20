@@ -6269,7 +6269,7 @@ function scanFile(file, relFile) {
         type: 'team-project-create-copy',
         location,
         message:
-          'Team and project creation forms must say creation steps and link-ending names instead of setup path, automatic name, link name, short name, or address preview.',
+          'Team and project creation forms must say creation steps and link previews instead of setup path, automatic name, link name, short name, or address preview.',
         sample: line.trim(),
       })
     }
@@ -6279,7 +6279,7 @@ function scanFile(file, relFile) {
         type: 'team-project-row-address-copy',
         location,
         message:
-          'Team and project rows must explain where the generated name appears instead of address, automatic name, link name, or short name.',
+          'Team and project rows must use link preview wording instead of address, automatic name, link name, or short name.',
         sample: line.trim(),
       })
     }
@@ -6288,8 +6288,7 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'team-project-short-name-copy',
         location,
-        message:
-          'Team and project generated-name labels must explain where the name appears in plain link-ending language.',
+        message: 'Team and project generated-name labels must use plain link preview wording.',
         sample: line.trim(),
       })
     }
