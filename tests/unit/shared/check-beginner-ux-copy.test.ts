@@ -11742,6 +11742,7 @@ function NewKeyBanner() {
   )
 }
 const ACCESS_KEY_EMPTY_STEPS = ['Copy the new key into a password manager before closing this message.']
+const OLD_ACCESS_KEY_EMPTY_STEPS = ['Name it after the exact tool or job that will use it.']
 `,
     })
 
@@ -11786,6 +11787,10 @@ const ACCESS_KEY_EMPTY_STEPS = ['Copy the new key into a password manager before
           type: 'access-key-secret-value-copy',
           sample: expect.stringContaining('Copy the new key'),
         }),
+        expect.objectContaining({
+          type: 'access-key-secret-value-copy',
+          sample: expect.stringContaining('exact tool or job'),
+        }),
       ])
     )
   })
@@ -11807,6 +11812,7 @@ function NewKeyBanner() {
   )
 }
 const ACCESS_KEY_EMPTY_STEPS = ['Save the new access value in a password manager before closing this message.']
+const TRUSTED_TOOL_STEP = 'Name it so teammates know which trusted tool uses it.'
 `,
     })
 

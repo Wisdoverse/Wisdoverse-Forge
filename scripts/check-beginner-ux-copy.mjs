@@ -683,6 +683,7 @@ const ACCESS_KEY_LAST_USED_DEAD_END_PATTERNS = [
 ]
 
 const ACCESS_KEY_SECRET_VALUE_JARGON_PATTERNS = [
+  /\bName it after the exact tool or job that will use it\b/i,
   /\bCopy the new key into a password manager\b/i,
   /\bonly time the full key is shown\b/i,
   /\bCopy key\b/i,

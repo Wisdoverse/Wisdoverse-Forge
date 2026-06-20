@@ -9,7 +9,7 @@ import { platformKeyErrorMessage } from './platformKeyErrorMessage'
 
 const ACCESS_KEY_EMPTY_STEPS = [
   'Create one only for a tool you trust.',
-  'Name it after the exact tool or job that will use it.',
+  'Name it so teammates know which trusted tool uses it.',
   'Save the new access value in a password manager before closing this message.',
 ]
 
