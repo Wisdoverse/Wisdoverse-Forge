@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { CheckCircle2, Circle, RotateCcw, Search, SlidersHorizontal, Wrench } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { agentPluginErrorMessage } from './model/pluginErrorMessage'
@@ -43,12 +43,16 @@ interface EmptyStateCopy {
   detail: string
 }
 
-const FILTER_LABELS: Record<PluginFilter, string> = {
-  all: 'All',
-  enabled: 'Can use',
-  disabled: 'Turned off',
-  overridden: 'Changed here',
-}
+const PLUGIN_FILTERS: { value: PluginFilter; label: string; ariaLabel: string }[] = [
+  { value: 'all', label: 'All', ariaLabel: 'Show all tools for this agent' },
+  { value: 'enabled', label: 'Can use', ariaLabel: 'Show tools this agent can use' },
+  { value: 'disabled', label: 'Turned off', ariaLabel: 'Show tools turned off for this agent' },
+  {
+    value: 'overridden',
+    label: 'Changed here',
+    ariaLabel: 'Show tools changed only for this agent',
+  },
+]
 
 function authHeaders(): Record<string, string> {
   const token = typeof window !== 'undefined' ? localStorage.getItem('af:auth:access') : null
@@ -167,6 +171,7 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<PluginFilter>('all')
   const actionErrorRef = useRef<HTMLDivElement>(null)
+  const searchHelpId = useId()
 
   const summary = useMemo(() => summarizePlugins(plugins), [plugins])
   const visiblePlugins = useMemo(
@@ -354,12 +359,19 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
             />
             <input
               data-testid="agent-plugin-search"
+              aria-describedby={searchHelpId}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search by tool name or what it does"
               className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-9 pr-3 text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light/75 focus:border-apple-blue/45 focus:ring-2 focus:ring-apple-blue/15 dark:border-white/[0.1] dark:bg-[#2a2a2c] dark:text-foreground-dark dark:placeholder:text-secondary-dark/75"
             />
           </label>
+          <p
+            id={searchHelpId}
+            className="text-ui-caption text-secondary-light dark:text-secondary-dark lg:max-w-[16rem]"
+          >
+            Search only filters this agent's tools. Clear it to see every tool again.
+          </p>
 
           <div
             data-testid="agent-plugin-filter"
@@ -367,24 +379,15 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
             aria-label="Tool filter"
             className="inline-flex h-9 items-center gap-1 rounded-lg border border-black/[0.08] bg-black/[0.025] p-1 dark:border-white/[0.1] dark:bg-white/[0.04]"
           >
-            {(Object.keys(FILTER_LABELS) as PluginFilter[]).map((option) => (
-              <button
-                key={option}
-                type="button"
-                aria-pressed={filter === option}
-                onClick={() => setFilter(option)}
-                className={cn(
-                  'inline-flex h-7 items-center gap-1 rounded-md px-2 text-ui-caption font-medium transition-colors',
-                  filter === option
-                    ? 'bg-white text-foreground-light shadow-sm dark:bg-white/[0.12] dark:text-foreground-dark'
-                    : 'text-secondary-light hover:text-foreground-light dark:text-secondary-dark dark:hover:text-foreground-dark'
-                )}
-              >
-                {FILTER_LABELS[option]}
-                <span className="font-mono text-[10px]">
-                  {countPluginsByFilter(summary, option)}
-                </span>
-              </button>
+            {PLUGIN_FILTERS.map((option) => (
+              <PluginFilterButton
+                key={option.value}
+                active={filter === option.value}
+                label={option.label}
+                ariaLabel={option.ariaLabel}
+                count={countPluginsByFilter(summary, option.value)}
+                onClick={() => setFilter(option.value)}
+              />
             ))}
           </div>
         </div>
@@ -416,6 +419,8 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
 
       {visiblePlugins.length === 0 ? (
         <div
+          role="status"
+          aria-live="polite"
           data-testid="agent-plugin-filter-empty"
           className="flex flex-col items-center justify-center rounded-card border border-dashed border-black/[0.1] bg-black/[0.02] px-4 py-8 text-center dark:border-white/[0.12] dark:bg-white/[0.03]"
         >
@@ -524,6 +529,42 @@ function PluginMetric({
       </p>
       <p className={cn('mt-1 text-ui-title font-semibold', toneClass)}>{value}</p>
     </div>
+  )
+}
+
+function PluginFilterButton({
+  active,
+  label,
+  ariaLabel,
+  count,
+  onClick,
+}: {
+  active: boolean
+  label: string
+  ariaLabel: string
+  count: number
+  onClick: () => void
+}) {
+  const countLabel = `${count} matching ${count === 1 ? 'tool' : 'tools'}`
+
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      aria-label={`${ariaLabel}, ${countLabel}`}
+      onClick={onClick}
+      className={cn(
+        'inline-flex h-7 items-center gap-1 rounded-md px-2 text-ui-caption font-medium transition-colors',
+        active
+          ? 'bg-white text-foreground-light shadow-sm dark:bg-white/[0.12] dark:text-foreground-dark'
+          : 'text-secondary-light hover:text-foreground-light dark:text-secondary-dark dark:hover:text-foreground-dark'
+      )}
+    >
+      <span>{label}</span>
+      <span className="font-mono text-[10px]" aria-hidden="true">
+        {count}
+      </span>
+    </button>
   )
 }
 
