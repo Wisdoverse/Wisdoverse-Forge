@@ -129,8 +129,10 @@ describe('ProvidersSection', () => {
     const nextStep = screen.getByTestId('provider-next-step')
     expect(within(nextStep).getByText('Do this next')).toBeDefined()
     expect(within(nextStep).getByText('Check the AI service connection')).toBeDefined()
+    expect(within(nextStep).getByText(/before sending work/i)).toBeDefined()
     expect(within(nextStep).getByText(/What success looks like:/)).toBeDefined()
     expect(within(nextStep).queryByText('Do This Next')).toBeNull()
+    expect(within(nextStep).queryByText(/before assigning work/i)).toBeNull()
     expect(within(nextStep).queryByText(/Success:/)).toBeNull()
     expect(
       screen.getByRole('button', { name: /check openai production AI service connection/i })

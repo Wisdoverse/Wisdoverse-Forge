@@ -302,7 +302,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
               />
               <DetailRow
                 label="Project for new tasks"
-                value={agent.projectName ?? 'Choose when assigning work'}
+                value={agent.projectName ?? 'Choose when sending work'}
               />
               <DetailRow label="Folder agents open" value={agentFolderLabel(agent)} />
               <DetailRow label="Connection" value={agentConnectionStatus(agent)} />

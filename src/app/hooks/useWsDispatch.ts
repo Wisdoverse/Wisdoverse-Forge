@@ -220,7 +220,7 @@ function notifyTaskOwner(task: TaskSummary) {
 
   if (ownerId !== currentUserId()) return
 
-  const assigned = task.assignedAgentName ?? task.assignedTo
+  const assigned = task.assignedAgentName ?? (task.assignedTo ? 'Chosen agent' : undefined)
   const taskTitle = task.params?.task ?? task.id
   const updatedAt = Date.parse(task.updatedAt)
   const timestamp = Number.isFinite(updatedAt) ? updatedAt : Date.now()
@@ -253,7 +253,7 @@ function taskNotificationMessage(
   assigned: string | undefined,
   detail: string
 ): string {
-  const actor = assigned || 'Assigned agent'
+  const actor = assigned || 'Chosen agent'
   switch (type) {
     case 'blocked':
       return `${actor} needs your answer before work can continue: ${detail}`

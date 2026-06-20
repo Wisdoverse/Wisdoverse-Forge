@@ -115,7 +115,7 @@ export function HistoryTab({ task }: HistoryTabProps) {
           {!loading && !error && runs.length === 0 && (
             <div className="rounded-lg border border-dashed border-black/[0.1] px-3 py-2 text-xs text-secondary-light dark:border-white/[0.12] dark:text-secondary-dark">
               Work history appears after an agent starts. If this stays empty, check that an agent
-              is assigned and the task has been started.
+              is chosen and the task has been started.
             </div>
           )}
           {runs.map((run) => (
@@ -210,7 +210,7 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-xs font-medium text-foreground-light dark:text-foreground-dark">
-            Work attempt: {readableRunStatus(run.status)}
+            Agent try: {readableRunStatus(run.status)}
           </p>
           <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
             Started {formatRelativeTime(run.startedAt)} · {finished} · Used {runSource}
@@ -232,9 +232,9 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
 function workAttemptReferenceLabel(id: string): string {
   const trimmed = id.trim()
   if (!trimmed) {
-    return 'Open this task again from the Tasks page to check the work attempt code.'
+    return 'Open this task again from the Tasks page to check the help code.'
   }
-  return `Work attempt code ${trimmed.length > 8 ? trimmed.slice(0, 8) : trimmed}`
+  return `Help code ${trimmed.length > 8 ? trimmed.slice(0, 8) : trimmed}`
 }
 
 function runSourceNeedsCheck(runSource: string): boolean {
@@ -500,7 +500,7 @@ function taskUpdateGuide(task: TaskSummary): string {
     case 'completed':
       return 'Open Results next. Check the answer, then accept it, save repeatable steps, or create a follow-up task.'
     case 'failed':
-      return 'Read the latest attempt, fix the cause if you can, then retry or create a clearer follow-up task.'
+      return 'Read the latest update, fix the cause if you can, then retry or create a clearer follow-up task.'
     case 'canceled':
       return 'No one is working on this task now. Reopen it or create follow-up work if it still matters.'
     default:

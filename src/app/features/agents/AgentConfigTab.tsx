@@ -360,7 +360,7 @@ function CliRuntimeConfig({ agent }: { agent: AgentInfo }) {
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
             This agent follows the setup for its work tool. Confirm where it can open files before
-            assigning work.
+            sending file work.
           </p>
         </div>
         <span className="inline-flex h-7 w-fit items-center rounded-full bg-apple-blue/10 px-2.5 text-ui-caption font-medium text-apple-blue">

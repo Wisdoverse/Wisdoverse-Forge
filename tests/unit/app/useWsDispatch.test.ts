@@ -245,6 +245,37 @@ describe('dispatchWsMessage', () => {
     expect(notifications[0].message).not.toContain('is blocked')
   })
 
+  it('uses chosen-agent wording when a task owner notification has no agent name yet', () => {
+    localStorage.setItem('af:auth:user', JSON.stringify({ id: 'user-owner' }))
+
+    dispatchWsMessage({
+      type: 'orchestration:task_update',
+      payload: {
+        action: 'updated',
+        task: {
+          id: 'task-owner-no-agent-name',
+          groupId: 'g-other',
+          state: 'completed',
+          method: 'code',
+          params: { task: 'Check copy', message: '' },
+          createdBy: 'user-owner',
+          assignedTo: 'agent-123',
+          result: { message: 'Copy updated' },
+          priority: 'normal',
+          progress: 100,
+          createdAt: '2026-04-03T00:00:00Z',
+          updatedAt: '2026-04-03T00:01:00Z',
+        },
+      },
+    })
+
+    const notifications = useFeedStore.getState().notifications
+    expect(notifications).toHaveLength(1)
+    expect(notifications[0].message).toContain('Chosen agent completed this task')
+    expect(notifications[0].message).not.toContain('Assigned agent')
+    expect(notifications[0].message).not.toContain('agent-123')
+  })
+
   it('hides raw blocked fallback details in owner notifications', () => {
     localStorage.setItem('af:auth:user', JSON.stringify({ id: 'user-owner' }))
 

@@ -3745,6 +3745,12 @@ function taskReferenceLabel(id) {
 function supportRunReference(id) {
   return 'refresh task details to check'
 }
+function workAttemptReferenceLabel(id) {
+  return 'Work attempt code run-1234'
+}
+function taskUpdateGuide() {
+  return 'Read the latest attempt before retrying.'
+}
 `,
     })
 
@@ -3765,6 +3771,14 @@ function supportRunReference(id) {
           type: 'task-support-reference-copy',
           location: 'src/app/features/detail/HistoryTab.tsx:3',
         }),
+        expect.objectContaining({
+          type: 'task-support-reference-copy',
+          location: 'src/app/features/detail/HistoryTab.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'task-support-reference-copy',
+          location: 'src/app/features/detail/HistoryTab.tsx:9',
+        }),
       ])
     )
   })
@@ -3781,7 +3795,7 @@ function taskReferenceLabel(id) {
 `,
       'src/app/features/detail/HistoryTab.tsx': `
 function workAttemptReferenceLabel(id) {
-  return 'Open this task again from the Tasks page to check the work attempt code.'
+  return 'Open this task again from the Tasks page to check the help code.'
 }
 `,
     })
@@ -5391,6 +5405,44 @@ function RuntimeNextStepPanel() {
   </>
 }
 `,
+      'src/app/features/settings/ProvidersSection.tsx': `
+function providerNextStep() {
+  return 'Choose Check connection before assigning work.'
+}
+`,
+      'src/app/features/list/ListView.tsx': `
+function taskAgentLabel() {
+  return 'Assigned agent'
+}
+`,
+      'src/app/features/agents/AgentGroupsPanel.tsx': `
+function routedTaskAssignment() {
+  return 'Assigned agent'
+}
+`,
+      'src/app/features/agents/AgentConfigTab.tsx': `
+function CliRuntimeConfig() {
+  return <p>Confirm where it can open files before assigning work.</p>
+}
+`,
+      'src/app/features/board/TaskCard.tsx': `
+function TaskCard() {
+  return <span>Assigned agent</span>
+}
+`,
+      'src/app/hooks/useWsDispatch.ts': `
+function taskNotificationMessage() {
+  return 'Assigned agent completed this task'
+}
+`,
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function DetailRow() {
+  return 'Choose when assigning work'
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = { agents: { noAgents: 'Create one agent to start assigning work.' } }
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
@@ -5430,6 +5482,38 @@ function RuntimeNextStepPanel() {
           type: 'user-action-assignment-copy',
           location: 'src/app/features/settings/RuntimeSection.tsx:5',
         }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/settings/ProvidersSection.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/list/ListView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/agents/AgentGroupsPanel.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/agents/AgentConfigTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/board/TaskCard.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/hooks/useWsDispatch.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:2',
+        }),
       ])
     )
   })
@@ -5467,6 +5551,44 @@ function RuntimeNextStepPanel() {
     <p>Open Agents, create or select an agent, then send work from Tasks.</p>
   </>
 }
+`,
+      'src/app/features/settings/ProvidersSection.tsx': `
+function providerNextStep() {
+  return 'Choose Check connection before sending work.'
+}
+`,
+      'src/app/features/list/ListView.tsx': `
+function taskAgentLabel() {
+  return 'Chosen agent'
+}
+`,
+      'src/app/features/agents/AgentGroupsPanel.tsx': `
+function routedTaskAssignment() {
+  return 'Chosen agent'
+}
+`,
+      'src/app/features/agents/AgentConfigTab.tsx': `
+function CliRuntimeConfig() {
+  return <p>Confirm where it can open files before sending file work.</p>
+}
+`,
+      'src/app/features/board/TaskCard.tsx': `
+function TaskCard() {
+  return <span>Chosen agent</span>
+}
+`,
+      'src/app/hooks/useWsDispatch.ts': `
+function taskNotificationMessage() {
+  return 'Chosen agent completed this task'
+}
+`,
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+function DetailRow() {
+  return 'Choose when sending work'
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = { agents: { noAgents: 'Create one agent before sending work.' } }
 `,
     })
 
@@ -7919,7 +8041,7 @@ export const en = {
     noData: 'Create the first item, or open this page again after setup finishes.',
   },
   agents: {
-    noAgents: 'Create one agent to start assigning work.',
+    noAgents: 'Create one agent before sending work.',
   },
   groups: {
     noGroups: 'Create a waiting place so new tasks have a place to wait for agents.',
@@ -7937,7 +8059,7 @@ export const zh = {
     noData: '可以先创建第一项；设置完成后，请重新打开当前页面。',
   },
   agents: {
-    noAgents: '先创建一个 Agent，再开始分配任务。',
+    noAgents: '先创建一个 Agent，再发送任务。',
   },
   groups: {
     noGroups: '先创建一个任务等待位置，让新任务有地方等待 Agent 接手。',

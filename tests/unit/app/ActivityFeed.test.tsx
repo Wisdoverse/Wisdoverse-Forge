@@ -200,6 +200,7 @@ describe('ActivityFeed', () => {
     expect(screen.getByText(/start a task or wait for the chosen agent/i)).toBeDefined()
     expect(screen.getByText(/open Board, create a task or choose an agent/i)).toBeDefined()
     expect(screen.queryByText(/assigned agent/i)).toBeNull()
+    expect(screen.queryByText(/assigned agents add updates/i)).toBeNull()
     expect(screen.queryByText(/create or assign a task/i)).toBeNull()
     expect(screen.queryByText(/No progress updates yet/i)).toBeNull()
     expect(screen.queryByText(/No work has reported progress yet/i)).toBeNull()

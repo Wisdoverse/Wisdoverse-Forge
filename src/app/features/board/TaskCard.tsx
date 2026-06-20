@@ -221,7 +221,7 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
       <div className="flex items-center justify-between gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
         {hasAssignee ? (
           <span className="truncate font-medium text-foreground-light dark:text-foreground-dark">
-            {task.assignedAgentName ?? 'Assigned agent'}
+            {task.assignedAgentName ?? 'Chosen agent'}
           </span>
         ) : (
           <span>Needs agent</span>

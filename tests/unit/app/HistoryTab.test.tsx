@@ -156,7 +156,8 @@ describe('HistoryTab', () => {
 
     expect(await screen.findByText('Agent work history')).toBeInTheDocument()
     expect(screen.getByText(/Used a work tool you should check/i)).toBeInTheDocument()
-    expect(screen.getByText(/Work attempt code run-tool/i)).toBeInTheDocument()
+    expect(screen.getByText(/Help code run-tool/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Work attempt code run-tool/i)).toBeNull()
     expect(screen.queryByText(/Work attempt ID run-tool/i)).toBeNull()
     expect(screen.queryByText(/Support reference run-tool/i)).toBeNull()
     expect(screen.queryByText(/future_tool/i)).toBeNull()
@@ -164,7 +165,7 @@ describe('HistoryTab', () => {
     expect(screen.queryByText('Unknown')).toBeNull()
   })
 
-  test('tells users where to reopen the task when a work attempt code is missing', async () => {
+  test('tells users where to reopen the task when a help code is missing', async () => {
     getTaskRunsMock.mockResolvedValue([
       {
         id: ' ',
@@ -181,10 +182,11 @@ describe('HistoryTab', () => {
 
     expect(await screen.findByText('Agent work history')).toBeInTheDocument()
     expect(
-      screen.getByText('Open this task again from the Tasks page to check the work attempt code.')
+      screen.getByText('Open this task again from the Tasks page to check the help code.')
     ).toBeInTheDocument()
     expect(screen.queryByText(/refresh task details/i)).toBeNull()
     expect(screen.queryByText(/Work attempt code refresh/i)).toBeNull()
+    expect(screen.queryByText(/work attempt code/i)).toBeNull()
     expect(screen.queryByText(/Support reference not listed/i)).toBeNull()
   })
 
@@ -240,7 +242,7 @@ describe('HistoryTab', () => {
     expect(screen.queryByText(/future provider/i)).toBeNull()
   })
 
-  test('labels unknown work attempt states without exposing backend status values', async () => {
+  test('labels unknown agent try states without exposing backend status values', async () => {
     getTaskRunsMock.mockResolvedValue([
       {
         id: 'run-pending123',
@@ -270,9 +272,10 @@ describe('HistoryTab', () => {
 
     render(<HistoryTab task={makeTask()} />)
 
-    expect(await screen.findByText('Work attempt: Waiting to start')).toBeInTheDocument()
-    expect(screen.getByText('Work attempt: Check task status')).toBeInTheDocument()
-    expect(screen.getByText('Work attempt: Open task details to check status')).toBeInTheDocument()
+    expect(await screen.findByText('Agent try: Waiting to start')).toBeInTheDocument()
+    expect(screen.getByText('Agent try: Check task status')).toBeInTheDocument()
+    expect(screen.getByText('Agent try: Open task details to check status')).toBeInTheDocument()
+    expect(screen.queryByText('Work attempt: Waiting to start')).toBeNull()
     expect(screen.queryByText('Work attempt: Refresh task status')).toBeNull()
     expect(screen.queryByText('Work attempt: Status not reported')).toBeNull()
     expect(screen.queryByText(/waiting_for_result/i)).toBeNull()

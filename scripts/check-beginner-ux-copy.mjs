@@ -937,9 +937,14 @@ const USER_ACTION_ASSIGNMENT_JARGON_PATTERNS = [
   /\bAssign a task to see work steps\b/i,
   /\bassign a task so work steps can appear\b/i,
   /\bassigned agent to send its first update\b/i,
+  /\bAssigned agents add updates here\b/i,
+  /\bAssigned agent\b/i,
+  /\bwait for an assigned agent\b/i,
   /\bcreate or assign a task\b/i,
   /\bbefore assigning work\b/i,
   /\bassign work from Tasks\b/i,
+  /\bstart assigning work\b/i,
+  /\bChoose when assigning work\b/i,
 ]
 const TASK_CARD_PUBLISH_JARGON_PATTERNS = [
   /\baria-label=\{?`?Publish\b/i,
@@ -1785,6 +1790,9 @@ const TASK_FORM_QUEUE_LOAD_FAILURE_FIRST_PATTERNS = [
 const TASK_SUPPORT_REFERENCE_DEAD_END_PATTERNS = [
   /\bSupport reference not (?:reported|listed)\b/i,
   /\bTask ID\b/i,
+  /\bWork attempt\b/i,
+  /\bwork attempt code\b/i,
+  /\blatest attempt\b/i,
   /\bRefresh task details\b/i,
   /\brefresh task details to check\b/i,
   /\breturn\s+['"`]not listed['"`]/i,
@@ -3506,7 +3514,15 @@ function hasUserActionAssignmentJargonCopy(relFile, line) {
     !relFile.endsWith('src/app/features/chat/ChatView.tsx') &&
     !relFile.endsWith('src/app/features/feed/ActivityFeed.tsx') &&
     !relFile.endsWith('src/app/features/feed/AgentStatusBar.tsx') &&
-    !relFile.endsWith('src/app/features/settings/RuntimeSection.tsx')
+    !relFile.endsWith('src/app/features/settings/RuntimeSection.tsx') &&
+    !relFile.endsWith('src/app/features/settings/ProvidersSection.tsx') &&
+    !relFile.endsWith('src/app/features/list/ListView.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentGroupsPanel.tsx') &&
+    !relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx') &&
+    !relFile.endsWith('src/app/features/board/TaskCard.tsx') &&
+    !relFile.endsWith('src/app/hooks/useWsDispatch.ts') &&
+    !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts')
   ) {
     return false
   }

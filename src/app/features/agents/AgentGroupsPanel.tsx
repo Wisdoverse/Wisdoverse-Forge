@@ -620,7 +620,7 @@ function routedTaskTitle(task: TaskSummary): string {
 
 function routedTaskAssignment(task: TaskSummary): string {
   if (task.assignedAgentName) return task.assignedAgentName
-  if (task.assignedTo) return 'Assigned agent'
+  if (task.assignedTo) return 'Chosen agent'
   return 'Needs agent'
 }
 

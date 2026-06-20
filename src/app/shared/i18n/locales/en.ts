@@ -247,7 +247,7 @@ export const en = {
     createAgent: 'Add agent',
     editAgent: 'Edit Agent',
     deleteAgent: 'Delete Agent',
-    noAgents: 'Create one agent to start assigning work.',
+    noAgents: 'Create one agent before sending work.',
     agentName: 'Agent Name',
     projectPath: 'Project folder location',
     workingDirectory: 'Work folder',

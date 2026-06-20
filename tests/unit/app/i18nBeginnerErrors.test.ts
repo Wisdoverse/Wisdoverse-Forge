@@ -111,7 +111,8 @@ describe('beginner error translations', () => {
     expect(en.common.error).toBe('Check the message, then try again.')
     expect(en.a11y.error).toBe('Check the message, then try again.')
     expect(en.common.required).toBe('Fill this in')
-    expect(en.agents.noAgents).toBe('Create one agent to start assigning work.')
+    expect(en.agents.noAgents).toBe('Create one agent before sending work.')
+    expect(en.agents.noAgents).not.toContain('assigning work')
     expect(en.gettingStarted.noProject).toBe('Open project settings to create or choose a project.')
     expect(en.groups.title).toBe('Where tasks wait')
     expect(en.groups.noGroups).toBe(
@@ -143,7 +144,7 @@ describe('beginner error translations', () => {
     expect(zh.common.error).toBe('请查看提示信息，然后重试。')
     expect(zh.a11y.error).toBe('请查看提示信息，然后重试。')
     expect(zh.common.required).toBe('请填写')
-    expect(zh.agents.noAgents).toBe('先创建一个 Agent，再开始分配任务。')
+    expect(zh.agents.noAgents).toBe('先创建一个 Agent，再发送任务。')
     expect(zh.gettingStarted.noProject).toBe('打开项目设置，创建或选择一个项目。')
     expect(zh.groups.title).toBe('任务等待位置')
     expect(zh.groups.noGroups).toBe('先创建一个任务等待位置，让新任务有地方等待 Agent 接手。')

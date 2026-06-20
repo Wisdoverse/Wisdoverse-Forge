@@ -40,7 +40,8 @@ describe('TaskCard', () => {
   test('does not call a task unassigned when only the agent id is loaded', () => {
     render(<TaskCard task={{ ...mockTask, assignedAgentName: undefined }} />)
 
-    expect(screen.getByText('Assigned agent')).toBeDefined()
+    expect(screen.getByText('Chosen agent')).toBeDefined()
+    expect(screen.queryByText('Assigned agent')).toBeNull()
     expect(screen.queryByText('No assignee')).toBeNull()
   })
 

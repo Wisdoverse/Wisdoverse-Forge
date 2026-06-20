@@ -559,7 +559,7 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
     const firstProvider = needsTestProviders[0]
     return {
       title: 'Check the AI service connection',
-      detail: `Choose Check connection for ${firstProvider.displayName} before assigning work so agents do not fail on the first answer.`,
+      detail: `Choose Check connection for ${firstProvider.displayName} before sending work so agents do not fail on the first answer.`,
       success: 'The AI service shows Ready and can be used by simple chat agents.',
       ready: false,
       action: 'show-needs-test',

@@ -82,9 +82,10 @@ describe('ListView', () => {
     render(<ListView />)
 
     expect(screen.getByText('Choose where it runs')).toBeDefined()
-    expect(screen.getByText('Assigned agent')).toBeDefined()
+    expect(screen.getByText('Chosen agent')).toBeDefined()
     expect(screen.getByText('Refresh tasks to load agent')).toBeDefined()
     expect(screen.queryByText('Agent not reported yet')).toBeNull()
+    expect(screen.queryByText('Assigned agent')).toBeNull()
     expect(screen.queryByText('agent-123')).toBeNull()
     expect(screen.queryByText('—')).toBeNull()
   })

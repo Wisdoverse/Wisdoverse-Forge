@@ -240,7 +240,7 @@ export const zh: TranslationKeys = {
     createAgent: '添加 Agent',
     editAgent: '编辑 Agent',
     deleteAgent: '删除 Agent',
-    noAgents: '先创建一个 Agent，再开始分配任务。',
+    noAgents: '先创建一个 Agent，再发送任务。',
     agentName: 'Agent 名称',
     projectPath: '项目文件夹位置',
     workingDirectory: '工作文件夹',

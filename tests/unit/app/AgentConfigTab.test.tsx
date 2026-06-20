@@ -342,8 +342,9 @@ describe('AgentConfigTab', () => {
     expect(screen.queryByText('af-claude-container-123')).toBeNull()
     expect(screen.queryByText('/workspace')).toBeNull()
     expect(
-      screen.getByText(/confirm where it can open files before assigning work/i)
+      screen.getByText(/confirm where it can open files before sending file work/i)
     ).toBeInTheDocument()
+    expect(screen.queryByText(/before assigning work/i)).toBeNull()
     expect(screen.queryByText(/text-only model/i)).toBeNull()
     expect(screen.queryByText(/work profile/i)).toBeNull()
   })
