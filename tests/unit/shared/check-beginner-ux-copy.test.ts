@@ -16352,6 +16352,15 @@ function notFoundMessage() {
 function permissionMessage() {
   return 'Ask an owner or admin to update your team space access, then open Settings and Teams and Projects, and save the team again. You do not have permission to save this team.'
 }
+function projectDeleteAgentMessage() {
+  return 'Go to Agents, change or remove agents that use this project, then delete the project again.'
+}
+function projectDeleteTaskMessage() {
+  return "Go to Tasks, finish this project's tasks first, then delete the project again."
+}
+function teamDeleteProjectMessage() {
+  return "Open Settings and Teams and Projects, delete this team's projects first, then delete the team again."
+}
 `,
       'src/app/layouts/sidebar/ProjectTree.tsx': `
 function renameErrorMessage() {
@@ -16378,6 +16387,15 @@ function permissionRenameMessage() {
 function permissionDeleteMessage() {
   return 'Ask an owner or admin to let you delete this team, then delete it again from the left menu. You do not have permission to delete this team.'
 }
+function projectDeleteAgentMessage() {
+  return 'Go to Agents, change or remove agents that use this project, then delete the project again.'
+}
+function projectDeleteTaskMessage() {
+  return "Go to Tasks, finish this project's tasks first, then delete the project again."
+}
+function teamDeleteProjectMessage() {
+  return "Open the left menu, delete this team's projects first, then delete the team again."
+}
 `,
     })
 
@@ -16395,6 +16413,15 @@ function projectDeleteMessage() {
 }
 function teamDeleteMessage() {
   return 'Check whether this team still owns projects or required access, then delete it again.'
+}
+function sidebarProjectAgentMessage() {
+  return 'Move agents out of this project first, then delete the project again.'
+}
+function sidebarProjectTaskMessage() {
+  return "Move or finish this project's tasks first, then delete the project again."
+}
+function sidebarTeamProjectMessage() {
+  return "Move or delete this team's projects first, then delete the team again."
 }
 `,
     })
@@ -16415,6 +16442,18 @@ function teamDeleteMessage() {
         expect.objectContaining({
           type: 'workspace-resource-jargon-copy',
           location: 'src/app/shared/lib/workspaceResourceErrorMessage.ts:9',
+        }),
+        expect.objectContaining({
+          type: 'workspace-resource-jargon-copy',
+          location: 'src/app/shared/lib/workspaceResourceErrorMessage.ts:12',
+        }),
+        expect.objectContaining({
+          type: 'workspace-resource-jargon-copy',
+          location: 'src/app/shared/lib/workspaceResourceErrorMessage.ts:15',
+        }),
+        expect.objectContaining({
+          type: 'workspace-resource-jargon-copy',
+          location: 'src/app/shared/lib/workspaceResourceErrorMessage.ts:18',
         }),
       ])
     )

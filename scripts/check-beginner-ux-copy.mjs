@@ -2059,6 +2059,9 @@ const WORKSPACE_RESOURCE_FAILURE_FIRST_PATTERNS = [
 const WORKSPACE_RESOURCE_JARGON_PATTERNS = [
   /\breview the current (?:\$\{resource\}|name|team|project)\b/i,
   /\b(?:agents|tasks|agents or tasks) still depend on this project\b/i,
+  /\bMove agents out of this project first\b/i,
+  /\bMove or finish this project's tasks first\b/i,
+  /\bMove or delete this team's projects first\b/i,
   /\bthis team still owns projects or required access\b/i,
 ]
 

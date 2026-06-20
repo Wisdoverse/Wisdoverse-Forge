@@ -774,11 +774,47 @@ describe('Sidebar', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'Move agents out of this project first, then delete the project again.'
+      'Go to Agents, change or remove agents that use this project, then delete the project again.'
     )
     expect(alert).not.toHaveTextContent(/Move agents first/i)
     expect(alert).not.toHaveTextContent(/API 422/i)
     expect(screen.getByText('Project X')).toBeInTheDocument()
+  })
+
+  it('shows the task next step when sidebar project delete is blocked by tasks', async () => {
+    seedProjectTree()
+    vi.mocked(projectApi.deleteProject).mockRejectedValueOnce(
+      new Error('API 422: {"message":"finish project tasks before delete"}')
+    )
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /delete project/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^delete project$/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      "Go to Tasks, finish this project's tasks first, then delete the project again."
+    )
+    expect(alert).not.toHaveTextContent(/finish project tasks before delete/i)
+  })
+
+  it('shows the project next step when sidebar team delete is blocked by projects', async () => {
+    seedProjectTree()
+    vi.mocked(teamApi.deleteTeam).mockRejectedValueOnce(
+      new Error('API 422: {"message":"team still has projects"}')
+    )
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('team-t1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /delete team/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^delete team$/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      "Open the left menu, delete this team's projects first, then delete the team again."
+    )
+    expect(alert).not.toHaveTextContent(/team still has projects/i)
   })
 
   it('shows next-step guidance when sidebar project delete is denied', async () => {

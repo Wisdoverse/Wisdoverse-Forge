@@ -85,17 +85,17 @@ function validationMessage(
       : 'Check the project name, description, and color, then save again.'
   }
   if (resource === 'team' && normalized.includes('project')) {
-    return "Move or delete this team's projects first, then delete the team again."
+    return "Open Settings and Teams and Projects, delete this team's projects first, then delete the team again."
   }
   if (resource === 'project' && normalized.includes('agent')) {
-    return 'Move agents out of this project first, then delete the project again.'
+    return 'Go to Agents, change or remove agents that use this project, then delete the project again.'
   }
   if (resource === 'project' && normalized.includes('task')) {
-    return "Move or finish this project's tasks first, then delete the project again."
+    return "Go to Tasks, finish this project's tasks first, then delete the project again."
   }
   return resource === 'team'
-    ? 'Check whether this team still has projects or required owner access, then delete it again.'
-    : 'Check whether agents or tasks are still using this project, then delete it again.'
+    ? 'Open Settings and Teams and Projects, check this team for projects, then delete the team again. If it still fails, ask an owner or admin to check team access.'
+    : 'Go to Agents and Tasks, check what is using this project, then delete the project again.'
 }
 
 function statusFromError(error: unknown): number | null {

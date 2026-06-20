@@ -193,7 +193,7 @@ describe('workspace management rows', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirm delete Website Launch' }))
 
     const alert = await screen.findByRole('alert')
-    expect(alert.textContent).toContain('Move agents out of this project first')
+    expect(alert.textContent).toContain('Go to Agents, change or remove agents')
     expect(alert.textContent).not.toContain('Details:')
     expect(alert.textContent).not.toContain('Move agents first.')
     expect(alert.textContent).not.toContain('HTTP 422')

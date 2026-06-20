@@ -280,17 +280,17 @@ function deleteErrorMessage(target: RenameTarget, error: unknown): string {
 
 function deleteValidationMessage(target: RenameTarget, normalized: string): string {
   if (target === 'team' && normalized.includes('project')) {
-    return "Move or delete this team's projects first, then delete the team again."
+    return "Open the left menu, delete this team's projects first, then delete the team again."
   }
   if (target === 'project' && normalized.includes('agent')) {
-    return 'Move agents out of this project first, then delete the project again.'
+    return 'Go to Agents, change or remove agents that use this project, then delete the project again.'
   }
   if (target === 'project' && normalized.includes('task')) {
-    return "Move or finish this project's tasks first, then delete the project again."
+    return "Go to Tasks, finish this project's tasks first, then delete the project again."
   }
   return target === 'team'
-    ? 'Check whether this team still has projects or required owner access, then delete it again.'
-    : 'Check whether agents or tasks are still using this project, then delete it again.'
+    ? 'Open the left menu and check this team for projects, then delete the team again. If it still fails, ask an owner or admin to check team access.'
+    : 'Go to Agents and Tasks, check what is using this project, then delete the project again.'
 }
 
 function getMenuPosition(

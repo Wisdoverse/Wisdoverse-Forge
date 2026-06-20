@@ -68,7 +68,7 @@ describe('workspaceResourceErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      "Move or delete this team's projects first, then delete the team again."
+      "Open Settings and Teams and Projects, delete this team's projects first, then delete the team again."
     )
     expect(message).not.toContain('HTTP 422')
   })
@@ -81,7 +81,7 @@ describe('workspaceResourceErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      "Move or finish this project's tasks first, then delete the project again."
+      "Go to Tasks, finish this project's tasks first, then delete the project again."
     )
     expect(message).not.toContain('Move tasks first')
   })
@@ -94,7 +94,7 @@ describe('workspaceResourceErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check whether agents or tasks are still using this project, then delete it again.'
+      'Go to Agents and Tasks, check what is using this project, then delete the project again.'
     )
     expect(message).not.toContain('cannot delete')
     expect(message).not.toContain('depend')
@@ -108,7 +108,7 @@ describe('workspaceResourceErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check whether this team still has projects or required owner access, then delete it again.'
+      'Open Settings and Teams and Projects, check this team for projects, then delete the team again. If it still fails, ask an owner or admin to check team access.'
     )
     expect(message).not.toContain('cannot delete')
     expect(message).not.toContain('owns')
