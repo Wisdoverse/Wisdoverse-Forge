@@ -18307,6 +18307,70 @@ function needsActionEmptyState() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags inbox guidance that tells beginners to review updates', () => {
+    const cwd = fixture({
+      'src/app/features/inbox/InboxView.tsx': `
+function inboxHeader() {
+  return 'Completed work can wait until review time.'
+}
+function needsActionEmptyState() {
+  return 'Use All when you want to review older updates.'
+}
+function credentialsEmptyState() {
+  return 'Open All to review other updates.'
+}
+function toolUpdateTitle() {
+  return 'Review the latest agent tool update'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'inbox-review-guidance-copy',
+          location: 'src/app/features/inbox/InboxView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'inbox-review-guidance-copy',
+          location: 'src/app/features/inbox/InboxView.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'inbox-review-guidance-copy',
+          location: 'src/app/features/inbox/InboxView.tsx:9',
+        }),
+        expect.objectContaining({
+          type: 'inbox-review-guidance-copy',
+          location: 'src/app/features/inbox/InboxView.tsx:12',
+        }),
+      ])
+    )
+  })
+
+  it('accepts inbox guidance that uses check or open wording', () => {
+    const cwd = fixture({
+      'src/app/features/inbox/InboxView.tsx': `
+function inboxHeader() {
+  return 'Completed work can wait until you have time to check it.'
+}
+function needsActionEmptyState() {
+  return 'Open All when you want to check older updates.'
+}
+function credentialsEmptyState() {
+  return 'Open All to check other updates.'
+}
+function toolUpdateTitle() {
+  return 'Check the latest agent tool update'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags inbox load errors that start with the failure summary', () => {
     const cwd = fixture({
       'src/app/features/inbox/InboxView.tsx': `

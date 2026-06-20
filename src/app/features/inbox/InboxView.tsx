@@ -228,7 +228,7 @@ export function InboxView() {
           </h1>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
             Start with tasks that need help and account access issues. Completed work can wait until
-            review time.
+            you have time to check it.
           </p>
         </header>
         {nextStepNotification && (
@@ -396,13 +396,13 @@ function inboxFilterEmptyState(filter: InboxFilter): InboxFilterEmptyState {
       return {
         title: 'You are caught up on action items',
         detail:
-          'No task is asking for help and no account access needs reconnecting. Use All when you want to review older updates.',
+          'No task is asking for help and no account access needs reconnecting. Open All when you want to check older updates.',
       }
     case 'credentials':
       return {
         title: 'No account access needs reconnecting',
         detail:
-          'Account access is not blocking agent work right now. Open All to review other updates.',
+          'Account access is not blocking agent work right now. Open All to check other updates.',
       }
     case 'all':
       return {
@@ -456,7 +456,7 @@ function nextStepTitle(notification: Notification): string {
     case 'mentioned':
       return 'Open the newest mention'
     case 'cli_image_updated':
-      return 'Review the latest agent tool update'
+      return 'Check the latest agent tool update'
   }
 }
 

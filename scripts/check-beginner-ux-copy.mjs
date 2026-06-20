@@ -454,6 +454,13 @@ const SAVED_ITEM_SELECTION_EMPTY_DEAD_END_PATTERNS = [
 
 const INBOX_NEEDS_ACTION_EMPTY_DEAD_END_PATTERNS = [/\bNothing needs action right now\b/i]
 
+const INBOX_REVIEW_GUIDANCE_JARGON_PATTERNS = [
+  /\breview time\b/i,
+  /\breview older updates\b/i,
+  /\breview other updates\b/i,
+  /\bReview the latest agent tool update\b/,
+]
+
 const INBOX_LOAD_FAILURE_FIRST_PATTERNS = [
   /^\s*(?:return\s+)?['"`]?Saved notifications could not be loaded\. New updates will still appear here\b/i,
   /^\s*(?:return\s+)?['"`]?Saved notifications could not be loaded, but new updates will still appear here\b/i,
@@ -3061,6 +3068,12 @@ function hasInboxNeedsActionEmptyDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/inbox/InboxView.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return INBOX_NEEDS_ACTION_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasInboxReviewGuidanceJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/inbox/InboxView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return INBOX_REVIEW_GUIDANCE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasInboxLoadFailureFirstCopy(relFile, line) {
@@ -5814,6 +5827,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Inbox action-item empty states must say the user is caught up instead of using vague nothing-copy.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasInboxReviewGuidanceJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'inbox-review-guidance-copy',
+        location,
+        message: 'Inbox guidance must say check or open instead of review.',
         sample: line.trim(),
       })
     }

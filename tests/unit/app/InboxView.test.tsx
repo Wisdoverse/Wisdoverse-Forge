@@ -456,8 +456,9 @@ describe('InboxView', () => {
     expect(screen.getByText('No account access needs reconnecting')).toBeDefined()
     expect(screen.getByTestId('inbox-filter-empty')).toHaveAttribute('role', 'status')
     expect(screen.getByTestId('inbox-filter-empty')).toHaveAttribute('aria-live', 'polite')
-    expect(screen.getByText(/open all to review other updates/i)).toBeDefined()
+    expect(screen.getByText(/open all to check other updates/i)).toBeDefined()
     expect(screen.queryByText(/try all for the full history/i)).toBeNull()
+    expect(screen.queryByText(/review other updates/i)).toBeNull()
   })
 
   test('explains an empty filtered lane and lets the user return to all updates', async () => {
@@ -514,7 +515,9 @@ describe('InboxView', () => {
     expect(emptyState).toHaveTextContent(
       'No task is asking for help and no account access needs reconnecting.'
     )
+    expect(emptyState).toHaveTextContent('Open All when you want to check older updates.')
     expect(emptyState).not.toHaveTextContent('Nothing needs action right now')
+    expect(emptyState).not.toHaveTextContent('review older updates')
     expect(emptyState).not.toHaveTextContent(
       'No tasks that need help, stopped work, or account access issues need action right now.'
     )
@@ -728,6 +731,9 @@ describe('InboxView', () => {
     expect(screen.getByText(/open admin, then agent tool updates/i)).toBeDefined()
     expect(screen.getByText(/check each work tool/i)).toBeDefined()
     expect(screen.getByTestId('inbox-next-step')).toHaveTextContent(
+      'Check the latest agent tool update'
+    )
+    expect(screen.getByTestId('inbox-next-step')).not.toHaveTextContent(
       'Review the latest agent tool update'
     )
     expect(screen.getAllByRole('button', { name: /open tool updates/i }).length).toBeGreaterThan(0)
