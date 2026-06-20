@@ -7,7 +7,7 @@ const HIDDEN_EVIDENCE_VALUE =
 const MISSING_ACCESS_MESSAGE =
   'Required account access is missing. Add or reconnect service access, then retry.'
 const TECHNICAL_EVIDENCE_MESSAGE =
-  'This saved detail hit a problem. Ask the agent to explain what happened, then retry if the task still matters.'
+  'Behind-the-scenes details were hidden for safety. Check the summary above, then ask the agent to explain what happened if the task still matters.'
 const EMPTY_SAVED_DETAILS_MESSAGE =
   'The summary above is all that was saved for this item. Ask the agent to explain the result if something looks wrong.'
 const MISSING_SAVED_DETAIL_VALUE = 'not saved for this item'

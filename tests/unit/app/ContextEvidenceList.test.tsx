@@ -221,7 +221,7 @@ describe('ContextEvidenceList', () => {
 
     expect(
       screen.getByText(
-        'This saved detail hit a problem. Ask the agent to explain what happened, then retry if the task still matters.'
+        'Behind-the-scenes details were hidden for safety. Check the summary above, then ask the agent to explain what happened if the task still matters.'
       )
     ).toBeInTheDocument()
     expect(screen.queryByText(/HTTP 500/i)).toBeNull()
@@ -230,7 +230,7 @@ describe('ContextEvidenceList', () => {
 
     fireEvent.click(screen.getByText('Show saved details'))
 
-    expect(screen.getAllByText(/This saved detail hit a problem/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Behind-the-scenes details were hidden/i).length).toBeGreaterThan(0)
     expect(screen.getByText(/Status: needs checking/i)).toBeInTheDocument()
     expect(screen.queryByText(/raw payload/i)).toBeNull()
     expect(screen.queryByText(/internal-provider-name/i)).toBeNull()
@@ -255,7 +255,7 @@ describe('ContextEvidenceList', () => {
 
     expect(
       screen.getByText(
-        'This saved detail hit a problem. Ask the agent to explain what happened, then retry if the task still matters.'
+        'Behind-the-scenes details were hidden for safety. Check the summary above, then ask the agent to explain what happened if the task still matters.'
       )
     ).toBeInTheDocument()
     expect(screen.queryByText(/panic/i)).toBeNull()
@@ -264,7 +264,9 @@ describe('ContextEvidenceList', () => {
 
     fireEvent.click(screen.getByText('Show saved details'))
 
-    expect(screen.getAllByText(/hit a problem/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Behind-the-scenes details were hidden/i).length).toBeGreaterThan(
+      0
+    )
     expect(screen.queryByText(/technical problem/i)).toBeNull()
     expect(screen.getAllByText(/Hidden for safety/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/postgres\.internal/i)).toBeNull()

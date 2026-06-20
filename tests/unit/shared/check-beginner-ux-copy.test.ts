@@ -10480,7 +10480,7 @@ const PROBLEM_MESSAGE =
 `,
       'src/app/features/detail/ContextEvidenceList.tsx': `
 const PROBLEM_MESSAGE =
-  'This saved detail hit a problem. Ask the agent to explain what happened, then retry if the task still matters.'
+  'Behind-the-scenes details were hidden for safety. Check the summary above, then ask the agent to explain what happened if the task still matters.'
 `,
     })
 
