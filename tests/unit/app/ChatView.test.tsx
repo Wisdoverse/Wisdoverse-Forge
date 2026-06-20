@@ -348,6 +348,11 @@ describe('ChatView', () => {
     expect(
       screen.getByRole('searchbox', { name: /search conversation/i })
     ).toHaveAccessibleDescription(/clear it to see the full conversation again/i)
+    expect(screen.getByTestId('conversation-result-count')).toHaveAttribute('role', 'status')
+    expect(screen.getByTestId('conversation-result-count')).toHaveAttribute('aria-live', 'polite')
+    expect(screen.getByTestId('conversation-result-count')).toHaveTextContent(
+      'Showing 5 of 5 updates'
+    )
     expect(
       within(screen.getByTestId('conversation-metric-operator')).getByText('Your messages')
     ).toBeInTheDocument()
@@ -384,6 +389,9 @@ describe('ChatView', () => {
     )
     expect(screen.getByText('Billing flow is blocked by a missing secret')).toBeInTheDocument()
     expect(screen.queryByText('Settings page shipped')).toBeNull()
+    expect(screen.getByTestId('conversation-result-count')).toHaveTextContent(
+      'Showing 1 of 5 updates'
+    )
 
     fireEvent.change(screen.getByTestId('conversation-search'), {
       target: { value: 'missing-term' },

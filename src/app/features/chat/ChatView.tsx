@@ -226,6 +226,9 @@ export function ChatView({ agentId }: ChatViewProps) {
       turns.filter((turn) => turnMatchesConversation(turn, conversationFilter, conversationSearch)),
     [conversationFilter, conversationSearch, turns]
   )
+  const visibleUpdateCount = isProviderAgent ? visibleMessages.length : visibleTurns.length
+  const totalUpdateCount = isProviderAgent ? messages.length : turns.length
+  const updateLabel = totalUpdateCount === 1 ? 'update' : 'updates'
   function resetConversationFilters() {
     setConversationFilter('all')
     setConversationSearch('')
@@ -404,6 +407,14 @@ export function ChatView({ agentId }: ChatViewProps) {
             />
           ))}
         </div>
+        <p
+          data-testid="conversation-result-count"
+          role="status"
+          aria-live="polite"
+          className="text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark"
+        >
+          Showing {visibleUpdateCount} of {totalUpdateCount} {updateLabel}
+        </p>
       </div>
 
       <div
