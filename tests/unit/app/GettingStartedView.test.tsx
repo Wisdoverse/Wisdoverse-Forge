@@ -794,6 +794,7 @@ describe('GettingStartedView', () => {
     expect(alert).toHaveTextContent(
       'Check your connection, then choose Skip again. The setup checklist could not be hidden.'
     )
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(navigateMock).not.toHaveBeenCalled()
     expect(screen.getByRole('button', { name: /skip and open tasks/i })).not.toBeDisabled()
   })
