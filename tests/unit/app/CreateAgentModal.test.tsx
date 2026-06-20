@@ -136,10 +136,10 @@ describe('CreateAgentModal', () => {
     expect(within(review).queryByText('Work style')).toBeNull()
     expect(within(review).queryByText('Created state')).toBeNull()
     expect(within(review).getByText(/claude with project files/i)).toBeInTheDocument()
-    expect(within(review).getByText('Choose a project before assigning tasks.')).toBeInTheDocument()
+    expect(within(review).getByText('Choose a project before sending tasks.')).toBeInTheDocument()
     expect(within(review).queryByText('No project selected yet')).toBeNull()
     expect(
-      within(review).getByText('Choose a project later before assigning tasks.')
+      within(review).getByText('Choose a project later before sending tasks.')
     ).toBeInTheDocument()
     expect(
       within(review).getByText('Wait until it shows Ready, then send one small task from Tasks.')
@@ -445,7 +445,7 @@ describe('CreateAgentModal', () => {
     const review = screen.getByTestId('agent-create-review')
     expect(
       within(review).getByText(
-        'Ask a first question or assign a result check that does not need files.'
+        'Ask a first question, or send a result-check task that does not need files.'
       )
     ).toBeInTheDocument()
     expect(
@@ -693,7 +693,7 @@ describe('CreateAgentModal', () => {
     expect(oneLiner).toHaveValue(joinCommand)
     expect(screen.getByText(/Forge will show it as an agent here/i)).toBeInTheDocument()
     expect(
-      screen.getByText(/assign tasks to it, and keep its status and history/i)
+      screen.getByText(/let you send tasks to it, and keep its status and history/i)
     ).toBeInTheDocument()
     expect(screen.getByText(/Files stay on that computer/i)).toBeInTheDocument()
     expect(screen.getByTestId('local-agent-paste-hint')).toHaveTextContent(

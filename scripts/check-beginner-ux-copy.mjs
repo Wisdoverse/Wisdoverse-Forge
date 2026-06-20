@@ -941,7 +941,10 @@ const USER_ACTION_ASSIGNMENT_JARGON_PATTERNS = [
   /\bAssigned agent\b/i,
   /\bwait for an assigned agent\b/i,
   /\bcreate or assign a task\b/i,
+  /\bbefore assigning tasks\b/i,
   /\bbefore assigning work\b/i,
+  /\bwhen assigning tasks\b/i,
+  /\bassign tasks to (?:it|this agent)\b/i,
   /\bassign work from Tasks\b/i,
   /\bstart assigning work\b/i,
   /\bChoose when assigning work\b/i,
@@ -2298,6 +2301,7 @@ const CREATE_AGENT_CONFIRMATION_JARGON_PATTERNS = [
   /\bChat-only AI service\b/i,
   /\bchat and review\b/i,
   /\bplanning, writing, and review\b/i,
+  /\bassign a result check\b/i,
   /\bassign review work\b/i,
   /\bChoose an AI service and AI model before creating this agent\b/i,
   /\bChoose an AI service with a saved model\b/i,
@@ -3519,6 +3523,8 @@ function hasUserActionAssignmentJargonCopy(relFile, line) {
     !relFile.endsWith('src/app/features/list/ListView.tsx') &&
     !relFile.endsWith('src/app/features/agents/AgentGroupsPanel.tsx') &&
     !relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx') &&
+    !relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx') &&
+    !relFile.endsWith('src/app/features/manage-project/ui/CreateProjectForm.tsx') &&
     !relFile.endsWith('src/app/features/board/TaskCard.tsx') &&
     !relFile.endsWith('src/app/hooks/useWsDispatch.ts') &&
     !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx') &&

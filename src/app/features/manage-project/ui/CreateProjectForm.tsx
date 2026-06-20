@@ -279,7 +279,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
             id="project-name-help"
             className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Pick the name users will look for when assigning tasks.
+            Pick the name users will look for when sending tasks.
           </p>
           {trimmedName && (
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">

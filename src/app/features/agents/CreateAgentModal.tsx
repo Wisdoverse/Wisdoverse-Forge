@@ -248,20 +248,20 @@ function createReviewItems({
       ? hasGroups
         ? 'Choose where tasks wait now, or set it later from Tasks.'
         : 'Set up where tasks wait here when you want new tasks to wait in one place.'
-      : 'Choose a project later before assigning tasks.'
+      : 'Choose a project later before sending tasks.'
 
   const nextStep =
     kind === 'local-cli'
       ? "Paste the setup text in this computer's command app and keep that app open."
       : kind === 'provider'
-        ? 'Ask a first question or assign a result check that does not need files.'
+        ? 'Ask a first question, or send a result-check task that does not need files.'
         : 'Wait until it shows Ready, then send one small task from Tasks.'
 
   return [
     { label: 'Where it works', value: runtimeTitle },
     {
       label: 'Project for new tasks',
-      value: projectName ?? 'Choose a project before assigning tasks.',
+      value: projectName ?? 'Choose a project before sending tasks.',
     },
     { label: 'Where tasks wait', value: taskQueue },
     { label: 'Next step', value: nextStep },
@@ -659,7 +659,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
               </div>
               <p className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {localEnrollment.enrollment?.joinCommand
-                  ? "Open this computer's command app, paste the setup text there, and keep that app open while it works. Forge will show it as an agent here, assign tasks to it, and keep its status and history. Files stay on that computer."
+                  ? "Open this computer's command app, paste the setup text there, and keep that app open while it works. Forge will show it as an agent here, let you send tasks to it, and keep its status and history. Files stay on that computer."
                   : 'Paste this setup text on the computer where this agent should work. Forge will manage its tasks, status, and history while files stay on that computer.'}
               </p>
             </div>
@@ -1038,7 +1038,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     ? 'Project ready. Tasks default to this project. File access stays on the joined computer.'
                     : 'Project ready. Tasks default to this project. Forge opens the shared project folder for this agent.'
                   : kind === 'provider'
-                    ? 'You can create this chat-only agent now. Choose a project later before assigning tasks.'
+                    ? 'You can create this chat-only agent now. Choose a project later before sending tasks.'
                     : 'Open project settings to create or choose a project before creating this file-working agent.'}
               </p>
               {!selectedProject && onOpenProjectsSetup ? (

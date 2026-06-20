@@ -4178,7 +4178,7 @@ function runtimeFitFor() {
   return [{ label: 'Where it works', value: 'Chat-only AI service' }, { title: 'Anthropic for chat and review', detail: 'Best for questions, planning, writing, and review that do not need project files.' }]
 }
 function nextStep() {
-  return 'Ask a first question or assign review work that does not need files.'
+  return 'Ask a first question or assign a result check that does not need files.'
 }
 function validationMessage() {
   return 'Choose an AI service and AI model before creating this agent.'
@@ -4218,7 +4218,7 @@ function OldProviderSelect() {
         }),
         expect.objectContaining({
           type: 'create-agent-confirmation-copy',
-          sample: expect.stringContaining('assign review work'),
+          sample: expect.stringContaining('assign a result check'),
         }),
         expect.objectContaining({
           type: 'create-agent-confirmation-copy',
@@ -4250,7 +4250,7 @@ function runtimeFitFor() {
   return [{ label: 'Where it works', value: 'AI service only' }, { title: 'Anthropic for questions and result checks', detail: 'Best for questions, planning, writing, and checking results when no project files need to be opened.' }]
 }
 function nextStep() {
-  return 'Ask a first question or assign a result check that does not need files.'
+  return 'Ask a first question, or send a result-check task that does not need files.'
 }
 function validationMessage() {
   return 'Open AI service settings, choose Check connection for this service, then come back when it shows Ready.'
@@ -5425,6 +5425,16 @@ function CliRuntimeConfig() {
   return <p>Confirm where it can open files before assigning work.</p>
 }
 `,
+      'src/app/features/agents/CreateAgentModal.tsx': `
+function CreateAgentModal() {
+  return <p>Choose a project later before assigning tasks. Forge will assign tasks to it.</p>
+}
+`,
+      'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
+function CreateProjectForm() {
+  return <p>Pick the name users will look for when assigning tasks.</p>
+}
+`,
       'src/app/features/board/TaskCard.tsx': `
 function TaskCard() {
   return <span>Assigned agent</span>
@@ -5497,6 +5507,14 @@ export const en = { agents: { noAgents: 'Create one agent to start assigning wor
         expect.objectContaining({
           type: 'user-action-assignment-copy',
           location: 'src/app/features/agents/AgentConfigTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'user-action-assignment-copy',
+          location: 'src/app/features/manage-project/ui/CreateProjectForm.tsx:3',
         }),
         expect.objectContaining({
           type: 'user-action-assignment-copy',

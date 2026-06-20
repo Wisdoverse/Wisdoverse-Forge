@@ -444,7 +444,7 @@ export const en = {
     runtime: {
       title: 'Where agents work',
       description:
-        'Choose where agents can open files, then check tools and sign-ins before assigning tasks.',
+        'Choose where agents can open files, then check tools and sign-ins before sending tasks.',
       saving: 'Saving...',
       loading: 'Loading where agents work...',
       couldNotLoad:
