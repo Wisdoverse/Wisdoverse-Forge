@@ -591,7 +591,11 @@ function HostCliEnrollmentPanel({
           </span>
         </button>
         {copyError && (
-          <p role="alert" className="mt-2 text-ui-caption font-medium text-apple-red">
+          <p
+            role="alert"
+            aria-live="polite"
+            className="mt-2 text-ui-caption font-medium text-apple-red"
+          >
             {copyError}
           </p>
         )}

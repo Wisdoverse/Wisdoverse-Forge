@@ -205,10 +205,12 @@ describe('AgentListView', () => {
     const enrollment = screen.getByTestId('host-cli-enrollment-panel')
     fireEvent.click(within(enrollment).getByRole('button', { name: /copy setup text/i }))
 
-    expect(await within(enrollment).findByRole('alert')).toHaveTextContent(
+    const alert = await within(enrollment).findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
       'Copy did not work. Select the setup text in the box, then copy it yourself.'
     )
-    expect(within(enrollment).getByRole('alert')).not.toHaveTextContent(/clipboard access/i)
+    expect(alert).not.toHaveTextContent(/clipboard access/i)
 
     fireEvent.click(within(enrollment).getByRole('button', { name: /windows/i }))
 

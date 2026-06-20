@@ -520,7 +520,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
           )}
 
           {error && (
-            <p role="alert" className="text-ui-caption text-apple-red">
+            <p role="alert" aria-live="polite" className="text-ui-caption text-apple-red">
               {error}
             </p>
           )}

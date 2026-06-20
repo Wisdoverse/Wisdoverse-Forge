@@ -319,7 +319,9 @@ describe('AgentGroupsPanel', () => {
     fireEvent.change(screen.getByLabelText(/waiting place name/i), { target: { value: '' } })
     fireEvent.submit(screen.getByRole('button', { name: /create waiting place/i }).closest('form')!)
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
       'Name this waiting place before creating it. Examples: Intake, Review, or Delivery.'
     )
     expect(screen.getByLabelText(/waiting place name/i)).toHaveFocus()
@@ -348,7 +350,9 @@ describe('AgentGroupsPanel', () => {
     })
     fireEvent.submit(screen.getByRole('button', { name: /create waiting place/i }).closest('form')!)
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
       'Ask an owner or admin to let you set up where tasks wait in this project. The waiting place was not created.'
     )
     expect(screen.getByLabelText(/waiting place name/i)).toHaveValue('Delivery Tasks')
