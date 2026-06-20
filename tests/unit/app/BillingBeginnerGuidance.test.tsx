@@ -235,6 +235,7 @@ describe('Billing beginner guidance', () => {
     )
 
     const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(
       within(alert).getByText(
         'Choose Check billing again to load invoices. Ask an owner or admin for access.'

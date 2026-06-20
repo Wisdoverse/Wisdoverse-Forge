@@ -94,7 +94,7 @@ export function InvoiceList({ invoices, loading, error, retrying, onRetry }: Inv
         )}
 
         {!loading && error && (
-          <div role="alert" className="px-6 py-8 text-center">
+          <div role="alert" aria-live="polite" className="px-6 py-8 text-center">
             <p className="text-ui-body text-apple-red">{error}</p>
             <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
               Choose Check billing again to load invoices. If it still fails, ask an owner or admin
