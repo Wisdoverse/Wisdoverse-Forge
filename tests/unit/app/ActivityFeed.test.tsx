@@ -133,13 +133,29 @@ describe('ActivityFeed', () => {
     render(<ActivityFeed />)
 
     const filters = screen.getByTestId('feed-filter-group')
-    fireEvent.click(within(filters).getByRole('button', { name: /needs action\s*1/i }))
+    expect(
+      within(filters).getByRole('button', { name: /show all recent updates, 3 matching updates/i })
+    ).toBeDefined()
+    expect(
+      within(filters).getByRole('button', {
+        name: /show blocked or failed task updates, 1 matching update/i,
+      })
+    ).toBeDefined()
+    fireEvent.click(
+      within(filters).getByRole('button', {
+        name: /show blocked or failed task updates, 1 matching update/i,
+      })
+    )
 
     expect(screen.getByText('Deploy staging')).toBeDefined()
     expect(screen.queryByText('Fix auth')).toBeNull()
     expect(screen.queryByText('Ship patch')).toBeNull()
 
-    fireEvent.click(within(filters).getByRole('button', { name: /progress\s*1/i }))
+    fireEvent.click(
+      within(filters).getByRole('button', {
+        name: /show updates for work in progress, 1 matching update/i,
+      })
+    )
 
     expect(screen.getByText('Fix auth')).toBeDefined()
     expect(screen.queryByText('Deploy staging')).toBeNull()
@@ -157,8 +173,12 @@ describe('ActivityFeed', () => {
 
     render(<ActivityFeed />)
 
-    fireEvent.click(screen.getByRole('button', { name: /completed\s*0/i }))
+    fireEvent.click(
+      screen.getByRole('button', { name: /show completed task updates, 0 matching updates/i })
+    )
     const emptyState = screen.getByTestId('feed-filter-empty')
+    expect(emptyState).toHaveAttribute('role', 'status')
+    expect(emptyState).toHaveAttribute('aria-live', 'polite')
     expect(within(emptyState).getByText('Completed updates will appear here')).toBeDefined()
     expect(within(emptyState).getByText(/finished work shows here/i)).toBeDefined()
     expect(within(emptyState).getByText(/see what happened most recently/i)).toBeDefined()
@@ -182,7 +202,11 @@ describe('ActivityFeed', () => {
 
     render(<ActivityFeed />)
 
-    fireEvent.click(screen.getByRole('button', { name: /needs action\s*0/i }))
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /show blocked or failed task updates, 0 matching updates/i,
+      })
+    )
     const emptyState = screen.getByTestId('feed-filter-empty')
     expect(within(emptyState).getByText('You are caught up on urgent updates')).toBeDefined()
     expect(within(emptyState).getByText(/urgent updates are clear/i)).toBeDefined()

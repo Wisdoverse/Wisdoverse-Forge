@@ -8,11 +8,15 @@ import { FeedItem } from './FeedItem'
 
 type FeedFilter = 'all' | 'needs-action' | 'progress' | 'completed'
 
-const FEED_FILTERS: { value: FeedFilter; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'needs-action', label: 'Needs action' },
-  { value: 'progress', label: 'Progress' },
-  { value: 'completed', label: 'Completed' },
+const FEED_FILTERS: { value: FeedFilter; label: string; ariaLabel: string }[] = [
+  { value: 'all', label: 'All', ariaLabel: 'Show all recent updates' },
+  {
+    value: 'needs-action',
+    label: 'Needs action',
+    ariaLabel: 'Show blocked or failed task updates',
+  },
+  { value: 'progress', label: 'Progress', ariaLabel: 'Show updates for work in progress' },
+  { value: 'completed', label: 'Completed', ariaLabel: 'Show completed task updates' },
 ]
 
 interface FeedFilteredEmptyCopy {
@@ -175,6 +179,7 @@ export function ActivityFeed() {
                   key={filter.value}
                   active={activeFilter === filter.value}
                   label={filter.label}
+                  ariaLabel={filter.ariaLabel}
                   count={filter.count}
                   onClick={() => setActiveFilter(filter.value)}
                 />
@@ -253,18 +258,22 @@ function SummaryMetric({
 function FeedFilterButton({
   active,
   label,
+  ariaLabel,
   count,
   onClick,
 }: {
   active: boolean
   label: string
+  ariaLabel: string
   count: number
   onClick: () => void
 }) {
+  const countLabel = `${count} matching ${count === 1 ? 'update' : 'updates'}`
   return (
     <button
       type="button"
       aria-pressed={active}
+      aria-label={`${ariaLabel}, ${countLabel}`}
       onClick={onClick}
       className={cn(
         'inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-2 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35',
@@ -284,6 +293,8 @@ function FilteredEmptyState({ filter, onShowAll }: { filter: FeedFilter; onShowA
   return (
     <div
       data-testid="feed-filter-empty"
+      role="status"
+      aria-live="polite"
       className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-black/[0.08] px-3 py-6 text-center dark:border-white/[0.1]"
     >
       <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
