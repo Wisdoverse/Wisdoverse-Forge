@@ -156,7 +156,7 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
         <UsageList
           testId="context-usage-needs-review"
           title="Check before reuse"
-          description="Review these before reuse because people reported they may be outdated, incorrect, or sensitive."
+          description="Check these before agents reuse them because people reported they may be outdated, incorrect, or sensitive."
           nextStep="Next: open the latest task result, then update or remove this before reuse."
           icon="review"
           items={data?.needsReview ?? []}

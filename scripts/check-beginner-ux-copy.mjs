@@ -399,6 +399,7 @@ const ANALYTICS_USEFUL_EMPTY_DEAD_END_PATTERNS = [/\bNo useful saved items yet\b
 const ANALYTICS_REVIEW_EMPTY_DEAD_END_PATTERNS = [
   /\bNothing to check right now\b/i,
   /\bNothing looks outdated\b/i,
+  /\bReview these before reuse\b/i,
 ]
 
 const ANALYTICS_UPDATED_TIME_DEAD_END_PATTERNS = [/\btime not available\b/i]

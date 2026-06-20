@@ -52,6 +52,7 @@ describe('ContextUsageDashboard', () => {
     expect(screen.getByText(/old enough to check again/i)).toBeDefined()
     expect(screen.getByText('No saved items need checking')).toBeDefined()
     expect(screen.getByText(/people report they may be outdated/i)).toBeDefined()
+    expect(screen.getByText(/check these before agents reuse them/i)).toBeDefined()
     expect(
       screen.getByText(/keep using task feedback so risky saved items appear here/i)
     ).toBeDefined()
@@ -62,6 +63,7 @@ describe('ContextUsageDashboard', () => {
     expect(screen.queryByText('Nothing looks outdated')).toBeNull()
     expect(screen.queryByText('Nothing to check right now')).toBeNull()
     expect(screen.queryByText('No useful saved items yet')).toBeNull()
+    expect(screen.queryByText(/review these before reuse/i)).toBeNull()
     expect(screen.queryByText(/stale threshold/i)).toBeNull()
     expect(screen.queryByText(/^Stale$/)).toBeNull()
     expect(screen.queryByText(/Snapshot/i)).toBeNull()

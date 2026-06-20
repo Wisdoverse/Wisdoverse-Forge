@@ -3255,6 +3255,7 @@ const EMPTY_TOP_USEFUL = {
       'src/app/features/analytics/ContextUsageDashboard.tsx': `
 const EMPTY_NEEDS_REVIEW = {
   title: 'Nothing to check right now',
+  detail: 'Review these before reuse because people reported they may be outdated, incorrect, or sensitive.',
 }
 
 const EMPTY_STALE = {
@@ -3274,7 +3275,11 @@ const EMPTY_STALE = {
         }),
         expect.objectContaining({
           type: 'analytics-review-empty-copy',
-          location: 'src/app/features/analytics/ContextUsageDashboard.tsx:7',
+          sample: expect.stringContaining('Review these before reuse'),
+        }),
+        expect.objectContaining({
+          type: 'analytics-review-empty-copy',
+          location: 'src/app/features/analytics/ContextUsageDashboard.tsx:8',
         }),
       ])
     )
@@ -3285,6 +3290,7 @@ const EMPTY_STALE = {
       'src/app/features/analytics/ContextUsageDashboard.tsx': `
 const EMPTY_NEEDS_REVIEW = {
   title: 'No saved items need checking',
+  detail: 'Check these before agents reuse them because people reported they may be outdated, incorrect, or sensitive.',
 }
 
 const EMPTY_STALE = {
