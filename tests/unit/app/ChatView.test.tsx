@@ -347,7 +347,7 @@ describe('ChatView', () => {
     ).toBeInTheDocument()
     expect(
       screen.getByRole('searchbox', { name: /search conversation/i })
-    ).toHaveAccessibleDescription(/clear it to see the full conversation again/i)
+    ).toHaveAccessibleDescription(/use show all updates to return to the full conversation/i)
     expect(screen.getByTestId('conversation-result-count')).toHaveAttribute('role', 'status')
     expect(screen.getByTestId('conversation-result-count')).toHaveAttribute('aria-live', 'polite')
     expect(screen.getByTestId('conversation-result-count')).toHaveTextContent(
@@ -402,7 +402,11 @@ describe('ChatView', () => {
     expect(emptyState).toHaveAttribute('aria-live', 'polite')
     expect(within(emptyState).getByText('Search and filter are hiding updates')).toBeInTheDocument()
     expect(within(emptyState).getByText(/useful updates may be hidden/i)).toBeInTheDocument()
-    expect(within(emptyState).getByText(/check every update/i)).toBeInTheDocument()
+    expect(
+      within(emptyState).getByText('Next: show all updates, then search again with one short word.')
+    ).toBeInTheDocument()
+    expect(within(emptyState).getByText(/search again with one short word/i)).toBeInTheDocument()
+    expect(emptyState).not.toHaveTextContent('clear filters')
     expect(emptyState).not.toHaveTextContent('review every update')
     expect(emptyState).not.toHaveTextContent('No conversation updates match the current filters.')
     expect(emptyState).not.toHaveTextContent('Try All, Attention, or a shorter search term.')

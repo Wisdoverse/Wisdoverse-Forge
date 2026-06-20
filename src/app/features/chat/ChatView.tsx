@@ -78,7 +78,7 @@ function conversationFilterEmptyCopy(
       title: 'Search and filter are hiding updates',
       detail:
         'The search is only looking inside the selected view, so useful updates may be hidden.',
-      nextStep: 'Next: clear filters, check every update, then search again with one short word.',
+      nextStep: 'Next: show all updates, then search again with one short word.',
     }
   }
 
@@ -86,7 +86,7 @@ function conversationFilterEmptyCopy(
     return {
       title: 'Search did not find a conversation update',
       detail: 'Try one word from the update, such as the task name, result, or help request.',
-      nextStep: 'Next: clear the search to see every update again.',
+      nextStep: 'Next: show all updates to return to the full conversation.',
     }
   }
 
@@ -388,7 +388,8 @@ export function ChatView({ agentId }: ChatViewProps) {
           id={conversationSearchHelpId}
           className="text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
-          Search only filters the updates shown below. Clear it to see the full conversation again.
+          Search only filters the updates shown below. Use Show all updates to return to the full
+          conversation.
         </p>
         <div
           role="group"
