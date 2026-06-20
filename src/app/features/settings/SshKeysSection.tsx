@@ -77,8 +77,8 @@ function SshKeyRow({ sshKey, onDelete }: SshKeyRowProps) {
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
           {formatAccessDate(sshKey.createdAt, {
-            missing: 'Refresh SSH code access to load added date',
-            invalid: 'Refresh SSH code access to check added date',
+            missing: 'Open SSH code access again to load added date',
+            invalid: 'Open SSH code access again to check added date',
           })}
         </span>
       </td>

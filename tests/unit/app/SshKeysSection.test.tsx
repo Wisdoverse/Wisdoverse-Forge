@@ -211,8 +211,8 @@ describe('SshKeysSection', () => {
     render(<SshKeysSection />)
 
     expect(await screen.findByRole('table', { name: /SSH code access/i })).toBeDefined()
-    expect(screen.getByText('Refresh SSH code access to load added date')).toBeDefined()
-    expect(screen.getByText('Refresh SSH code access to check added date')).toBeDefined()
+    expect(screen.getByText('Open SSH code access again to load added date')).toBeDefined()
+    expect(screen.getByText('Open SSH code access again to check added date')).toBeDefined()
     expect(screen.queryByText('Invalid Date')).toBeNull()
     expect(screen.queryByText('—')).toBeNull()
   })

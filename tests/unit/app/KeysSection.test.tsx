@@ -273,18 +273,21 @@ describe('KeysSection', () => {
           createdAt: '',
           lastUsedAt: 'not-a-date',
         }),
+        apiKey({
+          id: 'key-2',
+          name: 'Release webhook',
+          keyPrefix: 'af_prod',
+          createdAt: 'not-a-date',
+        }),
       ],
     })
 
     render(<KeysSection />)
 
     expect(await screen.findByRole('table', { name: /outside tool access keys/i })).toBeDefined()
-    expect(
-      screen.getByText('Open Outside tool access keys again to load created date')
-    ).toBeDefined()
-    expect(
-      screen.getByText('Open Outside tool access keys again to check last use')
-    ).toBeDefined()
+    expect(screen.getByText('Open Outside tool access again to load created date')).toBeDefined()
+    expect(screen.getByText('Open Outside tool access again to check created date')).toBeDefined()
+    expect(screen.getByText('Open Outside tool access again to check last use')).toBeDefined()
     expect(screen.queryByText('Invalid Date')).toBeNull()
     expect(screen.queryByText('—')).toBeNull()
   })
