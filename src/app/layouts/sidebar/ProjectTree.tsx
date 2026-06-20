@@ -392,6 +392,7 @@ function DeleteConfirmationDialog({ state, onCancel, onConfirm }: DeleteConfirma
     : state.target === 'team'
       ? 'Delete team'
       : 'Delete project'
+  const cancelLabel = state.target === 'team' ? 'Keep team' : 'Keep project'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
@@ -438,7 +439,7 @@ function DeleteConfirmationDialog({ state, onCancel, onConfirm }: DeleteConfirma
             onClick={onCancel}
             className="rounded-full bg-apple-gray-5 px-3 py-1.5 text-ui-button font-medium text-foreground-light disabled:opacity-50 dark:bg-white/[0.06] dark:text-foreground-dark"
           >
-            Keep
+            {cancelLabel}
           </button>
           <button
             type="button"

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { ProjectsSection } from '@app/pages/settings/ui/ProjectsSection'
 import { TeamsSection } from '@app/pages/settings/ui/TeamsSection'
 
@@ -61,10 +61,41 @@ vi.mock('@app/features/manage-team', () => ({
   EditableTeamRow: () => <div>Existing team row</div>,
 }))
 
-vi.mock('@app/features/manage-project', () => ({
-  CreateProjectForm: () => <div>Project form ready</div>,
-  EditableProjectRow: () => <div>Existing project row</div>,
-}))
+vi.mock('@app/features/manage-project', async () => {
+  const React = await import('react')
+
+  return {
+    CreateProjectForm: ({
+      onSave,
+    }: {
+      onSave: (name: string, teamId: string, repositoryUrl?: string) => Promise<void>
+    }) => {
+      const [formError, setFormError] = React.useState<string | null>(null)
+
+      return (
+        <div>
+          <div>Project form ready</div>
+          {formError && (
+            <div role="alert" aria-live="polite">
+              {formError}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() =>
+              void onSave('Project One', 'team-1').catch((err: unknown) => {
+                setFormError(err instanceof Error ? err.message : String(err))
+              })
+            }
+          >
+            Save project
+          </button>
+        </div>
+      )
+    },
+    EditableProjectRow: () => <div>Existing project row</div>,
+  }
+})
 
 vi.mock('@app/features/manage-members', () => ({
   ResourceMembersModal: () => <div>Members dialog</div>,
@@ -213,6 +244,55 @@ describe('workspace settings empty states', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /new project/i }))
     expect(screen.getByText('Project form ready')).toBeInTheDocument()
+  })
+
+  it('confirms project creation and points beginners to the next setup step', async () => {
+    mocks.getTeams.mockResolvedValue([{ ...teamAlpha, canCreateProject: true }])
+    mocks.getProjects.mockResolvedValue([])
+
+    render(<ProjectsSection />)
+
+    await waitFor(() => expect(mocks.getProjects).toHaveBeenCalledWith('team-1'))
+    fireEvent.click(await screen.findByRole('button', { name: /new project/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save project/i }))
+
+    const status = await screen.findByRole('status')
+    expect(status).toHaveTextContent('Project "Project One" is ready')
+    expect(status).toHaveTextContent(
+      'Next: set up where tasks wait in Agents, then create the first task in Tasks.'
+    )
+    expect(within(status).getByRole('link', { name: /set up waiting place/i })).toHaveAttribute(
+      'href',
+      '/agents'
+    )
+    expect(within(status).getByRole('link', { name: /create first task/i })).toHaveAttribute(
+      'href',
+      '/tasks'
+    )
+    expect(screen.getByText('Existing project row')).toBeInTheDocument()
+  })
+
+  it('keeps project creation failures in the form without a duplicate page alert', async () => {
+    mocks.getTeams.mockResolvedValue([{ ...teamAlpha, canCreateProject: true }])
+    mocks.getProjects.mockResolvedValue([])
+    mocks.createProject.mockRejectedValue(new Error('API 503: database unavailable'))
+
+    render(<ProjectsSection />)
+
+    await waitFor(() => expect(mocks.getProjects).toHaveBeenCalledWith('team-1'))
+    fireEvent.click(await screen.findByRole('button', { name: /new project/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save project/i }))
+
+    const alerts = await screen.findAllByRole('alert')
+    expect(alerts).toHaveLength(1)
+    expect(alerts[0]).toHaveAttribute('aria-live', 'polite')
+    expect(alerts[0]).toHaveTextContent(
+      'Open Settings and Teams and Projects again, choose the team, then create this project again. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
+    )
+    expect(alerts[0]).not.toHaveTextContent('API 503')
+    expect(alerts[0]).not.toHaveTextContent('database unavailable')
+    expect(screen.getByText('Project form ready')).toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
   it('explains where to manage project people and access', async () => {

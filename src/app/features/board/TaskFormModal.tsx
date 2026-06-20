@@ -61,7 +61,7 @@ const TASK_BRIEF_TEMPLATES: TaskBriefTemplate[] = [
     summary: 'Add one clear change',
     title: 'Add one focused change',
     description:
-      'What should change:\n- Describe the screen, command, or behavior to add.\n\nWhere to work:\n- Name the page, folder, or files if you know them.\n\nWhat to avoid:\n- List anything that should stay unchanged.\n\nDone when:\n- Say what should be visible, passing, or ready to review.',
+      'What should change:\n- Describe what you want to see or use after this is done.\n\nWhere to work:\n- Name the page or area if you know it.\n\nWhat to avoid:\n- List anything that should stay unchanged.\n\nDone when:\n- Say what should be visible, ready to use, or easy to check.',
     priority: 'normal',
     Icon: ClipboardCheck,
   },
@@ -71,7 +71,7 @@ const TASK_BRIEF_TEMPLATES: TaskBriefTemplate[] = [
     summary: 'Find what breaks and fix it',
     title: 'Fix a problem you can repeat',
     description:
-      'What is broken:\n- Describe what you see now.\n\nWhat should happen:\n- Describe the correct result.\n\nWhere to look first:\n- Add the page, command, log, or file if you know it.\n\nDone when:\n- Say how to confirm the fix.',
+      'What is broken:\n- Describe what you see now.\n\nWhat should happen:\n- Describe the correct result.\n\nWhere to look first:\n- Name the page or step where you saw it.\n\nDone when:\n- Say how you will know the problem is fixed.',
     priority: 'high',
     Icon: Bug,
   },
@@ -81,7 +81,7 @@ const TASK_BRIEF_TEMPLATES: TaskBriefTemplate[] = [
     summary: 'Explain what is happening',
     title: 'Find the cause of an unclear problem',
     description:
-      'Question to answer:\n- Write the question in one sentence.\n\nWhat to inspect:\n- Add pages, files, logs, or recent changes if you know them.\n\nWhat is already known:\n- Add clues, links, or screenshots.\n\nDecision needed:\n- Say what answer or recommendation you need.',
+      'Question to answer:\n- Write the question in one sentence.\n\nWhat to inspect:\n- Add pages, clues, links, screenshots, or recent changes if you know them.\n\nWhat is already known:\n- Add what you already tried or noticed.\n\nDecision needed:\n- Say what answer or recommendation you need.',
     priority: 'normal',
     Icon: Search,
   },
@@ -91,7 +91,7 @@ const TASK_BRIEF_TEMPLATES: TaskBriefTemplate[] = [
     summary: 'Look for risks before using it',
     title: 'Check whether a change is safe to use',
     description:
-      'Change to check:\n- Name the change, request, files, screen, or behavior.\n\nWhat could go wrong:\n- List the risks you care about.\n\nChecks to run:\n- Add tests, commands, or manual checks.\n\nAnswer format:\n- Ask for a short verdict, issues, and final recommendation.',
+      'Change to check:\n- Name what changed and where a user would see it.\n\nWhat could go wrong:\n- List the risks you care about.\n\nWhat to check:\n- Say what you want the agent to check, such as a screen, result, or sign-in step.\n\nAnswer needed:\n- Ask for what is safe, what needs fixing, and what to do next.',
     priority: 'normal',
     Icon: ShieldCheck,
   },
@@ -99,8 +99,8 @@ const TASK_BRIEF_TEMPLATES: TaskBriefTemplate[] = [
 
 const AGENT_READY_BRIEF_POINTS = [
   { label: 'What to finish', value: 'The visible change or decision you need.' },
-  { label: 'Where to work', value: 'Files, screens, or areas to use and what to avoid.' },
-  { label: 'Done when', value: 'The check, screenshot, or output that proves it is done.' },
+  { label: 'Where to work', value: 'Pages, screens, or areas to use and what to avoid.' },
+  { label: 'Done when', value: 'The simple check, screenshot, or result that proves it is done.' },
 ]
 
 const PROJECT_REQUIRED_ERROR = 'Open project settings before creating a task.'
@@ -176,6 +176,11 @@ export function TaskFormModal({
       : 'Create one place for new work to wait, then return here.'
   const assignableAgents = agents.filter((agent) => agentCanTakeTask(agent.status))
   const taskWillWaitForAgent = workLaneReady && assignableAgents.length === 0
+  const missingAgentDetail = agentSetupDetail({
+    workLaneReady,
+    hasProject: Boolean(selectedProject),
+    hasAgents: agents.length > 0,
+  })
   const projectGroups = useMemo(() => groupProjectsByTeam(projects), [projects])
   const projectField = register('projectId')
   const titleValue = watch('title')
@@ -410,10 +415,7 @@ export function TaskFormModal({
               />
               <div className="min-w-0 flex-1">
                 <p className="font-semibold">Connect an agent before this task can start</p>
-                <p className="mt-0.5">
-                  Save the task now. It will wait here until an agent is ready. To start it sooner,
-                  open Agents.
-                </p>
+                <p className="mt-0.5">{missingAgentDetail}</p>
               </div>
             </div>
             {onOpenAgentSetup && (
@@ -441,10 +443,7 @@ export function TaskFormModal({
                 <p className="font-semibold">
                   Start or connect an agent before this task can start
                 </p>
-                <p className="mt-0.5">
-                  Save the task now. It will wait here until one of your agents is ready. To start
-                  it sooner, open Agents.
-                </p>
+                <p className="mt-0.5">{missingAgentDetail}</p>
               </div>
             </div>
             {onOpenAgentSetup && (
@@ -789,6 +788,28 @@ function agentCanTakeTask(status: string): boolean {
   return normalized === 'available' || normalized === 'idle'
 }
 
+function agentSetupDetail({
+  workLaneReady,
+  hasProject,
+  hasAgents,
+}: {
+  workLaneReady: boolean
+  hasProject: boolean
+  hasAgents: boolean
+}): string {
+  if (workLaneReady) {
+    return hasAgents
+      ? 'Save the task now. It will wait here until one of your agents is ready. To start it sooner, open Agents.'
+      : 'Save the task now. It will wait here until an agent is ready. To start it sooner, open Agents.'
+  }
+
+  const setupStep = hasProject
+    ? 'Set up where tasks wait first.'
+    : 'Create a project and set up where tasks wait first.'
+  const waitTarget = hasAgents ? 'one of your agents' : 'an agent'
+  return `${setupStep} Then this task can wait here until ${waitTarget} is ready. To fix agent setup now, open Agents.`
+}
+
 function agentStatusLabel(status: string): string {
   const normalized = normalizeAgentStatus(status)
   switch (normalized) {
@@ -823,7 +844,9 @@ function taskBriefCues(title: string, description: string): TaskBriefCue[] {
   const hasDoneSectionContent = hasBriefSectionContent(description, [
     'done when',
     'checks to run',
+    'what to check',
     'answer format',
+    'answer needed',
     'decision needed',
   ])
   const namesWorkArea =
@@ -849,14 +872,14 @@ function taskBriefCues(title: string, description: string): TaskBriefCue[] {
       label: 'Where to work',
       ready: namesWorkArea,
       readyDetail: 'The agent knows where to look or what to avoid.',
-      missingDetail: 'Name the files, screen, folder, or area to check first.',
+      missingDetail: 'Name the page, screen, file, or area to check first.',
     },
     {
       id: 'done',
       label: 'Done when',
       ready: namesFinishCheck,
       readyDetail: 'The agent knows how success will be checked.',
-      missingDetail: 'Add the test, screenshot, output, or result that proves it is done.',
+      missingDetail: 'Add the simple check, screenshot, or result that proves it is done.',
     },
   ]
 }
@@ -929,26 +952,28 @@ const TEMPLATE_CUE_LABELS = new Set([
   'change to check',
   'what could go wrong',
   'checks to run',
+  'what to check',
   'answer format',
+  'answer needed',
 ])
 
 const TEMPLATE_HELPER_LINES = new Set([
-  'describe the screen, command, or behavior to add.',
-  'name the page, folder, or files if you know them.',
+  'describe what you want to see or use after this is done.',
+  'name the page or area if you know it.',
   'list anything that should stay unchanged.',
-  'say what should be visible, passing, or ready to review.',
+  'say what should be visible, ready to use, or easy to check.',
   'describe what you see now.',
   'describe the correct result.',
-  'add the page, command, log, or file if you know it.',
-  'say how to confirm the fix.',
+  'name the page or step where you saw it.',
+  'say how you will know the problem is fixed.',
   'write the question in one sentence.',
-  'add pages, files, logs, or recent changes if you know them.',
-  'add clues, links, or screenshots.',
+  'add pages, clues, links, screenshots, or recent changes if you know them.',
+  'add what you already tried or noticed.',
   'say what answer or recommendation you need.',
-  'name the change, request, files, screen, or behavior.',
+  'name what changed and where a user would see it.',
   'list the risks you care about.',
-  'add tests, commands, or manual checks.',
-  'ask for a short verdict, issues, and final recommendation.',
+  'say what you want the agent to check, such as a screen, result, or sign-in step.',
+  'ask for what is safe, what needs fixing, and what to do next.',
 ])
 
 function formatBriefCueList(labels: string[]): string {

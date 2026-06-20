@@ -560,10 +560,11 @@ describe('Sidebar', () => {
     expect(
       screen.getByText(/Check and move or finish any work you still need from "Team Alpha"/i)
     ).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /keep/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^keep team$/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^keep$/i })).not.toBeInTheDocument()
     expect(confirmSpy).not.toHaveBeenCalled()
 
-    fireEvent.click(screen.getByRole('button', { name: /keep/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^keep team$/i }))
     expect(screen.queryByRole('dialog', { name: /delete this team/i })).not.toBeInTheDocument()
     expect(teamApi.deleteTeam).not.toHaveBeenCalled()
 
@@ -572,7 +573,7 @@ describe('Sidebar', () => {
     fireEvent.click(screen.getByRole('button', { name: /^delete team$/i }))
 
     expect(screen.getByRole('button', { name: /deleting/i })).toHaveAttribute('aria-busy', 'true')
-    expect(screen.getByRole('button', { name: /keep/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /^keep team$/i })).toBeDisabled()
 
     resolveDelete()
     await waitFor(() => expect(teamApi.deleteTeam).toHaveBeenCalledWith('org1', 't1'))
@@ -762,8 +763,16 @@ describe('Sidebar', () => {
     ).toBeInTheDocument()
     expect(screen.getByText(/removed from this team space/i)).toBeInTheDocument()
     expect(screen.queryByText(/leaves this workspace/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^keep project$/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^keep$/i })).not.toBeInTheDocument()
     expect(confirmSpy).not.toHaveBeenCalled()
 
+    fireEvent.click(screen.getByRole('button', { name: /^keep project$/i }))
+    expect(screen.queryByRole('dialog', { name: /delete this project/i })).not.toBeInTheDocument()
+    expect(projectApi.deleteProject).not.toHaveBeenCalled()
+
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /delete project/i }))
     fireEvent.click(screen.getByRole('button', { name: /^delete project$/i }))
 
     await waitFor(() => expect(projectApi.deleteProject).toHaveBeenCalledWith('t1', 'p1'))

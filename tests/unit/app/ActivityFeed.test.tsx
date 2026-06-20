@@ -1,10 +1,14 @@
-import { describe, test, expect, afterEach, beforeEach } from 'vitest'
+import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
 import { ActivityFeed } from '@app/features/feed/ActivityFeed'
+import { useBoardStore } from '@app/shared/model/board.store'
 import { useFeedStore } from '@app/shared/model/feed.store'
 
 afterEach(cleanup)
-beforeEach(() => useFeedStore.getState().reset())
+beforeEach(() => {
+  useBoardStore.getState().reset()
+  useFeedStore.getState().reset()
+})
 
 describe('ActivityFeed', () => {
   test('renders agent status bar', () => {
@@ -30,7 +34,71 @@ describe('ActivityFeed', () => {
     expect(screen.getByText(/Agent Two is waiting: Waiting for account access/i)).toBeDefined()
     expect(screen.queryByText(/Needs SSH key/i)).toBeNull()
     expect(screen.getByRole('button', { name: /open task details/i })).toBeDefined()
-    expect(screen.getByRole('button', { name: /allow to continue/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /mark checked/i })).toBeDefined()
+  })
+
+  test('opens task details from an attention item when the task is on the board', () => {
+    useBoardStore.getState().setTasks([
+      {
+        id: 't1',
+        groupId: 'g1',
+        state: 'blocked',
+        method: 'tasks/send',
+        params: { task: 'Deploy staging', message: '' },
+        priority: 'normal',
+        progress: 0,
+        createdAt: '2026-06-20T00:00:00Z',
+        updatedAt: '2026-06-20T00:00:00Z',
+      },
+    ])
+    useFeedStore.getState().addAttentionItem({
+      id: 't1',
+      taskTitle: 'Deploy staging',
+      agentName: 'Agent Two',
+      reason: 'Needs SSH key',
+      timestamp: Date.now(),
+    })
+
+    render(<ActivityFeed />)
+
+    fireEvent.click(screen.getByRole('button', { name: /open task details/i }))
+
+    expect(useBoardStore.getState().selectedTaskId).toBe('t1')
+  })
+
+  test('opens the task board when an attention item is not loaded locally', () => {
+    const onOpenBoard = vi.fn()
+    useFeedStore.getState().addAttentionItem({
+      id: 't-missing',
+      taskTitle: 'Deploy staging',
+      agentName: 'Agent Two',
+      reason: 'Needs SSH key',
+      timestamp: Date.now(),
+    })
+
+    render(<ActivityFeed onOpenBoard={onOpenBoard} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /open task details/i }))
+
+    expect(onOpenBoard).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('status')).toHaveTextContent(/open the task board/i)
+  })
+
+  test('removes an attention item after marking it checked', () => {
+    useFeedStore.getState().addAttentionItem({
+      id: 't1',
+      taskTitle: 'Deploy staging',
+      agentName: 'Agent Two',
+      reason: 'Needs SSH key',
+      timestamp: Date.now(),
+    })
+
+    render(<ActivityFeed />)
+
+    fireEvent.click(screen.getByRole('button', { name: /mark checked/i }))
+
+    expect(useFeedStore.getState().attentionItems).toHaveLength(0)
+    expect(screen.queryByTestId('attention-zone')).toBeNull()
   })
 
   test('hides attention zone when no blocked tasks', () => {
@@ -138,12 +206,12 @@ describe('ActivityFeed', () => {
     ).toBeDefined()
     expect(
       within(filters).getByRole('button', {
-        name: /show blocked or failed task updates, 1 matching update/i,
+        name: /show updates that need your help or stopped early, 1 matching update/i,
       })
     ).toBeDefined()
     fireEvent.click(
       within(filters).getByRole('button', {
-        name: /show blocked or failed task updates, 1 matching update/i,
+        name: /show updates that need your help or stopped early, 1 matching update/i,
       })
     )
 
@@ -204,7 +272,7 @@ describe('ActivityFeed', () => {
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: /show blocked or failed task updates, 0 matching updates/i,
+        name: /show updates that need your help or stopped early, 0 matching updates/i,
       })
     )
     const emptyState = screen.getByTestId('feed-filter-empty')
@@ -222,11 +290,22 @@ describe('ActivityFeed', () => {
     render(<ActivityFeed />)
     expect(screen.getByText(/quiet so far/i)).toBeDefined()
     expect(screen.getByText(/start a task or wait for the chosen agent/i)).toBeDefined()
-    expect(screen.getByText(/open Board, create a task or choose an agent/i)).toBeDefined()
+    expect(screen.getByText(/open the task board, create a task or choose an agent/i)).toBeDefined()
+    expect(screen.queryByRole('button', { name: /open task board/i })).toBeNull()
     expect(screen.queryByText(/assigned agent/i)).toBeNull()
     expect(screen.queryByText(/assigned agents add updates/i)).toBeNull()
     expect(screen.queryByText(/create or assign a task/i)).toBeNull()
     expect(screen.queryByText(/No progress updates yet/i)).toBeNull()
     expect(screen.queryByText(/No work has reported progress yet/i)).toBeNull()
+  })
+
+  test('lets beginners open the task board from an empty activity feed', () => {
+    const onOpenBoard = vi.fn()
+
+    render(<ActivityFeed onOpenBoard={onOpenBoard} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /open task board/i }))
+
+    expect(onOpenBoard).toHaveBeenCalledTimes(1)
   })
 })

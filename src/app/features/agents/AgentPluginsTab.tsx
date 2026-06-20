@@ -273,9 +273,7 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
         aria-live="polite"
         className="flex flex-col items-center justify-center py-8 text-center"
       >
-        <p className="text-ui-body font-medium text-apple-red">
-          Go back to Agents, choose this agent again, then open Tools.
-        </p>
+        <p className="text-ui-body font-medium text-apple-red">Open Tools again from Agents</p>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           {error}
         </p>

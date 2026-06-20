@@ -170,12 +170,26 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByRole('dialog', { name: /new agent/i })).toBeNull()
   })
 
-  test('blocks project-file agent creation until a project is selected', async () => {
+  test('uses the primary button to open project settings before file-working agent creation', () => {
     const createAgent = vi.fn().mockResolvedValue(true)
     const onOpenProjectsSetup = vi.fn()
     useAgentsStore.setState({ createAgent } as never)
 
     render(<CreateAgentModal onOpenProjectsSetup={onOpenProjectsSetup} />)
+
+    expect(screen.queryByRole('button', { name: /^add agent$/i })).toBeNull()
+    fireEvent.click(screen.getAllByRole('button', { name: /^open project settings$/i }).at(-1)!)
+
+    expect(onOpenProjectsSetup).toHaveBeenCalledTimes(1)
+    expect(useAgentsStore.getState().createModalOpen).toBe(false)
+    expect(createAgent).not.toHaveBeenCalled()
+  })
+
+  test('blocks project-file agent creation until a project is selected without a route callback', async () => {
+    const createAgent = vi.fn().mockResolvedValue(true)
+    useAgentsStore.setState({ createAgent } as never)
+
+    render(<CreateAgentModal />)
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'CLI Worker' } })
     fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
@@ -183,11 +197,7 @@ describe('CreateAgentModal', () => {
     expect(alert).toHaveTextContent(/open project settings, create or choose a project/i)
     expect(alert).toHaveTextContent(/agents that work with files need a project first/i)
     expect(createAgent).not.toHaveBeenCalled()
-
-    fireEvent.click(within(alert).getByRole('button', { name: /open project settings/i }))
-
-    expect(onOpenProjectsSetup).toHaveBeenCalledTimes(1)
-    expect(useAgentsStore.getState().createModalOpen).toBe(false)
+    expect(within(alert).queryByRole('button', { name: /open project settings/i })).toBeNull()
   })
 
   test('shows selected project as the project for new tasks', () => {

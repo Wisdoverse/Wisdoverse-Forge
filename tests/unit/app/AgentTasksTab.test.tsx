@@ -183,7 +183,7 @@ describe('AgentTasksTab', () => {
     const filters = screen.getByTestId('agent-task-filter-group')
     fireEvent.click(
       within(filters).getByRole('button', {
-        name: /show blocked or failed work for this agent, 1 matching task/i,
+        name: /show work that needs help or stopped early for this agent, 1 matching task/i,
       })
     )
 
@@ -263,7 +263,7 @@ describe('AgentTasksTab', () => {
     const filters = screen.getByTestId('agent-task-filter-group')
     fireEvent.click(
       within(filters).getByRole('button', {
-        name: /show blocked or failed work for this agent, 0 matching tasks/i,
+        name: /show work that needs help or stopped early for this agent, 0 matching tasks/i,
       })
     )
     fireEvent.change(screen.getByTestId('agent-task-search'), { target: { value: 'frontend' } })
