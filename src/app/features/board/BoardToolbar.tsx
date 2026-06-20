@@ -116,7 +116,11 @@ export function BoardToolbar({
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <span className="text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark">
+          <span
+            role="status"
+            aria-live="polite"
+            className="text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark"
+          >
             Showing {counts.visible} of {counts.total} tasks
           </span>
           {hasActiveFilter && (
@@ -125,7 +129,7 @@ export function BoardToolbar({
               onClick={onClear}
               className="inline-flex h-8 items-center justify-center rounded-lg px-2 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35"
             >
-              Clear
+              Show all tasks
             </button>
           )}
           <FilterGroup

@@ -65,7 +65,8 @@ describe('BoardToolbar', () => {
         name: /show tasks that already have an agent, 3 matching tasks/i,
       })
     ).toBeDefined()
-    expect(screen.getByText('Showing 4 of 6 tasks')).toBeDefined()
+    expect(screen.getByRole('status')).toHaveTextContent('Showing 4 of 6 tasks')
+    expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite')
   })
 
   test('keeps filter values stable while exposing clearer labels', () => {
@@ -89,12 +90,12 @@ describe('BoardToolbar', () => {
 
   test('shows clear only when a search or filter is active', () => {
     const inactive = renderToolbar()
-    expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /show all tasks/i })).toBeNull()
     cleanup()
 
     const active = renderToolbar({ searchQuery: 'blocked' })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Clear' }))
+    fireEvent.click(screen.getByRole('button', { name: /show all tasks/i }))
     expect(active.onClear).toHaveBeenCalledOnce()
     expect(inactive.onClear).not.toHaveBeenCalled()
   })
