@@ -31,7 +31,7 @@ describe('createSkillErrorMessage', () => {
 
     expectBeginnerMessage(
       createSkillErrorMessage(new Error(message)),
-      'Ask an owner or admin to let you create saved instructions for this team space.'
+      'Ask an owner or admin to let you create saved instructions for this team space, then create the instruction again.'
     )
     expect(createSkillErrorMessage(new Error(message))).not.toContain('workspace instructions')
   })
@@ -51,6 +51,7 @@ describe('createSkillErrorMessage', () => {
 
     expect(message).toContain('Ask an owner or admin')
     expect(message).toContain('create saved instructions for this team space')
+    expect(message).toContain('create the instruction again')
     expect(message).not.toContain('workspace instructions')
     expect(message).not.toContain('Code:')
     expect(message).not.toContain('API 403')
@@ -68,9 +69,10 @@ describe('createSkillErrorMessage', () => {
   test('turns validation details into a field-specific next step', () => {
     const message = createSkillErrorMessage(new Error('HTTP 422: {"message":"trigger is invalid"}'))
 
-    expectBeginnerMessage(message, 'Check the matching words, then try again.')
+    expectBeginnerMessage(message, 'Check the matching words, then create the instruction again.')
     expect(message).not.toContain('HTTP 422')
     expect(message).not.toContain('trigger is invalid')
+    expect(message).not.toContain('try again')
   })
 
   test('uses server error details for field-specific guidance', () => {
@@ -78,7 +80,7 @@ describe('createSkillErrorMessage', () => {
       serverError: 'trigger words are required',
     })
 
-    expectBeginnerMessage(message, 'Check the matching words, then try again.')
+    expectBeginnerMessage(message, 'Check the matching words, then create the instruction again.')
     expect(message).not.toContain('trigger words are required')
   })
 

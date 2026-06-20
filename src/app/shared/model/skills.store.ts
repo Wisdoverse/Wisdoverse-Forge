@@ -159,9 +159,9 @@ export function skillHttpErrorMessage(
   const actionText =
     action === 'create' ? 'create the instruction' : 'open Saved instructions again'
   const createPermissionMessage =
-    'Ask an owner or admin to let you create saved instructions for this team space.'
+    'Ask an owner or admin to let you create saved instructions for this team space, then create the instruction again.'
   const createConflictMessage =
-    'Review the existing instructions, then change the name or matching words and try again.'
+    'Review the existing instructions, then change the name or matching words and create the instruction again.'
   const createRateLimitMessage =
     'Wait a moment, then create the instruction again. Instruction setup is busy right now.'
   const createServiceMessage =
@@ -226,15 +226,15 @@ function skillResponseErrorMessage(
 function skillValidationMessage(detail: string | null): string {
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('trigger')) {
-    return 'Check the matching words, then try again.'
+    return 'Check the matching words, then create the instruction again.'
   }
   if (normalized.includes('name')) {
-    return 'Enter an instruction name, then try again.'
+    return 'Enter an instruction name, then create the instruction again.'
   }
   if (normalized.includes('content') || normalized.includes('instruction')) {
-    return 'Enter the saved instructions, then try again.'
+    return 'Enter the saved instructions, then create the instruction again.'
   }
-  return 'Check the instruction name, matching words, and instructions, then try again.'
+  return 'Check the instruction name, matching words, and instructions, then create the instruction again.'
 }
 
 export const useSkillsStore = create<SkillsState>((set, get) => ({

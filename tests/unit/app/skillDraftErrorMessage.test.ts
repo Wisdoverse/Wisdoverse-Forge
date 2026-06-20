@@ -11,7 +11,9 @@ describe('skillDraftErrorMessage', () => {
   test('keeps store permission guidance when the modal remaps publish errors', () => {
     expect(
       skillDraftErrorMessage(
-        new Error('Ask an owner or admin to let you create saved instructions for this team space.')
+        new Error(
+          'Ask an owner or admin to let you create saved instructions for this team space, then create the instruction again.'
+        )
       )
     ).toBe(
       'Ask an owner or admin to let you create saved instructions, then publish again. Instruction was not published.'

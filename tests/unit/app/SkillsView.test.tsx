@@ -65,9 +65,9 @@ describe('SkillsView', () => {
       'Draft release notes from accepted work'
     )
     expect(screen.getByLabelText(/^matching words for future tasks$/i)).toHaveValue('release')
-    expect((screen.getByLabelText(/^steps for the agent$/i) as HTMLTextAreaElement).value).toContain(
-      'Group user-facing updates'
-    )
+    expect(
+      (screen.getByLabelText(/^steps for the agent$/i) as HTMLTextAreaElement).value
+    ).toContain('Group user-facing updates')
   })
 
   test('uses plain wording in the review checklist starter instruction', async () => {
@@ -131,7 +131,8 @@ describe('SkillsView', () => {
     expect(screen.queryByRole('dialog', { name: /save a reusable instruction/i })).toBeNull()
     expect(
       fetchMock.mock.calls.some(
-        ([url, init]) => url === '/api/v1/skills' && (init as RequestInit | undefined)?.method === 'POST'
+        ([url, init]) =>
+          url === '/api/v1/skills' && (init as RequestInit | undefined)?.method === 'POST'
       )
     ).toBe(false)
   })
@@ -440,7 +441,7 @@ describe('SkillsView', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'Ask an owner or admin to let you create saved instructions for this team space.'
+      'Ask an owner or admin to let you create saved instructions for this team space, then create the instruction again.'
     )
     expect(alert.textContent).not.toContain('workspace instructions')
     expect(alert.textContent).not.toContain('Code:')
