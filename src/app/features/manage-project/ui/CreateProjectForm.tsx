@@ -240,7 +240,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
       )}
     >
       {bannerError && (
-        <div id={bannerId} role="alert" className={uiStyles.error}>
+        <div id={bannerId} role="alert" aria-live="polite" className={uiStyles.error}>
           {bannerError}
         </div>
       )}
@@ -380,12 +380,12 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
       </div>
 
       {visibleError && errorField === 'name' && (
-        <p id={errorId} role="alert" className="text-ui-caption text-apple-red">
+        <p id={errorId} role="alert" aria-live="polite" className="text-ui-caption text-apple-red">
           {visibleError}
         </p>
       )}
       {visibleError && errorField === 'team' && (
-        <p role="alert" className="text-ui-caption text-apple-red">
+        <p role="alert" aria-live="polite" className="text-ui-caption text-apple-red">
           {visibleError}
         </p>
       )}

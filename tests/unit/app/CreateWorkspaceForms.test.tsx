@@ -31,7 +31,9 @@ describe('workspace setup create forms', () => {
     fireEvent.click(createButton)
 
     expect(onSave).not.toHaveBeenCalled()
-    expect(screen.getByRole('alert')).toHaveTextContent('Enter a team name before creating it.')
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent('Enter a team name before creating it.')
     const nameInput = screen.getByLabelText(/team name/i)
     expect(nameInput).toHaveFocus()
 
@@ -55,6 +57,7 @@ describe('workspace setup create forms', () => {
 
     await waitFor(() => {
       const alert = screen.getByRole('alert')
+      expect(alert).toHaveAttribute('aria-live', 'polite')
       expect(alert).toHaveTextContent(
         'Open Settings and Teams and Projects again, then create this team.'
       )
@@ -87,7 +90,9 @@ describe('workspace setup create forms', () => {
     fireEvent.click(createButton)
 
     expect(onSave).not.toHaveBeenCalled()
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
       'Create or choose a team before creating this project.'
     )
     expect(screen.getByText('No teams — create a team first')).toHaveFocus()
@@ -106,7 +111,9 @@ describe('workspace setup create forms', () => {
     fireEvent.click(createButton)
 
     expect(onSave).not.toHaveBeenCalled()
-    expect(screen.getByRole('alert')).toHaveTextContent('Enter a project name before creating it.')
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent('Enter a project name before creating it.')
     const nameInput = screen.getByLabelText(/project name/i)
     expect(nameInput).toHaveFocus()
 
@@ -203,13 +210,15 @@ describe('workspace setup create forms', () => {
 
     // No silent dead-click: a visible banner AND no submit.
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
       'Paste the https:// code link from your browser'
     )
-    expect(screen.getByRole('alert')).toHaveTextContent('leave this blank')
-    expect(screen.getByRole('alert')).toHaveTextContent('SSH code access')
-    expect(screen.getByRole('alert')).not.toHaveTextContent('for git@ links')
-    expect(screen.getByRole('alert')).not.toHaveTextContent('SSH keys')
+    expect(alert).toHaveTextContent('leave this blank')
+    expect(alert).toHaveTextContent('SSH code access')
+    expect(alert).not.toHaveTextContent('for git@ links')
+    expect(alert).not.toHaveTextContent('SSH keys')
     expect(onSave).not.toHaveBeenCalled()
   })
 
@@ -229,7 +238,9 @@ describe('workspace setup create forms', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(/remove account details/i)
     )
-    expect(screen.getByRole('alert')).toHaveTextContent('Save code access in Settings')
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent('Save code access in Settings')
     expect(onSave).not.toHaveBeenCalled()
   })
 
@@ -245,6 +256,7 @@ describe('workspace setup create forms', () => {
 
     await waitFor(() => {
       const alert = screen.getByRole('alert')
+      expect(alert).toHaveAttribute('aria-live', 'polite')
       expect(alert).toHaveTextContent('Paste an https:// code link without account details')
       expect(alert).toHaveTextContent('leave the code link blank')
       expect(alert).toHaveTextContent('add code access in Settings')
@@ -265,6 +277,7 @@ describe('workspace setup create forms', () => {
 
     await waitFor(() => {
       const alert = screen.getByRole('alert')
+      expect(alert).toHaveAttribute('aria-live', 'polite')
       expect(alert).toHaveTextContent(
         'Open Settings and Teams and Projects again, choose the team, then create this project.'
       )
@@ -288,6 +301,7 @@ describe('workspace setup create forms', () => {
 
     await waitFor(() => {
       const alert = screen.getByRole('alert')
+      expect(alert).toHaveAttribute('aria-live', 'polite')
       expect(alert).toHaveTextContent('Wait a few minutes, then create this project again.')
       expect(alert).toHaveTextContent('Forge could not create the project right now')
       expect(alert).toHaveTextContent('ask an owner or admin to check Projects in Settings')
@@ -310,6 +324,7 @@ describe('workspace setup create forms', () => {
 
     await waitFor(() => {
       const alert = screen.getByRole('alert')
+      expect(alert).toHaveAttribute('aria-live', 'polite')
       expect(alert).toHaveTextContent(
         'Wait a minute, then create this project again. Too many project changes are happening right now.'
       )
@@ -329,6 +344,7 @@ describe('workspace setup create forms', () => {
 
     await waitFor(() => {
       const alert = screen.getByRole('alert')
+      expect(alert).toHaveAttribute('aria-live', 'polite')
       expect(alert).toHaveTextContent(
         'Check the project name and team, then create this project again. Forge could not create the project.'
       )

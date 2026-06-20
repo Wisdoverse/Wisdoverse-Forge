@@ -152,7 +152,7 @@ export function CreateTeamForm({ onSave, onCancel, saving }: CreateTeamFormProps
       )}
     >
       {bannerError && (
-        <div id={bannerId} role="alert" className={uiStyles.error}>
+        <div id={bannerId} role="alert" aria-live="polite" className={uiStyles.error}>
           {bannerError}
         </div>
       )}
@@ -203,7 +203,7 @@ export function CreateTeamForm({ onSave, onCancel, saving }: CreateTeamFormProps
         )}
       </div>
       {visibleError && (
-        <p id={errorId} role="alert" className="text-ui-caption text-apple-red">
+        <p id={errorId} role="alert" aria-live="polite" className="text-ui-caption text-apple-red">
           {visibleError}
         </p>
       )}

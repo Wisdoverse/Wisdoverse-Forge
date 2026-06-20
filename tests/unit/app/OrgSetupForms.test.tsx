@@ -111,7 +111,9 @@ describe('organization setup forms', () => {
     const form = screen.getByLabelText(/^team name/i).closest('form')
     fireEvent.submit(form!)
 
-    expect(screen.getByRole('alert')).toHaveTextContent('Enter a team name before creating it.')
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent('Enter a team name before creating it.')
     expect(screen.getByLabelText(/^team name/i)).toHaveFocus()
     expect(onSave).not.toHaveBeenCalled()
   })
@@ -124,7 +126,9 @@ describe('organization setup forms', () => {
     const form = screen.getByLabelText(/^project name/i).closest('form')
     fireEvent.submit(form!)
 
-    expect(screen.getByRole('alert')).toHaveTextContent('Enter a project name before creating it.')
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent('Enter a project name before creating it.')
     expect(screen.getByLabelText(/^project name/i)).toHaveFocus()
     expect(onSave).not.toHaveBeenCalled()
   })
