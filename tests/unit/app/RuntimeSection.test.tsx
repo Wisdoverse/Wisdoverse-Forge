@@ -362,6 +362,24 @@ describe('RuntimeSection', () => {
     )
   })
 
+  test('explains how to recover when the browser blocks the sign-in page', async () => {
+    vi.spyOn(window, 'open').mockImplementation(() => null)
+
+    render(<RuntimeSection />)
+
+    await screen.findByTestId('runtime-launch-checklist')
+    fireEvent.click(screen.getAllByRole('button', { name: /Sign in to GitHub/i })[0])
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
+      'Allow pop-ups for this site, then choose Sign in to GitHub again.'
+    )
+    expect(alert).toHaveTextContent('The GitHub browser sign-in page did not open.')
+    expect(alert).not.toHaveTextContent('window.open')
+    expect(alert).not.toHaveTextContent('popup blocker')
+  })
+
   test('labels missing work setup clearly instead of Unknown', async () => {
     useSettingsStore.setState({
       runtimeSettings: null,

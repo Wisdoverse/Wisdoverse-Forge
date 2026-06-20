@@ -6295,6 +6295,10 @@ function credentialStatusCopy() {
 function heartbeatStatusCopy() {
   return 'Agent online status could not be checked. Check setup. If it still cannot be checked, ask an owner or admin to check Where agents run.'
 }
+
+function blockedSignInCopy() {
+  return 'The GitHub browser sign-in page did not open. Allow pop-ups for this site, then choose Sign in to GitHub again.'
+}
 `,
     })
 
@@ -6331,6 +6335,10 @@ function heartbeatStatusCopy() {
           type: 'runtime-error-copy',
           location: 'src/app/features/settings/RuntimeSection.tsx:11',
         }),
+        expect.objectContaining({
+          type: 'runtime-error-copy',
+          sample: expect.stringContaining('browser sign-in page did not open'),
+        }),
       ])
     )
   })
@@ -6365,6 +6373,10 @@ function credentialStatusCopy() {
 
 function heartbeatStatusCopy() {
   return 'Choose Check again to refresh agent online status. If it still cannot be checked, ask an owner or admin to check Where agents work in Settings.'
+}
+
+function blockedSignInCopy() {
+  return 'Allow pop-ups for this site, then choose Sign in to GitHub again. The GitHub browser sign-in page did not open.'
 }
 `,
     })

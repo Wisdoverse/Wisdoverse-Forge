@@ -1146,6 +1146,7 @@ const RUNTIME_ERROR_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*Agent online status could not be checked\. Check setup/i,
   /['"`]\s*The Where agents run settings have not loaded yet\. Check setup/i,
   /['"`]\s*Work tool sign-in did not start\. Check the connected AI service/i,
+  /\bThe [^'"`]+ browser sign-in page did not open\. Allow pop-ups/i,
   /['"`]\s*Where agents run is not available yet\. Refresh Settings/i,
   /['"`]\s*Forge could not check where agents run right now\. Refresh this page/i,
   /\brefresh Settings\. Forge could not connect while checking Where agents work\b/i,

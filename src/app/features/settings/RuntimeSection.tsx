@@ -162,6 +162,7 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
   const nextChecklistItem = checklistItems.find((item) => !item.ready) ?? null
 
   async function connectCliProvider(provider: string) {
+    const label = cliSignInDisplayName(cliStatuses, provider)
     setOpeningProvider(provider)
     setCliStatusError(null)
     try {
@@ -170,7 +171,12 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
         setCliStatusError(runtimeErrorMessage('startCliSignIn', result))
         return
       }
-      window.open(result.url, '_blank', 'noopener,noreferrer')
+      const popup = window.open(result.url, '_blank', 'noopener,noreferrer')
+      if (!popup) {
+        setCliStatusError(
+          `Allow pop-ups for this site, then choose Sign in to ${label} again. The ${label} browser sign-in page did not open.`
+        )
+      }
     } catch (err) {
       setCliStatusError(runtimeErrorMessage('startCliSignIn', err))
     } finally {
@@ -536,6 +542,10 @@ function mergeCliAuthProxyStatuses(
     })
   }
   return Array.from(byProvider.values())
+}
+
+function cliSignInDisplayName(statuses: CliAuthProxyStatusEntry[], provider: string): string {
+  return statuses.find((status) => status.provider === provider)?.displayName ?? provider
 }
 
 function RuntimeNextStepPanel({
