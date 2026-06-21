@@ -122,6 +122,16 @@ describe('OrganizationsPanel', () => {
         /Create or sync a team space before creating teams, projects, people, or places where new tasks wait/i
       )
     ).toBeDefined()
+    expect(
+      within(emptyState).getByText(
+        'Next step: open Settings, choose Team spaces, and create the first team space.'
+      )
+    ).toBeDefined()
+    expect(
+      within(emptyState).getByText(
+        'Success looks like one team space listed here with People and Teams counts.'
+      )
+    ).toBeDefined()
     expect(within(emptyState).queryByText(/agent work queues/i)).toBeNull()
     expect(within(emptyState).queryByText('No team spaces are visible yet')).toBeNull()
   })
