@@ -421,7 +421,11 @@ impl ParticipantLivenessWorker {
                     }
                     match drain_available_participants(&self.client, &self.pool).await {
                         Ok(0) => {}
-                        Ok(n) => tracing::info!(tasks = n, "Drained dispatchable tasks onto available participants"),
+                        Ok(n) => {
+                            metrics::counter!("agentforge_orchestration_participant_tasks_claimed_total")
+                                .increment(n);
+                            tracing::info!(tasks = n, "Drained dispatchable tasks onto available participants");
+                        }
                         Err(err) => tracing::error!(error = ?err, "Available-participant drain failed"),
                     }
                 }
@@ -446,9 +450,14 @@ pub fn register_metrics() {
         "agentforge_orchestration_participant_reconciled_total",
         "Busy participants flipped back to available by the reconcile backstop (a failed event-driven release)."
     );
+    metrics::describe_counter!(
+        "agentforge_orchestration_participant_tasks_claimed_total",
+        "Tasks claimed onto participants — by the per-heartbeat single claim and the drain backstop."
+    );
     metrics::counter!("agentforge_orchestration_participant_heartbeats_total").increment(0);
     metrics::counter!("agentforge_orchestration_participant_status_transitions_total").increment(0);
     metrics::counter!("agentforge_orchestration_participant_reconciled_total").increment(0);
+    metrics::counter!("agentforge_orchestration_participant_tasks_claimed_total").increment(0);
 }
 
 /// DB-only core of heartbeat handling (ADR 0008): upsert the participant
@@ -536,6 +545,7 @@ pub async fn handle_heartbeat(
     if participant.status == "available"
         && let Some((task, busy_participant)) = claim_next_task_for_participant(pool, subject_agent).await?
     {
+        metrics::counter!("agentforge_orchestration_participant_tasks_claimed_total").increment(1);
         if let Err(err) = publish_participant_update(client, &busy_participant, "participant.claimed").await {
             tracing::warn!(error = %err, participant_id = %busy_participant.id, "Failed to broadcast participant claim");
         }

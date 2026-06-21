@@ -13,6 +13,7 @@
 //! without scanning logs.
 
 use std::time::Duration;
+use tokio::time::Instant;
 
 use agentforge_core::CliToolKind;
 use agentforge_core::credential_protocol::{
@@ -63,6 +64,11 @@ const FETCH_BATCH_SIZE: usize = 8;
 const FETCH_TIMEOUT_MS: u64 = 500;
 const ACK_WAIT_SECS: u64 = 30;
 const MAX_DELIVER: i64 = 5;
+const LAG_PROBE_INTERVAL: Duration = Duration::from_secs(30);
+
+fn record_consumer_lag(num_pending: u64) {
+    metrics::gauge!("credential_sync_consumer_pending").set(num_pending as f64);
+}
 
 /// Resolves `agent_id → (organization_id, user_id)`. Modeled as a trait so
 /// tests swap in an in-memory implementation.
@@ -248,7 +254,8 @@ where
         Ok(Self { consumer, owners, hmac, writer })
     }
 
-    pub async fn run(self, mut shutdown: watch::Receiver<bool>) {
+    pub async fn run(mut self, mut shutdown: watch::Receiver<bool>) {
+        let mut last_lag_probe = Instant::now() - LAG_PROBE_INTERVAL;
         loop {
             tokio::select! {
                 changed = shutdown.changed() => {
@@ -278,6 +285,16 @@ where
                                         let _ = msg.ack_with(AckKind::Nak(None)).await;
                                     }
                                 }
+                            }
+                            // Probe consumer lag at most once per LAG_PROBE_INTERVAL to bound
+                            // server round-trips. The Batch stream is fully drained above so
+                            // self.consumer is free here (no active borrow from fetch/messages).
+                            if last_lag_probe.elapsed() >= LAG_PROBE_INTERVAL {
+                                match self.consumer.info().await {
+                                    Ok(info) => record_consumer_lag(info.num_pending),
+                                    Err(err) => tracing::warn!(error = %err, "credential sync consumer info probe failed"),
+                                }
+                                last_lag_probe = Instant::now();
                             }
                         }
                         Err(err) => {
@@ -371,9 +388,14 @@ pub fn register_metrics() {
         "credential_sync_persist_duration_seconds",
         "Time spent encrypting and upserting a credential blob"
     );
+    metrics::describe_gauge!(
+        "credential_sync_consumer_pending",
+        "JetStream messages pending (unconsumed) for the credential-sync consumer — rising = consumer falling behind."
+    );
     // Prime so the metric exists on /metrics before first event.
     metrics::counter!("credential_sync_published_total", "cli_tool" => "unknown").increment(0);
     metrics::counter!("credential_sync_received_total", "cli_tool" => "unknown").increment(0);
+    record_consumer_lag(0);
 }
 
 #[cfg(test)]
@@ -744,6 +766,15 @@ mod tests {
         let payload = envelope_for(TEST_HMAC, agent_id, &msg, None);
         let err = handle_message(&owners, &hmac, &writer, &subject(agent_id), &payload).await.unwrap_err();
         assert!(matches!(err, HandleError::Unauthorized { reason: "payload_oversized", .. }), "{err}");
+    }
+
+    #[test]
+    fn record_consumer_lag_sets_gauge() {
+        // Calling record_consumer_lag must not panic. Global gauges are not
+        // value-readable without a recorder installed, so this is a prime-style
+        // smoke test consistent with the rest of the crate's metric tests.
+        record_consumer_lag(7);
+        record_consumer_lag(0);
     }
 
     #[tokio::test]
