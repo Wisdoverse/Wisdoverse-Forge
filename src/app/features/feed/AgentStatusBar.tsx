@@ -43,10 +43,23 @@ export function AgentStatusBar({ agents }: { agents: AgentStatus[] }) {
     return (
       <div
         data-testid="agent-status-empty"
-        className="rounded-lg bg-black/[0.035] px-3 py-2 text-[10px] leading-relaxed text-secondary-light dark:bg-white/[0.05] dark:text-secondary-dark"
+        aria-labelledby="agent-status-empty-title"
+        className="rounded-lg bg-black/[0.035] px-3 py-2.5 text-[10px] leading-relaxed text-secondary-light dark:bg-white/[0.05] dark:text-secondary-dark"
       >
-        Open Agents, then choose New agent if none exists or Start on an existing agent before
-        sending work.
+        <p
+          id="agent-status-empty-title"
+          className="text-[11px] font-medium text-foreground-light dark:text-foreground-dark"
+        >
+          Connect an agent before sending work
+        </p>
+        <ol className="mt-1.5 list-decimal space-y-1 pl-4">
+          <li>Open Agents and choose New agent if none exists.</li>
+          <li>Copy the setup text into this computer's command app and leave it running.</li>
+          <li>If an agent already exists, choose Start in Agents.</li>
+        </ol>
+        <p className="mt-1.5 text-[10px] text-secondary-light dark:text-secondary-dark">
+          Success looks like one agent listed here as Ready or Working now.
+        </p>
       </div>
     )
   }
