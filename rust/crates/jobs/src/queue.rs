@@ -255,17 +255,9 @@ mod tests {
     #[sqlx::test(migrations = "../db/migrations")]
     async fn enqueue_in_tx_commits_and_is_dequeueable(pool: PgPool) {
         let mut tx = pool.begin().await.unwrap();
-        let id = enqueue_in_tx(
-            &mut tx,
-            "self_fix_pr",
-            serde_json::json!({"task_id": "t1"}),
-            0,
-            None,
-            Some("uk-1"),
-            5,
-        )
-        .await
-        .unwrap();
+        let id = enqueue_in_tx(&mut tx, "self_fix_pr", serde_json::json!({"task_id": "t1"}), 0, None, Some("uk-1"), 5)
+            .await
+            .unwrap();
         assert!(id.is_some());
         tx.commit().await.unwrap();
 
@@ -277,9 +269,7 @@ mod tests {
     #[sqlx::test(migrations = "../db/migrations")]
     async fn enqueue_in_tx_rolls_back_with_the_outer_tx(pool: PgPool) {
         let mut tx = pool.begin().await.unwrap();
-        enqueue_in_tx(&mut tx, "self_fix_pr", serde_json::json!({}), 0, None, Some("uk-2"), 5)
-            .await
-            .unwrap();
+        enqueue_in_tx(&mut tx, "self_fix_pr", serde_json::json!({}), 0, None, Some("uk-2"), 5).await.unwrap();
         tx.rollback().await.unwrap();
 
         let job = dequeue(&pool, "self_fix_pr", "worker-test").await.unwrap();

@@ -626,11 +626,9 @@ impl OrchestrationService {
         // completion. `unique_key = task_id` makes re-completion idempotent
         // (ON CONFLICT DO NOTHING).
         if updated.self_fix {
-            let payload = serde_json::to_value(agentforge_core::SelfFixPrJob {
-                task_id,
-                org_id: scope.org_id().as_uuid(),
-            })
-            .map_err(|err| agentforge_core::AppError::from(anyhow::Error::from(err)))?;
+            let payload =
+                serde_json::to_value(agentforge_core::SelfFixPrJob { task_id, org_id: scope.org_id().as_uuid() })
+                    .map_err(|err| agentforge_core::AppError::from(anyhow::Error::from(err)))?;
             agentforge_jobs::queue::enqueue_in_tx(
                 &mut tx,
                 agentforge_core::SELF_FIX_PR_QUEUE,

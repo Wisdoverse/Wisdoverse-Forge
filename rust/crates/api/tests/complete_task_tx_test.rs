@@ -296,17 +296,12 @@ async fn completing_self_fix_task_enqueues_one_pr_job(pool: PgPool) {
     let (svc, scope, task_id) = seed_self_fix_task(&pool, true).await;
     svc.complete_task(&scope, task_id, serde_json::json!({"ok": true})).await.unwrap();
 
-    let job = agentforge_jobs::queue::dequeue(&pool, agentforge_core::SELF_FIX_PR_QUEUE, "t")
-        .await
-        .unwrap();
+    let job = agentforge_jobs::queue::dequeue(&pool, agentforge_core::SELF_FIX_PR_QUEUE, "t").await.unwrap();
     let job = job.expect("a self_fix_pr job must be enqueued");
     let payload: agentforge_core::SelfFixPrJob = serde_json::from_value(job.payload).unwrap();
     assert_eq!(payload.task_id, task_id);
     assert!(
-        agentforge_jobs::queue::dequeue(&pool, agentforge_core::SELF_FIX_PR_QUEUE, "t2")
-            .await
-            .unwrap()
-            .is_none(),
+        agentforge_jobs::queue::dequeue(&pool, agentforge_core::SELF_FIX_PR_QUEUE, "t2").await.unwrap().is_none(),
         "exactly one job"
     );
 }
@@ -316,8 +311,6 @@ async fn completing_non_self_fix_task_enqueues_nothing(pool: PgPool) {
     let (svc, scope, task_id) = seed_self_fix_task(&pool, false).await;
     svc.complete_task(&scope, task_id, serde_json::json!({"ok": true})).await.unwrap();
 
-    let job = agentforge_jobs::queue::dequeue(&pool, agentforge_core::SELF_FIX_PR_QUEUE, "t")
-        .await
-        .unwrap();
+    let job = agentforge_jobs::queue::dequeue(&pool, agentforge_core::SELF_FIX_PR_QUEUE, "t").await.unwrap();
     assert!(job.is_none(), "non-self_fix completion must not enqueue a PR job");
 }

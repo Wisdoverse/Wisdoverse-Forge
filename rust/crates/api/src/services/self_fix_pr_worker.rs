@@ -94,10 +94,7 @@ impl SelfFixPrWorker {
 
 /// Describe metric series so they are present from the first scrape.
 pub fn register_metrics() {
-    metrics::describe_counter!(
-        "agentforge_self_fix_pr_total",
-        "Self-fix PR-bridge outcomes, labeled opened|failed"
-    );
+    metrics::describe_counter!("agentforge_self_fix_pr_total", "Self-fix PR-bridge outcomes, labeled opened|failed");
     metrics::counter!("agentforge_self_fix_pr_total", "outcome" => "opened").increment(0);
     metrics::counter!("agentforge_self_fix_pr_total", "outcome" => "failed").increment(0);
 }
@@ -113,20 +110,19 @@ mod tests {
 
     fn build_service(pool: &PgPool) -> crate::services::self_fix::SelfFixService {
         let config = crate::test_support::test_app_config("postgres://localhost/agentforge_test");
-        let container_control =
-            crate::services::agent_container_control::AgentContainerControlService::from_runtime(
-                pool.clone(),
-                &config,
-                crate::domain::context::ContextFeatureFlags::default(),
-                None, // encryption_key
-                None, // docker
-                None, // auth_callout
-            );
+        let container_control = crate::services::agent_container_control::AgentContainerControlService::from_runtime(
+            pool.clone(),
+            &config,
+            crate::domain::context::ContextFeatureFlags::default(),
+            None, // encryption_key
+            None, // docker
+            None, // auth_callout
+        );
         crate::services::self_fix::SelfFixService::new(
             crate::repositories::orchestration::OrchestrationTaskRepository::new(pool.clone()),
             crate::repositories::agent::AgentRepository::new(pool.clone()),
             container_control,
-            None,    // github not configured -> open_pr returns github_not_configured BEFORE touching container_control
+            None, // github not configured -> open_pr returns github_not_configured BEFORE touching container_control
             crate::services::agent_workspace::workspace_root_from_env(),
             crate::services::self_fix::import::ImportLimits::default(),
         )
@@ -193,14 +189,13 @@ mod tests {
 
         // github=None => open_pr errors => queue::fail bumps attempts; the job is
         // not silently completed/deleted.
-        let (status, attempts): (String, i32) = sqlx::query_as(
-            "SELECT status, attempts FROM job_queue WHERE queue = $1 AND unique_key = $2",
-        )
-        .bind(agentforge_core::SELF_FIX_PR_QUEUE)
-        .bind(task_id.to_string())
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+        let (status, attempts): (String, i32) =
+            sqlx::query_as("SELECT status, attempts FROM job_queue WHERE queue = $1 AND unique_key = $2")
+                .bind(agentforge_core::SELF_FIX_PR_QUEUE)
+                .bind(task_id.to_string())
+                .fetch_one(&pool)
+                .await
+                .unwrap();
         assert_eq!(status, "pending", "fail() reschedules the job, not delete/dead");
         assert!(attempts >= 1, "attempt count must increment on failure");
     }
