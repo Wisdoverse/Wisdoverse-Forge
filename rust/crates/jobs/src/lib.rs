@@ -82,7 +82,7 @@ pub use participant_liveness::{
     sweep_offline as sweep_participants_offline,
 };
 pub use presence_store::{PresenceBackend, RedisRecord};
-pub use queue::{JobEntry, complete, dequeue, enqueue, fail, release_stale_locks};
+pub use queue::{JobEntry, complete, dequeue, enqueue, enqueue_in_tx, fail, release_stale_locks};
 pub use worker::Worker;
 
 /// Crate version for health checks and diagnostics.
