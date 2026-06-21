@@ -11,6 +11,17 @@ export function savedInstructionSourceLabel(source: string, fallback: string): s
   return label
 }
 
+export function savedInstructionAudienceLabel(source: string, fallback: string): string {
+  const label = savedInstructionSourceLabel(source, fallback)
+  const normalized = label.toLowerCase()
+
+  if (normalized === 'team space saved instructions') return 'Saved for this team space'
+  if (normalized === 'global saved instructions') return 'Saved for everyone'
+  if (normalized === 'saved instructions') return 'Saved as a saved instruction'
+
+  return `Saved in ${label}`
+}
+
 export function knownWorkToolLabel(tool: string): string | null {
   switch (tool.trim().toLowerCase()) {
     case 'claude':

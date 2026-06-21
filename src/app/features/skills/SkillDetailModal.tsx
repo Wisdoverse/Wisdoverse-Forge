@@ -3,7 +3,7 @@ import { X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import type { Skill } from '@app/shared/model/skills.store'
-import { knownWorkToolLabel, savedInstructionSourceLabel } from './model/savedInstructionLabels'
+import { knownWorkToolLabel, savedInstructionAudienceLabel } from './model/savedInstructionLabels'
 
 interface SkillDetailModalProps {
   skill: Skill
@@ -16,9 +16,7 @@ export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
     ? skillAvailabilityLabel(skill.marketplace, (key) => t(key))
     : t('skills.detail.availabilityLatest')
   const author = skill.pluginAuthor || t('skills.detail.unknownAuthor')
-  const source = skill.plugin
-    ? savedInstructionSourceLabel(skill.plugin, t('skills.detail.unknownSource'))
-    : t('skills.detail.unknownSource')
+  const source = savedInstructionAudienceLabel(skill.plugin, t('skills.detail.unknownSource'))
   const toolLabel = skill.cliTool ? knownWorkToolLabel(skill.cliTool) : null
   const cliLabel = skill.cliTool
     ? toolLabel
