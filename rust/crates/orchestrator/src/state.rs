@@ -19,7 +19,7 @@ use crate::task::{MemoryStore as MemoryTaskStore, PgTaskStore, Store as TaskStor
 use crate::team::{MemoryStore as MemoryTeamStore, PgTeamStore, Store as TeamStore};
 use crate::workflow::{
     MemoryStore as MemoryWorkflowStore, MemoryWorkflowRuntime, PgWorkflowStore, Store as WorkflowStore,
-    WorkflowService, WorkflowWorkerHandle, build_live_workflow_components,
+    WorkflowService, WorkflowWorkerHandle, build_workflow_runtime,
 };
 
 type AuthServices = (Option<Arc<SessionManager>>, Option<Arc<Provisioner>>);
@@ -43,6 +43,7 @@ pub struct AppState {
     pub metrics_store: Option<Arc<dyn MetricsStore>>,
     pub metrics_cache: Arc<MetricsCache>,
     pub broadcaster: Arc<Broadcaster>,
+    pub workflow_runtime: crate::workflow::WorkflowRuntimeStatus,
     pub ready: bool,
 }
 
@@ -66,6 +67,7 @@ impl Default for AppState {
             metrics_store: None,
             metrics_cache: Arc::new(MetricsCache::with_default_ttl()),
             broadcaster: Arc::new(Broadcaster::new()),
+            workflow_runtime: crate::workflow::WorkflowRuntimeStatus::Disabled,
             ready: false,
         }
     }
@@ -185,6 +187,7 @@ impl AppState {
             metrics_store: None,
             metrics_cache: Arc::new(MetricsCache::with_default_ttl()),
             broadcaster: Arc::new(Broadcaster::new()),
+            workflow_runtime: crate::workflow::WorkflowRuntimeStatus::Disabled,
             ready: true,
         }
     }
@@ -222,8 +225,8 @@ impl AppState {
         let agent_directory = build_agent_directory(pool.as_ref());
         let metrics_store =
             build_metrics_store(pool.as_ref(), task_store.clone(), review_store.clone(), agent_directory.clone());
-        let workflow_components =
-            build_live_workflow_components(config.as_ref(), workflow_store.clone(), outbound_mcp.clone()).await?;
+        let (workflow_components, workflow_runtime) =
+            build_workflow_runtime(config.as_ref(), workflow_store.clone(), outbound_mcp.clone()).await;
         let workflow_service = workflow_components.as_ref().map(|components| components.service.clone());
         let workflow_worker = workflow_components.map(|components| components.worker);
         let mcp_server = build_mcp_server(config.as_ref());
@@ -248,6 +251,7 @@ impl AppState {
                 metrics_store,
                 metrics_cache: Arc::new(MetricsCache::with_default_ttl()),
                 broadcaster: Arc::new(Broadcaster::new()),
+                workflow_runtime,
             },
             workflow_worker,
         ))
