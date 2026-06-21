@@ -91,6 +91,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub fn register_metrics() {
     cli_image_updater::register_metrics();
     credential_consumer::register_metrics();
+    dependency_reconcile::register_metrics();
     event_consumer::register_metrics();
     orchestration_metrics::register_metrics();
     orchestration_outbox_publisher::register_metrics();
