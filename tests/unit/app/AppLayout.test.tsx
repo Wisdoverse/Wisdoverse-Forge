@@ -9,8 +9,7 @@ const mockCreateTask = vi.fn()
 const mockGetGroups = vi.fn()
 const mockCreateGroup = vi.fn()
 const routerState = vi.hoisted(() => ({ path: '/tasks' }))
-const originalSetGettingStartedDismissed =
-  useSettingsStore.getState().setGettingStartedDismissed
+const originalSetGettingStartedDismissed = useSettingsStore.getState().setGettingStartedDismissed
 
 vi.mock('@app/shared/model/auth.context', () => ({
   useAuth: () => ({
@@ -307,11 +306,11 @@ describe('AppLayout', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText('Sign in to OpenAI (Codex) before agents work on project files.')
+        screen.getByText('Open the Codex sign-in page before agents work on project files.')
       ).toBeDefined()
     })
     fireEvent.click(
-      screen.getByText('Sign in to OpenAI (Codex) before agents work on project files.')
+      screen.getByText('Open the Codex sign-in page before agents work on project files.')
     )
 
     expect(onNavigate).toHaveBeenCalledWith('/settings/work-tool-sign-ins')
@@ -341,7 +340,7 @@ describe('AppLayout', () => {
         )
       ).toBeDefined()
     })
-    fireEvent.click(screen.getByText('Reset setup checklist'))
+    fireEvent.click(screen.getByText('Show setup checklist'))
 
     await waitFor(() => expect(setGettingStartedDismissed).toHaveBeenCalledWith(false))
     await waitFor(() => expect(onNavigate).toHaveBeenCalledWith('/start'))
@@ -372,7 +371,7 @@ describe('AppLayout', () => {
         )
       ).toBeDefined()
     })
-    fireEvent.click(screen.getByText('Reset setup checklist'))
+    fireEvent.click(screen.getByText('Show setup checklist'))
 
     await waitFor(() => expect(setGettingStartedDismissed).toHaveBeenCalledWith(false))
     await waitFor(() => expect(onNavigate).toHaveBeenCalledWith('/settings/account'))

@@ -101,6 +101,7 @@ interface ApprovalQueueEmptyState {
   detail: string
   nextStep: string
   actionLabel?: string
+  actionHref?: string
 }
 
 function approvalQueueEmptyState({
@@ -137,7 +138,9 @@ function approvalQueueEmptyState({
     title: 'No saved items need checking',
     detail:
       'When an agent suggests a saved note or saved instruction, it will appear here before anyone can reuse it.',
-    nextStep: 'Next: finish a task, then come back here if you want agents to reuse what worked.',
+    nextStep: 'Next: open Tasks and finish work that should teach future agents what helped.',
+    actionLabel: 'Open task list',
+    actionHref: '/tasks',
   }
 }
 
@@ -378,15 +381,23 @@ export function ApprovalQueueView() {
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {emptyState.nextStep}
               </p>
-              {emptyState.actionLabel && (
-                <button
-                  type="button"
-                  onClick={resetFilters}
-                  className="mt-3 inline-flex h-9 items-center justify-center rounded-full bg-apple-blue px-3 text-ui-button font-semibold text-white transition-colors hover:bg-apple-blue/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
-                >
-                  {emptyState.actionLabel}
-                </button>
-              )}
+              {emptyState.actionLabel &&
+                (emptyState.actionHref ? (
+                  <a
+                    href={emptyState.actionHref}
+                    className="mt-3 inline-flex h-9 items-center justify-center rounded-full bg-apple-blue px-3 text-ui-button font-semibold text-white transition-colors hover:bg-apple-blue/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+                  >
+                    {emptyState.actionLabel}
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="mt-3 inline-flex h-9 items-center justify-center rounded-full bg-apple-blue px-3 text-ui-button font-semibold text-white transition-colors hover:bg-apple-blue/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+                  >
+                    {emptyState.actionLabel}
+                  </button>
+                ))}
             </div>
           ) : (
             <div className="grid gap-3">

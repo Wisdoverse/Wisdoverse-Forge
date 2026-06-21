@@ -57,7 +57,7 @@ const SECONDARY_ACTION_COMMANDS = [
   {
     id: 'action:work-tool-sign-ins',
     label: 'Codex and work tool sign-in',
-    description: 'Sign in to OpenAI (Codex) before agents work on project files.',
+    description: 'Open the Codex sign-in page before agents work on project files.',
     searchText: 'codex openai login sign in work tool settings',
   },
   {
@@ -69,7 +69,7 @@ const SECONDARY_ACTION_COMMANDS = [
 
 const SETUP_CHECKLIST_RECOVERY_COMMAND = {
   id: 'action:show-setup-checklist',
-  label: 'Reset setup checklist',
+  label: 'Show setup checklist',
   description:
     'Add the setup checklist back to the left menu and open it. Projects, agents, and tasks stay unchanged.',
   searchText: 'start tutorial onboarding setup checklist reset restore show again',

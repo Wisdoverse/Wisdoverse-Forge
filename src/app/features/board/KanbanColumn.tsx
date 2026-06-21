@@ -50,28 +50,33 @@ const COLUMN_EMPTY_STATE: Record<string, { title: string; detail: string }> = {
     detail: 'Add a task below with the result you want the agent to finish.',
   },
   queued: {
-    title: 'Sent tasks wait here for an agent',
-    detail: 'Tasks with an agent wait here until that agent starts them.',
+    title: 'Send a task to an agent first',
+    detail:
+      'After you choose an agent and send a task, it waits here until it starts. Open the card here if it does not start.',
   },
   working: {
-    title: 'Running work appears here',
-    detail: 'Running work appears here once an agent starts the task.',
+    title: 'Start a waiting task to show live work',
+    detail:
+      'Open a task in Waiting to start, choose Start, or wait for the agent to begin. Running tasks show here.',
   },
   blocked: {
-    title: 'Tasks needing your answer appear here',
-    detail: 'Tasks waiting for your answer or missing details will collect here.',
+    title: 'Answer help requests from this column',
+    detail:
+      'When a task needs details, open its card here, read what the agent needs, then choose Continue or Stop.',
   },
   done: {
-    title: 'Finished work appears here to check before using',
-    detail: 'Completed tasks move here so you can check results and save repeatable steps.',
+    title: 'Check finished work before using it',
+    detail:
+      'Open a completed card, check the result, then save repeatable steps or create a follow-up task.',
   },
   failed: {
-    title: 'Retry steps appear here after a task stops',
-    detail: 'If a task stops early, open its card here to read the recovery note and retry steps.',
+    title: 'Retry stopped work from this column',
+    detail:
+      'Open a stopped card here, read the recovery note, then retry when the next step is clear.',
   },
   canceled: {
-    title: 'Canceled tasks stay here for history',
-    detail: 'Canceled work stays here so the board keeps its history visible.',
+    title: 'Check canceled work before starting again',
+    detail: 'Open a canceled card here to see why it stopped before you create a replacement task.',
   },
 }
 
@@ -146,8 +151,8 @@ export function KanbanColumn({
 
 function ColumnEmptyState({ columnId, label }: { columnId: string; label: string }) {
   const emptyState = COLUMN_EMPTY_STATE[columnId] ?? {
-    title: `No ${label.toLowerCase()} tasks`,
-    detail: 'Tasks will appear here when they reach this board step.',
+    title: `Open ${label.toLowerCase()} tasks to check next steps`,
+    detail: 'When a task reaches this board step, open its card to see what to do next.',
   }
 
   return (

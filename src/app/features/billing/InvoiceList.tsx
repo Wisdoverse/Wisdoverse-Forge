@@ -116,13 +116,11 @@ export function InvoiceList({ invoices, loading, error, retrying, onRetry }: Inv
         {!loading && !error && invoices.length === 0 && (
           <div className="px-6 py-8 text-center">
             <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-              Invoices appear after your first charge
+              Start or change a plan to create the first invoice
             </p>
             <p className="mx-auto mt-1 max-w-sm text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Receipts and payment links will appear here after the first billing cycle.
-            </p>
-            <p className="mx-auto mt-1 max-w-sm text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Invoices appear after you start or change a plan and a charge is created.
+              After a charge is created, return here to open the payment link or download the
+              receipt.
             </p>
           </div>
         )}

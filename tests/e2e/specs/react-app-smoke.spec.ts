@@ -554,6 +554,7 @@ test.describe('React App Smoke Tests', () => {
       await setupAndNavigate(page, baseURL!)
       await page.locator('[data-testid="sidebar-nav-settings"]').click()
       await page.waitForURL('**/settings')
+      await expect(page.getByTestId('page-settings')).toBeVisible({ timeout: 30000 })
     })
 
     test('settings page shows provider configuration nav', async ({ page }) => {
@@ -564,9 +565,15 @@ test.describe('React App Smoke Tests', () => {
       // settings nav and match the leading label (the accessible name carries a
       // trailing description).
       const settingsNav = page.getByTestId('settings-desktop-nav')
+      await expect(settingsNav).toBeVisible({ timeout: 30000 })
       await expect(settingsNav.getByRole('button', { name: /^AI services:/ })).toBeVisible()
-      await expect(settingsNav.getByRole('button', { name: /^Outside apps:/ })).toBeVisible()
+      await expect(settingsNav.getByRole('button', { name: /^Outside tool access:/ })).toBeVisible()
+      await expect(settingsNav.getByRole('button', { name: /^HTTPS code access:/ })).toBeVisible()
+      await expect(settingsNav.getByRole('button', { name: /^SSH code access:/ })).toBeVisible()
       await expect(settingsNav.getByRole('button', { name: /^Where agents work:/ })).toBeVisible()
+      await expect(
+        settingsNav.getByRole('button', { name: /^Codex and work tool sign-in:/ })
+      ).toBeVisible()
       await expect(settingsNav.getByRole('button', { name: /^Account:/ })).toBeVisible()
       await screenshot(page, '21-settings-page')
     })
@@ -918,15 +925,14 @@ test.describe('React App Smoke Tests', () => {
       const toolbar = page.getByTestId('board-toolbar')
       await toolbar.waitFor({ state: 'visible', timeout: 15000 })
       const priority = toolbar.getByRole('group', { name: 'Filter tasks by priority' })
-      const high = priority.getByRole('button', { name: 'High' })
+      const high = priority.getByRole('button', { name: /Show high priority tasks/ })
 
       await expect(high).toHaveAttribute('aria-pressed', 'false')
       await high.click({ timeout: 30000 })
       await expect(high).toHaveAttribute('aria-pressed', 'true')
-      await expect(priority.getByRole('button', { name: 'All priorities' })).toHaveAttribute(
-        'aria-pressed',
-        'false'
-      )
+      await expect(
+        priority.getByRole('button', { name: /Show tasks at all priority levels/ })
+      ).toHaveAttribute('aria-pressed', 'false')
       // Fixture: 2 high-priority tasks (t-001, t-004) of 7.
       await expect(toolbar.getByText('Showing 2 of 7 tasks')).toBeVisible()
     })
@@ -934,8 +940,12 @@ test.describe('React App Smoke Tests', () => {
     test('assignee filter toggles independently and Clear resets to all', async ({ page }) => {
       const toolbar = page.getByTestId('board-toolbar')
       await toolbar.waitFor({ state: 'visible', timeout: 15000 })
-      const assignee = toolbar.getByRole('group', { name: 'Filter tasks by agent assignment' })
-      const hasAgent = assignee.getByRole('button', { name: 'Has agent' })
+      const assignee = toolbar.getByRole('group', {
+        name: 'Filter tasks by whether an agent is chosen',
+      })
+      const hasAgent = assignee.getByRole('button', {
+        name: /Show tasks that already have an agent/,
+      })
 
       await hasAgent.click({ timeout: 30000 })
       await expect(hasAgent).toHaveAttribute('aria-pressed', 'true')
@@ -943,12 +953,11 @@ test.describe('React App Smoke Tests', () => {
       await expect(toolbar.getByText('Showing 3 of 7 tasks')).toBeVisible()
 
       // Clear appears only while a filter is active and resets every filter.
-      await toolbar.getByRole('button', { name: 'Clear' }).click()
+      await toolbar.getByRole('button', { name: 'Show all tasks' }).click()
       await expect(hasAgent).toHaveAttribute('aria-pressed', 'false')
-      await expect(assignee.getByRole('button', { name: 'All agents' })).toHaveAttribute(
-        'aria-pressed',
-        'true'
-      )
+      await expect(
+        assignee.getByRole('button', { name: /Show tasks for all agent choices/ })
+      ).toHaveAttribute('aria-pressed', 'true')
       await expect(toolbar.getByText('Showing 7 of 7 tasks')).toBeVisible()
     })
 
@@ -959,12 +968,12 @@ test.describe('React App Smoke Tests', () => {
       // Low priority (only t-006) is unassigned, so Low + Has agent matches 0 tasks.
       await toolbar
         .getByRole('group', { name: 'Filter tasks by priority' })
-        .getByRole('button', { name: 'Low' })
+        .getByRole('button', { name: /Show low priority tasks/ })
         .click({ timeout: 30000 })
       await toolbar
-        .getByRole('group', { name: 'Filter tasks by agent assignment' })
-        .getByRole('button', { name: 'Has agent' })
-        .click()
+        .getByRole('group', { name: 'Filter tasks by whether an agent is chosen' })
+        .getByRole('button', { name: /Show tasks that already have an agent/ })
+        .click({ timeout: 30000 })
 
       const emptyState = page.getByTestId('board-filter-empty')
       await expect(emptyState).toBeVisible()
@@ -1137,7 +1146,7 @@ test.describe('React App Smoke Tests', () => {
         timeout: 5000,
       })
 
-      const listCmd = page.locator('[cmdk-item]', { hasText: 'List' })
+      const listCmd = page.getByRole('option', { name: /^List view\b/ })
       await listCmd.click()
 
       // Should show list view

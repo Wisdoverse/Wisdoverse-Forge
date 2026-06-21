@@ -113,7 +113,7 @@ describe('BillingPage', () => {
     expect(screen.getByText('Ask an owner or admin to make a plan available.')).toBeDefined()
     expect(screen.getByRole('button', { name: /upgrade plan/i })).toBeDisabled()
     expect(screen.getByText('Invoices appear after a charge')).toBeDefined()
-    expect(screen.getByText(/invoices appear after you start or change a plan/i)).toBeDefined()
+    expect(screen.getByText('Start or change a plan to create the first invoice')).toBeDefined()
     expect(screen.queryByText('No usage reported yet')).toBeNull()
     expect(screen.queryByText(/checkout/i)).toBeNull()
     expect(screen.queryByText(/billing portal/i)).toBeNull()

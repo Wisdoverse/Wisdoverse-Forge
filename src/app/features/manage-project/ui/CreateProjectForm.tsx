@@ -15,7 +15,7 @@ const PROJECT_SETUP_STEPS = [
   'Choose the team that owns the work.',
   'Name the project after the product, app, or work area.',
   'Code link is optional. Leave it blank if you only want a place for tasks right now.',
-  'Use the https:// link you copy from GitHub or GitLab in your browser. If your code host gives you an SSH link, set up SSH code access in Settings first. Never paste passwords or access keys here.',
+  'To find the link, open the project on GitHub or GitLab, choose Code, choose HTTPS, then copy that link. If you only see an SSH link, set up SSH code access in Settings first. Never paste passwords or access keys here.',
 ]
 
 /**
@@ -179,7 +179,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
   const workspacePath = workspaceFolderName ? `/workspace/${workspaceFolderName}` : null
   const trimmedRepositoryUrl = repositoryUrl.trim()
   const codeLinkStatus = trimmedRepositoryUrl
-    ? 'Code copy requested. After creation, watch the project row for Code copy waiting, Copying code, or Code copied. If it needs help, choose Copy code again.'
+    ? 'Code copy requested. After creation, watch this project in the list for Code copy waiting, Copying code, or Code copied. If it needs help, choose Copy code again.'
     : 'No code link added. Create the project now, then add code access later if agents need files.'
   const readyStatus = trimmedRepositoryUrl
     ? 'Ready to create project and copy code'
@@ -284,7 +284,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
           {trimmedName && (
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
               Project link preview: {slugifyName(name)}. Forge creates it automatically from the
-              project name.
+              project name. You do not need to type it.
             </p>
           )}
         </div>
@@ -344,9 +344,10 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
           id="project-repo-help"
           className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
-          Paste a GitHub or GitLab link only when you want Forge to copy code now. Use the https://
-          link you copy from your browser. If your code host gives you an SSH link, leave this blank
-          and set up SSH code access in Settings first. Never paste passwords or access keys here.
+          Paste a GitHub or GitLab link only when you want Forge to copy code now. On GitHub or
+          GitLab, choose Code, choose HTTPS, then copy that link. If you only see an SSH link, leave
+          this blank and set up SSH code access in Settings first. Never paste passwords or access
+          keys here.
         </p>
         <p
           id="project-repo-status"

@@ -187,7 +187,7 @@ export function AuditLogView() {
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = `context-governance-audit-${new Date().toISOString()}.json`
+      link.download = `saved-item-change-history-${new Date().toISOString()}.json`
       link.click()
       URL.revokeObjectURL(url)
       setData(response)
@@ -421,7 +421,7 @@ export function AuditLogView() {
             compact
           />
           <Metric label="Protected saved items" value={protectedReferences} />
-          <Metric label="Hidden review-note rows" value={redactedRows} />
+          <Metric label="Hidden change-note rows" value={redactedRows} />
         </div>
 
         <div className="overflow-hidden rounded-card border border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-[#2c2c2e]">
@@ -435,7 +435,7 @@ export function AuditLogView() {
                   <th className="px-4 py-3 font-semibold">Area</th>
                   <th className="px-4 py-3 font-semibold">Changed by</th>
                   <th className="px-4 py-3 font-semibold">Verification</th>
-                  <th className="px-4 py-3 font-semibold">Review notes</th>
+                  <th className="px-4 py-3 font-semibold">Change notes</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5 dark:divide-white/10">
@@ -562,7 +562,7 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
             className="mt-2 inline-flex items-center gap-1 rounded-full bg-black/[0.04] px-2 py-0.5 text-ui-caption font-medium text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark"
           >
             <EyeOff size={12} aria-hidden="true" />
-            Review notes hidden
+            Change notes hidden
           </div>
         )}
       </td>
@@ -583,7 +583,7 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
       <td className="min-w-[260px] px-4 py-3">
         <details>
           <summary className="cursor-pointer select-none text-ui-caption font-medium text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/30 dark:text-foreground-dark">
-            Show review notes
+            Show change notes
           </summary>
           <pre className="mt-2 max-h-32 overflow-auto rounded-card bg-black/[0.035] p-2 font-mono text-ui-caption leading-relaxed text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
             {prettyDetails(entry.details)}
@@ -767,7 +767,7 @@ function formatDate(value: string): string {
 function auditEventLabel(eventType: string): string {
   const labels: Record<string, string> = {
     'governance.context.feedback.recorded': 'Feedback saved',
-    'governance.context.skill.approved': 'Saved instruction approved for reuse',
+    'governance.context.skill.approved': 'Saved instruction saved for reuse',
     'governance.context.skill.reviewed': 'Saved instruction checked',
     'governance.context.memory.updated': 'Saved note updated',
     'governance.context.memory.rejected': 'Saved note not saved',

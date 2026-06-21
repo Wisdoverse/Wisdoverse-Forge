@@ -10,6 +10,11 @@ import { getUserApi } from '@app/shared/api/legacy'
 import { useNavigationStore } from '@app/entities/navigation'
 import { userRoleLabel } from '@app/entities/user'
 import { shouldShowGettingStarted } from '@app/shared/lib/gettingStartedPreference'
+import {
+  PASSWORD_MIN_LENGTH,
+  passwordRuleMessage,
+  passwordRuleStates,
+} from '@app/shared/lib/passwordRules'
 import { accountErrorMessage } from './accountErrorMessages'
 
 function reportedAccountValue(value: string | null | undefined, fallback: string): string {
@@ -32,8 +37,6 @@ const DEFAULT_PW_FORM: PasswordFormState = {
   newPassword: '',
   confirmPassword: '',
 }
-const MIN_PASSWORD_LENGTH = 12
-
 function PasswordChangeForm() {
   const [form, setForm] = useState<PasswordFormState>(DEFAULT_PW_FORM)
   const [saving, setSaving] = useState(false)
@@ -42,7 +45,7 @@ function PasswordChangeForm() {
 
   const hasCurrentPassword = form.currentPassword.trim().length > 0
   const hasConfirmation = form.confirmPassword.length > 0
-  const newPasswordIsLongEnough = form.newPassword.length >= MIN_PASSWORD_LENGTH
+  const newPasswordRules = passwordRuleStates(form.newPassword)
   const newPasswordMatchesCurrent =
     hasCurrentPassword && form.newPassword.length > 0 && form.currentPassword === form.newPassword
   const passwordsMatch = hasConfirmation && form.newPassword === form.confirmPassword
@@ -52,11 +55,11 @@ function PasswordChangeForm() {
       met: hasCurrentPassword,
       label: 'Enter your current password.',
     },
-    {
-      id: 'new-password-length',
-      met: newPasswordIsLongEnough,
-      label: `Use at least ${MIN_PASSWORD_LENGTH} characters for the new password.`,
-    },
+    ...newPasswordRules.map((rule) => ({
+      id: `new-password-${rule.id}`,
+      met: rule.met,
+      label: rule.label,
+    })),
     {
       id: 'new-password-different',
       met: !newPasswordMatchesCurrent,
@@ -89,17 +92,25 @@ function PasswordChangeForm() {
     setError(null)
     setSuccess(false)
 
-    if (form.newPassword !== form.confirmPassword) {
-      setError('The two new passwords do not match. Re-enter them and try again.')
+    if (!hasCurrentPassword) {
+      setError('Enter your current password, then try again.')
+      document.getElementById('account-current-password')?.focus()
       return
     }
-    if (form.newPassword.length < MIN_PASSWORD_LENGTH) {
-      setError(`Use at least ${MIN_PASSWORD_LENGTH} characters for the new password.`)
+    const passwordRuleError = passwordRuleMessage(form.newPassword)
+    if (passwordRuleError) {
+      setError(passwordRuleError)
+      document.getElementById('account-new-password')?.focus()
       return
     }
     if (form.currentPassword === form.newPassword) {
       setError('Choose a new password that is different from the current password.')
       document.getElementById('account-new-password')?.focus()
+      return
+    }
+    if (form.newPassword !== form.confirmPassword) {
+      setError('The two new passwords do not match. Re-enter them and try again.')
+      document.getElementById('account-confirm-password')?.focus()
       return
     }
 
@@ -138,8 +149,8 @@ function PasswordChangeForm() {
         </div>
       )}
       <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-        Enter your current password, then choose a new password with at least {MIN_PASSWORD_LENGTH}{' '}
-        characters.
+        Enter your current password, then choose a new password with at least {PASSWORD_MIN_LENGTH}{' '}
+        characters, one uppercase letter, one lowercase letter, one number, and one symbol.
       </p>
       <div className="grid grid-cols-1 gap-3">
         <div>
@@ -387,19 +398,19 @@ function GettingStartedGuideRow() {
   const statusLine = !preferencesLoaded
     ? 'Wait a moment while Forge checks whether the setup checklist is shown.'
     : hidden
-      ? 'Next step: choose Reset setup checklist to add it back.'
+      ? 'Next step: choose Show setup checklist to add it back.'
       : 'It is available now. Choose Open setup checklist to check setup steps.'
   const visibilityDetail = !preferencesLoaded
     ? 'Forge is checking whether the setup checklist is shown. Your projects, agents, and tasks stay the same.'
     : hidden
-      ? 'It is hidden from the left menu, so new sign-ins open Tasks by default. Reset setup checklist adds it back to the left menu only. Your projects, agents, and tasks stay the same.'
+      ? 'It is hidden from the left menu, so new sign-ins open Tasks by default. Show setup checklist adds it back to the left menu only. Your projects, agents, and tasks stay the same.'
       : 'It is shown in the left menu. New sign-ins can open the setup checklist until you hide it again. Your projects, agents, and tasks stay the same.'
   const restoreButtonLabel = restoring
     ? 'Showing...'
     : !preferencesLoaded
       ? 'Checking...'
       : hidden
-        ? 'Reset setup checklist'
+        ? 'Show setup checklist'
         : 'Setup checklist already shown'
 
   async function handleRestore() {
@@ -412,7 +423,7 @@ function GettingStartedGuideRow() {
       setRestored(true)
     } else {
       setError(
-        'Check your connection, then choose Reset setup checklist again. Forge could not add it back to the left menu.'
+        'Check your connection, then choose Show setup checklist again. Forge could not add it back to the left menu.'
       )
     }
   }

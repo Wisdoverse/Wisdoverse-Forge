@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { CheckCircle2, FolderKanban, Plus, Users } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useAuth } from '@app/shared/model/auth.context'
@@ -21,6 +21,7 @@ export function TeamsSection() {
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [membersTeam, setMembersTeam] = useState<NavTeam | null>(null)
+  const [createdTeam, setCreatedTeam] = useState<NavTeam | null>(null)
   const loadOrgUsers = useCallback(() => userApi.getUsers(), [])
 
   const loadTeams = useCallback(async () => {
@@ -31,6 +32,9 @@ export function TeamsSection() {
     try {
       const result = await teamApi.getTeams(orgId)
       setTeams(result)
+      setCreatedTeam((current) =>
+        current && result.some((team) => team.id === current.id) ? current : null
+      )
     } catch (err) {
       setError(workspaceSettingsErrorMessage('team', 'load', err))
     } finally {
@@ -50,6 +54,7 @@ export function TeamsSection() {
     try {
       const team = await teamApi.createTeam(orgId, { name })
       setTeams((prev) => [...prev, team])
+      setCreatedTeam(team)
       setShowForm(false)
     } catch (err) {
       const message = workspaceSettingsErrorMessage('team', 'create', err)
@@ -64,6 +69,7 @@ export function TeamsSection() {
     if (!orgId) return
     const updated = await teamApi.updateTeam(orgId, teamId, input)
     setTeams((prev) => prev.map((team) => (team.id === teamId ? { ...team, ...updated } : team)))
+    setCreatedTeam((current) => (current?.id === teamId ? { ...current, ...updated } : current))
   }
 
   async function handleDelete(teamId: string) {
@@ -72,6 +78,12 @@ export function TeamsSection() {
     await teamApi.deleteTeam(orgId, teamId)
     setTeams((prev) => prev.filter((team) => team.id !== teamId))
     setMembersTeam((current) => (current?.id === teamId ? null : current))
+    setCreatedTeam((current) => (current?.id === teamId ? null : current))
+  }
+
+  function startTeamCreate() {
+    setCreatedTeam(null)
+    setShowForm(true)
   }
 
   const loadSelectedTeamMembers = useCallback(async () => {
@@ -125,11 +137,7 @@ export function TeamsSection() {
           )}
         </div>
         {!showForm && canCreateTeam && (
-          <button
-            type="button"
-            onClick={() => setShowForm(true)}
-            className={uiStyles.primaryButton}
-          >
+          <button type="button" onClick={startTeamCreate} className={uiStyles.primaryButton}>
             <Plus size={14} strokeWidth={2} aria-hidden="true" />
             <span>New team</span>
           </button>
@@ -139,6 +147,44 @@ export function TeamsSection() {
       {error && (
         <div role="alert" aria-live="polite" className={uiStyles.error}>
           {error}
+        </div>
+      )}
+
+      {createdTeam && !showForm && (
+        <div role="status" aria-live="polite" className={cn(uiStyles.note, 'mb-4')}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex gap-2">
+              <CheckCircle2
+                size={18}
+                strokeWidth={2}
+                aria-hidden="true"
+                className="mt-0.5 flex-none text-apple-green"
+              />
+              <div>
+                <p className="font-medium text-foreground-light dark:text-foreground-dark">
+                  Team "{createdTeam.name}" is ready
+                </p>
+                <p className="mt-1 text-ui-caption">
+                  Next: create the first project in Projects. Use Manage people only when this team
+                  needs direct access before project work starts.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <a href="/settings/projects" className={uiStyles.primaryButton}>
+                <FolderKanban size={14} strokeWidth={2} aria-hidden="true" />
+                <span>Create first project</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => setMembersTeam(createdTeam)}
+                className={uiStyles.secondaryButton}
+              >
+                <Users size={14} strokeWidth={2} aria-hidden="true" />
+                <span>Manage people</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -171,7 +217,7 @@ export function TeamsSection() {
             {canCreateTeam && (
               <button
                 type="button"
-                onClick={() => setShowForm(true)}
+                onClick={startTeamCreate}
                 className={cn(uiStyles.primaryButton, 'mt-4')}
               >
                 <Plus size={14} strokeWidth={2} aria-hidden="true" />

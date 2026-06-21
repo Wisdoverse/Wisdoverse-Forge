@@ -41,10 +41,13 @@ describe('Billing views', () => {
     render(<InvoiceList invoices={[]} />)
 
     expect(screen.getByText('Invoices and receipts')).toBeDefined()
-    expect(screen.getByText('Invoices appear after your first charge')).toBeDefined()
-    expect(screen.getByText(/Receipts and payment links/i)).toBeDefined()
+    expect(screen.getByText('Start or change a plan to create the first invoice')).toBeDefined()
+    expect(
+      screen.getByText(/return here to open the payment link or download the receipt/i)
+    ).toBeDefined()
     expect(screen.getByText(/start or change a plan/i)).toBeDefined()
     expect(screen.queryByText('No invoices have been created yet')).toBeNull()
+    expect(screen.queryByText(/Receipts and payment links will appear here/i)).toBeNull()
   })
 
   test('uses payment-focused invoice labels', () => {

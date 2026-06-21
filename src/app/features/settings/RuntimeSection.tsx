@@ -164,8 +164,13 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
     focus === 'sign-ins' ? 'Codex and work tool sign-in' : t('settings.runtime.title')
   const sectionDescription =
     focus === 'sign-ins'
-      ? 'Sign in to OpenAI (Codex) and other work tools before agents work on project files.'
+      ? 'Sign in to the account Codex uses and other work tools before agents work on project files.'
       : t('settings.runtime.description')
+  const codexSignInStatus = cliStatuses.find((status) => status.cliTool === 'codex') ?? null
+  const codexSignInLabel = codexSignInStatus?.displayName ?? 'Codex'
+  const codexSignInInstruction = codexSignInStatus
+    ? `For Codex, choose Sign in to ${codexSignInLabel}, finish the browser login, then return here and choose Check again.`
+    : 'Choose Check again to load the sign-in options. When Codex appears, choose its Sign in button, finish the browser login, then return here and choose Check again.'
 
   async function connectCliProvider(provider: string) {
     const label = cliSignInDisplayName(cliStatuses, provider)
@@ -238,16 +243,15 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
           className="mb-4 rounded-lg border border-apple-blue/20 bg-apple-blue/[0.04] p-4"
         >
           <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            Start Codex sign-in here
+            Codex sign-in starts here
           </h3>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-            Start here when Codex or another work tool asks for login. For Codex, choose Sign in
-            next to OpenAI (Codex), finish the browser login, then return here and choose Check
-            again.
+            Use this page when Codex or another work tool asks you to sign in.{' '}
+            {codexSignInInstruction}
           </p>
           <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            If OpenAI (Codex) does not appear, choose Check again. If it still does not appear, ask
-            an owner or admin to check work tool sign-ins.
+            If the Codex sign-in option does not appear, choose Check again. If it still does not
+            appear, ask an owner or admin to check work tool sign-ins.
           </p>
         </section>
       )}

@@ -293,7 +293,9 @@ describe('Sidebar', () => {
     expect(menuScope.queryByText(/link name/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/project short name/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/short name used in project links/i)).not.toBeInTheDocument()
-    expect(menuScope.getByText(/Project link preview: proj-x/i)).toBeInTheDocument()
+    expect(
+      menuScope.getByText(/Project link preview: proj-x\. Forge creates this automatically\./i)
+    ).toBeInTheDocument()
     expect(menuScope.queryByText(/shown at the end of project links/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/project link ending/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/Forge uses this in project links/i)).not.toBeInTheDocument()

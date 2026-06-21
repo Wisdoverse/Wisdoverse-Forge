@@ -45,7 +45,7 @@ describe('organization setup forms', () => {
     })
     expect(
       screen.getByText(
-        'Team link preview: platform-ops. Forge creates it automatically from the team name.'
+        'Team link preview: platform-ops. Forge creates it automatically from the team name. You do not need to type it.'
       )
     ).toBeDefined()
     expect(screen.queryByText(/Automatic team name/i)).toBeNull()
@@ -73,7 +73,7 @@ describe('organization setup forms', () => {
     fireEvent.change(screen.getByLabelText(/^team/i), { target: { value: 'team-ops' } })
     expect(
       screen.getByText(
-        'Project link preview: customer-portal. Forge creates it automatically from the project name.'
+        'Project link preview: customer-portal. Forge creates it automatically from the project name. You do not need to type it.'
       )
     ).toBeDefined()
     expect(screen.queryByText(/Automatic project name/i)).toBeNull()
