@@ -919,8 +919,8 @@ export function ProjectTree({
               onClick={() =>
                 void handleCopyProjectValue(
                   projectMenu.project.slug,
-                  'Project link preview copied',
-                  'project link preview'
+                  'Link preview copied',
+                  'link preview'
                 )
               }
             />
