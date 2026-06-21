@@ -92,6 +92,29 @@ describe('AgentPluginsTab', () => {
     expect(screen.queryByRole('group', { name: /plugin filter/i })).toBeNull()
   })
 
+  test('guides first-time users when no tools are available for an agent', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ ok: true, plugins: [] }),
+    })
+
+    render(<AgentPluginsTab agentId="agent-1" />)
+
+    const empty = await screen.findByTestId('agent-plugin-empty')
+    expect(within(empty).getByText('Ask an owner or admin to add tools')).toBeDefined()
+    expect(within(empty).getByText('Open Settings.')).toBeDefined()
+    expect(
+      within(empty).getByText('Ask an owner or admin to add one tool for this team.')
+    ).toBeDefined()
+    expect(within(empty).getByText('Come back here after tools are added.')).toBeDefined()
+    expect(empty.textContent).toContain(
+      'Success looks like a tool listed with Can use now or Turned off for this agent.'
+    )
+    expect(empty.textContent).not.toContain('plugin')
+    expect(empty.textContent).not.toContain('workspace')
+    expect(empty.textContent).not.toContain('configuration')
+  })
+
   test('explains per-agent tool settings without raw on and off jargon', () => {
     expect(pluginSettingNote({ defaultEnabled: true, hasOverride: false })).toBe(
       'Using team setting - normally available for agents'
