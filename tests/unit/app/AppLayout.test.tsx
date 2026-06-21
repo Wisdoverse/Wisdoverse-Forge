@@ -182,7 +182,7 @@ describe('AppLayout', () => {
     expect(screen.getByRole('button', { name: '时间线' })).toBeDefined()
     expect(screen.getByRole('button', { name: '地图' })).toBeDefined()
     const taskButton = screen.getByRole('button', { name: '新任务' })
-    expect(taskButton).toHaveAttribute('title', '让智能体完成一项任务。')
+    expect(taskButton).toHaveAttribute('title', '告诉智能体你想要的结果，以及如何检查是否完成。')
     expect(screen.queryByRole('heading', { name: 'Tasks' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Search pages and things to do' })).toBeNull()
   })
@@ -220,7 +220,7 @@ describe('AppLayout', () => {
 
     fireEvent.click(searchButton)
 
-    expect(screen.getByPlaceholderText(/search pages or things to do/i)).toBeDefined()
+    expect(screen.getByPlaceholderText(/search what you want to do/i)).toBeDefined()
     expect(
       screen.queryByPlaceholderText(new RegExp(['search', 'commands'].join('\\s+'), 'i'))
     ).toBeNull()
@@ -233,12 +233,12 @@ describe('AppLayout', () => {
     render(<MemoryRouter />)
 
     fireEvent.click(screen.getByTestId('top-bar-command-search'))
-    fireEvent.click(screen.getByText('Create a task for an agent to finish.'))
+    fireEvent.click(screen.getByText('Tell an agent the result you want and how to check it.'))
 
     await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
     expect(screen.getByRole('dialog')).toBeDefined()
     expect(screen.getByLabelText(/what should the agent finish/i)).toBeDefined()
-    expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
+    expect(screen.queryByPlaceholderText(/search what you want to do/i)).toBeNull()
   })
 
   test('command palette routes first task setup to project settings when no project exists', async () => {
@@ -253,7 +253,7 @@ describe('AppLayout', () => {
     fireEvent.click(screen.getByText('Open project settings so tasks have a place to belong.'))
 
     expect(onNavigate).toHaveBeenCalledWith('/settings/projects')
-    expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
+    expect(screen.queryByPlaceholderText(/search what you want to do/i)).toBeNull()
     expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
   })
 
@@ -286,7 +286,7 @@ describe('AppLayout', () => {
     fireEvent.click(screen.getByText('Open Agents to add a waiting place before creating a task.'))
 
     expect(onNavigate).toHaveBeenCalledWith('/agents')
-    expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
+    expect(screen.queryByPlaceholderText(/search what you want to do/i)).toBeNull()
     expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
   })
 
@@ -301,7 +301,7 @@ describe('AppLayout', () => {
 
     expect(onNavigate).toHaveBeenCalledWith('/tasks')
     expect(useBoardStore.getState().viewMode).toBe('list')
-    expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
+    expect(screen.queryByPlaceholderText(/search what you want to do/i)).toBeNull()
   })
 
   test('project menu New task opens the task form when the project has a waiting place', async () => {
@@ -340,21 +340,21 @@ describe('AppLayout', () => {
     render(<MemoryRouter onNavigate={onNavigate} />)
 
     fireEvent.click(screen.getByTestId('top-bar-command-search'))
-    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+    fireEvent.change(screen.getByPlaceholderText(/search what you want to do/i), {
       target: { value: 'codex login' },
     })
 
     await waitFor(() => {
       expect(
-        screen.getByText('Open Codex sign-in before agents work on project files.')
+        screen.getByText('Sign in before agents edit files with Codex or another work tool.')
       ).toBeDefined()
     })
     fireEvent.click(
-      screen.getByText('Open Codex sign-in before agents work on project files.')
+      screen.getByText('Sign in before agents edit files with Codex or another work tool.')
     )
 
     expect(onNavigate).toHaveBeenCalledWith('/settings/work-tool-sign-ins')
-    expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
+    expect(screen.queryByPlaceholderText(/search what you want to do/i)).toBeNull()
   })
 
   test('command palette opens direct Settings sections for beginner setup searches', async () => {
@@ -363,21 +363,19 @@ describe('AppLayout', () => {
     render(<MemoryRouter onNavigate={onNavigate} />)
 
     fireEvent.click(screen.getByTestId('top-bar-command-search'))
-    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+    fireEvent.change(screen.getByPlaceholderText(/search what you want to do/i), {
       target: { value: 'project settings' },
     })
 
     await waitFor(() => {
       expect(
-        screen.getByText('Create or choose the project where tasks, agents, and files belong.')
+        screen.getByText('Create or choose where tasks, agents, and files belong.')
       ).toBeDefined()
     })
-    fireEvent.click(
-      screen.getByText('Create or choose the project where tasks, agents, and files belong.')
-    )
+    fireEvent.click(screen.getByText('Create or choose where tasks, agents, and files belong.'))
 
     expect(onNavigate).toHaveBeenCalledWith('/settings/projects')
-    expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
+    expect(screen.queryByPlaceholderText(/search what you want to do/i)).toBeNull()
   })
 
   test('command palette restores and opens the setup checklist directly', async () => {
@@ -392,7 +390,7 @@ describe('AppLayout', () => {
     render(<MemoryRouter onNavigate={onNavigate} />)
 
     fireEvent.click(screen.getByTestId('top-bar-command-search'))
-    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+    fireEvent.change(screen.getByPlaceholderText(/search what you want to do/i), {
       target: { value: 'start tutorial' },
     })
 
@@ -408,7 +406,7 @@ describe('AppLayout', () => {
     await waitFor(() => expect(setGettingStartedDismissed).toHaveBeenCalledWith(false))
     await waitFor(() => expect(onNavigate).toHaveBeenCalledWith('/start'))
     expect(onNavigate).not.toHaveBeenCalledWith('/settings/account')
-    expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
+    expect(screen.queryByPlaceholderText(/search what you want to do/i)).toBeNull()
   })
 
   test('command palette opens Account settings when setup checklist restore fails', async () => {
@@ -423,7 +421,7 @@ describe('AppLayout', () => {
     render(<MemoryRouter onNavigate={onNavigate} />)
 
     fireEvent.click(screen.getByTestId('top-bar-command-search'))
-    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+    fireEvent.change(screen.getByPlaceholderText(/search what you want to do/i), {
       target: { value: 'start tutorial' },
     })
 
@@ -438,7 +436,7 @@ describe('AppLayout', () => {
 
     await waitFor(() => expect(setGettingStartedDismissed).toHaveBeenCalledWith(false))
     await waitFor(() => expect(onNavigate).toHaveBeenCalledWith('/settings/account'))
-    expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
+    expect(screen.queryByPlaceholderText(/search what you want to do/i)).toBeNull()
   })
 
   test('uses beginner-facing start page metadata', () => {
@@ -699,9 +697,9 @@ describe('AppLayout', () => {
 
     await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
     const briefGroup = screen.getByRole('group', { name: /task templates/i })
-    expect(screen.getByText(/clear task has three parts/i)).toBeDefined()
-    expect(screen.getByText('What to finish')).toBeDefined()
-    expect(screen.getByText(/visible change or decision/i)).toBeDefined()
+    expect(screen.getByText(/clear task has three plain-language parts/i)).toBeDefined()
+    expect(screen.getByText('Goal')).toBeDefined()
+    expect(screen.getByText(/visible change, answer, or decision/i)).toBeDefined()
 
     fireEvent.click(within(briefGroup).getByRole('button', { name: /fix a problem/i }))
 

@@ -23,13 +23,14 @@ describe('SettingsLayout', () => {
     render(<SettingsLayout routeSection="about" onSectionChange={onSectionChange} />)
 
     const desktopNav = screen.getByTestId('settings-desktop-nav')
-    expect(within(desktopNav).getAllByText('AI services').length).toBeGreaterThanOrEqual(2)
-    expect(within(desktopNav).getByText('Agent work')).toBeInTheDocument()
-    expect(within(desktopNav).getByText('People')).toBeInTheDocument()
+    expect(within(desktopNav).getByText('AI services')).toBeInTheDocument()
+    expect(within(desktopNav).getByText('Start here')).toBeInTheDocument()
+    expect(within(desktopNav).getByText('People and projects')).toBeInTheDocument()
+    expect(within(desktopNav).getByText('Access and limits')).toBeInTheDocument()
     expect(within(desktopNav).getByText('Product info')).toBeInTheDocument()
     expect(
       within(desktopNav).getByRole('link', {
-        name: /AI services: Connect the AI accounts agents use to think and write/i,
+        name: /AI services: Start here when agents need a chat service for answers and result checks/i,
       })
     ).toBeInTheDocument()
     expect(
@@ -49,12 +50,12 @@ describe('SettingsLayout', () => {
     ).toBeInTheDocument()
     expect(
       within(desktopNav).getByRole('link', {
-        name: /Where agents work: Choose where project files open and which work tool agents use/i,
+        name: /Where agents work: Choose Project files for the usual setup, or This computer for local-only work/i,
       })
     ).toBeInTheDocument()
     expect(
       within(desktopNav).getByRole('link', {
-        name: /Codex sign-in: Sign in to Codex or another work tool before agents work on project files/i,
+        name: /Codex sign-in: Sign in before agents edit project files with Codex or another work tool/i,
       })
     ).toBeInTheDocument()
     expect(
@@ -64,15 +65,15 @@ describe('SettingsLayout', () => {
     ).toBeInTheDocument()
     expect(
       within(desktopNav).getByRole('link', {
-        name: /Teams: Create teams, invite people, and manage who can change work/i,
+        name: /Teams: Create teams and manage who can change work/i,
       })
     ).toBeInTheDocument()
     expect(within(desktopNav).queryByText('Team members')).not.toBeInTheDocument()
     expect(screen.queryByText(/Start guide reset/i)).toBeNull()
 
-    expect(screen.getByRole('group', { name: 'AI services' })).toBeInTheDocument()
-    expect(screen.getByRole('group', { name: 'Agent work' })).toBeInTheDocument()
-    expect(screen.getByRole('group', { name: 'People' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Start here' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'People and projects' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Access and limits' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'AI services' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Outside tool access' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Outside apps' })).not.toBeInTheDocument()
@@ -81,7 +82,9 @@ describe('SettingsLayout', () => {
     expect(screen.getByRole('option', { name: 'Agent size limits' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Where agents work' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Codex sign-in' })).toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: 'Codex and work tool sign-in' })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('option', { name: 'Codex and work tool sign-in' })
+    ).not.toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Codex CLI sign-in' })).not.toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Teams' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Team members' })).not.toBeInTheDocument()
@@ -91,7 +94,7 @@ describe('SettingsLayout', () => {
 
     fireEvent.click(
       within(desktopNav).getByRole('link', {
-        name: /Where agents work: Choose where project files open and which work tool agents use/i,
+        name: /Where agents work: Choose Project files for the usual setup, or This computer for local-only work/i,
       })
     )
 
@@ -99,7 +102,7 @@ describe('SettingsLayout', () => {
 
     fireEvent.click(
       within(desktopNav).getByRole('link', {
-        name: /Codex sign-in: Sign in to Codex or another work tool before agents work on project files/i,
+        name: /Codex sign-in: Sign in before agents edit project files with Codex or another work tool/i,
       })
     )
 
@@ -113,12 +116,12 @@ describe('SettingsLayout', () => {
 
     expect(
       within(desktopNav).getByRole('link', {
-        name: /Projects: Create the work areas agents use for tasks and files/i,
+        name: /Projects: Create the work areas where tasks, agents, and files belong/i,
       })
     ).toHaveAttribute('href', '/settings/projects')
     expect(
       within(desktopNav).getByRole('link', {
-        name: /Where agents work: Choose where project files open and which work tool agents use/i,
+        name: /Where agents work: Choose Project files for the usual setup, or This computer for local-only work/i,
       })
     ).toHaveAttribute('href', '/settings/runtime')
   })

@@ -176,7 +176,7 @@ test.describe('First-use Start checklist', () => {
     await page.waitForURL(/\/settings/)
     await page
       .locator('[data-testid="settings-desktop-nav"]')
-      .getByRole('button', { name: /Account: Update profile, password, and show/i })
+      .getByRole('link', { name: /Account: Update profile, password, and show/i })
       .click({ timeout: 30000 })
 
     await expect(page.getByRole('heading', { name: 'Setup checklist' })).toBeVisible()

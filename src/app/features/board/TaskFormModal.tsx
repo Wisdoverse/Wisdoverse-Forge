@@ -98,9 +98,9 @@ const TASK_BRIEF_TEMPLATES: TaskBriefTemplate[] = [
 ]
 
 const AGENT_READY_BRIEF_POINTS = [
-  { label: 'What to finish', value: 'The visible change or decision you need.' },
-  { label: 'Where to work', value: 'Pages, screens, or areas to use and what to avoid.' },
-  { label: 'Done when', value: 'The simple check, screenshot, or result that proves it is done.' },
+  { label: 'Goal', value: 'The visible change, answer, or decision you need.' },
+  { label: 'Place', value: 'The page, project area, file, or step to check first.' },
+  { label: 'Proof', value: 'The simple result that tells you the task is finished.' },
 ]
 
 const PROJECT_REQUIRED_ERROR = 'Open project settings before creating a task.'
@@ -194,6 +194,13 @@ export function TaskFormModal({
   const incompleteBriefActionLabel = taskWillWaitForAgent
     ? 'Save task anyway'
     : 'Create task anyway'
+  const submitPreview = !selectedProject
+    ? 'Choose a project first. Forge needs a home for this task and its history.'
+    : !workLaneReady
+      ? 'Set up where tasks wait first. Then this task will have a safe place to wait.'
+      : taskWillWaitForAgent
+        ? 'After you save, the task waits here until an agent is ready.'
+        : 'After you create it, the next ready agent can pick it up from this project.'
 
   // The error banner renders partway down a scrollable dialog (below the
   // header and project panels) while the submit button sits at the bottom, so
@@ -306,11 +313,11 @@ export function TaskFormModal({
         <div className="flex items-center justify-between mb-4">
           <div className="min-w-0">
             <h2 id="task-form-title" className="text-ui-title font-semibold">
-              Tell an Agent What to Do
+              Tell an agent what to do
             </h2>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Write the result you want. A template can add what to include and how to check the
-              work.
+              Write the result you want. Forge will show whether the task has a project, a waiting
+              place, and enough detail before you save.
             </p>
           </div>
           <button
@@ -587,7 +594,7 @@ export function TaskFormModal({
             </div>
             <div className="mt-3 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.04]">
               <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                A clear task has three parts
+                A clear task has three plain-language parts
               </div>
               <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
                 {AGENT_READY_BRIEF_POINTS.map((point) => (
@@ -748,6 +755,14 @@ export function TaskFormModal({
                   : 'Leave automatic selection on when any ready agent can do the work.'}
               </p>
             </div>
+          </div>
+
+          <div
+            data-testid="task-submit-preview"
+            className="rounded-lg border border-apple-blue/20 bg-apple-blue/10 px-3 py-2.5 text-ui-caption text-foreground-light dark:text-foreground-dark"
+          >
+            <p className="font-semibold text-apple-blue">What happens after this</p>
+            <p className="mt-1 text-secondary-light dark:text-secondary-dark">{submitPreview}</p>
           </div>
 
           <div className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">

@@ -69,11 +69,12 @@ describe('TaskFormModal', () => {
 
     expect(screen.getByText('Start with a task template')).toBeDefined()
     expect(screen.getByText('Fills in a safe first draft')).toBeDefined()
-    expect(screen.getByText(/what to include and how to check the work/i)).toBeDefined()
+    expect(screen.getByText(/project, a waiting place, and enough detail/i)).toBeDefined()
     expect(screen.getByRole('group', { name: /task templates/i })).toBeDefined()
-    expect(screen.getByText('What to finish')).toBeDefined()
-    expect(screen.getAllByText('Where to work').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Done when').length).toBeGreaterThan(0)
+    expect(screen.getByText('A clear task has three plain-language parts')).toBeDefined()
+    expect(screen.getByText('Goal')).toBeDefined()
+    expect(screen.getByText('Place')).toBeDefined()
+    expect(screen.getByText('Proof')).toBeDefined()
     expect(screen.queryByText(/scope and proof/i)).toBeNull()
 
     expect(screen.getByText('Add something')).toBeDefined()
@@ -98,9 +99,13 @@ describe('TaskFormModal', () => {
     expect(description.value).toContain('What to avoid:')
     expect(description.value).toContain('Done when:')
     expect(description.value).toContain('Describe what you want to see or use after this is done.')
-    expect(description.value).toContain('Say what should be visible, ready to use, or easy to check.')
+    expect(description.value).toContain(
+      'Say what should be visible, ready to use, or easy to check.'
+    )
     expect(description.value).not.toContain('Describe the screen, command, or behavior to add.')
-    expect(description.value).not.toContain('Say what should be visible, passing, or ready to review.')
+    expect(description.value).not.toContain(
+      'Say what should be visible, passing, or ready to review.'
+    )
     expect(description.value).not.toMatch(/^-\s*$/m)
     expect(description.value).not.toContain('Scope:')
     expect(description.value).not.toContain('Constraints:')
@@ -188,6 +193,10 @@ describe('TaskFormModal', () => {
     expect(screen.getByTestId('task-brief-checklist')).toHaveTextContent(
       'Make this task easy to pick up'
     )
+    expect(screen.getByTestId('task-submit-preview')).toHaveTextContent('What happens after this')
+    expect(screen.getByTestId('task-submit-preview')).toHaveTextContent(
+      'After you create it, the next ready agent can pick it up from this project.'
+    )
     expect(screen.getByTestId('task-brief-cue-goal')).toHaveTextContent('Add')
     expect(screen.getByTestId('task-brief-cue-goal')).toHaveTextContent(
       'Write one sentence for the result you want.'
@@ -230,6 +239,9 @@ describe('TaskFormModal', () => {
     expect(screen.getByText(/to start it sooner, open Agents/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /open agents/i })).toBeDefined()
     expect(screen.getByText(/This task will wait here until an agent is ready/i)).toBeDefined()
+    expect(screen.getByTestId('task-submit-preview')).toHaveTextContent(
+      'After you save, the task waits here until an agent is ready.'
+    )
     expect(screen.queryByText('No agents are online')).toBeNull()
     expect(screen.queryByText(/open agent setup/i)).toBeNull()
     expect(screen.queryByText(/Create the task now/i)).toBeNull()
@@ -436,9 +448,7 @@ describe('TaskFormModal', () => {
     await waitFor(() => {
       const alert = screen.getByRole('alert')
       expect(alert).toHaveAttribute('aria-live', 'polite')
-      expect(alert).toHaveTextContent(
-        'Add a short title so the agent knows the goal.'
-      )
+      expect(alert).toHaveTextContent('Add a short title so the agent knows the goal.')
     })
     expect(onSubmit).not.toHaveBeenCalled()
   })
@@ -454,9 +464,7 @@ describe('TaskFormModal', () => {
     await waitFor(() => {
       const alert = screen.getByRole('alert')
       expect(alert).toHaveAttribute('aria-live', 'polite')
-      expect(alert).toHaveTextContent(
-        'Add a short title so the agent knows the goal.'
-      )
+      expect(alert).toHaveTextContent('Add a short title so the agent knows the goal.')
     })
     expect(onSubmit).not.toHaveBeenCalled()
   })
