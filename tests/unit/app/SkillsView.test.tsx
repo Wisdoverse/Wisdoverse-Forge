@@ -163,6 +163,11 @@ describe('SkillsView', () => {
     await waitFor(() => {
       expect(screen.getByText(/create your first saved instruction/i)).toBeDefined()
     })
+
+    expect(screen.getByText(/checking work before sharing it/i)).toBeDefined()
+    expect(screen.getByText(/writing a short update/i)).toBeDefined()
+    expect(screen.queryByText(/review checklists/i)).toBeNull()
+    expect(screen.queryByText(/release-note rules/i)).toBeNull()
   })
 
   test('guides empty saved-instruction search toward clearing or creating', async () => {
