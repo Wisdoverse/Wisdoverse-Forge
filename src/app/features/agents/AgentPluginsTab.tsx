@@ -41,6 +41,8 @@ interface PluginSummary {
 interface EmptyStateCopy {
   title: string
   detail: string
+  steps?: string[]
+  success?: string
 }
 
 const PLUGIN_FILTERS: { value: PluginFilter; label: string; ariaLabel: string }[] = [
@@ -94,6 +96,12 @@ function agentPluginEmptyState(): EmptyStateCopy {
     title: 'Ask an owner or admin to add tools',
     detail:
       'Tools give agents extra abilities. After tools are added, return here to choose which ones this agent can use.',
+    steps: [
+      'Open Settings.',
+      'Ask an owner or admin to add one tool for this team.',
+      'Come back here after tools are added.',
+    ],
+    success: 'Success looks like a tool listed with Can use now or Turned off for this agent.',
   }
 }
 
@@ -298,6 +306,18 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
         <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
           {emptyPlugins.detail}
         </p>
+        {emptyPlugins.steps ? (
+          <ol className="mt-4 grid max-w-xl list-decimal gap-1 pl-5 text-left text-ui-caption text-secondary-light dark:text-secondary-dark">
+            {emptyPlugins.steps.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+        ) : null}
+        {emptyPlugins.success ? (
+          <p className="mt-3 max-w-xl text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
+            {emptyPlugins.success}
+          </p>
+        ) : null}
       </div>
     )
   }
