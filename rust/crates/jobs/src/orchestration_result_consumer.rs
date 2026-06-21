@@ -692,10 +692,7 @@ impl TaskWriter for SqlxTaskWriter {
         // exactly as the HTTP complete_task path does. unique_key = task_id makes
         // this idempotent and dedupes against the HTTP path if both ever fire.
         if status == "completed" && updated_task.self_fix {
-            let payload = serde_json::to_value(agentforge_core::SelfFixPrJob {
-                task_id,
-                org_id: organization_id,
-            })?;
+            let payload = serde_json::to_value(agentforge_core::SelfFixPrJob { task_id, org_id: organization_id })?;
             crate::queue::enqueue_in_tx(
                 &mut tx,
                 agentforge_core::SELF_FIX_PR_QUEUE,
@@ -1033,10 +1030,7 @@ mod tests {
     /// Seed the minimal rows that `SqlxTaskWriter::apply` needs: org, workspace,
     /// user, agent, and a `working` self_fix task with a known delivery_id and
     /// attempt so the UPDATE predicate matches.
-    async fn seed_for_result_apply(
-        pool: &sqlx::PgPool,
-        self_fix: bool,
-    ) -> (Uuid, Uuid, Uuid, Uuid, Uuid) {
+    async fn seed_for_result_apply(pool: &sqlx::PgPool, self_fix: bool) -> (Uuid, Uuid, Uuid, Uuid, Uuid) {
         let org_id = Uuid::new_v4();
         let user_id = Uuid::new_v4();
         let agent_id = Uuid::new_v4();
@@ -1090,8 +1084,7 @@ mod tests {
 
     #[sqlx::test(migrations = "../db/migrations")]
     async fn self_fix_completion_via_result_path_enqueues_pr_job(pool: sqlx::PgPool) {
-        let (org_id, agent_id, task_id, delivery_id, _) =
-            seed_for_result_apply(&pool, true).await;
+        let (org_id, agent_id, task_id, delivery_id, _) = seed_for_result_apply(&pool, true).await;
 
         let result = TaskResult {
             delivery_id: Some(delivery_id),
@@ -1112,8 +1105,7 @@ mod tests {
 
     #[sqlx::test(migrations = "../db/migrations")]
     async fn non_self_fix_completion_via_result_path_enqueues_nothing(pool: sqlx::PgPool) {
-        let (org_id, agent_id, task_id, delivery_id, _) =
-            seed_for_result_apply(&pool, false).await;
+        let (org_id, agent_id, task_id, delivery_id, _) = seed_for_result_apply(&pool, false).await;
 
         let result = TaskResult {
             delivery_id: Some(delivery_id),
@@ -1124,9 +1116,7 @@ mod tests {
         };
         SqlxTaskWriter::new(pool.clone()).apply(org_id, result).await.unwrap();
 
-        let job = crate::queue::dequeue(&pool, agentforge_core::SELF_FIX_PR_QUEUE, "t2")
-            .await
-            .unwrap();
+        let job = crate::queue::dequeue(&pool, agentforge_core::SELF_FIX_PR_QUEUE, "t2").await.unwrap();
         assert!(job.is_none(), "non-self_fix completion must not enqueue a PR job");
     }
 }
