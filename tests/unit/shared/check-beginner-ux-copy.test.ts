@@ -3424,7 +3424,7 @@ const EMPTY_STALE = {
       'src/app/features/analytics/ContextUsageDashboard.tsx': `
 const EMPTY_NEEDS_REVIEW = {
   title: 'No saved items need checking',
-  detail: 'Check these before agents reuse them because people reported they may be outdated, incorrect, or sensitive.',
+  detail: 'Check these before agents reuse them because teammates marked them as outdated, incorrect, or sensitive.',
 }
 
 const EMPTY_STALE = {
@@ -3434,6 +3434,29 @@ const EMPTY_STALE = {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags saved item review copy that uses report-style wording', () => {
+    const cwd = fixture({
+      'src/app/features/analytics/ContextUsageDashboard.tsx': `
+const EMPTY_NEEDS_REVIEW = {
+  title: 'No saved items need checking',
+  detail: 'Check these before agents reuse them because people reported they may be outdated, incorrect, or sensitive.',
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'report-style-copy',
+          sample: expect.stringContaining('people reported they may be'),
+        }),
+      ])
+    )
   })
 
   it('flags saved item analytics task labels that expose review jargon', () => {

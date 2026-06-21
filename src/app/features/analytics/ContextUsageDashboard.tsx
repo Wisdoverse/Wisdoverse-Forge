@@ -37,7 +37,7 @@ const EMPTY_TOP_USEFUL = {
 
 const EMPTY_NEEDS_REVIEW = {
   title: 'No saved items need checking',
-  detail: 'Items appear here when people report they may be outdated, incorrect, or too sensitive.',
+  detail: 'Items appear here when teammates mark them as outdated, incorrect, or too sensitive.',
   nextStep:
     'Next: no action is needed now; keep using task feedback so risky saved items appear here.',
 }
@@ -156,7 +156,7 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
         <UsageList
           testId="context-usage-needs-review"
           title="Check before reuse"
-          description="Check these before agents reuse them because people reported they may be outdated, incorrect, or sensitive."
+          description="Check these before agents reuse them because teammates marked them as outdated, incorrect, or sensitive."
           nextStep="Next: open the latest task result, then update or remove this before reuse."
           icon="review"
           items={data?.needsReview ?? []}
