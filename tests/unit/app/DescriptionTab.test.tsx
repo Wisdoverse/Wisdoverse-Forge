@@ -145,7 +145,7 @@ describe('DescriptionTab', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /open result files/i }))
     fireEvent.click(screen.getByRole('button', { name: /^check what was used/i }))
-    fireEvent.click(screen.getByRole('button', { name: /check save ideas/i }))
+    fireEvent.click(screen.getByRole('button', { name: /check ideas to reuse/i }))
     fireEvent.click(screen.getByRole('button', { name: /draft saved instruction/i }))
 
     expect(onOpenResult).toHaveBeenCalledOnce()
@@ -183,6 +183,7 @@ describe('DescriptionTab', () => {
     expect(screen.queryByText(/governed skill/i)).toBeNull()
     expect(screen.queryByText(new RegExp(['Draft a', 'skill'].join('\\s+')))).toBeNull()
     expect(screen.queryByText(new RegExp(['result', 'artifact'].join('\\s+'), 'i'))).toBeNull()
+    expect(screen.queryByText(/check save ideas/i)).toBeNull()
   })
 
   test('uses plain context wording before a task has saved context', () => {
@@ -190,12 +191,12 @@ describe('DescriptionTab', () => {
 
     expect(
       screen.getByText(
-        'Saved notes, work history, and save-for-next-time ideas appear here while the task is active.'
+        'Saved notes, work history, and ideas to reuse next time appear here while the task is active.'
       )
     ).toBeDefined()
     expect(
       screen.getByText(
-        'The save-for-next-time option becomes available once useful work is completed.'
+        'You can save repeatable steps after useful work is completed.'
       )
     ).toBeDefined()
     expect(
@@ -204,6 +205,7 @@ describe('DescriptionTab', () => {
       )
     ).toBeNull()
     expect(screen.queryByText(/save-for-next-time path/i)).toBeNull()
+    expect(screen.queryByText(/save-for-next-time/i)).toBeNull()
     expect(screen.queryByText(/after the run finishes/i)).toBeNull()
     expect(screen.queryByText(/next run for this task/i)).toBeNull()
     expect(screen.queryByText(new RegExp(['Saved', 'memories'].join('\\s+'), 'i'))).toBeNull()
