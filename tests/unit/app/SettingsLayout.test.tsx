@@ -28,42 +28,42 @@ describe('SettingsLayout', () => {
     expect(within(desktopNav).getByText('People')).toBeInTheDocument()
     expect(within(desktopNav).getByText('Product info')).toBeInTheDocument()
     expect(
-      within(desktopNav).getByRole('button', {
+      within(desktopNav).getByRole('link', {
         name: /AI services: Connect the AI accounts agents use to think and write/i,
       })
     ).toBeInTheDocument()
     expect(
-      within(desktopNav).getByRole('button', {
+      within(desktopNav).getByRole('link', {
         name: /Outside tool access: Let trusted outside tools connect to Forge without a person signing in/i,
       })
     ).toBeInTheDocument()
     expect(
-      within(desktopNav).getByRole('button', {
+      within(desktopNav).getByRole('link', {
         name: /HTTPS code access: Use this when a private code link starts with https:\/\//i,
       })
     ).toBeInTheDocument()
     expect(
-      within(desktopNav).getByRole('button', {
+      within(desktopNav).getByRole('link', {
         name: /SSH code access: Use this when a private code link starts with git@/i,
       })
     ).toBeInTheDocument()
     expect(
-      within(desktopNav).getByRole('button', {
+      within(desktopNav).getByRole('link', {
         name: /Where agents work: Choose where project files open and which work tool agents use/i,
       })
     ).toBeInTheDocument()
     expect(
-      within(desktopNav).getByRole('button', {
+      within(desktopNav).getByRole('link', {
         name: /Codex and work tool sign-in: Sign in to the account Codex uses and other work tools used for file work/i,
       })
     ).toBeInTheDocument()
     expect(
-      within(desktopNav).getByRole('button', {
+      within(desktopNav).getByRole('link', {
         name: /Account: Update profile, password, and show the setup checklist again/i,
       })
     ).toBeInTheDocument()
     expect(
-      within(desktopNav).getByRole('button', {
+      within(desktopNav).getByRole('link', {
         name: /Teams: Create teams, invite people, and manage who can change work/i,
       })
     ).toBeInTheDocument()
@@ -89,7 +89,7 @@ describe('SettingsLayout', () => {
     )
 
     fireEvent.click(
-      within(desktopNav).getByRole('button', {
+      within(desktopNav).getByRole('link', {
         name: /Where agents work: Choose where project files open and which work tool agents use/i,
       })
     )
@@ -97,11 +97,28 @@ describe('SettingsLayout', () => {
     expect(onSectionChange).toHaveBeenCalledWith('runtime')
 
     fireEvent.click(
-      within(desktopNav).getByRole('button', {
+      within(desktopNav).getByRole('link', {
         name: /Codex and work tool sign-in: Sign in to the account Codex uses and other work tools used for file work/i,
       })
     )
 
     expect(onSectionChange).toHaveBeenCalledWith('work-tool-sign-ins')
+  })
+
+  test('desktop section navigation exposes direct links to each Settings page', () => {
+    render(<SettingsLayout routeSection="about" onSectionChange={vi.fn()} />)
+
+    const desktopNav = screen.getByTestId('settings-desktop-nav')
+
+    expect(
+      within(desktopNav).getByRole('link', {
+        name: /Projects: Create the work areas agents use for tasks and files/i,
+      })
+    ).toHaveAttribute('href', '/settings/projects')
+    expect(
+      within(desktopNav).getByRole('link', {
+        name: /Where agents work: Choose where project files open and which work tool agents use/i,
+      })
+    ).toHaveAttribute('href', '/settings/runtime')
   })
 })

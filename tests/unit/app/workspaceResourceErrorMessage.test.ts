@@ -12,7 +12,7 @@ describe('workspaceResourceErrorMessage', () => {
     const message = workspaceResourceErrorMessage('team', 'update', new Error('Failed to fetch'))
 
     expect(message).toBe(
-      'Check your connection, then open Settings and Teams and Projects, and save the team again.'
+      'Check your connection, then open Settings, then Teams, and save the team again.'
     )
     expect(message).toContain('Check your connection')
     expect(message).not.toContain('Failed to fetch')
@@ -28,7 +28,7 @@ describe('workspaceResourceErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Ask an owner or admin to update your team space access, then open Settings and Teams and Projects, and delete the project again. You do not have permission to delete this project.'
+      'Ask an owner or admin to update your team space access, then open Settings, then Projects, and delete the project again. You do not have permission to delete this project.'
     )
     expect(message).not.toContain('API 403')
     expect(message).not.toContain('Forbidden')
@@ -43,7 +43,7 @@ describe('workspaceResourceErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Ask an owner or admin to update your team space access, then open Settings and Teams and Projects, and save the team again. You do not have permission to save this team.'
+      'Ask an owner or admin to update your team space access, then open Settings, then Teams, and save the team again. You do not have permission to save this team.'
     )
     expect(message).not.toContain('owner role required')
     expect(message).not.toContain('role')
@@ -68,7 +68,7 @@ describe('workspaceResourceErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      "Open Settings and Teams and Projects, delete this team's projects first, then delete the team again."
+      "Open Settings, then Projects, delete this team's projects first, then delete the team again."
     )
     expect(message).not.toContain('HTTP 422')
   })
@@ -108,7 +108,7 @@ describe('workspaceResourceErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Settings and Teams and Projects, check this team for projects, then delete the team again. If it still fails, ask an owner or admin to check team access.'
+      'Open Settings, then Projects, check this team for projects, then delete the team again. If it still fails, ask an owner or admin to check team access.'
     )
     expect(message).not.toContain('cannot delete')
     expect(message).not.toContain('owns')
@@ -122,7 +122,7 @@ describe('workspaceResourceErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Settings and Teams and Projects, check the current project, then try again. This project changed while you were editing.'
+      'Open Settings, then Projects, check the current project, then try again. This project changed while you were editing.'
     )
     expect(message).not.toContain('review the current')
   })
@@ -132,7 +132,7 @@ describe('workspaceResourceErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Settings and Teams and Projects, then save the project again. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
+      'Open Settings, then Projects, and save the project again. If it still fails, ask an owner or admin to check Projects in Settings.'
     )
     expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('temporarily unavailable')
@@ -149,7 +149,7 @@ describe('workspaceResourceErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Settings and Teams and Projects, then delete the team again. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
+      'Open Settings, then Teams, and delete the team again. If it still fails, ask an owner or admin to check Teams in Settings.'
     )
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('503')

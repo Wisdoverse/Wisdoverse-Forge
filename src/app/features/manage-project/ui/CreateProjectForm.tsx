@@ -107,7 +107,7 @@ function createProjectErrorMessage(error: unknown): string {
     return 'Ask an owner or admin to let you create projects in this team.'
   }
   if (code === 404) {
-    return 'Open Settings and Teams and Projects again, choose the team, then create this project.'
+    return 'Open Settings, then Projects again, choose the team, then create this project.'
   }
   if (code === 409 || lower.includes('already exists') || lower.includes('duplicate')) {
     return 'Choose a different project name, then create this project again.'

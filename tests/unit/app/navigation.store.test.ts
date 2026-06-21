@@ -337,7 +337,7 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       useNavigationStore.getState().error,
-      'Open the left menu to load teams and projects. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
+      'Open the left menu to load teams and projects. If it still fails, ask an owner or admin to check Teams or Projects in Settings.'
     )
     expect(useNavigationStore.getState().error).not.toContain('temporarily unavailable')
     expect(useNavigationStore.getState().error).not.toContain('organization')

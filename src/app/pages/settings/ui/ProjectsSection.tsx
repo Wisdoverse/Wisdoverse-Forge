@@ -53,7 +53,7 @@ export function ProjectsSection() {
   const projectEmptySteps = !user?.orgId
     ? [
         'Choose a team space from the account menu.',
-        'Open Settings and Teams and Projects again.',
+        'Open Settings, then Projects again.',
         'Choose Projects, then create the project.',
       ]
     : !hasTeams

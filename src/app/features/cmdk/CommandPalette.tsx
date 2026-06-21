@@ -61,6 +61,30 @@ const SECONDARY_ACTION_COMMANDS = [
     searchText: 'codex openai login sign in work tool settings',
   },
   {
+    id: 'settings:keys',
+    label: 'Outside tool access',
+    description: 'Let trusted outside tools connect to Forge without a person signing in.',
+    searchText: 'api key access token outside tool automation integration personal access key',
+  },
+  {
+    id: 'settings:git-credentials',
+    label: 'HTTPS code access',
+    description: 'Use this when a private code link starts with https://.',
+    searchText: 'https code access git credential private repository token password clone',
+  },
+  {
+    id: 'settings:ssh-keys',
+    label: 'SSH code access',
+    description: 'Use this when a private code link starts with git@.',
+    searchText: 'ssh key ssh code access git private repository deploy key',
+  },
+  {
+    id: 'settings:resources',
+    label: 'Agent size limits',
+    description: 'Choose small, standard, or large limits before agents start file work.',
+    searchText: 'agent size resource limits cpu memory small standard large',
+  },
+  {
     id: 'settings:projects',
     label: 'Project settings',
     description: 'Create or choose the project where tasks, agents, and files belong.',
@@ -83,6 +107,12 @@ const SECONDARY_ACTION_COMMANDS = [
     label: 'Where agents work',
     description: 'Choose where project files open and which work tool agents use.',
     searchText: 'where agents work runtime work tool files codex claude',
+  },
+  {
+    id: 'settings:account',
+    label: 'Account',
+    description: 'Update profile, password, and show the setup checklist again.',
+    searchText: 'account profile password username setup checklist theme language',
   },
   {
     id: 'action:toggle-theme',

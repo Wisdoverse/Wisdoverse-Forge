@@ -211,6 +211,32 @@ describe('CommandPalette', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
+  test.each([
+    ['api key', 'Outside tool access', 'settings:keys'],
+    ['https code access', 'HTTPS code access', 'settings:git-credentials'],
+    ['ssh key', 'SSH code access', 'settings:ssh-keys'],
+    ['agent size', 'Agent size limits', 'settings:resources'],
+    ['password', 'Account', 'settings:account'],
+  ])('finds %s in Settings without knowing the section URL', async (query, label, commandId) => {
+    const onSelect = vi.fn()
+    const onClose = vi.fn()
+    render(<CommandPalette isOpen={true} onClose={onClose} onSelect={onSelect} />)
+
+    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+      target: { value: query },
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText(label)).toBeDefined()
+    })
+    expect(screen.queryByText('No page or option matches that search')).toBeNull()
+
+    fireEvent.click(screen.getByText(label))
+
+    expect(onSelect).toHaveBeenCalledWith(commandId)
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
   test('uses beginner-safe view names instead of old scene jargon', () => {
     render(<CommandPalette isOpen={true} onClose={() => {}} />)
 

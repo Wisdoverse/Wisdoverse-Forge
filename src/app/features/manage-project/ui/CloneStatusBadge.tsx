@@ -52,14 +52,14 @@ const VISUALS: Record<Exclude<CloneStatus, 'none'>, Visual> = {
 }
 
 const CLONE_RETRY_DEFAULT_ERROR =
-  'Open Settings and Teams and Projects, check the code link and saved code access, then choose Copy code again for this project in the list. Forge could not copy code into the project.'
+  'Open Settings, then Projects, check the code link and saved code access, then choose Copy code again for this project in the list. Forge could not copy code into the project.'
 
 function cloneFailureMessage(clone: CloneSummary | undefined): string {
   switch (clone?.errorClass) {
     case 'auth':
       return 'Open Settings and Code access, check saved access for this code project, then choose Copy code again. The code website rejected Forge access.'
     case 'not_found':
-      return 'Open Settings and Teams and Projects, check this project code link, then choose Copy code again. Forge could not find this code project.'
+      return 'Open Settings, then Projects, check this project code link, then choose Copy code again. Forge could not find this code project.'
     case 'network':
       return 'Check your connection and this project code link, then choose Copy code again. Forge could not reach this code project.'
     case 'timeout':
@@ -69,7 +69,7 @@ function cloneFailureMessage(clone: CloneSummary | undefined): string {
     case 'internal':
       return 'Wait a few minutes, then choose Copy code again. Forge could not finish copying code.'
     default:
-      return 'Open Settings and Teams and Projects, check the code link and saved code access, then choose Copy code again. Forge could not finish copying code.'
+      return 'Open Settings, then Projects, check the code link and saved code access, then choose Copy code again. Forge could not finish copying code.'
   }
 }
 
@@ -108,19 +108,19 @@ function statusCodeFromError(error: unknown): number | null {
 function cloneRetryErrorMessage(error: unknown): string {
   const code = statusCodeFromError(error)
   if (code === 401) {
-    return 'Sign in again, then open Settings and Teams and Projects and choose Copy code again for this project in the list.'
+    return 'Sign in again, then open Settings, then Projects and choose Copy code again for this project in the list.'
   }
   if (code === 403) {
-    return 'Ask an owner or admin to let you copy code into this project, then open Settings and Teams and Projects and choose Copy code again. You do not have permission right now.'
+    return 'Ask an owner or admin to let you copy code into this project, then open Settings, then Projects and choose Copy code again. You do not have permission right now.'
   }
   if (code === 404) {
-    return 'Open Settings and Teams and Projects, find this project in the list, then choose Copy code again. This project could not be found.'
+    return 'Open Settings, then Projects, find this project in the list, then choose Copy code again. This project could not be found.'
   }
   if (code === 409) {
     return 'Wait a moment, then check this project in the list again. Forge is already copying code for this project.'
   }
   if (code === 422) {
-    return 'Open Settings and Teams and Projects, check the code link and saved code access, then choose Copy code again.'
+    return 'Open Settings, then Projects, check the code link and saved code access, then choose Copy code again.'
   }
   if (code === 429) {
     return 'Wait a minute, then choose Copy code again for this project in the list. Too many copy retries are happening right now.'
