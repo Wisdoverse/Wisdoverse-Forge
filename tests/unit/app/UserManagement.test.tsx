@@ -67,8 +67,10 @@ describe('UserManagement', () => {
     expect(screen.getByText('Added')).toBeDefined()
     expect(screen.getByText('Last sign-in')).toBeDefined()
     expect(screen.getByText('Actions')).toBeDefined()
-    expect(screen.getByText('Admin')).toBeDefined()
-    expect(screen.getByText('Member')).toBeDefined()
+    expect(screen.getByText('Can manage app')).toBeDefined()
+    expect(screen.getByText('Can use app')).toBeDefined()
+    expect(screen.queryByText('Admin')).toBeNull()
+    expect(screen.queryByText('Member')).toBeNull()
     expect(screen.getByText('Can manage people, team settings, and safety controls.')).toBeDefined()
     expect(screen.queryByText(/system configuration/i)).toBeNull()
     expect(screen.getByText('Can sign in')).toBeDefined()
@@ -137,13 +139,15 @@ describe('UserManagement', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Change access' }))
     const select = screen.getByLabelText(/Access level for Alex Operator/i)
+    expect(screen.getByRole('option', { name: 'Can manage app' })).toBeDefined()
+    expect(screen.getByRole('option', { name: 'Can use app' })).toBeDefined()
     fireEvent.change(select, { target: { value: 'member' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save access' }))
 
     await waitFor(() => expect(updateUserRole).toHaveBeenCalledWith('user-1', 'member'))
     // Editor closes and the row reflects the saved role.
     await waitFor(() => expect(screen.queryByRole('combobox')).toBeNull())
-    expect(screen.getByText('Member')).toBeDefined()
+    expect(screen.getByText('Can use app')).toBeDefined()
   })
 
   test('a backend guard rejection keeps the editor open and shows the reason', async () => {
