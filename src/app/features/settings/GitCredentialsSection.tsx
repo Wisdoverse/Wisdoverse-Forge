@@ -15,7 +15,8 @@ const GIT_CREDENTIAL_SETUP_STEPS = [
   { label: 'Pick the code website', value: 'Choose GitHub or GitLab.' },
   {
     label: 'Copy a code access key',
-    value: 'Create a read-only key for the code projects agents need, then copy it once.',
+    value:
+      'This is different from the code link. Create a read-only key for the code projects agents need, then copy it once.',
   },
   {
     label: 'Leave the address empty for github.com or gitlab.com',
@@ -51,7 +52,7 @@ function credentialFormReadiness({
       ready: false,
       title: 'Next: paste the code access key',
       detail:
-        'Open the code website, create a read-only key for the code projects agents need, then paste it below.',
+        'This is not the project code link. Open the code website, create a read-only key for the code projects agents need, then paste it below.',
       error: 'Paste the code access key from GitHub or GitLab before saving.',
       fieldId: tokenInputId,
     }
@@ -276,8 +277,8 @@ function AddCredentialForm({
             id={tokenIntroId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Paste the code access key from GitHub or GitLab. If that page says personal access
-            token, use that value here.
+            This is not the project code link. Paste the code access key from GitHub or GitLab. If
+            that page says personal access token, use that value here.
           </p>
           <input
             id="git-credential-token"

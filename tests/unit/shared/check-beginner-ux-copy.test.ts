@@ -11926,7 +11926,7 @@ const TRUSTED_TOOL_STEP = 'Name it so teammates know which trusted tool uses it.
     const cwd = fixture({
       'src/app/features/settings/GitCredentialsSection.tsx': `
 function AddCredentialForm() {
-  return <p>Paste the key from GitHub or GitLab. Those sites may call it a personal access token.</p>
+  return <><p>Paste the key from GitHub or GitLab. Those sites may call it a personal access token.</p><p>Paste the code link from GitHub here.</p></>
 }
 `,
     })
@@ -11934,19 +11934,21 @@ function AddCredentialForm() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'code-access-key-copy',
-        location: 'src/app/features/settings/GitCredentialsSection.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'code-access-key-copy',
+          location: 'src/app/features/settings/GitCredentialsSection.tsx:3',
+        }),
+      ])
+    )
   })
 
   it('accepts code access setup copy that names the key before provider token wording', () => {
     const cwd = fixture({
       'src/app/features/settings/GitCredentialsSection.tsx': `
 function AddCredentialForm() {
-  return <p>Paste the code access key from GitHub or GitLab. If that page says personal access token, use that value here.</p>
+  return <p>This is not the project code link. Paste the code access key from GitHub or GitLab. If that page says personal access token, use that value here.</p>
 }
 `,
     })

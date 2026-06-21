@@ -663,7 +663,10 @@ const ADMIN_NAV_TECHNICAL_COPY_PATTERNS = [
   /\bmanage team spaces,\s*users,\s*and system health\b/i,
 ]
 
-const CODE_ACCESS_KEY_JARGON_PATTERNS = [/\bPaste the key from GitHub or GitLab\b/i]
+const CODE_ACCESS_KEY_JARGON_PATTERNS = [
+  /\bPaste the key from GitHub or GitLab\b/i,
+  /\bPaste the code link\b/i,
+]
 
 const CODE_ACCESS_ADDRESS_JARGON_PATTERNS = [
   /\bLeave address blank for cloud\b/i,
