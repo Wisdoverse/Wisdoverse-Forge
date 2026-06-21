@@ -5626,6 +5626,26 @@ function AgentSummary() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags first-agent empty states that describe choices without the next click', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentListView.tsx': `
+function AgentEmptyState() {
+  return <p>Start with a chat-only AI service for questions and result checks, or connect this computer when the task needs files and commands on your machine.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'agent-first-empty-next-step-copy',
+        location: 'src/app/features/agents/AgentListView.tsx:3',
+      }),
+    ])
+  })
+
   it('flags chat-only agent copy that still says review instead of check results', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentListView.tsx': `
