@@ -20,7 +20,7 @@ pub struct SelfFixPrWorker {
 }
 
 impl SelfFixPrWorker {
-    pub fn new(pool: PgPool, service: Arc<SelfFixService>) -> Self {
+    pub(crate) fn new(pool: PgPool, service: Arc<SelfFixService>) -> Self {
         Self { pool, service, worker_id: format!("self-fix-pr-{}", Uuid::now_v7()) }
     }
 
@@ -48,7 +48,7 @@ impl SelfFixPrWorker {
     }
 
     /// Process at most one job. Returns `Ok(true)` if a job was claimed.
-    pub async fn dequeue_and_process(&self) -> AppResult<bool> {
+    pub(crate) async fn dequeue_and_process(&self) -> AppResult<bool> {
         let job = agentforge_jobs::queue::dequeue(&self.pool, SELF_FIX_PR_QUEUE, &self.worker_id)
             .await
             .map_err(|e| agentforge_core::AppError::from(anyhow::Error::from(e)))?;
@@ -201,7 +201,7 @@ mod tests {
         .fetch_one(&pool)
         .await
         .unwrap();
-        let _ = status;
+        assert_eq!(status, "pending", "fail() reschedules the job, not delete/dead");
         assert!(attempts >= 1, "attempt count must increment on failure");
     }
 }
