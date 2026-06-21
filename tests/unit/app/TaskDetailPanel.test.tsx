@@ -292,7 +292,7 @@ describe('TaskDetailPanel', () => {
     expect(screen.queryByText(previousResolveCopy)).toBeNull()
     expect(
       screen.getAllByText(
-        /open the task details to see what needs confirmation, then choose continue or stop when it is ready/i
+        /open the task details to see what needs confirmation, then choose allow and continue when it is ready/i
       ).length
     ).toBeGreaterThan(0)
     expect(screen.queryByText(/waiting for deployment approval/i)).toBeNull()

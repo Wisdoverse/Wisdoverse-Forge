@@ -187,7 +187,7 @@ describe('ListView', () => {
     expect(within(screen.getByTestId('list-metric-completed')).getByText('1')).toBeDefined()
     expect(
       screen.getByText(
-        /Help needed: Open the task details to see what needs confirmation, then choose Continue or Stop when it is ready\./i
+        /Help needed: Open the task details to see what needs confirmation, then choose Allow and continue when it is ready\./i
       )
     ).toBeDefined()
     expect(screen.queryByText(/Help needed: Waiting on approval/i)).toBeNull()
