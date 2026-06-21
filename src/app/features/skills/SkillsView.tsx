@@ -329,7 +329,8 @@ function savedInstructionsEmptyState({
 
   return {
     title: 'Create your first saved instruction',
-    detail: 'Save steps your agents should repeat, like review checklists or release-note rules.',
+    detail:
+      'Save steps your agents should repeat, like checking work before sharing it or writing a short update.',
     action: 'create',
   }
 }
