@@ -263,6 +263,11 @@ const PROVIDER_SETUP_JARGON_PATTERNS = [
   /\bAI services settings\b/i,
 ]
 
+const CREATE_AGENT_AI_SERVICE_SETUP_JARGON_PATTERNS = [
+  /\bpaste the service access key\b/i,
+  /\bchoose Check connection until it says Ready\b/i,
+]
+
 const ADMIN_USERS_EMPTY_DEAD_END_PATTERNS = [/\bNo one is listed yet\b/i]
 
 const ADMIN_USER_ROLE_JARGON_PATTERNS = [
@@ -2995,6 +3000,12 @@ function hasProviderSetupJargonCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return PROVIDER_SETUP_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasCreateAgentAiServiceSetupJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CREATE_AGENT_AI_SERVICE_SETUP_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAdminUsersEmptyDeadEndCopy(relFile, line) {
@@ -5741,6 +5752,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'AI service setup copy must say Check connection and service website address for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasCreateAgentAiServiceSetupJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'create-agent-ai-service-setup-copy',
+        location,
+        message:
+          'New agent AI service setup copy must name the key plainly and give a clear return step.',
         sample: line.trim(),
       })
     }
