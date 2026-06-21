@@ -4734,7 +4734,14 @@ function taskCheckIn() {
     const cwd = fixture({
       'src/app/widgets/views/TimelineView.tsx': `
 export function TimelineView() {
-  return <p>No timeline events yet</p>
+  return (
+    <>
+      <p>No timeline events yet</p>
+      <p>Start a task to build the timeline</p>
+      <p>Start a task or open a running task.</p>
+      <p>Start a task from the board</p>
+    </>
+  )
 }
 
 function drawTimeline(ctx) {
@@ -4746,23 +4753,37 @@ function drawTimeline(ctx) {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'timeline-empty-copy',
-        location: 'src/app/widgets/views/TimelineView.tsx:3',
-      }),
-      expect.objectContaining({
-        type: 'timeline-empty-copy',
-        location: 'src/app/widgets/views/TimelineView.tsx:7',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'timeline-empty-copy',
+          location: 'src/app/widgets/views/TimelineView.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'timeline-empty-copy',
+          location: 'src/app/widgets/views/TimelineView.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'timeline-empty-copy',
+          location: 'src/app/widgets/views/TimelineView.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'timeline-empty-copy',
+          location: 'src/app/widgets/views/TimelineView.tsx:8',
+        }),
+        expect.objectContaining({
+          type: 'timeline-empty-copy',
+          location: 'src/app/widgets/views/TimelineView.tsx:14',
+        }),
+      ])
+    )
   })
 
   it('accepts timeline empty titles that tell users how to begin', () => {
     const cwd = fixture({
       'src/app/widgets/views/TimelineView.tsx': `
 export function TimelineView() {
-  return <p>Start a task to build the timeline</p>
+  return <p>Open the task board to start the timeline</p>
 }
 `,
     })

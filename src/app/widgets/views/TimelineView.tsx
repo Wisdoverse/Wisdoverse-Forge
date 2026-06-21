@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react'
+import { useBoardStore } from '@app/shared/model/board.store'
 
 const TIMELINE_STEPS = [
-  'Start a task from the board',
-  'Watch tasks move through waiting, working, help needed, and finished steps',
-  'Open a task marked help needed to see what to do next',
+  'Choose Open task board',
+  'Create a small task or open one that is already running',
+  'Return to Timeline to see waiting, working, help needed, and finished updates',
 ]
 
 function drawTimeline(canvas: HTMLCanvasElement): void {
@@ -50,11 +51,12 @@ function drawTimeline(canvas: HTMLCanvasElement): void {
   ctx.fillStyle = 'rgba(226, 232, 240, 0.78)'
   ctx.font = '13px Inter, ui-sans-serif, system-ui, sans-serif'
   ctx.textAlign = 'center'
-  ctx.fillText('Waiting for work updates', rect.width / 2, midY - 24)
+  ctx.fillText('Waiting for task updates', rect.width / 2, midY - 24)
 }
 
 export function TimelineView() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const setViewMode = useBoardStore((state) => state.setViewMode)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -88,10 +90,11 @@ export function TimelineView() {
         aria-label="Timeline status"
         className="pointer-events-none absolute inset-0 flex items-center justify-center p-4"
       >
-        <div className="max-w-lg rounded-lg border border-white/10 bg-black/35 px-4 py-3 text-white shadow-lg backdrop-blur">
-          <p className="text-ui-body font-semibold">Start a task to build the timeline</p>
+        <div className="pointer-events-auto max-w-lg rounded-lg border border-white/10 bg-black/35 px-4 py-3 text-white shadow-lg backdrop-blur">
+          <p className="text-ui-body font-semibold">Open the task board to start the timeline</p>
           <p className="mt-1 text-ui-caption leading-relaxed text-white/68">
-            Start a task or open a running task. Status changes will appear here in time order.
+            Create a task or open one that is already running. Timeline updates appear here after
+            work starts.
           </p>
           <ol className="mt-3 grid gap-1.5 text-ui-caption text-white/72">
             {TIMELINE_STEPS.map((step, index) => (
@@ -101,6 +104,13 @@ export function TimelineView() {
               </li>
             ))}
           </ol>
+          <button
+            type="button"
+            onClick={() => setViewMode('board')}
+            className="mt-3 inline-flex h-8 items-center justify-center rounded-full bg-white px-3 text-ui-button font-medium text-[#0b1020] transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+          >
+            Open task board
+          </button>
         </div>
       </section>
     </div>

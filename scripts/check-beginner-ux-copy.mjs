@@ -483,6 +483,9 @@ const TASK_AGENT_ASSIGNMENT_DEAD_END_PATTERNS = [
 const TIMELINE_EMPTY_DEAD_END_PATTERNS = [
   /\bNo timeline events yet\b/i,
   /\bWaiting for run events\b/i,
+  /\bStart a task to build the timeline\b/i,
+  /\bStart a task from the board\b/i,
+  /\bStart a task or open a running task\b/i,
 ]
 
 const WORKSHOP_3D_EMPTY_DEAD_END_PATTERNS = [

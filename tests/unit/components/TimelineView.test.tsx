@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { TimelineView } from '@app/widgets/views/TimelineView'
+import { useBoardStore } from '@app/shared/model/board.store'
 
 const canvasContext = {
   beginPath: vi.fn(),
@@ -33,6 +34,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  useBoardStore.getState().reset()
   vi.restoreAllMocks()
 })
 
@@ -41,27 +43,43 @@ describe('TimelineView', () => {
     render(<TimelineView />)
 
     expect(screen.getByTestId('timeline-view')).toBeDefined()
-    expect(screen.getByText('Start a task to build the timeline')).toBeDefined()
+    expect(screen.getByText('Open the task board to start the timeline')).toBeDefined()
     expect(
       screen.getByText(
-        'Start a task or open a running task. Status changes will appear here in time order.'
+        'Create a task or open one that is already running. Timeline updates appear here after work starts.'
       )
     ).toBeDefined()
-    expect(screen.getByText('Start a task from the board')).toBeDefined()
+    expect(screen.getByText('Choose Open task board')).toBeDefined()
     expect(
-      screen.getByText('Watch tasks move through waiting, working, help needed, and finished steps')
+      screen.getByText('Create a small task or open one that is already running')
     ).toBeDefined()
-    expect(screen.getByText('Open a task marked help needed to see what to do next')).toBeDefined()
+    expect(
+      screen.getByText(
+        'Return to Timeline to see waiting, working, help needed, and finished updates'
+      )
+    ).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Open task board' })).toBeDefined()
+    expect(screen.queryByText('Start a task to build the timeline')).toBeNull()
     expect(screen.queryByText(/something that needs attention/i)).toBeNull()
     expect(screen.queryByText('No timeline events yet')).toBeNull()
     expect(screen.queryByText(/blocked and completed/i)).toBeNull()
+  })
+
+  test('lets beginners go back to the task board from the empty timeline', () => {
+    useBoardStore.getState().setViewMode('timeline')
+
+    render(<TimelineView />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open task board' }))
+
+    expect(useBoardStore.getState().viewMode).toBe('board')
   })
 
   test('keeps the timeline canvas mounted for the route smoke test', () => {
     render(<TimelineView />)
 
     expect(document.querySelector('canvas.timeline-canvas')).toBeTruthy()
-    expect(canvasContext.fillText).toHaveBeenCalledWith('Waiting for work updates', 320, 136)
+    expect(canvasContext.fillText).toHaveBeenCalledWith('Waiting for task updates', 320, 136)
     expect(canvasContext.fillText).not.toHaveBeenCalledWith('Waiting for run events', 320, 136)
   })
 })
