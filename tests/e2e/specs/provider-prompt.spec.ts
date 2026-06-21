@@ -322,9 +322,11 @@ test.describe.serial('Simple chat agent UX (#21)', () => {
     await page.getByPlaceholder(/Frontend Agent/).fill('My LLM Agent')
     await page.locator('textarea#systemPrompt').fill('Be concise.')
 
-    // Submit (the in-dialog button is lowercase "Create agent"; the page-level
-    // open button is "New agent", so scope to the dialog).
-    await page.getByRole('dialog').getByRole('button', { name: 'Create agent' }).click()
+    // Submit through the in-dialog action; the page-level open button is
+    // "New agent", so scope to the dialog.
+    const submitButton = page.getByRole('dialog').getByRole('button', { name: 'Add agent' })
+    await expect(submitButton).toBeEnabled({ timeout: 5000 })
+    await submitButton.click()
 
     // Wait for modal to close (store closes on success)
     await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 })
