@@ -57,6 +57,12 @@ describe('SkillsView', () => {
 
     await user.click(screen.getAllByRole('button', { name: /save instruction/i })[0])
     const templates = screen.getByRole('group', { name: /instruction templates/i })
+    expect(
+      screen.getByText(
+        'This name appears in Saved instructions and when choosing instructions for a task. Use words a teammate would recognize.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByText(/Use a short name people can recognize later/i)).toBeNull()
     await user.click(within(templates).getByRole('button', { name: /release notes/i }))
 
     expect(within(templates).getByRole('button', { name: /release notes/i })).toHaveAttribute(
@@ -236,7 +242,8 @@ describe('SkillsView', () => {
       expect(screen.getByText('webui-review')).toBeDefined()
     })
     expect(screen.getByText('Review WebUI flows')).toBeDefined()
-    expect(screen.getByText('Use when task says: webui')).toBeDefined()
+    expect(screen.getByText('Suggested for tasks that mention: webui')).toBeDefined()
+    expect(screen.queryByText(/Use when task says/i)).toBeNull()
     expect(screen.getByText('Saved in Global saved instructions')).toBeDefined()
     expect(screen.queryByText('Saved in Global skills')).toBeNull()
     expect(screen.queryByText(/^Source:/i)).toBeNull()
@@ -304,7 +311,8 @@ describe('SkillsView', () => {
     const summary = await screen.findByTestId('skill-reuse-summary')
     expect(within(summary).getByText('Total')).toBeDefined()
     expect(within(summary).getAllByText('Ready to use').length).toBeGreaterThan(0)
-    expect(within(summary).getAllByText('Needs install').length).toBeGreaterThan(0)
+    expect(within(summary).getAllByText('Needs setup').length).toBeGreaterThan(0)
+    expect(within(summary).queryByText('Needs install')).toBeNull()
     expect(within(summary).getAllByText('For one work tool').length).toBeGreaterThan(0)
     expect(within(summary).getByText('Show saved instructions')).toBeDefined()
     expect(within(summary).queryByText('Show skills')).toBeNull()
@@ -313,6 +321,16 @@ describe('SkillsView', () => {
     expect(within(summary).queryByText(/C[L]I scoped/)).toBeNull()
 
     const filters = within(summary).getByRole('group', { name: /saved instruction filter/i })
+    expect(
+      within(filters).getByRole('button', {
+        name: /show saved instructions that need setup before use, 1 matching saved instruction/i,
+      })
+    ).toBeDefined()
+    expect(
+      within(filters).queryByRole('button', {
+        name: /show saved instructions that need install first/i,
+      })
+    ).toBeNull()
     fireEvent.click(
       within(filters).getByRole('button', {
         name: /show saved instructions for one work tool, 1 matching saved instruction/i,

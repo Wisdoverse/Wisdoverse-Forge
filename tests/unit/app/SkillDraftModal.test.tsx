@@ -87,8 +87,21 @@ describe('SkillDraftModal', () => {
       />
     )
 
-    expect(screen.getByLabelText(/^use when$/i)).toBeDefined()
     expect(screen.getByText(/check before publishing/i)).toBeDefined()
+    expect(
+      screen.getByText(/the matching words are words teammates would type in a task/i)
+    ).toBeDefined()
+    expect(screen.queryByText(/trigger words/i)).toBeNull()
+    expect(screen.getByLabelText(/^matching words for future tasks$/i)).toBeDefined()
+    expect(screen.queryByLabelText(/^use when$/i)).toBeNull()
+    expect(
+      screen.getByText(
+        'This name appears in Saved instructions and when choosing instructions for a task. Use words a teammate would recognize.'
+      )
+    ).toBeDefined()
+    expect(
+      screen.queryByText(/Use a short name people will understand in the saved instruction list/i)
+    ).toBeNull()
     expect(screen.getByText('Keep private details out')).toBeDefined()
     expect(screen.getByText(/remove passwords, access keys/i)).toBeDefined()
     expect(screen.queryByText('No secrets')).toBeNull()
@@ -139,7 +152,12 @@ describe('SkillDraftModal', () => {
     expect(screen.getByText(/check 3 things before publishing/i)).toBeDefined()
     expect(document.querySelectorAll('[id="skill-draft-trigger-help"]')).toHaveLength(1)
     expect(document.querySelectorAll('[id="skill-draft-trigger-intro"]')).toHaveLength(1)
-    expect(screen.getByLabelText(/^use when$/i)).toHaveAttribute(
+    expect(screen.getByText(/type words teammates would put in a task/i)).toBeDefined()
+    expect(
+      screen.queryByText(/Short phrase that tells agents when this instruction fits/i)
+    ).toBeNull()
+    expect(screen.queryByText(/future users are likely to search/i)).toBeNull()
+    expect(screen.getByLabelText(/^matching words for future tasks$/i)).toHaveAttribute(
       'aria-describedby',
       'skill-draft-trigger-intro skill-draft-trigger-help'
     )
@@ -148,9 +166,7 @@ describe('SkillDraftModal', () => {
     await user.click(screen.getByRole('button', { name: /publish instruction/i }))
 
     const nameAlert = screen.getByRole('alert')
-    expect(nameAlert).toHaveTextContent(
-      'Name this instruction before publishing it.'
-    )
+    expect(nameAlert).toHaveTextContent('Name this instruction before publishing it.')
     expect(nameAlert).toHaveAttribute('aria-live', 'polite')
     expect(screen.getByLabelText(/^instruction name$/i)).toHaveFocus()
     expect(screen.getByLabelText(/^instruction name$/i)).toHaveAttribute('aria-invalid', 'true')
@@ -195,7 +211,7 @@ describe('SkillDraftModal', () => {
     expect(screen.getByLabelText(/^instruction name$/i)).toHaveValue(
       'check-release-readiness-before-launch'
     )
-    expect(screen.getByLabelText(/^use when$/i)).toHaveValue(
+    expect(screen.getByLabelText(/^matching words for future tasks$/i)).toHaveValue(
       'check release readiness before launch'
     )
     expect(

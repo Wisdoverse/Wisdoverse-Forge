@@ -141,8 +141,9 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-caption text-apple-blue">
-              Check 3 things before publishing: the name is recognizable, the trigger words match
-              future work, and the instructions can stand alone without this task open.
+              Check 3 things before publishing: the name is recognizable, the matching words are
+              words teammates would type in a task, and the instructions can stand alone without
+              this task open.
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
@@ -168,18 +169,19 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
                   id="skill-draft-name-help"
                   className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
                 >
-                  Use a short name people will understand in the saved instruction list.
+                  This name appears in Saved instructions and when choosing instructions for a task.
+                  Use words a teammate would recognize.
                 </p>
               </div>
               <div>
                 <label htmlFor="skill-draft-trigger" className={uiStyles.label}>
-                  Use when
+                  Matching words for future tasks
                 </label>
                 <p
                   id="skill-draft-trigger-intro"
                   className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
                 >
-                  Short phrase that tells agents when this instruction fits.
+                  Type words teammates would put in a task when this instruction should help.
                 </p>
                 <input
                   id="skill-draft-trigger"
@@ -194,7 +196,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
                   id="skill-draft-trigger-help"
                   className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
                 >
-                  Optional. Keep the words future users are likely to search.
+                  Optional. Leave blank if teammates should choose this instruction manually.
                 </p>
               </div>
             </div>

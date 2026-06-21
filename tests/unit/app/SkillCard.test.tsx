@@ -34,13 +34,20 @@ describe('SkillCard', () => {
     ).toBeInTheDocument()
     expect(screen.queryByText(/workspace skills/i)).toBeNull()
     expect(screen.queryByText(/workspace saved instructions/i)).toBeNull()
-    expect(screen.getByText('Use when task says: release')).toBeInTheDocument()
+    expect(screen.getByText('Suggested for tasks that mention: release')).toBeInTheDocument()
+    expect(screen.queryByText(/Use when task says/i)).toBeNull()
   })
 
-  test('marks unavailable skills as needing installation before use', () => {
+  test('marks unavailable saved instructions as needing setup before use', () => {
     render(<SkillCard skill={{ ...baseSkill, installed: false }} onClick={() => {}} />)
 
-    expect(screen.getByText('Install to use')).toBeInTheDocument()
+    expect(screen.getByText('Needs setup before use')).toBeInTheDocument()
+    expect(screen.queryByText('Install to use')).toBeNull()
+    expect(
+      screen.getByRole('button', {
+        name: /release-review\. needs setup before use\. review release notes before publishing/i,
+      })
+    ).toBeInTheDocument()
   })
 
   test('guides users to details when a skill has no summary', () => {
