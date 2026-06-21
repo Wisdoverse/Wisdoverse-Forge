@@ -2,17 +2,17 @@ const RAW_NETWORK_ERRORS = [/^Network error$/i, /^Failed to fetch$/i]
 const RAW_STATUS_ERRORS = [/^API\s+\d{3}/i, /^HTTP\s+\d{3}/i, /^Server error\s*\(\d{3}\)$/i]
 const GENERIC_BODY_TEXT = /^(Unauthorized|Forbidden|Not Found|Internal Server Error)$/i
 const CREATE_NETWORK_MESSAGE =
-  'Check your connection, then create the instruction again. Forge could not connect while creating it.'
+  'Check your connection, then save the instruction again. Forge could not connect while saving it.'
 const CREATE_PERMISSION_MESSAGE =
-  'Ask an owner or admin to let you create saved instructions for this team space, then create the instruction again.'
-const CREATE_NOT_FOUND_MESSAGE = 'Open Saved instructions again, then create the instruction.'
+  'Ask an owner or admin to let you create saved instructions for this team space, then save the instruction again.'
+const CREATE_NOT_FOUND_MESSAGE = 'Open Saved instructions again, then save the instruction again.'
 const CREATE_CONFLICT_MESSAGE =
-  'Open Saved instructions to check for a similar item, then change the name or matching words and create the instruction again.'
+  'Open Saved instructions to check for a similar item, then change the name or matching words and save the instruction again.'
 const CREATE_RATE_LIMIT_MESSAGE =
-  'Wait a moment, then create the instruction again. Instruction setup is busy right now.'
+  'Wait a moment, then save the instruction again. Instruction setup is busy right now.'
 const CREATE_SERVICE_MESSAGE =
-  'Open Saved instructions again, then create the instruction again. If it still fails, ask an owner or admin to check Saved instructions access.'
-const CREATE_DEFAULT_MESSAGE = 'Check the required fields, then create the instruction again.'
+  'Open Saved instructions again, then save the instruction again. If it still fails, ask an owner or admin to check Saved instructions access.'
+const CREATE_DEFAULT_MESSAGE = 'Check the required fields, then save the instruction again.'
 
 const USER_FACING_STARTS = [
   'The instruction could not be created',
@@ -47,7 +47,7 @@ export function createSkillErrorMessage(error?: unknown): string {
   }
 
   if (status === 401) {
-    return 'Sign in again, then create the instruction.'
+    return 'Sign in again, then save the instruction again.'
   }
   if (status === 403) {
     return CREATE_PERMISSION_MESSAGE
@@ -162,15 +162,15 @@ function trimDetail(detail: string | null): string | null {
 function validationMessage(detail: string | null): string {
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('trigger')) {
-    return 'Check the matching words, then create the instruction again.'
+    return 'Check the matching words, then save the instruction again.'
   }
   if (normalized.includes('name')) {
-    return 'Enter an instruction name, then create the instruction again.'
+    return 'Enter an instruction name, then save the instruction again.'
   }
   if (normalized.includes('content') || normalized.includes('instruction')) {
-    return 'Enter the saved instructions, then create the instruction again.'
+    return 'Enter the saved instructions, then save the instruction again.'
   }
-  return 'Check the instruction name, matching words, and instructions, then create the instruction again.'
+  return 'Check the instruction name, matching words, and instructions, then save the instruction again.'
 }
 
 function stripInternalErrorSuffix(detail: string): string {

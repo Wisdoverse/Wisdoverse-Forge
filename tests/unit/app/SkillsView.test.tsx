@@ -568,7 +568,7 @@ describe('SkillsView', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
-      'Ask an owner or admin to let you create saved instructions for this team space, then create the instruction again.'
+      'Ask an owner or admin to let you create saved instructions for this team space, then save the instruction again.'
     )
     expect(alert.textContent).not.toContain('workspace instructions')
     expect(alert.textContent).not.toContain('Code:')

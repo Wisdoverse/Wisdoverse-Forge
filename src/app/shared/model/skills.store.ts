@@ -157,16 +157,16 @@ export function skillHttpErrorMessage(
 ): string {
   const detail = errorDetail(data)
   const actionText =
-    action === 'create' ? 'create the instruction' : 'open Saved instructions again'
+    action === 'create' ? 'save the instruction again' : 'open Saved instructions again'
   const createPermissionMessage =
-    'Ask an owner or admin to let you create saved instructions for this team space, then create the instruction again.'
+    'Ask an owner or admin to let you create saved instructions for this team space, then save the instruction again.'
   const createConflictMessage =
-    'Open Saved instructions to check for a similar item, then change the name or matching words and create the instruction again.'
+    'Open Saved instructions to check for a similar item, then change the name or matching words and save the instruction again.'
   const createRateLimitMessage =
-    'Wait a moment, then create the instruction again. Instruction setup is busy right now.'
+    'Wait a moment, then save the instruction again. Instruction setup is busy right now.'
   const createServiceMessage =
-    'Open Saved instructions again, then create the instruction again. If it still fails, ask an owner or admin to check Saved instructions access.'
-  const createDefaultMessage = 'Check the required fields, then create the instruction again.'
+    'Open Saved instructions again, then save the instruction again. If it still fails, ask an owner or admin to check Saved instructions access.'
+  const createDefaultMessage = 'Check the required fields, then save the instruction again.'
 
   if (status === 401) {
     return `Sign in again, then ${actionText}.`
@@ -178,7 +178,7 @@ export function skillHttpErrorMessage(
   }
   if (status === 404) {
     return action === 'create'
-      ? 'Open Saved instructions again, then create the instruction.'
+      ? 'Open Saved instructions again, then save the instruction again.'
       : 'Open Saved instructions again to load the list.'
   }
   if (status === 409) {
@@ -205,7 +205,7 @@ export function skillHttpErrorMessage(
 
 function skillNetworkErrorMessage(action: SkillAction): string {
   return action === 'create'
-    ? 'Check your connection, then create the instruction again. Forge could not connect while creating it.'
+    ? 'Check your connection, then save the instruction again. Forge could not connect while saving it.'
     : 'Check your connection, then open Saved instructions again to load the list.'
 }
 
@@ -219,22 +219,22 @@ function skillResponseErrorMessage(
       ? skillValidationMessage(detail)
       : 'Open Saved instructions again to load the list.'
   return action === 'create'
-    ? 'Check the required fields, then create the instruction again.'
+    ? 'Check the required fields, then save the instruction again.'
     : 'Open Saved instructions again to load the list.'
 }
 
 function skillValidationMessage(detail: string | null): string {
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('trigger')) {
-    return 'Check the matching words, then create the instruction again.'
+    return 'Check the matching words, then save the instruction again.'
   }
   if (normalized.includes('name')) {
-    return 'Enter an instruction name, then create the instruction again.'
+    return 'Enter an instruction name, then save the instruction again.'
   }
   if (normalized.includes('content') || normalized.includes('instruction')) {
-    return 'Enter the saved instructions, then create the instruction again.'
+    return 'Enter the saved instructions, then save the instruction again.'
   }
-  return 'Check the instruction name, matching words, and instructions, then create the instruction again.'
+  return 'Check the instruction name, matching words, and instructions, then save the instruction again.'
 }
 
 export const useSkillsStore = create<SkillsState>((set, get) => ({
