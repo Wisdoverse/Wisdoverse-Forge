@@ -9,7 +9,7 @@ const CREATE_NOT_FOUND_MESSAGE = 'Open Saved instructions again, then save the i
 const CREATE_CONFLICT_MESSAGE =
   'Open Saved instructions to check for a similar item, then change the name or matching words and save the instruction again.'
 const CREATE_RATE_LIMIT_MESSAGE =
-  'Wait a moment, then save the instruction again. Instruction setup is busy right now.'
+  'Wait a moment, then save the instruction again. Forge is busy with saved instructions right now.'
 const CREATE_SERVICE_MESSAGE =
   'Open Saved instructions again, then save the instruction again. If it still fails, ask an owner or admin to check Saved instructions access.'
 const CREATE_DEFAULT_MESSAGE = 'Check the required fields, then save the instruction again.'

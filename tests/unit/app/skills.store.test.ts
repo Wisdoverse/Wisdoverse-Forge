@@ -69,6 +69,26 @@ describe('skillHttpErrorMessage', () => {
     expect(message).not.toContain('Review the existing instructions')
   })
 
+  test('turns busy saved-instruction saves into a plain wait step', () => {
+    const message = skillHttpErrorMessage('create', 429)
+
+    expectBeginnerMessage(
+      message,
+      'Wait a moment, then save the instruction again. Forge is busy with saved instructions right now.'
+    )
+    expect(message).not.toContain('Instruction setup')
+  })
+
+  test('turns busy saved-instruction loads into a plain wait step', () => {
+    const message = skillHttpErrorMessage('load', 429)
+
+    expectBeginnerMessage(
+      message,
+      'Wait a moment, then open Saved instructions again. Forge is busy with saved instructions right now.'
+    )
+    expect(message).not.toContain('Instruction setup')
+  })
+
   test('uses a check step for unknown create failures', () => {
     const message = skillHttpErrorMessage('create', 418)
 

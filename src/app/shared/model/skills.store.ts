@@ -163,7 +163,7 @@ export function skillHttpErrorMessage(
   const createConflictMessage =
     'Open Saved instructions to check for a similar item, then change the name or matching words and save the instruction again.'
   const createRateLimitMessage =
-    'Wait a moment, then save the instruction again. Instruction setup is busy right now.'
+    'Wait a moment, then save the instruction again. Forge is busy with saved instructions right now.'
   const createServiceMessage =
     'Open Saved instructions again, then save the instruction again. If it still fails, ask an owner or admin to check Saved instructions access.'
   const createDefaultMessage = 'Check the required fields, then save the instruction again.'
@@ -190,7 +190,7 @@ export function skillHttpErrorMessage(
   if (status === 429) {
     return action === 'create'
       ? createRateLimitMessage
-      : `Wait a moment, then ${actionText}. Instruction setup is busy right now.`
+      : `Wait a moment, then ${actionText}. Forge is busy with saved instructions right now.`
   }
   if (status >= 500) {
     return action === 'create'

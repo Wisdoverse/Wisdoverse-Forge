@@ -108,6 +108,16 @@ describe('createSkillErrorMessage', () => {
     expect(message).not.toContain('Forge could not create')
   })
 
+  test('turns busy save failures into a plain wait step', () => {
+    const message = createSkillErrorMessage(new Error('HTTP 429'))
+
+    expectBeginnerMessage(
+      message,
+      'Wait a moment, then save the instruction again. Forge is busy with saved instructions right now.'
+    )
+    expect(message).not.toContain('Instruction setup')
+  })
+
   test('uses a check step for unknown save failures', () => {
     const message = createSkillErrorMessage(new Error('HTTP 418'))
 
