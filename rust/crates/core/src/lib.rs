@@ -5,6 +5,7 @@
 
 pub mod broadcast_protocol;
 pub mod clone_protocol;
+pub mod self_fix_protocol;
 pub mod config;
 pub mod context_envelope;
 pub mod credential_protocol;
@@ -18,6 +19,7 @@ pub mod types;
 
 // Convenient re-exports
 pub use config::{AppConfig, NatsCalloutConfig, StripeConfig};
+pub use self_fix_protocol::{SELF_FIX_PR_QUEUE, SelfFixPrJob};
 pub use error::{AppError, AppResult, ErrorKind};
 pub use runtime_capability::{CliToolKind, RuntimeCapability, RuntimeCapabilityError, RuntimeKind};
 pub use tenant::{ScopeKind, ScopedRead, ScopedWrite, ScopedWriteError, TenantScope};
