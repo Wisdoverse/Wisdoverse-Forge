@@ -2219,6 +2219,12 @@ const TASK_DETAIL_EVIDENCE_JARGON_PATTERNS = [
   /\bresult item(?:s)? ready to review\b/i,
 ]
 
+const TASK_LIST_REVIEW_ACTION_JARGON_PATTERNS = [
+  /\bReview \d+ active tasks?\./i,
+  /\bReview completed work\./i,
+  /\bReview the task, then send it to the agent\./i,
+]
+
 const AUTH_MANAGER_DEAD_END_PATTERNS = [
   /\bLogin failed\b/,
   /\bRegistration failed\b/,
@@ -3514,6 +3520,12 @@ function hasTaskDetailEvidenceJargonCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return TASK_DETAIL_EVIDENCE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasTaskListReviewActionJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/list/ListView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_LIST_REVIEW_ACTION_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasAuthManagerDeadEndCopy(relFile, line) {
@@ -6409,6 +6421,16 @@ function scanFile(file, relFile) {
         type: 'task-detail-result-review-copy',
         location,
         message: 'Task result copy must describe result files without review or evidence jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskListReviewActionJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'task-list-review-action-copy',
+        location,
+        message:
+          'Task list next steps and row actions must say check instead of review for first-time users.',
         sample: line.trim(),
       })
     }
