@@ -221,6 +221,7 @@ const PROVIDER_ADDRESS_JARGON_PATTERNS = [
 
 const PROVIDER_SETUP_JARGON_PATTERNS = [
   /\bcopy its access key\b/i,
+  /\bChecking['"`]\s*:\s*['"`]Check\b/,
   /\bSave and check\b/i,
   /\bsave and check again\b/i,
   /\bclick Check\b/i,
@@ -374,7 +375,10 @@ const BILLING_PLAN_DEAD_END_PATTERNS = [
   /\bNo paid plan is attached yet\b/i,
 ]
 
-const BILLING_RECEIPT_LINK_DEAD_END_PATTERNS = [/\bNo link\b/i]
+const BILLING_RECEIPT_LINK_DEAD_END_PATTERNS = [
+  /\bNo link\b/i,
+  /\bReceipts and payment links will appear here after the first billing cycle\b/i,
+]
 
 const BILLING_ERROR_FAILURE_FIRST_PATTERNS = [
   /\bRefresh Billing to load (?:plan and payment|usage|invoices)\b/i,
@@ -482,12 +486,18 @@ const TASK_AGENT_ASSIGNMENT_DEAD_END_PATTERNS = [
 const TIMELINE_EMPTY_DEAD_END_PATTERNS = [
   /\bNo timeline events yet\b/i,
   /\bWaiting for run events\b/i,
+  /\bStart a task to build the timeline\b/i,
+  /\bStart a task from the board\b/i,
+  /\bStart a task or open a running task\b/i,
 ]
 
 const WORKSHOP_3D_EMPTY_DEAD_END_PATTERNS = [
   /\bNo agents on the visual map yet\b/i,
   /\brefresh this view\b/i,
   /\bRefresh after agents are available\b/i,
+  /\bIf this is your first agent, create it from Agents\b/i,
+  /\bOpen Agents and create one if none exists\b/i,
+  /\bStart or wake the agent if it is already listed\b/i,
   /等 Agent 可用后刷新/,
 ]
 const WORKSHOP_3D_MOUSE_JARGON_PATTERNS = [
@@ -663,7 +673,10 @@ const ADMIN_NAV_TECHNICAL_COPY_PATTERNS = [
   /\bmanage team spaces,\s*users,\s*and system health\b/i,
 ]
 
-const CODE_ACCESS_KEY_JARGON_PATTERNS = [/\bPaste the key from GitHub or GitLab\b/i]
+const CODE_ACCESS_KEY_JARGON_PATTERNS = [
+  /\bPaste the key from GitHub or GitLab\b/i,
+  /\bPaste the code link\b/i,
+]
 
 const CODE_ACCESS_ADDRESS_JARGON_PATTERNS = [
   /\bLeave address blank for cloud\b/i,
@@ -736,6 +749,7 @@ const START_GUIDE_RESET_JARGON_PATTERNS = [
   /\bOnboarding\b/,
   /\bStart guide\b/i,
   /\bReset Start guide\b/i,
+  /\bReset setup checklist\b/i,
   /\bReset it here\b/i,
   /\bOpen setup checklist to review setup\b/i,
   /\bnothing to restore\b/i,
@@ -918,6 +932,12 @@ const KANBAN_DONE_REVIEW_EMPTY_JARGON_PATTERNS = [
   /\bFinished work appears here for review\b/i,
   /\bNothing ready for review\b/i,
 ]
+const KANBAN_COLUMN_EMPTY_DEAD_END_PATTERNS = [
+  /\bRunning work appears here\b/i,
+  /\bTasks needing your answer appear here\b/i,
+  /\bCanceled tasks stay here for history\b/i,
+  /\bTasks will appear here when they reach this board step\b/i,
+]
 
 const QUICK_CREATE_EXAMPLE_REVIEW_JARGON_PATTERNS = [/\bReview setup\b/i]
 
@@ -945,6 +965,10 @@ const AGENT_TASK_LOAD_REFRESH_DEAD_END_PATTERNS = [
   /\bRefresh this page to load the agent work list\b/i,
   /\bRefresh this agent'?s work list\b/i,
   /\brefresh this agent to load its work list\b/i,
+]
+const AGENT_TASK_EMPTY_DEAD_END_PATTERNS = [
+  /\bSend a small task to this agent, or choose where tasks wait\b/i,
+  /\bWork will appear here\./i,
 ]
 const AGENT_LIST_SUMMARY_DEAD_END_PATTERNS = [/\bNo agents\b/i]
 const CHAT_ONLY_AGENT_REVIEW_JARGON_PATTERNS = [
@@ -1137,6 +1161,8 @@ const RUNTIME_SIGN_IN_DEAD_END_PATTERNS = [
 ]
 
 const WORK_TOOL_SIGN_IN_ENTRY_JARGON_PATTERNS = [
+  /\bStart Codex sign-in here\b/i,
+  /\basks for login\b/i,
   /\blabel:\s*['"`]Codex CLI sign-in['"`]/i,
   /\bdescription:\s*['"`]Sign in to Codex and other CLI tools agents use for file work\./i,
   /\bSign in to Codex CLI and work tools\b/i,
@@ -1752,6 +1778,11 @@ const GOVERNANCE_AUDIT_VISIBLE_JARGON_PATTERNS = [
   /\bShow change details\b/i,
   /\bCheck change details\b/i,
   /\bCheck audit change\b/i,
+  /\bHidden review-note rows\b/i,
+  /\bReview notes hidden\b/i,
+  /\bShow review notes\b/i,
+  /\bReview notes\b/i,
+  /\bapproved for reuse\b/i,
   /\bReview proof\b/i,
   /\bCheck proof setup\b/i,
   /\bRequired account access is missing\b/i,
@@ -1807,6 +1838,11 @@ const APPROVAL_QUEUE_CHECK_JARGON_PATTERNS = [
   /\bsaving this review decision\b/i,
   /\bwhile you were reviewing it\b/i,
   /\bsaved item review access\b/i,
+]
+
+const APPROVAL_QUEUE_EMPTY_DEAD_END_PATTERNS = [
+  /\bNext: finish a task, then come back here\b/i,
+  /\bcome back here if you want agents to reuse what worked\b/i,
 ]
 
 const DUPLICATE_RECOVERY_COPY_PATTERNS = [
@@ -2245,6 +2281,7 @@ const CLONE_RETRY_FAILURE_FIRST_PATTERNS = [
   /\bCould not copy code into the project\. Check the code link and saved code access, then try again\./i,
   /\bRefresh Projects, then try copying code again\b/i,
   /\bthen try copying code again\b/i,
+  /\bproject row\b/i,
 ]
 
 const CLONE_RETRY_BUTTON_GENERIC_PATTERNS = [
@@ -4074,6 +4111,7 @@ function hasChineseLocaleEnglishRoleCopy(relFile, line) {
 function hasStartGuideResetJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/settings/AccountSection.tsx') &&
+    !relFile.endsWith('src/app/features/cmdk/CommandPalette.tsx') &&
     !relFile.endsWith('src/app/pages/settings/ui/SettingsLayout.tsx')
   ) {
     return false
@@ -4298,6 +4336,12 @@ function hasKanbanDoneReviewEmptyJargonCopy(relFile, line) {
   return KANBAN_DONE_REVIEW_EMPTY_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasKanbanColumnEmptyDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/board/KanbanColumn.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return KANBAN_COLUMN_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasQuickCreateExampleReviewJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/board/QuickCreate.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -4348,6 +4392,12 @@ function hasAgentTaskLoadRefreshDeadEndCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return AGENT_TASK_LOAD_REFRESH_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentTaskEmptyDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/agents/AgentTasksTab.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_TASK_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasSkillMaintainerFallbackDeadEndCopy(relFile, line) {
@@ -5093,6 +5143,12 @@ function hasApprovalQueueCheckJargonCopy(relFile, line) {
   return APPROVAL_QUEUE_CHECK_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasApprovalQueueEmptyDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/context/ApprovalQueueView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return APPROVAL_QUEUE_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasDuplicateRecoveryDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/board/boardErrorMessages.ts') &&
@@ -5117,10 +5173,35 @@ function hasNavigationErrorFailureFirstCopy(relFile, line) {
   return NAVIGATION_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function findTeamCreateSuccessGuidanceFindings(text, relFile) {
+  if (!relFile.endsWith('src/app/pages/settings/ui/TeamsSection.tsx')) return []
+  if (!/\bteamApi\.createTeam\b/.test(text)) return []
+
+  const hasReadyStatus = /\bTeam "\{createdTeam\.name\}" is ready\b/.test(text)
+  const hasProjectNextStep =
+    /\bCreate first project\b/.test(text) && /href="\/settings\/projects"/.test(text)
+  const hasPeopleNextStep = /\bManage people\b/.test(text)
+
+  if (hasReadyStatus && hasProjectNextStep && hasPeopleNextStep) return []
+
+  const createIndex = text.search(/\bteamApi\.createTeam\b/)
+  return [
+    {
+      type: 'team-create-success-guidance-copy',
+      location: `${relFile}:${lineNumberAt(text, Math.max(createIndex, 0))}`,
+      message:
+        'Team creation must confirm success and point beginners to Projects or Manage people.',
+      sample:
+        'teamApi.createTeam without a Team is ready status, Projects next step, and Manage people action.',
+    },
+  ]
+}
+
 function scanFile(file, relFile) {
   const text = fs.readFileSync(file, 'utf8')
   const lines = text.split('\n')
   const findings = findAlertLiveFindings(text, relFile)
+  findings.push(...findTeamCreateSuccessGuidanceFindings(text, relFile))
 
   lines.forEach((line, index) => {
     const location = `${relFile}:${index + 1}`
@@ -6264,7 +6345,7 @@ function scanFile(file, relFile) {
         type: 'team-project-create-copy',
         location,
         message:
-          'Team and project creation forms must say creation steps and link-ending names instead of setup path, automatic name, link name, short name, or address preview.',
+          'Team and project creation forms must say creation steps and link previews instead of setup path, automatic name, link name, short name, or address preview.',
         sample: line.trim(),
       })
     }
@@ -6274,7 +6355,7 @@ function scanFile(file, relFile) {
         type: 'team-project-row-address-copy',
         location,
         message:
-          'Team and project rows must explain where the generated name appears instead of address, automatic name, link name, or short name.',
+          'Team and project rows must use link preview wording instead of address, automatic name, link name, or short name.',
         sample: line.trim(),
       })
     }
@@ -6283,8 +6364,7 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'team-project-short-name-copy',
         location,
-        message:
-          'Team and project generated-name labels must explain where the name appears in plain link-ending language.',
+        message: 'Team and project generated-name labels must use plain link preview wording.',
         sample: line.trim(),
       })
     }
@@ -6293,7 +6373,8 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'clone-retry-error-copy',
         location,
-        message: 'Code import retry errors must start with the next action for beginners.',
+        message:
+          'Code copy retry errors must start with the next action and say project in the list instead of project row.',
         sample: line.trim(),
       })
     }
@@ -7157,6 +7238,15 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasKanbanColumnEmptyDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'kanban-column-empty-copy',
+        location,
+        message: 'Board column empty states must tell beginners which card or action to open next.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasQuickCreateExampleReviewJargonCopy(relFile, line)) {
       findings.push({
         type: 'quick-create-example-copy',
@@ -7211,6 +7301,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Agent work-list errors must tell beginners where to open Work again instead of saying refresh this page.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentTaskEmptyDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-task-empty-copy',
+        location,
+        message: 'Agent work empty states must give beginners a direct place to create work.',
         sample: line.trim(),
       })
     }
@@ -7853,6 +7952,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Saved items checking copy must say check, save, or do not save instead of review, pending, or approve jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasApprovalQueueEmptyDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'approval-queue-empty-copy',
+        location,
+        message: 'Saved item empty states must give beginners a direct place to continue.',
         sample: line.trim(),
       })
     }

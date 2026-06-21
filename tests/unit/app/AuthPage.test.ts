@@ -85,6 +85,10 @@ describe('AuthPage beginner guidance', () => {
       'Create your first team space account.'
     )
     expect(document.querySelector('#register-form')?.textContent).toContain('team space alerts')
+    expect(document.querySelector('#register-form')?.textContent).toContain('Confirm password')
+    expect(document.querySelector('#register-form')?.textContent).toContain(
+      'Type it again so you know what to use next time you sign in.'
+    )
     expect(document.querySelector('#register-form')?.textContent).not.toContain('workspace account')
     expect(document.querySelector('#register-submit')?.textContent).toContain(
       'Create account and continue'
@@ -219,8 +223,10 @@ describe('AuthPage beginner guidance', () => {
     document.querySelector<HTMLButtonElement>('[data-tab="register"]')?.click()
     const emailInput = document.querySelector<HTMLInputElement>('#register-email')
     const passwordInput = document.querySelector<HTMLInputElement>('#register-password')
+    const confirmInput = document.querySelector<HTMLInputElement>('#register-confirm')
     if (emailInput) emailInput.value = 'new@example.com'
     if (passwordInput) passwordInput.value = 'LongPassword123!'
+    if (confirmInput) confirmInput.value = 'LongPassword123!'
     document
       .querySelector<HTMLFormElement>('#register-form')
       ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
@@ -230,6 +236,54 @@ describe('AuthPage beginner guidance', () => {
     expect(bodyText()).toContain('Open that email to finish creating your account.')
     expect(bodyText()).toContain('Back to sign in')
     expect(bodyText()).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u)
+  })
+
+  test('checks account creation password confirmation before calling the backend', async () => {
+    const register = vi.fn().mockResolvedValue({ ok: true })
+    const page = new AuthPage(createAuthManager({ register }))
+
+    await page.show()
+    document.querySelector<HTMLButtonElement>('[data-tab="register"]')?.click()
+    const emailInput = document.querySelector<HTMLInputElement>('#register-email')
+    const passwordInput = document.querySelector<HTMLInputElement>('#register-password')
+    const confirmInput = document.querySelector<HTMLInputElement>('#register-confirm')
+    if (emailInput) emailInput.value = 'new@example.com'
+    if (passwordInput) passwordInput.value = 'LongPassword123!'
+    if (confirmInput) confirmInput.value = 'DifferentPassword123!'
+    document
+      .querySelector<HTMLFormElement>('#register-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+    expect(bodyText()).toContain(
+      'The two passwords do not match. Re-enter both password fields, then try again.'
+    )
+    expect(document.querySelector<HTMLInputElement>('#register-confirm')).toBe(
+      document.activeElement
+    )
+    expect(register).not.toHaveBeenCalled()
+  })
+
+  test('checks account creation password rules before calling the backend', async () => {
+    const register = vi.fn().mockResolvedValue({ ok: true })
+    const page = new AuthPage(createAuthManager({ register }))
+
+    await page.show()
+    document.querySelector<HTMLButtonElement>('[data-tab="register"]')?.click()
+    const emailInput = document.querySelector<HTMLInputElement>('#register-email')
+    const passwordInput = document.querySelector<HTMLInputElement>('#register-password')
+    const confirmInput = document.querySelector<HTMLInputElement>('#register-confirm')
+    if (emailInput) emailInput.value = 'new@example.com'
+    if (passwordInput) passwordInput.value = 'longpassword'
+    if (confirmInput) confirmInput.value = 'longpassword'
+    document
+      .querySelector<HTMLFormElement>('#register-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+    expect(bodyText()).toContain('Add at least one uppercase letter to the password, then try again.')
+    expect(document.querySelector<HTMLInputElement>('#register-password')).toBe(
+      document.activeElement
+    )
+    expect(register).not.toHaveBeenCalled()
   })
 
   test('turns duplicate account registration failures into a next step', async () => {
@@ -247,8 +301,10 @@ describe('AuthPage beginner guidance', () => {
     document.querySelector<HTMLButtonElement>('[data-tab="register"]')?.click()
     const emailInput = document.querySelector<HTMLInputElement>('#register-email')
     const passwordInput = document.querySelector<HTMLInputElement>('#register-password')
+    const confirmInput = document.querySelector<HTMLInputElement>('#register-confirm')
     if (emailInput) emailInput.value = 'new@example.com'
     if (passwordInput) passwordInput.value = 'LongPassword123!'
+    if (confirmInput) confirmInput.value = 'LongPassword123!'
     document
       .querySelector<HTMLFormElement>('#register-form')
       ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
@@ -303,6 +359,23 @@ describe('AuthPage beginner guidance', () => {
     expect(bodyText()).toContain(
       'Use at least 12 characters for the new password. Add a few more characters, then try again.'
     )
+  })
+
+  test('checks reset-token password rules before calling the backend', async () => {
+    const resetPassword = vi.fn().mockResolvedValue(undefined)
+    const page = new AuthPage(createAuthManager({ resetPassword }), 'login', 'reset-token')
+
+    await page.show()
+    const passwordInput = document.querySelector<HTMLInputElement>('#reset-password')
+    const confirmInput = document.querySelector<HTMLInputElement>('#reset-confirm')
+    if (passwordInput) passwordInput.value = 'longpassword'
+    if (confirmInput) confirmInput.value = 'longpassword'
+    document
+      .querySelector<HTMLFormElement>('#reset-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+    expect(bodyText()).toContain('Add at least one uppercase letter to the password, then try again.')
+    expect(resetPassword).not.toHaveBeenCalled()
   })
 
   test('keeps password reset email failures beginner-safe', async () => {

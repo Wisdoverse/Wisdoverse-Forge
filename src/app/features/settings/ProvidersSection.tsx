@@ -770,7 +770,7 @@ function ProviderCard({ providerConfig, onTest, onSetEnabled, onDelete }: Provid
             title="Check AI service connection"
           >
             <Activity className="h-4 w-4" aria-hidden="true" />
-            <span>{testing ? 'Checking' : 'Check'}</span>
+            <span>{testing ? 'Checking connection' : 'Check connection'}</span>
           </button>
           {confirming && (
             <button

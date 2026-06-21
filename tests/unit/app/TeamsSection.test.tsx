@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { TeamsSection } from '@app/pages/settings/ui/TeamsSection'
 import { teamApi } from '@app/entities/team'
 
@@ -140,6 +140,31 @@ describe('TeamsSection', () => {
 
     expect(await screen.findByText(/Enter a team name, then try again/i)).toBeDefined()
     expect(screen.queryByText(/team name is required/i)).toBeNull()
+  })
+
+  test('confirms team creation and points beginners to the next setup step', async () => {
+    getTeams.mockResolvedValue([])
+    createTeam.mockResolvedValue({ ...existingTeam, id: 'team-2', name: 'Design', slug: 'design' })
+
+    render(<TeamsSection />)
+
+    await waitFor(() => expect(getTeams).toHaveBeenCalledWith('org-1'))
+    fireEvent.click(screen.getByRole('button', { name: 'Create first team' }))
+    fireEvent.change(screen.getByLabelText(/team name/i), { target: { value: 'Design' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create team' }))
+
+    await waitFor(() => expect(createTeam).toHaveBeenCalledWith('org-1', { name: 'Design' }))
+    const status = await screen.findByRole('status')
+    expect(status).toHaveTextContent('Team "Design" is ready')
+    expect(status).toHaveTextContent('Next: create the first project in Projects.')
+    expect(status).toHaveTextContent(
+      'Use Manage people only when this team needs direct access before project work starts.'
+    )
+    expect(screen.getByRole('link', { name: /create first project/i })).toHaveAttribute(
+      'href',
+      '/settings/projects'
+    )
+    expect(within(status).getByRole('button', { name: /manage people/i })).toBeDefined()
   })
 
   test('opens team creation from the empty state action', async () => {

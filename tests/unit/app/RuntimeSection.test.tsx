@@ -345,15 +345,20 @@ describe('RuntimeSection', () => {
     ).toBeDefined()
     expect(
       screen.getByText(
-        'Sign in to OpenAI (Codex) and other work tools before agents work on project files.'
+        'Sign in to the account Codex uses and other work tools before agents work on project files.'
       )
     ).toBeDefined()
     expect(await screen.findByTestId('runtime-sign-in-entry')).toHaveTextContent(
-      'Start Codex sign-in here'
+      'Codex sign-in starts here'
     )
     expect(screen.getByTestId('runtime-sign-in-entry')).toHaveTextContent(
-      'For Codex, choose Sign in next to OpenAI (Codex)'
+      'Use this page when Codex or another work tool asks you to sign in.'
     )
+    expect(screen.getByTestId('runtime-sign-in-entry')).toHaveTextContent(
+      'For Codex, choose Sign in to OpenAI (Codex)'
+    )
+    expect(screen.queryByText(/Start Codex sign-in here/i)).toBeNull()
+    expect(screen.queryByText(/asks for login/i)).toBeNull()
     expect(screen.queryByText(/Sign in to Codex CLI and work tools/i)).toBeNull()
     expect(screen.getByText('OpenAI (Codex)')).toBeDefined()
     expect(screen.getAllByText('Codex').length).toBeGreaterThan(0)
@@ -371,6 +376,18 @@ describe('RuntimeSection', () => {
       '_blank',
       'noopener,noreferrer'
     )
+  })
+
+  test('matches the Codex sign-in instruction to the shown provider name', async () => {
+    render(<RuntimeSection focus="sign-ins" />)
+
+    expect(await screen.findByTestId('runtime-sign-in-entry')).toHaveTextContent(
+      'For Codex, choose Sign in to GitHub'
+    )
+    expect(screen.getByTestId('runtime-sign-in-entry')).not.toHaveTextContent(
+      'choose Sign in next to OpenAI (Codex)'
+    )
+    expect(screen.getAllByRole('button', { name: /Sign in to GitHub/i }).length).toBeGreaterThan(0)
   })
 
   test('explains how to recover when the browser blocks the sign-in page', async () => {

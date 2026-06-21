@@ -1,5 +1,5 @@
-import { describe, test, expect, afterEach } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { describe, test, expect, afterEach, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import type { AgentInfo } from '@app/entities/agent'
 import {
   Workshop3DEmptyState,
@@ -12,25 +12,33 @@ afterEach(cleanup)
 
 describe('Workshop3DEmptyState', () => {
   test('guides first-time users before any agents are visible', () => {
-    render(<Workshop3DEmptyState />)
+    const onOpenAgents = vi.fn()
+
+    render(<Workshop3DEmptyState onOpenAgents={onOpenAgents} />)
 
     const emptyState = screen.getByTestId('workshop-3d-empty-state')
 
     expect(within(emptyState).getByText('Open Agents to build the visual map')).toBeDefined()
     expect(
       within(emptyState).getByText(
-        'If this is your first agent, create it from Agents. If you already have one, start or wake it there, then return to this 3D view after it checks in.'
+        'Use Open Agents below. Create your first agent there, or start one that is already listed, then return to this 3D view after it checks in.'
       )
     ).toBeDefined()
+    fireEvent.click(within(emptyState).getByRole('button', { name: 'Open Agents' }))
+
+    expect(onOpenAgents).toHaveBeenCalledTimes(1)
     expect(within(emptyState).queryByText('No agents on the visual map yet')).toBeNull()
     expect(within(emptyState).queryByText(/workshop/i)).toBeNull()
-    expect(within(emptyState).getByText('Open Agents and create one if none exists')).toBeDefined()
+    expect(within(emptyState).getByText('Choose Open Agents')).toBeDefined()
     expect(
-      within(emptyState).getByText('Start or wake the agent if it is already listed')
+      within(emptyState).getByText(
+        'Create your first agent there, or start one that is already listed'
+      )
     ).toBeDefined()
     expect(
       within(emptyState).getByText('Return to this 3D view after the agent checks in')
     ).toBeDefined()
+    expect(within(emptyState).queryByText(/If this is your first agent/i)).toBeNull()
     expect(within(emptyState).queryByText(/refresh this view/i)).toBeNull()
   })
 })

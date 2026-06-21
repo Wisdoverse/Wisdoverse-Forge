@@ -913,7 +913,7 @@ export function ProjectTree({
             <ProjectMenuItem
               Icon={Hash}
               label="Copy project link preview"
-              detail={`Project link preview: ${projectMenu.project.slug}`}
+              detail={`Project link preview: ${projectMenu.project.slug}. Forge creates this automatically.`}
               onClick={() =>
                 void handleCopyProjectValue(
                   projectMenu.project.slug,

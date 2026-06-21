@@ -4,6 +4,7 @@
 
 import type { AuthManager, LoginResult } from '@app/shared/auth/AuthManager'
 import { config } from '@app/shared/config'
+import { passwordRuleMessage, passwordRuleStates } from '@app/shared/lib/passwordRules'
 import { iconSuccess } from '@app/shared/ui/icons'
 
 type AuthTab = 'login' | 'register'
@@ -434,6 +435,16 @@ export class AuthPage {
             <span class="auth-rule" data-rule="special">symbol</span>
           </div>
         </div>
+        <div class="auth-field">
+          <label class="auth-label" for="register-confirm">Confirm password</label>
+          <div class="auth-password-wrap">
+            <input class="auth-input" id="register-confirm" type="password" placeholder="Type the same password again" autocomplete="new-password" required>
+            <button type="button" class="auth-password-toggle" data-target="register-confirm" aria-label="Show or hide password">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <span class="auth-hint">Type it again so you know what to use next time you sign in.</span>
+        </div>
         <button class="auth-submit" type="submit" id="register-submit">
           <span class="auth-submit-text">Create account and continue</span>
           <span class="auth-submit-spinner" hidden></span>
@@ -585,9 +596,25 @@ export class AuthPage {
   private async handleRegister(): Promise<void> {
     const email = this.getInput('register-email')
     const password = this.getInput('register-password')
+    const confirm = this.getInput('register-confirm')
     const username = this.getInput('register-username') || undefined
-    if (!email || !password) {
-      this.setError('Enter an email address and password to create your account.')
+    if (!email || !password || !confirm) {
+      this.setError(
+        'Enter an email address and type the new password twice to create your account.'
+      )
+      return
+    }
+    const passwordRuleError = passwordRuleMessage(password)
+    if (passwordRuleError) {
+      this.setError(passwordRuleError)
+      this.container?.querySelector<HTMLInputElement>('#register-password')?.focus()
+      return
+    }
+    if (password !== confirm) {
+      this.setError(
+        'The two passwords do not match. Re-enter both password fields, then try again.'
+      )
+      this.container?.querySelector<HTMLInputElement>('#register-confirm')?.focus()
       return
     }
     this.setLoading('register-submit', true)
@@ -723,13 +750,9 @@ export class AuthPage {
     const root = scope || this.container
     if (!root) return
 
-    const rules: Record<string, boolean> = {
-      length: password.length >= 12,
-      upper: /[A-Z]/.test(password),
-      lower: /[a-z]/.test(password),
-      number: /[0-9]/.test(password),
-      special: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(password),
-    }
+    const rules: Record<string, boolean> = Object.fromEntries(
+      passwordRuleStates(password).map((rule) => [rule.id, rule.met])
+    )
 
     // Update rule indicators
     for (const [key, met] of Object.entries(rules)) {
@@ -1022,9 +1045,9 @@ export class AuthPage {
         this.shakeCard()
         return
       }
-      if (password.length < 12) {
-        errorDiv.textContent =
-          'Use at least 12 characters for the new password. Add a few more characters, then try again.'
+      const passwordRuleError = passwordRuleMessage(password)
+      if (passwordRuleError) {
+        errorDiv.textContent = passwordRuleError
         errorDiv.style.display = ''
         this.shakeCard()
         return

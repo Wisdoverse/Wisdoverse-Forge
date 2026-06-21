@@ -762,6 +762,9 @@ function CatalogGrid() {
 function ModelQuickPicks() {
   return 'Gateway alias: gpt-4o-mini'
 }
+function ProviderCard({ testing }) {
+  return <span>{testing ? 'Checking' : 'Check'}</span>
+}
 `,
       'src/app/features/agents/CreateAgentModal.tsx': `
 function CreateAgentModal() {
@@ -828,6 +831,10 @@ function settingsValidationMessage() {
         expect.objectContaining({
           type: 'provider-setup-copy',
           location: 'src/app/features/settings/ProvidersSection.tsx:16',
+        }),
+        expect.objectContaining({
+          type: 'provider-setup-copy',
+          location: 'src/app/features/settings/ProvidersSection.tsx:22',
         }),
         expect.objectContaining({
           type: 'provider-setup-copy',
@@ -2365,6 +2372,40 @@ export function AgentTasksTab() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags agent work empty states that explain work appears without an entry point', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentTasksTab.tsx': `
+export function AgentTasksEmptyState() {
+  return <p>Send a small task to this agent, or choose where tasks wait so this agent can receive them. Work will appear here.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-task-empty-copy',
+          location: 'src/app/features/agents/AgentTasksTab.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts agent work empty states that point beginners to the task list', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentTasksTab.tsx': `
+export function AgentTasksEmptyState() {
+  return <><p>Open the task list, choose New task, and pick this agent. Work will appear here after it is waiting or running.</p><a href="/tasks">Open task list</a></>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags agent tool errors that start with the failure instead of the next step', () => {
     const cwd = fixture({
       'src/app/features/agents/model/pluginErrorMessage.ts': `
@@ -3101,6 +3142,7 @@ function PlanCard() {
       'src/app/features/billing/InvoiceList.tsx': `
 export function InvoiceList() {
   return <span>No link</span>
+  return <p>Receipts and payment links will appear here after the first billing cycle.</p>
 }
 `,
     })
@@ -3108,12 +3150,18 @@ export function InvoiceList() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'billing-receipt-link-copy',
-        location: 'src/app/features/billing/InvoiceList.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'billing-receipt-link-copy',
+          location: 'src/app/features/billing/InvoiceList.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'billing-receipt-link-copy',
+          location: 'src/app/features/billing/InvoiceList.tsx:4',
+        }),
+      ])
+    )
   })
 
   it('accepts invoice receipt copy that tells people when the link appears', () => {
@@ -3121,6 +3169,7 @@ export function InvoiceList() {
       'src/app/features/billing/InvoiceList.tsx': `
 export function InvoiceList() {
   return <span>Receipt appears after payment finishes</span>
+  return <p>Start or change a plan to create the first invoice. After a charge is created, return here to open the payment link or download the receipt.</p>
 }
 `,
     })
@@ -4727,7 +4776,14 @@ function taskCheckIn() {
     const cwd = fixture({
       'src/app/widgets/views/TimelineView.tsx': `
 export function TimelineView() {
-  return <p>No timeline events yet</p>
+  return (
+    <>
+      <p>No timeline events yet</p>
+      <p>Start a task to build the timeline</p>
+      <p>Start a task or open a running task.</p>
+      <p>Start a task from the board</p>
+    </>
+  )
 }
 
 function drawTimeline(ctx) {
@@ -4739,23 +4795,37 @@ function drawTimeline(ctx) {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'timeline-empty-copy',
-        location: 'src/app/widgets/views/TimelineView.tsx:3',
-      }),
-      expect.objectContaining({
-        type: 'timeline-empty-copy',
-        location: 'src/app/widgets/views/TimelineView.tsx:7',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'timeline-empty-copy',
+          location: 'src/app/widgets/views/TimelineView.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'timeline-empty-copy',
+          location: 'src/app/widgets/views/TimelineView.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'timeline-empty-copy',
+          location: 'src/app/widgets/views/TimelineView.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'timeline-empty-copy',
+          location: 'src/app/widgets/views/TimelineView.tsx:8',
+        }),
+        expect.objectContaining({
+          type: 'timeline-empty-copy',
+          location: 'src/app/widgets/views/TimelineView.tsx:14',
+        }),
+      ])
+    )
   })
 
   it('accepts timeline empty titles that tell users how to begin', () => {
     const cwd = fixture({
       'src/app/widgets/views/TimelineView.tsx': `
 export function TimelineView() {
-  return <p>Start a task to build the timeline</p>
+  return <p>Open the task board to start the timeline</p>
 }
 `,
     })
@@ -4767,7 +4837,14 @@ export function TimelineView() {
     const cwd = fixture({
       'src/app/widgets/views/Workshop3DView.tsx': `
 export function Workshop3DEmptyState() {
-  return <p>No agents on the visual map yet</p>
+  return (
+    <>
+      <p>No agents on the visual map yet</p>
+      <p>If this is your first agent, create it from Agents.</p>
+      <p>Open Agents and create one if none exists</p>
+      <p>Start or wake the agent if it is already listed</p>
+    </>
+  )
 }
 export function EmptyStep() {
   return <p>Refresh this view after the agent checks in</p>
@@ -4796,11 +4873,23 @@ export const zh = {
       expect.arrayContaining([
         expect.objectContaining({
           type: 'workshop-3d-empty-copy',
-          location: 'src/app/widgets/views/Workshop3DView.tsx:3',
+          location: 'src/app/widgets/views/Workshop3DView.tsx:5',
         }),
         expect.objectContaining({
           type: 'workshop-3d-empty-copy',
           location: 'src/app/widgets/views/Workshop3DView.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'workshop-3d-empty-copy',
+          location: 'src/app/widgets/views/Workshop3DView.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'workshop-3d-empty-copy',
+          location: 'src/app/widgets/views/Workshop3DView.tsx:8',
+        }),
+        expect.objectContaining({
+          type: 'workshop-3d-empty-copy',
+          location: 'src/app/widgets/views/Workshop3DView.tsx:13',
         }),
         expect.objectContaining({
           type: 'workshop-3d-empty-copy',
@@ -4818,10 +4907,10 @@ export const zh = {
     const cwd = fixture({
       'src/app/widgets/views/Workshop3DView.tsx': `
 export function Workshop3DEmptyState() {
-  return <p>Open Agents to build the visual map</p>
+  return <button>Open Agents</button>
 }
 export function EmptyStep() {
-  return <p>Return to this 3D view after the agent checks in</p>
+  return <p>Choose Open Agents, then return to this 3D view after the agent checks in</p>
 }
 `,
     })
@@ -5181,6 +5270,45 @@ function StartCard() {
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
 function PendingTerminal() {
   return 'Open Live work, choose Start file work, and wait until this agent shows Ready.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags team creation paths that do not confirm the next setup step', () => {
+    const cwd = fixture({
+      'src/app/pages/settings/ui/TeamsSection.tsx': `
+async function handleCreate(name) {
+  const team = await teamApi.createTeam(orgId, { name })
+  setTeams((prev) => [...prev, team])
+  setShowForm(false)
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'team-create-success-guidance-copy',
+        message:
+          'Team creation must confirm success and point beginners to Projects or Manage people.',
+      }),
+    ])
+  })
+
+  it('accepts team creation paths that confirm success and show setup actions', () => {
+    const cwd = fixture({
+      'src/app/pages/settings/ui/TeamsSection.tsx': `
+async function handleCreate(name) {
+  const team = await teamApi.createTeam(orgId, { name })
+  setCreatedTeam(team)
+}
+function CreatedTeamStatus({ createdTeam }) {
+  return <><p>Team "{createdTeam.name}" is ready</p><a href="/settings/projects">Create first project</a><button>Manage people</button></>
 }
 `,
     })
@@ -6628,6 +6756,8 @@ const SECTIONS = [
 export function RuntimeSection() {
   return (
     <>
+      <h3>Start Codex sign-in here</h3>
+      <p>Start here when Codex or another work tool asks for login.</p>
       <h3>Sign in to Codex CLI and work tools</h3>
       <RuntimeChecklistRow title="Codex and CLI sign-ins" />
     </>
@@ -6657,6 +6787,14 @@ export function RuntimeSection() {
           type: 'work-tool-sign-in-entry-copy',
           location: 'src/app/features/settings/RuntimeSection.tsx:6',
         }),
+        expect.objectContaining({
+          type: 'work-tool-sign-in-entry-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'work-tool-sign-in-entry-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:8',
+        }),
       ])
     )
   })
@@ -6676,7 +6814,7 @@ export function RuntimeSection() {
   return (
     <>
       <h3>Work tool sign-in</h3>
-      <p>Start here when Codex or another work tool asks for login. Choose Sign in next to OpenAI (Codex), finish the browser login, then return here and choose Check again.</p>
+      <p>Use this page when Codex or another work tool asks you to sign in. Choose Sign in next to OpenAI (Codex), finish the browser sign-in, then return here and choose Check again.</p>
       <RuntimeChecklistRow title="Work tool sign-ins" />
     </>
   )
@@ -8000,6 +8138,42 @@ const EMPTY_HISTORY = {
   title: 'Check the first saved item to start history',
   detail:
     'Saved and not-saved notes or instructions appear here after someone checks the first suggestion.',
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags saved-item empty copy that tells beginners to come back without an entry point', () => {
+    const cwd = fixture({
+      'src/app/features/context/ApprovalQueueView.tsx': `
+function approvalQueueEmptyState() {
+  return { nextStep: 'Next: finish a task, then come back here if you want agents to reuse what worked.' }
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'approval-queue-empty-copy',
+        location: 'src/app/features/context/ApprovalQueueView.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts saved-item empty copy that gives beginners a direct place to continue', () => {
+    const cwd = fixture({
+      'src/app/features/context/ApprovalQueueView.tsx': `
+function approvalQueueEmptyState() {
+  return {
+    nextStep: 'Next: open Tasks and finish work that should teach future agents what helped.',
+    actionLabel: 'Open task list',
+    actionHref: '/tasks',
+  }
 }
 `,
     })
@@ -11926,7 +12100,7 @@ const TRUSTED_TOOL_STEP = 'Name it so teammates know which trusted tool uses it.
     const cwd = fixture({
       'src/app/features/settings/GitCredentialsSection.tsx': `
 function AddCredentialForm() {
-  return <p>Paste the key from GitHub or GitLab. Those sites may call it a personal access token.</p>
+  return <><p>Paste the key from GitHub or GitLab. Those sites may call it a personal access token.</p><p>Paste the code link from GitHub here.</p></>
 }
 `,
     })
@@ -11934,19 +12108,21 @@ function AddCredentialForm() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'code-access-key-copy',
-        location: 'src/app/features/settings/GitCredentialsSection.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'code-access-key-copy',
+          location: 'src/app/features/settings/GitCredentialsSection.tsx:3',
+        }),
+      ])
+    )
   })
 
   it('accepts code access setup copy that names the key before provider token wording', () => {
     const cwd = fixture({
       'src/app/features/settings/GitCredentialsSection.tsx': `
 function AddCredentialForm() {
-  return <p>Paste the code access key from GitHub or GitLab. If that page says personal access token, use that value here.</p>
+  return <p>This is not the project code link. Paste the code access key from GitHub or GitLab. If that page says personal access token, use that value here.</p>
 }
 `,
     })
@@ -12443,7 +12619,12 @@ function ProfileRow() {
     const cwd = fixture({
       'src/app/features/settings/AccountSection.tsx': `
 function GettingStartedGuideRow() {
-  return <section><h3>Onboarding</h3><p>If Start is hidden, choose Show setup checklist. Start is already visible in the left menu, so there is nothing to restore. New sign-ins still open Tasks by default.</p><p>Setup checklist is back in the left menu. Choose Open setup checklist to review setup.</p><button>Reset Start guide</button></section>
+  return <section><h3>Onboarding</h3><p>If Start is hidden, choose Show setup checklist. Start is already visible in the left menu, so there is nothing to restore. New sign-ins still open Tasks by default.</p><p>Setup checklist is back in the left menu. Choose Open setup checklist to review setup.</p><button>Reset Start guide</button><button>Reset setup checklist</button></section>
+}
+`,
+      'src/app/features/cmdk/CommandPalette.tsx': `
+const SETUP_CHECKLIST_RECOVERY_COMMAND = {
+  label: 'Reset setup checklist',
 }
 `,
       'src/app/pages/settings/ui/SettingsLayout.tsx': `
@@ -12461,6 +12642,10 @@ export const item = {
         expect.objectContaining({
           type: 'start-guide-reset-copy',
           location: 'src/app/features/settings/AccountSection.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'start-guide-reset-copy',
+          location: 'src/app/features/cmdk/CommandPalette.tsx:3',
         }),
         expect.objectContaining({
           type: 'start-guide-reset-copy',
@@ -13826,6 +14011,64 @@ function KanbanColumn() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags board column empty copy that only says work will appear later', () => {
+    const cwd = fixture({
+      'src/app/features/board/KanbanColumn.tsx': `
+const COLUMN_EMPTY_STATE = {
+  working: { title: 'Running work appears here', detail: 'Running work appears here once an agent starts the task.' },
+  blocked: { title: 'Tasks needing your answer appear here', detail: 'Tasks waiting for your answer or missing details will collect here.' },
+  canceled: { title: 'Canceled tasks stay here for history', detail: 'Canceled work stays here so the board keeps its history visible.' },
+}
+
+function fallback() {
+  return 'Tasks will appear here when they reach this board step.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'kanban-column-empty-copy',
+          location: 'src/app/features/board/KanbanColumn.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'kanban-column-empty-copy',
+          location: 'src/app/features/board/KanbanColumn.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'kanban-column-empty-copy',
+          location: 'src/app/features/board/KanbanColumn.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'kanban-column-empty-copy',
+          location: 'src/app/features/board/KanbanColumn.tsx:9',
+        }),
+      ])
+    )
+  })
+
+  it('accepts board column empty copy that gives a visible next action', () => {
+    const cwd = fixture({
+      'src/app/features/board/KanbanColumn.tsx': `
+const COLUMN_EMPTY_STATE = {
+  working: { title: 'Start a waiting task to show live work', detail: 'Open a task in Waiting to start, choose Start, or wait for the agent to begin.' },
+  blocked: { title: 'Answer help requests from this column', detail: 'When a task needs details, open its card here, read what the agent needs, then choose Continue or Stop.' },
+  canceled: { title: 'Check canceled work before starting again', detail: 'Open a canceled card here to see why it stopped before you create a replacement task.' },
+}
+
+function fallback() {
+  return 'When a task reaches this board step, open its card to see what to do next.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags quick task examples that say review setup', () => {
     const cwd = fixture({
       'src/app/features/board/QuickCreate.tsx': `
@@ -14816,6 +15059,10 @@ function AuditLogView() {
     <p>Review proof</p>
     <p>Check proof setup</p>
     <p>Required account access is missing. Add or reconnect service access.</p>
+    <Metric label="Hidden review-note rows" />
+    <p>Saved instruction approved for reuse</p>
+    <span>Review notes hidden</span>
+    <button>Show review notes</button>
     <span>Protected</span>
   </section>
 }
@@ -14864,6 +15111,22 @@ function message() {
           type: 'governance-audit-jargon-copy',
           location: 'src/app/features/governance/governanceAuditErrorMessages.ts:3',
         }),
+        expect.objectContaining({
+          type: 'governance-audit-jargon-copy',
+          sample: '<Metric label="Hidden review-note rows" />',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-jargon-copy',
+          sample: '<p>Saved instruction approved for reuse</p>',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-jargon-copy',
+          sample: '<span>Review notes hidden</span>',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-jargon-copy',
+          sample: '<button>Show review notes</button>',
+        }),
       ])
     )
   })
@@ -14884,7 +15147,7 @@ function AuditLogView() {
     <span>{entry.scopeId ? \`Work area \${shortId(entry.scopeId)}\` : 'Work area hidden'}</span>
     <span>Set up verification</span>
     <span>Check verification</span>
-    <span>Review notes hidden</span>
+    <span>Change notes hidden</span>
   </section>
 }
 `,
@@ -17527,7 +17790,7 @@ function CreateProjectForm() {
     const cwd = fixture({
       'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
 function CreateProjectForm() {
-  return <><label>Code link</label><input placeholder="https://github.com/team/project.git" /><p>Forge copies that code into this project.</p><p>Paste the https:// link you copy from your browser, or leave this blank and set up SSH code access in Settings first.</p><p>Paste an https:// code link without account details, or leave the code link blank and add code access in Settings.</p></>
+  return <><label>Code link</label><input placeholder="https://github.com/team/project.git" /><p>Forge copies that code into this project.</p><p>On GitHub or GitLab, choose Code, choose HTTPS, then copy that link. If you only see an SSH link, leave this blank and set up SSH code access in Settings first.</p><p>Paste an https:// code link without account details, or leave the code link blank and add code access in Settings.</p></>
 }
 `,
     })
@@ -17597,12 +17860,12 @@ function CreateProjectForm() {
     const cwd = fixture({
       'src/app/features/manage-team/ui/CreateTeamForm.tsx': `
 function CreateTeamForm() {
-  return <><p>Team creation steps</p><p>Team link preview: platform-ops.</p></>
+  return <><p>Team creation steps</p><p>Team link preview: platform-ops. Forge creates it automatically from the team name. You do not need to type it.</p></>
 }
 `,
       'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
 function CreateProjectForm() {
-  return <><p>Project creation steps</p><p>Project link preview: app.</p><summary>Show folder details for support</summary><p>Use this only if an owner, admin, or support message asks for the project folder.</p><p>Project folder for support: /workspace/app</p></>
+  return <><p>Project creation steps</p><p>Project link preview: app. Forge creates it automatically from the project name. You do not need to type it.</p><summary>Show folder details for support</summary><p>Use this only if an owner, admin, or support message asks for the project folder.</p><p>Project folder for support: /workspace/app</p></>
 }
 `,
     })
@@ -17653,12 +17916,12 @@ function EditableProjectRow({ project }) {
     const cwd = fixture({
       'src/app/features/manage-team/ui/EditableTeamRow.tsx': `
 function EditableTeamRow({ team }) {
-  return <p>Team link preview: {team.slug}</p>
+  return <p>Team link preview: {team.slug}. Forge creates this automatically</p>
 }
 `,
       'src/app/features/manage-project/ui/EditableProjectRow.tsx': `
 function EditableProjectRow({ project }) {
-  return <span>Project link preview: {project.slug}</span>
+  return <span>Project link preview: {project.slug}. Auto-created</span>
 }
 `,
     })
@@ -17716,12 +17979,12 @@ function ProjectTree({ projectMenu }) {
   return <button>Copy project reference</button>
   return <p>Project reference copied</p>
   return <button>Copy project link preview</button>
-  return <p>Project link preview: {projectMenu.project.slug}</p>
+  return <p>Project link preview: {projectMenu.project.slug}. Forge creates this automatically.</p>
 }
 `,
       'src/app/features/admin/OrganizationsPanel.tsx': `
 function OrganizationsPanel({ org }) {
-  return <p>Team space link preview: {org.slug}</p>
+  return <p>Team space link preview: {org.slug}. Forge creates this automatically.</p>
 }
 `,
     })
@@ -17793,6 +18056,9 @@ function fallbackCloneErrorMessage() {
 function staleRetryActionMessage() {
   return 'Wait a minute, then try copying code again. Too many copy retries are happening right now.'
 }
+function projectRowMessage() {
+  return 'Wait a minute, then choose Copy code again from this project row. Too many copy retries are happening right now.'
+}
 `,
     })
 
@@ -17817,6 +18083,10 @@ function staleRetryActionMessage() {
           type: 'clone-retry-error-copy',
           location: 'src/app/features/manage-project/ui/CloneStatusBadge.tsx:12',
         }),
+        expect.objectContaining({
+          type: 'clone-retry-error-copy',
+          location: 'src/app/features/manage-project/ui/CloneStatusBadge.tsx:15',
+        }),
       ])
     )
   })
@@ -17828,10 +18098,10 @@ function permissionCloneRetryErrorMessage() {
   return 'Ask an owner or admin to let you copy code into this project, then open Settings and Teams and Projects and choose Copy code again. You do not have permission right now.'
 }
 function busyCloneRetryErrorMessage() {
-  return 'Wait a minute, then choose Copy code again from this project row. Too many copy retries are happening right now.'
+  return 'Wait a minute, then choose Copy code again for this project in the list. Too many copy retries are happening right now.'
 }
 function fallbackCloneRetryErrorMessage() {
-  return 'Open Settings and Teams and Projects, check the code link and saved code access, then choose Copy code again on this project row. Forge could not copy code into the project.'
+  return 'Open Settings and Teams and Projects, check the code link and saved code access, then choose Copy code again for this project in the list. Forge could not copy code into the project.'
 }
 `,
     })

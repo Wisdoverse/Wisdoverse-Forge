@@ -54,7 +54,7 @@ describe('SettingsLayout', () => {
     ).toBeInTheDocument()
     expect(
       within(desktopNav).getByRole('button', {
-        name: /Codex and work tool sign-in: Sign in to OpenAI \(Codex\) and other work tools used for file work/i,
+        name: /Codex and work tool sign-in: Sign in to the account Codex uses and other work tools used for file work/i,
       })
     ).toBeInTheDocument()
     expect(
@@ -98,7 +98,7 @@ describe('SettingsLayout', () => {
 
     fireEvent.click(
       within(desktopNav).getByRole('button', {
-        name: /Codex and work tool sign-in: Sign in to OpenAI \(Codex\) and other work tools used for file work/i,
+        name: /Codex and work tool sign-in: Sign in to the account Codex uses and other work tools used for file work/i,
       })
     )
 

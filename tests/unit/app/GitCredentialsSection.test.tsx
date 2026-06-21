@@ -63,7 +63,7 @@ describe('GitCredentialsSection', () => {
     expect(within(emptyState).getByText('Copy a code access key')).toBeDefined()
     expect(
       within(emptyState).getByText(
-        'Create a read-only key for the code projects agents need, then copy it once.'
+        'This is different from the code link. Create a read-only key for the code projects agents need, then copy it once.'
       )
     ).toBeDefined()
     expect(
@@ -82,7 +82,7 @@ describe('GitCredentialsSection', () => {
     expect(screen.getByText('Copy a code access key')).toBeDefined()
     expect(
       screen.getByText(
-        'Create a read-only key for the code projects agents need, then copy it once.'
+        'This is different from the code link. Create a read-only key for the code projects agents need, then copy it once.'
       )
     ).toBeDefined()
     expect(screen.getByText('Leave the address empty for github.com or gitlab.com')).toBeDefined()
@@ -94,7 +94,7 @@ describe('GitCredentialsSection', () => {
     expect(screen.getByText(/next: paste the code access key/i)).toBeDefined()
     expect(
       screen.getByText(
-        /Open the code website, create a read-only key for the code projects agents need, then paste it below\./i
+        /This is not the project code link\. Open the code website, create a read-only key for the code projects agents need, then paste it below\./i
       )
     ).toBeDefined()
     expect(screen.queryByText('Paste the access token')).toBeNull()
@@ -107,10 +107,11 @@ describe('GitCredentialsSection', () => {
     expect(screen.queryByText(/owns the repository/i)).toBeNull()
     expect(
       screen.getByText(
-        /Paste the code access key from GitHub or GitLab\. If that page says personal access token, use that value here\./i
+        /This is not the project code link\. Paste the code access key from GitHub or GitLab\. If that page says personal access token, use that value here\./i
       )
     ).toBeDefined()
     expect(screen.queryByText(/Paste the key you copied from GitHub or GitLab/i)).toBeNull()
+    expect(screen.queryByText(/^Paste the code link/i)).toBeNull()
     expect(screen.getByText(/Never paste your website password/i)).toBeDefined()
     expect(screen.queryByText(/Never paste your GitHub or GitLab password/i)).toBeNull()
     expect(screen.getByText(/Forge hides the key after saving/i)).toBeDefined()

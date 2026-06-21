@@ -247,7 +247,7 @@ test.describe.serial('Simple chat agent UX (#21)', () => {
 
     // Open modal
     await page
-      .getByRole('button', { name: /Create Agent/i })
+      .getByRole('button', { name: 'New agent' })
       .first()
       .click()
     await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 })
@@ -266,7 +266,8 @@ test.describe.serial('Simple chat agent UX (#21)', () => {
     // Switching to "Simple chat agent" reveals the system-prompt textarea.
     await kindGroup.getByText('Simple chat agent').click()
     await expect(page.locator('textarea#systemPrompt')).toBeVisible({ timeout: 3000 })
-    await expect(page.getByPlaceholder(/Help review tasks.*explain risks/i)).toBeVisible()
+    await expect(page.getByRole('textbox', { name: 'Agent instructions' })).toBeVisible()
+    await expect(page.getByPlaceholder(/Help check task results.*explain risks/i)).toBeVisible()
   })
 
   // 2. Submit POST — body contains lowercase provider + systemPrompt ──────────
@@ -301,7 +302,7 @@ test.describe.serial('Simple chat agent UX (#21)', () => {
     })
 
     await page
-      .getByRole('button', { name: /Create Agent/i })
+      .getByRole('button', { name: 'New agent' })
       .first()
       .click()
     await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 })
@@ -321,9 +322,11 @@ test.describe.serial('Simple chat agent UX (#21)', () => {
     await page.getByPlaceholder(/Frontend Agent/).fill('My LLM Agent')
     await page.locator('textarea#systemPrompt').fill('Be concise.')
 
-    // Submit (the in-dialog button is lowercase "Create agent"; the page-level
-    // open button is "Create Agent", so scope to the dialog).
-    await page.getByRole('dialog').getByRole('button', { name: 'Create agent' }).click()
+    // Submit through the in-dialog action; the page-level open button is
+    // "New agent", so scope to the dialog.
+    const submitButton = page.getByRole('dialog').getByRole('button', { name: 'Add agent' })
+    await expect(submitButton).toBeEnabled({ timeout: 5000 })
+    await submitButton.click()
 
     // Wait for modal to close (store closes on success)
     await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 })

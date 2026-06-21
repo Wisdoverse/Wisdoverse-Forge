@@ -112,7 +112,7 @@ describe('AccountSection', () => {
 
     expect(
       screen.getByText(
-        'Enter your current password, then choose a new password with at least 12 characters.'
+        'Enter your current password, then choose a new password with at least 12 characters, one uppercase letter, one lowercase letter, one number, and one symbol.'
       )
     ).toBeDefined()
 
@@ -120,15 +120,15 @@ describe('AccountSection', () => {
       target: { value: 'old-password' },
     })
     fireEvent.change(screen.getByLabelText('New Password'), {
-      target: { value: 'new-password' },
+      target: { value: 'NewPassword123!' },
     })
     fireEvent.change(screen.getByLabelText('Confirm New Password'), {
-      target: { value: 'new-password' },
+      target: { value: 'NewPassword123!' },
     })
     fireEvent.click(screen.getByRole('button', { name: /update password/i }))
 
     await waitFor(() =>
-      expect(changePasswordMock).toHaveBeenCalledWith('old-password', 'new-password')
+      expect(changePasswordMock).toHaveBeenCalledWith('old-password', 'NewPassword123!')
     )
     expect(await screen.findByRole('status')).toHaveTextContent(
       'Password changed. Use the new password the next time you sign in.'
@@ -142,13 +142,13 @@ describe('AccountSection', () => {
     renderAccountSection()
 
     fireEvent.change(screen.getByLabelText('Current Password'), {
-      target: { value: 'same-password' },
+      target: { value: 'SamePassword123!' },
     })
     fireEvent.change(screen.getByLabelText('New Password'), {
-      target: { value: 'same-password' },
+      target: { value: 'SamePassword123!' },
     })
     fireEvent.change(screen.getByLabelText('Confirm New Password'), {
-      target: { value: 'same-password' },
+      target: { value: 'SamePassword123!' },
     })
 
     expect(
@@ -167,7 +167,7 @@ describe('AccountSection', () => {
     expect(changePasswordMock).not.toHaveBeenCalled()
   })
 
-  test('shows the same 12-character password rule used by sign-up and reset', async () => {
+  test('shows the same password rules used by sign-up and reset', async () => {
     renderAccountSection()
 
     fireEvent.change(screen.getByLabelText('Current Password'), {
@@ -193,6 +193,23 @@ describe('AccountSection', () => {
     })
 
     expect(screen.getByText('Done: Use at least 12 characters for the new password.')).toBeDefined()
+    expect(
+      screen.getByText('Needed: Add at least one uppercase letter to the password.')
+    ).toBeDefined()
+    expect(screen.getByRole('button', { name: /update password/i })).toBeDisabled()
+
+    fireEvent.change(screen.getByLabelText('New Password'), {
+      target: { value: 'Twelve-chars1' },
+    })
+    fireEvent.change(screen.getByLabelText('Confirm New Password'), {
+      target: { value: 'Twelve-chars1' },
+    })
+
+    expect(
+      screen.getByText('Done: Add at least one uppercase letter to the password.')
+    ).toBeDefined()
+    expect(screen.getByText('Done: Add at least one number to the password.')).toBeDefined()
+    expect(screen.getByText('Done: Add at least one symbol to the password.')).toBeDefined()
     expect(screen.getByRole('button', { name: /update password/i })).toBeEnabled()
   })
 
@@ -268,10 +285,10 @@ describe('AccountSection', () => {
       target: { value: 'old-password' },
     })
     fireEvent.change(screen.getByLabelText('New Password'), {
-      target: { value: 'new-password' },
+      target: { value: 'NewPassword123!' },
     })
     fireEvent.change(screen.getByLabelText('Confirm New Password'), {
-      target: { value: 'new-password' },
+      target: { value: 'NewPassword123!' },
     })
     fireEvent.click(screen.getByRole('button', { name: /update password/i }))
 
@@ -318,10 +335,10 @@ describe('AccountSection', () => {
       target: { value: 'old-password' },
     })
     fireEvent.change(screen.getByLabelText('New Password'), {
-      target: { value: 'new-password' },
+      target: { value: 'NewPassword123!' },
     })
     fireEvent.change(screen.getByLabelText('Confirm New Password'), {
-      target: { value: 'new-password' },
+      target: { value: 'NewPassword123!' },
     })
     fireEvent.click(screen.getByRole('button', { name: /update password/i }))
 
@@ -346,23 +363,24 @@ describe('AccountSection', () => {
     expect(screen.queryByText('Onboarding')).toBeNull()
     expect(screen.getByText(/It is hidden from the left menu/i)).toBeDefined()
     expect(screen.queryByText(/If Start is hidden/i)).toBeNull()
-    expect(screen.getByText(/choose Reset setup checklist/i)).toBeDefined()
+    expect(screen.getByText(/choose Show setup checklist/i)).toBeDefined()
     expect(
-      screen.getByText(/Reset setup checklist adds it back to the left menu only/i)
+      screen.getByText(/Show setup checklist adds it back to the left menu only/i)
     ).toBeDefined()
     expect(
       screen.getByText(/It is hidden from the left menu, so new sign-ins open Tasks by default/i)
     ).toBeDefined()
     expect(screen.queryByText(/New sign-ins still open Tasks by default/i)).toBeNull()
     expect(screen.getByText(/projects, agents, and tasks stay the same/i)).toBeDefined()
-    expect(screen.getByText(/Next step: choose Reset setup checklist/i)).toBeDefined()
+    expect(screen.getByText(/Next step: choose Show setup checklist/i)).toBeDefined()
     expect(screen.queryByText(/hidden from the left menu right now/i)).toBeNull()
     expect(screen.queryByText(/Reset Start guide/i)).toBeNull()
+    expect(screen.queryByText(/Reset setup checklist/i)).toBeNull()
     expect(screen.queryByText(/Reset it here/i)).toBeNull()
     expect(screen.queryByText(/sidebar shortcut/i)).toBeNull()
     expect(screen.queryByText(/nothing to restore/i)).toBeNull()
 
-    const restoreButton = screen.getByRole('button', { name: /reset setup checklist/i })
+    const restoreButton = screen.getByRole('button', { name: /show setup checklist/i })
     expect(restoreButton).not.toBeDisabled()
     fireEvent.click(restoreButton)
 
@@ -385,11 +403,10 @@ describe('AccountSection', () => {
 
     renderAccountSection()
 
-    expect(
-      screen.getByText(/Next step: choose Reset setup checklist to add it back/i)
-    ).toBeDefined()
+    expect(screen.getByText(/Next step: choose Show setup checklist to add it back/i)).toBeDefined()
     expect(screen.queryByText(/hidden from the left menu right now/i)).toBeNull()
-    expect(screen.getByRole('button', { name: /reset setup checklist/i })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: /show setup checklist/i })).not.toBeDisabled()
+    expect(screen.queryByRole('button', { name: /reset setup checklist/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /open setup checklist/i })).toBeNull()
   })
 
@@ -445,12 +462,12 @@ describe('AccountSection', () => {
 
     renderAccountSection()
 
-    fireEvent.click(screen.getByRole('button', { name: /reset setup checklist/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show setup checklist/i }))
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
-      'Check your connection, then choose Reset setup checklist again. Forge could not add it back to the left menu.'
+      'Check your connection, then choose Show setup checklist again. Forge could not add it back to the left menu.'
     )
     expect(
       screen.queryByText(

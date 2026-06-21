@@ -341,8 +341,8 @@ function AgentTasksEmptyState() {
         <div className="min-w-0">
           <h3 className="text-ui-section font-semibold">Create a task for this agent</h3>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-            Send a small task to this agent, or choose where tasks wait so this agent can receive
-            them. Work will appear here.
+            Open the task list, choose New task, and pick this agent. Work will appear here after it
+            is waiting or running.
           </p>
         </div>
       </div>
@@ -362,6 +362,12 @@ function AgentTasksEmptyState() {
       <p className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
         Success looks like a task showing Waiting to start or Doing now in this list.
       </p>
+      <a
+        href="/tasks"
+        className="mt-3 inline-flex h-9 items-center justify-center rounded-full bg-apple-blue px-3 text-ui-button font-semibold text-white transition-colors hover:bg-apple-blue/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+      >
+        Open task list
+      </a>
     </section>
   )
 }

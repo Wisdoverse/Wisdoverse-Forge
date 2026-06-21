@@ -87,7 +87,7 @@ const SECTIONS: SectionItem[] = [
   {
     id: 'work-tool-sign-ins',
     label: 'Codex and work tool sign-in',
-    description: 'Sign in to OpenAI (Codex) and other work tools used for file work.',
+    description: 'Sign in to the account Codex uses and other work tools used for file work.',
     group: 'Agent work',
     Icon: LogIn,
   },

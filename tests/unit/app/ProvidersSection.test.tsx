@@ -137,6 +137,8 @@ describe('ProvidersSection', () => {
     expect(
       screen.getByRole('button', { name: /check openai production AI service connection/i })
     ).toBeDefined()
+    expect(screen.getAllByText('Check connection').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/^Check$/)).toBeNull()
     expect(
       screen.getByRole('button', { name: /turn off openai production AI service/i })
     ).toBeDefined()
@@ -670,6 +672,9 @@ describe('ProvidersSection', () => {
       await screen.findByRole('button', { name: /check anthropic review AI service connection/i })
     )
 
+    expect(
+      screen.getByRole('button', { name: /check anthropic review AI service connection/i })
+    ).toHaveTextContent('Checking connection')
     await waitFor(() =>
       expect(settingsApiMock.testProvider).toHaveBeenCalledWith('provider-needs-test')
     )
