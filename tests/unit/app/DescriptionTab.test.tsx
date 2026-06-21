@@ -37,7 +37,8 @@ describe('DescriptionTab', () => {
   test('does not call a task unassigned when only the agent id is loaded', () => {
     render(<DescriptionTab task={{ ...mockTask, assignedTo: 'agent-1' }} />)
 
-    expect(screen.getByText('Agent details loading')).toBeDefined()
+    expect(screen.getByText('Agent name loading')).toBeDefined()
+    expect(screen.queryByText('Agent details loading')).toBeNull()
     expect(screen.getByText('Ready to send')).toBeDefined()
     expect(screen.getByTestId('task-assignment-guidance').textContent).toBe(
       'An agent was chosen, but its name has not loaded yet. Refresh this task so you can confirm the right agent before sending it.'
