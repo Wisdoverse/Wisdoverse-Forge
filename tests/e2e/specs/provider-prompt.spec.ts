@@ -247,7 +247,7 @@ test.describe.serial('Simple chat agent UX (#21)', () => {
 
     // Open modal
     await page
-      .getByRole('button', { name: /Create Agent/i })
+      .getByRole('button', { name: 'New agent' })
       .first()
       .click()
     await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 })
@@ -301,7 +301,7 @@ test.describe.serial('Simple chat agent UX (#21)', () => {
     })
 
     await page
-      .getByRole('button', { name: /Create Agent/i })
+      .getByRole('button', { name: 'New agent' })
       .first()
       .click()
     await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 })
@@ -322,7 +322,7 @@ test.describe.serial('Simple chat agent UX (#21)', () => {
     await page.locator('textarea#systemPrompt').fill('Be concise.')
 
     // Submit (the in-dialog button is lowercase "Create agent"; the page-level
-    // open button is "Create Agent", so scope to the dialog).
+    // open button is "New agent", so scope to the dialog).
     await page.getByRole('dialog').getByRole('button', { name: 'Create agent' }).click()
 
     // Wait for modal to close (store closes on success)
