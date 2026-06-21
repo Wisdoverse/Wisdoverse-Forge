@@ -9,7 +9,7 @@ interface SkillCardProps {
 }
 
 export function SkillCard({ skill, onClick }: SkillCardProps) {
-  const statusLabel = skill.installed ? 'Ready to reuse' : 'Install to use'
+  const statusLabel = skill.installed ? 'Ready to reuse' : 'Needs setup before use'
   const summary =
     skill.description ||
     'Open saved instruction details to check the reusable instructions before using it.'
