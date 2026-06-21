@@ -170,6 +170,17 @@ const REVIEW_STATUS_JARGON_PATTERNS = [
   /\bRefresh review status\b/i,
   /\bUse Refresh\b/i,
   /\bcode fix review\b/i,
+  /\bReview status\b/i,
+  /\bcurrent review status\b/i,
+  /\bWaiting for review\b/i,
+  /\bReview page\b/i,
+  /\bCheck review again\b/i,
+  /\bReview the changes\b/i,
+  /\bowner or admin review\b/i,
+  /\breview system\b/i,
+  /\breview changes\b/i,
+  /\bcode review access\b/i,
+  /\bcould not find the review\b/i,
 ]
 
 const NOTE_SPACE_JARGON_PATTERNS = [

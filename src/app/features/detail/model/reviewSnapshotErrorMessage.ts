@@ -4,7 +4,7 @@ const RAW_NETWORK_ERRORS = [/^Network error$/i, /^Failed to fetch$/i]
 const RAW_STATUS_ERRORS = [/^API\s+\d{3}/i, /^HTTP\s+\d{3}/i, /^Server error\s*\(\d{3}\)$/i]
 
 const ACTION_FALLBACKS: Record<ReviewSnapshotAction, string> = {
-  load: 'Choose Check again, then try again. Forge could not load the current review status.',
+  load: 'Choose Check again, then try again. Forge could not load the current fix check status.',
   approve:
     'Choose Check again, confirm automated checks passed, then finish this fix again. The fix was not finished.',
 }
@@ -15,7 +15,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
   const text = detail?.toLowerCase() ?? ''
 
   if (text.includes('can not approve your own pull request')) {
-    return 'Ask another owner or admin to review this fix. The review system needs someone else to review changes you opened yourself.'
+    return 'Ask another owner or admin to check this fix. This finish step needs someone else to check changes you opened yourself.'
   }
 
   if (
@@ -24,7 +24,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('bad credentials') ||
     text.includes('sign in again')
   ) {
-    return 'Sign in again, then choose Check again. Forge could not confirm your review access.'
+    return 'Sign in again, then choose Check again. Forge could not confirm your finish access.'
   }
 
   if (
@@ -33,7 +33,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('permission') ||
     text.includes('resource not accessible')
   ) {
-    return 'Ask an owner or admin to check code review access for this code project, then try again.'
+    return 'Ask an owner or admin to check finish access for this code project, then try again.'
   }
 
   if (
@@ -42,7 +42,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('no pull request') ||
     text.includes('pull request could not be found')
   ) {
-    return 'Open this task again from the Tasks page, then choose Check again. Forge could not find the review for this task.'
+    return 'Open this task again from the Tasks page, then choose Check again. Forge could not find the fix check for this task.'
   }
 
   if (
