@@ -20,6 +20,24 @@ use sqlx::PgPool;
 use std::time::Duration;
 use tokio::sync::watch;
 
+/// Describe + prime dependency-reconcile metrics at zero so Prometheus scrape
+/// returns the metric even before any event fires. `describe_*` sets help
+/// text only; an explicit `increment(0)` primes the sample so dashboards
+/// render from t=0 instead of "metric not found".
+pub fn register_metrics() {
+    metrics::describe_counter!(
+        "agentforge_dependency_reconcile_unblocked_total",
+        "Orphan children unblocked by the dependency-reconcile backstop (rate>0 means the happy-path complete_task tx is failing)."
+    );
+    metrics::describe_counter!(
+        "agentforge_dependency_reconcile_tick_errors_total",
+        "Dependency-reconcile tick failures (DB errors during the reconcile pass)."
+    );
+    // Prime so the metric exists on /metrics before first event.
+    metrics::counter!("agentforge_dependency_reconcile_unblocked_total").increment(0);
+    metrics::counter!("agentforge_dependency_reconcile_tick_errors_total").increment(0);
+}
+
 /// Reconcile SQL — kept as a `pub(crate) const` so the query-shape unit
 /// test pins the cross-tenant join condition. Drop the
 /// `child.organization_id = parent.organization_id` predicate and one
@@ -72,11 +90,17 @@ impl DependencyReconcileWorker {
                 _ = ticker.tick() => {
                     match Self::tick(&self.pool).await {
                         Ok(0) => {}
-                        Ok(n) => tracing::warn!(
-                            unblocked = n,
-                            "dependency reconcile unblocked orphan children — investigate why complete_task tx didn't"
-                        ),
-                        Err(err) => tracing::error!(error = ?err, "dependency reconcile tick failed"),
+                        Ok(n) => {
+                            tracing::warn!(
+                                unblocked = n,
+                                "dependency reconcile unblocked orphan children — investigate why complete_task tx didn't"
+                            );
+                            metrics::counter!("agentforge_dependency_reconcile_unblocked_total").increment(n);
+                        }
+                        Err(err) => {
+                            tracing::error!(error = ?err, "dependency reconcile tick failed");
+                            metrics::counter!("agentforge_dependency_reconcile_tick_errors_total").increment(1);
+                        }
                     }
                 }
             }
@@ -101,7 +125,16 @@ impl DependencyReconcileWorker {
 
 #[cfg(test)]
 mod tests {
-    use super::RECONCILE_SQL;
+    use super::{RECONCILE_SQL, register_metrics};
+
+    /// Verify that `register_metrics` can be called without panicking.
+    /// Mirrors the prime pattern used in other workers: the call must succeed
+    /// even when no metrics recorder is installed (the `metrics` crate no-ops
+    /// when no recorder is registered).
+    #[test]
+    fn register_metrics_primes_series() {
+        register_metrics();
+    }
 
     // We don't have a DB integration harness in this crate. Pin the
     // tenant-isolation predicate so a future "simplification" (e.g. dropping
