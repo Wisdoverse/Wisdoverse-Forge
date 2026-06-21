@@ -56,10 +56,37 @@ vi.mock('@app/entities/user', () => ({
   },
 }))
 
-vi.mock('@app/features/manage-team', () => ({
-  CreateTeamForm: () => <div>Team form ready</div>,
-  EditableTeamRow: () => <div>Existing team row</div>,
-}))
+vi.mock('@app/features/manage-team', async () => {
+  const React = await import('react')
+
+  return {
+    CreateTeamForm: ({ onSave }: { onSave: (name: string) => Promise<void> }) => {
+      const [formError, setFormError] = React.useState<string | null>(null)
+
+      return (
+        <div>
+          <div>Team form ready</div>
+          {formError && (
+            <div role="alert" aria-live="polite">
+              {formError}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() =>
+              void onSave('Team Alpha').catch((err: unknown) => {
+                setFormError(err instanceof Error ? err.message : String(err))
+              })
+            }
+          >
+            Save team
+          </button>
+        </div>
+      )
+    },
+    EditableTeamRow: () => <div>Existing team row</div>,
+  }
+})
 
 vi.mock('@app/features/manage-project', async () => {
   const React = await import('react')
@@ -136,6 +163,11 @@ describe('workspace settings empty states', () => {
 
     expect(await screen.findByText('Create a team first')).toBeInTheDocument()
     expect(screen.getByText(/Teams keep projects and access together/i)).toBeInTheDocument()
+    expect(screen.getByText('Choose Create first team.')).toBeInTheDocument()
+    expect(
+      screen.getByText('Name it after the people or work area that will share projects.')
+    ).toBeInTheDocument()
+    expect(screen.getByText('Create the first project in Projects next.')).toBeInTheDocument()
     expect(screen.queryByText(/Teams group projects/i)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /new team/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /create first team/i })).toBeInTheDocument()
@@ -149,7 +181,46 @@ describe('workspace settings empty states', () => {
     expect(
       await screen.findByText('Ask an owner or admin to create the first team')
     ).toBeInTheDocument()
+    expect(screen.getByText('Ask an owner or admin to create one team.')).toBeInTheDocument()
+    expect(
+      screen.getByText('Ask them which team should own the first project.')
+    ).toBeInTheDocument()
+    expect(screen.getByText('Come back to Projects after the team appears.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /new team/i })).not.toBeInTheDocument()
+  })
+
+  it('guides users to choose a team space before creating teams', () => {
+    mocks.user = { role: 'owner' } as typeof mocks.user
+
+    render(<TeamsSection />)
+
+    expect(mocks.getTeams).not.toHaveBeenCalled()
+    expect(screen.getByText('Choose a team space first')).toBeInTheDocument()
+    expect(screen.getByText('Choose a team space from the account menu.')).toBeInTheDocument()
+    expect(screen.getByText('Open Settings, then Teams again.')).toBeInTheDocument()
+    expect(screen.getByText('Choose Teams, then create the team.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /new team/i })).not.toBeInTheDocument()
+    expect(screen.queryByText(/Choose an organization first/i)).not.toBeInTheDocument()
+  })
+
+  it('confirms team creation and points beginners to Projects', async () => {
+    render(<TeamsSection />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /create first team/i }))
+    expect(screen.getByText('Team form ready')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /save team/i }))
+
+    const status = await screen.findByRole('status')
+    expect(status).toHaveTextContent('Team "Team Alpha" is ready')
+    expect(status).toHaveTextContent(
+      'Next: create the first project in Projects. Use Manage people only when this team needs direct access before project work starts.'
+    )
+    expect(within(status).getByRole('link', { name: /create first project/i })).toHaveAttribute(
+      'href',
+      '/settings/projects'
+    )
+    expect(within(status).getByRole('button', { name: /manage people/i })).toBeInTheDocument()
+    expect(screen.getByText('Existing team row')).toBeInTheDocument()
   })
 
   it('shows beginner recovery guidance when teams fail to load', async () => {
@@ -175,9 +246,7 @@ describe('workspace settings empty states', () => {
     expect(
       screen.getByText('Create one team for the people who share this work.')
     ).toBeInTheDocument()
-    expect(
-      screen.getByText('Come back to Projects and choose New Project.')
-    ).toBeInTheDocument()
+    expect(screen.getByText('Come back to Projects and choose New Project.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /new project/i })).not.toBeInTheDocument()
     const openTeams = screen.getByRole('link', { name: /open teams/i })
     expect(openTeams).toHaveAttribute('href', '/settings/teams')
@@ -217,9 +286,7 @@ describe('workspace settings empty states', () => {
 
     render(<ProjectsSection />)
 
-    expect(
-      await screen.findByText(/Open Settings, then Projects again/i)
-    ).toBeInTheDocument()
+    expect(await screen.findByText(/Open Settings, then Projects again/i)).toBeInTheDocument()
     expect(
       screen.getByText(/ask an owner or admin to check Projects in Settings/i)
     ).toBeInTheDocument()
