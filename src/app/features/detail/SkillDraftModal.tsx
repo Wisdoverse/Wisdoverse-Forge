@@ -27,7 +27,7 @@ const SKILL_REVIEW_POINTS = [
     value:
       'Remove passwords, access keys, customer data, temporary file locations, and private notes.',
   },
-  { label: 'Next owner', value: 'After publishing, choose the agents that should follow it.' },
+  { label: 'Next owner', value: 'After saving, choose the agents that should follow it.' },
 ]
 
 export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftModalProps) {
@@ -56,13 +56,13 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
     const name = form.name.trim()
     const content = form.content.trim()
     if (!name) {
-      setError('Name this instruction before publishing it.')
+      setError('Name this instruction before saving it.')
       setFieldError('name')
       nameInputRef.current?.focus()
       return
     }
     if (!content) {
-      setError('Add the repeatable steps, or keep the suggested steps, before publishing.')
+      setError('Add the repeatable steps, or keep the suggested steps, before saving.')
       setFieldError('content')
       contentInputRef.current?.focus()
       return
@@ -141,9 +141,9 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-caption text-apple-blue">
-              Check 3 things before publishing: the name is recognizable, the matching words are
-              words teammates would type in a task, and the instructions can stand alone without
-              this task open.
+              Check 3 things before saving: the name is recognizable, the matching words are words
+              teammates would type in a task, and the instructions can stand alone without this task
+              open.
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
@@ -224,7 +224,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
 
             <div className="rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.04]">
               <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                Check before publishing
+                Check before saving
               </div>
               <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
                 {SKILL_REVIEW_POINTS.map((point) => (
@@ -272,10 +272,10 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
 
             <div className="flex justify-end gap-2 pt-1">
               <button type="button" onClick={onClose} className={uiStyles.secondaryButton}>
-                Close without publishing
+                Close without saving
               </button>
               <button type="submit" disabled={submitting} className={uiStyles.primaryButton}>
-                {submitting ? 'Publishing...' : 'Publish instruction'}
+                {submitting ? 'Saving...' : 'Save instruction'}
               </button>
             </div>
           </form>
@@ -292,7 +292,7 @@ function SkillPublishedState({ skill, onClose }: { skill: Skill; onClose: () => 
         <div className="flex items-start gap-3">
           <CheckCircle2 size={18} strokeWidth={2.25} aria-hidden="true" className="mt-0.5" />
           <div className="min-w-0">
-            <p className="text-ui-section font-semibold">Instruction published</p>
+            <p className="text-ui-section font-semibold">Saved instruction is ready</p>
             <p className="mt-1 break-words text-ui-body text-foreground-light dark:text-foreground-dark">
               {skill.name}
             </p>
