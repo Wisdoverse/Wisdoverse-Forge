@@ -25,7 +25,7 @@ async fn health_endpoints_match_go_contract() {
     let public_health = Request::builder().method("GET").uri("/health").body(Body::empty()).unwrap();
     let (status, body) = json_response(app.clone(), public_health).await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(body, serde_json::json!({"status": "healthy"}));
+    assert_eq!(body, serde_json::json!({"status": "healthy", "workflowRuntime": "disabled"}));
 
     let unauthenticated = Request::builder().method("GET").uri("/api/v1/health").body(Body::empty()).unwrap();
     let (status, body) = json_response(app.clone(), unauthenticated).await;

@@ -566,15 +566,13 @@ test.describe('React App Smoke Tests', () => {
       // trailing description).
       const settingsNav = page.getByTestId('settings-desktop-nav')
       await expect(settingsNav).toBeVisible({ timeout: 30000 })
-      await expect(settingsNav.getByRole('button', { name: /^AI services:/ })).toBeVisible()
-      await expect(settingsNav.getByRole('button', { name: /^Outside tool access:/ })).toBeVisible()
-      await expect(settingsNav.getByRole('button', { name: /^HTTPS code access:/ })).toBeVisible()
-      await expect(settingsNav.getByRole('button', { name: /^SSH code access:/ })).toBeVisible()
-      await expect(settingsNav.getByRole('button', { name: /^Where agents work:/ })).toBeVisible()
-      await expect(
-        settingsNav.getByRole('button', { name: /^Codex and work tool sign-in:/ })
-      ).toBeVisible()
-      await expect(settingsNav.getByRole('button', { name: /^Account:/ })).toBeVisible()
+      await expect(settingsNav.getByRole('link', { name: /^AI services:/ })).toBeVisible()
+      await expect(settingsNav.getByRole('link', { name: /^Outside tool access:/ })).toBeVisible()
+      await expect(settingsNav.getByRole('link', { name: /^HTTPS code access:/ })).toBeVisible()
+      await expect(settingsNav.getByRole('link', { name: /^SSH code access:/ })).toBeVisible()
+      await expect(settingsNav.getByRole('link', { name: /^Where agents work:/ })).toBeVisible()
+      await expect(settingsNav.getByRole('link', { name: /^Codex sign-in:/ })).toBeVisible()
+      await expect(settingsNav.getByRole('link', { name: /^Account:/ })).toBeVisible()
       await screenshot(page, '21-settings-page')
     })
 
@@ -876,23 +874,24 @@ test.describe('React App Smoke Tests', () => {
       // fully mounted, then bump the click timeout to absorb the chunk load.
       const nav = page.locator('[data-testid="settings-desktop-nav"]')
       await nav.waitFor({ state: 'visible', timeout: 15000 })
-      await nav.getByRole('button', { name: /^Account:/ }).click({ timeout: 30000 })
+      await nav.getByRole('link', { name: /^Account:/ }).click({ timeout: 30000 })
     }
 
     test('dark theme adds dark class to document root', async ({ page, baseURL }) => {
       await setupAndNavigate(page, baseURL!)
       await openThemeToggle(page)
 
-      // Toggle to dark if currently light
-      const themeBtn = page.getByRole('button', { name: /Switch to (Dark|Light)/ })
-      const text = await themeBtn.textContent()
-      if (text?.includes('Dark')) {
-        await themeBtn.click()
-        await page.waitForTimeout(300)
+      const isDark = await page.evaluate(() => document.documentElement.classList.contains('dark'))
+      if (!isDark) {
+        await page
+          .getByRole('button', { name: /Switch to (dark mode|Dark)/i })
+          .first()
+          .click()
       }
 
-      const hasDark = await page.evaluate(() => document.documentElement.classList.contains('dark'))
-      expect(hasDark).toBe(true)
+      await expect
+        .poll(() => page.evaluate(() => document.documentElement.classList.contains('dark')))
+        .toBe(true)
       await screenshot(page, '34-dark-theme')
     })
 
@@ -900,7 +899,7 @@ test.describe('React App Smoke Tests', () => {
       await setupAndNavigate(page, baseURL!)
       await openThemeToggle(page)
 
-      await page.getByRole('button', { name: /Switch to (Dark|Light)/ }).click()
+      await page.getByRole('button', { name: /Switch to (dark|light) mode/i }).click()
       await page.waitForTimeout(300)
 
       const stored = await page.evaluate(() => localStorage.getItem('agentforge-theme'))
@@ -1113,8 +1112,7 @@ test.describe('React App Smoke Tests', () => {
       await expect(input).toBeVisible({ timeout: 5000 })
 
       // Click the Agents navigation command
-      const agentsCmd = page.locator('[cmdk-item]:has(span.font-medium:has-text("Agents"))')
-      await agentsCmd.click()
+      await page.getByRole('option', { name: /^Agents\b/ }).click()
 
       await page.waitForURL('**/agents')
       await expect(
@@ -1131,8 +1129,7 @@ test.describe('React App Smoke Tests', () => {
         timeout: 5000,
       })
 
-      const settingsCmd = page.locator('[cmdk-item]', { hasText: 'Settings' })
-      await settingsCmd.click()
+      await page.getByRole('option', { name: /^Settings\b/ }).click()
 
       await page.waitForURL('**/settings')
       await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible({ timeout: 5000 })
@@ -1404,7 +1401,7 @@ test.describe('React App Smoke Tests', () => {
       // About is its own section in SettingsLayout; click into it first.
       await page
         .locator('[data-testid="settings-desktop-nav"]')
-        .getByRole('button', { name: 'About' })
+        .getByRole('link', { name: /^About:/ })
         .click()
 
       const about = page.locator('[data-testid="settings-about"]')
