@@ -5173,10 +5173,35 @@ function hasNavigationErrorFailureFirstCopy(relFile, line) {
   return NAVIGATION_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function findTeamCreateSuccessGuidanceFindings(text, relFile) {
+  if (!relFile.endsWith('src/app/pages/settings/ui/TeamsSection.tsx')) return []
+  if (!/\bteamApi\.createTeam\b/.test(text)) return []
+
+  const hasReadyStatus = /\bTeam "\{createdTeam\.name\}" is ready\b/.test(text)
+  const hasProjectNextStep =
+    /\bCreate first project\b/.test(text) && /href="\/settings\/projects"/.test(text)
+  const hasPeopleNextStep = /\bManage people\b/.test(text)
+
+  if (hasReadyStatus && hasProjectNextStep && hasPeopleNextStep) return []
+
+  const createIndex = text.search(/\bteamApi\.createTeam\b/)
+  return [
+    {
+      type: 'team-create-success-guidance-copy',
+      location: `${relFile}:${lineNumberAt(text, Math.max(createIndex, 0))}`,
+      message:
+        'Team creation must confirm success and point beginners to Projects or Manage people.',
+      sample:
+        'teamApi.createTeam without a Team is ready status, Projects next step, and Manage people action.',
+    },
+  ]
+}
+
 function scanFile(file, relFile) {
   const text = fs.readFileSync(file, 'utf8')
   const lines = text.split('\n')
   const findings = findAlertLiveFindings(text, relFile)
+  findings.push(...findTeamCreateSuccessGuidanceFindings(text, relFile))
 
   lines.forEach((line, index) => {
     const location = `${relFile}:${index + 1}`

@@ -5277,6 +5277,45 @@ function PendingTerminal() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags team creation paths that do not confirm the next setup step', () => {
+    const cwd = fixture({
+      'src/app/pages/settings/ui/TeamsSection.tsx': `
+async function handleCreate(name) {
+  const team = await teamApi.createTeam(orgId, { name })
+  setTeams((prev) => [...prev, team])
+  setShowForm(false)
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'team-create-success-guidance-copy',
+        message:
+          'Team creation must confirm success and point beginners to Projects or Manage people.',
+      }),
+    ])
+  })
+
+  it('accepts team creation paths that confirm success and show setup actions', () => {
+    const cwd = fixture({
+      'src/app/pages/settings/ui/TeamsSection.tsx': `
+async function handleCreate(name) {
+  const team = await teamApi.createTeam(orgId, { name })
+  setCreatedTeam(team)
+}
+function CreatedTeamStatus({ createdTeam }) {
+  return <><p>Team "{createdTeam.name}" is ready</p><a href="/settings/projects">Create first project</a><button>Manage people</button></>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags title-style beginner guidance that sounds like a menu label', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentTasksTab.tsx': `
