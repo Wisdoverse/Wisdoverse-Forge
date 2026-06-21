@@ -29,9 +29,8 @@ describe('SkillCard', () => {
       })
     ).toBeInTheDocument()
     expect(screen.getByText('Ready to reuse')).toBeInTheDocument()
-    expect(
-      screen.getByText(/saved in team space saved instructions by platform team/i)
-    ).toBeInTheDocument()
+    expect(screen.getByText(/saved for this team space by platform team/i)).toBeInTheDocument()
+    expect(screen.queryByText(/saved in team space saved instructions/i)).toBeNull()
     expect(screen.queryByText(/workspace skills/i)).toBeNull()
     expect(screen.queryByText(/workspace saved instructions/i)).toBeNull()
     expect(screen.getByText('Matching words: release')).toBeInTheDocument()
@@ -72,7 +71,7 @@ describe('SkillCard', () => {
       <SkillCard skill={{ ...baseSkill, plugin: '   ', pluginAuthor: '   ' }} onClick={() => {}} />
     )
 
-    expect(screen.getByText('Saved in saved instructions')).toBeInTheDocument()
+    expect(screen.getByText('Saved as a saved instruction')).toBeInTheDocument()
     expect(screen.queryByText(/Saved in\s*$/)).toBeNull()
     expect(screen.queryByText(/by\s*$/)).toBeNull()
   })

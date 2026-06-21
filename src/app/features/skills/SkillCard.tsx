@@ -13,9 +13,8 @@ export function SkillCard({ skill, onClick }: SkillCardProps) {
   const summary =
     skill.description ||
     'Open saved instruction details to check the reusable instructions before using it.'
-  const source = savedInstructionSourceLabel(skill.plugin, 'saved instructions')
   const author = skill.pluginAuthor.trim()
-  const savedInLabel = author ? `Saved in ${source} by ${author}` : `Saved in ${source}`
+  const savedInLabel = savedInstructionAudienceLabel(skill.plugin, author)
   return (
     <button
       type="button"
@@ -55,4 +54,20 @@ export function SkillCard({ skill, onClick }: SkillCardProps) {
       </div>
     </button>
   )
+}
+
+function savedInstructionAudienceLabel(source: string, author: string): string {
+  const label = savedInstructionSourceLabel(source, 'saved instructions')
+  const normalized = label.toLowerCase()
+  let audience = `Saved in ${label}`
+
+  if (normalized === 'team space saved instructions') {
+    audience = 'Saved for this team space'
+  } else if (normalized === 'global saved instructions') {
+    audience = 'Saved for everyone'
+  } else if (normalized === 'saved instructions') {
+    audience = 'Saved as a saved instruction'
+  }
+
+  return author ? `${audience} by ${author}` : audience
 }
