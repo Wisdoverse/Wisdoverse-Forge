@@ -260,7 +260,7 @@ describe('Sidebar', () => {
 
     expect(menu).toHaveAttribute('role', 'menu')
     expect(menu).toHaveAttribute('aria-label', 'Project X project menu')
-    expect(menuScope.getByText('Team Alpha team · project link preview proj-x')).toBeInTheDocument()
+    expect(menuScope.getByText('Team Alpha team · Link preview: proj-x')).toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /open project board/i })).toBeInTheDocument()
     expect(
       menuScope.getByRole('menuitem', { name: /new task for this project/i })
@@ -279,9 +279,7 @@ describe('Sidebar', () => {
     expect(
       menuScope.queryByRole('menuitem', { name: /copy support reference/i })
     ).not.toBeInTheDocument()
-    expect(
-      menuScope.getByRole('menuitem', { name: /copy project link preview/i })
-    ).toBeInTheDocument()
+    expect(menuScope.getByRole('menuitem', { name: /copy link preview/i })).toBeInTheDocument()
     expect(
       menuScope.getByText(/another page or an owner or admin asks for this project reference/i)
     ).toBeInTheDocument()
@@ -294,8 +292,14 @@ describe('Sidebar', () => {
     expect(menuScope.queryByText(/project short name/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/short name used in project links/i)).not.toBeInTheDocument()
     expect(
-      menuScope.getByText(/Project link preview: proj-x\. Forge creates this automatically\./i)
+      menuScope.getByText(
+        /Project link preview: proj-x\. Forge creates this automatically from the project name\./i
+      )
     ).toBeInTheDocument()
+    expect(menuScope.queryByText(/project link preview proj-x/i)).not.toBeInTheDocument()
+    expect(
+      menuScope.queryByRole('menuitem', { name: /copy project link preview/i })
+    ).not.toBeInTheDocument()
     expect(menuScope.queryByText(/shown at the end of project links/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/project link ending/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/Forge uses this in project links/i)).not.toBeInTheDocument()
