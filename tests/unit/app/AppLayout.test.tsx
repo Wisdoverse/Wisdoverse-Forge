@@ -294,7 +294,7 @@ describe('AppLayout', () => {
     expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
   })
 
-  test('command palette opens Codex and work tool sign-in directly', async () => {
+  test('command palette opens Codex sign-in directly', async () => {
     const onNavigate = vi.fn()
 
     render(<MemoryRouter onNavigate={onNavigate} />)
@@ -306,11 +306,11 @@ describe('AppLayout', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText('Open the Codex sign-in page before agents work on project files.')
+        screen.getByText('Open Codex sign-in before agents work on project files.')
       ).toBeDefined()
     })
     fireEvent.click(
-      screen.getByText('Open the Codex sign-in page before agents work on project files.')
+      screen.getByText('Open Codex sign-in before agents work on project files.')
     )
 
     expect(onNavigate).toHaveBeenCalledWith('/settings/work-tool-sign-ins')

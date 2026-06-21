@@ -691,7 +691,7 @@ describe('InboxView', () => {
     expect(item).toHaveTextContent('Account access')
     expect(item).toHaveTextContent('Reconnect work access')
     expect(item).toHaveTextContent(
-      'Open Codex and work tool sign-in, then reconnect the account agents use for file work.'
+      'Open Codex sign-in, then reconnect the account agents use for file work.'
     )
     expect(item).not.toHaveTextContent('Open Where agents work')
     expect(screen.getByText('Codex account access needs reconnecting')).toBeDefined()

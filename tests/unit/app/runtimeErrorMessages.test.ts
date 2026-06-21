@@ -24,7 +24,7 @@ describe('runtimeErrorMessage', () => {
 
     expect(message).toContain('Work tool sign-in could not be checked')
     expect(message).toContain(
-      'Forge could not connect while checking the Codex and work tool sign-in page'
+      'Forge could not connect while checking the Codex sign-in page'
     )
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('app could not reach')
@@ -44,7 +44,7 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Ask an owner or admin to update your team space access before changing Codex and work tool sign-in. You do not have permission to change Codex and work tool sign-in.'
+      'Ask an owner or admin to update your team space access before changing Codex sign-in. You do not have permission to change Codex sign-in.'
     )
     expect(message).not.toContain('role')
   })
@@ -78,7 +78,7 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Settings, then Codex and work tool sign-in again, then reconnect the account. Work tool sign-in did not start. Check your connection, then open Settings, then Codex and work tool sign-in again. Forge could not connect while checking the Codex and work tool sign-in page.'
+      'Open Settings, then Codex sign-in again, then reconnect the account. Work tool sign-in did not start. Check your connection, then open Settings, then Codex sign-in again. Forge could not connect while checking the Codex sign-in page.'
     )
     expect(message).not.toContain('provider')
     expect(message).not.toContain('Failed to fetch')

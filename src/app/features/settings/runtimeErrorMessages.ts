@@ -4,9 +4,9 @@ const ACTION_FALLBACKS: Record<RuntimeErrorAction, string> = {
   loadAgentSignals:
     'Open Agents and make sure one agent shows Ready, then open Settings and Where agents work again. Agent connection status could not load.',
   loadCliSignIn:
-    'Open Settings, then Codex and work tool sign-in again before starting agents that use work tools. Work tool sign-in could not be checked.',
+    'Open Settings, then Codex sign-in again before starting agents that use work tools. Work tool sign-in could not be checked.',
   startCliSignIn:
-    'Open Settings, then Codex and work tool sign-in again, then reconnect the account. Work tool sign-in did not start.',
+    'Open Settings, then Codex sign-in again, then reconnect the account. Work tool sign-in did not start.',
 }
 
 const ACTION_RECOVERY: Record<
@@ -19,14 +19,14 @@ const ACTION_RECOVERY: Record<
     target: 'Where agents work',
   },
   loadCliSignIn: {
-    location: 'Codex and work tool sign-in',
-    openStep: 'open Settings, then Codex and work tool sign-in',
-    target: 'the Codex and work tool sign-in page',
+    location: 'Codex sign-in',
+    openStep: 'open Settings, then Codex sign-in',
+    target: 'the Codex sign-in page',
   },
   startCliSignIn: {
-    location: 'Codex and work tool sign-in',
-    openStep: 'open Settings, then Codex and work tool sign-in',
-    target: 'the Codex and work tool sign-in page',
+    location: 'Codex sign-in',
+    openStep: 'open Settings, then Codex sign-in',
+    target: 'the Codex sign-in page',
   },
 }
 
@@ -209,7 +209,7 @@ function runtimeValidationMessage(action: RuntimeErrorAction, detail: string): s
   }
 
   if (action === 'loadCliSignIn') {
-    return 'Open Settings, then Codex and work tool sign-in again, then reconnect the work tool sign-in. Work tool sign-in could not be checked.'
+    return 'Open Settings, then Codex sign-in again, then reconnect the work tool sign-in. Work tool sign-in could not be checked.'
   }
 
   return 'Open Agents and make sure one agent shows Ready, then open Settings and Where agents work again. Agent connection status could not load.'
