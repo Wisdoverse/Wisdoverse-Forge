@@ -340,12 +340,10 @@ describe('RuntimeSection', () => {
 
     render(<RuntimeSection focus="sign-ins" />)
 
-    expect(
-      await screen.findByRole('heading', { name: 'Codex and work tool sign-in' })
-    ).toBeDefined()
+    expect(await screen.findByRole('heading', { name: 'Codex sign-in' })).toBeDefined()
     expect(
       screen.getByText(
-        'Sign in to the account Codex uses and other work tools before agents work on project files.'
+        'Sign in to Codex or another work tool before agents work on project files.'
       )
     ).toBeDefined()
     expect(await screen.findByTestId('runtime-sign-in-entry')).toHaveTextContent(
@@ -360,6 +358,7 @@ describe('RuntimeSection', () => {
     expect(screen.queryByText(/Start Codex sign-in here/i)).toBeNull()
     expect(screen.queryByText(/asks for login/i)).toBeNull()
     expect(screen.queryByText(/Sign in to Codex CLI and work tools/i)).toBeNull()
+    expect(screen.queryByText('Codex and work tool sign-in')).toBeNull()
     expect(screen.getByText('OpenAI (Codex)')).toBeDefined()
     expect(screen.getAllByText('Codex').length).toBeGreaterThan(0)
     expect(screen.getAllByText(/Choose Sign in to OpenAI \(Codex\)/i).length).toBeGreaterThan(0)
@@ -513,7 +512,7 @@ describe('RuntimeSection', () => {
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(/work tool sign-in could not be checked/i)
     expect(alert).toHaveTextContent(
-      /Forge could not connect while checking the Codex and work tool sign-in page/i
+      /Forge could not connect while checking the Codex sign-in page/i
     )
     expect(screen.getByText(/Choose Check again to refresh work tool sign-ins/i)).toBeDefined()
     expect(screen.queryByText(/^Work tool sign-ins could not be checked/i)).toBeNull()
@@ -550,7 +549,7 @@ describe('RuntimeSection', () => {
     fireEvent.click(screen.getAllByRole('button', { name: /Sign in to GitHub/i })[0])
 
     expect(
-      await screen.findByText(/do not have permission to change Codex and work tool sign-in/i)
+      await screen.findByText(/do not have permission to change Codex sign-in/i)
     ).toBeDefined()
     expect(screen.getAllByText(/owner or admin/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/403 Forbidden/)).toBeNull()

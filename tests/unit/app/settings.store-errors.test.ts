@@ -85,6 +85,7 @@ describe('settingsActionErrorMessage', () => {
     expect(normalizeSettingsSection('agent-size-limits')).toBe('resources')
     expect(normalizeSettingsSection('where-agents-work')).toBe('runtime')
     expect(normalizeSettingsSection('Where agents work')).toBe('runtime')
+    expect(normalizeSettingsSection('Codex sign-in')).toBe('work-tool-sign-ins')
     expect(normalizeSettingsSection('Codex and work tool sign-in')).toBe('work-tool-sign-ins')
     expect(normalizeSettingsSection('team-settings')).toBe('teams')
     expect(normalizeSettingsSection('Team settings')).toBe('teams')

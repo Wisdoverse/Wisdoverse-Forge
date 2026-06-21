@@ -56,8 +56,8 @@ const DEFAULT_CREATE_TASK_COMMAND = {
 const SECONDARY_ACTION_COMMANDS = [
   {
     id: 'action:work-tool-sign-ins',
-    label: 'Codex and work tool sign-in',
-    description: 'Open the Codex sign-in page before agents work on project files.',
+    label: 'Codex sign-in',
+    description: 'Open Codex sign-in before agents work on project files.',
     searchText: 'codex openai login sign in work tool settings',
   },
   {
