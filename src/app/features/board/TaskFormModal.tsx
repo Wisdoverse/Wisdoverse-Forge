@@ -174,6 +174,15 @@ export function TaskFormModal({
     : workLaneReady
       ? `New tasks will wait in ${waitingPlaceDisplayName(selectedTaskGroupName)} until a ready agent picks them up.`
       : 'Create one place for new work to wait, then return here.'
+  const waitingPlaceSetupSteps =
+    selectedProject && !selectingProject && !workLaneReady
+      ? [
+          'Open Agents.',
+          `Choose this project: ${selectedProject.name}.`,
+          'Create one waiting place for new tasks.',
+          'Come back here. Success looks like this card saying Task can be created.',
+        ]
+      : []
   const assignableAgents = agents.filter((agent) => agentCanTakeTask(agent.status))
   const taskWillWaitForAgent = workLaneReady && assignableAgents.length === 0
   const missingAgentDetail = agentSetupDetail({
@@ -496,6 +505,13 @@ export function TaskFormModal({
                 <p className="mt-0.5 text-secondary-light dark:text-secondary-dark">
                   {readinessDetail}
                 </p>
+                {waitingPlaceSetupSteps.length > 0 && (
+                  <ol className="mt-2 list-decimal space-y-1 pl-4 text-secondary-light dark:text-secondary-dark">
+                    {waitingPlaceSetupSteps.map((step) => (
+                      <li key={step}>{step}</li>
+                    ))}
+                  </ol>
+                )}
               </div>
             </div>
             {!workLaneReady && onOpenTaskRouting && (

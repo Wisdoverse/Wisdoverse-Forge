@@ -388,6 +388,13 @@ describe('TaskFormModal', () => {
       /Set up where tasks wait before creating this task/i
     )
     expect(screen.getByText(/Create one place for new work to wait/i)).toBeDefined()
+    const readiness = screen.getByTestId('task-work-lane-readiness')
+    expect(readiness).toHaveTextContent('Open Agents.')
+    expect(readiness).toHaveTextContent('Choose this project: Starter Project.')
+    expect(readiness).toHaveTextContent('Create one waiting place for new tasks.')
+    expect(readiness).toHaveTextContent(
+      'Come back here. Success looks like this card saying Task can be created.'
+    )
     expect(screen.getByTestId('task-work-lane-readiness').textContent).not.toContain(
       ['agent', 'is', 'ready'].join(' ')
     )
