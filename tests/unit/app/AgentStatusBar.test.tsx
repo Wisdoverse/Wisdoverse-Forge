@@ -8,12 +8,26 @@ describe('AgentStatusBar', () => {
   test('guides first-time users when no agents are connected', () => {
     render(<AgentStatusBar agents={[]} />)
 
-    expect(screen.getByTestId('agent-status-empty')).toBeDefined()
+    const emptyState = screen.getByTestId('agent-status-empty')
+    expect(emptyState).toBeDefined()
+    expect(within(emptyState).getByText('Connect an agent before sending work')).toBeDefined()
     expect(
-      screen.getByText(
-        'Open Agents, then choose New agent if none exists or Start on an existing agent before sending work.'
+      within(emptyState).getByText('Open Agents and choose New agent if none exists.')
+    ).toBeDefined()
+    expect(
+      within(emptyState).getByText(
+        "Copy the setup text into this computer's command app and leave it running."
       )
     ).toBeDefined()
+    expect(
+      within(emptyState).getByText('If an agent already exists, choose Start in Agents.')
+    ).toBeDefined()
+    expect(
+      within(emptyState).getByText(
+        'Success looks like one agent listed here as Ready or Working now.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByText(/Open Agents, then choose New agent/i)).toBeNull()
     expect(screen.queryByText(/before assigning work/i)).toBeNull()
     expect(screen.queryByText(/no agents are connected yet/i)).toBeNull()
   })
