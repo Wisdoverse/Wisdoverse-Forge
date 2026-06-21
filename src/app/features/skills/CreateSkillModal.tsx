@@ -48,7 +48,7 @@ const skillTemplates = [
       description: 'Draft release notes from accepted work',
       triggerPattern: 'release',
       content:
-        'Summarize what changed.\nGroup user-facing updates, fixes, and risks.\nCall out any setup or migration step before publishing.',
+        'Summarize what changed.\nGroup user-facing updates, fixes, and risks.\nCall out any setup or migration step before release.',
     },
   },
   {

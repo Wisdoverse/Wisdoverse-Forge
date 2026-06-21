@@ -298,8 +298,7 @@ function savedInstructionsEmptyState({
   if (hasCatalogSkills && hasSearch && hasFilter) {
     return {
       title: 'Search and filter are hiding saved instructions',
-      detail:
-        'Use Show all saved instructions before assuming the library has nothing useful saved.',
+      detail: 'Use Show all saved instructions before assuming nothing useful is saved.',
       action: 'reset',
     }
   }
