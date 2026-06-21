@@ -9,6 +9,7 @@ use sqlx::PgPool;
 use tokio::sync::watch;
 use uuid::Uuid;
 
+use crate::domain::self_fix::decode_self_fix_pr_job_payload;
 use crate::services::self_fix::SelfFixService;
 
 const POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(500);
@@ -56,7 +57,7 @@ impl SelfFixPrWorker {
             return Ok(false);
         };
 
-        let payload: SelfFixPrJob = match serde_json::from_value(job.payload.clone()) {
+        let payload: SelfFixPrJob = match decode_self_fix_pr_job_payload(job.payload.clone()) {
             Ok(p) => p,
             Err(err) => {
                 tracing::error!(job_id = %job.id, error = %err, "self_fix_pr payload undecodable; dropping");
