@@ -1142,6 +1142,8 @@ const RUNTIME_SIGN_IN_DEAD_END_PATTERNS = [
 ]
 
 const WORK_TOOL_SIGN_IN_ENTRY_JARGON_PATTERNS = [
+  /\bStart Codex sign-in here\b/i,
+  /\basks for login\b/i,
   /\blabel:\s*['"`]Codex CLI sign-in['"`]/i,
   /\bdescription:\s*['"`]Sign in to Codex and other CLI tools agents use for file work\./i,
   /\bSign in to Codex CLI and work tools\b/i,

@@ -6635,6 +6635,8 @@ const SECTIONS = [
 export function RuntimeSection() {
   return (
     <>
+      <h3>Start Codex sign-in here</h3>
+      <p>Start here when Codex or another work tool asks for login.</p>
       <h3>Sign in to Codex CLI and work tools</h3>
       <RuntimeChecklistRow title="Codex and CLI sign-ins" />
     </>
@@ -6664,6 +6666,14 @@ export function RuntimeSection() {
           type: 'work-tool-sign-in-entry-copy',
           location: 'src/app/features/settings/RuntimeSection.tsx:6',
         }),
+        expect.objectContaining({
+          type: 'work-tool-sign-in-entry-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'work-tool-sign-in-entry-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:8',
+        }),
       ])
     )
   })
@@ -6683,7 +6693,7 @@ export function RuntimeSection() {
   return (
     <>
       <h3>Work tool sign-in</h3>
-      <p>Start here when Codex or another work tool asks for login. Choose Sign in next to OpenAI (Codex), finish the browser login, then return here and choose Check again.</p>
+      <p>Use this page when Codex or another work tool asks you to sign in. Choose Sign in next to OpenAI (Codex), finish the browser sign-in, then return here and choose Check again.</p>
       <RuntimeChecklistRow title="Work tool sign-ins" />
     </>
   )

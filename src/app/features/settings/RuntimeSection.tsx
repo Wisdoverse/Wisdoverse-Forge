@@ -243,10 +243,11 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
           className="mb-4 rounded-lg border border-apple-blue/20 bg-apple-blue/[0.04] p-4"
         >
           <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            Start Codex sign-in here
+            Codex sign-in starts here
           </h3>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-            Start here when Codex or another work tool asks for login. {codexSignInInstruction}
+            Use this page when Codex or another work tool asks you to sign in.{' '}
+            {codexSignInInstruction}
           </p>
           <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
             If the Codex sign-in option does not appear, choose Check again. If it still does not
