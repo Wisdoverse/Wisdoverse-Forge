@@ -858,7 +858,7 @@ export function ProjectTree({
                 </span>
               </div>
               <p className="mt-0.5 truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-                {projectMenu.team.name} team · project link preview {projectMenu.project.slug}
+                {projectMenu.team.name} team · Link preview: {projectMenu.project.slug}
               </p>
             </div>
 
@@ -914,13 +914,13 @@ export function ProjectTree({
             />
             <ProjectMenuItem
               Icon={Hash}
-              label="Copy project link preview"
-              detail={`Project link preview: ${projectMenu.project.slug}. Forge creates this automatically.`}
+              label="Copy link preview"
+              detail={`Project link preview: ${projectMenu.project.slug}. Forge creates this automatically from the project name.`}
               onClick={() =>
                 void handleCopyProjectValue(
                   projectMenu.project.slug,
-                  'Project link preview copied',
-                  'project link preview'
+                  'Link preview copied',
+                  'link preview'
                 )
               }
             />

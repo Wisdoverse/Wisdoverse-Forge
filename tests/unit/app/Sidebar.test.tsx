@@ -260,7 +260,7 @@ describe('Sidebar', () => {
 
     expect(menu).toHaveAttribute('role', 'menu')
     expect(menu).toHaveAttribute('aria-label', 'Project X project menu')
-    expect(menuScope.getByText('Team Alpha team · project link preview proj-x')).toBeInTheDocument()
+    expect(menuScope.getByText('Team Alpha team · Link preview: proj-x')).toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /open project board/i })).toBeInTheDocument()
     expect(
       menuScope.getByRole('menuitem', { name: /new task for this project/i })
@@ -279,9 +279,7 @@ describe('Sidebar', () => {
     expect(
       menuScope.queryByRole('menuitem', { name: /copy support reference/i })
     ).not.toBeInTheDocument()
-    expect(
-      menuScope.getByRole('menuitem', { name: /copy project link preview/i })
-    ).toBeInTheDocument()
+    expect(menuScope.getByRole('menuitem', { name: /copy link preview/i })).toBeInTheDocument()
     expect(
       menuScope.getByText(/another page or an owner or admin asks for this project reference/i)
     ).toBeInTheDocument()
@@ -294,8 +292,14 @@ describe('Sidebar', () => {
     expect(menuScope.queryByText(/project short name/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/short name used in project links/i)).not.toBeInTheDocument()
     expect(
-      menuScope.getByText(/Project link preview: proj-x\. Forge creates this automatically\./i)
+      menuScope.getByText(
+        /Project link preview: proj-x\. Forge creates this automatically from the project name\./i
+      )
     ).toBeInTheDocument()
+    expect(menuScope.queryByText(/project link preview proj-x/i)).not.toBeInTheDocument()
+    expect(
+      menuScope.queryByRole('menuitem', { name: /copy project link preview/i })
+    ).not.toBeInTheDocument()
     expect(menuScope.queryByText(/shown at the end of project links/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/project link ending/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/Forge uses this in project links/i)).not.toBeInTheDocument()
@@ -402,6 +406,25 @@ describe('Sidebar', () => {
     expect(screen.getByTestId('project-copy-status')).not.toHaveTextContent(/support reference/i)
   })
 
+  it('copies a project link preview with feedback that matches the menu action', async () => {
+    seedProjectTree()
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /copy link preview/i }))
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('proj-x'))
+    expect(screen.getByTestId('project-copy-status')).toHaveTextContent('Link preview copied')
+    expect(screen.getByTestId('project-copy-status')).not.toHaveTextContent(
+      /Project link preview copied/i
+    )
+  })
+
   it('shows a manual project reference when browser copy fails', async () => {
     seedProjectTree()
     const writeText = vi.fn().mockRejectedValue(new Error('denied'))
@@ -424,6 +447,26 @@ describe('Sidebar', () => {
     expect(alert).not.toHaveTextContent(/support reference/i)
     expect(alert).not.toHaveTextContent(/clipboard access/i)
     expect(alert).not.toHaveTextContent(/open project settings and copy it from there/i)
+  })
+
+  it('shows a manual link preview when browser copy fails', async () => {
+    seedProjectTree()
+    const writeText = vi.fn().mockRejectedValue(new Error('denied'))
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /copy link preview/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Copy did not work. Select the link preview below and copy it yourself.'
+    )
+    expect(alert).not.toHaveTextContent(/project link preview/i)
+    expect(screen.getByTestId('project-copy-manual-value')).toHaveTextContent('proj-x')
   })
 
   it('edits team name from context menu', async () => {

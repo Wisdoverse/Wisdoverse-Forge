@@ -197,7 +197,8 @@ export function OrganizationsPanel() {
                           {org.name}
                         </p>
                         <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                          Team space link preview: {org.slug}. Forge creates this automatically.
+                          Team space link preview: {org.slug}. Forge creates this automatically from
+                          the team space name.
                         </p>
                       </div>
                     </td>

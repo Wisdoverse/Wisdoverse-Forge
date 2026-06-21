@@ -74,7 +74,9 @@ describe('OrganizationsPanel', () => {
     expect(screen.queryByRole('columnheader', { name: 'Readiness' })).toBeNull()
     expect(screen.getByText('Acme Labs')).toBeDefined()
     expect(
-      screen.getByText('Team space link preview: acme. Forge creates this automatically.')
+      screen.getByText(
+        'Team space link preview: acme. Forge creates this automatically from the team space name.'
+      )
     ).toBeDefined()
     expect(screen.queryByText(/Forge uses this in team space links/i)).toBeNull()
     expect(screen.queryByText(/Automatic team space name/i)).toBeNull()
