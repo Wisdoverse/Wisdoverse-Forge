@@ -124,6 +124,12 @@ function OrganizationsEmptyState() {
         tasks wait. If you expected data here, confirm your admin access and refresh after Forge is
         ready.
       </p>
+      <p className="mt-3 max-w-xl text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
+        Next step: open Settings, choose Team spaces, and create the first team space.
+      </p>
+      <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
+        Success looks like one team space listed here with People and Teams counts.
+      </p>
     </div>
   )
 }

@@ -208,6 +208,14 @@ describe('AgentsPanel', () => {
     expect(within(emptyState).getByText(/confirm it becomes ready or working/i)).toBeDefined()
     expect(within(emptyState).getByText(/return to admin and choose agents/i)).toBeDefined()
     expect(within(emptyState).getByText(/check it across team spaces/i)).toBeDefined()
+    expect(
+      within(emptyState).getByText('Next step: open Agents and choose New agent.')
+    ).toBeDefined()
+    expect(
+      within(emptyState).getByText(
+        'Success looks like one agent listed here with Ready or Working now.'
+      )
+    ).toBeDefined()
     expect(within(emptyState).queryByText(/review it across team spaces/i)).toBeNull()
     expect(within(emptyState).queryByText(/refresh admin and check again/i)).toBeNull()
     expect(within(emptyState).queryByText('No agents to show')).toBeNull()
