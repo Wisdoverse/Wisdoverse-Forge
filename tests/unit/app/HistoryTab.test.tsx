@@ -370,7 +370,8 @@ describe('HistoryTab', () => {
     )
 
     expect(await screen.findByText('The chosen agent is waiting to start')).toBeInTheDocument()
-    expect(screen.getByText('Agent details loading')).toBeInTheDocument()
+    expect(screen.getByText('Agent name loading')).toBeInTheDocument()
+    expect(screen.queryByText('Agent details loading')).toBeNull()
     expect(screen.queryByText('Needs agent')).toBeNull()
   })
 

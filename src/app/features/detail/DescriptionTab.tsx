@@ -13,6 +13,7 @@ import { taskStateLabel } from '@app/entities/task'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import { cn } from '@app/shared/lib/utils'
+import { TASK_AGENT_NAME_LOADING_LABEL } from './model/taskAgentLabels'
 
 interface DescriptionTabProps {
   task: TaskSummary
@@ -322,7 +323,7 @@ function assignmentSummary(task: TaskSummary): {
   }
   if (task.assignedTo) {
     return {
-      label: 'Agent details loading',
+      label: TASK_AGENT_NAME_LOADING_LABEL,
       detail: assignedAgentLoadingDetail(task),
       hasAgent: true,
     }

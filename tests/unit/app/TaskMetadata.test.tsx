@@ -37,7 +37,8 @@ describe('TaskMetadata', () => {
   test('does not call a task unassigned when only the agent id is loaded', () => {
     render(<TaskMetadata task={{ ...mockTask, assignedTo: 'agent-1' }} />)
 
-    expect(screen.getByText('Agent details loading')).toBeDefined()
+    expect(screen.getByText('Agent name loading')).toBeDefined()
+    expect(screen.queryByText('Agent details loading')).toBeNull()
     expect(screen.queryByText('Assigned agent')).toBeNull()
     expect(screen.queryByText('Unassigned')).toBeNull()
     expect(screen.getByTestId('task-metadata-guidance').textContent).toContain(
