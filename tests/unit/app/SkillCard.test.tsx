@@ -29,12 +29,12 @@ describe('SkillCard', () => {
       })
     ).toBeInTheDocument()
     expect(screen.getByText('Ready to reuse')).toBeInTheDocument()
-    expect(
-      screen.getByText(/saved in team space saved instructions by platform team/i)
-    ).toBeInTheDocument()
+    expect(screen.getByText(/saved for this team space by platform team/i)).toBeInTheDocument()
+    expect(screen.queryByText(/saved in team space saved instructions/i)).toBeNull()
     expect(screen.queryByText(/workspace skills/i)).toBeNull()
     expect(screen.queryByText(/workspace saved instructions/i)).toBeNull()
-    expect(screen.getByText('Suggested for tasks that mention: release')).toBeInTheDocument()
+    expect(screen.getByText('Matching words: release')).toBeInTheDocument()
+    expect(screen.queryByText('Suggested for tasks that mention: release')).not.toBeInTheDocument()
     expect(screen.queryByText(/Use when task says/i)).toBeNull()
   })
 
@@ -55,14 +55,19 @@ describe('SkillCard', () => {
 
     expect(
       screen.getByRole('button', {
-        name: /release-review\. ready to reuse\. open saved instruction details to check the reusable instructions before using it/i,
+        name: /release-review\. ready to reuse\. open details to check the reusable steps before using this saved instruction/i,
       })
     ).toBeInTheDocument()
     expect(
       screen.getByText(
-        'Open saved instruction details to check the reusable instructions before using it.'
+        'Open details to check the reusable steps before using this saved instruction.'
       )
     ).toBeDefined()
+    expect(
+      screen.queryByText(
+        'Open saved instruction details to check the reusable instructions before using it.'
+      )
+    ).toBeNull()
     expect(screen.queryByText(/review the reusable instructions before using it/i)).toBeNull()
   })
 
@@ -71,7 +76,7 @@ describe('SkillCard', () => {
       <SkillCard skill={{ ...baseSkill, plugin: '   ', pluginAuthor: '   ' }} onClick={() => {}} />
     )
 
-    expect(screen.getByText('Saved in saved instructions')).toBeInTheDocument()
+    expect(screen.getByText('Saved as a saved instruction')).toBeInTheDocument()
     expect(screen.queryByText(/Saved in\s*$/)).toBeNull()
     expect(screen.queryByText(/by\s*$/)).toBeNull()
   })

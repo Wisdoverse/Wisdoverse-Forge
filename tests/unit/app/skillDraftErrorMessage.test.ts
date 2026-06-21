@@ -35,7 +35,7 @@ describe('skillDraftErrorMessage', () => {
 
   test('explains duplicate names without leaking raw API text', () => {
     expect(skillDraftErrorMessage(new Error('API 409: duplicate name'))).toBe(
-      'Rename it, then save again. An instruction with this name may already exist. Saved instruction was not saved.'
+      'Rename it, then save again. A saved instruction with this name may already exist. Saved instruction was not saved.'
     )
   })
 
@@ -46,8 +46,9 @@ describe('skillDraftErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Rename it, then save again. An instruction with this name may already exist. Saved instruction was not saved.'
+      'Rename it, then save again. A saved instruction with this name may already exist. Saved instruction was not saved.'
     )
+    expect(message).not.toContain('An instruction with this name')
     expect(message).not.toContain('duplicate saved instruction name')
   })
 

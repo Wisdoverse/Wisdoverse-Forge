@@ -305,7 +305,7 @@ function SkillPublishedState({ skill, onClose }: { skill: Skill; onClose: () => 
           href="/skills"
           Icon={LibraryBig}
           title="Open saved instructions"
-          detail="Find this instruction, then check the reusable steps before agents use them."
+          detail="Find this saved instruction, then check the reusable steps before agents use them."
         />
         <NextReuseLink
           href="/agents"

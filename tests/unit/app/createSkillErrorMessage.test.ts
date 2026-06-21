@@ -10,7 +10,7 @@ describe('createSkillErrorMessage', () => {
 
   test('preserves existing beginner guidance from the skills store', () => {
     const message =
-      'Check your connection, then create the instruction again. Forge could not connect while creating it.'
+      'Check your connection, then save the instruction again. Forge could not connect while saving it.'
 
     expect(createSkillErrorMessage(new Error(message))).toBe(message)
   })
@@ -21,7 +21,7 @@ describe('createSkillErrorMessage', () => {
 
     expectBeginnerMessage(
       createSkillErrorMessage(new Error(message)),
-      'Check your connection, then create the instruction again. Forge could not connect while creating it.'
+      'Check your connection, then save the instruction again. Forge could not connect while saving it.'
     )
   })
 
@@ -31,7 +31,7 @@ describe('createSkillErrorMessage', () => {
 
     expectBeginnerMessage(
       createSkillErrorMessage(new Error(message)),
-      'Ask an owner or admin to let you create saved instructions for this team space, then create the instruction again.'
+      'Ask an owner or admin to let you create saved instructions for this team space, then save the instruction again.'
     )
     expect(createSkillErrorMessage(new Error(message))).not.toContain('workspace instructions')
   })
@@ -40,7 +40,8 @@ describe('createSkillErrorMessage', () => {
     const message = createSkillErrorMessage(new Error('Failed to fetch'))
 
     expect(message).toContain('Check your connection')
-    expect(message).toContain('create the instruction again')
+    expect(message).toContain('save the instruction again')
+    expect(message).not.toContain('create the instruction again')
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('app could not reach')
     expect(message).not.toContain('Forge could not connect while creating this instruction')
@@ -51,7 +52,8 @@ describe('createSkillErrorMessage', () => {
 
     expect(message).toContain('Ask an owner or admin')
     expect(message).toContain('create saved instructions for this team space')
-    expect(message).toContain('create the instruction again')
+    expect(message).toContain('save the instruction again')
+    expect(message).not.toContain('create the instruction again')
     expect(message).not.toContain('workspace instructions')
     expect(message).not.toContain('Code:')
     expect(message).not.toContain('API 403')
@@ -62,7 +64,7 @@ describe('createSkillErrorMessage', () => {
   test('maps missing saved instruction routes to a page refresh step', () => {
     expectBeginnerMessage(
       createSkillErrorMessage(new Error('HTTP 404: Not Found')),
-      'Open Saved instructions again, then create the instruction.'
+      'Open Saved instructions again, then save the instruction again.'
     )
   })
 
@@ -71,7 +73,7 @@ describe('createSkillErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Saved instructions to check for a similar item, then change the name or matching words and create the instruction again.'
+      'Open Saved instructions to check for a similar item, then change the name or matching words and save the instruction again.'
     )
     expect(message).not.toContain('Review the existing instructions')
   })
@@ -79,7 +81,7 @@ describe('createSkillErrorMessage', () => {
   test('turns validation details into a field-specific next step', () => {
     const message = createSkillErrorMessage(new Error('HTTP 422: {"message":"trigger is invalid"}'))
 
-    expectBeginnerMessage(message, 'Check the matching words, then create the instruction again.')
+    expectBeginnerMessage(message, 'Check the matching words, then save the instruction again.')
     expect(message).not.toContain('HTTP 422')
     expect(message).not.toContain('trigger is invalid')
     expect(message).not.toContain('try again')
@@ -90,7 +92,7 @@ describe('createSkillErrorMessage', () => {
       serverError: 'trigger words are required',
     })
 
-    expectBeginnerMessage(message, 'Check the matching words, then create the instruction again.')
+    expectBeginnerMessage(message, 'Check the matching words, then save the instruction again.')
     expect(message).not.toContain('trigger words are required')
   })
 
@@ -99,17 +101,27 @@ describe('createSkillErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Saved instructions again, then create the instruction again. If it still fails, ask an owner or admin to check Saved instructions access.'
+      'Open Saved instructions again, then save the instruction again. If it still fails, ask an owner or admin to check Saved instructions access.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('service is temporarily unavailable')
     expect(message).not.toContain('Forge could not create')
   })
 
-  test('uses a check step for unknown create failures', () => {
+  test('turns busy save failures into a plain wait step', () => {
+    const message = createSkillErrorMessage(new Error('HTTP 429'))
+
+    expectBeginnerMessage(
+      message,
+      'Wait a moment, then save the instruction again. Forge is busy with saved instructions right now.'
+    )
+    expect(message).not.toContain('Instruction setup')
+  })
+
+  test('uses a check step for unknown save failures', () => {
     const message = createSkillErrorMessage(new Error('HTTP 418'))
 
-    expectBeginnerMessage(message, 'Check the required fields, then create the instruction again.')
+    expectBeginnerMessage(message, 'Check the required fields, then save the instruction again.')
     expect(message).not.toContain('Review the fields')
   })
 })
