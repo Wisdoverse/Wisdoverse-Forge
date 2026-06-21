@@ -198,7 +198,7 @@ export function DescriptionTab({
               ? `${contextTotal} saved ${
                   contextTotal === 1 ? 'note or instruction' : 'notes or instructions'
                 } helped this task.`
-              : 'Saved notes, work history, and save-for-next-time ideas appear here while the task is active.'}
+              : 'Saved notes, work history, and ideas to reuse next time appear here while the task is active.'}
           </p>
           {onOpenContext && (
             <button
@@ -218,7 +218,7 @@ export function DescriptionTab({
           <p>
             {task.state === 'completed'
               ? 'After checking the result, save the repeatable steps if future tasks should reuse them.'
-              : 'The save-for-next-time option becomes available once useful work is completed.'}
+              : 'You can save repeatable steps after useful work is completed.'}
           </p>
           {task.state === 'completed' && (
             <div className="flex flex-wrap gap-2">
@@ -229,7 +229,7 @@ export function DescriptionTab({
                   className="inline-flex h-8 items-center gap-1.5 rounded-full bg-apple-blue px-3 text-ui-button font-medium text-white transition-colors hover:bg-apple-blue-focus"
                 >
                   <WandSparkles size={13} strokeWidth={2.25} aria-hidden="true" />
-                  <span>Check save ideas</span>
+                  <span>Check ideas to reuse</span>
                 </button>
               )}
               {onDraftSkill && (
