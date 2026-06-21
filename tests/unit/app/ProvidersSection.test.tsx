@@ -126,6 +126,13 @@ describe('ProvidersSection', () => {
     expect(screen.queryByText('AI Services')).toBeNull()
     expect(screen.getByRole('button', { name: /^add AI service$/i })).toBeDefined()
     expect(screen.queryByText('Add AI Service')).toBeNull()
+    expect(screen.getByText('Saved setup: gpt-5.4')).toBeDefined()
+    expect(
+      screen
+        .getAllByText(/Key saved:/)
+        .some((node) => node.textContent === 'Key saved: sk-live••••')
+    ).toBe(true)
+    expect(screen.getByText('Ready: agents can use this service.')).toBeDefined()
     const nextStep = screen.getByTestId('provider-next-step')
     expect(within(nextStep).getByText('Do this next')).toBeDefined()
     expect(within(nextStep).getByText('Check the AI service connection')).toBeDefined()
@@ -316,7 +323,7 @@ describe('ProvidersSection', () => {
     expect(screen.getByText(/some services call this an API key/i)).toBeDefined()
     expect(screen.getByText(/do not paste the sign-in password/i)).toBeDefined()
     expect(screen.getByText(/After saving, choose Check connection/i)).toBeDefined()
-    expect(screen.getByText(/Ready means simple chat agents can use this service/i)).toBeDefined()
+    expect(screen.getByText(/You are done when it shows Ready/i)).toBeDefined()
     expect(screen.queryByText(/Service address and model are filled in/i)).toBeNull()
     expect(screen.queryByText(/After saving, click Check/i)).toBeNull()
     const saveButton = screen.getByRole('button', { name: /save AI service/i })
@@ -377,7 +384,7 @@ describe('ProvidersSection', () => {
       0
     )
     expect(screen.getAllByText(/do not paste the sign-in password/i).length).toBeGreaterThan(0)
-    expect(screen.getByText('Save, then check connection')).toBeDefined()
+    expect(screen.getByText('Save, then make it ready')).toBeDefined()
     expect(screen.queryByText('Paste service access key')).toBeNull()
     expect(screen.queryByText('Save and check')).toBeNull()
     expect(screen.queryByText(/copy its access key/i)).toBeNull()
@@ -547,12 +554,12 @@ describe('ProvidersSection', () => {
     const serviceChoices = screen.getByRole('group', { name: /known AI services/i })
     fireEvent.click(within(serviceChoices).getByRole('button', { name: /anthropic/i }))
 
-    const chips = screen.getByRole('group', { name: /common models/i })
+    const chips = screen.getByRole('group', { name: /suggested service setups/i })
     const chipButtons = within(chips).getAllByRole('button')
     expect(chipButtons.length).toBeGreaterThan(0)
 
-    // Click the last chip and confirm it fills the free-text model field with
-    // that chip's exact model id (the chip title) and marks itself selected.
+    // Click the last chip and confirm it fills the free-text setup field with
+    // that chip's exact setup id (the chip title) and marks itself selected.
     const target = chipButtons[chipButtons.length - 1]
     const modelId = target.getAttribute('title') ?? ''
     expect(modelId).not.toBe('')
@@ -562,7 +569,7 @@ describe('ProvidersSection', () => {
     expect(target).toHaveAttribute('aria-pressed', 'true')
   })
 
-  test('Find available models swaps curated chips for the live list', async () => {
+  test('Show setup choices swaps curated chips for the live list', async () => {
     useSettingsStore.setState({ providers: [] })
     settingsApiMock.discoverModels.mockResolvedValue({
       provider: 'anthropic',
@@ -581,7 +588,7 @@ describe('ProvidersSection', () => {
       target: { value: 'sk-test' },
     })
 
-    fireEvent.click(screen.getByRole('button', { name: /find available models/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show setup choices/i }))
 
     await waitFor(() =>
       expect(settingsApiMock.discoverModels).toHaveBeenCalledWith({
@@ -591,15 +598,15 @@ describe('ProvidersSection', () => {
       })
     )
 
-    // The live model now appears as a clickable chip and fills the field.
-    const chips = screen.getByRole('group', { name: /common models/i })
+    // The live setup now appears as a clickable chip and fills the field.
+    const chips = screen.getByRole('group', { name: /suggested service setups/i })
     const liveChip = await within(chips).findByRole('button', { name: /claude live xyz/i })
     fireEvent.click(liveChip)
     expect(screen.getByLabelText(/^service setup$/i)).toHaveValue('claude-live-xyz')
-    expect(screen.getByText(/live list from the service/i)).toBeDefined()
+    expect(screen.getByText(/live setup choices from the service/i)).toBeDefined()
   })
 
-  test('Find available models guides users before calling the service when setup is missing', async () => {
+  test('Show setup choices guides users before calling the service when setup is missing', async () => {
     useSettingsStore.setState({ providers: [] })
 
     render(<ProvidersSection />)
@@ -609,7 +616,7 @@ describe('ProvidersSection', () => {
 
     const serviceChoices = screen.getByRole('group', { name: /known AI services/i })
     fireEvent.click(within(serviceChoices).getByRole('button', { name: /anthropic/i }))
-    fireEvent.click(screen.getByRole('button', { name: /find available models/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show setup choices/i }))
 
     expect(settingsApiMock.discoverModels).not.toHaveBeenCalled()
     expect(screen.getByText(/Paste the service access key first/i)).toBeDefined()
@@ -618,7 +625,7 @@ describe('ProvidersSection', () => {
     fireEvent.change(screen.getByLabelText(/^AI service$/i), {
       target: { value: 'openai_compatible' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /find available models/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show setup choices/i }))
 
     expect(settingsApiMock.discoverModels).not.toHaveBeenCalled()
     expect(
