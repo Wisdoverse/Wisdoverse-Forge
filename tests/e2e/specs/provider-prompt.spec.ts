@@ -266,7 +266,8 @@ test.describe.serial('Simple chat agent UX (#21)', () => {
     // Switching to "Simple chat agent" reveals the system-prompt textarea.
     await kindGroup.getByText('Simple chat agent').click()
     await expect(page.locator('textarea#systemPrompt')).toBeVisible({ timeout: 3000 })
-    await expect(page.getByPlaceholder(/Help review tasks.*explain risks/i)).toBeVisible()
+    await expect(page.getByRole('textbox', { name: 'Agent instructions' })).toBeVisible()
+    await expect(page.getByPlaceholder(/Help check task results.*explain risks/i)).toBeVisible()
   })
 
   // 2. Submit POST — body contains lowercase provider + systemPrompt ──────────
