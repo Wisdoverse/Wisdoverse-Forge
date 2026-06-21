@@ -57,12 +57,12 @@ const COLUMN_EMPTY_STATE: Record<string, { title: string; detail: string }> = {
   working: {
     title: 'Start a waiting task to show live work',
     detail:
-      'Open a task in Waiting to start, choose Start, or wait for the agent to begin. Running tasks show here.',
+      'Open a task in Waiting to start, choose an agent, then choose Preview and send. Running tasks show here after work begins.',
   },
   blocked: {
     title: 'Answer help requests from this column',
     detail:
-      'When a task needs details, open its card here, read what the agent needs, then choose Continue or Stop.',
+      'When a task needs details, open its card here, read what the agent needs, then choose Allow and continue.',
   },
   done: {
     title: 'Check finished work before using it',

@@ -126,6 +126,18 @@ describe('CommandPalette', () => {
     expect(
       screen.getByText('Open the Codex sign-in page before agents work on project files.')
     ).toBeDefined()
+    expect(screen.getByText('Project settings')).toBeDefined()
+    expect(
+      screen.getByText('Create or choose the project where tasks, agents, and files belong.')
+    ).toBeDefined()
+    expect(screen.getByText('Team settings')).toBeDefined()
+    expect(screen.getByText('Create teams and manage who can change work.')).toBeDefined()
+    expect(screen.getByText('AI services')).toBeDefined()
+    expect(screen.getByText('Connect the AI account agents use to answer.')).toBeDefined()
+    expect(screen.getByText('Where agents work')).toBeDefined()
+    expect(
+      screen.getByText('Choose where project files open and which work tool agents use.')
+    ).toBeDefined()
     expect(screen.queryByText('Codex CLI sign-in')).toBeNull()
     expect(screen.queryByText(previousActionHeading)).toBeNull()
     expect(screen.queryByText('Create task')).toBeNull()
@@ -177,6 +189,26 @@ describe('CommandPalette', () => {
       screen.getByText('Open the Codex sign-in page before agents work on project files.')
     ).toBeDefined()
     expect(screen.queryByText('No page or option matches that search')).toBeNull()
+  })
+
+  test('finds direct Settings sections through beginner search terms', async () => {
+    const onSelect = vi.fn()
+    const onClose = vi.fn()
+    render(<CommandPalette isOpen={true} onClose={onClose} onSelect={onSelect} />)
+
+    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+      target: { value: 'project settings' },
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('Project settings')).toBeDefined()
+    })
+    fireEvent.click(
+      screen.getByText('Create or choose the project where tasks, agents, and files belong.')
+    )
+
+    expect(onSelect).toHaveBeenCalledWith('settings:projects')
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 
   test('uses beginner-safe view names instead of old scene jargon', () => {
