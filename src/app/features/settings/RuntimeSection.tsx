@@ -160,11 +160,10 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
   const checklistReadyCount = checklistItems.filter((item) => item.ready).length
   const setupReady = checklistItems.length > 0 && checklistReadyCount === checklistItems.length
   const nextChecklistItem = checklistItems.find((item) => !item.ready) ?? null
-  const sectionTitle =
-    focus === 'sign-ins' ? 'Codex and work tool sign-in' : t('settings.runtime.title')
+  const sectionTitle = focus === 'sign-ins' ? 'Codex sign-in' : t('settings.runtime.title')
   const sectionDescription =
     focus === 'sign-ins'
-      ? 'Sign in to the account Codex uses and other work tools before agents work on project files.'
+      ? 'Sign in to Codex or another work tool before agents work on project files.'
       : t('settings.runtime.description')
   const codexSignInStatus = cliStatuses.find((status) => status.cliTool === 'codex') ?? null
   const codexSignInLabel = codexSignInStatus?.displayName ?? 'Codex'

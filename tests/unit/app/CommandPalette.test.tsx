@@ -122,10 +122,11 @@ describe('CommandPalette', () => {
     expect(screen.queryByText('Reset setup checklist')).toBeNull()
     expect(screen.getByText('New task')).toBeDefined()
     expect(screen.getByText('Create a task for an agent to finish.')).toBeDefined()
-    expect(screen.getByText('Codex and work tool sign-in')).toBeDefined()
+    expect(screen.getByText('Codex sign-in')).toBeDefined()
     expect(
-      screen.getByText('Open the Codex sign-in page before agents work on project files.')
+      screen.getByText('Open Codex sign-in before agents work on project files.')
     ).toBeDefined()
+    expect(screen.queryByText('Codex and work tool sign-in')).toBeNull()
     expect(screen.getByText('Project settings')).toBeDefined()
     expect(
       screen.getByText('Create or choose the project where tasks, agents, and files belong.')
@@ -183,11 +184,12 @@ describe('CommandPalette', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByText('Codex and work tool sign-in')).toBeDefined()
+      expect(screen.getByText('Codex sign-in')).toBeDefined()
     })
     expect(
-      screen.getByText('Open the Codex sign-in page before agents work on project files.')
+      screen.getByText('Open Codex sign-in before agents work on project files.')
     ).toBeDefined()
+    expect(screen.queryByText('Codex and work tool sign-in')).toBeNull()
     expect(screen.queryByText('No page or option matches that search')).toBeNull()
   })
 

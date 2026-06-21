@@ -623,7 +623,7 @@ describe('dispatchWsMessage', () => {
       read: false,
     })
     expect(notifications[0].message).toContain(
-      'Open Codex and work tool sign-in, then reconnect the Codex account'
+      'Open Codex sign-in, then reconnect the Codex account'
     )
     expect(notifications[0].message).toContain('new agents that work on files')
     expect(notifications[0].message).not.toContain('in Settings before')

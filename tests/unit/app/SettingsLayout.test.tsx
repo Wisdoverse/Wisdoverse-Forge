@@ -54,7 +54,7 @@ describe('SettingsLayout', () => {
     ).toBeInTheDocument()
     expect(
       within(desktopNav).getByRole('link', {
-        name: /Codex and work tool sign-in: Sign in to the account Codex uses and other work tools used for file work/i,
+        name: /Codex sign-in: Sign in to Codex or another work tool before agents work on project files/i,
       })
     ).toBeInTheDocument()
     expect(
@@ -80,7 +80,8 @@ describe('SettingsLayout', () => {
     expect(screen.getByRole('option', { name: 'SSH code access' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Agent size limits' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Where agents work' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Codex and work tool sign-in' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Codex sign-in' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Codex and work tool sign-in' })).not.toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Codex CLI sign-in' })).not.toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Teams' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Team members' })).not.toBeInTheDocument()
@@ -98,7 +99,7 @@ describe('SettingsLayout', () => {
 
     fireEvent.click(
       within(desktopNav).getByRole('link', {
-        name: /Codex and work tool sign-in: Sign in to the account Codex uses and other work tools used for file work/i,
+        name: /Codex sign-in: Sign in to Codex or another work tool before agents work on project files/i,
       })
     )
 

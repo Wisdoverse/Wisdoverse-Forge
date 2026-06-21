@@ -355,7 +355,7 @@ function notifyCredentialOwner(payload: Record<string, unknown> | null) {
     type: 'credential_expired',
     taskId: `credential:${cliTool}`,
     taskTitle: `${displayName} account needs reconnecting`,
-    message: `Open Codex and work tool sign-in, then reconnect the ${displayName} account before starting new agents that work on files.`,
+    message: `Open Codex sign-in, then reconnect the ${displayName} account before starting new agents that work on files.`,
     taskHref: '/settings/work-tool-sign-ins',
     ownerUserId: ownerId,
     read: false,
