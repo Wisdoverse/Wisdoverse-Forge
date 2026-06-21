@@ -1,6 +1,6 @@
 //! Self-fix domain policy: pure, no I/O. Sensitive-path circuit breaker + review vocab.
 
-use agentforge_core::{AppError, ErrorKind};
+use agentforge_core::{AppError, AppResult, ErrorKind, SelfFixPrJob};
 use serde::Serialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -67,6 +67,14 @@ pub(crate) mod review_status {
 #[allow(dead_code)]
 pub(crate) fn self_fix_data_response<T: Serialize>(data: T) -> Value {
     json!({ "ok": true, "data": data })
+}
+
+pub(crate) fn self_fix_pr_job_payload(task_id: Uuid, org_id: Uuid) -> AppResult<Value> {
+    serde_json::to_value(SelfFixPrJob { task_id, org_id }).map_err(|err| AppError::from(anyhow::Error::from(err)))
+}
+
+pub(crate) fn decode_self_fix_pr_job_payload(payload: Value) -> Result<SelfFixPrJob, serde_json::Error> {
+    serde_json::from_value(payload)
 }
 
 /// Read-side projection of a self-fix task's PR review state for the in-platform

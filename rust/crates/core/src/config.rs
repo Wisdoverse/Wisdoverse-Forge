@@ -516,6 +516,13 @@ pub struct AppConfig {
     /// "owner/repo" the self-fix loop targets.
     #[serde(default)]
     pub github_app_repo: Option<String>,
+
+    /// Enable the self-fix PR-bridge worker. `true` (default) starts the worker
+    /// that dequeues `self_fix_pr` jobs and drives `SelfFixService::open_pr`.
+    /// Set `false` to keep PR opening manual (e.g. while the GitHub App is
+    /// unconfigured). Env: `SELF_FIX_PR_WORKER_ENABLED`.
+    #[serde(default = "default_true")]
+    pub self_fix_pr_worker_enabled: bool,
 }
 
 fn default_clone_timeout_secs() -> u64 {
@@ -835,6 +842,7 @@ mod tests {
             github_app_installation_id: None,
             github_app_private_key: None,
             github_app_repo: None,
+            self_fix_pr_worker_enabled: true,
         };
         assert!(cfg.is_production());
     }
@@ -1236,6 +1244,7 @@ mod tests {
             github_app_installation_id: None,
             github_app_private_key: None,
             github_app_repo: None,
+            self_fix_pr_worker_enabled: true,
         };
         let dbg = format!("{cfg:?}");
         for needle in [

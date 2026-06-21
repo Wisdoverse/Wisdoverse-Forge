@@ -108,6 +108,7 @@ fn default_test_config() -> agentforge_core::AppConfig {
         github_app_installation_id: None,
         github_app_private_key: None,
         github_app_repo: None,
+        self_fix_pr_worker_enabled: false,
     }
 }
 
