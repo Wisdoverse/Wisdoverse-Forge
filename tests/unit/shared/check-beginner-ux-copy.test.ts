@@ -2934,17 +2934,28 @@ function fallbackCliToolLabel(tool) {
 const CLIPBOARD_UNAVAILABLE =
   'Copy is unavailable here (no clipboard access) - select the command text and copy it manually.'
 `,
+      'src/app/layouts/sidebar/ProjectTree.tsx': `
+function manualCopyFailureMessage(valueLabel) {
+  return \`Copy did not work. Select the \${valueLabel} below and copy it yourself.\`
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'clipboard-copy',
-        location: 'src/app/features/agents/CreateAgentModal.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'clipboard-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'clipboard-copy',
+          location: 'src/app/layouts/sidebar/ProjectTree.tsx:3',
+        }),
+      ])
+    )
   })
 
   it('accepts clipboard failure copy that tells people how to copy manually', () => {
@@ -2952,6 +2963,12 @@ const CLIPBOARD_UNAVAILABLE =
       'src/app/features/agents/CreateAgentModal.tsx': `
 const CLIPBOARD_UNAVAILABLE =
   'Forge cannot copy from this browser. Select the setup text in the box, then copy it manually.'
+`,
+      'src/app/layouts/sidebar/ProjectTree.tsx': `
+function manualCopyFailureMessage(valueLabel) {
+  if (valueLabel === 'project reference') return 'Use this project reference only when another page or an owner or admin asks for it. Copy did not work, so select it below and copy it yourself.'
+  return 'This link preview is the short text Forge makes from the project name. Copy did not work, so select it below and copy it yourself.'
+}
 `,
     })
 
