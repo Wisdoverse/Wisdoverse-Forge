@@ -1504,6 +1504,13 @@ const RESOURCE_MEMBER_FAILURE_FIRST_PATTERNS = [
   /\breturn\s+['"`]This person could not be removed\./i,
 ]
 
+const RESOURCE_MEMBER_ROLE_JARGON_PATTERNS = [
+  /\blabel:\s*['"`]Maintainer['"`]/,
+  /\bUse Maintainer access\b/i,
+  /\bChoose Maintainer\b/i,
+  /\bMaintainers can\b/i,
+]
+
 const LOAD_ERROR_TITLE_DEAD_END_PATTERNS = [
   /\bConversation history could not be loaded\./i,
   /\bAgent tools could not be loaded\./i,
@@ -3573,6 +3580,14 @@ function hasResourceMemberFailureFirstCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return RESOURCE_MEMBER_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasResourceMemberRoleJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/manage-members/ui/ResourceMembersModal.tsx')) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return RESOURCE_MEMBER_ROLE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasProjectCreateFailureFirstCopy(relFile, line) {
@@ -6431,6 +6446,16 @@ function scanFile(file, relFile) {
         type: 'resource-member-error-copy',
         location,
         message: 'Member access errors must start with the next action for beginners.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasResourceMemberRoleJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'resource-member-role-copy',
+        location,
+        message:
+          'Member access role labels must explain what people can do instead of saying maintainer.',
         sample: line.trim(),
       })
     }

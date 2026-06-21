@@ -2585,6 +2585,60 @@ function validationMessage() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags member access role labels that expose maintainer jargon', () => {
+    const cwd = fixture({
+      'src/app/features/manage-members/ui/ResourceMembersModal.tsx': `
+const ROLE_OPTIONS = [
+  { value: 'maintainer', label: 'Maintainer' },
+]
+const MEMBER_ROLE_GUIDANCE = [
+  { title: 'Use Maintainer access for everyday changes' },
+]
+function helper() {
+  return 'Start with Member access. Choose Maintainer, Admin, or Owner only when this person needs to change work or manage access.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'resource-member-role-copy',
+          sample: expect.stringContaining("label: 'Maintainer'"),
+        }),
+        expect.objectContaining({
+          type: 'resource-member-role-copy',
+          sample: expect.stringContaining('Maintainer access'),
+        }),
+        expect.objectContaining({
+          type: 'resource-member-role-copy',
+          sample: expect.stringContaining('Choose Maintainer'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts member access role labels that explain the ability in plain language', () => {
+    const cwd = fixture({
+      'src/app/features/manage-members/ui/ResourceMembersModal.tsx': `
+const ROLE_OPTIONS = [
+  { value: 'maintainer', label: 'Can change work' },
+]
+const MEMBER_ROLE_GUIDANCE = [
+  { title: 'Use Can change work for everyday changes' },
+]
+function helper() {
+  return 'Start with Member access. Choose Can change work, Admin access, or Owner access only when this person needs to change work or manage access.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags admin agent missing-field copy that does not tell users to refresh', () => {
     const cwd = fixture({
       'src/app/features/admin/AgentsPanel.tsx': `
