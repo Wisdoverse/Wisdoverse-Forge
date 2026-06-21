@@ -441,7 +441,7 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByText(/open result files or what the agent used/i)).toBeDefined()
     expect(screen.queryByText(/open result files or context/i)).toBeNull()
     expect(screen.getByText(/future tasks should reuse them/i)).toBeDefined()
-    expect(screen.getByRole('button', { name: /check save ideas/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /check ideas to reuse/i })).toBeDefined()
     expect(screen.queryByRole('button', { name: /review save ideas/i })).toBeNull()
   })
 
