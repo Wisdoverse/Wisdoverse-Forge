@@ -19,7 +19,8 @@
 //! via the `_in_tx` helpers, matching exactly what `OrchestrationService::
 //! complete_task` runs in production.
 
-use agentforge_api::repositories::orchestration::OrchestrationTaskRepository;
+use agentforge_api::repositories::orchestration::{OrchestrationTaskRepository, ParticipantRepository};
+use agentforge_api::services::orchestration::OrchestrationService;
 use agentforge_api::test_support::tenant_scope_for_ids;
 use agentforge_core::TenantScope;
 use sqlx::PgPool;
@@ -254,4 +255,62 @@ async fn complete_task_tx_does_not_leak_across_tenants(pool: PgPool) {
     tx.rollback().await.expect("rollback");
     assert!(cross.is_err(), "scope A must not be able to terminate org B's task — got {cross:?}");
     assert_eq!(task_status(&pool, parent_b).await, "working", "org B parent still working");
+}
+
+// ---------------------------------------------------------------------------
+// Self-fix PR job enqueue: completing a self_fix task must enqueue exactly one
+// `self_fix_pr` job inside the same transaction. Non-self_fix tasks must not
+// enqueue anything.
+// ---------------------------------------------------------------------------
+
+/// Seed org + agent + a `working` task with `self_fix = $self_fix`.
+/// Returns `(OrchestrationService, TenantScope, task_id)`.
+async fn seed_self_fix_task(pool: &PgPool, self_fix: bool) -> (OrchestrationService, TenantScope, Uuid) {
+    let (org_id, user_id, agent_id) = seed_org_with_agent(pool).await;
+    let task_id = Uuid::new_v4();
+
+    sqlx::query(
+        r#"INSERT INTO orchestration_tasks
+               (id, organization_id, title, status, created_by, assigned_agent_id, self_fix, started_at)
+           VALUES ($1, $2, 't', 'working', $3, $4, $5, NOW())"#,
+    )
+    .bind(task_id)
+    .bind(org_id)
+    .bind(user_id)
+    .bind(agent_id)
+    .bind(self_fix)
+    .execute(pool)
+    .await
+    .expect("seed self_fix task");
+
+    let svc = OrchestrationService::new(
+        OrchestrationTaskRepository::new(pool.clone()),
+        ParticipantRepository::new(pool.clone()),
+    );
+    let scope = tenant_scope_for_ids(org_id, user_id);
+    (svc, scope, task_id)
+}
+
+#[sqlx::test(migrations = "../db/migrations")]
+async fn completing_self_fix_task_enqueues_one_pr_job(pool: PgPool) {
+    let (svc, scope, task_id) = seed_self_fix_task(&pool, true).await;
+    svc.complete_task(&scope, task_id, serde_json::json!({"ok": true})).await.unwrap();
+
+    let job = agentforge_jobs::queue::dequeue(&pool, agentforge_core::SELF_FIX_PR_QUEUE, "t")
+        .await
+        .unwrap();
+    let job = job.expect("a self_fix_pr job must be enqueued");
+    let payload: agentforge_core::SelfFixPrJob = serde_json::from_value(job.payload).unwrap();
+    assert_eq!(payload.task_id, task_id);
+}
+
+#[sqlx::test(migrations = "../db/migrations")]
+async fn completing_non_self_fix_task_enqueues_nothing(pool: PgPool) {
+    let (svc, scope, task_id) = seed_self_fix_task(&pool, false).await;
+    svc.complete_task(&scope, task_id, serde_json::json!({"ok": true})).await.unwrap();
+
+    let job = agentforge_jobs::queue::dequeue(&pool, agentforge_core::SELF_FIX_PR_QUEUE, "t")
+        .await
+        .unwrap();
+    assert!(job.is_none(), "non-self_fix completion must not enqueue a PR job");
 }
