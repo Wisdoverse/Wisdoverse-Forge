@@ -37,6 +37,7 @@ pub use crate::domain::orchestration::{
     ParticipantSummary, TaskContextCounts, TaskRunSummary, TaskStatsResponse, TaskSummary, task_run_summary,
     task_summary,
 };
+use crate::domain::self_fix::self_fix_pr_job_payload;
 use crate::repositories::orchestration::run_context_injection::{
     ContextInjectionCounts, RunContextInjectionRepository,
 };
@@ -626,9 +627,7 @@ impl OrchestrationService {
         // completion. `unique_key = task_id` makes re-completion idempotent
         // (ON CONFLICT DO NOTHING).
         if updated.self_fix {
-            let payload =
-                serde_json::to_value(agentforge_core::SelfFixPrJob { task_id, org_id: scope.org_id().as_uuid() })
-                    .map_err(|err| agentforge_core::AppError::from(anyhow::Error::from(err)))?;
+            let payload = self_fix_pr_job_payload(task_id, scope.org_id().as_uuid())?;
             agentforge_jobs::queue::enqueue_in_tx(
                 &mut tx,
                 agentforge_core::SELF_FIX_PR_QUEUE,
