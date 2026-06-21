@@ -195,7 +195,7 @@ function runtimeFitFor(
   return {
     title: `${providerLabel} for questions and result checks`,
     detail:
-      'Best for questions, planning, writing, and checking results when no project files need to be opened.',
+      'Best for questions, writing, and checking results when no project files need to be opened.',
     items: [
       { label: 'Where it works', value: 'AI service only' },
       { label: 'Files', value: 'Does not open project files' },
@@ -254,7 +254,7 @@ function createReviewItems({
     kind === 'local-cli'
       ? "Paste the setup text in this computer's command app and keep that app open."
       : kind === 'provider'
-        ? 'Ask a first question, or send a result-check task that does not need files.'
+        ? 'Ask a first question, or send a task to check a result that does not need files.'
         : 'Wait until it shows Ready, then send one small task from Tasks.'
 
   return [
@@ -877,8 +877,8 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 </span>
                 <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
                   {kind === 'provider'
-                    ? 'Fills in name and instructions'
-                    : 'Fills in name and starter task instructions'}
+                    ? 'Fills in the name and what this agent should do'
+                    : 'Fills in the name and first task'}
                 </span>
               </div>
               <div

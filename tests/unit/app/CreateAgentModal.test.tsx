@@ -88,7 +88,7 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText('Where should this agent work?')).toBeInTheDocument()
     expect(screen.getByRole('radiogroup', { name: /where should this agent work/i })).toBeDefined()
     expect(screen.queryByText('Choose work style')).toBeNull()
-    expect(screen.getByText('Fills in name and starter task instructions')).toBeInTheDocument()
+    expect(screen.getByText('Fills in the name and first task')).toBeInTheDocument()
     expect(screen.getByText('Updates the work and checks it')).toBeInTheDocument()
     expect(screen.queryByText('Builds changes and checks them')).toBeNull()
     expect(screen.getAllByText(/claude with project files/i).length).toBeGreaterThan(0)
@@ -429,12 +429,12 @@ describe('CreateAgentModal', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
 
-    expect(screen.getByText('Fills in name and instructions')).toBeInTheDocument()
+    expect(screen.getByText('Fills in the name and what this agent should do')).toBeInTheDocument()
     expect(
       screen.getAllByText(/anthropic for questions and result checks/i).length
     ).toBeGreaterThan(0)
     expect(
-      screen.getByText(/questions, planning, writing, and checking results/i)
+      screen.getByText(/questions, writing, and checking results/i)
     ).toBeInTheDocument()
     expect(screen.getByText(/does not open project files/i)).toBeInTheDocument()
     expect(screen.getByText('Check AI service in Settings')).toBeInTheDocument()
@@ -455,7 +455,7 @@ describe('CreateAgentModal', () => {
     const review = screen.getByTestId('agent-create-review')
     expect(
       within(review).getByText(
-        'Ask a first question, or send a result-check task that does not need files.'
+        'Ask a first question, or send a task to check a result that does not need files.'
       )
     ).toBeInTheDocument()
     expect(
