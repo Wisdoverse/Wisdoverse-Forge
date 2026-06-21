@@ -1056,6 +1056,9 @@ const AGENT_TASK_EMPTY_DEAD_END_PATTERNS = [
   /\bWork will appear here\./i,
 ]
 const AGENT_LIST_SUMMARY_DEAD_END_PATTERNS = [/\bNo agents\b/i]
+const AGENT_FIRST_EMPTY_NEXT_STEP_PATTERNS = [
+  /\bStart with a chat-only AI service for questions and result checks,\s*or connect this computer when\b/i,
+]
 const CHAT_ONLY_AGENT_REVIEW_JARGON_PATTERNS = [
   /\bchat-only AI service for planning and review\b/i,
   /\bBest for planning, writing, and review\b/i,
@@ -3748,6 +3751,12 @@ function hasAgentListSummaryDeadEndCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/agents/AgentListView.tsx')) return false
   if (line.trim().startsWith('//') || line.trim().startsWith('*')) return false
   return AGENT_LIST_SUMMARY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasAgentFirstEmptyNextStepCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/agents/AgentListView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_FIRST_EMPTY_NEXT_STEP_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasChatOnlyAgentReviewJargonCopy(relFile, line) {
@@ -6615,6 +6624,15 @@ function scanFile(file, relFile) {
         type: 'agent-list-summary-copy',
         location,
         message: 'Agent list empty summaries must point beginners to creating the first agent.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentFirstEmptyNextStepCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-first-empty-next-step-copy',
+        location,
+        message: 'First-agent empty states must name the next click and a safe default choice.',
         sample: line.trim(),
       })
     }
