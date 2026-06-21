@@ -34,7 +34,8 @@ describe('SkillCard', () => {
     ).toBeInTheDocument()
     expect(screen.queryByText(/workspace skills/i)).toBeNull()
     expect(screen.queryByText(/workspace saved instructions/i)).toBeNull()
-    expect(screen.getByText('Suggested for tasks that mention: release')).toBeInTheDocument()
+    expect(screen.getByText('Matching words: release')).toBeInTheDocument()
+    expect(screen.queryByText('Suggested for tasks that mention: release')).not.toBeInTheDocument()
     expect(screen.queryByText(/Use when task says/i)).toBeNull()
   })
 
