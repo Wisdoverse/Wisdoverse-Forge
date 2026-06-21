@@ -485,7 +485,7 @@ export const en = {
       close: 'Done',
       subtitle: 'Reusable instructions agents can apply during task work.',
       statusReady: 'Ready to use',
-      statusNeedsInstall: 'Needs install before agents can use it',
+      statusNeedsInstall: 'Needs setup before use',
       cliFit: 'Best with {{tool}}',
       unknownToolFit: 'Check work tool in Settings',
       allAgentsFit: 'Works with any agent',
@@ -496,7 +496,7 @@ export const en = {
       nextStepReady:
         'Use this saved instruction when creating a task, or rely on its matching words to suggest it for similar work.',
       nextStepNeedsInstall:
-        'Ask an owner or admin to install it before expecting agents to use it in tasks.',
+        'Ask an owner or admin to finish setup, then use this saved instruction in a task.',
       sourceLabel: 'Where it came from',
       authorLabel: 'Updated by',
       availabilityLabel: 'Available to',

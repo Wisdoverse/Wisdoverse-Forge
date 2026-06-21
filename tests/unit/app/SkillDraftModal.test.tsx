@@ -32,7 +32,7 @@ afterEach(() => {
 })
 
 describe('SkillDraftModal', () => {
-  test('uses explicit close wording before publishing a saved instruction', async () => {
+  test('uses explicit close wording before saving a saved instruction', async () => {
     const onClose = vi.fn()
     const user = userEvent.setup()
 
@@ -45,7 +45,7 @@ describe('SkillDraftModal', () => {
       />
     )
 
-    expect(screen.getByRole('button', { name: 'Close without publishing' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Close without saving' })).toBeDefined()
     expect(
       screen.getByText(/Check what should repeat before saving it for your team space/i)
     ).toBeDefined()
@@ -55,13 +55,13 @@ describe('SkillDraftModal', () => {
     expect(screen.queryByText(/saving it for the workspace/i)).toBeNull()
     expect(screen.queryByRole('button', { name: /^Cancel$/ })).toBeNull()
 
-    await user.click(screen.getByRole('button', { name: 'Close without publishing' }))
+    await user.click(screen.getByRole('button', { name: 'Close without saving' }))
 
     expect(onClose).toHaveBeenCalledTimes(1)
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  test('keeps the user in flow after publishing a saved instruction', async () => {
+  test('keeps the user in flow after saving a saved instruction', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -87,7 +87,7 @@ describe('SkillDraftModal', () => {
       />
     )
 
-    expect(screen.getByText(/check before publishing/i)).toBeDefined()
+    expect(screen.getByText(/check before saving/i)).toBeDefined()
     expect(
       screen.getByText(/the matching words are words teammates would type in a task/i)
     ).toBeDefined()
@@ -108,11 +108,13 @@ describe('SkillDraftModal', () => {
     expect(screen.queryByText(/secret keys/i)).toBeNull()
     expect(screen.queryByText(/tokens/i)).toBeNull()
     expect(screen.getByText(/choose the agents that should follow it/i)).toBeDefined()
+    expect(screen.queryByText(/publishing/i)).toBeNull()
+    expect(screen.queryByRole('button', { name: /publish instruction/i })).toBeNull()
 
-    await userEvent.setup().click(screen.getByRole('button', { name: /publish instruction/i }))
+    await userEvent.setup().click(screen.getByRole('button', { name: /save instruction/i }))
 
     expect(await screen.findByTestId('skill-published-state')).toBeDefined()
-    expect(screen.getByText('Instruction published')).toBeDefined()
+    expect(screen.getByText('Saved instruction is ready')).toBeDefined()
     expect(screen.getByText('refactor-database-migration')).toBeDefined()
 
     const openSkills = screen.getByRole('link', { name: /open saved instructions/i })
@@ -137,7 +139,7 @@ describe('SkillDraftModal', () => {
     })
   })
 
-  test('guides the user through required draft fields before publishing', async () => {
+  test('guides the user through required draft fields before saving', async () => {
     const user = userEvent.setup()
 
     render(
@@ -149,7 +151,7 @@ describe('SkillDraftModal', () => {
       />
     )
 
-    expect(screen.getByText(/check 3 things before publishing/i)).toBeDefined()
+    expect(screen.getByText(/check 3 things before saving/i)).toBeDefined()
     expect(document.querySelectorAll('[id="skill-draft-trigger-help"]')).toHaveLength(1)
     expect(document.querySelectorAll('[id="skill-draft-trigger-intro"]')).toHaveLength(1)
     expect(screen.getByText(/type words teammates would put in a task/i)).toBeDefined()
@@ -163,10 +165,10 @@ describe('SkillDraftModal', () => {
     )
 
     await user.clear(screen.getByLabelText(/^instruction name$/i))
-    await user.click(screen.getByRole('button', { name: /publish instruction/i }))
+    await user.click(screen.getByRole('button', { name: /save instruction/i }))
 
     const nameAlert = screen.getByRole('alert')
-    expect(nameAlert).toHaveTextContent('Name this instruction before publishing it.')
+    expect(nameAlert).toHaveTextContent('Name this instruction before saving it.')
     expect(nameAlert).toHaveAttribute('aria-live', 'polite')
     expect(screen.getByLabelText(/^instruction name$/i)).toHaveFocus()
     expect(screen.getByLabelText(/^instruction name$/i)).toHaveAttribute('aria-invalid', 'true')
@@ -176,11 +178,11 @@ describe('SkillDraftModal', () => {
     expect(screen.getByLabelText(/^instruction name$/i)).not.toHaveAttribute('aria-invalid', 'true')
 
     await user.clear(screen.getByLabelText(/^reusable instructions$/i))
-    await user.click(screen.getByRole('button', { name: /publish instruction/i }))
+    await user.click(screen.getByRole('button', { name: /save instruction/i }))
 
     const stepsAlert = screen.getByRole('alert')
     expect(stepsAlert).toHaveTextContent(
-      'Add the repeatable steps, or keep the suggested steps, before publishing.'
+      'Add the repeatable steps, or keep the suggested steps, before saving.'
     )
     expect(stepsAlert).toHaveAttribute('aria-live', 'polite')
     expect(screen.getByLabelText(/^reusable instructions$/i)).toHaveFocus()
@@ -220,7 +222,7 @@ describe('SkillDraftModal', () => {
     expect(screen.queryByDisplayValue(/task-1234567890/i)).toBeNull()
   })
 
-  test('explains publish permission failures without raw API text', async () => {
+  test('explains save permission failures without raw API text', async () => {
     const user = userEvent.setup()
     fetchMock.mockResolvedValueOnce({
       ok: false,
@@ -237,10 +239,10 @@ describe('SkillDraftModal', () => {
       />
     )
 
-    await user.click(screen.getByRole('button', { name: /publish instruction/i }))
+    await user.click(screen.getByRole('button', { name: /save instruction/i }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Ask an owner or admin to let you create saved instructions, then publish again. Instruction was not published.'
+      'Ask an owner or admin to let you create saved instructions, then save again. Saved instruction was not saved.'
     )
     expect(screen.queryByText(/HTTP 403/i)).toBeNull()
   })
