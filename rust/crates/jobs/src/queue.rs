@@ -68,6 +68,37 @@ pub async fn enqueue(
     Ok(id)
 }
 
+/// Transactional sibling of [`enqueue`]. Inserts the job using the caller's
+/// transaction so the enqueue commits atomically with the surrounding write
+/// (e.g. a task completion). The job row itself is the durable trigger record —
+/// no separate outbox/relay is needed for in-process workers.
+pub async fn enqueue_in_tx(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    queue: &str,
+    payload: Value,
+    priority: i32,
+    run_at: Option<DateTime<Utc>>,
+    unique_key: Option<&str>,
+    max_attempts: i32,
+) -> Result<Option<Uuid>, sqlx::Error> {
+    let run_at = run_at.unwrap_or_else(Utc::now);
+    let id = sqlx::query_scalar::<_, Uuid>(
+        r#"INSERT INTO job_queue (queue, payload, priority, run_at, unique_key, max_attempts)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           ON CONFLICT (unique_key) WHERE unique_key IS NOT NULL DO NOTHING
+           RETURNING id"#,
+    )
+    .bind(queue)
+    .bind(&payload)
+    .bind(priority)
+    .bind(run_at)
+    .bind(unique_key)
+    .bind(max_attempts)
+    .fetch_optional(&mut **tx)
+    .await?;
+    Ok(id)
+}
+
 /// Dequeue and lock the next available job from the specified queue.
 ///
 /// Uses `FOR UPDATE SKIP LOCKED` to avoid contention between concurrent workers.
@@ -219,5 +250,39 @@ mod tests {
         assert_eq!(job.status, "running");
         assert_eq!(job.locked_by.as_deref(), Some("worker-01"));
         assert!(job.locked_at.is_some());
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn enqueue_in_tx_commits_and_is_dequeueable(pool: PgPool) {
+        let mut tx = pool.begin().await.unwrap();
+        let id = enqueue_in_tx(
+            &mut tx,
+            "self_fix_pr",
+            serde_json::json!({"task_id": "t1"}),
+            0,
+            None,
+            Some("uk-1"),
+            5,
+        )
+        .await
+        .unwrap();
+        assert!(id.is_some());
+        tx.commit().await.unwrap();
+
+        let job = dequeue(&pool, "self_fix_pr", "worker-test").await.unwrap();
+        assert!(job.is_some(), "committed job must be dequeueable");
+        assert_eq!(job.unwrap().queue, "self_fix_pr");
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn enqueue_in_tx_rolls_back_with_the_outer_tx(pool: PgPool) {
+        let mut tx = pool.begin().await.unwrap();
+        enqueue_in_tx(&mut tx, "self_fix_pr", serde_json::json!({}), 0, None, Some("uk-2"), 5)
+            .await
+            .unwrap();
+        tx.rollback().await.unwrap();
+
+        let job = dequeue(&pool, "self_fix_pr", "worker-test").await.unwrap();
+        assert!(job.is_none(), "rolled-back job must not exist");
     }
 }
