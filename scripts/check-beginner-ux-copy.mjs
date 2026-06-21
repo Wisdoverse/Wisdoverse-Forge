@@ -1172,6 +1172,11 @@ const SAVED_INSTRUCTION_DETAIL_HELPER_JARGON_PATTERNS = [
   /请先补充说明，再让 Agent 使用这条保存的说明/,
 ]
 
+const SAVED_INSTRUCTION_EMPTY_STATE_JARGON_PATTERNS = [
+  /\breview checklists\b/i,
+  /\brelease-note rules\b/i,
+]
+
 const SAVED_INSTRUCTION_LIST_STATUS_JARGON_PATTERNS = [
   /\binstalled:\s*['"`]Installed['"`]/,
   /\bavailable:\s*['"`]Available['"`]/,
@@ -4656,6 +4661,12 @@ function hasSavedInstructionDetailHelperJargonCopy(relFile, line) {
   return SAVED_INSTRUCTION_DETAIL_HELPER_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasSavedInstructionEmptyStateJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/skills/SkillsView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return SAVED_INSTRUCTION_EMPTY_STATE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasSavedInstructionListStatusJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/skills/SkillsView.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -7642,6 +7653,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Saved instruction detail helper copy must explain when to use it and what to read next in beginner terms.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasSavedInstructionEmptyStateJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'saved-instruction-empty-copy',
+        location,
+        message:
+          'Saved instruction empty states must use ordinary work examples instead of review or release jargon.',
         sample: line.trim(),
       })
     }
