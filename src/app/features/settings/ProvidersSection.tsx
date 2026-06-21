@@ -114,8 +114,8 @@ const PROVIDER_SETUP_STEPS = [
     value: 'Copy the service access key from that AI account. Do not paste the sign-in password.',
   },
   {
-    label: 'Save, then check connection',
-    value: 'After saving, choose Check connection. Ready means agents can use this service.',
+    label: 'Save, then make it ready',
+    value: 'After saving, choose Check connection. You are done when it shows Ready.',
   },
 ]
 
@@ -419,7 +419,7 @@ function providerFormReadiness({
       ready: false,
       title: 'Next: choose the service setup',
       detail:
-        'Keep the suggested setup unless your service guide gives you a different model name.',
+        'Keep the suggested setup unless your service guide gives you a different setup name.',
       error: 'Choose the service setup before saving this AI service.',
       fieldId: modelInputId,
     }
@@ -451,7 +451,7 @@ function providerFormReadiness({
     ready: true,
     title: 'Ready to save this service',
     detail:
-      'Save it. When it appears in the list, choose Check connection; Ready means agents can use it.',
+      'Save it. When it appears below, choose Check connection. You are done when it shows Ready.',
     error: null,
     fieldId: null,
   }
@@ -472,15 +472,15 @@ function discoverySetupMessage({
   const missingBaseUrl = needsBaseUrl && !baseUrl.trim()
 
   if (missingApiKey && missingBaseUrl) {
-    return 'Paste the service access key and service address first, then choose Find available models. You can also keep the suggested setup and save.'
+    return 'Paste the service access key and service address first, then choose Show setup choices. You can also keep the suggested setup and save.'
   }
 
   if (missingApiKey) {
-    return 'Paste the service access key first, then choose Find available models. You can also keep the suggested setup and save.'
+    return 'Paste the service access key first, then choose Show setup choices. You can also keep the suggested setup and save.'
   }
 
   if (missingBaseUrl) {
-    return 'Enter the service address first, then choose Find available models. You can also keep the suggested setup and save.'
+    return 'Enter the service address first, then choose Show setup choices. You can also keep the suggested setup and save.'
   }
 
   return null
@@ -644,7 +644,7 @@ function ProviderCard({ providerConfig, onTest, onSetEnabled, onDelete }: Provid
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
   const persistedTestResult =
     lastTestStatus === 'passed'
-      ? { ok: true, message: 'Connection ready' }
+      ? { ok: true, message: 'Ready: agents can use this service.' }
       : lastTestStatus === 'failed'
         ? { ok: false, message: providerTestErrorMessage(lastTestErrorMessage, displayName) }
         : null
@@ -674,7 +674,7 @@ function ProviderCard({ providerConfig, onTest, onSetEnabled, onDelete }: Provid
       setTestResult({
         ok: result.ok,
         message: result.ok
-          ? 'Connection ready'
+          ? 'Ready: agents can use this service.'
           : providerTestErrorMessage(result.error, displayName),
       })
     } catch (err) {
@@ -724,13 +724,13 @@ function ProviderCard({ providerConfig, onTest, onSetEnabled, onDelete }: Provid
                 {providerStatusLabel(providerConfig)}
               </span>
             </div>
-            <div className="flex items-center gap-2 mt-0.5">
+            <div className="mt-0.5 flex flex-wrap items-center gap-2">
               <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                {model}
+                Saved setup: {model}
               </span>
               {apiKeyPrefix && (
-                <span className="font-mono text-ui-caption text-secondary-light dark:text-secondary-dark">
-                  {apiKeyPrefix}••••
+                <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  Key saved: <span className="font-mono">{apiKeyPrefix}••••</span>
                 </span>
               )}
             </div>
@@ -1057,9 +1057,9 @@ type PlanVariant = 'api' | 'coding'
 type RegionVariant = 'cn' | 'global'
 
 /**
- * Clickable quick-pick chips for a provider's common models. Surfaces the
- * curated model list directly (the `<datalist>` alone is easy to miss) while
- * the text input still accepts any custom model name. The chip matching the
+ * Clickable quick-pick chips for a provider's common setup choices. Surfaces the
+ * curated setup list directly (the `<datalist>` alone is easy to miss) while
+ * the text input still accepts any custom setup name. The chip matching the
  * current value is highlighted.
  */
 function ModelQuickPicks({
@@ -1074,7 +1074,11 @@ function ModelQuickPicks({
   if (models.length === 0) return null
   const current = selected.trim()
   return (
-    <div className="mb-1.5 flex flex-wrap gap-1.5" role="group" aria-label="Common models">
+    <div
+      className="mb-1.5 flex flex-wrap gap-1.5"
+      role="group"
+      aria-label="Suggested service setups"
+    >
       {models.map((m) => {
         const active = m.model === current
         return (
@@ -1100,9 +1104,9 @@ function ModelQuickPicks({
 }
 
 /**
- * Live model discovery state for a config form. Asks the backend to list a
- * provider's current models; on success the caller swaps the curated chips for
- * the live list. Never throws to the UI — a failure just keeps the curated
+ * Live setup choice discovery state for a config form. Asks the backend to list
+ * a provider's current choices; on success the caller swaps the curated chips
+ * for the live list. Never throws to the UI — a failure just keeps the curated
  * list and surfaces a soft note.
  */
 function useModelDiscovery() {
@@ -1118,12 +1122,12 @@ function useModelDiscovery() {
       setDiscovered(result)
       if (result.source === 'curated' || result.models.length === 0) {
         setError(
-          'Could not load a live list from the service. Showing the built-in models — pick one below, or type your model name in the field.'
+          'Could not load setup choices from the service. Showing built-in choices — pick one below, or type the setup name from your guide.'
         )
       }
     } catch {
       setError(
-        'Could not reach the service to list models. Check the access key, then choose Find available models again — or pick a built-in model below.'
+        'Could not reach the service to show setup choices. Check the access key, then choose Show setup choices again — or pick a built-in choice below.'
       )
     } finally {
       setDiscovering(false)
@@ -1143,7 +1147,7 @@ function useModelDiscovery() {
   return { discovered, discovering, error, discover, guide, reset }
 }
 
-/** "Find available models" affordance + live/curated status line. */
+/** "Show setup choices" affordance + live/curated status line. */
 function DiscoverModelsControl({
   discovering,
   discovered,
@@ -1166,11 +1170,11 @@ function DiscoverModelsControl({
           'text-apple-blue hover:border-apple-blue/40 disabled:cursor-not-allowed disabled:opacity-60'
         )}
       >
-        {discovering ? 'Finding models…' : 'Find available models'}
+        {discovering ? 'Finding choices…' : 'Show setup choices'}
       </button>
       {discovered?.source === 'live' && !error && (
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Live list from the service.
+          Live setup choices from the service.
         </span>
       )}
       {error && (
@@ -1304,7 +1308,7 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
           </p>
           <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
             Forge fills in the setup choices for you. Paste the service access key and save. After
-            saving, choose Check connection. Ready means simple chat agents can use this service.
+            saving, choose Check connection. You are done when it shows Ready.
           </p>
         </div>
         <button
@@ -1350,7 +1354,7 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
             Service setup
           </label>
           <p className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Keep the suggested setup unless your service guide gives you a different model name.
+            Keep the suggested setup unless your service guide gives you a different setup name.
           </p>
           {allowCustomModels ? (
             <>
@@ -1367,7 +1371,7 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
                 name="model"
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
-                placeholder={variant?.defaultModel ?? 'e.g. model name…'}
+                placeholder={variant?.defaultModel ?? 'e.g. setup name…'}
                 list={models.length > 0 ? modelListId : undefined}
                 autoComplete="off"
                 aria-invalid={modelError}
@@ -1720,7 +1724,7 @@ function AddProviderFormPanel({
             id={modelHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Keep the suggested setup unless your service guide gives you a different model name.
+            Keep the suggested setup unless your service guide gives you a different setup name.
           </p>
           {(selectedProvider?.allowCustomModels ?? true) ? (
             <>
