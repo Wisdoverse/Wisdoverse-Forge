@@ -762,6 +762,9 @@ function CatalogGrid() {
 function ModelQuickPicks() {
   return 'Gateway alias: gpt-4o-mini'
 }
+function ProviderCard({ testing }) {
+  return <span>{testing ? 'Checking' : 'Check'}</span>
+}
 `,
       'src/app/features/agents/CreateAgentModal.tsx': `
 function CreateAgentModal() {
@@ -828,6 +831,10 @@ function settingsValidationMessage() {
         expect.objectContaining({
           type: 'provider-setup-copy',
           location: 'src/app/features/settings/ProvidersSection.tsx:16',
+        }),
+        expect.objectContaining({
+          type: 'provider-setup-copy',
+          location: 'src/app/features/settings/ProvidersSection.tsx:22',
         }),
         expect.objectContaining({
           type: 'provider-setup-copy',

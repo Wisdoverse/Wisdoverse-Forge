@@ -221,6 +221,7 @@ const PROVIDER_ADDRESS_JARGON_PATTERNS = [
 
 const PROVIDER_SETUP_JARGON_PATTERNS = [
   /\bcopy its access key\b/i,
+  /\bChecking['"`]\s*:\s*['"`]Check\b/,
   /\bSave and check\b/i,
   /\bsave and check again\b/i,
   /\bclick Check\b/i,
