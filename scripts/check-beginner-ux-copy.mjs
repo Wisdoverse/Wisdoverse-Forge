@@ -32,6 +32,11 @@ const RAW_USER_VISIBLE_PATTERNS = [
   /\bdatabase unavailable\b/i,
 ]
 
+const REPORT_STYLE_COPY_PATTERNS = [
+  /\bpeople report(?:ed)? they may be\b/i,
+  /\bbecause people reported they may be\b/i,
+]
+
 const SETTINGS_PATH_JARGON_PATTERNS = [
   /\bOpen Settings\s*>\s*AI services\b/i,
   /\bOpen Settings\s*&gt;\s*AI services\b/i,
@@ -2719,6 +2724,11 @@ function hasRawUserVisibleCopy(line) {
   return RAW_USER_VISIBLE_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasReportStyleCopy(line) {
+  if (isLikelyGuardOrParserLine(line)) return false
+  return REPORT_STYLE_COPY_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasSettingsPathJargonCopy(line) {
   if (isLikelyGuardOrParserLine(line)) return false
   return SETTINGS_PATH_JARGON_PATTERNS.some((pattern) => pattern.test(line))
@@ -5323,6 +5333,16 @@ function scanFile(file, relFile) {
         type: 'raw-error-copy',
         location,
         message: 'User-visible copy must not expose raw transport or backend failure wording.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasReportStyleCopy(line)) {
+      findings.push({
+        type: 'report-style-copy',
+        location,
+        message:
+          'User-visible copy should say who marked an item and what to do next, not use report-style wording.',
         sample: line.trim(),
       })
     }

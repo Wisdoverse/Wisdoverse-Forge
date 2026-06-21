@@ -54,8 +54,14 @@ describe('ContextUsageDashboard', () => {
     expect(screen.getByText('Completed work after saved items were used.')).toBeDefined()
     expect(screen.getByText('Times users marked saved items helpful.')).toBeDefined()
     expect(screen.getByText('Items people marked for another look.')).toBeDefined()
+    expect(
+      screen.getByText(
+        'Check these before agents reuse them because teammates marked them as outdated, incorrect, or sensitive.'
+      )
+    ).toBeDefined()
     expect(screen.getByText('Updated 15m ago')).toBeDefined()
     expect(screen.queryByText('Signals to check before reuse.')).toBeNull()
+    expect(screen.queryByText(/people report/i)).toBeNull()
   })
 
   test('turns empty lists into next-step guidance', () => {
@@ -73,9 +79,10 @@ describe('ContextUsageDashboard', () => {
     ).toBeDefined()
     expect(
       screen.getByText(
-        'Items appear here when people report they may be outdated, incorrect, or too sensitive.'
+        'Items appear here when teammates mark them as outdated, incorrect, or too sensitive.'
       )
     ).toBeDefined()
+    expect(screen.queryByText(/people report/i)).toBeNull()
     expect(
       screen.getByText(
         'Next: no action is needed now; keep using task feedback so risky saved items appear here.'
