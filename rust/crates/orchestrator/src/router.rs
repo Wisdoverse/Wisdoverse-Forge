@@ -51,8 +51,15 @@ struct CreateParticipantRequest {
     display_name: Option<String>,
 }
 
-async fn health() -> axum::Json<serde_json::Value> {
-    axum::Json(serde_json::json!({"status": "healthy"}))
+pub fn health_body(status: crate::workflow::WorkflowRuntimeStatus) -> serde_json::Value {
+    serde_json::json!({
+        "status": "healthy",
+        "workflowRuntime": status.as_str(),
+    })
+}
+
+async fn health(axum::extract::State(state): axum::extract::State<AppState>) -> axum::Json<serde_json::Value> {
+    axum::Json(health_body(state.workflow_runtime))
 }
 
 fn error(status: StatusCode, message: &str) -> Response {
@@ -115,5 +122,20 @@ async fn create_participant(
     match provisioner.create_or_update_internal_participant(&org_id, user_id, req.display_name.as_deref()).await {
         Ok(participant) => (StatusCode::CREATED, Json(json!({"ok": true, "participant": participant}))).into_response(),
         Err(_) => error(StatusCode::INTERNAL_SERVER_ERROR, "failed to create participant"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn health_body_reports_runtime_status() {
+        use crate::workflow::WorkflowRuntimeStatus::*;
+        assert_eq!(health_body(Up)["workflowRuntime"], "up");
+        assert_eq!(health_body(Disabled)["workflowRuntime"], "disabled");
+        assert_eq!(health_body(Unreachable)["workflowRuntime"], "unreachable");
+        // Keep the existing top-level field stable for current consumers.
+        assert_eq!(health_body(Up)["status"], "healthy");
     }
 }

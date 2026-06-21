@@ -108,24 +108,39 @@ MinIO values and start the `storage` profile if MinIO is managed by this stack.
 
 ## Rust Orchestrator Variables
 
-| Variable                          | Default                                    | Required                          | Purpose                                                                              |
-| --------------------------------- | ------------------------------------------ | --------------------------------- | ------------------------------------------------------------------------------------ |
-| `ORCHESTRATOR_PORT`               | `4010`                                     | No                                | Orchestrator listen port                                                             |
-| `ORCHESTRATOR_HOST`               | `0.0.0.0`                                  | No                                | Orchestrator bind host                                                               |
-| `ORCHESTRATOR_DATABASE_URL`       | empty                                      | Yes in live mode                  | Orchestrator PostgreSQL connection                                                   |
-| `ORCHESTRATOR_LOG_LEVEL`          | `info`                                     | No                                | Tracing filter                                                                       |
-| `ORCHESTRATOR_INTERNAL_TOKEN`     | none                                       | Recommended                       | Internal auth for live workflow and service-to-service calls                         |
-| `ORCHESTRATOR_JWT_SIGNING_KEY`    | none                                       | Optional                          | JWT auth mode signing key; if set, must be valid hex and decode to at least 32 bytes |
-| `ORCHESTRATOR_MCP_ENDPOINT`       | `http://localhost:4003/mcp`                | No                                | Rust API MCP endpoint used by workflow activities                                    |
-| `ORCHESTRATOR_MCP_TOKEN`          | empty                                      | Required when Temporal is enabled | Shared token for internal MCP calls                                                  |
-| `ORCHESTRATOR_TEMPORAL_ENABLED`   | `false` in code, `true` in default Compose | No                                | Enables live Temporal runtime                                                        |
-| `ORCHESTRATOR_TEMPORAL_HOST`      | `localhost:7233`                           | No                                | Temporal frontend address                                                            |
-| `ORCHESTRATOR_TEMPORAL_NAMESPACE` | `orchestrator`                             | No                                | Temporal namespace                                                                   |
-| `ORCHESTRATOR_OPENSEARCH_ENABLED` | `false`                                    | No                                | Enables OpenSearch-backed knowledge search                                           |
-| `ORCHESTRATOR_OPENSEARCH_URL`     | `http://localhost:9200`                    | No                                | OpenSearch endpoint                                                                  |
-| `ORCHESTRATOR_EMBEDDING_API_URL`  | empty                                      | Optional                          | Embedding provider endpoint                                                          |
-| `ORCHESTRATOR_EMBEDDING_API_KEY`  | empty                                      | Optional                          | Embedding provider secret                                                            |
-| `ORCHESTRATOR_EMBEDDING_MODEL`    | `text-embedding-3-small`                   | No                                | Embedding model name                                                                 |
+| Variable                                     | Default                                    | Required                          | Purpose                                                                                                                                                                                                                              |
+| -------------------------------------------- | ------------------------------------------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ORCHESTRATOR_PORT`                          | `4010`                                     | No                                | Orchestrator listen port                                                                                                                                                                                                             |
+| `ORCHESTRATOR_HOST`                          | `0.0.0.0`                                  | No                                | Orchestrator bind host                                                                                                                                                                                                               |
+| `ORCHESTRATOR_DATABASE_URL`                  | empty                                      | Yes in live mode                  | Orchestrator PostgreSQL connection                                                                                                                                                                                                   |
+| `ORCHESTRATOR_LOG_LEVEL`                     | `info`                                     | No                                | Tracing filter                                                                                                                                                                                                                       |
+| `ORCHESTRATOR_INTERNAL_TOKEN`                | none                                       | Recommended                       | Internal auth for live workflow and service-to-service calls                                                                                                                                                                         |
+| `ORCHESTRATOR_JWT_SIGNING_KEY`               | none                                       | Optional                          | JWT auth mode signing key; if set, must be valid hex and decode to at least 32 bytes                                                                                                                                                 |
+| `ORCHESTRATOR_MCP_ENDPOINT`                  | `http://localhost:4003/mcp`                | No                                | Rust API MCP endpoint used by workflow activities                                                                                                                                                                                    |
+| `ORCHESTRATOR_MCP_TOKEN`                     | empty                                      | Required when Temporal is enabled | Shared token for internal MCP calls                                                                                                                                                                                                  |
+| `ORCHESTRATOR_TEMPORAL_ENABLED`              | `false` in code, `true` in default Compose | No                                | Enables live Temporal runtime                                                                                                                                                                                                        |
+| `ORCHESTRATOR_TEMPORAL_HOST`                 | `localhost:7233`                           | No                                | Temporal frontend address                                                                                                                                                                                                            |
+| `ORCHESTRATOR_TEMPORAL_NAMESPACE`            | `orchestrator`                             | No                                | Temporal namespace                                                                                                                                                                                                                   |
+| `ORCHESTRATOR_TEMPORAL_CONNECT_TIMEOUT_SECS` | `10`                                       | No                                | Bounded preflight timeout for the boot-time Temporal connect. On timeout or connect failure the orchestrator no longer aborts startup — it serves in degraded (API-only) mode and `/health` reports `workflowRuntime: "unreachable"` |
+| `ORCHESTRATOR_OPENSEARCH_ENABLED`            | `false`                                    | No                                | Enables OpenSearch-backed knowledge search                                                                                                                                                                                           |
+| `ORCHESTRATOR_OPENSEARCH_URL`                | `http://localhost:9200`                    | No                                | OpenSearch endpoint                                                                                                                                                                                                                  |
+| `ORCHESTRATOR_EMBEDDING_API_URL`             | empty                                      | Optional                          | Embedding provider endpoint                                                                                                                                                                                                          |
+| `ORCHESTRATOR_EMBEDDING_API_KEY`             | empty                                      | Optional                          | Embedding provider secret                                                                                                                                                                                                            |
+| `ORCHESTRATOR_EMBEDDING_MODEL`               | `text-embedding-3-small`                   | No                                | Embedding model name                                                                                                                                                                                                                 |
+
+### Orchestration readiness
+
+The orchestrator's public `/health` endpoint reports a `workflowRuntime` field so
+operators can tell the difference between "API up, workflows running" and "API up,
+workflows down":
+
+- `up` — Temporal connected and the workflow worker is running.
+- `disabled` — Temporal is intentionally off (`ORCHESTRATOR_TEMPORAL_ENABLED=false`)
+  or no store is configured.
+- `unreachable` — Temporal is enabled but could not be reached within
+  `ORCHESTRATOR_TEMPORAL_CONNECT_TIMEOUT_SECS` at boot. The process keeps serving
+  read paths instead of crash-looping; workflows are paused until Temporal recovers.
+  Fix Temporal (host/namespace are logged at boot), then restart the orchestrator.
 
 ## Internal MCP and Container Runtime Variables
 
