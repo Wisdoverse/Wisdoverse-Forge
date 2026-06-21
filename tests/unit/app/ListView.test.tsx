@@ -108,7 +108,16 @@ describe('ListView', () => {
 
     expect(screen.getByText('Prepare release notes')).toBeDefined()
     expect(screen.getByText('Waiting to start')).toBeDefined()
+    expect(screen.getByTestId('list-next-step')).toHaveTextContent(
+      'Check 1 task that is waiting or running.'
+    )
+    expect(
+      screen.getByText(
+        'Open waiting or running work to confirm progress is moving and no decision is needed.'
+      )
+    ).toBeDefined()
     expect(screen.getByText(/available agent to start it/i)).toBeDefined()
+    expect(screen.queryByText(/Review 1 active task/i)).toBeNull()
     expect(screen.queryByText('Queued')).toBeNull()
     expect(screen.queryByText(/queue/i)).toBeNull()
   })
@@ -221,7 +230,27 @@ describe('ListView', () => {
     expect(screen.getByTestId('list-work-register').textContent).not.toContain('next lane')
   })
 
-  test('guides completed task review without evidence jargon', () => {
+  test('guides assigned unsent tasks without review wording', () => {
+    useBoardStore.getState().setTasks([
+      {
+        id: 'draft-1',
+        state: 'backlog',
+        params: { task: 'Draft onboarding checklist', message: '' },
+        assignedAgentName: 'Docs Agent',
+        priority: 'normal',
+        progress: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as any,
+    ])
+
+    render(<ListView />)
+
+    expect(screen.getByText('Check the task details, then send it to the agent.')).toBeDefined()
+    expect(screen.queryByText('Review the task, then send it to the agent.')).toBeNull()
+  })
+
+  test('guides completed task checks without evidence jargon', () => {
     useBoardStore.getState().setTasks([
       {
         id: 'done-1',
@@ -236,13 +265,14 @@ describe('ListView', () => {
 
     render(<ListView />)
 
-    expect(screen.getByTestId('list-next-step')).toHaveTextContent('Review completed work.')
+    expect(screen.getByTestId('list-next-step')).toHaveTextContent('Check completed work.')
     expect(
       screen.getByText(
         'Open completed tasks to check the result, result files, and anything worth reusing.'
       )
     ).toBeDefined()
     expect(screen.getByText('Open it to check the result and result files.')).toBeDefined()
+    expect(screen.queryByText('Review completed work.')).toBeNull()
     expect(screen.queryByText(/result, evidence/i)).toBeNull()
     expect(screen.queryByText(/result and evidence/i)).toBeNull()
   })

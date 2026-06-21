@@ -17096,6 +17096,56 @@ function agentNextStep() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags task list review wording for next-step summaries and row actions', () => {
+    const cwd = fixture({
+      'src/app/features/list/ListView.tsx': `
+function listNextStep() {
+  return {
+    active: 'Review 2 active tasks.',
+    completed: 'Review completed work.',
+    action: 'Review the task, then send it to the agent.',
+  }
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'task-list-review-action-copy',
+          location: 'src/app/features/list/ListView.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'task-list-review-action-copy',
+          location: 'src/app/features/list/ListView.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'task-list-review-action-copy',
+          location: 'src/app/features/list/ListView.tsx:6',
+        }),
+      ])
+    )
+  })
+
+  it('accepts task list next-step summaries and row actions that use check wording', () => {
+    const cwd = fixture({
+      'src/app/features/list/ListView.tsx': `
+function listNextStep() {
+  return {
+    active: 'Check 2 tasks that are waiting or running.',
+    completed: 'Check completed work.',
+    action: 'Check the task details, then send it to the agent.',
+  }
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags generic agent detail headings that do not name the useful content', () => {
     const cwd = fixture({
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
