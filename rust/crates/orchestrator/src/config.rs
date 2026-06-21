@@ -29,6 +29,10 @@ fn default_temporal_namespace() -> String {
     "orchestrator".to_string()
 }
 
+fn default_temporal_connect_timeout_secs() -> u64 {
+    10
+}
+
 fn default_mcp_endpoint() -> String {
     "http://localhost:4003/mcp".to_string()
 }
@@ -111,6 +115,9 @@ pub struct Config {
     #[serde(default = "default_temporal_namespace")]
     pub temporal_namespace: String,
 
+    #[serde(default = "default_temporal_connect_timeout_secs")]
+    pub temporal_connect_timeout_secs: u64,
+
     #[serde(default = "default_mcp_endpoint")]
     pub mcp_endpoint: String,
 
@@ -137,6 +144,7 @@ impl Default for Config {
             temporal_enabled: false,
             temporal_host: default_temporal_host(),
             temporal_namespace: default_temporal_namespace(),
+            temporal_connect_timeout_secs: default_temporal_connect_timeout_secs(),
             mcp_endpoint: default_mcp_endpoint(),
             mcp_token: String::new(),
         }
@@ -171,6 +179,9 @@ impl Config {
                 .unwrap_or(false),
             temporal_host: read("ORCHESTRATOR_TEMPORAL_HOST").unwrap_or_else(default_temporal_host),
             temporal_namespace: read("ORCHESTRATOR_TEMPORAL_NAMESPACE").unwrap_or_else(default_temporal_namespace),
+            temporal_connect_timeout_secs: read("ORCHESTRATOR_TEMPORAL_CONNECT_TIMEOUT_SECS")
+                .and_then(|value| value.parse().ok())
+                .unwrap_or_else(default_temporal_connect_timeout_secs),
             mcp_endpoint: read("ORCHESTRATOR_MCP_ENDPOINT").unwrap_or_else(default_mcp_endpoint),
             mcp_token: read("ORCHESTRATOR_MCP_TOKEN").unwrap_or_default(),
         };
@@ -194,4 +205,14 @@ impl Config {
 
 fn read(name: &str) -> Option<String> {
     env::var(name).ok().filter(|value| !value.is_empty())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn temporal_connect_timeout_defaults_to_ten() {
+        assert_eq!(default_temporal_connect_timeout_secs(), 10);
+    }
 }
