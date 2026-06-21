@@ -57,6 +57,12 @@ describe('SkillsView', () => {
 
     await user.click(screen.getAllByRole('button', { name: /save instruction/i })[0])
     const templates = screen.getByRole('group', { name: /instruction templates/i })
+    expect(
+      screen.getByText(
+        'This name appears in Saved instructions and when choosing instructions for a task. Use words a teammate would recognize.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByText(/Use a short name people can recognize later/i)).toBeNull()
     await user.click(within(templates).getByRole('button', { name: /release notes/i }))
 
     expect(within(templates).getByRole('button', { name: /release notes/i })).toHaveAttribute(

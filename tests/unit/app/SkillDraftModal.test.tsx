@@ -89,6 +89,14 @@ describe('SkillDraftModal', () => {
 
     expect(screen.getByLabelText(/^use when$/i)).toBeDefined()
     expect(screen.getByText(/check before publishing/i)).toBeDefined()
+    expect(
+      screen.getByText(
+        'This name appears in Saved instructions and when choosing instructions for a task. Use words a teammate would recognize.'
+      )
+    ).toBeDefined()
+    expect(
+      screen.queryByText(/Use a short name people will understand in the saved instruction list/i)
+    ).toBeNull()
     expect(screen.getByText('Keep private details out')).toBeDefined()
     expect(screen.getByText(/remove passwords, access keys/i)).toBeDefined()
     expect(screen.queryByText('No secrets')).toBeNull()
@@ -148,9 +156,7 @@ describe('SkillDraftModal', () => {
     await user.click(screen.getByRole('button', { name: /publish instruction/i }))
 
     const nameAlert = screen.getByRole('alert')
-    expect(nameAlert).toHaveTextContent(
-      'Name this instruction before publishing it.'
-    )
+    expect(nameAlert).toHaveTextContent('Name this instruction before publishing it.')
     expect(nameAlert).toHaveAttribute('aria-live', 'polite')
     expect(screen.getByLabelText(/^instruction name$/i)).toHaveFocus()
     expect(screen.getByLabelText(/^instruction name$/i)).toHaveAttribute('aria-invalid', 'true')
