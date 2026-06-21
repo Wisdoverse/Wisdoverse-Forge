@@ -21,7 +21,6 @@ pub use service::WorkflowService;
 pub use store::Store;
 pub use temporal::{SIGNAL_HUMAN_REVIEW, TASK_QUEUE, signal_name_for_node};
 pub use worker::{
-    WorkflowRuntimeComponents, WorkflowWorkerHandle, WorkflowRuntimeStatus,
-    build_live_workflow_components, build_live_workflow_components_with_factory,
-    build_workflow_runtime, start_worker,
+    WorkflowRuntimeComponents, WorkflowRuntimeStatus, WorkflowWorkerHandle, build_live_workflow_components,
+    build_live_workflow_components_with_factory, build_workflow_runtime, start_worker,
 };

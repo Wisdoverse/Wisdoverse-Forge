@@ -217,8 +217,8 @@ pub fn start_worker(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::repository::MemoryStore;
+    use super::*;
 
     #[test]
     fn status_as_str_maps_each_variant() {
