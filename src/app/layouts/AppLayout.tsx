@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo, type ReactNode } from 'react'
 import { PanelRightOpen } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useRouterState } from '@tanstack/react-router'
 import { Sidebar } from './sidebar'
 import { TopBar } from './TopBar'
@@ -46,6 +47,7 @@ export function AppLayout({
   activePath: _propPath = '/tasks',
   onNavigate,
 }: AppLayoutProps) {
+  const { t } = useTranslation()
   const activePath = useRouterState({ select: (s) => s.location.pathname })
   const { viewMode, setViewMode } = useBoardStore()
   const toggleSidebar = useNavigationStore((s) => s.toggleSidebar)
@@ -132,30 +134,32 @@ export function AppLayout({
   const createTaskSetup =
     !selectedProjectId && !hasProjectOptions
       ? {
-          label: 'Set up project before task',
-          buttonLabel: 'Set up project',
-          description: 'Open project settings so tasks have a place to belong.',
-          searchText: 'new task create task first task project setup',
+          label: t('commandPalette.taskSetup.noProjectOptions.label'),
+          buttonLabel: t('commandPalette.taskSetup.noProjectOptions.buttonLabel'),
+          description: t('commandPalette.taskSetup.noProjectOptions.description'),
+          searchText:
+            'new task create task first task project setup 创建任务 新任务 第一个任务 项目 设置',
         }
       : !selectedProjectId
         ? {
-            label: 'Choose project for new task',
-            buttonLabel: 'New task',
-            description: 'Pick a project first, then write the task for an agent.',
-            searchText: 'new task create task choose project send work',
+            label: t('commandPalette.taskSetup.chooseProject.label'),
+            buttonLabel: t('commandPalette.taskSetup.chooseProject.buttonLabel'),
+            description: t('commandPalette.taskSetup.chooseProject.description'),
+            searchText: 'new task create task choose project send work 创建任务 新任务 选择项目',
           }
         : !selectedGroupId
           ? {
-              label: 'Set up where tasks wait',
-              buttonLabel: 'Set up waiting place',
-              description: 'Open Agents to add a waiting place before creating a task.',
-              searchText: 'new task create task first task agent waiting place setup',
+              label: t('commandPalette.taskSetup.noWaitingPlace.label'),
+              buttonLabel: t('commandPalette.taskSetup.noWaitingPlace.buttonLabel'),
+              description: t('commandPalette.taskSetup.noWaitingPlace.description'),
+              searchText:
+                'new task create task first task agent waiting place setup 创建任务 新任务 智能体 等待位置 设置',
             }
           : {
-              label: 'New task',
-              buttonLabel: 'New task',
-              description: 'Create a task for an agent to finish.',
-              searchText: 'new task create task send work',
+              label: t('commandPalette.taskSetup.ready.label'),
+              buttonLabel: t('commandPalette.taskSetup.ready.buttonLabel'),
+              description: t('commandPalette.taskSetup.ready.description'),
+              searchText: 'new task create task send work 创建任务 新任务 任务 工作',
             }
   const createTaskCommand = {
     label: createTaskSetup.label,
