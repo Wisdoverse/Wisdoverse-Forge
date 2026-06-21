@@ -957,6 +957,10 @@ const AGENT_TASK_LOAD_REFRESH_DEAD_END_PATTERNS = [
   /\bRefresh this agent'?s work list\b/i,
   /\brefresh this agent to load its work list\b/i,
 ]
+const AGENT_TASK_EMPTY_DEAD_END_PATTERNS = [
+  /\bSend a small task to this agent, or choose where tasks wait\b/i,
+  /\bWork will appear here\./i,
+]
 const AGENT_LIST_SUMMARY_DEAD_END_PATTERNS = [/\bNo agents\b/i]
 const CHAT_ONLY_AGENT_REVIEW_JARGON_PATTERNS = [
   /\bchat-only AI service for planning and review\b/i,
@@ -4375,6 +4379,12 @@ function hasAgentTaskLoadRefreshDeadEndCopy(relFile, line) {
   return AGENT_TASK_LOAD_REFRESH_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAgentTaskEmptyDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/agents/AgentTasksTab.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return AGENT_TASK_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasSkillMaintainerFallbackDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
@@ -7242,6 +7252,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Agent work-list errors must tell beginners where to open Work again instead of saying refresh this page.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAgentTaskEmptyDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'agent-task-empty-copy',
+        location,
+        message: 'Agent work empty states must give beginners a direct place to create work.',
         sample: line.trim(),
       })
     }

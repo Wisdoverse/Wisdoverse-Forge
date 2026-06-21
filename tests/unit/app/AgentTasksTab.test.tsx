@@ -45,9 +45,11 @@ describe('AgentTasksTab', () => {
     expect(within(emptyState).getByText('Create a task for this agent')).toBeDefined()
     expect(
       within(emptyState).getByText(
-        'Send a small task to this agent, or choose where tasks wait so this agent can receive them. Work will appear here.'
+        'Open the task list, choose New task, and pick this agent. Work will appear here after it is waiting or running.'
       )
     ).toBeDefined()
+    const taskLink = within(emptyState).getByRole('link', { name: 'Open task list' })
+    expect(taskLink).toHaveAttribute('href', '/tasks')
     expect(within(emptyState).getByText('Create a task')).toBeDefined()
     expect(within(emptyState).getByText('Check where tasks wait')).toBeDefined()
     expect(
@@ -66,6 +68,9 @@ describe('AgentTasksTab', () => {
     ).toBeDefined()
     expect(emptyState.textContent).not.toMatch(previousEmptyNeedsHelpCopy)
     expect(emptyState.textContent).not.toContain('Use Agents > Task Queues')
+    expect(emptyState.textContent).not.toContain(
+      'Send a small task to this agent, or choose where tasks wait'
+    )
     expect(emptyState.textContent).not.toContain('task queue')
     expect(emptyState.textContent).not.toContain('routed')
     expect(emptyState.textContent).not.toContain('routing')

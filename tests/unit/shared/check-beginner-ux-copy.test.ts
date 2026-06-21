@@ -2372,6 +2372,40 @@ export function AgentTasksTab() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags agent work empty states that explain work appears without an entry point', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentTasksTab.tsx': `
+export function AgentTasksEmptyState() {
+  return <p>Send a small task to this agent, or choose where tasks wait so this agent can receive them. Work will appear here.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-task-empty-copy',
+          location: 'src/app/features/agents/AgentTasksTab.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts agent work empty states that point beginners to the task list', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentTasksTab.tsx': `
+export function AgentTasksEmptyState() {
+  return <><p>Open the task list, choose New task, and pick this agent. Work will appear here after it is waiting or running.</p><a href="/tasks">Open task list</a></>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags agent tool errors that start with the failure instead of the next step', () => {
     const cwd = fixture({
       'src/app/features/agents/model/pluginErrorMessage.ts': `
