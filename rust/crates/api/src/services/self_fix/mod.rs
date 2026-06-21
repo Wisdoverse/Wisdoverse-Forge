@@ -47,9 +47,7 @@ use crate::services::self_fix::merge_executor::{MergeRequest, run_merge_executor
 ///
 /// Holds the task + agent repositories, the (optional) GitHub App client, the
 /// agent-container control service (used to freeze the agent before the PR is
-/// built), the managed workspace root, and the import limits. The route that
-/// drives `open_pr` lands in a later milestone, hence `#[allow(dead_code)]`.
-#[allow(dead_code)]
+/// built), the managed workspace root, and the import limits.
 pub(crate) struct SelfFixService {
     tasks: OrchestrationTaskRepository,
     agents: AgentRepository,
@@ -60,7 +58,6 @@ pub(crate) struct SelfFixService {
 }
 
 impl SelfFixService {
-    #[allow(dead_code)]
     pub(crate) fn new(
         tasks: OrchestrationTaskRepository,
         agents: AgentRepository,
@@ -81,7 +78,6 @@ impl SelfFixService {
     /// the base SHA is pinned, the task is left with a visible error and no
     /// half-written PR. The branch name is deterministic and the push uses
     /// `--force`, so a retry that rebuilds a new sibling commit will succeed.
-    #[allow(dead_code)]
     pub(crate) async fn open_pr(&self, scope: &TenantScope, task_id: Uuid) -> AppResult<SelfFixPrOutcome> {
         // 1. Load the task; require it is a self-fix task and GitHub is configured.
         let task = self.tasks.find_by_id(scope, task_id).await?;

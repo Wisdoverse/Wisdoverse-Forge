@@ -1165,6 +1165,7 @@ mod tests {
             github_app_installation_id: None,
             github_app_private_key: None,
             github_app_repo: None,
+            self_fix_pr_worker_enabled: false,
         };
         let client = agentforge_infra::RedisClient::new(&cfg).await;
         let store = StateStore::Redis(Arc::new(RwLock::new(client)));

@@ -70,6 +70,7 @@ pub mod resource_permission;
 pub mod resource_profile;
 pub mod runtime_capability_registry;
 pub mod self_fix;
+pub mod self_fix_pr_worker;
 pub mod setting;
 pub mod skill;
 pub mod ssh_key;

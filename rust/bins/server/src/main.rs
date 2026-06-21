@@ -130,6 +130,7 @@ async fn main() -> Result<()> {
     agentforge_api::services::cli_auth_proxy::register_cli_auth_proxy_metrics();
     agentforge_api::services::usage_analytics::register_usage_analytics_metrics();
     agentforge_api::services::project_clone_worker::register_metrics();
+    agentforge_api::services::self_fix_pr_worker::register_metrics();
 
     // 3. Create database pool.
     let pool = create_pool(&config).await?;
@@ -656,6 +657,15 @@ async fn main() -> Result<()> {
         None
     };
 
+    let self_fix_pr_worker_handle = if state.config.self_fix_pr_worker_enabled {
+        let worker = state.self_fix_pr_worker();
+        let worker_shutdown = shutdown_rx.clone();
+        Some(tokio::spawn(async move { worker.run(worker_shutdown).await }))
+    } else {
+        tracing::info!("self_fix_pr worker disabled (flag off)");
+        None
+    };
+
     let app = create_router(state);
 
     // 9. Bind and serve with graceful shutdown.
@@ -704,6 +714,12 @@ async fn main() -> Result<()> {
         match handle.await {
             Ok(()) => {}
             Err(err) => tracing::warn!(error = %err, "project_clone worker join failed"),
+        }
+    }
+    if let Some(handle) = self_fix_pr_worker_handle {
+        match handle.await {
+            Ok(()) => {}
+            Err(err) => tracing::warn!(error = %err, "self_fix_pr worker join failed"),
         }
     }
     if let Some(handle) = auth_callout_handle {

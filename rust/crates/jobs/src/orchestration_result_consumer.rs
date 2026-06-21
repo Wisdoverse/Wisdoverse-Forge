@@ -686,6 +686,25 @@ impl TaskWriter for SqlxTaskWriter {
             .await?;
         }
 
+        // Loop-engineering Tier 1.1: a self-fix task that completes via the
+        // NATS result path (the path agent-executed tasks actually use) must
+        // enqueue its PR-bridge job in the SAME transaction as the completion,
+        // exactly as the HTTP complete_task path does. unique_key = task_id makes
+        // this idempotent and dedupes against the HTTP path if both ever fire.
+        if status == "completed" && updated_task.self_fix {
+            let payload = serde_json::to_value(agentforge_core::SelfFixPrJob { task_id, org_id: organization_id })?;
+            crate::queue::enqueue_in_tx(
+                &mut tx,
+                agentforge_core::SELF_FIX_PR_QUEUE,
+                payload,
+                0,
+                None,
+                Some(&task_id.to_string()),
+                5,
+            )
+            .await?;
+        }
+
         tx.commit().await?;
         self.broadcast_task_result(&updated_task, assigned_agent_name.as_deref(), status).await;
         Ok(())
@@ -1001,5 +1020,103 @@ mod tests {
         let payload = serde_json::to_vec(&env).unwrap();
         handle_message(&lookup, &writer, &hmac, &result_subject(agent_id), &payload).await.unwrap();
         assert_eq!(writer.applied.lock().await.len(), 1);
+    }
+
+    // -------------------------------------------------------------------
+    // Loop-engineering Tier 1.1: SqlxTaskWriter.apply must enqueue the
+    // self_fix_pr job on the NATS result path, mirroring the HTTP path.
+    // -------------------------------------------------------------------
+
+    /// Seed the minimal rows that `SqlxTaskWriter::apply` needs: org, workspace,
+    /// user, agent, and a `working` self_fix task with a known delivery_id and
+    /// attempt so the UPDATE predicate matches.
+    async fn seed_for_result_apply(pool: &sqlx::PgPool, self_fix: bool) -> (Uuid, Uuid, Uuid, Uuid, Uuid) {
+        let org_id = Uuid::new_v4();
+        let user_id = Uuid::new_v4();
+        let agent_id = Uuid::new_v4();
+        let task_id = Uuid::new_v4();
+        let delivery_id = Uuid::now_v7();
+
+        sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, $2, $3)")
+            .bind(org_id)
+            .bind(format!("Org {org_id}"))
+            .bind(format!("org-{org_id}"))
+            .execute(pool)
+            .await
+            .expect("seed org");
+        sqlx::query("INSERT INTO workspaces (id, organization_id, name) VALUES ($1, $1, 'Default')")
+            .bind(org_id)
+            .execute(pool)
+            .await
+            .expect("seed workspace");
+        sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
+            .bind(user_id)
+            .bind(format!("u-{user_id}@example.com"))
+            .execute(pool)
+            .await
+            .expect("seed user");
+        sqlx::query(
+            "INSERT INTO agents (id, organization_id, workspace_id, user_id, name, status) VALUES ($1, $2, $2, $3, 'a', 'idle')",
+        )
+        .bind(agent_id)
+        .bind(org_id)
+        .bind(user_id)
+        .execute(pool)
+        .await
+        .expect("seed agent");
+        sqlx::query(
+            r#"INSERT INTO orchestration_tasks
+               (id, organization_id, title, status, created_by, assigned_agent_id, self_fix, last_assignment_id, attempt, started_at)
+               VALUES ($1, $2, 't', 'working', $3, $4, $5, $6, 1, NOW())"#,
+        )
+        .bind(task_id)
+        .bind(org_id)
+        .bind(user_id)
+        .bind(agent_id)
+        .bind(self_fix)
+        .bind(delivery_id)
+        .execute(pool)
+        .await
+        .expect("seed task");
+
+        (org_id, agent_id, task_id, delivery_id, user_id)
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn self_fix_completion_via_result_path_enqueues_pr_job(pool: sqlx::PgPool) {
+        let (org_id, agent_id, task_id, delivery_id, _) = seed_for_result_apply(&pool, true).await;
+
+        let result = TaskResult {
+            delivery_id: Some(delivery_id),
+            attempt: Some(1),
+            task_id,
+            agent_id,
+            outcome: TaskOutcome::Completed { stdout: "done".to_string() },
+        };
+        SqlxTaskWriter::new(pool.clone()).apply(org_id, result).await.unwrap();
+
+        let job = crate::queue::dequeue(&pool, agentforge_core::SELF_FIX_PR_QUEUE, "t")
+            .await
+            .unwrap()
+            .expect("self_fix_pr job must be enqueued on NATS result path");
+        let payload: agentforge_core::SelfFixPrJob = serde_json::from_value(job.payload).unwrap();
+        assert_eq!(payload.task_id, task_id);
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn non_self_fix_completion_via_result_path_enqueues_nothing(pool: sqlx::PgPool) {
+        let (org_id, agent_id, task_id, delivery_id, _) = seed_for_result_apply(&pool, false).await;
+
+        let result = TaskResult {
+            delivery_id: Some(delivery_id),
+            attempt: Some(1),
+            task_id,
+            agent_id,
+            outcome: TaskOutcome::Completed { stdout: "done".to_string() },
+        };
+        SqlxTaskWriter::new(pool.clone()).apply(org_id, result).await.unwrap();
+
+        let job = crate::queue::dequeue(&pool, agentforge_core::SELF_FIX_PR_QUEUE, "t2").await.unwrap();
+        assert!(job.is_none(), "non-self_fix completion must not enqueue a PR job");
     }
 }
