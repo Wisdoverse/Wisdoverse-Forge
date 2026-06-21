@@ -265,7 +265,11 @@ const PROVIDER_SETUP_JARGON_PATTERNS = [
 
 const ADMIN_USERS_EMPTY_DEAD_END_PATTERNS = [/\bNo one is listed yet\b/i]
 
-const ADMIN_USER_ROLE_JARGON_PATTERNS = [/\bsystem configuration\b/i]
+const ADMIN_USER_ROLE_JARGON_PATTERNS = [
+  /\bsystem configuration\b/i,
+  /\b(?:admin|member):\s*\{\s*label:\s*['"`](?:Admin|Member)['"`]/,
+  /\blabel:\s*['"`](?:Admin|Member)['"`]\s*,\s*description:/,
+]
 
 const ADMIN_ORGS_EMPTY_DEAD_END_PATTERNS = [
   /\bNo team spaces are visible yet\b/i,
