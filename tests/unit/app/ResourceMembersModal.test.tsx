@@ -104,8 +104,9 @@ describe('ResourceMembersModal', () => {
     const guide = await screen.findByTestId('member-role-guide')
     expect(within(guide).getByText('Add people only when they need this project')).toBeDefined()
     expect(within(guide).getByText('Start with Member access')).toBeDefined()
-    expect(within(guide).getByText('Use Maintainer access for everyday changes')).toBeDefined()
+    expect(within(guide).getByText('Use Can change work for everyday changes')).toBeDefined()
     expect(within(guide).getByText('Keep Owner and Admin access limited')).toBeDefined()
+    expect(within(guide).queryByText(/Maintainer/i)).toBeNull()
     expect(
       screen.getByText('Choose a person, pick the safest access level, then add them here.')
     ).toBeDefined()
@@ -122,8 +123,13 @@ describe('ResourceMembersModal', () => {
       'Choose a person, pick the safest access level, then add them here.'
     )
     expect(screen.getByLabelText('New member access level')).toHaveAccessibleDescription(
-      'Start with Member access. Choose Maintainer, Admin, or Owner only when this person needs to change work or manage access.'
+      'Start with Member access. Choose Can change work, Admin access, or Owner access only when this person needs to change work or manage access.'
     )
+    expect(screen.getByRole('option', { name: 'Member access' })).toBeDefined()
+    expect(screen.getByRole('option', { name: 'Can change work' })).toBeDefined()
+    expect(screen.getByRole('option', { name: 'Admin access' })).toBeDefined()
+    expect(screen.getByRole('option', { name: 'Owner access' })).toBeDefined()
+    expect(screen.queryByRole('option', { name: 'Maintainer' })).toBeNull()
     expect(screen.getByText('Add people already in your team space')).toBeDefined()
     expect(screen.getByText('People with access')).toBeDefined()
     expect(screen.queryByText('Add People Already in Your Organization')).toBeNull()
