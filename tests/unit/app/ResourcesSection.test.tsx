@@ -86,6 +86,16 @@ describe('ResourcesSection', () => {
         'Return here before creating agents that edit project files; at least one row means this step is ready.'
       )
     ).toBeDefined()
+    expect(
+      within(emptyState).getByText(
+        'Next step: ask an owner or admin to open Work limits and add one agent size.'
+      )
+    ).toBeDefined()
+    expect(
+      within(emptyState).getByText(
+        'Success looks like one size listed here, such as Small or Standard.'
+      )
+    ).toBeDefined()
   })
 
   test('shows a beginner retry path when agent sizes cannot load', async () => {
