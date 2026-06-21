@@ -1228,6 +1228,27 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     ? 'Leave blank to use the folder where you paste the setup text.'
                     : 'Keep the suggested folder unless an owner gives you a different one. New tasks start from the project shown above.'}
                 </p>
+                {kind === 'local-cli' && (
+                  <div
+                    data-testid="local-agent-before-create"
+                    className="mt-2 rounded-lg border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-caption text-secondary-light dark:text-secondary-dark"
+                  >
+                    <p className="font-semibold text-foreground-light dark:text-foreground-dark">
+                      Before you create this computer agent
+                    </p>
+                    <ol className="mt-1 list-decimal space-y-1 pl-4">
+                      <li>
+                        Choose the folder this computer should work in. If you are not sure, leave
+                        it blank.
+                      </li>
+                      <li>
+                        After you choose Add agent, copy the setup text and paste it into this
+                        computer&apos;s command app.
+                      </li>
+                      <li>Success looks like this agent changing to Ready on the Agents page.</li>
+                    </ol>
+                  </div>
+                )}
               </div>
             )}
 
