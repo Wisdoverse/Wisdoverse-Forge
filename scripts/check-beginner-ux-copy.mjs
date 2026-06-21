@@ -2329,6 +2329,12 @@ const TEAM_PROJECT_SHORT_NAME_JARGON_PATTERNS = [
   /\bshort name used in project links\b/i,
 ]
 
+const GENERATED_LINK_PREVIEW_MISSING_SOURCE_PATTERNS = [
+  /\bTeam link preview:[^\n]*(?:Auto-created|Forge creates this automatically(?!\s+from\s+the\s+team\s+name))/i,
+  /\bProject link preview:[^\n]*(?:Auto-created|Forge creates this automatically(?!\s+from\s+the\s+project\s+name))/i,
+  /\bTeam space link preview:[^\n]*(?:Auto-created|Forge creates this automatically(?!\s+from\s+the\s+team\s+space\s+name))/i,
+]
+
 const SIDEBAR_PROJECT_MENU_GENERATED_NAME_JARGON_PATTERNS = [
   /\bautomatic project name\b/i,
   /\bname used in links\b/i,
@@ -3621,6 +3627,20 @@ function hasTeamProjectShortNameJargonCopy(relFile, line) {
     relFile.endsWith('src/app/layouts/sidebar/ProjectTree.tsx') &&
     SIDEBAR_PROJECT_MENU_GENERATED_NAME_JARGON_PATTERNS.some((pattern) => pattern.test(line))
   return hasGenericJargon || hasSidebarGeneratedNameJargon
+}
+
+function hasGeneratedLinkPreviewMissingSourceCopy(relFile, line, scanText = line) {
+  if (
+    !relFile.endsWith('src/app/layouts/sidebar/ProjectTree.tsx') &&
+    !relFile.endsWith('src/app/features/admin/OrganizationsPanel.tsx') &&
+    !relFile.endsWith('src/app/features/manage-team/ui/EditableTeamRow.tsx') &&
+    !relFile.endsWith('src/app/features/manage-project/ui/EditableProjectRow.tsx')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  if (!/\blink preview:/i.test(line)) return false
+  return GENERATED_LINK_PREVIEW_MISSING_SOURCE_PATTERNS.some((pattern) => pattern.test(scanText))
 }
 
 function hasCloneRetryFailureFirstCopy(relFile, line) {
@@ -5287,6 +5307,7 @@ function scanFile(file, relFile) {
 
   lines.forEach((line, index) => {
     const location = `${relFile}:${index + 1}`
+    const nearbyLine = [line, lines[index + 1] ?? '', lines[index + 2] ?? ''].join(' ')
     if (hasEmptyStateCopy(lines, index) && !hasNextAction(lines, index)) {
       findings.push({
         type: 'empty-state-next-action',
@@ -6447,6 +6468,16 @@ function scanFile(file, relFile) {
         type: 'team-project-short-name-copy',
         location,
         message: 'Team and project generated-name labels must use plain link preview wording.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasGeneratedLinkPreviewMissingSourceCopy(relFile, line, nearbyLine)) {
+      findings.push({
+        type: 'generated-link-preview-source-copy',
+        location,
+        message:
+          'Generated link preview copy must say whether Forge creates it from the team, project, or team space name.',
         sample: line.trim(),
       })
     }

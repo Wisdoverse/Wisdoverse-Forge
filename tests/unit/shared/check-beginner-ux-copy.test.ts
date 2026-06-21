@@ -18043,7 +18043,7 @@ function EditableProjectRow({ project }) {
     )
   })
 
-  it('accepts team and project row copy that explains where generated names appear in links', () => {
+  it('flags generated link preview copy that does not say which name creates it', () => {
     const cwd = fixture({
       'src/app/features/manage-team/ui/EditableTeamRow.tsx': `
 function EditableTeamRow({ team }) {
@@ -18053,6 +18053,51 @@ function EditableTeamRow({ team }) {
       'src/app/features/manage-project/ui/EditableProjectRow.tsx': `
 function EditableProjectRow({ project }) {
   return <span>Project link preview: {project.slug}. Auto-created</span>
+}
+`,
+      'src/app/features/admin/OrganizationsPanel.tsx': `
+function OrganizationsPanel({ org }) {
+  return <p>Team space link preview: {org.slug}. Forge creates this automatically.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'generated-link-preview-source-copy',
+          location: 'src/app/features/manage-team/ui/EditableTeamRow.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'generated-link-preview-source-copy',
+          location: 'src/app/features/manage-project/ui/EditableProjectRow.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'generated-link-preview-source-copy',
+          location: 'src/app/features/admin/OrganizationsPanel.tsx:3',
+        }),
+      ])
+    )
+  })
+
+  it('accepts generated link preview copy that says which name creates it', () => {
+    const cwd = fixture({
+      'src/app/features/manage-team/ui/EditableTeamRow.tsx': `
+function EditableTeamRow({ team }) {
+  return <p>Team link preview: {team.slug}. Forge creates this automatically from the team name</p>
+}
+`,
+      'src/app/features/manage-project/ui/EditableProjectRow.tsx': `
+function EditableProjectRow({ project }) {
+  return <span>Project link preview: {project.slug}. Forge creates this automatically from the project name</span>
+}
+`,
+      'src/app/features/admin/OrganizationsPanel.tsx': `
+function OrganizationsPanel({ org }) {
+  return <p>Team space link preview: {org.slug}. Forge creates this automatically from the team space name.</p>
 }
 `,
     })
@@ -18106,16 +18151,16 @@ function OrganizationsPanel({ org }) {
     const cwd = fixture({
       'src/app/layouts/sidebar/ProjectTree.tsx': `
 function ProjectTree({ projectMenu }) {
-  return <p>{projectMenu.team.name} team · project link preview {projectMenu.project.slug}</p>
+  return <p>{projectMenu.team.name} team · Link preview: {projectMenu.project.slug}</p>
   return <button>Copy project reference</button>
   return <p>Project reference copied</p>
-  return <button>Copy project link preview</button>
-  return <p>Project link preview: {projectMenu.project.slug}. Forge creates this automatically.</p>
+  return <button>Copy link preview</button>
+  return <p>Project link preview: {projectMenu.project.slug}. Forge creates this automatically from the project name.</p>
 }
 `,
       'src/app/features/admin/OrganizationsPanel.tsx': `
 function OrganizationsPanel({ org }) {
-  return <p>Team space link preview: {org.slug}. Forge creates this automatically.</p>
+  return <p>Team space link preview: {org.slug}. Forge creates this automatically from the team space name.</p>
 }
 `,
     })
