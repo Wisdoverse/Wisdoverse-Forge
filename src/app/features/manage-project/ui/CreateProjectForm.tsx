@@ -14,9 +14,11 @@ interface CreateProjectFormProps {
 const PROJECT_SETUP_STEPS = [
   'Choose the team that owns the work.',
   'Name the project after the product, app, or work area.',
-  'Code link is optional. Leave it blank if you only want a place for tasks right now.',
-  'To find the link, open the project on GitHub or GitLab, choose Code, choose HTTPS, then copy that link. If you only see an SSH link, set up SSH code access in Settings first. Never paste passwords or access keys here.',
+  'Choose whether to start without code or copy code now.',
+  'Create the project. If code is being copied, watch this project in the list for status.',
 ]
+
+type CodeSetupMode = 'later' | 'copy'
 
 /**
  * Validate the optional code link in the SUBMIT HANDLER (not via
@@ -152,6 +154,7 @@ function createProjectErrorMessage(error: unknown): string {
 export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreateProjectFormProps) {
   const [name, setName] = useState('')
   const [teamId, setTeamId] = useState(teams[0]?.id ?? '')
+  const [codeSetupMode, setCodeSetupMode] = useState<CodeSetupMode>('later')
   const [repositoryUrl, setRepositoryUrl] = useState('')
   const [submitAttempted, setSubmitAttempted] = useState(false)
   const [bannerError, setBannerError] = useState<string | null>(null)
@@ -162,6 +165,8 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
   const statusId = 'create-project-status'
   const errorId = 'create-project-error'
   const bannerId = 'create-project-banner'
+  const codeSetupLaterId = 'create-project-code-setup-later'
+  const codeSetupCopyId = 'create-project-code-setup-copy'
   const trimmedName = name.trim()
   const hasTeams = teams.length > 0
   const missingTeam = !hasTeams || !teamId
@@ -177,13 +182,17 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
   // name. The user never types a host path; this is a non-editable preview.
   const workspaceFolderName = trimmedName ? slugifyName(name) : null
   const workspacePath = workspaceFolderName ? `/workspace/${workspaceFolderName}` : null
-  const trimmedRepositoryUrl = repositoryUrl.trim()
-  const codeLinkStatus = trimmedRepositoryUrl
-    ? 'Code copy requested. After creation, watch this project in the list for Code copy waiting, Copying code, or Code copied. If it needs help, choose Copy code again.'
+  const copyCodeNow = codeSetupMode === 'copy'
+  const trimmedRepositoryUrl = copyCodeNow ? repositoryUrl.trim() : ''
+  const codeLinkStatus = copyCodeNow
+    ? trimmedRepositoryUrl
+      ? 'Code copy requested. After creation, watch this project in the list for Code copy waiting, Copying code, or Code copied. If it needs help, choose Copy code again.'
+      : 'Copy code now selected. Paste an https:// code link below, or choose Create without code.'
     : 'No code link added. Create the project now, then add code access later if agents need files.'
-  const readyStatus = trimmedRepositoryUrl
-    ? 'Ready to create project and copy code'
-    : 'Ready to create project'
+  const readyStatus =
+    copyCodeNow && trimmedRepositoryUrl
+      ? 'Ready to create project and copy code'
+      : 'Ready to create project'
 
   useEffect(() => {
     if (!teamId && teams[0]) {
@@ -193,6 +202,14 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
 
   function focusTop() {
     formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  function chooseCodeSetupMode(mode: CodeSetupMode) {
+    setCodeSetupMode(mode)
+    setBannerError(null)
+    if (mode === 'later') {
+      setRepositoryUrl('')
+    }
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -208,7 +225,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
     // Validate the optional code link in the handler so an invalid value shows a
     // banner + blocks submit (no silent dead-click), instead of relying on
     // formState.errors the modal never renders.
-    const repoError = validateRepositoryUrl(repositoryUrl)
+    const repoError = copyCodeNow ? validateRepositoryUrl(repositoryUrl) : null
     if (repoError) {
       setBannerError(repoError)
       focusTop()
@@ -216,7 +233,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
       return
     }
 
-    const trimmedRepo = repositoryUrl.trim()
+    const trimmedRepo = copyCodeNow ? repositoryUrl.trim() : ''
     try {
       await onSave(trimmedName, teamId, trimmedRepo || undefined)
     } catch (err) {
@@ -321,34 +338,106 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
       </div>
 
       <div className="mb-3">
-        <label htmlFor={repoInputId} className={uiStyles.label}>
-          Code link
-          <span className="ml-1 font-normal text-secondary-light dark:text-secondary-dark">
-            (optional)
-          </span>
-        </label>
-        <input
-          id={repoInputId}
-          type="url"
-          inputMode="url"
-          value={repositoryUrl}
-          onChange={(e) => {
-            setRepositoryUrl(e.target.value)
-            if (bannerError) setBannerError(null)
-          }}
-          placeholder="https://github.com/team/project.git"
-          aria-describedby="project-repo-help project-repo-status"
-          className={inputClass}
-        />
-        <p
-          id="project-repo-help"
-          className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
-        >
-          Paste a GitHub or GitLab link only when you want Forge to copy code now. On GitHub or
-          GitLab, choose Code, choose HTTPS, then copy that link. If you only see an SSH link, leave
-          this blank and set up SSH code access in Settings first. Never paste passwords or access
-          keys here.
-        </p>
+        <fieldset>
+          <legend className={uiStyles.label}>Choose code setup</legend>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <label
+              htmlFor={codeSetupLaterId}
+              className={cn(
+                'flex min-h-24 cursor-pointer gap-2 rounded-lg border px-3 py-2 transition-colors',
+                !copyCodeNow
+                  ? 'border-apple-blue/45 bg-apple-blue/5'
+                  : 'border-black/[0.08] bg-white hover:bg-black/[0.02] dark:border-white/[0.1] dark:bg-white/[0.04] dark:hover:bg-white/[0.07]'
+              )}
+            >
+              <input
+                id={codeSetupLaterId}
+                type="radio"
+                name="create-project-code-setup"
+                checked={!copyCodeNow}
+                onChange={() => chooseCodeSetupMode('later')}
+                className="mt-1 h-4 w-4 shrink-0 accent-apple-blue"
+              />
+              <span>
+                <span className="block text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
+                  Create this project without code
+                </span>
+                <span className="mt-1 block text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  Use this when you want a place for tasks now. You can add code access later in
+                  Settings.
+                </span>
+              </span>
+            </label>
+            <label
+              htmlFor={codeSetupCopyId}
+              className={cn(
+                'flex min-h-24 cursor-pointer gap-2 rounded-lg border px-3 py-2 transition-colors',
+                copyCodeNow
+                  ? 'border-apple-blue/45 bg-apple-blue/5'
+                  : 'border-black/[0.08] bg-white hover:bg-black/[0.02] dark:border-white/[0.1] dark:bg-white/[0.04] dark:hover:bg-white/[0.07]'
+              )}
+            >
+              <input
+                id={codeSetupCopyId}
+                type="radio"
+                name="create-project-code-setup"
+                checked={copyCodeNow}
+                onChange={() => chooseCodeSetupMode('copy')}
+                className="mt-1 h-4 w-4 shrink-0 accent-apple-blue"
+              />
+              <span>
+                <span className="block text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
+                  Copy code now from GitHub or GitLab
+                </span>
+                <span className="mt-1 block text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  Use this when agents need project files right away and you have an https:// code
+                  link.
+                </span>
+              </span>
+            </label>
+          </div>
+        </fieldset>
+
+        {copyCodeNow && (
+          <div className="mt-3">
+            <label htmlFor={repoInputId} className={uiStyles.label}>
+              Code link
+              <span className="ml-1 font-normal text-secondary-light dark:text-secondary-dark">
+                (optional)
+              </span>
+            </label>
+            <input
+              id={repoInputId}
+              type="url"
+              inputMode="url"
+              value={repositoryUrl}
+              onChange={(e) => {
+                setRepositoryUrl(e.target.value)
+                if (bannerError) setBannerError(null)
+              }}
+              placeholder="https://github.com/team/project.git"
+              aria-describedby="project-repo-help project-repo-status"
+              className={inputClass}
+            />
+            <div
+              id="project-repo-help"
+              className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+            >
+              <p className="font-medium text-foreground-light dark:text-foreground-dark">
+                Copy code now
+              </p>
+              <ol className="mt-1 list-decimal space-y-1 pl-4">
+                <li>Open the project on GitHub or GitLab and choose Code, then HTTPS.</li>
+                <li>Paste the https:// code link below.</li>
+                <li>Create the project. Watch this project in the list for copy status.</li>
+              </ol>
+              <p className="mt-1">
+                If you only see an SSH link, choose Create without code, then set up SSH code access
+                in Settings first. Never paste passwords or access keys here.
+              </p>
+            </div>
+          </div>
+        )}
         <p
           id="project-repo-status"
           data-testid="create-project-code-link-status"
