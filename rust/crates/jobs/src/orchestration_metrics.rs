@@ -220,10 +220,7 @@ pub fn register_metrics() {
         "Working orchestration leases failed closed by the participant liveness sweeper"
     );
 
-    metrics::describe_gauge!(
-        "agentforge_job_queue_depth",
-        "Job-queue row count by status (pending|running|dead)."
-    );
+    metrics::describe_gauge!("agentforge_job_queue_depth", "Job-queue row count by status (pending|running|dead).");
     metrics::describe_gauge!(
         "agentforge_job_queue_oldest_pending_age_seconds",
         "Age in seconds of the oldest pending job_queue row."
