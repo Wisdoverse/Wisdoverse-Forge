@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Menu, Moon, Plus, Search, Sun } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@app/shared/lib/utils'
 import { useTheme } from '@app/shared/model/theme.context'
 import type { ViewMode } from '@app/shared/model/board.types'
@@ -18,11 +19,11 @@ interface TopBarProps {
   onCmdK?: () => void
 }
 
-const VIEW_OPTIONS: { id: ViewMode; label: string }[] = [
-  { id: 'board', label: 'Board' },
-  { id: 'list', label: 'List' },
-  { id: 'timeline', label: 'Timeline' },
-  { id: '3d', label: 'Map' },
+const VIEW_OPTIONS: { id: ViewMode; labelKey: string }[] = [
+  { id: 'board', labelKey: 'appLayout.topBar.views.board' },
+  { id: 'list', labelKey: 'appLayout.topBar.views.list' },
+  { id: 'timeline', labelKey: 'appLayout.topBar.views.timeline' },
+  { id: '3d', labelKey: 'appLayout.topBar.views.map' },
 ]
 
 export function TopBar({
@@ -33,12 +34,17 @@ export function TopBar({
   viewMode,
   onViewChange,
   onCreateTask,
-  createTaskLabel = 'New task',
-  createTaskTitle = 'Create a task for an agent to finish.',
+  createTaskLabel,
+  createTaskTitle,
   agentGroupSelector,
   onCmdK,
 }: TopBarProps) {
+  const { t } = useTranslation()
   const { theme, toggleTheme } = useTheme()
+  const taskLabel = createTaskLabel ?? t('commandPalette.taskSetup.ready.buttonLabel')
+  const taskTitle = createTaskTitle ?? t('commandPalette.taskSetup.ready.description')
+  const themeLabel =
+    theme === 'dark' ? t('appLayout.topBar.switchToLight') : t('appLayout.topBar.switchToDark')
   return (
     <div
       data-testid="top-bar"
@@ -53,7 +59,7 @@ export function TopBar({
           <button
             type="button"
             onClick={onMenuClick}
-            aria-label="Open navigation"
+            aria-label={t('appLayout.topBar.openNavigation')}
             className="md:hidden w-8 h-8 flex items-center justify-center rounded-lg text-secondary-light dark:text-secondary-dark hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:text-foreground-light dark:hover:text-foreground-dark transition-colors"
           >
             <Menu size={18} strokeWidth={2} aria-hidden="true" />
@@ -83,7 +89,7 @@ export function TopBar({
                     : 'text-secondary-light dark:text-secondary-dark hover:text-foreground-light dark:hover:text-foreground-dark'
                 )}
               >
-                {opt.label}
+                {t(opt.labelKey)}
               </button>
             ))}
           </div>
@@ -96,9 +102,9 @@ export function TopBar({
         <button
           type="button"
           onClick={toggleTheme}
-          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          aria-label={themeLabel}
           className="flex h-11 w-11 items-center justify-center rounded-full text-secondary-light transition-colors hover:bg-black/[0.04] hover:text-foreground-light active:scale-95 dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
-          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={themeLabel}
         >
           {theme === 'dark' ? (
             <Sun size={15} strokeWidth={2} aria-hidden="true" />
@@ -111,12 +117,12 @@ export function TopBar({
             type="button"
             data-testid="top-bar-command-search"
             onClick={onCmdK}
-            aria-label="Search pages and things to do"
+            aria-label={t('appLayout.topBar.searchLabel')}
             className="hidden items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3 py-1.5 text-ui-caption font-medium text-secondary-light transition-colors hover:text-foreground-light active:scale-95 dark:bg-white/[0.06] dark:text-secondary-dark dark:hover:text-foreground-dark sm:flex"
-            title="Search pages and things to do"
+            title={t('appLayout.topBar.searchLabel')}
           >
             <Search size={14} strokeWidth={2} aria-hidden="true" />
-            <span>Search</span>
+            <span>{t('appLayout.topBar.search')}</span>
           </button>
         )}
 
@@ -124,12 +130,12 @@ export function TopBar({
           <button
             type="button"
             onClick={onCreateTask}
-            aria-label={createTaskLabel}
-            title={createTaskTitle}
+            aria-label={taskLabel}
+            title={taskTitle}
             className="inline-flex items-center gap-1.5 rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95"
           >
             <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
-            <span>{createTaskLabel}</span>
+            <span>{taskLabel}</span>
           </button>
         )}
       </div>

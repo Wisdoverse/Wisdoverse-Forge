@@ -165,6 +165,28 @@ describe('AppLayout', () => {
     expect(screen.queryByRole('button', { name: 'Priority' })).toBeNull()
   })
 
+  test('localizes the top bar and page title for Chinese beginners', async () => {
+    await i18n.changeLanguage('zh')
+    seedProjectNavigation('p1')
+    useBoardStore.getState().setSelectedGroupId('group-1')
+
+    render(<MemoryRouter />)
+
+    expect(screen.getByRole('heading', { name: '任务' })).toBeDefined()
+    expect(screen.getByText('创建任务，并跟进智能体进度')).toBeDefined()
+    expect(screen.getByRole('button', { name: '搜索页面和可做的事' })).toBeDefined()
+    expect(screen.getByText('搜索')).toBeDefined()
+    expect(screen.getByRole('button', { name: '切换到深色模式' })).toBeDefined()
+    expect(screen.getByRole('button', { name: '看板' })).toBeDefined()
+    expect(screen.getByRole('button', { name: '列表' })).toBeDefined()
+    expect(screen.getByRole('button', { name: '时间线' })).toBeDefined()
+    expect(screen.getByRole('button', { name: '地图' })).toBeDefined()
+    const taskButton = screen.getByRole('button', { name: '新任务' })
+    expect(taskButton).toHaveAttribute('title', '让智能体完成一项任务。')
+    expect(screen.queryByRole('heading', { name: 'Tasks' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Search pages and things to do' })).toBeNull()
+  })
+
   test('top bar shows the setup step instead of New task when no project exists', () => {
     render(<MemoryRouter />)
 

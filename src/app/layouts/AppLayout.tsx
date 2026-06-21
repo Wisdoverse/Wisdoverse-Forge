@@ -20,26 +20,67 @@ interface AppLayoutProps {
   onNavigate?: (path: string) => void
 }
 
-const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
-  '/start': { title: 'Setup checklist', subtitle: 'Set up Forge and send your first task' },
-  '/tasks': { title: 'Tasks', subtitle: 'Create tasks and follow agent progress' },
-  '/inbox': { title: 'Inbox', subtitle: 'Check updates that need a next step' },
-  '/context/audit': { title: 'Saved item history', subtitle: 'See what was checked or reused' },
-  '/context': {
-    title: 'Saved notes and instructions',
-    subtitle: 'Check what agents may reuse later',
+const PAGE_META = [
+  {
+    path: '/start',
+    titleKey: 'appLayout.pages.start.title',
+    subtitleKey: 'appLayout.pages.start.subtitle',
   },
-  '/agents': { title: 'Agents', subtitle: 'Create and manage agents that handle tasks' },
-  '/skills': { title: 'Saved instructions', subtitle: 'Instructions agents can follow again' },
-  '/analytics': { title: 'Analytics', subtitle: 'See agent activity and results' },
-  '/billing': { title: 'Billing', subtitle: 'Plan, payments, and invoices' },
-  '/settings': { title: 'Settings', subtitle: 'Set up your account, AI services, and team' },
-  '/admin': { title: 'Admin', subtitle: 'Check app health and manage people' },
-}
+  {
+    path: '/tasks',
+    titleKey: 'appLayout.pages.tasks.title',
+    subtitleKey: 'appLayout.pages.tasks.subtitle',
+  },
+  {
+    path: '/inbox',
+    titleKey: 'appLayout.pages.inbox.title',
+    subtitleKey: 'appLayout.pages.inbox.subtitle',
+  },
+  {
+    path: '/context/audit',
+    titleKey: 'appLayout.pages.savedItemHistory.title',
+    subtitleKey: 'appLayout.pages.savedItemHistory.subtitle',
+  },
+  {
+    path: '/context',
+    titleKey: 'appLayout.pages.savedItems.title',
+    subtitleKey: 'appLayout.pages.savedItems.subtitle',
+  },
+  {
+    path: '/agents',
+    titleKey: 'appLayout.pages.agents.title',
+    subtitleKey: 'appLayout.pages.agents.subtitle',
+  },
+  {
+    path: '/skills',
+    titleKey: 'appLayout.pages.skills.title',
+    subtitleKey: 'appLayout.pages.skills.subtitle',
+  },
+  {
+    path: '/analytics',
+    titleKey: 'appLayout.pages.analytics.title',
+    subtitleKey: 'appLayout.pages.analytics.subtitle',
+  },
+  {
+    path: '/billing',
+    titleKey: 'appLayout.pages.billing.title',
+    subtitleKey: 'appLayout.pages.billing.subtitle',
+  },
+  {
+    path: '/settings',
+    titleKey: 'appLayout.pages.settings.title',
+    subtitleKey: 'appLayout.pages.settings.subtitle',
+  },
+  {
+    path: '/admin',
+    titleKey: 'appLayout.pages.admin.title',
+    subtitleKey: 'appLayout.pages.admin.subtitle',
+  },
+] as const
 
-function resolvePageMeta(path: string): { title: string; subtitle?: string } {
-  const match = Object.entries(PAGE_META).find(([key]) => path.startsWith(key))
-  return match ? match[1] : { title: 'Wisdoverse Forge' }
+function resolvePageMeta(path: string): { titleKey: string; subtitleKey?: string } {
+  const match = PAGE_META.find((meta) => path.startsWith(meta.path))
+  return match ?? { titleKey: 'appLayout.pages.fallback.title' }
 }
 
 export function AppLayout({
@@ -166,6 +207,8 @@ export function AppLayout({
     description: createTaskSetup.description,
     searchText: createTaskSetup.searchText,
   }
+  const pageTitle = t(pageMeta.titleKey)
+  const pageSubtitle = pageMeta.subtitleKey ? t(pageMeta.subtitleKey) : undefined
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -278,8 +321,8 @@ export function AppLayout({
       )}
       <div className="flex flex-col flex-1 gap-2 min-w-0">
         <TopBar
-          title={pageMeta.title}
-          subtitle={pageMeta.subtitle}
+          title={pageTitle}
+          subtitle={pageSubtitle}
           showTaskControls={isTasksPage}
           onMenuClick={
             isMobile ? () => useNavigationStore.setState({ sidebarExpanded: true }) : undefined
