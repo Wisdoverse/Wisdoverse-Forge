@@ -570,9 +570,9 @@ test.describe('React App Smoke Tests', () => {
       // trailing description).
       const settingsNav = page.getByTestId('settings-desktop-nav')
       await expect(settingsNav).toBeVisible({ timeout: 30000 })
-      await expect(settingsNav.getByText('Start here')).toBeVisible()
-      await expect(settingsNav.getByText('People and projects')).toBeVisible()
-      await expect(settingsNav.getByText('Access and limits')).toBeVisible()
+      await expect(settingsNav.getByText('Start here', { exact: true })).toBeVisible()
+      await expect(settingsNav.getByText('People and projects', { exact: true })).toBeVisible()
+      await expect(settingsNav.getByText('Access and limits', { exact: true })).toBeVisible()
       await expect(settingsNav.getByRole('link', { name: /^AI services:/ })).toBeVisible()
       await expect(settingsNav.getByRole('link', { name: /^Outside tool access:/ })).toBeVisible()
       await expect(settingsNav.getByRole('link', { name: /^HTTPS code access:/ })).toBeVisible()
