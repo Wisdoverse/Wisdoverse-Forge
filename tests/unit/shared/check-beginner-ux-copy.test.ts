@@ -11250,6 +11250,106 @@ const item = { description: 'manage team spaces, people, and app health' }
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags shared Admin translations that still use system and management jargon', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  admin: {
+    title: 'Admin Dashboard',
+    tabs: { metrics: 'Metrics', users: 'Users', health: 'Health' },
+    agents: { title: 'Agent Management', status: 'Status', actions: 'Actions' },
+    metrics: {
+      title: 'System Metrics',
+      activeAgents: 'Active Agents',
+      totalEvents: 'Total Events',
+      eventsPerMinute: 'Events/min',
+      memoryUsage: 'Memory Usage',
+      cpuUsage: 'CPU Usage',
+      requestsPerMinute: 'Requests/min',
+    },
+    users: { title: 'User Management', addUser: 'Add User', deleteUser: 'Delete User' },
+    health: { title: 'System Health', overall: 'Overall Status', noAlerts: 'No active alerts' },
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  admin: {
+    title: '管理面板',
+    tabs: { metrics: '指标', health: '健康状态' },
+    agents: { title: 'Agent 管理', status: '状态' },
+    metrics: { title: '系统指标', totalEvents: '总事件数', eventsPerMinute: '事件/分钟' },
+    users: { title: '用户管理', deleteUser: '删除用户' },
+    health: { title: '系统健康', alerts: '警报', degraded: '降级', noAlerts: '无活跃警报' },
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'admin-locale-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:4',
+        }),
+        expect.objectContaining({
+          type: 'admin-locale-copy',
+          sample: expect.stringContaining('System Metrics'),
+        }),
+        expect.objectContaining({
+          type: 'admin-locale-copy',
+          sample: expect.stringContaining('事件/分钟'),
+        }),
+        expect.objectContaining({
+          type: 'admin-locale-copy',
+          sample: expect.stringContaining('无活跃警报'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts shared Admin translations that explain app health, people, and activity', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = {
+  admin: {
+    title: 'Admin',
+    tabs: { metrics: 'Activity', users: 'People', health: 'App health' },
+    agents: { title: 'Agents', status: 'Can take work', actions: 'What you can do' },
+    metrics: {
+      title: 'Activity and capacity',
+      activeAgents: 'Agents working now',
+      totalEvents: 'Work updates',
+      eventsPerMinute: 'Updates each minute',
+      memoryUsage: 'Memory in use',
+      cpuUsage: 'Processor in use',
+      requestsPerMinute: 'Requests each minute',
+    },
+    users: { title: 'People with access', addUser: 'Invite person', deleteUser: 'Remove access' },
+    health: { title: 'App health', overall: 'Overall app status', alerts: 'Items to check', noAlerts: 'All app areas are working.' },
+  },
+}
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  admin: {
+    title: '管理',
+    tabs: { metrics: '活动', health: '应用健康' },
+    agents: { title: 'Agent', status: '能否接任务' },
+    metrics: { title: '活动和容量', totalEvents: '工作更新', eventsPerMinute: '每分钟更新数' },
+    users: { title: '有访问权限的人员', deleteUser: '移除访问权限' },
+    health: { title: '应用健康', alerts: '待检查项目', degraded: '需要检查', noAlerts: '所有应用区域都正常工作。' },
+  },
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags app health error copy that starts with the failure summary', () => {
     const cwd = fixture({
       'src/app/features/admin/systemHealthErrorMessage.ts': `
@@ -16678,7 +16778,7 @@ function agentNextStep() {
     const cwd = fixture({
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
 function AgentDetailView() {
-  return <span>Details</span>
+  return <><span>Details</span><DetailRow label="Status" /><DetailRow label="Connection" /></>
 }
 `,
       'src/app/shared/i18n/locales/en.ts': `
@@ -16706,6 +16806,14 @@ export const zh = {
         }),
         expect.objectContaining({
           type: 'agent-detail-heading-copy',
+          sample: expect.stringContaining('Status'),
+        }),
+        expect.objectContaining({
+          type: 'agent-detail-heading-copy',
+          sample: expect.stringContaining('Connection'),
+        }),
+        expect.objectContaining({
+          type: 'agent-detail-heading-copy',
           location: 'src/app/shared/i18n/locales/en.ts:3',
         }),
         expect.objectContaining({
@@ -16728,7 +16836,7 @@ export const zh = {
     const cwd = fixture({
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
 function AgentDetailView() {
-  return <span>Agent overview</span>
+  return <><span>Agent overview</span><DetailRow label="Can take work" /><DetailRow label="How it connects" /></>
 }
 `,
       'src/app/shared/i18n/locales/en.ts': `
