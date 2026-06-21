@@ -145,11 +145,14 @@ describe('AgentListView', () => {
     expect(enrollment.textContent).toContain("Open your computer's command app")
     expect(enrollment.textContent).toContain('Terminal on macOS/Linux, or PowerShell on Windows')
     expect(enrollment.textContent).toContain('Copy the setup text and paste it into that app')
+    expect(enrollment.textContent).toContain(
+      'Do not edit the setup text. Forge already filled in the selected project.'
+    )
     expect(enrollment.textContent).not.toContain(
       'Copy this setup command and paste it into that Terminal or PowerShell window'
     )
     expect(enrollment.textContent).not.toContain('paste it there')
-    expect(enrollment.textContent).toContain('Keep the suggested setup values')
+    expect(enrollment.textContent).not.toContain('Keep the suggested setup values')
     expect(enrollment.textContent).not.toContain('Leave the work tool as Codex unless')
     expect(within(enrollment).getByTestId('host-cli-success-hint')).toHaveTextContent(
       /come back to Forge/i

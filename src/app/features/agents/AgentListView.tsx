@@ -563,7 +563,7 @@ function HostCliEnrollmentPanel({
                 Windows. Use the folder this agent should work in.
               </p>
               <p>2. Copy the setup text and paste it into that app.</p>
-              <p>3. Keep the suggested setup values unless your team gives you different ones.</p>
+              <p>3. Do not edit the setup text. Forge already filled in the selected project.</p>
             </div>
             <p
               data-testid="host-cli-success-hint"
