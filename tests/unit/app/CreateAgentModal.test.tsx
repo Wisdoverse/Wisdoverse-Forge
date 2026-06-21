@@ -87,6 +87,25 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByText('Start with a role')).toBeNull()
     expect(screen.getByText('Where should this agent work?')).toBeInTheDocument()
     expect(screen.getByRole('radiogroup', { name: /where should this agent work/i })).toBeDefined()
+    expect(
+      screen.getByText(/start with what this agent should be allowed to touch/i)
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        /Use this for the usual setup when the agent should edit shared project files/i
+      )
+    ).toBeInTheDocument()
+    expect(screen.getByText('Most file work')).toBeInTheDocument()
+    expect(
+      screen.getByText(/Use this when files or tools must stay on this computer/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText('Local files')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        /Use this for questions, writing, and result checks that do not need file edits/i
+      )
+    ).toBeInTheDocument()
+    expect(screen.getByText('No files')).toBeInTheDocument()
     expect(screen.queryByText('Choose work style')).toBeNull()
     expect(screen.getByText('Fills in the name and first task')).toBeInTheDocument()
     expect(screen.getByText('Updates the work and checks it')).toBeInTheDocument()
@@ -433,9 +452,7 @@ describe('CreateAgentModal', () => {
     expect(
       screen.getAllByText(/anthropic for questions and result checks/i).length
     ).toBeGreaterThan(0)
-    expect(
-      screen.getByText(/questions, writing, and checking results/i)
-    ).toBeInTheDocument()
+    expect(screen.getByText(/questions, writing, and checking results/i)).toBeInTheDocument()
     expect(screen.getByText(/does not open project files/i)).toBeInTheDocument()
     expect(screen.getByText('Check AI service in Settings')).toBeInTheDocument()
     expect(screen.queryByText(/ai service must be checked/i)).toBeNull()
@@ -714,7 +731,9 @@ describe('CreateAgentModal', () => {
     expect(screen.getByTestId('local-agent-paste-hint')).toHaveTextContent(
       "Open your computer's command app (Terminal on macOS/Linux), then paste this setup text."
     )
-    expect(screen.getByText(/choose Add another agent to get fresh setup text/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/choose Add another agent to get fresh setup text/i)
+    ).toBeInTheDocument()
     expect(screen.queryByText(/fresh command/i)).toBeNull()
     expect(screen.getByText('1. Copy the setup text.')).toBeInTheDocument()
     expect(screen.getByText(/paste it into that command app/i)).toBeInTheDocument()

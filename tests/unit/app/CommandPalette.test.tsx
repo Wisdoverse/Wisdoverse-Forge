@@ -27,13 +27,17 @@ describe('CommandPalette', () => {
     render(<CommandPalette isOpen={true} onClose={() => {}} />)
     const dialog = screen.getByRole('dialog', { name: /find what you need/i })
     expect(dialog).toHaveAttribute('aria-modal', 'true')
-    expect(dialog).toHaveAccessibleDescription(/use tasks when you want to plan or inspect work/i)
+    expect(dialog).toHaveAccessibleDescription(/Write one small task/i)
     expect(screen.getByLabelText('Search pages and things to do')).toBeDefined()
     expect(screen.getByPlaceholderText(/search/i)).toBeDefined()
     expect(screen.getByText('Find what you need')).toBeDefined()
-    expect(screen.getByText(/use tasks when you want to plan or inspect work/i)).toBeDefined()
-    expect(screen.getByText(/use inbox to check updates that need a next step/i)).toBeDefined()
-    expect(screen.getByText(/use settings when setup, account access/i)).toBeDefined()
+    expect(screen.getByText('Write one small task when you want work done.')).toBeDefined()
+    expect(
+      screen.getByText('Check updates that need a person before you keep working.')
+    ).toBeDefined()
+    expect(
+      screen.getByText('Fix setup blockers for agents, sign-ins, projects, and access.')
+    ).toBeDefined()
     expect(screen.queryByText(/something needs your attention/i)).toBeNull()
     expect(screen.queryByText(/runtime status/i)).toBeNull()
     expect(screen.queryByText(previousDiscoveryTitle)).toBeNull()
@@ -45,9 +49,11 @@ describe('CommandPalette', () => {
     render(<CommandPalette isOpen={true} onClose={() => {}} />)
 
     const dialog = screen.getByRole('dialog', { name: '找到你要做的事' })
-    expect(dialog).toHaveAccessibleDescription(/想规划或查看工作时，打开任务/)
+    expect(dialog).toHaveAccessibleDescription(/想让智能体做事时/)
     expect(screen.getByLabelText('搜索页面和可做的事')).toBeDefined()
-    const input = screen.getByPlaceholderText('搜索页面或要做的事，例如：任务、收件箱、设置')
+    const input = screen.getByPlaceholderText(
+      '搜索你想做什么，例如：发送任务、添加智能体、登录工具'
+    )
     expect(input).toBeDefined()
     expect(screen.getByText('打开页面')).toBeDefined()
     expect(screen.getByText('创建或修改')).toBeDefined()
@@ -55,8 +61,11 @@ describe('CommandPalette', () => {
     expect(screen.getByText('任务')).toBeDefined()
     expect(screen.getByText('查看计划中、进行中或已完成的工作。')).toBeDefined()
     expect(screen.getByText('新任务')).toBeDefined()
-    expect(screen.getByText('让智能体完成一项任务。')).toBeDefined()
+    expect(screen.getByText('告诉智能体你想要的结果，以及如何检查是否完成。')).toBeDefined()
     expect(screen.getByText('可视化地图')).toBeDefined()
+    expect(screen.getByText('想让智能体做事时，先写一条小任务。')).toBeDefined()
+    expect(screen.getByText('继续前先查看需要人工处理的更新。')).toBeDefined()
+    expect(screen.getByText('处理智能体、登录、项目和访问权限里的设置卡点。')).toBeDefined()
 
     fireEvent.change(input, { target: { value: 'zzzzzz' } })
 
@@ -72,7 +81,7 @@ describe('CommandPalette', () => {
 
   test('does not render when closed', () => {
     render(<CommandPalette isOpen={false} onClose={() => {}} />)
-    expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
+    expect(screen.queryByPlaceholderText(/search what you want to do/i)).toBeNull()
   })
 
   test('shows navigation commands', () => {
@@ -115,7 +124,7 @@ describe('CommandPalette', () => {
       screen.getByText('Open setup steps again when you want a guided checklist.')
     ).toBeDefined()
 
-    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+    fireEvent.change(screen.getByPlaceholderText(/search what you want to do/i), {
       target: { value: 'setup checklist' },
     })
 
@@ -132,7 +141,7 @@ describe('CommandPalette', () => {
 
     expect(screen.queryByText('Setup checklist')).toBeNull()
 
-    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+    fireEvent.change(screen.getByPlaceholderText(/search what you want to do/i), {
       target: { value: 'start tutorial' },
     })
 
@@ -154,23 +163,25 @@ describe('CommandPalette', () => {
     expect(screen.getByText('Show setup checklist')).toBeDefined()
     expect(screen.queryByText('Reset setup checklist')).toBeNull()
     expect(screen.getByText('New task')).toBeDefined()
-    expect(screen.getByText('Create a task for an agent to finish.')).toBeDefined()
+    expect(screen.getByText('Tell an agent the result you want and how to check it.')).toBeDefined()
     expect(screen.getByText('Codex sign-in')).toBeDefined()
     expect(
-      screen.getByText('Open Codex sign-in before agents work on project files.')
+      screen.getByText('Sign in before agents edit files with Codex or another work tool.')
     ).toBeDefined()
     expect(screen.queryByText('Codex and work tool sign-in')).toBeNull()
-    expect(screen.getByText('Project settings')).toBeDefined()
+    expect(screen.getByText('Projects')).toBeDefined()
     expect(
-      screen.getByText('Create or choose the project where tasks, agents, and files belong.')
+      screen.getByText('Create or choose where tasks, agents, and files belong.')
     ).toBeDefined()
-    expect(screen.getByText('Team settings')).toBeDefined()
+    expect(screen.getByText('Teams')).toBeDefined()
     expect(screen.getByText('Create teams and manage who can change work.')).toBeDefined()
     expect(screen.getByText('AI services')).toBeDefined()
     expect(screen.getByText('Connect the AI account agents use to answer.')).toBeDefined()
     expect(screen.getByText('Where agents work')).toBeDefined()
     expect(
-      screen.getByText('Choose where project files open and which work tool agents use.')
+      screen.getByText(
+        'Choose Project files for the usual setup, or This computer for local-only work.'
+      )
     ).toBeDefined()
     expect(screen.queryByText('Codex CLI sign-in')).toBeNull()
     expect(screen.queryByText(previousActionHeading)).toBeNull()
@@ -195,7 +206,7 @@ describe('CommandPalette', () => {
       />
     )
 
-    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+    fireEvent.change(screen.getByPlaceholderText(/search what you want to do/i), {
       target: { value: 'new task' },
     })
 
@@ -206,7 +217,7 @@ describe('CommandPalette', () => {
 
     expect(onSelect).toHaveBeenCalledWith('action:create-task')
     expect(onClose).toHaveBeenCalledTimes(1)
-    expect(screen.queryByText('Create a task for an agent to finish.')).toBeNull()
+    expect(screen.queryByText('Tell an agent the result you want and how to check it.')).toBeNull()
   })
 
   test('finds Codex sign-in through beginner Chinese login search terms', async () => {
@@ -214,7 +225,7 @@ describe('CommandPalette', () => {
     const onClose = vi.fn()
     render(<CommandPalette isOpen={true} onClose={onClose} onSelect={onSelect} />)
 
-    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+    fireEvent.change(screen.getByPlaceholderText(/search what you want to do/i), {
       target: { value: 'codex 登录' },
     })
 
@@ -222,9 +233,11 @@ describe('CommandPalette', () => {
       expect(screen.getByText('Codex sign-in')).toBeDefined()
     })
     expect(
-      screen.getByText('Open Codex sign-in before agents work on project files.')
+      screen.getByText('Sign in before agents edit files with Codex or another work tool.')
     ).toBeDefined()
-    fireEvent.click(screen.getByText('Open Codex sign-in before agents work on project files.'))
+    fireEvent.click(
+      screen.getByText('Sign in before agents edit files with Codex or another work tool.')
+    )
     expect(onSelect).toHaveBeenCalledWith('action:work-tool-sign-ins')
     expect(onClose).toHaveBeenCalledTimes(1)
     expect(screen.queryByText('Codex and work tool sign-in')).toBeNull()
@@ -235,14 +248,14 @@ describe('CommandPalette', () => {
     ['任务', 'Tasks', 'nav:tasks'],
     ['智能体', 'Agents', 'nav:agents'],
     ['创建任务', 'New task', 'action:create-task'],
-    ['项目设置', 'Project settings', 'settings:projects'],
+    ['项目设置', 'Projects', 'settings:projects'],
     ['模型服务', 'AI services', 'settings:providers'],
   ])('finds %s through Chinese beginner search terms', async (query, label, commandId) => {
     const onSelect = vi.fn()
     const onClose = vi.fn()
     render(<CommandPalette isOpen={true} onClose={onClose} onSelect={onSelect} />)
 
-    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+    fireEvent.change(screen.getByPlaceholderText(/search what you want to do/i), {
       target: { value: query },
     })
 
@@ -262,16 +275,14 @@ describe('CommandPalette', () => {
     const onClose = vi.fn()
     render(<CommandPalette isOpen={true} onClose={onClose} onSelect={onSelect} />)
 
-    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+    fireEvent.change(screen.getByPlaceholderText(/search what you want to do/i), {
       target: { value: 'project settings' },
     })
 
     await waitFor(() => {
-      expect(screen.getByText('Project settings')).toBeDefined()
+      expect(screen.getByText('Projects')).toBeDefined()
     })
-    fireEvent.click(
-      screen.getByText('Create or choose the project where tasks, agents, and files belong.')
-    )
+    fireEvent.click(screen.getByText('Create or choose where tasks, agents, and files belong.'))
 
     expect(onSelect).toHaveBeenCalledWith('settings:projects')
     expect(onClose).toHaveBeenCalledTimes(1)
@@ -288,7 +299,7 @@ describe('CommandPalette', () => {
     const onClose = vi.fn()
     render(<CommandPalette isOpen={true} onClose={onClose} onSelect={onSelect} />)
 
-    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+    fireEvent.change(screen.getByPlaceholderText(/search what you want to do/i), {
       target: { value: query },
     })
 
@@ -315,7 +326,7 @@ describe('CommandPalette', () => {
   test('searches beginner descriptions and shows an empty state', async () => {
     render(<CommandPalette isOpen={true} onClose={() => {}} />)
 
-    const input = screen.getByPlaceholderText(/search pages or things to do/i)
+    const input = screen.getByPlaceholderText(/search what you want to do/i)
     fireEvent.change(input, { target: { value: 'alerts' } })
 
     await waitFor(() => {
@@ -355,8 +366,8 @@ describe('CommandPalette', () => {
     const onClose = vi.fn()
     render(<CommandPalette isOpen={true} onClose={onClose} onSelect={onSelect} />)
 
-    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
-      target: { value: 'where is the thing' },
+    fireEvent.change(screen.getByPlaceholderText(/search what you want to do/i), {
+      target: { value: 'zzzz no matching beginner action' },
     })
 
     await waitFor(() => {
@@ -371,7 +382,7 @@ describe('CommandPalette', () => {
   test('suggests common workflow terms when search has no matches', () => {
     render(<CommandPalette isOpen={true} onClose={() => {}} />)
 
-    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+    fireEvent.change(screen.getByPlaceholderText(/search what you want to do/i), {
       target: { value: 'missing workflow' },
     })
 
@@ -397,7 +408,7 @@ describe('CommandPalette', () => {
 
     render(<CommandPalette isOpen={true} onClose={() => {}} />)
 
-    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+    fireEvent.change(screen.getByPlaceholderText(/search what you want to do/i), {
       target: { value: 'missing workflow' },
     })
 

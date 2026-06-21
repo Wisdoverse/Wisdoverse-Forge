@@ -45,72 +45,72 @@ const SECTIONS: SectionItem[] = [
   {
     id: 'providers',
     label: 'AI services',
-    description: 'Connect the AI accounts agents use to think and write.',
-    group: 'AI services',
+    description: 'Start here when agents need a chat service for answers and result checks.',
+    group: 'Start here',
     Icon: Bot,
   },
   {
-    id: 'keys',
-    label: 'Outside tool access',
-    description: 'Let trusted outside tools connect to Forge without a person signing in.',
-    group: 'Agent work',
-    Icon: Key,
+    id: 'runtime',
+    label: 'Where agents work',
+    description: 'Choose Project files for the usual setup, or This computer for local-only work.',
+    group: 'Start here',
+    Icon: Settings2,
+  },
+  {
+    id: 'work-tool-sign-ins',
+    label: 'Codex sign-in',
+    description: 'Sign in before agents edit project files with Codex or another work tool.',
+    group: 'Start here',
+    Icon: LogIn,
+  },
+  {
+    id: 'projects',
+    label: 'Projects',
+    description: 'Create the work areas where tasks, agents, and files belong.',
+    group: 'People and projects',
+    Icon: Folder,
+  },
+  {
+    id: 'teams',
+    label: 'Teams',
+    description: 'Create teams and manage who can change work.',
+    group: 'People and projects',
+    Icon: Users,
+  },
+  {
+    id: 'account',
+    label: 'Account',
+    description: 'Update profile, password, and show the setup checklist again.',
+    group: 'People and projects',
+    Icon: User,
   },
   {
     id: 'git-credentials',
     label: 'HTTPS code access',
     description: 'Use this when a private code link starts with https://.',
-    group: 'Agent work',
+    group: 'Access and limits',
     Icon: GitBranch,
   },
   {
     id: 'ssh-keys',
     label: 'SSH code access',
     description: 'Use this when a private code link starts with git@.',
-    group: 'Agent work',
+    group: 'Access and limits',
     Icon: Terminal,
+  },
+  {
+    id: 'keys',
+    label: 'Outside tool access',
+    description: 'Let trusted outside tools connect to Forge without a person signing in.',
+    group: 'Access and limits',
+    Icon: Key,
   },
   {
     id: 'resources',
     label: 'Agent size limits',
     description: 'Choose small, standard, or large limits before agents start file work.',
-    group: 'Agent work',
+    group: 'Access and limits',
     Icon: Gauge,
-  },
-  {
-    id: 'runtime',
-    label: 'Where agents work',
-    description: 'Choose where project files open and which work tool agents use.',
-    group: 'Agent work',
-    Icon: Settings2,
-  },
-  {
-    id: 'work-tool-sign-ins',
-    label: 'Codex sign-in',
-    description: 'Sign in to Codex or another work tool before agents work on project files.',
-    group: 'Agent work',
-    Icon: LogIn,
-  },
-  {
-    id: 'account',
-    label: 'Account',
-    description: 'Update profile, password, and show the setup checklist again.',
-    group: 'People',
-    Icon: User,
-  },
-  {
-    id: 'teams',
-    label: 'Teams',
-    description: 'Create teams, invite people, and manage who can change work.',
-    group: 'People',
-    Icon: Users,
-  },
-  {
-    id: 'projects',
-    label: 'Projects',
-    description: 'Create the work areas agents use for tasks and files.',
-    group: 'People',
-    Icon: Folder,
   },
   {
     id: 'about',
@@ -121,7 +121,7 @@ const SECTIONS: SectionItem[] = [
   },
 ]
 
-const GROUPS = ['AI services', 'Agent work', 'People', 'Product info']
+const GROUPS = ['Start here', 'People and projects', 'Access and limits', 'Product info']
 const SECTION_BY_ID = new Map(SECTIONS.map((section) => [section.id, section]))
 
 // ============================================================================

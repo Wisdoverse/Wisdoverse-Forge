@@ -106,6 +106,32 @@ const AGENT_STARTER_TEMPLATES: AgentStarterTemplate[] = [
   },
 ]
 
+const AGENT_KIND_OPTIONS: Array<{
+  value: AgentKind
+  label: string
+  helper: string
+  badge: string
+}> = [
+  {
+    value: 'cli',
+    label: 'Project files',
+    helper: 'Use this for the usual setup when the agent should edit shared project files.',
+    badge: 'Most file work',
+  },
+  {
+    value: 'local-cli',
+    label: 'This computer',
+    helper: 'Use this when files or tools must stay on this computer.',
+    badge: 'Local files',
+  },
+  {
+    value: 'provider',
+    label: 'Simple chat agent',
+    helper: 'Use this for questions, writing, and result checks that do not need file edits.',
+    badge: 'No files',
+  },
+]
+
 /**
  * A simple chat agent option, sourced from the configured AI services
  * in Settings. Each configured AI service carries
@@ -595,12 +621,20 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
         )}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2
-            id="create-agent-title"
-            className="text-ui-title font-semibold text-foreground-light dark:text-foreground-dark"
-          >
-            {localEnrollment ? 'Connect this computer' : 'New agent'}
-          </h2>
+          <div className="min-w-0">
+            <h2
+              id="create-agent-title"
+              className="text-ui-title font-semibold text-foreground-light dark:text-foreground-dark"
+            >
+              {localEnrollment ? 'Connect this computer' : 'New agent'}
+            </h2>
+            {!localEnrollment && (
+              <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                Start with what this agent should be allowed to touch. Keep the suggested choices
+                unless an owner gives you a different setup.
+              </p>
+            )}
+          </div>
           <button
             type="button"
             onClick={handleClose}
@@ -934,43 +968,47 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 Where should this agent work?
               </label>
               <div
-                className="flex gap-2"
+                className="grid gap-2 sm:grid-cols-3"
                 role="radiogroup"
                 aria-label="Where should this agent work?"
               >
-                <label
-                  className={cn(
-                    'flex-1 cursor-pointer rounded-full px-4 py-2 text-center text-ui-button font-medium transition-transform active:scale-95',
-                    kind === 'cli'
-                      ? 'bg-apple-blue text-white'
-                      : 'border border-black/[0.08] bg-white text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark'
-                  )}
-                >
-                  <input type="radio" value="cli" {...register('kind')} className="sr-only" />
-                  Project files
-                </label>
-                <label
-                  className={cn(
-                    'flex-1 cursor-pointer rounded-full px-4 py-2 text-center text-ui-button font-medium transition-transform active:scale-95',
-                    kind === 'local-cli'
-                      ? 'bg-apple-blue text-white'
-                      : 'border border-black/[0.08] bg-white text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark'
-                  )}
-                >
-                  <input type="radio" value="local-cli" {...register('kind')} className="sr-only" />
-                  This computer
-                </label>
-                <label
-                  className={cn(
-                    'flex-1 cursor-pointer rounded-full px-4 py-2 text-center text-ui-button font-medium transition-transform active:scale-95',
-                    kind === 'provider'
-                      ? 'bg-apple-blue text-white'
-                      : 'border border-black/[0.08] bg-white text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark'
-                  )}
-                >
-                  <input type="radio" value="provider" {...register('kind')} className="sr-only" />
-                  Simple chat agent
-                </label>
+                {AGENT_KIND_OPTIONS.map((option) => {
+                  const selected = kind === option.value
+                  return (
+                    <label
+                      key={option.value}
+                      className={cn(
+                        'min-h-[118px] cursor-pointer rounded-lg border px-3 py-2.5 text-left transition-colors',
+                        selected
+                          ? 'border-apple-blue/40 bg-apple-blue/10 text-foreground-light dark:text-foreground-dark'
+                          : 'border-black/[0.08] bg-white text-foreground-light hover:bg-black/[0.03] dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.07]'
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        value={option.value}
+                        {...register('kind')}
+                        className="sr-only"
+                      />
+                      <span className="flex items-start justify-between gap-2">
+                        <span className="text-ui-button font-semibold">{option.label}</span>
+                        <span
+                          className={cn(
+                            'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                            selected
+                              ? 'bg-apple-blue text-white'
+                              : 'bg-black/[0.04] text-secondary-light dark:bg-white/[0.08] dark:text-secondary-dark'
+                          )}
+                        >
+                          {option.badge}
+                        </span>
+                      </span>
+                      <span className="mt-2 block text-ui-caption text-secondary-light dark:text-secondary-dark">
+                        {option.helper}
+                      </span>
+                    </label>
+                  )
+                })}
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {kind === 'cli'
