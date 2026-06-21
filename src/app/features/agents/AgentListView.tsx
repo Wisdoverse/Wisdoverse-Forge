@@ -188,8 +188,9 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
                   Add your first agent
                 </p>
                 <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-                  Start with a chat-only AI service for questions and result checks, or connect this
-                  computer when the task needs files and commands on your machine.
+                  Next: choose New agent. If unsure, pick Chat-only AI service first for questions
+                  and result checks. Connect this computer only when the task needs files and
+                  commands on your machine.
                 </p>
               </div>
               <button
