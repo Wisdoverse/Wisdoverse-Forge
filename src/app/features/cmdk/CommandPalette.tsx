@@ -58,7 +58,7 @@ const SECONDARY_ACTION_COMMANDS = [
     id: 'action:work-tool-sign-ins',
     label: 'Codex sign-in',
     description: 'Open Codex sign-in before agents work on project files.',
-    searchText: 'codex openai login sign in work tool settings',
+    searchText: 'codex cli openai login sign in 登录 登陆 工作工具 设置',
   },
   {
     id: 'settings:keys',
