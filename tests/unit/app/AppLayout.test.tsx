@@ -1,5 +1,6 @@
 import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
+import { i18n } from '@app/i18n'
 import { useBoardStore } from '@app/shared/model/board.store'
 import { useNavigationStore } from '@app/entities/navigation'
 import { useSettingsStore } from '@app/shared/model/settings.store'
@@ -70,7 +71,7 @@ beforeEach(() => {
   })
 })
 
-afterEach(() => {
+afterEach(async () => {
   cleanup()
   useBoardStore.getState().reset()
   useNavigationStore.getState().reset()
@@ -81,6 +82,7 @@ afterEach(() => {
   })
   vi.clearAllMocks()
   Object.defineProperty(window, 'innerWidth', { value: 1024, configurable: true })
+  await i18n.changeLanguage('en')
 })
 
 function seedProjectNavigation(selectedProjectId: string | null = 'p1') {
@@ -231,6 +233,22 @@ describe('AppLayout', () => {
     expect(onNavigate).toHaveBeenCalledWith('/settings/projects')
     expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
     expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
+  })
+
+  test('command palette keeps first task setup copy readable in Chinese', async () => {
+    await i18n.changeLanguage('zh')
+    const onNavigate = vi.fn()
+
+    render(<MemoryRouter onNavigate={onNavigate} />)
+
+    fireEvent.click(screen.getByTestId('top-bar-command-search'))
+    await waitFor(() => {
+      expect(screen.getByText('创建任务前先设置项目')).toBeDefined()
+    })
+    fireEvent.click(screen.getByText('打开项目设置，让任务有归属位置。'))
+
+    expect(onNavigate).toHaveBeenCalledWith('/settings/projects')
+    expect(screen.queryByPlaceholderText('搜索页面或要做的事，例如：任务、收件箱、设置')).toBeNull()
   })
 
   test('command palette routes task setup to Agents when tasks have nowhere to wait', async () => {
@@ -406,7 +424,7 @@ describe('AppLayout', () => {
 
     render(<MemoryRouter />)
 
-    expect(screen.getByText('Setup checklist')).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Setup checklist' })).toBeDefined()
     expect(screen.getByText('Set up Forge and send your first task')).toBeDefined()
     expect(screen.queryByText(/^Start$/)).toBeNull()
     expect(screen.queryByText(/first-run setup/i)).toBeNull()
@@ -418,7 +436,7 @@ describe('AppLayout', () => {
 
     render(<MemoryRouter />)
 
-    expect(screen.getByText('Tasks')).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Tasks' })).toBeDefined()
     expect(screen.getByText('Create tasks and follow agent progress')).toBeDefined()
     expect(screen.queryByText(/assign/i)).toBeNull()
     expect(screen.queryByText(/track agent work/i)).toBeNull()
@@ -429,7 +447,7 @@ describe('AppLayout', () => {
 
     render(<MemoryRouter />)
 
-    expect(screen.getByText('Inbox')).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Inbox' })).toBeDefined()
     expect(screen.getByText('Check updates that need a next step')).toBeDefined()
     expect(screen.queryByText('See what needs your attention')).toBeNull()
     expect(screen.queryByText(/notifications and updates/i)).toBeNull()
@@ -440,7 +458,7 @@ describe('AppLayout', () => {
 
     render(<MemoryRouter />)
 
-    expect(screen.getByText('Settings')).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Settings' })).toBeDefined()
     expect(screen.getByText('Set up your account, AI services, and team')).toBeDefined()
     expect(screen.queryByText(/Account, AI services, and workspace/i)).toBeNull()
     expect(screen.queryByText(/model services/i)).toBeNull()
@@ -452,7 +470,7 @@ describe('AppLayout', () => {
 
     render(<MemoryRouter />)
 
-    expect(screen.getByText('Saved notes and instructions')).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Saved notes and instructions' })).toBeDefined()
     expect(screen.getByText('Check what agents may reuse later')).toBeDefined()
     expect(screen.queryByText(/Saved\s+memories/i)).toBeNull()
     expect(screen.queryByText('Saved guidance')).toBeNull()
@@ -465,7 +483,7 @@ describe('AppLayout', () => {
 
     render(<MemoryRouter />)
 
-    expect(screen.getByText('Agents')).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Agents' })).toBeDefined()
     expect(screen.getByText('Create and manage agents that handle tasks')).toBeDefined()
     expect(screen.queryByText(/deploy and manage/i)).toBeNull()
     expect(screen.queryByText(/AI coding agents/i)).toBeNull()
@@ -476,7 +494,7 @@ describe('AppLayout', () => {
 
     render(<MemoryRouter />)
 
-    expect(screen.getByText('Analytics')).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Analytics' })).toBeDefined()
     expect(screen.getByText('See agent activity and results')).toBeDefined()
     expect(screen.queryByText(/performance and activity metrics/i)).toBeNull()
   })
@@ -486,7 +504,7 @@ describe('AppLayout', () => {
 
     render(<MemoryRouter />)
 
-    expect(screen.getByText('Billing')).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Billing' })).toBeDefined()
     expect(screen.getByText('Plan, payments, and invoices')).toBeDefined()
     expect(screen.queryByText(/usage/i)).toBeNull()
   })
@@ -496,7 +514,7 @@ describe('AppLayout', () => {
 
     render(<MemoryRouter />)
 
-    expect(screen.getByText('Admin')).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Admin' })).toBeDefined()
     expect(screen.getByText('Check app health and manage people')).toBeDefined()
     expect(screen.queryByText(/System health and user management/i)).toBeNull()
   })

@@ -194,6 +194,161 @@ export const zh: TranslationKeys = {
   },
 
   // =========================================================================
+  // 命令面板
+  // =========================================================================
+  commandPalette: {
+    title: '找到你要做的事',
+    inputLabel: '搜索页面和可做的事',
+    placeholder: '搜索页面或要做的事，例如：任务、收件箱、设置',
+    discovery: {
+      tasks: '想规划或查看工作时，打开任务。',
+      inbox: '想查看需要你处理的更新时，打开收件箱。',
+      settings: '设置、账号或智能体工作状态卡住时，打开设置。',
+    },
+    groups: {
+      navigation: '打开页面',
+      actions: '创建或修改',
+      views: '切换任务视图',
+    },
+    empty: {
+      title: '没有匹配的页面或选项',
+      listSeparator: '、',
+      tryShorter: '可以换个更短的词，或打开设置浏览需要配置的内容。',
+      tryOne: '可以试试{{label}}，打开常用页面。',
+      tryMany: '可以试试{{prefix}}或{{last}}，打开常用页面。',
+      commonPages: '常用页面',
+      openPage: '打开{{label}}',
+      showAll: '显示全部页面和操作',
+    },
+    commands: {
+      nav: {
+        start: {
+          label: '设置清单',
+          description: '需要引导步骤时，重新打开设置清单。',
+        },
+        tasks: {
+          label: '任务',
+          description: '查看计划中、进行中或已完成的工作。',
+        },
+        inbox: {
+          label: '收件箱',
+          description: '查看可能需要人工处理的提醒。',
+        },
+        context: {
+          label: '保存内容',
+          description: '查看智能体之后可能复用的笔记和指令。',
+        },
+        agents: {
+          label: '智能体',
+          description: '创建或查看负责处理任务的智能体。',
+        },
+        skills: {
+          label: '保存的指令',
+          description: '复用适合重复工作的指令。',
+        },
+        settings: {
+          label: '设置',
+          description: '连接工具、账号权限、团队和项目。',
+        },
+      },
+      actions: {
+        createTask: {
+          label: '新任务',
+          description: '让智能体完成一项任务。',
+        },
+        workToolSignIns: {
+          label: 'Codex 登录',
+          description: '在智能体处理项目文件前，先打开 Codex 登录。',
+        },
+        keys: {
+          label: '外部工具访问',
+          description: '让可信的外部工具连接 Forge，无需人工登录。',
+        },
+        gitCredentials: {
+          label: 'HTTPS 代码访问',
+          description: '私有代码链接以 https:// 开头时使用这里。',
+        },
+        sshKeys: {
+          label: 'SSH 代码访问',
+          description: '私有代码链接以 git@ 开头时使用这里。',
+        },
+        resources: {
+          label: '智能体大小限制',
+          description: '智能体开始文件工作前，选择小、标准或大的资源限制。',
+        },
+        projects: {
+          label: '项目设置',
+          description: '创建或选择任务、智能体和文件所属的项目。',
+        },
+        teams: {
+          label: '团队设置',
+          description: '创建团队，并管理谁可以修改工作。',
+        },
+        providers: {
+          label: '模型服务',
+          description: '连接智能体回答问题时使用的模型账号。',
+        },
+        runtime: {
+          label: '智能体在哪里工作',
+          description: '选择项目文件从哪里打开，以及智能体使用哪个工作工具。',
+        },
+        account: {
+          label: '账号',
+          description: '更新个人资料、密码，也可以重新显示设置清单。',
+        },
+        theme: {
+          label: '切换主题',
+          description: '切换应用外观。',
+        },
+        setupChecklistRecovery: {
+          label: '显示设置清单',
+          description: '把设置清单加回左侧菜单并打开。项目、智能体和任务都不会变化。',
+        },
+      },
+      views: {
+        board: {
+          label: '看板视图',
+          description: '用简单列移动任务。',
+        },
+        list: {
+          label: '列表视图',
+          description: '在一个可排序表格里查看任务。',
+        },
+        timeline: {
+          label: '时间线视图',
+          description: '查看工作是什么时候发生的。',
+        },
+        visualMap: {
+          label: '可视化地图',
+          description: '在图上查看智能体和任务。',
+        },
+      },
+    },
+    taskSetup: {
+      noProjectOptions: {
+        label: '创建任务前先设置项目',
+        buttonLabel: '设置项目',
+        description: '打开项目设置，让任务有归属位置。',
+      },
+      chooseProject: {
+        label: '为新任务选择项目',
+        buttonLabel: '新任务',
+        description: '先选择项目，再写给智能体的任务。',
+      },
+      noWaitingPlace: {
+        label: '先设置任务等待位置',
+        buttonLabel: '设置等待位置',
+        description: '创建任务前，先打开智能体页面添加等待位置。',
+      },
+      ready: {
+        label: '新任务',
+        buttonLabel: '新任务',
+        description: '让智能体完成一项任务。',
+      },
+    },
+  },
+
+  // =========================================================================
   // 认证
   // =========================================================================
   auth: {

@@ -199,6 +199,162 @@ export const en = {
   },
 
   // =========================================================================
+  // Command Palette
+  // =========================================================================
+  commandPalette: {
+    title: 'Find what you need',
+    inputLabel: 'Search pages and things to do',
+    placeholder: 'Search pages or things to do, e.g. tasks, inbox, settings',
+    discovery: {
+      tasks: 'Use Tasks when you want to plan or inspect work.',
+      inbox: 'Use Inbox to check updates that need a next step.',
+      settings: 'Use Settings when setup, account access, or agent work status is blocking work.',
+    },
+    groups: {
+      navigation: 'Go to a page',
+      actions: 'Create or change something',
+      views: 'Change task view',
+    },
+    empty: {
+      title: 'No page or option matches that search',
+      listSeparator: ', ',
+      tryShorter: 'Try a shorter search, or open Settings to browse setup.',
+      tryOne: 'Try {{label}} to open a page people use often.',
+      tryMany: 'Try {{prefix}}, or {{last}} to open a page people use often.',
+      commonPages: 'Common pages',
+      openPage: 'Open {{label}}',
+      showAll: 'Show all pages and actions',
+    },
+    commands: {
+      nav: {
+        start: {
+          label: 'Setup checklist',
+          description: 'Open setup steps again when you want a guided checklist.',
+        },
+        tasks: {
+          label: 'Tasks',
+          description: 'See work that is planned, active, or done.',
+        },
+        inbox: {
+          label: 'Inbox',
+          description: 'Check alerts that may need a person.',
+        },
+        context: {
+          label: 'Saved items',
+          description: 'Check saved notes and instructions before agents reuse them.',
+        },
+        agents: {
+          label: 'Agents',
+          description: 'Create or check agents that handle work.',
+        },
+        skills: {
+          label: 'Saved instructions',
+          description: 'Reuse instructions for repeated work.',
+        },
+        settings: {
+          label: 'Settings',
+          description: 'Connect tools, account access, teams, and projects.',
+        },
+      },
+      actions: {
+        createTask: {
+          label: 'New task',
+          description: 'Create a task for an agent to finish.',
+        },
+        workToolSignIns: {
+          label: 'Codex sign-in',
+          description: 'Open Codex sign-in before agents work on project files.',
+        },
+        keys: {
+          label: 'Outside tool access',
+          description: 'Let trusted outside tools connect to Forge without a person signing in.',
+        },
+        gitCredentials: {
+          label: 'HTTPS code access',
+          description: 'Use this when a private code link starts with https://.',
+        },
+        sshKeys: {
+          label: 'SSH code access',
+          description: 'Use this when a private code link starts with git@.',
+        },
+        resources: {
+          label: 'Agent size limits',
+          description: 'Choose small, standard, or large limits before agents start file work.',
+        },
+        projects: {
+          label: 'Project settings',
+          description: 'Create or choose the project where tasks, agents, and files belong.',
+        },
+        teams: {
+          label: 'Team settings',
+          description: 'Create teams and manage who can change work.',
+        },
+        providers: {
+          label: 'AI services',
+          description: 'Connect the AI account agents use to answer.',
+        },
+        runtime: {
+          label: 'Where agents work',
+          description: 'Choose where project files open and which work tool agents use.',
+        },
+        account: {
+          label: 'Account',
+          description: 'Update profile, password, and show the setup checklist again.',
+        },
+        theme: {
+          label: 'Change theme',
+          description: 'Switch the app appearance.',
+        },
+        setupChecklistRecovery: {
+          label: 'Show setup checklist',
+          description:
+            'Add the setup checklist back to the left menu and open it. Projects, agents, and tasks stay unchanged.',
+        },
+      },
+      views: {
+        board: {
+          label: 'Board view',
+          description: 'Move tasks through simple columns.',
+        },
+        list: {
+          label: 'List view',
+          description: 'Scan tasks in one sortable table.',
+        },
+        timeline: {
+          label: 'Timeline view',
+          description: 'See when work happened.',
+        },
+        visualMap: {
+          label: 'Visual map',
+          description: 'See agents and tasks on a visual map.',
+        },
+      },
+    },
+    taskSetup: {
+      noProjectOptions: {
+        label: 'Set up project before task',
+        buttonLabel: 'Set up project',
+        description: 'Open project settings so tasks have a place to belong.',
+      },
+      chooseProject: {
+        label: 'Choose project for new task',
+        buttonLabel: 'New task',
+        description: 'Pick a project first, then write the task for an agent.',
+      },
+      noWaitingPlace: {
+        label: 'Set up where tasks wait',
+        buttonLabel: 'Set up waiting place',
+        description: 'Open Agents to add a waiting place before creating a task.',
+      },
+      ready: {
+        label: 'New task',
+        buttonLabel: 'New task',
+        description: 'Create a task for an agent to finish.',
+      },
+    },
+  },
+
+  // =========================================================================
   // Authentication
   // =========================================================================
   auth: {
