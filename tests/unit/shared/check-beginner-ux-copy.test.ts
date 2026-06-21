@@ -15069,6 +15069,47 @@ export const zh = {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags saved instruction empty-state examples that use review or release jargon', () => {
+    const cwd = fixture({
+      'src/app/features/skills/SkillsView.tsx': `
+export function getEmptyState() {
+  return {
+    title: 'Create your first saved instruction',
+    detail: 'Save steps your agents should repeat, like review checklists or release-note rules.',
+  }
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'saved-instruction-empty-copy',
+          location: 'src/app/features/skills/SkillsView.tsx:5',
+        }),
+      ])
+    )
+  })
+
+  it('accepts saved instruction empty-state examples that describe ordinary work outcomes', () => {
+    const cwd = fixture({
+      'src/app/features/skills/SkillsView.tsx': `
+export function getEmptyState() {
+  return {
+    title: 'Create your first saved instruction',
+    detail:
+      'Save steps your agents should repeat, like checking work before sharing it or writing a short update.',
+  }
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags saved instruction list and create-field copy that uses install or agent-instruction jargon', () => {
     const cwd = fixture({
       'src/app/features/skills/SkillsView.tsx': `
