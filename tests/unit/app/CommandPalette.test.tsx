@@ -1,13 +1,15 @@
 import { describe, test, expect, afterEach, vi } from 'vitest'
 import { fireEvent, render, screen, cleanup, waitFor } from '@testing-library/react'
 import { CommandPalette } from '@app/features/cmdk/CommandPalette'
+import { i18n } from '@app/i18n'
 import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
 import { useSettingsStore } from '@app/shared/model/settings.store'
 
-afterEach(() => {
+afterEach(async () => {
   cleanup()
   useContextFeaturesStore.getState().reset()
   useSettingsStore.setState({ preferences: null, preferencesLoaded: false })
+  await i18n.changeLanguage('en')
 })
 
 describe('CommandPalette', () => {
@@ -35,6 +37,37 @@ describe('CommandPalette', () => {
     expect(screen.queryByText(/something needs your attention/i)).toBeNull()
     expect(screen.queryByText(/runtime status/i)).toBeNull()
     expect(screen.queryByText(previousDiscoveryTitle)).toBeNull()
+  })
+
+  test('shows beginner-readable Chinese copy when the app language is Chinese', async () => {
+    await i18n.changeLanguage('zh')
+
+    render(<CommandPalette isOpen={true} onClose={() => {}} />)
+
+    const dialog = screen.getByRole('dialog', { name: '找到你要做的事' })
+    expect(dialog).toHaveAccessibleDescription(/想规划或查看工作时，打开任务/)
+    expect(screen.getByLabelText('搜索页面和可做的事')).toBeDefined()
+    const input = screen.getByPlaceholderText('搜索页面或要做的事，例如：任务、收件箱、设置')
+    expect(input).toBeDefined()
+    expect(screen.getByText('打开页面')).toBeDefined()
+    expect(screen.getByText('创建或修改')).toBeDefined()
+    expect(screen.getByText('切换任务视图')).toBeDefined()
+    expect(screen.getByText('任务')).toBeDefined()
+    expect(screen.getByText('查看计划中、进行中或已完成的工作。')).toBeDefined()
+    expect(screen.getByText('新任务')).toBeDefined()
+    expect(screen.getByText('让智能体完成一项任务。')).toBeDefined()
+    expect(screen.getByText('可视化地图')).toBeDefined()
+
+    fireEvent.change(input, { target: { value: 'zzzzzz' } })
+
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent('没有匹配的页面或选项')
+    })
+    expect(screen.getByText(/可以试试任务、收件箱、智能体、保存的指令或设置/)).toBeDefined()
+    expect(screen.getByRole('button', { name: '打开任务' })).toBeDefined()
+    expect(screen.getByRole('button', { name: '打开智能体' })).toBeDefined()
+    expect(screen.getByRole('button', { name: '打开设置' })).toBeDefined()
+    expect(screen.getByRole('button', { name: '显示全部页面和操作' })).toBeDefined()
   })
 
   test('does not render when closed', () => {
