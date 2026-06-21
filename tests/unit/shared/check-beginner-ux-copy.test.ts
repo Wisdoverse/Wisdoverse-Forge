@@ -8797,6 +8797,7 @@ export function HostCliEnrollmentPanel() {
       <p>Keep the command window open while it works.</p>
       <p>Keep Terminal or PowerShell open while it works.</p>
       <p>Leave the work tool as Codex unless your team tells you otherwise.</p>
+      <p>Keep the suggested setup values unless your team gives you different ones.</p>
       <p>A new agent named This Computer Codex appears in this list.</p>
       <button>Copy setup command</button>
     </section>
@@ -8856,6 +8857,10 @@ export function CreateAgentModal() {
         }),
         expect.objectContaining({
           type: 'this-computer-setup-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:12',
+        }),
+        expect.objectContaining({
+          type: 'this-computer-setup-copy',
           location: 'src/app/features/agents/CreateAgentModal.tsx:6',
         }),
         expect.objectContaining({
@@ -8896,7 +8901,7 @@ export function HostCliEnrollmentPanel() {
       <p>Then the setup text appears here.</p>
       <p>Open your computer's command app: Terminal on macOS/Linux, or PowerShell on Windows.</p>
       <p>Keep that command app open while it works.</p>
-      <p>Keep the suggested setup values unless your team gives you different ones.</p>
+      <p>Do not edit the setup text. Forge already filled in the selected project.</p>
       <p>The agent appears in this list as Ready. Then send one small task.</p>
       <button>Copy setup text</button>
     </section>
