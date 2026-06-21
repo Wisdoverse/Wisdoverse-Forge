@@ -58,7 +58,8 @@ const SERVICE_DEFINITIONS: readonly ServiceDefinition[] = [
     name: 'Agent Work Starter',
     supportName: 'Starts file-work agents',
     description: 'Starts and manages the prepared project files agents use for file work.',
-    impact: 'Starting new file-work agents may fail; agents already running may stop reporting.',
+    impact:
+      'Starting new file-work agents may fail; agents already running may stop sending updates.',
     action:
       'Ask an owner or admin to check Project files in Admin before sending new file work to agents.',
   },
@@ -146,7 +147,7 @@ function serviceIssueNote(error: string): string {
     detail.includes('forbidden') ||
     detail.includes('permission')
   ) {
-    return 'This area reported an access problem. Ask an owner or admin to check Saved Data in Admin, then choose Check now.'
+    return 'This area had an access problem. Ask an owner or admin to check Saved Data in Admin, then choose Check now.'
   }
   if (
     detail.includes('connection') ||
@@ -155,7 +156,7 @@ function serviceIssueNote(error: string): string {
     detail.includes('timeout') ||
     detail.includes('timed out')
   ) {
-    return 'This area reported a connection problem. Use the next step above, then choose Check now.'
+    return 'This area had a connection problem. Use the next step above, then choose Check now.'
   }
   if (
     detail.includes('missing') ||
@@ -174,7 +175,7 @@ function serviceIssueNote(error: string): string {
     return 'This area is busy. Wait a minute, then choose Check now.'
   }
 
-  return 'This area reported a problem. Use the next step above, then choose Check now.'
+  return 'This area had a problem. Use the next step above, then choose Check now.'
 }
 
 // ============================================================================
