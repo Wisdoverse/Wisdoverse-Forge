@@ -9849,6 +9849,10 @@ function candidateTitle(candidate) {
 function contentLoadError() {
   return 'The full saved note could not load. Choose Show full saved note again before relying on it.'
 }
+
+function degradationWarning() {
+  return 'Review the full item before relying on it.'
+}
 `,
       'src/app/features/analytics/ContextUsageDashboard.tsx': `
 function taskKindLabel(kind) {
@@ -9888,6 +9892,10 @@ function taskKindLabel(kind) {
         }),
         expect.objectContaining({
           type: 'context-fallback-copy',
+          sample: expect.stringContaining('Review the full item before relying on it.'),
+        }),
+        expect.objectContaining({
+          type: 'context-fallback-copy',
           location: 'src/app/features/analytics/ContextUsageDashboard.tsx:3',
         }),
       ])
@@ -9924,6 +9932,10 @@ function taskKindLabel(kind) {
       'src/app/features/detail/ContextAppliedList.tsx': `
 function contentLoadError() {
   return 'Choose Show complete saved note again before relying on it. The complete saved note could not load.'
+}
+
+function degradationWarning() {
+  return 'Check the full item before relying on it.'
 }
 `,
     })
@@ -10471,6 +10483,10 @@ function toolOutcome() {
   return { label: 'Needs review' }
 }
 
+function resultWarning() {
+  return 'Review this result before relying on the final answer.'
+}
+
 const labels = {
   path: 'Path',
 }
@@ -10502,7 +10518,11 @@ const requestToggle = 'Show setup details'
         }),
         expect.objectContaining({
           type: 'chat-tool-step-copy',
-          location: 'src/app/features/chat/ToolCallDetail.tsx:18',
+          sample: expect.stringContaining('Review this result before relying on the final answer.'),
+        }),
+        expect.objectContaining({
+          type: 'chat-tool-step-copy',
+          location: 'src/app/features/chat/ToolCallDetail.tsx:22',
         }),
       ])
     )
@@ -10517,6 +10537,10 @@ function toolDataSummary(data) {
 
 function toolOutcome() {
   return { label: 'Check step' }
+}
+
+function resultWarning() {
+  return 'Check this result before relying on the final answer.'
 }
 
 const labels = {

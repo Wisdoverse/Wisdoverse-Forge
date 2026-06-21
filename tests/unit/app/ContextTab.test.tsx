@@ -258,7 +258,8 @@ describe('ContextTab', () => {
     expect(
       screen.getByText(/This saved item was shortened before the agent used it/i)
     ).toBeDefined()
-    expect(screen.getByText(/Review the full item before relying on it/i)).toBeDefined()
+    expect(screen.getByText(/Check the full item before relying on it/i)).toBeDefined()
+    expect(screen.queryByText(/Review the full item before relying on it/i)).toBeNull()
     expect(screen.queryByText(/source snapshot/i)).toBeNull()
     expect(screen.queryByText(/limited context/i)).toBeNull()
     expect(screen.getByText('Instructions used')).toBeDefined()

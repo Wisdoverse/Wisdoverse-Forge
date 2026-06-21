@@ -1677,6 +1677,7 @@ const CONTEXT_FALLBACK_DEAD_END_PATTERNS = [
   /\bSome note limits need review\b/i,
   /\bTask type not listed\b/i,
   /\bTask type needs review\b/i,
+  /\bReview the full item before relying on it\./i,
   /\bShow full saved note\b/i,
   /\bfull saved note\b/i,
 ]
@@ -1752,6 +1753,7 @@ const HELP_ENTRY_REVIEW_ACTION_PATTERNS = [
 const CHAT_TOOL_STEP_DEAD_END_PATTERNS = [
   /\bThis step needs review\b/i,
   /\bThis step has not reported a result yet\b/i,
+  /\bReview this result before relying on the final answer\./i,
   /\b(?:Show|Hide) setup details\b/i,
   /\b(?:Show|Hide) result details\b/i,
   /\bShow all result details\b/i,

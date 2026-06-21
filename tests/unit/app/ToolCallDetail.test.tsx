@@ -106,9 +106,8 @@ describe('ToolCallDetail', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /show step details for deployment/i }))
 
-    expect(
-      screen.getByText('Review this result before relying on the final answer.')
-    ).toBeInTheDocument()
+    expect(screen.getByText('Check this result before relying on the final answer.')).toBeInTheDocument()
+    expect(screen.queryByText('Review this result before relying on the final answer.')).toBeNull()
     expect(screen.getByText(/Required account access is missing/i)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /show what the agent received/i }))
