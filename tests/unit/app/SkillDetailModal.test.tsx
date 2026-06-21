@@ -83,13 +83,15 @@ describe('SkillDetailModal', () => {
       />
     )
 
-    expect(screen.getByText('Needs install before agents can use it')).toBeInTheDocument()
+    expect(screen.getByText('Needs setup before use')).toBeInTheDocument()
+    expect(screen.queryByText(/needs install/i)).toBeNull()
     expect(screen.getByText('Works with any agent')).toBeInTheDocument()
     expect(
       screen.getByText(
-        'Ask an owner or admin to install it before expecting agents to use it in tasks.'
+        'Ask an owner or admin to finish setup, then use this saved instruction in a task.'
       )
     ).toBeInTheDocument()
+    expect(screen.queryByText(/install it/i)).toBeNull()
     expect(screen.getByText('Saved instructions')).toBeInTheDocument()
     expect(
       screen.getByText('Open Saved instructions again to show who keeps this updated')
