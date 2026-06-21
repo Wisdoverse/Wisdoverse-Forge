@@ -724,7 +724,7 @@ describe('Sidebar', () => {
 
     expect(
       await screen.findByText(
-        'Open the left menu, choose the current project, then save this project name again. Forge could not save it right now. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
+        'Open the left menu, choose the current project, then save this project name again. Forge could not save it right now. If it still fails, ask an owner or admin to check Projects in Settings.'
       )
     ).toBeInTheDocument()
     expect(screen.queryByText(/API 500/i)).not.toBeInTheDocument()

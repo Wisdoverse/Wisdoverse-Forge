@@ -59,10 +59,10 @@ describe('workspace setup create forms', () => {
       const alert = screen.getByRole('alert')
       expect(alert).toHaveAttribute('aria-live', 'polite')
       expect(alert).toHaveTextContent(
-        'Open Settings and Teams and Projects again, then create this team.'
+        'Open Settings, then Teams again, then create this team.'
       )
       expect(alert).toHaveTextContent(
-        'ask an owner or admin to check Teams and Projects in Settings'
+        'ask an owner or admin to check Teams in Settings'
       )
       expect(alert).not.toHaveTextContent('team space setup')
       expect(alert).not.toHaveTextContent('API 500')
@@ -282,7 +282,7 @@ describe('workspace setup create forms', () => {
       const alert = screen.getByRole('alert')
       expect(alert).toHaveAttribute('aria-live', 'polite')
       expect(alert).toHaveTextContent(
-        'Open Settings and Teams and Projects again, choose the team, then create this project.'
+        'Open Settings, then Projects again, choose the team, then create this project.'
       )
       expect(alert).not.toHaveTextContent('Refresh Settings')
       expect(alert).not.toHaveTextContent('HTTP 404')

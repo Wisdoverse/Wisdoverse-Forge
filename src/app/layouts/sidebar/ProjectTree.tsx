@@ -186,6 +186,7 @@ function detailFromRecord(record: Record<string, unknown>): string | null {
 
 function renameErrorMessage(target: RenameTarget, error: unknown): string {
   const label = target === 'team' ? 'team' : 'project'
+  const settingsSection = target === 'team' ? 'Teams' : 'Projects'
 
   if (
     error instanceof TypeError ||
@@ -219,7 +220,7 @@ function renameErrorMessage(target: RenameTarget, error: unknown): string {
     return `Wait a moment, then save this ${label} name again. The left menu is busy.`
   }
   if (status >= 500) {
-    return `Open the left menu, choose the current ${label}, then save this ${label} name again. Forge could not save it right now. If it still fails, ask an owner or admin to check Teams and Projects in Settings.`
+    return `Open the left menu, choose the current ${label}, then save this ${label} name again. Forge could not save it right now. If it still fails, ask an owner or admin to check ${settingsSection} in Settings.`
   }
 
   return `Open the left menu, choose the current ${label}, then save this ${label} name again. The ${label} name was not saved.`
@@ -242,6 +243,7 @@ function renameValidationMessage(target: RenameTarget, detail: string | null): s
 
 function deleteErrorMessage(target: RenameTarget, error: unknown): string {
   const label = target === 'team' ? 'team' : 'project'
+  const settingsSection = target === 'team' ? 'Teams' : 'Projects'
 
   if (
     error instanceof TypeError ||
@@ -272,7 +274,7 @@ function deleteErrorMessage(target: RenameTarget, error: unknown): string {
     return `Wait a moment, then delete this ${label} again. The left menu is busy.`
   }
   if (status >= 500) {
-    return `Open the left menu, choose the current ${label}, then delete it again. Forge could not delete it right now. If it still fails, ask an owner or admin to check Teams and Projects in Settings.`
+    return `Open the left menu, choose the current ${label}, then delete it again. Forge could not delete it right now. If it still fails, ask an owner or admin to check ${settingsSection} in Settings.`
   }
 
   return `Open the left menu, choose the current ${label}, then delete it again.`

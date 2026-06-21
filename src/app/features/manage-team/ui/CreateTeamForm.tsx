@@ -84,7 +84,7 @@ function createTeamErrorMessage(error: unknown): string {
     return 'Ask an owner or admin to let you create teams in this team space.'
   }
   if (code === 404) {
-    return 'Open Settings and Teams and Projects again, then create this team. The team space may have changed.'
+    return 'Open Settings, then Teams again, then create this team. The team space may have changed.'
   }
   if (code === 409 || lower.includes('already exists') || lower.includes('duplicate')) {
     return 'Use a different team name, then create this team again.'
@@ -98,7 +98,7 @@ function createTeamErrorMessage(error: unknown): string {
     return 'Wait a minute, then create this team again. Too many setup changes are happening right now.'
   }
   if (code != null && code >= 500) {
-    return 'Open Settings and Teams and Projects again, then create this team. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
+    return 'Open Settings, then Teams again, then create this team. If it still fails, ask an owner or admin to check Teams in Settings.'
   }
   if (
     error instanceof TypeError ||

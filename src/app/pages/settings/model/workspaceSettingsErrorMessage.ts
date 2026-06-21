@@ -92,7 +92,7 @@ function resourcePageLabel(resource: WorkspaceSettingsResource): string {
 }
 
 function settingsWorkspaceStep(resource: WorkspaceSettingsResource): string {
-  return `open Settings and Teams and Projects again, then choose ${resourcePageLabel(resource)}`
+  return `open Settings, then ${resourcePageLabel(resource)} again`
 }
 
 function startSettingsWorkspaceStep(resource: WorkspaceSettingsResource): string {
@@ -124,11 +124,17 @@ function unavailableMessage(
   resource: WorkspaceSettingsResource,
   action: WorkspaceSettingsAction
 ): string {
+  const page = resourcePageLabel(resource)
   if (action === 'load') {
-    return `${loadMessage(resource)} If it still fails, ask an owner or admin to check Teams and Projects in Settings.`
+    return `${loadMessage(resource)} If it still fails, ask an owner or admin to check ${page} in Settings.`
   }
 
-  return `Open Settings and Teams and Projects again, choose the team, then ${retryPhrase(resource, action)}. If it still fails, ask an owner or admin to check Teams and Projects in Settings.`
+  const createStep =
+    resource === 'project'
+      ? `Open Settings, then ${page} again, choose the team, then ${retryPhrase(resource, action)}`
+      : `Open Settings, then ${page} again, then ${retryPhrase(resource, action)}`
+
+  return `${createStep}. If it still fails, ask an owner or admin to check ${page} in Settings.`
 }
 
 function permissionMessage(
@@ -183,7 +189,9 @@ export function workspaceSettingsErrorMessage(
   if (code === 404 || text.includes('endpoint is not available')) {
     return action === 'load'
       ? `${load} The team space, team, or project may have changed.`
-      : `Open Settings and Teams and Projects again, choose the team, then ${retry}. The team space, team, or project may have changed.`
+      : resource === 'project'
+        ? `Open Settings, then ${resourcePageLabel(resource)} again, choose the team, then ${retry}. The team space, team, or project may have changed.`
+        : `Open Settings, then ${resourcePageLabel(resource)} again, then ${retry}. The team space, team, or project may have changed.`
   }
   if (code === 409 || text.includes('already exists')) {
     return action === 'create'
@@ -215,6 +223,6 @@ export function workspaceSettingsErrorMessage(
   }
 
   return action === 'load'
-    ? `${load} If it still fails, ask an owner or admin to check Teams and Projects in Settings.`
-    : `Try to ${retry}. If it still fails, ask an owner or admin to check Teams and Projects in Settings.`
+    ? `${load} If it still fails, ask an owner or admin to check ${resourcePageLabel(resource)} in Settings.`
+    : `Try to ${retry}. If it still fails, ask an owner or admin to check ${resourcePageLabel(resource)} in Settings.`
 }

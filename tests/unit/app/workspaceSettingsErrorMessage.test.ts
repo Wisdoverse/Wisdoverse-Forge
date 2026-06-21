@@ -8,12 +8,19 @@ describe('workspaceSettingsErrorMessage', () => {
     expect(actual).not.toContain('Detail:')
   }
 
+  test('names the exact Settings section instead of a combined Teams and Projects page', () => {
+    const message = workspaceSettingsErrorMessage('project', 'load', new TypeError('Failed to fetch'))
+
+    expect(message).toContain('open Settings, then Projects again')
+    expect(message).not.toContain('Settings and Teams and Projects')
+  })
+
   test('maps permission failures to team space access guidance', () => {
     const message = workspaceSettingsErrorMessage('team', 'load', new Error('HTTP 403'))
 
     expectBeginnerMessage(
       message,
-      'Ask an owner or admin to update your team space access, then open Settings and Teams and Projects again, then choose Teams. You do not have access to these team settings right now.'
+      'Ask an owner or admin to update your team space access, then open Settings, then Teams again. You do not have access to these team settings right now.'
     )
     expect(message).not.toContain('workspace access')
   })
@@ -37,7 +44,7 @@ describe('workspaceSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Sign in again, then open Settings and Teams and Projects again, then choose Teams.'
+      'Sign in again, then open Settings, then Teams again.'
     )
     expect(message).not.toContain('workspace teams')
   })
@@ -103,7 +110,7 @@ describe('workspaceSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Settings and Teams and Projects again, then choose Teams. The team space, team, or project may have changed.'
+      'Open Settings, then Teams again. The team space, team, or project may have changed.'
     )
     expect(message).not.toContain('organization')
     expect(message).not.toContain('workspace teams')
@@ -118,7 +125,7 @@ describe('workspaceSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Settings and Teams and Projects again, then choose Teams. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
+      'Open Settings, then Teams again. If it still fails, ask an owner or admin to check Teams in Settings.'
     )
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('temporarily unavailable')
@@ -135,7 +142,7 @@ describe('workspaceSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Settings and Teams and Projects again, then choose Projects. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
+      'Open Settings, then Projects again. If it still fails, ask an owner or admin to check Projects in Settings.'
     )
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('503')
@@ -151,7 +158,7 @@ describe('workspaceSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Settings and Teams and Projects again, choose the team, then create this project again. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
+      'Open Settings, then Projects again, choose the team, then create this project again. If it still fails, ask an owner or admin to check Projects in Settings.'
     )
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('Refresh Settings')
@@ -166,7 +173,7 @@ describe('workspaceSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then open Settings and Teams and Projects again, then choose Projects.'
+      'Check your connection, then open Settings, then Projects again.'
     )
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('workspace projects')

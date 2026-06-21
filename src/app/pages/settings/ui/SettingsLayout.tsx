@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { type MouseEvent, useEffect } from 'react'
 import {
   Bot,
   Folder,
@@ -182,6 +182,22 @@ export function SettingsLayout({ routeSection, onSectionChange }: SettingsLayout
     onSectionChange?.(section)
   }
 
+  function handleSectionLinkClick(event: MouseEvent<HTMLAnchorElement>, section: SettingsSection) {
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.shiftKey
+    ) {
+      return
+    }
+
+    event.preventDefault()
+    handleSectionChange(section)
+  }
+
   return (
     <div className="flex h-full flex-col overflow-hidden md:flex-row">
       {/* Mobile-only: grouped section picker at top */}
@@ -235,10 +251,10 @@ export function SettingsLayout({ routeSection, onSectionChange }: SettingsLayout
               {items.map((item) => {
                 const isActive = activeSection === item.id
                 return (
-                  <button
+                  <a
                     key={item.id}
-                    type="button"
-                    onClick={() => handleSectionChange(item.id)}
+                    href={`/settings/${item.id}`}
+                    onClick={(event) => handleSectionLinkClick(event, item.id)}
                     aria-label={`${item.label}: ${item.description}`}
                     className={cn(
                       'flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left transition-colors',
@@ -266,7 +282,7 @@ export function SettingsLayout({ routeSection, onSectionChange }: SettingsLayout
                         {item.description}
                       </span>
                     </span>
-                  </button>
+                  </a>
                 )
               })}
             </div>

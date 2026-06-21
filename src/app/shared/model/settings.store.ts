@@ -66,16 +66,22 @@ const SETTINGS_SECTION_ALIASES: Record<string, SettingsSection> = {
   'work-locations': 'runtime',
   runtime: 'runtime',
   'codex-login': 'work-tool-sign-ins',
+  'codex-login-page': 'work-tool-sign-ins',
   'codex-cli': 'work-tool-sign-ins',
   'codex-cli-login': 'work-tool-sign-ins',
+  'codex-sign-in': 'work-tool-sign-ins',
+  'codex-signin': 'work-tool-sign-ins',
+  'codex-and-work-tool-sign-in': 'work-tool-sign-ins',
   codex: 'work-tool-sign-ins',
   'cli-login': 'work-tool-sign-ins',
   'cli-sign-ins': 'work-tool-sign-ins',
   openai: 'work-tool-sign-ins',
   'openai-codex': 'work-tool-sign-ins',
   'work-tool-login': 'work-tool-sign-ins',
+  'work-tool-sign-in': 'work-tool-sign-ins',
   'work-tool-signin': 'work-tool-sign-ins',
   'work-tool-signins': 'work-tool-sign-ins',
+  'work-tool-sign-ins-page': 'work-tool-sign-ins',
   profile: 'account',
   user: 'account',
   organization: 'teams',
@@ -94,7 +100,11 @@ export function normalizeSettingsSection(value: unknown): SettingsSection | null
   if ((SETTINGS_SECTIONS as readonly string[]).includes(normalized)) {
     return normalized as SettingsSection
   }
-  return SETTINGS_SECTION_ALIASES[normalized] ?? null
+  const routeLike = normalized.replace(/[\s_]+/g, '-').replace(/-+/g, '-')
+  if ((SETTINGS_SECTIONS as readonly string[]).includes(routeLike)) {
+    return routeLike as SettingsSection
+  }
+  return SETTINGS_SECTION_ALIASES[normalized] ?? SETTINGS_SECTION_ALIASES[routeLike] ?? null
 }
 
 type SettingsErrorArea =
