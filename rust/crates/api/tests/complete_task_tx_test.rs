@@ -302,6 +302,13 @@ async fn completing_self_fix_task_enqueues_one_pr_job(pool: PgPool) {
     let job = job.expect("a self_fix_pr job must be enqueued");
     let payload: agentforge_core::SelfFixPrJob = serde_json::from_value(job.payload).unwrap();
     assert_eq!(payload.task_id, task_id);
+    assert!(
+        agentforge_jobs::queue::dequeue(&pool, agentforge_core::SELF_FIX_PR_QUEUE, "t2")
+            .await
+            .unwrap()
+            .is_none(),
+        "exactly one job"
+    );
 }
 
 #[sqlx::test(migrations = "../db/migrations")]
