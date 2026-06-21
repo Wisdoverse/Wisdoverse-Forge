@@ -337,7 +337,7 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
 
           {call.success === false && (
             <div className="rounded-md border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-[11px] text-apple-red">
-              Review this result before relying on the final answer.
+              Check this result before relying on the final answer.
             </div>
           )}
 
