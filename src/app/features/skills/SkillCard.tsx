@@ -1,7 +1,7 @@
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import type { Skill } from '@app/shared/model/skills.store'
-import { savedInstructionSourceLabel } from './model/savedInstructionLabels'
+import { savedInstructionAudienceLabel } from './model/savedInstructionLabels'
 
 interface SkillCardProps {
   skill: Skill
@@ -14,7 +14,7 @@ export function SkillCard({ skill, onClick }: SkillCardProps) {
     skill.description ||
     'Open details to check the reusable steps before using this saved instruction.'
   const author = skill.pluginAuthor.trim()
-  const savedInLabel = savedInstructionAudienceLabel(skill.plugin, author)
+  const savedInLabel = savedInstructionCardAudienceLabel(skill.plugin, author)
   return (
     <button
       type="button"
@@ -56,18 +56,7 @@ export function SkillCard({ skill, onClick }: SkillCardProps) {
   )
 }
 
-function savedInstructionAudienceLabel(source: string, author: string): string {
-  const label = savedInstructionSourceLabel(source, 'saved instructions')
-  const normalized = label.toLowerCase()
-  let audience = `Saved in ${label}`
-
-  if (normalized === 'team space saved instructions') {
-    audience = 'Saved for this team space'
-  } else if (normalized === 'global saved instructions') {
-    audience = 'Saved for everyone'
-  } else if (normalized === 'saved instructions') {
-    audience = 'Saved as a saved instruction'
-  }
-
+function savedInstructionCardAudienceLabel(source: string, author: string): string {
+  const audience = savedInstructionAudienceLabel(source, 'saved instructions')
   return author ? `${audience} by ${author}` : audience
 }

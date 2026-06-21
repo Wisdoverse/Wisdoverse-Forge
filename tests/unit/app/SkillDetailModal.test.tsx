@@ -40,7 +40,8 @@ describe('SkillDetailModal', () => {
       )
     ).toBeInTheDocument()
     expect(screen.getByText('Where it came from')).toBeInTheDocument()
-    expect(screen.getByText('Team space saved instructions')).toBeInTheDocument()
+    expect(screen.getByText('Saved for this team space')).toBeInTheDocument()
+    expect(screen.queryByText('Team space saved instructions')).toBeNull()
     expect(screen.queryByText('Workspace skills')).toBeNull()
     expect(screen.queryByText('Workspace saved instructions')).toBeNull()
     expect(screen.getByText('Updated by')).toBeInTheDocument()
@@ -92,7 +93,8 @@ describe('SkillDetailModal', () => {
       )
     ).toBeInTheDocument()
     expect(screen.queryByText(/install it/i)).toBeNull()
-    expect(screen.getByText('Saved instructions')).toBeInTheDocument()
+    expect(screen.getByText('Saved as a saved instruction')).toBeInTheDocument()
+    expect(screen.queryByText('Saved instructions')).toBeNull()
     expect(
       screen.getByText('Open Saved instructions again to show who keeps this updated')
     ).toBeInTheDocument()
@@ -121,7 +123,7 @@ describe('SkillDetailModal', () => {
       />
     )
 
-    expect(screen.getByText('Saved instructions')).toBeInTheDocument()
+    expect(screen.getByText('Saved as a saved instruction')).toBeInTheDocument()
     expect(screen.getByText('Check saved instruction access')).toBeInTheDocument()
     expect(screen.getByText('Check work tool in Settings')).toBeInTheDocument()
     expect(screen.getByText('Check work tool in Settings')).toHaveAttribute(
