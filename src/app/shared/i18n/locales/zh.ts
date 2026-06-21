@@ -199,11 +199,11 @@ export const zh: TranslationKeys = {
   commandPalette: {
     title: '找到你要做的事',
     inputLabel: '搜索页面和可做的事',
-    placeholder: '搜索页面或要做的事，例如：任务、收件箱、设置',
+    placeholder: '搜索你想做什么，例如：发送任务、添加智能体、登录工具',
     discovery: {
-      tasks: '想规划或查看工作时，打开任务。',
-      inbox: '想查看需要你处理的更新时，打开收件箱。',
-      settings: '设置、账号或智能体工作状态卡住时，打开设置。',
+      tasks: '想让智能体做事时，先写一条小任务。',
+      inbox: '继续前先查看需要人工处理的更新。',
+      settings: '处理智能体、登录、项目和访问权限里的设置卡点。',
     },
     groups: {
       navigation: '打开页面',
@@ -254,11 +254,11 @@ export const zh: TranslationKeys = {
       actions: {
         createTask: {
           label: '新任务',
-          description: '让智能体完成一项任务。',
+          description: '告诉智能体你想要的结果，以及如何检查是否完成。',
         },
         workToolSignIns: {
           label: 'Codex 登录',
-          description: '在智能体处理项目文件前，先打开 Codex 登录。',
+          description: '智能体用 Codex 或其他工作工具改文件前，先在这里登录。',
         },
         keys: {
           label: '外部工具访问',
@@ -277,11 +277,11 @@ export const zh: TranslationKeys = {
           description: '智能体开始文件工作前，选择小、标准或大的资源限制。',
         },
         projects: {
-          label: '项目设置',
-          description: '创建或选择任务、智能体和文件所属的项目。',
+          label: '项目',
+          description: '创建或选择任务、智能体和文件所属的位置。',
         },
         teams: {
-          label: '团队设置',
+          label: '团队',
           description: '创建团队，并管理谁可以修改工作。',
         },
         providers: {
@@ -290,7 +290,7 @@ export const zh: TranslationKeys = {
         },
         runtime: {
           label: '智能体在哪里工作',
-          description: '选择项目文件从哪里打开，以及智能体使用哪个工作工具。',
+          description: '常规设置选项目文件；文件必须留在本机时选这台电脑。',
         },
         account: {
           label: '账号',
@@ -343,7 +343,7 @@ export const zh: TranslationKeys = {
       ready: {
         label: '新任务',
         buttonLabel: '新任务',
-        description: '让智能体完成一项任务。',
+        description: '告诉智能体你想要的结果，以及如何检查是否完成。',
       },
     },
   },

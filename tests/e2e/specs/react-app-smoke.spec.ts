@@ -514,8 +514,12 @@ test.describe('React App Smoke Tests', () => {
     test('Ctrl+K opens command palette', async ({ page }) => {
       await page.keyboard.press('Control+k')
 
-      const input = page.getByPlaceholder(/Search pages or things to do/)
+      const input = page.getByPlaceholder(/Search what you want to do/)
       await expect(input).toBeVisible({ timeout: 5000 })
+      await expect(page.getByText(/Write one small task when you want work done/i)).toBeVisible()
+      await expect(
+        page.getByText(/Fix setup blockers for agents, sign-ins, projects, and access/i)
+      ).toBeVisible()
       await screenshot(page, '19-cmdk-open')
     })
 
@@ -529,7 +533,7 @@ test.describe('React App Smoke Tests', () => {
 
     test('clicking outside closes command palette', async ({ page }) => {
       await page.keyboard.press('Control+k')
-      const input = page.getByPlaceholder(/Search pages or things to do/)
+      const input = page.getByPlaceholder(/Search what you want to do/)
       await expect(input).toBeVisible({ timeout: 5000 })
 
       // Click the backdrop (fixed inset-0 overlay)
@@ -540,7 +544,7 @@ test.describe('React App Smoke Tests', () => {
     test('top bar search button opens command palette', async ({ page }) => {
       await page.getByTestId('top-bar-command-search').click()
 
-      await expect(page.getByPlaceholder(/Search pages or things to do/)).toBeVisible({
+      await expect(page.getByPlaceholder(/Search what you want to do/)).toBeVisible({
         timeout: 5000,
       })
       await screenshot(page, '20-cmdk-via-button')
@@ -566,6 +570,9 @@ test.describe('React App Smoke Tests', () => {
       // trailing description).
       const settingsNav = page.getByTestId('settings-desktop-nav')
       await expect(settingsNav).toBeVisible({ timeout: 30000 })
+      await expect(settingsNav.getByText('Start here')).toBeVisible()
+      await expect(settingsNav.getByText('People and projects')).toBeVisible()
+      await expect(settingsNav.getByText('Access and limits')).toBeVisible()
       await expect(settingsNav.getByRole('link', { name: /^AI services:/ })).toBeVisible()
       await expect(settingsNav.getByRole('link', { name: /^Outside tool access:/ })).toBeVisible()
       await expect(settingsNav.getByRole('link', { name: /^HTTPS code access:/ })).toBeVisible()
@@ -1108,7 +1115,7 @@ test.describe('React App Smoke Tests', () => {
       await setupAndNavigate(page, baseURL!)
 
       await page.keyboard.press('Control+k')
-      const input = page.getByPlaceholder(/Search pages or things to do/)
+      const input = page.getByPlaceholder(/Search what you want to do/)
       await expect(input).toBeVisible({ timeout: 5000 })
 
       // Click the Agents navigation command
@@ -1125,7 +1132,7 @@ test.describe('React App Smoke Tests', () => {
       await setupAndNavigate(page, baseURL!)
 
       await page.keyboard.press('Control+k')
-      await expect(page.getByPlaceholder(/Search pages or things to do/)).toBeVisible({
+      await expect(page.getByPlaceholder(/Search what you want to do/)).toBeVisible({
         timeout: 5000,
       })
 
@@ -1139,7 +1146,7 @@ test.describe('React App Smoke Tests', () => {
       await setupAndNavigate(page, baseURL!)
 
       await page.keyboard.press('Control+k')
-      await expect(page.getByPlaceholder(/Search pages or things to do/)).toBeVisible({
+      await expect(page.getByPlaceholder(/Search what you want to do/)).toBeVisible({
         timeout: 5000,
       })
 
@@ -1337,13 +1344,13 @@ test.describe('React App Smoke Tests', () => {
 
       // Open
       await page.keyboard.press('Control+k')
-      await expect(page.getByPlaceholder(/Search pages or things to do/)).toBeVisible({
+      await expect(page.getByPlaceholder(/Search what you want to do/)).toBeVisible({
         timeout: 5000,
       })
 
       // Close with same shortcut
       await page.keyboard.press('Control+k')
-      await expect(page.getByPlaceholder(/Search pages or things to do/)).toBeHidden({
+      await expect(page.getByPlaceholder(/Search what you want to do/)).toBeHidden({
         timeout: 3000,
       })
     })
@@ -1352,7 +1359,7 @@ test.describe('React App Smoke Tests', () => {
       await setupAndNavigate(page, baseURL!)
 
       await page.keyboard.press('Control+k')
-      const input = page.getByPlaceholder(/Search pages or things to do/)
+      const input = page.getByPlaceholder(/Search what you want to do/)
       await expect(input).toBeVisible({ timeout: 5000 })
 
       // cmdk captures Escape on the input element — click backdrop instead

@@ -204,11 +204,11 @@ export const en = {
   commandPalette: {
     title: 'Find what you need',
     inputLabel: 'Search pages and things to do',
-    placeholder: 'Search pages or things to do, e.g. tasks, inbox, settings',
+    placeholder: 'Search what you want to do, e.g. send work, add agent, sign in',
     discovery: {
-      tasks: 'Use Tasks when you want to plan or inspect work.',
-      inbox: 'Use Inbox to check updates that need a next step.',
-      settings: 'Use Settings when setup, account access, or agent work status is blocking work.',
+      tasks: 'Write one small task when you want work done.',
+      inbox: 'Check updates that need a person before you keep working.',
+      settings: 'Fix setup blockers for agents, sign-ins, projects, and access.',
     },
     groups: {
       navigation: 'Go to a page',
@@ -259,11 +259,11 @@ export const en = {
       actions: {
         createTask: {
           label: 'New task',
-          description: 'Create a task for an agent to finish.',
+          description: 'Tell an agent the result you want and how to check it.',
         },
         workToolSignIns: {
           label: 'Codex sign-in',
-          description: 'Open Codex sign-in before agents work on project files.',
+          description: 'Sign in before agents edit files with Codex or another work tool.',
         },
         keys: {
           label: 'Outside tool access',
@@ -282,11 +282,11 @@ export const en = {
           description: 'Choose small, standard, or large limits before agents start file work.',
         },
         projects: {
-          label: 'Project settings',
-          description: 'Create or choose the project where tasks, agents, and files belong.',
+          label: 'Projects',
+          description: 'Create or choose where tasks, agents, and files belong.',
         },
         teams: {
-          label: 'Team settings',
+          label: 'Teams',
           description: 'Create teams and manage who can change work.',
         },
         providers: {
@@ -295,7 +295,8 @@ export const en = {
         },
         runtime: {
           label: 'Where agents work',
-          description: 'Choose where project files open and which work tool agents use.',
+          description:
+            'Choose Project files for the usual setup, or This computer for local-only work.',
         },
         account: {
           label: 'Account',
@@ -349,7 +350,7 @@ export const en = {
       ready: {
         label: 'New task',
         buttonLabel: 'New task',
-        description: 'Create a task for an agent to finish.',
+        description: 'Tell an agent the result you want and how to check it.',
       },
     },
   },
