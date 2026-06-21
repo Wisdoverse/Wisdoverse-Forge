@@ -787,7 +787,7 @@ function CatalogGrid() {
   return 'Standard setup · Coding plan · China/Global address'
 }
 function ModelQuickPicks() {
-  return 'Gateway alias: gpt-4o-mini'
+  return 'Gateway alias: gpt-4o-mini. Common models. Find available models. Showing built-in models, or type your model name.'
 }
 function ProviderCard({ testing }) {
   return <span>{testing ? 'Checking' : 'Check'}</span>
@@ -900,13 +900,13 @@ function settingsValidationMessage() {
       'src/app/features/settings/ProvidersSection.tsx': `
 const PROVIDER_SETUP_STEPS = [
   { label: 'Paste the service access key', value: 'Open that account, copy the service access key, and paste it here.' },
-  { label: 'Save, then check connection', value: 'After saving, choose Check connection. Ready means agents can use this service.' },
+  { label: 'Save, then make it ready', value: 'After saving, choose Check connection. You are done when it shows Ready.' },
 ]
 function CatalogPanel() {
-  return 'Forge fills in the setup choices for you. After saving, choose Check connection.'
+  return 'Forge fills in the setup choices for you. After saving, choose Check connection. You are done when it shows Ready.'
 }
 function ModelField() {
-  return 'Service setup. Keep the suggested setup unless your service guide gives you a different model name.'
+  return 'Service setup. Keep the suggested setup unless your service guide gives you a different setup name.'
 }
 function RegionToggle() {
   return 'Service website region'
@@ -945,7 +945,7 @@ function providerTestErrorMessage() {
 `,
       'src/app/features/settings/providerSettingsErrorMessage.ts': `
 function providerSettingsErrorMessage() {
-  return 'Keep the suggested service setup or choose the model name from your service guide, then save again.'
+  return 'Keep the suggested service setup or choose the setup name from your service guide, then save again.'
 }
 `,
       'src/app/shared/model/settings.store.ts': `
