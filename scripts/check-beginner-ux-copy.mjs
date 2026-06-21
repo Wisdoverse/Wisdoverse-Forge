@@ -929,6 +929,12 @@ const KANBAN_DONE_REVIEW_EMPTY_JARGON_PATTERNS = [
   /\bFinished work appears here for review\b/i,
   /\bNothing ready for review\b/i,
 ]
+const KANBAN_COLUMN_EMPTY_DEAD_END_PATTERNS = [
+  /\bRunning work appears here\b/i,
+  /\bTasks needing your answer appear here\b/i,
+  /\bCanceled tasks stay here for history\b/i,
+  /\bTasks will appear here when they reach this board step\b/i,
+]
 
 const QUICK_CREATE_EXAMPLE_REVIEW_JARGON_PATTERNS = [/\bReview setup\b/i]
 
@@ -4327,6 +4333,12 @@ function hasKanbanDoneReviewEmptyJargonCopy(relFile, line) {
   return KANBAN_DONE_REVIEW_EMPTY_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasKanbanColumnEmptyDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/board/KanbanColumn.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return KANBAN_COLUMN_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasQuickCreateExampleReviewJargonCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/board/QuickCreate.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -7194,6 +7206,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Done column empty states must tell beginners to check finished work before using it instead of saying review.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasKanbanColumnEmptyDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'kanban-column-empty-copy',
+        location,
+        message: 'Board column empty states must tell beginners which card or action to open next.',
         sample: line.trim(),
       })
     }

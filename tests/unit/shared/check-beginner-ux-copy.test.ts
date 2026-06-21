@@ -13964,6 +13964,64 @@ function KanbanColumn() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags board column empty copy that only says work will appear later', () => {
+    const cwd = fixture({
+      'src/app/features/board/KanbanColumn.tsx': `
+const COLUMN_EMPTY_STATE = {
+  working: { title: 'Running work appears here', detail: 'Running work appears here once an agent starts the task.' },
+  blocked: { title: 'Tasks needing your answer appear here', detail: 'Tasks waiting for your answer or missing details will collect here.' },
+  canceled: { title: 'Canceled tasks stay here for history', detail: 'Canceled work stays here so the board keeps its history visible.' },
+}
+
+function fallback() {
+  return 'Tasks will appear here when they reach this board step.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'kanban-column-empty-copy',
+          location: 'src/app/features/board/KanbanColumn.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'kanban-column-empty-copy',
+          location: 'src/app/features/board/KanbanColumn.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'kanban-column-empty-copy',
+          location: 'src/app/features/board/KanbanColumn.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'kanban-column-empty-copy',
+          location: 'src/app/features/board/KanbanColumn.tsx:9',
+        }),
+      ])
+    )
+  })
+
+  it('accepts board column empty copy that gives a visible next action', () => {
+    const cwd = fixture({
+      'src/app/features/board/KanbanColumn.tsx': `
+const COLUMN_EMPTY_STATE = {
+  working: { title: 'Start a waiting task to show live work', detail: 'Open a task in Waiting to start, choose Start, or wait for the agent to begin.' },
+  blocked: { title: 'Answer help requests from this column', detail: 'When a task needs details, open its card here, read what the agent needs, then choose Continue or Stop.' },
+  canceled: { title: 'Check canceled work before starting again', detail: 'Open a canceled card here to see why it stopped before you create a replacement task.' },
+}
+
+function fallback() {
+  return 'When a task reaches this board step, open its card to see what to do next.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags quick task examples that say review setup', () => {
     const cwd = fixture({
       'src/app/features/board/QuickCreate.tsx': `
