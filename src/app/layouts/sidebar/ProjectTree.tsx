@@ -627,7 +627,7 @@ export function ProjectTree({
       setCopyFeedback({ message: successMessage, tone: 'success' })
     } catch {
       setCopyFeedback({
-        message: `Copy did not work. Select the ${valueLabel} below and copy it yourself.`,
+        message: manualCopyFailureMessage(valueLabel),
         manualValue: {
           label: valueLabel,
           value,
@@ -1121,6 +1121,18 @@ export function ProjectTree({
       )}
     </div>
   )
+}
+
+function manualCopyFailureMessage(valueLabel: string): string {
+  if (valueLabel === 'project reference') {
+    return 'Use this project reference only when another page or an owner or admin asks for it. Copy did not work, so select it below and copy it yourself.'
+  }
+
+  if (valueLabel === 'link preview') {
+    return 'This link preview is the short text Forge makes from the project name. Copy did not work, so select it below and copy it yourself.'
+  }
+
+  return `Copy did not work, so select the ${valueLabel} below and copy it yourself.`
 }
 
 async function copyToClipboard(value: string) {

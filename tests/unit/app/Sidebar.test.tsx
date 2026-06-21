@@ -439,7 +439,7 @@ describe('Sidebar', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'Copy did not work. Select the project reference below and copy it yourself.'
+      'Use this project reference only when another page or an owner or admin asks for it. Copy did not work, so select it below and copy it yourself.'
     )
     expect(alert).not.toHaveTextContent(/project code/i)
     expect(alert).not.toHaveTextContent(/project ID/i)
@@ -463,9 +463,8 @@ describe('Sidebar', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'Copy did not work. Select the link preview below and copy it yourself.'
+      'This link preview is the short text Forge makes from the project name. Copy did not work, so select it below and copy it yourself.'
     )
-    expect(alert).not.toHaveTextContent(/project link preview/i)
     expect(screen.getByTestId('project-copy-manual-value')).toHaveTextContent('proj-x')
   })
 

@@ -373,6 +373,10 @@ const RUNTIME_SHORT_LABEL_JARGON_PATTERNS = [
 ]
 
 const CLIPBOARD_JARGON_PATTERNS = [/\bCopy is unavailable here\b/i, /\bno clipboard access\b/i]
+const SIDEBAR_MANUAL_COPY_DEAD_END_PATTERNS = [
+  /\bCopy did not work\. Select the \${valueLabel} below and copy it yourself\./i,
+  /\bCopy did not work\. Select the (?:project reference|link preview) below and copy it yourself\./i,
+]
 
 const BILLING_CHECKPOINT_DEAD_END_PATTERNS = [/\bNo invoices yet\b/i]
 
@@ -3090,9 +3094,11 @@ function hasRuntimeShortLabelJargonCopy(relFile, line) {
   return RUNTIME_SHORT_LABEL_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
-function hasClipboardJargonCopy(line) {
+function hasClipboardJargonCopy(relFile, line) {
   if (isLikelyGuardOrParserLine(line)) return false
-  return CLIPBOARD_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+  if (CLIPBOARD_JARGON_PATTERNS.some((pattern) => pattern.test(line))) return true
+  if (!relFile.endsWith('src/app/layouts/sidebar/ProjectTree.tsx')) return false
+  return SIDEBAR_MANUAL_COPY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasBillingCheckpointDeadEndCopy(relFile, line) {
@@ -5885,7 +5891,7 @@ function scanFile(file, relFile) {
       })
     }
 
-    if (hasClipboardJargonCopy(line)) {
+    if (hasClipboardJargonCopy(relFile, line)) {
       findings.push({
         type: 'clipboard-copy',
         location,
