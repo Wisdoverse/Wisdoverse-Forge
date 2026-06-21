@@ -8064,6 +8064,42 @@ const EMPTY_HISTORY = {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags saved-item empty copy that tells beginners to come back without an entry point', () => {
+    const cwd = fixture({
+      'src/app/features/context/ApprovalQueueView.tsx': `
+function approvalQueueEmptyState() {
+  return { nextStep: 'Next: finish a task, then come back here if you want agents to reuse what worked.' }
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'approval-queue-empty-copy',
+        location: 'src/app/features/context/ApprovalQueueView.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts saved-item empty copy that gives beginners a direct place to continue', () => {
+    const cwd = fixture({
+      'src/app/features/context/ApprovalQueueView.tsx': `
+function approvalQueueEmptyState() {
+  return {
+    nextStep: 'Next: open Tasks and finish work that should teach future agents what helped.',
+    actionLabel: 'Open task list',
+    actionHref: '/tasks',
+  }
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags saved-note capacity copy that exposes unit counts', () => {
     const cwd = fixture({
       'src/app/entities/context/ui/InjectionPreviewModal.tsx': `

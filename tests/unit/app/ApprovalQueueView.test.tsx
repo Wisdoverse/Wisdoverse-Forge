@@ -202,7 +202,10 @@ describe('ApprovalQueueView', () => {
         /when an agent suggests a saved note or saved instruction, it will appear here/i
       )
     ).toBeDefined()
-    expect(within(emptyState).getByText(/finish a task, then come back here/i)).toBeDefined()
+    expect(within(emptyState).getByText(/open Tasks and finish work/i)).toBeDefined()
+    expect(within(emptyState).queryByText(/finish a task, then come back here/i)).toBeNull()
+    const taskLink = within(emptyState).getByRole('link', { name: 'Open task list' })
+    expect(taskLink).toHaveAttribute('href', '/tasks')
     expect(within(emptyState).queryByRole('button')).toBeNull()
     expect(emptyState.textContent).not.toContain('No saved items match these filters')
   })

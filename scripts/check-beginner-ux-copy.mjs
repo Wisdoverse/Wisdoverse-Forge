@@ -1827,6 +1827,11 @@ const APPROVAL_QUEUE_CHECK_JARGON_PATTERNS = [
   /\bsaved item review access\b/i,
 ]
 
+const APPROVAL_QUEUE_EMPTY_DEAD_END_PATTERNS = [
+  /\bNext: finish a task, then come back here\b/i,
+  /\bcome back here if you want agents to reuse what worked\b/i,
+]
+
 const DUPLICATE_RECOVERY_COPY_PATTERNS = [
   /\bForge could not load the board right now\. Refresh the board, then try again\./i,
   /\bForge could not finish this board action right now\. Refresh the board, then try again\./i,
@@ -5113,6 +5118,12 @@ function hasApprovalQueueCheckJargonCopy(relFile, line) {
   return APPROVAL_QUEUE_CHECK_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasApprovalQueueEmptyDeadEndCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/context/ApprovalQueueView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return APPROVAL_QUEUE_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasDuplicateRecoveryDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/board/boardErrorMessages.ts') &&
@@ -7873,6 +7884,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Saved items checking copy must say check, save, or do not save instead of review, pending, or approve jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasApprovalQueueEmptyDeadEndCopy(relFile, line)) {
+      findings.push({
+        type: 'approval-queue-empty-copy',
+        location,
+        message: 'Saved item empty states must give beginners a direct place to continue.',
         sample: line.trim(),
       })
     }
