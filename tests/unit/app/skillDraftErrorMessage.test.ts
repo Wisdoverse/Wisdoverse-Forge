@@ -58,9 +58,10 @@ describe('skillDraftErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Check the name, trigger words, and reusable instructions, then publish again. Instruction was not published.'
+      'Check the name, matching words, and reusable instructions, then publish again. Instruction was not published.'
     )
     expect(message).not.toContain('trigger words empty')
+    expect(message).not.toContain('trigger words')
   })
 
   test('turns structured rate limits into a short wait step', () => {

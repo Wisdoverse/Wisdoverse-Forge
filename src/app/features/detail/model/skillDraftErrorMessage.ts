@@ -70,7 +70,7 @@ export function skillDraftErrorMessage(error: unknown): string {
     return `Rename it, then publish again. An instruction with this name may already exist. ${failure}`
   }
   if (code === 422 || text.includes('validation')) {
-    return `Check the name, trigger words, and reusable instructions, then publish again. ${failure}`
+    return `Check the name, matching words, and reusable instructions, then publish again. ${failure}`
   }
   if (code === 429 || text.includes('rate limit') || text.includes('too many')) {
     return `Wait a minute, then publish again. Too many instruction changes are happening right now. ${failure}`
