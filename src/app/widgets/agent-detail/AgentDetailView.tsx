@@ -295,7 +295,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
             </span>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-ui-caption">
               <DetailRow label="Where it works" value={agentRuntimeLabel(agent)} />
-              <DetailRow label="Status" value={statusLabel} />
+              <DetailRow label="Can take work" value={statusLabel} />
               <DetailRow
                 label="Project files it can use"
                 value={agent.workspaceName ?? 'Shared project files'}
@@ -305,7 +305,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
                 value={agent.projectName ?? 'Choose when sending work'}
               />
               <DetailRow label="Folder agents open" value={agentFolderLabel(agent)} />
-              <DetailRow label="Connection" value={agentConnectionStatus(agent)} />
+              <DetailRow label="How it connects" value={agentConnectionStatus(agent)} />
             </div>
             <WorkspaceBoundaryNote agent={agent} />
           </div>

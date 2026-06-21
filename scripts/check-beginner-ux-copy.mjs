@@ -528,6 +528,10 @@ const AGENT_DETAIL_AVAILABILITY_DEAD_END_PATTERNS = [
 
 const AGENT_DETAIL_GENERIC_HEADING_PATTERNS = [
   />\s*Details\s*</,
+  /\blabel=["'`]Status["'`]/,
+  /\blabel=["'`]Connection["'`]/,
+  /\bDetailRow\s+label=["'`]Status["'`]/,
+  /\bDetailRow\s+label=["'`]Connection["'`]/,
   /\bagentDetails:\s*['"`]Agent Details['"`]/,
   /\bviewDetails:\s*['"`]View details['"`]/,
   /\bagentDetails:\s*['"`]Agent 详情['"`]/,
@@ -671,6 +675,62 @@ const SYSTEM_HEALTH_HELPER_NOTE_JARGON_PATTERNS = [
 const ADMIN_NAV_TECHNICAL_COPY_PATTERNS = [
   /\bSystem health and user management\b/i,
   /\bmanage team spaces,\s*users,\s*and system health\b/i,
+]
+
+const ADMIN_LOCALE_TECHNICAL_COPY_PATTERNS = [
+  /\btitle:\s*['"`]Admin Dashboard['"`]/,
+  /\bmetrics:\s*['"`]Metrics['"`]/,
+  /\busers:\s*['"`]Users['"`]/,
+  /\bhealth:\s*['"`]Health['"`]/,
+  /\btitle:\s*['"`]Agent Management['"`]/,
+  /\bstatus:\s*['"`]Status['"`]/,
+  /\bactions:\s*['"`]Actions['"`]/,
+  /\btitle:\s*['"`]System Metrics['"`]/,
+  /\bactiveAgents:\s*['"`]Active Agents['"`]/,
+  /\btotalEvents:\s*['"`]Total Events['"`]/,
+  /\beventsPerMinute:\s*['"`]Events\/min['"`]/,
+  /\bmemoryUsage:\s*['"`]Memory Usage['"`]/,
+  /\bcpuUsage:\s*['"`]CPU Usage['"`]/,
+  /\brequestsPerMinute:\s*['"`]Requests\/min['"`]/,
+  /\btitle:\s*['"`]User Management['"`]/,
+  /\baddUser:\s*['"`]Add User['"`]/,
+  /\beditUser:\s*['"`]Edit User['"`]/,
+  /\bdeleteUser:\s*['"`]Delete User['"`]/,
+  /\btitle:\s*['"`]System Health['"`]/,
+  /\boverall:\s*['"`]Overall Status['"`]/,
+  /\bservices:\s*['"`]Services['"`]/,
+  /\balerts:\s*['"`]Alerts['"`]/,
+  /\bhealthy:\s*['"`]Healthy['"`]/,
+  /\bdegraded:\s*['"`]Degraded['"`]/,
+  /\bdown:\s*['"`]Down['"`]/,
+  /\bnoAlerts:\s*['"`]No active alerts['"`]/,
+  /\backnowledge:\s*['"`]Acknowledge['"`]/,
+  /\blatency:\s*['"`]Latency['"`]/,
+  /\blastCheck:\s*['"`]Last check['"`]/,
+  /\btitle:\s*['"`]管理面板['"`]/,
+  /\bmetrics:\s*['"`]指标['"`]/,
+  /\bhealth:\s*['"`]健康状态['"`]/,
+  /\btitle:\s*['"`]Agent 管理['"`]/,
+  /\bstatus:\s*['"`]状态['"`]/,
+  /\bactions:\s*['"`]操作['"`]/,
+  /\btitle:\s*['"`]系统指标['"`]/,
+  /\bactiveAgents:\s*['"`]活跃 Agent['"`]/,
+  /\btotalEvents:\s*['"`]总事件数['"`]/,
+  /\beventsPerMinute:\s*['"`]事件\/分钟['"`]/,
+  /\bcpuUsage:\s*['"`]CPU 使用率['"`]/,
+  /\brequestsPerMinute:\s*['"`]请求\/分钟['"`]/,
+  /\btitle:\s*['"`]用户管理['"`]/,
+  /\baddUser:\s*['"`]添加用户['"`]/,
+  /\beditUser:\s*['"`]编辑用户['"`]/,
+  /\bdeleteUser:\s*['"`]删除用户['"`]/,
+  /\btitle:\s*['"`]系统健康['"`]/,
+  /\boverall:\s*['"`]整体状态['"`]/,
+  /\balerts:\s*['"`]警报['"`]/,
+  /\bdegraded:\s*['"`]降级['"`]/,
+  /\bdown:\s*['"`]离线['"`]/,
+  /\bnoAlerts:\s*['"`]无活跃警报['"`]/,
+  /\backnowledge:\s*['"`]确认['"`]/,
+  /\blatency:\s*['"`]延迟['"`]/,
 ]
 
 const CODE_ACCESS_KEY_JARGON_PATTERNS = [
@@ -4017,6 +4077,17 @@ function hasAdminNavTechnicalCopy(relFile, line) {
   return ADMIN_NAV_TECHNICAL_COPY_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAdminLocaleTechnicalCopy(relFile, line) {
+  if (
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
+  ) {
+    return false
+  }
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ADMIN_LOCALE_TECHNICAL_COPY_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasSystemHealthErrorFailureFirstCopy(relFile, line) {
   if (!relFile.endsWith('src/app/features/admin/systemHealthErrorMessage.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
@@ -6856,6 +6927,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Admin navigation copy must say app health and people instead of system-health/user-management jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAdminLocaleTechnicalCopy(relFile, line)) {
+      findings.push({
+        type: 'admin-locale-copy',
+        location,
+        message:
+          'Shared Admin translations must use operator-facing app health, people, and activity wording.',
         sample: line.trim(),
       })
     }
