@@ -15,6 +15,10 @@ pub struct OrchestrationControlPlaneSnapshot {
     pub expired_working_leases: i64,
     pub busy_participants_without_work: i64,
     pub working_tasks_without_busy_participant: i64,
+    pub job_queue_pending: i64,
+    pub job_queue_running: i64,
+    pub job_queue_dead: i64,
+    pub job_queue_oldest_pending_age_seconds: f64,
 }
 
 pub struct OrchestrationMetricsWorker {
@@ -134,6 +138,23 @@ pub async fn collect_control_plane_snapshot(
     .fetch_one(pool)
     .await?;
 
+    let (job_queue_pending, job_queue_running, job_queue_dead): (i64, i64, i64) = sqlx::query_as(
+        r#"SELECT
+               COUNT(*) FILTER (WHERE status = 'pending'),
+               COUNT(*) FILTER (WHERE status = 'running'),
+               COUNT(*) FILTER (WHERE status = 'dead')
+           FROM job_queue"#,
+    )
+    .fetch_one(pool)
+    .await?;
+
+    let job_queue_oldest_pending_age_seconds: f64 = sqlx::query_scalar(
+        r#"SELECT COALESCE(CAST(EXTRACT(EPOCH FROM (NOW() - MIN(created_at))) AS DOUBLE PRECISION), 0.0)
+           FROM job_queue WHERE status = 'pending'"#,
+    )
+    .fetch_one(pool)
+    .await?;
+
     Ok(OrchestrationControlPlaneSnapshot {
         assignment_outbox_backlog,
         assignment_outbox_oldest_age_seconds,
@@ -141,6 +162,10 @@ pub async fn collect_control_plane_snapshot(
         expired_working_leases,
         busy_participants_without_work,
         working_tasks_without_busy_participant,
+        job_queue_pending,
+        job_queue_running,
+        job_queue_dead,
+        job_queue_oldest_pending_age_seconds,
     })
 }
 
@@ -154,6 +179,11 @@ pub fn record_control_plane_snapshot(snapshot: &OrchestrationControlPlaneSnapsho
         .set(snapshot.busy_participants_without_work as f64);
     metrics::gauge!("agentforge_orchestration_working_tasks_without_busy_participant")
         .set(snapshot.working_tasks_without_busy_participant as f64);
+    metrics::gauge!("agentforge_job_queue_depth", "status" => "pending").set(snapshot.job_queue_pending as f64);
+    metrics::gauge!("agentforge_job_queue_depth", "status" => "running").set(snapshot.job_queue_running as f64);
+    metrics::gauge!("agentforge_job_queue_depth", "status" => "dead").set(snapshot.job_queue_dead as f64);
+    metrics::gauge!("agentforge_job_queue_oldest_pending_age_seconds")
+        .set(snapshot.job_queue_oldest_pending_age_seconds);
 }
 
 pub fn register_metrics() {
@@ -190,6 +220,15 @@ pub fn register_metrics() {
         "Working orchestration leases failed closed by the participant liveness sweeper"
     );
 
+    metrics::describe_gauge!(
+        "agentforge_job_queue_depth",
+        "Job-queue row count by status (pending|running|dead)."
+    );
+    metrics::describe_gauge!(
+        "agentforge_job_queue_oldest_pending_age_seconds",
+        "Age in seconds of the oldest pending job_queue row."
+    );
+
     record_control_plane_snapshot(&OrchestrationControlPlaneSnapshot {
         assignment_outbox_backlog: 0,
         assignment_outbox_oldest_age_seconds: 0.0,
@@ -197,6 +236,10 @@ pub fn register_metrics() {
         expired_working_leases: 0,
         busy_participants_without_work: 0,
         working_tasks_without_busy_participant: 0,
+        job_queue_pending: 0,
+        job_queue_running: 0,
+        job_queue_dead: 0,
+        job_queue_oldest_pending_age_seconds: 0.0,
     });
     metrics::counter!("agentforge_orchestration_control_plane_metrics_errors_total").increment(0);
     metrics::counter!("agentforge_orchestration_working_lease_expired_total").increment(0);
@@ -351,5 +394,55 @@ mod tests {
         assert_eq!(snapshot.expired_working_leases, 1);
         assert_eq!(snapshot.busy_participants_without_work, 1);
         assert_eq!(snapshot.working_tasks_without_busy_participant, 2);
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn control_plane_snapshot_reports_job_queue_depth(pool: PgPool) {
+        // 2 pending rows — one seeded 5 minutes ago (the oldest), one just now
+        sqlx::query(
+            r#"INSERT INTO job_queue (queue, payload, status, created_at)
+               VALUES ('test', '{}', 'pending', NOW() - INTERVAL '5 minutes')"#,
+        )
+        .execute(&pool)
+        .await
+        .expect("seed oldest pending job");
+
+        sqlx::query(
+            r#"INSERT INTO job_queue (queue, payload, status, created_at)
+               VALUES ('test', '{}', 'pending', NOW())"#,
+        )
+        .execute(&pool)
+        .await
+        .expect("seed recent pending job");
+
+        // 1 running row
+        sqlx::query(
+            r#"INSERT INTO job_queue (queue, payload, status)
+               VALUES ('test', '{}', 'running')"#,
+        )
+        .execute(&pool)
+        .await
+        .expect("seed running job");
+
+        // 1 dead row
+        sqlx::query(
+            r#"INSERT INTO job_queue (queue, payload, status)
+               VALUES ('test', '{}', 'dead')"#,
+        )
+        .execute(&pool)
+        .await
+        .expect("seed dead job");
+
+        let snapshot = collect_control_plane_snapshot(&pool, Duration::from_secs(90)).await.unwrap();
+
+        assert_eq!(snapshot.job_queue_pending, 2);
+        assert_eq!(snapshot.job_queue_running, 1);
+        assert_eq!(snapshot.job_queue_dead, 1);
+        // oldest pending is ~5 minutes = ~300 seconds; allow a small tolerance
+        assert!(
+            snapshot.job_queue_oldest_pending_age_seconds >= 290.0,
+            "expected oldest-pending age >= 290s, got {}",
+            snapshot.job_queue_oldest_pending_age_seconds
+        );
     }
 }
