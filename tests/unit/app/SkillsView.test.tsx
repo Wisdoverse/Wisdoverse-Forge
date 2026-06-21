@@ -217,6 +217,44 @@ describe('SkillsView', () => {
     expect(screen.getByText('release-draft')).toBeDefined()
   })
 
+  test('uses saved instruction wording when search and filters hide results', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        data: [
+          {
+            id: 'skill-release',
+            name: 'release-draft',
+            description: 'Draft release notes',
+            trigger_pattern: 'release',
+            content: 'Summarize accepted work',
+            enabled: true,
+          },
+        ],
+      }),
+    })
+
+    render(<SkillsView />)
+
+    await screen.findByText('release-draft')
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /show saved instructions that are ready to use/i,
+      })
+    )
+    fireEvent.change(screen.getByLabelText(/search saved instructions/i), {
+      target: { value: 'handoff checklist' },
+    })
+
+    const emptyState = screen.getByTestId('saved-instructions-empty-state')
+    expect(emptyState).toHaveTextContent('Search and filter are hiding saved instructions')
+    expect(emptyState).toHaveTextContent(
+      'Use Show all saved instructions before assuming nothing useful is saved.'
+    )
+    expect(emptyState).not.toHaveTextContent('library')
+  })
+
   test('renders skills from the Rust API response shape', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
