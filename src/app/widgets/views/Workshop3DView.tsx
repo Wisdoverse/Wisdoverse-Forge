@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import { Bot, CheckCircle2, Power } from 'lucide-react'
 import * as THREE from 'three'
 import {
@@ -69,8 +70,8 @@ const STATUS_STYLE: Record<
 }
 
 const EMPTY_STATE_STEPS = [
-  { label: 'Open Agents and create one if none exists', icon: Bot },
-  { label: 'Start or wake the agent if it is already listed', icon: Power },
+  { label: 'Choose Open Agents', icon: Bot },
+  { label: 'Create your first agent there, or start one that is already listed', icon: Power },
   { label: 'Return to this 3D view after the agent checks in', icon: CheckCircle2 },
 ]
 
@@ -78,7 +79,7 @@ export function workshop3DAgentSubtitle(agent: AgentInfo): string {
   return `${STATUS_STYLE[agent.status].label} - ${agentRuntimeDisplayLabel(agent)}`
 }
 
-export function Workshop3DEmptyState() {
+export function Workshop3DEmptyState({ onOpenAgents }: { onOpenAgents?: () => void }) {
   return (
     <div
       data-testid="workshop-3d-empty-state"
@@ -89,8 +90,8 @@ export function Workshop3DEmptyState() {
           Open Agents to build the visual map
         </p>
         <p className="mt-1">
-          If this is your first agent, create it from Agents. If you already have one, start or wake
-          it there, then return to this 3D view after it checks in.
+          Use Open Agents below. Create your first agent there, or start one that is already listed,
+          then return to this 3D view after it checks in.
         </p>
       </div>
       <ol className="space-y-2">
@@ -103,6 +104,15 @@ export function Workshop3DEmptyState() {
           </li>
         ))}
       </ol>
+      {onOpenAgents && (
+        <button
+          type="button"
+          onClick={onOpenAgents}
+          className="inline-flex h-8 items-center justify-center rounded-full bg-white px-3 text-ui-button font-medium text-[#080a0f] transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+        >
+          Open Agents
+        </button>
+      )}
     </div>
   )
 }
@@ -617,6 +627,7 @@ export function Workshop3DInteractionHint() {
 
 export function Workshop3DView() {
   const containerRef = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate()
   const runtimeRef = useRef<SceneRuntime | null>(null)
   const selectedAgentIdRef = useRef<string | null>(null)
   const selectAgentRef = useRef<(id: string | null) => void>(() => undefined)
@@ -916,7 +927,11 @@ export function Workshop3DView() {
 
       <div className="absolute inset-x-3 bottom-3 z-10 flex max-h-36 flex-col gap-2 overflow-y-auto rounded-lg border border-white/10 bg-black/35 p-2 text-white shadow-lg backdrop-blur sm:inset-x-auto sm:bottom-auto sm:right-4 sm:top-4 sm:max-h-[calc(100%-2rem)] sm:w-64">
         {agents.length === 0 && !loading ? (
-          <Workshop3DEmptyState />
+          <Workshop3DEmptyState
+            onOpenAgents={() => {
+              void navigate({ to: '/agents' })
+            }}
+          />
         ) : (
           agents.map((agent) => {
             const status = STATUS_STYLE[agent.status]

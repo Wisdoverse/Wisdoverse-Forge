@@ -4795,7 +4795,14 @@ export function TimelineView() {
     const cwd = fixture({
       'src/app/widgets/views/Workshop3DView.tsx': `
 export function Workshop3DEmptyState() {
-  return <p>No agents on the visual map yet</p>
+  return (
+    <>
+      <p>No agents on the visual map yet</p>
+      <p>If this is your first agent, create it from Agents.</p>
+      <p>Open Agents and create one if none exists</p>
+      <p>Start or wake the agent if it is already listed</p>
+    </>
+  )
 }
 export function EmptyStep() {
   return <p>Refresh this view after the agent checks in</p>
@@ -4824,11 +4831,23 @@ export const zh = {
       expect.arrayContaining([
         expect.objectContaining({
           type: 'workshop-3d-empty-copy',
-          location: 'src/app/widgets/views/Workshop3DView.tsx:3',
+          location: 'src/app/widgets/views/Workshop3DView.tsx:5',
         }),
         expect.objectContaining({
           type: 'workshop-3d-empty-copy',
           location: 'src/app/widgets/views/Workshop3DView.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'workshop-3d-empty-copy',
+          location: 'src/app/widgets/views/Workshop3DView.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'workshop-3d-empty-copy',
+          location: 'src/app/widgets/views/Workshop3DView.tsx:8',
+        }),
+        expect.objectContaining({
+          type: 'workshop-3d-empty-copy',
+          location: 'src/app/widgets/views/Workshop3DView.tsx:13',
         }),
         expect.objectContaining({
           type: 'workshop-3d-empty-copy',
@@ -4846,10 +4865,10 @@ export const zh = {
     const cwd = fixture({
       'src/app/widgets/views/Workshop3DView.tsx': `
 export function Workshop3DEmptyState() {
-  return <p>Open Agents to build the visual map</p>
+  return <button>Open Agents</button>
 }
 export function EmptyStep() {
-  return <p>Return to this 3D view after the agent checks in</p>
+  return <p>Choose Open Agents, then return to this 3D view after the agent checks in</p>
 }
 `,
     })

@@ -492,6 +492,9 @@ const WORKSHOP_3D_EMPTY_DEAD_END_PATTERNS = [
   /\bNo agents on the visual map yet\b/i,
   /\brefresh this view\b/i,
   /\bRefresh after agents are available\b/i,
+  /\bIf this is your first agent, create it from Agents\b/i,
+  /\bOpen Agents and create one if none exists\b/i,
+  /\bStart or wake the agent if it is already listed\b/i,
   /等 Agent 可用后刷新/,
 ]
 const WORKSHOP_3D_MOUSE_JARGON_PATTERNS = [
