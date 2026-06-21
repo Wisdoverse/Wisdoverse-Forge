@@ -355,6 +355,74 @@ export const en = {
   },
 
   // =========================================================================
+  // App Layout
+  // =========================================================================
+  appLayout: {
+    pages: {
+      start: {
+        title: 'Setup checklist',
+        subtitle: 'Set up Forge and send your first task',
+      },
+      tasks: {
+        title: 'Tasks',
+        subtitle: 'Create tasks and follow agent progress',
+      },
+      inbox: {
+        title: 'Inbox',
+        subtitle: 'Check updates that need a next step',
+      },
+      savedItemHistory: {
+        title: 'Saved item history',
+        subtitle: 'See what was checked or reused',
+      },
+      savedItems: {
+        title: 'Saved notes and instructions',
+        subtitle: 'Check what agents may reuse later',
+      },
+      agents: {
+        title: 'Agents',
+        subtitle: 'Create and manage agents that handle tasks',
+      },
+      skills: {
+        title: 'Saved instructions',
+        subtitle: 'Instructions agents can follow again',
+      },
+      analytics: {
+        title: 'Analytics',
+        subtitle: 'See agent activity and results',
+      },
+      billing: {
+        title: 'Billing',
+        subtitle: 'Plan, payments, and invoices',
+      },
+      settings: {
+        title: 'Settings',
+        subtitle: 'Set up your account, AI services, and team',
+      },
+      admin: {
+        title: 'Admin',
+        subtitle: 'Check app health and manage people',
+      },
+      fallback: {
+        title: 'Wisdoverse Forge',
+      },
+    },
+    topBar: {
+      openNavigation: 'Open navigation',
+      search: 'Search',
+      searchLabel: 'Search pages and things to do',
+      switchToLight: 'Switch to light mode',
+      switchToDark: 'Switch to dark mode',
+      views: {
+        board: 'Board',
+        list: 'List',
+        timeline: 'Timeline',
+        map: 'Map',
+      },
+    },
+  },
+
+  // =========================================================================
   // Authentication
   // =========================================================================
   auth: {

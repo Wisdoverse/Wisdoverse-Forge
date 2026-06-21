@@ -349,6 +349,74 @@ export const zh: TranslationKeys = {
   },
 
   // =========================================================================
+  // 应用布局
+  // =========================================================================
+  appLayout: {
+    pages: {
+      start: {
+        title: '设置清单',
+        subtitle: '设置 Forge，并发送第一个任务',
+      },
+      tasks: {
+        title: '任务',
+        subtitle: '创建任务，并跟进智能体进度',
+      },
+      inbox: {
+        title: '收件箱',
+        subtitle: '查看需要下一步处理的更新',
+      },
+      savedItemHistory: {
+        title: '保存内容历史',
+        subtitle: '查看哪些内容被检查或复用过',
+      },
+      savedItems: {
+        title: '保存的笔记和指令',
+        subtitle: '查看智能体之后可能复用的内容',
+      },
+      agents: {
+        title: '智能体',
+        subtitle: '创建并管理处理任务的智能体',
+      },
+      skills: {
+        title: '保存的指令',
+        subtitle: '智能体可以再次使用的指令',
+      },
+      analytics: {
+        title: '分析',
+        subtitle: '查看智能体活动和结果',
+      },
+      billing: {
+        title: '账单',
+        subtitle: '查看套餐、付款和发票',
+      },
+      settings: {
+        title: '设置',
+        subtitle: '设置账号、模型服务和团队',
+      },
+      admin: {
+        title: '管理',
+        subtitle: '检查应用健康并管理人员',
+      },
+      fallback: {
+        title: 'Wisdoverse Forge',
+      },
+    },
+    topBar: {
+      openNavigation: '打开导航',
+      search: '搜索',
+      searchLabel: '搜索页面和可做的事',
+      switchToLight: '切换到浅色模式',
+      switchToDark: '切换到深色模式',
+      views: {
+        board: '看板',
+        list: '列表',
+        timeline: '时间线',
+        map: '地图',
+      },
+    },
+  },
+
+  // =========================================================================
   // 认证
   // =========================================================================
   auth: {
