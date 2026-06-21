@@ -4420,11 +4420,11 @@ function applyRoleTemplate() {
     )
   })
 
-  it('accepts create-agent starter template hints that explain starter task instructions', () => {
+  it('accepts create-agent starter template hints that explain the filled fields plainly', () => {
     const cwd = fixture({
       'src/app/features/agents/CreateAgentModal.tsx': `
 function TemplateHint() {
-  return <span>Fills in name and starter task instructions</span>
+  return <span>Fills in the name and first task</span>
 }
 const AGENT_STARTER_TEMPLATES = [{
   label: 'Check results',
@@ -4462,6 +4462,18 @@ function runtimeFitFor() {
 }
 function nextStep() {
   return 'Ask a first question or assign a result check that does not need files.'
+}
+function StarterTemplateHint() {
+  return <span>Fills in name and starter task instructions</span>
+}
+function ProviderTemplateHint() {
+  return <span>Fills in name and instructions</span>
+}
+function ProviderRuntimeDetail() {
+  return 'Best for questions, planning, writing, and checking results when no project files need to be opened.'
+}
+function ProviderNextStep() {
+  return 'Ask a first question, or send a result-check task that does not need files.'
 }
 function validationMessage() {
   return 'Choose an AI service and AI model before creating this agent.'
@@ -4505,6 +4517,22 @@ function OldProviderSelect() {
         }),
         expect.objectContaining({
           type: 'create-agent-confirmation-copy',
+          sample: expect.stringContaining('Fills in name and starter task instructions'),
+        }),
+        expect.objectContaining({
+          type: 'create-agent-confirmation-copy',
+          sample: expect.stringContaining('Fills in name and instructions'),
+        }),
+        expect.objectContaining({
+          type: 'create-agent-confirmation-copy',
+          sample: expect.stringContaining('questions, planning, writing, and checking results'),
+        }),
+        expect.objectContaining({
+          type: 'create-agent-confirmation-copy',
+          sample: expect.stringContaining('result-check task'),
+        }),
+        expect.objectContaining({
+          type: 'create-agent-confirmation-copy',
           sample: expect.stringContaining('Choose an AI service and AI model'),
         }),
         expect.objectContaining({
@@ -4530,10 +4558,10 @@ function createReviewItems() {
   return [{ label: 'After creation', value: 'Ready for questions and result checks after the AI service is connected.' }]
 }
 function runtimeFitFor() {
-  return [{ label: 'Where it works', value: 'AI service only' }, { title: 'Anthropic for questions and result checks', detail: 'Best for questions, planning, writing, and checking results when no project files need to be opened.' }]
+  return [{ label: 'Where it works', value: 'AI service only' }, { title: 'Anthropic for questions and result checks', detail: 'Best for questions, writing, and checking results when no project files need to be opened.' }]
 }
 function nextStep() {
-  return 'Ask a first question, or send a result-check task that does not need files.'
+  return 'Ask a first question, or send a task to check a result that does not need files.'
 }
 function validationMessage() {
   return 'Open AI service settings, choose Check connection for this service, then come back when it shows Ready.'
