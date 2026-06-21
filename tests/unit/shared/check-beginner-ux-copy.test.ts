@@ -8113,7 +8113,7 @@ export function DecisionCopy({ approving }) {
     const cwd = fixture({
       'src/app/features/detail/ReviewSnapshotPanel.tsx': `
 function ReviewSnapshotPanel() {
-  return <><span>Fix review</span><button aria-label="Refresh review status">Refresh</button><p>Use Refresh after it appears.</p></>
+  return <><span>Fix review</span><span>Waiting for review</span><a>Review page #42</a><button aria-label="Refresh review status">Refresh</button><p>Use Refresh after it appears.</p></>
 }
 `,
       'src/app/features/detail/model/reviewSnapshotErrorMessage.ts': `
@@ -8136,20 +8136,72 @@ const ACTION_FALLBACKS = {
           type: 'review-status-copy',
           location: 'src/app/features/detail/model/reviewSnapshotErrorMessage.ts:3',
         }),
+        expect.objectContaining({
+          type: 'review-status-copy',
+          sample: expect.stringContaining('Waiting for review'),
+        }),
+        expect.objectContaining({
+          type: 'review-status-copy',
+          sample: expect.stringContaining('Review page #42'),
+        }),
       ])
     )
   })
 
-  it('accepts review status copy that names the status plainly', () => {
+  it('flags review status copy that uses review-page jargon without the old refresh wording', () => {
     const cwd = fixture({
       'src/app/features/detail/ReviewSnapshotPanel.tsx': `
 function ReviewSnapshotPanel() {
-  return <><span>Review status</span><button aria-label="Check review again">Check again</button></>
+  return <><span>Review status</span><span>Waiting for review</span><a>Review page #42</a><button aria-label="Check review again">Check again</button><a>Review the changes</a><p>Needs owner or admin review</p></>
 }
 `,
       'src/app/features/detail/model/reviewSnapshotErrorMessage.ts': `
 const ACTION_FALLBACKS = {
   load: 'Choose Check again, then try again. Forge could not load the current review status.',
+}
+const own = 'The review system needs someone else to review changes you opened yourself.'
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'review-status-copy',
+          sample: expect.stringContaining('Review status'),
+        }),
+        expect.objectContaining({
+          type: 'review-status-copy',
+          sample: expect.stringContaining('Waiting for review'),
+        }),
+        expect.objectContaining({
+          type: 'review-status-copy',
+          sample: expect.stringContaining('Review page #42'),
+        }),
+        expect.objectContaining({
+          type: 'review-status-copy',
+          sample: expect.stringContaining('Check review again'),
+        }),
+        expect.objectContaining({
+          type: 'review-status-copy',
+          sample: expect.stringContaining('review system'),
+        }),
+      ])
+    )
+  })
+
+  it('accepts fix check status copy that names the status plainly', () => {
+    const cwd = fixture({
+      'src/app/features/detail/ReviewSnapshotPanel.tsx': `
+function ReviewSnapshotPanel() {
+  return <><span>Fix check status</span><span>Waiting for someone to check</span><a>Fix check page #42</a><button aria-label="Check fix status again">Check again</button></>
+}
+`,
+      'src/app/features/detail/model/reviewSnapshotErrorMessage.ts': `
+const ACTION_FALLBACKS = {
+  load: 'Choose Check again, then try again. Forge could not load the current fix check status.',
 }
 `,
     })

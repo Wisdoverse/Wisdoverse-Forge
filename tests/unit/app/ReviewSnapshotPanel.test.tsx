@@ -52,18 +52,20 @@ describe('ReviewSnapshotPanel', () => {
     vi.spyOn(orchestrationApi, 'getSelfFixReview').mockResolvedValue(review())
     render(<ReviewSnapshotPanel task={task()} />)
 
-    expect(await screen.findByText('Review status')).toBeInTheDocument()
+    expect(await screen.findByText('Fix check status')).toBeInTheDocument()
     expect(screen.queryByText('Fix review')).toBeNull()
     expect(screen.queryByText(/code fix review/i)).toBeNull()
-    expect(await screen.findByText('Review page #42')).toBeInTheDocument()
+    expect(await screen.findByText('Fix check page #42')).toBeInTheDocument()
+    expect(screen.queryByText(/Review page/i)).toBeNull()
     expect(screen.queryByText(/GitHub review/i)).toBeNull()
-    expect(screen.getByText('Waiting for review')).toBeInTheDocument()
+    expect(screen.getByText('Waiting for someone to check')).toBeInTheDocument()
+    expect(screen.queryByText('Waiting for review')).toBeNull()
     expect(screen.getByText('Automated checks passed')).toBeInTheDocument()
     expect(screen.queryByText(/Build checks/i)).toBeNull()
-    expect(screen.getByLabelText('Check review again')).toBeInTheDocument()
+    expect(screen.getByLabelText('Check fix status again')).toBeInTheDocument()
     expect(screen.getByText('Check again')).toBeInTheDocument()
     expect(screen.queryByLabelText('Refresh review status')).toBeNull()
-    expect(screen.getByText('Review the changes')).toBeInTheDocument()
+    expect(screen.getByText('Check the changes')).toBeInTheDocument()
     expect(screen.queryByText(/changed files/i)).toBeNull()
   })
 
@@ -98,18 +100,19 @@ describe('ReviewSnapshotPanel', () => {
     expect(screen.queryByText(/merge unlocks/i)).toBeNull()
   })
 
-  it('disables finishing until a review page exists', async () => {
+  it('disables finishing until a fix check page exists', async () => {
     const approveSpy = vi.spyOn(orchestrationApi, 'approveSelfFix').mockResolvedValue('merged')
     vi.spyOn(orchestrationApi, 'getSelfFixReview').mockResolvedValue(
       review({ prNumber: undefined, prUrl: undefined, diffUrl: undefined, checksGreen: true })
     )
     render(<ReviewSnapshotPanel task={task()} />)
 
-    expect(await screen.findByText(/still preparing the review page/i)).toBeInTheDocument()
+    expect(await screen.findByText(/still preparing the fix check page/i)).toBeInTheDocument()
     const button = screen.getByTestId('review-approve')
     expect(button).toBeDisabled()
-    expect(screen.getByText(/finish after the agent opens the review page/i)).toBeInTheDocument()
+    expect(screen.getByText(/finish after the agent opens the fix check page/i)).toBeInTheDocument()
     expect(screen.getAllByText(/choose check again after it appears/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/review page/i)).toBeNull()
     expect(screen.queryByText(/use refresh/i)).toBeNull()
     expect(screen.queryByText(/merge unlocks/i)).toBeNull()
 
@@ -125,8 +128,9 @@ describe('ReviewSnapshotPanel', () => {
     render(<ReviewSnapshotPanel task={task()} />)
 
     expect(await screen.findByTestId('review-approve')).toBeDisabled()
-    expect(screen.getByText('Needs owner or admin review')).toBeInTheDocument()
+    expect(screen.getByText('Needs owner or admin check')).toBeInTheDocument()
     expect(screen.getByText(/fix changes sensitive files or settings/i)).toBeInTheDocument()
+    expect(screen.queryByText(/owner or admin review/i)).toBeNull()
     expect(screen.queryByText(/project areas/i)).toBeNull()
     expect(screen.queryByText(/maintainer/i)).toBeNull()
     expect(screen.queryByText(/protected files/i)).toBeNull()
@@ -141,11 +145,12 @@ describe('ReviewSnapshotPanel', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
-      'Choose Check again, then try again. Forge could not load the current review status.'
+      'Choose Check again, then try again. Forge could not load the current fix check status.'
     )
     expect(alert).not.toHaveTextContent('Refresh review status')
     expect(alert).not.toHaveTextContent('Refresh fix review')
     expect(alert).not.toHaveTextContent('code fix review')
+    expect(alert).not.toHaveTextContent('current review status')
     expect(alert).not.toHaveTextContent('API 500')
     expect(alert).not.toHaveTextContent('database')
   })
@@ -161,10 +166,12 @@ describe('ReviewSnapshotPanel', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(alert).toHaveTextContent('Ask another owner or admin to review this fix.')
+    expect(alert).toHaveTextContent('Ask another owner or admin to check this fix.')
     expect(alert).toHaveTextContent(
-      'The review system needs someone else to review changes you opened yourself.'
+      'This finish step needs someone else to check changes you opened yourself.'
     )
+    expect(alert).not.toHaveTextContent('review system')
+    expect(alert).not.toHaveTextContent('review changes')
     expect(alert).not.toHaveTextContent('code host')
     expect(alert).not.toHaveTextContent('maintainer')
     expect(alert).not.toHaveTextContent('pull request')
@@ -181,7 +188,7 @@ describe('ReviewSnapshotPanel', () => {
     const { rerender } = render(<ReviewSnapshotPanel task={task({ reviewStatus: 'in_review' })} />)
 
     // Initial snapshot load.
-    expect(await screen.findByText('Waiting for review')).toBeInTheDocument()
+    expect(await screen.findByText('Waiting for someone to check')).toBeInTheDocument()
     expect(fetchSpy).toHaveBeenCalledTimes(1)
 
     // Another operator's approve→merge arrives as an `orchestration:task_update`
