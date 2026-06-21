@@ -575,6 +575,19 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByText(/Forge gives it tasks/i)).toBeNull()
     expect(screen.getByText("Paste setup text in this computer's command app")).toBeInTheDocument()
     expect(screen.getByText('Uses this computer')).toBeInTheDocument()
+    const localNextStep = screen.getByTestId('local-agent-before-create')
+    expect(localNextStep).toHaveTextContent('Before you create this computer agent')
+    expect(localNextStep).toHaveTextContent(
+      'Choose the folder this computer should work in. If you are not sure, leave it blank.'
+    )
+    expect(localNextStep).toHaveTextContent(
+      "After you choose Add agent, copy the setup text and paste it into this computer's command app."
+    )
+    expect(localNextStep).toHaveTextContent(
+      'Success looks like this agent changing to Ready on the Agents page.'
+    )
+    expect(localNextStep).not.toHaveTextContent(/manual connection/i)
+    expect(localNextStep).not.toHaveTextContent(/runtime/i)
     const localReview = screen.getByTestId('agent-create-review')
     expect(
       within(localReview).getByText(
