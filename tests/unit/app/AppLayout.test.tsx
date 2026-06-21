@@ -340,7 +340,7 @@ describe('AppLayout', () => {
         )
       ).toBeDefined()
     })
-    fireEvent.click(screen.getByText('Reset setup checklist'))
+    fireEvent.click(screen.getByText('Show setup checklist'))
 
     await waitFor(() => expect(setGettingStartedDismissed).toHaveBeenCalledWith(false))
     await waitFor(() => expect(onNavigate).toHaveBeenCalledWith('/start'))
@@ -371,7 +371,7 @@ describe('AppLayout', () => {
         )
       ).toBeDefined()
     })
-    fireEvent.click(screen.getByText('Reset setup checklist'))
+    fireEvent.click(screen.getByText('Show setup checklist'))
 
     await waitFor(() => expect(setGettingStartedDismissed).toHaveBeenCalledWith(false))
     await waitFor(() => expect(onNavigate).toHaveBeenCalledWith('/settings/account'))

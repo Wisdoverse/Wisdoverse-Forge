@@ -740,6 +740,7 @@ const START_GUIDE_RESET_JARGON_PATTERNS = [
   /\bOnboarding\b/,
   /\bStart guide\b/i,
   /\bReset Start guide\b/i,
+  /\bReset setup checklist\b/i,
   /\bReset it here\b/i,
   /\bOpen setup checklist to review setup\b/i,
   /\bnothing to restore\b/i,
@@ -4084,6 +4085,7 @@ function hasChineseLocaleEnglishRoleCopy(relFile, line) {
 function hasStartGuideResetJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/settings/AccountSection.tsx') &&
+    !relFile.endsWith('src/app/features/cmdk/CommandPalette.tsx') &&
     !relFile.endsWith('src/app/pages/settings/ui/SettingsLayout.tsx')
   ) {
     return false

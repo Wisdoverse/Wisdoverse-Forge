@@ -12452,7 +12452,12 @@ function ProfileRow() {
     const cwd = fixture({
       'src/app/features/settings/AccountSection.tsx': `
 function GettingStartedGuideRow() {
-  return <section><h3>Onboarding</h3><p>If Start is hidden, choose Show setup checklist. Start is already visible in the left menu, so there is nothing to restore. New sign-ins still open Tasks by default.</p><p>Setup checklist is back in the left menu. Choose Open setup checklist to review setup.</p><button>Reset Start guide</button></section>
+  return <section><h3>Onboarding</h3><p>If Start is hidden, choose Show setup checklist. Start is already visible in the left menu, so there is nothing to restore. New sign-ins still open Tasks by default.</p><p>Setup checklist is back in the left menu. Choose Open setup checklist to review setup.</p><button>Reset Start guide</button><button>Reset setup checklist</button></section>
+}
+`,
+      'src/app/features/cmdk/CommandPalette.tsx': `
+const SETUP_CHECKLIST_RECOVERY_COMMAND = {
+  label: 'Reset setup checklist',
 }
 `,
       'src/app/pages/settings/ui/SettingsLayout.tsx': `
@@ -12470,6 +12475,10 @@ export const item = {
         expect.objectContaining({
           type: 'start-guide-reset-copy',
           location: 'src/app/features/settings/AccountSection.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'start-guide-reset-copy',
+          location: 'src/app/features/cmdk/CommandPalette.tsx:3',
         }),
         expect.objectContaining({
           type: 'start-guide-reset-copy',
