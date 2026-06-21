@@ -82,7 +82,10 @@ describe('Editable resource rows', () => {
       />
     )
 
-    expect(screen.getByText('Project link preview: web-app. Auto-created')).toBeDefined()
+    expect(
+      screen.getByText('Project link preview: web-app. Forge creates this automatically')
+    ).toBeDefined()
+    expect(screen.queryByText(/Auto-created/i)).toBeNull()
     expect(screen.queryByText(/Forge uses this in project links/i)).toBeNull()
     expect(screen.queryByText(/Automatic project name/i)).toBeNull()
     expect(screen.queryByTitle('Members')).toBeNull()
