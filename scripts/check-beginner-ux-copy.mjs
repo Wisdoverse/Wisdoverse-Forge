@@ -2586,6 +2586,7 @@ const THIS_COMPUTER_SETUP_JARGON_PATTERNS = [
   /\bCopy this command and run it\b/i,
   /\bwhere you run the setup command\b/i,
   /\bLeave the work tool as Codex\b/i,
+  /\bKeep the suggested setup values\b/i,
   /\bnew agent named This Computer Codex appears\b/i,
   /\bThis Computer Codex appears in this list\b/i,
 ]
