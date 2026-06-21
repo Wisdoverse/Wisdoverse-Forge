@@ -317,6 +317,29 @@ describe('AppLayout', () => {
     expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
   })
 
+  test('command palette opens direct Settings sections for beginner setup searches', async () => {
+    const onNavigate = vi.fn()
+
+    render(<MemoryRouter onNavigate={onNavigate} />)
+
+    fireEvent.click(screen.getByTestId('top-bar-command-search'))
+    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+      target: { value: 'project settings' },
+    })
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Create or choose the project where tasks, agents, and files belong.')
+      ).toBeDefined()
+    })
+    fireEvent.click(
+      screen.getByText('Create or choose the project where tasks, agents, and files belong.')
+    )
+
+    expect(onNavigate).toHaveBeenCalledWith('/settings/projects')
+    expect(screen.queryByPlaceholderText(/search pages or things to do/i)).toBeNull()
+  })
+
   test('command palette restores and opens the setup checklist directly', async () => {
     const onNavigate = vi.fn()
     const setGettingStartedDismissed = vi.fn().mockResolvedValue(true)

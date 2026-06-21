@@ -70,6 +70,18 @@ describe('settingsActionErrorMessage', () => {
     expect(normalizeSettingsSection('cli-login')).toBe('work-tool-sign-ins')
   })
 
+  test('routes visible Settings labels to their direct section pages', () => {
+    expect(normalizeSettingsSection('ai-services')).toBe('providers')
+    expect(normalizeSettingsSection('outside-tool-access')).toBe('keys')
+    expect(normalizeSettingsSection('https-code-access')).toBe('git-credentials')
+    expect(normalizeSettingsSection('ssh-code-access')).toBe('ssh-keys')
+    expect(normalizeSettingsSection('agent-size-limits')).toBe('resources')
+    expect(normalizeSettingsSection('where-agents-work')).toBe('runtime')
+    expect(normalizeSettingsSection('team-settings')).toBe('teams')
+    expect(normalizeSettingsSection('project-settings')).toBe('projects')
+    expect(normalizeSettingsSection('teams-and-projects')).toBe('projects')
+  })
+
   test('turns expired auth into a sign-in step', () => {
     expectBeginnerError(
       settingsActionErrorMessage('providers', 'load', statusError(401, 'HTTP 401')),

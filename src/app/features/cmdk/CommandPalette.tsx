@@ -61,6 +61,30 @@ const SECONDARY_ACTION_COMMANDS = [
     searchText: 'codex openai login sign in work tool settings',
   },
   {
+    id: 'settings:projects',
+    label: 'Project settings',
+    description: 'Create or choose the project where tasks, agents, and files belong.',
+    searchText: 'project settings projects workspace work area task files',
+  },
+  {
+    id: 'settings:teams',
+    label: 'Team settings',
+    description: 'Create teams and manage who can change work.',
+    searchText: 'team settings teams people members access invite',
+  },
+  {
+    id: 'settings:providers',
+    label: 'AI services',
+    description: 'Connect the AI account agents use to answer.',
+    searchText: 'ai services model provider llm account key connection',
+  },
+  {
+    id: 'settings:runtime',
+    label: 'Where agents work',
+    description: 'Choose where project files open and which work tool agents use.',
+    searchText: 'where agents work runtime work tool files codex claude',
+  },
+  {
     id: 'action:toggle-theme',
     label: 'Change theme',
     description: 'Switch the app appearance.',

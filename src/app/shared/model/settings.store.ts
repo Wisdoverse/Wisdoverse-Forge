@@ -40,13 +40,31 @@ export const SETTINGS_SECTIONS = [
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number]
 
 const SETTINGS_SECTION_ALIASES: Record<string, SettingsSection> = {
+  'ai-services': 'providers',
+  'ai-service': 'providers',
+  services: 'providers',
+  providers: 'providers',
   'api-keys': 'keys',
   api: 'keys',
+  'outside-tool-access': 'keys',
+  'outside-tools': 'keys',
   git: 'git-credentials',
+  'code-access': 'git-credentials',
+  'https-code-access': 'git-credentials',
+  'https-access': 'git-credentials',
   ssh: 'ssh-keys',
+  'ssh-code-access': 'ssh-keys',
   'ssh-credentials': 'ssh-keys',
   workspace: 'resources',
   workspaces: 'resources',
+  'agent-size': 'resources',
+  'agent-size-limits': 'resources',
+  'work-capacity': 'resources',
+  'where-agents-work': 'runtime',
+  'agent-work': 'runtime',
+  'work-location': 'runtime',
+  'work-locations': 'runtime',
+  runtime: 'runtime',
   'codex-login': 'work-tool-sign-ins',
   'codex-cli': 'work-tool-sign-ins',
   'codex-cli-login': 'work-tool-sign-ins',
@@ -62,6 +80,11 @@ const SETTINGS_SECTION_ALIASES: Record<string, SettingsSection> = {
   user: 'account',
   organization: 'teams',
   organizations: 'teams',
+  team: 'teams',
+  'team-settings': 'teams',
+  project: 'projects',
+  'project-settings': 'projects',
+  'teams-and-projects': 'projects',
 }
 
 export function normalizeSettingsSection(value: unknown): SettingsSection | null {

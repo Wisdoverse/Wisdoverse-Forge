@@ -226,6 +226,9 @@ export function AppLayout({
       const view = commandId.replace('view:', '') as typeof viewMode
       handleNavigate('/tasks')
       setViewMode(view)
+    } else if (commandId.startsWith('settings:')) {
+      const section = commandId.replace('settings:', '')
+      handleNavigate(`/settings/${section}`)
     } else if (commandId === 'action:create-task') {
       handleNewTaskAction()
     } else if (commandId === 'action:work-tool-sign-ins') {

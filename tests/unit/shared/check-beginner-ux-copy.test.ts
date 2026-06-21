@@ -380,7 +380,7 @@ export const zh = {
   settings: {
     runtime: {
       couldNotLoad:
-        '请打开设置，然后打开“Agent 在哪里工作”。如果仍然无法加载，请找负责人或管理员检查设置里的“Agent 在哪里工作”。',
+        '请打开设置，然后打开“智能体在哪里工作”。如果仍然无法加载，请找负责人或管理员检查设置里的“智能体在哪里工作”。',
     },
   },
 }
@@ -397,7 +397,7 @@ export const zh = {
   settings: {
     runtime: {
       couldNotLoad:
-        '请刷新这个设置页来加载 Agent 在哪里工作。如果仍然无法加载，请找 owner 或 admin 检查设置里的“Agent 在哪里工作”。',
+        '请刷新这个设置页来加载智能体在哪里工作。如果仍然无法加载，请找 owner 或 admin 检查设置里的“智能体在哪里工作”。',
     },
   },
 }
@@ -412,6 +412,33 @@ export const zh = {
         expect.objectContaining({
           type: 'zh-english-role-copy',
           location: 'src/app/shared/i18n/locales/zh.ts:6',
+        }),
+      ])
+    )
+  })
+
+  it('flags Chinese UI copy that keeps generic English agent words', () => {
+    const cwd = fixture({
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = {
+  nav: {
+    agents: 'Agent',
+  },
+  gettingStarted: {
+    title: '按清单安全设置第一个 Agent',
+  },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'zh-english-agent-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:7',
         }),
       ])
     )
@@ -7005,7 +7032,7 @@ export const en = {
 `,
       'src/app/shared/i18n/locales/zh.ts': `
 export const zh = {
-  settings: { runtime: { title: 'Agent 在哪里工作' } },
+	  settings: { runtime: { title: '智能体在哪里工作' } },
 }
 `,
     })
@@ -7382,7 +7409,7 @@ export const en = {
       'src/app/shared/i18n/locales/zh.ts': `
 export const zh = {
   agents: {
-    confirmDelete: '确定要删除此 Agent 吗？',
+    confirmDelete: '确定要删除此智能体吗？',
   },
   settings: {
     resetConfirm: '确定要恢复所有设置吗？',
@@ -7533,7 +7560,7 @@ export const zh = {
     emailDomainRestricted: '仅允许使用授权邮箱域名注册',
   },
   agents: {
-    maxAgentsReached: 'Agent 数量已达上限。请先停止或删除不用的 Agent，然后重试。',
+    maxAgentsReached: '智能体数量已达上限。',
   },
   files: {
     uploadFailed: '文件上传失败',
@@ -7562,10 +7589,6 @@ export const zh = {
       expect.objectContaining({
         type: 'limit-conflict-next-action',
         location: 'src/app/shared/i18n/locales/zh.ts:7',
-      }),
-      expect.objectContaining({
-        type: 'limit-conflict-next-action',
-        location: 'src/app/shared/i18n/locales/zh.ts:10',
       }),
       expect.objectContaining({
         type: 'limit-conflict-next-action',
@@ -8470,10 +8493,10 @@ export const zh = {
     noData: '可以先创建第一项；设置完成后，请重新打开当前页面。',
   },
   agents: {
-    noAgents: '先创建一个 Agent，再发送任务。',
+    noAgents: '先创建一个智能体，再发送任务。',
   },
   groups: {
-    noGroups: '先创建一个任务等待位置，让新任务有地方等待 Agent 接手。',
+    noGroups: '先创建一个任务等待位置，让新任务有地方等待智能体接手。',
     ungrouped: '请先设置任务等待位置',
   },
   feed: {
@@ -13396,8 +13419,8 @@ export const en = {
       'src/app/shared/i18n/locales/zh.ts': `
 export const zh = {
   gettingStarted: {
-    title: '按清单安全设置第一个 Agent',
-    description: '一次只做一步。按这份设置清单创建 Agent。',
+	    title: '按清单安全设置第一个智能体',
+	    description: '一次只做一步。按这份设置清单创建智能体。',
   },
 }
 `,
@@ -14155,8 +14178,8 @@ function fallback() {
     const cwd = fixture({
       'src/app/features/board/KanbanColumn.tsx': `
 const COLUMN_EMPTY_STATE = {
-  working: { title: 'Start a waiting task to show live work', detail: 'Open a task in Waiting to start, choose Start, or wait for the agent to begin.' },
-  blocked: { title: 'Answer help requests from this column', detail: 'When a task needs details, open its card here, read what the agent needs, then choose Continue or Stop.' },
+  working: { title: 'Start a waiting task to show live work', detail: 'Open a task in Waiting to start, choose an agent, then choose Preview and send.' },
+  blocked: { title: 'Answer help requests from this column', detail: 'When a task needs details, open its card here, read what the agent needs, then choose Allow and continue.' },
   canceled: { title: 'Check canceled work before starting again', detail: 'Open a canceled card here to see why it stopped before you create a replacement task.' },
 }
 
@@ -14778,7 +14801,7 @@ export const zh = {
     detail: {
       triggerHelper: '任务里出现类似这些词时，可以推荐这条保存的说明。',
       detailsHelper: '使用这条保存的说明前，请先查看这些可复用步骤。',
-      noContent: '还没有保存可复用步骤。请先补充 Agent 要遵循的步骤，再使用这条保存的说明。',
+      noContent: '还没有保存可复用步骤。请先补充智能体要遵循的步骤，再使用这条保存的说明。',
     },
   },
 }
@@ -16586,7 +16609,7 @@ export const en = {
       'src/app/shared/i18n/locales/zh.ts': `
 export const zh = {
   gettingStarted: {
-    steps: { review: { title: '检查结果', ready: '1 个已完成任务可以检查。', why: '检查结果能帮你判断 Agent 是否返回了可以使用的输出。', success: '任务已经完成，并且能看到输出或结果文件。' } },
+    steps: { review: { title: '检查结果', ready: '1 个已完成任务可以检查。', why: '检查结果能帮你判断智能体是否返回了可以使用的输出。', success: '任务已经完成，并且能看到输出或结果文件。' } },
   },
 }
 `,
@@ -16847,7 +16870,7 @@ export const en = {
 `,
       'src/app/shared/i18n/locales/zh.ts': `
 export const zh = {
-  agents: { agentDetails: 'Agent 概览' },
+	  agents: { agentDetails: '智能体概览' },
   feed: { viewDetails: '查看这条更新' },
 }
 `,
@@ -19071,7 +19094,7 @@ export function beginnerBlockedHint() {
     const cwd = fixture({
       'src/app/shared/lib/taskFailureCopy.ts': `
 export function taskBlockedPreview() {
-  return 'Open the task details, read what the agent needs, then choose Continue or Stop.'
+	  return 'Open the task details, read what the agent needs, then choose Allow and continue.'
 }
 `,
     })

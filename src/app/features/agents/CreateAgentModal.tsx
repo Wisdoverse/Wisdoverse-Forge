@@ -1074,6 +1074,10 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     </option>
                   ))}
                 </select>
+                <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  Keep the suggested tool unless an owner or admin tells you which work tool this
+                  team uses.
+                </p>
               </div>
             )}
 

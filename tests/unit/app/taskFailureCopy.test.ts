@@ -74,10 +74,11 @@ describe('taskFailureCopy', () => {
     })
 
     expect(message).toBe(
-      'Open the task details, read what the agent needs, then choose Continue or Stop.'
+      'Open the task details, read what the agent needs, then choose Allow and continue.'
     )
     expect(message).not.toContain('approval request')
     expect(message).not.toContain('approve or decline')
+    expect(message).not.toContain('Continue or Stop')
   })
 
   test('turns approval blocked hints into a plain task-details choice', () => {
@@ -87,10 +88,11 @@ describe('taskFailureCopy', () => {
     })
 
     expect(message).toBe(
-      'Open the task details to see what needs confirmation, then choose Continue or Stop when it is ready.'
+      'Open the task details to see what needs confirmation, then choose Allow and continue when it is ready.'
     )
     expect(message).not.toContain('approval')
     expect(message).not.toContain('SSH')
+    expect(message).not.toContain('Stop')
   })
 
   test('identifies raw failure details before they reach user-facing summaries', () => {
