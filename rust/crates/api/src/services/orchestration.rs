@@ -618,6 +618,32 @@ impl OrchestrationService {
         self.task_run_repo.finish_current_in_tx(&mut tx, scope, task_id, "completed").await?;
         let unblocked_children =
             OrchestrationTaskRepository::unblock_children_of_in_tx(&mut tx, scope, task_id).await?;
+
+        // Event-driven self-fix trigger: when this task is a self-fix task,
+        // enqueue the PR-bridge job inside the SAME transaction as the result
+        // write. The job commits atomically with the completion, so a crash
+        // never loses the trigger and it never fires for an uncommitted
+        // completion. `unique_key = task_id` makes re-completion idempotent
+        // (ON CONFLICT DO NOTHING).
+        if updated.self_fix {
+            let payload = serde_json::to_value(agentforge_core::SelfFixPrJob {
+                task_id,
+                org_id: scope.org_id().as_uuid(),
+            })
+            .map_err(|err| agentforge_core::AppError::from(anyhow::Error::from(err)))?;
+            agentforge_jobs::queue::enqueue_in_tx(
+                &mut tx,
+                agentforge_core::SELF_FIX_PR_QUEUE,
+                payload,
+                0,
+                None,
+                Some(&task_id.to_string()),
+                5,
+            )
+            .await
+            .map_err(|err| agentforge_core::AppError::from(anyhow::Error::from(err)))?;
+        }
+
         tx.commit().await.map_err(|err| OrchestrationTransactionPolicy::commit_failed("complete_task", err))?;
 
         if !unblocked_children.is_empty() {
