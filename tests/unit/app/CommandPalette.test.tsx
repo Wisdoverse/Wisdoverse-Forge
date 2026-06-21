@@ -176,11 +176,13 @@ describe('CommandPalette', () => {
     expect(screen.queryByText('Create a task for an agent to finish.')).toBeNull()
   })
 
-  test('finds Codex sign-in through beginner search terms', async () => {
-    render(<CommandPalette isOpen={true} onClose={() => {}} />)
+  test('finds Codex sign-in through beginner Chinese login search terms', async () => {
+    const onSelect = vi.fn()
+    const onClose = vi.fn()
+    render(<CommandPalette isOpen={true} onClose={onClose} onSelect={onSelect} />)
 
     fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
-      target: { value: 'codex login' },
+      target: { value: 'codex 登录' },
     })
 
     await waitFor(() => {
@@ -189,6 +191,9 @@ describe('CommandPalette', () => {
     expect(
       screen.getByText('Open Codex sign-in before agents work on project files.')
     ).toBeDefined()
+    fireEvent.click(screen.getByText('Open Codex sign-in before agents work on project files.'))
+    expect(onSelect).toHaveBeenCalledWith('action:work-tool-sign-ins')
+    expect(onClose).toHaveBeenCalledTimes(1)
     expect(screen.queryByText('Codex and work tool sign-in')).toBeNull()
     expect(screen.queryByText('No page or option matches that search')).toBeNull()
   })
