@@ -198,6 +198,32 @@ describe('CommandPalette', () => {
     expect(screen.queryByText('No page or option matches that search')).toBeNull()
   })
 
+  test.each([
+    ['任务', 'Tasks', 'nav:tasks'],
+    ['智能体', 'Agents', 'nav:agents'],
+    ['创建任务', 'New task', 'action:create-task'],
+    ['项目设置', 'Project settings', 'settings:projects'],
+    ['模型服务', 'AI services', 'settings:providers'],
+  ])('finds %s through Chinese beginner search terms', async (query, label, commandId) => {
+    const onSelect = vi.fn()
+    const onClose = vi.fn()
+    render(<CommandPalette isOpen={true} onClose={onClose} onSelect={onSelect} />)
+
+    fireEvent.change(screen.getByPlaceholderText(/search pages or things to do/i), {
+      target: { value: query },
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText(label)).toBeDefined()
+    })
+    expect(screen.queryByText('No page or option matches that search')).toBeNull()
+
+    fireEvent.click(screen.getByText(label))
+
+    expect(onSelect).toHaveBeenCalledWith(commandId)
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
   test('finds direct Settings sections through beginner search terms', async () => {
     const onSelect = vi.fn()
     const onClose = vi.fn()
