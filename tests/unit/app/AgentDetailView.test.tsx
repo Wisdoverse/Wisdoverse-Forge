@@ -419,8 +419,8 @@ describe('AgentDetailView', () => {
 
     const nextStep = screen.getByTestId('agent-next-step')
     expect(screen.getAllByText('Reconnect this computer from Agents').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Reconnect from Agents').length).toBeGreaterThan(0)
-    expect(screen.getByText('Reconnect from Agents first')).toBeDefined()
+    expect(screen.getAllByText('Use Connect this computer in Agents').length).toBeGreaterThan(0)
+    expect(screen.getByText('Open Agents and connect this computer again')).toBeDefined()
     expect(
       within(nextStep).getByText(/go back to Agents, choose Connect this computer/i)
     ).toBeDefined()
@@ -433,6 +433,8 @@ describe('AgentDetailView', () => {
     expect(screen.queryByText(/paste the setup text again/i)).toBeNull()
     expect(screen.queryByText(/setup command/i)).toBeNull()
     expect(screen.queryByText('Connected from this computer')).toBeNull()
+    expect(screen.queryByText('Reconnect from Agents')).toBeNull()
+    expect(screen.queryByText('Reconnect from Agents first')).toBeNull()
     expect(screen.queryByText('Unavailable until restarted or reconnected')).toBeNull()
     expect(screen.queryByRole('button', { name: /open terminal/i })).toBeNull()
   })

@@ -135,6 +135,10 @@ describe('AgentListView', () => {
     expect(within(enrollment).getByTestId('host-cli-project-label')).not.toHaveTextContent('p1')
     expect(enrollment.textContent).toContain('p1')
     expect(enrollment.textContent).toContain('agentforge agents enroll-local')
+    expect(within(enrollment).getByText('Backup setup text')).toBeDefined()
+    expect(enrollment.textContent).toContain(
+      'Copy this only if Add this computer as an agent does not open.'
+    )
     expect(enrollment.textContent).toContain('--name "This Computer Codex"')
     expect(enrollment.textContent).toContain('--tool codex')
     expect(enrollment.textContent).toContain('--project p1')

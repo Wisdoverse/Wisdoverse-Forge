@@ -32,7 +32,7 @@ const STATUS_COPY: Record<
   },
   offline: {
     label: 'Not connected',
-    description: 'This agent is not connected right now.',
+    description: 'Open Agents and choose Connect this computer.',
     visibleDetail: 'Start it in Agents',
     container: 'bg-black/[0.04] dark:bg-white/[0.06]',
   },

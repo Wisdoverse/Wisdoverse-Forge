@@ -545,6 +545,14 @@ function HostCliEnrollmentPanel({
 
         {commandReady ? (
           <>
+            <div className="mt-3">
+              <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                Backup setup text
+              </p>
+              <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                Copy this only if Add this computer as an agent does not open.
+              </p>
+            </div>
             <pre className="mt-3 max-h-36 overflow-auto rounded-lg bg-[#111318] p-3 text-left font-mono text-[11px] leading-relaxed text-white/85">
               <code className="whitespace-pre-wrap break-all">{command}</code>
             </pre>

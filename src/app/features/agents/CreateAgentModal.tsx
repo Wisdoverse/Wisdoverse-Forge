@@ -662,7 +662,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
               <p className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {localEnrollment.enrollment?.joinCommand
                   ? "Open this computer's command app, paste the setup text there, and keep that app open while it works. Forge will show it as an agent here, let you send tasks to it, and keep its status and history. Files stay on that computer."
-                  : 'Paste this setup text on the computer where this agent should work. Forge will manage its tasks, status, and history while files stay on that computer.'}
+                  : "Open that computer's command app, paste the setup text there, and keep that app open while it works. Forge will manage its tasks, status, and history while files stay on that computer."}
               </p>
             </div>
 
@@ -718,8 +718,8 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                   </div>
                 )}
                 <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                  The pairing code inside expires in 15 minutes. If it expires, create the agent
-                  again to get a fresh command.
+                  The pairing code inside expires in 15 minutes. If it expires, choose Add another
+                  agent to get fresh setup text.
                 </p>
                 <p
                   data-testid="local-agent-paste-hint"
