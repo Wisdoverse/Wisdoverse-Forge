@@ -21,24 +21,43 @@ const NAV_COMMANDS = [
     id: 'nav:start',
     label: 'Setup checklist',
     description: 'Open setup steps again when you want a guided checklist.',
+    searchText: '设置清单 新手 引导 开始',
   },
-  { id: 'nav:tasks', label: 'Tasks', description: 'See work that is planned, active, or done.' },
-  { id: 'nav:inbox', label: 'Inbox', description: 'Check alerts that may need a person.' },
+  {
+    id: 'nav:tasks',
+    label: 'Tasks',
+    description: 'See work that is planned, active, or done.',
+    searchText: '任务 看板 工作 进度',
+  },
+  {
+    id: 'nav:inbox',
+    label: 'Inbox',
+    description: 'Check alerts that may need a person.',
+    searchText: '收件箱 提醒 通知 待处理',
+  },
   {
     id: 'nav:context',
     label: 'Saved items',
     description: 'Check saved notes and instructions before agents reuse them.',
+    searchText: '保存内容 保存项 上下文 笔记 指令',
   },
-  { id: 'nav:agents', label: 'Agents', description: 'Create or check agents that handle work.' },
+  {
+    id: 'nav:agents',
+    label: 'Agents',
+    description: 'Create or check agents that handle work.',
+    searchText: '智能体 代理 助手 agent',
+  },
   {
     id: 'nav:skills',
     label: 'Saved instructions',
     description: 'Reuse instructions for repeated work.',
+    searchText: '保存指令 技能 复用步骤',
   },
   {
     id: 'nav:settings',
     label: 'Settings',
     description: 'Connect tools, account access, teams, and projects.',
+    searchText: '设置 账号 团队 项目 工具',
   },
 ]
 
@@ -50,7 +69,7 @@ const DEFAULT_CREATE_TASK_COMMAND = {
   id: 'action:create-task',
   label: 'New task',
   description: 'Create a task for an agent to finish.',
-  searchText: 'new task create task send work',
+  searchText: 'new task create task send work 创建任务 新任务 任务 工作',
 }
 
 const SECONDARY_ACTION_COMMANDS = [
@@ -64,55 +83,63 @@ const SECONDARY_ACTION_COMMANDS = [
     id: 'settings:keys',
     label: 'Outside tool access',
     description: 'Let trusted outside tools connect to Forge without a person signing in.',
-    searchText: 'api key access token outside tool automation integration personal access key',
+    searchText:
+      'api key access token outside tool automation integration personal access key 外部工具 密钥 访问令牌 自动化 集成',
   },
   {
     id: 'settings:git-credentials',
     label: 'HTTPS code access',
     description: 'Use this when a private code link starts with https://.',
-    searchText: 'https code access git credential private repository token password clone',
+    searchText:
+      'https code access git credential private repository token password clone 代码访问 代码账号 私有仓库 令牌 密码 克隆',
   },
   {
     id: 'settings:ssh-keys',
     label: 'SSH code access',
     description: 'Use this when a private code link starts with git@.',
-    searchText: 'ssh key ssh code access git private repository deploy key',
+    searchText:
+      'ssh key ssh code access git private repository deploy key SSH 密钥 代码访问 私有仓库',
   },
   {
     id: 'settings:resources',
     label: 'Agent size limits',
     description: 'Choose small, standard, or large limits before agents start file work.',
-    searchText: 'agent size resource limits cpu memory small standard large',
+    searchText:
+      'agent size resource limits cpu memory small standard large 智能体 大小 限制 资源 内存',
   },
   {
     id: 'settings:projects',
     label: 'Project settings',
     description: 'Create or choose the project where tasks, agents, and files belong.',
-    searchText: 'project settings projects workspace work area task files',
+    searchText:
+      'project settings projects workspace work area task files 项目设置 项目 工作区 文件',
   },
   {
     id: 'settings:teams',
     label: 'Team settings',
     description: 'Create teams and manage who can change work.',
-    searchText: 'team settings teams people members access invite',
+    searchText: 'team settings teams people members access invite 团队设置 团队 成员 邀请 权限',
   },
   {
     id: 'settings:providers',
     label: 'AI services',
     description: 'Connect the AI account agents use to answer.',
-    searchText: 'ai services model provider llm account key connection',
+    searchText:
+      'ai services model provider llm account key connection 模型服务 AI 服务 模型 账号 连接',
   },
   {
     id: 'settings:runtime',
     label: 'Where agents work',
     description: 'Choose where project files open and which work tool agents use.',
-    searchText: 'where agents work runtime work tool files codex claude',
+    searchText:
+      'where agents work runtime work tool files codex claude 智能体 工作位置 工作工具 文件',
   },
   {
     id: 'settings:account',
     label: 'Account',
     description: 'Update profile, password, and show the setup checklist again.',
-    searchText: 'account profile password username setup checklist theme language',
+    searchText:
+      'account profile password username setup checklist theme language 账号 密码 用户名 设置清单 主题 语言',
   },
   {
     id: 'action:toggle-theme',
@@ -266,7 +293,7 @@ export function CommandPalette({
               {navCommands.map((cmd) => (
                 <Command.Item
                   key={cmd.id}
-                  value={`${cmd.label} ${cmd.description}`}
+                  value={`${cmd.label} ${cmd.description} ${cmd.searchText ?? ''}`}
                   onSelect={() => handleSelect(cmd.id)}
                   className={cn(
                     'flex cursor-pointer flex-col gap-0.5 px-4 py-2 text-sm',
