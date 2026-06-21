@@ -920,7 +920,7 @@ function ModelQuickPicks() {
 `,
       'src/app/features/agents/CreateAgentModal.tsx': `
 function CreateAgentModal() {
-  return 'Open AI service settings, add a service, save it, then choose Check connection until it says Ready.'
+  return 'Open AI service settings, add a service, paste the key from that service, save it, then choose Check connection. Come back when it shows Ready.'
 }
 `,
       'src/app/features/agents/AgentControlPanel.tsx': `
@@ -956,6 +956,37 @@ function settingsValidationMessage() {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags New agent AI service setup copy that uses key jargon or an unclear check loop', () => {
+    const cwd = fixture({
+      'src/app/features/agents/CreateAgentModal.tsx': `
+function CreateAgentModal() {
+  return (
+    <section>
+      <p>Open AI service settings, add a service, paste the service access key, save it, then choose Check connection. Come back when the service shows Ready.</p>
+      <p>Open AI service settings, add a service, save it, then choose Check connection until it says Ready.</p>
+    </section>
+  )
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'create-agent-ai-service-setup-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'create-agent-ai-service-setup-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:6',
+        }),
+      ])
+    )
   })
 
   it('flags user management empty states that do not point to inviting people', () => {
