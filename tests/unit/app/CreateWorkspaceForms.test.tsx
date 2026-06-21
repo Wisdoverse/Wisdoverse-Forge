@@ -13,6 +13,10 @@ const team: NavTeam = {
   description: '',
 }
 
+function chooseCopyCodeNow() {
+  fireEvent.click(screen.getByLabelText(/copy code now from github or gitlab/i))
+}
+
 afterEach(() => {
   cleanup()
 })
@@ -58,12 +62,8 @@ describe('workspace setup create forms', () => {
     await waitFor(() => {
       const alert = screen.getByRole('alert')
       expect(alert).toHaveAttribute('aria-live', 'polite')
-      expect(alert).toHaveTextContent(
-        'Open Settings, then Teams again, then create this team.'
-      )
-      expect(alert).toHaveTextContent(
-        'ask an owner or admin to check Teams in Settings'
-      )
+      expect(alert).toHaveTextContent('Open Settings, then Teams again, then create this team.')
+      expect(alert).toHaveTextContent('ask an owner or admin to check Teams in Settings')
       expect(alert).not.toHaveTextContent('team space setup')
       expect(alert).not.toHaveTextContent('API 500')
       expect(alert).not.toHaveTextContent('database unavailable')
@@ -127,6 +127,25 @@ describe('workspace setup create forms', () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledWith('Customer Portal', 'team-1', undefined))
   })
 
+  test('starts with the no-code path and reveals the code link only when selected', () => {
+    render(<CreateProjectForm teams={[team]} onSave={vi.fn()} onCancel={vi.fn()} saving={false} />)
+
+    expect(screen.getByText('Choose code setup')).toBeInTheDocument()
+    expect(screen.getByLabelText(/create this project without code/i)).toBeChecked()
+    expect(screen.queryByLabelText(/^code link/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/Use this when you want a place for tasks now/i)).toBeInTheDocument()
+    expect(screen.getByText(/You can add code access later in Settings/i)).toBeInTheDocument()
+
+    chooseCopyCodeNow()
+
+    expect(screen.getByLabelText(/^code link/i)).toBeInTheDocument()
+    expect(screen.getByText('Copy code now')).toBeInTheDocument()
+    expect(screen.getByText('Paste the https:// code link below.')).toBeInTheDocument()
+    expect(
+      screen.getByText('Create the project. Watch this project in the list for copy status.')
+    ).toBeInTheDocument()
+  })
+
   test('explains the generated project folder before showing the support folder', () => {
     render(<CreateProjectForm teams={[team]} onSave={vi.fn()} onCancel={vi.fn()} saving={false} />)
 
@@ -158,29 +177,27 @@ describe('workspace setup create forms', () => {
 
     render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
 
+    chooseCopyCodeNow()
     expect(screen.getByText('Code link')).toBeInTheDocument()
     expect(screen.queryByText('Git repository URL')).toBeNull()
     expect(screen.getByPlaceholderText('https://github.com/team/project.git')).toBeInTheDocument()
     expect(screen.queryByPlaceholderText('https://github.com/org/repo.git')).toBeNull()
-    expect(screen.getByText(/when you want Forge to copy code now/i)).toBeInTheDocument()
-    expect(
-      screen.getAllByText(/choose Code, choose HTTPS, then copy that link/i).length
-    ).toBeGreaterThan(0)
+    expect(screen.getByText(/when agents need project files right away/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/choose Code, then HTTPS/i).length).toBeGreaterThan(0)
     expect(
       screen.getAllByText(/Never paste passwords or access keys here/i).length
     ).toBeGreaterThan(0)
     expect(screen.queryByText(/copy from your browser/i)).toBeNull()
     expect(screen.queryByText(/for git@ links/i)).toBeNull()
-    expect(screen.getAllByText(/leave this blank/i).length).toBeGreaterThan(0)
     expect(screen.getByTestId('create-project-code-link-status')).toHaveTextContent(
-      'No code link added. Create the project now, then add code access later if agents need files.'
+      'Copy code now selected. Paste an https:// code link below, or choose Create without code.'
     )
     expect(screen.queryByText(/clone an existing repo/i)).toBeNull()
 
     fireEvent.change(screen.getByLabelText(/project name/i), {
       target: { value: 'Cloned Project' },
     })
-    fireEvent.change(screen.getByLabelText(/code link/i), {
+    fireEvent.change(screen.getByLabelText(/^code link/i), {
       target: { value: 'https://github.com/team/project.git' },
     })
     expect(screen.getByTestId('create-project-status')).toHaveTextContent(
@@ -205,10 +222,11 @@ describe('workspace setup create forms', () => {
 
     render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
 
+    chooseCopyCodeNow()
     fireEvent.change(screen.getByLabelText(/project name/i), {
       target: { value: 'SSH Project' },
     })
-    fireEvent.change(screen.getByLabelText(/code link/i), {
+    fireEvent.change(screen.getByLabelText(/^code link/i), {
       target: { value: 'git@github.com:org/repo.git' },
     })
     fireEvent.click(screen.getByRole('button', { name: /create project/i }))
@@ -230,10 +248,11 @@ describe('workspace setup create forms', () => {
 
     render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
 
+    chooseCopyCodeNow()
     fireEvent.change(screen.getByLabelText(/project name/i), {
       target: { value: 'Token Project' },
     })
-    fireEvent.change(screen.getByLabelText(/code link/i), {
+    fireEvent.change(screen.getByLabelText(/^code link/i), {
       target: { value: 'https://user:ghp_secrettoken@github.com/org/repo.git' },
     })
     fireEvent.click(screen.getByRole('button', { name: /create project/i }))
