@@ -246,10 +246,7 @@ test.describe.serial('Simple chat agent UX (#21)', () => {
     await navigateToAgents(page, baseURL!)
 
     // Open modal
-    await page
-      .getByRole('button', { name: 'New agent' })
-      .first()
-      .click()
+    await page.getByRole('button', { name: 'New agent' }).first().click()
     await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 })
 
     // With a tested provider seeded, the modal defaults to "Simple chat agent"
@@ -260,11 +257,11 @@ test.describe.serial('Simple chat agent UX (#21)', () => {
     const kindGroup = page.getByRole('radiogroup', { name: 'Where should this agent work?' })
 
     // "Project files" (container) kind hides the system-prompt textarea.
-    await kindGroup.getByText('Project files').click()
+    await kindGroup.getByText('Project files', { exact: true }).click()
     await expect(page.locator('textarea#systemPrompt')).not.toBeVisible()
 
     // Switching to "Simple chat agent" reveals the system-prompt textarea.
-    await kindGroup.getByText('Simple chat agent').click()
+    await kindGroup.getByText('Simple chat agent', { exact: true }).click()
     await expect(page.locator('textarea#systemPrompt')).toBeVisible({ timeout: 3000 })
     await expect(page.getByRole('textbox', { name: 'Agent instructions' })).toBeVisible()
     await expect(page.getByPlaceholder(/Help check task results.*explain risks/i)).toBeVisible()
@@ -301,10 +298,7 @@ test.describe.serial('Simple chat agent UX (#21)', () => {
       })
     })
 
-    await page
-      .getByRole('button', { name: 'New agent' })
-      .first()
-      .click()
+    await page.getByRole('button', { name: 'New agent' }).first().click()
     await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 })
 
     // Switch to provider kind, then wait for the gateway providers to self-load
