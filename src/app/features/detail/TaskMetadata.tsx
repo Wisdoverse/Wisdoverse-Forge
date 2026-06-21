@@ -3,6 +3,7 @@ import { formatRelativeTime } from '@app/shared/lib/time'
 import type { TaskSummary } from '@app/shared/api/orchestration'
 import { taskMachineKey, taskPriorityLabel, taskStateLabel } from '@app/entities/task'
 import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
+import { TASK_AGENT_NAME_LOADING_LABEL } from './model/taskAgentLabels'
 
 const STATE_COLORS: Record<string, string> = {
   backlog: 'bg-apple-gray-1 text-white',
@@ -58,7 +59,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
         <span className="text-secondary-light dark:text-secondary-dark">Agent</span>
         {hasAssignee ? (
           <span className="font-medium text-apple-purple">
-            {task.assignedAgentName ?? 'Agent details loading'}
+            {task.assignedAgentName ?? TASK_AGENT_NAME_LOADING_LABEL}
           </span>
         ) : (
           <span className="text-secondary-light dark:text-secondary-dark">Needs agent</span>

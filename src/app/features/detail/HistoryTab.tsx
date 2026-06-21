@@ -20,6 +20,7 @@ import {
   type TaskSummary,
 } from '@app/shared/api/orchestration'
 import { taskDetailErrorMessage } from './taskDetailErrorMessages'
+import { TASK_AGENT_NAME_LOADING_LABEL } from './model/taskAgentLabels'
 
 interface HistoryTabProps {
   task: TaskSummary
@@ -177,7 +178,8 @@ function AgentCheckIn({ task }: { task: TaskSummary }) {
         <CheckInMetric
           label="Agent"
           value={
-            task.assignedAgentName ?? (task.assignedTo ? 'Agent details loading' : 'Needs agent')
+            task.assignedAgentName ??
+            (task.assignedTo ? TASK_AGENT_NAME_LOADING_LABEL : 'Needs agent')
           }
         />
         <CheckInMetric label="State" value={taskStateLabel(task.state)} />
