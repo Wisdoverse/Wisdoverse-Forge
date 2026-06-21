@@ -113,6 +113,12 @@ backend-watch` (`cargo watch -x run`) for sub-minute save-on-change dev,
   that edits this repo's checkout, runs local checks, and opens a _draft_ PR — no
   merge, no deploy. The git/PR bridge, scoped credential model, and risk-tier
   circuit breaker are net-new and security-sensitive.
+  - _Event-driven trigger shipped (loop-engineering Tier 1.1):_ a task that
+    completes with `self_fix = true` now auto-enqueues a `self_fix_pr` job in the
+    same transaction as the completion, and a `SelfFixPrWorker` drives the PR
+    bridge — closing the loop so the bridge no longer has to be pumped by hand.
+    Gated by `SELF_FIX_PR_WORKER_ENABLED`. See
+    `docs/plans/2026-06-21-self-fix-pr-auto-trigger.md`.
 - **Phase 5 — Human-confirm merge gate + auto-deploy-to-STAGING on confirmed
   merge** (L, 2–4 weeks). A named human approves via the existing Review →
   Completed task transition; the system then merges and rolls the single changed
