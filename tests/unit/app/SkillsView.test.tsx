@@ -281,9 +281,11 @@ describe('SkillsView', () => {
       expect(screen.getByText('webui-review')).toBeDefined()
     })
     expect(screen.getByText('Review WebUI flows')).toBeDefined()
-    expect(screen.getByText('Suggested for tasks that mention: webui')).toBeDefined()
+    expect(screen.getByText('Matching words: webui')).toBeDefined()
+    expect(screen.queryByText('Suggested for tasks that mention: webui')).toBeNull()
     expect(screen.queryByText(/Use when task says/i)).toBeNull()
-    expect(screen.getByText('Saved in Global saved instructions')).toBeDefined()
+    expect(screen.getByText('Saved for everyone')).toBeDefined()
+    expect(screen.queryByText('Saved in Global saved instructions')).toBeNull()
     expect(screen.queryByText('Saved in Global skills')).toBeNull()
     expect(screen.queryByText(/^Source:/i)).toBeNull()
     expect(screen.queryByText(/Suggested for:/i)).toBeNull()
@@ -312,7 +314,8 @@ describe('SkillsView', () => {
     render(<SkillsView />)
 
     await screen.findByText('handoff-check')
-    expect(screen.getByText('Saved in saved instructions')).toBeDefined()
+    expect(screen.getByText('Saved as a saved instruction')).toBeDefined()
+    expect(screen.queryByText('Saved in saved instructions')).toBeNull()
     expect(screen.queryByText('@example/team_skill_pack')).toBeNull()
     expect(screen.queryByText('team_skill_pack')).toBeNull()
   })
@@ -568,7 +571,7 @@ describe('SkillsView', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
-      'Ask an owner or admin to let you create saved instructions for this team space, then create the instruction again.'
+      'Ask an owner or admin to let you create saved instructions for this team space, then save the instruction again.'
     )
     expect(alert.textContent).not.toContain('workspace instructions')
     expect(alert.textContent).not.toContain('Code:')

@@ -39,7 +39,7 @@ describe('skillHttpErrorMessage', () => {
   test('turns create permission failures into team space access guidance', () => {
     expectBeginnerMessage(
       skillHttpErrorMessage('create', 403),
-      'Ask an owner or admin to let you create saved instructions for this team space, then create the instruction again.'
+      'Ask an owner or admin to let you create saved instructions for this team space, then save the instruction again.'
     )
     expect(skillHttpErrorMessage('create', 403)).not.toContain('workspace instructions')
   })
@@ -55,7 +55,7 @@ describe('skillHttpErrorMessage', () => {
   test('turns validation details into a field-specific next step', () => {
     expectBeginnerMessage(
       skillHttpErrorMessage('create', 422, { error: { message: 'content is required' } }),
-      'Enter the saved instructions, then create the instruction again.'
+      'Enter the saved instructions, then save the instruction again.'
     )
   })
 
@@ -64,15 +64,35 @@ describe('skillHttpErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Saved instructions to check for a similar item, then change the name or matching words and create the instruction again.'
+      'Open Saved instructions to check for a similar item, then change the name or matching words and save the instruction again.'
     )
     expect(message).not.toContain('Review the existing instructions')
+  })
+
+  test('turns busy saved-instruction saves into a plain wait step', () => {
+    const message = skillHttpErrorMessage('create', 429)
+
+    expectBeginnerMessage(
+      message,
+      'Wait a moment, then save the instruction again. Forge is busy with saved instructions right now.'
+    )
+    expect(message).not.toContain('Instruction setup')
+  })
+
+  test('turns busy saved-instruction loads into a plain wait step', () => {
+    const message = skillHttpErrorMessage('load', 429)
+
+    expectBeginnerMessage(
+      message,
+      'Wait a moment, then open Saved instructions again. Forge is busy with saved instructions right now.'
+    )
+    expect(message).not.toContain('Instruction setup')
   })
 
   test('uses a check step for unknown create failures', () => {
     const message = skillHttpErrorMessage('create', 418)
 
-    expectBeginnerMessage(message, 'Check the required fields, then create the instruction again.')
+    expectBeginnerMessage(message, 'Check the required fields, then save the instruction again.')
     expect(message).not.toContain('Review the fields')
   })
 })
@@ -117,7 +137,7 @@ describe('useSkillsStore errors', () => {
         trigger_pattern: '[',
         content: 'Review the task',
       })
-    ).rejects.toThrow('Check the matching words, then create the instruction again.')
+    ).rejects.toThrow('Check the matching words, then save the instruction again.')
   })
 
   test('throws a connection recovery step when skill creation cannot reach the server', async () => {
@@ -129,7 +149,7 @@ describe('useSkillsStore errors', () => {
         content: 'Review the task',
       })
     ).rejects.toThrow(
-      'Check your connection, then create the instruction again. Forge could not connect while creating it.'
+      'Check your connection, then save the instruction again. Forge could not connect while saving it.'
     )
   })
 })
