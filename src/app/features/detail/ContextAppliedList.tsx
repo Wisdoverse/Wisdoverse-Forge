@@ -157,8 +157,8 @@ function AppliedContextCard({
 
       {item.degradationReason && (
         <p className="text-[10px] text-apple-orange">
-          This saved item was shortened before the agent used it. Review the full item before
-          relying on it.
+          This saved item was shortened before the agent used it. Check the full item before relying
+          on it.
         </p>
       )}
 
