@@ -375,7 +375,10 @@ const BILLING_PLAN_DEAD_END_PATTERNS = [
   /\bNo paid plan is attached yet\b/i,
 ]
 
-const BILLING_RECEIPT_LINK_DEAD_END_PATTERNS = [/\bNo link\b/i]
+const BILLING_RECEIPT_LINK_DEAD_END_PATTERNS = [
+  /\bNo link\b/i,
+  /\bReceipts and payment links will appear here after the first billing cycle\b/i,
+]
 
 const BILLING_ERROR_FAILURE_FIRST_PATTERNS = [
   /\bRefresh Billing to load (?:plan and payment|usage|invoices)\b/i,

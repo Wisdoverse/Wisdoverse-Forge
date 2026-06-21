@@ -3142,6 +3142,7 @@ function PlanCard() {
       'src/app/features/billing/InvoiceList.tsx': `
 export function InvoiceList() {
   return <span>No link</span>
+  return <p>Receipts and payment links will appear here after the first billing cycle.</p>
 }
 `,
     })
@@ -3149,12 +3150,18 @@ export function InvoiceList() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'billing-receipt-link-copy',
-        location: 'src/app/features/billing/InvoiceList.tsx:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'billing-receipt-link-copy',
+          location: 'src/app/features/billing/InvoiceList.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'billing-receipt-link-copy',
+          location: 'src/app/features/billing/InvoiceList.tsx:4',
+        }),
+      ])
+    )
   })
 
   it('accepts invoice receipt copy that tells people when the link appears', () => {
@@ -3162,6 +3169,7 @@ export function InvoiceList() {
       'src/app/features/billing/InvoiceList.tsx': `
 export function InvoiceList() {
   return <span>Receipt appears after payment finishes</span>
+  return <p>Start or change a plan to create the first invoice. After a charge is created, return here to open the payment link or download the receipt.</p>
 }
 `,
     })
