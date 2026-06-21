@@ -376,7 +376,7 @@ function CliRuntimeConfig({ agent }: { agent: AgentInfo }) {
             hostCli
               ? agent.runtimeId
                 ? 'Connected from this computer'
-                : 'Open setup again for this computer'
+                : 'Open Agents and choose Connect this computer'
               : 'Ready with project files'
           }
         />

@@ -370,7 +370,8 @@ describe('AgentConfigTab', () => {
     render(<AgentConfigTab agentId="host-disconnected" />)
 
     expect(screen.getByText('This computer')).toBeInTheDocument()
-    expect(screen.getByText('Open setup again for this computer')).toBeInTheDocument()
+    expect(screen.getByText('Open Agents and choose Connect this computer')).toBeInTheDocument()
+    expect(screen.queryByText('Open setup again for this computer')).toBeNull()
     expect(screen.queryByText(/run the command/i)).toBeNull()
   })
 

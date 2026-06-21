@@ -64,8 +64,11 @@ describe('AgentStatusBar', () => {
       )
     ).toBeDefined()
     expect(
-      screen.getByLabelText(/local host: not connected\. this agent is not connected right now/i)
+      screen.getByLabelText(
+        /local host: not connected\. open agents and choose connect this computer/i
+      )
     ).toBeDefined()
+    expect(screen.queryByLabelText(/this agent is not connected right now/i)).toBeNull()
     expect(screen.queryByLabelText(/clear a blocker/i)).toBeNull()
   })
 })
