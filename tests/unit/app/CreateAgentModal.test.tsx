@@ -639,6 +639,7 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText('Connect this computer')).toBeInTheDocument()
     expect(screen.getByText('This computer handles tasks')).toBeInTheDocument()
     expect(screen.queryByText(/agent managed by forge/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/Open that computer's command app/i)).toBeInTheDocument()
     expect(
       screen.getByText(/Forge will manage its tasks, status, and history/i)
     ).toBeInTheDocument()
@@ -709,6 +710,8 @@ describe('CreateAgentModal', () => {
     expect(screen.getByTestId('local-agent-paste-hint')).toHaveTextContent(
       "Open your computer's command app (Terminal on macOS/Linux), then paste this setup text."
     )
+    expect(screen.getByText(/choose Add another agent to get fresh setup text/i)).toBeInTheDocument()
+    expect(screen.queryByText(/fresh command/i)).toBeNull()
     expect(screen.getByText('1. Copy the setup text.')).toBeInTheDocument()
     expect(screen.getByText(/paste it into that command app/i)).toBeInTheDocument()
     expect(

@@ -122,7 +122,7 @@ export function agentDetailHeaderSubtitle(agent: AgentInfo): string {
 function agentConnectionStatus(agent: AgentInfo): string {
   if (isHostCliAgent(agent)) {
     if (agent.status === 'offline') {
-      return 'Reconnect from Agents'
+      return 'Use Connect this computer in Agents'
     }
     return agent.runtimeId ? 'Connected from this computer' : 'Connect from Agents'
   }
@@ -133,7 +133,7 @@ function agentConnectionStatus(agent: AgentInfo): string {
 function agentAvailabilityLabel(agent: AgentInfo): string {
   if (agent.status === 'idle') return 'Ready for work'
   if (agent.status === 'working') return 'Already working'
-  if (isHostCliAgent(agent)) return 'Reconnect from Agents first'
+  if (isHostCliAgent(agent)) return 'Open Agents and connect this computer again'
   if (agent.cliTool) return 'Open Live work and start file work'
   return 'Open AI service settings and choose Check connection'
 }
