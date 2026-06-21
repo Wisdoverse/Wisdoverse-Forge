@@ -123,9 +123,12 @@ describe('SkillDraftModal', () => {
     expect(chooseAgent.getAttribute('href')).toBe('/agents')
     expect(
       screen.getByText(
-        'Find this instruction, then check the reusable steps before agents use them.'
+        'Find this saved instruction, then check the reusable steps before agents use them.'
       )
     ).toBeDefined()
+    expect(
+      screen.queryByText('Find this instruction, then check the reusable steps before agents use them.')
+    ).toBeNull()
     expect(screen.queryByText(/review the reusable steps before agents use them/i)).toBeNull()
 
     await waitFor(() => {

@@ -67,7 +67,7 @@ export function skillDraftErrorMessage(error: unknown): string {
     text.includes('already exist') ||
     text.includes('duplicate')
   ) {
-    return `Rename it, then save again. An instruction with this name may already exist. ${failure}`
+    return `Rename it, then save again. A saved instruction with this name may already exist. ${failure}`
   }
   if (code === 422 || text.includes('validation')) {
     return `Check the name, matching words, and reusable instructions, then save again. ${failure}`
