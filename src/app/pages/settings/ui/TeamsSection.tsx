@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import { CheckCircle2, FolderKanban, Plus, Users } from 'lucide-react'
+import { type ReactNode, useCallback, useEffect, useState } from 'react'
+import { CheckCircle2, FolderKanban, Plus, ShieldAlert, Users } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useAuth } from '@app/shared/model/auth.context'
@@ -14,7 +14,8 @@ import { workspaceSettingsErrorMessage } from '../model/workspaceSettingsErrorMe
 
 export function TeamsSection() {
   const { user } = useAuth()
-  const canCreateTeam = user?.role === 'owner' || user?.role === 'admin'
+  const hasTeamSpace = Boolean(user?.orgId)
+  const canCreateTeam = hasTeamSpace && (user?.role === 'owner' || user?.role === 'admin')
   const [teams, setTeams] = useState<NavTeam[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -85,6 +86,34 @@ export function TeamsSection() {
     setCreatedTeam(null)
     setShowForm(true)
   }
+
+  const teamEmptyTitle = !hasTeamSpace
+    ? 'Choose a team space first'
+    : canCreateTeam
+      ? 'Create a team first'
+      : 'Ask an owner or admin to create the first team'
+  const teamEmptyDescription = !hasTeamSpace
+    ? 'Teams belong to a team space. Select or create one before adding people.'
+    : canCreateTeam
+      ? 'Teams keep projects and access together. Start with one team, then add projects inside it.'
+      : 'Only owners and admins can create teams. You can work here after someone adds a team for you.'
+  const teamEmptySteps = !hasTeamSpace
+    ? [
+        'Choose a team space from the account menu.',
+        'Open Settings, then Teams again.',
+        'Choose Teams, then create the team.',
+      ]
+    : canCreateTeam
+      ? [
+          'Choose Create first team.',
+          'Name it after the people or work area that will share projects.',
+          'Create the first project in Projects next.',
+        ]
+      : [
+          'Ask an owner or admin to create one team.',
+          'Ask them which team should own the first project.',
+          'Come back to Projects after the team appears.',
+        ]
 
   const loadSelectedTeamMembers = useCallback(async () => {
     const orgId = user?.orgId
@@ -193,38 +222,28 @@ export function TeamsSection() {
           <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
             Loading teams…
           </div>
-        ) : !user?.orgId ? (
-          <div className="px-4 py-6 text-center">
-            <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-              Choose a team space first
-            </p>
-            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Teams belong to a team space. Select or create one before adding people.
-            </p>
-          </div>
+        ) : !hasTeamSpace ? (
+          <WorkspaceEmptyState
+            icon={<ShieldAlert size={18} strokeWidth={2} aria-hidden="true" />}
+            title={teamEmptyTitle}
+            description={teamEmptyDescription}
+            steps={teamEmptySteps}
+          />
         ) : teams.length === 0 && !showForm ? (
-          <div className="px-4 py-6 text-center">
-            <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-              {canCreateTeam
-                ? 'Create a team first'
-                : 'Ask an owner or admin to create the first team'}
-            </p>
-            <p className="mx-auto mt-1 max-w-sm text-ui-caption text-secondary-light dark:text-secondary-dark">
-              {canCreateTeam
-                ? 'Teams keep projects and access together. Start with one team, then add projects inside it.'
-                : 'Only owners and admins can create teams. You can work here after someone adds a team for you.'}
-            </p>
-            {canCreateTeam && (
-              <button
-                type="button"
-                onClick={startTeamCreate}
-                className={cn(uiStyles.primaryButton, 'mt-4')}
-              >
-                <Plus size={14} strokeWidth={2} aria-hidden="true" />
-                <span>Create first team</span>
-              </button>
-            )}
-          </div>
+          <WorkspaceEmptyState
+            icon={<Users size={18} strokeWidth={2} aria-hidden="true" />}
+            title={teamEmptyTitle}
+            description={teamEmptyDescription}
+            steps={teamEmptySteps}
+            action={
+              canCreateTeam ? (
+                <button type="button" onClick={startTeamCreate} className={uiStyles.primaryButton}>
+                  <Plus size={14} strokeWidth={2} aria-hidden="true" />
+                  <span>Create first team</span>
+                </button>
+              ) : null
+            }
+          />
         ) : (
           teams.map((team) => (
             <EditableTeamRow
@@ -258,6 +277,45 @@ export function TeamsSection() {
           onClose={() => setMembersTeam(null)}
         />
       )}
+    </div>
+  )
+}
+
+function WorkspaceEmptyState({
+  icon,
+  title,
+  description,
+  steps,
+  action,
+}: {
+  icon: ReactNode
+  title: string
+  description: string
+  steps: string[]
+  action?: ReactNode
+}) {
+  return (
+    <div className="flex flex-col items-center gap-3 px-4 py-8 text-center">
+      <div
+        className="flex h-10 w-10 items-center justify-center rounded-lg bg-black/[0.03] text-secondary-light ring-1 ring-black/5 dark:bg-white/[0.05] dark:text-secondary-dark dark:ring-white/10"
+        aria-hidden="true"
+      >
+        {icon}
+      </div>
+      <div className="max-w-md">
+        <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+          {title}
+        </p>
+        <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {description}
+        </p>
+        <ol className="mt-3 list-decimal space-y-1 pl-4 text-left text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {steps.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+      </div>
+      {action}
     </div>
   )
 }
