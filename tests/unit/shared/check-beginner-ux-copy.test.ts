@@ -1014,11 +1014,39 @@ const ROLE_DETAILS = {
     )
   })
 
+  it('flags admin user access labels that expose backend role names', () => {
+    const cwd = fixture({
+      'src/app/features/admin/UserManagement.tsx': `
+const ROLE_DETAILS = {
+  admin: { label: 'Admin', description: 'Can manage people, team settings, and safety controls.' },
+  member: { label: 'Member', description: 'Can run day-to-day work without changing admin settings.' },
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'admin-user-role-copy',
+          location: 'src/app/features/admin/UserManagement.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'admin-user-role-copy',
+          location: 'src/app/features/admin/UserManagement.tsx:4',
+        }),
+      ])
+    )
+  })
+
   it('accepts admin role copy that names people and safety controls', () => {
     const cwd = fixture({
       'src/app/features/admin/UserManagement.tsx': `
 const ROLE_DETAILS = {
-  admin: { description: 'Can manage people, team settings, and safety controls.' },
+  admin: { label: 'Can manage app', description: 'Can manage people, team settings, and safety controls.' },
+  member: { label: 'Can use app', description: 'Can do day-to-day work without changing people or app settings.' },
 }
 `,
     })

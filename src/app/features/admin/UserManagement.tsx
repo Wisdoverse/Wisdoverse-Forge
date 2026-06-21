@@ -13,12 +13,12 @@ import { ADMIN_PANEL_RECOVERY, adminPanelLoadErrorMessage } from './adminErrorCo
  */
 const ROLE_DETAILS: Record<Role, { label: string; description: string }> = {
   admin: {
-    label: 'Admin',
+    label: 'Can manage app',
     description: 'Can manage people, team settings, and safety controls.',
   },
   member: {
-    label: 'Member',
-    description: 'Can run day-to-day work without changing admin settings.',
+    label: 'Can use app',
+    description: 'Can do day-to-day work without changing people or app settings.',
   },
 }
 
