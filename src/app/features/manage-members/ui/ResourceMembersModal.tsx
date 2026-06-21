@@ -22,10 +22,10 @@ import type { OrgUser } from '@app/entities/user'
 import { resourceMemberErrorMessage } from '../model/resourceMemberErrorMessages'
 
 const ROLE_OPTIONS: Array<{ value: ResourceMemberRole; label: string }> = [
-  { value: 'owner', label: 'Owner' },
-  { value: 'admin', label: 'Admin' },
-  { value: 'maintainer', label: 'Maintainer' },
-  { value: 'member', label: 'Member' },
+  { value: 'owner', label: 'Owner access' },
+  { value: 'admin', label: 'Admin access' },
+  { value: 'maintainer', label: 'Can change work' },
+  { value: 'member', label: 'Member access' },
 ]
 
 const ROLE_TONE: Record<ResourceMemberRole, string> = {
@@ -47,8 +47,9 @@ const MEMBER_ROLE_GUIDANCE: {
     Icon: Users,
   },
   {
-    title: 'Use Maintainer access for everyday changes',
-    description: 'Maintainers can help manage day-to-day work without deciding who gets access.',
+    title: 'Use Can change work for everyday changes',
+    description:
+      'People with this access can help manage day-to-day work without deciding who gets access.',
     Icon: ShieldCheck,
   },
   {
@@ -366,8 +367,8 @@ export function ResourceMembersModal({
               id={roleHelpId}
               className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
             >
-              Start with Member access. Choose Maintainer, Admin, or Owner only when this person
-              needs to change work or manage access.
+              Start with Member access. Choose Can change work, Admin access, or Owner access only
+              when this person needs to change work or manage access.
             </p>
           </div>
 
