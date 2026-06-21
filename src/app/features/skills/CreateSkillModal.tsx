@@ -280,7 +280,8 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
               autoFocus
             />
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Use a short name people can recognize later.
+              This name appears in Saved instructions and when choosing instructions for a task. Use
+              words a teammate would recognize.
             </p>
           </div>
 
