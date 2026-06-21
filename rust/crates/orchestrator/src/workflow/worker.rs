@@ -16,6 +16,27 @@ use super::service::WorkflowService;
 use super::store::Store;
 use super::temporal::{OrchestratorWorkflow, TASK_QUEUE, TemporalWorkflowRuntime, connect_temporal_client};
 
+/// Honest state of the Temporal-backed workflow runtime at boot.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkflowRuntimeStatus {
+    /// Connected and the worker is running.
+    Up,
+    /// Intentionally off (`temporal_enabled=false`) or no store configured.
+    Disabled,
+    /// Enabled but Temporal could not be reached at boot.
+    Unreachable,
+}
+
+impl WorkflowRuntimeStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            WorkflowRuntimeStatus::Up => "up",
+            WorkflowRuntimeStatus::Disabled => "disabled",
+            WorkflowRuntimeStatus::Unreachable => "unreachable",
+        }
+    }
+}
+
 pub struct WorkflowRuntimeComponents {
     pub service: Arc<WorkflowService>,
     pub worker: WorkflowWorkerHandle,
@@ -83,6 +104,66 @@ where
     Ok(Some(WorkflowRuntimeComponents { service, worker }))
 }
 
+/// Build the workflow runtime, classifying failures instead of propagating them.
+/// A Temporal outage at boot becomes `Unreachable` (API keeps serving) rather
+/// than aborting the process. Applies the configured connect timeout.
+pub async fn build_workflow_runtime(
+    config: &Config,
+    store: Option<Arc<dyn Store>>,
+    outbound_mcp: Option<Arc<dyn OutboundMcp>>,
+) -> (Option<WorkflowRuntimeComponents>, WorkflowRuntimeStatus) {
+    let timeout = std::time::Duration::from_secs(config.temporal_connect_timeout_secs.max(1));
+    build_workflow_runtime_with_factory(
+        config,
+        store,
+        outbound_mcp,
+        move |config: Config| async move {
+            match tokio::time::timeout(timeout, connect_temporal_client(&config)).await {
+                Ok(result) => result,
+                Err(_) => Err(anyhow!("temporal connect timed out after {}s", timeout.as_secs())),
+            }
+        },
+        |client, outbound_mcp, store| {
+            let activities = WorkflowActivities::new(outbound_mcp, store);
+            start_worker(client, activities)
+        },
+    )
+    .await
+}
+
+/// Test seam: same classification, injectable connect/start factories.
+pub async fn build_workflow_runtime_with_factory<Connect, ConnectFut, Start>(
+    config: &Config,
+    store: Option<Arc<dyn Store>>,
+    outbound_mcp: Option<Arc<dyn OutboundMcp>>,
+    connect: Connect,
+    start: Start,
+) -> (Option<WorkflowRuntimeComponents>, WorkflowRuntimeStatus)
+where
+    Connect: Fn(Config) -> ConnectFut,
+    ConnectFut: Future<Output = anyhow::Result<temporalio_client::Client>>,
+    Start: Fn(temporalio_client::Client, Arc<dyn OutboundMcp>, Arc<dyn Store>) -> anyhow::Result<WorkflowWorkerHandle>,
+{
+    // Distinguish "intentionally off" from "tried and failed": when temporal is
+    // disabled or no store is configured, the inner builder returns Ok(None).
+    if !config.temporal_enabled || store.is_none() {
+        return (None, WorkflowRuntimeStatus::Disabled);
+    }
+    match build_live_workflow_components_with_factory(config, store, outbound_mcp, connect, start).await {
+        Ok(Some(components)) => (Some(components), WorkflowRuntimeStatus::Up),
+        Ok(None) => (None, WorkflowRuntimeStatus::Disabled),
+        Err(err) => {
+            tracing::error!(
+                error = %err,
+                temporal_host = %config.temporal_host,
+                temporal_namespace = %config.temporal_namespace,
+                "Temporal unreachable at boot; orchestrator serving in degraded (API-only) mode"
+            );
+            (None, WorkflowRuntimeStatus::Unreachable)
+        }
+    }
+}
+
 pub fn start_worker(
     client: temporalio_client::Client,
     activities: WorkflowActivities,
@@ -131,5 +212,45 @@ pub fn start_worker(
             let _ = join.join();
             Err(anyhow!("workflow worker failed before signaling readiness"))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use super::super::repository::MemoryStore;
+
+    #[test]
+    fn status_as_str_maps_each_variant() {
+        assert_eq!(WorkflowRuntimeStatus::Up.as_str(), "up");
+        assert_eq!(WorkflowRuntimeStatus::Disabled.as_str(), "disabled");
+        assert_eq!(WorkflowRuntimeStatus::Unreachable.as_str(), "unreachable");
+    }
+
+    #[tokio::test]
+    async fn build_runtime_disabled_when_temporal_off() {
+        let mut config = Config::default();
+        config.temporal_enabled = false;
+        let store: Option<Arc<dyn Store>> = Some(Arc::new(MemoryStore::default()));
+        let (components, status) = build_workflow_runtime(&config, store, None).await;
+        assert!(components.is_none());
+        assert_eq!(status, WorkflowRuntimeStatus::Disabled);
+    }
+
+    #[tokio::test]
+    async fn build_runtime_unreachable_when_connect_fails() {
+        let mut config = Config::default();
+        config.temporal_enabled = true;
+        let store: Option<Arc<dyn Store>> = Some(Arc::new(MemoryStore::default()));
+        let (components, status) = build_workflow_runtime_with_factory(
+            &config,
+            store,
+            None,
+            |_c| async { Err(anyhow::anyhow!("temporal down")) },
+            |_c, _m, _s| Err(anyhow::anyhow!("unreachable")),
+        )
+        .await;
+        assert!(components.is_none());
+        assert_eq!(status, WorkflowRuntimeStatus::Unreachable);
     }
 }
