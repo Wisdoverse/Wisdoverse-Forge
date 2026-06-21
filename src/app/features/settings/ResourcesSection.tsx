@@ -160,6 +160,12 @@ function ResourceProfilesEmptyState() {
       <p className="mx-auto mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
         Agents need at least one size before users can choose safe work capacity.
       </p>
+      <p className="mx-auto mt-3 max-w-xl text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
+        Next step: ask an owner or admin to open Work limits and add one agent size.
+      </p>
+      <p className="mx-auto mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
+        Success looks like one size listed here, such as Small or Standard.
+      </p>
       <div className="mx-auto mt-4 grid max-w-2xl gap-2 text-left sm:grid-cols-3">
         <p className="rounded-lg bg-black/[0.03] p-3 text-ui-caption text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
           Ask an owner or admin to add agent sizes in Work limits.
