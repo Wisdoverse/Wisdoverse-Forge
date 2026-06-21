@@ -104,7 +104,7 @@ describe('TeamsSection', () => {
 
     await waitFor(() => expect(getTeams).toHaveBeenCalledWith('org-1'))
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Open Settings and Teams and Projects again, then choose Teams. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
+      'Open Settings, then Teams again. If it still fails, ask an owner or admin to check Teams in Settings.'
     )
     expect(screen.queryByText(/team space setup/i)).toBeNull()
     expect(screen.queryByText(/workspace teams/i)).toBeNull()
@@ -120,7 +120,7 @@ describe('TeamsSection', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'Ask an owner or admin to update your team space access, then open Settings and Teams and Projects again, then choose Teams. You do not have access to these team settings right now.'
+      'Ask an owner or admin to update your team space access, then open Settings, then Teams again. You do not have access to these team settings right now.'
     )
     expect(alert.textContent).not.toContain('workspace access')
     expect(alert.textContent).not.toContain('Detail:')

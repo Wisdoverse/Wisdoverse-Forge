@@ -159,7 +159,7 @@ describe('workspace settings empty states', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain(
-      'Ask an owner or admin to update your team space access, then open Settings and Teams and Projects again, then choose Teams.'
+      'Ask an owner or admin to update your team space access, then open Settings, then Teams again.'
     )
     expect(alert.textContent).not.toContain('workspace access')
     expect(alert.textContent).toMatch(/^Ask an owner or admin/)
@@ -192,7 +192,7 @@ describe('workspace settings empty states', () => {
     expect(screen.getByText('Choose a team space first')).toBeInTheDocument()
     expect(screen.getByText(/Projects belong to teams inside a team space/i)).toBeInTheDocument()
     expect(screen.getByText('Choose a team space from the account menu.')).toBeInTheDocument()
-    expect(screen.getByText('Open Settings and Teams and Projects again.')).toBeInTheDocument()
+    expect(screen.getByText('Open Settings, then Projects again.')).toBeInTheDocument()
     expect(screen.getByText('Choose Projects, then create the project.')).toBeInTheDocument()
     expect(screen.queryByText(/Choose an organization first/i)).not.toBeInTheDocument()
   })
@@ -204,7 +204,7 @@ describe('workspace settings empty states', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain(
-      'Open Settings and Teams and Projects again, then choose Projects. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
+      'Open Settings, then Projects again. If it still fails, ask an owner or admin to check Projects in Settings.'
     )
     expect(alert.textContent).not.toContain('HTTP 500')
     expect(alert.textContent).not.toContain('team space setup')
@@ -218,10 +218,10 @@ describe('workspace settings empty states', () => {
     render(<ProjectsSection />)
 
     expect(
-      await screen.findByText(/Open Settings and Teams and Projects again, then choose Projects/i)
+      await screen.findByText(/Open Settings, then Projects again/i)
     ).toBeInTheDocument()
     expect(
-      screen.getByText(/ask an owner or admin to check Teams and Projects in Settings/i)
+      screen.getByText(/ask an owner or admin to check Projects in Settings/i)
     ).toBeInTheDocument()
     expect(screen.queryByText(/team space setup/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/workspace setup/i)).not.toBeInTheDocument()
@@ -287,7 +287,7 @@ describe('workspace settings empty states', () => {
     expect(alerts).toHaveLength(1)
     expect(alerts[0]).toHaveAttribute('aria-live', 'polite')
     expect(alerts[0]).toHaveTextContent(
-      'Open Settings and Teams and Projects again, choose the team, then create this project again. If it still fails, ask an owner or admin to check Teams and Projects in Settings.'
+      'Open Settings, then Projects again, choose the team, then create this project again. If it still fails, ask an owner or admin to check Projects in Settings.'
     )
     expect(alerts[0]).not.toHaveTextContent('API 503')
     expect(alerts[0]).not.toHaveTextContent('database unavailable')
@@ -343,7 +343,7 @@ describe('workspace settings empty states', () => {
     render(<ProjectsSection />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Ask an owner or admin to update your team space access, then open Settings and Teams and Projects again, then choose Projects. You do not have access to these project settings right now.'
+      'Ask an owner or admin to update your team space access, then open Settings, then Projects again. You do not have access to these project settings right now.'
     )
     expect(screen.queryByText('HTTP 403')).not.toBeInTheDocument()
   })

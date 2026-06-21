@@ -92,7 +92,7 @@ describe('CloneStatusBadge', () => {
       />
     )
 
-    expect(screen.getByText(/Open Settings and Teams and Projects/)).toBeInTheDocument()
+    expect(screen.getByText(/Open Settings, then Projects/)).toBeInTheDocument()
     expect(screen.getByText(/check this project code link/)).toBeInTheDocument()
     expect(screen.getByText(/could not find this code project/)).toBeInTheDocument()
     expect(screen.queryByText('repository not found')).not.toBeInTheDocument()
@@ -140,7 +140,7 @@ describe('CloneStatusBadge', () => {
       />
     )
 
-    expect(screen.getByText(/Open Settings and Teams and Projects/)).toBeInTheDocument()
+    expect(screen.getByText(/Open Settings, then Projects/)).toBeInTheDocument()
     expect(screen.getByText(/check the code link and saved code access/)).toBeInTheDocument()
     expect(screen.queryByText('unexpected git stderr')).not.toBeInTheDocument()
   })
@@ -227,7 +227,7 @@ describe('CloneStatusBadge', () => {
       const alert = screen.getByRole('alert')
       expect(alert).toHaveAttribute('aria-live', 'polite')
       expect(alert).toHaveTextContent('Ask an owner or admin to let you copy code')
-      expect(alert).toHaveTextContent('open Settings and Teams and Projects')
+      expect(alert).toHaveTextContent('open Settings, then Projects')
       expect(alert).toHaveTextContent('choose Copy code again')
       expect(alert).toHaveTextContent('You do not have permission right now')
       expect(alert).not.toHaveTextContent('update project access')
@@ -302,7 +302,7 @@ describe('CloneStatusBadge', () => {
     await waitFor(() => {
       const alert = screen.getByRole('alert')
       expect(alert).toHaveAttribute('aria-live', 'polite')
-      expect(alert).toHaveTextContent('Open Settings and Teams and Projects')
+      expect(alert).toHaveTextContent('Open Settings, then Projects')
       expect(alert).toHaveTextContent('choose Copy code again for this project in the list')
     })
   })

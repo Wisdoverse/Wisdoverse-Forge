@@ -21,16 +21,16 @@ export function workspaceResourceErrorMessage(
   }
 
   if (status === 401) {
-    return `Sign in again, then open Settings and Teams and Projects, and ${retryPhrase(resource, action)}.`
+    return `Sign in again, then open Settings, then ${resourceSettingsSection(resource)}, and ${retryPhrase(resource, action)}.`
   }
   if (status === 403) {
-    return `Ask an owner or admin to update your team space access, then open Settings and Teams and Projects, and ${retryPhrase(resource, action)}. You do not have permission to ${permissionAction(action)} this ${resource}.`
+    return `Ask an owner or admin to update your team space access, then open Settings, then ${resourceSettingsSection(resource)}, and ${retryPhrase(resource, action)}. You do not have permission to ${permissionAction(action)} this ${resource}.`
   }
   if (status === 404) {
-    return `Open Settings and Teams and Projects, then choose an existing ${resource}.`
+    return `Open Settings, then ${resourceSettingsSection(resource)}, and choose an existing ${resource}.`
   }
   if (status === 409) {
-    return `Open Settings and Teams and Projects, check the current ${resource}, then try again. This ${resource} changed while you were editing.`
+    return `Open Settings, then ${resourceSettingsSection(resource)}, check the current ${resource}, then try again. This ${resource} changed while you were editing.`
   }
   if (status === 400 || status === 422) {
     return validationMessage(resource, action, detail)
@@ -42,21 +42,26 @@ export function workspaceResourceErrorMessage(
     return workspaceResourceUnavailableMessage(resource, action)
   }
 
-  return `Open Settings and Teams and Projects, then ${retryPhrase(resource, action)}.`
+  return `Open Settings, then ${resourceSettingsSection(resource)}, and ${retryPhrase(resource, action)}.`
 }
 
 function workspaceResourceConnectionMessage(
   resource: WorkspaceResourceKind,
   action: WorkspaceResourceAction
 ): string {
-  return `Check your connection, then open Settings and Teams and Projects, and ${retryPhrase(resource, action)}.`
+  return `Check your connection, then open Settings, then ${resourceSettingsSection(resource)}, and ${retryPhrase(resource, action)}.`
 }
 
 function workspaceResourceUnavailableMessage(
   resource: WorkspaceResourceKind,
   action: WorkspaceResourceAction
 ): string {
-  return `Open Settings and Teams and Projects, then ${retryPhrase(resource, action)}. If it still fails, ask an owner or admin to check Teams and Projects in Settings.`
+  const section = resourceSettingsSection(resource)
+  return `Open Settings, then ${section}, and ${retryPhrase(resource, action)}. If it still fails, ask an owner or admin to check ${section} in Settings.`
+}
+
+function resourceSettingsSection(resource: WorkspaceResourceKind): string {
+  return resource === 'team' ? 'Teams' : 'Projects'
 }
 
 function permissionAction(action: WorkspaceResourceAction): string {
@@ -85,7 +90,7 @@ function validationMessage(
       : 'Check the project name, description, and color, then save again.'
   }
   if (resource === 'team' && normalized.includes('project')) {
-    return "Open Settings and Teams and Projects, delete this team's projects first, then delete the team again."
+    return "Open Settings, then Projects, delete this team's projects first, then delete the team again."
   }
   if (resource === 'project' && normalized.includes('agent')) {
     return 'Go to Agents, change or remove agents that use this project, then delete the project again.'
@@ -94,7 +99,7 @@ function validationMessage(
     return "Go to Tasks, finish this project's tasks first, then delete the project again."
   }
   return resource === 'team'
-    ? 'Open Settings and Teams and Projects, check this team for projects, then delete the team again. If it still fails, ask an owner or admin to check team access.'
+    ? 'Open Settings, then Projects, check this team for projects, then delete the team again. If it still fails, ask an owner or admin to check team access.'
     : 'Go to Agents and Tasks, check what is using this project, then delete the project again.'
 }
 
