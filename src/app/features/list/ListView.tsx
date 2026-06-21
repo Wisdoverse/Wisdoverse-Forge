@@ -503,9 +503,14 @@ function listNextStep(
   }
 
   if (workload.active > 0) {
+    const activeLabel =
+      workload.active === 1
+        ? 'task that is waiting or running'
+        : 'tasks that are waiting or running'
     return {
-      title: `Review ${workload.active} active task${workload.active === 1 ? '' : 's'}.`,
-      detail: 'Open active work to confirm progress is moving and no decision is needed.',
+      title: `Check ${workload.active} ${activeLabel}.`,
+      detail:
+        'Open waiting or running work to confirm progress is moving and no decision is needed.',
     }
   }
 
@@ -518,7 +523,7 @@ function listNextStep(
   }
 
   return {
-    title: 'Review completed work.',
+    title: 'Check completed work.',
     detail: 'Open completed tasks to check the result, result files, and anything worth reusing.',
   }
 }
@@ -551,7 +556,7 @@ function taskNextAction(task: TaskSummary): string {
   switch (task.state) {
     case 'backlog':
       return task.assignedAgentName || task.assignedTo
-        ? 'Review the task, then send it to the agent.'
+        ? 'Check the task details, then send it to the agent.'
         : 'Choose an agent or where this task should wait, then send it.'
     case 'queued':
       return 'Wait for an available agent to start it; check again if it stays here.'
