@@ -23,11 +23,11 @@ interface ReviewSnapshotPanelProps {
 }
 
 const STATUS_LABEL: Record<SelfFixReviewStatus, string> = {
-  in_review: 'Waiting for review',
+  in_review: 'Waiting for someone to check',
   approved: 'Ready to finish',
   changes_requested: 'Needs changes',
   merged: 'Finished',
-  sensitive_blocked: 'Needs owner or admin review',
+  sensitive_blocked: 'Needs owner or admin check',
 }
 
 /**
@@ -111,7 +111,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
     <div className="py-3 space-y-3" data-testid="review-snapshot-panel">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-medium uppercase text-secondary-light dark:text-secondary-dark">
-          Review status
+          Fix check status
         </span>
         <button
           onClick={refresh}
@@ -120,7 +120,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
             'flex items-center gap-1 text-[10px] text-secondary-light dark:text-secondary-dark',
             'hover:text-foreground-light dark:hover:text-foreground-dark transition-colors disabled:opacity-50'
           )}
-          aria-label="Check review again"
+          aria-label="Check fix status again"
         >
           <RefreshCw size={11} className={loading ? 'animate-spin' : undefined} />
           Check again
@@ -140,7 +140,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
       {loading && !review ? (
         <div className="flex items-center gap-2 px-3 py-6 text-xs text-secondary-light dark:text-secondary-dark">
           <Loader2 size={14} className="animate-spin" />
-          Checking review status…
+          Checking fix check status...
         </div>
       ) : review ? (
         <div className="rounded-lg border border-black/[0.06] bg-white p-3 dark:border-white/[0.08] dark:bg-white/[0.04] space-y-3">
@@ -153,13 +153,13 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
               className="flex items-center gap-2 text-xs font-medium text-apple-blue hover:underline"
             >
               <GitPullRequest size={14} />
-              Review page #{review.prNumber}
+              Fix check page #{review.prNumber}
               <ExternalLink size={11} />
             </a>
           ) : (
             <p className="text-xs text-secondary-light dark:text-secondary-dark">
-              The agent is still preparing the review page for this fix. Choose Check again after it
-              appears.
+              The agent is still preparing the fix check page for this fix. Choose Check again after
+              it appears.
             </p>
           )}
 
@@ -182,7 +182,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
               <div className="flex items-start gap-1.5 text-apple-red">
                 <ShieldAlert size={13} className="mt-px shrink-0" />
                 <span>
-                  This fix changes sensitive files or settings. Ask an owner or admin to review and
+                  This fix changes sensitive files or settings. Ask an owner or admin to check and
                   finish it manually.
                 </span>
               </div>
@@ -196,7 +196,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-[11px] text-secondary-light dark:text-secondary-dark hover:text-apple-blue transition-colors"
             >
-              Review the changes
+              Check the changes
               <ExternalLink size={10} />
             </a>
           )}
@@ -219,7 +219,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
             </button>
             {!merged && !hasPullRequest && (
               <p className="mt-1.5 text-[10px] text-secondary-light dark:text-secondary-dark">
-                You can finish after the agent opens the review page. Choose Check again after it
+                You can finish after the agent opens the fix check page. Choose Check again after it
                 appears.
               </p>
             )}
