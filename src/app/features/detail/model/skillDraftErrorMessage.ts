@@ -42,7 +42,7 @@ function isNetworkError(error: unknown): boolean {
 }
 
 export function skillDraftErrorMessage(error: unknown): string {
-  const failure = 'Instruction was not published.'
+  const failure = 'Saved instruction was not published.'
   const text = structuredErrorText(error).toLowerCase()
   const code = statusCode(error)
 
