@@ -229,8 +229,7 @@ mod tests {
 
     #[tokio::test]
     async fn build_runtime_disabled_when_temporal_off() {
-        let mut config = Config::default();
-        config.temporal_enabled = false;
+        let config = Config { temporal_enabled: false, ..Default::default() };
         let store: Option<Arc<dyn Store>> = Some(Arc::new(MemoryStore::default()));
         let (components, status) = build_workflow_runtime(&config, store, None).await;
         assert!(components.is_none());
@@ -239,8 +238,7 @@ mod tests {
 
     #[tokio::test]
     async fn build_runtime_unreachable_when_connect_fails() {
-        let mut config = Config::default();
-        config.temporal_enabled = true;
+        let config = Config { temporal_enabled: true, ..Default::default() };
         let store: Option<Arc<dyn Store>> = Some(Arc::new(MemoryStore::default()));
         let (components, status) = build_workflow_runtime_with_factory(
             &config,
