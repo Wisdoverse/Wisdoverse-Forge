@@ -330,7 +330,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
                 'text-center text-ui-body text-secondary-light dark:text-secondary-dark'
               )}
             >
-              Loading live work...
+              Checking this agent's file work...
             </div>
           }
         >

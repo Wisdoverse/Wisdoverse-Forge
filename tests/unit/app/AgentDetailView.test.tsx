@@ -377,6 +377,7 @@ describe('AgentDetailView', () => {
     expect(screen.queryByText(/terminal access/i)).toBeNull()
     expect(screen.queryByText(/live terminal/i)).toBeNull()
     expect(screen.queryByText(/command window/i)).toBeNull()
+    expect(screen.queryByText('Loading live work...')).toBeNull()
     expect(screen.getByRole('button', { name: /start file work/i })).toBeDefined()
   })
 
