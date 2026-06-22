@@ -331,6 +331,10 @@ pub struct TaskSummary {
     pub review_status: Option<String>,
     #[serde(rename = "contextCounts")]
     pub context_counts: TaskContextCounts,
+    /// Current attempt number (1-based; incremented on each retry).
+    pub attempt: i32,
+    #[serde(rename = "leaseExpiresAt", skip_serializing_if = "Option::is_none")]
+    pub lease_expires_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize)]
@@ -525,6 +529,8 @@ pub fn task_summary(task: OrchestrationTask, agent_name: Option<String>) -> Task
         pr_head_sha: task.pr_head_sha,
         review_status: task.review_status,
         context_counts: TaskContextCounts::default(),
+        attempt: task.attempt,
+        lease_expires_at: task.lease_expires_at.map(|t| t.to_rfc3339()),
     }
 }
 
@@ -1166,6 +1172,8 @@ mod tests {
             pr_head_sha: None,
             review_status: None,
             context_counts: TaskContextCounts::default(),
+            attempt: 1,
+            lease_expires_at: None,
         }
     }
 
@@ -1974,5 +1982,60 @@ mod tests {
     #[test]
     fn assignment_patch_policy_rejects_invalid_uuid() {
         assert!(TaskAssignmentPatchPolicy::parse(Some("not-a-uuid")).is_err());
+    }
+
+    #[test]
+    fn task_summary_copies_attempt_and_lease_expires_at_from_row() {
+        use agentforge_core::{OrgId, UserId};
+
+        let lease_ts = chrono::DateTime::parse_from_rfc3339("2026-06-22T09:00:00Z").unwrap().with_timezone(&Utc);
+        let now = chrono::DateTime::parse_from_rfc3339("2026-06-22T08:00:00Z").unwrap().with_timezone(&Utc);
+
+        let task = OrchestrationTask {
+            id: Uuid::from_u128(1),
+            organization_id: OrgId::new(),
+            group_id: None,
+            title: "Retry task".to_string(),
+            description: None,
+            status: "working".to_string(),
+            priority: "normal".to_string(),
+            progress: 0,
+            params: Some(json!({ "task": "Do work", "message": "context" })),
+            created_by: UserId::new(),
+            assigned_agent_id: None,
+            parent_task_id: None,
+            result: None,
+            error: None,
+            blocked_reason: None,
+            blocked_metadata: None,
+            requires_approval: false,
+            approved_at: None,
+            approved_by: None,
+            attempt: 3,
+            lease_expires_at: Some(lease_ts),
+            failure_code: None,
+            retryable: true,
+            last_assignment_id: None,
+            started_at: None,
+            completed_at: None,
+            canceled_at: None,
+            created_at: now,
+            updated_at: now,
+            self_fix: false,
+            base_commit_sha: None,
+            pr_number: None,
+            pr_url: None,
+            pr_head_sha: None,
+            review_status: None,
+        };
+
+        let summary = task_summary(task, None);
+
+        assert_eq!(summary.attempt, 3, "attempt must be copied from the row");
+        assert_eq!(
+            summary.lease_expires_at.as_deref(),
+            Some("2026-06-22T09:00:00+00:00"),
+            "lease_expires_at must be RFC3339 serialized"
+        );
     }
 }
