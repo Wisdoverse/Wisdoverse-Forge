@@ -674,7 +674,7 @@ export const en = {
       description:
         'Choose where agents can open files, then check tools and sign-ins before sending tasks.',
       saving: 'Saving...',
-      loading: 'Loading where agents work...',
+      loading: 'Checking where agents can work...',
       couldNotLoad:
         'Open Settings, then open Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.',
       defaultRuntimeLabel: 'Where project files open',

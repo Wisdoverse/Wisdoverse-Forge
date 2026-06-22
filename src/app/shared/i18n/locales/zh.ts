@@ -663,7 +663,7 @@ export const zh: TranslationKeys = {
       title: '智能体在哪里工作',
       description: '选择智能体可以在哪里打开文件，并在分配任务前检查工具和登录状态。',
       saving: '保存中...',
-      loading: '正在加载智能体在哪里工作...',
+      loading: '正在检查智能体可以在哪里工作...',
       couldNotLoad:
         '请打开设置，然后打开“智能体在哪里工作”。如果仍然无法加载，请找负责人或管理员检查设置里的“智能体在哪里工作”。',
       defaultRuntimeLabel: '项目文件打开位置',

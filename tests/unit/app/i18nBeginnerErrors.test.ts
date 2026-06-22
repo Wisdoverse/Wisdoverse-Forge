@@ -593,6 +593,11 @@ describe('beginner error translations', () => {
     expect(chinese.title).not.toContain('无权操作')
   })
 
+  test('runtime settings loading copy says what Forge is checking', () => {
+    expect(en.settings.runtime.loading).toBe('Checking where agents can work...')
+    expect(zh.settings.runtime.loading).toBe('正在检查智能体可以在哪里工作...')
+  })
+
   test('chat-only agent lifecycle errors start with the next user action', () => {
     const english = en.errors.agent.lifecycle
     const chinese = zh.errors.agent.lifecycle
