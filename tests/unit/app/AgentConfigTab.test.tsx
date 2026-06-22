@@ -306,6 +306,22 @@ describe('AgentConfigTab', () => {
     expect(screen.getByRole('alert')).not.toHaveTextContent(/ask an admin/i)
   })
 
+  it('shows the same safe save failure when saving throws', async () => {
+    updateAgentSystemPrompt.mockRejectedValue(new Error('HTTP 500: database unavailable'))
+    render(<AgentConfigTab agentId="a1" />)
+    fireEvent.change(screen.getByLabelText(/instructions for this agent/i), {
+      target: { value: 'new prompt' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(/agent instructions were not saved/i)
+    )
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/HTTP 500/i)
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/database unavailable/i)
+  })
+
   it('empty string clears the prompt (sent as "" to backend)', async () => {
     updateAgentSystemPrompt.mockResolvedValue(true)
     render(<AgentConfigTab agentId="a1" />)
