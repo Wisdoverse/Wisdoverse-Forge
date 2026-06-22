@@ -195,20 +195,20 @@ export function workspaceSettingsErrorMessage(
   }
   if (code === 409 || text.includes('already exists')) {
     return action === 'create'
-      ? 'Use a different name, then try again.'
+      ? `Use a different name, then ${retry}.`
       : `${load} Another setup change is still saving. Wait a moment, then open ${resourcePageLabel(resource)} again.`
   }
   if (code === 422 || text.includes('invalid')) {
     if (resource === 'project' && action === 'create') {
       const codeLinkMessage = projectCodeLinkValidationMessage(detail)
       if (codeLinkMessage) return codeLinkMessage
-      if (detail.includes('name')) return 'Enter a project name, then try again.'
+      if (detail.includes('name')) return `Enter a project name, then ${retry}.`
       return 'Check the project name, team, and code link. You can leave the code link blank, then create this project again.'
     }
     if (detail.includes('name')) {
-      return `Enter a ${resourceLabel(resource)} name, then try again.`
+      return `Enter a ${resourceLabel(resource)} name, then ${retry}.`
     }
-    return `Check the ${resourceLabel(resource)} name, then try again.`
+    return `Check the ${resourceLabel(resource)} name, then ${retry}.`
   }
   if (code === 429 || text.includes('busy') || text.includes('too many')) {
     return action === 'load'

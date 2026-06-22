@@ -66,7 +66,7 @@ describe('workspaceSettingsErrorMessage', () => {
       detail: 'name is required',
     })
 
-    expectBeginnerMessage(message, 'Enter a project name, then try again.')
+    expectBeginnerMessage(message, 'Enter a project name, then create this project again.')
     expect(message).not.toContain('The project was not created')
     expect(message).not.toContain('name is required')
   })
@@ -102,7 +102,24 @@ describe('workspaceSettingsErrorMessage', () => {
   test('maps duplicate create failures to a name change next step', () => {
     expectBeginnerMessage(
       workspaceSettingsErrorMessage('project', 'create', 'Code: 409 already exists'),
-      'Use a different name, then try again.'
+      'Use a different name, then create this project again.'
+    )
+  })
+
+  test('uses direct create steps for team name validation failures', () => {
+    expectBeginnerMessage(
+      workspaceSettingsErrorMessage('team', 'create', {
+        status: 422,
+        detail: 'name is required',
+      }),
+      'Enter a team name, then create this team again.'
+    )
+    expectBeginnerMessage(
+      workspaceSettingsErrorMessage('team', 'create', {
+        status: 422,
+        detail: 'invalid format',
+      }),
+      'Check the team name, then create this team again.'
     )
   })
 

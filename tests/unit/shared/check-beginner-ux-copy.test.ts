@@ -2211,6 +2211,15 @@ function plainProjectLoadMessage() {
 function stitchedFallback(retry) {
   return \`Try to \${retry}. If it still fails, ask an owner or admin to check Projects in Settings.\`
 }
+function duplicateCreateMessage() {
+  return 'Use a different name, then try again.'
+}
+function teamNameMessage() {
+  return 'Enter a team name, then try again.'
+}
+function teamGenericNameMessage() {
+  return 'Check the team name, then try again.'
+}
 `,
     })
 
@@ -2255,6 +2264,18 @@ function stitchedFallback(retry) {
           type: 'workspace-settings-error-copy',
           location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:27',
         }),
+        expect.objectContaining({
+          type: 'workspace-settings-error-copy',
+          location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:30',
+        }),
+        expect.objectContaining({
+          type: 'workspace-settings-error-copy',
+          location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:33',
+        }),
+        expect.objectContaining({
+          type: 'workspace-settings-error-copy',
+          location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:36',
+        }),
       ])
     )
   })
@@ -2268,7 +2289,7 @@ function workspaceSettingsErrorMessage(action) {
   if (action === 'network') return 'Check your connection, then open Settings and Teams and Projects again, then choose Projects.'
   if (action === 'busy') return 'Wait a minute, then open Settings and Teams and Projects again, then choose Teams. Too many setup changes are happening right now.'
   if (action === 'server') return 'Open Settings and Teams and Projects again, then choose Projects. If it still fails, ask an owner or admin to check team and project settings.'
-  return 'Enter a project name, then try again.'
+  return 'Enter a project name, then create this project again.'
 }
 `,
     })
