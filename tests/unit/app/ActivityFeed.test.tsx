@@ -291,6 +291,11 @@ describe('ActivityFeed', () => {
     expect(screen.getByText(/quiet so far/i)).toBeDefined()
     expect(screen.getByText(/start a task or wait for the chosen agent/i)).toBeDefined()
     expect(screen.getByText(/open the task board, create a task or choose an agent/i)).toBeDefined()
+    expect(
+      screen.getByText(
+        'Success looks like one update listed here with the task name and what changed.'
+      )
+    ).toBeDefined()
     expect(screen.queryByRole('button', { name: /open task board/i })).toBeNull()
     expect(screen.queryByText(/assigned agent/i)).toBeNull()
     expect(screen.queryByText(/assigned agents add updates/i)).toBeNull()
