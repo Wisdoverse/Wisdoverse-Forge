@@ -36,7 +36,10 @@ const STORAGE_KEYS = {
   legacyRefresh: 'af:auth:refresh',
 } as const
 
-const AUTH_NETWORK_ERROR = 'Check your connection, then try again. Forge could not connect.'
+const AUTH_LOGIN_NETWORK_ERROR =
+  'Check your connection, then try signing in again. Forge could not connect.'
+const AUTH_REGISTER_NETWORK_ERROR =
+  'Check your connection, then create the account again. Forge could not connect.'
 const AUTH_LOGIN_FALLBACK =
   'Check your email and password, then try signing in again. Forge could not finish sign-in.'
 const AUTH_REGISTER_FALLBACK =
@@ -212,7 +215,7 @@ export class AuthManager {
       this.notifyCallbacks()
       return { ok: true, user: this.user }
     } catch {
-      return { ok: false, error: AUTH_NETWORK_ERROR }
+      return { ok: false, error: AUTH_LOGIN_NETWORK_ERROR }
     }
   }
 
@@ -257,7 +260,7 @@ export class AuthManager {
         }
       }
     } catch {
-      return { ok: false, error: AUTH_NETWORK_ERROR }
+      return { ok: false, error: AUTH_REGISTER_NETWORK_ERROR }
     }
   }
 

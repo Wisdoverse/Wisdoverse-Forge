@@ -2282,6 +2282,7 @@ const AUTH_MANAGER_DEAD_END_PATTERNS = [
   /\bFailed to resend\b/,
   /\bFailed to send reset email\b/,
   /\bFailed to reset password\b/,
+  /\bCheck your connection, then try again\. Forge could not connect\./,
 ]
 
 const NETWORK_FAILURE_FIRST_PATTERNS = [

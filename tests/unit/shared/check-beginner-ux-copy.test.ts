@@ -17774,7 +17774,8 @@ function authRecoveryErrorMessage() {
 }
 `,
       'src/app/shared/auth/AuthManager.ts': `
-const AUTH_NETWORK_ERROR = 'Check your connection, then try again. Forge could not connect.'
+const AUTH_LOGIN_NETWORK_ERROR = 'Check your connection, then try signing in again. Forge could not connect.'
+const AUTH_REGISTER_NETWORK_ERROR = 'Check your connection, then create the account again. Forge could not connect.'
 `,
       'src/app/shared/api/legacy/AgentAPI.ts': `
 const LEGACY_API_NETWORK_ERROR = 'Check your connection, then try again. Forge could not connect.'
@@ -18413,6 +18414,7 @@ const SSO_FALLBACK = 'Auth code exchange failed'
 const RESEND_FALLBACK = 'Failed to resend'
 const FORGOT_FALLBACK = 'Failed to send reset email'
 const RESET_FALLBACK = 'Failed to reset password'
+const NETWORK_FALLBACK = 'Check your connection, then try again. Forge could not connect.'
 `,
     })
 
@@ -18444,6 +18446,10 @@ const RESET_FALLBACK = 'Failed to reset password'
         expect.objectContaining({
           type: 'auth-manager-copy',
           location: 'src/app/shared/auth/AuthManager.ts:7',
+        }),
+        expect.objectContaining({
+          type: 'auth-manager-copy',
+          location: 'src/app/shared/auth/AuthManager.ts:8',
         }),
       ])
     )
