@@ -1198,6 +1198,8 @@ const SAVED_INSTRUCTION_LIST_STATUS_JARGON_PATTERNS = [
   /\bavailable:\s*['"`]Available['"`]/,
   /<SkillStat\s+label=["']Installed["']/,
   /<SkillStat\s+label=["']Available["']/,
+  /\bstatusNeedsInstall:\s*['"`]Needs setup before use['"`]/,
+  /\bstatusNeedsInstall:\s*['"`]需要先完成设置['"`]/,
   /\bNeeds setup\b/i,
   /\bChoose Save instruction or refresh this page\./i,
 ]
@@ -4715,7 +4717,9 @@ function hasSavedInstructionEmptyStateJargonCopy(relFile, line) {
 function hasSavedInstructionListStatusJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/skills/SkillsView.tsx') &&
-    !relFile.endsWith('src/app/features/skills/SkillCard.tsx')
+    !relFile.endsWith('src/app/features/skills/SkillCard.tsx') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
+    !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
   ) {
     return false
   }

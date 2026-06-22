@@ -710,7 +710,7 @@ export const en = {
       close: 'Done',
       subtitle: 'Reusable instructions agents can apply during task work.',
       statusReady: 'Ready to use',
-      statusNeedsInstall: 'Needs setup before use',
+      statusNeedsInstall: 'Check before use',
       cliFit: 'Best with {{tool}}',
       unknownToolFit: 'Check work tool in Settings',
       allAgentsFit: 'Works with any agent',

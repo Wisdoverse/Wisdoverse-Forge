@@ -699,7 +699,7 @@ export const zh: TranslationKeys = {
       close: '完成',
       subtitle: '智能体在处理任务时可以复用的说明。',
       statusReady: '可以使用',
-      statusNeedsInstall: '需要先完成设置',
+      statusNeedsInstall: '使用前检查',
       cliFit: '最适合 {{tool}}',
       unknownToolFit: '在设置里检查工作工具',
       allAgentsFit: '适用于任意智能体',

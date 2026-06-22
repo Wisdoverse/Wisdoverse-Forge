@@ -15251,6 +15251,12 @@ export function SkillCard() {
   return 'Needs setup before use'
 }
 `,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = { skills: { detail: { statusNeedsInstall: 'Needs setup before use' } } }
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = { skills: { detail: { statusNeedsInstall: '需要先完成设置' } } }
+`,
       'src/app/features/skills/CreateSkillModal.tsx': `
 const SKILL_REVIEW_POINTS = [
   { label: 'Agent ready', value: 'Write steps an agent can follow without extra context.' },
@@ -15299,6 +15305,14 @@ export function CreateSkillModal() {
           location: 'src/app/features/skills/SkillCard.tsx:3',
         }),
         expect.objectContaining({
+          type: 'saved-instruction-list-status-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:2',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-list-status-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:2',
+        }),
+        expect.objectContaining({
           type: 'saved-instruction-create-field-copy',
           location: 'src/app/features/skills/CreateSkillModal.tsx:3',
         }),
@@ -15337,6 +15351,12 @@ export function SkillsView() {
 export function SkillCard() {
   return 'Check before use'
 }
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = { skills: { detail: { statusNeedsInstall: 'Check before use' } } }
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = { skills: { detail: { statusNeedsInstall: '使用前检查' } } }
 `,
       'src/app/features/skills/CreateSkillModal.tsx': `
 const SKILL_REVIEW_POINTS = [
