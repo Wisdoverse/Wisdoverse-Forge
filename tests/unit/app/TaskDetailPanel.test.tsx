@@ -79,22 +79,26 @@ describe('TaskDetailPanel', () => {
     expect(screen.queryByRole('button', { name: /close detail panel/i })).toBeNull()
   })
 
-  test('labels the task reference instead of showing a bare task id', () => {
+  test('labels the task help text instead of showing a bare task id', () => {
     render(<TaskDetailPanel task={mockTask} onClose={() => {}} />)
 
-    expect(screen.getByText('Task reference task-1')).toBeDefined()
+    expect(screen.getByText('Task help text task-1')).toBeDefined()
+    expect(screen.queryByText('Task reference task-1')).toBeNull()
     expect(screen.queryByText('Task ID task-1')).toBeNull()
     expect(screen.queryByText(/^task-1$/)).toBeNull()
     expect(screen.queryByText(/Support reference task-1/i)).toBeNull()
   })
 
-  test('tells users where to reopen the task when the task reference is missing', () => {
+  test('tells users where to reopen the task when the task help text is missing', () => {
     render(<TaskDetailPanel task={{ ...mockTask, id: ' ' }} onClose={() => {}} />)
 
     expect(
-      screen.getByText('Open this task again from the Tasks page to check the task reference.')
+      screen.getByText('Open this task again from the Tasks page to check the task help text.')
     ).toBeDefined()
     expect(screen.queryByText('Refresh task details')).toBeNull()
+    expect(
+      screen.queryByText('Open this task again from the Tasks page to check the task reference.')
+    ).toBeNull()
     expect(screen.queryByText('Support reference not reported')).toBeNull()
   })
 

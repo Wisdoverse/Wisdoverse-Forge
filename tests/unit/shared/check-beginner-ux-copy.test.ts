@@ -4027,6 +4027,9 @@ function taskSupportReference() {
 function taskReferenceLabel(id) {
   return \`Task ID \${id}\`
 }
+function oldTaskReferenceLabel(id) {
+  return \`Task reference \${id}\`
+}
 `,
       'src/app/features/detail/HistoryTab.tsx': `
 function supportRunReference(id) {
@@ -4056,6 +4059,10 @@ function taskUpdateGuide() {
         }),
         expect.objectContaining({
           type: 'task-support-reference-copy',
+          location: 'src/app/features/detail/TaskDetailPanel.tsx:9',
+        }),
+        expect.objectContaining({
+          type: 'task-support-reference-copy',
           location: 'src/app/features/detail/HistoryTab.tsx:3',
         }),
         expect.objectContaining({
@@ -4074,10 +4081,10 @@ function taskUpdateGuide() {
     const cwd = fixture({
       'src/app/features/detail/TaskDetailPanel.tsx': `
 function taskSupportReference() {
-  return 'Open this task again from the Tasks page to check the task reference.'
+  return 'Open this task again from the Tasks page to check the task help text.'
 }
 function taskReferenceLabel(id) {
-  return \`Task reference \${id}\`
+  return \`Task help text \${id}\`
 }
 `,
       'src/app/features/detail/HistoryTab.tsx': `

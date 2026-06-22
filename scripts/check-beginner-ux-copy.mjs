@@ -1997,6 +1997,7 @@ const TASK_FORM_QUEUE_LOAD_FAILURE_FIRST_PATTERNS = [
 const TASK_SUPPORT_REFERENCE_DEAD_END_PATTERNS = [
   /\bSupport reference not (?:reported|listed)\b/i,
   /\bTask ID\b/i,
+  /\btask reference\b/i,
   /\bWork attempt\b/i,
   /\bwork attempt code\b/i,
   /\blatest attempt\b/i,
