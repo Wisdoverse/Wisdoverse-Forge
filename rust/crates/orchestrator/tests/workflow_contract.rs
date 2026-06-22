@@ -215,3 +215,34 @@ async fn workflows_validate_dag_and_temporal_guard() {
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(body, serde_json::json!({"ok": false, "error": "temporal not configured"}));
 }
+
+mod audit_mapping {
+    use agentforge_orchestrator::audit::AuditAction;
+    use agentforge_orchestrator::workflow::Decision;
+
+    #[test]
+    fn audit_action_for_decision_approve_maps_to_workflow_review_approve() {
+        assert_eq!(Decision::Approve.audit_action(), AuditAction::WorkflowReviewApprove);
+    }
+
+    #[test]
+    fn audit_action_for_decision_reject_maps_to_workflow_review_reject() {
+        assert_eq!(Decision::Reject.audit_action(), AuditAction::WorkflowReviewReject);
+    }
+
+    #[test]
+    fn workflow_review_approve_round_trips_through_str() {
+        use std::str::FromStr;
+        let action = AuditAction::WorkflowReviewApprove;
+        assert_eq!(action.as_str(), "workflow.review.approve");
+        assert_eq!(AuditAction::from_str("workflow.review.approve").unwrap(), action);
+    }
+
+    #[test]
+    fn workflow_review_reject_round_trips_through_str() {
+        use std::str::FromStr;
+        let action = AuditAction::WorkflowReviewReject;
+        assert_eq!(action.as_str(), "workflow.review.reject");
+        assert_eq!(AuditAction::from_str("workflow.review.reject").unwrap(), action);
+    }
+}

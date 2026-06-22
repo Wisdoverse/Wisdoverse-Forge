@@ -6,6 +6,7 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use serde_json::json;
 
+use crate::audit::{AuditAction, AuditLog};
 use crate::auth;
 use crate::state::AppState;
 
@@ -216,6 +217,37 @@ async fn cancel(State(state): State<AppState>, headers: HeaderMap, Path(id): Pat
     }
 }
 
+/// Emit an audit log entry for a workflow signal. Best-effort: when no audit store is
+/// configured this is a no-op; when the store is present and write fails the error is
+/// returned as a `String` so the caller can log it without rolling back the already-sent
+/// Temporal signal.
+async fn record_audit(
+    state: &AppState,
+    action: AuditAction,
+    resource_id: Option<String>,
+    org_id: String,
+    actor_id: String,
+    changes: Option<serde_json::Value>,
+) -> Result<(), String> {
+    let Some(audit_store) = state.audit_store.as_ref() else {
+        return Ok(());
+    };
+    let mut log = AuditLog {
+        id: String::new(),
+        action,
+        actor_id,
+        actor_type: "human".to_string(),
+        resource: "workflow".to_string(),
+        resource_id,
+        org_id,
+        changes,
+        ip_address: None,
+        user_agent: None,
+        created_at: chrono::Utc::now(),
+    };
+    audit_store.create(&mut log).await.map_err(|err| format!("audit log failed: {err}"))
+}
+
 async fn signal(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -234,8 +266,32 @@ async fn signal(
         Err(response) => return response,
     };
 
+    // Capture fields before req is consumed by signal_workflow.
+    let decision = req.decision;
+    let node_id = req.node_id.clone();
+    let comment = req.comment.clone();
+
     match service.signal_workflow(&id, &identity.org_id, req).await {
-        Ok(()) => (StatusCode::OK, Json(json!({"ok": true, "status": "signalled"}))).into_response(),
+        Ok(()) => {
+            // Emit audit BEST-EFFORT when the signal carries a human-review decision.
+            // The signal has already dispatched to Temporal and is NOT rollbackable, so
+            // an audit failure must NOT return 500 (that would mislead the caller into
+            // retrying an already-sent signal) — it is logged loudly instead.
+            if let Some(decision) = decision
+                && let Err(err) = record_audit(
+                    &state,
+                    decision.audit_action(),
+                    Some(id.clone()),
+                    identity.org_id.clone(),
+                    identity.user_id.clone(),
+                    Some(json!({"nodeId": node_id, "decision": decision, "comment": comment})),
+                )
+                .await
+            {
+                tracing::error!(workflow_id = %id, ?decision, "audit write failed after signal dispatch: {err}");
+            }
+            (StatusCode::OK, Json(json!({"ok": true, "status": "signalled"}))).into_response()
+        }
         Err(err) => map_error(err),
     }
 }
