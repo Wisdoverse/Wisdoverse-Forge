@@ -6,7 +6,7 @@ fn main() {
 
     println!("cargo:rerun-if-changed={}", proto_dir.display());
 
-    tonic_build::configure()
+    tonic_prost_build::configure()
         .build_server(true)
         .build_client(true)
         .compile_protos(&[proto_dir.join("runtime.proto"), proto_dir.join("agent.proto")], &[proto_dir])
