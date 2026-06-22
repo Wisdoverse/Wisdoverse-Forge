@@ -106,7 +106,9 @@ describe('ToolCallDetail', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /show step details for deployment/i }))
 
-    expect(screen.getByText('Check this result before relying on the final answer.')).toBeInTheDocument()
+    expect(
+      screen.getByText('Check this result before relying on the final answer.')
+    ).toBeInTheDocument()
     expect(screen.queryByText('Review this result before relying on the final answer.')).toBeNull()
     expect(screen.getByText(/Required account access is missing/i)).toBeInTheDocument()
 
@@ -214,6 +216,30 @@ describe('ToolCallDetail', () => {
 
     expect(screen.getByText('Check this step before relying on the answer.')).toBeInTheDocument()
     expect(screen.queryByText('This step needs review.')).toBeNull()
+  })
+
+  test('explains empty completed results without dead-end copy', () => {
+    render(
+      <ToolCallDetail
+        call={{
+          ...baseCall,
+          output: {},
+          success: true,
+        }}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /show step details for command runner/i }))
+
+    expect(screen.getByText(/This step finished, but it did not add details/i)).toBeInTheDocument()
+    expect(screen.getByText(/Read the surrounding agent messages/i)).toBeInTheDocument()
+    expect(screen.queryByText(/returned an empty result/i)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /show what happened/i }))
+
+    expect(screen.getByText(/No saved details were shown for this step/i)).toBeInTheDocument()
+    expect(screen.getByText(/wait, retry, or ask the agent to explain it/i)).toBeInTheDocument()
+    expect(screen.queryByText(/^No extra details were saved\.$/i)).toBeNull()
   })
 
   test('explains when a tool step has not returned a result yet', () => {
