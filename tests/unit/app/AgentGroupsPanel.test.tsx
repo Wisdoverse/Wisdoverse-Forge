@@ -61,9 +61,10 @@ describe('AgentGroupsPanel', () => {
 
     const panel = screen.getByTestId('agent-groups-panel')
     expect(panel).toHaveTextContent(/where tasks wait/i)
-    expect(panel).toHaveTextContent(/shared waiting places tell agents where to pick up/i)
+    expect(panel).toHaveTextContent(/shared waiting places tell agents where to start/i)
     expect(panel).not.toHaveTextContent(/task queues/i)
     expect(panel).not.toHaveTextContent(/agents check for tasks/i)
+    expect(panel).not.toHaveTextContent(/pick up/i)
     expect(panel).toHaveTextContent(/open project settings to create a project/i)
     expect(panel).not.toHaveTextContent(/select a project from the sidebar/i)
 
