@@ -199,12 +199,13 @@ describe('TaskFormModal', () => {
     renderModal()
 
     expect(screen.getByTestId('task-brief-checklist')).toHaveTextContent(
-      'Make this task easy to pick up'
+      'Make this task easy to start'
     )
     expect(screen.getByTestId('task-submit-preview')).toHaveTextContent('What happens after this')
     expect(screen.getByTestId('task-submit-preview')).toHaveTextContent(
-      'After you create it, the next ready agent can pick it up from this project.'
+      'After you create it, the next ready agent can start it from this project.'
     )
+    expect(screen.getByTestId('task-submit-preview')).not.toHaveTextContent('pick it up')
     expect(screen.getByTestId('task-brief-cue-goal')).toHaveTextContent('Add')
     expect(screen.getByTestId('task-brief-cue-goal')).toHaveTextContent(
       'Write one sentence for the result you want.'
@@ -349,9 +350,7 @@ describe('TaskFormModal', () => {
     expect(screen.getByRole('button', { name: /open agents/i })).toBeDefined()
     expect(screen.getByText(/This task will wait here until an agent is ready/i)).toBeDefined()
     expect(screen.queryByText('No agents are available right now')).toBeNull()
-    expect(
-      screen.getByRole('option', { name: /let the next ready agent pick it up/i })
-    ).toBeDefined()
+    expect(screen.getByRole('option', { name: /let the next ready agent start it/i })).toBeDefined()
     expect(screen.queryByText(/any available agent can do the work/i)).toBeNull()
     expect(screen.queryByText(/unassigned/i)).toBeNull()
     expect(screen.getByText(/people are waiting on it now/i)).toBeDefined()
@@ -369,7 +368,7 @@ describe('TaskFormModal', () => {
     renderModal()
 
     expect(screen.getByTestId('task-work-lane-readiness').textContent).toContain(
-      'New tasks will wait in Starter waiting place until a ready agent picks them up.'
+      'New tasks will wait in Starter waiting place until a ready agent starts them.'
     )
     expect(screen.getByText(/1 ready/i)).toBeDefined()
     expect(
@@ -471,7 +470,7 @@ describe('TaskFormModal', () => {
         value: 'Where to work:\n- src/app/features/board\n\nDone when:\n- Task form test passes',
       },
     })
-    fireEvent.change(screen.getByLabelText(/who should pick it up/i), {
+    fireEvent.change(screen.getByLabelText(/who should start it/i), {
       target: { value: 'agent-2' },
     })
     fireEvent.click(screen.getByRole('button', { name: /^create task$/i }))
@@ -479,9 +478,9 @@ describe('TaskFormModal', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
-      'Choose a ready agent, or leave this set to Let the next ready agent pick it up.'
+      'Choose a ready agent, or leave this set to Let the next ready agent start it.'
     )
-    expect(screen.getByLabelText(/who should pick it up/i)).toHaveFocus()
+    expect(screen.getByLabelText(/who should start it/i)).toHaveFocus()
     expect(onSubmit).not.toHaveBeenCalled()
   })
 
