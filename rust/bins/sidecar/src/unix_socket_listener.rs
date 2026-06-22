@@ -116,8 +116,16 @@ pub async fn run(
                         // Acquire a permit before spawning; the accept loop
                         // blocks here when MAX_CONCURRENT_RELAY_CONNECTIONS tasks
                         // are already running, bounding fan-out.
-                        let permit = semaphore.clone().acquire_owned().await
-                            .expect("semaphore is never closed");
+                        let permit = match semaphore.clone().acquire_owned().await {
+                            Ok(permit) => permit,
+                            Err(err) => {
+                                // The semaphore is never closed in this loop, so this is
+                                // unreachable in practice — degrade gracefully instead of
+                                // panicking the whole listener task if it ever is.
+                                tracing::warn!(error = %err, "Relay connection semaphore closed; skipping connection");
+                                continue;
+                            }
+                        };
                         tokio::spawn(async move {
                             // Permit is held for the lifetime of this task and
                             // released automatically when the task completes.
