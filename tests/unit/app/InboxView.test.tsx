@@ -578,13 +578,13 @@ describe('InboxView', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
-      'Check your connection, then choose Load updates again. Saved updates could not be loaded'
+      'Check your connection, then choose Check updates again. Saved updates could not be loaded'
     )
     expect(alert.textContent).not.toMatch(/^Saved updates could not be loaded/)
 
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: /load updates again/i }))
-    expect(screen.getByRole('button', { name: /loading updates/i })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: /check updates again/i }))
+    expect(screen.getByRole('button', { name: /checking updates/i })).toBeDisabled()
     expect(orchestrationApiMock.fetchInboxNotifications).toHaveBeenCalledTimes(2)
 
     retry.resolve([])
