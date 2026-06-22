@@ -15640,7 +15640,7 @@ function AuditRow({ entry }) {
     const cwd = fixture({
       'src/app/features/governance/AuditLogView.tsx': `
 function auditActorLabel(actorUserId) {
-  return actorUserId ? \`Person reference \${shortId(actorUserId)}\` : 'System'
+  return actorUserId ? \`Team member \${shortId(actorUserId)}\` : 'System'
 }
 `,
     })
@@ -15664,6 +15664,7 @@ function AuditRow({ entry }) {
 }
 
 function auditActorLabel(actorUserId) {
+  if (actorUserId) return \`Person reference \${shortId(actorUserId)}\`
   return actorUserId ? \`Person code \${shortId(actorUserId)}\` : 'System'
 }
 `,
@@ -15703,6 +15704,10 @@ function auditActorLabel(actorUserId) {
         expect.objectContaining({
           type: 'governance-audit-reference-copy',
           sample: '<input placeholder="Paste the exact person code only when needed" />',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-reference-copy',
+          sample: 'if (actorUserId) return `Person reference ${shortId(actorUserId)}`',
         }),
         expect.objectContaining({
           type: 'governance-audit-reference-copy',
