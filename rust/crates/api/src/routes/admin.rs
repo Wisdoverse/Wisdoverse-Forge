@@ -177,6 +177,19 @@ async fn get_stats(State(state): State<AppState>, auth: AuthUser) -> AppResult<J
     Ok(Json(admin_data_response(stats)))
 }
 
+/// `GET /api/v1/admin/control-plane` — org-scoped orchestration control-plane
+/// snapshot — the "is a loop wedged" signals the metrics worker emits as
+/// Prometheus gauges, readable without a Prometheus stack. Admin-gated; scoped
+/// to the caller's org. `job_queue` depth is platform-global (no org column) and
+/// intentionally not included.
+async fn get_control_plane(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
+    AdminService::require_admin(&auth.role)?;
+    let service = make_service(&state);
+    let stale_after_secs = agentforge_jobs::PARTICIPANT_DEFAULT_STALE_AFTER.as_secs() as i64;
+    let snapshot = service.org_control_plane_snapshot(&auth.scope, stale_after_secs).await?;
+    Ok(Json(admin_data_response(snapshot)))
+}
+
 // ============================================================================
 // Admin agent listing / detail / deletion
 // ============================================================================
@@ -358,6 +371,7 @@ pub fn admin_routes() -> Router<AppState> {
         .route("/admin/impersonate/end", post(end_impersonation))
         .route("/admin/impersonation-log", get(list_impersonation_log))
         .route("/admin/stats", get(get_stats))
+        .route("/admin/control-plane", get(get_control_plane))
         .route("/admin/cli-images", get(list_cli_image_status))
         .route("/admin/cli-images/{tool}/roll", post(roll_cli_image))
         .route("/admin/cli-images/{tool}/build", post(build_cli_image))
