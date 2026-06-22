@@ -18150,6 +18150,10 @@ function settingsPermissionMessage(actionPhrase) {
 function oldSettingsRefreshMessage(actionPhrase) {
   return \`Refresh Settings, then try to \${actionPhrase} again.\`
 }
+
+function oldSettingsBusyMessage(actionPhrase) {
+  return \`The Settings page is busy. Wait a moment, then try to \${actionPhrase} again.\`
+}
 `,
     })
 
@@ -18173,6 +18177,10 @@ function oldSettingsRefreshMessage(actionPhrase) {
         expect.objectContaining({
           type: 'settings-store-error-copy',
           location: 'src/app/shared/model/settings.store.ts:15',
+        }),
+        expect.objectContaining({
+          type: 'settings-store-error-copy',
+          location: 'src/app/shared/model/settings.store.ts:19',
         }),
       ])
     )

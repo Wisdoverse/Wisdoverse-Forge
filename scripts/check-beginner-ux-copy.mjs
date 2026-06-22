@@ -2338,6 +2338,7 @@ const SETTINGS_STORE_ERROR_FAILURE_FIRST_PATTERNS = [
   /^\s*return\s+`Forge could not \$\{operation\} right now\./,
   /^\s*return\s+`Settings could not \$\{actionPhrase\}\./,
   /^\s*return\s+`You do not have permission to \$\{actionPhrase\}\. Ask an owner/i,
+  /^\s*return\s+`The Settings page is busy\. Wait a moment/,
   /\b[Rr]efresh Settings\b/,
 ]
 

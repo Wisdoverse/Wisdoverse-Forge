@@ -300,7 +300,7 @@ export function settingsActionErrorMessage(
     return settingsValidationMessage(area, action, detail)
   }
   if (status === 429) {
-    return `The Settings page is busy. Wait a moment, then try to ${actionPhrase} again.`
+    return `Wait a moment, then try to ${actionPhrase} again. The Settings page is busy.`
   }
   if (status >= 500) {
     return settingsUnavailableMessage(area, actionPhrase, action)

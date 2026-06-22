@@ -235,7 +235,7 @@ describe('settingsActionErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'The Settings page is busy. Wait a moment, then try to update Where agents work again.'
+      'Wait a moment, then try to update Where agents work again. The Settings page is busy.'
     )
     expect(message).not.toContain('runtime writes')
   })
