@@ -485,7 +485,7 @@ describe('beginner error translations', () => {
 
   test('visual map labels avoid old scene and draw-mode jargon', () => {
     expect(en.workshop.title).toBe('Visual map')
-    expect(en.workshop.loading).toBe('Loading visual map...')
+    expect(en.workshop.loading).toBe('Checking visual map...')
     expect(en.workshop.loadError).toContain('Open Agents')
     expect(en.workshop.loadError).toContain('open Visual map again')
     expect(en.workshop.controls.select).toBe('Choose an agent from the list or map')
@@ -498,7 +498,7 @@ describe('beginner error translations', () => {
     expect(JSON.stringify(en.workshop.controls)).not.toContain('Scroll to zoom')
 
     expect(zh.workshop.title).toBe('视觉地图')
-    expect(zh.workshop.loading).toBe('加载视觉地图...')
+    expect(zh.workshop.loading).toBe('正在检查视觉地图...')
     expect(zh.workshop.loadError).toContain('请打开智能体')
     expect(zh.workshop.loadError).toContain('重新打开视觉地图')
     expect(zh.workshop.controls.select).toBe('从列表或地图中选择智能体')

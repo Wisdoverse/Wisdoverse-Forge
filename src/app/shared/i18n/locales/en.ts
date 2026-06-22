@@ -617,7 +617,7 @@ export const en = {
   // =========================================================================
   workshop: {
     title: 'Visual map',
-    loading: 'Loading visual map...',
+    loading: 'Checking visual map...',
     loadError: 'Open Agents, wait until one shows Ready, then open Visual map again.',
     controls: {
       zoom: 'Use the agent list to find an agent',
