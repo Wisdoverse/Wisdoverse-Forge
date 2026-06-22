@@ -21,6 +21,22 @@ const KEY_GROUPS: KeyDef[][] = [NAV_KEYS, NUM_KEYS, UTIL_KEYS]
 const LIVE_WORK_CONNECTION_NOTICE =
   'Live work notice: Connection dropped. Open Overview, use Controls, and choose Restart agent. Then return to Live work.'
 
+function liveWorkConnectionCopy(status: string): { label: string; guidance: string | null } {
+  if (status === 'connected') return { label: 'Live', guidance: null }
+  if (status === 'connecting') {
+    return {
+      label: 'Preparing live work',
+      guidance:
+        'Forge is opening Live work. If Tasks still shows progress, keep waiting. If nothing changes, open Overview and use Controls.',
+    }
+  }
+  return {
+    label: 'Check Overview',
+    guidance:
+      'Live work is not connected. Check Tasks for recent progress, then open Overview and use Controls before restarting this agent.',
+  }
+}
+
 export function liveWorkToolLabel(cliTool?: CliTool): string {
   return agentToolLabel(cliTool)
 }
@@ -174,7 +190,7 @@ export function AgentTerminalTab({
   )
 
   const isLive = status === 'connected'
-  const statusLabel = isLive ? 'Live' : status === 'connecting' ? 'Connecting' : 'Disconnected'
+  const connectionCopy = liveWorkConnectionCopy(status)
   const toolLabel = liveWorkToolLabel(cliTool)
 
   if (!containerId) {
@@ -234,7 +250,6 @@ export function AgentTerminalTab({
         <span
           className={cn(
             'flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-semibold',
-            'uppercase tracking-wider',
             isLive ? 'text-green-400 bg-green-400/10' : 'text-white/30'
           )}
         >
@@ -244,9 +259,19 @@ export function AgentTerminalTab({
               isLive ? 'bg-green-400 shadow-[0_0_6px_rgba(74,222,128,0.4)]' : 'bg-white/20'
             )}
           />
-          {statusLabel}
+          {connectionCopy.label}
         </span>
       </div>
+
+      {connectionCopy.guidance && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="border-b border-white/5 bg-white/[0.03] px-3 py-2 text-[11px] leading-relaxed text-white/55"
+        >
+          {connectionCopy.guidance}
+        </div>
+      )}
 
       {/* xterm surface */}
       <div ref={containerRef} className="flex-1 min-h-0 overflow-hidden px-2 pt-1 pb-0" />
