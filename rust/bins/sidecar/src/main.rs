@@ -135,6 +135,10 @@ async fn main() -> anyhow::Result<()> {
     ));
     let cmd_handler = commands::CommandHandler::new(nats_client.clone(), cfg.agent_id.clone());
     let wal_instance = Arc::new(wal::Wal::new(cfg.wal_path.as_deref()));
+    // Seed the O(1) cached pending counter from the actual on-disk file count so
+    // crash-recovered WAL files are counted against the backpressure cap before
+    // the relay-socket listener starts accepting new events.
+    wal_instance.init_pending().await;
 
     // Replay any events buffered during a previous NATS outage.
     let pending = wal_instance.pending_count().await.unwrap_or(0);
@@ -279,7 +283,7 @@ async fn main() -> anyhow::Result<()> {
                 _ = ticker.tick() => {
                     let connected =
                         drain_nats.connection_state() == async_nats::connection::State::Connected;
-                    let pending = drain_wal_handle.pending_count().await.unwrap_or(0);
+                    let pending = drain_wal_handle.pending_cached();
                     if unix_socket_listener::should_drain(connected, pending) {
                         tracing::info!(count = pending, "Draining WAL after NATS reconnect");
                         drain_wal(&drain_wal_handle, &drain_publisher).await;
