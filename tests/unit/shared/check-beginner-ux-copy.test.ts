@@ -18227,6 +18227,9 @@ function staleSettingsRecoveryMessage() {
 function staleSettingsPermissionMessage() {
   return 'Ask an owner or admin to update your team space access, then save the team again in Settings. You do not have permission to save this team.'
 }
+function busySettingsMessage() {
+  return 'Settings is busy. Wait a moment, then delete the team again.'
+}
 `,
       'src/app/layouts/sidebar/ProjectTree.tsx': `
 function renameErrorMessage() {
@@ -18290,6 +18293,10 @@ function staleLeftMenuConflictMessage() {
         expect.objectContaining({
           type: 'workspace-resource-copy',
           location: 'src/app/shared/lib/workspaceResourceErrorMessage.ts:18',
+        }),
+        expect.objectContaining({
+          type: 'workspace-resource-copy',
+          location: 'src/app/shared/lib/workspaceResourceErrorMessage.ts:21',
         }),
         expect.objectContaining({
           type: 'workspace-resource-copy',

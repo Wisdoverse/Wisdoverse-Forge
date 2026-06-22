@@ -2352,6 +2352,7 @@ const WORKSPACE_RESOURCE_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*You do not have permission to (?:save|delete) this (?:\$\{resource\}|team|project)\. Ask an owner/i,
   /['"`]\s*(?:\$\{title\}|Team|Project) name could not be saved\./i,
   /['"`]\s*This (?:\$\{label\}|team|project) (?:could not be found|changed while you were editing)\./i,
+  /['"`]\s*Settings is busy\. Wait a moment, then (?:save|delete) the (?:\$\{resource\}|team|project) again\./i,
   /['"`]\s*The sidebar is busy\. Wait a moment, then (?:save this (?:\$\{label\}|team|project) name|delete this (?:\$\{label\}|team|project)) again\./i,
   /['"`]\s*Forge could not save this (?:\$\{label\}|team|project) name right now\./i,
   /['"`]\s*Forge could not delete this (?:\$\{label\}|team|project) right now\./i,

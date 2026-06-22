@@ -127,6 +127,13 @@ describe('workspaceResourceErrorMessage', () => {
     expect(message).not.toContain('review the current')
   })
 
+  test('turns busy settings responses into an action-first retry step', () => {
+    expectBeginnerMessage(
+      workspaceResourceErrorMessage('team', 'delete', { status: 429 }),
+      'Wait a moment, then delete the team again. Settings is busy.'
+    )
+  })
+
   test('turns server failures into a concrete team and project recovery step', () => {
     const message = workspaceResourceErrorMessage('project', 'update', new Error('HTTP 500'))
 

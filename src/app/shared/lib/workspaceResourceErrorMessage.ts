@@ -36,7 +36,7 @@ export function workspaceResourceErrorMessage(
     return validationMessage(resource, action, detail)
   }
   if (status === 429) {
-    return `Settings is busy. Wait a moment, then ${retryPhrase(resource, action)}.`
+    return `Wait a moment, then ${retryPhrase(resource, action)}. Settings is busy.`
   }
   if (status >= 500) {
     return workspaceResourceUnavailableMessage(resource, action)
