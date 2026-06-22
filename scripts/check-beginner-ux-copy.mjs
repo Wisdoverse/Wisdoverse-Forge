@@ -248,6 +248,7 @@ const PROVIDER_SETUP_JARGON_PATTERNS = [
   /\bsetup name\b/i,
   /\bsuggested setup\b/i,
   /\bsaved setup\b/i,
+  /\bStandard setup\b/i,
   /\bSuggested service setups\b/i,
   /\bModel to use\b/i,
   /\bNext: (?:add|choose the) model\b/i,

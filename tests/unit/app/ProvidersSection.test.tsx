@@ -529,7 +529,7 @@ describe('ProvidersSection', () => {
     const zhipuChoice = within(serviceChoices).getByRole('button', { name: /zhipu glm/i })
     expect(
       within(zhipuChoice).getByText(
-        /standard setup · coding plan · china or global website address/i
+        /standard service · coding plan · china or global website address/i
       )
     ).toBeDefined()
     expect(within(zhipuChoice).queryByText(/api · coding plan/i)).toBeNull()

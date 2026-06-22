@@ -1534,7 +1534,7 @@ function CatalogGrid({
               )}
             </span>
             <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-              {vendor.coding ? 'Standard setup · Coding plan' : 'Standard setup'}
+              {vendor.coding ? 'Standard service · Coding plan' : 'Standard service'}
               {vendor.api?.globalBaseUrl || vendor.coding?.globalBaseUrl
                 ? ' · China or global website address'
                 : ''}

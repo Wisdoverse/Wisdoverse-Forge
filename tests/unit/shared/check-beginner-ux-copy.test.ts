@@ -919,7 +919,7 @@ function RegionToggle() {
   return 'Service website region'
 }
 function CatalogGrid() {
-  return 'Standard setup · Coding plan · China or global website address'
+  return 'Standard service · Coding plan · China or global website address'
 }
 function ModelQuickPicks() {
   return 'Suggested service choice: gpt-4o-mini'
