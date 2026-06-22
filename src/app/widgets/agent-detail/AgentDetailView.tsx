@@ -316,7 +316,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
         </div>
       )}
 
-      {activeTab === 'tasks' && <AgentTasksTab agentId={agent.id} />}
+      {activeTab === 'tasks' && <AgentTasksTab agentId={agent.id} onBackToAgents={onBack} />}
 
       {activeTab === 'history' && <ChatView agentId={agent.id} />}
 
