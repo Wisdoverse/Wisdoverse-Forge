@@ -625,7 +625,10 @@ test.describe('React App Smoke Tests', () => {
       await page.locator('[data-testid="sidebar-nav-inbox"]').click()
       await page.waitForURL('**/inbox')
 
-      await expect(page.getByText("You're all caught up")).toBeVisible({ timeout: 5000 })
+      await expect(page.getByText('No updates yet')).toBeVisible({ timeout: 5000 })
+      await expect(
+        page.getByText('Next: start a task or wait for an agent update, then open Inbox again.')
+      ).toBeVisible()
       await screenshot(page, '24-inbox-empty')
     })
   })
@@ -1200,7 +1203,10 @@ test.describe('React App Smoke Tests', () => {
       await page.waitForURL('**/inbox')
 
       // Default Zustand state has no notifications
-      await expect(page.getByText("You're all caught up")).toBeVisible({ timeout: 5000 })
+      await expect(page.getByText('No updates yet')).toBeVisible({ timeout: 5000 })
+      await expect(
+        page.getByText('Next: start a task or wait for an agent update, then open Inbox again.')
+      ).toBeVisible()
       await screenshot(page, '38-inbox-default')
     })
   })
