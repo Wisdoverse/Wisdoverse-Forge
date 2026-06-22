@@ -198,23 +198,25 @@ function AgentsEmptyState({ filter }: { filter: AdminAgentRuntimeKindFilter }) {
         <Bot size={18} strokeWidth={2} />
       </div>
       <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-        {filter === 'all' ? 'Create or connect an agent first' : 'No agents match this filter'}
+        {filter === 'all'
+          ? 'Create or connect an agent first'
+          : 'The current filter is hiding agents'}
       </p>
       <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
         {filter === 'all'
           ? 'Create the first agent from Agents, confirm it becomes Ready or Working, then return to Admin and choose Agents to check it across team spaces.'
-          : `No ${runtimeKindLabel(filter)} agents match this filter. Choose "All work locations" before assuming the agent is missing.`}
+          : `This view is only showing ${runtimeKindLabel(filter)} agents. Choose "All work locations" before assuming the agent is missing.`}
       </p>
-      {filter === 'all' && (
-        <>
-          <p className="mt-3 max-w-xl text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
-            Next step: open Agents and choose New agent.
-          </p>
-          <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Success looks like one agent listed here with Ready or Working now.
-          </p>
-        </>
-      )}
+      <p className="mt-3 max-w-xl text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
+        {filter === 'all'
+          ? 'Next step: open Agents and choose New agent.'
+          : 'Next step: change Work location to All work locations.'}
+      </p>
+      <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
+        {filter === 'all'
+          ? 'Success looks like one agent listed here with Ready or Working now.'
+          : 'Success looks like the agent appearing here with its work location and status.'}
+      </p>
     </div>
   )
 }
