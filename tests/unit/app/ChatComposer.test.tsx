@@ -42,8 +42,9 @@ describe('ChatComposer', () => {
     ).toBeVisible()
     expect(screen.queryByText(previousBlockedPrompt)).toBeNull()
     expect(screen.getByRole('textbox')).toHaveAccessibleDescription(
-      /write one clear instruction or question.*ask for a short summary/i
+      /write one clear message or question.*ask for a short summary/i
     )
+    expect(screen.getByRole('textbox')).not.toHaveAccessibleDescription(/instruction/i)
   })
 
   it('guides the user when Send is clicked without a message', () => {

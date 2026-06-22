@@ -395,19 +395,21 @@ describe('beginner error translations', () => {
     expect(zh.admin.users.confirmDelete).not.toContain('确定要')
   })
 
-  test('shared instruction input copy avoids prompt jargon', () => {
-    expect(en.prompt.placeholder).toBe('Type one instruction for the agent...')
-    expect(en.prompt.placeholderShort).toBe('Type an instruction...')
-    expect(en.prompt.emptyPrompt).toBe('Type an instruction before sending.')
+  test('shared message input copy avoids prompt and instruction jargon', () => {
+    expect(en.prompt.placeholder).toBe('Type one message for the agent...')
+    expect(en.prompt.placeholderShort).toBe('Type a message...')
+    expect(en.prompt.emptyPrompt).toBe('Type a message before sending.')
     expect(en.prompt.selectAgent).toBe('Choose an agent first.')
     expect(JSON.stringify(en.prompt)).not.toContain('Type your prompt')
+    expect(JSON.stringify(en.prompt)).not.toContain('instruction')
     expect(JSON.stringify(en.prompt)).not.toContain('Please select a agent')
 
-    expect(zh.prompt.placeholder).toBe('输入一条给智能体的指令...')
-    expect(zh.prompt.placeholderShort).toBe('输入一条指令...')
-    expect(zh.prompt.emptyPrompt).toBe('请先输入一条指令。')
+    expect(zh.prompt.placeholder).toBe('输入一条给智能体的消息...')
+    expect(zh.prompt.placeholderShort).toBe('输入一条消息...')
+    expect(zh.prompt.emptyPrompt).toBe('请先输入一条消息。')
     expect(JSON.stringify(zh.prompt)).not.toContain('输入提示')
     expect(JSON.stringify(zh.prompt)).not.toContain('请输入提示')
+    expect(JSON.stringify(zh.prompt)).not.toContain('指令')
   })
 
   test('getting started reuse copy explains saved instructions without expert terms', () => {
