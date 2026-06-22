@@ -875,12 +875,24 @@ mod tests {
                 .await
                 .expect("seed user");
         }
+        async fn seed_workspace_row(pool: &PgPool, org: Uuid) -> Uuid {
+            let workspace = Uuid::new_v4();
+            sqlx::query("INSERT INTO workspaces (id, organization_id, name) VALUES ($1, $2, $3)")
+                .bind(workspace)
+                .bind(org)
+                .bind(format!("Workspace {workspace}"))
+                .execute(pool)
+                .await
+                .expect("seed workspace");
+            workspace
+        }
         // `agents.id` is the FK target for both `orchestration_tasks.assigned_agent_id`
         // and `participants.agent_id`; every agent referenced below must exist first.
-        async fn seed_agent_row(pool: &PgPool, agent: Uuid, org: Uuid, user: Uuid) {
-            sqlx::query("INSERT INTO agents (id, organization_id, user_id) VALUES ($1, $2, $3)")
+        async fn seed_agent_row(pool: &PgPool, agent: Uuid, org: Uuid, workspace: Uuid, user: Uuid) {
+            sqlx::query("INSERT INTO agents (id, organization_id, workspace_id, user_id) VALUES ($1, $2, $3, $4)")
                 .bind(agent)
                 .bind(org)
+                .bind(workspace)
                 .bind(user)
                 .execute(pool)
                 .await
@@ -893,13 +905,15 @@ mod tests {
         seed_org_row(&pool, org_a.as_uuid()).await;
         seed_org_row(&pool, org_b.as_uuid()).await;
         seed_user_row(&pool, user.as_uuid()).await;
+        let workspace_a = seed_workspace_row(&pool, org_a.as_uuid()).await;
+        let workspace_b = seed_workspace_row(&pool, org_b.as_uuid()).await;
 
         let agent_a = AgentId::new();
         let agent_a_participant = AgentId::new();
         let agent_b_participant = AgentId::new();
-        seed_agent_row(&pool, agent_a.as_uuid(), org_a.as_uuid(), user.as_uuid()).await;
-        seed_agent_row(&pool, agent_a_participant.as_uuid(), org_a.as_uuid(), user.as_uuid()).await;
-        seed_agent_row(&pool, agent_b_participant.as_uuid(), org_b.as_uuid(), user.as_uuid()).await;
+        seed_agent_row(&pool, agent_a.as_uuid(), org_a.as_uuid(), workspace_a, user.as_uuid()).await;
+        seed_agent_row(&pool, agent_a_participant.as_uuid(), org_a.as_uuid(), workspace_a, user.as_uuid()).await;
+        seed_agent_row(&pool, agent_b_participant.as_uuid(), org_b.as_uuid(), workspace_b, user.as_uuid()).await;
 
         // Org A: an expired-lease working task (assigned, lease in the past).
         sqlx::query(
