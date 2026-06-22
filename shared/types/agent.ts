@@ -413,6 +413,10 @@ export interface TaskSummary {
   updatedAt: string
   completedAt?: string
   contextCounts?: TaskContextCounts
+  /** 1-based attempt counter; incremented on each retry. */
+  attempt: number
+  /** RFC3339 timestamp when the current worker lease expires (only set while working). */
+  leaseExpiresAt?: string
 }
 
 /** Lightweight participant representation for WS broadcasts */
