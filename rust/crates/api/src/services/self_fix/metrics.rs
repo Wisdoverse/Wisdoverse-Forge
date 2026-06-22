@@ -45,33 +45,8 @@
 //! server re-verifies safety before merging. The two counters complement each
 //! other and must not be summed together.
 
-use agentforge_core::{AppError, ErrorKind};
-
-/// Classify a merge-executor `AppError` into a bounded-cardinality outcome
-/// label. Matches the three policy codes the Merge Executor can return as
-/// gate failures; any other error (I/O, infra, unexpected policy) maps to
-/// `"failed"`.
-///
-/// Policy codes checked (exhaustive for merge-gate errors):
-/// - `"errors.self_fix.checks_not_green"` → `"checks_red"`
-/// - `"errors.self_fix.head_moved"` (Conflict variant) → `"head_moved"`
-/// - `"errors.self_fix.sensitive_path_blocked"` → `"sensitive_blocked"`
-///
-/// Note: `head_moved` is emitted as [`ErrorKind::Conflict`], not
-/// `ValidationWithCode`, so it does not carry a dotted code. It is detected
-/// by its variant before code matching.
-fn merge_failure_label(err: &AppError) -> &'static str {
-    match &err.kind {
-        // Conflict is head_moved — the only Conflict the executor emits.
-        ErrorKind::Conflict(_) => "head_moved",
-        ErrorKind::ValidationWithCode { code, .. } if *code == "errors.self_fix.checks_not_green" => "checks_red",
-        ErrorKind::ForbiddenWithCode { code, .. } if *code == "errors.self_fix.sensitive_path_blocked" => {
-            "sensitive_blocked"
-        }
-        // All other errors: I/O, unexpected, or unrecognised policy.
-        _ => "failed",
-    }
-}
+use crate::domain::self_fix::SelfFixMergeMetricPolicy;
+use agentforge_core::AppError;
 
 /// Increment `agentforge_self_fix_merge_total{outcome}` for one completed
 /// `approve_and_merge` call.
@@ -87,7 +62,7 @@ pub fn record_merge_outcome(outcome: &'static str) {
 /// Classify a merge-executor error and record the appropriate outcome label.
 /// Convenience wrapper for the `Err` arm in `approve_and_merge`.
 pub fn record_merge_failure(err: &AppError) {
-    record_merge_outcome(merge_failure_label(err));
+    record_merge_outcome(SelfFixMergeMetricPolicy::failure_label(err));
 }
 
 /// Register metric descriptions and prime all seven outcome series at 0.
@@ -101,9 +76,8 @@ pub fn register_metrics() {
         "agentforge_self_fix_merge_total",
         "Self-fix guarded-merge outcomes, labeled merged|already_merged|sensitive_blocked|checks_red|head_moved|exhausted|failed"
     );
-    // Prime all seven label values at 0 so every series exists from t=0.
-    for outcome in &["merged", "already_merged", "sensitive_blocked", "checks_red", "head_moved", "exhausted", "failed"]
-    {
+    // Prime every label value at 0 so each series exists from t=0.
+    for outcome in SelfFixMergeMetricPolicy::OUTCOMES {
         metrics::counter!("agentforge_self_fix_merge_total", "outcome" => *outcome).increment(0);
     }
 }
@@ -111,7 +85,6 @@ pub fn register_metrics() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use agentforge_core::{AppError, ErrorKind};
 
     #[test]
     fn register_metrics_primes_series() {
@@ -122,55 +95,8 @@ mod tests {
     #[test]
     fn record_merge_outcome_does_not_panic() {
         // Smoke test for each closed-set label.
-        for outcome in
-            &["merged", "already_merged", "sensitive_blocked", "checks_red", "head_moved", "exhausted", "failed"]
-        {
+        for outcome in SelfFixMergeMetricPolicy::OUTCOMES {
             record_merge_outcome(outcome);
         }
-    }
-
-    #[test]
-    fn merge_failure_label_checks_not_green() {
-        let err = AppError::from(ErrorKind::ValidationWithCode {
-            code: "errors.self_fix.checks_not_green",
-            message: "CI not green".into(),
-        });
-        assert_eq!(merge_failure_label(&err), "checks_red");
-    }
-
-    #[test]
-    fn merge_failure_label_head_moved() {
-        let err = AppError::from(ErrorKind::Conflict("the PR head moved since review".into()));
-        assert_eq!(merge_failure_label(&err), "head_moved");
-    }
-
-    #[test]
-    fn merge_failure_label_sensitive_blocked() {
-        let err = AppError::from(ErrorKind::ForbiddenWithCode {
-            code: "errors.self_fix.sensitive_path_blocked",
-            message: "sensitive path blocked".into(),
-        });
-        assert_eq!(merge_failure_label(&err), "sensitive_blocked");
-    }
-
-    #[test]
-    fn merge_failure_label_unknown_maps_to_failed() {
-        let err = AppError::from(ErrorKind::Unavailable("github I/O timeout".into()));
-        assert_eq!(merge_failure_label(&err), "failed");
-    }
-
-    #[test]
-    fn merge_failure_label_internal_maps_to_failed() {
-        let err = AppError::from(anyhow::anyhow!("unexpected error"));
-        assert_eq!(merge_failure_label(&err), "failed");
-    }
-
-    #[test]
-    fn merge_failure_label_unrelated_validation_code_maps_to_failed() {
-        let err = AppError::from(ErrorKind::ValidationWithCode {
-            code: "errors.self_fix.no_pr_to_merge",
-            message: "no PR to merge".into(),
-        });
-        assert_eq!(merge_failure_label(&err), "failed");
     }
 }
