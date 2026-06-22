@@ -58,20 +58,18 @@ async fn apply_verdict_commits_both_review_and_task(pool: PgPool) {
         .await
         .expect("apply_verdict should succeed");
 
-    let review_state: String =
-        sqlx::query_scalar("SELECT state FROM code_reviews WHERE id = CAST($1 AS uuid)")
-            .bind(&review_id)
-            .fetch_one(&pool)
-            .await
-            .expect("fetch review state");
+    let review_state: String = sqlx::query_scalar("SELECT state FROM code_reviews WHERE id = CAST($1 AS uuid)")
+        .bind(&review_id)
+        .fetch_one(&pool)
+        .await
+        .expect("fetch review state");
     assert_eq!(review_state, "approved", "code_reviews.state should be 'approved'");
 
-    let task_state: String =
-        sqlx::query_scalar("SELECT state FROM tasks WHERE id = CAST($1 AS uuid)")
-            .bind(&task_id)
-            .fetch_one(&pool)
-            .await
-            .expect("fetch task state");
+    let task_state: String = sqlx::query_scalar("SELECT state FROM tasks WHERE id = CAST($1 AS uuid)")
+        .bind(&task_id)
+        .fetch_one(&pool)
+        .await
+        .expect("fetch task state");
     assert_eq!(task_state, "completed", "tasks.state should be 'completed'");
 }
 
@@ -85,21 +83,16 @@ async fn apply_verdict_rolls_back_when_task_missing(pool: PgPool) {
     let nonexistent_task_id = "00000000-0000-0000-0000-000000000000";
 
     let store = PgReviewStore::new(pool.clone());
-    let result = store
-        .apply_verdict(&review_id, org_id, ReviewState::Approved, nonexistent_task_id, TaskState::Completed)
-        .await;
+    let result =
+        store.apply_verdict(&review_id, org_id, ReviewState::Approved, nonexistent_task_id, TaskState::Completed).await;
 
     assert!(result.is_err(), "apply_verdict should return Err when task is missing");
 
     // The review UPDATE must have been rolled back: state still 'pending'.
-    let review_state: String =
-        sqlx::query_scalar("SELECT state FROM code_reviews WHERE id = CAST($1 AS uuid)")
-            .bind(&review_id)
-            .fetch_one(&pool)
-            .await
-            .expect("fetch review state after rollback");
-    assert_eq!(
-        review_state, "pending",
-        "code_reviews.state must still be 'pending' after rollback (atomicity)"
-    );
+    let review_state: String = sqlx::query_scalar("SELECT state FROM code_reviews WHERE id = CAST($1 AS uuid)")
+        .bind(&review_id)
+        .fetch_one(&pool)
+        .await
+        .expect("fetch review state after rollback");
+    assert_eq!(review_state, "pending", "code_reviews.state must still be 'pending' after rollback (atomicity)");
 }

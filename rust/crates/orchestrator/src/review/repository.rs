@@ -254,11 +254,8 @@ impl Store for PgReviewStore {
         task_id: &str,
         new_task_state: crate::task::TaskState,
     ) -> Result<()> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(|err| ReviewError::Internal(format!("begin transaction: {err}")))?;
+        let mut tx =
+            self.pool.begin().await.map_err(|err| ReviewError::Internal(format!("begin transaction: {err}")))?;
 
         let review_result = sqlx::query(
             "UPDATE code_reviews SET state = $1, updated_at = NOW() WHERE id = CAST($2 AS uuid) AND org_id = $3",
@@ -275,15 +272,14 @@ impl Store for PgReviewStore {
             return Err(ReviewError::NotFound);
         }
 
-        let task_result = sqlx::query(
-            "UPDATE tasks SET state = $1, updated_at = NOW() WHERE id = CAST($2 AS uuid) AND org_id = $3",
-        )
-        .bind(new_task_state.as_str())
-        .bind(task_id)
-        .bind(org_id)
-        .execute(&mut *tx)
-        .await
-        .map_err(|err| ReviewError::Internal(format!("update task state in verdict tx: {err}")))?;
+        let task_result =
+            sqlx::query("UPDATE tasks SET state = $1, updated_at = NOW() WHERE id = CAST($2 AS uuid) AND org_id = $3")
+                .bind(new_task_state.as_str())
+                .bind(task_id)
+                .bind(org_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|err| ReviewError::Internal(format!("update task state in verdict tx: {err}")))?;
 
         if task_result.rows_affected() == 0 {
             // tx drops here, rolling back automatically

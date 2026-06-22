@@ -13,7 +13,9 @@ use crate::state::AppState;
 use crate::task::TaskState;
 
 use super::errors::ReviewError;
-use super::model::{AddCommentRequest, CodeReview, CreateReviewRequest, ReviewComment, ReviewFilter, ReviewState, can_transition};
+use super::model::{
+    AddCommentRequest, CodeReview, CreateReviewRequest, ReviewComment, ReviewFilter, ReviewState, can_transition,
+};
 use super::store::Store;
 
 pub fn routes() -> axum::Router<AppState> {
@@ -201,8 +203,9 @@ async fn approve(State(state): State<AppState>, headers: HeaderMap, Path(id): Pa
         return error(StatusCode::FORBIDDEN, "cannot approve your own review");
     }
 
-    if let Err(err) =
-        store.apply_verdict(&id, &identity.org_id, ReviewState::Approved, &review.review.task_id, TaskState::Completed).await
+    if let Err(err) = store
+        .apply_verdict(&id, &identity.org_id, ReviewState::Approved, &review.review.task_id, TaskState::Completed)
+        .await
     {
         return map_error(err);
     }
@@ -212,15 +215,9 @@ async fn approve(State(state): State<AppState>, headers: HeaderMap, Path(id): Pa
     // audit record failed, NOT the state change -- the review IS approved. Audit is
     // a separate write (not in the verdict tx) because audit policy lives in the
     // handler, not the store; the 500 is loud-on-audit-failure by design.
-    if let Err(response) = record_audit(
-        &state,
-        AuditAction::ReviewApprove,
-        Some(id.clone()),
-        identity.org_id,
-        identity.user_id,
-        None,
-    )
-    .await
+    if let Err(response) =
+        record_audit(&state, AuditAction::ReviewApprove, Some(id.clone()), identity.org_id, identity.user_id, None)
+            .await
     {
         return response;
     }
