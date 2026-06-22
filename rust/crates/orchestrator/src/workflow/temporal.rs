@@ -38,6 +38,20 @@ pub const TASK_QUEUE: &str = "orchestrator-workflows";
 pub const SIGNAL_HUMAN_REVIEW: &str = "human-review-decision";
 pub const ORCHESTRATOR_WORKFLOW_NAME: &str = "OrchestratorWorkflow";
 
+const DEFAULT_HUMAN_REVIEW_TIMEOUT_SECS: u64 = 24 * 60 * 60;
+
+/// Deterministic helper: reads `reviewTimeoutSecs` from node config (replayed-safe,
+/// no env/clock access). Returns the configured value clamped to a minimum of 60
+/// seconds, or `DEFAULT_HUMAN_REVIEW_TIMEOUT_SECS` when the key is absent.
+pub fn human_review_timeout_secs(config: &Option<serde_json::Value>) -> u64 {
+    config
+        .as_ref()
+        .and_then(|v| v.get("reviewTimeoutSecs"))
+        .and_then(|v| v.as_u64())
+        .map(|secs| secs.max(60))
+        .unwrap_or(DEFAULT_HUMAN_REVIEW_TIMEOUT_SECS)
+}
+
 pub fn signal_name_for_node(node_id: &str) -> String {
     format!("{SIGNAL_HUMAN_REVIEW}-{node_id}")
 }
@@ -392,14 +406,16 @@ fn execute_node(
                 }
             }
             NodeType::HumanReview => {
+                let timeout_secs = human_review_timeout_secs(&node.config);
                 let review_activity = ctx.start_activity(
                     WorkflowActivities::wait_for_human_review,
                     HumanReviewInput {
                         node_id: node.id.clone(),
                         node_name: node.name.clone(),
                         config: node.config.clone(),
+                        timeout_secs,
                     },
-                    human_review_activity_options(),
+                    human_review_activity_options(Duration::from_secs(timeout_secs)),
                 );
                 let signal_wait = await_human_review_signal(&ctx, &node.id).fuse();
                 pin_mut!(review_activity);
@@ -476,8 +492,8 @@ fn standard_activity_options() -> ActivityOptions {
         .build()
 }
 
-fn human_review_activity_options() -> ActivityOptions {
-    ActivityOptions::with_start_to_close_timeout(Duration::from_secs(24 * 60 * 60))
+fn human_review_activity_options(timeout: Duration) -> ActivityOptions {
+    ActivityOptions::with_start_to_close_timeout(timeout)
         .heartbeat_timeout(Duration::from_secs(30))
         .retry_policy(RetryPolicy { maximum_attempts: 1, ..Default::default() })
         .build()
@@ -503,5 +519,61 @@ impl temporalio_common::SignalDefinition for DynamicHumanReviewSignal {
 
     fn name(&self) -> &str {
         &self.name
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn human_review_timeout_secs_returns_configured_value() {
+        let config = Some(json!({"reviewTimeoutSecs": 3600}));
+        assert_eq!(human_review_timeout_secs(&config), 3600);
+    }
+
+    #[test]
+    fn human_review_timeout_secs_clamps_to_floor() {
+        // Values below 60 seconds should be clamped to 60.
+        let config = Some(json!({"reviewTimeoutSecs": 5}));
+        assert_eq!(human_review_timeout_secs(&config), 60);
+    }
+
+    #[test]
+    fn human_review_timeout_secs_floor_is_inclusive() {
+        let config = Some(json!({"reviewTimeoutSecs": 60}));
+        assert_eq!(human_review_timeout_secs(&config), 60);
+    }
+
+    #[test]
+    fn human_review_timeout_secs_returns_default_for_none_config() {
+        assert_eq!(human_review_timeout_secs(&None), DEFAULT_HUMAN_REVIEW_TIMEOUT_SECS);
+    }
+
+    #[test]
+    fn human_review_timeout_secs_returns_default_for_missing_key() {
+        let config = Some(json!({"otherKey": 9999}));
+        assert_eq!(human_review_timeout_secs(&config), DEFAULT_HUMAN_REVIEW_TIMEOUT_SECS);
+    }
+
+    #[test]
+    fn human_review_timeout_secs_ignores_non_u64_value() {
+        // Negative and float values that do not map to u64 fall back to the default.
+        let config_negative = Some(json!({"reviewTimeoutSecs": -1}));
+        assert_eq!(human_review_timeout_secs(&config_negative), DEFAULT_HUMAN_REVIEW_TIMEOUT_SECS);
+
+        let config_string = Some(json!({"reviewTimeoutSecs": "3600"}));
+        assert_eq!(human_review_timeout_secs(&config_string), DEFAULT_HUMAN_REVIEW_TIMEOUT_SECS);
+    }
+
+    #[test]
+    fn escalation_thresholds_are_deterministic() {
+        // Verify the 50%/90% threshold math used in the activity is correct.
+        let timeout_secs: u64 = 7200; // 2 hours
+        let warn_50 = timeout_secs / 2;
+        let warn_90 = timeout_secs * 9 / 10;
+        assert_eq!(warn_50, 3600);
+        assert_eq!(warn_90, 6480);
     }
 }

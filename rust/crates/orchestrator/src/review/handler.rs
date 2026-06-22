@@ -74,7 +74,7 @@ async fn record_audit(
         id: String::new(),
         action,
         actor_id,
-        actor_type: "user".to_string(),
+        actor_type: "human".to_string(),
         resource: "review".to_string(),
         resource_id,
         org_id,

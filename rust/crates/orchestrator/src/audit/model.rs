@@ -30,6 +30,10 @@ pub enum AuditAction {
     WorkflowRun,
     #[serde(rename = "workflow.cancel")]
     WorkflowCancel,
+    #[serde(rename = "workflow.review.approve")]
+    WorkflowReviewApprove,
+    #[serde(rename = "workflow.review.reject")]
+    WorkflowReviewReject,
     #[serde(rename = "knowledge.create")]
     KnowledgeCreate,
     #[serde(rename = "knowledge.update")]
@@ -71,6 +75,8 @@ impl AuditAction {
             Self::WorkflowCreate => "workflow.create",
             Self::WorkflowRun => "workflow.run",
             Self::WorkflowCancel => "workflow.cancel",
+            Self::WorkflowReviewApprove => "workflow.review.approve",
+            Self::WorkflowReviewReject => "workflow.review.reject",
             Self::KnowledgeCreate => "knowledge.create",
             Self::KnowledgeUpdate => "knowledge.update",
             Self::KnowledgeDelete => "knowledge.delete",
@@ -104,6 +110,8 @@ impl FromStr for AuditAction {
             "workflow.create" => Ok(Self::WorkflowCreate),
             "workflow.run" => Ok(Self::WorkflowRun),
             "workflow.cancel" => Ok(Self::WorkflowCancel),
+            "workflow.review.approve" => Ok(Self::WorkflowReviewApprove),
+            "workflow.review.reject" => Ok(Self::WorkflowReviewReject),
             "knowledge.create" => Ok(Self::KnowledgeCreate),
             "knowledge.update" => Ok(Self::KnowledgeUpdate),
             "knowledge.delete" => Ok(Self::KnowledgeDelete),
