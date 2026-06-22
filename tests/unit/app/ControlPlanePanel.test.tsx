@@ -40,10 +40,10 @@ describe('ControlPlanePanel', () => {
     render(<ControlPlanePanel />)
 
     // Six wedge-signal labels
-    expect(screen.getByText('Unpublished assignment events')).toBeDefined()
-    expect(screen.getByText('Oldest unpublished event (s)')).toBeDefined()
-    expect(screen.getByText('Stale participants')).toBeDefined()
-    expect(screen.getByText('Expired working leases')).toBeDefined()
+    expect(screen.getByText('Assignment updates waiting to send')).toBeDefined()
+    expect(screen.getByText('Oldest waiting assignment update (s)')).toBeDefined()
+    expect(screen.getByText('Agents not checking in')).toBeDefined()
+    expect(screen.getByText('Work check-ins overdue')).toBeDefined()
     expect(screen.getByText('Busy agents without work')).toBeDefined()
     expect(screen.getByText('Working tasks without a busy agent')).toBeDefined()
 
@@ -55,13 +55,14 @@ describe('ControlPlanePanel', () => {
     expect(screen.getByText('0')).toBeDefined()
     expect(screen.getByText('4')).toBeDefined()
 
-    // staleAfterSeconds context
-    expect(screen.getByText(/stale threshold/i)).toBeDefined()
+    // Check-in timing context is explained in operator-facing language.
+    expect(screen.getByText(/check-in rule/i)).toBeDefined()
     expect(screen.getByText(/90s/)).toBeDefined()
 
-    // Queue-depth omission note is present
-    expect(screen.getByText(/queue depth/i)).toBeDefined()
+    // Platform-wide background backlog note is present without raw table names.
+    expect(screen.getByText(/background task backlog/i)).toBeDefined()
     expect(screen.getByText(/\/metrics/)).toBeDefined()
+    expect(screen.queryByText(/job_queue|platform-global|orchestration|wedged|lease/i)).toBeNull()
   })
 
   test('renders the error string when controlPlaneError is set', () => {
@@ -99,10 +100,10 @@ describe('ControlPlanePanel', () => {
     expect(() => render(<ControlPlanePanel />)).not.toThrow()
 
     // All six rows render their labels
-    expect(screen.getByText('Unpublished assignment events')).toBeDefined()
-    expect(screen.getByText('Oldest unpublished event (s)')).toBeDefined()
-    expect(screen.getByText('Stale participants')).toBeDefined()
-    expect(screen.getByText('Expired working leases')).toBeDefined()
+    expect(screen.getByText('Assignment updates waiting to send')).toBeDefined()
+    expect(screen.getByText('Oldest waiting assignment update (s)')).toBeDefined()
+    expect(screen.getByText('Agents not checking in')).toBeDefined()
+    expect(screen.getByText('Work check-ins overdue')).toBeDefined()
     expect(screen.getByText('Busy agents without work')).toBeDefined()
     expect(screen.getByText('Working tasks without a busy agent')).toBeDefined()
   })
