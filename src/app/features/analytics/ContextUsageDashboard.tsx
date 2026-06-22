@@ -90,7 +90,9 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
             Saved item reuse
           </h2>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            {data ? updatedAtLabel(data.lastRefreshedAt) : 'Updated when data is available'}
+            {data
+              ? updatedAtLabel(data.lastRefreshedAt)
+              : 'Appears after agents reuse saved notes or instructions'}
           </p>
           <p className="mt-1 max-w-2xl text-ui-body text-secondary-light dark:text-secondary-dark">
             Use this view to keep saved notes and instructions that help work finish, and check

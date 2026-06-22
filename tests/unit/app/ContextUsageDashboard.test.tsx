@@ -35,6 +35,15 @@ function analytics(overrides: Partial<ContextUsageAnalytics> = {}): ContextUsage
 }
 
 describe('ContextUsageDashboard', () => {
+  test('tells first-time users how saved item reuse starts', () => {
+    render(<ContextUsageDashboard data={null} />)
+
+    expect(
+      screen.getByText('Appears after agents reuse saved notes or instructions')
+    ).toBeDefined()
+    expect(screen.queryByText('Updated when data is available')).toBeNull()
+  })
+
   test('explains empty reuse states without stale-threshold jargon', () => {
     const previousSavedNotesCopy = new RegExp(['saved', 'memories'].join('\\s+'), 'i')
 
