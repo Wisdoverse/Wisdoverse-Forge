@@ -91,17 +91,24 @@ export function ProjectsSection() {
       const loadedTeams = await teamApi.getTeams(orgId)
       setTeams(loadedTeams)
 
+      let projectLoadError: unknown = null
       const projectResults = await Promise.all(
         loadedTeams.map(async (team) => {
           try {
             const projects = await projectApi.getProjects(team.id)
             return projects.map((p) => ({ project: p, teamName: team.name }))
-          } catch {
+          } catch (err) {
+            projectLoadError ??= err
             return []
           }
         })
       )
       setProjectsWithTeam(projectResults.flat())
+      if (projectLoadError) {
+        setError(
+          `${workspaceSettingsErrorMessage('project', 'load', projectLoadError)} Some projects may be missing below.`
+        )
+      }
     } catch (err) {
       setError(workspaceSettingsErrorMessage('project', 'load', err))
     } finally {
