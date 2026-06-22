@@ -1768,6 +1768,12 @@ const CHAT_FILTER_EMPTY_DEAD_END_PATTERNS = [
   /\bassign a workspace task to create work steps\b/i,
 ]
 
+const CHAT_ATTENTION_FILTER_JARGON_PATTERNS = [
+  /\bShow stuck, failed, waiting, or help-needed updates\b/i,
+  /\bUse All if you expected a blocker\b/i,
+  /\bNo message is stuck, failed, waiting, or asking for your help in this view\./i,
+]
+
 const HELP_ENTRY_REVIEW_ACTION_PATTERNS = [
   /\bReview what needs help\b/i,
   /\bReview what the agent finished\b/i,
@@ -5231,6 +5237,12 @@ function hasChatFilterEmptyDeadEndCopy(relFile, line) {
   return CHAT_FILTER_EMPTY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasChatAttentionFilterJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/chat/ChatView.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return CHAT_ATTENTION_FILTER_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasHelpEntryReviewActionCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/chat/ChatView.tsx') &&
@@ -8125,6 +8137,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Chat filter empty states must explain what users can check without reported-work jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasChatAttentionFilterJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'chat-attention-filter-copy',
+        location,
+        message:
+          'Chat attention filters must say what users can do next instead of stuck, failed, or help-needed jargon.',
         sample: line.trim(),
       })
     }

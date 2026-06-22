@@ -394,7 +394,7 @@ describe('ChatView', () => {
     ).toBeInTheDocument()
     fireEvent.click(
       within(filters).getByRole('button', {
-        name: /show stuck, failed, waiting, or help-needed updates, 1 matching update/i,
+        name: /show updates that need your next step, 1 matching update/i,
       })
     )
     expect(screen.getByText('Billing flow is blocked by a missing secret')).toBeInTheDocument()
@@ -479,15 +479,13 @@ describe('ChatView', () => {
     const filters = screen.getByTestId('conversation-filter-group')
     fireEvent.click(
       within(filters).getByRole('button', {
-        name: /show stuck, failed, waiting, or help-needed updates, 0 matching updates/i,
+        name: /show updates that need your next step, 0 matching updates/i,
       })
     )
 
     const emptyState = screen.getByTestId('conversation-filter-empty')
-    expect(emptyState).toHaveTextContent('Use All if you expected a blocker')
-    expect(emptyState).toHaveTextContent(
-      'No message is stuck, failed, waiting, or asking for your help in this view.'
-    )
+    expect(emptyState).toHaveTextContent('Use All if you expected a next step')
+    expect(emptyState).toHaveTextContent('No message needs your next step in this view.')
     expect(emptyState).toHaveTextContent('use All to read the full conversation')
     expect(emptyState).not.toHaveTextContent('No help requests are open')
   })
@@ -553,7 +551,7 @@ describe('ChatView', () => {
     ).toBeInTheDocument()
     fireEvent.click(
       within(filters).getByRole('button', {
-        name: /show stuck, failed, waiting, or help-needed updates, 1 matching update/i,
+        name: /show updates that need your next step, 1 matching update/i,
       })
     )
     expect(screen.getByText(/Deploy failed because credentials are missing/i)).toBeInTheDocument()

@@ -10172,6 +10172,64 @@ function toolEmptyNextStep() {
     )
   })
 
+  it('flags chat attention filters that expose internal status jargon', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ChatView.tsx': `
+function conversationFilterActionLabel() {
+  return 'Show stuck, failed, waiting, or help-needed updates'
+}
+
+function attentionEmptyTitle() {
+  return 'Use All if you expected a blocker'
+}
+
+function attentionEmptyDetail() {
+  return 'No message is stuck, failed, waiting, or asking for your help in this view.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'chat-attention-filter-copy',
+          location: 'src/app/features/chat/ChatView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'chat-attention-filter-copy',
+          location: 'src/app/features/chat/ChatView.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'chat-attention-filter-copy',
+          location: 'src/app/features/chat/ChatView.tsx:11',
+        }),
+      ])
+    )
+  })
+
+  it('accepts chat attention filters that explain the next step', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ChatView.tsx': `
+function conversationFilterActionLabel() {
+  return 'Show updates that need your next step'
+}
+
+function attentionEmptyTitle() {
+  return 'Use All if you expected a next step'
+}
+
+function attentionEmptyDetail() {
+  return 'No message needs your next step in this view.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags help entry points that use review for ordinary checks', () => {
     const cwd = fixture({
       'src/app/features/inbox/InboxItem.tsx': `

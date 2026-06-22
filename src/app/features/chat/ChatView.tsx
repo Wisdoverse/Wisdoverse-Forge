@@ -92,10 +92,10 @@ function conversationFilterEmptyCopy(
 
   if (filter === 'attention') {
     return {
-      title: 'Use All if you expected a blocker',
-      detail: 'No message is stuck, failed, waiting, or asking for your help in this view.',
+      title: 'Use All if you expected a next step',
+      detail: 'No message needs your next step in this view.',
       nextStep:
-        'Next: use All to read the full conversation, or send a short follow-up if you expected a blocker.',
+        'Next: use All to read the full conversation, or send a short follow-up if you expected the agent to be waiting for you.',
     }
   }
 
@@ -737,7 +737,7 @@ function conversationFilterActionLabel(filter: ConversationFilter): string {
     case 'tool':
       return 'Show work steps'
     case 'attention':
-      return 'Show stuck, failed, waiting, or help-needed updates'
+      return 'Show updates that need your next step'
   }
 }
 
