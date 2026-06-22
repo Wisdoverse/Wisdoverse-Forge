@@ -206,13 +206,23 @@ export function InboxView() {
           <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
             {loadingSavedNotifications && !loadError
               ? 'Checking for saved updates'
-              : "You're all caught up"}
+              : 'No updates yet'}
           </p>
           <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
             {loadingSavedNotifications && !loadError
               ? 'Forge is checking older notifications. New live updates will still appear here.'
-              : 'Agent updates, finished work, and account access notices will show up here.'}
+              : 'Inbox updates appear after agents start work, finish work, need help, or ask you to reconnect account access.'}
           </p>
+          {!loadingSavedNotifications && !loadError && (
+            <>
+              <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                Next: start a task or wait for an agent update, then open Inbox again.
+              </p>
+              <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                Success looks like a new update listed here with the task name and next step.
+              </p>
+            </>
+          )}
         </div>
         <InboxActionPath compact />
       </div>
