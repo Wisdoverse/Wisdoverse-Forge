@@ -110,6 +110,14 @@ describe('SkillDraftModal', () => {
     expect(screen.getByText(/choose the agents that should follow it/i)).toBeDefined()
     expect(screen.queryByText(/publishing/i)).toBeNull()
     expect(screen.queryByRole('button', { name: /publish instruction/i })).toBeNull()
+    const reusableInstructions = screen.getByLabelText(
+      /^reusable instructions$/i
+    ) as HTMLTextAreaElement
+    expect(reusableInstructions.value).toContain(
+      'Use this instruction when a future task needs the same judgment, steps, or way of working.'
+    )
+    expect(reusableInstructions.value).not.toContain('implementation pattern')
+    expect(reusableInstructions.value).not.toContain('workflow')
 
     await userEvent.setup().click(screen.getByRole('button', { name: /save instruction/i }))
 
