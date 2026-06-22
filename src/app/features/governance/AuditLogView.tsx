@@ -348,7 +348,7 @@ export function AuditLogView() {
               name="scopeId"
               autoComplete="off"
               onChange={(event) => updateFilter('scopeId', event.target.value)}
-              placeholder="Paste a team space, work area, team, or project reference only when an owner or admin gives you one"
+              placeholder="Paste an exact team space, work area, team, or project ID only when an owner or admin gives you one"
               className={INPUT_CLASS}
             />
           </Field>
@@ -358,7 +358,7 @@ export function AuditLogView() {
               name="userId"
               autoComplete="off"
               onChange={(event) => updateFilter('userId', event.target.value)}
-              placeholder="Paste a person reference only when an owner or admin gives you one"
+              placeholder="Paste an exact person ID only when an owner or admin gives you one"
               className={INPUT_CLASS}
             />
           </Field>

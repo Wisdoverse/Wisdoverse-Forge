@@ -9,7 +9,12 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
-import { isHostCliAgent, useAgentsStore, type AgentInfo } from '@app/entities/agent'
+import {
+  isHostCliAgent,
+  LOCAL_AGENT_SETUP_APP_LABEL,
+  useAgentsStore,
+  type AgentInfo,
+} from '@app/entities/agent'
 
 const LOCAL_AGENT_CONTROL_FAILURE = {
   sendInstruction: 'local-send-instruction-failed',
@@ -523,16 +528,14 @@ function hostCliControlSummary(status: AgentInfo['status']): {
   if (status === 'offline') {
     return {
       title: 'Reconnect this computer from Agents',
-      detail:
-        "Use Back to return to Agents, choose Connect this computer, then paste the new setup text in that computer's command app.",
+      detail: `Use Back to return to Agents, choose Connect this computer, then paste the new setup text in ${LOCAL_AGENT_SETUP_APP_LABEL} on that computer.`,
       Icon: AlertTriangle,
     }
   }
 
   return {
     title: 'This computer is connected',
-    detail:
-      "This computer is already connected. Keep that computer's command app open while it works; close that app only when you want it offline.",
+    detail: `This computer is already connected. Keep ${LOCAL_AGENT_SETUP_APP_LABEL} open while it works; close that window only when you want it offline.`,
     Icon: CheckCircle2,
   }
 }
@@ -541,15 +544,13 @@ function hostCliReadyActionInfo(status: AgentInfo['status']): { title: string; d
   if (status === 'offline') {
     return {
       title: 'Use Connect this computer',
-      detail:
-        'Copy the new setup text from Agents, paste it in the work folder on that computer, then come back here to send messages or tasks.',
+      detail: `Copy the new setup text from Agents, paste it in ${LOCAL_AGENT_SETUP_APP_LABEL} on that computer, then come back here to send messages or tasks.`,
     }
   }
 
   return {
     title: 'Keep this computer online',
-    detail:
-      "Keep that computer's command app open while it works. Use this page for quick messages, tracked tasks, or cleanup.",
+    detail: `Keep ${LOCAL_AGENT_SETUP_APP_LABEL} open while it works. Use this page for quick messages, tracked tasks, or cleanup.`,
   }
 }
 

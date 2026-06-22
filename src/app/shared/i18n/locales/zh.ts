@@ -766,15 +766,15 @@ export const zh: TranslationKeys = {
         },
         start_api: {
           title: '请发送消息来启动这个聊天智能体',
-          detail: '聊天智能体会在你发送消息时开始工作，没有需要启动的命令窗口。',
+          detail: '聊天智能体会在你发送消息时开始工作，没有需要打开的本地窗口。',
         },
         stop_host_cli: {
           title: '请在这台电脑上停止连接助手',
-          detail: 'Forge 不能替你停止它。请关闭那台电脑上的命令应用。',
+          detail: 'Forge 不能替你停止它。请关闭那台电脑上的 Terminal 或 PowerShell 窗口。',
         },
         stop_api: {
           title: '请关闭聊天或等待回复结束',
-          detail: '聊天智能体没有需要停止的命令窗口。需要继续时再发送新消息。',
+          detail: '聊天智能体没有需要停止的本地窗口。需要继续时再发送新消息。',
         },
         not_permitted: {
           title: '你不能管理这个智能体',

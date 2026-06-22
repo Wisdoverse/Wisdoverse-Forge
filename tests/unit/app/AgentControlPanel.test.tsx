@@ -283,17 +283,17 @@ describe('AgentControlPanel', () => {
 
     expect(screen.getByText('This computer is connected')).toBeDefined()
     expect(screen.getByText(/this computer is already connected/i)).toBeDefined()
-    expect(screen.getByText(/close that app only when you want it offline/i)).toBeDefined()
+    expect(screen.getByText(/close that window only when you want it offline/i)).toBeDefined()
     expect(screen.queryByText(/setup command/i)).toBeNull()
     expect(screen.queryByText(/connection command/i)).toBeNull()
     expect(screen.queryByText(/bring it online/i)).toBeNull()
     expect(screen.getByText('Keep this computer online')).toBeDefined()
     expect(
       screen.getByText(
-        "Keep that computer's command app open while it works. Use this page for quick messages, tracked tasks, or cleanup."
+        'Keep Terminal or PowerShell open while it works. Use this page for quick messages, tracked tasks, or cleanup.'
       )
     ).toBeDefined()
-    expect(screen.queryByText(/Leave Terminal or PowerShell open/i)).toBeNull()
+    expect(screen.queryByText(/command app/i)).toBeNull()
     expect(screen.queryByRole('button', { name: /start agent/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /restart agent/i })).toBeNull()
     expect(screen.queryByText(/No recovery action needed/i)).toBeNull()
@@ -307,6 +307,7 @@ describe('AgentControlPanel', () => {
     expect(screen.getAllByText(/choose Connect this computer/i).length).toBeGreaterThan(0)
     expect(screen.getByText('Use Connect this computer')).toBeDefined()
     expect(screen.getByText(/copy the new setup text from Agents/i)).toBeDefined()
+    expect(screen.getByText(/paste it in Terminal or PowerShell on that computer/i)).toBeDefined()
     expect(screen.getByText(/come back here to send messages or tasks/i)).toBeDefined()
     expect(screen.queryByText('This computer is offline')).toBeNull()
     expect(

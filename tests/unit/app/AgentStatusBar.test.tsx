@@ -16,9 +16,10 @@ describe('AgentStatusBar', () => {
     ).toBeDefined()
     expect(
       within(emptyState).getByText(
-        "Copy the setup text into this computer's command app and leave it running."
+        'Open Terminal on macOS/Linux or PowerShell on Windows, paste the setup text, and leave that window open.'
       )
     ).toBeDefined()
+    expect(emptyState.textContent).not.toMatch(/command app/i)
     expect(
       within(emptyState).getByText('If an agent already exists, choose Start in Agents.')
     ).toBeDefined()

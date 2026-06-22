@@ -573,7 +573,7 @@ describe('CreateAgentModal', () => {
     ).toBeInTheDocument()
     expect(screen.getAllByText(/tasks, status, and task history/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/Forge gives it tasks/i)).toBeNull()
-    expect(screen.getByText("Paste setup text in this computer's command app")).toBeInTheDocument()
+    expect(screen.getByText('Paste setup text in Terminal or PowerShell')).toBeInTheDocument()
     expect(screen.getByText('Uses this computer')).toBeInTheDocument()
     const localNextStep = screen.getByTestId('local-agent-before-create')
     expect(localNextStep).toHaveTextContent('Before you create this computer agent')
@@ -581,7 +581,7 @@ describe('CreateAgentModal', () => {
       'Choose the folder this computer should work in. If you are not sure, leave it blank.'
     )
     expect(localNextStep).toHaveTextContent(
-      "After you choose Add agent, copy the setup text and paste it into this computer's command app."
+      'After you choose Add agent, copy the setup text and paste it into Terminal or PowerShell on this computer.'
     )
     expect(localNextStep).toHaveTextContent(
       'Success looks like this agent changing to Ready on the Agents page.'
@@ -591,9 +591,10 @@ describe('CreateAgentModal', () => {
     const localReview = screen.getByTestId('agent-create-review')
     expect(
       within(localReview).getByText(
-        "Paste the setup text in this computer's command app and keep that app open."
+        'Paste the setup text in Terminal or PowerShell and keep that window open.'
       )
     ).toBeInTheDocument()
+    expect(screen.queryByText(/command app/i)).toBeNull()
     expect(
       within(localReview).getByText(
         'Forge creates the agent, then shows setup steps for this computer.'
@@ -673,18 +674,19 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText('Connect this computer')).toBeInTheDocument()
     expect(screen.getByText('This computer handles tasks')).toBeInTheDocument()
     expect(screen.queryByText(/agent managed by forge/i)).not.toBeInTheDocument()
-    expect(screen.getByText(/Open that computer's command app/i)).toBeInTheDocument()
+    expect(screen.getByText(/Open Terminal or PowerShell on that computer/i)).toBeInTheDocument()
     expect(
       screen.getByText(/Forge will manage its tasks, status, and history/i)
     ).toBeInTheDocument()
     expect(screen.getByText(/files stay on that computer/i)).toBeInTheDocument()
     expect(screen.getByText('1. Copy the setup text.')).toBeInTheDocument()
-    expect(screen.getByText(/paste it into the command app/i)).toBeInTheDocument()
+    expect(screen.getByText(/paste it into Terminal or PowerShell/i)).toBeInTheDocument()
     expect(
       screen.getByText(/changes from Not connected to Ready on the Agents page/i)
     ).toBeInTheDocument()
-    expect(screen.getByText(/Closing that app disconnects this agent/i)).toBeInTheDocument()
+    expect(screen.getByText(/Closing that window disconnects this agent/i)).toBeInTheDocument()
     expect(screen.getByText(/come back to Forge, open Agents/i)).toBeInTheDocument()
+    expect(screen.queryByText(/command app/i)).toBeNull()
     expect(screen.getByRole('button', { name: /close and watch agents/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^done$/i })).toBeNull()
     expect(screen.queryByText(previousCliInstallCopy)).toBeNull()
@@ -742,18 +744,18 @@ describe('CreateAgentModal', () => {
     ).toBeInTheDocument()
     expect(screen.getByText(/Files stay on that computer/i)).toBeInTheDocument()
     expect(screen.getByTestId('local-agent-paste-hint')).toHaveTextContent(
-      "Open your computer's command app (Terminal on macOS/Linux), then paste this setup text."
+      'Open Terminal on macOS/Linux, then paste this setup text.'
     )
     expect(
       screen.getByText(/choose Add another agent to get fresh setup text/i)
     ).toBeInTheDocument()
     expect(screen.queryByText(/fresh command/i)).toBeNull()
     expect(screen.getByText('1. Copy the setup text.')).toBeInTheDocument()
-    expect(screen.getByText(/paste it into that command app/i)).toBeInTheDocument()
+    expect(screen.getByText(/paste it into that window/i)).toBeInTheDocument()
     expect(
       screen.getByText(/changes from Not connected to Ready on the Agents page/i)
     ).toBeInTheDocument()
-    expect(screen.getByText(/Closing that app disconnects this agent/i)).toBeInTheDocument()
+    expect(screen.getByText(/Closing that window disconnects this agent/i)).toBeInTheDocument()
     expect(screen.getByText(/come back to Forge, open Agents/i)).toBeInTheDocument()
     expect(screen.queryByText(/shows online/i)).toBeNull()
     expect(screen.queryByText(/agent fleet/i)).toBeNull()
@@ -761,15 +763,15 @@ describe('CreateAgentModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /windows/i }))
     expect(oneLiner).toHaveValue(joinCommandPowershell)
     expect(screen.getByTestId('local-agent-paste-hint')).toHaveTextContent(
-      "Open your computer's command app (PowerShell on Windows), then paste this setup text."
+      'Open PowerShell on Windows, then paste this setup text.'
     )
 
     // Backup setup text stays available without exposing advanced connection jargon.
     expect(screen.getByText(/if the setup text does not work/i)).toBeInTheDocument()
     const backupHelp = screen.getByText(/backup setup text/i)
     expect(backupHelp).toBeInTheDocument()
-    expect(backupHelp.textContent).toMatch(/same command app/)
-    expect(backupHelp.textContent).not.toMatch(/same Terminal or PowerShell window/)
+    expect(backupHelp.textContent).toMatch(/same window/)
+    expect(backupHelp.textContent).not.toMatch(/same command app/)
     expect(backupHelp.textContent).not.toMatch(/advanced/i)
     expect(backupHelp.textContent).not.toMatch(/sidecar/i)
     expect(screen.queryByText(/backup setup values/i)).toBeNull()

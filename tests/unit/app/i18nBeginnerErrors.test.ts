@@ -704,4 +704,18 @@ describe('beginner error translations', () => {
     expect(zh.errors.reconnecting).not.toBe('重新连接中...')
     expect(zh.errors.reconnected).not.toBe('连接已恢复')
   })
+
+  test('this-computer lifecycle errors name the exact local window to close', () => {
+    const englishStop = en.errors.agent.lifecycle.stop_host_cli
+    const chineseStop = zh.errors.agent.lifecycle.stop_host_cli
+    const chineseChatStart = zh.errors.agent.lifecycle.start_api
+    const chineseChatStop = zh.errors.agent.lifecycle.stop_api
+
+    expect(englishStop.detail).toContain('Close Terminal or PowerShell on that computer')
+    expect(englishStop.detail).not.toContain('command app')
+    expect(chineseStop.detail).toContain('Terminal 或 PowerShell 窗口')
+    expect(chineseStop.detail).not.toContain('命令应用')
+    expect(chineseChatStart.detail).not.toContain('命令窗口')
+    expect(chineseChatStop.detail).not.toContain('命令窗口')
+  })
 })
