@@ -131,6 +131,7 @@ async fn main() -> Result<()> {
     agentforge_api::services::usage_analytics::register_usage_analytics_metrics();
     agentforge_api::services::project_clone_worker::register_metrics();
     agentforge_api::services::self_fix_pr_worker::register_metrics();
+    agentforge_api::services::self_fix::metrics::register_metrics();
 
     // 3. Create database pool.
     let pool = create_pool(&config).await?;

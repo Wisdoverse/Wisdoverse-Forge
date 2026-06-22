@@ -25,6 +25,8 @@ pub(crate) mod merge_executor;
 #[cfg(any(test, feature = "test-support"))]
 pub mod merge_executor;
 
+pub mod metrics;
+
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -194,13 +196,17 @@ impl SelfFixService {
         //    - `in_review`        → transitionally accepted until that route lands.
         match task.review_status.as_deref() {
             Some(MERGED) => {
+                metrics::record_merge_outcome("already_merged");
                 return Ok(SelfFixMergeResult {
                     pr_number,
                     merged_head_sha: recorded_head_sha.to_string(),
                     already_merged: true,
                 });
             }
-            Some(SENSITIVE_BLOCKED) => return Err(SelfFixPolicy::sensitive_path_blocked()),
+            Some(SENSITIVE_BLOCKED) => {
+                metrics::record_merge_outcome("sensitive_blocked");
+                return Err(SelfFixPolicy::sensitive_path_blocked());
+            }
             Some(APPROVED) | Some(IN_REVIEW) => {}
             _ => return Err(SelfFixPolicy::not_approved_for_merge()),
         }
@@ -216,7 +222,19 @@ impl SelfFixService {
 
         // 4. Run the git-only guarded merge. NOTHING merges on a gate failure.
         let req = MergeRequest { pr_number, recorded_head_sha, sensitive };
-        let outcome = run_merge_executor(github.as_ref(), &req, &audit_body).await?;
+        let outcome = match run_merge_executor(github.as_ref(), &req, &audit_body).await {
+            Ok(outcome) => {
+                // Record before the DB persist so the metric is always emitted
+                // even if the subsequent write fails.
+                let label = if outcome.already_merged { "already_merged" } else { "merged" };
+                metrics::record_merge_outcome(label);
+                outcome
+            }
+            Err(err) => {
+                metrics::record_merge_failure(&err);
+                return Err(err);
+            }
+        };
 
         // 5. Persist MERGED only after a confirmed merge (or idempotent success).
         self.tasks.set_review_status(scope, task_id, MERGED).await?;
