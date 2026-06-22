@@ -135,6 +135,7 @@ impl AppState {
             Arc::new(MemoryMetricsStore::new(task_store.clone(), review_store.clone(), Some(agent_directory.clone())));
         state.task_store = Some(task_store);
         state.review_store = Some(review_store);
+        state.audit_store = Some(Arc::new(MemoryAuditStore::new()));
         state.agent_directory = Some(agent_directory);
         state.metrics_store = Some(metrics_store);
         state
