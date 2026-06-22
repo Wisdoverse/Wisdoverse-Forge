@@ -1,0 +1,106 @@
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
+import { ControlPlanePanel } from '@app/features/admin/ControlPlanePanel'
+import { useAdminStore } from '@app/shared/model/admin.store'
+import type { OrgControlPlaneSnapshot } from '@app/shared/model/admin.store'
+
+const originalState = useAdminStore.getState()
+
+const mockSnapshot: OrgControlPlaneSnapshot = {
+  assignmentOutboxBacklog: 3,
+  assignmentOutboxOldestAgeSeconds: 45,
+  staleParticipants: 1,
+  expiredWorkingLeases: 2,
+  busyParticipantsWithoutWork: 0,
+  workingTasksWithoutBusyParticipant: 4,
+  staleAfterSeconds: 90,
+}
+
+beforeEach(() => {
+  useAdminStore.setState({
+    ...originalState,
+    controlPlane: null,
+    controlPlaneLoading: false,
+    controlPlaneError: null,
+    loadControlPlane: vi.fn().mockResolvedValue(undefined),
+  })
+})
+
+afterEach(() => {
+  cleanup()
+  useAdminStore.setState(originalState, true)
+  vi.restoreAllMocks()
+})
+
+describe('ControlPlanePanel', () => {
+  test('renders the six signal labels and values from a mocked snapshot', () => {
+    useAdminStore.setState({ controlPlane: mockSnapshot })
+
+    render(<ControlPlanePanel />)
+
+    // Six wedge-signal labels
+    expect(screen.getByText('Unpublished assignment events')).toBeDefined()
+    expect(screen.getByText('Oldest unpublished event (s)')).toBeDefined()
+    expect(screen.getByText('Stale participants')).toBeDefined()
+    expect(screen.getByText('Expired working leases')).toBeDefined()
+    expect(screen.getByText('Busy agents without work')).toBeDefined()
+    expect(screen.getByText('Working tasks without a busy agent')).toBeDefined()
+
+    // Values are rendered (non-zero warns, zero stays neutral — both visible)
+    expect(screen.getByText('3')).toBeDefined()
+    expect(screen.getByText('45s')).toBeDefined()
+    expect(screen.getByText('1')).toBeDefined()
+    expect(screen.getByText('2')).toBeDefined()
+    expect(screen.getByText('0')).toBeDefined()
+    expect(screen.getByText('4')).toBeDefined()
+
+    // staleAfterSeconds context
+    expect(screen.getByText(/stale threshold/i)).toBeDefined()
+    expect(screen.getByText(/90s/)).toBeDefined()
+
+    // Queue-depth omission note is present
+    expect(screen.getByText(/queue depth/i)).toBeDefined()
+    expect(screen.getByText(/\/metrics/)).toBeDefined()
+  })
+
+  test('renders the error string when controlPlaneError is set', () => {
+    useAdminStore.setState({
+      controlPlane: null,
+      controlPlaneLoading: false,
+      controlPlaneError:
+        'Open Admin and choose Control Plane, then try again. Forge could not load the control-plane snapshot.',
+    })
+
+    render(<ControlPlanePanel />)
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toBeDefined()
+    // The controlPlaneErrorMessage transformer wraps the stored string
+    expect(alert.textContent).toBeTruthy()
+  })
+
+  test('a malformed or partial payload does not crash — zeros via numeric coercion', () => {
+    // Simulate store already having applied num() coercion on a bad payload:
+    // every field defaults to 0 when the raw value was missing/NaN.
+    const zeroed: OrgControlPlaneSnapshot = {
+      assignmentOutboxBacklog: 0,
+      assignmentOutboxOldestAgeSeconds: 0,
+      staleParticipants: 0,
+      expiredWorkingLeases: 0,
+      busyParticipantsWithoutWork: 0,
+      workingTasksWithoutBusyParticipant: 0,
+      staleAfterSeconds: 0,
+    }
+    useAdminStore.setState({ controlPlane: zeroed })
+
+    // Should not throw
+    expect(() => render(<ControlPlanePanel />)).not.toThrow()
+
+    // All six rows render their labels
+    expect(screen.getByText('Unpublished assignment events')).toBeDefined()
+    expect(screen.getByText('Stale participants')).toBeDefined()
+    expect(screen.getByText('Expired working leases')).toBeDefined()
+    expect(screen.getByText('Busy agents without work')).toBeDefined()
+    expect(screen.getByText('Working tasks without a busy agent')).toBeDefined()
+  })
+})

@@ -5,7 +5,13 @@ import { getAuthFetch } from '@app/shared/api/legacy'
 // Types
 // ============================================================================
 
-export type AdminSection = 'users' | 'organizations' | 'agents' | 'health' | 'cli-images'
+export type AdminSection =
+  | 'users'
+  | 'organizations'
+  | 'agents'
+  | 'health'
+  | 'cli-images'
+  | 'control-plane'
 
 /**
  * Canonical runtime-kind discriminator. Mirrors `AgentRuntimeKind` from
@@ -72,6 +78,35 @@ export interface SystemHealth {
   }
   uptime?: number
   version?: string
+}
+
+/**
+ * Org-scoped orchestration control-plane health snapshot.
+ *
+ * Mirrors the `OrgControlPlaneSnapshot` Rust struct (camelCase keys via
+ * `serde(rename_all = "camelCase")`). Reproduces the "is a loop wedged" signals
+ * the `OrchestrationMetricsWorker` emits as GLOBAL Prometheus gauges, but
+ * scoped to the caller's org via the `GET /api/v1/admin/control-plane` endpoint.
+ *
+ * NOTE: `job_queue` depth is intentionally absent — that table has no
+ * `organization_id` column so a per-org queue depth would be a lie. See
+ * `/metrics` for the platform-global queue gauges.
+ */
+export interface OrgControlPlaneSnapshot {
+  /** Unpublished `assignment` outbox events for this org (relay backlog). */
+  assignmentOutboxBacklog: number
+  /** Age (seconds) of the oldest unpublished `assignment` outbox event; 0 when none. */
+  assignmentOutboxOldestAgeSeconds: number
+  /** Non-offline participants with no recent heartbeat. */
+  staleParticipants: number
+  /** `working` tasks whose lease has expired. */
+  expiredWorkingLeases: number
+  /** `busy` participants with no matching `working` task. */
+  busyParticipantsWithoutWork: number
+  /** `working` tasks whose assigned agent is not `busy`. */
+  workingTasksWithoutBusyParticipant: number
+  /** The participant-staleness threshold (seconds) used for `staleParticipants`. */
+  staleAfterSeconds: number
 }
 
 /**
@@ -217,6 +252,11 @@ interface AdminState {
   // claude local image build (image-level; never touches running agents)
   cliImageBuildError: string | null
 
+  // Control plane
+  controlPlane: OrgControlPlaneSnapshot | null
+  controlPlaneLoading: boolean
+  controlPlaneError: string | null
+
   // Actions
   setActiveSection: (section: AdminSection) => void
   setUserSearch: (search: string) => void
@@ -276,9 +316,17 @@ interface AdminState {
    * `cliImageBuildError`). Image-level only; running agents are untouched.
    */
   buildClaudeImage: () => Promise<boolean>
+
+  loadControlPlane: () => Promise<void>
 }
 
-type AdminResource = 'users' | 'organizations' | 'agents' | 'health' | 'cli-images'
+type AdminResource =
+  | 'users'
+  | 'organizations'
+  | 'agents'
+  | 'health'
+  | 'cli-images'
+  | 'control-plane'
 
 class AdminUserFacingError extends Error {}
 
@@ -316,6 +364,8 @@ function adminResourceLabel(resource: AdminResource): string {
       return 'system health'
     case 'cli-images':
       return 'agent tool updates'
+    case 'control-plane':
+      return 'control-plane snapshot'
   }
 }
 
@@ -331,6 +381,8 @@ function adminResourceSectionLabel(resource: AdminResource): string {
       return 'App health'
     case 'cli-images':
       return 'Agent tool updates'
+    case 'control-plane':
+      return 'Control Plane'
   }
 }
 
@@ -493,6 +545,10 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   cliImageRollError: null,
 
   cliImageBuildError: null,
+
+  controlPlane: null,
+  controlPlaneLoading: false,
+  controlPlaneError: null,
 
   setActiveSection: (activeSection) => set({ activeSection }),
   setUserSearch: (userSearch) => set({ userSearch }),
@@ -799,6 +855,51 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       patchClaudeBuilding(false)
       set({ cliImageBuildError: adminErrorMessage(err, 'cli-images') })
       return false
+    }
+  },
+
+  // ---------------------------------------------------------------------------
+  // Control plane snapshot
+  // ---------------------------------------------------------------------------
+
+  loadControlPlane: async () => {
+    set({ controlPlaneLoading: true, controlPlaneError: null })
+    try {
+      const res = await adminFetch('/api/v1/admin/control-plane')
+      const body = (await res.json().catch(() => null)) as {
+        ok?: boolean
+        data?: Partial<OrgControlPlaneSnapshot>
+      } | null
+      if (!res.ok || !body || body.ok === false || !body.data) {
+        throw userFacingError(
+          adminHttpErrorMessage(
+            'control-plane',
+            res.status,
+            (body ?? {}) as Record<string, unknown>
+          )
+        )
+      }
+      const d = body.data
+      // Coerce every field to a finite number so a malformed payload cannot
+      // crash the panel.
+      const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
+      set({
+        controlPlane: {
+          assignmentOutboxBacklog: num(d.assignmentOutboxBacklog),
+          assignmentOutboxOldestAgeSeconds: num(d.assignmentOutboxOldestAgeSeconds),
+          staleParticipants: num(d.staleParticipants),
+          expiredWorkingLeases: num(d.expiredWorkingLeases),
+          busyParticipantsWithoutWork: num(d.busyParticipantsWithoutWork),
+          workingTasksWithoutBusyParticipant: num(d.workingTasksWithoutBusyParticipant),
+          staleAfterSeconds: num(d.staleAfterSeconds),
+        },
+        controlPlaneLoading: false,
+      })
+    } catch (err) {
+      set({
+        controlPlaneLoading: false,
+        controlPlaneError: adminErrorMessage(err, 'control-plane'),
+      })
     }
   },
 }))
