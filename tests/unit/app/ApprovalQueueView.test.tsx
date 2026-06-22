@@ -206,7 +206,7 @@ describe('ApprovalQueueView', () => {
     expect(saveButton).toBeDisabled()
     expect(saveButton).toHaveAttribute(
       'title',
-      'Load saved items again, then save after the original task details load.'
+      'Check saved items again, then save after the original task details load.'
     )
   })
 
@@ -285,7 +285,9 @@ describe('ApprovalQueueView', () => {
 
     const error = await screen.findByRole('alert')
     expect(error).toHaveAttribute('data-testid', 'context-approval-error')
-    expect(error.textContent).toContain('Check your connection, then choose Load saved items again')
+    expect(error.textContent).toContain(
+      'Check your connection, then choose Check saved items again'
+    )
     expect(error.textContent).toContain(
       'Forge could not connect while loading saved notes and instructions'
     )
@@ -304,7 +306,7 @@ describe('ApprovalQueueView', () => {
 
     const error = await screen.findByRole('alert')
     expect(error).toHaveAttribute('data-testid', 'context-approval-error')
-    expect(error.textContent).toContain('Choose Load saved items again, then open this item')
+    expect(error.textContent).toContain('Choose Check saved items again, then open this item')
     expect(error.textContent).toContain('It changed while you were checking it')
     expect(error.textContent).not.toContain('Refresh the list')
     expect(error.textContent).not.toContain('Code:')
