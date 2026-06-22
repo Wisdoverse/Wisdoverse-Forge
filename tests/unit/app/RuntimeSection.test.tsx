@@ -514,7 +514,7 @@ describe('RuntimeSection', () => {
     expect(alert).toHaveTextContent(
       /Forge could not connect while checking the Codex sign-in page/i
     )
-    expect(screen.getByText(/Choose Check again to refresh work tool sign-ins/i)).toBeDefined()
+    expect(screen.getByText(/Choose Check again to check work tool sign-ins/i)).toBeDefined()
     expect(screen.queryByText(/^Work tool sign-ins could not be checked/i)).toBeNull()
     expect(screen.queryByText(/failed to fetch/i)).toBeNull()
     expect(screen.queryByText(/app could not reach/i)).toBeNull()
@@ -529,7 +529,7 @@ describe('RuntimeSection', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(/sign in again/i)
-    expect(screen.getByText(/Choose Check again to refresh agent online status/i)).toBeDefined()
+    expect(screen.getByText(/Choose Check again to check agent online status/i)).toBeDefined()
     expect(screen.queryByText(/^Agent online status could not be checked/i)).toBeNull()
     expect(screen.queryByText(/code: 401/i)).toBeNull()
     expect(screen.queryByText(/Code:/i)).toBeNull()
