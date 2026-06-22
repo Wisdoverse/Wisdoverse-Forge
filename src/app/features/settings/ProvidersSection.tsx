@@ -328,7 +328,7 @@ const FALLBACK_SUPPORTED_PROVIDERS: ProviderInfo[] = [
     defaultBaseUrl: 'http://litellm:4000',
     requiresApiKey: true,
     allowCustomModels: true,
-    models: [{ model: 'gpt-4o-mini', displayName: 'Suggested setup: gpt-4o-mini' }],
+    models: [{ model: 'gpt-4o-mini', displayName: 'Suggested service choice: gpt-4o-mini' }],
   },
   {
     provider: 'openai_compatible',
@@ -418,10 +418,10 @@ function providerFormReadiness({
   if (!form.model.trim()) {
     return {
       ready: false,
-      title: 'Next: choose the service setup',
+      title: 'Next: choose the service choice',
       detail:
-        'Keep the suggested setup unless your service guide gives you a different setup name.',
-      error: 'Choose the service setup before saving this AI service.',
+        'Keep the suggested service choice unless your service guide gives you a different choice name.',
+      error: 'Choose the service choice before saving this AI service.',
       fieldId: modelInputId,
     }
   }
@@ -473,15 +473,15 @@ function discoverySetupMessage({
   const missingBaseUrl = needsBaseUrl && !baseUrl.trim()
 
   if (missingApiKey && missingBaseUrl) {
-    return 'Paste the service access key and service address first, then choose Show setup choices. You can also keep the suggested setup and save.'
+    return 'Paste the service access key and service address first, then choose Show service choices. You can also keep the suggested service choice and save.'
   }
 
   if (missingApiKey) {
-    return 'Paste the service access key first, then choose Show setup choices. You can also keep the suggested setup and save.'
+    return 'Paste the service access key first, then choose Show service choices. You can also keep the suggested service choice and save.'
   }
 
   if (missingBaseUrl) {
-    return 'Enter the service address first, then choose Show setup choices. You can also keep the suggested setup and save.'
+    return 'Enter the service address first, then choose Show service choices. You can also keep the suggested service choice and save.'
   }
 
   return null
@@ -862,7 +862,7 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
               />
             )}
             <h3 className={uiStyles.sectionTitle}>
-              {allReady ? 'AI services ready for agent creation' : 'Finish AI service setup'}
+              {allReady ? 'AI services ready for agent creation' : 'Finish adding AI service'}
             </h3>
           </div>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
@@ -1058,9 +1058,9 @@ type PlanVariant = 'api' | 'coding'
 type RegionVariant = 'cn' | 'global'
 
 /**
- * Clickable quick-pick chips for a provider's common setup choices. Surfaces the
+ * Clickable quick-pick chips for a provider's common service choices. Surfaces the
  * curated setup list directly (the `<datalist>` alone is easy to miss) while
- * the text input still accepts any custom setup name. The chip matching the
+ * the text input still accepts any custom choice name. The chip matching the
  * current value is highlighted.
  */
 function ModelQuickPicks({
@@ -1078,7 +1078,7 @@ function ModelQuickPicks({
     <div
       className="mb-1.5 flex flex-wrap gap-1.5"
       role="group"
-      aria-label="Suggested service setups"
+      aria-label="Suggested service choices"
     >
       {models.map((m) => {
         const active = m.model === current
@@ -1123,12 +1123,12 @@ function useModelDiscovery() {
       setDiscovered(result)
       if (result.source === 'curated' || result.models.length === 0) {
         setError(
-          'Could not load setup choices from the service. Showing built-in choices — pick one below, or type the setup name from your guide.'
+          'Could not load service choices from the service. Showing built-in choices — pick one below, or type the choice name from your guide.'
         )
       }
     } catch {
       setError(
-        'Could not reach the service to show setup choices. Check the access key, then choose Show setup choices again — or pick a built-in choice below.'
+        'Could not reach the service to show choices. Check the access key, then choose Show service choices again — or pick a built-in choice below.'
       )
     } finally {
       setDiscovering(false)
@@ -1148,7 +1148,7 @@ function useModelDiscovery() {
   return { discovered, discovering, error, discover, guide, reset }
 }
 
-/** "Show setup choices" affordance + live/curated status line. */
+/** "Show service choices" affordance + live/curated status line. */
 function DiscoverModelsControl({
   discovering,
   discovered,
@@ -1171,11 +1171,11 @@ function DiscoverModelsControl({
           'text-apple-blue hover:border-apple-blue/40 disabled:cursor-not-allowed disabled:opacity-60'
         )}
       >
-        {discovering ? 'Finding choices…' : 'Show setup choices'}
+        {discovering ? 'Finding choices…' : 'Show service choices'}
       </button>
       {discovered?.source === 'live' && !error && (
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Live setup choices from the service.
+          Live service choices from the service.
         </span>
       )}
       {error && (
@@ -1236,7 +1236,7 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
   const missingApiKey = needsApiKey && !apiKey.trim()
   const ready = Boolean(variant) && !missingModel && !missingApiKey
   const statusTitle = missingModel
-    ? 'Next: choose the service setup'
+    ? 'Next: choose the service choice'
     : missingApiKey
       ? 'Next: paste the service access key'
       : 'Ready to save this service'
@@ -1308,7 +1308,7 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
             {vendor.displayName}
           </p>
           <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Forge fills in the setup choices for you. Paste the service access key and save. After
+            Forge fills in the service choices for you. Paste the service access key and save. After
             saving, choose Check connection. You are done when it shows Ready.
           </p>
         </div>
@@ -1352,10 +1352,11 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
         {/* Model */}
         <div>
           <label htmlFor={modelInputId} className={uiStyles.label}>
-            Service setup
+            Service choice
           </label>
           <p className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Keep the suggested setup unless your service guide gives you a different setup name.
+            Keep the suggested service choice unless your service guide gives you a different choice
+            name.
           </p>
           {allowCustomModels ? (
             <>
@@ -1372,7 +1373,7 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
                 name="model"
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
-                placeholder={variant?.defaultModel ?? 'e.g. setup name…'}
+                placeholder={variant?.defaultModel ?? 'e.g. service choice…'}
                 list={models.length > 0 ? modelListId : undefined}
                 autoComplete="off"
                 aria-invalid={modelError}
@@ -1408,7 +1409,7 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
           )}
           {modelError && (
             <p className="mt-1 text-ui-caption text-apple-red">
-              Choose the service setup before saving this AI service.
+              Choose the service choice before saving this AI service.
             </p>
           )}
         </div>
@@ -1719,13 +1720,14 @@ function AddProviderFormPanel({
         {/* Model */}
         <div>
           <label htmlFor={modelInputId} className={uiStyles.label}>
-            Service setup
+            Service choice
           </label>
           <p
             id={modelHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Keep the suggested setup unless your service guide gives you a different setup name.
+            Keep the suggested service choice unless your service guide gives you a different choice
+            name.
           </p>
           {(selectedProvider?.allowCustomModels ?? true) ? (
             <>
@@ -2025,8 +2027,8 @@ function AddProviderPanel({
         ) : (
           <>
             <p className="px-4 pt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Pick a known AI service. Forge fills in the setup choices for you. If your setup guide
-              gives you a private address, choose Custom service address.
+              Pick a known AI service. Forge fills in the service choices for you. If your service
+              guide gives you a private address, choose Custom service address.
             </p>
             <CatalogGrid
               vendors={vendors}

@@ -329,7 +329,7 @@ function settingsValidationMessage(
       return 'Paste the service access key from the selected AI service, then save again.'
     }
     if (normalized.includes('model')) {
-      return 'Keep the suggested service setup or choose the model name from your service guide, then save again.'
+      return 'Keep the suggested service choice or choose the choice name from your service guide, then save again.'
     }
     if (normalized.includes('base url') || normalized.includes('base_url')) {
       return 'Add the service address for this AI service, then save again.'
@@ -337,7 +337,7 @@ function settingsValidationMessage(
     if (normalized.includes('provider')) {
       return 'Choose an AI service from the list, then save again.'
     }
-    return 'Choose the AI service, keep the suggested setup, add the service access key if needed, then save again.'
+    return 'Choose the AI service, keep the suggested service choice, add the service access key if needed, then save again.'
   }
 
   if (area === 'apiKeys') {

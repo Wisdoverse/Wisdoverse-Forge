@@ -332,16 +332,16 @@ describe('ProvidersSection', () => {
     expect(within(serviceChoices).getByRole('button', { name: /anthropic/i })).toBeDefined()
     fireEvent.click(within(serviceChoices).getByRole('button', { name: /anthropic/i }))
 
-    expect(screen.getByLabelText(/^service setup$/i)).toHaveValue('claude-sonnet-4-20250514')
+    expect(screen.getByLabelText(/^service choice$/i)).toHaveValue('claude-sonnet-4-20250514')
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
       /next: paste the service access key/i
     )
-    expect(screen.getAllByText(/Forge fills in the setup choices for you/i).length).toBeGreaterThan(
-      0
-    )
+    expect(
+      screen.getAllByText(/Forge fills in the service choices for you/i).length
+    ).toBeGreaterThan(0)
     expect(screen.queryByText(/technical service details/i)).toBeNull()
     expect(screen.getByText(/paste the service access key and save/i)).toBeDefined()
-    expect(screen.getByText(/keep the suggested setup unless your service guide/i)).toBeDefined()
+    expect(screen.getByText(/keep the suggested service choice unless/i)).toBeDefined()
     expect(screen.getByText(/some services call this an API key/i)).toBeDefined()
     expect(screen.getByText(/do not paste the sign-in password/i)).toBeDefined()
     expect(screen.getByText(/After saving, choose Check connection/i)).toBeDefined()
@@ -417,7 +417,7 @@ describe('ProvidersSection', () => {
     expect(within(providerSelect).queryByRole('option', { name: 'Anthropic' })).toBeNull()
     expect(within(providerSelect).queryByRole('option', { name: 'Zhipu GLM' })).toBeNull()
     fireEvent.change(providerSelect, { target: { value: 'litellm' } })
-    expect(screen.getByRole('button', { name: /suggested setup: gpt-4o-mini/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /suggested service choice: gpt-4o-mini/i })).toBeDefined()
     expect(screen.queryByText(/gateway alias/i)).toBeNull()
     expect(screen.getByLabelText(/service address/i)).toBeDefined()
     expect(screen.queryByLabelText(/^private key/i)).toBeNull()
@@ -444,7 +444,7 @@ describe('ProvidersSection', () => {
     render(<ProvidersSection />)
 
     const readiness = await screen.findByTestId('provider-readiness')
-    expect(within(readiness).getByText('Finish AI service setup')).toBeDefined()
+    expect(within(readiness).getByText('Finish adding AI service')).toBeDefined()
     expect(
       within(readiness).getByText(/Enable or add an AI service before agents can use one/i)
     ).toBeDefined()
@@ -514,7 +514,7 @@ describe('ProvidersSection', () => {
     expect(within(nextStep).queryByText(/choose Create Agent/i)).toBeNull()
   })
 
-  test('collapses coding-plan variants into one vendor with beginner-friendly setup choices', async () => {
+  test('collapses coding-plan variants into one vendor with beginner-friendly service choices', async () => {
     useSettingsStore.setState({ providers: [] })
 
     render(<ProvidersSection />)
@@ -537,7 +537,7 @@ describe('ProvidersSection', () => {
     expect(within(zhipuChoice).queryByText(/china\/global address/i)).toBeNull()
     fireEvent.click(zhipuChoice)
 
-    expect(screen.getByLabelText(/^service setup$/i)).toHaveValue('glm-4.7')
+    expect(screen.getByLabelText(/^service choice$/i)).toHaveValue('glm-4.7')
     expect(screen.getByRole('group', { name: /^service plan$/i })).toBeDefined()
     expect(screen.getByRole('group', { name: /^service website region$/i })).toBeDefined()
     expect(screen.getByRole('button', { name: /^standard$/i })).toBeDefined()
@@ -576,22 +576,22 @@ describe('ProvidersSection', () => {
     const serviceChoices = screen.getByRole('group', { name: /known AI services/i })
     fireEvent.click(within(serviceChoices).getByRole('button', { name: /anthropic/i }))
 
-    const chips = screen.getByRole('group', { name: /suggested service setups/i })
+    const chips = screen.getByRole('group', { name: /suggested service choices/i })
     const chipButtons = within(chips).getAllByRole('button')
     expect(chipButtons.length).toBeGreaterThan(0)
 
-    // Click the last chip and confirm it fills the free-text setup field with
-    // that chip's exact setup id (the chip title) and marks itself selected.
+    // Click the last chip and confirm it fills the free-text choice field with
+    // that chip's exact choice id (the chip title) and marks itself selected.
     const target = chipButtons[chipButtons.length - 1]
     const modelId = target.getAttribute('title') ?? ''
     expect(modelId).not.toBe('')
     fireEvent.click(target)
 
-    expect(screen.getByLabelText(/^service setup$/i)).toHaveValue(modelId)
+    expect(screen.getByLabelText(/^service choice$/i)).toHaveValue(modelId)
     expect(target).toHaveAttribute('aria-pressed', 'true')
   })
 
-  test('Show setup choices swaps curated chips for the live list', async () => {
+  test('Show service choices swaps curated chips for the live list', async () => {
     useSettingsStore.setState({ providers: [] })
     settingsApiMock.discoverModels.mockResolvedValue({
       provider: 'anthropic',
@@ -610,7 +610,7 @@ describe('ProvidersSection', () => {
       target: { value: 'sk-test' },
     })
 
-    fireEvent.click(screen.getByRole('button', { name: /show setup choices/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show service choices/i }))
 
     await waitFor(() =>
       expect(settingsApiMock.discoverModels).toHaveBeenCalledWith({
@@ -620,15 +620,15 @@ describe('ProvidersSection', () => {
       })
     )
 
-    // The live setup now appears as a clickable chip and fills the field.
-    const chips = screen.getByRole('group', { name: /suggested service setups/i })
+    // The live choice now appears as a clickable chip and fills the field.
+    const chips = screen.getByRole('group', { name: /suggested service choices/i })
     const liveChip = await within(chips).findByRole('button', { name: /claude live xyz/i })
     fireEvent.click(liveChip)
-    expect(screen.getByLabelText(/^service setup$/i)).toHaveValue('claude-live-xyz')
-    expect(screen.getByText(/live setup choices from the service/i)).toBeDefined()
+    expect(screen.getByLabelText(/^service choice$/i)).toHaveValue('claude-live-xyz')
+    expect(screen.getByText(/live service choices from the service/i)).toBeDefined()
   })
 
-  test('Show setup choices guides users before calling the service when setup is missing', async () => {
+  test('Show service choices guides users before calling the service when setup is missing', async () => {
     useSettingsStore.setState({ providers: [] })
 
     render(<ProvidersSection />)
@@ -638,7 +638,7 @@ describe('ProvidersSection', () => {
 
     const serviceChoices = screen.getByRole('group', { name: /known AI services/i })
     fireEvent.click(within(serviceChoices).getByRole('button', { name: /anthropic/i }))
-    fireEvent.click(screen.getByRole('button', { name: /show setup choices/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show service choices/i }))
 
     expect(settingsApiMock.discoverModels).not.toHaveBeenCalled()
     expect(screen.getByText(/Paste the service access key first/i)).toBeDefined()
@@ -647,7 +647,7 @@ describe('ProvidersSection', () => {
     fireEvent.change(screen.getByLabelText(/^AI service$/i), {
       target: { value: 'openai_compatible' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /show setup choices/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show service choices/i }))
 
     expect(settingsApiMock.discoverModels).not.toHaveBeenCalled()
     expect(

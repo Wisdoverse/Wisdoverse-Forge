@@ -153,7 +153,7 @@ describe('settingsActionErrorMessage', () => {
   test('turns field validation details into a provider setup step', () => {
     expectBeginnerError(
       settingsActionErrorMessage('providers', 'save', statusError(422, 'model is required')),
-      'Keep the suggested service setup or choose the model name from your service guide, then save again.'
+      'Keep the suggested service choice or choose the choice name from your service guide, then save again.'
     )
   })
 

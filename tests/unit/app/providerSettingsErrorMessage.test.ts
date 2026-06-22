@@ -21,7 +21,7 @@ describe('providerSettingsErrorMessage', () => {
   test('turns missing model errors into a model step', () => {
     expectBeginnerMessage(
       providerSettingsErrorMessage('HTTP 422: model is required'),
-      'Keep the suggested service setup or choose the model name from your service guide, then save again.'
+      'Keep the suggested service choice or choose the choice name from your service guide, then save again.'
     )
   })
 

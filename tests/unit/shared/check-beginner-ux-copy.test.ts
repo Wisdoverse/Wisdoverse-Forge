@@ -792,6 +792,9 @@ function ModelQuickPicks() {
 function ProviderCard({ testing }) {
   return <span>{testing ? 'Checking' : 'Check'}</span>
 }
+function SetupChoiceCopy() {
+  return 'Service setup. Show setup choices. Suggested service setups. Keep the suggested setup unless your service guide gives you a different setup name.'
+}
 `,
       'src/app/features/agents/CreateAgentModal.tsx': `
 function CreateAgentModal() {
@@ -865,6 +868,10 @@ function settingsValidationMessage() {
         }),
         expect.objectContaining({
           type: 'provider-setup-copy',
+          location: 'src/app/features/settings/ProvidersSection.tsx:28',
+        }),
+        expect.objectContaining({
+          type: 'provider-setup-copy',
           location: 'src/app/features/agents/CreateAgentModal.tsx:3',
         }),
         expect.objectContaining({
@@ -903,10 +910,10 @@ const PROVIDER_SETUP_STEPS = [
   { label: 'Save, then make it ready', value: 'After saving, choose Check connection. You are done when it shows Ready.' },
 ]
 function CatalogPanel() {
-  return 'Forge fills in the setup choices for you. After saving, choose Check connection. You are done when it shows Ready.'
+  return 'Forge fills in the service choices for you. After saving, choose Check connection. You are done when it shows Ready.'
 }
 function ModelField() {
-  return 'Service setup. Keep the suggested setup unless your service guide gives you a different setup name.'
+  return 'Service choice. Keep the suggested service choice unless your service guide gives you a different choice name.'
 }
 function RegionToggle() {
   return 'Service website region'
@@ -915,7 +922,7 @@ function CatalogGrid() {
   return 'Standard setup · Coding plan · China or global website address'
 }
 function ModelQuickPicks() {
-  return 'Suggested setup: gpt-4o-mini'
+  return 'Suggested service choice: gpt-4o-mini'
 }
 `,
       'src/app/features/agents/CreateAgentModal.tsx': `
@@ -945,12 +952,12 @@ function providerTestErrorMessage() {
 `,
       'src/app/features/settings/providerSettingsErrorMessage.ts': `
 function providerSettingsErrorMessage() {
-  return 'Keep the suggested service setup or choose the setup name from your service guide, then save again.'
+  return 'Keep the suggested service choice or choose the choice name from your service guide, then save again.'
 }
 `,
       'src/app/shared/model/settings.store.ts': `
 function settingsValidationMessage() {
-  return 'Choose the AI service, keep the suggested setup, add the service access key if needed, then save again.'
+  return 'Choose the AI service, keep the suggested service choice, add the service access key if needed, then save again.'
 }
 `,
     })
@@ -10830,7 +10837,7 @@ export function RuntimeSection() {
 `,
       'src/app/features/settings/ProvidersSection.tsx': `
 export function ProvidersSection() {
-  return <h3>AI service setup needs attention</h3>
+  return <h3>AI service needs attention</h3>
 }
 `,
       'src/app/features/admin/CliImagesPanel.tsx': `
@@ -10972,7 +10979,7 @@ export function RuntimeSection() {
 `,
       'src/app/features/settings/ProvidersSection.tsx': `
 export function ProvidersSection() {
-  return <h3>Finish AI service setup</h3>
+  return <h3>Finish adding AI service</h3>
 }
 `,
       'src/app/features/admin/CliImagesPanel.tsx': `
