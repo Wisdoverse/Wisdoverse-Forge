@@ -103,6 +103,27 @@ pub struct AddCommentRequest {
     pub line: Option<i32>,
 }
 
+/// Returns `true` if transitioning from `from` to `to` is a legal state-machine step.
+///
+/// Legal transitions:
+/// - `Pending -> InReview`
+/// - `Pending -> Approved | ChangesRequested | Rejected`
+/// - `InReview -> Approved | ChangesRequested | Rejected`
+///
+/// Terminal states (`Approved`, `ChangesRequested`, `Rejected`) accept no outbound transitions.
+pub fn can_transition(from: ReviewState, to: ReviewState) -> bool {
+    matches!(
+        (from, to),
+        (ReviewState::Pending, ReviewState::InReview)
+            | (ReviewState::Pending, ReviewState::Approved)
+            | (ReviewState::Pending, ReviewState::ChangesRequested)
+            | (ReviewState::Pending, ReviewState::Rejected)
+            | (ReviewState::InReview, ReviewState::Approved)
+            | (ReviewState::InReview, ReviewState::ChangesRequested)
+            | (ReviewState::InReview, ReviewState::Rejected)
+    )
+}
+
 #[derive(Debug, Clone)]
 pub struct ReviewFilter {
     pub org_id: String,
@@ -110,4 +131,80 @@ pub struct ReviewFilter {
     pub state: Option<ReviewState>,
     pub limit: usize,
     pub offset: usize,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ReviewState, can_transition};
+
+    #[test]
+    fn pending_to_in_review_allowed() {
+        assert!(can_transition(ReviewState::Pending, ReviewState::InReview));
+    }
+
+    #[test]
+    fn pending_to_approved_allowed() {
+        assert!(can_transition(ReviewState::Pending, ReviewState::Approved));
+    }
+
+    #[test]
+    fn pending_to_changes_requested_allowed() {
+        assert!(can_transition(ReviewState::Pending, ReviewState::ChangesRequested));
+    }
+
+    #[test]
+    fn pending_to_rejected_allowed() {
+        assert!(can_transition(ReviewState::Pending, ReviewState::Rejected));
+    }
+
+    #[test]
+    fn in_review_to_approved_allowed() {
+        assert!(can_transition(ReviewState::InReview, ReviewState::Approved));
+    }
+
+    #[test]
+    fn in_review_to_changes_requested_allowed() {
+        assert!(can_transition(ReviewState::InReview, ReviewState::ChangesRequested));
+    }
+
+    #[test]
+    fn in_review_to_rejected_allowed() {
+        assert!(can_transition(ReviewState::InReview, ReviewState::Rejected));
+    }
+
+    #[test]
+    fn in_review_to_pending_rejected() {
+        assert!(!can_transition(ReviewState::InReview, ReviewState::Pending));
+    }
+
+    #[test]
+    fn approved_to_anything_rejected() {
+        assert!(!can_transition(ReviewState::Approved, ReviewState::Pending));
+        assert!(!can_transition(ReviewState::Approved, ReviewState::InReview));
+        assert!(!can_transition(ReviewState::Approved, ReviewState::ChangesRequested));
+        assert!(!can_transition(ReviewState::Approved, ReviewState::Rejected));
+    }
+
+    #[test]
+    fn changes_requested_to_anything_rejected() {
+        assert!(!can_transition(ReviewState::ChangesRequested, ReviewState::Pending));
+        assert!(!can_transition(ReviewState::ChangesRequested, ReviewState::InReview));
+        assert!(!can_transition(ReviewState::ChangesRequested, ReviewState::Approved));
+        assert!(!can_transition(ReviewState::ChangesRequested, ReviewState::Rejected));
+    }
+
+    #[test]
+    fn rejected_to_anything_rejected() {
+        assert!(!can_transition(ReviewState::Rejected, ReviewState::Pending));
+        assert!(!can_transition(ReviewState::Rejected, ReviewState::InReview));
+        assert!(!can_transition(ReviewState::Rejected, ReviewState::Approved));
+        assert!(!can_transition(ReviewState::Rejected, ReviewState::ChangesRequested));
+    }
+
+    #[test]
+    fn self_transitions_rejected() {
+        assert!(!can_transition(ReviewState::Pending, ReviewState::Pending));
+        assert!(!can_transition(ReviewState::InReview, ReviewState::InReview));
+        assert!(!can_transition(ReviewState::Approved, ReviewState::Approved));
+    }
 }
