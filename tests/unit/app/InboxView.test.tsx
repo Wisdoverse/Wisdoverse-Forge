@@ -47,12 +47,28 @@ beforeEach(() => {
 describe('InboxView', () => {
   test('shows empty state when no notifications', async () => {
     render(<InboxView />)
-    expect(await screen.findByText(/all caught up/i)).toBeDefined()
+    expect(await screen.findByText('No updates yet')).toBeDefined()
     expect(screen.getByText('Inbox action order')).toBeDefined()
+    expect(
+      screen.getByText(
+        'Inbox updates appear after agents start work, finish work, need help, or ask you to reconnect account access.'
+      )
+    ).toBeDefined()
+    expect(
+      screen.getByText('Next: start a task or wait for an agent update, then open Inbox again.')
+    ).toBeDefined()
+    expect(
+      screen.getByText(
+        'Success looks like a new update listed here with the task name and next step.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByText(/You're all caught up/i)).toBeNull()
+    expect(screen.queryByText(/match this filter/i)).toBeNull()
+    expect(screen.queryByRole('button', { name: /show all updates/i })).toBeNull()
     expect(screen.getByText(/start with needs action/i)).toBeDefined()
     expect(screen.getByText(/tasks that need help/i)).toBeDefined()
     expect(screen.getByText(/stopped early/i)).toBeDefined()
-    expect(screen.getByText(/account access notices/i)).toBeDefined()
+    expect(screen.getByText(/reconnect account access/i)).toBeDefined()
     expect(
       screen.getByText(/use account access when an agent needs you to reconnect a work account/i)
     ).toBeDefined()
@@ -73,7 +89,7 @@ describe('InboxView', () => {
     expect(screen.getByText(/older notifications/i)).toBeDefined()
 
     request.resolve([])
-    expect(await screen.findByText(/all caught up/i)).toBeDefined()
+    expect(await screen.findByText('No updates yet')).toBeDefined()
   })
 
   test('keeps existing updates visible while checking older saved updates', async () => {
@@ -573,7 +589,7 @@ describe('InboxView', () => {
 
     retry.resolve([])
     await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
-    expect(screen.getByText(/all caught up/i)).toBeDefined()
+    expect(screen.getByText('No updates yet')).toBeDefined()
 
     warnSpy.mockRestore()
   })
