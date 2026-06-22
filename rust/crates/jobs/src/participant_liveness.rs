@@ -462,7 +462,7 @@ pub fn register_metrics() {
     metrics::counter!("agentforge_orchestration_participant_status_transitions_total").increment(0);
     metrics::counter!("agentforge_orchestration_participant_reconciled_total").increment(0);
     metrics::counter!("agentforge_orchestration_participant_tasks_claimed_total").increment(0);
-    metrics::counter!("agentforge_orchestration_agent_degraded_heartbeats_total").absolute(0);
+    metrics::counter!("agentforge_orchestration_agent_degraded_heartbeats_total").increment(0);
 }
 
 /// Parse the optional `health` field from a raw heartbeat JSON payload.
