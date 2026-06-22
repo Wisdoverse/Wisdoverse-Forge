@@ -85,7 +85,7 @@ describe('AuditLogView', () => {
       'Forge is checking saved note and saved instruction changes for this team space.'
     )
     expect(loading).toHaveTextContent(
-      'If this takes more than a moment, choose Refresh change history or ask an owner or admin to check change history access.'
+      'If this takes more than a moment, choose Check change history again or ask an owner or admin to check change history access.'
     )
     expect(loading).toHaveTextContent(
       'Success looks like history rows or a Show all change history step.'
@@ -138,7 +138,7 @@ describe('AuditLogView', () => {
     expect(screen.queryByText('Hidden review-note rows')).toBeNull()
     expect(screen.queryByText('Hidden detail rows')).toBeNull()
     expect(screen.queryByText('Hidden support-note rows')).toBeNull()
-    expect(screen.getByLabelText('Refresh change history')).toBeDefined()
+    expect(screen.getByLabelText('Check change history again')).toBeDefined()
     expect(screen.queryByLabelText('Refresh audit history')).toBeNull()
     expect(screen.getByLabelText('Export change history')).toBeDefined()
     expect(screen.queryByLabelText('Export audit history')).toBeNull()
@@ -403,11 +403,11 @@ describe('AuditLogView', () => {
     const error = await screen.findByRole('alert')
     expect(error).toHaveAttribute('aria-live', 'polite')
     expect(error.textContent).toContain(
-      'Choose Refresh change history, then apply the filters again.'
+      'Choose Check change history again, then apply the filters again.'
     )
     expect(error.textContent).not.toContain('audit view')
     expect(error.textContent).toContain(
-      'check your connection and choose Refresh change history again'
+      'check your connection and choose Check change history again'
     )
     expect(error.textContent).not.toContain('refresh the page')
     expect(error.textContent).not.toMatch(/failed to fetch/i)

@@ -1,13 +1,13 @@
 export type GovernanceAuditErrorAction = 'exportAudit' | 'loadAudit'
 
 const ACTION_FALLBACKS: Record<GovernanceAuditErrorAction, string> = {
-  exportAudit: 'Keep secrets hidden, choose Refresh change history, then export again.',
-  loadAudit: 'Choose Refresh change history, then apply the filters again.',
+  exportAudit: 'Keep secrets hidden, choose Check change history again, then export again.',
+  loadAudit: 'Choose Check change history again, then apply the filters again.',
 }
 
 const ACTION_RETRY_STEPS: Record<GovernanceAuditErrorAction, string> = {
   exportAudit: 'choose Export change history again',
-  loadAudit: 'choose Refresh change history again',
+  loadAudit: 'choose Check change history again',
 }
 
 export function governanceAuditErrorMessage(
@@ -36,8 +36,8 @@ export function governanceAuditErrorMessage(
 
   if (status === 409) {
     return action === 'exportAudit'
-      ? 'Choose Refresh change history, then choose Export change history again because the change list changed while export was running.'
-      : 'Choose Refresh change history again because the change list changed while you were checking it.'
+      ? 'Choose Check change history again, then choose Export change history again because the change list changed while export was running.'
+      : 'Choose Check change history again because the change list changed while you were checking it.'
   }
 
   if (status === 422) {
@@ -115,7 +115,7 @@ function networkRecoveryMessage(action: GovernanceAuditErrorAction): string {
   if (action === 'exportAudit') {
     return 'If it still does not export, check your connection and choose Export change history again.'
   }
-  return 'If it still does not load, check your connection and choose Refresh change history again.'
+  return 'If it still does not load, check your connection and choose Check change history again.'
 }
 
 function validationMessage(action: GovernanceAuditErrorAction, detail: string): string {

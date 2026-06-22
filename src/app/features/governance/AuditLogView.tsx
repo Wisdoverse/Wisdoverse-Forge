@@ -117,9 +117,9 @@ const COMMON_EVENT_TYPES = [
 const INPUT_CLASS =
   'h-9 w-full rounded-full border border-black/[0.08] bg-white px-3 text-ui-caption text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70'
 const HIDDEN_AUDIT_DETAIL_VALUE =
-  'Hidden for safety. Keep secrets hidden, choose Refresh change history, then export again.'
+  'Hidden for safety. Keep secrets hidden, choose Check change history again, then export again.'
 const MISSING_AUDIT_ACCESS_MESSAGE =
-  'Reconnect the needed account access, then choose Refresh change history again. This saved change needs access before it can be shown.'
+  'Reconnect the needed account access, then choose Check change history again. This saved change needs access before it can be shown.'
 const REPEATED_AUDIT_DETAIL_VALUE = 'Repeated detail omitted.'
 
 export function AuditLogView() {
@@ -321,9 +321,9 @@ export function AuditLogView() {
               data-testid="governance-audit-refresh"
               onClick={() => void loadAudit(filters)}
               disabled={loading}
-              aria-label="Refresh change history"
+              aria-label="Check change history again"
               className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white text-ui-button text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:hover:bg-white/[0.06]"
-              title="Refresh change history"
+              title="Check change history again"
             >
               <RefreshCw size={15} className={cn(loading && 'animate-spin')} aria-hidden="true" />
             </button>
@@ -447,7 +447,7 @@ export function AuditLogView() {
                         framed={false}
                         title="Checking change history"
                         detail="Forge is checking saved note and saved instruction changes for this team space."
-                        nextStep="If this takes more than a moment, choose Refresh change history or ask an owner or admin to check change history access."
+                        nextStep="If this takes more than a moment, choose Check change history again or ask an owner or admin to check change history access."
                         success="Success looks like history rows or a Show all change history step."
                       />
                     </td>
