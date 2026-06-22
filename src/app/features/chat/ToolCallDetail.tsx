@@ -10,9 +10,9 @@ const MISSING_ACCESS_MESSAGE =
 const TECHNICAL_PROBLEM_MESSAGE =
   'This step hit a problem. Ask the agent to explain what happened, then retry if the task still matters.'
 const COMMAND_OUTPUT_MESSAGE =
-  'Command output was saved. Ask the agent to explain it before relying on it.'
+  'The command result was saved. Ask the agent to explain it before relying on it.'
 const PROBLEM_OUTPUT_MESSAGE =
-  'Problem output was saved. Ask the agent to explain what happened before retrying.'
+  'The command problem details were saved. Ask the agent to explain what happened before retrying.'
 const EMPTY_RESULT_SUMMARY =
   'This step finished, but it did not add details. Read the surrounding agent messages before deciding whether to continue, retry, or ask the agent to explain it.'
 const EMPTY_RESULT_DETAILS =
@@ -51,11 +51,11 @@ function extraDetailLabel(key: string): string {
     path: 'File or link',
     file: 'File',
     url: 'Address',
-    stdout: 'Command output',
-    stderr: 'Problem output',
-    rawoutput: 'Command output',
-    commandoutput: 'Command output',
-    erroroutput: 'Problem output',
+    stdout: 'What the command showed',
+    stderr: 'Problem details',
+    rawoutput: 'What the command showed',
+    commandoutput: 'What the command showed',
+    erroroutput: 'Problem details',
     target: 'Target',
     reason: 'Reason',
     error: 'Problem',

@@ -175,11 +175,13 @@ describe('ToolCallDetail', () => {
     fireEvent.click(screen.getByRole('button', { name: /show what happened/i }))
 
     expect(
-      screen.getByText(/Command output: Command output was saved.*before relying on it/i)
+      screen.getByText(/What the command showed: The command result was saved.*before relying on it/i)
     ).toBeInTheDocument()
     expect(
-      screen.getByText(/Problem output: Problem output was saved.*before retrying/i)
+      screen.getByText(/Problem details: The command problem details were saved.*before retrying/i)
     ).toBeInTheDocument()
+    expect(screen.queryByText(/Command output/i)).toBeNull()
+    expect(screen.queryByText(/Problem output/i)).toBeNull()
     expect(screen.queryByText(/raw success output/i)).toBeNull()
     expect(screen.queryByText(/permission denied/i)).toBeNull()
     expect(screen.queryByRole('button', { name: /show result details/i })).toBeNull()
