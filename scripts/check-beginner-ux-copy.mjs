@@ -1068,6 +1068,8 @@ const AGENT_TASK_QUEUE_FAILURE_FIRST_PATTERNS = [
   /\bTask queue was not created\. (?:A|Ask|Check|Choose|Forge|Refresh|Sign in|Too many|Try|Use|Wait)\b/i,
   /\bRefresh this page, then choose the project again\b/i,
   /\bRefresh the project, then choose the existing waiting place\b/i,
+  /\btry (?:creating the waiting place|setting up where tasks wait) again\b/i,
+  /\bTry creating the waiting place again\b/i,
 ]
 const TASK_LIST_EMPTY_DEAD_END_PATTERNS = [
   /\bCreate one small task from the board first\b/i,

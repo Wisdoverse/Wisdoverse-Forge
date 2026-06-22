@@ -14963,6 +14963,9 @@ export function missingGroupMessage() {
 export function agentGroupErrorMessage() {
   return 'Refresh this page, then choose the project again. The waiting place was not created.'
 }
+export function retryMessage() {
+  return 'Wait a few minutes, then try setting up where tasks wait again. Forge could not create the waiting place right now.'
+}
 `,
       'src/app/features/agents/model/createAgentWorkLaneErrorMessage.ts': `
 export function createAgentWorkLaneErrorMessage() {
@@ -14983,6 +14986,10 @@ export function createAgentWorkLaneErrorMessage() {
         expect.objectContaining({
           type: 'agent-task-queue-error-copy',
           location: 'src/app/features/agents/model/createAgentWorkLaneErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-task-queue-error-copy',
+          location: 'src/app/features/agents/model/agentGroupErrorMessage.ts:6',
         }),
       ])
     )
