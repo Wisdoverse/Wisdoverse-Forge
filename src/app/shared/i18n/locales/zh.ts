@@ -90,7 +90,7 @@ export const zh: TranslationKeys = {
     skip: '跳过并打开任务',
     skipSaving: '正在跳过...',
     skipHint:
-      '这只会隐藏左侧菜单里的设置清单。项目、智能体和任务都不会变化，也可以在设置里重新显示它。',
+      '这只会隐藏左侧菜单里的设置清单。项目、智能体和任务都不会变化，也可以在设置里重置它。',
     skipError: '请检查网络，然后再点一次跳过。暂时无法隐藏设置清单。',
     progressCount: '{{complete}} / {{total}}',
     nextTitle: '下一步先做这个',
@@ -294,15 +294,15 @@ export const zh: TranslationKeys = {
         },
         account: {
           label: '账号',
-          description: '更新个人资料、密码，也可以重新显示设置清单。',
+          description: '更新个人资料、密码，也可以重置设置清单。',
         },
         theme: {
           label: '切换主题',
           description: '切换应用外观。',
         },
         setupChecklistRecovery: {
-          label: '显示设置清单',
-          description: '把设置清单加回左侧菜单并打开。项目、智能体和任务都不会变化。',
+          label: '重置设置清单',
+          description: '把设置清单重新显示在左侧菜单并打开。项目、智能体和任务都不会变化。',
         },
       },
       views: {

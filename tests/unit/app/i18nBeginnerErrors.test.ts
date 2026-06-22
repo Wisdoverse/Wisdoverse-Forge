@@ -641,11 +641,39 @@ describe('beginner error translations', () => {
     expect(en.nav.start).toBe('Setup checklist')
     expect(en.nav.start).not.toBe('Start')
     expect(en.gettingStarted.skipHint).toContain('hides the setup checklist from the left menu')
+    expect(en.gettingStarted.skipHint).toContain('reset it from Settings')
+    expect(en.gettingStarted.skipHint).not.toContain('show it again from Settings')
     expect(en.gettingStarted.skipHint).not.toContain('hides Start')
+    expect(en.commandPalette.commands.actions.setupChecklistRecovery.label).toBe(
+      'Reset setup checklist'
+    )
+    expect(en.commandPalette.commands.actions.setupChecklistRecovery.description).toContain(
+      'Show the setup checklist in the left menu again'
+    )
+    expect(en.commandPalette.commands.actions.setupChecklistRecovery.description).not.toContain(
+      'Add the setup checklist back'
+    )
+    expect(en.commandPalette.commands.actions.account.description).toContain(
+      'reset the setup checklist'
+    )
+    expect(en.commandPalette.commands.actions.account.description).not.toContain(
+      'show the setup checklist again'
+    )
     expect(zh.nav.start).toBe('设置清单')
     expect(zh.nav.start).not.toBe('开始')
     expect(zh.gettingStarted.skipHint).toContain('隐藏左侧菜单里的设置清单')
+    expect(zh.gettingStarted.skipHint).toContain('在设置里重置它')
+    expect(zh.gettingStarted.skipHint).not.toContain('重新显示它')
     expect(zh.gettingStarted.skipHint).not.toContain('隐藏左侧菜单里的 Start')
+    expect(zh.commandPalette.commands.actions.setupChecklistRecovery.label).toBe('重置设置清单')
+    expect(zh.commandPalette.commands.actions.setupChecklistRecovery.description).toContain(
+      '重新显示在左侧菜单'
+    )
+    expect(zh.commandPalette.commands.actions.setupChecklistRecovery.description).not.toContain(
+      '加回左侧菜单'
+    )
+    expect(zh.commandPalette.commands.actions.account.description).toContain('重置设置清单')
+    expect(zh.commandPalette.commands.actions.account.description).not.toContain('重新显示设置清单')
     expect(en.nav.context).toBe('Saved items')
     expect(en.nav.context).not.toBe(previousContextNavLabel)
     expect(en.nav.skills).toBe('Saved instructions')
