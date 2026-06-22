@@ -722,6 +722,8 @@ const ADMIN_NAV_TECHNICAL_COPY_PATTERNS = [
   /\bControl Plane\b/i,
 ]
 
+const ADMIN_COORDINATION_STATUS_JARGON_PATTERNS = [/\bneeds attention\b/i]
+
 const ADMIN_LOCALE_TECHNICAL_COPY_PATTERNS = [
   /\btitle:\s*['"`]Admin Dashboard['"`]/,
   /\bmetrics:\s*['"`]Metrics['"`]/,
@@ -4227,6 +4229,12 @@ function hasAdminNavTechnicalCopy(relFile, line) {
   return ADMIN_NAV_TECHNICAL_COPY_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasAdminCoordinationStatusJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/admin/ControlPlanePanel.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return ADMIN_COORDINATION_STATUS_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasAdminLocaleTechnicalCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
@@ -7156,6 +7164,15 @@ function scanFile(file, relFile) {
         location,
         message:
           'Admin navigation copy must say app health, people, and agent coordination instead of system-health or platform-control jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasAdminCoordinationStatusJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'admin-coordination-status-copy',
+        location,
+        message: 'Agent coordination status copy must say what to check next.',
         sample: line.trim(),
       })
     }

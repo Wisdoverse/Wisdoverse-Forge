@@ -32,7 +32,7 @@ function SignalRow({ label, value, warnNonZero = false, unit = '' }: SignalRowPr
           isWarning ? 'text-apple-red' : 'text-foreground-light dark:text-foreground-dark'
         )}
         aria-label={
-          isWarning ? `${label}: ${valueText}, needs attention` : `${label}: ${valueText}`
+          isWarning ? `${label}: ${valueText}, check this value` : `${label}: ${valueText}`
         }
       >
         {valueText}

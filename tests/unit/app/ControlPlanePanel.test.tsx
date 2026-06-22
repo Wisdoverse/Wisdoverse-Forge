@@ -54,6 +54,9 @@ describe('ControlPlanePanel', () => {
     expect(screen.getByText('2')).toBeDefined()
     expect(screen.getByText('0')).toBeDefined()
     expect(screen.getByText('4')).toBeDefined()
+    expect(screen.getByLabelText('Assignment updates waiting to send: 3, check this value'))
+      .toBeDefined()
+    expect(screen.queryByLabelText(/needs attention/i)).toBeNull()
 
     // Check-in timing context is explained in operator-facing language.
     expect(screen.getByText(/check-in rule/i)).toBeDefined()

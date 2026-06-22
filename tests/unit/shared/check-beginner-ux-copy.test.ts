@@ -11663,6 +11663,38 @@ export function controlPlaneErrorMessage() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags Admin coordination status copy that only says needs attention', () => {
+    const cwd = fixture({
+      'src/app/features/admin/ControlPlanePanel.tsx': `
+export function SignalRow() {
+  return <span aria-label="Agents not checking in: 1, needs attention">1</span>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'admin-coordination-status-copy',
+        location: 'src/app/features/admin/ControlPlanePanel.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts Admin coordination status copy that names the next check', () => {
+    const cwd = fixture({
+      'src/app/features/admin/ControlPlanePanel.tsx': `
+export function SignalRow() {
+  return <span aria-label="Agents not checking in: 1, check this value">1</span>
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags shared Admin translations that still use system and management jargon', () => {
     const cwd = fixture({
       'src/app/shared/i18n/locales/en.ts': `
