@@ -2353,6 +2353,7 @@ const PROJECT_CREATE_OVERVIEW_JARGON_PATTERNS = [
 ]
 
 const PROJECT_CREATE_CODE_LINK_JARGON_PATTERNS = [
+  /\bChoose code setup\b/i,
   /\bGit repository URL\b/i,
   /\brepository URL\b/i,
   /\bclone an existing repo\b/i,

@@ -130,7 +130,7 @@ describe('workspace setup create forms', () => {
   test('starts with the no-code path and reveals the code link only when selected', () => {
     render(<CreateProjectForm teams={[team]} onSave={vi.fn()} onCancel={vi.fn()} saving={false} />)
 
-    expect(screen.getByText('Choose code setup')).toBeInTheDocument()
+    expect(screen.getByText('Choose how to add code')).toBeInTheDocument()
     expect(screen.getByLabelText(/create this project without code/i)).toBeChecked()
     expect(screen.queryByLabelText(/^code link/i)).not.toBeInTheDocument()
     expect(screen.getByText(/Use this when you want a place for tasks now/i)).toBeInTheDocument()

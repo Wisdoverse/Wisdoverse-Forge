@@ -18299,7 +18299,7 @@ function ProjectSetupPath() {
     const cwd = fixture({
       'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
 function CreateProjectForm() {
-  return <><label>Git repository URL</label><input placeholder="https://github.com/org/repo.git" /><p>Clone an existing repo into this project.</p><p>Use a code link that starts with https://. Links that start with git@ go in SSH code access.</p><p>Use an https:// code link without account details, or leave the code link blank.</p></>
+  return <><legend>Choose code setup</legend><label>Git repository URL</label><input placeholder="https://github.com/org/repo.git" /><p>Clone an existing repo into this project.</p><p>Use a code link that starts with https://. Links that start with git@ go in SSH code access.</p><p>Use an https:// code link without account details, or leave the code link blank.</p></>
 }
 `,
     })
@@ -18309,6 +18309,10 @@ function CreateProjectForm() {
     expect(result.ok).toBe(false)
     expect(result.findings).toEqual(
       expect.arrayContaining([
+        expect.objectContaining({
+          type: 'project-create-code-link-copy',
+          sample: expect.stringContaining('Choose code setup'),
+        }),
         expect.objectContaining({
           type: 'project-create-code-link-copy',
           sample: expect.stringContaining('Git repository URL'),
@@ -18337,7 +18341,7 @@ function CreateProjectForm() {
     const cwd = fixture({
       'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
 function CreateProjectForm() {
-  return <><label>Code link</label><input placeholder="https://github.com/team/project.git" /><p>Forge copies that code into this project.</p><p>On GitHub or GitLab, choose Code, choose HTTPS, then copy that link. If you only see an SSH link, leave this blank and set up SSH code access in Settings first.</p><p>Paste an https:// code link without account details, or leave the code link blank and add code access in Settings.</p></>
+  return <><legend>Choose how to add code</legend><label>Code link</label><input placeholder="https://github.com/team/project.git" /><p>Forge copies that code into this project.</p><p>On GitHub or GitLab, choose Code, choose HTTPS, then copy that link. If you only see an SSH link, leave this blank and set up SSH code access in Settings first.</p><p>Paste an https:// code link without account details, or leave the code link blank and add code access in Settings.</p></>
 }
 `,
     })
