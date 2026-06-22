@@ -143,11 +143,43 @@ impl WorkflowActivities {
             self.store.update_node_status(&input.node_id, NodeStatus::Running, None, None).await,
         );
 
+        let started_at = tokio::time::Instant::now();
+        let warn_50_secs = input.timeout_secs / 2;
+        let warn_90_secs = input.timeout_secs * 9 / 10;
+        let mut warned_50 = false;
+        let mut warned_90 = false;
+
         let mut ticker = tokio::time::interval(Duration::from_secs(10));
         loop {
             tokio::select! {
                 _ = ctx.cancelled() => return Err(ActivityError::cancelled()),
-                _ = ticker.tick() => ctx.record_heartbeat(Vec::new()),
+                _ = ticker.tick() => {
+                    ctx.record_heartbeat(Vec::new());
+
+                    let elapsed_secs = started_at.elapsed().as_secs();
+
+                    if !warned_50 && elapsed_secs >= warn_50_secs {
+                        warned_50 = true;
+                        tracing::warn!(
+                            node_id = %input.node_id,
+                            elapsed_secs,
+                            deadline_secs = input.timeout_secs,
+                            "human review pending — 50% of deadline elapsed"
+                        );
+                        // TODO(#792): emit a realtime escalation event here once the broadcaster is wired
+                    }
+
+                    if !warned_90 && elapsed_secs >= warn_90_secs {
+                        warned_90 = true;
+                        tracing::warn!(
+                            node_id = %input.node_id,
+                            elapsed_secs,
+                            deadline_secs = input.timeout_secs,
+                            "human review pending — 90% of deadline elapsed"
+                        );
+                        // TODO(#792): emit a realtime escalation event here once the broadcaster is wired
+                    }
+                }
             }
         }
     }
@@ -239,6 +271,7 @@ pub struct HumanReviewInput {
     pub node_id: String,
     pub node_name: String,
     pub config: Option<Value>,
+    pub timeout_secs: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
