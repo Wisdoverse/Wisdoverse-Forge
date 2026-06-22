@@ -159,6 +159,40 @@ describe('ToolCallDetail', () => {
     expect(screen.queryByText(/raw command output/i)).toBeNull()
   })
 
+  test('hides account access values even when a tool saves them under a plain field', () => {
+    render(
+      <ToolCallDetail
+        call={{
+          ...baseCall,
+          output: {
+            summary: 'Saved debug note with secret token abc123',
+            note: 'private api key abc123',
+          },
+          success: false,
+        }}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /show step details for command step/i }))
+
+    expect(
+      screen.getByText(/Account access details were hidden.*reconnect the required account access/i)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/secret token/i)).toBeNull()
+    expect(screen.queryByText(/api key/i)).toBeNull()
+    expect(screen.queryByText(/abc123/i)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /show what happened/i }))
+
+    expect(
+      screen.getAllByText(
+        /Account access details were hidden.*reconnect the required account access/i
+      ).length
+    ).toBeGreaterThan(0)
+    expect(screen.queryByText(/private api key/i)).toBeNull()
+    expect(screen.queryByText(/abc123/i)).toBeNull()
+  })
+
   test('turns command output fields into beginner next steps instead of raw logs', () => {
     render(
       <ToolCallDetail

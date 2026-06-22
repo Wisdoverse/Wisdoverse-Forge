@@ -5,6 +5,8 @@ import type { ToolCall } from '@app/shared/model/chat.store'
 
 const MAX_OUTPUT_LINES = 12
 const HIDDEN_ACCESS_VALUE = 'Hidden for safety. Reconnect the required account access, then retry.'
+const SENSITIVE_ACCESS_MESSAGE =
+  'Account access details were hidden. Reconnect the required account access, then retry if this step still matters.'
 const MISSING_ACCESS_MESSAGE =
   'Required account access is missing. Add or reconnect service access, then retry.'
 const TECHNICAL_PROBLEM_MESSAGE =
@@ -152,7 +154,16 @@ function safeToolString(value: string): string {
   if (containsTechnicalProblemText(value)) {
     return TECHNICAL_PROBLEM_MESSAGE
   }
+  if (containsSensitiveAccessText(value)) {
+    return SENSITIVE_ACCESS_MESSAGE
+  }
   return value
+}
+
+function containsSensitiveAccessText(value: string): boolean {
+  return /\b(secret\s+token|token\s+secret|private\s+api\s*key|api\s*key\s+[\w.-]{4,}|password\s+[\w.-]{4,}|credential\s+[\w.-]{4,})\b/i.test(
+    value
+  )
 }
 
 function containsTechnicalProblemText(value: string): boolean {
