@@ -22,8 +22,9 @@ use agentforge_infra::{NatsClient, ObjectStorageClient, RedisClient};
 use agentforge_jobs::{
     DependencyReconcileWorker, EventStreamWorker, OrchestrationMetricsWorker, OrchestrationOutboxPublisher,
     OrchestrationResultWorker, PARTICIPANT_DEFAULT_STALE_AFTER, PARTICIPANT_DEFAULT_STALE_SWEEP_INTERVAL,
-    ParticipantLivenessWorker, PresenceBackend, SqlxAgentOwnerLookup, SqlxCredentialHmacSecretLookup,
-    SqlxHmacSecretLookup, SqlxNatsConnectPasswordLookup, SqlxParticipantLookup, SqlxTaskWriter,
+    ParticipantLivenessWorker, PresenceBackend, SelfFixReviewReaperWorker, SqlxAgentOwnerLookup,
+    SqlxCredentialHmacSecretLookup, SqlxHmacSecretLookup, SqlxNatsConnectPasswordLookup, SqlxParticipantLookup,
+    SqlxTaskWriter,
 };
 use anyhow::{Result, anyhow};
 use metrics_exporter_prometheus::{Matcher, PrometheusBuilder};
@@ -360,6 +361,16 @@ async fn main() -> Result<()> {
     // whose parent already completed and flips them back to `queued`.
     let dependency_reconcile_handle = {
         let worker = DependencyReconcileWorker::new(pool.clone());
+        let worker_shutdown = shutdown_rx.clone();
+        tokio::spawn(async move { worker.run(worker_shutdown).await })
+    };
+
+    // Self-fix review reaper — backstop that flips `in_review` self-fix tasks
+    // to `changes_requested` when the PR has been open longer than the
+    // configured review deadline (default 7 days). The self-fix loop then
+    // re-queues the task for another fix attempt (closes #800).
+    let self_fix_review_reaper_handle = {
+        let worker = SelfFixReviewReaperWorker::new(pool.clone(), config.self_fix_review_deadline_secs);
         let worker_shutdown = shutdown_rx.clone();
         tokio::spawn(async move { worker.run(worker_shutdown).await })
     };
@@ -750,6 +761,10 @@ async fn main() -> Result<()> {
     match dependency_reconcile_handle.await {
         Ok(()) => {}
         Err(err) => tracing::warn!(error = %err, "dependency reconcile worker join failed"),
+    }
+    match self_fix_review_reaper_handle.await {
+        Ok(()) => {}
+        Err(err) => tracing::warn!(error = %err, "self-fix review reaper worker join failed"),
     }
     if let Some(handle) = agent_reconcile_handle {
         match handle.await {

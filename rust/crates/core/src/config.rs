@@ -530,10 +530,21 @@ pub struct AppConfig {
     /// Default: 5. Env: `SELF_FIX_MAX_MERGE_ATTEMPTS`.
     #[serde(default = "default_self_fix_max_merge_attempts")]
     pub self_fix_max_merge_attempts: i32,
+
+    /// How long (seconds) a self-fix task may stay in `in_review` before the
+    /// reaper backstop flips it to `changes_requested`. The self-fix loop then
+    /// re-queues the task for another fix attempt. Default: 604800 (7 days).
+    /// Env: `SELF_FIX_REVIEW_DEADLINE_SECS`.
+    #[serde(default = "default_self_fix_review_deadline_secs")]
+    pub self_fix_review_deadline_secs: u64,
 }
 
 fn default_self_fix_max_merge_attempts() -> i32 {
     5
+}
+
+fn default_self_fix_review_deadline_secs() -> u64 {
+    604800 // 7 days
 }
 
 fn default_clone_timeout_secs() -> u64 {
@@ -855,6 +866,7 @@ mod tests {
             github_app_repo: None,
             self_fix_pr_worker_enabled: true,
             self_fix_max_merge_attempts: 5,
+            self_fix_review_deadline_secs: 604800,
         };
         assert!(cfg.is_production());
     }
@@ -1258,6 +1270,7 @@ mod tests {
             github_app_repo: None,
             self_fix_pr_worker_enabled: true,
             self_fix_max_merge_attempts: 5,
+            self_fix_review_deadline_secs: 604800,
         };
         let dbg = format!("{cfg:?}");
         for needle in [

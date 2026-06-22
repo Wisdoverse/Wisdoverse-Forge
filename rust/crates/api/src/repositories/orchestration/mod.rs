@@ -566,7 +566,8 @@ impl OrchestrationTaskRepository {
     ) -> AppResult<()> {
         sqlx::query(
             r#"UPDATE orchestration_tasks
-               SET pr_number = $1, pr_url = $2, pr_head_sha = $3, review_status = $4, updated_at = NOW()
+               SET pr_number = $1, pr_url = $2, pr_head_sha = $3, review_status = $4,
+                   review_opened_at = NOW(), updated_at = NOW()
                WHERE id = $5 AND organization_id = $6"#,
         )
         .bind(pr_number)

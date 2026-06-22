@@ -40,6 +40,7 @@ pub mod orchestration_result_consumer;
 pub mod participant_liveness;
 pub mod presence_store;
 pub mod queue;
+pub mod self_fix_review_reaper;
 pub mod worker;
 
 pub use auth_lookup::{AgentNatsIdentity, NatsConnectPasswordLookup, SqlxNatsConnectPasswordLookup};
@@ -55,6 +56,9 @@ pub use credential_consumer::{
     SqlxAgentOwnerLookup, SqlxHmacSecretLookup as SqlxCredentialHmacSecretLookup, credentials_filter,
 };
 pub use dependency_reconcile::{DEFAULT_INTERVAL as DEPENDENCY_RECONCILE_DEFAULT_INTERVAL, DependencyReconcileWorker};
+pub use self_fix_review_reaper::{
+    DEFAULT_INTERVAL as SELF_FIX_REVIEW_REAPER_DEFAULT_INTERVAL, SelfFixReviewReaperWorker,
+};
 pub use event_consumer::{
     AgentDirectory, AgentTarget, BroadcastBus, BroadcastEnvelope, BroadcastMessage, EVENTS_FILTER, EVENTS_STREAM,
     EventConsumer, EventStore, EventStreamWorker, PersistedEvent, SignedEventEnvelope, SignedEventPayload,
@@ -98,4 +102,5 @@ pub fn register_metrics() {
     orchestration_result_consumer::register_metrics();
     participant_liveness::register_metrics();
     presence_store::register_metrics();
+    self_fix_review_reaper::register_metrics();
 }
