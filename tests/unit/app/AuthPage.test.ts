@@ -21,6 +21,16 @@ function bodyText(): string {
   return document.body.textContent ?? ''
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
 async function flushAsyncWork(): Promise<void> {
   await Promise.resolve()
   await Promise.resolve()
@@ -503,5 +513,38 @@ describe('AuthPage beginner guidance', () => {
     )
     expect(bodyText()).not.toContain('Failed to fetch')
     expect(bodyText()).not.toContain('could not reach the service')
+  })
+
+  test('names verification email resend progress after a blocked sign-in', async () => {
+    const request = deferred<void>()
+    const resendVerification = vi.fn().mockReturnValueOnce(request.promise)
+    const page = new AuthPage(
+      createAuthManager({
+        login: vi.fn().mockResolvedValue({
+          ok: false,
+          errorCode: 'EMAIL_NOT_VERIFIED',
+        }),
+        resendVerification,
+      })
+    )
+
+    await page.show()
+    const emailInput = document.querySelector<HTMLInputElement>('#login-email')
+    const passwordInput = document.querySelector<HTMLInputElement>('#login-password')
+    if (emailInput) emailInput.value = 'new@example.com'
+    if (passwordInput) passwordInput.value = 'LongPassword123!'
+    document
+      .querySelector<HTMLFormElement>('#login-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await flushAsyncWork()
+
+    document.querySelector<HTMLButtonElement>('#verify-resend-btn')?.click()
+
+    expect(bodyText()).toContain('Sending verification email...')
+    expect(bodyText()).not.toContain('Sending...')
+    expect(resendVerification).toHaveBeenCalledWith('new@example.com')
+
+    request.resolve()
+    await flushAsyncWork()
   })
 })

@@ -43,6 +43,32 @@ afterEach(() => {
 })
 
 describe('UserManagement', () => {
+  test('explains user access loading for first-time admins', () => {
+    useAdminStore.setState({
+      ...originalAdminState,
+      users: [],
+      usersTotal: 0,
+      usersPage: 1,
+      usersLoading: true,
+      usersError: null,
+      userSearch: '',
+      loadUsers: vi.fn(),
+    })
+
+    render(<UserManagement />)
+
+    const loading = screen.getByRole('status', { name: /checking user access/i })
+    expect(loading).toHaveTextContent('Checking user access')
+    expect(loading).toHaveTextContent('Forge is checking who can sign in to this team space.')
+    expect(loading).toHaveTextContent(
+      'If this takes more than a moment, open User access again or ask an owner to check Admin access.'
+    )
+    expect(loading).toHaveTextContent(
+      'Success looks like a people list with access level and sign-in status.'
+    )
+    expect(loading).not.toHaveTextContent('Loading user access')
+  })
+
   test('shows user access in plain language', async () => {
     const loadUsers = vi.fn()
     useAdminStore.setState({

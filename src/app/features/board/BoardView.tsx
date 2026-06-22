@@ -3,6 +3,7 @@ import { ArrowRight, FolderKanban } from 'lucide-react'
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useBoardStore } from '@app/shared/model/board.store'
 import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
+import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import { useNavigationStore } from '@app/entities/navigation'
 import { KanbanColumn } from './KanbanColumn'
 import { TaskCard } from './TaskCard'
@@ -320,12 +321,15 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
 
   if (loading) {
     return (
-      <div
-        data-testid="board-loading"
-        className="flex h-full animate-pulse items-center justify-center text-ui-body text-secondary-light dark:text-secondary-dark"
-      >
-        Loading tasks…
-      </div>
+      <BeginnerLoadingState
+        title="Checking tasks"
+        detail="Forge is checking which tasks are waiting, working, need help, or finished in this project."
+        nextStep="If this takes more than a moment, open Tasks again or ask an owner or admin to check where tasks wait."
+        success="Success looks like task columns or an add-the-first-task step."
+        testId="board-loading"
+        framed={false}
+        className="h-full"
+      />
     )
   }
 

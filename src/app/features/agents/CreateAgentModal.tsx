@@ -747,8 +747,8 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     role="note"
                     className="rounded-[18px] border border-apple-orange/30 bg-apple-orange/10 px-4 py-3 text-ui-caption text-secondary-light dark:text-secondary-dark"
                   >
-                    Windows setup needs the backup values for this agent. Open the backup setup
-                    values below, copy them into PowerShell, and keep that app open.
+                    Windows setup needs backup setup text. Open PowerShell, copy the backup setup
+                    text below, paste it there, and keep PowerShell open.
                   </div>
                 )}
                 <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -761,7 +761,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 >
                   {selectedJoinCommandReady
                     ? setupCommandPasteHint(joinOs)
-                    : 'Use the backup setup values below for Windows.'}
+                    : 'Use the backup setup text below for Windows.'}
                 </p>
                 <div className="mt-2 grid gap-1.5 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 text-ui-caption text-secondary-light dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-secondary-dark">
                   <p>1. Copy the setup text.</p>
@@ -783,12 +783,11 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                   </summary>
                   <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
                     Use this backup only if the setup text above does not work on this computer.
-                    Copy these backup setup values into the same command app, then keep that app
-                    open.
+                    Copy this backup setup text into the same command app, then keep that app open.
                   </p>
                   <textarea
                     id="local-agent-command"
-                    aria-label="Backup setup values"
+                    aria-label="Backup setup text"
                     readOnly
                     value={localEnrollment.enrollment?.shellExports ?? ''}
                     rows={6}
@@ -874,7 +873,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     <Copy size={14} strokeWidth={2.25} aria-hidden="true" />
                   )}
                   {!selectedJoinCommandReady
-                    ? 'Use backup setup values'
+                    ? 'Use backup setup text'
                     : copiedJoin
                       ? 'Copied'
                       : 'Copy setup text'}

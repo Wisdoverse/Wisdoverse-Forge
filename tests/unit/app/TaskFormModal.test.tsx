@@ -58,6 +58,14 @@ function renderModal(
   return { onSubmit, onClose }
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((res) => {
+    resolve = res
+  })
+  return { promise, resolve }
+}
+
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
@@ -496,6 +504,48 @@ describe('TaskFormModal', () => {
     })
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
     expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  test('names task creation progress after the user submits', async () => {
+    const request = deferred<void>()
+    const { onSubmit } = renderModal(vi.fn().mockReturnValueOnce(request.promise))
+
+    fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
+      target: { value: 'Ship the fix' },
+    })
+    fireEvent.change(screen.getByLabelText(/details the agent should know/i), {
+      target: {
+        value: 'Where to work:\n- src/app/features/board\n\nDone when:\n- Task form test passes',
+      },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^create task$/i }))
+
+    expect(screen.getByRole('button', { name: /creating task/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /^Creating\.\.\.$/i })).toBeNull()
+
+    request.resolve()
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
+  })
+
+  test('names waiting-task save progress when no agent is ready yet', async () => {
+    const request = deferred<void>()
+    const { onSubmit } = renderModal(vi.fn().mockReturnValueOnce(request.promise), { agents: [] })
+
+    fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
+      target: { value: 'Save work for later' },
+    })
+    fireEvent.change(screen.getByLabelText(/details the agent should know/i), {
+      target: {
+        value: 'Where to work:\n- src/app/features/board\n\nDone when:\n- Task waits for an agent',
+      },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^save task to wait$/i }))
+
+    expect(screen.getByRole('button', { name: /saving task to wait/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /^Saving\.\.\.$/i })).toBeNull()
+
+    request.resolve()
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
   })
 
   test('asks for one confirmation before creating a task with missing brief details', async () => {

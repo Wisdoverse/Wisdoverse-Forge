@@ -12,6 +12,14 @@ const originalLoadSshKeys = useSettingsStore.getState().loadSshKeys
 const originalCreateSshKey = useSettingsStore.getState().createSshKey
 const originalDeleteSshKey = useSettingsStore.getState().deleteSshKey
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((res) => {
+    resolve = res
+  })
+  return { promise, resolve }
+}
+
 function sshKey(overrides: Partial<UserSshKey> = {}): UserSshKey {
   return {
     id: 'ssh-key-1',
@@ -51,6 +59,28 @@ afterEach(() => {
 })
 
 describe('SshKeysSection', () => {
+  test('explains SSH code access loading for first-time setup', () => {
+    useSettingsStore.setState({
+      sshKeys: [],
+      sshKeysLoading: true,
+    })
+
+    render(<SshKeysSection />)
+
+    const loading = screen.getByRole('status', { name: /checking SSH code access/i })
+    expect(loading).toHaveTextContent('Checking SSH code access')
+    expect(loading).toHaveTextContent(
+      'Forge is checking which saved public key lines can open git@ private code links.'
+    )
+    expect(loading).toHaveTextContent(
+      'If this takes more than a moment, open Settings again or ask an owner or admin to check code access.'
+    )
+    expect(loading).toHaveTextContent(
+      'Success looks like saved SSH access or a step to add one.'
+    )
+    expect(loading).not.toHaveTextContent('Loading SSH code access')
+  })
+
   test('guides first-time SSH code access setup and saves only after required fields are filled', async () => {
     render(<SshKeysSection />)
 
@@ -133,7 +163,13 @@ describe('SshKeysSection', () => {
       target: { value: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAexample dev@example.com' },
     })
     expect(saveButton).toBeEnabled()
+    const request = deferred<boolean>()
+    createSshKeyMock.mockReturnValueOnce(request.promise)
     fireEvent.click(saveButton)
+
+    expect(screen.getByRole('button', { name: /saving SSH code access/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /^Saving\.\.\.$/i })).toBeNull()
+    request.resolve(true)
 
     await waitFor(() =>
       expect(createSshKeyMock).toHaveBeenCalledWith(

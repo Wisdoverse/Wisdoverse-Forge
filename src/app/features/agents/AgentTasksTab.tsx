@@ -12,6 +12,7 @@ import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import { orchestrationApi, type TaskState, type TaskSummary } from '@app/shared/api/orchestration'
+import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import { agentTasksErrorMessage } from './model/taskErrorMessage'
 
 interface AgentTasksTabProps {
@@ -148,16 +149,18 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
 
   if (loading) {
     return (
-      <div
-        data-testid="agent-tasks-loading"
+      <BeginnerLoadingState
+        title="Checking this agent's work list"
+        detail="Forge is checking which tasks have been sent to this agent and which ones need your help."
+        nextStep="If this takes more than a moment, open this agent again or ask an owner or admin to check agent access."
+        success="Success looks like active work, completed work, or a create-a-task step."
+        testId="agent-tasks-loading"
+        framed={false}
         className={cn(
           'bg-white dark:bg-[#2c2c2e] rounded-xl px-4 py-6',
-          'border border-black/[0.08] dark:border-white/[0.1]',
-          'animate-pulse text-center text-ui-body text-secondary-light dark:text-secondary-dark'
+          'border border-black/[0.08] dark:border-white/[0.1]'
         )}
-      >
-        Checking this agent's work list...
-      </div>
+      />
     )
   }
 

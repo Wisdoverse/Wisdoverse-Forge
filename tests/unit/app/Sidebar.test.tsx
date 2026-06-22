@@ -260,7 +260,7 @@ describe('Sidebar', () => {
 
     expect(menu).toHaveAttribute('role', 'menu')
     expect(menu).toHaveAttribute('aria-label', 'Project X project menu')
-    expect(menuScope.getByText('Team Alpha team · Link preview: proj-x')).toBeInTheDocument()
+    expect(menuScope.getByText('Team Alpha team · Menu link preview: proj-x')).toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /open project board/i })).toBeInTheDocument()
     expect(
       menuScope.getByRole('menuitem', { name: /new task for this project/i })
@@ -279,7 +279,7 @@ describe('Sidebar', () => {
     expect(
       menuScope.queryByRole('menuitem', { name: /copy support reference/i })
     ).not.toBeInTheDocument()
-    expect(menuScope.getByRole('menuitem', { name: /copy link preview/i })).toBeInTheDocument()
+    expect(menuScope.getByRole('menuitem', { name: /copy menu link preview/i })).toBeInTheDocument()
     expect(
       menuScope.getByText(/another page or an owner or admin asks for this project reference/i)
     ).toBeInTheDocument()
@@ -293,7 +293,7 @@ describe('Sidebar', () => {
     expect(menuScope.queryByText(/short name used in project links/i)).not.toBeInTheDocument()
     expect(
       menuScope.getByText(
-        /Project link preview: proj-x\. Forge creates this automatically from the project name\./i
+        /Project menu link preview: proj-x\. Forge creates this automatically from the project name\./i
       )
     ).toBeInTheDocument()
     expect(menuScope.queryByText(/project link preview proj-x/i)).not.toBeInTheDocument()
@@ -416,10 +416,10 @@ describe('Sidebar', () => {
 
     render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
     fireEvent.contextMenu(screen.getByTestId('project-p1'))
-    fireEvent.click(screen.getByRole('menuitem', { name: /copy link preview/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /copy menu link preview/i }))
 
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('proj-x'))
-    expect(screen.getByTestId('project-copy-status')).toHaveTextContent('Link preview copied')
+    expect(screen.getByTestId('project-copy-status')).toHaveTextContent('Menu link preview copied')
     expect(screen.getByTestId('project-copy-status')).not.toHaveTextContent(
       /Project link preview copied/i
     )
@@ -459,11 +459,11 @@ describe('Sidebar', () => {
 
     render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
     fireEvent.contextMenu(screen.getByTestId('project-p1'))
-    fireEvent.click(screen.getByRole('menuitem', { name: /copy link preview/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /copy menu link preview/i }))
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'This link preview is the short text Forge makes from the project name. Copy did not work, so select it below and copy it yourself.'
+      'This menu link preview is the short text Forge makes from the project name. Copy did not work, so select it below and copy it yourself.'
     )
     expect(screen.getByTestId('project-copy-manual-value')).toHaveTextContent('proj-x')
   })
@@ -616,7 +616,11 @@ describe('Sidebar', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: /delete team/i }))
     fireEvent.click(screen.getByRole('button', { name: /^delete team$/i }))
 
-    expect(screen.getByRole('button', { name: /deleting/i })).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByRole('button', { name: /deleting team/i })).toHaveAttribute(
+      'aria-busy',
+      'true'
+    )
+    expect(screen.queryByRole('button', { name: /^Deleting\.\.\.$/i })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^keep team$/i })).toBeDisabled()
 
     resolveDelete()
@@ -795,6 +799,13 @@ describe('Sidebar', () => {
 
   it('deletes project from context menu', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm')
+    let resolveDelete: () => void = () => {}
+    vi.mocked(projectApi.deleteProject).mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveDelete = resolve
+        })
+    )
     seedProjectTree()
 
     render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
@@ -819,6 +830,14 @@ describe('Sidebar', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: /delete project/i }))
     fireEvent.click(screen.getByRole('button', { name: /^delete project$/i }))
 
+    expect(screen.getByRole('button', { name: /deleting project/i })).toHaveAttribute(
+      'aria-busy',
+      'true'
+    )
+    expect(screen.queryByRole('button', { name: /^Deleting\.\.\.$/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^keep project$/i })).toBeDisabled()
+
+    resolveDelete()
     await waitFor(() => expect(projectApi.deleteProject).toHaveBeenCalledWith('t1', 'p1'))
     expect(screen.queryByText('Project X')).not.toBeInTheDocument()
     confirmSpy.mockRestore()

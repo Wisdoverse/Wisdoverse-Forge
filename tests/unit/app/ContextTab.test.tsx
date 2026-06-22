@@ -73,7 +73,20 @@ describe('ContextTab', () => {
   test('uses beginner wording while loading saved items', () => {
     render(<ContextTab taskId="task-1" loadContext={async () => new Promise(() => {})} />)
 
-    expect(screen.getByText('Loading saved notes and instructions...')).toBeDefined()
+    const loading = screen.getByRole('status', {
+      name: /checking saved notes and instructions/i,
+    })
+    expect(loading).toHaveTextContent('Checking saved notes and instructions')
+    expect(loading).toHaveTextContent(
+      'Forge is checking which saved notes and saved instructions helped this task.'
+    )
+    expect(loading).toHaveTextContent(
+      'If this takes more than a moment, open this task again from Tasks or ask an owner or admin to check task access.'
+    )
+    expect(loading).toHaveTextContent(
+      'Success looks like saved notes used, instructions used, or a start-the-task step.'
+    )
+    expect(loading).not.toHaveTextContent('Loading saved notes and instructions')
     expect(screen.queryByText(/saved\s+context/i)).toBeNull()
   })
 

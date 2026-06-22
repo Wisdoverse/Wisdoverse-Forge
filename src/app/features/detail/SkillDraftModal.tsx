@@ -275,7 +275,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
                 Close without saving
               </button>
               <button type="submit" disabled={submitting} className={uiStyles.primaryButton}>
-                {submitting ? 'Saving...' : 'Save instruction'}
+                {submitting ? 'Saving instruction...' : 'Save instruction'}
               </button>
             </div>
           </form>
@@ -376,7 +376,7 @@ function buildSkillDraft(task: TaskSummary, artifacts: TaskResultArtifact[]): Dr
     content: `# Instruction: ${title}
 
 ## When to use
-Use this instruction when a future task needs the same judgment, workflow, or implementation pattern.
+Use this instruction when a future task needs the same judgment, steps, or way of working.
 
 ## Reusable instructions
 ${source}`,

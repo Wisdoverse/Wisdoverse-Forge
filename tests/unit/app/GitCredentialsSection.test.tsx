@@ -12,6 +12,14 @@ const originalLoadGitCredentials = useSettingsStore.getState().loadGitCredential
 const originalSaveGitCredential = useSettingsStore.getState().saveGitCredential
 const originalDeleteGitCredential = useSettingsStore.getState().deleteGitCredential
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((res) => {
+    resolve = res
+  })
+  return { promise, resolve }
+}
+
 beforeEach(() => {
   loadGitCredentialsMock.mockResolvedValue(undefined)
   saveGitCredentialMock.mockResolvedValue(true)
@@ -40,6 +48,28 @@ afterEach(() => {
 })
 
 describe('GitCredentialsSection', () => {
+  test('explains HTTPS code access loading for first-time setup', () => {
+    useSettingsStore.setState({
+      gitCredentials: [],
+      gitCredentialsLoading: true,
+    })
+
+    render(<GitCredentialsSection />)
+
+    const loading = screen.getByRole('status', { name: /checking HTTPS code access/i })
+    expect(loading).toHaveTextContent('Checking HTTPS code access')
+    expect(loading).toHaveTextContent(
+      'Forge is checking which saved keys can open private https:// code links.'
+    )
+    expect(loading).toHaveTextContent(
+      'If this takes more than a moment, open Settings again or ask an owner or admin to check code access.'
+    )
+    expect(loading).toHaveTextContent(
+      'Success looks like saved HTTPS access or a step to add one.'
+    )
+    expect(loading).not.toHaveTextContent('Loading code access')
+  })
+
   test('guides first-time code access setup before saving a key', async () => {
     const user = userEvent.setup()
     render(<GitCredentialsSection />)
@@ -150,7 +180,13 @@ describe('GitCredentialsSection', () => {
 
     await user.type(tokenInput, 'ghp_example_token')
     expect(saveButton).toBeEnabled()
+    const request = deferred<boolean>()
+    saveGitCredentialMock.mockReturnValueOnce(request.promise)
     await user.click(saveButton)
+
+    expect(screen.getByRole('button', { name: /saving HTTPS code access/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /^Saving\.\.\.$/i })).toBeNull()
+    request.resolve(true)
 
     await waitFor(() =>
       expect(saveGitCredentialMock).toHaveBeenCalledWith('github', 'ghp_example_token', undefined)

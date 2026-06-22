@@ -6,6 +6,14 @@ afterEach(() => {
   cleanup()
 })
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((res) => {
+    resolve = res
+  })
+  return { promise, resolve }
+}
+
 describe('QuickCreate', () => {
   test('opens an explicit save/cancel form', () => {
     render(<QuickCreate columnId="backlog" onSubmit={vi.fn()} />)
@@ -78,6 +86,24 @@ describe('QuickCreate', () => {
     fireEvent.click(screen.getByRole('button', { name: /^save for later$/i }))
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('Ship onboarding copy', 'backlog'))
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: /task goal/i })).toBeNull())
+  })
+
+  test('names the save progress while a task idea is being saved', async () => {
+    const request = deferred<boolean>()
+    const onSubmit = vi.fn().mockReturnValueOnce(request.promise)
+    render(<QuickCreate columnId="backlog" onSubmit={onSubmit} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /add task idea/i }))
+    fireEvent.change(screen.getByRole('textbox', { name: /task goal/i }), {
+      target: { value: 'Prepare onboarding task' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^save for later$/i }))
+
+    expect(screen.getByRole('button', { name: /saving task idea/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /^Saving\.\.\.$/i })).toBeNull()
+
+    request.resolve(true)
     await waitFor(() => expect(screen.queryByRole('textbox', { name: /task goal/i })).toBeNull())
   })
 

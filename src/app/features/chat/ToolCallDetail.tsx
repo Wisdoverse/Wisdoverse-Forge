@@ -5,14 +5,16 @@ import type { ToolCall } from '@app/shared/model/chat.store'
 
 const MAX_OUTPUT_LINES = 12
 const HIDDEN_ACCESS_VALUE = 'Hidden for safety. Reconnect the required account access, then retry.'
+const SENSITIVE_ACCESS_MESSAGE =
+  'Account access details were hidden. Reconnect the required account access, then retry if this step still matters.'
 const MISSING_ACCESS_MESSAGE =
   'Required account access is missing. Add or reconnect service access, then retry.'
 const TECHNICAL_PROBLEM_MESSAGE =
   'This step hit a problem. Ask the agent to explain what happened, then retry if the task still matters.'
 const COMMAND_OUTPUT_MESSAGE =
-  'Command output was saved. Ask the agent to explain it before relying on it.'
+  'The command result was saved. Ask the agent to explain it before relying on it.'
 const PROBLEM_OUTPUT_MESSAGE =
-  'Problem output was saved. Ask the agent to explain what happened before retrying.'
+  'The command problem details were saved. Ask the agent to explain what happened before retrying.'
 const EMPTY_RESULT_SUMMARY =
   'This step finished, but it did not add details. Read the surrounding agent messages before deciding whether to continue, retry, or ask the agent to explain it.'
 const EMPTY_RESULT_DETAILS =
@@ -51,11 +53,11 @@ function extraDetailLabel(key: string): string {
     path: 'File or link',
     file: 'File',
     url: 'Address',
-    stdout: 'Command output',
-    stderr: 'Problem output',
-    rawoutput: 'Command output',
-    commandoutput: 'Command output',
-    erroroutput: 'Problem output',
+    stdout: 'What the command showed',
+    stderr: 'Problem details',
+    rawoutput: 'What the command showed',
+    commandoutput: 'What the command showed',
+    erroroutput: 'Problem details',
     target: 'Target',
     reason: 'Reason',
     error: 'Problem',
@@ -152,7 +154,16 @@ function safeToolString(value: string): string {
   if (containsTechnicalProblemText(value)) {
     return TECHNICAL_PROBLEM_MESSAGE
   }
+  if (containsSensitiveAccessText(value)) {
+    return SENSITIVE_ACCESS_MESSAGE
+  }
   return value
+}
+
+function containsSensitiveAccessText(value: string): boolean {
+  return /\b(secret\s+token|token\s+secret|private\s+api\s*key|api\s*key\s+[\w.-]{4,}|password\s+[\w.-]{4,}|credential\s+[\w.-]{4,})\b/i.test(
+    value
+  )
 }
 
 function containsTechnicalProblemText(value: string): boolean {
@@ -172,11 +183,11 @@ function toolDisplayName(tool: string): string {
   const normalized = tool.trim().toLowerCase()
   if (!normalized) return 'Work step'
 
-  if (['shell', 'bash', 'terminal', 'command'].includes(normalized)) return 'Command runner'
+  if (['shell', 'bash', 'terminal', 'command'].includes(normalized)) return 'Command step'
   if (['grep', 'ripgrep', 'search', 'web_search'].includes(normalized)) return 'Search'
-  if (['read_file', 'file_read', 'open_file'].includes(normalized)) return 'File reader'
-  if (['write_file', 'edit_file', 'apply_patch'].includes(normalized)) return 'File editor'
-  if (['deploy', 'deployment'].includes(normalized)) return 'Deployment'
+  if (['read_file', 'file_read', 'open_file'].includes(normalized)) return 'Read file'
+  if (['write_file', 'edit_file', 'apply_patch'].includes(normalized)) return 'Change files'
+  if (['deploy', 'deployment'].includes(normalized)) return 'Publish step'
 
   return normalized
     .split(/[_\-\s]+/)

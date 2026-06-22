@@ -74,6 +74,25 @@ afterEach(() => {
 })
 
 describe('AuditLogView', () => {
+  test('explains change history loading before the first rows appear', async () => {
+    fetchGovernanceAudit.mockReturnValue(new Promise(() => undefined))
+
+    render(<AuditLogView />)
+
+    const loading = await screen.findByRole('status', { name: /checking change history/i })
+    expect(loading).toHaveTextContent('Checking change history')
+    expect(loading).toHaveTextContent(
+      'Forge is checking saved note and saved instruction changes for this team space.'
+    )
+    expect(loading).toHaveTextContent(
+      'If this takes more than a moment, choose Refresh change history or ask an owner or admin to check change history access.'
+    )
+    expect(loading).toHaveTextContent(
+      'Success looks like history rows or a Show all change history step.'
+    )
+    expect(loading).not.toHaveTextContent('Loading change history')
+  })
+
   test('starts from common change views for first-time users', async () => {
     render(<AuditLogView />)
 

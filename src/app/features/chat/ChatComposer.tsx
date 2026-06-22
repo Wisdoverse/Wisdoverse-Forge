@@ -33,7 +33,7 @@ export function ChatComposer({
     : disabled
       ? (disabledReason ??
         'Wait until this agent is online, then send the message again from this chat.')
-      : 'Write one clear instruction or question, then send it to this agent.'
+      : 'Write one clear message or question, then send it to this agent.'
   const placeholderText = disabled
     ? (disabledPlaceholder ?? 'Wait until this agent is Ready before sending.')
     : 'Ask this agent for the next step'

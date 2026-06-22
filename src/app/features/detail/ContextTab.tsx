@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, Info } from 'lucide-react'
 import { orchestrationApi } from '@app/shared/api/orchestration'
 import { formatRelativeTime } from '@app/shared/lib/time'
+import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import { ContextAppliedList } from './ContextAppliedList'
 import { ContextCandidatesList } from './ContextCandidatesList'
 import { ContextEvidenceList } from './ContextEvidenceList'
@@ -104,11 +105,14 @@ export function ContextTab({
 
   if (loading) {
     return (
-      <div className="py-8 flex items-center justify-center">
-        <p className="text-xs text-secondary-light dark:text-secondary-dark">
-          Loading saved notes and instructions...
-        </p>
-      </div>
+      <BeginnerLoadingState
+        compact
+        framed={false}
+        title="Checking saved notes and instructions"
+        detail="Forge is checking which saved notes and saved instructions helped this task."
+        nextStep="If this takes more than a moment, open this task again from Tasks or ask an owner or admin to check task access."
+        success="Success looks like saved notes used, instructions used, or a start-the-task step."
+      />
     )
   }
 

@@ -42,6 +42,8 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
     expect(nextStep).toHaveTextContent('Open Agents and reconnect or restart the offline agents')
     expect(nextStep).toHaveTextContent('then return to Analytics')
     expect(nextStep).not.toHaveTextContent('refresh this page')
+    expect(screen.getByText('Messages sent')).toBeDefined()
+    expect(screen.queryByText('Instructions sent')).toBeNull()
   })
 
   test('guides an empty activity range toward running a first task', () => {
@@ -96,6 +98,8 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
     const nextStep = screen.getByTestId('analytics-next-step')
     expect(nextStep).toHaveTextContent('Work is running now')
     expect(nextStep).toHaveTextContent('recent activity is showing up here')
+    expect(nextStep).toHaveTextContent('compare messages sent with replies received')
+    expect(nextStep).not.toHaveTextContent('instructions sent')
     expect(nextStep).not.toHaveTextContent('activity is being recorded')
   })
 
@@ -134,6 +138,18 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
     expect(alert).not.toHaveTextContent('Refresh dashboard')
     fireEvent.click(screen.getByRole('button', { name: /load analytics again/i }))
     expect(load).toHaveBeenCalled()
+  })
+
+  test('names analytics retry progress while the dashboard is loading', () => {
+    useAnalyticsStore.setState({
+      loading: true,
+      error: 'Check your connection, then open Analytics again. Analytics could not connect.',
+    })
+
+    render(<AnalyticsDashboard />)
+
+    expect(screen.getByRole('button', { name: /loading analytics/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /^Loading\.\.\.$/i })).toBeNull()
   })
 
   test('shows range refresh progress and locks range controls', () => {

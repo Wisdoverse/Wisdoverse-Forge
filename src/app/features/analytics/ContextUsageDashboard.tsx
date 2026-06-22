@@ -21,10 +21,10 @@ const RUNTIME_LABELS: Record<string, string> = {
 const TASK_KIND_LABELS: Record<string, string> = {
   chat: 'Chat task',
   coding: 'Code change',
-  implementation: 'Implementation task',
+  implementation: 'Build task',
   planning: 'Planning task',
   review: 'Result check task',
-  workflow: 'Workflow task',
+  workflow: 'Repeated work task',
 }
 
 const EMPTY_TOP_USEFUL = {
