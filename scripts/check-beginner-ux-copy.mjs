@@ -2025,6 +2025,7 @@ const VAGUE_SETUP_RECOVERY_PATTERNS = [
 
 const NAVIGATION_ERROR_FAILURE_FIRST_PATTERNS = [
   /^\s*return\s+`You do not have permission to \$\{actionPhrase\}\. Ask an owner/i,
+  /^\s*return\s+`The left menu is busy\. Wait a moment/,
   /\brefresh the left menu to\b/i,
   /\bRefresh the left menu to\b/i,
   /\bRefresh the selected project\b/i,

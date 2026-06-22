@@ -243,7 +243,7 @@ export function navigationActionErrorMessage(
     return navigationValidationMessage(area, action, detail)
   }
   if (status === 429) {
-    return `The left menu is busy. Wait a moment, then try to ${actionPhrase} again.`
+    return `Wait a moment, then try to ${actionPhrase} again. The left menu is busy.`
   }
   if (status >= 500) {
     return 'Open the left menu to load teams and projects. If it still fails, ask an owner or admin to check Teams or Projects in Settings.'

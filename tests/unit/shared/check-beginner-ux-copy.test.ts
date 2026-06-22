@@ -16174,6 +16174,9 @@ function navigationActionErrorMessage(actionPhrase) {
 function staleNavigationRetryMessage(actionPhrase) {
   return \`Ask an owner or admin to update your team space access, then refresh the left menu to \${actionPhrase}. You do not have permission to \${actionPhrase}.\`
 }
+function busyNavigationRetryMessage(actionPhrase) {
+  return \`The left menu is busy. Wait a moment, then try to \${actionPhrase} again.\`
+}
 `,
     })
 
@@ -16189,6 +16192,10 @@ function staleNavigationRetryMessage(actionPhrase) {
         expect.objectContaining({
           type: 'navigation-error-copy',
           location: 'src/app/entities/navigation/model/navigation.store.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'navigation-error-copy',
+          location: 'src/app/entities/navigation/model/navigation.store.ts:9',
         }),
       ])
     )

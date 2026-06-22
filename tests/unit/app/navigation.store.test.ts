@@ -111,6 +111,13 @@ describe('navigation.store', () => {
     expect(message).not.toContain('sidebar')
   })
 
+  it('turns busy left menu responses into an action-first retry step', () => {
+    expectBeginnerError(
+      navigationActionErrorMessage('workLane', 'create', { statusCode: 429 }),
+      'Wait a moment, then try to create the waiting place again. The left menu is busy.'
+    )
+  })
+
   it('uses structured validation details for waiting place names', () => {
     const message = navigationActionErrorMessage('workLane', 'create', {
       code: '422',
