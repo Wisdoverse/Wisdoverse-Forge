@@ -523,6 +523,17 @@ pub struct AppConfig {
     /// unconfigured). Env: `SELF_FIX_PR_WORKER_ENABLED`.
     #[serde(default = "default_true")]
     pub self_fix_pr_worker_enabled: bool,
+
+    /// Maximum number of merge attempts before `approve_and_merge` hard-refuses
+    /// with `merge_attempts_exhausted` and flips `review_status` to
+    /// `changes_requested`. Protects against runaway retry loops.
+    /// Default: 5. Env: `SELF_FIX_MAX_MERGE_ATTEMPTS`.
+    #[serde(default = "default_self_fix_max_merge_attempts")]
+    pub self_fix_max_merge_attempts: i32,
+}
+
+fn default_self_fix_max_merge_attempts() -> i32 {
+    5
 }
 
 fn default_clone_timeout_secs() -> u64 {
@@ -843,6 +854,7 @@ mod tests {
             github_app_private_key: None,
             github_app_repo: None,
             self_fix_pr_worker_enabled: true,
+            self_fix_max_merge_attempts: 5,
         };
         assert!(cfg.is_production());
     }
@@ -1245,6 +1257,7 @@ mod tests {
             github_app_private_key: None,
             github_app_repo: None,
             self_fix_pr_worker_enabled: true,
+            self_fix_max_merge_attempts: 5,
         };
         let dbg = format!("{cfg:?}");
         for needle in [

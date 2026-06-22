@@ -165,6 +165,19 @@ impl SelfFixPolicy {
         .into()
     }
 
+    /// The task has exhausted its configurable merge-attempt budget. The caller
+    /// has already flipped `review_status` to `changes_requested`; this error
+    /// surfaces the refusal to the operator so they can inspect the PR and
+    /// either force-push a fix or close the task.
+    #[allow(dead_code)]
+    pub(crate) fn merge_attempts_exhausted() -> AppError {
+        ErrorKind::ValidationWithCode {
+            code: "errors.self_fix.merge_attempts_exhausted",
+            message: "Merge retry limit reached; review needs changes before another attempt.".into(),
+        }
+        .into()
+    }
+
     #[allow(dead_code)]
     pub(crate) fn head_moved() -> AppError {
         ErrorKind::Conflict("the PR head moved since review; re-review required".into()).into()

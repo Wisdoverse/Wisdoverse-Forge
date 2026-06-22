@@ -34,7 +34,7 @@ use agentforge_core::{AgentId, AppResult, TenantScope};
 use uuid::Uuid;
 
 use crate::domain::agent_workspace::{WorkspaceMountScope, host_path_for_container_cwd};
-use crate::domain::self_fix::review_status::{APPROVED, IN_REVIEW, MERGED, SENSITIVE_BLOCKED};
+use crate::domain::self_fix::review_status::{APPROVED, CHANGES_REQUESTED, IN_REVIEW, MERGED, SENSITIVE_BLOCKED};
 use crate::domain::self_fix::{SelfFixMergeResult, SelfFixPolicy, SelfFixReview};
 use crate::repositories::agent::AgentRepository;
 use crate::repositories::orchestration::OrchestrationTaskRepository;
@@ -49,7 +49,8 @@ use crate::services::self_fix::merge_executor::{MergeRequest, run_merge_executor
 ///
 /// Holds the task + agent repositories, the (optional) GitHub App client, the
 /// agent-container control service (used to freeze the agent before the PR is
-/// built), the managed workspace root, and the import limits.
+/// built), the managed workspace root, the import limits, and the configurable
+/// per-task merge-attempt cap.
 pub(crate) struct SelfFixService {
     tasks: OrchestrationTaskRepository,
     agents: AgentRepository,
@@ -57,6 +58,7 @@ pub(crate) struct SelfFixService {
     github: Option<Arc<GithubAppClient>>,
     workspace_root: String,
     limits: ImportLimits,
+    max_merge_attempts: i32,
 }
 
 impl SelfFixService {
@@ -67,8 +69,9 @@ impl SelfFixService {
         github: Option<GithubAppClient>,
         workspace_root: String,
         limits: ImportLimits,
+        max_merge_attempts: i32,
     ) -> Self {
-        Self { tasks, agents, container_control, github: github.map(Arc::new), workspace_root, limits }
+        Self { tasks, agents, container_control, github: github.map(Arc::new), workspace_root, limits, max_merge_attempts }
     }
 
     /// Open a self-fix draft PR for `task_id`.
@@ -177,11 +180,22 @@ impl SelfFixService {
         task_id: Uuid,
         approver_id: &str,
     ) -> AppResult<SelfFixMergeResult> {
-        // 1. Load the task; require self-fix + a configured GitHub App.
+        // 1. Load the task; require self-fix.
         let task = self.tasks.find_by_id(scope, task_id).await?;
         if !task.self_fix {
             return Err(SelfFixPolicy::not_a_self_fix_task());
         }
+
+        // 1a. Enforce the per-task merge-attempt cap BEFORE the GitHub
+        //     requirement check, so a capped task is refused regardless of
+        //     GitHub configuration and the cap is unit-testable without a
+        //     GitHub client.
+        if task.merge_attempts >= self.max_merge_attempts {
+            self.tasks.set_review_status(scope, task_id, CHANGES_REQUESTED).await?;
+            crate::services::self_fix::metrics::record_merge_outcome("exhausted");
+            return Err(SelfFixPolicy::merge_attempts_exhausted());
+        }
+
         let github = self.github.as_ref().ok_or_else(SelfFixPolicy::github_not_configured)?;
 
         // Require a PR linkage (number + recorded head SHA): the executor merges
@@ -220,7 +234,13 @@ impl SelfFixService {
         //    the executor for the head; approver + task are known now).
         let audit_body = merge_audit_body(approver_id, task_id, pr_number);
 
-        // 4. Run the git-only guarded merge. NOTHING merges on a gate failure.
+        // 4. Count this attempt BEFORE the executor runs so the counter is
+        //    incremented even when the executor gate fails (e.g. checks_red,
+        //    head_moved). The cap is checked at entry, so this always runs
+        //    within the allowed budget.
+        self.tasks.bump_merge_attempts(scope, task_id).await?;
+
+        // 5. Run the git-only guarded merge. NOTHING merges on a gate failure.
         let req = MergeRequest { pr_number, recorded_head_sha, sensitive };
         let outcome = match run_merge_executor(github.as_ref(), &req, &audit_body).await {
             Ok(outcome) => {
@@ -236,10 +256,10 @@ impl SelfFixService {
             }
         };
 
-        // 5. Persist MERGED only after a confirmed merge (or idempotent success).
+        // 6. Persist MERGED only after a confirmed merge (or idempotent success).
         self.tasks.set_review_status(scope, task_id, MERGED).await?;
 
-        // 6. Project the merge-executor result onto the domain-owned wire shape.
+        // 7. Project the merge-executor result onto the domain-owned wire shape.
         Ok(SelfFixMergeResult {
             pr_number: outcome.pr_number,
             merged_head_sha: outcome.merged_head_sha,

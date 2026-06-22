@@ -479,6 +479,8 @@ pub struct OrchestrationTask {
     pub pr_url: Option<String>,
     pub pr_head_sha: Option<String>,
     pub review_status: Option<String>,
+    pub merge_attempts: i32,
+    pub review_opened_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
