@@ -57,10 +57,10 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
         </span>
       </div>
 
-      {/* Lease countdown — only while the task is actively held by a worker */}
+      {/* Agent check-in countdown while work is active. */}
       {task.state === 'working' && task.leaseExpiresAt != null && (
         <p className="text-[10px] text-secondary-light dark:text-secondary-dark">
-          Lease expires {formatRelativeTime(task.leaseExpiresAt)}
+          Agent check-in due {formatRelativeTime(task.leaseExpiresAt)}
         </p>
       )}
 

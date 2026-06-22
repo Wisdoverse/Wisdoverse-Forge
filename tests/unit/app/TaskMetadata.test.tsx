@@ -82,6 +82,22 @@ describe('TaskMetadata', () => {
     )
   })
 
+  test('describes active work check-in timing without lease wording', () => {
+    render(
+      <TaskMetadata
+        task={{
+          ...mockTask,
+          state: 'working',
+          assignedAgentName: 'Build Agent',
+          leaseExpiresAt: new Date(Date.now() + 60000).toISOString(),
+        }}
+      />
+    )
+
+    expect(screen.getByText(/Agent check-in due/i)).toBeDefined()
+    expect(screen.queryByText(/Lease expires/i)).toBeNull()
+  })
+
   test('turns credential blocked guidance into an account-access recovery step', () => {
     render(
       <TaskMetadata
