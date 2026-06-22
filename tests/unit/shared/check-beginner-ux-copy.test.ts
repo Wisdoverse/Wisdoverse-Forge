@@ -12748,7 +12748,7 @@ function validation() {
 function savedMessage() {
   return 'SSH code access saved. Create a small task with a git@ code link to confirm agents can open it. If it cannot read the repository, come back here and replace this key.'
 }
-const tableHeaders = [{ label: 'Safety check' }, { label: 'Key type' }]
+const tableHeaders = [{ label: 'Safety check' }, { label: 'Key type' }, { label: 'Saved key check code' }]
 `,
       'src/app/features/settings/sshKeysErrorMessage.ts': `
 export function sshKeysErrorMessage() {
@@ -12823,6 +12823,10 @@ export function settingsActionErrorMessage() {
         }),
         expect.objectContaining({
           type: 'ssh-code-access-jargon-copy',
+          sample: expect.stringContaining('Saved key check code'),
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-jargon-copy',
           sample: expect.stringContaining('read the repository'),
         }),
         expect.objectContaining({
@@ -12867,7 +12871,7 @@ function validation() {
 function savedMessage() {
   return 'SSH code access saved. Create a small task with a git@ private code link to confirm agents can open it. If agents cannot open the code, come back here and replace this key.'
 }
-const tableHeaders = [{ label: 'Saved key check code' }, { label: 'Accepted by Forge' }]
+const tableHeaders = [{ label: 'Saved key check text' }, { label: 'Accepted by Forge' }]
 `,
       'src/app/features/settings/sshKeysErrorMessage.ts': `
 export function sshKeysErrorMessage() {

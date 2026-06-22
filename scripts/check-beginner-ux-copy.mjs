@@ -1406,6 +1406,7 @@ const SSH_CODE_ACCESS_JARGON_PATTERNS = [
   /\bRSA key type\b/i,
   /\bSafety check\b/i,
   /\bKey type\b/i,
+  /\bSaved key check code\b/i,
   /\bcannot read the repository\b/i,
   /\bread the repository\b/i,
   /\bPaste the public key line that starts\b/i,
