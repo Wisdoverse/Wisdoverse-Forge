@@ -12,6 +12,14 @@ const originalLoadGitCredentials = useSettingsStore.getState().loadGitCredential
 const originalSaveGitCredential = useSettingsStore.getState().saveGitCredential
 const originalDeleteGitCredential = useSettingsStore.getState().deleteGitCredential
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((res) => {
+    resolve = res
+  })
+  return { promise, resolve }
+}
+
 beforeEach(() => {
   loadGitCredentialsMock.mockResolvedValue(undefined)
   saveGitCredentialMock.mockResolvedValue(true)
@@ -172,7 +180,13 @@ describe('GitCredentialsSection', () => {
 
     await user.type(tokenInput, 'ghp_example_token')
     expect(saveButton).toBeEnabled()
+    const request = deferred<boolean>()
+    saveGitCredentialMock.mockReturnValueOnce(request.promise)
     await user.click(saveButton)
+
+    expect(screen.getByRole('button', { name: /saving HTTPS code access/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /^Saving\.\.\.$/i })).toBeNull()
+    request.resolve(true)
 
     await waitFor(() =>
       expect(saveGitCredentialMock).toHaveBeenCalledWith('github', 'ghp_example_token', undefined)

@@ -616,7 +616,11 @@ describe('Sidebar', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: /delete team/i }))
     fireEvent.click(screen.getByRole('button', { name: /^delete team$/i }))
 
-    expect(screen.getByRole('button', { name: /deleting/i })).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByRole('button', { name: /deleting team/i })).toHaveAttribute(
+      'aria-busy',
+      'true'
+    )
+    expect(screen.queryByRole('button', { name: /^Deleting\.\.\.$/i })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^keep team$/i })).toBeDisabled()
 
     resolveDelete()
@@ -795,6 +799,13 @@ describe('Sidebar', () => {
 
   it('deletes project from context menu', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm')
+    let resolveDelete: () => void = () => {}
+    vi.mocked(projectApi.deleteProject).mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveDelete = resolve
+        })
+    )
     seedProjectTree()
 
     render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
@@ -819,6 +830,14 @@ describe('Sidebar', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: /delete project/i }))
     fireEvent.click(screen.getByRole('button', { name: /^delete project$/i }))
 
+    expect(screen.getByRole('button', { name: /deleting project/i })).toHaveAttribute(
+      'aria-busy',
+      'true'
+    )
+    expect(screen.queryByRole('button', { name: /^Deleting\.\.\.$/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^keep project$/i })).toBeDisabled()
+
+    resolveDelete()
     await waitFor(() => expect(projectApi.deleteProject).toHaveBeenCalledWith('t1', 'p1'))
     expect(screen.queryByText('Project X')).not.toBeInTheDocument()
     confirmSpy.mockRestore()

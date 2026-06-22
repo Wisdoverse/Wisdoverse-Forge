@@ -12,6 +12,14 @@ const originalLoadSshKeys = useSettingsStore.getState().loadSshKeys
 const originalCreateSshKey = useSettingsStore.getState().createSshKey
 const originalDeleteSshKey = useSettingsStore.getState().deleteSshKey
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((res) => {
+    resolve = res
+  })
+  return { promise, resolve }
+}
+
 function sshKey(overrides: Partial<UserSshKey> = {}): UserSshKey {
   return {
     id: 'ssh-key-1',
@@ -155,7 +163,13 @@ describe('SshKeysSection', () => {
       target: { value: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAexample dev@example.com' },
     })
     expect(saveButton).toBeEnabled()
+    const request = deferred<boolean>()
+    createSshKeyMock.mockReturnValueOnce(request.promise)
     fireEvent.click(saveButton)
+
+    expect(screen.getByRole('button', { name: /saving SSH code access/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /^Saving\.\.\.$/i })).toBeNull()
+    request.resolve(true)
 
     await waitFor(() =>
       expect(createSshKeyMock).toHaveBeenCalledWith(

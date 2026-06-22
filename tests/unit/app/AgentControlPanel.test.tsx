@@ -169,6 +169,29 @@ describe('AgentControlPanel', () => {
     )
   })
 
+  test('names instruction send progress while the request is running', async () => {
+    let finishSend: (sent: boolean) => void = () => undefined
+    sendPromptMock.mockReturnValueOnce(
+      new Promise<boolean>((resolve) => {
+        finishSend = resolve
+      })
+    )
+
+    render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
+
+    fireEvent.change(screen.getByLabelText(/send one instruction/i), {
+      target: { value: 'Check recent work' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /send instruction/i }))
+
+    expect(screen.getByRole('button', { name: /sending instruction/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /^Sending\.\.\.$/i })).toBeNull()
+
+    await act(async () => {
+      finishSend(true)
+    })
+  })
+
   test('keeps the message box usable when sending fails unexpectedly', async () => {
     sendPromptMock.mockRejectedValueOnce(new Error('socket hang up'))
 

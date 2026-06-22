@@ -28,6 +28,14 @@ beforeEach(() => {
   })
 })
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((res) => {
+    resolve = res
+  })
+  return { promise, resolve }
+}
+
 describe('SkillsView', () => {
   test('renders skill count in toolbar', () => {
     // Title is rendered by TopBar outside SkillsView — verify the
@@ -390,12 +398,15 @@ describe('SkillsView', () => {
 
   test('creates a skill through the Rust API', async () => {
     const user = userEvent.setup()
+    const createRequest = deferred<Response>()
     fetchMock
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ ok: true, data: [] }),
       })
-      .mockResolvedValueOnce({
+      .mockReturnValueOnce(createRequest.promise)
+
+    const createdSkillResponse = {
         ok: true,
         json: async () => ({
           ok: true,
@@ -409,7 +420,7 @@ describe('SkillsView', () => {
             enabled: true,
           },
         }),
-      })
+      } as Response
 
     render(<SkillsView />)
 
@@ -437,6 +448,10 @@ describe('SkillsView', () => {
     )
     await user.click(within(dialog).getByRole('button', { name: /save instruction/i }))
 
+    expect(within(dialog).getByRole('button', { name: /saving instruction/i })).toBeDisabled()
+    expect(within(dialog).queryByRole('button', { name: /^Saving\.\.\.$/i })).toBeNull()
+
+    createRequest.resolve(createdSkillResponse)
     await waitFor(() => {
       expect(screen.getByText('frontend-review')).toBeDefined()
     })

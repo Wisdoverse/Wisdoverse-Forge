@@ -142,6 +142,48 @@ describe('SkillDraftModal', () => {
     })
   })
 
+  test('names saved-instruction progress while saving', async () => {
+    let finishSave: (response: Response) => void = () => undefined
+    fetchMock.mockReturnValueOnce(
+      new Promise<Response>((resolve) => {
+        finishSave = resolve
+      })
+    )
+
+    render(
+      <SkillDraftModal
+        open
+        task={completedTask}
+        artifacts={[{ name: 'summary.md', mimeType: 'text/markdown', data: 'Done' }]}
+        onClose={() => {}}
+      />
+    )
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /save instruction/i }))
+
+    expect(screen.getByRole('button', { name: /saving instruction/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /^Saving\.\.\.$/i })).toBeNull()
+
+    finishSave(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          data: {
+            id: 'skill-1',
+            organization_id: 'org-1',
+            name: 'refactor-database-migration',
+            description: 'Reusable database migration review',
+            trigger_pattern: 'refactor database migration',
+            content: 'Check migration safety and rollback notes.',
+            enabled: true,
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    )
+    expect(await screen.findByTestId('skill-published-state')).toBeDefined()
+  })
+
   test('guides the user through required draft fields before saving', async () => {
     const user = userEvent.setup()
 

@@ -275,7 +275,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
                 Close without saving
               </button>
               <button type="submit" disabled={submitting} className={uiStyles.primaryButton}>
-                {submitting ? 'Saving...' : 'Save instruction'}
+                {submitting ? 'Saving instruction...' : 'Save instruction'}
               </button>
             </div>
           </form>

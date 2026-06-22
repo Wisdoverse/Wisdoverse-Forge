@@ -229,7 +229,7 @@ function PasswordChangeForm() {
           disabled={!canSubmitPasswordChange}
           className={uiStyles.primaryButton}
         >
-          {saving ? 'Saving...' : 'Update Password'}
+          {saving ? 'Updating password...' : 'Update Password'}
         </button>
       </div>
     </form>
@@ -364,7 +364,7 @@ function OrgRenameForm() {
             disabled={saving || !dirty || !valid}
             className={uiStyles.primaryButton}
           >
-            {saving ? 'Saving...' : 'Save Team Space Name'}
+            {saving ? 'Saving team space name...' : 'Save Team Space Name'}
           </button>
         </div>
       )}

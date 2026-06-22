@@ -799,8 +799,8 @@ export function TaskFormModal({
                 ? 'Preparing project...'
                 : isSubmitting
                   ? taskWillWaitForAgent
-                    ? 'Saving...'
-                    : 'Creating...'
+                    ? 'Saving task to wait...'
+                    : 'Creating task...'
                   : confirmIncompleteBrief && !briefReady
                     ? incompleteBriefActionLabel
                     : taskWillWaitForAgent

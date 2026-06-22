@@ -170,7 +170,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
               : 'cursor-not-allowed bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
           )}
         >
-          {submitting ? 'Saving...' : 'Save for later'}
+          {submitting ? 'Saving task idea...' : 'Save for later'}
         </button>
         <button
           type="button"

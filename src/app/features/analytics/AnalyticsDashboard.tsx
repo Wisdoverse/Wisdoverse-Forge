@@ -473,7 +473,7 @@ function AnalyticsErrorPanel({
           disabled={loading}
           className="inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-apple-red/30 px-3 text-ui-button font-semibold text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/40 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {loading ? 'Loading...' : 'Load analytics again'}
+          {loading ? 'Loading analytics...' : 'Load analytics again'}
         </button>
       </div>
     </div>

@@ -269,7 +269,7 @@ function CreateKeyForm({ onSave, onCancel, saving }: CreateKeyFormProps) {
           disabled={saving || !name.trim()}
           className={cn(uiStyles.primaryButton, 'w-full sm:w-auto')}
         >
-          {saving ? 'Creating...' : 'Create access key'}
+          {saving ? 'Creating access key...' : 'Create access key'}
         </button>
       </div>
       <p

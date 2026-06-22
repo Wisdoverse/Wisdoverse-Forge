@@ -255,7 +255,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
               messageDisabled && 'opacity-50 cursor-not-allowed'
             )}
           >
-            {sending ? 'Sending...' : 'Send instruction'}
+            {sending ? 'Sending instruction...' : 'Send instruction'}
           </button>
         </div>
       </div>

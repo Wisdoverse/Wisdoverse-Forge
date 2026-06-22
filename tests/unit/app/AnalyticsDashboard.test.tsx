@@ -136,6 +136,18 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
     expect(load).toHaveBeenCalled()
   })
 
+  test('names analytics retry progress while the dashboard is loading', () => {
+    useAnalyticsStore.setState({
+      loading: true,
+      error: 'Check your connection, then open Analytics again. Analytics could not connect.',
+    })
+
+    render(<AnalyticsDashboard />)
+
+    expect(screen.getByRole('button', { name: /loading analytics/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /^Loading\.\.\.$/i })).toBeNull()
+  })
+
   test('shows range refresh progress and locks range controls', () => {
     const setDateRange = vi.fn()
     useAnalyticsStore.setState({

@@ -277,7 +277,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
           disabled={saving || !label.trim() || !publicKey.trim()}
           className={uiStyles.primaryButton}
         >
-          {saving ? 'Saving...' : 'Save SSH code access'}
+          {saving ? 'Saving SSH code access...' : 'Save SSH code access'}
         </button>
       </div>
     </form>

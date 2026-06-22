@@ -359,7 +359,7 @@ function AddCredentialForm({
           disabled={saving || !form.token.trim()}
           className={uiStyles.primaryButton}
         >
-          {saving ? 'Saving...' : 'Save code access'}
+          {saving ? 'Saving HTTPS code access...' : 'Save code access'}
         </button>
       </div>
     </form>

@@ -687,7 +687,7 @@ export class AuthPage {
     resendBtn?.addEventListener('click', async () => {
       if (!resendBtn || resendBtn.disabled) return
       resendBtn.disabled = true
-      resendBtn.textContent = 'Sending...'
+      resendBtn.textContent = 'Sending verification email...'
       if (resendError) {
         resendError.textContent = ''
         resendError.style.display = 'none'
@@ -829,7 +829,7 @@ export class AuthPage {
     const resendError = container.querySelector('#resend-error') as HTMLElement | null
     resendBtn?.addEventListener('click', async () => {
       resendBtn.disabled = true
-      resendBtn.textContent = 'Sending...'
+      resendBtn.textContent = 'Sending verification email...'
       if (resendError) {
         resendError.textContent = ''
         resendError.style.display = 'none'
