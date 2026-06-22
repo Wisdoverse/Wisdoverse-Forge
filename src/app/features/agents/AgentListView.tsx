@@ -86,7 +86,7 @@ const HOST_CLI_PLATFORMS: {
 ]
 
 export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) {
-  const { agents, selectAgent, setCreateModalOpen, loadAgents, loading } = useAgentsStore()
+  const { agents, selectAgent, setCreateModalOpen, loadAgents, loading, error } = useAgentsStore()
   const selectedProjectId = useNavigationStore((state) => state.selectedProjectId)
   const selectedProjectName = useNavigationStore((state) => {
     if (!state.selectedProjectId) return null
@@ -111,7 +111,8 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
     [runtimeFilter, searchQuery, statusFilter]
   )
   const hasFleetControls = agents.length > 0
-  const showAgentChoiceGuide = hasFleetControls || !loading
+  const hasAgentLoadError = !loading && agents.length === 0 && Boolean(error)
+  const showAgentChoiceGuide = hasFleetControls || (!loading && !hasAgentLoadError)
   const hasActiveFilter =
     searchQuery.trim().length > 0 || statusFilter !== 'all' || runtimeFilter !== 'all'
   const clearAgentFilters = () => {
@@ -144,7 +145,9 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
                 className="text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark"
               >
                 {agents.length === 0
-                  ? 'Add first agent'
+                  ? hasAgentLoadError
+                    ? 'Check agents'
+                    : 'Add first agent'
                   : `${filteredAgents.length}/${agents.length} agent${agents.length === 1 ? '' : 's'}`}
               </p>
               <button
@@ -183,6 +186,29 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
               nextStep="If this takes more than a moment, open Agents again or ask an owner or admin to check agent access."
               success="Success looks like an agent card with a status such as Ready or Not connected."
             />
+          ) : hasAgentLoadError ? (
+            <div
+              role="alert"
+              aria-live="polite"
+              data-testid="agent-list-error"
+              className="flex min-h-72 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-black/10 px-6 text-center dark:border-white/10"
+            >
+              <div className="max-w-sm space-y-1">
+                <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+                  Check agents again
+                </p>
+                <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
+                  {error}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void loadAgents()}
+                className="inline-flex h-10 items-center justify-center rounded-full bg-apple-blue px-4 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+              >
+                Check agents again
+              </button>
+            </div>
           ) : agents.length === 0 ? (
             <div className="flex min-h-72 flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-black/10 px-6 text-center dark:border-white/10">
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-apple-blue/10 text-apple-blue">
