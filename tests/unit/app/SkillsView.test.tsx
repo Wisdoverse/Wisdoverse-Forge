@@ -602,6 +602,6 @@ describe('SkillsView', () => {
   test('shows loading state while fetching', () => {
     useSkillsStore.setState({ loading: true })
     render(<SkillsView />)
-    expect(screen.getByText(/loading saved instructions/i)).toBeDefined()
+    expect(screen.getByText('Checking saved instructions...')).toBeDefined()
   })
 })

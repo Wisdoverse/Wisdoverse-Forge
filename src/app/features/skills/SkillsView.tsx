@@ -179,7 +179,7 @@ export function SkillsView() {
         {loading && (
           <div className="flex h-full items-center justify-center">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              Loading saved instructions...
+              Checking saved instructions...
             </p>
           </div>
         )}
