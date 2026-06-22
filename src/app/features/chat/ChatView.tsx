@@ -269,7 +269,7 @@ export function ChatView({ agentId }: ChatViewProps) {
     return (
       <ChatErrorNotice
         message={error}
-        actionLabel="Retry conversation"
+        actionLabel="Check conversation again"
         onAction={() => void fetchEvents(agentId)}
       />
     )

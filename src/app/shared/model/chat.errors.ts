@@ -43,25 +43,25 @@ function isNetworkError(err: unknown): boolean {
 
 function baseMessage(action: ChatErrorAction): string {
   return action === 'load'
-    ? 'Retry conversation to load conversation history.'
+    ? 'Check conversation again to load the chat history.'
     : 'Chat was not cleared.'
 }
 
 function serviceRecoveryMessage(action: ChatErrorAction): string {
   return action === 'load'
-    ? 'Wait a few minutes, then choose Retry conversation again. Forge could not load this conversation right now. If it still fails, ask an owner or admin to check this agent chat.'
+    ? 'Wait a few minutes, then choose Check conversation again. Forge could not load this conversation right now. If it still fails, ask an owner or admin to check this agent chat.'
     : 'Wait a few minutes, then clear chat again if you still want to remove the messages. Forge could not update this chat right now. If it still fails, ask an owner or admin to check this agent chat.'
 }
 
 function networkRecoveryMessage(action: ChatErrorAction): string {
   return action === 'load'
-    ? 'Check your connection, then choose Retry conversation again. Forge could not connect while loading this conversation.'
+    ? 'Check your connection, then choose Check conversation again. Forge could not connect while loading this conversation.'
     : 'Check your connection, then clear chat again. Forge could not connect while clearing this chat.'
 }
 
 function fallbackRecoveryMessage(action: ChatErrorAction): string {
   return action === 'load'
-    ? 'Choose Retry conversation again. If it still fails, ask an owner or admin to check this agent chat.'
+    ? 'Choose Check conversation again. If it still fails, ask an owner or admin to check this agent chat.'
     : 'Clear chat again if you still want to remove the messages. If it still fails, ask an owner or admin to check this agent chat.'
 }
 
@@ -92,7 +92,7 @@ export function chatErrorMessage(action: ChatErrorAction, err: unknown): string 
     return `${base} ${networkRecoveryMessage(action)}`
   }
   if (text.includes('ok: false')) {
-    return `${base} Choose Retry conversation again. Forge could not read this conversation.`
+    return `${base} Choose Check conversation again. Forge could not read this conversation.`
   }
 
   return `${base} ${fallbackRecoveryMessage(action)}`

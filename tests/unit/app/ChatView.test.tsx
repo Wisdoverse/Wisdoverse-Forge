@@ -262,12 +262,12 @@ describe('ChatView', () => {
     expect(emptyState).not.toHaveTextContent('Start it before sending a message')
   })
 
-  test('shows a clear retry path when workspace conversation history cannot load', () => {
+  test('shows a clear recovery path when workspace chat history cannot load', () => {
     const fetchEvents = vi.fn().mockResolvedValue(undefined)
     useAgentsStore.setState({ agents: [cliAgent] })
     seedChatState({
       error:
-        'Retry conversation to load conversation history. Check your connection, then choose Retry conversation again. Forge could not connect while loading this conversation.',
+        'Check conversation again to load the chat history. Check your connection, then choose Check conversation again. Forge could not connect while loading this conversation.',
       fetchEvents,
     })
 
@@ -276,11 +276,11 @@ describe('ChatView', () => {
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent('Check this conversation')
-    expect(alert).toHaveTextContent('Check your connection, then choose Retry conversation again.')
+    expect(alert).toHaveTextContent('Check your connection, then choose Check conversation again.')
     expect(alert).not.toHaveTextContent('HTTP')
     expect(alert).not.toHaveTextContent('Failed to fetch')
 
-    fireEvent.click(screen.getByRole('button', { name: /retry conversation/i }))
+    fireEvent.click(screen.getByRole('button', { name: /check conversation again/i }))
     expect(fetchEvents).toHaveBeenCalledWith(cliAgent.id)
   })
 
@@ -289,7 +289,7 @@ describe('ChatView', () => {
     seedChatState({
       messages: [message('Earlier answer')],
       error:
-        'Retry conversation to load conversation history. Wait a few minutes, then choose Retry conversation again. Forge could not load this conversation right now. If it still fails, ask an owner or admin to check this agent chat.',
+        'Check conversation again to load the chat history. Wait a few minutes, then choose Check conversation again. Forge could not load this conversation right now. If it still fails, ask an owner or admin to check this agent chat.',
     })
 
     render(<ChatView agentId={providerAgent.id} />)
