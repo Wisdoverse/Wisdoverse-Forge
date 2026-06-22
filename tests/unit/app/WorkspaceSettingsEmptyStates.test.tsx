@@ -171,9 +171,7 @@ describe('workspace settings empty states', () => {
     expect(loading).toHaveTextContent(
       'If this takes more than a moment, open Teams again or ask an owner or admin to check team access.'
     )
-    expect(loading).toHaveTextContent(
-      'Success looks like a team row or a Create first team step.'
-    )
+    expect(loading).toHaveTextContent('Success looks like a team row or a Create first team step.')
     expect(loading).not.toHaveTextContent('Loading teams')
   })
 
@@ -190,9 +188,7 @@ describe('workspace settings empty states', () => {
     expect(loading).toHaveTextContent(
       'If this takes more than a moment, open Projects again or ask an owner or admin to check project access.'
     )
-    expect(loading).toHaveTextContent(
-      'Success looks like a project row or a New Project step.'
-    )
+    expect(loading).toHaveTextContent('Success looks like a project row or a New Project step.')
     expect(loading).not.toHaveTextContent('Loading projects')
   })
 
@@ -451,5 +447,35 @@ describe('workspace settings empty states', () => {
       'Ask an owner or admin to update your team space access, then open Settings, then Projects again. You do not have access to these project settings right now.'
     )
     expect(screen.queryByText('HTTP 403')).not.toBeInTheDocument()
+  })
+
+  it('keeps loaded projects visible when one team project list fails', async () => {
+    mocks.getTeams.mockResolvedValue([
+      { ...teamAlpha, canCreateProject: true },
+      { ...teamAlpha, id: 'team-2', name: 'Team Beta', slug: 'team-beta', canCreateProject: true },
+    ])
+    mocks.getProjects.mockImplementation((teamId: string) => {
+      if (teamId === 'team-2') return Promise.reject(new Error('HTTP 503'))
+      return Promise.resolve([
+        {
+          id: 'project-1',
+          teamId: 'team-1',
+          name: 'Website',
+          slug: 'website',
+          color: '#007AFF',
+          description: '',
+        },
+      ])
+    })
+
+    render(<ProjectsSection />)
+
+    await waitFor(() => expect(mocks.getProjects).toHaveBeenCalledWith('team-2'))
+    expect(screen.getByText('Existing project row')).toBeInTheDocument()
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Open Settings, then Projects again.')
+    expect(alert).toHaveTextContent('Some projects may be missing below.')
+    expect(alert).not.toHaveTextContent('HTTP 503')
+    expect(screen.queryByText('Create your first project')).not.toBeInTheDocument()
   })
 })
