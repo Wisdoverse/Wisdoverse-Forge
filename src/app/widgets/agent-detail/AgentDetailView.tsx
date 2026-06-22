@@ -349,7 +349,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
         !isHostCliAgent(agent) &&
         !agent.containerId && <PendingTerminal agent={agent} />}
 
-      {activeTab === 'plugins' && <AgentPluginsTab agentId={agent.id} />}
+      {activeTab === 'plugins' && <AgentPluginsTab agentId={agent.id} onBackToAgents={onBack} />}
 
       {activeTab === 'config' && <AgentConfigTab agentId={agent.id} />}
     </div>
