@@ -130,7 +130,7 @@ function validationMessage(action: GovernanceAuditErrorAction, detail: string): 
     return 'Choose a common change view or paste a specific change name, then apply the change filters again.'
   }
   if (normalized.includes('id')) {
-    return 'Check the selected team space, work area, person, or task code, then apply the change filters again.'
+    return 'Check the selected team space, work area, person, or task help text, then apply the change filters again.'
   }
   return ACTION_FALLBACKS[action]
 }
