@@ -169,8 +169,6 @@ impl Wal {
     /// Return the total number of events dropped because the WAL was full.
     ///
     /// Monotonically increasing. Exposed for the heartbeat health signal (#808).
-    // Consumed by tests and reserved for the heartbeat health signal in #808.
-    #[allow(dead_code)]
     pub fn dropped_total(&self) -> u64 {
         self.dropped.load(Ordering::Relaxed)
     }
