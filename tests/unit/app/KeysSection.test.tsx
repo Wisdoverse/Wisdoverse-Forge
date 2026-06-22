@@ -88,6 +88,15 @@ describe('KeysSection', () => {
     expect(screen.getByText(/remove the right access key later/i)).toBeDefined()
   })
 
+  test('explains what access key loading is checking', () => {
+    useSettingsStore.setState({ keysLoading: true, apiKeys: [] })
+
+    render(<KeysSection />)
+
+    expect(screen.getByText('Checking outside tool access…')).toBeDefined()
+    expect(screen.queryByText('Loading access keys…')).toBeNull()
+  })
+
   test('explains the required key name before creating an access key', async () => {
     render(<KeysSection />)
 

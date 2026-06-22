@@ -373,7 +373,7 @@ export function KeysSection() {
         <div className={cn(uiStyles.card, 'mt-3 overflow-x-auto')}>
           {keysLoading && apiKeys.length === 0 ? (
             <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-              Loading access keys…
+              Checking outside tool access…
             </div>
           ) : apiKeys.length === 0 ? (
             <PlatformKeyEmptyState onCreate={() => setShowForm(true)} />
