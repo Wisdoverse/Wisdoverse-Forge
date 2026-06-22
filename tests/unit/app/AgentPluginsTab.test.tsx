@@ -315,12 +315,15 @@ describe('AgentPluginsTab', () => {
       ok: false,
       status: 403,
     })
+    const onBackToAgents = vi.fn()
 
-    render(<AgentPluginsTab agentId="agent-1" />)
+    render(<AgentPluginsTab agentId="agent-1" onBackToAgents={onBackToAgents} />)
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(within(alert).getByText('Open Tools again from Agents')).toBeDefined()
+    fireEvent.click(within(alert).getByRole('button', { name: /back to agents/i }))
+    expect(onBackToAgents).toHaveBeenCalledTimes(1)
     expect(alert.textContent?.match(/Go back to Agents, choose this agent again/g)).toHaveLength(1)
     expect(alert.textContent).toContain(
       "Ask an owner or admin to give you access to this agent's tools."
