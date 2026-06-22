@@ -6332,7 +6332,7 @@ function completionSummary() {
   return 'Open the task details to confirm what changed before using the result.'
 }
 function safeCompletionMessage() {
-  return 'Finished with a summary you should check. Open the task details before using the result.'
+  return 'Finished with a summary to check. Open the task details before using the result.'
 }
 function stdoutSummary() {
   return 'Finished with a text result. Open the task details to check it before using it.'
@@ -10845,6 +10845,9 @@ function DetailRow() {
 export function safeCompletionMessage() {
   return 'Finished with a summary that needs review. Open the task details before using the result.'
 }
+export function oldCompletionMessage() {
+  return 'Finished with a summary you should check. Open the task details before using the result.'
+}
 `,
       'src/app/features/context/ApprovalQueueView.tsx': `
 export function approvalQueueEmptyState() {
@@ -10871,12 +10874,16 @@ export function approvalQueueEmptyState() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toHaveLength(5)
+    expect(result.findings).toHaveLength(6)
     expect(result.findings).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           type: 'vague-needs-review-copy',
           location: 'src/app/hooks/useWsDispatch.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'vague-needs-review-copy',
+          location: 'src/app/hooks/useWsDispatch.ts:6',
         }),
         expect.objectContaining({
           type: 'vague-needs-review-copy',
@@ -10902,7 +10909,7 @@ export function approvalQueueEmptyState() {
     const cwd = fixture({
       'src/app/hooks/useWsDispatch.ts': `
 export function safeCompletionMessage() {
-  return 'Finished with a summary you should check. Open the task details before using the result.'
+  return 'Finished with a summary to check. Open the task details before using the result.'
 }
 `,
       'src/app/features/context/ApprovalQueueView.tsx': `

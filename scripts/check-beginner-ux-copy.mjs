@@ -1806,6 +1806,7 @@ const CHAT_TOOL_FOLDER_PATH_JARGON_PATTERNS = [
 
 const VAGUE_NEEDS_REVIEW_COPY_PATTERNS = [
   /\bsummary that needs review\b/i,
+  /\bsummary you should check\b/i,
   /\bnothing needs review\b/i,
   /\bsetup needs review\b/i,
   /\bneeding review\b/i,
