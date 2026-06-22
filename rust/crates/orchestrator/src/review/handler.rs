@@ -7,12 +7,15 @@ use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
 use serde_json::json;
 
+use crate::audit::{AuditAction, AuditLog};
 use crate::auth;
 use crate::state::AppState;
 use crate::task::TaskState;
 
 use super::errors::ReviewError;
-use super::model::{AddCommentRequest, CodeReview, CreateReviewRequest, ReviewComment, ReviewFilter, ReviewState};
+use super::model::{
+    AddCommentRequest, CodeReview, CreateReviewRequest, ReviewComment, ReviewFilter, ReviewState, can_transition,
+};
 use super::store::Store;
 
 pub fn routes() -> axum::Router<AppState> {
@@ -33,7 +36,6 @@ struct ListQuery {
 
 #[derive(Debug, Default, Deserialize)]
 struct RejectRequest {
-    #[allow(dead_code)]
     feedback: Option<String>,
 }
 
@@ -52,6 +54,39 @@ fn map_error(err: ReviewError) -> Response {
         ReviewError::InvalidInput(message) => error(StatusCode::BAD_REQUEST, &message),
         ReviewError::Internal(message) => error(StatusCode::INTERNAL_SERVER_ERROR, &message),
     }
+}
+
+/// Emit an audit log entry. Returns `Err(Response)` if the store is present but the write fails
+/// (fail-closed). When no audit store is configured this is a no-op (best-effort callers can
+/// ignore the return value with `let _ =`).
+async fn record_audit(
+    state: &AppState,
+    action: AuditAction,
+    resource_id: Option<String>,
+    org_id: String,
+    actor_id: String,
+    changes: Option<serde_json::Value>,
+) -> Result<(), Response> {
+    let Some(audit_store) = state.audit_store.as_ref() else {
+        return Ok(());
+    };
+    let mut log = AuditLog {
+        id: String::new(),
+        action,
+        actor_id,
+        actor_type: "user".to_string(),
+        resource: "review".to_string(),
+        resource_id,
+        org_id,
+        changes,
+        ip_address: None,
+        user_agent: None,
+        created_at: chrono::Utc::now(),
+    };
+    audit_store
+        .create(&mut log)
+        .await
+        .map_err(|err| error(StatusCode::INTERNAL_SERVER_ERROR, &format!("audit log failed: {err}")))
 }
 
 async fn list(State(state): State<AppState>, headers: HeaderMap, Query(query): Query<ListQuery>) -> Response {
@@ -102,7 +137,7 @@ async fn create(State(state): State<AppState>, headers: HeaderMap, Json(req): Js
         state: ReviewState::Pending,
         assigned_to: req.assigned_to,
         org_id: identity.org_id.clone(),
-        created_by: identity.user_id,
+        created_by: identity.user_id.clone(),
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
     };
@@ -112,6 +147,15 @@ async fn create(State(state): State<AppState>, headers: HeaderMap, Json(req): Js
             if let Some(task_store) = state.task_store.as_ref() {
                 let _ = task_store.set_review_id(&review.task_id, &identity.org_id, review.id.clone()).await;
             }
+            let _ = record_audit(
+                &state,
+                AuditAction::ReviewCreate,
+                Some(review.id.clone()),
+                identity.org_id,
+                identity.user_id,
+                None,
+            )
+            .await;
             (StatusCode::CREATED, Json(json!({"ok": true, "review": review}))).into_response()
         }
         Err(err) => map_error(err),
@@ -148,11 +192,34 @@ async fn approve(State(state): State<AppState>, headers: HeaderMap, Path(id): Pa
         Ok(review) => review,
         Err(err) => return map_error(err),
     };
-    if let Err(err) = store.update_state(&id, &identity.org_id, ReviewState::Approved).await {
+
+    // State-machine guard: only legal transitions are allowed.
+    if !can_transition(review.review.state, ReviewState::Approved) {
+        return error(StatusCode::CONFLICT, "review cannot be approved from its current state");
+    }
+
+    // Self-approval guard: the creator cannot approve their own review.
+    if review.review.created_by == identity.user_id {
+        return error(StatusCode::FORBIDDEN, "cannot approve your own review");
+    }
+
+    if let Err(err) = store
+        .apply_verdict(&id, &identity.org_id, ReviewState::Approved, &review.review.task_id, TaskState::Completed)
+        .await
+    {
         return map_error(err);
     }
-    if let Some(task_store) = state.task_store.as_ref() {
-        let _ = task_store.update_state(&review.review.task_id, &identity.org_id, TaskState::Completed).await;
+
+    // Audit -- fail-closed: an audit write error returns 500. NOTE: the verdict
+    // (apply_verdict) has already committed by this point, so a 500 here means the
+    // audit record failed, NOT the state change -- the review IS approved. Audit is
+    // a separate write (not in the verdict tx) because audit policy lives in the
+    // handler, not the store; the 500 is loud-on-audit-failure by design.
+    if let Err(response) =
+        record_audit(&state, AuditAction::ReviewApprove, Some(id.clone()), identity.org_id, identity.user_id, None)
+            .await
+    {
+        return response;
     }
 
     (StatusCode::OK, Json(json!({"ok": true, "state": ReviewState::Approved}))).into_response()
@@ -162,7 +229,7 @@ async fn reject(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(id): Path<String>,
-    Json(_req): Json<RejectRequest>,
+    Json(req): Json<RejectRequest>,
 ) -> Response {
     let identity = match auth::require_request_identity(&state, &headers).await {
         Ok(identity) => identity,
@@ -173,15 +240,65 @@ async fn reject(
         Err(response) => return response,
     };
 
+    // Require non-empty feedback.
+    let feedback = match req.feedback.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        Some(feedback) => feedback.to_string(),
+        None => return error(StatusCode::BAD_REQUEST, "feedback is required"),
+    };
+
     let review = match store.get_by_id(&id, &identity.org_id).await {
         Ok(review) => review,
         Err(err) => return map_error(err),
     };
-    if let Err(err) = store.update_state(&id, &identity.org_id, ReviewState::ChangesRequested).await {
+
+    // State-machine guard: only legal transitions are allowed.
+    if !can_transition(review.review.state, ReviewState::ChangesRequested) {
+        return error(StatusCode::CONFLICT, "review cannot be rejected from its current state");
+    }
+
+    // Persist feedback as a ReviewComment.
+    let mut comment = ReviewComment {
+        id: String::new(),
+        review_id: id.clone(),
+        author_id: identity.user_id.clone(),
+        body: feedback.clone(),
+        file_path: None,
+        line: None,
+        created_at: chrono::Utc::now(),
+    };
+    if let Err(err) = store.add_comment(&id, &identity.org_id, &mut comment).await {
         return map_error(err);
     }
-    if let Some(task_store) = state.task_store.as_ref() {
-        let _ = task_store.update_state(&review.review.task_id, &identity.org_id, TaskState::ChangesRequested).await;
+
+    if let Err(err) = store
+        .apply_verdict(
+            &id,
+            &identity.org_id,
+            ReviewState::ChangesRequested,
+            &review.review.task_id,
+            TaskState::ChangesRequested,
+        )
+        .await
+    {
+        return map_error(err);
+    }
+
+    // Audit -- fail-closed: an audit write error returns 500. NOTE: the verdict
+    // (apply_verdict) has already committed by this point, so a 500 here means the
+    // audit record failed, NOT the state change -- the review IS changes-requested.
+    // Audit is a separate write (not in the verdict tx) because audit policy lives
+    // in the handler, not the store; the 500 is loud-on-audit-failure by design.
+    if let Err(response) = record_audit(
+        &state,
+        AuditAction::ReviewReject,
+        Some(id.clone()),
+        identity.org_id,
+        identity.user_id,
+        Some(json!({"feedback": feedback})),
+    )
+    .await
+    {
+        return response;
     }
 
     (StatusCode::OK, Json(json!({"ok": true, "state": ReviewState::ChangesRequested}))).into_response()
@@ -209,7 +326,7 @@ async fn add_comment(
     let mut comment = ReviewComment {
         id: String::new(),
         review_id: String::new(),
-        author_id: identity.user_id,
+        author_id: identity.user_id.clone(),
         body: req.body,
         file_path: req.file_path,
         line: req.line,
@@ -217,7 +334,18 @@ async fn add_comment(
     };
 
     match store.add_comment(&id, &identity.org_id, &mut comment).await {
-        Ok(()) => (StatusCode::CREATED, Json(json!({"ok": true, "comment": comment}))).into_response(),
+        Ok(()) => {
+            let _ = record_audit(
+                &state,
+                AuditAction::ReviewComment,
+                Some(id.clone()),
+                identity.org_id,
+                identity.user_id,
+                None,
+            )
+            .await;
+            (StatusCode::CREATED, Json(json!({"ok": true, "comment": comment}))).into_response()
+        }
         Err(err) => map_error(err),
     }
 }

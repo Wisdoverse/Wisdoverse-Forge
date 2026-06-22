@@ -89,6 +89,26 @@ impl Store for MemoryStore {
         review.comments.push(comment.clone());
         Ok(())
     }
+
+    /// Updates only the in-memory review state.  The in-memory test double is
+    /// single-aggregate and cannot mirror the `tasks` table; transactional
+    /// two-table behavior is covered exclusively by the `PgReviewStore` sqlx tests.
+    async fn apply_verdict(
+        &self,
+        review_id: &str,
+        org_id: &str,
+        new_review_state: crate::review::model::ReviewState,
+        _task_id: &str,
+        _new_task_state: crate::task::TaskState,
+    ) -> Result<()> {
+        let mut reviews = self.reviews.lock().await;
+        let Some(review) = reviews.get_mut(review_id).filter(|r| r.review.org_id == org_id) else {
+            return Err(ReviewError::NotFound);
+        };
+        review.review.state = new_review_state;
+        review.review.updated_at = Utc::now();
+        Ok(())
+    }
 }
 
 pub struct PgReviewStore {
@@ -213,6 +233,60 @@ impl Store for PgReviewStore {
         .await
         .map_err(|err| ReviewError::Internal(format!("insert review comment: {err}")))?;
         *comment = row_to_comment(&row)?;
+        Ok(())
+    }
+
+    /// Applies the review verdict and the linked task state change in a single
+    /// database transaction.  Both the `code_reviews` and `tasks` tables are
+    /// updated atomically; if either UPDATE affects zero rows (review or task not
+    /// found for the given `org_id`) the transaction is rolled back and
+    /// `ReviewError::NotFound` is returned so neither row is mutated.
+    ///
+    /// This is the only cross-aggregate write in the review repository.  It is
+    /// deliberate: guaranteeing that a verdict and its task side-effect are
+    /// always consistent requires a single transaction boundary, and both tables
+    /// share the orchestrator connection pool.
+    async fn apply_verdict(
+        &self,
+        review_id: &str,
+        org_id: &str,
+        new_review_state: ReviewState,
+        task_id: &str,
+        new_task_state: crate::task::TaskState,
+    ) -> Result<()> {
+        let mut tx =
+            self.pool.begin().await.map_err(|err| ReviewError::Internal(format!("begin transaction: {err}")))?;
+
+        let review_result = sqlx::query(
+            "UPDATE code_reviews SET state = $1, updated_at = NOW() WHERE id = CAST($2 AS uuid) AND org_id = $3",
+        )
+        .bind(new_review_state.as_str())
+        .bind(review_id)
+        .bind(org_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|err| ReviewError::Internal(format!("update review state in verdict tx: {err}")))?;
+
+        if review_result.rows_affected() == 0 {
+            // tx drops here, rolling back automatically
+            return Err(ReviewError::NotFound);
+        }
+
+        let task_result =
+            sqlx::query("UPDATE tasks SET state = $1, updated_at = NOW() WHERE id = CAST($2 AS uuid) AND org_id = $3")
+                .bind(new_task_state.as_str())
+                .bind(task_id)
+                .bind(org_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|err| ReviewError::Internal(format!("update task state in verdict tx: {err}")))?;
+
+        if task_result.rows_affected() == 0 {
+            // tx drops here, rolling back automatically
+            return Err(ReviewError::NotFound);
+        }
+
+        tx.commit().await.map_err(|err| ReviewError::Internal(format!("commit verdict tx: {err}")))?;
         Ok(())
     }
 }
