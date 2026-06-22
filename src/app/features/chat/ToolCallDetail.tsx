@@ -172,11 +172,11 @@ function toolDisplayName(tool: string): string {
   const normalized = tool.trim().toLowerCase()
   if (!normalized) return 'Work step'
 
-  if (['shell', 'bash', 'terminal', 'command'].includes(normalized)) return 'Command runner'
+  if (['shell', 'bash', 'terminal', 'command'].includes(normalized)) return 'Command step'
   if (['grep', 'ripgrep', 'search', 'web_search'].includes(normalized)) return 'Search'
-  if (['read_file', 'file_read', 'open_file'].includes(normalized)) return 'File reader'
-  if (['write_file', 'edit_file', 'apply_patch'].includes(normalized)) return 'File editor'
-  if (['deploy', 'deployment'].includes(normalized)) return 'Deployment'
+  if (['read_file', 'file_read', 'open_file'].includes(normalized)) return 'Read file'
+  if (['write_file', 'edit_file', 'apply_patch'].includes(normalized)) return 'Change files'
+  if (['deploy', 'deployment'].includes(normalized)) return 'Publish step'
 
   return normalized
     .split(/[_\-\s]+/)

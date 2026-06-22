@@ -21,7 +21,8 @@ describe('ToolCallDetail', () => {
     render(<ToolCallDetail call={baseCall} />)
 
     expect(screen.getByText(/Agent saved a work step/i)).toBeInTheDocument()
-    expect(screen.getByText(/Work step: Command runner/i)).toBeInTheDocument()
+    expect(screen.getByText(/Work step: Command step/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Command runner/i)).toBeNull()
     expect(screen.queryByText(/Step type: shell/i)).toBeNull()
     expect(screen.getByText('Completed cleanly')).toBeInTheDocument()
     expect(screen.getByText(/This step finished without a problem/i)).toBeInTheDocument()
@@ -34,7 +35,7 @@ describe('ToolCallDetail', () => {
   test('opens beginner summaries before extra details', () => {
     render(<ToolCallDetail call={baseCall} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /show step details for command runner/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show step details for command step/i }))
 
     expect(
       screen.getByText(
@@ -75,7 +76,7 @@ describe('ToolCallDetail', () => {
   test('explains the default project folder instead of showing it as a path to type', () => {
     render(<ToolCallDetail call={{ ...baseCall, input: { command: 'pwd', cwd: '/workspace' } }} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /show step details for command runner/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show step details for command step/i }))
     fireEvent.click(screen.getByRole('button', { name: /show what the agent received/i }))
 
     expect(
@@ -104,7 +105,8 @@ describe('ToolCallDetail', () => {
     expect(screen.getByText(/This step found a problem/i)).toBeInTheDocument()
     expect(screen.queryByText(/This step reported a problem/i)).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: /show step details for deployment/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show step details for publish step/i }))
+    expect(screen.queryByText(/Deployment/i)).toBeNull()
 
     expect(
       screen.getByText('Check this result before relying on the final answer.')
@@ -134,7 +136,7 @@ describe('ToolCallDetail', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /show step details for command runner/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show step details for command step/i }))
 
     expect(
       screen.getByText(
@@ -171,7 +173,7 @@ describe('ToolCallDetail', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /show step details for command runner/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show step details for command step/i }))
     fireEvent.click(screen.getByRole('button', { name: /show what happened/i }))
 
     expect(
@@ -193,7 +195,7 @@ describe('ToolCallDetail', () => {
 
     render(<ToolCallDetail call={{ ...baseCall, input: circularInput }} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /show step details for command runner/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show step details for command step/i }))
     fireEvent.click(screen.getByRole('button', { name: /show what the agent received/i }))
 
     expect(
@@ -214,7 +216,7 @@ describe('ToolCallDetail', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /show step details for command runner/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show step details for command step/i }))
 
     expect(screen.getByText('Check this step before relying on the answer.')).toBeInTheDocument()
     expect(screen.queryByText('This step needs review.')).toBeNull()
@@ -231,7 +233,7 @@ describe('ToolCallDetail', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /show step details for command runner/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show step details for command step/i }))
 
     expect(screen.getByText(/This step finished, but it did not add details/i)).toBeInTheDocument()
     expect(screen.getByText(/Read the surrounding agent messages/i)).toBeInTheDocument()
@@ -280,5 +282,33 @@ describe('ToolCallDetail', () => {
 
     expect(screen.getByText(/Work step: Future Tool Runner/i)).toBeInTheDocument()
     expect(screen.queryByText(/future_tool_runner/i)).toBeNull()
+  })
+
+  test('uses action labels for common file work steps', () => {
+    const { rerender } = render(
+      <ToolCallDetail
+        call={{
+          ...baseCall,
+          tool: 'read_file',
+          input: { path: 'README.md' },
+        }}
+      />
+    )
+
+    expect(screen.getByText(/Work step: Read file/i)).toBeInTheDocument()
+    expect(screen.queryByText(/File reader/i)).toBeNull()
+
+    rerender(
+      <ToolCallDetail
+        call={{
+          ...baseCall,
+          tool: 'apply_patch',
+          input: { path: 'README.md' },
+        }}
+      />
+    )
+
+    expect(screen.getByText(/Work step: Change files/i)).toBeInTheDocument()
+    expect(screen.queryByText(/File editor/i)).toBeNull()
   })
 })
