@@ -13,6 +13,10 @@ const COMMAND_OUTPUT_MESSAGE =
   'Command output was saved. Ask the agent to explain it before relying on it.'
 const PROBLEM_OUTPUT_MESSAGE =
   'Problem output was saved. Ask the agent to explain what happened before retrying.'
+const EMPTY_RESULT_SUMMARY =
+  'This step finished, but it did not add details. Read the surrounding agent messages before deciding whether to continue, retry, or ask the agent to explain it.'
+const EMPTY_RESULT_DETAILS =
+  'No saved details were shown for this step. Read the surrounding agent messages before deciding whether to wait, retry, or ask the agent to explain it.'
 
 function formatExtraDetails(data: Record<string, unknown>): string {
   try {
@@ -24,7 +28,7 @@ function formatExtraDetails(data: Record<string, unknown>): string {
     const lines = Object.entries(safeData as Record<string, unknown>).map(
       ([key, value]) => `${extraDetailLabel(key)}: ${formatExtraValue(value, key)}`
     )
-    return lines.length > 0 ? lines.join('\n') : 'No extra details were saved.'
+    return lines.length > 0 ? lines.join('\n') : EMPTY_RESULT_DETAILS
   } catch {
     return 'Extra details were saved but could not be shown safely. Check the summary above, then ask an owner or admin to check this task if needed.'
   }
@@ -216,7 +220,7 @@ function toolDataSummary(data: Record<string, unknown>, kind: 'request' | 'resul
 
   return kind === 'request'
     ? 'The agent started this step without extra settings.'
-    : 'The step returned an empty result.'
+    : EMPTY_RESULT_SUMMARY
 }
 
 function firstString(...values: unknown[]): string | null {
