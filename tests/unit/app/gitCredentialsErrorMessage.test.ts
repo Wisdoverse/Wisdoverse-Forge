@@ -93,7 +93,7 @@ describe('gitCredentialsErrorMessage', () => {
   test('turns structured rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       gitCredentialsErrorMessage({ statusCode: '429' }),
-      'Wait a minute, then try again. Forge is receiving too many code access requests right now.'
+      'Wait a minute, then open Settings and Code access again. Forge is receiving too many code access requests right now.'
     )
   })
 

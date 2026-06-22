@@ -136,7 +136,7 @@ export function gitCredentialsErrorMessage(error: unknown): string {
     return 'Ask an owner or admin to check code access settings, then try again.'
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
-    return 'Wait a minute, then try again. Forge is receiving too many code access requests right now.'
+    return `Wait a minute, then ${retry}. Forge is receiving too many code access requests right now.`
   }
   if (code != null && code >= 500) {
     if (action === 'load') {

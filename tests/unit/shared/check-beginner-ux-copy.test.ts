@@ -672,6 +672,9 @@ function oldDuplicateMessage() {
 function stitchedFallback(retry) {
   return \`Try to \${retry}. If it still fails, ask an owner or admin to check AI service settings.\`
 }
+function genericRateLimitMessage() {
+  return 'Wait a minute, then try again. Forge is receiving too many AI service requests right now.'
+}
 `,
     })
 
@@ -708,6 +711,10 @@ function stitchedFallback(retry) {
           type: 'provider-settings-error-copy',
           location: 'src/app/features/settings/providerSettingsErrorMessage.ts:21',
         }),
+        expect.objectContaining({
+          type: 'provider-settings-error-copy',
+          location: 'src/app/features/settings/providerSettingsErrorMessage.ts:24',
+        }),
       ])
     )
   })
@@ -719,7 +726,7 @@ function providerSettingsErrorMessage(action) {
   if (action === 'save') return 'Paste the service access key from the selected AI service, then save again.'
   if (action === 'remove') return 'Open Settings and AI services again, then remove this AI service again.'
   if (action === 'load') return 'Open Settings and AI services again.'
-  return 'Wait a minute, then try again. Forge is receiving too many AI service requests right now.'
+  return 'Wait a minute, then open Settings and AI services again. Forge is receiving too many AI service requests right now.'
 }
 `,
     })
@@ -1547,6 +1554,9 @@ function oldRemoveMessage() {
 function stitchedFallback(retry) {
   return \`Try to \${retry}. If it still fails, ask an owner or admin to check code access settings.\`
 }
+function genericRateLimitMessage() {
+  return 'Wait a minute, then try again. Forge is receiving too many code access requests right now.'
+}
 `,
     })
 
@@ -1579,6 +1589,10 @@ function stitchedFallback(retry) {
           type: 'code-access-error-copy',
           location: 'src/app/features/settings/gitCredentialsErrorMessage.ts:18',
         }),
+        expect.objectContaining({
+          type: 'code-access-error-copy',
+          location: 'src/app/features/settings/gitCredentialsErrorMessage.ts:21',
+        }),
       ])
     )
   })
@@ -1590,7 +1604,7 @@ function gitCredentialsErrorMessage(action) {
   if (action === 'save') return 'Paste a new code access key from GitHub or GitLab, then save again.'
   if (action === 'remove') return 'Open Settings and Code access again, then remove code access again.'
   if (action === 'load') return 'Open Settings and Code access again.'
-  return 'Wait a minute, then try again. Forge is receiving too many code access requests right now.'
+  return 'Wait a minute, then open Settings and Code access again. Forge is receiving too many code access requests right now.'
 }
 `,
     })
@@ -1618,6 +1632,9 @@ function oldRemoveMessage() {
 }
 function stitchedFallback(retry) {
   return \`Try to \${retry}. If it still fails, ask an owner or admin to check SSH code access settings.\`
+}
+function genericRateLimitMessage() {
+  return 'Wait a minute, then try again. Forge is receiving too many SSH code access requests right now.'
 }
 `,
     })
@@ -1651,6 +1668,10 @@ function stitchedFallback(retry) {
           type: 'ssh-code-access-error-copy',
           location: 'src/app/features/settings/sshKeysErrorMessage.ts:18',
         }),
+        expect.objectContaining({
+          type: 'ssh-code-access-error-copy',
+          location: 'src/app/features/settings/sshKeysErrorMessage.ts:21',
+        }),
       ])
     )
   })
@@ -1662,7 +1683,7 @@ function sshKeysErrorMessage(action) {
   if (action === 'save') return 'Add a name for this access, then save again.'
   if (action === 'remove') return 'Open Settings and SSH code access again, then remove this SSH code access again.'
   if (action === 'load') return 'Open Settings and SSH code access again.'
-  return 'Wait a minute, then try again. Forge is receiving too many SSH code access requests right now.'
+  return 'Wait a minute, then open Settings and SSH code access again. Forge is receiving too many SSH code access requests right now.'
 }
 `,
     })
@@ -1693,6 +1714,9 @@ function oldDuplicateMessage() {
 }
 function stitchedFallback(retry) {
   return \`Try to \${retry}. If it still fails, ask an owner or admin to check outside tool access settings.\`
+}
+function genericRateLimitMessage() {
+  return 'Wait a minute, then try again. Forge is receiving too many outside tool access requests right now.'
 }
 `,
     })
@@ -1730,6 +1754,10 @@ function stitchedFallback(retry) {
           type: 'platform-key-error-copy',
           location: 'src/app/features/settings/platformKeyErrorMessage.ts:21',
         }),
+        expect.objectContaining({
+          type: 'platform-key-error-copy',
+          location: 'src/app/features/settings/platformKeyErrorMessage.ts:24',
+        }),
       ])
     )
   })
@@ -1741,7 +1769,7 @@ function platformKeyErrorMessage(action) {
   if (action === 'create') return 'Enter the tool or job name, then try again.'
   if (action === 'remove') return 'Open Settings and Outside tool access keys again, then remove this outside tool access key again.'
   if (action === 'load') return 'Open Settings and Outside tool access keys again.'
-  return 'Wait a minute, then try again. Forge is receiving too many outside tool access requests right now.'
+  return 'Wait a minute, then open Settings and Outside tool access keys again. Forge is receiving too many outside tool access requests right now.'
 }
 `,
     })

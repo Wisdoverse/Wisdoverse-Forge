@@ -95,7 +95,7 @@ describe('sshKeysErrorMessage', () => {
   test('turns structured rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       sshKeysErrorMessage({ code: '429' }),
-      'Wait a minute, then try again. Forge is receiving too many SSH code access requests right now.'
+      'Wait a minute, then open Settings and SSH code access again. Forge is receiving too many SSH code access requests right now.'
     )
   })
 

@@ -118,7 +118,7 @@ export function platformKeyErrorMessage(error: unknown): string {
     return 'Enter the tool or job name, then try again.'
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
-    return 'Wait a minute, then try again. Forge is receiving too many outside tool access requests right now.'
+    return `Wait a minute, then ${retry}. Forge is receiving too many outside tool access requests right now.`
   }
   if (code != null && code >= 500) {
     if (action === 'load') {

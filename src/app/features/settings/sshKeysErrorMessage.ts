@@ -142,7 +142,7 @@ export function sshKeysErrorMessage(error: unknown): string {
     return 'Check the access name and safe public key line, then try again.'
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
-    return 'Wait a minute, then try again. Forge is receiving too many SSH code access requests right now.'
+    return `Wait a minute, then ${retry}. Forge is receiving too many SSH code access requests right now.`
   }
   if (code != null && code >= 500) {
     if (action === 'load') {

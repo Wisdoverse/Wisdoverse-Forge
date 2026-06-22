@@ -85,7 +85,7 @@ describe('platformKeyErrorMessage', () => {
   test('turns structured rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       platformKeyErrorMessage({ statusCode: '429' }),
-      'Wait a minute, then try again. Forge is receiving too many outside tool access requests right now.'
+      'Wait a minute, then open Settings and Outside tool access keys again. Forge is receiving too many outside tool access requests right now.'
     )
   })
 

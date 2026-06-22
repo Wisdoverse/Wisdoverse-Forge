@@ -110,7 +110,7 @@ describe('providerSettingsErrorMessage', () => {
   test('turns structured rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       providerSettingsErrorMessage({ statusCode: '429' }),
-      'Wait a minute, then try again. Forge is receiving too many AI service requests right now.'
+      'Wait a minute, then open Settings and AI services again. Forge is receiving too many AI service requests right now.'
     )
   })
 
