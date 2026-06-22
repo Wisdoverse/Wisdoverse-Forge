@@ -133,7 +133,7 @@ describe('CommandPalette', () => {
 
     expect(onSelect).toHaveBeenCalledWith('nav:start')
     expect(onClose).toHaveBeenCalledTimes(1)
-    expect(screen.queryByText('Show setup checklist again')).toBeNull()
+    expect(screen.queryByText('Reset setup checklist')).toBeNull()
   })
 
   test('finds setup checklist recovery when Start is hidden', async () => {
@@ -146,12 +146,12 @@ describe('CommandPalette', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByText('Show setup checklist')).toBeDefined()
+      expect(screen.getByText('Reset setup checklist')).toBeDefined()
     })
-    expect(screen.queryByText('Reset setup checklist')).toBeNull()
+    expect(screen.queryByText('Show setup checklist')).toBeNull()
     expect(
       screen.getByText(
-        'Add the setup checklist back to the left menu and open it. Projects, agents, and tasks stay unchanged.'
+        'Show the setup checklist in the left menu again. Projects, agents, and tasks stay unchanged.'
       )
     ).toBeDefined()
     expect(screen.queryByText('No page or option matches that search')).toBeNull()
@@ -160,8 +160,8 @@ describe('CommandPalette', () => {
   test('shows action commands', () => {
     render(<CommandPalette isOpen={true} onClose={() => {}} />)
     expect(screen.getByText('Create or change something')).toBeDefined()
-    expect(screen.getByText('Show setup checklist')).toBeDefined()
-    expect(screen.queryByText('Reset setup checklist')).toBeNull()
+    expect(screen.getByText('Reset setup checklist')).toBeDefined()
+    expect(screen.queryByText('Show setup checklist')).toBeNull()
     expect(screen.getByText('New task')).toBeDefined()
     expect(screen.getByText('Tell an agent the result you want and how to check it.')).toBeDefined()
     expect(screen.getByText('Codex sign-in')).toBeDefined()

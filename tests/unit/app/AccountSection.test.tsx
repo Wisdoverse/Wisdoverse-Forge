@@ -383,34 +383,34 @@ describe('AccountSection', () => {
     expect(screen.queryByText('Onboarding')).toBeNull()
     expect(screen.getByText(/It is hidden from the left menu/i)).toBeDefined()
     expect(screen.queryByText(/If Start is hidden/i)).toBeNull()
-    expect(screen.getByText(/choose Show setup checklist/i)).toBeDefined()
+    expect(screen.getByText(/choose Reset setup checklist/i)).toBeDefined()
     expect(
-      screen.getByText(/Show setup checklist adds it back to the left menu only/i)
+      screen.getByText(/Reset setup checklist adds it back to the left menu only/i)
     ).toBeDefined()
     expect(
       screen.getByText(/It is hidden from the left menu, so new sign-ins open Tasks by default/i)
     ).toBeDefined()
     expect(screen.queryByText(/New sign-ins still open Tasks by default/i)).toBeNull()
     expect(screen.getByText(/projects, agents, and tasks stay the same/i)).toBeDefined()
-    expect(screen.getByText(/Next step: choose Show setup checklist/i)).toBeDefined()
+    expect(screen.getByText(/Next step: choose Reset setup checklist/i)).toBeDefined()
     expect(screen.queryByText(/hidden from the left menu right now/i)).toBeNull()
     expect(screen.queryByText(/Reset Start guide/i)).toBeNull()
-    expect(screen.queryByText(/Reset setup checklist/i)).toBeNull()
+    expect(screen.queryByText(/Show setup checklist/i)).toBeNull()
     expect(screen.queryByText(/Reset it here/i)).toBeNull()
     expect(screen.queryByText(/sidebar shortcut/i)).toBeNull()
     expect(screen.queryByText(/nothing to restore/i)).toBeNull()
 
-    const restoreButton = screen.getByRole('button', { name: /show setup checklist/i })
+    const restoreButton = screen.getByRole('button', { name: /reset setup checklist/i })
     expect(restoreButton).not.toBeDisabled()
     fireEvent.click(restoreButton)
 
     await waitFor(() => expect(setGettingStartedDismissedMock).toHaveBeenCalledWith(false))
     expect(await screen.findByRole('status')).toHaveTextContent(
-      'Setup checklist is back in the left menu. Choose Open setup checklist to check setup steps. Your projects, agents, and tasks were not changed.'
+      'Setup checklist was reset and is back in the left menu. Choose Open setup checklist to check setup steps. Your projects, agents, and tasks were not changed.'
     )
     expect(
       screen.getByText(
-        'Setup checklist is back in the left menu. Choose Open setup checklist to check setup steps. Your projects, agents, and tasks were not changed.'
+        'Setup checklist was reset and is back in the left menu. Choose Open setup checklist to check setup steps. Your projects, agents, and tasks were not changed.'
       )
     ).toBeDefined()
     expect(screen.queryByText(/review setup/i)).toBeNull()
@@ -423,10 +423,10 @@ describe('AccountSection', () => {
 
     renderAccountSection()
 
-    expect(screen.getByText(/Next step: choose Show setup checklist to add it back/i)).toBeDefined()
+    expect(screen.getByText(/Next step: choose Reset setup checklist to add it back/i)).toBeDefined()
     expect(screen.queryByText(/hidden from the left menu right now/i)).toBeNull()
-    expect(screen.getByRole('button', { name: /show setup checklist/i })).not.toBeDisabled()
-    expect(screen.queryByRole('button', { name: /reset setup checklist/i })).toBeNull()
+    expect(screen.getByRole('button', { name: /reset setup checklist/i })).not.toBeDisabled()
+    expect(screen.queryByRole('button', { name: /show setup checklist/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /open setup checklist/i })).toBeNull()
   })
 
@@ -482,12 +482,12 @@ describe('AccountSection', () => {
 
     renderAccountSection()
 
-    fireEvent.click(screen.getByRole('button', { name: /show setup checklist/i }))
+    fireEvent.click(screen.getByRole('button', { name: /reset setup checklist/i }))
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
-      'Check your connection, then choose Show setup checklist again. Forge could not add it back to the left menu.'
+      'Check your connection, then choose Reset setup checklist again. Forge could not add it back to the left menu.'
     )
     expect(
       screen.queryByText(

@@ -64,9 +64,7 @@ describe('GitCredentialsSection', () => {
     expect(loading).toHaveTextContent(
       'If this takes more than a moment, open Settings again or ask an owner or admin to check code access.'
     )
-    expect(loading).toHaveTextContent(
-      'Success looks like saved HTTPS access or a step to add one.'
-    )
+    expect(loading).toHaveTextContent('Success looks like saved HTTPS access or a step to add one.')
     expect(loading).not.toHaveTextContent('Loading code access')
   })
 
@@ -251,6 +249,24 @@ describe('GitCredentialsSection', () => {
     await waitFor(() => {
       expect(deleteGitCredentialMock).toHaveBeenCalledWith('git-1')
     })
+  })
+
+  test('stops a project code link from being saved as the HTTPS code access key', async () => {
+    const user = userEvent.setup()
+    render(<GitCredentialsSection />)
+
+    const emptyState = await screen.findByTestId('code-access-empty-state')
+    await user.click(within(emptyState).getByRole('button', { name: /add HTTPS code access/i }))
+
+    const tokenInput = screen.getByLabelText(/^code access key/i)
+    await user.type(tokenInput, 'https://github.com/team/project.git')
+    await user.click(screen.getByRole('button', { name: /save code access/i }))
+
+    expect(saveGitCredentialMock).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Paste the code access key, not the project code link. Add the project code link when you create the project or task.'
+    )
+    expect(tokenInput).toHaveFocus()
   })
 
   test('explains missing code access dates instead of showing raw date failures', async () => {

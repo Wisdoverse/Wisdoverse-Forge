@@ -397,11 +397,11 @@ describe('AppLayout', () => {
     await waitFor(() => {
       expect(
         screen.getByText(
-          'Add the setup checklist back to the left menu and open it. Projects, agents, and tasks stay unchanged.'
+          'Show the setup checklist in the left menu again. Projects, agents, and tasks stay unchanged.'
         )
       ).toBeDefined()
     })
-    fireEvent.click(screen.getByText('Show setup checklist'))
+    fireEvent.click(screen.getByText('Reset setup checklist'))
 
     await waitFor(() => expect(setGettingStartedDismissed).toHaveBeenCalledWith(false))
     await waitFor(() => expect(onNavigate).toHaveBeenCalledWith('/start'))
@@ -428,11 +428,11 @@ describe('AppLayout', () => {
     await waitFor(() => {
       expect(
         screen.getByText(
-          'Add the setup checklist back to the left menu and open it. Projects, agents, and tasks stay unchanged.'
+          'Show the setup checklist in the left menu again. Projects, agents, and tasks stay unchanged.'
         )
       ).toBeDefined()
     })
-    fireEvent.click(screen.getByText('Show setup checklist'))
+    fireEvent.click(screen.getByText('Reset setup checklist'))
 
     await waitFor(() => expect(setGettingStartedDismissed).toHaveBeenCalledWith(false))
     await waitFor(() => expect(onNavigate).toHaveBeenCalledWith('/settings/account'))

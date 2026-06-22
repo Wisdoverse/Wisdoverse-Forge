@@ -28,6 +28,11 @@ const GIT_CREDENTIAL_SETUP_STEPS = [
 const RAW_GIT_CREDENTIAL_ERROR_PATTERN =
   /\b(?:Details:|invalid token|invalid provider|invalid host|bad credentials|expired token|token expired|HTTP|API|Server error|Code:|Network error|Failed to fetch|forbidden|unauthorized|not configured)\b/i
 
+function looksLikeProjectCodeLink(value: string): boolean {
+  const text = value.trim()
+  return /^(?:https?:\/\/|git@|ssh:\/\/)/i.test(text)
+}
+
 function displayGitCredentialsError(error: string): string {
   if (!RAW_GIT_CREDENTIAL_ERROR_PATTERN.test(error)) return error
   return gitCredentialsErrorMessage(error)
@@ -48,13 +53,26 @@ function credentialFormReadiness({
   token: string
   tokenInputId: string
 }): CredentialFormReadiness {
-  if (!token.trim()) {
+  const trimmedToken = token.trim()
+  if (!trimmedToken) {
     return {
       ready: false,
       title: 'Next: paste the code access key',
       detail:
         'This is not the project code link. Open the code website, create a read-only key for the code projects agents need, then paste it below.',
       error: 'Paste the code access key from GitHub or GitLab before saving.',
+      fieldId: tokenInputId,
+    }
+  }
+
+  if (looksLikeProjectCodeLink(trimmedToken)) {
+    return {
+      ready: false,
+      title: 'Next: paste the code access key',
+      detail:
+        'The project code link belongs on the project or task. This field needs the key from the code website.',
+      error:
+        'Paste the code access key, not the project code link. Add the project code link when you create the project or task.',
       fieldId: tokenInputId,
     }
   }

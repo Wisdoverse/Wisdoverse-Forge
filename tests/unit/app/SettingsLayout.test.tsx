@@ -60,7 +60,7 @@ describe('SettingsLayout', () => {
     ).toBeInTheDocument()
     expect(
       within(desktopNav).getByRole('link', {
-        name: /Account: Update profile, password, and show the setup checklist again/i,
+        name: /Account: Update profile, password, and reset the setup checklist/i,
       })
     ).toBeInTheDocument()
     expect(
