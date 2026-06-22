@@ -88,7 +88,7 @@ export interface SystemHealth {
  * the `OrchestrationMetricsWorker` emits as GLOBAL Prometheus gauges, but
  * scoped to the caller's org via the `GET /api/v1/admin/control-plane` endpoint.
  *
- * NOTE: `job_queue` depth is intentionally absent — that table has no
+ * NOTE: `job_queue` depth is intentionally absent: that table has no
  * `organization_id` column so a per-org queue depth would be a lie. See
  * `/metrics` for the platform-global queue gauges.
  */

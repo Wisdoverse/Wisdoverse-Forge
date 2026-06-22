@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { ControlPlanePanel } from '@app/features/admin/ControlPlanePanel'
+import { controlPlaneErrorMessage } from '@app/features/admin/controlPlaneErrorMessage'
 import { useAdminStore } from '@app/shared/model/admin.store'
 import type { OrgControlPlaneSnapshot } from '@app/shared/model/admin.store'
 
@@ -46,7 +47,7 @@ describe('ControlPlanePanel', () => {
     expect(screen.getByText('Busy agents without work')).toBeDefined()
     expect(screen.getByText('Working tasks without a busy agent')).toBeDefined()
 
-    // Values are rendered (non-zero warns, zero stays neutral — both visible)
+    // Values are rendered: non-zero warns, zero stays neutral, and both are visible.
     expect(screen.getByText('3')).toBeDefined()
     expect(screen.getByText('45s')).toBeDefined()
     expect(screen.getByText('1')).toBeDefined()
@@ -75,11 +76,12 @@ describe('ControlPlanePanel', () => {
 
     const alert = screen.getByRole('alert')
     expect(alert).toBeDefined()
-    // The controlPlaneErrorMessage transformer wraps the stored string
-    expect(alert.textContent).toBeTruthy()
+    expect(alert.textContent).toContain('Open Admin and choose Control Plane')
+    expect(alert.textContent).not.toContain('HTTP')
+    expect(alert.textContent).not.toContain('stack')
   })
 
-  test('a malformed or partial payload does not crash — zeros via numeric coercion', () => {
+  test('a malformed or partial payload does not crash: zeros via numeric coercion', () => {
     // Simulate store already having applied num() coercion on a bad payload:
     // every field defaults to 0 when the raw value was missing/NaN.
     const zeroed: OrgControlPlaneSnapshot = {
@@ -98,9 +100,19 @@ describe('ControlPlanePanel', () => {
 
     // All six rows render their labels
     expect(screen.getByText('Unpublished assignment events')).toBeDefined()
+    expect(screen.getByText('Oldest unpublished event (s)')).toBeDefined()
     expect(screen.getByText('Stale participants')).toBeDefined()
     expect(screen.getByText('Expired working leases')).toBeDefined()
     expect(screen.getByText('Busy agents without work')).toBeDefined()
     expect(screen.getByText('Working tasks without a busy agent')).toBeDefined()
+  })
+
+  test('maps technical access errors to a safe beginner recovery step', () => {
+    const message = controlPlaneErrorMessage({ status: 403, message: 'owner role required' })
+
+    expect(message).toBe(
+      'Ask an owner or admin to give you Admin access, then open Admin and choose Control Plane before choosing Refresh. You do not have access to the control-plane snapshot.'
+    )
+    expect(message).not.toContain('role')
   })
 })

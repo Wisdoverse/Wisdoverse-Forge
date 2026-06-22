@@ -109,8 +109,8 @@ export function ControlPlanePanel() {
           <h2 className={uiStyles.sectionTitle}>Control-plane health</h2>
           <p className={uiStyles.sectionDescription}>
             Org-scoped orchestration signals: checks when opened, then refreshes every 30 seconds
-            while Admin is open. Any non-zero value below may indicate a wedged loop — investigate
-            if a value stays non-zero across refreshes.
+            while Admin is open. Any non-zero value below may indicate a wedged loop; investigate if
+            a value stays non-zero across refreshes.
           </p>
         </div>
         <button
@@ -160,7 +160,7 @@ export function ControlPlanePanel() {
           </p>
 
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Queue depth (job_queue) is platform-global and not shown here — see{' '}
+            Queue depth (job_queue) is platform-global and not shown here; see{' '}
             <span className="font-mono">/metrics</span> for the Prometheus gauges.
           </p>
         </>

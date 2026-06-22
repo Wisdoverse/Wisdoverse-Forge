@@ -981,5 +981,8 @@ mod tests {
         assert_eq!(snap_b.assignment_outbox_backlog, 0, "org B outbox row is published");
         assert_eq!(snap_b.assignment_outbox_oldest_age_seconds, 0.0);
         assert_eq!(snap_b.working_tasks_without_busy_participant, 0, "org B sees none of org A's working tasks");
+        // If ORG_BUSY_WITHOUT_WORK_SQL lost its org filter, org A's busy
+        // participant would leak into org B's count here.
+        assert_eq!(snap_b.busy_participants_without_work, 0, "org B sees none of org A's busy participants");
     }
 }

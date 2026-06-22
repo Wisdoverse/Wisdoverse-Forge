@@ -1071,5 +1071,7 @@ mod tests {
         // No snake_case leakage and no global job_queue fields.
         assert!(value.get("assignment_outbox_backlog").is_none());
         assert!(value.get("jobQueuePending").is_none());
+        // Exactly the 7 expected keys: proves no platform-global metric leaks in.
+        assert_eq!(value.as_object().expect("snapshot JSON object").len(), 7);
     }
 }

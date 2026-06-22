@@ -52,7 +52,7 @@ function isNetworkError(error: unknown): boolean {
 
 /**
  * Maps a control-plane fetch failure to operator-facing copy with a recovery
- * step. Mirrors the shape of `systemHealthErrorMessage` — accepts the thrown
+ * step. Mirrors the shape of `systemHealthErrorMessage`; accepts the thrown
  * error or a plain error string from the admin store.
  */
 export function controlPlaneErrorMessage(error: unknown): string {
