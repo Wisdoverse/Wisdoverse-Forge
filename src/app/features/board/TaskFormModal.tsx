@@ -105,6 +105,8 @@ const AGENT_READY_BRIEF_POINTS = [
 
 const PROJECT_REQUIRED_ERROR = 'Open project settings before creating a task.'
 const TASK_WAITING_PLACE_REQUIRED_ERROR = 'Set up where tasks wait before saving this task.'
+const ASSIGNED_AGENT_NOT_READY_ERROR =
+  'Choose a ready agent, or leave this set to Let the next ready agent pick it up.'
 
 interface TaskFormModalProps {
   isOpen: boolean
@@ -141,6 +143,7 @@ export function TaskFormModal({
     register,
     handleSubmit,
     reset,
+    setFocus,
     setValue,
     watch,
     formState: { errors, isSubmitting, submitCount },
@@ -260,6 +263,14 @@ export function TaskFormModal({
     }
     if (!selectedTaskGroupId) {
       setSubmitError(TASK_WAITING_PLACE_REQUIRED_ERROR)
+      return
+    }
+    if (
+      data.assignedTo &&
+      !agents.some((agent) => agent.id === data.assignedTo && agentCanTakeTask(agent.status))
+    ) {
+      setSubmitError(ASSIGNED_AGENT_NOT_READY_ERROR)
+      setFocus('assignedTo')
       return
     }
     if (!briefReady && !confirmIncompleteBrief) {

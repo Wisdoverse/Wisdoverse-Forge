@@ -75,24 +75,24 @@ describe('SshKeysSection', () => {
     expect(loading).toHaveTextContent(
       'If this takes more than a moment, open Settings again or ask an owner or admin to check code access.'
     )
-    expect(loading).toHaveTextContent(
-      'Success looks like saved SSH access or a step to add one.'
-    )
+    expect(loading).toHaveTextContent('Success looks like saved SSH access or a step to add one.')
     expect(loading).not.toHaveTextContent('Loading SSH code access')
   })
 
   test('guides first-time SSH code access setup and saves only after required fields are filled', async () => {
     render(<SshKeysSection />)
 
-    expect(await screen.findByText('Prepare SSH code access for git@ private code links')).toBeDefined()
+    expect(
+      await screen.findByText('Prepare SSH code access for git@ private code links')
+    ).toBeDefined()
     const emptyState = screen.getByTestId('ssh-access-empty-state')
     expect(within(emptyState).getByText(/starts with https:\/\//i)).toBeDefined()
     expect(within(emptyState).getByText(/use HTTPS code access instead/i)).toBeDefined()
     expect(within(emptyState).getByText(/skip this for public projects/i)).toBeDefined()
     expect(within(emptyState).getByText('Name the computer or team')).toBeDefined()
-    expect(within(emptyState).getAllByText(/Use a name people will recognize/i).length).toBeGreaterThan(
-      0
-    )
+    expect(
+      within(emptyState).getAllByText(/Use a name people will recognize/i).length
+    ).toBeGreaterThan(0)
     expect(within(emptyState).getByText('Paste the safe public key line')).toBeDefined()
     expect(within(emptyState).getByText(/public key from the \.pub file/i)).toBeDefined()
     expect(within(emptyState).getByText('Never paste the private key')).toBeDefined()
@@ -129,9 +129,7 @@ describe('SshKeysSection', () => {
     expect(createSshKeyMock).not.toHaveBeenCalled()
     const missingNameAlert = screen.getByRole('alert')
     expect(missingNameAlert).toHaveAttribute('aria-live', 'polite')
-    expect(missingNameAlert).toHaveTextContent(
-      /add a name your team will recognize before saving/i
-    )
+    expect(missingNameAlert).toHaveTextContent(/add a name your team will recognize before saving/i)
     expect(nameInput).toHaveFocus()
 
     fireEvent.change(nameInput, { target: { value: 'Work laptop' } })
@@ -139,15 +137,14 @@ describe('SshKeysSection', () => {
     expect(createSshKeyMock).not.toHaveBeenCalled()
     const missingPublicKeyAlert = screen.getByRole('alert')
     expect(missingPublicKeyAlert).toHaveAttribute('aria-live', 'polite')
-    expect(missingPublicKeyAlert).toHaveTextContent(
-      /paste the safe public key line before saving/i
-    )
+    expect(missingPublicKeyAlert).toHaveTextContent(/paste the safe public key line before saving/i)
     expect(missingPublicKeyAlert).toHaveTextContent(/safe/i)
     expect(safePublicLineInput).toHaveFocus()
 
     fireEvent.change(safePublicLineInput, {
       target: {
-        value: '-----BEGIN OPENSSH PRIVATE KEY-----\nprivate-key-body\n-----END OPENSSH PRIVATE KEY-----',
+        value:
+          '-----BEGIN OPENSSH PRIVATE KEY-----\nprivate-key-body\n-----END OPENSSH PRIVATE KEY-----',
       },
     })
     expect(saveButton).toBeEnabled()
@@ -234,6 +231,32 @@ describe('SshKeysSection', () => {
 
     resolveDelete(true)
     await waitFor(() => expect(deleteSshKeyMock).toHaveBeenCalledWith('ssh-key-1'))
+  })
+
+  test('stops multiple public key lines before saving SSH code access', async () => {
+    const user = userEvent.setup()
+    render(<SshKeysSection />)
+
+    const emptyState = await screen.findByTestId('ssh-access-empty-state')
+    await user.click(within(emptyState).getByRole('button', { name: /add SSH code access/i }))
+
+    const nameInput = screen.getByLabelText(/^name for this access/i)
+    const safePublicLineInput = screen.getByLabelText(/^safe public key line/i)
+    await user.type(nameInput, 'Work laptop')
+    fireEvent.change(safePublicLineInput, {
+      target: {
+        value:
+          'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAfirst dev@example.com\nssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAsecond dev@example.com',
+      },
+    })
+
+    await user.click(screen.getByRole('button', { name: /save SSH code access/i }))
+
+    expect(createSshKeyMock).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Paste one safe public key line from the .pub file. Remove any extra lines, then save again.'
+    )
+    expect(safePublicLineInput).toHaveFocus()
   })
 
   test('explains missing SSH code access dates instead of showing raw date failures', async () => {

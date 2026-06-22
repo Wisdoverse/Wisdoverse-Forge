@@ -848,7 +848,7 @@ const START_GUIDE_RESET_JARGON_PATTERNS = [
   /\bOnboarding\b/,
   /\bStart guide\b/i,
   /\bReset Start guide\b/i,
-  /\bReset setup checklist\b/i,
+  /\bShow setup checklist\b/i,
   /\bReset it here\b/i,
   /\bOpen setup checklist to review setup\b/i,
   /\bnothing to restore\b/i,
@@ -7260,7 +7260,7 @@ function scanFile(file, relFile) {
         type: 'start-guide-reset-copy',
         location,
         message:
-          'Start guide restore copy must say it shows the setup checklist again, not that it resets the guide.',
+          'Setup checklist recovery copy must use Reset setup checklist for the action and explain the visible result.',
         sample: line.trim(),
       })
     }

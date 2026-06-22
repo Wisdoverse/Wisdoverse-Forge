@@ -455,6 +455,36 @@ describe('TaskFormModal', () => {
     expect(screen.queryByText(/Unknown/i)).toBeNull()
   })
 
+  test('blocks a stale non-ready agent choice with a plain next step', async () => {
+    const { onSubmit } = renderModal(vi.fn(), {
+      agents: [
+        { id: 'agent-1', name: 'Ready Agent', status: 'available' },
+        { id: 'agent-2', name: 'Busy Agent', status: 'busy' },
+      ],
+    })
+
+    fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
+      target: { value: 'Ship the fix' },
+    })
+    fireEvent.change(screen.getByLabelText(/details the agent should know/i), {
+      target: {
+        value: 'Where to work:\n- src/app/features/board\n\nDone when:\n- Task form test passes',
+      },
+    })
+    fireEvent.change(screen.getByLabelText(/who should pick it up/i), {
+      target: { value: 'agent-2' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^create task$/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
+      'Choose a ready agent, or leave this set to Let the next ready agent pick it up.'
+    )
+    expect(screen.getByLabelText(/who should pick it up/i)).toHaveFocus()
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
   test('shows a beginner-safe title error before submitting', async () => {
     const { onSubmit } = renderModal()
 

@@ -13020,7 +13020,7 @@ function ProfileRow() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags Start guide reset and onboarding copy that hide the visible result', () => {
+  it('flags Start guide jargon and old show-action copy that hide the visible result', () => {
     const cwd = fixture({
       'src/app/features/settings/AccountSection.tsx': `
 function GettingStartedGuideRow() {
@@ -13029,7 +13029,7 @@ function GettingStartedGuideRow() {
 `,
       'src/app/features/cmdk/CommandPalette.tsx': `
 const SETUP_CHECKLIST_RECOVERY_COMMAND = {
-  label: 'Reset setup checklist',
+  label: 'Show setup checklist',
 }
 `,
       'src/app/pages/settings/ui/SettingsLayout.tsx': `
@@ -13064,7 +13064,7 @@ export const item = {
     const cwd = fixture({
       'src/app/features/settings/AccountSection.tsx': `
 function GettingStartedGuideRow() {
-  return <section><p>It is hidden from the left menu, so new sign-ins open Tasks by default. Choose Show setup checklist to add it back. Your projects, agents, and tasks stay the same.</p><p>It is available now. Choose Open setup checklist to check setup steps.</p><p>It is shown in the left menu. New sign-ins can open the setup checklist until you hide it again. Your projects, agents, and tasks stay the same.</p></section>
+  return <section><p>It is hidden from the left menu, so new sign-ins open Tasks by default. Choose Reset setup checklist to add it back. Your projects, agents, and tasks stay the same.</p><p>It is available now. Choose Open setup checklist to check setup steps.</p><p>It is shown in the left menu. New sign-ins can open the setup checklist until you hide it again. Your projects, agents, and tasks stay the same.</p></section>
 }
 `,
     })
@@ -13116,7 +13116,7 @@ export const en = {
 `,
       'src/app/features/settings/AccountSection.tsx': `
 function GettingStartedGuideRow() {
-  return 'Check your connection, then choose Show setup checklist again. The setup checklist could not be shown.'
+  return 'Check your connection, then choose Reset setup checklist again. The setup checklist could not be shown.'
 }
 `,
     })
@@ -13176,7 +13176,7 @@ export const zh = {
 export const en = {
   nav: { start: 'Setup checklist' },
   gettingStarted: {
-    skipHint: 'This only hides the setup checklist from the left menu. You can show it again from Settings.',
+    skipHint: 'This only hides the setup checklist from the left menu. You can reset it from Settings.',
     skipError: 'Check your connection, then choose Skip again. The setup checklist could not be hidden.',
   },
 }
@@ -13185,7 +13185,7 @@ export const en = {
 export const zh = {
   nav: { start: '设置清单' },
   gettingStarted: {
-    skipHint: '这只会隐藏左侧菜单里的设置清单，也可以在设置里重新显示它。',
+    skipHint: '这只会隐藏左侧菜单里的设置清单，也可以在设置里重置它。',
   },
 }
 `,

@@ -90,7 +90,7 @@ export const en = {
     skip: 'Skip and open Tasks',
     skipSaving: 'Skipping...',
     skipHint:
-      'This only hides the setup checklist from the left menu. Your projects, agents, and tasks stay the same, and you can show it again from Settings.',
+      'This only hides the setup checklist from the left menu. Your projects, agents, and tasks stay the same, and you can reset it from Settings.',
     skipError:
       'Check your connection, then choose Skip again. The setup checklist could not be hidden.',
     progressCount: '{{complete}} of {{total}}',
@@ -300,16 +300,16 @@ export const en = {
         },
         account: {
           label: 'Account',
-          description: 'Update profile, password, and show the setup checklist again.',
+          description: 'Update profile, password, and reset the setup checklist.',
         },
         theme: {
           label: 'Change theme',
           description: 'Switch the app appearance.',
         },
         setupChecklistRecovery: {
-          label: 'Show setup checklist',
+          label: 'Reset setup checklist',
           description:
-            'Add the setup checklist back to the left menu and open it. Projects, agents, and tasks stay unchanged.',
+            'Show the setup checklist in the left menu again. Projects, agents, and tasks stay unchanged.',
         },
       },
       views: {

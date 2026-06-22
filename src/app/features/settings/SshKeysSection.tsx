@@ -33,6 +33,15 @@ function containsPrivateKeyBlock(value: string): boolean {
   return /\bBEGIN(?:\s+[A-Z0-9]+)?\s+PRIVATE KEY\b/i.test(value)
 }
 
+function hasMultiplePublicKeyLines(value: string): boolean {
+  return (
+    value
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean).length > 1
+  )
+}
+
 // ============================================================================
 // SSH Key Row
 // ============================================================================
@@ -145,7 +154,10 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
   const trimmedPublicKey = publicKey.trim()
   const missingField = !trimmedLabel ? 'label' : !trimmedPublicKey ? 'publicKey' : null
   const privateKeyPasted = containsPrivateKeyBlock(trimmedPublicKey)
-  const isReady = missingField === null && !privateKeyPasted
+  const multiplePublicKeyLines = hasMultiplePublicKeyLines(trimmedPublicKey)
+  const isReady = missingField === null && !privateKeyPasted && !multiplePublicKeyLines
+  const publicKeyInvalid =
+    missingField === 'publicKey' || privateKeyPasted || multiplePublicKeyLines
   const visibleError =
     submitAttempted && missingField === 'label'
       ? 'Add a name your team will recognize before saving.'
@@ -153,7 +165,9 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
         ? 'Paste the safe public key line before saving.'
         : submitAttempted && privateKeyPasted
           ? 'This looks like a private key. Do not save it. Copy the one-line .pub public key instead.'
-          : null
+          : submitAttempted && multiplePublicKeyLines
+            ? 'Paste one safe public key line from the .pub file. Remove any extra lines, then save again.'
+            : null
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -242,7 +256,8 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
             className={cn(
               'w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-3 py-2 font-mono text-ui-caption text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70'
             )}
-            aria-describedby={`${publicKeyHelpId} ${publicKeySafetyId}${visibleError !== null && missingField === 'publicKey' ? ` ${errorId}` : ''}`}
+            aria-invalid={visibleError !== null && publicKeyInvalid}
+            aria-describedby={`${publicKeyHelpId} ${publicKeySafetyId}${visibleError !== null && publicKeyInvalid ? ` ${errorId}` : ''}`}
           />
           <p
             id={publicKeySafetyId}
