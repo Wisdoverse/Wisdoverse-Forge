@@ -172,7 +172,7 @@ export function OrganizationsPanel() {
         {orgsLoading && orgs.length === 0 ? (
           <div className="flex items-center justify-center py-12">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              Loading team spaces…
+              Checking team spaces…
             </p>
           </div>
         ) : orgs.length === 0 ? (

@@ -137,6 +137,15 @@ describe('OrganizationsPanel', () => {
     expect(within(emptyState).queryByText('No team spaces are visible yet')).toBeNull()
   })
 
+  test('explains team-space loading as checking', () => {
+    useAdminStore.setState({ orgs: [], orgsLoading: true })
+
+    render(<OrganizationsPanel />)
+
+    expect(screen.getByText('Checking team spaces…')).toBeDefined()
+    expect(screen.queryByText('Loading team spaces…')).toBeNull()
+  })
+
   test('adds recovery guidance when organizations fail to load', async () => {
     useAdminStore.setState({ orgsError: 'HTTP 503' })
 
