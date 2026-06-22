@@ -328,6 +328,20 @@ describe('AgentDetailView', () => {
     expect(screen.queryByText('Send a task to create the first update.')).toBeNull()
   })
 
+  test('does not suggest new work when a ready agent history cannot load', async () => {
+    getTasksByAgentMock.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+
+    render(<AgentDetailView agent={containerAgent} onBack={() => {}} />)
+
+    expect(await screen.findByText('Choose this agent again or open Tasks')).toBeDefined()
+    expect(
+      screen.getByText(
+        "This page could not load the agent's recent task history. Go back to Agents and choose this agent again, or open Tasks to confirm what is running before sending more work."
+      )
+    ).toBeDefined()
+    expect(screen.queryByText('Send a small first task')).toBeNull()
+  })
+
   test('guides pending managed workspace agents to the live work tab', () => {
     render(
       <AgentDetailView

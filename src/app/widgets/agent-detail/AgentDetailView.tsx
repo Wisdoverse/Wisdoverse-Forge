@@ -412,7 +412,7 @@ function agentNextStep(
     }
   }
 
-  if (recentTasksError && agent.status !== 'idle') {
+  if (recentTasksError) {
     return {
       title: 'Choose this agent again or open Tasks',
       detail:
