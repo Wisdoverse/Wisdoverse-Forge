@@ -750,11 +750,12 @@ describe('TaskFormModal', () => {
     await waitFor(() => expect(onProjectChange).toHaveBeenCalledWith(otherProject.id))
 
     const readiness = screen.getByTestId('task-work-lane-readiness')
-    expect(readiness).toHaveTextContent('Loading this project')
+    expect(readiness).toHaveTextContent('Checking where new tasks will wait')
     expect(readiness).toHaveTextContent(
       'Wait a moment while Forge finds where new tasks wait for this project.'
     )
     expect(readiness).not.toHaveTextContent('Create a Task Queue First')
+    expect(readiness).not.toHaveTextContent('Loading this project')
     expect(readiness).not.toHaveTextContent('Preparing This Project')
     expect(screen.getByRole('button', { name: /preparing project/i })).toBeDisabled()
   })

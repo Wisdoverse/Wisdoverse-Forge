@@ -168,7 +168,7 @@ export function TaskFormModal({
   const projectSelectionSettled = Boolean(projectId && selectedProjectId === projectId)
   const workLaneReady = Boolean(projectSelectionSettled && selectedTaskGroupId)
   const readinessTitle = selectingProject
-    ? 'Loading this project'
+    ? 'Checking where new tasks will wait'
     : workLaneReady
       ? 'Task can be created'
       : 'Set up where tasks wait before creating this task'
