@@ -7002,6 +7002,10 @@ function runtimeConflictMessage() {
 function runtimeRateLimitMessage() {
   return 'Wait a minute, then refresh Settings. Too many setup requests are happening right now.'
 }
+
+function runtimeGenericRateLimitMessage() {
+  return 'Wait a moment, then try again. Forge is receiving too many setup requests right now.'
+}
 `,
     })
 
@@ -7025,6 +7029,10 @@ function runtimeRateLimitMessage() {
         expect.objectContaining({
           type: 'runtime-error-copy',
           location: 'src/app/features/settings/runtimeErrorMessages.ts:15',
+        }),
+        expect.objectContaining({
+          type: 'runtime-error-copy',
+          location: 'src/app/features/settings/runtimeErrorMessages.ts:19',
         }),
       ])
     )

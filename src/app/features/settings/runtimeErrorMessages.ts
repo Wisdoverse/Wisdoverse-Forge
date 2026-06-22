@@ -65,7 +65,12 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   }
 
   if (status === 429) {
-    return 'Wait a moment, then try again. Forge is receiving too many setup requests right now.'
+    const recovery = ACTION_RECOVERY[action]
+    const retryStep =
+      action === 'startCliSignIn'
+        ? `${recovery.openStep} again, then reconnect the account`
+        : `${recovery.openStep} again`
+    return `Wait a minute, then ${retryStep}. Forge is receiving too many setup requests right now.`
   }
 
   if (status && status >= 500) {

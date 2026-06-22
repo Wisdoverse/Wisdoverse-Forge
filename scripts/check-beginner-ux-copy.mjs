@@ -1334,6 +1334,7 @@ const RUNTIME_ERROR_FAILURE_FIRST_PATTERNS = [
   /\bRefresh Settings to load Where agents work\b/i,
   /\bRefresh Settings, check the current choices\b/i,
   /\bWait a minute, then refresh Settings\b/i,
+  /['"`]\s*Wait a moment, then try again\. Forge is receiving too many setup requests right now\./i,
   /['"`]\s*Your sign-in expired\. Sign in again, then open Where agents run/i,
   /['"`]\s*You do not have permission to change where agents run\. Ask an owner/i,
   /['"`]\s*The Where agents run choices changed while you were working\. Refresh/i,

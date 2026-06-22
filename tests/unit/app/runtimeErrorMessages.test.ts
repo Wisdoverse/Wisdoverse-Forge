@@ -101,7 +101,11 @@ describe('runtimeErrorMessage', () => {
   test('turns setup rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       runtimeErrorMessage('loadAgentSignals', { code: '429' }),
-      'Wait a moment, then try again. Forge is receiving too many setup requests right now.'
+      'Wait a minute, then open Settings and Where agents work again. Forge is receiving too many setup requests right now.'
+    )
+    expectBeginnerMessage(
+      runtimeErrorMessage('startCliSignIn', { code: '429' }),
+      'Wait a minute, then open Settings, then Codex sign-in again, then reconnect the account. Forge is receiving too many setup requests right now.'
     )
   })
 
