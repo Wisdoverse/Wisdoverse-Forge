@@ -543,7 +543,7 @@ function taskRecoveryGuidance(
     return {
       title: 'Try the task again when the request is still useful',
       detail:
-        'Use Retry task after checking the brief. The task returns to where tasks wait so an agent can make another attempt.',
+        'Use Retry task after checking the brief. The task returns to where tasks wait so an agent can try it again.',
     }
   }
   if (canApprove) {

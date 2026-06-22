@@ -320,7 +320,11 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByTestId('task-recovery-guidance')).toHaveTextContent(
       'returns to where tasks wait'
     )
+    expect(screen.getByTestId('task-recovery-guidance')).toHaveTextContent(
+      'try it again'
+    )
     expect(screen.getByTestId('task-recovery-guidance')).not.toHaveTextContent('queue')
+    expect(screen.getByTestId('task-recovery-guidance')).not.toHaveTextContent('attempt')
     await userEvent.setup().click(screen.getByRole('button', { name: /retry task/i }))
 
     await waitFor(() => expect(orchestrationApiMock.retryTask).toHaveBeenCalledWith('task-1'))
