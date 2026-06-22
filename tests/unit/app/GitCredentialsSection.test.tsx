@@ -40,6 +40,28 @@ afterEach(() => {
 })
 
 describe('GitCredentialsSection', () => {
+  test('explains HTTPS code access loading for first-time setup', () => {
+    useSettingsStore.setState({
+      gitCredentials: [],
+      gitCredentialsLoading: true,
+    })
+
+    render(<GitCredentialsSection />)
+
+    const loading = screen.getByRole('status', { name: /checking HTTPS code access/i })
+    expect(loading).toHaveTextContent('Checking HTTPS code access')
+    expect(loading).toHaveTextContent(
+      'Forge is checking which saved keys can open private https:// code links.'
+    )
+    expect(loading).toHaveTextContent(
+      'If this takes more than a moment, open Settings again or ask an owner or admin to check code access.'
+    )
+    expect(loading).toHaveTextContent(
+      'Success looks like saved HTTPS access or a step to add one.'
+    )
+    expect(loading).not.toHaveTextContent('Loading code access')
+  })
+
   test('guides first-time code access setup before saving a key', async () => {
     const user = userEvent.setup()
     render(<GitCredentialsSection />)

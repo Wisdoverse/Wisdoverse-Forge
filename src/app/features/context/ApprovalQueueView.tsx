@@ -14,6 +14,7 @@ import { orchestrationApi } from '@app/shared/api/orchestration'
 import { cn } from '@app/shared/lib/utils'
 import { useWebSocket } from '@app/shared/model/websocket.context'
 import { useContextStore } from '@app/shared/model/context.store'
+import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import { approvalQueueErrorMessage } from './approvalQueueErrorMessages'
 import type {
   ContextCandidateKind,
@@ -359,10 +360,15 @@ export function ApprovalQueueView() {
 
         <section className="min-h-[360px]">
           {loading && candidates.length === 0 ? (
-            <div className="flex h-64 items-center justify-center gap-2 text-ui-body text-secondary-light dark:text-secondary-dark">
-              <Loader2 size={18} strokeWidth={2} className="animate-spin" aria-hidden="true" />
-              <span>Checking saved notes and instructions...</span>
-            </div>
+            <BeginnerLoadingState
+              title="Checking saved notes and instructions"
+              detail="Forge is checking which saved notes or instructions need your decision before agents can reuse them."
+              nextStep="If this takes more than a moment, open Saved items again or ask an owner or admin to check saved item access."
+              success="Success looks like saved items to check or a no-items-to-review message."
+              testId="context-approval-loading"
+              framed={false}
+              className="h-64"
+            />
           ) : candidates.length === 0 ? (
             <div
               data-testid="context-approval-empty"

@@ -12,6 +12,7 @@ import {
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
+import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import type {
   LlmProvider,
   LlmProviderConfig,
@@ -2248,9 +2249,15 @@ export function ProvidersSection() {
       {/* Provider list */}
       <div className={uiStyles.card}>
         {providersLoading && providers.length === 0 ? (
-          <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading AI services…
-          </div>
+          <BeginnerLoadingState
+            title="Checking AI services"
+            detail="Forge is checking which AI accounts agents can use to answer tasks."
+            nextStep="If this takes more than a moment, open Settings again or ask an owner or admin to check AI service access."
+            success="Success looks like saved AI services or an add-your-first-service step."
+            testId="providers-loading-state"
+            framed={false}
+            compact
+          />
         ) : providers.length === 0 && !showForm ? (
           <div className="px-4 py-6 text-center">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">

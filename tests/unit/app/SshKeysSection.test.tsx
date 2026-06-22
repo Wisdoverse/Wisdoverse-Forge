@@ -51,6 +51,28 @@ afterEach(() => {
 })
 
 describe('SshKeysSection', () => {
+  test('explains SSH code access loading for first-time setup', () => {
+    useSettingsStore.setState({
+      sshKeys: [],
+      sshKeysLoading: true,
+    })
+
+    render(<SshKeysSection />)
+
+    const loading = screen.getByRole('status', { name: /checking SSH code access/i })
+    expect(loading).toHaveTextContent('Checking SSH code access')
+    expect(loading).toHaveTextContent(
+      'Forge is checking which saved public key lines can open git@ private code links.'
+    )
+    expect(loading).toHaveTextContent(
+      'If this takes more than a moment, open Settings again or ask an owner or admin to check code access.'
+    )
+    expect(loading).toHaveTextContent(
+      'Success looks like saved SSH access or a step to add one.'
+    )
+    expect(loading).not.toHaveTextContent('Loading SSH code access')
+  })
+
   test('guides first-time SSH code access setup and saves only after required fields are filled', async () => {
     render(<SshKeysSection />)
 

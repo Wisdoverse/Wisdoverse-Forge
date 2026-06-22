@@ -21,6 +21,7 @@ import {
 } from '@app/entities/agent'
 import { useNavigationStore } from '@app/entities/navigation'
 import { cn } from '@app/shared/lib/utils'
+import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import { AgentCard } from './AgentCard'
 import { AgentGroupsPanel } from './AgentGroupsPanel'
 import { CreateAgentModal } from './CreateAgentModal'
@@ -175,9 +176,13 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
           )}
 
           {loading && agents.length === 0 ? (
-            <div className="flex min-h-64 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-black/10 text-secondary-light dark:border-white/10 dark:text-secondary-dark">
-              <p className="text-ui-body">Loading agents…</p>
-            </div>
+            <BeginnerLoadingState
+              testId="agent-list-loading"
+              title="Checking agents"
+              detail="Forge is checking which agents can receive work in this team space."
+              nextStep="If this takes more than a moment, open Agents again or ask an owner or admin to check agent access."
+              success="Success looks like an agent card with a status such as Ready or Not connected."
+            />
           ) : agents.length === 0 ? (
             <div className="flex min-h-72 flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-black/10 px-6 text-center dark:border-white/10">
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-apple-blue/10 text-apple-blue">

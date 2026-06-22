@@ -302,7 +302,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
                       starting && 'opacity-50 cursor-not-allowed'
                     )}
                   >
-                    {starting ? 'Starting...' : 'Start file work'}
+                    {starting ? 'Starting file work...' : 'Start file work'}
                   </button>
                 </ActionCard>
               ) : confirmRestart ? (

@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
+import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import type { GitCredential, GitProvider } from '@app/entities/agent'
 import { formatAccessDate } from './formatAccessDate'
 import { gitCredentialsErrorMessage } from './gitCredentialsErrorMessage'
@@ -456,9 +457,15 @@ export function GitCredentialsSection() {
       {/* Table */}
       <div className={cn(uiStyles.card, 'overflow-x-auto')}>
         {gitCredentialsLoading && gitCredentials.length === 0 ? (
-          <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading code access...
-          </div>
+          <BeginnerLoadingState
+            title="Checking HTTPS code access"
+            detail="Forge is checking which saved keys can open private https:// code links."
+            nextStep="If this takes more than a moment, open Settings again or ask an owner or admin to check code access."
+            success="Success looks like saved HTTPS access or a step to add one."
+            testId="code-access-loading-state"
+            framed={false}
+            compact
+          />
         ) : gitCredentials.length === 0 && !showForm ? (
           <div
             className="px-4 py-6"

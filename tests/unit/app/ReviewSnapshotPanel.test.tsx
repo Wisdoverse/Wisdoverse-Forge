@@ -48,6 +48,27 @@ function review(overrides: Partial<SelfFixReview> = {}): SelfFixReview {
 }
 
 describe('ReviewSnapshotPanel', () => {
+  it('explains finish readiness loading for first-time users', () => {
+    vi.spyOn(orchestrationApi, 'getSelfFixReview').mockImplementation(
+      () => new Promise(() => undefined)
+    )
+
+    render(<ReviewSnapshotPanel task={task()} />)
+
+    const loading = screen.getByRole('status', { name: /checking finish readiness/i })
+    expect(loading).toHaveTextContent('Checking finish readiness')
+    expect(loading).toHaveTextContent(
+      'Forge is checking whether this fix is ready to finish and automated checks have passed.'
+    )
+    expect(loading).toHaveTextContent(
+      'If this takes more than a moment, choose Check again or ask an owner or admin to confirm finish access.'
+    )
+    expect(loading).toHaveTextContent(
+      'Success looks like automated check status and a Finish this fix button when it is safe.'
+    )
+    expect(loading).not.toHaveTextContent('Checking fix check status...')
+  })
+
   it('renders the PR link and status once loaded', async () => {
     vi.spyOn(orchestrationApi, 'getSelfFixReview').mockResolvedValue(review())
     render(<ReviewSnapshotPanel task={task()} />)

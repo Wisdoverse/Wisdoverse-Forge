@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { AgentControlPanel } from '@app/features/agents/AgentControlPanel'
 import { useAgentsStore, type AgentInfo } from '@app/entities/agent'
@@ -300,6 +300,13 @@ describe('AgentControlPanel', () => {
   })
 
   test('shows start guidance for pending agent workspaces', async () => {
+    let finishStart: (started: boolean) => void = () => undefined
+    startAgentMock.mockReturnValueOnce(
+      new Promise<boolean>((resolve) => {
+        finishStart = resolve
+      })
+    )
+
     render(
       <AgentControlPanel
         agent={{ ...containerAgent, id: 'pending-agent', containerId: undefined }}
@@ -317,6 +324,13 @@ describe('AgentControlPanel', () => {
     expect(screen.queryByText(/opening the command window/i)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /start file work/i }))
+
+    expect(screen.getByRole('button', { name: /starting file work/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /^Starting\.\.\.$/i })).toBeNull()
+
+    await act(async () => {
+      finishStart(true)
+    })
 
     await waitFor(() => {
       expect(startAgentMock).toHaveBeenCalledWith('pending-agent')

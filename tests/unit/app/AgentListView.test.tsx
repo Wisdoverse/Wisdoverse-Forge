@@ -35,6 +35,25 @@ beforeEach(() => {
 })
 
 describe('AgentListView', () => {
+  test('explains the first agent loading state for beginners', () => {
+    useAgentsStore.setState({ loading: true, agents: [] })
+
+    render(<AgentListView />)
+
+    const loading = screen.getByRole('status', { name: /checking agents/i })
+    expect(loading).toHaveTextContent('Checking agents')
+    expect(loading).toHaveTextContent(
+      'Forge is checking which agents can receive work in this team space.'
+    )
+    expect(loading).toHaveTextContent(
+      'If this takes more than a moment, open Agents again or ask an owner or admin to check agent access.'
+    )
+    expect(loading).toHaveTextContent(
+      'Success looks like an agent card with a status such as Ready or Not connected.'
+    )
+    expect(loading).not.toHaveTextContent('Loading agents')
+  })
+
   test('shows empty state when no agents', () => {
     render(<AgentListView />)
     expect(screen.getByText('Agents')).toBeDefined()

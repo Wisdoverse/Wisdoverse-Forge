@@ -3,6 +3,7 @@ import { Bot, CheckCircle2, CheckSquare, FolderKanban, ShieldAlert, Users } from
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useAuth } from '@app/shared/model/auth.context'
+import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import {
   ResourceMembersModal,
   resourceMemberSelectionLostMessage,
@@ -248,9 +249,13 @@ export function ProjectsSection() {
 
       <div className={cn(uiStyles.card)}>
         {loading && projectsWithTeam.length === 0 ? (
-          <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading projects…
-          </div>
+          <BeginnerLoadingState
+            framed={false}
+            title="Checking projects"
+            detail="Forge is checking which projects are available for this team space."
+            nextStep="If this takes more than a moment, open Projects again or ask an owner or admin to check project access."
+            success="Success looks like a project row or a New Project step."
+          />
         ) : !user?.orgId ? (
           <WorkspaceEmptyState
             icon={<ShieldAlert size={18} strokeWidth={2} aria-hidden="true" />}

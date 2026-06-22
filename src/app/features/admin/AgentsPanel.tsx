@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Bot, Cpu, Server, Sparkles, type LucideIcon } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
+import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import {
   type AdminAgent,
   type AdminAgentRuntimeKindFilter,
@@ -287,11 +288,15 @@ export function AgentsPanel() {
 
       <div className={cn(uiStyles.card, 'overflow-x-auto')}>
         {agentsLoading && agents.length === 0 ? (
-          <div className="flex items-center justify-center py-12">
-            <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              Loading agents…
-            </p>
-          </div>
+          <BeginnerLoadingState
+            title="Checking managed agents"
+            detail="Forge is checking which agents are available across this team space."
+            nextStep="If this takes more than a moment, open Admin again or ask an owner to check agent access."
+            success="Success looks like agent rows or a no-agents setup step."
+            testId="admin-agents-loading"
+            framed={false}
+            compact
+          />
         ) : agents.length === 0 ? (
           <AgentsEmptyState filter={agentRuntimeKindFilter} />
         ) : (

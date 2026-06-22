@@ -36,6 +36,25 @@ function makeTask(overrides: Partial<TaskSummary>): TaskSummary {
 describe('AgentTasksTab', () => {
   const previousEmptyNeedsHelpCopy = new RegExp(['Blocked', 'or', 'failed', 'work'].join('\\s+'))
 
+  test('explains agent work loading for first-time users', () => {
+    getTasksByAgentMock.mockImplementationOnce(() => new Promise(() => undefined))
+
+    render(<AgentTasksTab agentId="agent-1" />)
+
+    const loading = screen.getByRole('status', { name: /checking this agent's work list/i })
+    expect(loading).toHaveTextContent("Checking this agent's work list")
+    expect(loading).toHaveTextContent(
+      'Forge is checking which tasks have been sent to this agent and which ones need your help.'
+    )
+    expect(loading).toHaveTextContent(
+      'If this takes more than a moment, open this agent again or ask an owner or admin to check agent access.'
+    )
+    expect(loading).toHaveTextContent(
+      'Success looks like active work, completed work, or a create-a-task step.'
+    )
+    expect(loading).not.toHaveTextContent("Checking this agent's work list...")
+  })
+
   test('guides users when no tasks have reached the agent', async () => {
     getTasksByAgentMock.mockResolvedValue([])
 

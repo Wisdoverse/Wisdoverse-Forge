@@ -3,6 +3,7 @@ import { CheckCircle2, FolderKanban, Plus, ShieldAlert, Users } from 'lucide-rea
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useAuth } from '@app/shared/model/auth.context'
+import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import {
   ResourceMembersModal,
   resourceMemberSelectionLostMessage,
@@ -219,9 +220,13 @@ export function TeamsSection() {
 
       <div className={cn(uiStyles.card)}>
         {loading && teams.length === 0 ? (
-          <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading teams…
-          </div>
+          <BeginnerLoadingState
+            framed={false}
+            title="Checking teams"
+            detail="Forge is checking which teams are available in this team space."
+            nextStep="If this takes more than a moment, open Teams again or ask an owner or admin to check team access."
+            success="Success looks like a team row or a Create first team step."
+          />
         ) : !hasTeamSpace ? (
           <WorkspaceEmptyState
             icon={<ShieldAlert size={18} strokeWidth={2} aria-hidden="true" />}

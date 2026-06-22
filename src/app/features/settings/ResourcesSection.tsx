@@ -3,6 +3,7 @@ import { Cpu, HardDrive, ShieldCheck, type LucideIcon } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
+import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import type { ResourceProfileOption } from '@app/entities/agent'
 
 // ============================================================================
@@ -206,7 +207,7 @@ function ResourceProfilesError({
           disabled={loading}
           className="inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-apple-red/30 px-3 text-ui-button font-semibold text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/40 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {loading ? 'Loading...' : 'Load again'}
+          {loading ? 'Loading agent sizes' : 'Load again'}
         </button>
       </div>
     </div>
@@ -254,9 +255,13 @@ export function ResourcesSection() {
       {/* Table */}
       <div className={cn(uiStyles.card, 'overflow-x-auto')}>
         {resourceProfilesLoading && resourceProfiles.length === 0 ? (
-          <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading agent sizes...
-          </div>
+          <BeginnerLoadingState
+            framed={false}
+            title="Checking agent sizes"
+            detail="Forge is checking which agent sizes are available for this team space."
+            nextStep="If this takes more than a moment, open Agent Sizes again or ask an owner or admin to check Work limits."
+            success="Success looks like a size row with power, memory, and a best-fit use case."
+          />
         ) : resourceProfiles.length === 0 ? (
           <ResourceProfilesEmptyState />
         ) : (

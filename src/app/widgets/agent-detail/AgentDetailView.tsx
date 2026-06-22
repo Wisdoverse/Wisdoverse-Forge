@@ -746,7 +746,7 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
             starting && 'opacity-50'
           )}
         >
-          {starting ? 'Starting...' : 'Start file work'}
+          {starting ? 'Starting file work...' : 'Start file work'}
         </button>
       )}
     </div>

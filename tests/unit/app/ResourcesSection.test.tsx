@@ -35,6 +35,29 @@ afterEach(() => {
 })
 
 describe('ResourcesSection', () => {
+  test('explains agent size loading before the first size list appears', async () => {
+    useSettingsStore.setState({
+      resourceProfiles: [],
+      resourceProfilesLoading: true,
+      resourceProfilesError: null,
+    })
+
+    render(<ResourcesSection />)
+
+    const loading = await screen.findByRole('status', { name: /checking agent sizes/i })
+    expect(loading).toHaveTextContent('Checking agent sizes')
+    expect(loading).toHaveTextContent(
+      'Forge is checking which agent sizes are available for this team space.'
+    )
+    expect(loading).toHaveTextContent(
+      'If this takes more than a moment, open Agent Sizes again or ask an owner or admin to check Work limits.'
+    )
+    expect(loading).toHaveTextContent(
+      'Success looks like a size row with power, memory, and a best-fit use case.'
+    )
+    expect(loading).not.toHaveTextContent('Loading agent sizes')
+  })
+
   test('explains resource profiles before users choose one for an agent', async () => {
     render(<ResourcesSection />)
 
@@ -117,5 +140,18 @@ describe('ResourcesSection', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /load again/i }))
     expect(loadResourceProfilesMock).toHaveBeenCalledTimes(2)
+  })
+
+  test('keeps the retry action specific while agent sizes are loading again', async () => {
+    useSettingsStore.setState({
+      resourceProfilesError: 'HTTP 500',
+      resourceProfilesLoading: true,
+    })
+
+    render(<ResourcesSection />)
+
+    const alert = await screen.findByRole('alert')
+    expect(within(alert).getByRole('button', { name: /loading agent sizes/i })).toBeDisabled()
+    expect(within(alert).queryByRole('button', { name: 'Loading...' })).toBeNull()
   })
 })
