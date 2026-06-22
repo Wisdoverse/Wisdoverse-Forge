@@ -85,6 +85,15 @@ describe('ControlPlanePanel', () => {
     expect(alert.textContent).not.toContain('stack')
   })
 
+  test('explains Control Plane loading as checking health', () => {
+    useAdminStore.setState({ controlPlane: null, controlPlaneLoading: true })
+
+    render(<ControlPlanePanel />)
+
+    expect(screen.getByText('Checking Control Plane health')).toBeDefined()
+    expect(screen.queryByText('Loading Control Plane status')).toBeNull()
+  })
+
   test('a malformed or partial payload does not crash: zeros via numeric coercion', () => {
     // Simulate store already having applied num() coercion on a bad payload:
     // every field defaults to 0 when the raw value was missing/NaN.
