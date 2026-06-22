@@ -576,7 +576,7 @@ function HostCliEnrollmentPanel({
               className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark"
             >
               When it works, come back to Forge. The agent appears in this list as Ready. Keep that
-              command app open, then send one small task.
+              app open, then send one small task.
             </p>
           </>
         ) : (

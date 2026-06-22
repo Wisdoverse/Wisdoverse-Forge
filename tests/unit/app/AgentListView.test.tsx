@@ -187,7 +187,10 @@ describe('AgentListView', () => {
       /send one small task/i
     )
     expect(within(enrollment).getByTestId('host-cli-success-hint')).toHaveTextContent(
-      /Keep that command app open/i
+      /Keep that app open/i
+    )
+    expect(within(enrollment).getByTestId('host-cli-success-hint')).not.toHaveTextContent(
+      /command app/i
     )
     expect(within(enrollment).getByTestId('host-cli-success-hint')).not.toHaveTextContent(
       /This Computer Codex/i
