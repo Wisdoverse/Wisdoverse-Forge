@@ -96,6 +96,41 @@ describe('AgentTerminalTab', () => {
     expect(screen.getByRole('button', { name: 'Enter' })).toBeDisabled()
   })
 
+  test('shows action-focused connection states instead of raw connection labels', () => {
+    terminalMocks.status = 'connecting'
+
+    const { unmount } = render(
+      <AgentTerminalTab agentId="agent-1" agentName="Runner" containerId="container-1" />
+    )
+
+    let tab = screen.getByTestId('agent-terminal-tab')
+    expect(within(tab).getByText('Preparing live work')).toBeDefined()
+    expect(
+      within(tab).getByText(
+        'Forge is opening Live work. If Tasks still shows progress, keep waiting. If nothing changes, open Overview and use Controls.'
+      )
+    ).toBeDefined()
+    expect(within(tab).queryByText('Connecting')).toBeNull()
+    expect(within(tab).queryByText(/websocket/i)).toBeNull()
+    expect(within(tab).queryByText(/terminal/i)).toBeNull()
+
+    unmount()
+    terminalMocks.status = 'disconnected'
+
+    render(<AgentTerminalTab agentId="agent-1" agentName="Runner" containerId="container-1" />)
+
+    tab = screen.getByTestId('agent-terminal-tab')
+    expect(within(tab).getByText('Check Overview')).toBeDefined()
+    expect(
+      within(tab).getByText(
+        'Live work is not connected. Check Tasks for recent progress, then open Overview and use Controls before restarting this agent.'
+      )
+    ).toBeDefined()
+    expect(within(tab).queryByText('Disconnected')).toBeNull()
+    expect(within(tab).queryByText(/websocket/i)).toBeNull()
+    expect(within(tab).queryByText(/terminal/i)).toBeNull()
+  })
+
   test('prints a recovery step instead of raw live work connection errors', () => {
     render(<AgentTerminalTab agentId="agent-1" agentName="Runner" containerId="container-1" />)
 
