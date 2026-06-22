@@ -65,9 +65,7 @@ fn merge_failure_label(err: &AppError) -> &'static str {
         // Conflict is head_moved — the only Conflict the executor emits.
         ErrorKind::Conflict(_) => "head_moved",
         ErrorKind::ValidationWithCode { code, .. } if *code == "errors.self_fix.checks_not_green" => "checks_red",
-        ErrorKind::ForbiddenWithCode { code, .. }
-            if *code == "errors.self_fix.sensitive_path_blocked" =>
-        {
+        ErrorKind::ForbiddenWithCode { code, .. } if *code == "errors.self_fix.sensitive_path_blocked" => {
             "sensitive_blocked"
         }
         // All other errors: I/O, unexpected, or unrecognised policy.
@@ -104,7 +102,8 @@ pub fn register_metrics() {
         "Self-fix guarded-merge outcomes, labeled merged|already_merged|sensitive_blocked|checks_red|head_moved|exhausted|failed"
     );
     // Prime all seven label values at 0 so every series exists from t=0.
-    for outcome in &["merged", "already_merged", "sensitive_blocked", "checks_red", "head_moved", "exhausted", "failed"] {
+    for outcome in &["merged", "already_merged", "sensitive_blocked", "checks_red", "head_moved", "exhausted", "failed"]
+    {
         metrics::counter!("agentforge_self_fix_merge_total", "outcome" => *outcome).increment(0);
     }
 }
@@ -123,7 +122,9 @@ mod tests {
     #[test]
     fn record_merge_outcome_does_not_panic() {
         // Smoke test for each closed-set label.
-        for outcome in &["merged", "already_merged", "sensitive_blocked", "checks_red", "head_moved", "exhausted", "failed"] {
+        for outcome in
+            &["merged", "already_merged", "sensitive_blocked", "checks_red", "head_moved", "exhausted", "failed"]
+        {
             record_merge_outcome(outcome);
         }
     }

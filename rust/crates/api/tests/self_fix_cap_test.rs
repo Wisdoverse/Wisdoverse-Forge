@@ -97,16 +97,9 @@ async fn approve_and_merge_refuses_when_merge_attempts_exhausted(pool: PgPool) {
         .expect("create self_fix task");
 
     // Give it a PR linkage and put it in_review so the status gate passes.
-    repo.set_pr_metadata(
-        &scope,
-        task.id,
-        42,
-        "https://github.com/example/repo/pull/42",
-        "deadbeef",
-        "in_review",
-    )
-    .await
-    .expect("set_pr_metadata");
+    repo.set_pr_metadata(&scope, task.id, 42, "https://github.com/example/repo/pull/42", "deadbeef", "in_review")
+        .await
+        .expect("set_pr_metadata");
 
     // Directly set merge_attempts to the default cap (5).
     sqlx::query("UPDATE orchestration_tasks SET merge_attempts = 5 WHERE id = $1")

@@ -56,9 +56,6 @@ pub use credential_consumer::{
     SqlxAgentOwnerLookup, SqlxHmacSecretLookup as SqlxCredentialHmacSecretLookup, credentials_filter,
 };
 pub use dependency_reconcile::{DEFAULT_INTERVAL as DEPENDENCY_RECONCILE_DEFAULT_INTERVAL, DependencyReconcileWorker};
-pub use self_fix_review_reaper::{
-    DEFAULT_INTERVAL as SELF_FIX_REVIEW_REAPER_DEFAULT_INTERVAL, SelfFixReviewReaperWorker,
-};
 pub use event_consumer::{
     AgentDirectory, AgentTarget, BroadcastBus, BroadcastEnvelope, BroadcastMessage, EVENTS_FILTER, EVENTS_STREAM,
     EventConsumer, EventStore, EventStreamWorker, PersistedEvent, SignedEventEnvelope, SignedEventPayload,
@@ -87,6 +84,9 @@ pub use participant_liveness::{
 };
 pub use presence_store::{PresenceBackend, RedisRecord};
 pub use queue::{JobEntry, complete, dequeue, enqueue, enqueue_in_tx, fail, release_stale_locks};
+pub use self_fix_review_reaper::{
+    DEFAULT_INTERVAL as SELF_FIX_REVIEW_REAPER_DEFAULT_INTERVAL, SelfFixReviewReaperWorker,
+};
 pub use worker::Worker;
 
 /// Crate version for health checks and diagnostics.
