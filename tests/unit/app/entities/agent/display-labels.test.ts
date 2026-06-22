@@ -4,8 +4,8 @@ import { agentAiServiceLabel, agentRuntimeLabel } from '@app/entities/agent'
 
 describe('agent display labels', () => {
   it('turns missing AI service values into a setup check', () => {
-    expect(agentAiServiceLabel(null)).toBe('Check AI service setup')
-    expect(agentAiServiceLabel(' ')).toBe('Check AI service setup')
+    expect(agentAiServiceLabel(null)).toBe('Check AI service')
+    expect(agentAiServiceLabel(' ')).toBe('Check AI service')
   })
 
   it('keeps known and check-needed AI service values readable', () => {

@@ -106,7 +106,7 @@ function cliToolToProvider(cliTool?: CliTool): string {
     case 'opencode':
       return 'OpenAI'
     default:
-      return 'Check AI service setup'
+      return 'Check AI service'
   }
 }
 

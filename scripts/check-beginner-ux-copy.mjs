@@ -2468,6 +2468,7 @@ const AGENT_CONFIG_SAVE_FAILURE_PATTERNS = [
 const AGENT_AI_SERVICE_DEAD_END_PATTERNS = [
   /\bAI service not reported\b/i,
   /\bRefresh AI service\b/i,
+  /\bCheck AI service setup\b/i,
 ]
 
 const AGENT_MODEL_DEAD_END_PATTERNS = [
@@ -6767,7 +6768,7 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'agent-ai-service-copy',
         location,
-        message: 'Agent AI service fallback copy must tell beginners to check service setup.',
+        message: 'Agent AI service fallback copy must tell beginners to check the AI service.',
         sample: line.trim(),
       })
     }

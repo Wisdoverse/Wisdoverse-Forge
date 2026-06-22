@@ -2914,12 +2914,12 @@ function fallbackCliToolLabel(tool) {
     const cwd = fixture({
       'src/app/entities/agent/model/display-labels.ts': `
 export function agentAiServiceLabel(provider) {
-  return provider ? 'Check AI service' : 'Check AI service setup'
+  return provider ? 'Check AI service' : 'Check AI service'
 }
 `,
       'src/app/entities/agent/model/agents.store.ts': `
 export function cliToolLabel(tool) {
-  return tool ? 'Check work tool' : 'Check AI service setup'
+  return tool ? 'Check work tool' : 'Check AI service'
 }
 `,
       'src/app/entities/context/ui/InjectionPreviewModal.tsx': `
@@ -4338,12 +4338,12 @@ function agentAiServiceLabel() {
 `,
       'src/app/entities/agent/model/agents.store.ts': `
 function managedToAgentInfo() {
-  return { provider: 'AI service not reported' }
+  return { provider: 'Check AI service setup' }
 }
 `,
       'src/app/shared/model/agents.store.ts': `
 function cliToolToProvider() {
-  return 'AI service not reported'
+  return 'Check AI service setup'
 }
 `,
     })
@@ -4370,21 +4370,21 @@ function cliToolToProvider() {
     expect(result.findings).toHaveLength(3)
   })
 
-  it('accepts agent AI service fallback copy that tells users to check service setup', () => {
+  it('accepts agent AI service fallback copy that tells users what to check', () => {
     const cwd = fixture({
       'src/app/entities/agent/model/display-labels.ts': `
 function agentAiServiceLabel() {
-  return 'Check AI service setup'
+  return 'Check AI service'
 }
 `,
       'src/app/entities/agent/model/agents.store.ts': `
 function managedToAgentInfo() {
-  return { provider: 'Check AI service setup' }
+  return { provider: 'Check AI service' }
 }
 `,
       'src/app/shared/model/agents.store.ts': `
 function cliToolToProvider() {
-  return 'Check AI service setup'
+  return 'Check AI service'
 }
 `,
     })
