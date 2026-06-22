@@ -58,6 +58,22 @@ Success looks like:
 /// after a reconnect without measurable overhead (an empty WAL is a no-op).
 const WAL_DRAIN_INTERVAL_SECS: u64 = 20;
 
+/// Number of pending WAL entries that indicates the relay is backing up. When
+/// `pending >= DEGRADED_WAL_PENDING_THRESHOLD` OR any events have been dropped,
+/// the heartbeat carries `health.degraded = true` so the liveness consumer can
+/// warn operators without changing participant status (issue #808).
+const DEGRADED_WAL_PENDING_THRESHOLD: usize = 1_000;
+
+/// Build a relay health snapshot from current WAL counters for inclusion in the
+/// heartbeat payload. Does not change any state — purely a read + struct build.
+fn build_health_snapshot(wal: &wal::Wal) -> publisher::HealthSnapshot {
+    let pending = wal.pending_cached();
+    let dropped = wal.dropped_total();
+    let degraded = pending >= DEGRADED_WAL_PENDING_THRESHOLD || dropped > 0;
+    let reason = degraded.then(|| format!("wal_pending={pending} wal_dropped={dropped}"));
+    publisher::HealthSnapshot { degraded, reason, wal_pending: pending, wal_dropped: dropped }
+}
+
 /// Drain the WAL through `publisher`: replay each buffered event, and on
 /// successful publish acknowledge (delete) its file. Failed publishes are left
 /// in place to retry on the next drain. Shared by the startup replay and the
@@ -135,6 +151,10 @@ async fn main() -> anyhow::Result<()> {
     ));
     let cmd_handler = commands::CommandHandler::new(nats_client.clone(), cfg.agent_id.clone());
     let wal_instance = Arc::new(wal::Wal::new(cfg.wal_path.as_deref()));
+    // Seed the O(1) cached pending counter from the actual on-disk file count so
+    // crash-recovered WAL files are counted against the backpressure cap before
+    // the relay-socket listener starts accepting new events.
+    wal_instance.init_pending().await;
 
     // Replay any events buffered during a previous NATS outage.
     let pending = wal_instance.pending_count().await.unwrap_or(0);
@@ -219,7 +239,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Publish once before the interval loop so a freshly started container is
     // immediately visible as an orchestration participant in the UI.
-    if let Err(err) = publisher.heartbeat().await {
+    if let Err(err) = publisher.heartbeat(build_health_snapshot(&wal_instance)).await {
         tracing::warn!(error = %err, "Initial heartbeat failed");
     }
 
@@ -227,6 +247,7 @@ async fn main() -> anyhow::Result<()> {
     let hb_interval = std::time::Duration::from_secs(cfg.heartbeat_interval_secs);
     let mut hb_shutdown = shutdown_rx.clone();
     let hb_publisher = publisher.clone();
+    let hb_wal = wal_instance.clone();
     let hb_task = tokio::spawn(async move {
         loop {
             tokio::select! {
@@ -234,7 +255,8 @@ async fn main() -> anyhow::Result<()> {
                     if *hb_shutdown.borrow() { break; }
                 }
                 _ = tokio::time::sleep(hb_interval) => {
-                    if let Err(err) = hb_publisher.heartbeat().await {
+                    let health = build_health_snapshot(&hb_wal);
+                    if let Err(err) = hb_publisher.heartbeat(health).await {
                         tracing::warn!(error = %err, "Heartbeat failed");
                     }
                 }
@@ -279,7 +301,7 @@ async fn main() -> anyhow::Result<()> {
                 _ = ticker.tick() => {
                     let connected =
                         drain_nats.connection_state() == async_nats::connection::State::Connected;
-                    let pending = drain_wal_handle.pending_count().await.unwrap_or(0);
+                    let pending = drain_wal_handle.pending_cached();
                     if unix_socket_listener::should_drain(connected, pending) {
                         tracing::info!(count = pending, "Draining WAL after NATS reconnect");
                         drain_wal(&drain_wal_handle, &drain_publisher).await;
@@ -320,7 +342,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{InfoCommand, info_command};
+    use super::{DEGRADED_WAL_PENDING_THRESHOLD, InfoCommand, build_health_snapshot, info_command, wal};
 
     #[test]
     fn detects_help_flags_before_env_config() {
@@ -337,5 +359,51 @@ mod tests {
     #[test]
     fn ignores_runtime_args() {
         assert_eq!(info_command(["--some-runtime-flag"]), None);
+    }
+
+    // -------------------------------------------------------------------------
+    // Health snapshot builder tests (issue #808)
+    // -------------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn health_snapshot_not_degraded_below_threshold() {
+        let tmp = tempfile::tempdir().unwrap();
+        let wal = wal::Wal::with_max_pending(Some(tmp.path().to_str().unwrap()), 10_000);
+        // Write a few entries — well below threshold.
+        for _ in 0..5 {
+            wal.append(b"{}").await.unwrap();
+        }
+        let snap = build_health_snapshot(&wal);
+        assert!(!snap.degraded, "well below threshold must not be degraded");
+        assert!(snap.reason.is_none());
+        assert_eq!(snap.wal_pending, 5);
+        assert_eq!(snap.wal_dropped, 0);
+    }
+
+    #[tokio::test]
+    async fn health_snapshot_degraded_at_threshold() {
+        let tmp = tempfile::tempdir().unwrap();
+        let wal = wal::Wal::with_max_pending(Some(tmp.path().to_str().unwrap()), DEGRADED_WAL_PENDING_THRESHOLD + 100);
+        // Manually advance the cached counter to the threshold.
+        for _ in 0..DEGRADED_WAL_PENDING_THRESHOLD {
+            wal.append(b"{}").await.unwrap();
+        }
+        let snap = build_health_snapshot(&wal);
+        assert!(snap.degraded, "at threshold must be degraded");
+        assert!(snap.reason.is_some());
+        let reason = snap.reason.unwrap();
+        assert!(reason.contains(&format!("wal_pending={DEGRADED_WAL_PENDING_THRESHOLD}")));
+    }
+
+    #[tokio::test]
+    async fn health_snapshot_degraded_on_any_dropped() {
+        let tmp = tempfile::tempdir().unwrap();
+        // Cap = 1 so the second append triggers a drop.
+        let wal = wal::Wal::with_max_pending(Some(tmp.path().to_str().unwrap()), 1);
+        wal.append(b"{}").await.unwrap();
+        wal.append(b"{}").await.unwrap(); // dropped
+        let snap = build_health_snapshot(&wal);
+        assert!(snap.degraded, "any dropped event must mark degraded");
+        assert_eq!(snap.wal_dropped, 1);
     }
 }

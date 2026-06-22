@@ -454,10 +454,32 @@ pub fn register_metrics() {
         "agentforge_orchestration_participant_tasks_claimed_total",
         "Tasks claimed onto participants — by the per-heartbeat single claim and the drain backstop."
     );
+    metrics::describe_counter!(
+        "agentforge_orchestration_agent_degraded_heartbeats_total",
+        "Sidecar heartbeats carrying health.degraded=true (WAL backpressure or dropped events)."
+    );
     metrics::counter!("agentforge_orchestration_participant_heartbeats_total").increment(0);
     metrics::counter!("agentforge_orchestration_participant_status_transitions_total").increment(0);
     metrics::counter!("agentforge_orchestration_participant_reconciled_total").increment(0);
     metrics::counter!("agentforge_orchestration_participant_tasks_claimed_total").increment(0);
+    metrics::counter!("agentforge_orchestration_agent_degraded_heartbeats_total").increment(0);
+}
+
+/// Parse the optional `health` field from a raw heartbeat JSON payload.
+///
+/// Returns `Some((true, reason))` when the sidecar reports `health.degraded =
+/// true` and provides a non-empty reason string. Returns `None` when the
+/// `health` object is absent (backward compat — older sidecars omit it). The
+/// `Some((false, _))` case is intentionally not returned: a non-degraded beat
+/// is the steady state and requires no action.
+fn heartbeat_is_degraded(payload: &serde_json::Value) -> Option<(bool, String)> {
+    let health = payload.get("health")?;
+    let degraded = health.get("degraded")?.as_bool()?;
+    if !degraded {
+        return None;
+    }
+    let reason = health.get("reason").and_then(|r| r.as_str()).unwrap_or("").to_string();
+    Some((true, reason))
 }
 
 /// DB-only core of heartbeat handling (ADR 0008): upsert the participant
@@ -502,12 +524,23 @@ pub async fn handle_heartbeat(
     payload: &[u8],
 ) -> Result<()> {
     let subject_agent = parse_heartbeat_agent_id(subject).ok_or_else(|| anyhow!("bad heartbeat subject {subject}"))?;
-    let payload: HeartbeatPayload = serde_json::from_slice(payload).with_context(|| "decode heartbeat payload")?;
+    // Parse as raw JSON first so we can inspect optional fields (e.g. `health`)
+    // that are not part of the typed HeartbeatPayload struct.
+    let raw: serde_json::Value = serde_json::from_slice(payload).with_context(|| "decode heartbeat payload")?;
+    let payload: HeartbeatPayload =
+        serde_json::from_value(raw.clone()).with_context(|| "deserialize heartbeat payload fields")?;
 
     if let Some(payload_agent) = payload.agent_id
         && payload_agent != subject_agent
     {
         return Err(anyhow!("heartbeat subject agent {subject_agent} disagrees with payload agent {payload_agent}"));
+    }
+
+    // Surface degraded relay health reported by the sidecar (issue #808).
+    // Does NOT change participant status or dispatcher logic — metric + warn only.
+    if let Some((_, reason)) = heartbeat_is_degraded(&raw) {
+        metrics::counter!("agentforge_orchestration_agent_degraded_heartbeats_total").increment(1);
+        tracing::warn!(%subject, reason, "sidecar reported degraded relay health");
     }
 
     metrics::counter!("agentforge_orchestration_participant_heartbeats_total").increment(1);
@@ -906,6 +939,76 @@ fn participant_status_for_ws(status: &str) -> &str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // -------------------------------------------------------------------------
+    // heartbeat_is_degraded tests (issue #808)
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn degraded_payload_returns_some_true_with_reason() {
+        let payload = serde_json::json!({
+            "agent_id": "00000000-0000-0000-0000-000000000001",
+            "health": {
+                "degraded": true,
+                "reason": "wal_pending=1000 wal_dropped=0",
+                "wal_pending": 1000,
+                "wal_dropped": 0
+            }
+        });
+        let result = heartbeat_is_degraded(&payload);
+        assert!(result.is_some());
+        let (degraded, reason) = result.unwrap();
+        assert!(degraded);
+        assert!(reason.contains("wal_pending=1000"));
+    }
+
+    #[test]
+    fn missing_health_field_returns_none_for_backward_compat() {
+        // Older sidecars omit the health field entirely.
+        let payload = serde_json::json!({
+            "agent_id": "00000000-0000-0000-0000-000000000001",
+            "capabilities": ["claude"]
+        });
+        assert!(heartbeat_is_degraded(&payload).is_none());
+    }
+
+    #[test]
+    fn non_degraded_health_field_returns_none() {
+        let payload = serde_json::json!({
+            "health": {
+                "degraded": false,
+                "reason": null,
+                "wal_pending": 5,
+                "wal_dropped": 0
+            }
+        });
+        assert!(heartbeat_is_degraded(&payload).is_none());
+    }
+
+    #[test]
+    fn degraded_with_missing_reason_returns_empty_reason() {
+        // Defensively handle a future shape that omits `reason` despite degraded=true.
+        let payload = serde_json::json!({
+            "health": {
+                "degraded": true,
+                "wal_pending": 1000,
+                "wal_dropped": 0
+            }
+        });
+        let result = heartbeat_is_degraded(&payload);
+        assert!(result.is_some());
+        let (degraded, reason) = result.unwrap();
+        assert!(degraded);
+        assert_eq!(reason, "");
+    }
+
+    #[test]
+    fn register_metrics_does_not_panic() {
+        // Smoke test: calling register_metrics must not panic even when called
+        // multiple times (the metrics recorder may be a no-op in tests).
+        register_metrics();
+        register_metrics();
+    }
 
     #[test]
     fn parses_valid_heartbeat_subject() {

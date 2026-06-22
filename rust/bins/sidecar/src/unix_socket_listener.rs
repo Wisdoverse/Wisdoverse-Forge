@@ -24,7 +24,7 @@ use std::sync::Arc;
 
 use tokio::io::AsyncReadExt;
 use tokio::net::{UnixListener, UnixStream};
-use tokio::sync::watch;
+use tokio::sync::{Semaphore, watch};
 
 use crate::publisher::EventPublisher;
 use crate::wal::Wal;
@@ -43,6 +43,13 @@ const MAX_FRAME_SIZE: u32 = 10 * 1024 * 1024;
 /// KEPT and the periodic drain retries after reconnect. 5s comfortably covers a
 /// healthy round-trip while failing fast during an outage.
 const FLUSH_CONFIRM_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+
+/// Maximum number of connection-handler tasks that may run concurrently.
+///
+/// Applying a bound here prevents unbounded task fan-out when a chatty CLI
+/// hammers the relay socket. The accept loop itself applies backpressure —
+/// `acquire_owned()` waits for a free slot instead of spawning without limit.
+const MAX_CONCURRENT_RELAY_CONNECTIONS: usize = 256;
 
 /// The Unix socket the CLI relay hook (`agentforge-relay-hook.cjs`) connects to.
 ///
@@ -91,6 +98,8 @@ pub async fn run(
 
     tracing::info!(socket = %socket_path, "Relay socket listener bound");
 
+    let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_RELAY_CONNECTIONS));
+
     loop {
         tokio::select! {
             changed = shutdown_rx.changed() => {
@@ -104,7 +113,23 @@ pub async fn run(
                     Ok((stream, _addr)) => {
                         let publisher = publisher.clone();
                         let wal = wal.clone();
+                        // Acquire a permit before spawning; the accept loop
+                        // blocks here when MAX_CONCURRENT_RELAY_CONNECTIONS tasks
+                        // are already running, bounding fan-out.
+                        let permit = match semaphore.clone().acquire_owned().await {
+                            Ok(permit) => permit,
+                            Err(err) => {
+                                // The semaphore is never closed in this loop, so this is
+                                // unreachable in practice — degrade gracefully instead of
+                                // panicking the whole listener task if it ever is.
+                                tracing::warn!(error = %err, "Relay connection semaphore closed; skipping connection");
+                                continue;
+                            }
+                        };
                         tokio::spawn(async move {
+                            // Permit is held for the lifetime of this task and
+                            // released automatically when the task completes.
+                            let _permit = permit;
                             if let Err(err) = handle_connection(stream, publisher, wal).await {
                                 tracing::warn!(error = %err, "Relay connection handling failed");
                             }
@@ -220,7 +245,13 @@ async fn durably_publish(publisher: &EventPublisher, wal: &Wal, event_type: &str
     //    before flush still leaves a replayable copy.
     let record = wal_record(event_type, &data);
     let wal_path = match wal.append(&record).await {
-        Ok(path) => path,
+        Ok(Some(path)) => path,
+        Ok(None) => {
+            // WAL is full — the event was already counted as dropped with a
+            // warning logged by `append`; do not attempt an unbuffered publish
+            // (that would undermine backpressure) and do not treat this as an error.
+            return;
+        }
         Err(err) => {
             // We couldn't even persist — fall back to a best-effort publish so
             // the event isn't dropped outright, but we can't guarantee delivery.
@@ -386,7 +417,8 @@ mod tests {
 
         // What durably_publish() writes before a publish attempt.
         let data = serde_json::json!({"sessionId": "s1", "id": "e1"});
-        let path = wal.append(&wal_record("session_start", &data)).await.unwrap();
+        let path =
+            wal.append(&wal_record("session_start", &data)).await.unwrap().expect("append succeeds within capacity");
         assert!(path.exists(), "append returns the path of the written record");
 
         assert_eq!(wal.pending_count().await.unwrap(), 1);
