@@ -1139,13 +1139,13 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                       >
                         {providerOptions.map((option) => (
                           <option key={option.id} value={option.id}>
-                            {option.label} · saved setup
+                            {option.label} · saved service choice
                           </option>
                         ))}
                       </select>
                       <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                         Choose the AI service name you set up in Settings. Forge uses its saved
-                        setup automatically.
+                        service choice automatically.
                       </p>
                     </div>
                     <div>
@@ -1153,7 +1153,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                         htmlFor="agent-model"
                         className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                       >
-                        Saved AI service setup
+                        Saved AI service choice
                       </label>
                       <input
                         id="agent-model"

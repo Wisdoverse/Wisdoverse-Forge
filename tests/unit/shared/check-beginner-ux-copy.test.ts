@@ -966,6 +966,8 @@ function CreateAgentModal() {
     <section>
       <p>Open AI service settings, add a service, paste the service access key, save it, then choose Check connection. Come back when the service shows Ready.</p>
       <p>Open AI service settings, add a service, save it, then choose Check connection until it says Ready.</p>
+      <option>Anthropic · saved setup</option>
+      <label>Saved AI service setup</label>
     </section>
   )
 }
@@ -984,6 +986,14 @@ function CreateAgentModal() {
         expect.objectContaining({
           type: 'create-agent-ai-service-setup-copy',
           location: 'src/app/features/agents/CreateAgentModal.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'create-agent-ai-service-setup-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'create-agent-ai-service-setup-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:8',
         }),
       ])
     )
@@ -4596,7 +4606,7 @@ function validationMessage() {
   return 'Open AI service settings, choose Check connection for this service, then come back when it shows Ready.'
 }
 function FieldLabel() {
-  return <label>Saved AI service setup</label>
+  return <label>Saved AI service choice</label>
 }
 function HelpText() {
   return <p>This comes from the checked AI service in Settings. You do not need to change it here.</p>

@@ -271,6 +271,8 @@ const PROVIDER_SETUP_JARGON_PATTERNS = [
 const CREATE_AGENT_AI_SERVICE_SETUP_JARGON_PATTERNS = [
   /\bpaste the service access key\b/i,
   /\bchoose Check connection until it says Ready\b/i,
+  /\bsaved setup\b/i,
+  /\bSaved AI service setup\b/i,
 ]
 
 const ADMIN_USERS_EMPTY_DEAD_END_PATTERNS = [/\bNo one is listed yet\b/i]
