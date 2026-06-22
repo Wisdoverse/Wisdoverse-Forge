@@ -98,6 +98,19 @@ describe('TaskMetadata', () => {
     expect(screen.queryByText(/Lease expires/i)).toBeNull()
   })
 
+  test('labels retry count in beginner language', () => {
+    render(<TaskMetadata task={{ ...mockTask, attempt: 2 }} />)
+
+    expect(screen.getByText('Try 2')).toBeDefined()
+    expect(screen.queryByText(/Attempt 2/i)).toBeNull()
+  })
+
+  test('does not show a broken retry label when the count is missing', () => {
+    render(<TaskMetadata task={mockTask} />)
+
+    expect(screen.queryByText(/Attempt undefined|Try undefined/i)).toBeNull()
+  })
+
   test('turns credential blocked guidance into an account-access recovery step', () => {
     render(
       <TaskMetadata
