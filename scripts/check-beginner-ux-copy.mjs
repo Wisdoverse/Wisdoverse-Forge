@@ -2502,6 +2502,7 @@ const AGENT_TEMPLATE_ROLE_JARGON_PATTERNS = [
   /\bStart with a role\b/i,
   /\bAgent role templates\b/i,
   /\bFills in the agent name\b/i,
+  /\bFrontend Agent\b/i,
   /\blabel:\s*['"`]Review work['"`]/i,
   /\bname:\s*['"`]Review Helper['"`]/i,
 ]
@@ -6903,7 +6904,8 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'agent-template-role-copy',
         location,
-        message: 'Agent creation templates must say starter template instead of role template.',
+        message:
+          'Agent creation copy must use plain starter wording instead of role or engineer-only examples.',
         sample: line.trim(),
       })
     }

@@ -960,7 +960,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 id="agent-name"
                 {...register('name')}
                 className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-                placeholder="e.g. Frontend Agent…"
+                placeholder="e.g. Result checker"
                 autoFocus
               />
             </div>

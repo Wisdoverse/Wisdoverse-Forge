@@ -4445,6 +4445,9 @@ function WorkStylePicker() {
 function TemplateHint() {
   return <span>Fills in the agent name</span>
 }
+function NameField() {
+  return <input placeholder="e.g. Frontend Agent" />
+}
 const AGENT_ROLE_TEMPLATES = [{
   label: 'Review work',
   name: 'Review Helper'
@@ -4463,6 +4466,10 @@ function applyRoleTemplate() {
         expect.objectContaining({
           type: 'agent-template-role-copy',
           sample: expect.stringContaining('Fills in the agent name'),
+        }),
+        expect.objectContaining({
+          type: 'agent-template-role-copy',
+          sample: expect.stringContaining('Frontend Agent'),
         }),
         expect.objectContaining({
           type: 'agent-template-role-copy',
