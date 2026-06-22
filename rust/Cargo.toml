@@ -28,7 +28,7 @@ repository = "https://github.com/Wisdoverse/Wisdoverse-Forge"
 # Web framework
 axum = { version = "0.8", features = ["ws", "multipart"] }
 tower = { version = "0.5", features = ["full"] }
-tower-http = { version = "0.6", features = ["cors", "trace", "catch-panic", "fs"] }
+tower-http = { version = "0.7", features = ["cors", "trace", "catch-panic", "fs"] }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }
