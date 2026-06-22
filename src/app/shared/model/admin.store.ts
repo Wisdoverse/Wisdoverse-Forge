@@ -365,7 +365,7 @@ function adminResourceLabel(resource: AdminResource): string {
     case 'cli-images':
       return 'agent tool updates'
     case 'control-plane':
-      return 'control-plane snapshot'
+      return 'Control Plane status'
   }
 }
 

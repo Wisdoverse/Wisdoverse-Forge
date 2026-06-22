@@ -133,7 +133,7 @@ export function ControlPlanePanel() {
       {controlPlaneLoading && !controlPlane && (
         <div className="flex items-center justify-center py-12">
           <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading control-plane snapshot
+            Loading Control Plane status
           </p>
         </div>
       )}

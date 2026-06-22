@@ -692,7 +692,7 @@ describe('useAdminStore loading errors', () => {
     expect(health?.checks.redis?.status).toBe('up')
   })
 
-  test('coerces malformed control-plane snapshot numbers to zeros', async () => {
+  test('coerces malformed Control Plane status numbers to zeros', async () => {
     authFetchMock.mockResolvedValue(
       response(200, {
         ok: true,

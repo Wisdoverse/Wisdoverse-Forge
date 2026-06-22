@@ -70,7 +70,7 @@ describe('ControlPlanePanel', () => {
       controlPlane: null,
       controlPlaneLoading: false,
       controlPlaneError:
-        'Open Admin and choose Control Plane, then try again. Forge could not load the control-plane snapshot.',
+        'Open Admin and choose Control Plane, then try again. Forge could not load Control Plane status.',
     })
 
     render(<ControlPlanePanel />)
@@ -112,7 +112,7 @@ describe('ControlPlanePanel', () => {
     const message = controlPlaneErrorMessage({ status: 403, message: 'owner role required' })
 
     expect(message).toBe(
-      'Ask an owner or admin to give you Admin access, then open Admin and choose Control Plane before choosing Refresh. You do not have access to the control-plane snapshot.'
+      'Ask an owner or admin to give you Admin access, then open Admin and choose Control Plane before choosing Refresh. You do not have access to Control Plane status.'
     )
     expect(message).not.toContain('role')
   })
