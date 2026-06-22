@@ -241,9 +241,9 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
 function workAttemptReferenceLabel(id: string): string {
   const trimmed = id.trim()
   if (!trimmed) {
-    return 'Open this task again from the Tasks page to check the help code.'
+    return 'Open this task again from the Tasks page to check the work help text.'
   }
-  return `Help code ${trimmed.length > 8 ? trimmed.slice(0, 8) : trimmed}`
+  return `Work help text ${trimmed.length > 8 ? trimmed.slice(0, 8) : trimmed}`
 }
 
 function runSourceNeedsCheck(runSource: string): boolean {

@@ -1999,6 +1999,7 @@ const TASK_SUPPORT_REFERENCE_DEAD_END_PATTERNS = [
   /\bSupport reference not (?:reported|listed)\b/i,
   /\bTask ID\b/i,
   /\btask reference\b/i,
+  /\bhelp code\b/i,
   /\bWork attempt\b/i,
   /\bwork attempt code\b/i,
   /\blatest attempt\b/i,

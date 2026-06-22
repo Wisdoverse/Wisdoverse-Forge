@@ -4036,6 +4036,7 @@ function supportRunReference(id) {
   return 'refresh task details to check'
 }
 function workAttemptReferenceLabel(id) {
+  if (!id) return 'Open this task again from the Tasks page to check the help code.'
   return 'Work attempt code run-1234'
 }
 function taskUpdateGuide() {
@@ -4071,7 +4072,11 @@ function taskUpdateGuide() {
         }),
         expect.objectContaining({
           type: 'task-support-reference-copy',
-          location: 'src/app/features/detail/HistoryTab.tsx:9',
+          location: 'src/app/features/detail/HistoryTab.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'task-support-reference-copy',
+          location: 'src/app/features/detail/HistoryTab.tsx:10',
         }),
       ])
     )
@@ -4089,7 +4094,7 @@ function taskReferenceLabel(id) {
 `,
       'src/app/features/detail/HistoryTab.tsx': `
 function workAttemptReferenceLabel(id) {
-  return 'Open this task again from the Tasks page to check the help code.'
+  return 'Open this task again from the Tasks page to check the work help text.'
 }
 `,
     })
