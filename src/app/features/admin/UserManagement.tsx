@@ -3,6 +3,7 @@ import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useAuth } from '@app/shared/model/auth.context'
 import { useAdminStore, type AdminUser } from '@app/shared/model/admin.store'
+import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import { ADMIN_PANEL_RECOVERY, adminPanelLoadErrorMessage } from './adminErrorCopy'
 
 /**
@@ -387,11 +388,14 @@ export function UserManagement() {
       {/* Table */}
       <div className={cn(uiStyles.card, 'overflow-x-auto')}>
         {usersLoading && users.length === 0 ? (
-          <div className="flex items-center justify-center py-12">
-            <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              Loading user access...
-            </p>
-          </div>
+          <BeginnerLoadingState
+            framed={false}
+            testId="admin-users-loading"
+            title="Checking user access"
+            detail="Forge is checking who can sign in to this team space."
+            nextStep="If this takes more than a moment, open User access again or ask an owner to check Admin access."
+            success="Success looks like a people list with access level and sign-in status."
+          />
         ) : users.length === 0 ? (
           <div
             data-testid="admin-users-empty"

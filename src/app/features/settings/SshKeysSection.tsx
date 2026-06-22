@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useSettingsStore } from '@app/shared/model/settings.store'
+import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import type { UserSshKey } from '@app/entities/agent'
 import { formatAccessDate } from './formatAccessDate'
 import { sshKeysErrorMessage } from './sshKeysErrorMessage'
@@ -276,7 +277,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
           disabled={saving || !label.trim() || !publicKey.trim()}
           className={uiStyles.primaryButton}
         >
-          {saving ? 'Saving...' : 'Save SSH code access'}
+          {saving ? 'Saving SSH code access...' : 'Save SSH code access'}
         </button>
       </div>
     </form>
@@ -369,9 +370,15 @@ export function SshKeysSection() {
       {/* Table */}
       <div className={cn(uiStyles.card, 'overflow-x-auto')}>
         {sshKeysLoading && sshKeys.length === 0 ? (
-          <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading SSH code access...
-          </div>
+          <BeginnerLoadingState
+            title="Checking SSH code access"
+            detail="Forge is checking which saved public key lines can open git@ private code links."
+            nextStep="If this takes more than a moment, open Settings again or ask an owner or admin to check code access."
+            success="Success looks like saved SSH access or a step to add one."
+            testId="ssh-access-loading-state"
+            framed={false}
+            compact
+          />
         ) : sshKeys.length === 0 && !showForm ? (
           <div
             className="px-4 py-6"

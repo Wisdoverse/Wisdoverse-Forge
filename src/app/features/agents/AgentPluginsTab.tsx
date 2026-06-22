@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { CheckCircle2, Circle, RotateCcw, Search, SlidersHorizontal, Wrench } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import { agentPluginErrorMessage } from './model/pluginErrorMessage'
 
 interface AgentPluginRow {
@@ -266,11 +267,15 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-          Loading this agent's tools...
-        </p>
-      </div>
+      <BeginnerLoadingState
+        title="Checking this agent's tools"
+        detail="Forge is checking which tools this agent can use for its next task."
+        nextStep="If this takes more than a moment, open Tools again or ask an owner or admin to check tool access."
+        success="Success looks like available tools or an ask-an-owner step."
+        testId="agent-tools-loading"
+        framed={false}
+        compact
+      />
     )
   }
 

@@ -158,6 +158,44 @@ describe('workspace settings empty states', () => {
     vi.clearAllMocks()
   })
 
+  it('explains team loading before the first setup list appears', async () => {
+    mocks.getTeams.mockReturnValue(new Promise(() => undefined))
+
+    render(<TeamsSection />)
+
+    const loading = await screen.findByRole('status', { name: /checking teams/i })
+    expect(loading).toHaveTextContent('Checking teams')
+    expect(loading).toHaveTextContent(
+      'Forge is checking which teams are available in this team space.'
+    )
+    expect(loading).toHaveTextContent(
+      'If this takes more than a moment, open Teams again or ask an owner or admin to check team access.'
+    )
+    expect(loading).toHaveTextContent(
+      'Success looks like a team row or a Create first team step.'
+    )
+    expect(loading).not.toHaveTextContent('Loading teams')
+  })
+
+  it('explains project loading before the first project list appears', async () => {
+    mocks.getTeams.mockReturnValue(new Promise(() => undefined))
+
+    render(<ProjectsSection />)
+
+    const loading = await screen.findByRole('status', { name: /checking projects/i })
+    expect(loading).toHaveTextContent('Checking projects')
+    expect(loading).toHaveTextContent(
+      'Forge is checking which projects are available for this team space.'
+    )
+    expect(loading).toHaveTextContent(
+      'If this takes more than a moment, open Projects again or ask an owner or admin to check project access.'
+    )
+    expect(loading).toHaveTextContent(
+      'Success looks like a project row or a New Project step.'
+    )
+    expect(loading).not.toHaveTextContent('Loading projects')
+  })
+
   it('shows owners a clear first step when no teams exist', async () => {
     render(<TeamsSection />)
 

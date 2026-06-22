@@ -47,7 +47,7 @@ describe('workspace management rows', () => {
 
     expect(
       screen.getByText(
-        /Team link preview:\s*product-team\. Forge creates this automatically from the team name/i
+        /Team menu link preview:\s*product-team\. Forge creates this automatically from the team name/i
       )
     ).toBeDefined()
     expect(screen.getByText('Invite-only')).toHaveAttribute(
@@ -57,7 +57,7 @@ describe('workspace management rows', () => {
     expect(screen.queryByText(/^private$/i)).toBeNull()
     expect(
       screen.getByText(
-        'Project link preview: website-launch. Forge creates this automatically from the project name'
+        'Project menu link preview: website-launch. Forge creates this automatically from the project name'
       )
     ).toBeDefined()
     expect(screen.queryByText(/Auto-created/i)).toBeNull()

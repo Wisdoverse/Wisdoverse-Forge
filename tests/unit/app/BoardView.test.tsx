@@ -46,6 +46,27 @@ afterEach(() => {
 })
 
 describe('BoardView', () => {
+  test('explains the main task board loading state for first-time users', () => {
+    mockGetTasks.mockImplementationOnce(() => new Promise(() => undefined))
+    useBoardStore.getState().setSelectedGroupId('test-group')
+    useBoardStore.setState({ loading: true })
+
+    render(<BoardView />)
+
+    const loading = screen.getByRole('status', { name: /checking tasks/i })
+    expect(loading).toHaveTextContent('Checking tasks')
+    expect(loading).toHaveTextContent(
+      'Forge is checking which tasks are waiting, working, need help, or finished in this project.'
+    )
+    expect(loading).toHaveTextContent(
+      'If this takes more than a moment, open Tasks again or ask an owner or admin to check where tasks wait.'
+    )
+    expect(loading).toHaveTextContent(
+      'Success looks like task columns or an add-the-first-task step.'
+    )
+    expect(loading).not.toHaveTextContent('Loading tasks')
+  })
+
   test('shows no-group placeholder when no group is selected', () => {
     const onOpenProjectsSetup = vi.fn()
 

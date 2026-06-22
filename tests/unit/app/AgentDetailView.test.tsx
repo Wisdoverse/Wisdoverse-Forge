@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { useAgentsStore } from '@app/entities/agent'
 import {
   agentDetailHeaderSubtitle,
@@ -411,6 +411,41 @@ describe('AgentDetailView', () => {
     expect(alert).not.toHaveTextContent('check this agent setup')
     expect(alert).not.toHaveTextContent('Start did not finish')
     expect(alert.textContent).not.toContain('socket hang up')
+  })
+
+  test('names the file-work action while a pending workspace is starting', async () => {
+    let finishStart: (started: boolean) => void = () => undefined
+    useAgentsStore.setState({
+      error: null,
+      startAgent: vi.fn(
+        () =>
+          new Promise<boolean>((resolve) => {
+            finishStart = resolve
+          })
+      ),
+    } as never)
+
+    render(
+      <AgentDetailView
+        agent={{
+          ...workspaceToolAgent,
+          id: 'pending-starting-label',
+          status: 'offline',
+          containerId: undefined,
+        }}
+        onBack={() => {}}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /open live work/i }))
+    fireEvent.click(screen.getByRole('button', { name: /start file work/i }))
+
+    expect(screen.getByRole('button', { name: /starting file work/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /^Starting\.\.\.$/i })).toBeNull()
+
+    await act(async () => {
+      finishStart(true)
+    })
   })
 
   test('guides offline agents joined from this computer back to the local connection', () => {

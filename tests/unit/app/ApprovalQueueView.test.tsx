@@ -74,6 +74,27 @@ afterEach(() => {
 })
 
 describe('ApprovalQueueView', () => {
+  test('explains saved item review loading for first-time users', () => {
+    listContextCandidates.mockImplementationOnce(() => new Promise(() => undefined))
+
+    render(<ApprovalQueueView />)
+
+    const loading = screen.getByRole('status', {
+      name: /checking saved notes and instructions/i,
+    })
+    expect(loading).toHaveTextContent('Checking saved notes and instructions')
+    expect(loading).toHaveTextContent(
+      'Forge is checking which saved notes or instructions need your decision before agents can reuse them.'
+    )
+    expect(loading).toHaveTextContent(
+      'If this takes more than a moment, open Saved items again or ask an owner or admin to check saved item access.'
+    )
+    expect(loading).toHaveTextContent(
+      'Success looks like saved items to check or a no-items-to-review message.'
+    )
+    expect(loading).not.toHaveTextContent('Checking saved notes and instructions...')
+  })
+
   test('guides operators through approval decisions and the approve panel', async () => {
     render(<ApprovalQueueView />)
 

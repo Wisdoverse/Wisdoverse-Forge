@@ -390,7 +390,9 @@ function DeleteConfirmationDialog({ state, onCancel, onConfirm }: DeleteConfirma
       ? `Check and move or finish any work you still need from "${targetName}" before deleting. Projects in this team leave the left menu too. Agents are not deleted.`
       : `Check and move or finish any work you still need from "${targetName}" before deleting. The project is removed from this team space, and agents are moved out instead of deleted.`
   const confirmLabel = state.saving
-    ? 'Deleting...'
+    ? state.target === 'team'
+      ? 'Deleting team...'
+      : 'Deleting project...'
     : state.target === 'team'
       ? 'Delete team'
       : 'Delete project'
@@ -858,7 +860,7 @@ export function ProjectTree({
                 </span>
               </div>
               <p className="mt-0.5 truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-                {projectMenu.team.name} team · Link preview: {projectMenu.project.slug}
+                {projectMenu.team.name} team · Menu link preview: {projectMenu.project.slug}
               </p>
             </div>
 
@@ -914,13 +916,13 @@ export function ProjectTree({
             />
             <ProjectMenuItem
               Icon={Hash}
-              label="Copy link preview"
-              detail={`Project link preview: ${projectMenu.project.slug}. Forge creates this automatically from the project name.`}
+              label="Copy menu link preview"
+              detail={`Project menu link preview: ${projectMenu.project.slug}. Forge creates this automatically from the project name.`}
               onClick={() =>
                 void handleCopyProjectValue(
                   projectMenu.project.slug,
-                  'Link preview copied',
-                  'link preview'
+                  'Menu link preview copied',
+                  'menu link preview'
                 )
               }
             />
@@ -1128,8 +1130,8 @@ function manualCopyFailureMessage(valueLabel: string): string {
     return 'Use this project reference only when another page or an owner or admin asks for it. Copy did not work, so select it below and copy it yourself.'
   }
 
-  if (valueLabel === 'link preview') {
-    return 'This link preview is the short text Forge makes from the project name. Copy did not work, so select it below and copy it yourself.'
+  if (valueLabel === 'menu link preview') {
+    return 'This menu link preview is the short text Forge makes from the project name. Copy did not work, so select it below and copy it yourself.'
   }
 
   return `Copy did not work, so select the ${valueLabel} below and copy it yourself.`

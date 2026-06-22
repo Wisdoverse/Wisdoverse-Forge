@@ -109,6 +109,28 @@ afterEach(() => {
 })
 
 describe('ProvidersSection', () => {
+  test('explains AI service loading for first-time setup', () => {
+    useSettingsStore.setState({
+      providers: [],
+      providersLoading: true,
+    })
+
+    render(<ProvidersSection />)
+
+    const loading = screen.getByRole('status', { name: /checking ai services/i })
+    expect(loading).toHaveTextContent('Checking AI services')
+    expect(loading).toHaveTextContent(
+      'Forge is checking which AI accounts agents can use to answer tasks.'
+    )
+    expect(loading).toHaveTextContent(
+      'If this takes more than a moment, open Settings again or ask an owner or admin to check AI service access.'
+    )
+    expect(loading).toHaveTextContent(
+      'Success looks like saved AI services or an add-your-first-service step.'
+    )
+    expect(loading).not.toHaveTextContent('Loading AI services')
+  })
+
   test('summarizes provider readiness and filters providers by action state', async () => {
     render(<ProvidersSection />)
 

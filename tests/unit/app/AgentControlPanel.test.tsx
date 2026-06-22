@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { AgentControlPanel } from '@app/features/agents/AgentControlPanel'
 import { useAgentsStore, type AgentInfo } from '@app/entities/agent'
@@ -145,28 +145,52 @@ describe('AgentControlPanel', () => {
   test('explains quick messages and sends trimmed text', async () => {
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
 
-    const instructionInput = screen.getByLabelText(/send one instruction/i)
-    expect(instructionInput).toBeDefined()
+    const messageInput = screen.getByLabelText(/send a quick message/i)
+    expect(messageInput).toBeDefined()
     expect(screen.getByText(/for work that needs a clear result, create a task/i)).toBeDefined()
-    expect(instructionInput).toHaveAccessibleDescription(
-      /send one concrete instruction, then watch this agent's history for progress/i
+    expect(messageInput).toHaveAccessibleDescription(
+      /send one concrete message, then watch this agent's history for progress/i
     )
+    expect(screen.queryByLabelText(/send one instruction/i)).toBeNull()
 
-    fireEvent.change(instructionInput, {
+    fireEvent.change(messageInput, {
       target: { value: '  Check the latest run  ' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /send instruction/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^send message$/i }))
 
     await waitFor(() => {
       expect(sendPromptMock).toHaveBeenCalledWith('agent-1', 'Check the latest run')
     })
-    expect(screen.getByLabelText(/send one instruction/i)).toHaveValue('')
+    expect(screen.getByLabelText(/send a quick message/i)).toHaveValue('')
     expect(await screen.findByRole('status')).toHaveTextContent(
-      "Instruction sent. Watch this agent's history for progress"
+      "Message sent. Watch this agent's history for progress"
     )
     expect(screen.getByRole('status')).toHaveTextContent(
-      'create a task next time when you need a tracked result'
+      'create a task next time when you need a tracked result others can find later'
     )
+  })
+
+  test('names message send progress while the request is running', async () => {
+    let finishSend: (sent: boolean) => void = () => undefined
+    sendPromptMock.mockReturnValueOnce(
+      new Promise<boolean>((resolve) => {
+        finishSend = resolve
+      })
+    )
+
+    render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
+
+    fireEvent.change(screen.getByLabelText(/send a quick message/i), {
+      target: { value: 'Check recent work' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^send message$/i }))
+
+    expect(screen.getByRole('button', { name: /sending message/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /^Sending\.\.\.$/i })).toBeNull()
+
+    await act(async () => {
+      finishSend(true)
+    })
   })
 
   test('keeps the message box usable when sending fails unexpectedly', async () => {
@@ -174,9 +198,9 @@ describe('AgentControlPanel', () => {
 
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
 
-    const instructionInput = screen.getByLabelText(/send one instruction/i)
-    const sendButton = screen.getByRole('button', { name: /send instruction/i })
-    fireEvent.change(instructionInput, { target: { value: 'Check recent work' } })
+    const messageInput = screen.getByLabelText(/send a quick message/i)
+    const sendButton = screen.getByRole('button', { name: /^send message$/i })
+    fireEvent.change(messageInput, { target: { value: 'Check recent work' } })
     fireEvent.click(sendButton)
 
     await waitFor(() => expect(sendButton).not.toBeDisabled())
@@ -191,22 +215,21 @@ describe('AgentControlPanel', () => {
     expect(alert).toHaveTextContent(/create a task instead/i)
     expect(alert).toHaveTextContent(/ask an owner or admin to check agent messaging/i)
     expect(alert).not.toHaveTextContent(/socket hang up/i)
-    expect(instructionInput).toHaveValue('Check recent work')
+    expect(messageInput).toHaveValue('Check recent work')
   })
 
-  test('focuses the instruction box when users try to send blank text', () => {
+  test('focuses the message box when users try to send blank text', () => {
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
 
-    const instructionInput = screen.getByLabelText(/send one instruction/i)
-    fireEvent.click(screen.getByRole('button', { name: /send instruction/i }))
+    const messageInput = screen.getByLabelText(/send a quick message/i)
+    fireEvent.click(screen.getByRole('button', { name: /^send message$/i }))
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(alert).toHaveTextContent(
-      'Write an instruction before sending it to this agent.'
-    )
-    expect(instructionInput).toHaveFocus()
-    expect(instructionInput).toHaveAttribute(
+    expect(alert).toHaveTextContent('Write a message before sending it to this agent.')
+    expect(alert).not.toHaveTextContent('Write an instruction')
+    expect(messageInput).toHaveFocus()
+    expect(messageInput).toHaveAttribute(
       'aria-describedby',
       expect.stringContaining('agent-control-prompt-error')
     )
@@ -228,7 +251,7 @@ describe('AgentControlPanel', () => {
     expect(screen.queryByText(/provider setup/i)).toBeNull()
   })
 
-  test('disables quick instructions when a chat-only agent is offline', () => {
+  test('disables quick messages when a chat-only agent is offline', () => {
     render(<AgentControlPanel agent={offlineTextOnlyAgent} onDeleted={() => {}} />)
 
     expect(screen.getByText('AI service needs a check')).toBeDefined()
@@ -242,16 +265,16 @@ describe('AgentControlPanel', () => {
     expect(screen.queryByText(/click Check/i)).toBeNull()
     expect(screen.queryByText(/refresh Agents/i)).toBeNull()
 
-    const instructionInput = screen.getByLabelText(/send one instruction/i)
-    expect(instructionInput).toBeDisabled()
-    expect(instructionInput).toHaveAttribute(
+    const messageInput = screen.getByLabelText(/send a quick message/i)
+    expect(messageInput).toBeDisabled()
+    expect(messageInput).toHaveAttribute(
       'placeholder',
-      'Check this AI service before sending an instruction.'
+      'Check this AI service before sending a message.'
     )
-    expect(instructionInput).toHaveAccessibleDescription(
+    expect(messageInput).toHaveAccessibleDescription(
       /choose Check connection for this service/i
     )
-    expect(screen.getByRole('button', { name: /send instruction/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /send message/i })).toBeDisabled()
     expect(sendPromptMock).not.toHaveBeenCalled()
   })
 
@@ -295,11 +318,18 @@ describe('AgentControlPanel', () => {
     expect(screen.queryByText(/already connected/i)).toBeNull()
     expect(screen.queryByRole('button', { name: /start agent/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /restart agent/i })).toBeNull()
-    expect(screen.getByLabelText(/send one instruction/i)).toBeDisabled()
-    expect(screen.getByRole('button', { name: /send instruction/i })).toBeDisabled()
+    expect(screen.getByLabelText(/send a quick message/i)).toBeDisabled()
+    expect(screen.getByRole('button', { name: /send message/i })).toBeDisabled()
   })
 
   test('shows start guidance for pending agent workspaces', async () => {
+    let finishStart: (started: boolean) => void = () => undefined
+    startAgentMock.mockReturnValueOnce(
+      new Promise<boolean>((resolve) => {
+        finishStart = resolve
+      })
+    )
+
     render(
       <AgentControlPanel
         agent={{ ...containerAgent, id: 'pending-agent', containerId: undefined }}
@@ -317,6 +347,13 @@ describe('AgentControlPanel', () => {
     expect(screen.queryByText(/opening the command window/i)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /start file work/i }))
+
+    expect(screen.getByRole('button', { name: /starting file work/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /^Starting\.\.\.$/i })).toBeNull()
+
+    await act(async () => {
+      finishStart(true)
+    })
 
     await waitFor(() => {
       expect(startAgentMock).toHaveBeenCalledWith('pending-agent')

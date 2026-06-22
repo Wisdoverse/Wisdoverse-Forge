@@ -577,8 +577,8 @@ export const zh: TranslationKeys = {
   // 提示输入
   // =========================================================================
   prompt: {
-    placeholder: '输入一条给智能体的指令...',
-    placeholderShort: '输入一条指令...',
+    placeholder: '输入一条给智能体的消息...',
+    placeholderShort: '输入一条消息...',
     send: '发送',
     sending: '发送中...',
     cancel: '取消',
@@ -591,7 +591,7 @@ export const zh: TranslationKeys = {
     processing: '处理中...',
     characterCount: '{{count}} / {{max}} 字符',
     characterLimitWarning: '接近字符限制',
-    emptyPrompt: '请先输入一条指令。',
+    emptyPrompt: '请先输入一条消息。',
     selectAgent: '请先选择一个智能体',
     noAgentSelected: '请先选择一个智能体，再发送任务。',
     multipleAgentsSelected: '已选择 {{count}} 个智能体',

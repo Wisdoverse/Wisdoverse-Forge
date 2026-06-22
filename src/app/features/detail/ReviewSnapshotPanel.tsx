@@ -9,6 +9,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import {
   orchestrationApi,
   type SelfFixReview,
@@ -138,10 +139,15 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
       )}
 
       {loading && !review ? (
-        <div className="flex items-center gap-2 px-3 py-6 text-xs text-secondary-light dark:text-secondary-dark">
-          <Loader2 size={14} className="animate-spin" />
-          Checking fix check status...
-        </div>
+        <BeginnerLoadingState
+          title="Checking finish readiness"
+          detail="Forge is checking whether this fix is ready to finish and automated checks have passed."
+          nextStep="If this takes more than a moment, choose Check again or ask an owner or admin to confirm finish access."
+          success="Success looks like automated check status and a Finish this fix button when it is safe."
+          testId="review-snapshot-loading"
+          framed={false}
+          compact
+        />
       ) : review ? (
         <div className="rounded-lg border border-black/[0.06] bg-white p-3 dark:border-white/[0.08] dark:bg-white/[0.04] space-y-3">
           {/* PR linkage */}

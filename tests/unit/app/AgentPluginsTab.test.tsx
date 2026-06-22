@@ -51,6 +51,25 @@ function pluginResponse() {
 }
 
 describe('AgentPluginsTab', () => {
+  test('explains tool loading for first-time agent setup', () => {
+    fetchMock.mockImplementationOnce(() => new Promise(() => undefined))
+
+    render(<AgentPluginsTab agentId="agent-1" />)
+
+    const loading = screen.getByRole('status', { name: /checking this agent's tools/i })
+    expect(loading).toHaveTextContent("Checking this agent's tools")
+    expect(loading).toHaveTextContent(
+      'Forge is checking which tools this agent can use for its next task.'
+    )
+    expect(loading).toHaveTextContent(
+      'If this takes more than a moment, open Tools again or ask an owner or admin to check tool access.'
+    )
+    expect(loading).toHaveTextContent(
+      'Success looks like available tools or an ask-an-owner step.'
+    )
+    expect(loading).not.toHaveTextContent("Loading this agent's tools")
+  })
+
   test('summarizes plugin readiness for an agent', async () => {
     fetchMock.mockResolvedValueOnce(pluginResponse())
 

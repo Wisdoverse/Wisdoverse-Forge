@@ -373,7 +373,7 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
               Close without saving
             </button>
             <button type="submit" disabled={submitting} className={uiStyles.primaryButton}>
-              {submitting ? 'Saving...' : 'Save instruction'}
+              {submitting ? 'Saving instruction...' : 'Save instruction'}
             </button>
           </div>
         </form>

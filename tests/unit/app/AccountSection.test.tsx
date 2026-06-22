@@ -26,6 +26,14 @@ const originalUpdateOrg = useNavigationStore.getState().updateOrg
 const originalLoadPreferences = useSettingsStore.getState().loadPreferences
 const originalSetGettingStartedDismissed = useSettingsStore.getState().setGettingStartedDismissed
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((res) => {
+    resolve = res
+  })
+  return { promise, resolve }
+}
+
 function renderAccountSection(
   role = 'owner',
   userOverrides: Partial<NonNullable<AuthContextValue['user']>> = {}
@@ -125,7 +133,13 @@ describe('AccountSection', () => {
     fireEvent.change(screen.getByLabelText('Confirm New Password'), {
       target: { value: 'NewPassword123!' },
     })
+    const request = deferred<void>()
+    changePasswordMock.mockReturnValueOnce(request.promise)
     fireEvent.click(screen.getByRole('button', { name: /update password/i }))
+
+    expect(screen.getByRole('button', { name: /updating password/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /^Saving\.\.\.$/i })).toBeNull()
+    request.resolve()
 
     await waitFor(() =>
       expect(changePasswordMock).toHaveBeenCalledWith('old-password', 'NewPassword123!')
@@ -228,7 +242,13 @@ describe('AccountSection', () => {
     fireEvent.change(screen.getByLabelText('Team Space Name'), {
       target: { value: 'Acme Support' },
     })
+    const request = deferred<void>()
+    updateOrg.mockReturnValueOnce(request.promise)
     fireEvent.click(screen.getByRole('button', { name: /save team space name/i }))
+
+    expect(screen.getByRole('button', { name: /saving team space name/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /^Saving\.\.\.$/i })).toBeNull()
+    request.resolve()
 
     await waitFor(() => expect(updateOrg).toHaveBeenCalledWith('org-1', { name: 'Acme Support' }))
     expect(await screen.findByRole('status')).toHaveTextContent(

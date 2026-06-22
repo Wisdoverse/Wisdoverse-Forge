@@ -12,6 +12,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import {
   orchestrationApi,
   type GovernanceAuditEntry,
@@ -441,8 +442,14 @@ export function AuditLogView() {
               <tbody className="divide-y divide-black/5 dark:divide-white/10">
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-12 text-center text-secondary-light">
-                      Loading change history...
+                    <td colSpan={7}>
+                      <BeginnerLoadingState
+                        framed={false}
+                        title="Checking change history"
+                        detail="Forge is checking saved note and saved instruction changes for this team space."
+                        nextStep="If this takes more than a moment, choose Refresh change history or ask an owner or admin to check change history access."
+                        success="Success looks like history rows or a Show all change history step."
+                      />
                     </td>
                   </tr>
                 ) : entries.length === 0 ? (

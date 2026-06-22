@@ -38,6 +38,25 @@ function makeTask(overrides: Partial<TaskSummary> = {}): TaskSummary {
 }
 
 describe('HistoryTab', () => {
+  test('explains work history loading before the first run appears', async () => {
+    getTaskRunsMock.mockReturnValue(new Promise(() => undefined))
+
+    render(<HistoryTab task={makeTask()} />)
+
+    const loading = await screen.findByRole('status', { name: /checking agent work history/i })
+    expect(loading).toHaveTextContent('Checking agent work history')
+    expect(loading).toHaveTextContent(
+      'Forge is checking whether an agent has started work on this task.'
+    )
+    expect(loading).toHaveTextContent(
+      'If this takes more than a moment, open this task again from Tasks or ask an owner or admin to check task access.'
+    )
+    expect(loading).toHaveTextContent(
+      'Success looks like an agent work row or a note that no work history is available yet.'
+    )
+    expect(loading).not.toHaveTextContent('Loading work history')
+  })
+
   test('gives assigned backlog tasks a direct start step', async () => {
     getTaskRunsMock.mockResolvedValue([])
 

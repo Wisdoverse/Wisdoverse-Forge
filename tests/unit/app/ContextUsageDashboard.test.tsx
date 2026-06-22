@@ -155,6 +155,59 @@ describe('ContextUsageDashboard', () => {
     expect(screen.queryByText(/future task kind/i)).toBeNull()
   })
 
+  test('uses plain task type labels in saved item analytics', () => {
+    render(
+      <ContextUsageDashboard
+        data={analytics({
+          topUseful: [
+            {
+              itemId: 'memory-1',
+              itemKind: 'memory',
+              itemTitle: 'Build checklist',
+              taskKind: 'implementation',
+              runtime: 'container',
+              agentId: 'agent-1',
+              agentName: 'Builder Agent',
+              appliedCount: 2,
+              completedCount: 2,
+              successRate: 1,
+              feedbackTotalCount: 1,
+              feedbackUsefulCount: 1,
+              feedbackNegativeCount: 0,
+              negativeFeedbackRate: 0,
+              lastUsedAt: '2026-05-20T12:00:00.000Z',
+            },
+          ],
+          staleItems: [
+            {
+              itemId: 'skill-1',
+              itemKind: 'skill',
+              itemTitle: 'Weekly repeat steps',
+              taskKind: 'workflow',
+              runtime: 'local',
+              agentId: 'agent-2',
+              agentName: 'Ops Agent',
+              appliedCount: 1,
+              completedCount: 1,
+              successRate: 1,
+              feedbackTotalCount: 0,
+              feedbackUsefulCount: 0,
+              feedbackNegativeCount: 0,
+              negativeFeedbackRate: 0,
+              lastUsedAt: '2026-05-19T12:00:00.000Z',
+            },
+          ],
+        })}
+      />
+    )
+
+    const items = screen.getAllByTestId('context-usage-item')
+    expect(items[0].textContent).toContain('Builder Agent · Project files · Build task')
+    expect(items[1].textContent).toContain('Ops Agent · This computer · Repeated work task')
+    expect(screen.queryByText(/Implementation task/i)).toBeNull()
+    expect(screen.queryByText(/Workflow task/i)).toBeNull()
+  })
+
   test('adds a plain next step for context that needs review', () => {
     render(
       <ContextUsageDashboard

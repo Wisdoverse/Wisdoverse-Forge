@@ -164,7 +164,18 @@ describe('KeysSection', () => {
     fireEvent.change(screen.getByLabelText(/^which tool will use this access key/i), {
       target: { value: 'Production deploy pipeline' },
     })
+    const request = deferred<Awaited<ReturnType<typeof createApiKeyMock>>>()
+    createApiKeyMock.mockReturnValueOnce(request.promise)
     fireEvent.click(screen.getByRole('button', { name: /create access key/i }))
+
+    expect(screen.getByRole('button', { name: /creating access key/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /^Creating\.\.\.$/i })).toBeNull()
+
+    request.resolve({
+      key: 'af_test_key_value',
+      apiKey: apiKey({ name: 'Production deploy pipeline' }),
+    })
+
     await waitFor(() => expect(createApiKeyMock).toHaveBeenCalledWith('Production deploy pipeline'))
 
     fireEvent.click(screen.getByRole('button', { name: /copy access value/i }))

@@ -97,6 +97,29 @@ afterEach(() => {
 })
 
 describe('AgentsPanel', () => {
+  test('explains agent list loading for first-time admins', () => {
+    useAdminStore.setState({
+      agents: [],
+      agentsLoading: true,
+      agentsError: null,
+    })
+
+    render(<AgentsPanel />)
+
+    const loading = screen.getByRole('status', { name: /checking managed agents/i })
+    expect(loading).toHaveTextContent('Checking managed agents')
+    expect(loading).toHaveTextContent(
+      'Forge is checking which agents are available across this team space.'
+    )
+    expect(loading).toHaveTextContent(
+      'If this takes more than a moment, open Admin again or ask an owner to check agent access.'
+    )
+    expect(loading).toHaveTextContent(
+      'Success looks like agent rows or a no-agents setup step.'
+    )
+    expect(loading).not.toHaveTextContent('Loading agents')
+  })
+
   test('renders the work location filter with every plain-language option', async () => {
     render(<AgentsPanel />)
 

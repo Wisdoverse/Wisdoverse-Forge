@@ -55,13 +55,13 @@ const SERVICE_DEFINITIONS: readonly ServiceDefinition[] = [
   },
   {
     key: 'docker',
-    name: 'Agent Work Starter',
-    supportName: 'Starts file-work agents',
-    description: 'Starts and manages the prepared project files agents use for file work.',
+    name: 'Project files for agents',
+    supportName: 'Prepares files before agents edit them',
+    description: 'Prepares the project file area agents use when they edit files.',
     impact:
-      'Starting new file-work agents may fail; agents already running may stop sending updates.',
+      'Starting new agents that edit files may fail; running agents may stop showing updates.',
     action:
-      'Ask an owner or admin to check Project files in Admin before sending new file work to agents.',
+      'Ask an owner or admin to check Project files in Admin before sending file-editing work to agents.',
   },
 ]
 

@@ -12,6 +12,7 @@ import {
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { cn } from '@app/shared/lib/utils'
 import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
+import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import { taskStateLabel } from '@app/entities/task'
 import {
   orchestrationApi,
@@ -99,12 +100,17 @@ export function HistoryTab({ task }: HistoryTabProps) {
             <p className="text-[10px] font-medium uppercase text-secondary-light dark:text-secondary-dark">
               Agent work history
             </p>
-            {loading && (
-              <span className="text-[10px] text-secondary-light dark:text-secondary-dark">
-                Loading work history
-              </span>
-            )}
           </div>
+          {loading && (
+            <BeginnerLoadingState
+              compact
+              framed={false}
+              title="Checking agent work history"
+              detail="Forge is checking whether an agent has started work on this task."
+              nextStep="If this takes more than a moment, open this task again from Tasks or ask an owner or admin to check task access."
+              success="Success looks like an agent work row or a note that no work history is available yet."
+            />
+          )}
           {error && (
             <div
               role="alert"

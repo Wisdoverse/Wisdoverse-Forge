@@ -110,6 +110,14 @@ describe('SkillDraftModal', () => {
     expect(screen.getByText(/choose the agents that should follow it/i)).toBeDefined()
     expect(screen.queryByText(/publishing/i)).toBeNull()
     expect(screen.queryByRole('button', { name: /publish instruction/i })).toBeNull()
+    const reusableInstructions = screen.getByLabelText(
+      /^reusable instructions$/i
+    ) as HTMLTextAreaElement
+    expect(reusableInstructions.value).toContain(
+      'Use this instruction when a future task needs the same judgment, steps, or way of working.'
+    )
+    expect(reusableInstructions.value).not.toContain('implementation pattern')
+    expect(reusableInstructions.value).not.toContain('workflow')
 
     await userEvent.setup().click(screen.getByRole('button', { name: /save instruction/i }))
 
@@ -140,6 +148,48 @@ describe('SkillDraftModal', () => {
         })
       )
     })
+  })
+
+  test('names saved-instruction progress while saving', async () => {
+    let finishSave: (response: Response) => void = () => undefined
+    fetchMock.mockReturnValueOnce(
+      new Promise<Response>((resolve) => {
+        finishSave = resolve
+      })
+    )
+
+    render(
+      <SkillDraftModal
+        open
+        task={completedTask}
+        artifacts={[{ name: 'summary.md', mimeType: 'text/markdown', data: 'Done' }]}
+        onClose={() => {}}
+      />
+    )
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /save instruction/i }))
+
+    expect(screen.getByRole('button', { name: /saving instruction/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /^Saving\.\.\.$/i })).toBeNull()
+
+    finishSave(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          data: {
+            id: 'skill-1',
+            organization_id: 'org-1',
+            name: 'refactor-database-migration',
+            description: 'Reusable database migration review',
+            trigger_pattern: 'refactor database migration',
+            content: 'Check migration safety and rollback notes.',
+            enabled: true,
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    )
+    expect(await screen.findByTestId('skill-published-state')).toBeDefined()
   })
 
   test('guides the user through required draft fields before saving', async () => {
