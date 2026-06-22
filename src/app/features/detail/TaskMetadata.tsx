@@ -120,8 +120,8 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
 
 function taskAttemptLabel(attempt: number): string | null {
   if (!Number.isInteger(attempt) || attempt < 1) return null
-  if (attempt === 1) return 'First try'
-  return `Try ${attempt}`
+  if (attempt === 1) return 'First work try'
+  return `Work try ${attempt}`
 }
 
 function taskMetadataGuidance(task: TaskSummary, hasAssignee: boolean): string {

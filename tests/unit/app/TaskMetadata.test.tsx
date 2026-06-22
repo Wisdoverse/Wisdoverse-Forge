@@ -98,10 +98,11 @@ describe('TaskMetadata', () => {
     expect(screen.queryByText(/Lease expires/i)).toBeNull()
   })
 
-  test('labels retry count in beginner language', () => {
+  test('labels retry count with work context', () => {
     render(<TaskMetadata task={{ ...mockTask, attempt: 2 }} />)
 
-    expect(screen.getByText('Try 2')).toBeDefined()
+    expect(screen.getByText('Work try 2')).toBeDefined()
+    expect(screen.queryByText('Try 2')).toBeNull()
     expect(screen.queryByText(/Attempt 2/i)).toBeNull()
   })
 
