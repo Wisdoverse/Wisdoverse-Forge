@@ -207,7 +207,11 @@ async fn approve(State(state): State<AppState>, headers: HeaderMap, Path(id): Pa
         return map_error(err);
     }
 
-    // Audit -- fail-closed: an audit write error returns 500.
+    // Audit -- fail-closed: an audit write error returns 500. NOTE: the verdict
+    // (apply_verdict) has already committed by this point, so a 500 here means the
+    // audit record failed, NOT the state change -- the review IS approved. Audit is
+    // a separate write (not in the verdict tx) because audit policy lives in the
+    // handler, not the store; the 500 is loud-on-audit-failure by design.
     if let Err(response) = record_audit(
         &state,
         AuditAction::ReviewApprove,
@@ -282,7 +286,11 @@ async fn reject(
         return map_error(err);
     }
 
-    // Audit -- fail-closed: an audit write error returns 500.
+    // Audit -- fail-closed: an audit write error returns 500. NOTE: the verdict
+    // (apply_verdict) has already committed by this point, so a 500 here means the
+    // audit record failed, NOT the state change -- the review IS changes-requested.
+    // Audit is a separate write (not in the verdict tx) because audit policy lives
+    // in the handler, not the store; the 500 is loud-on-audit-failure by design.
     if let Err(response) = record_audit(
         &state,
         AuditAction::ReviewReject,
