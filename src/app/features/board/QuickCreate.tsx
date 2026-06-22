@@ -11,7 +11,7 @@ interface QuickCreateProps {
 }
 
 const QUICK_TASK_EXAMPLES = [
-  'Check setup and list the next safe step',
+  'Check what is ready and list the next safe step',
   'Fix the login error and show how to test it',
   'Summarize the latest result with next actions',
 ]

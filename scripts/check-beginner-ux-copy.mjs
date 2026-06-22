@@ -1049,7 +1049,7 @@ const KANBAN_COLUMN_EMPTY_DEAD_END_PATTERNS = [
   /\bTasks will appear here when they reach this board step\b/i,
 ]
 
-const QUICK_CREATE_EXAMPLE_REVIEW_JARGON_PATTERNS = [/\bReview setup\b/i]
+const QUICK_CREATE_EXAMPLE_REVIEW_JARGON_PATTERNS = [/\b(?:Check|Review) setup\b/i]
 
 const AGENT_TASK_QUEUE_SUBMIT_LABEL_JARGON_PATTERNS = [/\bCreate Task Queue\b/]
 const AGENT_TASK_QUEUE_OVERVIEW_JARGON_PATTERNS = [
@@ -7570,7 +7570,7 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'quick-create-example-copy',
         location,
-        message: 'Quick task examples must say check setup instead of review setup.',
+        message: 'Quick task examples must describe what to check instead of saying setup review.',
         sample: line.trim(),
       })
     }

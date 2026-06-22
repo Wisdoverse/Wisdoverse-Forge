@@ -14586,10 +14586,11 @@ function fallback() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags quick task examples that say review setup', () => {
+  it('flags quick task examples that say check or review setup', () => {
     const cwd = fixture({
       'src/app/features/board/QuickCreate.tsx': `
 const QUICK_TASK_EXAMPLES = [
+  'Check setup and list the next safe step',
   'Review setup and list the next safe step',
 ]
 `,
@@ -14603,14 +14604,18 @@ const QUICK_TASK_EXAMPLES = [
         type: 'quick-create-example-copy',
         location: 'src/app/features/board/QuickCreate.tsx:3',
       }),
+      expect.objectContaining({
+        type: 'quick-create-example-copy',
+        location: 'src/app/features/board/QuickCreate.tsx:4',
+      }),
     ])
   })
 
-  it('accepts quick task examples that say check setup', () => {
+  it('accepts quick task examples that say what to check', () => {
     const cwd = fixture({
       'src/app/features/board/QuickCreate.tsx': `
 const QUICK_TASK_EXAMPLES = [
-  'Check setup and list the next safe step',
+  'Check what is ready and list the next safe step',
 ]
 `,
     })
