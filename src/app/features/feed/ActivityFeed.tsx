@@ -250,6 +250,9 @@ export function ActivityFeed({ onOpenBoard }: ActivityFeedProps = {}) {
             Next: open the task board, create a task or choose an agent for one, then return here
             after the first agent update.
           </p>
+          <p className="max-w-[240px] text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+            Success looks like one update listed here with the task name and what changed.
+          </p>
           {onOpenBoard && (
             <button
               type="button"
