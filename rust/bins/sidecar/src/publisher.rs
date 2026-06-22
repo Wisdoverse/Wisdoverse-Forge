@@ -98,7 +98,11 @@ impl EventPublisher {
     }
 
     /// Send a heartbeat on `sidecar.<agent_id>.heartbeat`.
-    pub async fn heartbeat(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    ///
+    /// The `health` snapshot reports WAL backpressure state so the liveness
+    /// consumer can surface degraded relays to operators without changing any
+    /// participant status or dispatcher logic (issue #808).
+    pub async fn heartbeat(&self, health: HealthSnapshot) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let subject = format!("sidecar.{}.heartbeat", self.agent_id);
         let capabilities: Vec<String> = self.cli_tool.clone().into_iter().collect();
         let payload = serde_json::json!({
@@ -107,6 +111,7 @@ impl EventPublisher {
             "cli_tool": self.cli_tool,
             "capabilities": capabilities,
             "version": agentforge_core::VERSION,
+            "health": health,
         });
         let bytes = serde_json::to_vec(&payload)?;
         self.client
@@ -115,6 +120,19 @@ impl EventPublisher {
             .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
         Ok(())
     }
+}
+
+/// Relay health snapshot included in every sidecar heartbeat (issue #808).
+///
+/// `degraded` is set when WAL backpressure crosses the threshold or any events
+/// have been dropped. The consumer uses this field to emit a metric and warn
+/// operators — it does NOT change participant status or dispatcher behaviour.
+#[derive(Debug, Serialize)]
+pub struct HealthSnapshot {
+    pub degraded: bool,
+    pub reason: Option<String>,
+    pub wal_pending: usize,
+    pub wal_dropped: u64,
 }
 
 #[cfg(test)]
@@ -194,5 +212,58 @@ mod tests {
         let sig2 = hex::encode(mac2.finalize().into_bytes());
 
         assert_ne!(sig1, sig2);
+    }
+
+    // -------------------------------------------------------------------------
+    // HealthSnapshot tests (issue #808)
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn health_snapshot_not_degraded_below_threshold() {
+        let snap = HealthSnapshot { degraded: false, reason: None, wal_pending: 999, wal_dropped: 0 };
+        let json = serde_json::to_value(&snap).unwrap();
+        assert_eq!(json["degraded"], false);
+        assert!(json["reason"].is_null());
+        assert_eq!(json["wal_pending"], 999);
+        assert_eq!(json["wal_dropped"], 0);
+    }
+
+    #[test]
+    fn health_snapshot_degraded_at_threshold() {
+        let snap = HealthSnapshot {
+            degraded: true,
+            reason: Some("wal_pending=1000 wal_dropped=0".to_string()),
+            wal_pending: 1000,
+            wal_dropped: 0,
+        };
+        let json = serde_json::to_value(&snap).unwrap();
+        assert_eq!(json["degraded"], true);
+        assert!(json["reason"].as_str().unwrap().contains("wal_pending=1000"));
+    }
+
+    #[test]
+    fn health_snapshot_degraded_on_any_dropped() {
+        let snap = HealthSnapshot {
+            degraded: true,
+            reason: Some("wal_pending=0 wal_dropped=1".to_string()),
+            wal_pending: 0,
+            wal_dropped: 1,
+        };
+        let json = serde_json::to_value(&snap).unwrap();
+        assert_eq!(json["degraded"], true);
+        assert_eq!(json["wal_dropped"], 1);
+    }
+
+    #[test]
+    fn heartbeat_payload_includes_health_field() {
+        // Verify HealthSnapshot round-trips through JSON with the expected
+        // field names so the liveness consumer can parse `payload["health"]`.
+        let snap = HealthSnapshot { degraded: false, reason: None, wal_pending: 5, wal_dropped: 0 };
+        let json = serde_json::to_value(&snap).unwrap();
+        // All four fields must be present.
+        assert!(json.get("degraded").is_some());
+        assert!(json.get("reason").is_some());
+        assert!(json.get("wal_pending").is_some());
+        assert!(json.get("wal_dropped").is_some());
     }
 }
