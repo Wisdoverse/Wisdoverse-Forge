@@ -904,13 +904,13 @@ export function ProjectTree({
             <div className="my-1 h-px bg-black/[0.06] dark:bg-white/[0.08]" />
             <ProjectMenuItem
               Icon={Copy}
-              label="Copy project ID for help"
-              detail="Use this only when another page or an owner or admin asks for this project ID"
+              label="Copy project help text"
+              detail="Use this only when another page or an owner or admin asks for this project help text"
               onClick={() =>
                 void handleCopyProjectValue(
                   projectMenu.project.id,
-                  'Project ID copied',
-                  'project ID'
+                  'Project help text copied',
+                  'project help text'
                 )
               }
             />
@@ -1126,8 +1126,8 @@ export function ProjectTree({
 }
 
 function manualCopyFailureMessage(valueLabel: string): string {
-  if (valueLabel === 'project ID') {
-    return 'Use this project ID only when another page or an owner or admin asks for it. Copy did not work, so select it below and copy it yourself.'
+  if (valueLabel === 'project help text') {
+    return 'Use this project help text only when another page or an owner or admin asks for it. Copy did not work, so select it below and copy it yourself.'
   }
 
   if (valueLabel === 'project link preview') {

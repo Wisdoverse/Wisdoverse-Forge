@@ -18485,6 +18485,7 @@ function ProjectTree({ projectMenu }) {
   return <p>{projectMenu.team.name} team · link name {projectMenu.project.slug}</p>
   return <p>{projectMenu.team.name} team · name used in links {projectMenu.project.slug}</p>
   return <button>Copy project code</button>
+  return <button>Copy project ID for help</button>
   return <p>Use this only when another page or support asks for this project code</p>
   return <p>Project code copied</p>
   return <p>Select the project code below</p>
