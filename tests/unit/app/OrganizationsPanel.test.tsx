@@ -120,7 +120,7 @@ describe('OrganizationsPanel', () => {
     expect(within(emptyState).getByText('Create or sync a team space first')).toBeDefined()
     expect(
       within(emptyState).getByText(
-        /Create or sync a team space before creating teams, projects, people, or places where new tasks wait/i
+        'Create or sync a team space before creating teams, projects, people, or places where new tasks wait. If you expected data here, confirm your admin access and check again after Forge is ready.'
       )
     ).toBeDefined()
     expect(

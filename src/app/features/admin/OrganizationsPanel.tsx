@@ -121,8 +121,8 @@ function OrganizationsEmptyState() {
       </p>
       <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
         Create or sync a team space before creating teams, projects, people, or places where new
-        tasks wait. If you expected data here, confirm your admin access and refresh after Forge is
-        ready.
+        tasks wait. If you expected data here, confirm your admin access and check again after Forge
+        is ready.
       </p>
       <p className="mt-3 max-w-xl text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
         Next step: open Settings, choose Team spaces, and create the first team space.
