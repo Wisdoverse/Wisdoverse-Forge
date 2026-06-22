@@ -228,8 +228,17 @@ describe('AgentsPanel', () => {
     render(<AgentsPanel />)
 
     const emptyState = await screen.findByTestId('admin-agents-empty')
-    expect(within(emptyState).getByText('No agents match this filter')).toBeDefined()
+    expect(within(emptyState).getByText('The current filter is hiding agents')).toBeDefined()
     expect(within(emptyState).getByText(/choose "all work locations"/i)).toBeDefined()
     expect(within(emptyState).getByText(/before assuming the agent is missing/i)).toBeDefined()
+    expect(
+      within(emptyState).getByText('Next step: change Work location to All work locations.')
+    ).toBeDefined()
+    expect(
+      within(emptyState).getByText(
+        'Success looks like the agent appearing here with its work location and status.'
+      )
+    ).toBeDefined()
+    expect(within(emptyState).queryByText('No agents match this filter')).toBeNull()
   })
 })
