@@ -13,7 +13,8 @@ use crate::domain::admin::{
     AdminAgentEventProjection, AdminAgentFilterPolicy, AdminAgentFilterQuery, AdminAgentListProjection,
     AdminAgentProjection, AdminAgentTokens, AdminBulkDeletePolicy, AdminImpersonationPolicy, AdminListPage,
     AdminOrgProjection, AdminRoleChange, AdminRolePolicy, AdminUserListProjection, AdminUserModificationPolicy,
-    AdminUserProjection, admin_role_label, admin_user_deleted_audit_details, admin_user_role_audit_details,
+    AdminUserProjection, OrgControlPlaneSnapshot, admin_role_label, admin_user_deleted_audit_details,
+    admin_user_role_audit_details,
 };
 pub(crate) use crate::domain::admin::{
     admin_agent_detail_response, admin_agent_list_response, admin_bulk_delete_response, admin_data_response,
@@ -252,6 +253,17 @@ impl AdminService {
     /// Get system-wide statistics.
     pub async fn stats(&self) -> AppResult<AdminStats> {
         self.repo.stats().await
+    }
+
+    /// Org-scoped orchestration control-plane snapshot for the admin health panel.
+    /// `stale_after_secs` is the participant-staleness threshold (caller supplies
+    /// it so the route stays free of config reads).
+    pub(crate) async fn org_control_plane_snapshot(
+        &self,
+        scope: &TenantScope,
+        stale_after_secs: i64,
+    ) -> AppResult<OrgControlPlaneSnapshot> {
+        self.repo.org_control_plane_snapshot(scope, stale_after_secs).await
     }
 
     /// List agents across every organization for the admin dashboard. Applies
