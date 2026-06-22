@@ -164,11 +164,17 @@ describe('AuditLogView', () => {
     expect(screen.getByText('Exact work area')).toBeDefined()
     expect(
       screen.getByPlaceholderText(
-        /exact team space, work area, team, or project ID only when an owner or admin gives you one/i
+        /exact team space, work area, team, or project from Forge only when an owner or admin gives you one/i
       )
     ).toBeDefined()
     expect(
       screen.queryByPlaceholderText(/team space, work area, team, or project reference/i)
+    ).toBeNull()
+    expect(
+      screen.queryByPlaceholderText(/team space, work area, team, or project ID/i)
+    ).toBeNull()
+    expect(
+      screen.queryByPlaceholderText(/team space, work area, team, or project code/i)
     ).toBeNull()
     expect(screen.getByRole('option', { name: 'Team space' })).toBeDefined()
     expect(screen.getByRole('option', { name: 'Work area' })).toBeDefined()
@@ -178,9 +184,10 @@ describe('AuditLogView', () => {
     expect(screen.queryByRole('option', { name: 'Organization' })).toBeNull()
     expect(screen.getByText('Exact person')).toBeDefined()
     expect(
-      screen.getByPlaceholderText(/Paste an exact person ID only when an owner or admin gives you one/i)
+      screen.getByPlaceholderText(/Paste the exact person from Forge only when an owner or admin gives you one/i)
     ).toBeDefined()
     expect(screen.queryByPlaceholderText(/person reference only when/i)).toBeNull()
+    expect(screen.queryByPlaceholderText(/exact person ID/i)).toBeNull()
     expect(screen.queryByPlaceholderText(/exact person (?:code|ID) only when needed/i)).toBeNull()
     expect(screen.queryByText(/work area support reference/i)).toBeNull()
     expect(screen.queryByText(/person support reference/i)).toBeNull()
