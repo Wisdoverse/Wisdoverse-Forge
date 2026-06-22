@@ -18,13 +18,13 @@ tracing.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tonic.workspace = true
+tonic-prost.workspace = true
 prost.workspace = true
 uuid.workspace = true
 zeroize.workspace = true
 
 [build-dependencies]
-tonic-build.workspace = true
-prost-build.workspace = true
+tonic-prost-build.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true }
