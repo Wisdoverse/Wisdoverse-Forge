@@ -18,8 +18,8 @@ const SKILL_FILTERS: { value: SkillFilter; label: string; ariaLabel: string }[] 
   },
   {
     value: 'available',
-    label: 'Needs setup',
-    ariaLabel: 'Show saved instructions that need setup before use',
+    label: 'Check before use',
+    ariaLabel: 'Show saved instructions to check before use',
   },
   {
     value: 'cli',
@@ -148,7 +148,7 @@ export function SkillsView() {
             <div className="grid gap-2 sm:grid-cols-4">
               <SkillStat label="Total" value={stats.total} Icon={BrainCircuit} />
               <SkillStat label="Ready to use" value={stats.installed} Icon={CheckCircle2} />
-              <SkillStat label="Needs setup" value={stats.available} Icon={Circle} />
+              <SkillStat label="Check before use" value={stats.available} Icon={Circle} />
               <SkillStat label="For one work tool" value={stats.cliScoped} Icon={Terminal} />
             </div>
             <div className="rounded-card border border-black/[0.08] bg-white p-3 dark:border-white/[0.1] dark:bg-[#2a2a2c]">

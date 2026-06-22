@@ -366,7 +366,8 @@ describe('SkillsView', () => {
     const summary = await screen.findByTestId('skill-reuse-summary')
     expect(within(summary).getByText('Total')).toBeDefined()
     expect(within(summary).getAllByText('Ready to use').length).toBeGreaterThan(0)
-    expect(within(summary).getAllByText('Needs setup').length).toBeGreaterThan(0)
+    expect(within(summary).getAllByText('Check before use').length).toBeGreaterThan(0)
+    expect(within(summary).queryByText('Needs setup')).toBeNull()
     expect(within(summary).queryByText('Needs install')).toBeNull()
     expect(within(summary).getAllByText('For one work tool').length).toBeGreaterThan(0)
     expect(within(summary).getByText('Show saved instructions')).toBeDefined()
@@ -378,7 +379,7 @@ describe('SkillsView', () => {
     const filters = within(summary).getByRole('group', { name: /saved instruction filter/i })
     expect(
       within(filters).getByRole('button', {
-        name: /show saved instructions that need setup before use, 1 matching saved instruction/i,
+        name: /show saved instructions to check before use, 1 matching saved instruction/i,
       })
     ).toBeDefined()
     expect(

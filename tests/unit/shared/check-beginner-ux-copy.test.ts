@@ -15223,8 +15223,14 @@ export function SkillsView() {
   return <>
     <SkillStat label="Installed" />
     <SkillStat label="Available" />
+    <SkillStat label="Needs setup" />
     <span>Choose Save instruction or refresh this page.</span>
   </>
+}
+`,
+      'src/app/features/skills/SkillCard.tsx': `
+export function SkillCard() {
+  return 'Needs setup before use'
 }
 `,
       'src/app/features/skills/CreateSkillModal.tsx': `
@@ -15267,6 +15273,14 @@ export function CreateSkillModal() {
           location: 'src/app/features/skills/SkillsView.tsx:10',
         }),
         expect.objectContaining({
+          type: 'saved-instruction-list-status-copy',
+          location: 'src/app/features/skills/SkillsView.tsx:11',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-list-status-copy',
+          location: 'src/app/features/skills/SkillCard.tsx:3',
+        }),
+        expect.objectContaining({
           type: 'saved-instruction-create-field-copy',
           location: 'src/app/features/skills/CreateSkillModal.tsx:3',
         }),
@@ -15291,14 +15305,19 @@ export function CreateSkillModal() {
       'src/app/features/skills/SkillsView.tsx': `
 const SKILL_FILTER_LABELS = {
   installed: 'Ready to use',
-  available: 'Needs install',
+  available: 'Check before use',
 }
 export function SkillsView() {
   return <>
     <SkillStat label="Ready to use" />
-    <SkillStat label="Needs install" />
+    <SkillStat label="Check before use" />
     <span>Save instruction</span>
   </>
+}
+`,
+      'src/app/features/skills/SkillCard.tsx': `
+export function SkillCard() {
+  return 'Check before use'
 }
 `,
       'src/app/features/skills/CreateSkillModal.tsx': `

@@ -1198,6 +1198,7 @@ const SAVED_INSTRUCTION_LIST_STATUS_JARGON_PATTERNS = [
   /\bavailable:\s*['"`]Available['"`]/,
   /<SkillStat\s+label=["']Installed["']/,
   /<SkillStat\s+label=["']Available["']/,
+  /\bNeeds setup\b/i,
   /\bChoose Save instruction or refresh this page\./i,
 ]
 
@@ -4710,7 +4711,12 @@ function hasSavedInstructionEmptyStateJargonCopy(relFile, line) {
 }
 
 function hasSavedInstructionListStatusJargonCopy(relFile, line) {
-  if (!relFile.endsWith('src/app/features/skills/SkillsView.tsx')) return false
+  if (
+    !relFile.endsWith('src/app/features/skills/SkillsView.tsx') &&
+    !relFile.endsWith('src/app/features/skills/SkillCard.tsx')
+  ) {
+    return false
+  }
   if (isLikelyGuardOrParserLine(line)) return false
   return SAVED_INSTRUCTION_LIST_STATUS_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
