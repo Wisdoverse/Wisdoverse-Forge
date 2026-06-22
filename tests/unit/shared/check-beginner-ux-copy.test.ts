@@ -9658,6 +9658,9 @@ export function readableRunStatus() {
 export function emptyRunStatus() {
   return 'Refresh task status'
 }
+export function runTitle() {
+  return 'Agent try: Waiting to start'
+}
 `,
       'src/app/features/detail/ContextTab.tsx': `
 export function runStatusLabel() {
@@ -9681,6 +9684,10 @@ export function emptyRunStatus() {
         expect.objectContaining({
           type: 'task-detail-run-status-copy',
           location: 'src/app/features/detail/HistoryTab.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-run-status-copy',
+          location: 'src/app/features/detail/HistoryTab.tsx:9',
         }),
         expect.objectContaining({
           type: 'task-detail-run-status-copy',

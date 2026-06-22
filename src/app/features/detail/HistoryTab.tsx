@@ -219,7 +219,7 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-xs font-medium text-foreground-light dark:text-foreground-dark">
-            Agent try: {readableRunStatus(run.status)}
+            Agent work: {readableRunStatus(run.status)}
           </p>
           <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
             Started {formatRelativeTime(run.startedAt)} · {finished} · Used {runSource}

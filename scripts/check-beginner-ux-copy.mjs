@@ -1598,6 +1598,7 @@ const LIVE_WORK_STATUS_DEAD_END_PATTERNS = [
 ]
 
 const TASK_DETAIL_RUN_STATUS_DEAD_END_PATTERNS = [
+  /\bAgent try\b/i,
   /\bStatus not reported\b/i,
   /\bRefresh task status\b/i,
 ]

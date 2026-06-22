@@ -294,9 +294,10 @@ describe('HistoryTab', () => {
 
     render(<HistoryTab task={makeTask()} />)
 
-    expect(await screen.findByText('Agent try: Waiting to start')).toBeInTheDocument()
-    expect(screen.getByText('Agent try: Check task status')).toBeInTheDocument()
-    expect(screen.getByText('Agent try: Open task details to check status')).toBeInTheDocument()
+    expect(await screen.findByText('Agent work: Waiting to start')).toBeInTheDocument()
+    expect(screen.getByText('Agent work: Check task status')).toBeInTheDocument()
+    expect(screen.getByText('Agent work: Open task details to check status')).toBeInTheDocument()
+    expect(screen.queryByText(/Agent try/i)).toBeNull()
     expect(screen.queryByText('Work attempt: Waiting to start')).toBeNull()
     expect(screen.queryByText('Work attempt: Refresh task status')).toBeNull()
     expect(screen.queryByText('Work attempt: Status not reported')).toBeNull()
