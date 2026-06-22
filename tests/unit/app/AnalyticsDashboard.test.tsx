@@ -42,6 +42,8 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
     expect(nextStep).toHaveTextContent('Open Agents and reconnect or restart the offline agents')
     expect(nextStep).toHaveTextContent('then return to Analytics')
     expect(nextStep).not.toHaveTextContent('refresh this page')
+    expect(screen.getByText('Messages sent')).toBeDefined()
+    expect(screen.queryByText('Instructions sent')).toBeNull()
   })
 
   test('guides an empty activity range toward running a first task', () => {

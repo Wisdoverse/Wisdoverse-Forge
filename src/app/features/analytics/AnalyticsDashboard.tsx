@@ -288,7 +288,7 @@ export function AnalyticsDashboard() {
               accent="blue"
             />
             <StatCard
-              title="Instructions sent"
+              title="Messages sent"
               value={summary?.prompts ?? 0}
               loading={loading}
               accent="blue"
