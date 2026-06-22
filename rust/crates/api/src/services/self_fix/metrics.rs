@@ -22,6 +22,9 @@
 //!   green on the live or post-ready-transition head.
 //! - `"head_moved"` — the Merge Executor refused because the PR head changed
 //!   since the recorded head SHA (concurrent push or automation).
+//! - `"exhausted"` — the task's `merge_attempts` reached the configured cap
+//!   (`self_fix_max_merge_attempts`); `review_status` flipped to
+//!   `changes_requested` so the operator must inspect and re-approve.
 //! - `"failed"` — any other executor error: GitHub API I/O, unexpected gate
 //!   failure, or an error whose policy code is not one of the three gated codes.
 //!   Operators can inspect the `tracing` log for the specific cause.
@@ -77,8 +80,8 @@ fn merge_failure_label(err: &AppError) -> &'static str {
 ///
 /// `outcome` must be one of the closed set defined in this module's doc
 /// (`merged`, `already_merged`, `sensitive_blocked`, `checks_red`,
-/// `head_moved`, `failed`). Passing any other value will silently create a
-/// new series — DO NOT call with runtime-derived strings.
+/// `head_moved`, `exhausted`, `failed`). Passing any other value will silently
+/// create a new series — DO NOT call with runtime-derived strings.
 pub fn record_merge_outcome(outcome: &'static str) {
     metrics::counter!("agentforge_self_fix_merge_total", "outcome" => outcome).increment(1);
 }
@@ -89,7 +92,7 @@ pub fn record_merge_failure(err: &AppError) {
     record_merge_outcome(merge_failure_label(err));
 }
 
-/// Register metric descriptions and prime all six outcome series at 0.
+/// Register metric descriptions and prime all seven outcome series at 0.
 ///
 /// Called once at server boot (before any traffic) so Prometheus sees all
 /// `{outcome}` series from the first scrape — dashboards and alert rules that
@@ -98,10 +101,10 @@ pub fn record_merge_failure(err: &AppError) {
 pub fn register_metrics() {
     metrics::describe_counter!(
         "agentforge_self_fix_merge_total",
-        "Self-fix guarded-merge outcomes, labeled merged|already_merged|sensitive_blocked|checks_red|head_moved|failed"
+        "Self-fix guarded-merge outcomes, labeled merged|already_merged|sensitive_blocked|checks_red|head_moved|exhausted|failed"
     );
-    // Prime all six label values at 0 so every series exists from t=0.
-    for outcome in &["merged", "already_merged", "sensitive_blocked", "checks_red", "head_moved", "failed"] {
+    // Prime all seven label values at 0 so every series exists from t=0.
+    for outcome in &["merged", "already_merged", "sensitive_blocked", "checks_red", "head_moved", "exhausted", "failed"] {
         metrics::counter!("agentforge_self_fix_merge_total", "outcome" => *outcome).increment(0);
     }
 }
@@ -120,7 +123,7 @@ mod tests {
     #[test]
     fn record_merge_outcome_does_not_panic() {
         // Smoke test for each closed-set label.
-        for outcome in &["merged", "already_merged", "sensitive_blocked", "checks_red", "head_moved", "failed"] {
+        for outcome in &["merged", "already_merged", "sensitive_blocked", "checks_red", "head_moved", "exhausted", "failed"] {
             record_merge_outcome(outcome);
         }
     }

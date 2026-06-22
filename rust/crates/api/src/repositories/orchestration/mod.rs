@@ -592,6 +592,25 @@ impl OrchestrationTaskRepository {
         Ok(())
     }
 
+    /// Increment the merge-attempt counter on a self-fix task (tenant-scoped).
+    ///
+    /// Called immediately before each `run_merge_executor` invocation so every
+    /// attempt is counted even when the executor fails. The increment is
+    /// unconditional (no CAS); the cap check happens BEFORE this call, so this
+    /// only runs when the attempt is within the allowed budget.
+    pub async fn bump_merge_attempts(&self, scope: &TenantScope, id: Uuid) -> AppResult<()> {
+        sqlx::query(
+            "UPDATE orchestration_tasks \
+             SET merge_attempts = merge_attempts + 1, updated_at = NOW() \
+             WHERE id = $1 AND organization_id = $2",
+        )
+        .bind(id)
+        .bind(scope.org_id().as_uuid())
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     /// Cancel a task (sets status='canceled' and records timestamp). Idempotent.
     pub async fn cancel(&self, scope: &TenantScope, id: Uuid) -> AppResult<OrchestrationTask> {
         let mut tx = self.pool.begin().await?;
