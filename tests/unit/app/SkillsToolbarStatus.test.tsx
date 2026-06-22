@@ -30,7 +30,7 @@ describe('Skills toolbar status', () => {
 
     render(<SkillsView />)
 
-    expect(await screen.findByText('Load saved instructions again to continue.')).toBeDefined()
+    expect(await screen.findByText('Check saved instructions again to continue.')).toBeDefined()
     expect(screen.queryByText('Saved instructions need attention')).toBeNull()
   })
 

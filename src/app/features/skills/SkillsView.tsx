@@ -203,7 +203,7 @@ export function SkillsView() {
               onClick={() => void loadSkills()}
               className={uiStyles.primaryButton}
             >
-              Load saved instructions again
+              Check saved instructions again
             </button>
           </div>
         )}
@@ -272,15 +272,15 @@ function savedInstructionsLoadErrorMessage(error: string): string {
 function savedInstructionsLoadRecoveryMessage(error: string): string {
   const normalized = error.toLowerCase()
   if (normalized.includes('sign in')) {
-    return 'After signing in, choose Load saved instructions again.'
+    return 'After signing in, choose Check saved instructions again.'
   }
   if (normalized.includes('permission') || normalized.includes('access')) {
-    return 'After an owner or admin updates your access, choose Load saved instructions again.'
+    return 'After an owner or admin updates your access, choose Check saved instructions again.'
   }
   if (normalized.includes('connect') || normalized.includes('connection')) {
-    return 'Check your connection, then choose Load saved instructions again.'
+    return 'Check your connection, then choose Check saved instructions again.'
   }
-  return 'Choose Load saved instructions again to load the list.'
+  return 'Choose Check saved instructions again to load the list.'
 }
 
 function savedInstructionsEmptyState({
@@ -378,7 +378,7 @@ function skillToolbarStatus({
   error: string | null
 }) {
   if (loading) return 'Checking saved instructions'
-  if (error) return 'Load saved instructions again to continue.'
+  if (error) return 'Check saved instructions again to continue.'
   if (visibleCount > 0) {
     return `${visibleCount} saved instruction${visibleCount === 1 ? '' : 's'}`
   }
