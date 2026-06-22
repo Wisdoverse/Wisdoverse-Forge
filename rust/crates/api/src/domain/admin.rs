@@ -269,6 +269,35 @@ pub(crate) struct AdminOrgProjection {
     pub(crate) teams_count: i64,
 }
 
+/// Org-scoped orchestration control-plane health snapshot for the admin panel.
+///
+/// Reproduces the "is a loop wedged" signals the `OrchestrationMetricsWorker`
+/// emits as GLOBAL Prometheus gauges (`jobs/src/orchestration_metrics.rs`), but
+/// scoped to one organization via `WHERE organization_id = $1`, so operators
+/// without a Prometheus stack can read their own org's health.
+///
+/// NOTE: the worker also emits `job_queue_*` depth gauges. `job_queue` has no
+/// `organization_id` column, so those are platform-global and are intentionally
+/// NOT represented here — a per-org queue depth would be a lie.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct OrgControlPlaneSnapshot {
+    /// Unpublished `assignment` outbox events for this org (relay backlog).
+    pub(crate) assignment_outbox_backlog: i64,
+    /// Age (seconds) of the oldest unpublished `assignment` outbox event; 0.0 when none.
+    pub(crate) assignment_outbox_oldest_age_seconds: f64,
+    /// Non-offline participants in this org with no recent heartbeat.
+    pub(crate) stale_participants: i64,
+    /// `working` tasks in this org whose lease has expired.
+    pub(crate) expired_working_leases: i64,
+    /// `busy` participants in this org with no matching `working` task.
+    pub(crate) busy_participants_without_work: i64,
+    /// `working` tasks in this org whose assigned agent is not `busy`.
+    pub(crate) working_tasks_without_busy_participant: i64,
+    /// The participant-staleness threshold (seconds) used for `stale_participants`.
+    pub(crate) stale_after_seconds: i64,
+}
+
 pub(crate) fn admin_data_response<T: Serialize>(data: T) -> Value {
     json!({ "ok": true, "data": data })
 }
@@ -1018,5 +1047,29 @@ mod tests {
         assert!(response["agent"]["gitStatus"].is_null());
         assert_eq!(response["agent"]["recentEvents"][0]["id"], json!(event_id));
         assert_eq!(response["agent"]["recentEvents"][0]["type"], "tool_call");
+    }
+
+    #[test]
+    fn org_control_plane_snapshot_serializes_camel_case() {
+        let snapshot = OrgControlPlaneSnapshot {
+            assignment_outbox_backlog: 3,
+            assignment_outbox_oldest_age_seconds: 12.5,
+            stale_participants: 1,
+            expired_working_leases: 2,
+            busy_participants_without_work: 0,
+            working_tasks_without_busy_participant: 4,
+            stale_after_seconds: 90,
+        };
+        let value = serde_json::to_value(&snapshot).unwrap();
+        assert_eq!(value["assignmentOutboxBacklog"], 3);
+        assert_eq!(value["assignmentOutboxOldestAgeSeconds"], 12.5);
+        assert_eq!(value["staleParticipants"], 1);
+        assert_eq!(value["expiredWorkingLeases"], 2);
+        assert_eq!(value["busyParticipantsWithoutWork"], 0);
+        assert_eq!(value["workingTasksWithoutBusyParticipant"], 4);
+        assert_eq!(value["staleAfterSeconds"], 90);
+        // No snake_case leakage and no global job_queue fields.
+        assert!(value.get("assignment_outbox_backlog").is_none());
+        assert!(value.get("jobQueuePending").is_none());
     }
 }
