@@ -17,6 +17,7 @@ import { agentTasksErrorMessage } from './model/taskErrorMessage'
 
 interface AgentTasksTabProps {
   agentId: string
+  onBackToAgents?: () => void
 }
 
 interface EmptyStateCopy {
@@ -96,7 +97,7 @@ const AGENT_TASK_EMPTY_STEPS: { title: string; description: string; Icon: Lucide
   },
 ]
 
-export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
+export function AgentTasksTab({ agentId, onBackToAgents }: AgentTasksTabProps) {
   const [tasks, setTasks] = useState<TaskSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -180,6 +181,18 @@ export function AgentTasksTab({ agentId }: AgentTasksTabProps) {
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           {error}
         </p>
+        {onBackToAgents ? (
+          <button
+            type="button"
+            onClick={onBackToAgents}
+            className={cn(
+              'mt-4 rounded-full px-4 py-2 text-ui-button font-medium',
+              'bg-apple-blue text-white transition-colors hover:bg-apple-blue/90'
+            )}
+          >
+            Back to Agents
+          </button>
+        ) : null}
       </div>
     )
   }
