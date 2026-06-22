@@ -7413,6 +7413,14 @@ function checklistCopy() {
   return 'No work tool setup status yet. Check again after the tools finish setting up.'
 }
 
+function checklistBadge() {
+  return 'Needs setup'
+}
+
+function toolBadge() {
+  return 'Setup needed'
+}
+
 function heartbeatCopy() {
   return 'No agent has been seen online yet. Start or wake an agent, then check again.'
 }
@@ -7447,6 +7455,14 @@ function runtimeReadinessSummary() {
         expect.objectContaining({
           type: 'runtime-setup-status-copy',
           location: 'src/app/features/settings/RuntimeSection.tsx:15',
+        }),
+        expect.objectContaining({
+          type: 'runtime-setup-status-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:19',
+        }),
+        expect.objectContaining({
+          type: 'runtime-setup-status-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:23',
         }),
       ])
     )

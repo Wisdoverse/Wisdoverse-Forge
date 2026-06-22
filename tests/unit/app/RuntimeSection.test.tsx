@@ -176,7 +176,8 @@ describe('RuntimeSection', () => {
     expect(screen.queryByText(/package check/i)).toBeNull()
     expect(screen.getByText('Install this work tool')).toBeDefined()
     expect(screen.queryByText('Needs attention')).toBeNull()
-    expect(screen.getByText('Setup needed')).toBeDefined()
+    expect(screen.getByText('Install this tool')).toBeDefined()
+    expect(screen.queryByText('Setup needed')).toBeNull()
     expect(screen.getByText('check tool')).toBeDefined()
     expect(screen.getByText('Installed and ready')).toBeDefined()
     expect(screen.getAllByText(/work tool sign-ins/i).length).toBeGreaterThan(0)
@@ -193,7 +194,8 @@ describe('RuntimeSection', () => {
     expect(screen.queryByRole('button', { name: /^Refresh$/i })).toBeNull()
     expect(screen.queryByText('Needs action')).toBeNull()
     expect(screen.queryByText(/still need attention/i)).toBeNull()
-    expect(screen.getAllByText('Needs setup').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Check before use').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Needs setup')).toBeNull()
 
     fireEvent.click(screen.getAllByRole('button', { name: /Sign in to GitHub/i })[0])
 

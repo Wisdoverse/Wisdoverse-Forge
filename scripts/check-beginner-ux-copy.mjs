@@ -1303,6 +1303,8 @@ const RUNTIME_SETUP_STATUS_DEAD_END_PATTERNS = [
   /\bNo work tool setup status yet\b/i,
   /\bNo agent has been seen online yet\b/i,
   /\bno agents are online yet\b/i,
+  /\bNeeds setup\b/i,
+  /\bSetup needed\b/i,
   /\bStart or wake an agent\b/i,
   /\bSetup has \d+ agent locations? and \d+ work tools? like Claude or Codex\b/i,
 ]

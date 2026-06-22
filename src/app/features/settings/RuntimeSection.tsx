@@ -380,7 +380,7 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
                   className="min-w-0 truncate text-secondary-light dark:text-secondary-dark"
                   title={detail.image}
                 >
-                  {detail.imagePresent ? 'Installed and ready' : 'Setup needed'}
+                  {detail.imagePresent ? 'Installed and ready' : 'Install this tool'}
                 </span>
                 <span
                   className={cn(
@@ -683,7 +683,7 @@ function RuntimeChecklistRow({
                   : 'bg-apple-orange/15 text-apple-orange'
               )}
             >
-              {item.ready ? 'Ready' : 'Needs setup'}
+              {item.ready ? 'Ready' : 'Check before use'}
             </span>
           </div>
           <p className="mt-1 text-ui-caption leading-relaxed text-secondary-light dark:text-secondary-dark">
