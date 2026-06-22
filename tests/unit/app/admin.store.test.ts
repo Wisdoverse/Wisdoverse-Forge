@@ -37,6 +37,9 @@ function resetAdminState() {
     health: null,
     healthLoading: false,
     healthError: null,
+    controlPlane: null,
+    controlPlaneLoading: false,
+    controlPlaneError: null,
     cliImages: null,
     cliImagesLoading: false,
     cliImagesError: null,
@@ -687,5 +690,37 @@ describe('useAdminStore loading errors', () => {
     expect(health?.status).toBe('unhealthy')
     expect(health?.checks.database?.status).toBe('down')
     expect(health?.checks.redis?.status).toBe('up')
+  })
+
+  test('coerces malformed control-plane snapshot numbers to zeros', async () => {
+    authFetchMock.mockResolvedValue(
+      response(200, {
+        ok: true,
+        data: {
+          assignmentOutboxBacklog: Number.NaN,
+          assignmentOutboxOldestAgeSeconds: '45',
+          staleParticipants: 1,
+          expiredWorkingLeases: undefined,
+          busyParticipantsWithoutWork: 2,
+          workingTasksWithoutBusyParticipant: null,
+          staleAfterSeconds: Number.POSITIVE_INFINITY,
+        },
+      })
+    )
+
+    await useAdminStore.getState().loadControlPlane()
+
+    const { controlPlane, controlPlaneError } = useAdminStore.getState()
+    expect(authFetchMock).toHaveBeenCalledWith('/api/v1/admin/control-plane', expect.anything())
+    expect(controlPlaneError).toBeNull()
+    expect(controlPlane).toEqual({
+      assignmentOutboxBacklog: 0,
+      assignmentOutboxOldestAgeSeconds: 0,
+      staleParticipants: 1,
+      expiredWorkingLeases: 0,
+      busyParticipantsWithoutWork: 2,
+      workingTasksWithoutBusyParticipant: 0,
+      staleAfterSeconds: 0,
+    })
   })
 })

@@ -6,6 +6,7 @@ import { OrganizationsPanel } from './OrganizationsPanel'
 import { AgentsPanel } from './AgentsPanel'
 import { SystemHealth } from './SystemHealth'
 import { CliImagesPanel } from './CliImagesPanel'
+import { ControlPlanePanel } from './ControlPlanePanel'
 
 // ============================================================================
 // Sidebar config
@@ -23,6 +24,7 @@ const SECTIONS: SectionItem[] = [
   { id: 'agents', label: 'Agents', group: 'Management' },
   { id: 'health', label: 'App health', group: 'App setup' },
   { id: 'cli-images', label: 'Agent tool updates', group: 'App setup' },
+  { id: 'control-plane', label: 'Control Plane', group: 'App setup' },
 ]
 
 const GROUPS = ['Management', 'App setup']
@@ -43,6 +45,8 @@ function SectionContent({ section }: { section: AdminSection }) {
       return <SystemHealth />
     case 'cli-images':
       return <CliImagesPanel />
+    case 'control-plane':
+      return <ControlPlanePanel />
     default:
       return null
   }

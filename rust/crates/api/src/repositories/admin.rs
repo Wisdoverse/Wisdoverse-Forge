@@ -7,7 +7,9 @@ use serde::Serialize;
 use sqlx::{FromRow, PgPool, QueryBuilder};
 use uuid::Uuid;
 
-use crate::domain::admin::{AdminAgentSort, AdminRepositoryPolicy, SortOrder, admin_user_not_found_error};
+use crate::domain::admin::{
+    AdminAgentSort, AdminRepositoryPolicy, OrgControlPlaneSnapshot, SortOrder, admin_user_not_found_error,
+};
 
 /// Filter parameters for the admin agent list query.
 #[derive(Debug, Default, Clone)]
@@ -93,6 +95,30 @@ LEFT JOIN LATERAL (
     FROM events
     WHERE agent_id = a.id
 ) ev ON true"#;
+
+const ORG_OUTBOX_BACKLOG_SQL: &str = "SELECT COUNT(*) FROM orchestration_outbox \
+    WHERE organization_id = $1 AND published_at IS NULL AND event_type = 'assignment'";
+
+const ORG_OUTBOX_OLDEST_AGE_SQL: &str = "SELECT COALESCE(CAST(EXTRACT(EPOCH FROM (NOW() - MIN(created_at))) AS DOUBLE PRECISION), 0.0) \
+    FROM orchestration_outbox WHERE organization_id = $1 AND published_at IS NULL AND event_type = 'assignment'";
+
+const ORG_STALE_PARTICIPANTS_SQL: &str = "SELECT COUNT(*) FROM participants \
+    WHERE organization_id = $1 AND status <> 'offline' \
+    AND (last_heartbeat_at IS NULL OR last_heartbeat_at < NOW() - ($2::int * INTERVAL '1 second'))";
+
+const ORG_EXPIRED_LEASES_SQL: &str = "SELECT COUNT(*) FROM orchestration_tasks \
+    WHERE organization_id = $1 AND status = 'working' \
+    AND lease_expires_at IS NOT NULL AND lease_expires_at < NOW()";
+
+const ORG_BUSY_WITHOUT_WORK_SQL: &str = "SELECT COUNT(*) FROM participants p \
+    WHERE p.organization_id = $1 AND p.status = 'busy' \
+    AND NOT EXISTS (SELECT 1 FROM orchestration_tasks t \
+        WHERE t.organization_id = p.organization_id AND t.assigned_agent_id = p.agent_id AND t.status = 'working')";
+
+const ORG_WORK_WITHOUT_BUSY_SQL: &str = "SELECT COUNT(*) FROM orchestration_tasks t \
+    WHERE t.organization_id = $1 AND t.status = 'working' \
+    AND NOT EXISTS (SELECT 1 FROM participants p \
+        WHERE p.organization_id = t.organization_id AND p.agent_id = t.assigned_agent_id AND p.status = 'busy')";
 
 /// Map the domain sort enum to a SQL column reference used in the enriched query.
 fn admin_agent_sort_sql_column(sort: AdminAgentSort) -> &'static str {
@@ -491,6 +517,46 @@ impl AdminRepository {
         Ok(AdminStats { total_users, total_agents, total_events, total_organizations })
     }
 
+    /// Org-scoped orchestration control-plane snapshot. Runs the same wedged-state
+    /// checks the `OrchestrationMetricsWorker` emits globally, constrained to one
+    /// organization via `WHERE organization_id = $1`. `job_queue` depth is omitted
+    /// (no org column). `stale_after_secs` is the participant-staleness threshold.
+    pub(crate) async fn org_control_plane_snapshot(
+        &self,
+        scope: &TenantScope,
+        stale_after_secs: i64,
+    ) -> AppResult<OrgControlPlaneSnapshot> {
+        let org = scope.org_id().as_uuid();
+        let assignment_outbox_backlog =
+            sqlx::query_scalar::<_, i64>(ORG_OUTBOX_BACKLOG_SQL).bind(org).fetch_one(&self.pool).await?;
+        let assignment_outbox_oldest_age_seconds =
+            sqlx::query_scalar::<_, f64>(ORG_OUTBOX_OLDEST_AGE_SQL).bind(org).fetch_one(&self.pool).await?;
+        // ponytail: clamp to i32 for the `$2::int` bind; staleness is seconds-to-minutes,
+        // so saturating at i32::MAX (~68 yr) can never affect a real threshold.
+        let stale_after_param = stale_after_secs.clamp(0, i64::from(i32::MAX)) as i32;
+        let stale_participants = sqlx::query_scalar::<_, i64>(ORG_STALE_PARTICIPANTS_SQL)
+            .bind(org)
+            .bind(stale_after_param)
+            .fetch_one(&self.pool)
+            .await?;
+        let expired_working_leases =
+            sqlx::query_scalar::<_, i64>(ORG_EXPIRED_LEASES_SQL).bind(org).fetch_one(&self.pool).await?;
+        let busy_participants_without_work =
+            sqlx::query_scalar::<_, i64>(ORG_BUSY_WITHOUT_WORK_SQL).bind(org).fetch_one(&self.pool).await?;
+        let working_tasks_without_busy_participant =
+            sqlx::query_scalar::<_, i64>(ORG_WORK_WITHOUT_BUSY_SQL).bind(org).fetch_one(&self.pool).await?;
+
+        Ok(OrgControlPlaneSnapshot {
+            assignment_outbox_backlog,
+            assignment_outbox_oldest_age_seconds,
+            stale_participants,
+            expired_working_leases,
+            busy_participants_without_work,
+            working_tasks_without_busy_participant,
+            stale_after_seconds: stale_after_secs,
+        })
+    }
+
     /// Count agents that currently have an associated container, grouped by
     /// `cli_tool`, across ALL organizations. Deployment-global on purpose: the
     /// CLI image auto-updater status is per host, not per tenant, so this
@@ -785,5 +851,152 @@ mod tests {
         assert_eq!(row_b.teams_count, 0);
 
         assert_eq!(repo.count_organizations().await.expect("count orgs"), 2);
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn org_control_plane_snapshot_is_tenant_isolated(pool: PgPool) {
+        // `TenantScope` and `Uuid` are already in scope via `super::*`.
+        use agentforge_core::{AgentId, OrgId, UserId};
+
+        async fn seed_org_row(pool: &PgPool, org: Uuid) {
+            sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, $2, $3)")
+                .bind(org)
+                .bind(format!("Org {org}"))
+                .bind(format!("org-{org}"))
+                .execute(pool)
+                .await
+                .expect("seed org");
+        }
+        async fn seed_user_row(pool: &PgPool, user: Uuid) {
+            sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
+                .bind(user)
+                .bind(format!("u-{user}@example.com"))
+                .execute(pool)
+                .await
+                .expect("seed user");
+        }
+        async fn seed_workspace_row(pool: &PgPool, org: Uuid) -> Uuid {
+            let workspace = Uuid::new_v4();
+            sqlx::query("INSERT INTO workspaces (id, organization_id, name) VALUES ($1, $2, $3)")
+                .bind(workspace)
+                .bind(org)
+                .bind(format!("Workspace {workspace}"))
+                .execute(pool)
+                .await
+                .expect("seed workspace");
+            workspace
+        }
+        // `agents.id` is the FK target for both `orchestration_tasks.assigned_agent_id`
+        // and `participants.agent_id`; every agent referenced below must exist first.
+        async fn seed_agent_row(pool: &PgPool, agent: Uuid, org: Uuid, workspace: Uuid, user: Uuid) {
+            sqlx::query("INSERT INTO agents (id, organization_id, workspace_id, user_id) VALUES ($1, $2, $3, $4)")
+                .bind(agent)
+                .bind(org)
+                .bind(workspace)
+                .bind(user)
+                .execute(pool)
+                .await
+                .expect("seed agent");
+        }
+
+        let org_a = OrgId::new();
+        let org_b = OrgId::new();
+        let user = UserId::new();
+        seed_org_row(&pool, org_a.as_uuid()).await;
+        seed_org_row(&pool, org_b.as_uuid()).await;
+        seed_user_row(&pool, user.as_uuid()).await;
+        let workspace_a = seed_workspace_row(&pool, org_a.as_uuid()).await;
+        let workspace_b = seed_workspace_row(&pool, org_b.as_uuid()).await;
+
+        let agent_a = AgentId::new();
+        let agent_a_participant = AgentId::new();
+        let agent_b_participant = AgentId::new();
+        seed_agent_row(&pool, agent_a.as_uuid(), org_a.as_uuid(), workspace_a, user.as_uuid()).await;
+        seed_agent_row(&pool, agent_a_participant.as_uuid(), org_a.as_uuid(), workspace_a, user.as_uuid()).await;
+        seed_agent_row(&pool, agent_b_participant.as_uuid(), org_b.as_uuid(), workspace_b, user.as_uuid()).await;
+
+        // Org A: an expired-lease working task (assigned, lease in the past).
+        sqlx::query(
+            "INSERT INTO orchestration_tasks (id, organization_id, title, status, assigned_agent_id, lease_expires_at, created_by, updated_at) \
+             VALUES ($1, $2, 'A task', 'working', $3, NOW() - INTERVAL '1 hour', $4, NOW())",
+        )
+        .bind(Uuid::new_v4())
+        .bind(org_a.as_uuid())
+        .bind(agent_a.as_uuid())
+        .bind(user.as_uuid())
+        .execute(&pool)
+        .await
+        .expect("seed org A task");
+
+        // Org A: a stale participant (non-offline, old heartbeat) that is also
+        // 'busy' but has no matching working task for THAT agent -> also counts as
+        // busy_participants_without_work. `participants.name` is NOT NULL.
+        sqlx::query(
+            "INSERT INTO participants (organization_id, agent_id, name, status, last_heartbeat_at) \
+             VALUES ($1, $2, 'org-a-busy', 'busy', NOW() - INTERVAL '2 hours')",
+        )
+        .bind(org_a.as_uuid())
+        .bind(agent_a_participant.as_uuid())
+        .execute(&pool)
+        .await
+        .expect("seed org A participant");
+
+        // Org A: an unpublished assignment outbox row.
+        sqlx::query(
+            "INSERT INTO orchestration_outbox (id, organization_id, aggregate_type, aggregate_id, event_type, payload, created_at) \
+             VALUES ($1, $2, 'task', $3, 'assignment', '{}'::jsonb, NOW() - INTERVAL '30 seconds')",
+        )
+        .bind(Uuid::new_v4())
+        .bind(org_a.as_uuid())
+        .bind(Uuid::new_v4())
+        .execute(&pool)
+        .await
+        .expect("seed org A outbox");
+
+        // Org B: a FRESH participant + a PUBLISHED outbox row -> must NOT be counted
+        // for either org. `participants.name` is NOT NULL.
+        sqlx::query(
+            "INSERT INTO participants (organization_id, agent_id, name, status, last_heartbeat_at) \
+             VALUES ($1, $2, 'org-b-available', 'available', NOW())",
+        )
+        .bind(org_b.as_uuid())
+        .bind(agent_b_participant.as_uuid())
+        .execute(&pool)
+        .await
+        .expect("seed org B participant");
+        sqlx::query(
+            "INSERT INTO orchestration_outbox (id, organization_id, aggregate_type, aggregate_id, event_type, payload, published_at, created_at) \
+             VALUES ($1, $2, 'task', $3, 'assignment', '{}'::jsonb, NOW(), NOW())",
+        )
+        .bind(Uuid::new_v4())
+        .bind(org_b.as_uuid())
+        .bind(Uuid::new_v4())
+        .execute(&pool)
+        .await
+        .expect("seed org B outbox");
+
+        let repo = AdminRepository::new(pool.clone());
+
+        let snap_a = repo.org_control_plane_snapshot(&TenantScope::new(org_a, user), 60).await.expect("snapshot A");
+        assert_eq!(snap_a.expired_working_leases, 1, "org A has one expired lease");
+        assert_eq!(snap_a.stale_participants, 1, "org A has one stale participant");
+        assert_eq!(snap_a.assignment_outbox_backlog, 1, "org A has one unpublished assignment");
+        assert!(snap_a.assignment_outbox_oldest_age_seconds > 0.0, "oldest age is positive");
+        assert_eq!(snap_a.busy_participants_without_work, 1, "org A busy participant has no working task");
+        assert_eq!(
+            snap_a.working_tasks_without_busy_participant, 1,
+            "org A working task's agent has no busy participant"
+        );
+        assert_eq!(snap_a.stale_after_seconds, 60);
+
+        let snap_b = repo.org_control_plane_snapshot(&TenantScope::new(org_b, user), 60).await.expect("snapshot B");
+        assert_eq!(snap_b.expired_working_leases, 0, "org B sees none of org A's tasks");
+        assert_eq!(snap_b.stale_participants, 0, "org B participant is fresh");
+        assert_eq!(snap_b.assignment_outbox_backlog, 0, "org B outbox row is published");
+        assert_eq!(snap_b.assignment_outbox_oldest_age_seconds, 0.0);
+        assert_eq!(snap_b.working_tasks_without_busy_participant, 0, "org B sees none of org A's working tasks");
+        // If ORG_BUSY_WITHOUT_WORK_SQL lost its org filter, org A's busy
+        // participant would leak into org B's count here.
+        assert_eq!(snap_b.busy_participants_without_work, 0, "org B sees none of org A's busy participants");
     }
 }
