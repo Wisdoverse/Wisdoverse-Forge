@@ -126,7 +126,7 @@ describe('BoardView', () => {
     expect(error.textContent).toContain('Sign in again')
     expect(error.textContent).not.toContain('Code:')
     expect(error.textContent).not.toContain('401 Unauthorized')
-    expect(within(error).getByRole('button', { name: /refresh tasks/i })).toBeDefined()
+    expect(within(error).getByRole('button', { name: /check tasks again/i })).toBeDefined()
     expect(within(error).queryByRole('button', { name: /try again/i })).toBeNull()
   })
 
@@ -137,7 +137,7 @@ describe('BoardView', () => {
     render(<BoardView />)
 
     const error = await screen.findByTestId('board-error')
-    fireEvent.click(within(error).getByRole('button', { name: /refresh tasks/i }))
+    fireEvent.click(within(error).getByRole('button', { name: /check tasks again/i }))
 
     await waitFor(() => expect(mockGetTasks).toHaveBeenCalledTimes(2))
     await waitFor(() => expect(screen.queryByTestId('board-error')).toBeNull())

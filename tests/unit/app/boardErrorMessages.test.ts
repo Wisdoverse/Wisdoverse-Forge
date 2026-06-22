@@ -43,7 +43,7 @@ describe('boardActionErrorMessage', () => {
   test('keeps network recovery tied to the board action', () => {
     expectBeginnerMessage(
       boardActionErrorMessage('moveTask', new TypeError('Connection refused')),
-      'Choose Refresh tasks, then move the task again. The task was moved back because the board change was not saved. If it still does not update, check your connection, then move the task again.'
+      'Choose Check tasks again, then move the task again. The task was moved back because the board change was not saved. If it still does not update, check your connection, then move the task again.'
     )
   })
 
@@ -85,7 +85,7 @@ describe('boardActionErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Choose Refresh tasks to load tasks. If it still fails, ask an owner or admin to check task board access.'
+      'Choose Check tasks again to load tasks. If it still fails, ask an owner or admin to check task board access.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('temporarily unavailable')
@@ -102,7 +102,7 @@ describe('boardActionErrorMessage', () => {
   test('keeps moved-back task failures actionable without repeating the refresh step', () => {
     expectBeginnerMessage(
       boardActionErrorMessage('moveTask', new Error('HTTP 500')),
-      'Choose Refresh tasks, then move the task again. The task was moved back because the board change was not saved. If it still fails, ask an owner or admin to check task board actions.'
+      'Choose Check tasks again, then move the task again. The task was moved back because the board change was not saved. If it still fails, ask an owner or admin to check task board actions.'
     )
   })
 

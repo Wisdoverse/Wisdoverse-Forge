@@ -11,9 +11,9 @@ const ACTION_FALLBACKS: Record<BoardErrorAction, string> = {
   createTask:
     'Check the project, where tasks wait, and the result, then create the task again. The task was not created.',
   loadReadiness: 'Choose Check agent status before sending work.',
-  loadTasks: 'Choose Refresh tasks to load tasks.',
+  loadTasks: 'Choose Check tasks again to load tasks.',
   moveTask:
-    'Choose Refresh tasks, then move the task again. The task was moved back because the board change was not saved.',
+    'Choose Check tasks again, then move the task again. The task was moved back because the board change was not saved.',
   previewContext: 'Choose an available agent, then check saved items again.',
   publishTask:
     'Check the saved notes, then send the task with selected saved notes again. The task was not sent.',
@@ -23,7 +23,7 @@ const ACTION_FALLBACKS: Record<BoardErrorAction, string> = {
 const ACTION_RETRY_STEPS: Record<BoardErrorAction, string> = {
   createTask: 'create the task again',
   loadReadiness: 'choose Check agent status',
-  loadTasks: 'choose Refresh tasks',
+  loadTasks: 'choose Check tasks again',
   moveTask: 'move the task again',
   previewContext: 'open saved items from this task again',
   publishTask: 'send the task with selected saved notes again',
@@ -52,11 +52,11 @@ export function boardActionErrorMessage(action: BoardErrorAction, err: unknown):
   }
 
   if (status === 404) {
-    return 'Choose Refresh tasks, then choose the current task again.'
+    return 'Choose Check tasks again, then choose the current task again.'
   }
 
   if (status === 409) {
-    return 'Choose Refresh tasks so you see the latest tasks, then try again. The task board changed while you were working.'
+    return 'Choose Check tasks again so you see the latest tasks, then try again. The task board changed while you were working.'
   }
 
   if (status === 422) {
@@ -79,7 +79,7 @@ function networkRecoveryMessage(action: BoardErrorAction): string {
     return 'If it still does not load, check your connection, then choose Check agent status.'
   }
   if (action === 'loadTasks') {
-    return 'If it still does not load, check your connection, then choose Refresh tasks.'
+    return 'If it still does not load, check your connection, then choose Check tasks again.'
   }
   return `If it still does not update, check your connection, then ${ACTION_RETRY_STEPS[action]}.`
 }
