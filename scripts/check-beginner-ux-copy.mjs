@@ -614,6 +614,7 @@ const AGENT_STORE_ERROR_FAILURE_FIRST_PATTERNS = [
   /\brefresh the Agents page\b/i,
   /^\s*return\s+`The Agents page is busy\. Wait/,
   /^\s*return\s+['"`]Forge could not prepare the setup text for this computer right now\. Wait/,
+  /^\s*return\s+['"`]Wait a moment, then try again\. Forge could not prepare file work for agents right now\./,
   /^\s*return\s+['"`]Forge could not prepare where this agent runs right now\. Wait/,
   /^\s*return\s+`Forge could not \$\{actionPhrase\}\. Refresh/,
   /^\s*return\s+['"`]The place where this agent runs is not ready\. Ask/,

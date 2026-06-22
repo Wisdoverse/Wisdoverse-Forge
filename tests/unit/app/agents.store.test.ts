@@ -179,11 +179,26 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       message,
-      'Wait a moment, then choose New agent again. Forge could not prepare the setup text for this computer right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+      'Wait a moment, then open Agents and choose New agent again. Forge could not prepare the setup text for this computer right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
     )
     expect(message).not.toContain('database')
     expect(message).not.toContain('local agent')
     expect(message).not.toContain('setup command')
+  })
+
+  test('turns file-work server failures into concrete agent action steps', () => {
+    expectBeginnerError(
+      agentActionErrorMessage('create', apiError(503, { message: 'runtime unavailable' })),
+      'Wait a moment, then open Agents and choose New agent again. Forge could not prepare file work for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+    )
+    expectBeginnerError(
+      agentActionErrorMessage('start', apiError(503, { message: 'runtime unavailable' })),
+      'Wait a moment, then open Agents, choose this agent, and start it again. Forge could not prepare file work for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+    )
+    expectBeginnerError(
+      agentActionErrorMessage('restart', apiError(503, { message: 'runtime unavailable' })),
+      'Wait a moment, then open Agents, choose this agent, and restart it again. Forge could not prepare file work for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+    )
   })
 
   test('initializes with empty agents', () => {
@@ -402,7 +417,7 @@ describe('Agents Store', () => {
     expect(result).toBeNull()
     expectBeginnerError(
       useAgentsStore.getState().error,
-      'Wait a moment, then choose New agent again. Forge could not prepare the setup text for this computer right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+      'Wait a moment, then open Agents and choose New agent again. Forge could not prepare the setup text for this computer right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
     )
     expect(useAgentsStore.getState().error).not.toContain('database')
     expect(useAgentsStore.getState().error).not.toContain('local agent')

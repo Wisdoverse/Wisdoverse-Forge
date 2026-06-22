@@ -7353,7 +7353,7 @@ export function agentControlErrorMessage() {
 `,
       'src/app/entities/agent/model/agents.store.ts': `
 export function agentServerMessage() {
-  return 'Wait a moment, then try again. Forge could not prepare file work for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+  return 'Wait a moment, then open Agents, choose this agent, and start it again. Forge could not prepare file work for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
 }
 `,
       'src/app/shared/model/agents.store.ts': `
@@ -9475,6 +9475,10 @@ function agentUnknownMessage(actionPhrase) {
 function agentCreatedStartFailureMessage() {
   return 'Agent was created, but it could not start yet. It will stay in the list. Ask an owner or admin to check Where agents run.'
 }
+
+function agentFileWorkMessage() {
+  return 'Wait a moment, then try again. Forge could not prepare file work for agents right now.'
+}
 `,
     })
 
@@ -9519,6 +9523,10 @@ function agentCreatedStartFailureMessage() {
           type: 'agent-store-error-copy',
           location: 'src/app/entities/agent/model/agents.store.ts:35',
         }),
+        expect.objectContaining({
+          type: 'agent-store-error-copy',
+          location: 'src/app/entities/agent/model/agents.store.ts:39',
+        }),
       ])
     )
   })
@@ -9547,7 +9555,7 @@ function agentChangedMessage() {
 }
 
 function agentServerMessage() {
-  return 'Wait a moment, then choose New agent again. Forge could not prepare the setup text for this computer right now.'
+  return 'Wait a moment, then open Agents and choose New agent again. Forge could not prepare the setup text for this computer right now.'
 }
 
 function agentRuntimeMessage() {
@@ -9560,6 +9568,10 @@ function agentUnknownMessage(actionPhrase) {
 
 function agentCreatedStartFailureMessage() {
   return 'Ask an owner or admin to check Where agents work in Settings, then start this agent from the card. Agent was created, but it could not start yet.'
+}
+
+function agentFileWorkMessage() {
+  return 'Wait a moment, then open Agents, choose this agent, and start it again. Forge could not prepare file work for agents right now.'
 }
 `,
     })

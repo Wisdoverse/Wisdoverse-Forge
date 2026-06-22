@@ -285,13 +285,19 @@ function agentConflictMessage(action: AgentErrorAction, detail: string | null): 
 
 function agentServerMessage(action: AgentErrorAction): string {
   if (action === 'enrollLocal') {
-    return 'Wait a moment, then choose New agent again. Forge could not prepare the setup text for this computer right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+    return 'Wait a moment, then open Agents and choose New agent again. Forge could not prepare the setup text for this computer right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
   }
   if (action === 'load') {
     return 'Open Agents again to load agents. If it still fails, ask an owner or admin to check Where agents work in Settings.'
   }
-  if (action === 'start' || action === 'restart' || action === 'create') {
-    return 'Wait a moment, then try again. Forge could not prepare file work for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+  if (action === 'create') {
+    return 'Wait a moment, then open Agents and choose New agent again. Forge could not prepare file work for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+  }
+  if (action === 'start') {
+    return 'Wait a moment, then open Agents, choose this agent, and start it again. Forge could not prepare file work for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+  }
+  if (action === 'restart') {
+    return 'Wait a moment, then open Agents, choose this agent, and restart it again. Forge could not prepare file work for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
   }
   return `Open Agents, then try to ${agentActionPhrase(action)} again. If it still fails, ask an owner or admin to check Where agents work in Settings.`
 }
