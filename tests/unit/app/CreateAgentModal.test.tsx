@@ -666,7 +666,7 @@ describe('CreateAgentModal', () => {
       workspaceId: 'w1',
       projectId: 'p1',
     })
-    expect(await screen.findByLabelText(/setup text/i)).toHaveValue(
+    expect(await screen.findByLabelText(/^setup text$/i)).toHaveValue(
       "export AGENT_ID='a-local'\nagentforge-sidecar"
     )
     expect(screen.queryByLabelText(/setup command/i)).toBeNull()
@@ -734,7 +734,7 @@ describe('CreateAgentModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
     // The setup text leads; the pasted text tracks the OS toggle.
-    const oneLiner = await screen.findByLabelText(/setup text/i)
+    const oneLiner = await screen.findByLabelText(/^setup text$/i)
     expect(oneLiner).toHaveValue(joinCommand)
     expect(screen.getByText(/Forge will show it as an agent here/i)).toBeInTheDocument()
     expect(
@@ -764,22 +764,23 @@ describe('CreateAgentModal', () => {
       "Open your computer's command app (PowerShell on Windows), then paste this setup text."
     )
 
-    // Backup values stay available without exposing advanced connection jargon.
+    // Backup setup text stays available without exposing advanced connection jargon.
     expect(screen.getByText(/if the setup text does not work/i)).toBeInTheDocument()
-    const backupHelp = screen.getByText(/backup setup values/i)
+    const backupHelp = screen.getByText(/backup setup text/i)
     expect(backupHelp).toBeInTheDocument()
     expect(backupHelp.textContent).toMatch(/same command app/)
     expect(backupHelp.textContent).not.toMatch(/same Terminal or PowerShell window/)
     expect(backupHelp.textContent).not.toMatch(/advanced/i)
     expect(backupHelp.textContent).not.toMatch(/sidecar/i)
+    expect(screen.queryByText(/backup setup values/i)).toBeNull()
     expect(screen.queryByText(previousManualConnectionCopy)).toBeNull()
     expect(screen.getByRole('button', { name: /copy backup setup/i })).toBeInTheDocument()
-    expect(screen.getByLabelText(/backup setup values/i)).toHaveValue(
+    expect(screen.getByLabelText(/backup setup text/i)).toHaveValue(
       "export AGENT_ID='a-local'\nagentforge-sidecar"
     )
   })
 
-  test('guides Windows users to backup setup values when the one-line command is missing', async () => {
+  test('guides Windows users to backup setup text when the one-line command is missing', async () => {
     selectProject()
     const joinCommand =
       'curl -fsSL https://forge.example.com/api/v1/agents/local-join/script | sh -s -- --code afj_test'
@@ -815,19 +816,18 @@ describe('CreateAgentModal', () => {
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Laptop Worker' } })
     fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
 
-    expect(await screen.findByLabelText(/setup text/i)).toHaveValue(joinCommand)
+    expect(await screen.findByLabelText(/^setup text$/i)).toHaveValue(joinCommand)
     fireEvent.click(screen.getByRole('button', { name: /windows/i }))
 
     expect(screen.queryByLabelText(/setup command/i)).toBeNull()
-    expect(
-      screen.getByText(/Windows setup needs the backup values for this agent/i)
-    ).toBeInTheDocument()
+    expect(screen.getByText(/Windows setup needs backup setup text/i)).toBeInTheDocument()
     expect(screen.queryByText(/one-line Windows setup text is not ready/i)).toBeNull()
     expect(screen.getByTestId('local-agent-paste-hint')).toHaveTextContent(
-      'Use the backup setup values below for Windows.'
+      'Use the backup setup text below for Windows.'
     )
-    expect(screen.getByRole('button', { name: /use backup setup values/i })).toBeDisabled()
-    expect(screen.getByLabelText(/backup setup values/i)).toHaveValue(
+    expect(screen.queryByText(/backup setup values/i)).toBeNull()
+    expect(screen.getByRole('button', { name: /use backup setup text/i })).toBeDisabled()
+    expect(screen.getByLabelText(/backup setup text/i)).toHaveValue(
       "$env:AGENT_ID = 'a-local'\nagentforge-sidecar"
     )
   })
