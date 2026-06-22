@@ -462,7 +462,7 @@ function AnalyticsErrorPanel({
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-ui-body font-semibold">Load analytics again</p>
+          <p className="text-ui-body font-semibold">Check analytics again</p>
           <p className="mt-1 text-ui-body">{message}</p>
         </div>
         <button
@@ -471,7 +471,7 @@ function AnalyticsErrorPanel({
           disabled={loading}
           className="inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-apple-red/30 px-3 text-ui-button font-semibold text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/40 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {loading ? 'Loading analytics...' : 'Load analytics again'}
+          {loading ? 'Checking analytics...' : 'Check analytics again'}
         </button>
       </div>
     </div>

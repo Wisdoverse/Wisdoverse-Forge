@@ -86,7 +86,7 @@ describe('ContextUsageDashboard', () => {
 
     const banner = screen.getByTestId('context-usage-stale-banner')
     expect(banner).toHaveTextContent('These numbers are more than 12h old')
-    expect(banner).toHaveTextContent('Choose Load analytics again before making decisions')
+    expect(banner).toHaveTextContent('Choose Check analytics again before making decisions')
     expect(banner).not.toHaveTextContent('Snapshot')
   })
 
@@ -118,7 +118,7 @@ describe('ContextUsageDashboard', () => {
       />
     )
 
-    expect(screen.getByText('Choose Load analytics again to update this time')).toBeDefined()
+    expect(screen.getByText('Choose Check analytics again to update this time')).toBeDefined()
     const item = screen.getByTestId('context-usage-item')
     expect(item.textContent).toContain(
       'Builder Agent · Check where this ran · Check what kind of task it was'

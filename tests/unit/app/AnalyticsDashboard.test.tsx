@@ -133,10 +133,10 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
     render(<AnalyticsDashboard />)
 
     const alert = screen.getByRole('alert')
-    expect(alert).toHaveTextContent('Load analytics again')
+    expect(alert).toHaveTextContent('Check analytics again')
     expect(alert).toHaveTextContent('Check your connection, then open Analytics again.')
     expect(alert).not.toHaveTextContent('Refresh dashboard')
-    fireEvent.click(screen.getByRole('button', { name: /load analytics again/i }))
+    fireEvent.click(screen.getByRole('button', { name: /check analytics again/i }))
     expect(load).toHaveBeenCalled()
   })
 
@@ -148,7 +148,7 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
 
     render(<AnalyticsDashboard />)
 
-    expect(screen.getByRole('button', { name: /loading analytics/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /checking analytics/i })).toBeDisabled()
     expect(screen.queryByRole('button', { name: /^Loading\.\.\.$/i })).toBeNull()
   })
 
