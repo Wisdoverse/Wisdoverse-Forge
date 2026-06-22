@@ -24,7 +24,7 @@ use agentforge_jobs::{
     OrchestrationResultWorker, PARTICIPANT_DEFAULT_STALE_AFTER, PARTICIPANT_DEFAULT_STALE_SWEEP_INTERVAL,
     ParticipantLivenessWorker, PresenceBackend, SelfFixReviewReaperWorker, SqlxAgentOwnerLookup,
     SqlxCredentialHmacSecretLookup, SqlxHmacSecretLookup, SqlxNatsConnectPasswordLookup, SqlxParticipantLookup,
-    SqlxTaskWriter,
+    SqlxTaskWriter, blocked_task_reaper::BlockedTaskReaperWorker,
 };
 use anyhow::{Result, anyhow};
 use metrics_exporter_prometheus::{Matcher, PrometheusBuilder};
@@ -371,6 +371,15 @@ async fn main() -> Result<()> {
     // re-queues the task for another fix attempt (closes #800).
     let self_fix_review_reaper_handle = {
         let worker = SelfFixReviewReaperWorker::new(pool.clone(), config.self_fix_review_deadline_secs);
+        let worker_shutdown = shutdown_rx.clone();
+        tokio::spawn(async move { worker.run(worker_shutdown).await })
+    };
+
+    // Blocked-task TTL reaper (issue #810). Ages out `blocked/waiting_agent`
+    // tasks that have sat unscheduled past `BLOCKED_TASK_TTL_SECS`. Scoped
+    // strictly to `waiting_agent`; other blocked_reasons are left alone.
+    let blocked_task_reaper_handle = {
+        let worker = BlockedTaskReaperWorker::new(pool.clone(), config.blocked_task_ttl_secs);
         let worker_shutdown = shutdown_rx.clone();
         tokio::spawn(async move { worker.run(worker_shutdown).await })
     };
@@ -765,6 +774,10 @@ async fn main() -> Result<()> {
     match self_fix_review_reaper_handle.await {
         Ok(()) => {}
         Err(err) => tracing::warn!(error = %err, "self-fix review reaper worker join failed"),
+    }
+    match blocked_task_reaper_handle.await {
+        Ok(()) => {}
+        Err(err) => tracing::warn!(error = %err, "blocked task reaper worker join failed"),
     }
     if let Some(handle) = agent_reconcile_handle {
         match handle.await {
