@@ -404,7 +404,7 @@ describe('GettingStartedView', () => {
     expect(screen.getByText('Set up where tasks wait for this project.')).toBeDefined()
     expect(
       screen.getAllByText(
-        'This gives new work a place to wait until the next available agent picks it up.'
+        'This gives new work a place to wait until the next available agent starts it.'
       ).length
     ).toBeGreaterThanOrEqual(2)
     expect(screen.getByText('Set up where tasks wait before the first task.')).toBeDefined()
@@ -440,7 +440,7 @@ describe('GettingStartedView', () => {
     expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/projects' })
   })
 
-  test('explains the first task as a small waiting-place pickup', async () => {
+  test('explains the first task as a small waiting-place start', async () => {
     useNavigationStore.setState({
       teams: [
         {
@@ -516,7 +516,7 @@ describe('GettingStartedView', () => {
     expect(screen.getAllByText('First task').length).toBeGreaterThan(0)
     expect(
       screen.getByText(
-        'Write one small task. Forge puts it where tasks wait until the next available agent picks it up.'
+        'Write one small task. Forge puts it where tasks wait until the next available agent starts it.'
       )
     ).toBeDefined()
     expect(
@@ -525,6 +525,7 @@ describe('GettingStartedView', () => {
       ).length
     ).toBeGreaterThan(0)
     expect(screen.queryByText(/queue/i)).toBeNull()
+    expect(screen.queryByText(/picks it up/i)).toBeNull()
     expect(screen.getAllByRole('button', { name: /write first task/i }).length).toBeGreaterThan(0)
     const previousTaskInstruction = ['Create a task', 'assign it', 'and watch the run start.'].join(
       ', '
@@ -622,8 +623,9 @@ describe('GettingStartedView', () => {
     expect(await screen.findByText('Do this next')).toBeDefined()
     expect(screen.getAllByText('Check the result').length).toBeGreaterThan(0)
     expect(
-      screen.getByText('After an agent picks up a task, open it to see progress and results.')
+      screen.getByText('After an agent starts a task, open it to see progress and results.')
     ).toBeDefined()
+    expect(screen.queryByText(/picks up/i)).toBeNull()
     expect(screen.queryByText('Assigned task output will appear in the detail panel.')).toBeNull()
     expect(screen.queryByText(/detail panel/i)).toBeNull()
   })

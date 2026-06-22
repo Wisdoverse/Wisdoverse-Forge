@@ -159,7 +159,7 @@ export const en = {
         title: 'Where tasks wait',
         emptyWithProject: 'Set up where tasks wait for this project.',
         emptyWithoutProject: 'Select a project, then set up where tasks wait.',
-        why: 'This gives new work a place to wait until the next available agent picks it up.',
+        why: 'This gives new work a place to wait until the next available agent starts it.',
         success: 'A waiting place exists for the selected project.',
         create: 'Set up waiting place',
         review: 'Check waiting places',
@@ -167,7 +167,7 @@ export const en = {
       task: {
         title: 'First task',
         emptyWithRouting:
-          'Write one small task. Forge puts it where tasks wait until the next available agent picks it up.',
+          'Write one small task. Forge puts it where tasks wait until the next available agent starts it.',
         emptyWithoutRouting: 'Set up where tasks wait before the first task.',
         emptyWithoutProject:
           'Create or choose a project, then set up where tasks wait before the first task.',
@@ -179,7 +179,7 @@ export const en = {
       },
       review: {
         title: 'Check the result',
-        empty: 'After an agent picks up a task, open it to see progress and results.',
+        empty: 'After an agent starts a task, open it to see progress and results.',
         inFlight: 'A task has an agent. Check progress from the board.',
         ready: '{{count}} completed task ready to check.',
         why: 'Checking the result helps you decide whether the agent returned useful output you can trust.',
