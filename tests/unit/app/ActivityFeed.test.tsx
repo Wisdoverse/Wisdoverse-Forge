@@ -81,7 +81,9 @@ describe('ActivityFeed', () => {
     fireEvent.click(screen.getByRole('button', { name: /open task details/i }))
 
     expect(onOpenBoard).toHaveBeenCalledTimes(1)
-    expect(screen.getByRole('status')).toHaveTextContent(/open the task board/i)
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Open the task board, check tasks again if needed, then open this task from the board.'
+    )
   })
 
   test('removes an attention item after marking it checked', () => {

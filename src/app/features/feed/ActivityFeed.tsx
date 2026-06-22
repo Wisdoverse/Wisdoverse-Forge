@@ -189,7 +189,7 @@ export function ActivityFeed({ onOpenBoard }: ActivityFeedProps = {}) {
             return
           }
           setAttentionHelp(
-            'Open the task board, refresh tasks if needed, then open this task from the board.'
+            'Open the task board, check tasks again if needed, then open this task from the board.'
           )
           onOpenBoard?.()
         }}
