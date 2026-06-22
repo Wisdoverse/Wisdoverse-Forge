@@ -1,6 +1,11 @@
 export type { AgentInfo, AgentRuntimeKind, AgentStatus, CliTool } from './model/types'
 export { agentStatusKey, agentStatusLabel } from './model/status-labels'
 export {
+  LOCAL_AGENT_SETUP_APP_LABEL,
+  LOCAL_AGENT_SETUP_WINDOW_LABEL,
+  localAgentSetupPasteHint,
+} from './model/local-connection-copy'
+export {
   isHostCliAgent,
   isContainerAgent,
   isApiAgent,

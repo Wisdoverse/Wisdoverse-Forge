@@ -45,11 +45,11 @@ describe('organization setup forms', () => {
     })
     expect(
       screen.getByText(
-        'Team menu link preview: platform-ops. Forge creates it automatically from the team name. You do not need to type it.'
+        'Team link preview: platform-ops. Forge creates it automatically from the team name. You do not need to type it.'
       )
     ).toBeDefined()
     expect(screen.queryByText(/Automatic team name/i)).toBeNull()
-    expect(screen.queryByText(/Automatic link name/i)).toBeNull()
+    expect(screen.queryByText(/Team menu link preview/i)).toBeNull()
     expect(screen.queryByText(/Team short name/i)).toBeNull()
     expect(screen.queryByText(/slug:/i)).toBeNull()
 
@@ -73,11 +73,11 @@ describe('organization setup forms', () => {
     fireEvent.change(screen.getByLabelText(/^team/i), { target: { value: 'team-ops' } })
     expect(
       screen.getByText(
-        'Project menu link preview: customer-portal. Forge creates it automatically from the project name. You do not need to type it.'
+        'Project link preview: customer-portal. Forge creates it automatically from the project name. You do not need to type it.'
       )
     ).toBeDefined()
     expect(screen.queryByText(/Automatic project name/i)).toBeNull()
-    expect(screen.queryByText(/Automatic link name/i)).toBeNull()
+    expect(screen.queryByText(/Project menu link preview/i)).toBeNull()
     expect(screen.queryByText(/Project short name/i)).toBeNull()
     expect(screen.queryByText(/slug:/i)).toBeNull()
 

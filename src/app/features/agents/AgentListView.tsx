@@ -565,10 +565,10 @@ function HostCliEnrollmentPanel({
 
             <div className="mt-3 grid gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
               <p>
-                1. Open your computer's command app: Terminal on macOS/Linux, or PowerShell on
-                Windows. Use the folder this agent should work in.
+                1. Open Terminal on macOS/Linux or PowerShell on Windows. Use the folder this agent
+                should work in.
               </p>
-              <p>2. Copy the setup text and paste it into that app.</p>
+              <p>2. Copy the setup text and paste it into that window.</p>
               <p>3. Do not edit the setup text. Forge already filled in the selected project.</p>
             </div>
             <p

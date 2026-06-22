@@ -80,6 +80,7 @@ describe('OrganizationsPanel', () => {
     ).toBeDefined()
     expect(screen.queryByText(/Forge uses this in team space links/i)).toBeNull()
     expect(screen.queryByText(/Automatic team space name/i)).toBeNull()
+    expect(screen.queryByText(/Automatic link name/i)).toBeNull()
     expect(screen.queryByText(/Team space short name/i)).toBeNull()
     expect(screen.queryByText(/URL name/i)).toBeNull()
     // The backend has no plan data — the panel must not pretend it does.

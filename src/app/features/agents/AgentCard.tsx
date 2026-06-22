@@ -5,6 +5,7 @@ import {
   agentStatusKey,
   agentStatusLabel,
   isHostCliAgent,
+  LOCAL_AGENT_SETUP_APP_LABEL,
   type AgentInfo,
 } from '@app/entities/agent'
 import { AgentKindBadge } from './AgentKindBadge'
@@ -37,7 +38,7 @@ export function agentCardStatusHelp(
   if (!statusKey) return 'Check this agent before sending work'
   if (statusKey === 'offline' && agent) {
     if (isHostCliAgent(agent)) {
-      return 'Open this agent, then start or reconnect the command app on that computer.'
+      return `Open this agent, then reconnect ${LOCAL_AGENT_SETUP_APP_LABEL} on that computer.`
     }
     if (agent.cliTool) return 'Open this agent and start it before sending file work.'
     return 'Open this agent and check its AI service before sending chat work.'

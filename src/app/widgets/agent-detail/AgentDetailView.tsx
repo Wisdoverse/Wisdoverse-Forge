@@ -8,6 +8,7 @@ import {
   agentRuntimeLabel,
   agentToolLabel,
   isHostCliAgent,
+  LOCAL_AGENT_SETUP_APP_LABEL,
   useAgentsStore,
   type AgentInfo,
 } from '@app/entities/agent'
@@ -369,8 +370,7 @@ function agentNextStep(
     if (hostCli) {
       return {
         title: 'Reconnect this computer from Agents',
-        detail:
-          'Go back to Agents, choose Connect this computer, copy the new setup text, and paste it in the command app on the computer where this agent should work.',
+        detail: `Go back to Agents, choose Connect this computer, copy the new setup text, and paste it in ${LOCAL_AGENT_SETUP_APP_LABEL} on the computer where this agent should work.`,
         success: 'The status changes from Not connected to Ready or Working now.',
         ready: false,
         targetBack: true,
