@@ -7,7 +7,10 @@ import {
 } from '@app/widgets/agent-detail/AgentDetailView'
 import type { TaskSummary } from '@app/shared/api/orchestration'
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+})
 
 const getTasksByAgentMock = vi.hoisted(() => vi.fn())
 
@@ -106,6 +109,25 @@ describe('AgentDetailView', () => {
     expect(screen.getByRole('button', { name: 'Tools' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Instructions' })).toBeDefined()
     expect(screen.queryByRole('button', { name: ['Plug', 'ins'].join('') })).toBeNull()
+  })
+
+  test('lets users return to Agents when tools cannot load from the detail view', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+      })
+    )
+    const onBack = vi.fn()
+
+    render(<AgentDetailView agent={containerAgent} onBack={onBack} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tools' }))
+    const alert = await screen.findByRole('alert')
+    fireEvent.click(within(alert).getByRole('button', { name: /back to agents/i }))
+
+    expect(onBack).toHaveBeenCalledTimes(1)
   })
 
   test('alternate workspace tool agent still shows the live work tab', () => {
