@@ -1580,6 +1580,7 @@ const AGENT_SETUP_FALLBACK_DEAD_END_PATTERNS = [
   /\bRefresh work tools\b/i,
   /\bWork tool needs review\b/i,
   /\bWork tool not listed\b/i,
+  /\b(?:an AI service|a work tool) you should check\b/i,
   /\bAgent location needs review\b/i,
   /\bAgent location not listed\b/i,
   /\bWork location needs review\b/i,

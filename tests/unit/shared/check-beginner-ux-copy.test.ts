@@ -2864,7 +2864,7 @@ function runtimeLabel(runtime) {
 `,
       'src/app/features/detail/HistoryTab.tsx': `
 function runSourceLabel(run) {
-  return run.provider ? 'an AI service that needs review' : 'a work tool that needs review'
+  return run.provider ? 'an AI service you should check' : 'a work tool you should check'
 }
 `,
       'src/app/features/settings/RuntimeSection.tsx': `
@@ -2929,7 +2929,7 @@ function runtimeLabel(runtime) {
 `,
       'src/app/features/detail/HistoryTab.tsx': `
 function runSourceLabel(run) {
-  return run.provider ? 'an AI service you should check' : 'a work tool you should check'
+  return run.provider ? 'an AI service shown in Settings' : 'a work tool shown in Settings'
 }
 `,
       'src/app/features/settings/RuntimeSection.tsx': `

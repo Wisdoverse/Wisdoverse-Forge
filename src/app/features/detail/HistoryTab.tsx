@@ -247,7 +247,7 @@ function workAttemptReferenceLabel(id: string): string {
 }
 
 function runSourceNeedsCheck(runSource: string): boolean {
-  return runSource.includes('you should check')
+  return runSource.includes('shown in Settings')
 }
 
 function runSourceLabel(run: TaskRunSummary): string {
@@ -294,7 +294,7 @@ function aiServiceLabel(providerName?: string): string | null {
     case 'local':
       return 'a local AI service'
     default:
-      return looksLikeSlug(trimmed, normalized) ? 'an AI service you should check' : trimmed
+      return looksLikeSlug(trimmed, normalized) ? 'an AI service shown in Settings' : trimmed
   }
 }
 
@@ -316,7 +316,7 @@ function workToolLabel(tool?: string): string | null {
     case '':
       return null
     default:
-      return 'a work tool you should check'
+      return 'a work tool shown in Settings'
   }
 }
 
