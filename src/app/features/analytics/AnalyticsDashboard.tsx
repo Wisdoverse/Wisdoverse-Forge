@@ -139,7 +139,7 @@ function buildAnalyticsGuidance({
       title: 'Work is running now',
       detail: `${workingAgents} agent${workingAgents === 1 ? ' is' : 's are'} working and recent activity is showing up here.`,
       action:
-        'Wait for the current tasks to finish, then compare instructions sent with replies received.',
+        'Wait for the current tasks to finish, then compare messages sent with replies received.',
       tone: 'ready',
     }
   }

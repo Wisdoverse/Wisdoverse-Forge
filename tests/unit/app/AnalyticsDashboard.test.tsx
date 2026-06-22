@@ -96,6 +96,8 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
     const nextStep = screen.getByTestId('analytics-next-step')
     expect(nextStep).toHaveTextContent('Work is running now')
     expect(nextStep).toHaveTextContent('recent activity is showing up here')
+    expect(nextStep).toHaveTextContent('compare messages sent with replies received')
+    expect(nextStep).not.toHaveTextContent('instructions sent')
     expect(nextStep).not.toHaveTextContent('activity is being recorded')
   })
 
