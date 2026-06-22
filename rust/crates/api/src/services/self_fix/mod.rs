@@ -71,7 +71,15 @@ impl SelfFixService {
         limits: ImportLimits,
         max_merge_attempts: i32,
     ) -> Self {
-        Self { tasks, agents, container_control, github: github.map(Arc::new), workspace_root, limits, max_merge_attempts }
+        Self {
+            tasks,
+            agents,
+            container_control,
+            github: github.map(Arc::new),
+            workspace_root,
+            limits,
+            max_merge_attempts,
+        }
     }
 
     /// Open a self-fix draft PR for `task_id`.

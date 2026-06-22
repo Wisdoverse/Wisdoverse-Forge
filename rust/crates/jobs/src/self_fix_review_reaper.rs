@@ -114,10 +114,7 @@ impl SelfFixReviewReaperWorker {
     /// Single-shot reaper pass. Exposed for tests and one-off backfill.
     /// Returns the number of tasks reaped.
     pub async fn tick(pool: &PgPool, deadline_secs: u64) -> sqlx::Result<u64> {
-        let result = sqlx::query(REAP_STUCK_REVIEWS_SQL)
-            .bind(deadline_secs as f64)
-            .execute(pool)
-            .await?;
+        let result = sqlx::query(REAP_STUCK_REVIEWS_SQL).bind(deadline_secs as f64).execute(pool).await?;
         Ok(result.rows_affected())
     }
 }
@@ -140,22 +137,13 @@ mod tests {
             REAP_STUCK_REVIEWS_SQL.contains("review_status = 'in_review'"),
             "reaper must only touch in_review rows"
         );
-        assert!(
-            REAP_STUCK_REVIEWS_SQL.contains("self_fix = TRUE"),
-            "reaper must only touch self_fix tasks"
-        );
+        assert!(REAP_STUCK_REVIEWS_SQL.contains("self_fix = TRUE"), "reaper must only touch self_fix tasks");
         assert!(
             REAP_STUCK_REVIEWS_SQL.contains("review_opened_at"),
             "reaper must use review_opened_at as the age predicate"
         );
-        assert!(
-            !REAP_STUCK_REVIEWS_SQL.contains("'approved'"),
-            "reaper must NOT touch approved tasks"
-        );
-        assert!(
-            !REAP_STUCK_REVIEWS_SQL.contains("'merged'"),
-            "reaper must NOT touch merged tasks"
-        );
+        assert!(!REAP_STUCK_REVIEWS_SQL.contains("'approved'"), "reaper must NOT touch approved tasks");
+        assert!(!REAP_STUCK_REVIEWS_SQL.contains("'merged'"), "reaper must NOT touch merged tasks");
     }
 
     /// Integration test: seed three tasks and verify only the stale `in_review`
@@ -223,28 +211,25 @@ mod tests {
         let reaped = super::SelfFixReviewReaperWorker::tick(&pool, 604800).await.unwrap();
         assert_eq!(reaped, 1, "exactly one stale in_review task should be reaped");
 
-        let stale_status: String =
-            sqlx::query_scalar("SELECT review_status FROM orchestration_tasks WHERE id = $1")
-                .bind(stale_id)
-                .fetch_one(&pool)
-                .await
-                .unwrap();
+        let stale_status: String = sqlx::query_scalar("SELECT review_status FROM orchestration_tasks WHERE id = $1")
+            .bind(stale_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
         assert_eq!(stale_status, "changes_requested", "stale in_review must flip to changes_requested");
 
-        let fresh_status: String =
-            sqlx::query_scalar("SELECT review_status FROM orchestration_tasks WHERE id = $1")
-                .bind(fresh_id)
-                .fetch_one(&pool)
-                .await
-                .unwrap();
+        let fresh_status: String = sqlx::query_scalar("SELECT review_status FROM orchestration_tasks WHERE id = $1")
+            .bind(fresh_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
         assert_eq!(fresh_status, "in_review", "fresh in_review must remain in_review");
 
-        let approved_status: String =
-            sqlx::query_scalar("SELECT review_status FROM orchestration_tasks WHERE id = $1")
-                .bind(approved_id)
-                .fetch_one(&pool)
-                .await
-                .unwrap();
+        let approved_status: String = sqlx::query_scalar("SELECT review_status FROM orchestration_tasks WHERE id = $1")
+            .bind(approved_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
         assert_eq!(approved_status, "approved", "approved task must remain approved");
     }
 }
