@@ -567,7 +567,10 @@ impl OrchestrationTaskRepository {
         sqlx::query(
             r#"UPDATE orchestration_tasks
                SET pr_number = $1, pr_url = $2, pr_head_sha = $3, review_status = $4,
-                   review_opened_at = NOW(), updated_at = NOW()
+                   -- Stamp once: never reset the review-window clock if this is re-called
+                   -- (e.g. to refresh pr_head_sha after a force-push), so the stuck-review
+                   -- reaper deadline cannot be silently extended.
+                   review_opened_at = COALESCE(review_opened_at, NOW()), updated_at = NOW()
                WHERE id = $5 AND organization_id = $6"#,
         )
         .bind(pr_number)
