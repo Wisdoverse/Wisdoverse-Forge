@@ -977,7 +977,8 @@ mod tests {
 
         let repo = AdminRepository::new(pool.clone());
 
-        let snap_a = repo.org_control_plane_snapshot(&TenantScope::new(org_a, user), 60).await.expect("snapshot A");
+        let scope_a = crate::test_support::tenant_scope_for_ids(org_a.as_uuid(), user.as_uuid());
+        let snap_a = repo.org_control_plane_snapshot(&scope_a, 60).await.expect("snapshot A");
         assert_eq!(snap_a.expired_working_leases, 1, "org A has one expired lease");
         assert_eq!(snap_a.stale_participants, 1, "org A has one stale participant");
         assert_eq!(snap_a.assignment_outbox_backlog, 1, "org A has one unpublished assignment");
@@ -989,7 +990,8 @@ mod tests {
         );
         assert_eq!(snap_a.stale_after_seconds, 60);
 
-        let snap_b = repo.org_control_plane_snapshot(&TenantScope::new(org_b, user), 60).await.expect("snapshot B");
+        let scope_b = crate::test_support::tenant_scope_for_ids(org_b.as_uuid(), user.as_uuid());
+        let snap_b = repo.org_control_plane_snapshot(&scope_b, 60).await.expect("snapshot B");
         assert_eq!(snap_b.expired_working_leases, 0, "org B sees none of org A's tasks");
         assert_eq!(snap_b.stale_participants, 0, "org B participant is fresh");
         assert_eq!(snap_b.assignment_outbox_backlog, 0, "org B outbox row is published");
