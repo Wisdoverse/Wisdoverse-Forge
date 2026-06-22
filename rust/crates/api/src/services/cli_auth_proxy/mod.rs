@@ -1168,6 +1168,7 @@ mod tests {
             self_fix_pr_worker_enabled: false,
             self_fix_max_merge_attempts: 5,
             self_fix_review_deadline_secs: 604800,
+            blocked_task_ttl_secs: 3600,
         };
         let client = agentforge_infra::RedisClient::new(&cfg).await;
         let store = StateStore::Redis(Arc::new(RwLock::new(client)));
