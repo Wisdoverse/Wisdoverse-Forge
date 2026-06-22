@@ -144,8 +144,12 @@ impl WorkflowActivities {
         );
 
         let started_at = tokio::time::Instant::now();
-        let warn_50_secs = input.timeout_secs / 2;
-        let warn_90_secs = input.timeout_secs * 9 / 10;
+        // Defensive floor: callers derive the deadline via `human_review_timeout_secs`
+        // (min 60s), but the activity must not fire both escalations on tick 1 if a
+        // 0 ever reaches the struct boundary.
+        let deadline_secs = input.timeout_secs.max(60);
+        let warn_50_secs = deadline_secs / 2;
+        let warn_90_secs = deadline_secs * 9 / 10;
         let mut warned_50 = false;
         let mut warned_90 = false;
 
