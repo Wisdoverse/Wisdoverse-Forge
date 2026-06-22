@@ -64,7 +64,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
     }
     const trimmedPrompt = prompt.trim()
     if (!trimmedPrompt) {
-      setPromptError('Write an instruction before sending it to this agent.')
+      setPromptError('Write a message before sending it to this agent.')
       document.getElementById(messageInputId)?.focus()
       return
     }
@@ -77,7 +77,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
       if (ok) {
         setPrompt('')
         setLocalActionStatus(
-          "Instruction sent. Watch this agent's history for progress, or create a task next time when you need a tracked result."
+          "Message sent. Watch this agent's history for progress, or create a task next time when you need a tracked result others can find later."
         )
       } else {
         setLocalActionStatus(null)
@@ -100,7 +100,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
       const ok = await startAgent(agent.id)
       if (ok) {
         setLocalActionStatus(
-          'File work start requested. Go back to Agents, choose this agent again when it shows Ready, then send an instruction or create a task.'
+          'File work start requested. Go back to Agents, choose this agent again when it shows Ready, then send a message or create a task.'
         )
       } else {
         setLocalActionError(LOCAL_AGENT_CONTROL_FAILURE.startWorkspace)
@@ -193,7 +193,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
               htmlFor={messageInputId}
               className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark"
             >
-              Send one instruction
+              Send a quick message
             </label>
             <p
               id={messageHelpId}
@@ -255,7 +255,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
               messageDisabled && 'opacity-50 cursor-not-allowed'
             )}
           >
-            {sending ? 'Sending instruction...' : 'Send instruction'}
+            {sending ? 'Sending message...' : 'Send message'}
           </button>
         </div>
       </div>
@@ -439,7 +439,7 @@ function getReadyActionInfo(
     return {
       title: 'Ready for messages and tasks',
       detail:
-        'Send a quick instruction here, or create a Task when you need file work with a clear result.',
+        'Send a quick message here, or create a Task when you need file work with a clear result.',
     }
   }
 
@@ -453,7 +453,7 @@ function getReadyActionInfo(
   return {
     title: 'Ready for chat and tracked tasks',
     detail:
-      'Send a quick instruction here, or create a Task when you need a question answered, writing help, or a result check with a clear outcome.',
+      'Send a quick message here, or create a Task when you need a question answered, writing help, or a result check with a clear outcome.',
   }
 }
 
@@ -471,9 +471,9 @@ function getMessageAvailability(
     return {
       canSend: false,
       detail:
-        'Start file work first. When this agent shows Ready, you can send an instruction or create a task.',
-      placeholder: 'Start file work before sending an instruction.',
-      help: 'Use Start file work, wait for Ready, then send an instruction here.',
+        'Start file work first. When this agent shows Ready, you can send a message or create a task.',
+      placeholder: 'Start file work before sending a message.',
+      help: 'Use Start file work, wait for Ready, then send a message here.',
     }
   }
 
@@ -482,7 +482,7 @@ function getMessageAvailability(
       canSend: true,
       detail: '',
       placeholder: 'Example: Check the latest run and tell me the next safe step.',
-      help: "Send one concrete instruction, then watch this agent's history for progress.",
+      help: "Send one concrete message, then watch this agent's history for progress.",
     }
   }
 
@@ -490,9 +490,9 @@ function getMessageAvailability(
     return {
       canSend: false,
       detail:
-        'This computer is not connected. Go back to Agents, choose Connect this computer, and use the new setup text before sending an instruction.',
-      placeholder: 'Reconnect this computer before sending an instruction.',
-      help: 'Use Connect this computer on the Agents list, wait for Ready, then send here.',
+        'This computer is not connected. Go back to Agents, choose Connect this computer, and use the new setup text before sending a message.',
+      placeholder: 'Reconnect this computer before sending a message.',
+      help: 'Use Connect this computer on the Agents list, wait for Ready, then send a message here.',
     }
   }
 
@@ -500,17 +500,17 @@ function getMessageAvailability(
     return {
       canSend: false,
       detail:
-        'File work is not connected. Go back to Agents and choose this agent again, or start file work before sending an instruction.',
+        'File work is not connected. Go back to Agents and choose this agent again, or start file work before sending a message.',
       placeholder:
-        'Start file work or open Agents and choose this agent again before sending an instruction.',
-      help: 'Go back to Agents and choose this agent again, or start file work, then wait for Ready before sending here.',
+        'Start file work or open Agents and choose this agent again before sending a message.',
+      help: 'Go back to Agents and choose this agent again, or start file work, then wait for Ready before sending a message here.',
     }
   }
 
   return {
     canSend: false,
     detail: CHAT_ONLY_AI_SERVICE_RECOVERY_DETAIL,
-    placeholder: 'Check this AI service before sending an instruction.',
+    placeholder: 'Check this AI service before sending a message.',
     help: 'Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again.',
   }
 }
@@ -607,7 +607,7 @@ function ActionInfo({ icon: Icon, title, detail }: ActionInfoProps) {
 
 function agentControlErrorMessage(error: string): string {
   if (error === LOCAL_AGENT_CONTROL_FAILURE.sendInstruction) {
-    return 'Open Agents, choose this agent again, confirm it still shows Ready, then resend the instruction. If it still fails, create a task instead or ask an owner or admin to check agent messaging.'
+    return 'Open Agents, choose this agent again, confirm it still shows Ready, then resend the message. If it still fails, create a task instead or ask an owner or admin to check agent messaging.'
   }
   if (error === LOCAL_AGENT_CONTROL_FAILURE.startWorkspace) {
     return 'Go back to Agents, choose this agent again, then choose Start file work again. If it still does not show Ready, ask an owner or admin to check Where agents work in Settings.'
