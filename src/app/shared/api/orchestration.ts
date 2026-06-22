@@ -86,6 +86,10 @@ export interface TaskSummary {
   updatedAt: string
   completedAt?: string
   contextCounts?: TaskContextCounts
+  /** 1-based attempt counter; incremented on each retry. */
+  attempt: number
+  /** RFC3339 timestamp when the current worker lease expires (only set while working). */
+  leaseExpiresAt?: string
   /** True when this is a self-fix task (a code-fix against this repo). Drives the Review tab. */
   selfFix?: boolean
   /** Draft-PR number once the self-fix Bridge has opened one. */
