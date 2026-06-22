@@ -167,7 +167,7 @@ impl WorkflowActivities {
                         tracing::warn!(
                             node_id = %input.node_id,
                             elapsed_secs,
-                            deadline_secs = input.timeout_secs,
+                            deadline_secs,
                             "human review pending — 50% of deadline elapsed"
                         );
                         // TODO(#792): emit a realtime escalation event here once the broadcaster is wired
@@ -178,7 +178,7 @@ impl WorkflowActivities {
                         tracing::warn!(
                             node_id = %input.node_id,
                             elapsed_secs,
-                            deadline_secs = input.timeout_secs,
+                            deadline_secs,
                             "human review pending — 90% of deadline elapsed"
                         );
                         // TODO(#792): emit a realtime escalation event here once the broadcaster is wired
