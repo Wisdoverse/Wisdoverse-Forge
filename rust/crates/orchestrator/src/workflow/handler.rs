@@ -248,14 +248,6 @@ async fn record_audit(
     audit_store.create(&mut log).await.map_err(|err| format!("audit log failed: {err}"))
 }
 
-/// Map a human-review `Decision` to the corresponding workflow audit action.
-pub fn audit_action_for_decision(decision: super::model::Decision) -> AuditAction {
-    match decision {
-        super::model::Decision::Approve => AuditAction::WorkflowReviewApprove,
-        super::model::Decision::Reject => AuditAction::WorkflowReviewReject,
-    }
-}
-
 async fn signal(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -288,7 +280,7 @@ async fn signal(
             if let Some(decision) = decision
                 && let Err(err) = record_audit(
                     &state,
-                    audit_action_for_decision(decision),
+                    decision.audit_action(),
                     Some(id.clone()),
                     identity.org_id.clone(),
                     identity.user_id.clone(),

@@ -119,6 +119,15 @@ pub enum Decision {
     Reject,
 }
 
+impl Decision {
+    pub fn audit_action(self) -> crate::audit::AuditAction {
+        match self {
+            Decision::Approve => crate::audit::AuditAction::WorkflowReviewApprove,
+            Decision::Reject => crate::audit::AuditAction::WorkflowReviewReject,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Workflow {
