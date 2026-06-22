@@ -148,7 +148,7 @@ describe('ProvidersSection', () => {
     expect(screen.queryByText('AI Services')).toBeNull()
     expect(screen.getByRole('button', { name: /^add AI service$/i })).toBeDefined()
     expect(screen.queryByText('Add AI Service')).toBeNull()
-    expect(screen.getByText('Saved setup: gpt-5.4')).toBeDefined()
+    expect(screen.getByText('Saved service choice: gpt-5.4')).toBeDefined()
     expect(
       screen
         .getAllByText(/Key saved:/)
@@ -177,7 +177,7 @@ describe('ProvidersSection', () => {
     expect(screen.getAllByText('Needs check').length).toBeGreaterThan(0)
     expect(screen.queryByText('Failed')).toBeNull()
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Check the service access key, saved setup, and service address for Anthropic Review, then save and choose Check connection again.'
+      'Check the service access key, saved service choice, and service address for Anthropic Review, then save and choose Check connection again.'
     )
     expect(screen.getByRole('alert')).toHaveTextContent('service access key')
     expect(screen.queryByText('Invalid key')).toBeNull()

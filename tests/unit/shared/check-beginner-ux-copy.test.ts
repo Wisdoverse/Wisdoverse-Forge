@@ -947,7 +947,7 @@ function ChatView() {
 `,
       'src/app/features/settings/providerTestErrorMessage.ts': `
 function providerTestErrorMessage() {
-  return 'Check the service access key, saved setup, and service address, then save and choose Check connection again.'
+  return 'Check the service access key, saved service choice, and service address, then save and choose Check connection again.'
 }
 `,
       'src/app/features/settings/providerSettingsErrorMessage.ts': `
