@@ -566,7 +566,11 @@ impl OrchestrationTaskRepository {
     ) -> AppResult<()> {
         sqlx::query(
             r#"UPDATE orchestration_tasks
-               SET pr_number = $1, pr_url = $2, pr_head_sha = $3, review_status = $4, updated_at = NOW()
+               SET pr_number = $1, pr_url = $2, pr_head_sha = $3, review_status = $4,
+                   -- Stamp once: never reset the review-window clock if this is re-called
+                   -- (e.g. to refresh pr_head_sha after a force-push), so the stuck-review
+                   -- reaper deadline cannot be silently extended.
+                   review_opened_at = COALESCE(review_opened_at, NOW()), updated_at = NOW()
                WHERE id = $5 AND organization_id = $6"#,
         )
         .bind(pr_number)
@@ -589,6 +593,25 @@ impl OrchestrationTaskRepository {
             .bind(scope.org_id().as_uuid())
             .execute(&self.pool)
             .await?;
+        Ok(())
+    }
+
+    /// Increment the merge-attempt counter on a self-fix task (tenant-scoped).
+    ///
+    /// Called immediately before each `run_merge_executor` invocation so every
+    /// attempt is counted even when the executor fails. The increment is
+    /// unconditional (no CAS); the cap check happens BEFORE this call, so this
+    /// only runs when the attempt is within the allowed budget.
+    pub async fn bump_merge_attempts(&self, scope: &TenantScope, id: Uuid) -> AppResult<()> {
+        sqlx::query(
+            "UPDATE orchestration_tasks \
+             SET merge_attempts = merge_attempts + 1, updated_at = NOW() \
+             WHERE id = $1 AND organization_id = $2",
+        )
+        .bind(id)
+        .bind(scope.org_id().as_uuid())
+        .execute(&self.pool)
+        .await?;
         Ok(())
     }
 

@@ -141,6 +141,32 @@ pub(crate) struct SelfFixMergeResult {
     pub already_merged: bool,
 }
 
+/// Domain-owned classifier for self-fix guarded-merge metrics.
+///
+/// Services record metrics, but the user-visible error-code policy belongs here
+/// so the service layer does not own HTTP/domain error contracts.
+#[allow(dead_code)]
+pub(crate) struct SelfFixMergeMetricPolicy;
+
+impl SelfFixMergeMetricPolicy {
+    pub(crate) const OUTCOMES: &'static [&'static str] =
+        &["merged", "already_merged", "sensitive_blocked", "checks_red", "head_moved", "exhausted", "failed"];
+
+    /// Classify a merge-executor `AppError` into a bounded-cardinality outcome
+    /// label. Matches the three policy codes the Merge Executor can return as
+    /// gate failures; any other error maps to `"failed"`.
+    pub(crate) fn failure_label(err: &AppError) -> &'static str {
+        match &err.kind {
+            ErrorKind::Conflict(_) => "head_moved",
+            ErrorKind::ValidationWithCode { code, .. } if *code == "errors.self_fix.checks_not_green" => "checks_red",
+            ErrorKind::ForbiddenWithCode { code, .. } if *code == "errors.self_fix.sensitive_path_blocked" => {
+                "sensitive_blocked"
+            }
+            _ => "failed",
+        }
+    }
+}
+
 #[allow(dead_code)]
 pub(crate) struct SelfFixPolicy;
 
@@ -161,6 +187,19 @@ impl SelfFixPolicy {
         ErrorKind::ValidationWithCode {
             code: "errors.self_fix.checks_not_green",
             message: "Required CI checks are not all green; cannot merge.".into(),
+        }
+        .into()
+    }
+
+    /// The task has exhausted its configurable merge-attempt budget. The caller
+    /// has already flipped `review_status` to `changes_requested`; this error
+    /// surfaces the refusal to the operator so they can inspect the PR and
+    /// either force-push a fix or close the task.
+    #[allow(dead_code)]
+    pub(crate) fn merge_attempts_exhausted() -> AppError {
+        ErrorKind::ValidationWithCode {
+            code: "errors.self_fix.merge_attempts_exhausted",
+            message: "Merge retry limit reached; review needs changes before another attempt.".into(),
         }
         .into()
     }
@@ -354,5 +393,50 @@ mod tests {
             false,
         );
         assert_eq!(review.diff_url.as_deref(), Some("https://github.com/o/r/pull/2/files"));
+    }
+
+    #[test]
+    fn merge_failure_label_checks_not_green() {
+        let err = AppError::from(ErrorKind::ValidationWithCode {
+            code: "errors.self_fix.checks_not_green",
+            message: "CI not green".into(),
+        });
+        assert_eq!(SelfFixMergeMetricPolicy::failure_label(&err), "checks_red");
+    }
+
+    #[test]
+    fn merge_failure_label_head_moved() {
+        let err = AppError::from(ErrorKind::Conflict("the PR head moved since review".into()));
+        assert_eq!(SelfFixMergeMetricPolicy::failure_label(&err), "head_moved");
+    }
+
+    #[test]
+    fn merge_failure_label_sensitive_blocked() {
+        let err = AppError::from(ErrorKind::ForbiddenWithCode {
+            code: "errors.self_fix.sensitive_path_blocked",
+            message: "sensitive path blocked".into(),
+        });
+        assert_eq!(SelfFixMergeMetricPolicy::failure_label(&err), "sensitive_blocked");
+    }
+
+    #[test]
+    fn merge_failure_label_unknown_maps_to_failed() {
+        let err = AppError::from(ErrorKind::Unavailable("github I/O timeout".into()));
+        assert_eq!(SelfFixMergeMetricPolicy::failure_label(&err), "failed");
+    }
+
+    #[test]
+    fn merge_failure_label_internal_maps_to_failed() {
+        let err = AppError::from(anyhow::anyhow!("unexpected error"));
+        assert_eq!(SelfFixMergeMetricPolicy::failure_label(&err), "failed");
+    }
+
+    #[test]
+    fn merge_failure_label_unrelated_validation_code_maps_to_failed() {
+        let err = AppError::from(ErrorKind::ValidationWithCode {
+            code: "errors.self_fix.no_pr_to_merge",
+            message: "no PR to merge".into(),
+        });
+        assert_eq!(SelfFixMergeMetricPolicy::failure_label(&err), "failed");
     }
 }

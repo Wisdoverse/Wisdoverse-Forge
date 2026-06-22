@@ -126,6 +126,7 @@ mod tests {
             None, // github not configured -> open_pr returns github_not_configured BEFORE touching container_control
             crate::services::agent_workspace::workspace_root_from_env(),
             crate::services::self_fix::import::ImportLimits::default(),
+            config.self_fix_max_merge_attempts,
         )
     }
 
