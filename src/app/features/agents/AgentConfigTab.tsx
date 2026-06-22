@@ -112,6 +112,8 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
       } else {
         setSaveError(promptProfileSaveErrorMessage())
       }
+    } catch {
+      setSaveError(promptProfileSaveErrorMessage())
     } finally {
       setSaving(false)
     }
