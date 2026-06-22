@@ -179,7 +179,7 @@ function providerOptionModel(options: ProviderOption[], id: string): string {
 
 function providerOptionLabel(options: ProviderOption[], id: string): string {
   const option = options.find((candidate) => candidate.id === id)
-  return option ? `${option.label}` : 'Provider'
+  return option ? `${option.label}` : 'AI service'
 }
 
 function cliToolLabel(cliTool: CliTool): string {

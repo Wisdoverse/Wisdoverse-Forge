@@ -492,6 +492,12 @@ describe('CreateAgentModal', () => {
     render(<CreateAgentModal />)
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
 
+    expect(screen.getByTestId('agent-runtime-fit')).toHaveTextContent(
+      /AI service for questions and result checks/i
+    )
+    expect(screen.getByTestId('agent-runtime-fit')).not.toHaveTextContent(
+      /Provider for questions and result checks/i
+    )
     const providerHint = screen.getByTestId('provider-empty-hint')
     expect(providerHint).toHaveTextContent(/add and check an ai service first/i)
     expect(providerHint).toHaveTextContent(/open ai service settings/i)
