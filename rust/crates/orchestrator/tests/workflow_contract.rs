@@ -216,20 +216,18 @@ async fn workflows_validate_dag_and_temporal_guard() {
     assert_eq!(body, serde_json::json!({"ok": false, "error": "temporal not configured"}));
 }
 
-#[cfg(test)]
 mod audit_mapping {
     use agentforge_orchestrator::audit::AuditAction;
     use agentforge_orchestrator::workflow::Decision;
-    use agentforge_orchestrator::workflow::handler::audit_action_for_decision;
 
     #[test]
     fn audit_action_for_decision_approve_maps_to_workflow_review_approve() {
-        assert_eq!(audit_action_for_decision(Decision::Approve), AuditAction::WorkflowReviewApprove);
+        assert_eq!(Decision::Approve.audit_action(), AuditAction::WorkflowReviewApprove);
     }
 
     #[test]
     fn audit_action_for_decision_reject_maps_to_workflow_review_reject() {
-        assert_eq!(audit_action_for_decision(Decision::Reject), AuditAction::WorkflowReviewReject);
+        assert_eq!(Decision::Reject.audit_action(), AuditAction::WorkflowReviewReject);
     }
 
     #[test]
