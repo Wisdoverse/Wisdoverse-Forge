@@ -201,16 +201,14 @@ export function AnalyticsDashboard() {
           className="min-h-5 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
           aria-live="polite"
         >
-          {loading
-            ? `Refreshing ${selectedDateRangeLabel}...`
-            : `Showing ${selectedDateRangeLabel}`}
+          {loading ? `Checking ${selectedDateRangeLabel}...` : `Showing ${selectedDateRangeLabel}`}
         </p>
 
         {/* Date range selector */}
         <div className="flex items-center gap-0.5 rounded-full border border-black/[0.08] bg-white p-0.5 dark:border-white/[0.1] dark:bg-white/[0.06]">
           {DATE_RANGE_OPTIONS.map((opt) => {
             const selected = dateRange === opt.value
-            const stateLabel = selected ? (loading ? ', refreshing now' : ', selected') : ''
+            const stateLabel = selected ? (loading ? ', checking now' : ', selected') : ''
 
             return (
               <button

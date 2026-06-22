@@ -162,8 +162,8 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
 
     render(<AnalyticsDashboard />)
 
-    expect(screen.getByText('Refreshing Last 7 days...')).toBeDefined()
-    const currentRange = screen.getByRole('button', { name: /last 7 days, refreshing now/i })
+    expect(screen.getByText('Checking Last 7 days...')).toBeDefined()
+    const currentRange = screen.getByRole('button', { name: /last 7 days, checking now/i })
     expect(currentRange).toBeDisabled()
     expect(currentRange).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: 'Today' })).toBeDisabled()
