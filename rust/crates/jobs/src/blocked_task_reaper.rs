@@ -30,8 +30,9 @@ pub(crate) const REAP_BLOCKED_TASKS_SQL: &str = "
 
 /// Describe + prime blocked-task-reaper metrics at zero so Prometheus scrape
 /// returns the metric even before any event fires. `describe_*` sets help
-/// text only; an explicit `absolute(0)` primes the sample so dashboards
-/// render from t=0 instead of "metric not found".
+/// text only; an explicit `increment(0)` primes the sample so dashboards
+/// render from t=0 instead of "metric not found" (idempotent under
+/// re-registration, unlike `absolute(0)`).
 pub fn register_metrics() {
     metrics::describe_counter!(
         "agentforge_orchestration_blocked_tasks_reaped_total",
@@ -41,8 +42,8 @@ pub fn register_metrics() {
         "agentforge_orchestration_blocked_task_reaper_tick_errors_total",
         "Total number of blocked task reaper tick errors"
     );
-    metrics::counter!("agentforge_orchestration_blocked_tasks_reaped_total").absolute(0);
-    metrics::counter!("agentforge_orchestration_blocked_task_reaper_tick_errors_total").absolute(0);
+    metrics::counter!("agentforge_orchestration_blocked_tasks_reaped_total").increment(0);
+    metrics::counter!("agentforge_orchestration_blocked_task_reaper_tick_errors_total").increment(0);
 }
 
 pub struct BlockedTaskReaperWorker {
@@ -124,6 +125,8 @@ mod tests {
         assert!(sql.contains("status = 'canceled'"));
         assert!(!sql.contains("waiting_dependency"));
         assert!(!sql.contains("waiting_approval"));
+        assert!(!sql.contains("waiting_input"));
+        assert!(!sql.contains("quota_exceeded"));
     }
 
     /// Integration test: only stale `waiting_agent` blocked tasks are reaped;
