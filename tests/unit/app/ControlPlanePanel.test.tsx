@@ -63,6 +63,9 @@ describe('ControlPlanePanel', () => {
     expect(screen.getByText(/background task backlog/i)).toBeDefined()
     expect(screen.getByText(/\/metrics/)).toBeDefined()
     expect(screen.queryByText(/job_queue|platform-global|orchestration|wedged|lease/i)).toBeNull()
+    expect(screen.getByText('Control Plane health')).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Check again' })).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Refresh' })).toBeNull()
   })
 
   test('renders the error string when controlPlaneError is set', () => {
@@ -112,7 +115,7 @@ describe('ControlPlanePanel', () => {
     const message = controlPlaneErrorMessage({ status: 403, message: 'owner role required' })
 
     expect(message).toBe(
-      'Ask an owner or admin to give you Admin access, then open Admin and choose Control Plane before choosing Refresh. You do not have access to Control Plane status.'
+      'Ask an owner or admin to give you Admin access, then open Admin and choose Control Plane before choosing Check again. You do not have access to Control Plane status.'
     )
     expect(message).not.toContain('role')
   })

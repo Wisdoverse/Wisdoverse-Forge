@@ -106,9 +106,9 @@ export function ControlPlanePanel() {
     <div>
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>Control-plane health</h2>
+          <h2 className={uiStyles.sectionTitle}>Control Plane health</h2>
           <p className={uiStyles.sectionDescription}>
-            Team-level agent coordination checks: refreshes when opened, then every 30 seconds while
+            Team-level agent coordination checks: checks when opened, then every 30 seconds while
             Admin is open. Any non-zero value below may need an owner to check stuck work.
           </p>
         </div>
@@ -118,7 +118,7 @@ export function ControlPlanePanel() {
           disabled={controlPlaneLoading}
           className={uiStyles.secondaryButton}
         >
-          {controlPlaneLoading ? 'Refreshing' : 'Refresh'}
+          {controlPlaneLoading ? 'Checking' : 'Check again'}
         </button>
       </div>
 

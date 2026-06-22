@@ -60,23 +60,23 @@ export function controlPlaneErrorMessage(error: unknown): string {
   const code = statusCode(error)
 
   if (code === 401 || text.includes('sign in again') || text.includes('unauthorized')) {
-    return 'Sign in again, then open Admin and choose Control Plane before choosing Refresh. Forge could not load Control Plane status because your sign-in expired.'
+    return 'Sign in again, then open Admin and choose Control Plane before choosing Check again. Forge could not load Control Plane status because your sign-in expired.'
   }
   if (code === 403 || text.includes('permission') || text.includes('forbidden')) {
-    return 'Ask an owner or admin to give you Admin access, then open Admin and choose Control Plane before choosing Refresh. You do not have access to Control Plane status.'
+    return 'Ask an owner or admin to give you Admin access, then open Admin and choose Control Plane before choosing Check again. You do not have access to Control Plane status.'
   }
   if (code === 404 || text.includes('endpoint is not available')) {
-    return 'Open Admin and choose Control Plane, then choose Refresh. Control Plane status is not available from this Admin view. If it still fails, ask an owner or admin to check Control Plane in Admin.'
+    return 'Open Admin and choose Control Plane, then choose Check again. Control Plane status is not available from this Admin view. If it still fails, ask an owner or admin to check Control Plane in Admin.'
   }
   if (code === 429 || text.includes('busy') || text.includes('too many')) {
-    return 'Wait a minute, then open Admin, choose Control Plane, and choose Refresh. Forge is receiving too many requests right now.'
+    return 'Wait a minute, then open Admin, choose Control Plane, and choose Check again. Forge is receiving too many requests right now.'
   }
   if (code === 503 || (code != null && code >= 500)) {
-    return 'Open Admin and choose Control Plane, then choose Refresh. Forge could not load Control Plane status. If it still fails, ask an owner or admin to check Control Plane in Admin.'
+    return 'Open Admin and choose Control Plane, then choose Check again. Forge could not load Control Plane status. If it still fails, ask an owner or admin to check Control Plane in Admin.'
   }
   if (isNetworkError(error)) {
-    return 'Check your connection, then open Admin and choose Control Plane before choosing Refresh. Forge could not connect while loading Control Plane status.'
+    return 'Check your connection, then open Admin and choose Control Plane before choosing Check again. Forge could not connect while loading Control Plane status.'
   }
 
-  return 'Open Admin and choose Control Plane, then choose Refresh again. Forge could not load Control Plane status. If it still fails, ask an owner or admin to check Control Plane in Admin.'
+  return 'Open Admin and choose Control Plane, then choose Check again. Forge could not load Control Plane status. If it still fails, ask an owner or admin to check Control Plane in Admin.'
 }
