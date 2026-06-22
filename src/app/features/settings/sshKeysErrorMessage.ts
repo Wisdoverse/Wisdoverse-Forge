@@ -155,5 +155,5 @@ export function sshKeysErrorMessage(error: unknown): string {
     return 'Open Settings and SSH code access again. If it still fails, ask an owner or admin to check SSH code access settings.'
   }
 
-  return `Try to ${retry}. If it still fails, ask an owner or admin to check SSH code access settings.`
+  return `${retry.charAt(0).toUpperCase()}${retry.slice(1)}. If it still fails, ask an owner or admin to check SSH code access settings.`
 }

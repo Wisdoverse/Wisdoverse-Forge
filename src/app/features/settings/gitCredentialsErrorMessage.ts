@@ -151,5 +151,5 @@ export function gitCredentialsErrorMessage(error: unknown): string {
   if (action === 'load') {
     return 'Open Settings and Code access again. If it still fails, ask an owner or admin to check code access settings.'
   }
-  return `Try to ${retry}. If it still fails, ask an owner or admin to check code access settings.`
+  return `${retry.charAt(0).toUpperCase()}${retry.slice(1)}. If it still fails, ask an owner or admin to check code access settings.`
 }

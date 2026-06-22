@@ -106,4 +106,15 @@ describe('gitCredentialsErrorMessage', () => {
     )
     expect(message).not.toContain('vault')
   })
+
+  test('uses a direct save step for unknown save failures', () => {
+    const message = gitCredentialsErrorMessage({ message: 'saving code access hit vault edge' })
+
+    expectBeginnerMessage(
+      message,
+      'Save code access again. If it still fails, ask an owner or admin to check code access settings.'
+    )
+    expect(message).not.toContain('Try to')
+    expect(message).not.toContain('vault')
+  })
 })

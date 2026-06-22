@@ -669,6 +669,9 @@ function oldRemoveMessage() {
 function oldDuplicateMessage() {
   return 'Refresh the list, then choose a different name or remove the old service first. An AI service with this name or setup already exists.'
 }
+function stitchedFallback(retry) {
+  return \`Try to \${retry}. If it still fails, ask an owner or admin to check AI service settings.\`
+}
 `,
     })
 
@@ -700,6 +703,10 @@ function oldDuplicateMessage() {
         expect.objectContaining({
           type: 'provider-settings-error-copy',
           location: 'src/app/features/settings/providerSettingsErrorMessage.ts:18',
+        }),
+        expect.objectContaining({
+          type: 'provider-settings-error-copy',
+          location: 'src/app/features/settings/providerSettingsErrorMessage.ts:21',
         }),
       ])
     )
@@ -1537,6 +1544,9 @@ function oldLoadMessage() {
 function oldRemoveMessage() {
   return 'Refresh Settings, then remove code access again. If it still fails, ask an owner or admin to check code access settings.'
 }
+function stitchedFallback(retry) {
+  return \`Try to \${retry}. If it still fails, ask an owner or admin to check code access settings.\`
+}
 `,
     })
 
@@ -1564,6 +1574,10 @@ function oldRemoveMessage() {
         expect.objectContaining({
           type: 'code-access-error-copy',
           location: 'src/app/features/settings/gitCredentialsErrorMessage.ts:15',
+        }),
+        expect.objectContaining({
+          type: 'code-access-error-copy',
+          location: 'src/app/features/settings/gitCredentialsErrorMessage.ts:18',
         }),
       ])
     )
@@ -1602,6 +1616,9 @@ function oldLoadMessage() {
 function oldRemoveMessage() {
   return 'Refresh Settings, then remove this SSH code access again. If it still fails, ask an owner or admin to check SSH code access settings.'
 }
+function stitchedFallback(retry) {
+  return \`Try to \${retry}. If it still fails, ask an owner or admin to check SSH code access settings.\`
+}
 `,
     })
 
@@ -1629,6 +1646,10 @@ function oldRemoveMessage() {
         expect.objectContaining({
           type: 'ssh-code-access-error-copy',
           location: 'src/app/features/settings/sshKeysErrorMessage.ts:15',
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-error-copy',
+          location: 'src/app/features/settings/sshKeysErrorMessage.ts:18',
         }),
       ])
     )
@@ -1670,6 +1691,9 @@ function oldRemoveMessage() {
 function oldDuplicateMessage() {
   return 'Refresh the list, then choose a different name or remove the old key first. An outside tool access key with this name already exists.'
 }
+function stitchedFallback(retry) {
+  return \`Try to \${retry}. If it still fails, ask an owner or admin to check outside tool access settings.\`
+}
 `,
     })
 
@@ -1701,6 +1725,10 @@ function oldDuplicateMessage() {
         expect.objectContaining({
           type: 'platform-key-error-copy',
           location: 'src/app/features/settings/platformKeyErrorMessage.ts:18',
+        }),
+        expect.objectContaining({
+          type: 'platform-key-error-copy',
+          location: 'src/app/features/settings/platformKeyErrorMessage.ts:21',
         }),
       ])
     )
@@ -2180,6 +2208,9 @@ function plainTeamLoadMessage() {
 function plainProjectLoadMessage() {
   return 'Refresh Settings to load projects.'
 }
+function stitchedFallback(retry) {
+  return \`Try to \${retry}. If it still fails, ask an owner or admin to check Projects in Settings.\`
+}
 `,
     })
 
@@ -2219,6 +2250,10 @@ function plainProjectLoadMessage() {
         expect.objectContaining({
           type: 'workspace-settings-error-copy',
           location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:24',
+        }),
+        expect.objectContaining({
+          type: 'workspace-settings-error-copy',
+          location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:27',
         }),
       ])
     )

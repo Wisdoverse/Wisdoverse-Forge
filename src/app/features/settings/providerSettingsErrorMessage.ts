@@ -147,5 +147,5 @@ export function providerSettingsErrorMessage(error: unknown): string {
     return 'Open Settings and AI services again. If it still fails, ask an owner or admin to check AI service settings.'
   }
 
-  return `Try to ${retry}. If it still fails, ask an owner or admin to check AI service settings.`
+  return `${retry.charAt(0).toUpperCase()}${retry.slice(1)}. If it still fails, ask an owner or admin to check AI service settings.`
 }

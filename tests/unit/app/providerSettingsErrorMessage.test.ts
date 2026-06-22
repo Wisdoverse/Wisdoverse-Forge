@@ -123,4 +123,15 @@ describe('providerSettingsErrorMessage', () => {
     )
     expect(message).not.toContain('parser')
   })
+
+  test('uses a direct save step for unknown save failures', () => {
+    const message = providerSettingsErrorMessage({ message: 'saving provider hit parser edge' })
+
+    expectBeginnerMessage(
+      message,
+      'Save this AI service again. If it still fails, ask an owner or admin to check AI service settings.'
+    )
+    expect(message).not.toContain('Try to')
+    expect(message).not.toContain('parser')
+  })
 })

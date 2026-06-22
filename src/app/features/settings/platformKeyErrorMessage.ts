@@ -134,5 +134,5 @@ export function platformKeyErrorMessage(error: unknown): string {
     return 'Open Settings and Outside tool access keys again. If it still fails, ask an owner or admin to check outside tool access settings.'
   }
 
-  return `Try to ${retry}. If it still fails, ask an owner or admin to check outside tool access settings.`
+  return `${retry.charAt(0).toUpperCase()}${retry.slice(1)}. If it still fails, ask an owner or admin to check outside tool access settings.`
 }

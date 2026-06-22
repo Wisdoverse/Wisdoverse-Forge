@@ -108,4 +108,15 @@ describe('sshKeysErrorMessage', () => {
     )
     expect(message).not.toContain('parser')
   })
+
+  test('uses a direct save step for unknown save failures', () => {
+    const message = sshKeysErrorMessage({ reason: 'saving access hit parser edge' })
+
+    expectBeginnerMessage(
+      message,
+      'Save this SSH code access again. If it still fails, ask an owner or admin to check SSH code access settings.'
+    )
+    expect(message).not.toContain('Try to')
+    expect(message).not.toContain('parser')
+  })
 })

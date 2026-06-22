@@ -220,6 +220,7 @@ const PROVIDER_TEST_FAILURE_FIRST_PATTERNS = [
 
 const PROVIDER_SETTINGS_FAILURE_FIRST_PATTERNS = [
   /\bAI service could not be (?:saved|removed)\./i,
+  /^\s*return\s+`Try to \$\{retry\}\./,
   /\bRefresh the list, then choose a different name or remove the old service first\b/i,
   /\bRefresh Settings to load AI service settings\. Forge is receiving too many AI service requests/i,
   /\bRefresh Settings to load AI service settings\. Try again\./i,
@@ -1392,6 +1393,7 @@ const SETTINGS_LOAD_ERROR_DEAD_END_PATTERNS = [
 
 const CODE_ACCESS_FAILURE_FIRST_PATTERNS = [
   /\bCode access could not be (?:saved|removed)\./i,
+  /^\s*return\s+`Try to \$\{retry\}\./,
   /\bRefresh Settings to load code access\. Forge is receiving too many code access requests/i,
   /\bRefresh Settings to load code access\. Try again\./i,
   /\bRefresh Settings to load code access\./i,
@@ -1401,6 +1403,7 @@ const CODE_ACCESS_FAILURE_FIRST_PATTERNS = [
 
 const SSH_CODE_ACCESS_FAILURE_FIRST_PATTERNS = [
   /\bSSH code access could not be (?:saved|removed)\./i,
+  /^\s*return\s+`Try to \$\{retry\}\./,
   /\bRefresh Settings to load SSH code access\. Forge is receiving too many SSH code access requests/i,
   /\bRefresh Settings to load SSH code access\. Try again\./i,
   /\bRefresh Settings to load SSH code access\./i,
@@ -1438,6 +1441,7 @@ const SSH_CODE_ACCESS_JARGON_PATTERNS = [
 
 const PLATFORM_KEY_FAILURE_FIRST_PATTERNS = [
   /\bOutside tool access key could not be (?:created|removed)\./i,
+  /^\s*return\s+`Try to \$\{retry\}\./,
   /\bRefresh the list, then choose a different name or remove the old key first\b/i,
   /\bRefresh Settings to load outside tool access keys\. Forge is receiving too many outside tool access requests/i,
   /\bRefresh Settings to load outside tool access keys\. Try again\./i,
@@ -1526,6 +1530,7 @@ const LOCALE_VAGUE_ERROR_LABEL_PATTERNS = [
 
 const WORKSPACE_SETTINGS_FAILURE_FIRST_PATTERNS = [
   /\bThe (?:team|project) was not created\./i,
+  /^\s*return\s+`Try to \$\{retry\}\./,
   /^\s*return\s+['"`]Ask an owner or admin to update your team space access\.['"`]/i,
   /\bRefresh Settings to load workspace (?:teams|projects)\. Sign in again/i,
   /\bRefresh Settings to load workspace (?:teams|projects)\. Ask an owner or admin/i,

@@ -98,4 +98,15 @@ describe('platformKeyErrorMessage', () => {
     )
     expect(message).not.toContain('parser')
   })
+
+  test('uses a direct create step for unknown create failures', () => {
+    const message = platformKeyErrorMessage({ message: 'creating platform key hit parser edge' })
+
+    expectBeginnerMessage(
+      message,
+      'Create this outside tool access key again. If it still fails, ask an owner or admin to check outside tool access settings.'
+    )
+    expect(message).not.toContain('Try to')
+    expect(message).not.toContain('parser')
+  })
 })

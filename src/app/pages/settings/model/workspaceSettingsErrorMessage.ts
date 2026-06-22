@@ -224,5 +224,5 @@ export function workspaceSettingsErrorMessage(
 
   return action === 'load'
     ? `${load} If it still fails, ask an owner or admin to check ${resourcePageLabel(resource)} in Settings.`
-    : `Try to ${retry}. If it still fails, ask an owner or admin to check ${resourcePageLabel(resource)} in Settings.`
+    : `${retry.charAt(0).toUpperCase()}${retry.slice(1)}. If it still fails, ask an owner or admin to check ${resourcePageLabel(resource)} in Settings.`
 }
