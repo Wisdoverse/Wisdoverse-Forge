@@ -168,9 +168,10 @@ function toolDescription(plugin: Pick<PluginItem, 'description'>): string {
 
 interface AgentPluginsTabProps {
   agentId: string
+  onBackToAgents?: () => void
 }
 
-export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
+export function AgentPluginsTab({ agentId, onBackToAgents }: AgentPluginsTabProps) {
   const [plugins, setPlugins] = useState<PluginItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -290,6 +291,18 @@ export function AgentPluginsTab({ agentId }: AgentPluginsTabProps) {
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           {error}
         </p>
+        {onBackToAgents ? (
+          <button
+            type="button"
+            onClick={onBackToAgents}
+            className={cn(
+              'mt-4 rounded-full px-4 py-2 text-ui-button font-medium',
+              'bg-apple-blue text-white transition-colors hover:bg-apple-blue/90'
+            )}
+          >
+            Back to Agents
+          </button>
+        ) : null}
       </div>
     )
   }
