@@ -78,6 +78,28 @@ describe('AgentListView', () => {
     expect(screen.queryByRole('button', { name: /^create agent$/i })).toBeNull()
   })
 
+  test('shows a recovery action when agents cannot load', () => {
+    const loadAgents = vi.fn(async () => undefined)
+    useAgentsStore.setState({
+      agents: [],
+      loading: false,
+      error: 'Check your connection, then open Agents again to load agents.',
+      loadAgents,
+    })
+
+    render(<AgentListView />)
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent('Check agents again')
+    expect(alert).toHaveTextContent('Check your connection, then open Agents again to load agents.')
+    expect(screen.queryByText(/add your first agent/i)).toBeNull()
+
+    fireEvent.click(within(alert).getByRole('button', { name: /check agents again/i }))
+
+    expect(loadAgents).toHaveBeenCalledTimes(2)
+  })
+
   test('waits for a selected project before showing a command for this computer', () => {
     const onOpenProjectsSetup = vi.fn()
     render(<AgentListView onOpenProjectsSetup={onOpenProjectsSetup} />)
