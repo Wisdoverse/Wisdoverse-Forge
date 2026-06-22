@@ -6884,7 +6884,7 @@ function runtimeChecklistCopy() {
 }
 
 function credentialStatusCopy() {
-  return 'Choose Check again to refresh work tool sign-ins. If they still cannot be checked, ask an owner or admin to check work tool sign-ins.'
+  return 'Choose Check again to check Codex sign-in. If it still cannot be checked, ask an owner or admin to check Codex sign-in in Settings.'
 }
 
 function heartbeatStatusCopy() {
@@ -7040,6 +7040,7 @@ export function RuntimeSection() {
     <>
       <h3>Start Codex sign-in here</h3>
       <p>Start here when Codex or another work tool asks for login.</p>
+      <p>If it still does not appear, ask an owner or admin to check work tool sign-ins.</p>
       <h3>Sign in to Codex CLI and work tools</h3>
       <RuntimeChecklistRow title="Codex and CLI sign-ins" />
     </>

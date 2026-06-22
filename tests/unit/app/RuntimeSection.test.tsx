@@ -357,6 +357,12 @@ describe('RuntimeSection', () => {
     expect(screen.getByTestId('runtime-sign-in-entry')).toHaveTextContent(
       'For Codex, choose Sign in to OpenAI (Codex)'
     )
+    expect(screen.getByTestId('runtime-sign-in-entry')).toHaveTextContent(
+      'ask an owner or admin to check Codex sign-in in Settings'
+    )
+    expect(screen.getByTestId('runtime-sign-in-entry')).not.toHaveTextContent(
+      'check work tool sign-ins'
+    )
     expect(screen.queryByText(/Start Codex sign-in here/i)).toBeNull()
     expect(screen.queryByText(/asks for login/i)).toBeNull()
     expect(screen.queryByText(/Sign in to Codex CLI and work tools/i)).toBeNull()
@@ -516,7 +522,8 @@ describe('RuntimeSection', () => {
     expect(alert).toHaveTextContent(
       /Forge could not connect while checking the Codex sign-in page/i
     )
-    expect(screen.getByText(/Choose Check again to check work tool sign-ins/i)).toBeDefined()
+    expect(screen.getByText(/Choose Check again to check Codex sign-in/i)).toBeDefined()
+    expect(screen.queryByText(/check work tool sign-ins/i)).toBeNull()
     expect(screen.queryByText(/^Work tool sign-ins could not be checked/i)).toBeNull()
     expect(screen.queryByText(/failed to fetch/i)).toBeNull()
     expect(screen.queryByText(/app could not reach/i)).toBeNull()

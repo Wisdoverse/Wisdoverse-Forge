@@ -250,7 +250,7 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
           </p>
           <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
             If the Codex sign-in option does not appear, choose Check again. If it still does not
-            appear, ask an owner or admin to check work tool sign-ins.
+            appear, ask an owner or admin to check Codex sign-in in Settings.
           </p>
         </section>
       )}
@@ -862,7 +862,7 @@ function runtimeLaunchChecklistItems(
     id: 'credentials',
     title: 'Work tool sign-ins',
     detail: cliStatusError
-      ? 'Choose Check again to check work tool sign-ins. If they still cannot be checked, ask an owner or admin to check work tool sign-ins.'
+      ? 'Choose Check again to check Codex sign-in. If it still cannot be checked, ask an owner or admin to check Codex sign-in in Settings.'
       : cliStatuses.length === 0
         ? 'No work tool sign-ins are required.'
         : disconnectedCredential

@@ -1292,6 +1292,7 @@ const WORK_TOOL_SIGN_IN_ENTRY_JARGON_PATTERNS = [
   /\btitle:\s*['"`]Codex and CLI sign-ins['"`]/i,
   /\bCodex and CLI sign-ins\b/i,
   /\bother CLI tools agents use\b/i,
+  /\bask an owner or admin to check work tool sign-ins\b/i,
 ]
 
 const RUNTIME_DEFAULT_LOCATION_DEAD_END_PATTERNS = [/\bNot set yet\b/i]
