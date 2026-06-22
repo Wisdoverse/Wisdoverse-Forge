@@ -8210,6 +8210,7 @@ export function DecisionCopy({ approving }) {
       <p>Next: switch back to Pending when you only want items waiting for a decision.</p>
       <Field label="Team code" />
       <p>My team or This project shares it more broadly and needs the team or project code from Settings.</p>
+      <Field label="team sharing code" />
       <option>Team internal</option>
     </section>
   )
@@ -8262,6 +8263,10 @@ export function DecisionCopy({ approving }) {
           type: 'approval-queue-check-copy',
           sample: expect.stringContaining('team or project code from Settings'),
         }),
+        expect.objectContaining({
+          type: 'approval-queue-check-copy',
+          sample: expect.stringContaining('team sharing code'),
+        }),
       ])
     )
   })
@@ -8287,8 +8292,8 @@ export function DecisionCopy({ approving }) {
       <button><span>Do not save</span></button>
       <Field label="Why not save it?" />
       <p>Next: switch back to Needs your check when you only want items waiting for a decision.</p>
-      <Field label="team sharing code" />
-      <p>My team or This project shares it more broadly. Copy the team or project sharing code from Settings under Teams or Projects.</p>
+      <Field label="team sharing text" />
+      <p>My team or This project shares it more broadly. Copy the team or project sharing text from Settings under Teams or Projects.</p>
       <option>Team only</option>
     </section>
   )

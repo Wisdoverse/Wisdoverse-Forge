@@ -628,7 +628,7 @@ function DecisionPanel({
               <>
                 <div className="rounded-card bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue">
                   Choose who can reuse it. Only me is the safest choice. My team or This project
-                  shares it more broadly. Copy the team or project sharing code from Settings under
+                  shares it more broadly. Copy the team or project sharing text from Settings under
                   Teams or Projects.
                 </div>
 
@@ -1014,9 +1014,9 @@ function reuseAudienceLabel(value: ContextCandidateSummary['proposed_scope_kind'
 }
 
 function scopeSharingCodeLabel(value: ContextScopeKind): string {
-  if (value === 'team') return 'team sharing code'
-  if (value === 'project') return 'project sharing code'
-  return `${titleCase(value)} sharing code`
+  if (value === 'team') return 'team sharing text'
+  if (value === 'project') return 'project sharing text'
+  return `${titleCase(value)} sharing text`
 }
 
 function candidatePreview(candidate: ContextCandidateSummary): string {
