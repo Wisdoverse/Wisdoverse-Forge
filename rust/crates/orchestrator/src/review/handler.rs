@@ -201,11 +201,10 @@ async fn approve(State(state): State<AppState>, headers: HeaderMap, Path(id): Pa
         return error(StatusCode::FORBIDDEN, "cannot approve your own review");
     }
 
-    if let Err(err) = store.update_state(&id, &identity.org_id, ReviewState::Approved).await {
+    if let Err(err) =
+        store.apply_verdict(&id, &identity.org_id, ReviewState::Approved, &review.review.task_id, TaskState::Completed).await
+    {
         return map_error(err);
-    }
-    if let Some(task_store) = state.task_store.as_ref() {
-        let _ = task_store.update_state(&review.review.task_id, &identity.org_id, TaskState::Completed).await;
     }
 
     // Audit -- fail-closed: an audit write error returns 500.
@@ -270,11 +269,17 @@ async fn reject(
         return map_error(err);
     }
 
-    if let Err(err) = store.update_state(&id, &identity.org_id, ReviewState::ChangesRequested).await {
+    if let Err(err) = store
+        .apply_verdict(
+            &id,
+            &identity.org_id,
+            ReviewState::ChangesRequested,
+            &review.review.task_id,
+            TaskState::ChangesRequested,
+        )
+        .await
+    {
         return map_error(err);
-    }
-    if let Some(task_store) = state.task_store.as_ref() {
-        let _ = task_store.update_state(&review.review.task_id, &identity.org_id, TaskState::ChangesRequested).await;
     }
 
     // Audit -- fail-closed: an audit write error returns 500.

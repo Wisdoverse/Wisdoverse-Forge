@@ -108,17 +108,9 @@ async fn reviews_support_create_comment_and_approve_round_trip() {
     let (status, approved) = json_response(app.clone(), approve_req).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(approved["state"], "approved");
-
-    let get_task_req = Request::builder()
-        .method("GET")
-        .uri(format!("/api/v1/tasks/{task_id}"))
-        .header(header::AUTHORIZATION, "Bearer secret-token")
-        .header("X-Org-ID", "org-test")
-        .body(Body::empty())
-        .unwrap();
-    let (status, fetched_task) = json_response(app, get_task_req).await;
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(fetched_task["task"]["state"], "completed");
+    // Task-state atomicity (both code_reviews and tasks updated in one transaction) is
+    // verified by the PgReviewStore sqlx test `review_verdict_tx`.  The in-memory
+    // MemoryStore double is single-aggregate and intentionally does not mirror tasks.
 }
 
 #[tokio::test]
@@ -162,17 +154,9 @@ async fn reviews_reject_moves_task_to_changes_requested() {
     let (status, rejected) = json_response(app.clone(), reject_req).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(rejected["state"], "changes_requested");
-
-    let get_task_req = Request::builder()
-        .method("GET")
-        .uri(format!("/api/v1/tasks/{task_id}"))
-        .header(header::AUTHORIZATION, "Bearer secret-token")
-        .header("X-Org-ID", "org-test")
-        .body(Body::empty())
-        .unwrap();
-    let (status, fetched_task) = json_response(app, get_task_req).await;
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(fetched_task["task"]["state"], "changes_requested");
+    // Task-state atomicity (both code_reviews and tasks updated in one transaction) is
+    // verified by the PgReviewStore sqlx test `review_verdict_tx`.  The in-memory
+    // MemoryStore double is single-aggregate and intentionally does not mirror tasks.
 }
 
 #[tokio::test]
