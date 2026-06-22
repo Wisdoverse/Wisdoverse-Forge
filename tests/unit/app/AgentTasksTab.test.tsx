@@ -180,6 +180,18 @@ describe('AgentTasksTab', () => {
     expect(alert.textContent).not.toContain("Refresh this agent's work list")
   })
 
+  test('lets users return to Agents when agent tasks fail to load', async () => {
+    getTasksByAgentMock.mockRejectedValue(new Error('HTTP 403'))
+    const onBackToAgents = vi.fn()
+
+    render(<AgentTasksTab agentId="agent-1" onBackToAgents={onBackToAgents} />)
+
+    const alert = await screen.findByRole('alert')
+    fireEvent.click(within(alert).getByRole('button', { name: /back to agents/i }))
+
+    expect(onBackToAgents).toHaveBeenCalledTimes(1)
+  })
+
   test('filters and searches tasks inside the agent profile', async () => {
     getTasksByAgentMock.mockResolvedValue([
       makeTask({
