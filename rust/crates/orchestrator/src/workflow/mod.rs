@@ -1,7 +1,7 @@
 mod activities;
 mod dag;
 mod errors;
-mod handler;
+pub mod handler;
 mod model;
 mod repository;
 mod runtime;
