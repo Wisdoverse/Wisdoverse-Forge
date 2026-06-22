@@ -537,6 +537,13 @@ pub struct AppConfig {
     /// Env: `SELF_FIX_REVIEW_DEADLINE_SECS`.
     #[serde(default = "default_self_fix_review_deadline_secs")]
     pub self_fix_review_deadline_secs: u64,
+
+    /// How long (seconds) a `blocked/waiting_agent` task may sit before the
+    /// reaper ages it out with `status='canceled'` and
+    /// `failure_code='waiting_agent_timeout'`. Default 3600 (1 hour).
+    /// Env: `BLOCKED_TASK_TTL_SECS`.
+    #[serde(default = "default_blocked_task_ttl_secs")]
+    pub blocked_task_ttl_secs: u64,
 }
 
 fn default_self_fix_max_merge_attempts() -> i32 {
@@ -545,6 +552,10 @@ fn default_self_fix_max_merge_attempts() -> i32 {
 
 fn default_self_fix_review_deadline_secs() -> u64 {
     604800 // 7 days
+}
+
+fn default_blocked_task_ttl_secs() -> u64 {
+    3600
 }
 
 fn default_clone_timeout_secs() -> u64 {
@@ -867,6 +878,7 @@ mod tests {
             self_fix_pr_worker_enabled: true,
             self_fix_max_merge_attempts: 5,
             self_fix_review_deadline_secs: 604800,
+            blocked_task_ttl_secs: 3600,
         };
         assert!(cfg.is_production());
     }
@@ -1271,6 +1283,7 @@ mod tests {
             self_fix_pr_worker_enabled: true,
             self_fix_max_merge_attempts: 5,
             self_fix_review_deadline_secs: 604800,
+            blocked_task_ttl_secs: 3600,
         };
         let dbg = format!("{cfg:?}");
         for needle in [

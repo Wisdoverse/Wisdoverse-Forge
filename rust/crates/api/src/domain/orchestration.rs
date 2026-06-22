@@ -2031,6 +2031,8 @@ mod tests {
             pr_url: None,
             pr_head_sha: None,
             review_status: None,
+            merge_attempts: 0,
+            review_opened_at: None,
         };
 
         let summary = task_summary(task, None);

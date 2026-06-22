@@ -29,6 +29,7 @@
 //! ```
 
 pub mod auth_lookup;
+pub mod blocked_task_reaper;
 pub mod cli_image_updater;
 pub mod credential_consumer;
 pub mod dependency_reconcile;
@@ -93,6 +94,7 @@ pub use worker::Worker;
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub fn register_metrics() {
+    blocked_task_reaper::register_metrics();
     cli_image_updater::register_metrics();
     credential_consumer::register_metrics();
     dependency_reconcile::register_metrics();
