@@ -217,6 +217,16 @@ describe('ChatView', () => {
     expect(screen.queryByText(/You can send once loading finishes/i)).toBeNull()
   })
 
+  test('uses check wording while updates load', () => {
+    useAgentsStore.setState({ agents: [providerAgent] })
+    seedChatState({ messages: [], messagesLoading: true })
+
+    render(<ChatView agentId={providerAgent.id} />)
+
+    expect(screen.getByText('Checking updates...')).toBeDefined()
+    expect(screen.queryByText('Loading updates...')).toBeNull()
+  })
+
   test('guides empty managed workspace history toward routed work', () => {
     useAgentsStore.setState({ agents: [cliAgent] })
     seedChatState({ turns: [] })
