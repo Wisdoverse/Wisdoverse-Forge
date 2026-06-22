@@ -353,6 +353,7 @@ impl AppState {
             self.github_app_client(),
             crate::services::agent_workspace::workspace_root_from_env(),
             crate::services::self_fix::import::ImportLimits::default(),
+            self.config.self_fix_max_merge_attempts,
         )
     }
 
