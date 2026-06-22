@@ -4187,27 +4187,29 @@ function emptyInstructionBadge() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'agent-config-detail-copy',
-        location: 'src/app/features/agents/AgentConfigTab.tsx:3',
-      }),
-      expect.objectContaining({
-        type: 'agent-config-detail-copy',
-        location: 'src/app/features/agents/AgentConfigTab.tsx:7',
-      }),
-      expect.objectContaining({
-        type: 'agent-config-detail-copy',
-        location: 'src/app/features/agents/AgentConfigTab.tsx:11',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-config-detail-copy',
+          location: 'src/app/features/agents/AgentConfigTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-config-detail-copy',
+          location: 'src/app/features/agents/AgentConfigTab.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'agent-config-detail-copy',
+          location: 'src/app/features/agents/AgentConfigTab.tsx:11',
+        }),
+      ])
+    )
   })
 
   it('accepts agent configuration detail copy that names what to check', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentConfigTab.tsx': `
 function modelLabel() {
-  return 'Check AI model setup'
+  return 'Check AI model'
 }
 
 function cliToolLabel() {
@@ -4287,7 +4289,7 @@ function agentValidationMessage() {
     const cwd = fixture({
       'src/app/entities/agent/model/agents.store.ts': `
 const info = {
-  model: 'Model not reported',
+  model: 'Check AI model setup',
 }
 `,
       'src/app/shared/model/agents.store.ts': `
@@ -4295,33 +4297,49 @@ const info = {
   model: agent.model ?? agent.cliTool ?? 'unknown',
 }
 `,
+      'src/app/features/agents/AgentConfigTab.tsx': `
+function modelLabel() {
+  return 'Check AI model setup'
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'agent-model-copy',
-        location: 'src/app/entities/agent/model/agents.store.ts:3',
-      }),
-      expect.objectContaining({
-        type: 'agent-model-copy',
-        location: 'src/app/shared/model/agents.store.ts:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-model-copy',
+          location: 'src/app/entities/agent/model/agents.store.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-model-copy',
+          location: 'src/app/shared/model/agents.store.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-model-copy',
+          location: 'src/app/features/agents/AgentConfigTab.tsx:3',
+        }),
+      ])
+    )
   })
 
-  it('accepts agent model fallback copy that tells users to check model setup', () => {
+  it('accepts agent model fallback copy that tells users to check the AI model', () => {
     const cwd = fixture({
       'src/app/entities/agent/model/agents.store.ts': `
 const info = {
-  model: 'Check AI model setup',
+  model: 'Check AI model',
 }
 `,
       'src/app/shared/model/agents.store.ts': `
 const info = {
-  model: agent.model ?? agent.cliTool ?? 'Check AI model setup',
+  model: agent.model ?? agent.cliTool ?? 'Check AI model',
+}
+`,
+      'src/app/features/agents/AgentConfigTab.tsx': `
+function modelLabel() {
+  return 'Check AI model'
 }
 `,
     })

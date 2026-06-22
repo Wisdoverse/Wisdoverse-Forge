@@ -2478,6 +2478,7 @@ const AGENT_MODEL_DEAD_END_PATTERNS = [
   /\bAI model not reported\b/i,
   /\bModel not reported\b/i,
   /\bRefresh AI model\b/i,
+  /\bCheck AI model setup\b/i,
   /\bmodel:\s*[^,\n]*['"`]unknown['"`]/i,
 ]
 
@@ -3972,7 +3973,8 @@ function hasAgentFileWorkControlJargonCopy(relFile, line) {
 function hasAgentModelDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/entities/agent/model/agents.store.ts') &&
-    !relFile.endsWith('src/app/shared/model/agents.store.ts')
+    !relFile.endsWith('src/app/shared/model/agents.store.ts') &&
+    !relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx')
   ) {
     return false
   }
@@ -6869,7 +6871,7 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'agent-model-copy',
         location,
-        message: 'Agent AI model fallback copy must tell beginners to check model setup.',
+        message: 'Agent AI model fallback copy must tell beginners to check the AI model.',
         sample: line.trim(),
       })
     }

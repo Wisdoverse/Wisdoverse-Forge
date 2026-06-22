@@ -416,7 +416,7 @@ export function managedToAgentInfo(agent: ManagedAgent): AgentInfo {
       aiServiceLabel(nonBlankLabel(agent.provider)) ??
       cliToolToProvider(agent.cliTool) ??
       'Check AI service',
-    model: nonBlankLabel(agent.model) ?? cliToolLabel(agent.cliTool) ?? 'Check AI model setup',
+    model: nonBlankLabel(agent.model) ?? cliToolLabel(agent.cliTool) ?? 'Check AI model',
     status: mapManagedAgentStatus(agent.status),
     tasksCompleted: 0,
     tasksInProgress: 0,
