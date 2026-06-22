@@ -172,7 +172,7 @@ export function EditableTeamRow({
           </span>
         </div>
         <p className="mt-0.5 truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Team menu link preview: {team.slug}. Forge creates this automatically from the team name
+          Team link preview: {team.slug}. Forge creates this automatically from the team name
           {team.description ? ` · ${team.description}` : ''}
         </p>
         {confirmingDelete && (

@@ -860,7 +860,7 @@ export function ProjectTree({
                 </span>
               </div>
               <p className="mt-0.5 truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-                {projectMenu.team.name} team · Menu link preview: {projectMenu.project.slug}
+                {projectMenu.team.name} team · Project link preview: {projectMenu.project.slug}
               </p>
             </div>
 
@@ -904,25 +904,25 @@ export function ProjectTree({
             <div className="my-1 h-px bg-black/[0.06] dark:bg-white/[0.08]" />
             <ProjectMenuItem
               Icon={Copy}
-              label="Copy project reference"
-              detail="Use this only when another page or an owner or admin asks for this project reference"
+              label="Copy project ID for help"
+              detail="Use this only when another page or an owner or admin asks for this project ID"
               onClick={() =>
                 void handleCopyProjectValue(
                   projectMenu.project.id,
-                  'Project reference copied',
-                  'project reference'
+                  'Project ID copied',
+                  'project ID'
                 )
               }
             />
             <ProjectMenuItem
               Icon={Hash}
-              label="Copy menu link preview"
-              detail={`Project menu link preview: ${projectMenu.project.slug}. Forge creates this automatically from the project name.`}
+              label="Copy project link preview"
+              detail={`Project link preview: ${projectMenu.project.slug}. Forge creates this automatically from the project name.`}
               onClick={() =>
                 void handleCopyProjectValue(
                   projectMenu.project.slug,
-                  'Menu link preview copied',
-                  'menu link preview'
+                  'Project link preview copied',
+                  'project link preview'
                 )
               }
             />
@@ -1126,12 +1126,12 @@ export function ProjectTree({
 }
 
 function manualCopyFailureMessage(valueLabel: string): string {
-  if (valueLabel === 'project reference') {
-    return 'Use this project reference only when another page or an owner or admin asks for it. Copy did not work, so select it below and copy it yourself.'
+  if (valueLabel === 'project ID') {
+    return 'Use this project ID only when another page or an owner or admin asks for it. Copy did not work, so select it below and copy it yourself.'
   }
 
-  if (valueLabel === 'menu link preview') {
-    return 'This menu link preview is the short text Forge makes from the project name. Copy did not work, so select it below and copy it yourself.'
+  if (valueLabel === 'project link preview') {
+    return 'This project link preview is the short text Forge creates from the project name. Copy did not work, so select it below and copy it yourself.'
   }
 
   return `Copy did not work, so select the ${valueLabel} below and copy it yourself.`

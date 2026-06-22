@@ -260,7 +260,7 @@ describe('Sidebar', () => {
 
     expect(menu).toHaveAttribute('role', 'menu')
     expect(menu).toHaveAttribute('aria-label', 'Project X project menu')
-    expect(menuScope.getByText('Team Alpha team · Menu link preview: proj-x')).toBeInTheDocument()
+    expect(menuScope.getByText('Team Alpha team · Project link preview: proj-x')).toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /open project board/i })).toBeInTheDocument()
     expect(
       menuScope.getByRole('menuitem', { name: /new task for this project/i })
@@ -271,35 +271,33 @@ describe('Sidebar', () => {
     expect(menuScope.queryByText(/choose roles/i)).not.toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /rename project/i })).toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /all project settings/i })).toBeInTheDocument()
-    expect(menuScope.getByRole('menuitem', { name: /copy project reference/i })).toBeInTheDocument()
+    expect(menuScope.getByRole('menuitem', { name: /copy project ID for help/i })).toBeInTheDocument()
     expect(
       menuScope.queryByRole('menuitem', { name: /copy project code/i })
     ).not.toBeInTheDocument()
-    expect(menuScope.queryByRole('menuitem', { name: /copy project id/i })).not.toBeInTheDocument()
+    expect(
+      menuScope.queryByRole('menuitem', { name: /copy project reference/i })
+    ).not.toBeInTheDocument()
     expect(
       menuScope.queryByRole('menuitem', { name: /copy support reference/i })
     ).not.toBeInTheDocument()
-    expect(menuScope.getByRole('menuitem', { name: /copy menu link preview/i })).toBeInTheDocument()
+    expect(menuScope.getByRole('menuitem', { name: /copy project link preview/i })).toBeInTheDocument()
     expect(
-      menuScope.getByText(/another page or an owner or admin asks for this project reference/i)
+      menuScope.getByText(/another page or an owner or admin asks for this project ID/i)
     ).toBeInTheDocument()
     expect(menuScope.queryByText(/another page or support asks for this project code/i)).toBeNull()
     expect(menuScope.queryByText(/another page or support asks for this project ID/i)).toBeNull()
     expect(menuScope.queryByText(/only share this if support asks/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText('p1')).not.toBeInTheDocument()
-    expect(menuScope.queryByText(/name used in links/i)).not.toBeInTheDocument()
-    expect(menuScope.queryByText(/link name/i)).not.toBeInTheDocument()
+    expect(menuScope.queryByText(/menu link preview/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/project short name/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/short name used in project links/i)).not.toBeInTheDocument()
     expect(
       menuScope.getByText(
-        /Project menu link preview: proj-x\. Forge creates this automatically from the project name\./i
+        /Project link preview: proj-x\. Forge creates this automatically from the project name\./i
       )
     ).toBeInTheDocument()
     expect(menuScope.queryByText(/project link preview proj-x/i)).not.toBeInTheDocument()
-    expect(
-      menuScope.queryByRole('menuitem', { name: /copy project link preview/i })
-    ).not.toBeInTheDocument()
     expect(menuScope.queryByText(/shown at the end of project links/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/project link ending/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText(/Forge uses this in project links/i)).not.toBeInTheDocument()
@@ -347,9 +345,11 @@ describe('Sidebar', () => {
 
     expect(screen.getByRole('menu', { name: /project x project menu/i })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /open project board/i })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: /copy project reference/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /copy project ID for help/i })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /copy project code/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: /copy project id/i })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('menuitem', { name: /copy project reference/i })
+    ).not.toBeInTheDocument()
     expect(
       screen.queryByRole('menuitem', { name: /copy support reference/i })
     ).not.toBeInTheDocument()
@@ -397,12 +397,14 @@ describe('Sidebar', () => {
 
     render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
     fireEvent.contextMenu(screen.getByTestId('project-p1'))
-    fireEvent.click(screen.getByRole('menuitem', { name: /copy project reference/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /copy project ID for help/i }))
 
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('p1'))
-    expect(screen.getByTestId('project-copy-status')).toHaveTextContent('Project reference copied')
+    expect(screen.getByTestId('project-copy-status')).toHaveTextContent('Project ID copied')
     expect(screen.getByTestId('project-copy-status')).not.toHaveTextContent('Project code copied')
-    expect(screen.getByTestId('project-copy-status')).not.toHaveTextContent('Project ID copied')
+    expect(screen.getByTestId('project-copy-status')).not.toHaveTextContent(
+      'Project reference copied'
+    )
     expect(screen.getByTestId('project-copy-status')).not.toHaveTextContent(/support reference/i)
   })
 
@@ -416,16 +418,14 @@ describe('Sidebar', () => {
 
     render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
     fireEvent.contextMenu(screen.getByTestId('project-p1'))
-    fireEvent.click(screen.getByRole('menuitem', { name: /copy menu link preview/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /copy project link preview/i }))
 
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('proj-x'))
-    expect(screen.getByTestId('project-copy-status')).toHaveTextContent('Menu link preview copied')
-    expect(screen.getByTestId('project-copy-status')).not.toHaveTextContent(
-      /Project link preview copied/i
-    )
+    expect(screen.getByTestId('project-copy-status')).toHaveTextContent('Project link preview copied')
+    expect(screen.getByTestId('project-copy-status')).not.toHaveTextContent(/Menu link preview/i)
   })
 
-  it('shows a manual project reference when browser copy fails', async () => {
+  it('shows a manual project ID when browser copy fails', async () => {
     seedProjectTree()
     const writeText = vi.fn().mockRejectedValue(new Error('denied'))
     Object.defineProperty(navigator, 'clipboard', {
@@ -435,21 +435,21 @@ describe('Sidebar', () => {
 
     render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
     fireEvent.contextMenu(screen.getByTestId('project-p1'))
-    fireEvent.click(screen.getByRole('menuitem', { name: /copy project reference/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /copy project ID for help/i }))
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'Use this project reference only when another page or an owner or admin asks for it. Copy did not work, so select it below and copy it yourself.'
+      'Use this project ID only when another page or an owner or admin asks for it. Copy did not work, so select it below and copy it yourself.'
     )
     expect(alert).not.toHaveTextContent(/project code/i)
-    expect(alert).not.toHaveTextContent(/project ID/i)
+    expect(alert).not.toHaveTextContent(/project reference/i)
     expect(screen.getByTestId('project-copy-manual-value')).toHaveTextContent('p1')
     expect(alert).not.toHaveTextContent(/support reference/i)
     expect(alert).not.toHaveTextContent(/clipboard access/i)
     expect(alert).not.toHaveTextContent(/open project settings and copy it from there/i)
   })
 
-  it('shows a manual link preview when browser copy fails', async () => {
+  it('shows a manual project link preview when browser copy fails', async () => {
     seedProjectTree()
     const writeText = vi.fn().mockRejectedValue(new Error('denied'))
     Object.defineProperty(navigator, 'clipboard', {
@@ -459,11 +459,11 @@ describe('Sidebar', () => {
 
     render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
     fireEvent.contextMenu(screen.getByTestId('project-p1'))
-    fireEvent.click(screen.getByRole('menuitem', { name: /copy menu link preview/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /copy project link preview/i }))
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'This menu link preview is the short text Forge makes from the project name. Copy did not work, so select it below and copy it yourself.'
+      'This project link preview is the short text Forge creates from the project name. Copy did not work, so select it below and copy it yourself.'
     )
     expect(screen.getByTestId('project-copy-manual-value')).toHaveTextContent('proj-x')
   })
