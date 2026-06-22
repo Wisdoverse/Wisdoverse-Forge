@@ -137,14 +137,15 @@ describe('AgentCard', () => {
     }
 
     expect(agentCardStatusHelp('offline', localAgent)).toBe(
-      'Open this agent, then start or reconnect the command app on that computer.'
+      'Open this agent, then reconnect Terminal or PowerShell on that computer.'
     )
 
     render(<AgentCard agent={localAgent} />)
 
     expect(screen.getByTestId('agent-status-help-local-agent').textContent).toBe(
-      'Open this agent, then start or reconnect the command app on that computer.'
+      'Open this agent, then reconnect Terminal or PowerShell on that computer.'
     )
+    expect(screen.queryByText(/command app/i)).toBeNull()
     expect(screen.queryByText('Open this agent to reconnect before work')).toBeNull()
   })
 

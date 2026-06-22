@@ -1,4 +1,5 @@
 import { cn } from '@app/shared/lib/utils'
+import { LOCAL_AGENT_SETUP_WINDOW_LABEL } from '@app/entities/agent'
 import type { AgentStatus } from '@app/shared/model/feed.store'
 
 const STATUS_COLORS: Record<string, string> = {
@@ -54,7 +55,9 @@ export function AgentStatusBar({ agents }: { agents: AgentStatus[] }) {
         </p>
         <ol className="mt-1.5 list-decimal space-y-1 pl-4">
           <li>Open Agents and choose New agent if none exists.</li>
-          <li>Copy the setup text into this computer's command app and leave it running.</li>
+          <li>
+            Open {LOCAL_AGENT_SETUP_WINDOW_LABEL}, paste the setup text, and leave that window open.
+          </li>
           <li>If an agent already exists, choose Start in Agents.</li>
         </ol>
         <p className="mt-1.5 text-[10px] text-secondary-light dark:text-secondary-dark">
