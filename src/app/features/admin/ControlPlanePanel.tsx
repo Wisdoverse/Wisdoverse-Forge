@@ -106,10 +106,11 @@ export function ControlPlanePanel() {
     <div>
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>Control Plane health</h2>
+          <h2 className={uiStyles.sectionTitle}>Agent coordination check</h2>
           <p className={uiStyles.sectionDescription}>
-            Team-level agent coordination checks: checks when opened, then every 30 seconds while
-            Admin is open. Any non-zero value below may need an owner to check stuck work.
+            Checks whether agents are receiving work, checking in, and finishing handoffs. This
+            checks when opened, then every 30 seconds while Admin is open. Any non-zero value below
+            may need an owner to check stuck work.
           </p>
         </div>
         <button
@@ -133,7 +134,7 @@ export function ControlPlanePanel() {
       {controlPlaneLoading && !controlPlane && (
         <div className="flex items-center justify-center py-12">
           <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-            Checking Control Plane health
+            Checking agent coordination
           </p>
         </div>
       )}

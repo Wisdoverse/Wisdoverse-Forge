@@ -718,6 +718,8 @@ const SYSTEM_HEALTH_HELPER_NOTE_JARGON_PATTERNS = [
 const ADMIN_NAV_TECHNICAL_COPY_PATTERNS = [
   /\bSystem health and user management\b/i,
   /\bmanage team spaces,\s*users,\s*and system health\b/i,
+  /\bApp setup\b/i,
+  /\bControl Plane\b/i,
 ]
 
 const ADMIN_LOCALE_TECHNICAL_COPY_PATTERNS = [
@@ -4206,7 +4208,11 @@ function hasSystemHealthHelperNoteJargonCopy(relFile, line) {
 function hasAdminNavTechnicalCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/layouts/AppLayout.tsx') &&
-    !relFile.endsWith('src/app/layouts/sidebar/SidebarNav.tsx')
+    !relFile.endsWith('src/app/layouts/sidebar/SidebarNav.tsx') &&
+    !relFile.endsWith('src/app/features/admin/AdminLayout.tsx') &&
+    !relFile.endsWith('src/app/features/admin/ControlPlanePanel.tsx') &&
+    !relFile.endsWith('src/app/features/admin/controlPlaneErrorMessage.ts') &&
+    !relFile.endsWith('src/app/shared/model/admin.store.ts')
   ) {
     return false
   }
@@ -7135,7 +7141,7 @@ function scanFile(file, relFile) {
         type: 'admin-nav-copy',
         location,
         message:
-          'Admin navigation copy must say app health and people instead of system-health/user-management jargon.',
+          'Admin navigation copy must say app health, people, and agent coordination instead of system-health or platform-control jargon.',
         sample: line.trim(),
       })
     }

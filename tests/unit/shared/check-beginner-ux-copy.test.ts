@@ -11555,6 +11555,22 @@ const PAGE_META = {
       'src/app/layouts/sidebar/SidebarNav.tsx': `
 const item = { description: 'manage team spaces, users, and system health' }
 `,
+      'src/app/features/admin/AdminLayout.tsx': `
+const SECTIONS = [
+  { id: 'health', label: 'App health', group: 'App setup' },
+  { id: 'control-plane', label: 'Control Plane', group: 'App setup' },
+]
+`,
+      'src/app/features/admin/ControlPlanePanel.tsx': `
+export function ControlPlanePanel() {
+  return <h2>Control Plane health</h2>
+}
+`,
+      'src/app/features/admin/controlPlaneErrorMessage.ts': `
+export function controlPlaneErrorMessage() {
+  return 'Open Admin and choose Control Plane, then choose Check again.'
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
@@ -11570,6 +11586,14 @@ const item = { description: 'manage team spaces, users, and system health' }
           type: 'admin-nav-copy',
           sample: expect.stringContaining('users, and system health'),
         }),
+        expect.objectContaining({
+          type: 'admin-nav-copy',
+          sample: expect.stringContaining('App setup'),
+        }),
+        expect.objectContaining({
+          type: 'admin-nav-copy',
+          sample: expect.stringContaining('Control Plane'),
+        }),
       ])
     )
   })
@@ -11583,6 +11607,22 @@ const PAGE_META = {
 `,
       'src/app/layouts/sidebar/SidebarNav.tsx': `
 const item = { description: 'manage team spaces, people, and app health' }
+`,
+      'src/app/features/admin/AdminLayout.tsx': `
+const SECTIONS = [
+  { id: 'health', label: 'App health', group: 'App checks' },
+  { id: 'control-plane', label: 'Agent coordination', group: 'App checks' },
+]
+`,
+      'src/app/features/admin/ControlPlanePanel.tsx': `
+export function ControlPlanePanel() {
+  return <h2>Agent coordination check</h2>
+}
+`,
+      'src/app/features/admin/controlPlaneErrorMessage.ts': `
+export function controlPlaneErrorMessage() {
+  return 'Open Admin and choose Agent coordination, then choose Check again.'
+}
 `,
     })
 

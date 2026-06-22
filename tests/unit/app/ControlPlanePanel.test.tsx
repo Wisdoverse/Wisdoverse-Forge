@@ -63,9 +63,10 @@ describe('ControlPlanePanel', () => {
     expect(screen.getByText(/background task backlog/i)).toBeDefined()
     expect(screen.getByText(/\/metrics/)).toBeDefined()
     expect(screen.queryByText(/job_queue|platform-global|orchestration|wedged|lease/i)).toBeNull()
-    expect(screen.getByText('Control Plane health')).toBeDefined()
+    expect(screen.getByText('Agent coordination check')).toBeDefined()
     expect(screen.getByRole('button', { name: 'Check again' })).toBeDefined()
     expect(screen.queryByRole('button', { name: 'Refresh' })).toBeNull()
+    expect(screen.queryByText(/Control Plane/i)).toBeNull()
   })
 
   test('renders the error string when controlPlaneError is set', () => {
@@ -73,24 +74,25 @@ describe('ControlPlanePanel', () => {
       controlPlane: null,
       controlPlaneLoading: false,
       controlPlaneError:
-        'Open Admin and choose Control Plane, then try again. Forge could not load Control Plane status.',
+        'Open Admin and choose Agent coordination, then try again. Forge could not load agent coordination status.',
     })
 
     render(<ControlPlanePanel />)
 
     const alert = screen.getByRole('alert')
     expect(alert).toBeDefined()
-    expect(alert.textContent).toContain('Open Admin and choose Control Plane')
+    expect(alert.textContent).toContain('Open Admin and choose Agent coordination')
     expect(alert.textContent).not.toContain('HTTP')
     expect(alert.textContent).not.toContain('stack')
+    expect(alert.textContent).not.toContain('Control Plane')
   })
 
-  test('explains Control Plane loading as checking health', () => {
+  test('explains agent coordination loading as checking status', () => {
     useAdminStore.setState({ controlPlane: null, controlPlaneLoading: true })
 
     render(<ControlPlanePanel />)
 
-    expect(screen.getByText('Checking Control Plane health')).toBeDefined()
+    expect(screen.getByText('Checking agent coordination')).toBeDefined()
     expect(screen.queryByText('Loading Control Plane status')).toBeNull()
   })
 
@@ -124,8 +126,9 @@ describe('ControlPlanePanel', () => {
     const message = controlPlaneErrorMessage({ status: 403, message: 'owner role required' })
 
     expect(message).toBe(
-      'Ask an owner or admin to give you Admin access, then open Admin and choose Control Plane before choosing Check again. You do not have access to Control Plane status.'
+      'Ask an owner or admin to give you Admin access, then open Admin and choose Agent coordination before choosing Check again. You do not have access to agent coordination status.'
     )
     expect(message).not.toContain('role')
+    expect(message).not.toContain('Control Plane')
   })
 })

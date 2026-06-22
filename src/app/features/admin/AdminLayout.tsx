@@ -22,12 +22,12 @@ const SECTIONS: SectionItem[] = [
   { id: 'users', label: 'User access', group: 'Management' },
   { id: 'organizations', label: 'Team spaces', group: 'Management' },
   { id: 'agents', label: 'Agents', group: 'Management' },
-  { id: 'health', label: 'App health', group: 'App setup' },
-  { id: 'cli-images', label: 'Agent tool updates', group: 'App setup' },
-  { id: 'control-plane', label: 'Control Plane', group: 'App setup' },
+  { id: 'health', label: 'App health', group: 'App checks' },
+  { id: 'cli-images', label: 'Agent tool updates', group: 'App checks' },
+  { id: 'control-plane', label: 'Agent coordination', group: 'App checks' },
 ]
 
-const GROUPS = ['Management', 'App setup']
+const GROUPS = ['Management', 'App checks']
 
 // ============================================================================
 // Content router

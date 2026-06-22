@@ -365,7 +365,7 @@ function adminResourceLabel(resource: AdminResource): string {
     case 'cli-images':
       return 'agent tool updates'
     case 'control-plane':
-      return 'Control Plane status'
+      return 'agent coordination status'
   }
 }
 
@@ -382,7 +382,7 @@ function adminResourceSectionLabel(resource: AdminResource): string {
     case 'cli-images':
       return 'Agent tool updates'
     case 'control-plane':
-      return 'Control Plane'
+      return 'Agent coordination'
   }
 }
 
