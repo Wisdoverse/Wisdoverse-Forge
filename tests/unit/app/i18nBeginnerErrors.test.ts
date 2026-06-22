@@ -3,6 +3,13 @@ import { en } from '@app/shared/i18n/locales/en'
 import { zh } from '@app/shared/i18n/locales/zh'
 
 describe('beginner error translations', () => {
+  test('common loading copy says Forge is checking', () => {
+    expect(en.common.loading).toBe('Checking...')
+    expect(en.a11y.loading).toBe('Checking, please wait')
+    expect(zh.common.loading).toBe('正在检查...')
+    expect(zh.a11y.loading).toBe('正在检查，请稍候')
+  })
+
   test('English common errors lead with recovery steps', () => {
     expect(en.errors.generic).toMatch(/^Try again/)
     expect(en.errors.generic).toContain('check app health')
