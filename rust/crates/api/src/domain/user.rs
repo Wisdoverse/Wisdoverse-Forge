@@ -256,8 +256,13 @@ pub(crate) fn auth_ok_response() -> Value {
     json!({ "ok": true })
 }
 
-pub(crate) fn auth_me_response(user_id: Uuid, org_id: Uuid, role: impl Serialize) -> Value {
-    json!({ "ok": true, "user_id": user_id, "org_id": org_id, "role": role })
+/// `/me` response body. `isAdmin` (camelCase) reflects the GLOBAL
+/// `users.is_admin` flag, which the JWT does NOT carry — the handler looks it up
+/// — so the frontend can gate the admin console exactly as the backend
+/// platform-admin gate does (#881). The legacy snake_case `user_id`/`org_id`/
+/// `role` fields are preserved for the existing contract.
+pub(crate) fn auth_me_response(user_id: Uuid, org_id: Uuid, role: impl Serialize, is_admin: bool) -> Value {
+    json!({ "ok": true, "user_id": user_id, "org_id": org_id, "role": role, "isAdmin": is_admin })
 }
 
 pub(crate) fn auth_providers_response() -> Value {

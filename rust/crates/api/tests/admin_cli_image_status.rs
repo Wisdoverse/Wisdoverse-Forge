@@ -2,13 +2,15 @@
 //! auto-updater status endpoint.
 //!
 //! Exercises the full HTTP path through the Axum router, asserting:
-//!   - a non-admin JWT is rejected with 403 (admin-gated)
-//!   - an admin sees every pollable tool (codex/gemini/opencode; never claude),
-//!     each `pending` because the worker is off in tests
+//!   - a non-platform-admin JWT is rejected with 403 (platform-admin-gated, #881)
+//!   - a platform admin sees every pollable tool (codex/gemini/opencode; never
+//!     claude), each `pending` because the worker is off in tests
 //!   - the report echoes deployment config (`auto_update_enabled=false`)
 //!   - `agents_with_container` counts agents that have a container, cross-org
 //!
-//! Each test runs against a fresh database via `#[sqlx::test]`.
+//! Each test runs against a fresh database via `#[sqlx::test]`. The endpoint is
+//! cross-org and gated on the server-side `users.is_admin` flag, so the seed
+//! helper provisions a real platform admin (`is_admin = true`).
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
@@ -24,6 +26,9 @@ use agentforge_core::{CliToolKind, TenantScope};
 use sqlx::PgPool;
 use uuid::Uuid;
 
+/// Seed an org + workspace + a PLATFORM ADMIN user (`users.is_admin = true`) +
+/// owner membership. The CLI-image endpoints are cross-org and gated on
+/// `users.is_admin` (#881), so the seeded user must be a real platform admin.
 async fn seed_admin_org(pool: &PgPool) -> (Uuid, Uuid, Uuid) {
     let org_id = Uuid::new_v4();
     let user_id = Uuid::new_v4();
@@ -40,12 +45,12 @@ async fn seed_admin_org(pool: &PgPool) -> (Uuid, Uuid, Uuid) {
         .execute(pool)
         .await
         .expect("seed workspace");
-    sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
+    sqlx::query("INSERT INTO users (id, email, is_admin) VALUES ($1, $2, true)")
         .bind(user_id)
         .bind(format!("u-{user_id}@example.com"))
         .execute(pool)
         .await
-        .expect("seed user");
+        .expect("seed platform admin user");
     sqlx::query("INSERT INTO organization_members (organization_id, user_id, role) VALUES ($1, $2, 'owner')")
         .bind(org_id)
         .bind(user_id)
@@ -54,6 +59,34 @@ async fn seed_admin_org(pool: &PgPool) -> (Uuid, Uuid, Uuid) {
         .expect("seed membership");
 
     (org_id, org_id, user_id)
+}
+
+/// Seed an org + workspace + a NON-admin owner (`users.is_admin = false`).
+/// Used by the forbidden-path test: a self-registered org owner who is not a
+/// platform admin must be rejected, even though their JWT role is `owner`.
+async fn seed_non_admin_org(pool: &PgPool) -> (Uuid, Uuid) {
+    let org_id = Uuid::new_v4();
+    let user_id = Uuid::new_v4();
+    sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, $2, $3)")
+        .bind(org_id)
+        .bind(format!("Org {org_id}"))
+        .bind(format!("org-{org_id}"))
+        .execute(pool)
+        .await
+        .expect("seed organization");
+    sqlx::query("INSERT INTO users (id, email, is_admin) VALUES ($1, $2, false)")
+        .bind(user_id)
+        .bind(format!("u-{user_id}@example.com"))
+        .execute(pool)
+        .await
+        .expect("seed non-admin user");
+    sqlx::query("INSERT INTO organization_members (organization_id, user_id, role) VALUES ($1, $2, 'owner')")
+        .bind(org_id)
+        .bind(user_id)
+        .execute(pool)
+        .await
+        .expect("seed membership");
+    (org_id, user_id)
 }
 
 /// Seed a container agent for `tool` and force a non-null `container_id` so it
@@ -99,11 +132,14 @@ async fn get_cli_images(app: axum::Router, jwt: &str) -> (StatusCode, Value) {
     (status, body)
 }
 
-/// A non-admin (member) JWT must be rejected with 403.
+/// A non-platform-admin must be rejected with 403 — even with an `owner` JWT
+/// role. The gate keys off `users.is_admin`, not the self-assignable per-org
+/// role, so a self-registered org owner cannot reach this cross-org endpoint
+/// (#881).
 #[sqlx::test(migrations = "../db/migrations")]
 async fn non_admin_is_forbidden(pool: PgPool) {
-    let (org_id, _ws, user_id) = seed_admin_org(&pool).await;
-    let jwt = mint_test_jwt(org_id, user_id, "member");
+    let (org_id, user_id) = seed_non_admin_org(&pool).await;
+    let jwt = mint_test_jwt(org_id, user_id, "owner");
     let app = test_app_with_mock_provider(pool, "mock", "unused").await;
 
     let (status, _body) = get_cli_images(app, &jwt).await;

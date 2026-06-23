@@ -79,12 +79,21 @@ async fn wrong_method_returns_405() {
 }
 
 // ── Protected route without auth ─────────────────────────────────────
+//
+// These exercise the `AuthUser` extractor, which runs and rejects BEFORE the
+// handler body — so they use a stateless probe handler that requires only
+// `AuthUser`. (The real `/me` handler additionally extracts `State<AppState>`,
+// which would force a full `AppState` these no-DB `#[tokio::test]`s can't build;
+// the extractor behavior under test is identical.)
+async fn me_auth_probe(_auth: agentforge_auth::AuthUser) -> &'static str {
+    "ok"
+}
 
 #[tokio::test]
 async fn protected_route_without_auth_header_returns_401() {
-    // The `me` handler uses AuthUser extractor which requires Authorization header
-    // and JwtManager in extensions. Without the header, it should return 401.
-    let app = Router::new().route("/api/v1/me", get(crate::routes::auth::me));
+    // The AuthUser extractor requires an Authorization header and a JwtManager
+    // in extensions. Without the header, it should return 401.
+    let app = Router::new().route("/api/v1/me", get(me_auth_probe));
 
     let req = Request::builder().uri("/api/v1/me").body(Body::empty()).unwrap();
     let (status, body) = oneshot_json(app, req).await;
@@ -98,7 +107,7 @@ async fn protected_route_without_auth_header_returns_401() {
 async fn protected_route_with_invalid_bearer_returns_error() {
     // Has an Authorization header but no JwtManager in extensions.
     // The extractor should return Internal error (missing JwtManager).
-    let app = Router::new().route("/api/v1/me", get(crate::routes::auth::me));
+    let app = Router::new().route("/api/v1/me", get(me_auth_probe));
 
     let req = Request::builder()
         .uri("/api/v1/me")
@@ -122,7 +131,7 @@ async fn protected_route_with_jwt_manager_but_bad_token_returns_401() {
     use std::sync::Arc;
 
     let jwt = Arc::new(JwtManager::new("test-secret-at-least-32-chars-long!!", 3600));
-    let app = Router::new().route("/api/v1/me", get(crate::routes::auth::me)).layer(Extension(jwt));
+    let app = Router::new().route("/api/v1/me", get(me_auth_probe)).layer(Extension(jwt));
 
     let req = Request::builder()
         .uri("/api/v1/me")
