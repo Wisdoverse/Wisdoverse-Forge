@@ -106,7 +106,9 @@ function loadMessage(resource: WorkspaceSettingsResource): string {
 
 function retryPhrase(resource: WorkspaceSettingsResource, action: WorkspaceSettingsAction): string {
   const label = resourceLabel(resource)
-  return action === 'load' ? settingsWorkspaceStep(resource) : `create this ${label} again`
+  if (action === 'load') return settingsWorkspaceStep(resource)
+  if (resource === 'team') return 'choose Create team again'
+  return `create this ${label} again`
 }
 
 function connectionMessage(

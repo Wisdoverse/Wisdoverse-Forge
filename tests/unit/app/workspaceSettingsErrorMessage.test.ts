@@ -112,14 +112,14 @@ describe('workspaceSettingsErrorMessage', () => {
         status: 422,
         detail: 'name is required',
       }),
-      'Enter a team name, then create this team again.'
+      'Enter a team name, then choose Create team again.'
     )
     expectBeginnerMessage(
       workspaceSettingsErrorMessage('team', 'create', {
         status: 422,
         detail: 'invalid format',
       }),
-      'Check the team name, then create this team again.'
+      'Check the team name, then choose Create team again.'
     )
   })
 
