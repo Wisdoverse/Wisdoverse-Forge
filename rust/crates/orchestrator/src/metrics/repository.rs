@@ -44,6 +44,7 @@ impl Store for MemoryMetricsStore {
             .collect::<HashSet<_>>()
             .len();
 
+        let now = chrono::Utc::now();
         Ok(DashboardMetrics {
             active_tasks: tasks
                 .iter()
@@ -56,6 +57,17 @@ impl Store for MemoryMetricsStore {
                 .count(),
             active_agents,
             pending_reviews: reviews.iter().filter(|review| matches!(review.state, ReviewState::Pending)).count(),
+            overdue_reviews: reviews
+                .iter()
+                .filter(|review| matches!(review.state, ReviewState::Pending | ReviewState::InReview))
+                .filter(|review| review.due_at.is_some_and(|due| due < now))
+                .count(),
+            approved_reviews: reviews.iter().filter(|review| matches!(review.state, ReviewState::Approved)).count(),
+            changes_requested_reviews: reviews
+                .iter()
+                .filter(|review| matches!(review.state, ReviewState::ChangesRequested))
+                .count(),
+            rejected_reviews: reviews.iter().filter(|review| matches!(review.state, ReviewState::Rejected)).count(),
         })
     }
 
@@ -171,11 +183,44 @@ impl Store for PgMetricsStore {
                 .await
                 .context("count pending reviews")?;
 
+        let overdue_reviews: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM code_reviews WHERE org_id = $1 AND state IN ('pending', 'in_review') AND due_at IS NOT NULL AND due_at < NOW()"
+        )
+        .bind(org_id)
+        .fetch_one(&self.pool)
+        .await
+        .context("count overdue reviews")?;
+
+        let approved_reviews: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM code_reviews WHERE state = 'approved' AND org_id = $1")
+                .bind(org_id)
+                .fetch_one(&self.pool)
+                .await
+                .context("count approved reviews")?;
+
+        let changes_requested_reviews: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM code_reviews WHERE state = 'changes_requested' AND org_id = $1")
+                .bind(org_id)
+                .fetch_one(&self.pool)
+                .await
+                .context("count changes_requested reviews")?;
+
+        let rejected_reviews: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM code_reviews WHERE state = 'rejected' AND org_id = $1")
+                .bind(org_id)
+                .fetch_one(&self.pool)
+                .await
+                .context("count rejected reviews")?;
+
         Ok(DashboardMetrics {
             active_tasks: active_tasks as usize,
             completed_today: completed_today as usize,
             active_agents: active_agents as usize,
             pending_reviews: pending_reviews as usize,
+            overdue_reviews: overdue_reviews as usize,
+            approved_reviews: approved_reviews as usize,
+            changes_requested_reviews: changes_requested_reviews as usize,
+            rejected_reviews: rejected_reviews as usize,
         })
     }
 

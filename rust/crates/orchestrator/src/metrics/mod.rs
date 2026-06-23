@@ -28,6 +28,10 @@ pub struct DashboardMetrics {
     pub completed_today: usize,
     pub active_agents: usize,
     pub pending_reviews: usize,
+    pub overdue_reviews: usize,
+    pub approved_reviews: usize,
+    pub changes_requested_reviews: usize,
+    pub rejected_reviews: usize,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
