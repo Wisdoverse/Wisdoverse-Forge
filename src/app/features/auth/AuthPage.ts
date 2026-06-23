@@ -144,7 +144,8 @@ function authSignInErrorMessage(error: unknown): string {
   if (
     lowerDetail.includes('unauthorized') ||
     lowerDetail.includes('forbidden') ||
-    lowerDetail.includes('permission')
+    lowerDetail.includes('permission') ||
+    lowerDetail.includes('role required')
   ) {
     return 'Ask an owner or admin to check your access. This account is not allowed to sign in here.'
   }

@@ -170,6 +170,19 @@ describe('AuthPage beginner guidance', () => {
     expect(window.location.search).toBe('')
   })
 
+  test('turns sign-in URL role failures into access guidance', async () => {
+    window.history.replaceState({}, '', '/login?auth_error=owner%20role%20required')
+    const page = new AuthPage(createAuthManager())
+
+    await page.show()
+
+    expect(bodyText()).toContain(
+      'Ask an owner or admin to check your access. This account is not allowed to sign in here.'
+    )
+    expect(bodyText()).not.toContain('owner role required')
+    expect(window.location.search).toBe('')
+  })
+
   test('turns unknown sign-in URL errors into a concrete sign-in choice', async () => {
     window.history.replaceState({}, '', '/login?auth_error=unexpected_oops')
     const page = new AuthPage(createAuthManager())
