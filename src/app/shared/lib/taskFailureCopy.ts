@@ -77,6 +77,8 @@ export function taskBlockedPreview({
       return 'Open the task details, read what the agent needs, then choose Allow and continue.'
     case 'quota_exceeded':
       return 'Pause lower-priority work or ask an owner to raise the limit, then retry.'
+    case 'waiting_verification':
+      return 'The agent reported done, but the result did not match what this task expected. Open the task details, review the result, then re-run or mark it done if it is actually correct.'
     default:
       return blockedErrorPreview(error)
   }

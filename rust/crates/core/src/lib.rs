@@ -5,6 +5,7 @@
 
 pub mod broadcast_protocol;
 pub mod clone_protocol;
+pub mod completion_verifier;
 pub mod config;
 pub mod context_envelope;
 pub mod credential_protocol;
@@ -18,6 +19,7 @@ pub mod tenant;
 pub mod types;
 
 // Convenient re-exports
+pub use completion_verifier::{CompletionVerifier, ExpectedResult};
 pub use config::{AppConfig, NatsCalloutConfig, StripeConfig};
 pub use error::{AppError, AppResult, ErrorKind};
 pub use runtime_capability::{CliToolKind, RuntimeCapability, RuntimeCapabilityError, RuntimeKind};
